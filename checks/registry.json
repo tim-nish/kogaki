@@ -6,5 +6,17 @@
     "removal signal declared at birth. An unregistered check file is dead",
     "code; one meta check asserts the registry and the checks/ tree agree."
   ],
-  "checks": []
+  "checks": [
+    {
+      "id": "registry-conformance",
+      "file": "check-registry-conformance.sh",
+      "admission": {
+        "contract": "registry/tree agreement, both ways: an unregistered check file is dead code, a registered file that does not exist is a dangling entry — the contract this file's own note declares and nothing else carries",
+        "license": "kogaki#2 (story 1.1)",
+        "tier": "pre-push",
+        "runtime_ms": 75,
+        "removal_signal": "a suite runner whose discovery is registry-driven, making an unregistered file unrunnable by construction — constrain-generation subsumes this detection"
+      }
+    }
+  ]
 }
