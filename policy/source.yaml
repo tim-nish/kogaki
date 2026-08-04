@@ -1,4 +1,4 @@
-# Kogaki configuration.
+# Gukan consumer package — presence toggle (kogaki#3).
 
 policy_source:
   enabled: true   # presence toggle only — no path; the gateway owns the hub
