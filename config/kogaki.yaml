@@ -1,0 +1,7 @@
+# Kogaki configuration.
+
+policy_source:
+  enabled: true   # presence toggle only — no path; the gateway owns the hub
+                  # location (kogaki#1; the WA-era path key stays retired).
+                  # Unreachable gateway: one logged degradation line, then
+                  # proceed without policy interaction.
