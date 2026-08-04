@@ -1,20 +1,3 @@
-# Kogaki — operating rules
-
-The policy seam is provided by the **tsurezure client kit** — the managed
-block below is its contract, installed and refreshed by
-`policy/kit/install.sh`; the wiring itself is machine-local and never
-committed. The consumer package lives under `policy/` (kogaki#3), the kit
-included (kogaki#9) — it separates into its own repository when a second
-consumer installs it.
-
-**Issue-first.** Implementation work begins only after its Issue exists.
-Issues are filed through the typed path (`story-sync file-issue`), carry
-their policy pins, and are re-checked against the served surface at pickup.
-
-**Boundary.** Repositories are invisible to Kogaki — article material is
-quoted from served renderings at pins (`specs/SPEC.md` §2). Kogaki
-guarantees citations; the substrate guarantees facts.
-
 <!-- tsurezure-client-kit:begin (managed block — edits here are overwritten by install.sh) -->
 ## Policy seam (tsurezure client kit)
 

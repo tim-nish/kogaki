@@ -28,6 +28,17 @@
         "runtime_ms": 60,
         "removal_signal": "a gateway-side consumer receipt surface that reports served consultations back to the consumer — that would verify against the server's record rather than the consumer's claim, superseding this check's weaker evidence"
       }
+    },
+    {
+      "id": "client-kit-install",
+      "file": "check-client-kit-install.sh",
+      "admission": {
+        "contract": "the client kit's install guarantees, fired rather than merely written: fresh-install layout, idempotency, the one-line degrade at exit 11, the pinless-body deny, harness-loadable skill frontmatter, the entry-2 boundary (no kit tool reads gateway state), and the absence of any colocation default. Registered because a test nothing invokes is the orphan-guard shape kogaki#6 was filed to end",
+        "license": "kogaki#9 (story 1.4)",
+        "tier": "pre-push",
+        "runtime_ms": 6336,
+        "removal_signal": "the kit's separation into its own repository (fires on a second installing consumer, per kogaki#9) — the test goes with it and this repo stops being its home"
+      }
     }
   ]
 }
