@@ -74,6 +74,14 @@ invariant: Gukan guarantees Unit schema, never data schema).
   internal decision text (product-lab#156 §3 rider 2; kogaki#2). The kit's
   verbatim-at-pin rule is the citation half; this clause is the register
   half.
+- **Consult evidence is sided.** The substrate's access log is the
+  **server's** canonical record; Kogaki's own `consulted:` receipts are the
+  **consumer's**. Logging lives with whichever component mediates access
+  (`topics/archive/knowledge-architecture.md` 2026-07-16; kogaki#7), so
+  Kogaki reads its own receipts and never the mediating component's private
+  state. This extends §2's boundary from repositories to the substrate's
+  internals: the seam is a read of *served renderings*, not of the state
+  the gateway keeps to serve them.
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
