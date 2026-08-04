@@ -1,0 +1,71 @@
+# The mechanical gate half (specs/SPEC.md §4): runs unconditionally in CI.
+# Discovery is registry-driven — the suite runs only checks registered in
+# checks/registry.json; an enumerated check list here would be the shape the
+# registry exists to prevent (kogaki#6, story 1.2).
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  registered-checks:
+    name: Run every registered check (registry-driven)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run registered checks
+        run: |
+          python3 - <<'EOF'
+          import json, pathlib, subprocess, sys
+          registry = json.loads(pathlib.Path("checks/registry.json").read_text())
+          entries = registry["checks"]
+          if not entries:
+              print("ok: no registered checks (registry empty)")
+              sys.exit(0)
+          failed = []
+          for entry in entries:
+              path = pathlib.Path("checks") / entry["file"]
+              print(f"== {entry['id']} ({path})")
+              result = subprocess.run(["bash", str(path)])
+              if result.returncode != 0:
+                  failed.append(entry["id"])
+          if failed:
+              print(f"FAIL: {', '.join(failed)}")
+              sys.exit(1)
+          print(f"ok: {len(entries)} registered check(s) ran; gate checked: "
+                "registry-driven discovery, per-check pass")
+          EOF
+
+  license-assertion:
+    name: Change licensed by a named issue (deny-never-warn)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert a licensing issue is named
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            haystack="$PR_TITLE
+          $PR_BODY
+          $(git log --format='%s %b' "$PR_BASE".."$PR_HEAD")"
+          else
+            haystack="$(git log -1 --format='%s %b' HEAD)"
+          fi
+          if printf '%s' "$haystack" | grep -qE '#[0-9]+'; then
+            printf 'ok: licensing issue named — gate checked: #N present in %s\n' \
+              "$([ "$EVENT_NAME" = "pull_request" ] && echo 'PR title/body/commits' || echo 'the pushed head commit')"
+          else
+            echo "FAIL: no licensing issue named (#N) in title, body, or commits."
+            echo "A change without a license is refused — deny, never warn; the"
+            echo "work re-routes to an issue (specs/SPEC.md §4, responsibility clause)."
+            exit 1
+          fi

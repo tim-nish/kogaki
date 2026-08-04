@@ -11,8 +11,8 @@
       "id": "registry-conformance",
       "file": "check-registry-conformance.sh",
       "admission": {
-        "contract": "registry/tree agreement, both ways: an unregistered check file is dead code, a registered file that does not exist is a dangling entry — the contract this file's own note declares and nothing else carries",
-        "license": "kogaki#2 (story 1.1)",
+        "contract": "registry/tree agreement, both ways (an unregistered check file is dead code, a registered file that does not exist is a dangling entry), plus admission-shape validation: every registered entry carries a non-empty admission record — the contracts this file's own note declares and nothing else carries",
+        "license": "kogaki#2 (story 1.1); admission-shape widening kogaki#6 (story 1.2)",
         "tier": "pre-push",
         "runtime_ms": 75,
         "removal_signal": "a suite runner whose discovery is registry-driven, making an unregistered file unrunnable by construction — constrain-generation subsumes this detection"
