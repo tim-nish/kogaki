@@ -17,6 +17,17 @@
         "runtime_ms": 75,
         "removal_signal": "a suite runner whose discovery is registry-driven, making an unregistered file unrunnable by construction — constrain-generation subsumes this detection"
       }
+    },
+    {
+      "id": "consult-receipts",
+      "file": "check-consult-receipts.sh",
+      "admission": {
+        "contract": "the consult-first discipline's reading act: reports the branch's consulted: receipt count and distinct pins, rendering zero explicitly — an obligation generates no event to hook, so observability is the whole remedy. Fails only on a malformed receipt, never on the count",
+        "license": "kogaki#7 (story 1.3)",
+        "tier": "pre-push",
+        "runtime_ms": 60,
+        "removal_signal": "a gateway-side consumer receipt surface that reports served consultations back to the consumer — that would verify against the server's record rather than the consumer's claim, superseding this check's weaker evidence"
+      }
     }
   ]
 }

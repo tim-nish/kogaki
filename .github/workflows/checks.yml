@@ -15,7 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Run registered checks
+        env:
+          # Supplied for checks that read the branch's own git-resident text
+          # (e.g. consult-receipts). Empty on push events, where the head
+          # commit is the whole range.
+          CONSULT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CONSULT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CONSULT_PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           python3 - <<'EOF'
           import json, pathlib, subprocess, sys
