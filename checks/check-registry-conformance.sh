@@ -25,7 +25,26 @@ for name in unregistered:
 for name in dangling:
     print(f"FAIL dangling registry entry (no such file): checks/{name}")
 
-if unregistered or dangling:
+# Admission-shape validation (widened under kogaki#6, story 1.2): a
+# registered entry must carry a non-empty admission record — an empty one
+# passed the filename comparison above, which was the gap #6 names.
+incomplete = []
+for entry in registry["checks"]:
+    admission = entry.get("admission") or {}
+    missing = []
+    if not (str(admission.get("contract", "")).strip()
+            or str(admission.get("defect", "")).strip()):
+        missing.append("contract-or-defect")
+    for field in ("license", "tier", "removal_signal"):
+        if not str(admission.get(field, "")).strip():
+            missing.append(field)
+    if missing:
+        incomplete.append((entry["file"], missing))
+        print(f"FAIL admission record incomplete: checks/{entry['file']} "
+              f"missing {', '.join(missing)}")
+
+if unregistered or dangling or incomplete:
     sys.exit(1)
-print(f"ok: registry and checks/ tree agree ({len(present)} check(s))")
+print(f"ok: registry and checks/ tree agree ({len(present)} check(s)); "
+      "every admission record complete")
 EOF
