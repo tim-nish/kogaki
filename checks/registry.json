@@ -1,0 +1,10 @@
+{
+  "note": [
+    "The check suite runs ONLY checks registered here (founding spec §4).",
+    "Registration requires an admission record: the named defect the check",
+    "caught or the contract it uniquely carries, the licensing issue, and a",
+    "removal signal declared at birth. An unregistered check file is dead",
+    "code; one meta check asserts the registry and the checks/ tree agree."
+  ],
+  "checks": []
+}
