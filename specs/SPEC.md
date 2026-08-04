@@ -62,6 +62,18 @@ invariant: Gukan guarantees Unit schema, never data schema).
 - **Issue checkpoints:** issues carry policy pins; checked at creation and
   at pickup against the current served surface
   (`topics/claude-code-ops.md` 2026-08-04).
+- **Typed improvement loop:** a missed **mechanical** property strengthens
+  the merge carrier; a missed **judgment** improves what the judgment gate
+  is told — which served lines are quoted at the gate — and never becomes a
+  new enumerated denial, the accretion shape that took six cycles to
+  falsify in the predecessor. Responsibility on a leak attaches to the
+  layer whose property leaked, and the merge gate refuses deny-never-warn
+  (`topics/knowledge-architecture.md` 2026-08-04; kogaki#2).
+- **Public-quote register rider:** quoted governing material on public
+  surfaces uses the plain-register renderings and pointers, never raw
+  internal decision text (product-lab#156 §3 rider 2; kogaki#2). The kit's
+  verbatim-at-pin rule is the citation half; this clause is the register
+  half.
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
