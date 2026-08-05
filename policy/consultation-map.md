@@ -15,10 +15,11 @@ Contract (founding spec §4):
 ## The two structured halves (schema v2, kogaki#24)
 
 **Read prescription** — the act class, and the served gloss shard(s) to
-survey **headline-first before acting**. It exists because `policy_lookup`
-answers only the questions the consumer thought to ask, while a standing
-headline read surfaces lines nobody asked about. It is the finding-aid
-carve-out exactly: pre-computing *where to ask*, never *what is true*.
+survey **headline-first before acting**. Why the prescription exists, and why
+it is admissible under the finding-aid carve-out, is stated once in
+`specs/SPEC.md` §4's consultation-map bullet; this file carries the schema
+mechanics and does not restate the rationale. Two copies of a governing rule
+is the conformance-copy shape the pinned-quote invariant already refuses.
 
 A shard is addressed **`<kind>/<tag>`, never `<tag>` alone** — the served
 surface's own kind-qualification rule, quoted at its pin:
@@ -38,23 +39,40 @@ renderings and this map may not depend on one.
 
 - **Violating artifact** — what shipped, or was about to.
 - **Triggering terms** — the terms present in it that would have fired this
-  entry.
+  entry. **Every term named here is also declared in the entry's own trigger
+  terms above.** A postmortem term the entry does not declare is a term
+  nothing matches on: the merge-layer binding computes over the *declared*
+  list, so the postmortem would be naming a trigger that cannot fire.
 - **The question, verbatim** — the query that would have found the served
   line. This is the field the map accumulates: situation-specific keys for
   reaching a particular ruling, written by the sitting that discovered one
   was needed.
 
-A postmortem records what was actually asked, or what actually would have
-been asked. Where an entry's miss predates the map and no query was ever
-composed, the field **says so** rather than inventing one — a reconstructed
-question presented as a recorded one is the conformance-copy defect the
-pinned-quote rule refuses, moved into a new field.
+**A postmortem discloses the provenance of its question in the question's own
+prose.** The field is worth accumulating only if a reader can tell a query
+that was *run* from one that was *composed afterwards*, and the two are
+indistinguishable once written down. Three cases, all disclosed the same way
+— in the prose, no separate field:
+
+- **recorded** — the query was actually issued and the receipt carries it;
+  quote it as issued.
+- **reconstructed** — the miss is on the record but no query was captured
+  (receipts predating the query convention, or a defect found by other
+  means); say **reconstructed at this filing, not run**, then give the
+  question.
+- **none recorded** — the miss predates the map and no query was ever
+  composed; say so and give no question.
+
+Inventing a question and presenting it as a recorded one is the
+conformance-copy defect the pinned-quote rule refuses, moved into a new
+field.
 
 ## Entries
 
 ### 1. Check/CI infrastructure — creating, renaming, or modifying checks, hooks, or the registry
 
-- **Trigger terms:** check, checker, hook, CI, registry, lint, gate script
+- **Trigger terms:** check, checker, suite, hook, CI, registry, lint,
+  gate script
 - **Read prescription:**
   - *act class:* admitting, modifying, or retiring a check, hook, or CI
     surface.
@@ -104,6 +122,10 @@ pinned-quote rule refuses, moved into a new field.
   - *violating artifact:* kogaki#7's story-lane classification of 2026-08-05,
     and its acceptance criterion "verified against the gateway access log".
   - *triggering terms:* access log, consult evidence.
-  - *the question, verbatim:* "Is the gateway access log a surface Kogaki may
-    read, or is consult evidence sided between the server's log and the
-    consumer's receipts?"
+  - *the question, verbatim:* **reconstructed at this filing, not run** —
+    kogaki#7's thread records no consult query, because the recovering
+    sitting's receipts predate the convention that a receipt carries the
+    query it asked. The question below is what would have found the served
+    line, composed here rather than replayed from a record: "Is the gateway
+    access log a surface Kogaki may read, or is consult evidence sided
+    between the server's log and the consumer's receipts?"
