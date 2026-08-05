@@ -1,0 +1,54 @@
+{
+  "id": "terrain-survey-fixture",
+  "generated_by": "fixture",
+  "pin": "product-lab@16a6dbf64b5e5471c196c48bf7f2d53c2ea8fd57",
+  "candidates": [
+    {
+      "id": "strand-a",
+      "family": "lesson",
+      "tags": [
+        "architecture"
+      ],
+      "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6"
+    },
+    {
+      "id": "strand-b",
+      "family": "journey",
+      "tags": [
+        "architecture",
+        "cost"
+      ],
+      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
+    }
+  ],
+  "sections": [
+    {
+      "name": "architecture",
+      "members": [
+        "strand-a",
+        "strand-b"
+      ],
+      "hidden": [
+        "strand-b"
+      ]
+    },
+    {
+      "name": "cost",
+      "members": [
+        "strand-b"
+      ]
+    }
+  ],
+  "no_relation_section": "No relation (no served tag)",
+  "completeness": {
+    "placed": 2,
+    "of": 2,
+    "family": "Strand (Lesson|Journey)",
+    "by_family": {
+      "lesson": 1,
+      "journey": 1
+    },
+    "counted_over": "placements"
+  },
+  "_expect": "NAVIGATION_STATE_NARROWS"
+}

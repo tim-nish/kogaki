@@ -61,6 +61,17 @@
         "runtime_ms": 90,
         "removal_signal": "a harness-side carrier that enforces the medium binding at the moment a gate is raised — a Stop or PostToolUse hook reading AskUserQuestion tool-use evidence directly (topics/claude-code-ops.md:35@5f769dfe names the transcript/tool-call layer as never exercised). That would verify against the host's own record rather than against a declared registry and a committed capture file, and constrain-generation subsumes after-the-fact detection: this check goes when it lands"
       }
+    },
+    {
+      "id": "terrain-composition",
+      "file": "check-terrain-composition.sh",
+      "admission": {
+        "contract": "Terrain's three ported contracts over every survey record in the tree (manifest item 1, specs/spec-terrain/SPEC.md §2): completeness as a cover counted in placements — every Strand placed, no-relation Strands in an explicit named section, nothing silently dropped; the figure counted AFTER composition, recomputed here from the placements themselves, naming which family it counted; and navigation state carrying no narrowing key, so a survey record cannot smuggle the refused minimal-form bundling in as a field — plus the seam pin on every record. The detection half behind terrain/terrain.mjs's generation-time refusal (validateSurvey applies the same schema-carried rules before writing); the fixture pass is the evidence both halves discriminate. Carries composition FACTS only and says so in its own output; whether the grouping axis serves the owner and whether a ratified narrowing was worth taking are judgment and route to kogaki#13",
+        "license": "kogaki#14 (umbrella + specs/spec-terrain/SPEC.md); kogaki#17 (story 1.8)",
+        "tier": "pre-push",
+        "runtime_ms": 90,
+        "removal_signal": "terrain/terrain.mjs validateSurvey becoming the registry-verified SOLE writer of survey records, with the fixture pass exercising the mjs validator directly rather than this mirror — once no unvalidated write path exists, constrain-generation subsumes after-the-fact detection, the same shape the registry meta-check's own removal signal ratified (kogaki#2)"
+      }
     }
   ]
 }

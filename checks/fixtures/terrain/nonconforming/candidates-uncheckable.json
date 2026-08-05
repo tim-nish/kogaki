@@ -1,0 +1,12 @@
+{
+  "id": "x",
+  "generated_by": "fixture",
+  "pin": "p",
+  "candidates": [
+    "not-a-record"
+  ],
+  "sections": [],
+  "no_relation_section": "n",
+  "completeness": {},
+  "_expect_cannot_determine": true
+}

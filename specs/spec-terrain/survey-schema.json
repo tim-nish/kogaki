@@ -1,0 +1,35 @@
+{
+  "note": [
+    "The Terrain survey record, machine-readable (SPEC.md beside this file",
+    "is the prose half; kogaki#14 umbrella, kogaki#17 story 1.8, manifest",
+    "item 1). checks/check-terrain-composition.sh READS these lists rather",
+    "than restating them — this file is the single carrier, so amending the",
+    "contract is one edit and never a two-copy divergence. Same arrangement",
+    "as record-schema.json (item 3) and gate-schema.json (item 4).",
+    "The three contracts bound here are SPEC.md §2.1–§2.3: completeness is",
+    "a cover counted in placements, grouping is presentation-only, and the",
+    "second-proposer boundary keeps narrowing out of navigation state."
+  ],
+  "version": "1",
+  "families": ["lesson", "journey"],
+  "family_label": "Strand (Lesson|Journey)",
+  "survey": {
+    "required": ["id", "generated_by", "pin", "candidates", "sections", "no_relation_section", "completeness"],
+    "candidate_required": ["id", "family", "tags", "cite"],
+    "section_required": ["name", "members"],
+    "narrowing_keys_forbidden": ["selected", "trimmed", "hidden", "excluded", "dropped"],
+    "narrowing_rationale": "sections gate nothing and a navigation step carries no selection authority (SPEC.md §2.2); a narrowing key in navigation state is the refused minimal-form bundling arriving as a field",
+    "completeness": {
+      "required": ["placed", "of", "family", "by_family", "counted_over"],
+      "counted_over_must_be": "placements",
+      "counted_over_rationale": "the count runs AFTER composition; a figure computed over the candidate set reads as a pass while material is missing (SPEC.md §2.1)",
+      "family_must_name": "Strand (Lesson|Journey)",
+      "family_rationale": "every figure names which family it counted — a bare count is a defect, not a terse rendering (SPEC.md §2.1; GLOSSARY.md:248@924cce3)"
+    }
+  },
+  "records_home": {
+    "glob": "*.terrain-survey.json",
+    "scope": "anywhere in the repository",
+    "rationale": "a default carrier, not an enumerated directory — an enumerated home leaves record N+1 uncovered by default; real runs live in the machine-local run workspace and are never committed (specs/SPEC.md §4 rider 3)"
+  }
+}
