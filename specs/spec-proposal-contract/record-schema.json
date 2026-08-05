@@ -1,0 +1,54 @@
+{
+  "note": [
+    "The owner-facing proposal contract, machine-readable (SPEC.md beside",
+    "this file is the prose half; kogaki#15, manifest item 3).",
+    "checks/check-proposal-contract.sh READS these lists rather than",
+    "restating them — this file is the single carrier, so amending the",
+    "contract is one edit and never a two-copy divergence.",
+    "The act lists are Terrain's second-proposer enumeration, inherited",
+    "unamended from specs/spec-terrain/SPEC.md:80-81."
+  ],
+  "version": "1",
+  "kinds": ["proposal", "report"],
+  "acts": {
+    "proposal": ["rank", "trim", "hide"],
+    "navigation": ["enumerate", "sort", "filter-by-owner"]
+  },
+  "proposal": {
+    "required": ["id", "kind", "act", "where", "why", "label", "options", "free_text"],
+    "options": {
+      "min": 1,
+      "required_per_option": ["id", "label"],
+      "premise_negation_flag": "negates_premise",
+      "premise_negation_required": true
+    },
+    "free_text": {
+      "required": ["accepted", "prompt"],
+      "accepted_must_be": true,
+      "conditioning_keys_forbidden": ["when", "if", "condition", "unless", "only_if", "fallback_only", "shown_when"]
+    },
+    "label_floor": {
+      "min_words": 2,
+      "reject_bare_act_token": true,
+      "reject_option_index_pattern": "^(option[\\s_-]*)?[a-z0-9]$",
+      "reject_identical_to_option_label": true,
+      "carried_here": "form only — a necessary condition, never sufficiency",
+      "sufficiency_routes_to": "the review lane's judgment half (kogaki#13, story 1.5): whether the stated effect is the effect that occurs, and whether it is in plain register"
+    }
+  },
+  "answer": {
+    "required": ["payload"],
+    "payload_required": ["options_offered", "free_text_offered", "answer"],
+    "options_offered_must_equal_record_options": true,
+    "free_text_offered_must_be": true
+  },
+  "report": {
+    "required": ["id", "kind", "act", "reason", "narrows"],
+    "narrows_must_be": false
+  },
+  "records_home": {
+    "glob": "*.proposal.json",
+    "scope": "anywhere in the repository",
+    "rationale": "a default carrier, not an enumerated directory — an enumerated home leaves record N+1 uncovered by default"
+  }
+}
