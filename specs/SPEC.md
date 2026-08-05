@@ -68,13 +68,32 @@ invariant: Gukan guarantees Unit schema, never data schema).
   check. Admission also declares the check's **removal signal** at birth.
 - **PR gate, split by property type:** the mechanical half (change licensed
   by a named issue; new checks carry admission records; registry
-  conformance) runs unconditionally in CI/hooks; the judgment half (does
-  the diff match its license; consultation-map boundaries touched) runs in
-  the review lane. A checker appearing in a PR without a license is refused,
-  and the work re-routes to an issue.
+  conformance; **a touched consultation-map boundary has a receipt**) runs
+  unconditionally in CI/hooks; the judgment half (does the diff match its
+  license; consultation-map boundaries touched) runs in the review lane. A
+  checker appearing in a PR without a license is refused, and the work
+  re-routes to an issue.
+
+  The **boundary-receipt binding** is what converts the map from advice an
+  agent may remember into a carrier that binds on every PR. It computes two
+  sets per branch — the mapped boundaries whose trigger terms match the diff
+  paths, changed text, or linked issue body, and the receipts present — and
+  a matched boundary with zero receipts fails. It is a **presence check over
+  two declared enumerations** and adds no judgment clause: a receipt whose
+  outcome is `miss` **satisfies** it, because the obligation is to ask and
+  never to have found. Whether the *right* question was asked stays in the
+  review lane, where judgment already lives. Siting it at the merge layer is
+  the typed loop's mechanical half — an obligation generates no event to
+  hook, but a PR is an event, so receipt-absence over a diff is a computable
+  fact rather than an absence with nothing to observe (kogaki#25).
 - **Issue checkpoints:** issues carry policy pins; checked at creation and
   at pickup against the current served surface
-  (`topics/claude-code-ops.md` 2026-08-04).
+  (`topics/claude-code-ops.md` 2026-08-04). Where an issue body matches a
+  mapped boundary's trigger terms, the same authoring layer requires either
+  an attached consult receipt or an explicit `consult: deferred-to-pickup`
+  marker that the pickup recheck then enforces. The occasion thus fires at
+  the two checkpoints the lifecycle **already owns** — authoring and pickup —
+  with no new ceremony and no third gate (kogaki#25).
 - **Typed improvement loop:** a missed **mechanical** property strengthens
   the merge carrier; a missed **judgment** improves what the judgment gate
   is told — which served lines are quoted at the gate — and never becomes a
@@ -95,6 +114,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
   state. This extends §2's boundary from repositories to the substrate's
   internals: the seam is a read of *served renderings*, not of the state
   the gateway keeps to serve them.
+
+  A receipt carries the gateway's **`request_id`** and an **outcome token**
+  (`hit` | `miss` | `uncovered-after-N-framings`). The request id is a join
+  key, not a read: it lets the consumer's receipt (the question) be paired
+  with the server's access-log row (the answer) **without either side reading
+  the other's state**, so the sidedness above is preserved rather than
+  weakened — the pair becomes readable to whoever holds both, and to no one
+  who holds one. The outcome token makes miss-harvesting a grep rather than
+  an interpretation, which is what feeds the map's postmortem field above
+  (kogaki#25).
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
