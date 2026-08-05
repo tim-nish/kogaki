@@ -239,3 +239,47 @@ unimproved, so the property is **converged or escalated**, not reviewed-once.
 - **The seam is never asked for a verdict.** The review supplies the claims;
   the seam supplies the positions. Asking it to judge would make a live answer
   authoritative and unpinnable, which the seam's own contract refuses.
+
+## What fires this lane (kogaki#34 item 2, story 1.13)
+
+**A sweep, run where the seam is** — `tools/review-sweep.sh`. Not a GitHub
+Action, and the reason is not preference:
+
+- the repository holds **no Actions secret**, so no CI-hosted agent can
+  authenticate;
+- the gateway's location is **machine-local configuration and "never a
+  committed path"** (kogaki#9), so a runner cannot be given one;
+- and §4 makes an **unscoped tier-1 survey the review's fixed opening move**,
+  which a reviewer that cannot reach the seam fails on *every* run.
+
+An Actions-hosted lane would therefore be structurally degraded rather than
+occasionally so. **A spawned session satisfies the isolation requirement by
+construction** — a fresh reviewer holds none of the author's context — which
+is what makes the mechanical trigger the right carrier rather than a
+convenient one.
+
+**The sweep's state machine**, which is also where clauses 3 and 4 live:
+
+| state | when | what happens |
+|---|---|---|
+| `spawn-round-N` | no report for the current head, rounds remain | a fresh session reviews |
+| `author-owes` | a current-head report carries open blocking findings | nothing spawns — the ball is with the author, and re-reviewing unchanged code is not a round |
+| `park` | two rounds spent, head still unreviewed | **an owner decision, never a third round** (§4 clause 3) |
+| `done` | current-head report, nothing blocking open | — |
+
+Rounds are counted from the report segments themselves, so **every round
+leaves its record** without a separate ledger (§4 clause 4).
+
+**Two honest limits, stated rather than discovered:**
+
+- **A sweep can lose a race with a fast merge; PR-open invocation cannot.**
+  The race is closed elsewhere: 1.12's presence check is a required status
+  check, so a PR without a current-head report cannot merge. A late sweep is
+  late, never skipped.
+- **Installation is machine-local, which makes it advice.** Nothing in the
+  repository installs a timer. What rescues it from being advice with no
+  consequence is the same presence check: an uninstalled sweep means PRs stop
+  merging, which is loud rather than silent.
+
+Spawning is **opt-in** (`--spawn`); `--dry-run` is the default, because
+spawning a session is an outward act rather than a flag someone forgets is on.
