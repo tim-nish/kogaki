@@ -76,7 +76,20 @@ if ! prs="$(gh pr list --state open --limit "$LIMIT" \
   exit 1
 fi
 
-SWEEP_PRS="$prs" SWEEP_MODE="$MODE" python3 <<'PYEOF'
+# The repository owner is resolved at run time, never hardcoded: the
+# eligibility rule is owned by the merge-eligibility contract (repository
+# owner, plus pipeline.json's optional merge_author_allowlist), and a copied
+# login is a conformance copy with no declared precedence — on any other
+# repo it silently classifies every PR external (PR #46 review, round 1).
+if ! OWNER="$(gh repo view --json owner -q .owner.login 2>/dev/null)" \
+   || [ -z "$OWNER" ]; then
+  echo "FAIL could not establish the substrate: the repository owner could" >&2
+  echo "  not be resolved, and eligibility is computed against it." >&2
+  exit 1
+fi
+
+SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
+python3 <<'PYEOF'
 import json, os, re, subprocess, sys
 
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
@@ -157,17 +170,35 @@ print(f"fixture pass: {len(FIX)}/{len(FIX)} state-machine cases "
       "(round 1 / round 2 / park / done / author-owes / stale-segment)")
 
 mode = os.environ["SWEEP_MODE"]
+owner = os.environ["SWEEP_OWNER"]
+limit = int(os.environ["SWEEP_LIMIT"])
 prs = json.loads(os.environ["SWEEP_PRS"])
 if not prs:
     print("no open pull requests — nothing to sweep")
     sys.exit(0)
 
+# Eligibility honors pipeline.json's optional allowlist beside the owner —
+# the same two sources the merge-eligibility contract names, in the same
+# precedence, so this file copies the rule's SOURCES rather than its value.
+allowed = {owner}
+try:
+    with open(".claude/pipeline.json") as f:
+        allowed.update(json.load(f).get("merge_author_allowlist", []))
+except (FileNotFoundError, json.JSONDecodeError):
+    pass
+
+if len(prs) == limit:
+    print(f"NOTE: the listing returned exactly {limit} PRs — the page may be "
+          "full and later PRs unswept. A bounded sweep names what it may "
+          "have dropped (PR #46 review, round 1).")
+
 counts = {}
+spawn_failures = 0
 for pr in prs:
     n, head = pr["number"], pr["headRefOid"]
     # An external PR is never spawned against: the frontier is COMPOSED rather
     # than filtered, and this lane's whole authority over one is to report it.
-    if pr["isCrossRepository"] or pr["author"]["login"] != "tim-nish":
+    if pr["isCrossRepository"] or pr["author"]["login"] not in allowed:
         print(f"  #{n}: external — reported, never acted on")
         counts['external'] = counts.get('external', 0) + 1
         continue
@@ -195,8 +226,20 @@ for pr in prs:
         rnd = state.rsplit('-', 1)[1]
         if mode == 'spawn':
             print(f"  #{n}: spawning review round {rnd} for {head[:7]}")
-            subprocess.run(["claude", "-p",
-                            f"/review-lane {n}"], check=False)
+            # A failed spawn is a FAILURE, reported and reflected in the exit
+            # code — a sweep that prints "spawning" over a dead binary is the
+            # exact fail-open its own substrate check refuses, one level down
+            # (PR #46 review, round 1). check=False + inspection rather than
+            # check=True: one PR's failed spawn must not abort the sweep of
+            # the rest.
+            result = subprocess.run(["claude", "-p", f"/review-lane {n}"],
+                                    check=False)
+            if result.returncode != 0:
+                print(f"  #{n}: FAIL spawn exited {result.returncode} — no "
+                      "review was produced; this is not 'spawned', and the "
+                      "sweep will exit nonzero.")
+                spawn_failures += 1
+                counts['spawn-failed'] = counts.get('spawn-failed', 0) + 1
         else:
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
                   "(--dry-run; pass --spawn to act)")
@@ -206,4 +249,6 @@ print(f"swept {len(prs)} open PR(s): "
 if mode != 'spawn':
     print("dry run — nothing was spawned. Spawning is an outward act and is "
           "opt-in rather than a flag someone forgets is on.")
+if spawn_failures:
+    sys.exit(1)
 PYEOF
