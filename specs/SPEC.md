@@ -170,10 +170,27 @@ invariant: Gukan guarantees Unit schema, never data schema).
      the **complete** report carrying a new open blocking finding arrived at
      15:53:37 on an already-merged PR. Nothing distinguished a complete report
      from the first fragment of one, so the gate read a fragment as the verdict.
+     **The served surface names this defect class exactly**, and the clause is
+     its instance rather than a local invention:
+
+     > A rule that names a source can be satisfied by a partial projection of
+     > it — name what a complete read includes, or every partial view counts as
+     > compliance
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:31`
+
+     Clause 1 named the source ("a typed findings record") and never named what
+     a complete one includes, so the first fragment counted as compliance. The
+     token is the missing half of that naming.
      **Both halves are mechanical**, which is why this belongs at the merge
      layer where clauses 1 and 5 already live: token presence and count
      equality are computable facts over a declared record, exactly the split's
-     own test. Clause 5's scope declaration and this clause's completeness
+     own test. It is the **per-artifact-decidable** admissible state rather
+     than a detector or a carrier-less mark — decidable from the single
+     artifact an existing check already inspects
+     (`product-lab@f918c515 topics/knowledge-architecture.md:52`), which is
+     also why clause 5's carrier-less mark does not travel to it: completeness
+     is a *fact* the record carries, where scope-honesty is a judgment. Clause 5's scope declaration and this clause's completeness
      token are **one grammar over one segmenter** — they are specified together
      and implemented in a single pass, because two sequential passes over the
      report parser is how the use-vs-mention defect (kogaki#41) was introduced
