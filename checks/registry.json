@@ -50,6 +50,17 @@
         "runtime_ms": 80,
         "removal_signal": "a second consumer whose proposals differ in shape from Terrain's — the record schema was specced against one implementation, so a second one is the evaluation of the shape, not a widening of it: either the schema generalizes (and this check moves to it) or the contract splits per consumer and this file, which validates a single shape, is the wrong carrier"
       }
+    },
+    {
+      "id": "gate-carrier",
+      "file": "check-gate-carrier.sh",
+      "admission": {
+        "contract": "the gate carrier (manifest item 4, specs/SPEC.md:99-101): the declared gate registry as the enumeration a coverage claim is a fraction OF, the MEDIUM BINDING (a Claude Code host renders a gate through the selector affordance and never prose — the one form of the legibility rule that is falsifiable), AskUserQuestion tool-use evidence beside every captured answer, payload/answer capture including the GATE-LESS row no suite upstream held, and the machine's own comparison (ranked recommendation, per-option evidence, overturning evidence, no pre-selection) sited here rather than in item 3. Its reporting carries the three-part crash remedy: guarded rows, CANNOT-DETERMINE rendered separately from FAIL so a crash is never spent as a positive finding, and repetition disclosed as one deterministic cause rather than N confirmations. Shares no machinery with check-proposal-contract.sh, which binds a record and by its own decision delivers no rendering. Carries the comparison's STRUCTURE only and says so in its own output; whether the evidence is the evidence bearing on an option, and whether a gate reads as a gate beyond its named affordance, are judgment and route to kogaki#13",
+        "license": "kogaki#14 (story 1.7); kogaki#16",
+        "tier": "pre-push",
+        "runtime_ms": 90,
+        "removal_signal": "a harness-side carrier that enforces the medium binding at the moment a gate is raised — a Stop or PostToolUse hook reading AskUserQuestion tool-use evidence directly (topics/claude-code-ops.md:35@5f769dfe names the transcript/tool-call layer as never exercised). That would verify against the host's own record rather than against a declared registry and a committed capture file, and constrain-generation subsumes after-the-fact detection: this check goes when it lands"
+      }
     }
   ]
 }

@@ -1,0 +1,20 @@
+{
+  "note": [
+    "The gate registry the CAPTURE fixtures resolve against. Separate from",
+    "gates/registry.json so a fixture never has to be admitted as a real",
+    "gate of this repository to exercise a capture branch."
+  ],
+  "gates": [
+    {
+      "id": "terrain-direction",
+      "options": [
+        {
+          "id": "strand-a"
+        },
+        {
+          "id": "strand-b"
+        }
+      ]
+    }
+  ]
+}

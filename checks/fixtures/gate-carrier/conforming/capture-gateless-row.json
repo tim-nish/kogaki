@@ -1,0 +1,10 @@
+{
+  "_fixture": "capture",
+  "rows": [
+    {
+      "stop_id": "stop-0002",
+      "gate_id": null,
+      "no_gate_reason": "the run reached its stop with nothing to decide — the brief was already complete"
+    }
+  ]
+}

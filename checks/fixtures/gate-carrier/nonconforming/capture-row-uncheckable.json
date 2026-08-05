@@ -1,0 +1,15 @@
+{
+  "_fixture": "capture",
+  "rows": [
+    {
+      "stop_id": "stop-0001",
+      "gate_id": "terrain-direction",
+      "evidence": {
+        "tool": "AskUserQuestion",
+        "tool_use_id": "toolu_01GateCarrier0001"
+      },
+      "payload": "the owner chose strand-b"
+    }
+  ],
+  "_expect_cannot_determine": true
+}

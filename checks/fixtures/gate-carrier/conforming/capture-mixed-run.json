@@ -1,0 +1,28 @@
+{
+  "_fixture": "capture",
+  "rows": [
+    {
+      "stop_id": "stop-0001",
+      "gate_id": "terrain-direction",
+      "evidence": {
+        "tool": "AskUserQuestion",
+        "tool_use_id": "toolu_01GateCarrier0001"
+      },
+      "payload": {
+        "options_offered": [
+          "strand-a",
+          "strand-b"
+        ],
+        "free_text_offered": true,
+        "answer": {
+          "option": "strand-b"
+        }
+      }
+    },
+    {
+      "stop_id": "stop-0002",
+      "gate_id": null,
+      "no_gate_reason": "the run reached its stop with nothing to decide — the brief was already complete"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "_fixture": "capture",
+  "rows": [
+    {
+      "stop_id": "stop-0001",
+      "gate_id": "terrain-direction",
+      "payload": {
+        "options_offered": [
+          "strand-a",
+          "strand-b"
+        ],
+        "free_text_offered": true,
+        "answer": {
+          "option": "strand-b"
+        }
+      }
+    }
+  ],
+  "_expect": "CAPTURE_MISSING_FIELD"
+}

@@ -1,0 +1,23 @@
+{
+  "_fixture": "capture",
+  "rows": [
+    {
+      "stop_id": "stop-0001",
+      "gate_id": "terrain-direction",
+      "evidence": {
+        "tool": "AskUserQuestion",
+        "tool_use_id": "toolu_01GateCarrier0001"
+      },
+      "payload": {
+        "options_offered": [
+          "strand-a"
+        ],
+        "free_text_offered": true,
+        "answer": {
+          "option": "strand-b"
+        }
+      }
+    }
+  ],
+  "_expect": "CAPTURE_PAYLOAD_OPTIONS_MISMATCH"
+}
