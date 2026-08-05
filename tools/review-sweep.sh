@@ -52,14 +52,21 @@
 # Three declarations, each with an override, and the defaults are recorded
 # here so the policy is readable without running anything:
 #
-#   model      opus  · $KOGAKI_REVIEW_MODEL      — judgment work; a model
+#   model      TIERED · $KOGAKI_REVIEW_MODEL     — judgment work; a model
 #                                                  choice for a spawned agent
-#                                                  is operator policy
+#                                                  is operator policy. Since
+#                                                  kogaki#81 the default is
+#                                                  resolved from the DIFF (the
+#                                                  tier table below); the env
+#                                                  var is an explicit PIN that
+#                                                  overrides the tier
 #   fix model  sonnet · $KOGAKI_FIX_MODEL        — transcribing findings
 #                                                  already made, not making
 #                                                  them
-#   max turns  60    · $KOGAKI_REVIEW_MAX_TURNS  — a cap is architecture, not
-#                                                  prompt hygiene
+#   max turns  TIERED · $KOGAKI_REVIEW_MAX_TURNS — a cap is architecture, not
+#                                                  prompt hygiene; tiered with
+#                                                  the model, pinned the same
+#                                                  way
 #   log dir    ~/.kogaki/reviews · $KOGAKI_REVIEW_LOG_DIR
 #   grants     per role, below   · $KOGAKI_REVIEW_TOOLS / $KOGAKI_FIX_TOOLS
 #   worktree   $TMPDIR (outside the repo) · $KOGAKI_SPAWN_WORKTREE_ROOT
@@ -211,6 +218,68 @@
 # SPAWNING IS OPT-IN. --dry-run is the default: the sweep reports what it
 # would do and mutates nothing. Spawning a session is an outward act, so it
 # needs an explicit --spawn rather than a flag someone forgets is on.
+#
+# THE REVIEWER IS TIERED TO WHAT IT IS REVIEWING (kogaki#81, kogaki#70 sink 4).
+# The model and the cap used to be one pin for every subject, so a one-line fix
+# inherited a ceiling built for a security rewrite. PR #67 was the RIGHT class
+# for opus — it rewrote this pipeline's own security path — and that is the
+# point: the defect was never the ceiling, it was that nothing distinguished.
+# The mechanism is already shipped and already used (the fixer runs sonnet
+# under $KOGAKI_FIX_MODEL), so this extends a pattern rather than adding one.
+#
+#   THE TIER TABLE LIVES HERE, beside the model pin, the turn cap and the
+#   grant lists — decided, not deferred. A separate registry file would be a
+#   FOURTH registry beside checks/, gates/ and deps/, and
+#   specs/spec-external-deps/SPEC.md §2 requires a fourth to name a field the
+#   existing carriers cannot hold. A tier is a spawn parameter and this file
+#   already carries three of those, so there is no such field and no such
+#   argument. Each half has an env override and is readable without running
+#   anything, which is the property every other declaration here holds.
+#
+#   careful  spec/**, specs/**, checks/**, policy/**, .claude/hooks/**
+#            -> opus,   60 turns   ($KOGAKI_REVIEW_TIER_CAREFUL_PATHS)
+#   ordinary tools/**, docs/**, .claude/skills/**, .claude/*.json, *.md
+#            -> sonnet, 24 turns   ($KOGAKI_REVIEW_TIER_ORDINARY_PATHS)
+#   no match -> opus,   60 turns   — the FAIL-SAFE side, announced as such
+#
+# RESOLVED FROM THE DIFF'S PATHS, NEVER FROM THE BRANCH NAME. A PR on
+# `direct/71-*` that edits `checks/registry.json` is cheap by branch and
+# security-relevant by content; resolving on the branch would quietly downgrade
+# exactly the reviews that most need the higher tier. The resolver is given
+# paths and nothing else, so the branch cannot reach it by construction.
+#
+# THE NON-MEMBER CASE FALLS TO OPUS, and the asymmetry is the whole argument:
+# a needlessly expensive review costs about $3, while a too-cheap review of an
+# unclassified diff PASSES THE GATE SILENTLY — the failure the presence check
+# cannot see. The served surface did not discriminate across two framings
+# (kogaki#70 records both queries), so the decision rests on that asymmetry.
+#
+# AND THE FALLBACK IS ANNOUNCED ON BOTH PATHS — `--spawn` as well as
+# `--dry-run`. The hook takes the `--spawn` path, so a fallback announced only
+# in the preview fires INVISIBLY on the only path that runs in anger; an
+# unobservable non-member fallback is the defect kogaki#65 was filed over
+# ("both failures present as NOTHING HAPPENING"). Where the tier is reached by
+# the fallback rather than by a declared class, the line says so in those words.
+#
+# THE REPORT IS COMPOSED ONCE AND POSTED ONCE (kogaki#81, kogaki#70 sink 5).
+# PR #67's round 2 made FOUR consecutive `gh pr comment` attempts with the same
+# body — blind retries, each a turn, each risking a duplicate report comment,
+# and a second segment for one head changes what `decide()` counts as rounds.
+# The reviewer is therefore told the posting contract in its prompt: compose in
+# full, post in ONE act through `--body-file`, verify ONCE, and never re-post.
+# The file half is expressed as `--body-file -` fed by a single heredoc because
+# the reviewer holds no `Write` grant and this file does not widen the grant
+# list (that is kogaki#74's held half) — one process, one comment either way,
+# which is the property the four attempts violated.
+#
+# EVERY RUN REPORTS ITS COST. The report ends with
+# `review-cost: <turns> turns · <min> · $<cost> · model <m>`, appended by the
+# sweep to the report comment after the session ends. All four fields come from
+# the `result` record in the stream-json this file ALREADY captures, so this is
+# a rendering of held data rather than new instrumentation — and it is the
+# sweep that renders it because a session cannot know its own final cost from
+# inside the turn that posts. Tier tuning then has its data at the PR instead
+# of owing another investigation.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -315,6 +384,28 @@ fi
 REVIEW_MODEL="${KOGAKI_REVIEW_MODEL:-opus}"
 REVIEW_MAX_TURNS="${KOGAKI_REVIEW_MAX_TURNS:-60}"
 FIX_MODEL="${KOGAKI_FIX_MODEL:-sonnet}"
+
+# --- the tier table (kogaki#81) -------------------------------------------
+# Declared here beside the model pin, the turn cap and the grant lists, for the
+# reason the header gives: a tier is a spawn parameter and this file is where
+# every spawn parameter is carried. The CAREFUL tier's model and cap are
+# REVIEW_MODEL/REVIEW_MAX_TURNS above — one place to read, one place to change,
+# and the same two variables the fallback uses, so the fail-safe side cannot
+# drift away from the tier it is supposed to be.
+#
+# `KOGAKI_REVIEW_MODEL` / `KOGAKI_REVIEW_MAX_TURNS` remain OPERATOR PINS: set
+# either and it wins over the resolved tier, and the run's line says `pinned`
+# rather than naming a class it did not use. A pin that silently lost to a
+# table would be the ambient-state defect kogaki#52 closed, re-opened one level
+# up.
+REVIEW_MODEL_PINNED="${KOGAKI_REVIEW_MODEL+1}"
+REVIEW_MAX_TURNS_PINNED="${KOGAKI_REVIEW_MAX_TURNS+1}"
+TIER_CAREFUL_PATHS="${KOGAKI_REVIEW_TIER_CAREFUL_PATHS:-\
+spec/**,specs/**,checks/**,policy/**,.claude/hooks/**}"
+TIER_ORDINARY_PATHS="${KOGAKI_REVIEW_TIER_ORDINARY_PATHS:-\
+tools/**,docs/**,.claude/skills/**,.claude/*.json,*.md}"
+TIER_ORDINARY_MODEL="${KOGAKI_REVIEW_TIER_ORDINARY_MODEL:-sonnet}"
+TIER_ORDINARY_MAX_TURNS="${KOGAKI_REVIEW_TIER_ORDINARY_MAX_TURNS:-24}"
 REVIEW_LOG_DIR="${KOGAKI_REVIEW_LOG_DIR:-$HOME/.kogaki/reviews}"
 # Where "outside the repository" is (kogaki#61). The system temp root, which
 # is outside every repository by construction; an operator who wants a
@@ -371,8 +462,14 @@ SWEEP_MODEL="$REVIEW_MODEL" SWEEP_MAX_TURNS="$REVIEW_MAX_TURNS" \
 SWEEP_FIX_MODEL="$FIX_MODEL" \
 SWEEP_REVIEW_TOOLS="$REVIEW_TOOLS" SWEEP_FIX_TOOLS="$FIX_TOOLS" \
 SWEEP_LOG_DIR="$REVIEW_LOG_DIR" SWEEP_WORKTREE_ROOT="$SPAWN_WORKTREE_ROOT" \
+SWEEP_TIER_CAREFUL_PATHS="$TIER_CAREFUL_PATHS" \
+SWEEP_TIER_ORDINARY_PATHS="$TIER_ORDINARY_PATHS" \
+SWEEP_TIER_ORDINARY_MODEL="$TIER_ORDINARY_MODEL" \
+SWEEP_TIER_ORDINARY_MAX_TURNS="$TIER_ORDINARY_MAX_TURNS" \
+SWEEP_MODEL_PINNED="$REVIEW_MODEL_PINNED" \
+SWEEP_MAX_TURNS_PINNED="$REVIEW_MAX_TURNS_PINNED" \
 python3 <<'PYEOF'
-import json, os, re, shutil, subprocess, sys, tempfile
+import fnmatch, json, os, re, shutil, subprocess, sys, tempfile
 
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
@@ -401,6 +498,18 @@ FIX_TOOLS = os.environ["SWEEP_FIX_TOOLS"]
 WORKTREE_ROOT = os.environ["SWEEP_WORKTREE_ROOT"]
 REPO_ROOT = os.path.realpath(os.getcwd())
 
+# The tier table (kogaki#81), resolved in the shell above and passed in on the
+# same ground every other knob is: two places that both know a default are two
+# places that can disagree about it.
+TIER_CAREFUL_PATHS = [p for p in
+                      os.environ["SWEEP_TIER_CAREFUL_PATHS"].split(",") if p]
+TIER_ORDINARY_PATHS = [p for p in
+                       os.environ["SWEEP_TIER_ORDINARY_PATHS"].split(",") if p]
+TIER_ORDINARY_MODEL = os.environ["SWEEP_TIER_ORDINARY_MODEL"]
+TIER_ORDINARY_MAX_TURNS = os.environ["SWEEP_TIER_ORDINARY_MAX_TURNS"]
+MODEL_PINNED = bool(os.environ.get("SWEEP_MODEL_PINNED"))
+MAX_TURNS_PINNED = bool(os.environ.get("SWEEP_MAX_TURNS_PINNED"))
+
 # The headless contract, appended to every spawn prompt (kogaki#65 defect 2).
 # Both held-run reviewers ENDED THEIR TURN AWAITING A REPLY — the served
 # surface names exactly that as the property worth binding on: "What would
@@ -414,6 +523,256 @@ HEADLESS = (
     "cannot proceed, exit without posting rather than asking — the sweep "
     "detects a missing artifact and reports it."
 )
+
+
+# The posting contract, appended to the REVIEWER's prompt only (kogaki#81).
+# The fixer never posts a report, so it never gets this and must not: a
+# contract about how to post one is an instruction to post one.
+POSTING = (
+    "\n\nPOSTING CONTRACT — ONE COMPOSITION, ONE POST, ONE VERIFICATION. "
+    "Compose the whole report before you post anything, then post it in a "
+    "SINGLE act with `--body-file` — `gh pr comment <n> --body-file -` fed by "
+    "one heredoc (you hold no Write grant, so `-` is the file). Then verify "
+    "ONCE, with `gh pr view <n> --json comments`, that it landed. If it did "
+    "not land, STOP and exit without posting again, and do not re-post a "
+    "report you have already posted. On PR #67 a reviewer made FOUR "
+    "consecutive `gh pr comment` attempts with the same body: each retry "
+    "spends a turn and risks a DUPLICATE `review-lane report:` comment, and a "
+    "second segment for one head changes what the sweep counts as rounds."
+)
+
+
+# --- the tier table's resolver (kogaki#81) --------------------------------
+# Given the DIFF'S PATHS and nothing else. The branch name cannot reach this
+# function, which is criterion 3 by construction rather than by discipline: a
+# PR on `direct/71-*` that edits `checks/registry.json` resolves careful
+# because of what it edits.
+
+def path_in_class(path, patterns):
+    """The first pattern in `patterns` that covers `path`, or None.
+
+    `dir/**` means the subtree under `dir/`. Every other pattern is matched
+    AT ITS OWN DEPTH — `*.md` is the repository's top-level notes, not every
+    markdown file in the tree — because fnmatch's `*` crosses separators and a
+    table whose cheap class silently swallowed `specs/SPEC.md` would be the
+    downgrade this story exists to refuse.
+    """
+    for pat in patterns:
+        if pat.endswith("/**"):
+            if path == pat[:-3] or path.startswith(pat[:-2]):
+                return pat
+        elif (pat.count("/") == path.count("/")
+              and fnmatch.fnmatchcase(path, pat)):
+            return pat
+    return None
+
+
+def resolve_tier(paths, careful_paths=None, ordinary_paths=None):
+    """Resolve (model, max_turns, class, fallback, why) from diff paths.
+
+    `class` is the declared class that produced the tier, or None when the
+    fallback did. `fallback` is True in exactly that case, and the caller is
+    required to SAY SO on both the spawn and the dry-run path: an unobservable
+    non-member fallback is the defect kogaki#65 was filed over.
+
+    The fail-safe side is the careful tier. A needlessly expensive review costs
+    about $3; a too-cheap review of an unclassified diff passes the gate
+    silently, which is the failure the presence check cannot see.
+    """
+    # The tables default to the configured ones and are passed explicitly by
+    # the fixture below, so an operator who overrides the table does not turn
+    # this tool red over cases written against the shipped one.
+    cp = TIER_CAREFUL_PATHS if careful_paths is None else careful_paths
+    op = TIER_ORDINARY_PATHS if ordinary_paths is None else ordinary_paths
+    careful = (MODEL, MAX_TURNS)
+    if paths is None:
+        return (*careful, None, True,
+                "the diff paths could not be read, so no class could be matched")
+    if not paths:
+        return (*careful, None, True, "the diff listed no paths")
+    hits = [(p, path_in_class(p, cp)) for p in paths]
+    careful_hit = next(((p, pat) for p, pat in hits if pat), None)
+    if careful_hit:
+        # ANY careful path carries the whole diff. A mixed diff is reviewed at
+        # the tier its most careful file asks for, never averaged down.
+        return (*careful, "careful", False,
+                f"{careful_hit[0]} matches {careful_hit[1]}")
+    unmatched = [p for p in paths if not path_in_class(p, op)]
+    if unmatched:
+        return (*careful, None, True,
+                f"{unmatched[0]} matches no declared class"
+                + (f" (and {len(unmatched) - 1} more)" if len(unmatched) > 1 else ""))
+    return (TIER_ORDINARY_MODEL, TIER_ORDINARY_MAX_TURNS, "ordinary", False,
+            f"every path is ordinary code (e.g. {paths[0]})")
+
+
+def review_policy(paths, **tables):
+    """The resolved tier with the operator's PINS applied, and its own label.
+
+    A pin wins over the table and the label says `pinned` rather than naming a
+    class the run did not use — a pin that silently lost to a table would
+    re-open, one level up, the ambient-state defect kogaki#52 closed.
+    """
+    model, turns, klass, fallback, why = resolve_tier(paths, **tables)
+    if MODEL_PINNED:
+        model = MODEL
+    if MAX_TURNS_PINNED:
+        turns = MAX_TURNS
+    if fallback:
+        label = (f"tier {model}/{turns} turns by FALLBACK — NO DECLARED CLASS "
+                 f"MATCHED ({why}); the fail-safe side")
+    else:
+        label = f"tier {model}/{turns} turns, class {klass} ({why})"
+    pins = [n for n, p in (("model", MODEL_PINNED),
+                           ("max-turns", MAX_TURNS_PINNED)) if p]
+    if pins:
+        label += f" [{'/'.join(pins)} PINNED by env, overriding the tier]"
+    return model, turns, label
+
+
+def diff_paths(pr):
+    """The PR's changed paths, or None when they could not be read.
+
+    None is cannot-determine and resolves to the careful tier, never to the
+    cheap one: an unreadable diff is exactly the case where nothing is known
+    about what is being reviewed.
+    """
+    try:
+        r = subprocess.run(["gh", "pr", "diff", str(pr), "--name-only"],
+                           stdin=subprocess.DEVNULL, capture_output=True,
+                           text=True, check=True)
+    except (subprocess.CalledProcessError, OSError):
+        return None
+    return [l.strip() for l in r.stdout.splitlines() if l.strip()]
+
+
+# --- the run's cost, rendered from held data (kogaki#81) ------------------
+# All four fields come from the `result` record the stream-json log already
+# carries. No new instrumentation, and the sweep renders it rather than the
+# session because a session cannot know its own final cost from inside the
+# turn that posts.
+
+COST_TOKEN = "review-cost:"
+
+
+def result_record(log_path):
+    """The `result` record from a route log, or None.
+
+    Scanned from the END: the record is the stream's last object, and a log
+    that was appended to across rounds must yield the run that just finished
+    rather than the first one it happens to find.
+    """
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        line = line.strip()
+        if not line.startswith("{") or '"type":"result"' not in line.replace(" ", ""):
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("type") == "result":
+            return rec
+    return None
+
+
+def cost_line(rec, model=None):
+    """`review-cost: <turns> turns · <min> · $<cost> · model <m>`, or None.
+
+    None when the record is missing or carries none of the four fields — a
+    fabricated zero would be worse than an absent line, because tier tuning is
+    supposed to read this.
+    """
+    if not rec:
+        return None
+    turns = rec.get("num_turns")
+    ms = rec.get("duration_ms")
+    cost = rec.get("total_cost_usd")
+    models = sorted((rec.get("modelUsage") or {}).keys()) or ([model] if model else [])
+    if turns is None and ms is None and cost is None and not models:
+        return None
+    return (f"{COST_TOKEN} "
+            f"{'?' if turns is None else turns} turns · "
+            f"{'? min' if ms is None else f'{ms / 60000:.1f} min'} · "
+            f"{'$?' if cost is None else f'${cost:.2f}'} · "
+            f"model {'+'.join(models) if models else '?'}")
+
+
+def needs_cost_line(body):
+    """Does this report body still owe a cost line? Idempotent by construction.
+
+    A re-run of the sweep over an already-annotated report must not append a
+    second one — the append is a mutation of a comment that is already public.
+    """
+    return not any(l.strip().startswith(COST_TOKEN)
+                   for l in (body or "").splitlines())
+
+
+def append_cost_line(comment_url, body, line):
+    """Append the cost line to an existing report comment. True if it landed.
+
+    The report is the reviewer's artifact and this is the sweep's footer on it,
+    so it is an EDIT rather than a second comment: a separate comment for the
+    cost would be another body under the same head for a reader to reconcile.
+    """
+    m = re.search(r"github\.com/([^/]+)/([^/]+)/pull/\d+#issuecomment-(\d+)",
+                  comment_url or "")
+    if not m:
+        return False
+    owner_, repo_, cid = m.groups()
+    payload = json.dumps({"body": body.rstrip() + "\n\n" + line})
+    try:
+        subprocess.run(["gh", "api", "--method", "PATCH",
+                        f"repos/{owner_}/{repo_}/issues/comments/{cid}",
+                        "--input", "-"],
+                       input=payload, text=True, capture_output=True, check=True)
+        return True
+    except (subprocess.CalledProcessError, OSError):
+        return False
+
+
+def report_cost(pr, head, allowed, log_path, model):
+    """Put the run's cost at the end of the report it belongs to.
+
+    Reports what it did on every branch: a cost line that silently failed to
+    land is a tuning input nobody knows is missing.
+    """
+    line = cost_line(result_record(log_path), model)
+    if line is None:
+        print(f"  #{pr}: no cost line — the route log carries no `result` "
+              "record, so nothing was rendered rather than a fabricated zero")
+        return
+    try:
+        raw = subprocess.run(
+            ["gh", "pr", "view", str(pr), "--json", "comments"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            check=True).stdout
+        comments = json.loads(raw).get("comments", [])
+    except (subprocess.CalledProcessError, json.JSONDecodeError, OSError):
+        print(f"  #{pr}: could not read comments to attach `{line}` — the run's "
+              "cost survives only in the route log")
+        return
+    for c in reversed(comments):
+        if ((c.get("author") or {}).get("login") or "") not in allowed:
+            continue
+        body = c.get("body") or ""
+        segs = segments(body)
+        if not any(head.startswith(s['sha']) or s['sha'].startswith(head)
+                   for s in segs):
+            continue
+        if not needs_cost_line(body):
+            return                      # already annotated; never a second one
+        if append_cost_line(c.get("url") or "", body, line):
+            print(f"  #{pr}: {line}")
+        else:
+            print(f"  #{pr}: could not append `{line}` to the report — the "
+                  "cost survives only in the route log")
+        return
+    print(f"  #{pr}: no report comment for {head[:7]} to carry `{line}`")
 
 
 def spawn_log_path(pr, rnd):
@@ -573,7 +932,7 @@ def remove_worktree(base, tree, log=None):
 
 
 def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
-          tag="review"):
+          tag="review", max_turns=None):
     """Run a spawned session with the declared policy, streaming to its log.
 
     Returns the exit code. Every knob the session runs under is named at the
@@ -593,7 +952,7 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
     os.makedirs(LOG_DIR, exist_ok=True)
     cmd = ["claude", "-p", prompt + HEADLESS,
            "--model", model or MODEL,
-           "--max-turns", str(MAX_TURNS),
+           "--max-turns", str(max_turns or MAX_TURNS),
            "--allowedTools", tools or REVIEW_TOOLS,
            "--verbose", "--output-format", "stream-json"]
     with open(log_path, "a", encoding="utf-8") as log:
@@ -838,6 +1197,115 @@ if _ofail:
 print("isolation pass: 4/4 outside-the-repository cases (root / under-root "
       "refused, sibling-prefix / temp root accepted)")
 
+# --- the tier resolves from the DIFF, and says how (kogaki#81) ------------
+# Three properties are asserted, not one: the tier itself, that the BRANCH
+# cannot influence it (the resolver takes paths only, so a `direct/` PR editing
+# `checks/` still resolves careful), and that the FALLBACK ANNOUNCES ITSELF —
+# criterion 4's whole point is that a silent non-member fallback is the
+# kogaki#65 shape, and the existing suite's habit of asserting the outcome
+# while never asserting the disclosure is what kogaki#76 was filed over.
+#
+# The cases are written against the SHIPPED table and pass it explicitly, so an
+# operator who overrides the table gets their override rather than a red tool —
+# and the two are compared below, so an override is disclosed rather than
+# silently leaving the fixture exercising a table nobody is running under.
+_tfail = 0
+_TC = ["spec/**", "specs/**", "checks/**", "policy/**", ".claude/hooks/**"]
+_TO = ["tools/**", "docs/**", ".claude/skills/**", ".claude/*.json", "*.md"]
+_TT = {"careful_paths": _TC, "ordinary_paths": _TO}
+for _label, _paths, _want_class, _want_fallback, _want_cheap in [
+    ("a checks/ path resolves careful", ["checks/registry.json"],
+     "careful", False, False),
+    ("BRANCH-BLIND: a `direct/71-*` PR editing checks/ is still careful "
+     "(the resolver never sees a branch)", ["checks/registry.json"],
+     "careful", False, False),
+    ("spec/ and policy/ and the hooks are careful",
+     ["spec/SPEC.md", "policy/source.yaml", ".claude/hooks/review-trigger.py"],
+     "careful", False, False),
+    ("ordinary code resolves ordinary",
+     ["tools/review-sweep.sh", "docs/stories/1.19.md", "README.md"],
+     "ordinary", False, True),
+    ("a MIXED diff takes its most careful file, never an average",
+     ["tools/review-sweep.sh", "specs/SPEC.md"], "careful", False, False),
+    ("`*.md` is top level only — specs/SPEC.md is NOT ordinary",
+     ["specs/SPEC.md"], "careful", False, False),
+    ("an unclassified path falls back, and never to the cheap tier",
+     ["deps/spec-external-deps.json"], None, True, False),
+    ("ordinary + one unclassified path falls back for the whole diff",
+     ["tools/review-sweep.sh", "gates/g.json"], None, True, False),
+    ("an unreadable diff is cannot-determine, which falls back",
+     None, None, True, False),
+    ("an empty diff falls back rather than resolving cheap", [], None, True, False),
+]:
+    _m, _t, _k, _fb, _why = resolve_tier(_paths, **_TT)
+    _cheap = (_m == TIER_ORDINARY_MODEL and str(_t) == str(TIER_ORDINARY_MAX_TURNS))
+    if (_k, _fb, _cheap) != (_want_class, _want_fallback, _want_cheap):
+        print(f"FAIL tier fixture [{_label}]: class={_k!r} fallback={_fb} "
+              f"cheap={_cheap}, want class={_want_class!r} "
+              f"fallback={_want_fallback} cheap={_want_cheap}")
+        _tfail = 1
+    # The disclosure half: a fallback must SAY it fell back, on the line the
+    # operator reads, and a resolved class must name itself.
+    _line = review_policy(_paths, **_TT)[2]
+    if _want_fallback and "NO DECLARED CLASS MATCHED" not in _line:
+        print(f"FAIL tier fixture [{_label}]: the fallback did not announce "
+              f"itself: {_line!r}")
+        _tfail = 1
+    if not _want_fallback and f"class {_want_class}" not in _line:
+        print(f"FAIL tier fixture [{_label}]: the line does not name the class "
+              f"that produced the tier: {_line!r}")
+        _tfail = 1
+if _tfail:
+    print("FAIL: the tier does not resolve from the diff, or resolves silently "
+          "— an unobservable fallback is the kogaki#65 defect")
+    sys.exit(1)
+print("tier pass: 10/10 diff-class cases (careful / ordinary / mixed-takes-"
+      "careful / branch-blind / unclassified, unreadable and empty fall back "
+      "to the careful side, and every fallback announces itself)")
+if (TIER_CAREFUL_PATHS, TIER_ORDINARY_PATHS) != (_TC, _TO):
+    print("NOTE: the tier table is OVERRIDDEN by env — the cases above "
+          "exercised the shipped table, and this run resolves against "
+          f"careful={','.join(TIER_CAREFUL_PATHS)} "
+          f"ordinary={','.join(TIER_ORDINARY_PATHS)}")
+
+# --- the run's cost is RENDERED from held data (kogaki#81) ----------------
+# The four fields come from a `result` record this file already captures, so
+# the risk is not instrumentation but rendering: a missing field must never
+# become a fabricated zero, and a re-run must never append a second line to a
+# comment that is already public.
+_cfail = 0
+_REC = {"type": "result", "num_turns": 35, "duration_ms": 317344,
+        "total_cost_usd": 1.7587225, "modelUsage": {"claude-opus-5": {}}}
+for _label, _got, _want in [
+    ("all four fields render", cost_line(_REC),
+     "review-cost: 35 turns · 5.3 min · $1.76 · model claude-opus-5"),
+    ("no record renders nothing", cost_line(None), None),
+    ("an empty record renders nothing rather than zeros", cost_line({}), None),
+    ("a missing field is `?`, never a fabricated zero",
+     cost_line({"num_turns": 4}, "sonnet"),
+     "review-cost: 4 turns · ? min · $? · model sonnet"),
+    ("the spawn's model stands in when the record names none",
+     cost_line({"total_cost_usd": 0.5}, "sonnet"),
+     "review-cost: ? turns · ? min · $0.50 · model sonnet"),
+]:
+    if _got != _want:
+        print(f"FAIL cost fixture [{_label}]: {_got!r}, want {_want!r}")
+        _cfail = 1
+for _label, _body, _want in [
+    ("a report with no cost line owes one", "review-lane report: abc1234", True),
+    ("a report already carrying one owes nothing",
+     "review-lane report: abc1234\n\nreview-cost: 4 turns · 1.0 min · $0.10 "
+     "· model sonnet", False),
+]:
+    if needs_cost_line(_body) != _want:
+        print(f"FAIL cost fixture [{_label}]: needs={not _want}, want={_want}")
+        _cfail = 1
+if _cfail:
+    print("FAIL: the run's cost is not rendered from the record it is held in")
+    sys.exit(1)
+print("cost pass: 7/7 rendering cases (four fields · absent record · missing "
+      "field is `?` not 0 · the append is idempotent)")
+
 # --- fixture pass: the state machine, exercised without a network ---------
 H = 'abc1234def'
 FIX = [
@@ -1058,10 +1526,16 @@ for pr in prs:
             print(f"  #{n}: would post park-postmortem (--dry-run): {_stub}")
     else:
         rnd = state.rsplit('-', 1)[1]
+        # The tier is resolved from the DIFF, on both paths, and the line names
+        # the class that produced it — or says the fallback did (kogaki#81).
+        # Named on `--spawn` too because the hook takes that path: a fallback
+        # announced only in the preview fires invisibly where it matters.
+        r_model, r_turns, tier_label = review_policy(diff_paths(n))
         if mode == 'spawn':
             log_path = spawn_log_path(n, rnd)
+            print(f"  #{n}: {tier_label}")
             print(f"  #{n}: spawning review round {rnd} for {head[:7]} "
-                  f"[model {MODEL}, max-turns {MAX_TURNS}, worktree under "
+                  f"[model {r_model}, max-turns {r_turns}, worktree under "
                   f"{WORKTREE_ROOT} detached at {head[:7]}] -> {log_path}")
             # A failed spawn is a FAILURE, reported and reflected in the exit
             # code — a sweep that prints "spawning" over a dead binary is the
@@ -1069,8 +1543,10 @@ for pr in prs:
             # (PR #46 review, round 1). check=False + inspection rather than
             # check=True: one PR's failed spawn must not abort the sweep of
             # the rest.
-            result = spawn(f"/review-lane {n}", log_path, tools=REVIEW_TOOLS,
-                           ref=head, detach=True, tag=f"review-{n}")
+            result = spawn(f"/review-lane {n}" + POSTING, log_path,
+                           model=r_model, tools=REVIEW_TOOLS,
+                           ref=head, detach=True, tag=f"review-{n}",
+                           max_turns=r_turns)
             # THE EXIT CODE IS NOT THE VERDICT (kogaki#65 defect 3). A spawn
             # that exits 0 having posted nothing is a FAILURE, and the held
             # run is the specimen: both sessions "ran to completion", the
@@ -1091,7 +1567,7 @@ for pr in prs:
                 else:
                     print(f"  #{n}: could NOT post the reason to the PR; it "
                           "survives only in the route log")
-                print(f"  #{n}: if the turn cap ({MAX_TURNS}) was reached, the "
+                print(f"  #{n}: if the turn cap ({r_turns}) was reached, the "
                       "PR is deliberately left report-less — the presence gate "
                       "is the loud backstop, and a partial report is never "
                       "fabricated to make this quiet.")
@@ -1125,12 +1601,17 @@ for pr in prs:
                     counts['report-degraded'] = counts.get('report-degraded', 0) + 1
                 else:
                     counts['report-landed'] = counts.get('report-landed', 0) + 1
+                # The run's cost goes at the end of the report it belongs to
+                # (kogaki#81), on the degraded path too: a degraded review's
+                # cost is exactly the number tier tuning must not lose.
+                report_cost(n, head, allowed, log_path, r_model)
         else:
             # The dry run names the policy it WOULD spawn under. A preview that
             # withheld the model and the cap would leave the operator checking
             # the one thing a dry run exists to show them by reading the source.
+            print(f"  #{n}: {tier_label}")
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
-                  f"[model {MODEL}, max-turns {MAX_TURNS}, "
+                  f"[model {r_model}, max-turns {r_turns}, "
                   f"{len(REVIEW_TOOLS.split(','))} granted tools, worktree "
                   f"{os.path.join(WORKTREE_ROOT, f'kogaki-review-{n}-XXXX', 'tree')} "
                   f"detached at {head[:7]}] -> "
