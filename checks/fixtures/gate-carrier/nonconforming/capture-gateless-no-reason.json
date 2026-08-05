@@ -1,0 +1,10 @@
+{
+  "_fixture": "capture",
+  "rows": [
+    {
+      "stop_id": "stop-0002",
+      "gate_id": null
+    }
+  ],
+  "_expect": "CAPTURE_GATELESS_MISSING_REASON"
+}

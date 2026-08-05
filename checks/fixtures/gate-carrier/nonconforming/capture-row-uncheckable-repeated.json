@@ -1,0 +1,34 @@
+{
+  "_fixture": "capture",
+  "rows": [
+    {
+      "stop_id": "stop-0011",
+      "gate_id": "terrain-direction",
+      "evidence": {
+        "tool": "AskUserQuestion",
+        "tool_use_id": "toolu_01GateCarrier0001"
+      },
+      "payload": "the owner chose strand-b"
+    },
+    {
+      "stop_id": "stop-0012",
+      "gate_id": "terrain-direction",
+      "evidence": {
+        "tool": "AskUserQuestion",
+        "tool_use_id": "toolu_01GateCarrier0001"
+      },
+      "payload": "the owner chose strand-b"
+    },
+    {
+      "stop_id": "stop-0013",
+      "gate_id": "terrain-direction",
+      "evidence": {
+        "tool": "AskUserQuestion",
+        "tool_use_id": "toolu_01GateCarrier0001"
+      },
+      "payload": "the owner chose strand-b"
+    }
+  ],
+  "_expect_cannot_determine": true,
+  "_expect_repetition": 3
+}

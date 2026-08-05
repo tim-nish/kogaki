@@ -1,0 +1,62 @@
+{
+  "note": [
+    "The gate carrier, machine-readable (SPEC.md beside this file is the",
+    "prose half; kogaki#16, manifest item 4).",
+    "checks/check-gate-carrier.sh READS these lists rather than restating",
+    "them — this file is the single carrier, so amending the contract is",
+    "one edit and never a two-copy divergence. Same arrangement as",
+    "specs/spec-proposal-contract/record-schema.json, deliberately: item 3",
+    "and item 4 are adjacent contracts and share no machinery."
+  ],
+  "version": "1",
+  "hosts": {
+    "claude-code": {
+      "medium_must_be": "selector",
+      "affordance": "AskUserQuestion",
+      "binding": "topics/claude-code-ops.md:61@5f769dfe — RATIFIED as the rule's first named MEDIUM BINDING"
+    }
+  },
+  "media_forbidden_in_every_host": ["prose", "narration", "report-text"],
+  "gate": {
+    "required": ["id", "raised_by", "host", "medium", "question", "options", "free_text_offered", "fork"],
+    "options": {
+      "min": 1,
+      "required_per_option": ["id", "label"],
+      "preselection_keys_forbidden": ["default", "preselected", "pre_selected", "selected"]
+    },
+    "free_text_offered_must_be": true
+  },
+  "comparison": {
+    "required_when_fork": true,
+    "required": ["recommended", "overturned_by"],
+    "recommended_must_be_option_id": true,
+    "per_option_evidence_field": "evidence",
+    "carried_here": "structural presence only — a necessary condition, never sufficiency",
+    "sufficiency_routes_to": "the review lane's judgment half (kogaki#13, story 1.5): whether the attached evidence is the evidence bearing on the option, whether the overturning evidence would in fact overturn the recommendation, and whether the question reads as a gate beyond its named affordance"
+  },
+  "capture": {
+    "glob": "*.gate-capture.json",
+    "scope": "anywhere in the repository",
+    "rationale": "a default carrier, not an enumerated directory — an enumerated home leaves capture file N+1 uncovered by default",
+    "rows_key": "rows",
+    "row_required": ["stop_id", "gate_id"],
+    "gate_row_required": ["evidence", "payload"],
+    "evidence_required": ["tool", "tool_use_id"],
+    "evidence_tool_must_be": "AskUserQuestion",
+    "payload_required": ["options_offered", "free_text_offered", "answer"],
+    "payload_free_text_offered_must_be": true,
+    "payload_options_must_equal_registered_gate_options": true,
+    "gateless_row": {
+      "gate_id_is": null,
+      "required": ["no_gate_reason"],
+      "forbidden": ["evidence", "payload"],
+      "rationale": "every payload-capturing run produces one and no suite upstream held it (topics/claude-code-ops.md:14@5f769dfe); it is a legitimate row, never a violation and never a crash"
+    }
+  },
+  "reporting": {
+    "crash_is_not_a_finding": true,
+    "crash_code": "CANNOT_DETERMINE",
+    "repetition_disclosed": true,
+    "rationale": "a checker whose fallback message is phrased as its positive finding converts every internal error into a false accusation, and identical repeated output reads as accumulating evidence — the remedy has three parts (topics/claude-code-ops.md:14@5f769dfe)"
+  }
+}

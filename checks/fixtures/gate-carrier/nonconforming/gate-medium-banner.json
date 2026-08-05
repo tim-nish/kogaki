@@ -1,0 +1,20 @@
+{
+  "id": "terrain-direction",
+  "raised_by": "specs/spec-terrain/SPEC.md:76-86 — the owner's chosen direction",
+  "host": "claude-code",
+  "medium": "banner",
+  "question": "Which direction should the brief take?",
+  "options": [
+    {
+      "id": "strand-a",
+      "label": "The seam's staleness machinery"
+    },
+    {
+      "id": "strand-b",
+      "label": "The port manifest as an artifact"
+    }
+  ],
+  "free_text_offered": true,
+  "fork": false,
+  "_expect": "GATE_MEDIUM_VIOLATES_HOST_BINDING"
+}

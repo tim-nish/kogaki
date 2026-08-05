@@ -1,0 +1,24 @@
+{
+  "note": [
+    "The gate registry — the enumeration against which gate coverage is",
+    "measured (manifest item 4, specs/SPEC.md:99-101; kogaki#16).",
+    "An unregistered gate is the uncovered-by-default shape, so this file",
+    "is what makes a coverage claim mean anything: the number the check",
+    "prints is a fraction OF this list and of nothing else.",
+    "Deliberately NOT checks/registry.json, and the argument is mechanical",
+    "before it is philosophical: every entry there names a `file` that must",
+    "exist under checks/, and check-registry-conformance.sh fails any entry",
+    "that does not (checks/check-registry-conformance.sh:21-27). A gate is",
+    "not a file in checks/, so a gate row is a dangling entry by",
+    "construction. The admission record is check-loop economics too — tier,",
+    "runtime_ms, removal_signal — and a gate has no runtime and no loop",
+    "position. Merging would mean fabricating those fields or making them",
+    "optional, and an optional admission field is exactly the gap kogaki#6",
+    "was filed to close. Same coverage discipline, different admission",
+    "economics, so two artifacts.",
+    "Shape: specs/spec-gate-carrier/gate-schema.json. Contract:",
+    "specs/spec-gate-carrier/SPEC.md."
+  ],
+  "version": "1",
+  "gates": []
+}

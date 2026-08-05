@@ -1,0 +1,25 @@
+{
+  "id": "sequencing-fork",
+  "raised_by": "specs/SPEC.md:105-112 — the port ordering",
+  "host": "claude-code",
+  "medium": "selector",
+  "question": "Which subsystem ports first?",
+  "options": [
+    {
+      "id": "items-3-4-first",
+      "label": "Port items 3 and 4 ahead of Terrain",
+      "evidence": "Terrain's screens present selections, so both are preconditions (specs/spec-terrain/SPEC.md:19-22)"
+    },
+    {
+      "id": "terrain-first",
+      "label": "Port Terrain first with a minimal form of 3 and 4",
+      "evidence": "one PR instead of three; refused at the 2026-08-05 gate as the manifest's named failure mode"
+    }
+  ],
+  "free_text_offered": true,
+  "fork": true,
+  "comparison": {
+    "recommended": "items-3-4-first",
+    "overturned_by": "a Terrain implementation that demonstrably needs no selection surface — a navigation-only cut — would make the precondition vacuous and the ordering moot"
+  }
+}
