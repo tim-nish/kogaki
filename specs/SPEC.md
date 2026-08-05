@@ -144,6 +144,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
      This adds no computable obligation to the merge layer — the split's own
      test is unchanged, and whether a *delta* scope was appropriate stays the
      reviewer's judgment, which is the half that belongs in the lane.
+     **This clause is deliberately CARRIER-LESS, with a reopen trigger**, on
+     the same admissibility rule the "no open blocking findings" half below is
+     admitted under — carrier-less *by omission* is the defect, and a stated
+     policy may be carrier-less only when it says so and names what would
+     reopen it. Nothing mechanically verifies that a declared `delta` scope
+     was the honest one: a reviewer that declares `delta` and reads nothing is
+     indistinguishable at the gate from one that read the fix commits, which
+     is the same attestation problem clause 1's carrier-less half already
+     records one level down. A detector is declined here because the property
+     is *whether the declared scope matches the review actually performed*,
+     which is judgment rather than a computable fact over the record.
+     **Reopen trigger:** one PR whose round-2 report declared `delta` and
+     missed a defect that lay inside the fix commits it claimed to cover.
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
