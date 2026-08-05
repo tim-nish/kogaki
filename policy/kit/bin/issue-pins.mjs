@@ -41,6 +41,23 @@ const pinTokens = [...body.matchAll(/([\w.\/:-]*)@([0-9a-f]{7,40})\b/g)].map((m)
 }));
 const pins = [...new Set(pinTokens.map((p) => p.sha))];
 
+// The child's one degrade line, recovered from whichever stream carried it.
+//
+// ONE line is the contract — install-test.sh asserts the one-line shape for
+// gateway-query itself and now for both of this file's entry points — so a
+// multi-line capture is REDUCED to the line that matters rather than forwarded
+// whole. A capture holding nothing usable still yields a line, because silence
+// is the defect being repaired and a fallback that stayed quiet would
+// reintroduce it at the one moment it is hardest to diagnose.
+function degradeLine(e) {
+  const captured = `${e.stdout ?? ""}\n${e.stderr ?? ""}`;
+  const line = captured
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.startsWith("policy_source unavailable:"));
+  return line ?? "policy_source unavailable: gateway exited 11 without a reason line";
+}
+
 function currentPin() {
   // Any lookup returns the served pin; the question exists only to satisfy the
   // tool's schema and is deliberately generic.
@@ -54,8 +71,20 @@ function currentPin() {
     const m = out.match(/"pin"\s*:\s*"([^"]+)"/) ?? out.match(/pin:\s*(\S+)/);
     return m ? m[1] : null;
   } catch (e) {
-    // gateway-query already printed its one unavailable line on exit 11.
-    if (e.status === 11) process.exit(11);
+    // FORWARD the child's line rather than merely honouring its exit code.
+    //
+    // gateway-query DOES write its one `policy_source unavailable:` line — but
+    // execFileSync above passes `{ encoding: "utf8" }`, which CAPTURES the
+    // child's stdout into this process instead of letting it through. The line
+    // therefore landed in a buffer the old code discarded, and a caller saw
+    // exit 11 with empty output: indistinguishable from a silent internal
+    // failure, which is the one thing a documented degrade path exists to
+    // prevent. The line had a writer and no DELIVERY, failing toward silence
+    // exactly as an unwritten input would (kogaki#54).
+    if (e.status === 11) {
+      console.log(degradeLine(e));
+      process.exit(11);
+    }
     console.log(`policy_source unavailable: ${String(e.message ?? e).slice(0, 120)}`);
     process.exit(11);
   }

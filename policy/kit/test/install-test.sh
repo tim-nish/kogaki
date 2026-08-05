@@ -66,17 +66,32 @@ OUT=$(TSUREZURE_GATEWAY_JS=/nonexistent/gw.js \
 CODE=$?
 set -e
 [[ $CODE -eq 11 ]] || fail "unreachable gateway on a deferred body exited $CODE, want 11 (degrade must not become a block)"
-#     Asserting the EXIT CODE and not the line, deliberately. Writing this test
-#     found that `issue-pins.mjs` prints NOTHING on exit 11: it runs
-#     gateway-query through execFileSync with an encoding, which CAPTURES the
-#     child's stdout, so the one degrade line the file's own header promises
-#     ("11 gateway unavailable (one line printed)") is swallowed on both the
-#     validate and recheck paths. That is a defect against story 1.4's kit
-#     contract rather than this story's, and fixing it here would widen a
-#     story-1.11 diff into a kit change no issue licenses — so it is reported,
-#     not repaired, and this assertion states what the code actually
-#     guarantees today instead of a line that never arrives.
-echo "ok: deferred-consult refusal never overrides the gateway degrade (exit 11)"
+[[ $(printf '%s\n' "$OUT" | wc -l) -eq 1 ]] || fail "recheck degrade printed more than one line: $OUT"
+printf '%s' "$OUT" | grep -q '^policy_source unavailable:' \
+  || fail "recheck exited 11 without the promised degrade line: $OUT"
+echo "ok: deferred-consult refusal never overrides the gateway degrade (one line, exit 11)"
+
+# 4c. The SAME assertion on the other entry point (kogaki#54). Both paths reach
+#     the gateway through one helper, so both owe the header's promise ("11
+#     gateway unavailable — one line printed"). This case exists because the
+#     defect it guards was invisible for exactly as long as the contract lived
+#     in a comment: `issue-pins.mjs` captured the child's stdout through
+#     execFileSync's `encoding` and exited 11 having printed nothing, so a
+#     consumer could not tell an honest degrade from a silent crash. A standing
+#     exercise on both paths is what makes that a regression rather than a
+#     rediscovery.
+printf 'Policy pins: product-lab@0123abcdef01\n' > "$TMP/pinned.md"
+set +e
+OUT=$(TSUREZURE_GATEWAY_JS=/nonexistent/gw.js \
+      node "$KIT_DIR/bin/issue-pins.mjs" --validate-body "$TMP/pinned.md" \
+      --consumer kit-test --gateway /nonexistent/gw.js 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "validate-body with an unreachable gateway exited $CODE, want 11"
+[[ $(printf '%s\n' "$OUT" | wc -l) -eq 1 ]] || fail "validate-body degrade printed more than one line: $OUT"
+printf '%s' "$OUT" | grep -q '^policy_source unavailable:' \
+  || fail "validate-body exited 11 without the promised degrade line: $OUT"
+echo "ok: validate-body degrade (one line, exit 11)"
 
 # 5. Skill is installed where the harness loads it, with frontmatter.
 SKILL="$TMP/repo/.claude/skills/consult-first/SKILL.md"
