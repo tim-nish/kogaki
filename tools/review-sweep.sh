@@ -233,11 +233,17 @@ for pr in prs:
         counts['external'] = counts.get('external', 0) + 1
         continue
     try:
-        bodies = subprocess.run(
-            ["gh", "pr", "view", str(n), "--json", "comments",
-             "-q", ".comments[].body"],
+        raw = subprocess.run(
+            ["gh", "pr", "view", str(n), "--json", "comments"],
             capture_output=True, text=True, check=True).stdout
-    except subprocess.CalledProcessError:
+        # Trusted authors only (kogaki#56): an author-blind parse would let a
+        # fork-PR commenter spoof a report into the state machine, or hold a
+        # PR at author-owes with a foreign `blocking open`. Same `allowed`
+        # set the eligibility test above already computes.
+        bodies = "\n".join(
+            (c.get("body") or "") for c in json.loads(raw).get("comments", [])
+            if ((c.get("author") or {}).get("login") or "") in allowed)
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
         print(f"  #{n}: FAIL could not read comments — not treated as 'no report'")
         counts['unestablished'] = counts.get('unestablished', 0) + 1
         continue
