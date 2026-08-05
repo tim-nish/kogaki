@@ -106,6 +106,24 @@ subsystem per PR through the gate above:
 7. **Review** — findings-only, one dimension: conformance to the named
    contract, citing the clause; plus the citation resolve check.
 
+**The list is a manifest, not an order — except where a member's contract
+depends on another's** (kogaki#14, 2026-08-05). Terrain's screens present
+selections, so item 1 is sequenced **after** items 3 and 4: the owner-facing
+proposal contract and the gate carrier port first, each as its own PR with
+its own contract. The alternative — folding a "minimal form" of 3 and 4 into
+the Terrain port — is refused, because admitting a subsystem without its
+contract is the manifest's own named failure mode:
+
+> "the PORT MANIFEST is the load-bearing artifact: a subsystem is admitted
+> with its contract, or its defect class returns. … A rebuild's failure mode
+> is never that it fails but that it succeeds at everything except the
+> subsystems nobody remembered were carrying a contract"
+
+`consulted: product-lab@924cce3b5fd2b3b17f906caa2b0c2f6a332003a6 topics/knowledge-architecture.md:27`
+
+No other member is sequenced here. A later port declaring its own precondition
+amends this clause rather than inventing a second ordering carrier.
+
 Explicitly **not** ported: probe, harvest and fact sheets, the sources
 gate, the provenance map/judge, the interview's depth and audience mandated
 asks (their questions re-site to the Brief or to platform-profile
