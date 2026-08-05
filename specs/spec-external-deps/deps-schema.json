@@ -1,0 +1,67 @@
+{
+  "note": [
+    "The external-dependency carrier, machine-readable (SPEC.md beside this",
+    "file is the prose half; kogaki#55).",
+    "checks/check-external-deps.sh READS these lists rather than restating",
+    "them — this file is the single carrier, so amending the contract is one",
+    "edit and never a two-copy divergence. Same arrangement as",
+    "specs/spec-gate-carrier/gate-schema.json and",
+    "specs/spec-proposal-contract/record-schema.json, deliberately.",
+    "",
+    "The enumeration itself lives in deps/registry.json. This file says what",
+    "an entry must LOOK like; it never says which capabilities exist."
+  ],
+  "version": "1",
+  "registry_path": "deps/registry.json",
+  "entry": {
+    "required": [
+      "id",
+      "capability",
+      "needed_by",
+      "verification",
+      "absence_signature",
+      "license"
+    ],
+    "needed_by": {
+      "min": 1,
+      "rationale": "a capability nothing needs is not a dependency; a non-empty consumer list is what makes a stale entry removable rather than permanent"
+    },
+    "verification": {
+      "required": ["decidable"],
+      "when_decidable": {
+        "required": ["command", "answers"],
+        "answers_is": "the question the command's output settles, in one line"
+      },
+      "when_not_decidable": {
+        "required": ["reason"],
+        "reason_must_be_nonempty": true,
+        "rationale": "SPEC.md §3 — a typed 'none: <why>' is a first-class value and evidence; an omitted field is not. A partial audit reporting only its positives is indistinguishable from a complete one."
+      }
+    },
+    "absence_signature_must_be_nonempty": true
+  },
+  "fallback": {
+    "non_member": "report-only",
+    "forbidden": "admit-silently",
+    "rationale": "SPEC.md §4 — dependency N+1 is uncovered by any enumeration; what is avoidable is its being uncovered SILENTLY. product-lab@ed47fbd3 LESSONS.md:103."
+  },
+  "check_semantics": {
+    "fails_on": [
+      "an entry missing a required field",
+      "an empty needed_by",
+      "a verification block whose decidable flag disagrees with the fields present",
+      "an empty verification.reason on a non-decidable entry",
+      "an empty absence_signature",
+      "a registry file that does not parse"
+    ],
+    "never_fails_on": [
+      "an unmet dependency — a decidable verification that reports absent"
+    ],
+    "rationale": "SPEC.md §5 — conformance is the check's subject; whether the world currently satisfies a dependency is a report. Same split as checks/registry.json's consult-receipts entry: 'Fails only on a malformed receipt, never on the count.'",
+    "renders_explicitly": [
+      "each decidable verification's result, present or absent",
+      "each non-decidable entry's reason, rather than omitting the row",
+      "an empty registry's zero — the carrier may port ahead of its first entry, and a silent pass would be indistinguishable from a check that did not run"
+    ]
+  }
+}

@@ -66,6 +66,20 @@ invariant: Gukan guarantees Unit schema, never data schema).
   named defect it caught or the contract it uniquely carries, plus the
   licensing issue. An unregistered check file is dead code found by one meta
   check. Admission also declares the check's **removal signal** at birth.
+- **External-dependency registry** (`deps/registry.json`): the capabilities
+  this repository **needs but cannot install** — a spawned session's tool
+  grants, a repository setting, a user-level hook's install state — declared
+  rather than assumed. Each entry names the acts that break without it, **the
+  read that decides presence** where one is decidable (and a typed
+  `none: <why>` where none is), and **the signature its absence leaves
+  behind** — the field that converts an unexplained stall into a recognised
+  one. An unmet dependency is **reported, never gated**: the check fails on a
+  malformed entry, never on a world that currently fails to satisfy one. A
+  capability outside the enumeration is surfaced **report-only with its
+  reason** — the non-member fallback is the load-bearing half, because
+  dependency N+1 escapes any enumeration and only its escaping *silently* is
+  avoidable. Contract at `specs/spec-external-deps/SPEC.md`, machine-readable
+  shape at `specs/spec-external-deps/deps-schema.json` (kogaki#55).
 - **PR gate, split by property type:** the mechanical half (change licensed
   by a named issue; new checks carry admission records; registry
   conformance; **a touched consultation-map boundary has a receipt**) runs
