@@ -39,6 +39,17 @@
         "runtime_ms": 6336,
         "removal_signal": "the kit's separation into its own repository (fires on a second installing consumer, per kogaki#9) — the test goes with it and this repo stops being its home"
       }
+    },
+    {
+      "id": "proposal-contract",
+      "file": "check-proposal-contract.sh",
+      "admission": {
+        "contract": "the owner-facing proposal contract as a record shape (manifest item 3, specs/SPEC.md:97-98): Where/Why with the computed premise's negation offered as a first-class option, machine-proposed options plus an UNCONDITIONAL free-text override, payload capture (options offered + answer, never the answer alone), and the non-member fallback of specs/spec-terrain/SPEC.md:76-86 — an act in neither the navigation nor the proposal list is a report, never a silent classification. Carries the effect-stating property's FORM floor only and says so in its own output; sufficiency is judgment and routes to kogaki#13",
+        "license": "kogaki#14 (story 1.6); kogaki#15",
+        "tier": "pre-push",
+        "runtime_ms": 80,
+        "removal_signal": "a second consumer whose proposals differ in shape from Terrain's — the record schema was specced against one implementation, so a second one is the evaluation of the shape, not a widening of it: either the schema generalizes (and this check moves to it) or the contract splits per consumer and this file, which validates a single shape, is the wrong carrier"
+      }
     }
   ]
 }

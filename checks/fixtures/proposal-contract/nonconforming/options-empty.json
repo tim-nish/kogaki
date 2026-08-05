@@ -1,0 +1,14 @@
+{
+  "id": "trim-off-direction-strands",
+  "kind": "proposal",
+  "act": "trim",
+  "where": "the 41 Strands tagged claude-code-ops in the current candidate set",
+  "why": "29 of the 41 carry no Journey relation to the chosen direction — the machine's premise, rendered so it can be denied",
+  "label": "Drop 29 Strands from the working set, leaving 12 to compose from",
+  "options": [],
+  "free_text": {
+    "accepted": true,
+    "prompt": "Or say in your own words which Strands to keep. This channel is always open, whatever the options above look like."
+  },
+  "_expect": "OPTIONS_EMPTY"
+}

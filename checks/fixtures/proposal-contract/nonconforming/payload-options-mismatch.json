@@ -1,0 +1,40 @@
+{
+  "id": "rank-by-recontextualizing-power",
+  "kind": "proposal",
+  "act": "rank",
+  "where": "the 12 Strands surviving the trim",
+  "why": "four Strands were rated as recontextualizing the chosen direction; the machine's premise is that recency is the weaker axis here",
+  "label": "Put the 4 recontextualizing Strands first and demote the rest to a tail",
+  "options": [
+    {
+      "id": "rank-power",
+      "label": "Order by recontextualizing power"
+    },
+    {
+      "id": "rank-recency",
+      "label": "Order by date, newest first"
+    },
+    {
+      "id": "rank-none",
+      "label": "No ordering — the set stands unranked",
+      "negates_premise": true
+    }
+  ],
+  "free_text": {
+    "accepted": true,
+    "prompt": "Or state the ordering you want in your own words."
+  },
+  "answer": {
+    "answered_at": "2026-08-05",
+    "payload": {
+      "options_offered": [
+        "rank-power"
+      ],
+      "free_text_offered": true,
+      "answer": {
+        "option": "rank-power"
+      }
+    }
+  },
+  "_expect": "PAYLOAD_OPTIONS_MISMATCH"
+}
