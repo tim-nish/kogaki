@@ -75,7 +75,9 @@ cd "$(dirname "$0")/.."
 
 PR_NUMBER="${REVIEW_PR_NUMBER:-}"
 HEAD_SHA="${REVIEW_HEAD_SHA:-}"
-COMMENTS="${REVIEW_PR_COMMENTS:-}"
+COMMENTS="${REVIEW_PR_COMMENTS:-}"   # pre-trusted bodies (test injection route)
+COMMENTS_JSON=""                      # authored comments, filtered before parse
+TRUSTED_OWNER="${REVIEW_TRUSTED_OWNER:-}"
 
 # THE THIRD VALUE IS EARNED BY EVIDENCE, not reached by falling through.
 # CANNOT-DETERMINE is for one state only: a lookup that SUCCEEDED and
@@ -129,9 +131,25 @@ if [ "$substrate" = "ok" ] && [ -n "$PR_NUMBER" ]; then
       HEAD_SHA=""
     fi
   fi
-  if [ -z "$COMMENTS" ] && command -v gh >/dev/null 2>&1; then
-    COMMENTS="$(gh pr view "$PR_NUMBER" --json comments \
-                -q '.comments[].body' 2>/dev/null || true)"
+  # Comments are fetched WITH their authors, and only trusted authors'
+  # comments carry reports or findings (kogaki#56): on a public repository
+  # anyone can comment, so an author-blind parse lets a fork-PR author spoof
+  # presence with a hand-written report token — or hold a PR hostage with a
+  # foreign `blocking open` line. Trusted = the repository owner plus
+  # pipeline.json's merge_author_allowlist — the merge-eligibility rule's
+  # SOURCES, copied as sources rather than as a login (the PR #46 lesson).
+  if [ -z "$COMMENTS_JSON" ] && command -v gh >/dev/null 2>&1; then
+    COMMENTS_JSON="$(gh pr view "$PR_NUMBER" --json comments 2>/dev/null || true)"
+  fi
+  if [ -n "$COMMENTS_JSON" ] || [ -n "$COMMENTS" ]; then
+    if [ -z "$TRUSTED_OWNER" ] && command -v gh >/dev/null 2>&1; then
+      TRUSTED_OWNER="$(gh repo view --json owner -q .owner.login 2>/dev/null || true)"
+    fi
+    if [ -n "$COMMENTS_JSON" ] && [ -z "$TRUSTED_OWNER" ]; then
+      substrate="unestablished"
+      substrate_note="comments exist but the repository owner could not be
+ resolved, and report trust is computed against it (kogaki#56)"
+    fi
   fi
   if [ -z "$HEAD_SHA" ]; then
     substrate="unestablished"
@@ -141,8 +159,9 @@ if [ "$substrate" = "ok" ] && [ -n "$PR_NUMBER" ]; then
 fi
 
 REVIEW_PR="$PR_NUMBER" REVIEW_HEAD="$HEAD_SHA" REVIEW_BODIES="$COMMENTS" \
+REVIEW_COMMENTS_JSON="$COMMENTS_JSON" REVIEW_OWNER="$TRUSTED_OWNER" \
 REVIEW_NOTE="$substrate_note" REVIEW_SUBSTRATE="$substrate" python3 <<'EOF'
-import os, re, sys
+import json, os, re, sys
 
 # A report's first line, fixed token and fixed position — the same discipline
 # the consult receipt carries, and for the same reason: a report announced in
@@ -220,6 +239,28 @@ def find_report(bodies, head):
     return 'stale', shas
 
 
+def trusted_bodies(comments, allowed):
+    """Concatenate only trusted authors' comment bodies (kogaki#56).
+
+    On a public repository anyone can comment, so an author-blind parse lets
+    a fork-PR author SPOOF presence with a hand-written report token — or
+    hold a hostage with a foreign `blocking open` line. Trust = the repo
+    owner plus the merge allowlist, the merge-eligibility rule's sources.
+    Returns (bodies, spoof_shaped) where spoof_shaped lists untrusted logins
+    whose dropped comments carried report or finding tokens — reported, not
+    counted, because a silent drop of a spoof-shaped comment reads as no
+    spoof having been attempted."""
+    kept, spoof = [], set()
+    for c in comments or []:
+        login = ((c.get('author') or {}).get('login')) or ''
+        body = c.get('body') or ''
+        if login in allowed:
+            kept.append(body)
+        elif REPORT.search(body) or FINDING.search(body):
+            spoof.add(login or '<unknown>')
+    return "\n".join(kept), sorted(spoof)
+
+
 # ---------------------------------------------------------------------------
 # Fixture pass — discrimination evidence, run every invocation and needing no
 # network, because a check whose only exercise is the live path is untested
@@ -287,6 +328,42 @@ print(f"fixture pass: {len(FIXTURES)}/{len(FIXTURES)} discrimination cases "
       "(present / absent / stale / head-unknown / blocked / "
       "severity-below-blocking / prose-vs-field)")
 
+# --- trust assembly fixtures (kogaki#56): author-filtering, both directions.
+OWN = 'repo-owner'
+TRUST_FIX = [
+    ("a foreign-author report is not presence",
+     [{'author': {'login': 'hostile-bot'}, 'body': f"review-lane report: {HEAD}"}],
+     {OWN}, HEAD, 'absent', ['hostile-bot']),
+    ("a trusted-author report is presence",
+     [{'author': {'login': OWN}, 'body': f"review-lane report: {HEAD}"}],
+     {OWN}, HEAD, 'present', []),
+    ("a foreign blocking finding cannot hold a trusted clean report hostage",
+     [{'author': {'login': OWN}, 'body': f"review-lane report: {HEAD}"},
+      {'author': {'login': 'hostile-bot'},
+       'body': f"review-lane report: {HEAD}\nfinding: blocking open  fake"}],
+     {OWN}, HEAD, 'present', ['hostile-bot']),
+    ("an allowlisted author counts like the owner",
+     [{'author': {'login': 'teammate'}, 'body': f"review-lane report: {HEAD}"}],
+     {OWN, 'teammate'}, HEAD, 'present', []),
+    ("a foreign chatty comment is neither counted nor flagged",
+     [{'author': {'login': 'passerby'}, 'body': "nice work!"}],
+     {OWN}, HEAD, 'absent', []),
+]
+trust_bad = []
+for name, comments, allowed, head_fx, want_state, want_spoof in TRUST_FIX:
+    bodies_fx, spoof_fx = trusted_bodies(comments, allowed)
+    got_state, _ = find_report(bodies_fx, head_fx)
+    if got_state != want_state or spoof_fx != want_spoof:
+        trust_bad.append(f"{name}: got ({got_state!r}, {spoof_fx}), "
+                         f"want ({want_state!r}, {want_spoof})")
+if trust_bad:
+    print("FAIL fixture pass — the trust assembly does not discriminate:")
+    for f in trust_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print(f"trust pass: {len(TRUST_FIX)}/{len(TRUST_FIX)} author-filter cases "
+      "(foreign-report-spoof / trusted / hostage-inverse / allowlist / chatty)")
+
 # ---------------------------------------------------------------------------
 # The live pass.
 # ---------------------------------------------------------------------------
@@ -310,14 +387,39 @@ if substrate == 'unestablished':
           "not look' is not evidence that there was nothing to see.")
     sys.exit(1)
 
-state, shas = find_report(os.environ.get("REVIEW_BODIES", ""), head)
+# Assemble the trusted bodies (kogaki#56): authored comments filtered to the
+# repo owner + pipeline.json's merge_author_allowlist; the REVIEW_BODIES
+# injection route stays as pre-trusted test input.
+bodies = os.environ.get("REVIEW_BODIES", "")
+raw_json = os.environ.get("REVIEW_COMMENTS_JSON", "")
+if raw_json.strip():
+    allowed = {os.environ.get("REVIEW_OWNER", "")} - {""}
+    try:
+        with open(".claude/pipeline.json") as f:
+            allowed.update(json.load(f).get("merge_author_allowlist", []))
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    try:
+        comments = json.loads(raw_json).get("comments", [])
+    except json.JSONDecodeError:
+        print("FAIL could not establish the substrate: the comments payload "
+              "did not parse — not treated as 'no comments'.")
+        sys.exit(1)
+    trusted, spoof_shaped = trusted_bodies(comments, allowed)
+    bodies = (bodies + "\n" + trusted) if bodies else trusted
+    for login in spoof_shaped:
+        print(f"NOTE: a report/finding-shaped comment from untrusted author "
+              f"{login!r} was excluded — spoof-shaped, reported not counted "
+              "(kogaki#56; trust = repo owner + merge_author_allowlist).")
+
+state, shas = find_report(bodies, head)
 if state == 'head-unknown':
     print(f"FAIL: PR #{pr} carries a review-lane report, but this run could "
           "not establish which head it should name. The head is part of "
           "presence, so an unknown head is not a pass.")
     sys.exit(1)
 if state == 'blocked':
-    blocking = open_blocking(os.environ.get("REVIEW_BODIES", ""), head)
+    blocking = open_blocking(bodies, head)
     print(f"FAIL: PR #{pr} has a review-lane report for head {head[:7]}, but "
           f"{len(blocking)} finding(s) are declared blocking and still open. "
           "The property is CONVERGED or escalated, not reviewed-once "
