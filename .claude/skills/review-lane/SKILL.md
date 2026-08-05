@@ -209,8 +209,11 @@ Findings are emitted as declared fields, one line each, in the same PR comment
 as the report:
 
 ```
-finding: <blocking|should|nit> <open|resolved>  <the finding>
+finding: <blocking|should|nit> <open|resolved> [policy: <pin> | harm: <one line>]  <the finding>
 ```
+
+The `[policy:|harm:]` justification is REQUIRED for a `blocking` to gate
+(kogaki#72) and carried on no other severity.
 
 - **The merge check reads the two fields and never the prose.** Whether a
   finding *is* blocking is your judgment; whether the PR *contains* an open
@@ -218,6 +221,29 @@ finding: <blocking|should|nit> <open|resolved>  <the finding>
   test, not an exception to it.
 - **`blocking` gates; `should` and `nit` do not.** Marking something blocking
   is a decision to stop a merge — make it deliberately.
+
+**Blocking is a budget, not a severity feeling (kogaki#72, owner ruling
+2026-08-06).** This lane is a policy check and a critical-issue filter, not a
+perfection machine: the single-pass merge is the norm, a second loop is
+exceptional, and a park is a measured pipeline defect against a ~1-in-100
+budget. Exactly three classes may block, and nothing else:
+
+1. the merge would **violate or propagate a ratified position** where
+   post-merge repair is costly — a spec clause consumers are born on, a
+   served-vocabulary divergence, a security boundary, gate integrity
+   (`[policy: <pin>]` names the position);
+2. the diff **breaks the pipeline's own checks** (`[harm: …]` names the
+   breakage);
+3. **unlicensed scope** — work no named issue authorizes.
+
+Everything else — quality, design preference, latent contradictions, missing
+niceties, one-token conformance gaps whose omission harms nobody before a
+follow-up lands — is `should` or `nit`, non-gating, with a follow-up filed
+where one is owed. An unjustified `blocking` does not gate: the merge check
+downgrades it to `should` by name, failing toward merge. **If you are unsure
+whether a finding is blocking, it is not.** Where the total blocking remedy is
+mechanical and tiny, say so in the finding ("remedy: one token") so the fix
+round is as small as the defect.
 - Prose describing a finding as blocking, without the field, does **not**
   gate. The field is the record; the prose is for the reader.
 

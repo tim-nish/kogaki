@@ -1,3 +1,5 @@
 # Machine-local state never enters the tree (founding spec riders; the
 # committed device-id on PR #44 is the miss that earned this carrier).
 .local/
+__pycache__/
+*.pyc
