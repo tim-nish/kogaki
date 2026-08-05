@@ -85,6 +85,23 @@
 # and each addition to the served surface owes an edit here, which the
 # fallback above is what makes survivable.
 #
+# EVERY PATTERN HERE WAS EXERCISED, NOT INFERRED — and the first attempt shipped
+# a dead one (PR #67 review, round 1). `Bash(bash checks/:*)` looks obviously
+# correct and is DENIED: a trailing path fragment is not a prefix the matcher
+# accepts, so the reviewer could not run a single check, and because the receipt
+# report has exactly two admissible sources — the check itself, or `gh run view`
+# — and the second was ungranted too, BOTH paths were closed and the review's
+# dimension 2 was forced to cannot-determine. Verified headless, one command per
+# pattern shape: `Bash(bash checks/:*)` DENIED, `Bash(bash:*)` ALLOWED,
+# `Bash(git log:*)` ALLOWED, `Bash(gh run:*)` ALLOWED.
+#
+# `Bash(bash:*)` rather than an enumeration of check files is deliberate and is
+# the same ruling as above one level down: enumerating the checks would leave
+# check N+1 ungranted by default, which is this file's own defect class. The
+# containment is elsewhere and is structural — an external PR is never spawned
+# against at all (the frontier is composed, not filtered), so the scripts a
+# reviewer can reach are the ones an eligible author already merged or proposed.
+#
 # The cap is the half with a served position behind it: "an agent system that
 # lets one instruction spawn unbounded parallel work is missing a budget
 # mechanism; caps are architecture (config + gates), not prompt hygiene"
@@ -218,8 +235,8 @@ REVIEW_LOG_DIR="${KOGAKI_REVIEW_LOG_DIR:-$HOME/.kogaki/reviews}"
 # and the user-level merge deny must stay meaningful.
 REVIEW_TOOLS="${KOGAKI_REVIEW_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr list:*),\
-Bash(gh issue view:*),Bash(gh pr comment:*),Bash(bash checks/:*),Bash(git log:*),\
-Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,\
+Bash(gh issue view:*),Bash(gh pr comment:*),Bash(gh run:*),Bash(bash:*),\
+Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,\
 mcp__tsurezure__policy_lookup,mcp__tsurezure__gloss_index,\
 mcp__tsurezure__glossary_entry,mcp__tsurezure__topic_thread,\
 mcp__tsurezure__element_survey,mcp__tsurezure__surface_names,\
@@ -363,9 +380,23 @@ def denied_tools(log_path):
         return []
     labels = []
     for blob in re.findall(r'"permission_denials":\s*\[(.*?)\]\s*[,}]', raw, re.S):
-        for name, cmd in re.findall(
-                r'"tool_name":\s*"([^"]*)".*?(?:"command":\s*"([^"]*)")?', blob):
-            label = name if not cmd else f"{name}({cmd.split()[0:3] and ' '.join(cmd.split()[:3])})"
+        # Each denial is scanned from its own `tool_name` up to the NEXT one,
+        # so a `command` is attributed to the entry it belongs to. The first
+        # form of this — a lazy `.*?` followed by an OPTIONAL command group —
+        # could never populate the command: an optional group after a lazy
+        # quantifier matches empty at the first position tried, so every label
+        # collapsed to the bare tool name and the stall comment said `Bash`
+        # where the operator needed `Bash(gh pr view ...)` (PR #67 review).
+        for entry in re.findall(
+                r'"tool_name":\s*"([^"]*)"((?:(?!"tool_name").)*)', blob, re.S):
+            name, rest = entry
+            cmd = re.search(r'"command":\s*"([^"]*)"', rest)
+            if cmd:
+                # First three words: enough to name the act, short enough that
+                # a comment listing several denials stays readable.
+                label = f"{name}({' '.join(cmd.group(1).split()[:3])})"
+            else:
+                label = name
             if label and label not in labels:
                 labels.append(label)
     return labels
@@ -675,7 +706,27 @@ for pr in prs:
                       "(comment read failed) — not counted as reviewed")
                 counts['unverified'] = counts.get('unverified', 0) + 1
             else:
-                counts['report-landed'] = counts.get('report-landed', 0) + 1
+                # A REPORT IS NOT PROOF THE REVIEW WAS UNDEGRADED (PR #67
+                # review, round 1). The first form of this fallback fired only
+                # on TOTAL artifact absence, so a session denied a tool that
+                # worked around it and reported anyway left a GREEN GATE OVER A
+                # SILENT HOLE — the exact shape the grant enumeration's
+                # non-member fallback exists to prevent, surviving on the
+                # partial-denial path because the trigger condition was
+                # narrower than the failure class it was declared to cover.
+                # The denial list is primary capture; report it whenever it is
+                # non-empty, whatever else the session achieved.
+                denials = denied_tools(log_path)
+                if denials:
+                    print(f"  #{n}: report landed, but the session was denied: "
+                          f"{', '.join(denials)}")
+                    post_stall_comment(
+                        n, head, log_path,
+                        "the report landed, but the session was denied tools "
+                        "and the review may be degraded", denials)
+                    counts['report-degraded'] = counts.get('report-degraded', 0) + 1
+                else:
+                    counts['report-landed'] = counts.get('report-landed', 0) + 1
         else:
             # The dry run names the policy it WOULD spawn under. A preview that
             # withheld the model and the cap would leave the operator checking
