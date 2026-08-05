@@ -677,12 +677,17 @@ for pr in prs:
                   "driver does not spawn a fix it cannot get reviewed.")
             # Every park is a measured pipeline defect (kogaki#72): the
             # postmortem stub rides the PR where the park is announced.
-            subprocess.run(["gh", "pr", "comment", str(n), "--body",
+            r = subprocess.run(["gh", "pr", "comment", str(n), "--body",
                             f"park-postmortem: {MAX_ROUNDS} rounds spent, "
                             f"justified blocking findings still open at {head[:7]} "
                             "— class: unresolved-blocking. A park is a pipeline "
                             "defect measured against the 1-in-100 budget "
                             "(kogaki#72); owner decision owed."], check=False)
+            if r.returncode != 0:
+                print(f"  #{n}: FAIL park-postmortem post exited {r.returncode} "
+                      "— the park stands but its stub did not reach the PR; "
+                      "posting it by hand is owed (PR #73 review, round 1).")
+                spawn_failures += 1
             counts['park'] = counts.get('park', 0) + 1
         elif mode == 'spawn':
             # Numbered by the round whose findings it answers, not by the round
@@ -712,12 +717,17 @@ for pr in prs:
         print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent and {head[:7]} is "
               "still unreviewed. §4 clause 3: this is an owner decision, "
               "never a third round.")
-        subprocess.run(["gh", "pr", "comment", str(n), "--body",
+        r = subprocess.run(["gh", "pr", "comment", str(n), "--body",
                         f"park-postmortem: {MAX_ROUNDS} rounds spent and {head[:7]} "
                         "is still unreviewed — class: unreviewed-head (a push "
                         "landed after the final round). A park is a pipeline "
                         "defect measured against the 1-in-100 budget (kogaki#72); "
                         "owner decision owed."], check=False)
+        if r.returncode != 0:
+            print(f"  #{n}: FAIL park-postmortem post exited {r.returncode} "
+                  "— the park stands but its stub did not reach the PR; "
+                  "posting it by hand is owed (PR #73 review, round 1).")
+            spawn_failures += 1
     else:
         rnd = state.rsplit('-', 1)[1]
         if mode == 'spawn':
