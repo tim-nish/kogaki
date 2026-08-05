@@ -46,6 +46,14 @@
 # than counted — `proposals-carry-the-state-they-were-computed-against` applied
 # to the reviewing act.
 #
+# FINDINGS BIND TO THEIR REPORT SEGMENT (PR #44 review, round 1). An
+# unsegmented union of all comments let a round-1 `blocking open` deadlock
+# every later round: clearing it would have required editing the round-1
+# comment, which §4 clause 4 (every round leaves its record) forbids in
+# spirit. Only findings under a report naming the CURRENT head gate; a stale
+# segment's findings are that round's record, not this head's state — a new
+# round supersedes by writing a new report, never by mutating an old one.
+#
 # THREE-VALUED, AND THE THIRD VALUE IS EARNED BY EVIDENCE. Exactly one state
 # is CANNOT-DETERMINE: a lookup that SUCCEEDED and established there is no pull
 # request. `gh` missing, a failed call, or a PR whose head will not resolve are
@@ -151,11 +159,42 @@ FINDING = re.compile(
     r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b', re.MULTILINE)
 
 
-def open_blocking(bodies):
-    """Findings declared `blocking` and still `open`. Reads the declared
-    severity and state fields only — never the finding's prose."""
-    return [m.group(0).strip() for m in FINDING.finditer(bodies or '')
-            if m.group(1) == 'blocking' and m.group(2) == 'open']
+def segments(bodies):
+    """Split the concatenated comment bodies into REPORT SEGMENTS: each
+    report line opens a segment holding the finding lines after it, up to
+    the next report line. Findings before any report belong to no segment.
+
+    Segmentation is what makes the rally converge (PR #44 review, round 1):
+    an unsegmented union let a round-1 `blocking open` deadlock every later
+    round — clearing it would have required editing the round-1 comment,
+    which §4 clause 4 (every round leaves its record) forbids in spirit. A
+    stale segment's findings are that round's RECORD, never this head's
+    state; a new round supersedes by writing a new report, not by mutating
+    an old one."""
+    segs = []
+    current = None
+    for line in (bodies or '').splitlines():
+        r = REPORT.match(line)
+        if r:
+            current = {'sha': r.group(1), 'findings': []}
+            segs.append(current)
+            continue
+        f = FINDING.match(line)
+        if f and current is not None:
+            current['findings'].append((f.group(1), f.group(2), line.strip()))
+    return segs
+
+
+def open_blocking(bodies, head):
+    """Findings declared `blocking` and still `open`, in segments whose
+    report names the CURRENT head only. Reads the declared severity and
+    state fields — never the finding's prose."""
+    out = []
+    for seg in segments(bodies):
+        if head and (head.startswith(seg['sha']) or seg['sha'].startswith(head)):
+            out.extend(line for sev, state, line in seg['findings']
+                       if sev == 'blocking' and state == 'open')
+    return out
 
 
 def find_report(bodies, head):
@@ -167,7 +206,7 @@ def find_report(bodies, head):
     one finding declared blocking and still open — the converged half of
     converged-or-escalated (specs/SPEC.md §4, kogaki#34).
     """
-    shas = [m.group(1) for m in REPORT.finditer(bodies or '')]
+    shas = [seg['sha'] for seg in segments(bodies)]
     if not shas:
         return 'absent', []
     if not head:
@@ -177,7 +216,7 @@ def find_report(bodies, head):
         # review).
         return 'head-unknown', shas
     if any(head.startswith(s) or s.startswith(head) for s in shas):
-        return ('blocked', shas) if open_blocking(bodies) else ('present', shas)
+        return ('blocked', shas) if open_blocking(bodies, head) else ('present', shas)
     return 'stale', shas
 
 
@@ -223,6 +262,15 @@ FIXTURES = [
      HEAD, 'present'),
     ("findings without a report are not a report",
      "finding: blocking open  orphaned", HEAD, 'absent'),
+    # --- PR #44 review, round 1: findings bind to their report segment ---
+    ("an open blocking under a STALE report does not gate the current head",
+     f"review-lane report: 9999999\nfinding: blocking open  old round\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed",
+     HEAD, 'present'),
+    ("an open blocking in the current head's segment gates despite an older clean report",
+     f"review-lane report: 9999999\n"
+     f"review-lane report: {HEAD}\nfinding: blocking open  new defect",
+     HEAD, 'blocked'),
 ]
 failures = []
 for name, bodies, head, want in FIXTURES:
@@ -269,7 +317,7 @@ if state == 'head-unknown':
           "presence, so an unknown head is not a pass.")
     sys.exit(1)
 if state == 'blocked':
-    blocking = open_blocking(os.environ.get("REVIEW_BODIES", ""))
+    blocking = open_blocking(os.environ.get("REVIEW_BODIES", ""), head)
     print(f"FAIL: PR #{pr} has a review-lane report for head {head[:7]}, but "
           f"{len(blocking)} finding(s) are declared blocking and still open. "
           "The property is CONVERGED or escalated, not reviewed-once "
