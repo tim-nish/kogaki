@@ -166,10 +166,19 @@ MODE="dry-run"
 LIMIT=50
 TARGET_PR=""
 TARGET_BRANCH=""
+RECENT=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --spawn) MODE="spawn" ;;
     --dry-run) MODE="dry-run" ;;
+    # --recent is an ALIAS for the bare form, and says so (kogaki#68). It adds
+    # no behaviour: the bare invocation already lists every open PR and returns
+    # spawn-round-N through decide() for any whose current head carries no
+    # report, which is exactly what the reconciliation pass is described as
+    # doing. The flag exists for DISCOVERABILITY — an operator looking for a
+    # reconciliation pass searches for a name, not for the absence of flags —
+    # and naming it is deliberately NOT claiming new coverage.
+    --recent) MODE="spawn"; RECENT=1 ;;
     --pr) TARGET_PR="${2:?--pr needs a number}"; shift ;;
     --branch) TARGET_BRANCH="${2:?--branch needs a name}"; shift ;;
     --help|-h)
@@ -180,10 +189,22 @@ while [ $# -gt 0 ]; do
       # except in `--help`, where an operator actually looks for it.
       awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"
       echo
-      echo "usage: tools/review-sweep.sh [--dry-run|--spawn] [--pr N | --branch NAME]"
+      echo "usage: tools/review-sweep.sh [--dry-run|--spawn|--recent] [--pr N | --branch NAME]"
       echo
       echo "Fired by the project hook at gh pr create / git push (kogaki#47);"
       echo "run it bare for a manual reconciliation pass over all open PRs."
+      echo
+      echo "--recent is an ALIAS for that bare form with --spawn. It is a NAME"
+      echo "for behaviour that already existed, not new coverage (kogaki#68)."
+      echo
+      echo "THE RECONCILIATION PASS HAS NO AUTOMATIC CALLER, and that is the"
+      echo "open half of kogaki#68 rather than an omission here. The hook fires"
+      echo "this tool single-target only (--pr / --branch), so a PR whose"
+      echo "creation event was missed is caught by the presence gate at merge"
+      echo "time and not before. The caller kogaki#65 named is \"the lane calls"
+      echo "at close\" — that lane is /ship-cycle, which lives in claude-toolkit"
+      echo "and is escalated there; a caller here would have to be a periodic"
+      echo "reader, which the trigger ruling refuses."
       exit 0 ;;
     *) echo "unknown argument: $1 (try --help)" >&2; exit 2 ;;
   esac
