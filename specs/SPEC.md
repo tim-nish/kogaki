@@ -74,6 +74,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
   checker appearing in a PR without a license is refused, and the work
   re-routes to an issue.
 
+  **The judgment half runs in a session that did not author the work under
+  review, and that isolation is a requirement rather than a convenience**
+  (kogaki#34). An authoring session cannot review its own work for the class
+  of defect that consists of not having applied what it already held: the
+  specimen is kogaki#32, where a coined token set shipped while the ratified
+  vocabulary sat unused in the authoring session's own context, and an
+  independent review caught it in one pass. So **every PR receives a
+  review-lane report authored outside the authoring session before merge**,
+  and the mechanical half asserts that report's **presence** — a computable
+  fact — while never reading its content, which stays judgment. The transport
+  that produces the report is the implementing story's choice; what this
+  clause binds is the property and its presence check.
+
   The **boundary-receipt binding** is what converts the map from advice an
   agent may remember into a carrier that binds on every PR. It computes two
   sets per branch — the mapped boundaries whose trigger terms match the diff
@@ -115,15 +128,32 @@ invariant: Gukan guarantees Unit schema, never data schema).
   internals: the seam is a read of *served renderings*, not of the state
   the gateway keeps to serve them.
 
-  A receipt carries the gateway's **`request_id`** and an **outcome token**
-  (`hit` | `miss` | `uncovered-after-N-framings`). The request id is a join
-  key, not a read: it lets the consumer's receipt (the question) be paired
-  with the server's access-log row (the answer) **without either side reading
-  the other's state**, so the sidedness above is preserved rather than
-  weakened — the pair becomes readable to whoever holds both, and to no one
-  who holds one. The outcome token makes miss-harvesting a grep rather than
-  an interpretation, which is what feeds the map's postmortem field above
-  (kogaki#25).
+  A receipt carries the gateway's **`request_id`**, an **outcome token**, and
+  **its queries verbatim**. The request id is a join key, not a read: it lets
+  the consumer's receipt (the question) be paired with the server's
+  access-log row (the answer) **without either side reading the other's
+  state**, so the sidedness above is preserved rather than weakened — the
+  pair becomes readable to whoever holds both, and to no one who holds one.
+
+  The outcome token is the hub's ratified triple, quoted rather than coined:
+  **`discriminating`** | **`covered-after-reframing`** |
+  **`uncovered-after-N-framings`**. The middle value is the load-bearing one
+  and a bare `miss` is inadmissible in its place, because an empty result
+  cannot by itself distinguish a surface that lacks the position from a query
+  that failed to reach it —
+
+  > a consult miss is a distill bug OR a query defect, and re-framing at a
+  > different axis is the discriminator that must run before "uncovered" is
+  > recordable
+
+  `consulted: product-lab@ed47fbd3818b9a66954a558d6c88e86574407ece topics/knowledge-architecture.md:59`
+
+  — which is why **recording the queries verbatim is part of the same
+  requirement and not a separate nicety**: the token states which of the two
+  causes was found, and only the queries let a later reader check that the
+  re-framing actually varied the axis. Both halves are what make
+  miss-harvesting a grep rather than an interpretation, feeding the map's
+  postmortem field above (kogaki#25, corrected kogaki#32).
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
