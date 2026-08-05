@@ -62,6 +62,58 @@
 #                                                  prompt hygiene
 #   log dir    ~/.kogaki/reviews · $KOGAKI_REVIEW_LOG_DIR
 #   grants     per role, below   · $KOGAKI_REVIEW_TOOLS / $KOGAKI_FIX_TOOLS
+#   worktree   $TMPDIR (outside the repo) · $KOGAKI_SPAWN_WORKTREE_ROOT
+#
+# EVERY SPAWNED SESSION GETS A FRESH WORKTREE, OUTSIDE THE REPOSITORY
+# (kogaki#61). Before this, `subprocess.run` passed no `cwd`, so every spawned
+# session inherited whatever tree the sweep happened to run in — and this tool
+# spawns two sessions per round CONCURRENTLY with the authoring session whose
+# push fired the hook, one of which edits, commits and pushes. The specimen is
+# an incident, not a hypothesis (owner-reported, 2026-08-05): two live sessions
+# shared one working tree, one moved HEAD under the other mid-commit, and a
+# kogaki#52 commit landed on the kogaki#56 branch and was pushed there. It was
+# recovered without data loss, which is what "survivable" means and not what
+# "impossible" means.
+#
+# The rule applied here is already ratified — /ship-cycle's execution-isolation
+# clause: ONE ISOLATED WORKTREE PER ITEM IN FLIGHT, CREATED OUTSIDE THE
+# REPOSITORY, OR SEQUENTIAL; THERE IS NO THIRD MODE. This file spawns, so it
+# takes the first branch.
+#
+# THE ISOLATION IS SITED IN `spawn()`, NOT AT ITS CALL SITES. Both sessions
+# reach the process through one helper, so siting it there covers spawn kind
+# N+1 by construction; a per-call-site rule would be the enumeration-coverage
+# shape one level down, which the served surface rules against — per-repo
+# installation "makes coverage an ENUMERATION OF REPOS, so repo N+1 is
+# uncovered by default and each new consumer silently re-opens the hole"
+# (consulted: product-lab@ed47fbd3818b9a66954a558d6c88e86574407ece
+# topics/claude-code-ops.md:54). This file has already shipped the fix-at-one-
+# of-two-call-sites defect twice (the dead check grant, the park-postmortem
+# dry-run guard); one helper is the answer to it.
+#
+# OUTSIDE IS LOAD-BEARING, and asserted rather than trusted: a worktree under
+# the repo root is still inside the tree the authoring session's own tooling
+# walks, so the created path is compared against the repository root and a
+# path inside it REFUSES rather than degrades. The location itself is the
+# system temp root — a sibling directory, a temp path and an operator-declared
+# home were all admissible and no served position discriminates between them,
+# so one is chosen, overridable, and NAMED IN THE ROUTE LOG (`=== worktree:`)
+# beside the command line, which is what makes a leaked worktree findable from
+# the record rather than by searching the filesystem.
+#
+# WHICH REF EACH WORKTREE HOLDS FOLLOWS THE ROLE, and the role is already
+# ratified: the reviewer never pushes (§4 clause 2), so it gets a DETACHED
+# worktree at the PR's head sha — structurally unable to advance a branch. The
+# fixer must commit onto the PR's branch and push it, so it gets that BRANCH
+# (`headRefName`, one more field on the `gh` read this file already makes —
+# never a second API call), added with --force so a branch the authoring
+# session also has checked out does not block the isolation.
+#
+# REMOVAL IS ON EVERY EXIT PATH — success, non-zero exit, exception — and a
+# removal that FAILS is reported and reflected in the exit code, never
+# swallowed. A silently leaked worktree is the failure mode that discipline
+# exists to refuse, and it is the same one this file already applies to a
+# failed spawn rather than printing success over it.
 #
 # GRANTS ARE THE FOURTH DECLARATION (kogaki#65), and they are the one whose
 # absence made every other declaration moot: a headless session has nobody to
@@ -224,14 +276,14 @@ fi
 # creation) and is a stated no-op, never a failure.
 if [ -n "$TARGET_PR" ]; then
   if ! one="$(gh pr view "$TARGET_PR" \
-              --json number,headRefOid,author,isCrossRepository 2>/dev/null)"; then
+              --json number,headRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
     echo "FAIL could not establish the substrate: gh pr view $TARGET_PR failed." >&2
     exit 1
   fi
   prs="[$one]"
 elif [ -n "$TARGET_BRANCH" ]; then
   if ! prs="$(gh pr list --state open --head "$TARGET_BRANCH" \
-              --json number,headRefOid,author,isCrossRepository 2>/dev/null)"; then
+              --json number,headRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
     echo "FAIL could not establish the substrate: the gh lookup failed." >&2
     exit 1
   fi
@@ -240,7 +292,7 @@ elif [ -n "$TARGET_BRANCH" ]; then
     exit 0
   fi
 elif ! prs="$(gh pr list --state open --limit "$LIMIT" \
-            --json number,headRefOid,author,isCrossRepository 2>/dev/null)"; then
+            --json number,headRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
   echo "FAIL could not establish the substrate: the gh lookup failed." >&2
   exit 1
 fi
@@ -264,6 +316,12 @@ REVIEW_MODEL="${KOGAKI_REVIEW_MODEL:-opus}"
 REVIEW_MAX_TURNS="${KOGAKI_REVIEW_MAX_TURNS:-60}"
 FIX_MODEL="${KOGAKI_FIX_MODEL:-sonnet}"
 REVIEW_LOG_DIR="${KOGAKI_REVIEW_LOG_DIR:-$HOME/.kogaki/reviews}"
+# Where "outside the repository" is (kogaki#61). The system temp root, which
+# is outside every repository by construction; an operator who wants a
+# different home declares it here rather than in a call site. It is resolved
+# in the shell beside every other spawned-session knob for the same reason
+# they are: one place to read, one place to change.
+SPAWN_WORKTREE_ROOT="${KOGAKI_SPAWN_WORKTREE_ROOT:-${TMPDIR:-/tmp}}"
 
 # The reviewer reads the PR, runs the registered checks, consults the served
 # seam, and posts its report. `gh pr comment` is granted HERE and withheld
@@ -312,9 +370,9 @@ SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
 SWEEP_MODEL="$REVIEW_MODEL" SWEEP_MAX_TURNS="$REVIEW_MAX_TURNS" \
 SWEEP_FIX_MODEL="$FIX_MODEL" \
 SWEEP_REVIEW_TOOLS="$REVIEW_TOOLS" SWEEP_FIX_TOOLS="$FIX_TOOLS" \
-SWEEP_LOG_DIR="$REVIEW_LOG_DIR" \
+SWEEP_LOG_DIR="$REVIEW_LOG_DIR" SWEEP_WORKTREE_ROOT="$SPAWN_WORKTREE_ROOT" \
 python3 <<'PYEOF'
-import json, os, re, subprocess, sys
+import json, os, re, shutil, subprocess, sys, tempfile
 
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
@@ -335,6 +393,13 @@ LOG_DIR = os.environ["SWEEP_LOG_DIR"]
 FIX_MODEL = os.environ["SWEEP_FIX_MODEL"]
 REVIEW_TOOLS = os.environ["SWEEP_REVIEW_TOOLS"]
 FIX_TOOLS = os.environ["SWEEP_FIX_TOOLS"]
+# The isolation knob (kogaki#61) and the boundary it is checked against. The
+# shell `cd`s to the repository root before this heredoc runs, so cwd IS the
+# root — resolved once, through realpath, because the comparison that makes
+# "outside" load-bearing is a path comparison and a symlinked root would make
+# it lie.
+WORKTREE_ROOT = os.environ["SWEEP_WORKTREE_ROOT"]
+REPO_ROOT = os.path.realpath(os.getcwd())
 
 # The headless contract, appended to every spawn prompt (kogaki#65 defect 2).
 # Both held-run reviewers ENDED THEIR TURN AWAITING A REPLY — the served
@@ -388,19 +453,142 @@ FIX_PROMPT = (
 )
 
 
-def spawn(prompt, log_path, model=None, tools=None):
+# --- execution isolation: one fresh worktree per spawn (kogaki#61) ---------
+# Sited here rather than at the call sites, so spawn kind N+1 is covered by
+# construction. See the header for the incident and the ratified rule.
+
+ISOLATION_FAILED = 75   # a spawn that never ran because it could not be isolated
+
+# Worktrees this run created and could NOT remove. Reported at the end and
+# reflected in the exit code: a leak that only a filesystem search would find
+# is the failure mode criterion 3 exists to refuse.
+WORKTREE_LEAKS = []
+
+
+class IsolationError(RuntimeError):
+    """The worktree could not be established — never downgraded to a shared tree."""
+
+
+def outside_repo(path):
+    """Is `path` outside the repository? The load-bearing half of the rule.
+
+    A worktree UNDER the repo root is still inside the tree the authoring
+    session's own tooling walks, so it buys nothing and is refused. Compared
+    on realpaths with a separator-bounded prefix, so a sibling directory whose
+    name merely starts with the root's (`/w/kogaki-tmp` beside `/w/kogaki`) is
+    outside, which a bare `startswith` would get wrong.
+    """
+    real = os.path.realpath(path)
+    return real != REPO_ROOT and not real.startswith(REPO_ROOT + os.sep)
+
+
+def _git(*args):
+    """Run git and RETURN its failure rather than raising it.
+
+    An unavailable or unexecutable git raises OSError from subprocess, and
+    this helper is called from a `finally` — an exception there would replace
+    the outcome the caller is already carrying, so a spawned session's real
+    exit code would be lost to a cleanup problem. Every git failure is
+    therefore one kind of thing: a result with a non-zero code and a reason.
+    Found by exercising the exception path (kogaki#61), not by inspection.
+    """
+    try:
+        return subprocess.run(["git", *args], stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, check=False)
+    except OSError as e:
+        return subprocess.CompletedProcess(args, 127, "", f"git unavailable: {e}")
+
+
+def make_worktree(tag, ref, detach):
+    """Create a fresh worktree outside the repository; return (base, tree).
+
+    `base` is the private temp directory the tree lives in — removed with it,
+    so a run leaves nothing behind. Raises IsolationError rather than
+    returning a shared tree: failing closed here costs one review, while
+    failing open reopens the hole the incident came through.
+    """
+    if not ref:
+        raise IsolationError(
+            "no ref to check out — the PR read did not carry one, and a "
+            "worktree at an unnamed ref would be a session working on "
+            "whatever the repository happened to be at")
+    try:
+        os.makedirs(WORKTREE_ROOT, exist_ok=True)
+        base = tempfile.mkdtemp(prefix=f"kogaki-{tag}-", dir=WORKTREE_ROOT)
+    except OSError as e:
+        raise IsolationError(f"could not create a worktree root under "
+                             f"{WORKTREE_ROOT}: {e}")
+    if not outside_repo(base):
+        shutil.rmtree(base, ignore_errors=True)
+        raise IsolationError(
+            f"{base} is INSIDE the repository ({REPO_ROOT}) — a worktree there "
+            "is still in the tree the authoring session walks. Point "
+            "$KOGAKI_SPAWN_WORKTREE_ROOT outside the repository.")
+    tree = os.path.join(base, "tree")
+    # The reviewer gets --detach at the head sha: it never pushes (§4 clause
+    # 2), so it is given a HEAD that cannot advance a branch. The fixer gets
+    # the PR's branch with --force, because a branch the authoring session
+    # also has checked out must not block the isolation — the trees are
+    # separate either way, which is the property the incident wanted.
+    args = (["worktree", "add", "--detach", tree, ref] if detach
+            else ["worktree", "add", "--force", tree, ref])
+    r = _git(*args)
+    if r.returncode != 0:
+        shutil.rmtree(base, ignore_errors=True)
+        raise IsolationError(f"git {' '.join(args)} exited {r.returncode}: "
+                             f"{(r.stderr or r.stdout or '').strip()}")
+    return base, tree
+
+
+def remove_worktree(base, tree, log=None):
+    """Remove the worktree. A failure is REPORTED, never swallowed.
+
+    Called from a `finally`, so it runs on every exit path — success, a
+    non-zero exit, and an exception alike. It never raises: a removal problem
+    must not replace the outcome the caller is carrying, it must be added to
+    it, which is what WORKTREE_LEAKS is for.
+    """
+    why = None
+    r = _git("worktree", "remove", "--force", tree)
+    if r.returncode != 0:
+        why = (f"git worktree remove exited {r.returncode}: "
+               f"{(r.stderr or r.stdout or '').strip()}")
+    else:
+        try:
+            shutil.rmtree(base)
+        except OSError as e:
+            why = f"the tree was removed but its temp root survived: {e}"
+    line = (f"=== worktree removed: {tree}\n" if why is None
+            else f"=== worktree LEAKED: {tree} — {why}\n")
+    if log is not None:
+        try:
+            log.write(line)
+            log.flush()
+        except OSError:
+            pass
+    if why is not None:
+        WORKTREE_LEAKS.append((tree, why))
+        print(f"  FAIL worktree not removed: {tree} — {why}")
+    return why is None
+
+
+def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
+          tag="review"):
     """Run a spawned session with the declared policy, streaming to its log.
 
     Returns the exit code. Every knob the session runs under is named at the
     call rather than inherited: the model (never the operator's interactive
-    default), a turn cap, and a route capture. `--verbose --output-format
-    stream-json` is what makes the log a ROUTE — the per-turn record — instead
-    of the final message, which is all the trigger log ever held.
+    default), a turn cap, a route capture, and — since kogaki#61 — the WORKING
+    DIRECTORY, a fresh worktree outside the repository that no other session
+    holds. `--verbose --output-format stream-json` is what makes the log a
+    ROUTE — the per-turn record — instead of the final message, which is all
+    the trigger log ever held.
 
     The log is opened before the process starts and the command line is written
     into it first, so a spawn that dies immediately still leaves a file saying
     what was attempted. A log that only appears on success cannot explain a
-    failure, which is the one occasion anybody opens it.
+    failure, which is the one occasion anybody opens it. The worktree path is
+    written next, beside it, so a leaked worktree is findable from the record.
     """
     os.makedirs(LOG_DIR, exist_ok=True)
     cmd = ["claude", "-p", prompt + HEADLESS,
@@ -411,17 +599,33 @@ def spawn(prompt, log_path, model=None, tools=None):
     with open(log_path, "a", encoding="utf-8") as log:
         log.write(f"=== spawn: {' '.join(cmd)}\n")
         log.flush()
-        # stdin=DEVNULL closes the contamination class (kogaki#65 defect 2).
-        # The held run's reviewers reported, verbatim, that their arguments
-        # carried "a full paste of the review-sweep driver source" — this
-        # file's own python heredoc, reaching the child through an inherited
-        # descriptor. Closing stdin eliminates it regardless of WHICH
-        # descriptor carried it, which is why it is the fix rather than
-        # tracking down the specific fd: a per-source suppression would leave
-        # source N+1 live.
-        return subprocess.run(cmd, stdin=subprocess.DEVNULL,
-                              stdout=log, stderr=subprocess.STDOUT,
-                              check=False).returncode
+        try:
+            base, tree = make_worktree(tag, ref, detach)
+        except IsolationError as e:
+            log.write(f"=== worktree FAILED: {e}\n")
+            log.flush()
+            print(f"  FAIL isolation could not be established, so nothing was "
+                  f"spawned: {e}")
+            return ISOLATION_FAILED
+        log.write(f"=== worktree: {tree} "
+                  f"[{'detached at' if detach else 'branch'} {ref}]\n")
+        log.flush()
+        try:
+            # stdin=DEVNULL closes the contamination class (kogaki#65 defect
+            # 2). The held run's reviewers reported, verbatim, that their
+            # arguments carried "a full paste of the review-sweep driver
+            # source" — this file's own python heredoc, reaching the child
+            # through an inherited descriptor. Closing stdin eliminates it
+            # regardless of WHICH descriptor carried it, which is why it is
+            # the fix rather than tracking down the specific fd: a per-source
+            # suppression would leave source N+1 live.
+            return subprocess.run(cmd, stdin=subprocess.DEVNULL,
+                                  stdout=log, stderr=subprocess.STDOUT,
+                                  cwd=tree, check=False).returncode
+        finally:
+            # EVERY exit path, not only success: a non-zero exit and an
+            # exception both reach here.
+            remove_worktree(base, tree, log)
 
 
 def denied_tools(log_path):
@@ -606,6 +810,34 @@ if _dfail:
 print("disclosure pass: 3/3 downgrade-NOTE cases (unjustified reports, "
       "justified and should do not)")
 
+# --- OUTSIDE is load-bearing, so it is exercised (kogaki#61) --------------
+# The isolation's whole value is that the spawned session's tree is not the
+# authoring session's, and a worktree under the repo root would satisfy the
+# word "worktree" while buying none of it. The rule is therefore a predicate
+# with its own cases rather than a startswith written once and trusted — the
+# sibling-prefix case (`/w/kogaki-tmp` beside `/w/kogaki`) is the one a bare
+# prefix test gets wrong, and it fails toward refusing a legitimate root.
+_ofail = 0
+for _label, _path, _want in [
+    ("the repository root itself is not outside", REPO_ROOT, False),
+    ("a path under the repository is not outside",
+     os.path.join(REPO_ROOT, "tmp", "wt"), False),
+    ("a sibling whose name shares the root's prefix IS outside",
+     REPO_ROOT + "-worktrees/wt", True),
+    ("the system temp root is outside", os.path.join(tempfile.gettempdir(),
+                                                     "kogaki-review-x"), True),
+]:
+    if outside_repo(_path) != _want:
+        print(f"FAIL isolation fixture [{_label}]: "
+              f"outside_repo({_path!r})={not _want}, want={_want}")
+        _ofail = 1
+if _ofail:
+    print("FAIL: the outside-the-repository rule does not discriminate, and a "
+          "worktree inside the repo is not isolation")
+    sys.exit(1)
+print("isolation pass: 4/4 outside-the-repository cases (root / under-root "
+      "refused, sibling-prefix / temp root accepted)")
+
 # --- fixture pass: the state machine, exercised without a network ---------
 H = 'abc1234def'
 FIX = [
@@ -697,6 +929,10 @@ counts = {}
 spawn_failures = 0
 for pr in prs:
     n, head = pr["number"], pr["headRefOid"]
+    # The head BRANCH, read from the same `gh` call the head sha comes from
+    # rather than resolved by a second API call (kogaki#61). The fixer's
+    # worktree checks it out; the reviewer's is detached at the sha.
+    head_ref = pr.get("headRefName") or ""
     # An external PR is never spawned against: the frontier is COMPOSED rather
     # than filtered, and this lane's whole authority over one is to report it.
     if pr["isCrossRepository"] or pr["author"]["login"] not in allowed:
@@ -773,9 +1009,12 @@ for pr in prs:
             # fix with the review it has not provoked yet.
             log_path = fix_log_path(n, used)
             print(f"  #{n}: spawning FIX for round {used}'s findings "
-                  f"[model {FIX_MODEL}, max-turns {MAX_TURNS}] -> {log_path}")
+                  f"[model {FIX_MODEL}, max-turns {MAX_TURNS}, worktree under "
+                  f"{WORKTREE_ROOT} on branch {head_ref or '(unknown)'}] "
+                  f"-> {log_path}")
             result = spawn(FIX_PROMPT.format(n=n), log_path, model=FIX_MODEL,
-                           tools=FIX_TOOLS)
+                           tools=FIX_TOOLS, ref=head_ref, detach=False,
+                           tag=f"fix-{n}")
             if result != 0:
                 print(f"  #{n}: FAIL fix spawn exited {result} — the findings "
                       "are still open and no push happened, so no round was "
@@ -785,9 +1024,16 @@ for pr in prs:
             else:
                 counts['fix-spawned'] = counts.get('fix-spawned', 0) + 1
         else:
+            # The preview names the WORKTREE it would create on the same
+            # ground it already names the model and the cap (kogaki#61): a
+            # dry run exists so the operator does not have to read the source
+            # to learn what the spawn will run under, and where the session
+            # will work is exactly that.
             print(f"  #{n}: would spawn FIX for round {used}'s findings "
                   f"[model {FIX_MODEL}, max-turns {MAX_TURNS}, "
-                  f"{len(FIX_TOOLS.split(','))} granted tools] -> "
+                  f"{len(FIX_TOOLS.split(','))} granted tools, worktree "
+                  f"{os.path.join(WORKTREE_ROOT, f'kogaki-fix-{n}-XXXX', 'tree')} "
+                  f"on branch {head_ref or '(unknown)'}] -> "
                   f"{fix_log_path(n, used)} (--dry-run; pass --spawn to act)")
     elif state == 'park':
         print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent and {head[:7]} is "
@@ -815,14 +1061,16 @@ for pr in prs:
         if mode == 'spawn':
             log_path = spawn_log_path(n, rnd)
             print(f"  #{n}: spawning review round {rnd} for {head[:7]} "
-                  f"[model {MODEL}, max-turns {MAX_TURNS}] -> {log_path}")
+                  f"[model {MODEL}, max-turns {MAX_TURNS}, worktree under "
+                  f"{WORKTREE_ROOT} detached at {head[:7]}] -> {log_path}")
             # A failed spawn is a FAILURE, reported and reflected in the exit
             # code — a sweep that prints "spawning" over a dead binary is the
             # exact fail-open its own substrate check refuses, one level down
             # (PR #46 review, round 1). check=False + inspection rather than
             # check=True: one PR's failed spawn must not abort the sweep of
             # the rest.
-            result = spawn(f"/review-lane {n}", log_path, tools=REVIEW_TOOLS)
+            result = spawn(f"/review-lane {n}", log_path, tools=REVIEW_TOOLS,
+                           ref=head, detach=True, tag=f"review-{n}")
             # THE EXIT CODE IS NOT THE VERDICT (kogaki#65 defect 3). A spawn
             # that exits 0 having posted nothing is a FAILURE, and the held
             # run is the specimen: both sessions "ran to completion", the
@@ -883,7 +1131,9 @@ for pr in prs:
             # the one thing a dry run exists to show them by reading the source.
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
                   f"[model {MODEL}, max-turns {MAX_TURNS}, "
-                  f"{len(REVIEW_TOOLS.split(','))} granted tools] -> "
+                  f"{len(REVIEW_TOOLS.split(','))} granted tools, worktree "
+                  f"{os.path.join(WORKTREE_ROOT, f'kogaki-review-{n}-XXXX', 'tree')} "
+                  f"detached at {head[:7]}] -> "
                   f"{spawn_log_path(n, rnd)} (--dry-run; pass --spawn to act)")
 
 print(f"swept {len(prs)} open PR(s): "
@@ -891,6 +1141,19 @@ print(f"swept {len(prs)} open PR(s): "
 if mode != 'spawn':
     print("dry run — nothing was spawned. Spawning is an outward act and is "
           "opt-in rather than a flag someone forgets is on.")
-if spawn_failures:
+# A LEAKED WORKTREE IS REPORTED AND REFLECTED IN THE EXIT CODE (kogaki#61).
+# Named again at the end rather than only where it happened: the per-spawn
+# line scrolls past inside a sweep of fifty PRs, and a leak the operator has
+# to clean up by hand is exactly the thing a summary owes them. It is kept
+# separate from spawn_failures because a leak is not a failed review — the
+# session it belonged to may have succeeded, and its PR must not be told a
+# story about a spawn that worked.
+if WORKTREE_LEAKS:
+    print(f"FAIL {len(WORKTREE_LEAKS)} worktree(s) could not be removed and "
+          "are LEAKED — clean up by hand (`git worktree remove --force`, then "
+          "`git worktree prune`):")
+    for _tree, _why in WORKTREE_LEAKS:
+        print(f"  {_tree} — {_why}")
+if spawn_failures or WORKTREE_LEAKS:
     sys.exit(1)
 PYEOF
