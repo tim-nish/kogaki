@@ -78,11 +78,11 @@ function runDir(args) {
 
 function gatewayQuery(tool, toolArgs) {
   const bin = join(REPO, "policy/kit/bin/gateway-query.mjs");
-  // Capture stdout through a file descriptor, not a pipe: the kit flushes
-  // stdout asynchronously and exits, so a pipe truncates large responses
-  // (element_survey is ~500KB; observed cut at ~146KB) while a file write is
-  // synchronous. Kit-side fix tracked in its own issue — this call must not
-  // depend on it.
+  // Capture stdout through a file descriptor, not a pipe. The kit now drains
+  // stdout before exiting (kogaki#23), so a pipe would work — but this call
+  // deliberately does not depend on that: a file write is synchronous
+  // regardless of what the other side of the seam does, and element_survey is
+  // ~500KB, the size at which the difference stops being theoretical.
   const outPath = join(tmpdir(), `terrain-seam-${process.pid}-${Date.now()}.json`);
   const fd = openSync(outPath, "w");
   let res;
