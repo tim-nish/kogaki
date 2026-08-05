@@ -365,6 +365,77 @@ invariant: Gukan guarantees Unit schema, never data schema).
   miss-harvesting a grep rather than an interpretation, feeding the map's
   postmortem field above (kogaki#25, corrected kogaki#32).
 
+  **The receipt is EMITTED BY THE TOOL THAT PERFORMED THE CONSULT; a
+  hand-composed receipt is a MARKED EXCEPTION** (kogaki#66). Everything above
+  specifies the artifact and leaves its *producer* unnamed, and that silence is
+  what the shipped defects were made of: a receipt transcribed by hand from a
+  gateway answer minted an outcome vocabulary the hub had never served, while
+  the ratified triple sat unread in the transcribing session's own context
+  (kogaki#32), and a `request_id` was later copied across two receipts with the
+  outcome reversed (kogaki#75). Both are transcription defects, and neither is
+  reachable when the transport that made the call composes the block itself: it
+  holds the real `request_id`, it holds the framings it actually ran, and it has
+  nothing to remember.
+
+  The served ground is that the emission must ride the act:
+
+  > The emission must ride the ACT rather than a later check, because an
+  > obligation cannot be blocked at all — an absence produces nothing to deny
+  > or fail — so the only available mechanism is that the act writes its own
+  > record in a shape whose absence is greppable.
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:18`
+
+  That line is quoted here for the *producer* rather than for the position: an
+  act that writes its own record is one whose writer is the act. This is
+  constrain-what-can-be-produced rather than detect-what-was-produced, so
+  `checks/check-consult-receipts.sh` is **unchanged** — it validates shape, and
+  shape does not move when the producer does. Moving the producer makes the
+  kogaki#32 class *unproducible*; the check keeps catching it for the exception
+  path below, which is exactly the division the typed improvement loop asks for.
+
+  Three conditions bound the clause:
+
+  1. **The emitting tool is the one that made the call** — the kit's own
+     transport (`policy/kit/bin/gateway-query.mjs`, which today contains no
+     receipt-composition code at all: verified, `writeThenExit` at
+     `policy/kit/bin/gateway-query.mjs:41` prints the tool result and exits).
+     A tool that did not perform the consult may not emit its receipt, because
+     then it is transcribing.
+  2. **A hand-composed receipt stays admissible and is MARKED as the
+     exception.** An operator consulting through a surface the kit does not
+     mediate — the MCP tools called directly, a degraded environment where the
+     transport is unreachable — still owes a receipt, and refusing one there
+     would convert an obligation into a silence. The exception is *marked*
+     rather than tolerated: it is the one path where the shape check is the only
+     control, and its rate is the signal that says how much of the seam the
+     transport does not yet cover.
+  3. **What the tool may assert is bounded by what it observed.** The
+     `request_id` and the `query:` lines are facts the transport holds; the
+     `outcome` token is a *reading* of whether the answer discriminated. The
+     served surface declines interpretation-at-consult-time on the **hub** side
+     and draws the boundary at pre-ratified renderings — "what is declined is
+     *interpretation performed at consult time* — serving richer **pre-ratified**
+     artifacts is the adopted answer"
+     (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/archive/knowledge-architecture.md:307`)
+     — which permits consumer-side reading and settles nothing about who
+     performs it. A tool assigning `uncovered-after-N-framings` mechanically may
+     assign it wrongly, and that is the precise failure the re-framing
+     discriminator exists to prevent
+     (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:59`).
+     So this spec binds the *emitter* and does not bind the *assigner*:
+
+     `deferred-slot: consult-outcome-token-assignment`
+
+     — who assigns the `outcome` token when the tool emits the receipt: the tool
+     mechanically, or the tool emitting the framings and their count with the
+     operator supplying the token. Named rather than left to the
+     implementation, per the deferred-slot clause above: filling it is a
+     decision act owed on kogaki#66 with its choice, alternatives and consult
+     receipt **before** code embeds it. Conditions 1 and 2 are implementable
+     without filling it, which is why the clause ships with the slot open rather
+     than waiting on it.
+
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
 Admitted from writing-assistant, each with its contract; ported one
