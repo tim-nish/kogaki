@@ -108,11 +108,58 @@ else
 fi
 
 body="${CONSULT_PR_BODY:-}"
+# THE PR BODY IS A DECLARED SOURCE AND ITS ABSENCE IS REPORTED (kogaki#69).
+# It arrives only through CONSULT_PR_BODY, which CI supplies on a
+# `pull_request` event and which is EMPTY on a push event and on every local
+# invocation — there is no `gh pr view` fallback, deliberately, since this
+# check runs where `gh` may be absent. What was wrong is not the emptiness but
+# the REPORTING of it: an unread source folded silently into
+# "no linked issue named in the PR body or commits", which is a claim about the
+# world produced by having read nothing. The check already carries the right
+# vocabulary for its other two sources ("not supplied", "NOT READ"); the third
+# had none, so its unavailability was indistinguishable from a real absence.
+# specs/SPEC.md §4's three-valued discipline is the rule being honoured here:
+# absence is honest only when the source was consulted.
+if [ -n "$body" ]; then
+  body_note="supplied"
+else
+  body_note="NOT SUPPLIED (CONSULT_PR_BODY unset — normal on a push event and on a local run)"
+fi
 
 # The linked issue body — the third declared source. Supplied directly when the
 # caller has it; otherwise resolved from the licensing issue named in the PR
 # body or commits, and only when `gh` can actually look. Unavailability is
 # REPORTED below, never silently treated as an empty source.
+# --- resolver fixture (kogaki#69) ------------------------------------------
+# The keyword resolver is shell, so it gets a shell fixture: the python
+# FIXTURES block below covers the binding, and covered NOTHING here — which is
+# how a keyword the repository uses 13 times in 25 commits stayed invisible.
+# Runs on every invocation, like the python pass, because a fixture behind a
+# flag is one nobody runs.
+_resolve() {
+  printf '%s\n' "$1" \
+    | grep -oiE '(closes|fixes|resolves|license|refs):?[[:space:]]*[A-Za-z0-9_.-]*#[0-9]+' \
+    | grep -oE '#[0-9]+' | grep -oE '[0-9]+' | head -1 || true
+}
+_rfail=0
+_rcheck() { # text, want, label
+  got="$(_resolve "$1")"
+  if [ "$got" != "$2" ]; then
+    echo "FAIL resolver fixture [$3]: got '${got:-<empty>}', want '${2:-<empty>}'" >&2
+    _rfail=1
+  fi
+}
+_rcheck 'Closes #65.'           65 'bare Closes (PR body form)'
+_rcheck 'Refs kogaki#65.'       65 'Refs qualified — the form lint-commit-msg drives authors to'
+_rcheck 'refs kogaki#7'         7  'Refs lowercase'
+_rcheck 'License: kogaki#29'    29 'License qualified'
+_rcheck 'Fixes #12'             12 'Fixes'
+_rcheck 'Resolves kogaki#3'     3  'Resolves qualified'
+_rcheck 'see kogaki#99 for why' "" 'a bare mention is NOT a licensing reference'
+_rcheck 'refactored the parser' "" 'refactor must not match refs'
+[ "$_rfail" -eq 0 ] || { echo "FAIL: the licensing-reference resolver does not discriminate" >&2; exit 1; }
+echo "resolver pass: 8/8 licensing-reference cases (closes/fixes/resolves/license/refs, bare and qualified, mention, word-bound)"
+
 issue_body="${BOUNDARY_ISSUE_BODY:-}"
 issue_note="not supplied"
 if [ -n "$issue_body" ]; then
@@ -126,11 +173,28 @@ else
   # the bare form silently dropped the third declared source on every commit
   # that used the qualified one — a source reported as "not named" when it was
   # named, which is the reporting defect this check refuses elsewhere.
+  #
+  # `refs` IS IN THE LIST BECAUSE TWO OF THIS REPOSITORY'S CONTROLS DISAGREED
+  # WITHOUT IT (kogaki#69). `story-sync lint-commit-msg` DENIES a close keyword
+  # not backed by an approved-closes receipt, so authors write `Refs kogaki#N`
+  # — measured over the 25 commits before this one, `Refs` appears 13 times
+  # against `Closes` 4 and `License:` 6, making it the MOST COMMON licensing
+  # reference in the repository and the one form this check could not see. One
+  # control drove the convention while another refused to recognise it, and
+  # neither could observe the disagreement: the lint passes, the check reports
+  # "no linked issue named", and both are behaving as written.
   _n="$(printf '%s\n%s\n' "$body" "$commits" \
-        | grep -oiE '(closes|fixes|resolves|license):?[[:space:]]*[A-Za-z0-9_.-]*#[0-9]+' \
+        | grep -oiE '(closes|fixes|resolves|license|refs):?[[:space:]]*[A-Za-z0-9_.-]*#[0-9]+' \
         | grep -oE '#[0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
   if [ -z "$_n" ]; then
-    issue_note="no linked issue named in the PR body or commits"
+    # The note names WHAT WAS SEARCHED, never more. Saying "in the PR body or
+    # commits" while the body was never supplied is the world-claim this issue
+    # was filed over, one field down from the body note above.
+    if [ -n "$body" ]; then
+      issue_note="no linked issue named in the PR body or commits"
+    else
+      issue_note="no linked issue named in the commits (PR body NOT SUPPLIED, so not searched)"
+    fi
   elif ! command -v gh >/dev/null 2>&1; then
     issue_note="issue #$_n named but gh is not available — NOT READ"
   elif issue_body="$(gh issue view "$_n" --json body -q .body 2>/dev/null)"; then
@@ -147,6 +211,7 @@ BOUNDARY_TEXT="$commits
 $body" \
 BOUNDARY_ISSUE="$issue_body" \
 BOUNDARY_ISSUE_NOTE="$issue_note" \
+BOUNDARY_BODY_NOTE="$body_note" \
 BOUNDARY_RANGE="$range_desc" \
 python3 <<'EOF'
 import os, re, sys
@@ -319,6 +384,7 @@ paths = os.environ.get("BOUNDARY_PATHS", "")
 text = os.environ.get("BOUNDARY_TEXT", "")
 issue = os.environ.get("BOUNDARY_ISSUE", "")
 issue_note = os.environ.get("BOUNDARY_ISSUE_NOTE", "not supplied")
+body_note = os.environ.get("BOUNDARY_BODY_NOTE", "not supplied")
 rng = os.environ.get("BOUNDARY_RANGE", "unknown range")
 
 matched = match_boundaries(entries, [("diff paths", paths),
@@ -326,8 +392,8 @@ matched = match_boundaries(entries, [("diff paths", paths),
                                      ("linked issue body", issue)])
 receipts = count_receipts(text)
 
-print(f"sources read: diff paths + changed text (commit messages, PR body) "
-      f"over {rng}; linked issue body: {issue_note}")
+print(f"sources read: diff paths + changed text (commit messages) over {rng}; "
+      f"PR body: {body_note}; linked issue body: {issue_note}")
 print(f"boundaries declared: {len(entries)} in {map_path}")
 
 if not matched:
