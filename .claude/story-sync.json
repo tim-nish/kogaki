@@ -1,4 +1,5 @@
 {
   "stories_dir": "docs/stories",
-  "projects_v2": "off"
+  "projects_v2": "off",
+  "default_type_label": "enhancement"
 }
