@@ -47,7 +47,20 @@ invariant: Gukan guarantees Unit schema, never data schema).
 - **Consultation map** (`policy/consultation-map.md`): the occasions file —
   boundaries at which policy consultation is required, grown only by miss,
   entries as pinned quotes + trigger terms, never paraphrased rules. Ships
-  with one seed entry (check-infrastructure changes).
+  with one seed entry (check-infrastructure changes). An entry additionally
+  declares a **read prescription** — the act class, and the served gloss
+  shard(s) to survey headline-first *before* acting — because `policy_lookup`
+  answers only questions the consumer thought to ask, while a standing
+  headline read surfaces lines nobody asked about. The prescription sits on
+  the permitted side of the finding-aid carve-out: it pre-computes *where to
+  ask*, never *what is true* (`topics/knowledge-architecture.md` 2026-08-02).
+  An entry added on a miss also records that miss's **postmortem** — the
+  violating artifact, the boundary terms that would have triggered, and the
+  question **verbatim** that would have found the served line — so the
+  accumulated questions become the situation-specific keys for reaching a
+  particular ruling. The map still triggers consultation and never carries a
+  verdict; a paraphrase in any of these fields is the conformance-copy defect
+  the pinned-quote rule exists to refuse (kogaki#24).
 - **Check registry** (`checks/registry.json`): the suite runs **only
   registered checks**, and registration requires an admission record — the
   named defect it caught or the contract it uniquely carries, plus the
