@@ -94,6 +94,17 @@
         "runtime_ms": 90,
         "removal_signal": "a carrier that makes the ISOLATION half observable — a harness-side record of which session authored which act, or a review transport whose identity differs from the author's by construction (a bot account, a separate app installation). Today this check enforces presence while isolation is advice; once independence is mechanically decidable, the property worth asserting changes and a presence-only check is the wrong carrier for it"
       }
+    },
+    {
+      "id": "review-trigger",
+      "file": "check-review-trigger.sh",
+      "admission": {
+        "contract": "the event adapter's two contracts, both found broken in one held run (kogaki#65): the trigger fires ONCE PER CREATED PULL REQUEST rather than once per tool call, and it closes stdin on the sessions it spawns. The first was a re.search over the tool response — first match only — so a Bash call that created PRs #63 and #64 fired the sweep for #63 alone and #64 reached the presence gate unreviewed, with ~/.kogaki/review-trigger.log carrying no --pr 64 line at any position; the second is why both held-run reviewers reported their prompts contaminated with this repository's own driver source, reaching them through an inherited descriptor. Exercises pr_numbers() over six cases (multi-PR, single, duplicate, ordered, absent, empty) and asserts BOTH that main() routes through that function — an inlined regression would leave the fixture passing over dead code — and that the Popen closes stdin. States what it does NOT verify: that the hook is registered in .claude/settings.json, that the harness fires it, and that the spawned sweep accomplishes anything, all of which are occasions rather than logic and stay with the presence gate",
+        "license": "kogaki#65",
+        "tier": "pre-push",
+        "runtime_ms": 88,
+        "removal_signal": "the trigger's replacement by a lane-layer invocation that fires the sweep for the PR it just created (kogaki#65 remedy 4's second half) — at that point the hook is the manual-creation fallback rather than the primary carrier, and a fixture over its extraction stops being the thing standing between a batched creation and an unreviewed PR"
+      }
     }
   ]
 }

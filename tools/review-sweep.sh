@@ -61,6 +61,62 @@
 #   max turns  60    · $KOGAKI_REVIEW_MAX_TURNS  — a cap is architecture, not
 #                                                  prompt hygiene
 #   log dir    ~/.kogaki/reviews · $KOGAKI_REVIEW_LOG_DIR
+#   grants     per role, below   · $KOGAKI_REVIEW_TOOLS / $KOGAKI_FIX_TOOLS
+#
+# GRANTS ARE THE FOURTH DECLARATION (kogaki#65), and they are the one whose
+# absence made every other declaration moot: a headless session has nobody to
+# answer a permission request, so an ungranted tool is not a prompt but a
+# stall. Both held-run reviewers ran to completion having done nothing, each
+# blocked at its first tool.
+#
+# The grant list is an ENUMERATION, so tool N+1 is uncovered by default — and
+# the served surface is explicit that this is only safe when the non-member
+# case is observable rather than silent: "that same enumerability is why an
+# unlisted repo fails silently in both directions ... Both failures present as
+# NOTHING HAPPENING" (consulted: product-lab@ed47fbd3
+# topics/knowledge-architecture.md:44). The artifact verification below is
+# therefore not an independent improvement but THIS list's non-member
+# fallback: a denied tool becomes a PR comment naming it. Ship the grants
+# without that and the stall simply moves to the first unlisted tool, wearing
+# the same silence.
+#
+# `mcp__tsurezure__*` is enumerated rather than wildcarded because wildcard
+# support at that prefix is unverified; enumerating is the conservative form
+# and each addition to the served surface owes an edit here, which the
+# fallback above is what makes survivable.
+#
+# EVERY PATTERN HERE WAS EXERCISED, NOT INFERRED — and it took two rounds to get
+# right, both failures worth recording because they are opposite errors.
+#
+# Round 1 shipped a DEAD grant. `Bash(bash checks/:*)` looks obviously correct
+# and is DENIED: a trailing path fragment is not a prefix the matcher accepts,
+# so the reviewer could not run a single check; and because the receipt report
+# has exactly two admissible sources — the check itself, or `gh run view` — and
+# the second was ungranted too, BOTH paths were closed and dimension 2 was
+# forced to cannot-determine.
+#
+# Round 2's repair was WORSE, and is the more instructive failure.
+# `Bash(bash:*)` is not a narrower grant, it is a GENERAL SHELL: `bash -c
+# "<anything>"` matches it, so the list bounded nothing at all — including the
+# `git push` a reviewer is forbidden. The reviewer reproduced it by running
+# python3 through `bash -c`. Round 1's finding was that an enumeration had an
+# uncovered member; the repair DISSOLVED the enumeration rather than completing
+# it, which trades a coverage gap for an unbounded grant and is a strictly worse
+# object.
+#
+# So the per-check patterns are DERIVED FROM THE REGISTRY rather than typed
+# here. That is what answers the N+1 objection without dissolving anything: the
+# check registry is already the enumeration governing which checks exist
+# (`specs/SPEC.md` §4 — "the suite runs only registered checks"), so a newly
+# registered check is granted BY CONSTRUCTION and an unregistered file is
+# ungranted for the same reason it is unrunnable. One enumeration, one owner,
+# no second list to drift.
+#
+# Verified headless, one command per pattern shape:
+#   Bash(bash checks/:*)                   DENIED   (round 1's dead grant)
+#   Bash(bash checks/check-x.sh:*)         ALLOWED  (the per-check form used)
+#   Bash(bash checks/check-x.sh)           DENIED   (the wildcard is required)
+#   Bash(git log:*) / Bash(gh run:*)       ALLOWED
 #
 # The cap is the half with a served position behind it: "an agent system that
 # lets one instruction spawn unbounded parallel work is missing a budget
@@ -188,9 +244,53 @@ REVIEW_MAX_TURNS="${KOGAKI_REVIEW_MAX_TURNS:-60}"
 FIX_MODEL="${KOGAKI_FIX_MODEL:-sonnet}"
 REVIEW_LOG_DIR="${KOGAKI_REVIEW_LOG_DIR:-$HOME/.kogaki/reviews}"
 
+# The reviewer reads the PR, runs the registered checks, consults the served
+# seam, and posts its report. `gh pr comment` is granted HERE and withheld
+# from the fixer below — that asymmetry is the presence gate's, not a
+# preference. Never --dangerously-skip-permissions: this repository is public
+# and the user-level merge deny must stay meaningful.
+# One grant per REGISTERED check, derived rather than typed — see the header.
+# A registry that cannot be read yields no check grants at all, which fails
+# toward the narrow side: the reviewer reports cannot-determine (loudly, via
+# the denial comment) instead of silently receiving a wider grant than intended.
+CHECK_TOOLS="$(python3 - <<'GRANTS' 2>/dev/null || true
+import json
+try:
+    reg = json.load(open("checks/registry.json"))
+except Exception:
+    raise SystemExit(0)
+print(",".join(f"Bash(bash checks/{c['file']}:*)" for c in reg.get("checks", [])))
+GRANTS
+)"
+
+REVIEW_TOOLS="${KOGAKI_REVIEW_TOOLS:-\
+Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr list:*),\
+Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr comment:*),Bash(gh run:*),\
+${CHECK_TOOLS:+$CHECK_TOOLS,}\
+Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,\
+mcp__tsurezure__policy_lookup,mcp__tsurezure__gloss_index,\
+mcp__tsurezure__glossary_entry,mcp__tsurezure__topic_thread,\
+mcp__tsurezure__element_survey,mcp__tsurezure__surface_names,\
+mcp__tsurezure__lessons_index}"
+
+# The fixer edits, commits and pushes. It gets NO `gh pr comment`: it is
+# barred from posting reports, and since kogaki#56 counted reports by trusted
+# author, a comment from it would be counted rather than merely wrong.
+# The round-1 repair reached REVIEW_TOOLS only and left the SAME dead pattern
+# here (PR #67 review, round 2) — so the fixer edited, committed and pushed
+# while unable to run a single check, which is the worse half of the two: the
+# reviewer merely could not verify, the fixer could not verify its own writes.
+# A fix applied at one of two call sites is the shape this file keeps finding.
+FIX_TOOLS="${KOGAKI_FIX_TOOLS:-\
+Bash(gh pr view:*),Bash(gh pr diff:*),Bash(git add:*),Bash(git commit:*),\
+Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),\
+${CHECK_TOOLS:+$CHECK_TOOLS,}\
+Read,Grep,Glob,Edit,Write}"
+
 SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
 SWEEP_MODEL="$REVIEW_MODEL" SWEEP_MAX_TURNS="$REVIEW_MAX_TURNS" \
 SWEEP_FIX_MODEL="$FIX_MODEL" \
+SWEEP_REVIEW_TOOLS="$REVIEW_TOOLS" SWEEP_FIX_TOOLS="$FIX_TOOLS" \
 SWEEP_LOG_DIR="$REVIEW_LOG_DIR" \
 python3 <<'PYEOF'
 import json, os, re, subprocess, sys
@@ -211,6 +311,22 @@ LOG_DIR = os.environ["SWEEP_LOG_DIR"]
 # carry two different defaults, and review is judgment work while a fix is
 # transcription of findings already made.
 FIX_MODEL = os.environ["SWEEP_FIX_MODEL"]
+REVIEW_TOOLS = os.environ["SWEEP_REVIEW_TOOLS"]
+FIX_TOOLS = os.environ["SWEEP_FIX_TOOLS"]
+
+# The headless contract, appended to every spawn prompt (kogaki#65 defect 2).
+# Both held-run reviewers ENDED THEIR TURN AWAITING A REPLY — the served
+# surface names exactly that as the property worth binding on: "What would
+# bind is a property of the ACT — a turn ended awaiting a reply"
+# (consulted: product-lab@ed47fbd3 topics/claude-code-ops.md:56). A spawned
+# session cannot know it is unattended unless it is told, so it is told.
+HEADLESS = (
+    "\n\nYou are running UNATTENDED, spawned by a tool. No human will read "
+    "your questions or answer them. Never ask a clarifying question: decide "
+    "from what you can read, act, and post your artifact. If you genuinely "
+    "cannot proceed, exit without posting rather than asking — the sweep "
+    "detects a missing artifact and reports it."
+)
 
 
 def spawn_log_path(pr, rnd):
@@ -250,7 +366,7 @@ FIX_PROMPT = (
 )
 
 
-def spawn(prompt, log_path, model=None):
+def spawn(prompt, log_path, model=None, tools=None):
     """Run a spawned session with the declared policy, streaming to its log.
 
     Returns the exit code. Every knob the session runs under is named at the
@@ -265,15 +381,116 @@ def spawn(prompt, log_path, model=None):
     failure, which is the one occasion anybody opens it.
     """
     os.makedirs(LOG_DIR, exist_ok=True)
-    cmd = ["claude", "-p", prompt,
+    cmd = ["claude", "-p", prompt + HEADLESS,
            "--model", model or MODEL,
            "--max-turns", str(MAX_TURNS),
+           "--allowedTools", tools or REVIEW_TOOLS,
            "--verbose", "--output-format", "stream-json"]
     with open(log_path, "a", encoding="utf-8") as log:
         log.write(f"=== spawn: {' '.join(cmd)}\n")
         log.flush()
-        return subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT,
+        # stdin=DEVNULL closes the contamination class (kogaki#65 defect 2).
+        # The held run's reviewers reported, verbatim, that their arguments
+        # carried "a full paste of the review-sweep driver source" — this
+        # file's own python heredoc, reaching the child through an inherited
+        # descriptor. Closing stdin eliminates it regardless of WHICH
+        # descriptor carried it, which is why it is the fix rather than
+        # tracking down the specific fd: a per-source suppression would leave
+        # source N+1 live.
+        return subprocess.run(cmd, stdin=subprocess.DEVNULL,
+                              stdout=log, stderr=subprocess.STDOUT,
                               check=False).returncode
+
+
+def denied_tools(log_path):
+    """The tools a spawned session was refused, read from its own route log.
+
+    Primary capture, parsed rather than remembered: `permission_denials`
+    entries carry the tool name and its input. Returns a de-duplicated,
+    ordered list of short labels — a comment naming forty variations of one
+    denial is a comment nobody finishes reading.
+    """
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            raw = f.read()
+    except OSError:
+        return []
+    labels = []
+    for blob in re.findall(r'"permission_denials":\s*\[(.*?)\]\s*[,}]', raw, re.S):
+        # Each denial is scanned from its own `tool_name` up to the NEXT one,
+        # so a `command` is attributed to the entry it belongs to. The first
+        # form of this — a lazy `.*?` followed by an OPTIONAL command group —
+        # could never populate the command: an optional group after a lazy
+        # quantifier matches empty at the first position tried, so every label
+        # collapsed to the bare tool name and the stall comment said `Bash`
+        # where the operator needed `Bash(gh pr view ...)` (PR #67 review).
+        for entry in re.findall(
+                r'"tool_name":\s*"([^"]*)"((?:(?!"tool_name").)*)', blob, re.S):
+            name, rest = entry
+            cmd = re.search(r'"command":\s*"([^"]*)"', rest)
+            if cmd:
+                # First three words: enough to name the act, short enough that
+                # a comment listing several denials stays readable.
+                label = f"{name}({' '.join(cmd.group(1).split()[:3])})"
+            else:
+                label = name
+            if label and label not in labels:
+                labels.append(label)
+    return labels
+
+
+def report_present(pr, head, allowed):
+    """Did a trusted author leave a report for THIS head? The artifact test.
+
+    Exit 0 is not a report (kogaki#65 defect 3). Both held-run spawns
+    "succeeded" and produced nothing, and the failure surfaced only at the
+    presence gate with its reason buried in a log nobody watches. The sweep
+    now asks the same question the gate asks, at the moment it can still say
+    something useful about it.
+    """
+    try:
+        raw = subprocess.run(
+            ["gh", "pr", "view", str(pr), "--json", "comments"],
+            capture_output=True, text=True, check=True).stdout
+        bodies = "\n".join(
+            (c.get("body") or "") for c in json.loads(raw).get("comments", [])
+            if ((c.get("author") or {}).get("login") or "") in allowed)
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        return None          # cannot-determine, never "absent"
+    return any(head.startswith(s['sha']) or s['sha'].startswith(head)
+               for s in segments(bodies))
+
+
+def post_stall_comment(pr, head, log_path, reason, denials):
+    """Say on the PR why no review arrived (kogaki#65 defects 1 and 3).
+
+    DELIBERATELY NOT in `review-lane report:` form — it must never satisfy
+    the presence token it is explaining the absence of. This is the
+    non-member fallback for the grant enumeration above: a tool outside
+    REVIEW_TOOLS is refused, and this is what makes the refusal legible
+    instead of silent.
+    """
+    lines = [f"**review-lane spawn produced no report** for `{head[:7]}` — {reason}.",
+             "",
+             "This is not a review and deliberately does not carry the "
+             "presence token; the gate stays red, correctly.", ""]
+    if denials:
+        lines.append("Tools the spawned session was denied:")
+        lines += [f"- `{d}`" for d in denials]
+        lines.append("")
+        lines.append("Each is a grant the sweep must declare "
+                     "(`KOGAKI_REVIEW_TOOLS`, kogaki#65).")
+    else:
+        lines.append("No permission denials were recorded, so the cause is "
+                     "elsewhere — the turn cap, or a session that ended "
+                     "without posting.")
+    lines += ["", f"Route log: `{log_path}`"]
+    try:
+        subprocess.run(["gh", "pr", "comment", str(pr), "--body", "\n".join(lines)],
+                       stdin=subprocess.DEVNULL, capture_output=True, check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
 def segments(bodies):
@@ -461,7 +678,8 @@ for pr in prs:
             log_path = fix_log_path(n, used)
             print(f"  #{n}: spawning FIX for round {used}'s findings "
                   f"[model {FIX_MODEL}, max-turns {MAX_TURNS}] -> {log_path}")
-            result = spawn(FIX_PROMPT.format(n=n), log_path, model=FIX_MODEL)
+            result = spawn(FIX_PROMPT.format(n=n), log_path, model=FIX_MODEL,
+                           tools=FIX_TOOLS)
             if result != 0:
                 print(f"  #{n}: FAIL fix spawn exited {result} — the findings "
                       "are still open and no push happened, so no round was "
@@ -472,7 +690,8 @@ for pr in prs:
                 counts['fix-spawned'] = counts.get('fix-spawned', 0) + 1
         else:
             print(f"  #{n}: would spawn FIX for round {used}'s findings "
-                  f"[model {FIX_MODEL}, max-turns {MAX_TURNS}] -> "
+                  f"[model {FIX_MODEL}, max-turns {MAX_TURNS}, "
+                  f"{len(FIX_TOOLS.split(','))} granted tools] -> "
                   f"{fix_log_path(n, used)} (--dry-run; pass --spawn to act)")
     elif state == 'park':
         print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent and {head[:7]} is "
@@ -490,23 +709,68 @@ for pr in prs:
             # (PR #46 review, round 1). check=False + inspection rather than
             # check=True: one PR's failed spawn must not abort the sweep of
             # the rest.
-            result = spawn(f"/review-lane {n}", log_path)
-            if result != 0:
-                print(f"  #{n}: FAIL spawn exited {result} — no review was "
-                      "produced; this is not 'spawned', and the sweep will "
-                      f"exit nonzero. Route: {log_path}")
+            result = spawn(f"/review-lane {n}", log_path, tools=REVIEW_TOOLS)
+            # THE EXIT CODE IS NOT THE VERDICT (kogaki#65 defect 3). A spawn
+            # that exits 0 having posted nothing is a FAILURE, and the held
+            # run is the specimen: both sessions "ran to completion", the
+            # sweep counted them spawned, and the truth surfaced two layers
+            # later at the presence gate. Ask the artifact question here.
+            landed = report_present(n, head, allowed)
+            if result != 0 or landed is False:
+                reason = (f"the session exited {result}" if result != 0
+                          else "the session exited 0 without posting a report")
+                denials = denied_tools(log_path)
+                print(f"  #{n}: FAIL {reason} — no review-lane report for "
+                      f"{head[:7]}. Route: {log_path}")
+                if denials:
+                    print(f"  #{n}: denied tools: {', '.join(denials)}")
+                if post_stall_comment(n, head, log_path, reason, denials):
+                    print(f"  #{n}: posted the reason to the PR (not in report "
+                          "form — it must never satisfy the presence token)")
+                else:
+                    print(f"  #{n}: could NOT post the reason to the PR; it "
+                          "survives only in the route log")
                 print(f"  #{n}: if the turn cap ({MAX_TURNS}) was reached, the "
                       "PR is deliberately left report-less — the presence gate "
                       "is the loud backstop, and a partial report is never "
                       "fabricated to make this quiet.")
                 spawn_failures += 1
                 counts['spawn-failed'] = counts.get('spawn-failed', 0) + 1
+            elif landed is None:
+                # Cannot-determine is not success. Saying so keeps the third
+                # state distinct from the two it sits between.
+                print(f"  #{n}: spawned, but the report could not be verified "
+                      "(comment read failed) — not counted as reviewed")
+                counts['unverified'] = counts.get('unverified', 0) + 1
+            else:
+                # A REPORT IS NOT PROOF THE REVIEW WAS UNDEGRADED (PR #67
+                # review, round 1). The first form of this fallback fired only
+                # on TOTAL artifact absence, so a session denied a tool that
+                # worked around it and reported anyway left a GREEN GATE OVER A
+                # SILENT HOLE — the exact shape the grant enumeration's
+                # non-member fallback exists to prevent, surviving on the
+                # partial-denial path because the trigger condition was
+                # narrower than the failure class it was declared to cover.
+                # The denial list is primary capture; report it whenever it is
+                # non-empty, whatever else the session achieved.
+                denials = denied_tools(log_path)
+                if denials:
+                    print(f"  #{n}: report landed, but the session was denied: "
+                          f"{', '.join(denials)}")
+                    post_stall_comment(
+                        n, head, log_path,
+                        "the report landed, but the session was denied tools "
+                        "and the review may be degraded", denials)
+                    counts['report-degraded'] = counts.get('report-degraded', 0) + 1
+                else:
+                    counts['report-landed'] = counts.get('report-landed', 0) + 1
         else:
             # The dry run names the policy it WOULD spawn under. A preview that
             # withheld the model and the cap would leave the operator checking
             # the one thing a dry run exists to show them by reading the source.
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
-                  f"[model {MODEL}, max-turns {MAX_TURNS}] -> "
+                  f"[model {MODEL}, max-turns {MAX_TURNS}, "
+                  f"{len(REVIEW_TOOLS.split(','))} granted tools] -> "
                   f"{spawn_log_path(n, rnd)} (--dry-run; pass --spawn to act)")
 
 print(f"swept {len(prs)} open PR(s): "
