@@ -13,6 +13,9 @@ jobs:
   registered-checks:
     name: Run every registered check (registry-driven)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,6 +28,18 @@ jobs:
           CONSULT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           CONSULT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CONSULT_PR_BODY: ${{ github.event.pull_request.body }}
+          # review-report's inputs. A check whose input nothing writes can
+          # never fire, and looks installed the whole time — so the writer is
+          # here, beside the reader (kogaki#36; the defect was observed on this
+          # workflow's first run of that check, which failed for want of an
+          # authenticated `gh` rather than for want of a report).
+          # The PR number and head come from the event, so the common path
+          # needs no API call at all; GH_TOKEN is what lets the check read the
+          # PR's comments. Both are empty on push events, where the check
+          # resolves no PR and reports CANNOT-DETERMINE.
+          GH_TOKEN: ${{ github.token }}
+          REVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           python3 - <<'EOF'
           import json, pathlib, subprocess, sys

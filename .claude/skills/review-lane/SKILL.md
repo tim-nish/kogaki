@@ -133,3 +133,109 @@ run unconditionally and their failures deny. Admitting a judgment act there
 would put a human judgment behind the registry's mechanical-check contract
 and give this lane a deny it must not have. The lane is a harness skill and
 is invoked at review, in the same shape as `.claude/skills/consult-first/`.
+
+## Isolation — a requirement, not a courtesy (kogaki#34, story 1.12)
+
+**This lane runs in a session that did not author the work under review.**
+
+The ground is not preference. An authoring session cannot review its own work
+for the class of defect that consists of **not having applied what it already
+held** — and this repository has the specimen. PR #31 shipped a coined
+outcome-token set while the ratified vocabulary sat unused in the authoring
+session's own context; one pass from a non-authoring session caught it
+(kogaki#32). The served position is `isolation-checks-are-control-arms`: some
+checks work precisely because they know less, so giving them more context is
+contamination rather than improvement.
+
+**And it is advice, not enforcement — stated plainly because the alternative
+is believing otherwise.** Session identity appears in neither git nor GitHub
+metadata: on PR #43 the PR author, every commit author and the comment author
+are one login. `checks/check-review-report.sh` therefore asserts that a report
+*exists*, never that its author was independent. A rule whose only carrier is
+a document someone must read is advice
+(`a-rule-reproduces-only-through-a-default-carrier`), and this section is that
+document. Its removal signal is recorded with the check: a carrier that makes
+independence observable.
+
+## The report's shape
+
+A report is a **pull-request comment** whose first line is a fixed token at a
+fixed position:
+
+```
+review-lane report: <head sha>
+```
+
+followed by the findings in whatever form the lane produces them.
+
+- **A PR comment, not a commit or a file on the branch** — deliberately. The
+  reviewer must not author the branch, and committing to it would make them a
+  contributor to the very work under review.
+- **The head sha is part of the report, not a courtesy.** A report reviewed
+  the code it names; a later push is unreviewed, and the check reports a
+  report naming an older head as **stale** rather than counting it.
+- The check reads **only** that first line. What the findings say is judgment
+  and stays here.
+
+## The postmortem hand-off (kogaki#24 shape)
+
+When a finding is one a consultation would have prevented, the lane's closing
+section emits a **map-entry candidate** in the consultation map's postmortem
+shape — the violating artifact, the trigger terms that would have fired, and
+the question **verbatim** that would have found the served line.
+
+**Proposal only.** The lane writes no entry to `policy/consultation-map.md`.
+Admission is a human act, per the founding two-layer split: what is mechanized
+is the *proposal*, never the judgment. A candidate whose question was
+composed at the filing rather than actually run says so, in the question's own
+prose — the map's provenance rule, which applies to a candidate exactly as it
+applies to an entry.
+
+## The typed findings record (kogaki#34 clause 1)
+
+Findings are emitted as declared fields, one line each, in the same PR comment
+as the report:
+
+```
+finding: <blocking|should|nit> <open|resolved>  <the finding>
+```
+
+- **The merge check reads the two fields and never the prose.** Whether a
+  finding *is* blocking is your judgment; whether the PR *contains* an open
+  blocking one is a fact over the record. That is the two-layer split's own
+  test, not an exception to it.
+- **`blocking` gates; `should` and `nit` do not.** Marking something blocking
+  is a decision to stop a merge — make it deliberately.
+- Prose describing a finding as blocking, without the field, does **not**
+  gate. The field is the record; the prose is for the reader.
+
+**The gate this feeds is carrier-less on one half, and you should know it:**
+an empty findings record passes. Nothing distinguishes a thorough review that
+found nothing from one that looked at nothing, because the check rests on this
+lane's own self-report. That is marked in `specs/SPEC.md` §4 with its reopen
+trigger rather than left implied — but it means the honesty of an empty record
+is yours to supply, not the gate's to verify.
+
+## The rally — converged or escalated (kogaki#34 clauses 2–4)
+
+A report that lands findings and is never answered leaves the PR reviewed and
+unimproved, so the property is **converged or escalated**, not reviewed-once.
+
+- **Never push to the branch.** Corrections are comments or instructions; the
+  author applies them. A reviewer that authors a fix stops being a control
+  arm — and round two would have no isolated reviewer left.
+- **At most two rounds.** A disagreement that survives them is a **parked
+  owner decision**, never a third round.
+- **Every round leaves its record** — report, correction instruction, round
+  count — so a finding that took two rounds to land becomes evidence about the
+  map or about author-side prescriptions, harvested without anyone
+  remembering to.
+
+## How a review opens, and what it may ask the seam
+
+- **Fixed first move: an unscoped tier-1 `gloss_index` survey.** Where to look
+  is an *output* of the survey, not a heading you supply — a scoped query can
+  only return lines about something you already thought to name.
+- **The seam is never asked for a verdict.** The review supplies the claims;
+  the seam supplies the positions. Asking it to judge would make a live answer
+  authoritative and unpinnable, which the seam's own contract refuses.
