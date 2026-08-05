@@ -280,6 +280,40 @@
 # sweep that renders it because a session cannot know its own final cost from
 # inside the turn that posts. Tier tuning then has its data at the PR instead
 # of owing another investigation.
+#
+# A REPORT DECLARES ITS SCOPE AND ITS COMPLETENESS (kogaki#70 clause 5,
+# kogaki#74 clause 6). Two declarations, ONE GRAMMAR OVER ONE SEGMENTER,
+# specified together and implemented in one pass — two sequential passes over
+# this parser is how the use-vs-mention defect (kogaki#41) got in the first
+# time. The report's shape is now:
+#
+#   review-lane report: <head sha>
+#   review-scope: full | delta          — absent is read as `full`
+#   finding: ...                        — zero or more
+#   report-complete: <N> findings       — absent is read as complete
+#
+# SCOPE IS SURFACED, NEVER GATED. Clause 5 is deliberately carrier-less with a
+# named reopen trigger: whether a declared `delta` was the HONEST one is
+# judgment, and nothing here can compute it. What this file does is read the
+# declaration and PRINT it, so a narrower assurance is legible where the
+# driver's reader is looking rather than inferred from a round number.
+#
+# COMPLETENESS IS GATED, and both halves are mechanical — token presence and
+# count equality, computable facts over a declared record, which is why they
+# sit at the merge layer beside clause 1. The specimen is a merge that should
+# not have happened: on PR #71 the reviewer split its report, the first part
+# landed, the re-check fired, auto-merge completed, and the COMPLETE report
+# carrying a new open blocking finding arrived 2m57s later on an already-merged
+# PR. Nothing distinguished a complete report from the first fragment of one.
+#
+# BOTH DEFAULTS FAIL TOWARD THE HISTORY, which is not the same as failing open:
+# every report already in this repository was posted whole and reviewed fully,
+# so a default that retroactively narrowed or voided them would empty the gate
+# rather than tighten it. The tokens bind reports written after they ship.
+#
+# THE DECLARATIONS ARE ADJACENT LINES, NOT A WIDENED REPORT LINE — chosen by
+# running this file's own fixture pass against both forms (story 1.17's named
+# closing act), never by argument. The evidence is recorded at the regexes.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -475,6 +509,33 @@ REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
     r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b'
     r'(?P<just>\s*\[(?:policy|harm):[^\]]+\])?', re.M)
+# §4 clauses 5 and 6 (kogaki#70, kogaki#74) — ONE GRAMMAR OVER ONE SEGMENTER,
+# on SEPARATE ADJACENT LINES rather than widened onto the report line. That
+# form was CHOSEN BY EXERCISE, not by argument, which is the closing act story
+# 1.17's own question named: the fixture pass below was run against a report
+# carrying the scope declaration in each candidate form, and the two answers
+# were not close.
+#
+#   ON the report line (`review-lane report: <sha> delta`) — every reader
+#   whose REPORT regex has not been widened in lockstep sees NO REPORT AT ALL.
+#   Run that way, `segments()` returned `[]` for a declared report and the
+#   disclosure fixture failed on the first case; the state machine fell to
+#   spawn-round-1 and the merge gate would read every declared report as
+#   absent. The regex lives in TWO files (here and
+#   checks/check-review-report.sh) plus two `.search` trust uses, so the form
+#   is only safe while four copies stay synchronized — and its failure is
+#   SILENT-SHAPED, a green-looking `absent`.
+#
+#   ADJACENT (this form) — the report token stays BYTE-IDENTICAL, so no reader
+#   can be desynchronized by construction. The same fixture pass ran green with
+#   the REPORT regex untouched.
+#
+# That is also the use-vs-mention class kogaki#41 fixed once: the fixed token
+# is the thing every consumer agrees on, and widening it is how consumers stop
+# agreeing. Each line is anchored WHOLE (`^...$`), so a finding's prose
+# mentioning `report-complete:` is a mention and never a declaration.
+SCOPE = re.compile(r'^\s*review-scope:\s*(full|delta)\s*$', re.M)
+COMPLETE = re.compile(r'^\s*report-complete:\s*(\d+)\s+findings?\s*$', re.M)
 MAX_ROUNDS = 2   # §4 clause 3: two rounds, then a parked owner decision.
 
 # Spawned-session policy, resolved in the shell above and passed in rather than
@@ -539,6 +600,15 @@ POSTING = (
     "consecutive `gh pr comment` attempts with the same body: each retry "
     "spends a turn and risks a DUPLICATE `review-lane report:` comment, and a "
     "second segment for one head changes what the sweep counts as rounds."
+    "\n\nTHE REPORT DECLARES ITS SCOPE AND ITS COMPLETENESS (specs/SPEC.md §4 "
+    "clauses 5 and 6). Beside the `review-lane report: <sha>` line, on its own "
+    "adjacent line, write `review-scope: full` or `review-scope: delta`; end "
+    "the report with `report-complete: <N> findings`, where N is EXACTLY the "
+    "number of `finding:` lines you wrote. A report whose count does not match "
+    "is read as a FRAGMENT and counts as nothing — it turns nothing green and "
+    "the head stays unreviewed, so write the terminal line last and write it "
+    "once. A round-2 review is `delta` by default and `full` whenever the fix "
+    "touched files outside the ones round 1's findings named."
 )
 
 
@@ -1042,8 +1112,13 @@ def report_present(pr, head, allowed):
             if ((c.get("author") or {}).get("login") or "") in allowed)
     except (subprocess.CalledProcessError, json.JSONDecodeError):
         return None          # cannot-determine, never "absent"
-    return any(head.startswith(s['sha']) or s['sha'].startswith(head)
-               for s in segments(bodies))
+    # A FRAGMENT IS NOT AN ARTIFACT (§4 clause 6). This function asks the same
+    # question the merge gate asks, at the moment the sweep can still say
+    # something useful about it — so it must answer it the same way, or the
+    # sweep would count a spawn as successful over a report the gate then
+    # refuses. A reviewer whose report arrived in pieces gets the stall comment,
+    # which is exactly the disclosure PR #71 did not have.
+    return any(counted(s) for s in head_segments(segments(bodies), head))
 
 
 def post_stall_comment(pr, head, log_path, reason, denials):
@@ -1082,18 +1157,93 @@ def segments(bodies):
     """Same segmentation the presence check uses: a report line opens a
     segment holding the findings under it. Duplicated deliberately rather
     than imported — this is a standalone tool, and a shared module would make
-    the check depend on a file the CI runner has no reason to execute."""
+    the check depend on a file the CI runner has no reason to execute.
+
+    Each segment also carries its two DECLARATIONS (§4 clauses 5 and 6), read
+    in the same single pass over the same grammar:
+
+      scope     'full' | 'delta', or None when the report declared none —
+                READ AS `full` by scope_of(), the compatibility direction
+                clause 5 states. The reports already in this repository's
+                history are all full reviews, and a default that silently
+                narrowed them would rewrite history at the gate.
+      complete  the N of a terminal `report-complete: <N> findings`, or None
+                when the report carries no such line — READ AS COMPLETE by
+                counted(), on the same compatibility ground.
+
+    The FIRST declaration of each kind in a segment wins. A second one is a
+    malformed report, not a correction, and a later line must never be able to
+    revise an earlier claim about the same segment. Findings emitted AFTER a
+    `report-complete:` line still count as findings, so a report that keeps
+    writing past its own terminal token fails count equality — which is the
+    fragment case behaving as it should rather than a special rule for it."""
     segs, cur = [], None
     for line in (bodies or '').splitlines():
         r = REPORT.match(line)
         if r:
-            cur = {'sha': r.group(1), 'findings': []}
+            cur = {'sha': r.group(1), 'findings': [],
+                   'scope': None, 'complete': None}
             segs.append(cur)
             continue
+        if cur is None:
+            continue        # a declaration before any report belongs to none
+        s = SCOPE.match(line)
+        if s:
+            if cur['scope'] is None:
+                cur['scope'] = s.group(1)
+            continue
+        c = COMPLETE.match(line)
+        if c:
+            if cur['complete'] is None:
+                cur['complete'] = int(c.group(1))
+            continue
         f = FINDING.match(line)
-        if f and cur is not None:
+        if f:
             cur['findings'].append((f.group(1), f.group(2), bool(f.group('just'))))
     return segs
+
+
+def counted(seg):
+    """Does this segment COUNT? §4 clause 6 — a fragment counts as nothing.
+
+    Both halves are mechanical: the token's presence and count equality. A
+    segment declaring `report-complete: 5 findings` while carrying 2 is the
+    first part of a split report, and the PR #71 specimen is a merge that
+    should not have happened — the fragment landed, the re-check fired,
+    auto-merge completed, and the complete report carrying a new open blocking
+    finding arrived on an already-merged PR.
+
+    An ABSENT token counts as complete (criterion 1c): the token binds reports
+    written after it ships, and voiding this repository's history retroactively
+    would empty the gate rather than tighten it.
+    """
+    return seg['complete'] is None or seg['complete'] == len(seg['findings'])
+
+
+def scope_of(seg):
+    """This segment's declared scope, or `full` when it declared none."""
+    return seg['scope'] or 'full'
+
+
+def head_segments(segs, head):
+    """The segments naming THIS head — abbreviated shas match either way."""
+    return [s for s in segs
+            if head and (head.startswith(s['sha']) or s['sha'].startswith(head))]
+
+
+def head_scope(bodies, head):
+    """(scope, declared) for this head's counted report, or (None, False).
+
+    Surfaced rather than gated: clause 5 is deliberately carrier-less and adds
+    no computable obligation to the merge layer. What the driver owes is that
+    the declaration is OBSERVABLE where the driver's reader is looking — the
+    same lesson kogaki#76 taught about the downgrade NOTE, which was emitted on
+    one of two paths.
+    """
+    for s in head_segments(segments(bodies), head):
+        if counted(s):
+            return scope_of(s), s['scope'] is not None
+    return None, False
 
 
 def decide(bodies, head):
@@ -1109,11 +1259,23 @@ def decide(bodies, head):
                        REVIEW here — that would re-read code nobody has
                        changed since the report that judged it
       done           — a report for this head with nothing blocking open
+
+    A FRAGMENT COUNTS AS NOTHING (§4 clause 6). A segment whose declared
+    `report-complete: <N>` does not equal its own finding lines cannot produce
+    `done` or `author-owes`: the head is not reviewed, so the state is the one
+    it would have been without any report — another round, or a park. The
+    fragment still SPENT a round, and is counted as one, because the cost was
+    paid whether or not the artifact arrived whole.
+
+    Its findings still gate, though, on the conservative side: clause 6 says a
+    fragment turns nothing GREEN, and dropping a fragment's `blocking open`
+    would be using incompleteness to make a PR pass. So completeness decides
+    whether a report EXISTS for this head; the finding set is read over every
+    segment naming it.
     """
     segs = segments(bodies)
-    current = [s for s in segs
-               if head and (head.startswith(s['sha']) or s['sha'].startswith(head))]
-    if current:
+    current = head_segments(segs, head)
+    if any(counted(s) for s in current):
         # Only a JUSTIFIED blocking gates (kogaki#72): an unjustified one
         # fails toward merge as a should — same rule as the presence check.
         blocking = [1 for s in current for sev, st, just in s['findings']
@@ -1130,6 +1292,17 @@ def decide(bodies, head):
                   "downgraded to should, non-gating (kogaki#72) — the driver "
                   "does not treat them as author-owes")
         return 'author-owes' if blocking else 'done'
+    # THE FRAGMENT IS ANNOUNCED, never silently absent (§4 clause 6). A report
+    # that reached the PR and was not counted is a different fact from no
+    # report at all, and the operator reading "spawning round 2" deserves to
+    # know which one happened — the kogaki#76 shape again: the outcome was
+    # correct and the disclosure was missing.
+    for s in current:
+        if not counted(s):
+            print(f"NOTE: a report for {s['sha'][:7]} declares "
+                  f"`report-complete: {s['complete']} findings` but carries "
+                  f"{len(s['findings'])} — a FRAGMENT counts as nothing "
+                  "(§4 clause 6, kogaki#74); this head is not reviewed")
     rounds_done = len(segs)
     if rounds_done >= MAX_ROUNDS:
         return 'park'
@@ -1370,6 +1543,166 @@ print(f"driver pass: {len(DRIVE)}/{len(DRIVE)} fix-spawn cases "
       "(spawn on blocking / no fix without blocking / no fix without a report "
       "/ CAP BINDS with rounds spent / stale blocking summons nothing)")
 
+# --- the declarations: one grammar, one segmenter (kogaki#70, kogaki#74) ---
+# THE FORM WAS CHOSEN BY RUNNING THIS PASS, which is story 1.17's own named
+# closing act rather than a promise to be careful. Both candidate forms were
+# put through these cases before either was written into the file:
+#
+#   the scope ON the report line, REPORT not widened -> segments() returns []
+#      for a declared report; the disclosure fixture fails on case 1 and the
+#      state machine falls to spawn-round-1. A declared report reads as ABSENT.
+#   the scope ON the report line, REPORT widened     -> green here, but the
+#      token's regex then lives in four synchronized copies across two files,
+#      and any copy left behind reproduces the failure above SILENTLY.
+#   the scope on an ADJACENT line, REPORT untouched  -> green, with the token
+#      byte-identical. No consumer can be desynchronized by construction.
+#
+# So the cases below assert the property that decided it: THE DECLARATIONS DO
+# NOT DISTURB SEGMENTATION. Every state-machine case above is re-run with both
+# declarations present, and must reach the same verdict it reaches without them.
+_sfail = 0
+_SEG = [
+    ("a scope line does not break the report token",
+     f"review-lane report: {'abc1234def'}\nreview-scope: delta\n"
+     "finding: should open  x", 1, 'delta', True),
+    ("an absent scope is read as `full` (criterion 2, the history's direction)",
+     f"review-lane report: {'abc1234def'}\nfinding: should open  x",
+     1, 'full', True),
+    ("an absent report-complete is read as complete (criterion 1c)",
+     f"review-lane report: {'abc1234def'}\nfinding: should open  x",
+     1, 'full', True),
+    ("a matching count counts",
+     f"review-lane report: {'abc1234def'}\nreview-scope: full\n"
+     "finding: should open  x\nfinding: nit open  y\n"
+     "report-complete: 2 findings", 2, 'full', True),
+    ("a FRAGMENT counts as nothing — declares 5, carries 1",
+     f"review-lane report: {'abc1234def'}\nfinding: should open  x\n"
+     "report-complete: 5 findings", 1, 'full', False),
+    ("a report declaring MORE findings than it carries is also a fragment",
+     f"review-lane report: {'abc1234def'}\nreport-complete: 1 findings",
+     0, 'full', False),
+    ("zero findings, declared zero, counts — an empty record is a record",
+     f"review-lane report: {'abc1234def'}\nreport-complete: 0 findings",
+     0, 'full', True),
+    ("findings written PAST the terminal token break count equality",
+     f"review-lane report: {'abc1234def'}\nfinding: should open  x\n"
+     "report-complete: 1 findings\nfinding: nit open  y", 2, 'full', False),
+    ("MENTIONING the tokens in prose declares nothing (use vs mention, "
+     "kogaki#41)",
+     f"review-lane report: {'abc1234def'}\nI set review-scope: delta here, "
+     "and report-complete: 9 findings is the token.\nfinding: should open  x",
+     1, 'full', True),
+    ("the FIRST declaration wins; a later line cannot revise it",
+     f"review-lane report: {'abc1234def'}\nreview-scope: delta\n"
+     "review-scope: full\nfinding: should open  x\n"
+     "report-complete: 1 findings\nreport-complete: 99 findings",
+     1, 'delta', True),
+    ("declarations before any report belong to no segment",
+     f"review-scope: delta\nreport-complete: 7 findings\n"
+     f"review-lane report: {'abc1234def'}\nfinding: should open  x",
+     1, 'full', True),
+]
+for _label, _bodies, _nf, _scope, _counted in _SEG:
+    _segs = segments(_bodies)
+    if len(_segs) != 1:
+        print(f"FAIL declaration fixture [{_label}]: segmentation produced "
+              f"{len(_segs)} segment(s), want 1 — the declarations must not "
+              "disturb the report token")
+        _sfail = 1
+        continue
+    _s = _segs[0]
+    _got = (len(_s['findings']), scope_of(_s), counted(_s))
+    if _got != (_nf, _scope, _counted):
+        print(f"FAIL declaration fixture [{_label}]: "
+              f"(findings, scope, counted)={_got}, "
+              f"want {(_nf, _scope, _counted)}")
+        _sfail = 1
+if _sfail:
+    print("FAIL: the scope and completeness declarations are not read as one "
+          "grammar over the existing segmenter")
+    sys.exit(1)
+print(f"declaration pass: {len(_SEG)}/{len(_SEG)} grammar cases (scope "
+      "declared / absent-is-full / complete absent-is-complete / count "
+      "equality / fragment / past-the-terminal-token / use-vs-mention / "
+      "first-declaration-wins / pre-report lines bind to nothing)")
+
+# The declarations must not change any verdict the state machine already
+# reaches — asserted by re-running every case above with both lines present.
+_gfail = 0
+def _declare(bodies):
+    """Add a scope line and a matching terminal count to every segment."""
+    out, buf = [], []
+
+    def flush():
+        if buf:
+            n = sum(1 for l in buf if FINDING.match(l))
+            out.extend([buf[0], "review-scope: full", *buf[1:],
+                        f"report-complete: {n} findings"])
+    for line in bodies.splitlines():
+        if REPORT.match(line):
+            flush()
+            buf[:] = [line]
+        elif buf:
+            buf.append(line)
+        else:
+            out.append(line)
+    flush()
+    return "\n".join(out)
+
+
+for _n, _b, _h, _w in FIX:
+    if decide(_declare(_b), _h) != _w:
+        print(f"FAIL declared-state fixture [{_n}]: "
+              f"got {decide(_declare(_b), _h)!r}, want {_w!r}")
+        _gfail = 1
+for _n, _b, _h, _w in DRIVE:
+    if drives_fix(_declare(_b), _h) != _w:
+        print(f"FAIL declared-drive fixture [{_n}]: "
+              f"got {drives_fix(_declare(_b), _h)}, want {_w}")
+        _gfail = 1
+# And a FRAGMENT for the current head is NOT a reviewed head: the state falls
+# through to the round it would have been without any report.
+for _n, _b, _h, _w in [
+    ("a fragment for this head does not produce `done`",
+     f"review-lane report: {H}\nfinding: should open  x\n"
+     "report-complete: 4 findings", H, 'spawn-round-2'),
+    ("a fragment does not produce `author-owes` either",
+     f"review-lane report: {H}\nfinding: blocking open [harm: x]  x\n"
+     "report-complete: 4 findings", H, 'spawn-round-2'),
+    ("a fragment still SPENT its round — two of them park",
+     f"review-lane report: 9999999\nreview-lane report: {H}\n"
+     "finding: should open  x\nreport-complete: 4 findings", H, 'park'),
+    ("a COMPLETE report beside a fragment for the same head still counts",
+     f"review-lane report: {H}\nreport-complete: 4 findings\n"
+     f"review-lane report: {H}\nfinding: should open  x\n"
+     "report-complete: 1 findings", H, 'done'),
+]:
+    _got = decide(_b, _h)
+    if _got != _w:
+        print(f"FAIL fragment fixture [{_n}]: got {_got!r}, want {_w!r}")
+        _gfail = 1
+for _n, _b, _h, _w in [
+    ("a counted report's declared scope is read", f"review-lane report: {H}\n"
+     "review-scope: delta\nreport-complete: 0 findings", H, ('delta', True)),
+    ("an undeclared scope reads `full`, marked as the default",
+     f"review-lane report: {H}", H, ('full', False)),
+    ("a fragment's scope is not read — it is not a report",
+     f"review-lane report: {H}\nreview-scope: delta\n"
+     "report-complete: 3 findings", H, (None, False)),
+]:
+    if head_scope(_b, _h) != _w:
+        print(f"FAIL scope-surface fixture [{_n}]: got {head_scope(_b, _h)}, "
+              f"want {_w}")
+        _gfail = 1
+if _gfail:
+    print("FAIL: the declarations changed a verdict the state machine already "
+          "reached, or a fragment was counted as a review")
+    sys.exit(1)
+print(f"declared-state pass: {len(FIX) + len(DRIVE)}/{len(FIX) + len(DRIVE)} "
+      "cases re-run with both declarations present (same verdicts), plus 4 "
+      "fragment cases (no done / no author-owes / the round was still spent / "
+      "a complete report beside a fragment counts) and 3 scope-surface cases")
+
 mode = os.environ["SWEEP_MODE"]
 owner = os.environ["SWEEP_OWNER"]
 limit = int(os.environ["SWEEP_LIMIT"])
@@ -1424,6 +1757,18 @@ for pr in prs:
         continue
     state = decide(bodies, head)
     counts[state.split('-round-')[0]] = counts.get(state.split('-round-')[0], 0) + 1
+    # WHAT THE REPORT ATTESTS TO IS PART OF THE LINE (§4 clause 5). The gate
+    # reads presence and open-blocking identically whatever the round, so a
+    # delta review is invisible unless the declaration is said out loud — and
+    # this is the operator's view of the same fact the report carries. `by
+    # default` marks a scope nobody declared, which is not the same claim as a
+    # reviewer who wrote `full`.
+    _scope, _declared = head_scope(bodies, head)
+    if _scope:
+        counts[f'scope-{_scope}'] = counts.get(f'scope-{_scope}', 0) + 1
+        print(f"  #{n}: report scope {_scope}"
+              + ("" if _declared else " (declared by nobody — read as `full`, "
+                                     "the compatibility default)"))
     if state == 'done':
         print(f"  #{n}: reviewed at {head[:7]}, nothing blocking open")
     elif state == 'author-owes':

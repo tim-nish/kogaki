@@ -46,6 +46,24 @@
 # than counted — `proposals-carry-the-state-they-were-computed-against` applied
 # to the reviewing act.
 #
+# A REPORT DECLARES ITS SCOPE AND ITS COMPLETENESS (§4 clauses 5 and 6;
+# kogaki#70, kogaki#74), on two adjacent lines beside the report token:
+#
+#   review-lane report: <head sha>
+#   review-scope: full | delta          — absent is read as `full`
+#   finding: ...
+#   report-complete: <N> findings       — absent is read as complete
+#
+# Only ONE of them is enforced here, and the asymmetry is the two-layer split
+# rather than an inconsistency. COMPLETENESS is two mechanical facts — the
+# token's presence and count equality — so a segment counts only when N equals
+# its own finding lines, and a fragment turns nothing green. SCOPE is REPORTED
+# and never gated, because whether a declared `delta` was the honest one is
+# judgment; clause 5 says so itself and marks itself carrier-less with a named
+# reopen trigger. Both absences default toward this repository's history: every
+# report already posted was whole and full, and voiding them would empty this
+# gate rather than tighten it.
+#
 # FINDINGS BIND TO THEIR REPORT SEGMENT (PR #44 review, round 1). An
 # unsegmented union of all comments let a round-1 `blocking open` deadlock
 # every later round: clearing it would have required editing the round-1
@@ -188,6 +206,62 @@ REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$',
 FINDING = re.compile(
     r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b'
     r'(?P<just>\s*\[(?:policy|harm):[^\]]+\])?', re.MULTILINE)
+# THE REPORT DECLARES ITS SCOPE AND ITS COMPLETENESS (specs/SPEC.md §4 clauses
+# 5 and 6; kogaki#70, kogaki#74). One grammar over one segmenter, read in the
+# same single pass as the findings — two sequential passes over this parser is
+# how the use-vs-mention defect (kogaki#41) was introduced the first time.
+#
+# THEY ARE ADJACENT LINES AND THE REPORT TOKEN IS UNTOUCHED. The alternative —
+# widening the report line to `review-lane report: <sha> delta` — was EXERCISED
+# rather than reasoned about (story 1.17's named closing act, run through
+# tools/review-sweep.sh's embedded fixture pass): with the token's regex not
+# widened in lockstep, a declared report segmented to NOTHING and read as
+# absent. That regex lives in two files and four uses, so the adjacent form is
+# the one whose failure mode does not exist. Each line is anchored WHOLE, so a
+# finding's prose mentioning `report-complete:` is a mention, never a
+# declaration.
+#
+# SCOPE IS READ AND REPORTED, NEVER GATED — clause 5 is deliberately
+# carrier-less: whether a declared `delta` was the honest one is judgment, and
+# the clause says in as many words that it "adds no computable obligation to
+# the merge layer".
+#
+# COMPLETENESS IS GATED, because both of its halves are mechanical — token
+# presence and count equality, computable facts over a declared record, which
+# is the split's own test. A segment counts ONLY when the count it declares
+# equals its own finding lines; a fragment turns nothing green. The specimen is
+# a merge that should not have happened (PR #71: a split report's first part
+# landed, the re-check fired, auto-merge completed, and the complete report
+# carrying a new open blocking finding arrived on an already-merged PR).
+#
+# AND BOTH DEFAULTS FAIL TOWARD THE HISTORY. An absent scope reads `full`; an
+# absent `report-complete:` reads complete. Every report already in this
+# repository was posted whole and reviewed fully, so a default that
+# retroactively narrowed or voided them would empty this gate rather than
+# tighten it. The tokens bind reports written after they ship.
+SCOPE = re.compile(r'^\s*review-scope:\s*(full|delta)\s*$', re.MULTILINE)
+COMPLETE = re.compile(r'^\s*report-complete:\s*(\d+)\s+findings?\s*$',
+                      re.MULTILINE)
+
+
+def counted(seg):
+    """Does this segment COUNT? §4 clause 6 — a fragment counts as nothing.
+
+    An ABSENT token counts as complete; a PRESENT one counts only when its N
+    equals the segment's own finding lines.
+    """
+    return seg['complete'] is None or seg['complete'] == len(seg['findings'])
+
+
+def scope_of(seg):
+    """The segment's declared scope, or `full` when it declared none."""
+    return seg['scope'] or 'full'
+
+
+def head_segments(segs, head):
+    """The segments naming THIS head — abbreviated shas match either way."""
+    return [s for s in segs
+            if head and (head.startswith(s['sha']) or s['sha'].startswith(head))]
 
 
 def segments(bodies):
@@ -201,17 +275,39 @@ def segments(bodies):
     which §4 clause 4 (every round leaves its record) forbids in spirit. A
     stale segment's findings are that round's RECORD, never this head's
     state; a new round supersedes by writing a new report, not by mutating
-    an old one."""
+    an old one.
+
+    Each segment also carries its two DECLARATIONS (§4 clauses 5 and 6),
+    read in this same pass: `scope` ('full'|'delta'|None) and `complete`
+    (the declared N, or None). The FIRST declaration of each kind wins — a
+    second is a malformed report, not a correction, and a later line must
+    never revise an earlier claim about the same segment. Findings written
+    AFTER a `report-complete:` line still count as findings, so a report that
+    keeps writing past its own terminal token fails count equality; that is
+    the fragment case behaving as it should, not a special rule for it."""
     segs = []
     current = None
     for line in (bodies or '').splitlines():
         r = REPORT.match(line)
         if r:
-            current = {'sha': r.group(1), 'findings': []}
+            current = {'sha': r.group(1), 'findings': [],
+                       'scope': None, 'complete': None}
             segs.append(current)
             continue
+        if current is None:
+            continue        # a declaration before any report belongs to none
+        s = SCOPE.match(line)
+        if s:
+            if current['scope'] is None:
+                current['scope'] = s.group(1)
+            continue
+        c = COMPLETE.match(line)
+        if c:
+            if current['complete'] is None:
+                current['complete'] = int(c.group(1))
+            continue
         f = FINDING.match(line)
-        if f and current is not None:
+        if f:
             current['findings'].append(
                 (f.group(1), f.group(2), bool(f.group('just')), line.strip()))
     return segs
@@ -234,16 +330,55 @@ def open_blocking(bodies, head):
     return gating, downgraded
 
 
+def fragments(bodies, head):
+    """This head's segments that DO NOT count — (declared, actual) each.
+
+    Reported by name rather than absorbed into 'absent': a report that reached
+    the PR and was not counted is a different fact from no report at all, and
+    an operator told only "no report" would go looking for a spawn that in
+    fact ran. The PR #71 specimen is precisely a fragment nobody could see.
+    """
+    return [(s['complete'], len(s['findings']))
+            for s in head_segments(segments(bodies), head) if not counted(s)]
+
+
+def head_scope(bodies, head):
+    """(scope, declared) for this head's counted report, or (None, False).
+
+    Reported, never gated (§4 clause 5): what a report ATTESTS TO belongs on
+    the gate's own line, because presence and open-blocking read identically
+    whatever the round and a delta review is otherwise invisible here.
+    """
+    for seg in head_segments(segments(bodies), head):
+        if counted(seg):
+            return scope_of(seg), seg['scope'] is not None
+    return None, False
+
+
 def find_report(bodies, head):
-    """Return ('present'|'stale'|'absent'|'head-unknown'|'blocked', shas).
+    """Return ('present'|'stale'|'absent'|'head-unknown'|'blocked'
+    |'incomplete', shas).
 
     `stale` means a report exists but names a different head: it reviewed code
     this PR no longer proposes, so it is not presence for THIS head.
     `blocked` means the report is present for this head and carries at least
     one finding declared blocking and still open — the converged half of
     converged-or-escalated (specs/SPEC.md §4, kogaki#34).
+    `incomplete` means every report for this head is a FRAGMENT — §4 clause 6:
+    the count it declares does not equal its own finding lines, so it turns
+    nothing green and a split report holds the gate red until its last part
+    lands. It is its own state rather than folded into 'absent' because the
+    two owe the reader different sentences.
+
+    ORDER MATTERS, and it is: absent, head-unknown, stale, blocked,
+    incomplete, present. `blocked` is asked BEFORE completeness so that a
+    fragment's own open blocking still gates and is still NAMED — clause 6
+    says a fragment turns nothing GREEN, and letting incompleteness swallow a
+    blocking finding would be the inverse: a partial report used to hide one.
+    Both states are red; the earlier one is the more specific sentence.
     """
-    shas = [seg['sha'] for seg in segments(bodies)]
+    segs = segments(bodies)
+    shas = [seg['sha'] for seg in segs]
     if not shas:
         return 'absent', []
     if not head:
@@ -252,9 +387,14 @@ def find_report(bodies, head):
         # with the permissive value as the fallback, is failing open (PR #44
         # review).
         return 'head-unknown', shas
-    if any(head.startswith(s) or s.startswith(head) for s in shas):
-        return ('blocked', shas) if open_blocking(bodies, head)[0] else ('present', shas)
-    return 'stale', shas
+    current = head_segments(segs, head)
+    if not current:
+        return 'stale', shas
+    if open_blocking(bodies, head)[0]:
+        return 'blocked', shas
+    if not any(counted(seg) for seg in current):
+        return 'incomplete', shas
+    return 'present', shas
 
 
 def trusted_bodies(comments, allowed):
@@ -351,6 +491,134 @@ if failures:
 print(f"fixture pass: {len(FIXTURES)}/{len(FIXTURES)} discrimination cases "
       "(present / absent / stale / head-unknown / blocked / "
       "severity-below-blocking / prose-vs-field)")
+
+# --- the declarations: scope and completeness (§4 clauses 5 and 6) ---------
+# ONE GRAMMAR OVER ONE SEGMENTER, so it is exercised as one: every case below
+# asserts the state AND the two declarations, because the risk this story
+# carries is not that either token fails to parse but that reading them
+# DISTURBS the segmentation clauses 1-4 already rest on. The adjacent-line form
+# was chosen by running tools/review-sweep.sh's fixture pass against both
+# candidate forms first (story 1.17's named closing act); the widened-report-
+# line form segmented a declared report to nothing wherever the token's regex
+# had not been widened in lockstep.
+DECL = [
+    ("a report declaring `delta` is still present, and the scope is read",
+     f"review-lane report: {HEAD}\nreview-scope: delta\n"
+     "report-complete: 0 findings", HEAD, 'present', ('delta', True)),
+    ("an absent scope reads `full` — the history is not retroactively "
+     "narrowed (criterion 2)",
+     f"review-lane report: {HEAD}", HEAD, 'present', ('full', False)),
+    ("an absent report-complete reads COMPLETE (criterion 1c)",
+     f"review-lane report: {HEAD}\nfinding: should open  x",
+     HEAD, 'present', ('full', False)),
+    ("a matching count is complete",
+     f"review-lane report: {HEAD}\nreview-scope: full\n"
+     "finding: should open  x\nfinding: nit open  y\n"
+     "report-complete: 2 findings", HEAD, 'present', ('full', True)),
+    ("a FRAGMENT turns nothing green — declares 5, carries 1",
+     f"review-lane report: {HEAD}\nfinding: should open  x\n"
+     "report-complete: 5 findings", HEAD, 'incomplete', (None, False)),
+    ("the PR #71 specimen: a first part declaring more than it carries",
+     f"review-lane report: {HEAD}\nreview-scope: delta\n"
+     "finding: should resolved  round 1's finding is fixed\n"
+     "report-complete: 3 findings", HEAD, 'incomplete', (None, False)),
+    ("and its completion, landing later, turns the gate green",
+     f"review-lane report: {HEAD}\nreview-scope: delta\n"
+     "finding: should resolved  round 1's finding is fixed\n"
+     "report-complete: 3 findings\n"
+     f"review-lane report: {HEAD}\nreview-scope: delta\n"
+     "finding: should resolved  round 1's finding is fixed\n"
+     "finding: nit open  naming\nfinding: should open  a gap\n"
+     "report-complete: 3 findings", HEAD, 'present', ('delta', True)),
+    ("a fragment's own open blocking still gates, and is named",
+     f"review-lane report: {HEAD}\n"
+     "finding: blocking open [harm: the gate would pass a fragment]  x\n"
+     "report-complete: 4 findings", HEAD, 'blocked', (None, False)),
+    ("zero findings, declared zero, is a complete record",
+     f"review-lane report: {HEAD}\nreport-complete: 0 findings",
+     HEAD, 'present', ('full', False)),
+    ("findings written PAST the terminal token break count equality",
+     f"review-lane report: {HEAD}\nfinding: should open  x\n"
+     "report-complete: 1 findings\nfinding: nit open  y",
+     HEAD, 'incomplete', (None, False)),
+    ("MENTIONING the tokens in prose declares nothing (kogaki#41's class)",
+     f"review-lane report: {HEAD}\nThe report-complete: 9 findings token is "
+     "terminal, and review-scope: delta is the other one.\n"
+     "finding: should open  x", HEAD, 'present', ('full', False)),
+    ("the FIRST declaration wins; a later line cannot revise it",
+     f"review-lane report: {HEAD}\nreview-scope: delta\nreview-scope: full\n"
+     "report-complete: 0 findings\nreport-complete: 99 findings",
+     HEAD, 'present', ('delta', True)),
+    ("declarations before any report belong to no segment",
+     f"review-scope: delta\nreport-complete: 7 findings\n"
+     f"review-lane report: {HEAD}", HEAD, 'present', ('full', False)),
+    ("a fragment naming a DIFFERENT head is stale, not incomplete",
+     "review-lane report: 9999999\nreport-complete: 4 findings",
+     HEAD, 'stale', (None, False)),
+    ("an unknown head is still head-unknown, whatever a report declares",
+     f"review-lane report: {HEAD}\nreport-complete: 4 findings",
+     '', 'head-unknown', (None, False)),
+]
+decl_bad = []
+for name, bodies, head_fx, want_state, want_scope in DECL:
+    got_state, _ = find_report(bodies, head_fx)
+    got_scope = head_scope(bodies, head_fx)
+    if got_state != want_state or got_scope != want_scope:
+        decl_bad.append(f"{name}: got ({got_state!r}, {got_scope}), "
+                        f"want ({want_state!r}, {want_scope})")
+# THE FRAGMENT IS NAMED, not merely refused. Asserting the outcome while never
+# asserting the disclosure is the habit kogaki#76 was filed over, and this
+# suite has made the same correction twice already.
+for name, bodies, head_fx, want in [
+    ("a fragment reports what it declared and what it carried",
+     f"review-lane report: {HEAD}\nfinding: should open  x\n"
+     "report-complete: 5 findings", HEAD, [(5, 1)]),
+    ("a complete report owes no fragment line",
+     f"review-lane report: {HEAD}\nfinding: should open  x\n"
+     "report-complete: 1 findings", HEAD, []),
+    ("a report with no token at all owes no fragment line",
+     f"review-lane report: {HEAD}\nfinding: should open  x", HEAD, []),
+]:
+    got = fragments(bodies, head_fx)
+    if got != want:
+        decl_bad.append(f"{name}: fragments={got}, want {want}")
+# And the declarations must not change a verdict the parser already reached:
+# every case above re-run with both lines present, scoped `full` and counted.
+def _declare(bodies):
+    out, buf = [], []
+
+    def flush():
+        if buf:
+            n = sum(1 for l in buf if FINDING.match(l))
+            out.extend([buf[0], "review-scope: full", *buf[1:],
+                        f"report-complete: {n} findings"])
+    for line in bodies.splitlines():
+        if REPORT.match(line):
+            flush()
+            buf[:] = [line]
+        elif buf:
+            buf.append(line)
+        else:
+            out.append(line)
+    flush()
+    return "\n".join(out)
+
+
+for name, bodies, head_fx, want in FIXTURES:
+    got, _ = find_report(_declare(bodies), head_fx)
+    if got != want:
+        decl_bad.append(f"declared[{name}]: got {got!r}, want {want!r}")
+if decl_bad:
+    print("FAIL fixture pass — the report's declarations are not read as one "
+          "grammar over the existing segmenter:")
+    for f in decl_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print(f"declaration pass: {len(DECL)}/{len(DECL)} scope-and-completeness cases "
+      "(declared / absent-is-full / absent-is-complete / count equality / "
+      "fragment / the PR #71 split report and its completion / use-vs-mention "
+      "/ first-declaration-wins), 3 fragment-disclosure cases, and all "
+      f"{len(FIXTURES)} cases above re-run with both declarations present")
 
 # --- trust assembly fixtures (kogaki#56): author-filtering, both directions.
 OWN = 'repo-owner'
@@ -456,9 +724,41 @@ if state == 'blocked':
     for b in blocking:
         print(f"  {b}")
     sys.exit(1)
+if state == 'incomplete':
+    print(f"FAIL: PR #{pr} carries a review-lane report for head {head[:7]}, "
+          "but it is a FRAGMENT and a fragment counts as nothing "
+          "(specs/SPEC.md §4 clause 6, kogaki#74). A partial report turns "
+          "nothing green, and a split report holds the gate red until its "
+          "last part lands — which is the merge PR #71 should not have had.")
+    for declared, actual in fragments(bodies, head):
+        print(f"  declares `report-complete: {declared} findings` but carries "
+              f"{actual} finding line(s)")
+    print("  Post the report whole, in ONE comment, with its terminal "
+          "`report-complete: <N> findings` line last and N equal to the "
+          "number of `finding:` lines above it.")
+    sys.exit(1)
 if state == 'present':
+    # WHAT THE REPORT ATTESTS TO IS ON THE PASSING LINE (§4 clause 5). Clause
+    # 1's mechanical half reads presence and open-blocking identically whatever
+    # the round, so without this the gate's own output cannot tell a full
+    # review from a delta one — which is the narrower assurance in a full
+    # review's clothes the clause was written against. It is REPORTED, never
+    # enforced: whether a declared `delta` was honest is judgment, and clause 5
+    # is carrier-less by design with a named reopen trigger.
+    scope, declared = head_scope(bodies, head)
     print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}, "
           "no open blocking findings")
+    print(f"scope: {scope}" + ("" if declared else
+          " — DECLARED BY NOBODY, read as `full` on the compatibility "
+          "direction §4 clause 5 states (the reports already in this "
+          "repository's history are full reviews)"))
+    if scope == 'delta' and declared:
+        print("a DELTA review is a narrower assurance than a full one: its "
+              "subject is the previous round's findings × the fix commits. "
+              "Whether that scope was the honest one is the lane's judgment "
+              "and is not verified here (§4 clause 5, carrier-less; reopen "
+              "trigger: one PR whose round-2 report declared `delta` and "
+              "missed a defect inside the fix commits it claimed to cover).")
 elif state == 'stale':
     print(f"FAIL: PR #{pr} carries a review-lane report, but it names "
           f"{', '.join(s[:7] for s in shas)} and this head is {head[:7]} — a "
