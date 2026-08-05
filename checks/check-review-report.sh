@@ -28,12 +28,18 @@
 # than counted — `proposals-carry-the-state-they-were-computed-against` applied
 # to the reviewing act.
 #
-# THREE-VALUED. No PR, no `gh`, or no network is CANNOT-DETERMINE and exits 0,
-# never FAIL: a checker reporting absence without establishing that it looked
-# in a real place gives an unfounded answer rather than a wrong one, and an
-# unfounded answer agrees with everything (`establish-the-substrate-before-
-# reporting`). CANNOT-DETERMINE is rendered separately from FAIL so a missing
-# substrate is never spent as a positive finding.
+# THREE-VALUED, AND THE THIRD VALUE IS EARNED BY EVIDENCE. Exactly one state
+# is CANNOT-DETERMINE: a lookup that SUCCEEDED and established there is no pull
+# request. `gh` missing, a failed call, or a PR whose head will not resolve are
+# all COULD NOT ESTABLISH and FAIL — because a gate that exits 0 whenever its
+# own instrument is unavailable disappears silently in exactly the condition
+# where it matters, and "I could not look" is not evidence that there was
+# nothing to see. An earlier draft of this file collapsed those into
+# cannot-determine, which reported "no pull request for this branch" on an auth
+# expiry — the defect its own header refuses, one level down (PR #44 review).
+# CANNOT-DETERMINE is still rendered separately from FAIL so a genuinely
+# absent PR is never spent as a positive finding
+# (`establish-the-substrate-before-reporting`).
 #
 # Tier is `ci` rather than `pre-push`: the substrate is a pull request, which
 # does not exist at push time, and a check's position in the loop is a cost
@@ -45,27 +51,71 @@ PR_NUMBER="${REVIEW_PR_NUMBER:-}"
 HEAD_SHA="${REVIEW_HEAD_SHA:-}"
 COMMENTS="${REVIEW_PR_COMMENTS:-}"
 
-# Resolve from `gh` only when the caller did not supply the substrate. Every
-# failure here is CANNOT-DETERMINE, never FAIL.
+# THE THIRD VALUE IS EARNED BY EVIDENCE, not reached by falling through.
+# CANNOT-DETERMINE is for one state only: a lookup that SUCCEEDED and
+# established there is no pull request. Everything else — the tool missing, a
+# call that failed, a PR whose head could not be resolved — is COULD NOT
+# ESTABLISH and fails. A gate that exits 0 whenever its own instrument is
+# unavailable disappears silently in exactly the condition where it matters,
+# and an unfounded "no pull request" is the very defect this file's header
+# refuses one level down: refusing to report absence without looking, then
+# reporting why it could not look without establishing that either.
+substrate="ok"      # ok | no-pr | unestablished
 substrate_note=""
+
 if [ -z "$PR_NUMBER" ]; then
-  if command -v gh >/dev/null 2>&1; then
-    PR_NUMBER="$(gh pr view --json number -q .number 2>/dev/null || true)"
+  if ! command -v gh >/dev/null 2>&1; then
+    substrate="unestablished"; substrate_note="gh is not available"
   else
-    substrate_note="gh is not available"
+    # `gh pr list`, not `gh pr view`: view EXITS NON-ZERO when the branch has
+    # no pull request, which is indistinguishable from an auth or network
+    # failure, so the cannot-determine state was unreachable and every pre-PR
+    # branch failed. `list` exits 0 and returns an empty array — a lookup that
+    # SUCCEEDED and established absence, which is the evidence the third value
+    # is supposed to be earned by. Found by exercising the path rather than
+    # reading it (PR #44 review, second round).
+    _branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
+    if _found="$(gh pr list --head "$_branch" --state open \
+                 --json number -q '.[0].number' 2>/dev/null)"; then
+      PR_NUMBER="$_found"
+      [ -z "$PR_NUMBER" ] && { substrate="no-pr"
+        substrate_note="the lookup succeeded and found no open pull request
+ for branch $_branch"; }
+    else
+      PR_NUMBER=""
+      substrate="unestablished"
+      substrate_note="the gh lookup FAILED (auth, network or API) — this is not
+ evidence that no pull request exists"
+    fi
   fi
 fi
-if [ -n "$PR_NUMBER" ] && [ -z "$COMMENTS" ]; then
-  COMMENTS="$(gh pr view "$PR_NUMBER" --json comments \
-              -q '.comments[].body' 2>/dev/null || true)"
-  [ -z "$HEAD_SHA" ] && HEAD_SHA="$(gh pr view "$PR_NUMBER" \
-              --json headRefOid -q .headRefOid 2>/dev/null || true)"
+
+# The head is resolved INDEPENDENTLY of whether comments were supplied. Tying
+# it to the comments fetch made it optional exactly when it could not be
+# checked, and the fallback was the permissive value (PR #44 review).
+if [ "$substrate" = "ok" ] && [ -n "$PR_NUMBER" ]; then
+  if [ -z "$HEAD_SHA" ]; then
+    if command -v gh >/dev/null 2>&1 &&
+       HEAD_SHA="$(gh pr view "$PR_NUMBER" --json headRefOid \
+                   -q .headRefOid 2>/dev/null)"; then
+      :
+    else
+      HEAD_SHA=""
+    fi
+  fi
+  if [ -z "$COMMENTS" ] && command -v gh >/dev/null 2>&1; then
+    COMMENTS="$(gh pr view "$PR_NUMBER" --json comments \
+                -q '.comments[].body' 2>/dev/null || true)"
+  fi
+  if [ -z "$HEAD_SHA" ]; then
+    substrate="unestablished"
+    substrate_note="PR #$PR_NUMBER exists but its head sha could not be
+ resolved; the head is part of presence, so an unknown head is not a pass"
+  fi
 fi
-[ -z "$PR_NUMBER" ] && [ -z "$substrate_note" ] && \
-  substrate_note="no pull request for this branch"
 
 REVIEW_PR="$PR_NUMBER" REVIEW_HEAD="$HEAD_SHA" REVIEW_BODIES="$COMMENTS" \
-REVIEW_NOTE="$substrate_note" python3 <<'EOF'
+REVIEW_NOTE="$substrate_note" REVIEW_SUBSTRATE="$substrate" python3 <<'EOF'
 import os, re, sys
 
 # A report's first line, fixed token and fixed position — the same discipline
@@ -77,7 +127,7 @@ REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$',
 
 
 def find_report(bodies, head):
-    """Return ('present'|'stale'|'absent', shas_seen).
+    """Return ('present'|'stale'|'absent'|'head-unknown', shas_seen).
 
     `stale` means a report exists but names a different head: it reviewed code
     this PR no longer proposes, so it is not presence for THIS head.
@@ -85,9 +135,15 @@ def find_report(bodies, head):
     shas = [m.group(1) for m in REPORT.finditer(bodies or '')]
     if not shas:
         return 'absent', []
-    if head and any(head.startswith(s) or s.startswith(head) for s in shas):
+    if not head:
+        # The head is part of presence. Unknown-head is its own state and is
+        # NEVER 'present': making it optional exactly when it cannot be checked,
+        # with the permissive value as the fallback, is failing open (PR #44
+        # review).
+        return 'head-unknown', shas
+    if any(head.startswith(s) or s.startswith(head) for s in shas):
         return 'present', shas
-    return ('stale', shas) if head else ('present', shas)
+    return 'stale', shas
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +165,11 @@ FIXTURES = [
      "I ran the review lane report on this.", HEAD, 'absent'),
     ("a report among several comments is found",
      f"nice\n---\nreview-lane report: {HEAD}\n---\nthanks", HEAD, 'present'),
+    # --- PR #44 review: the head-unknown branch, previously unexercised ---
+    ("a report with an unknown head is NOT present",
+     f"review-lane report: {HEAD}", '', 'head-unknown'),
+    ("no report with an unknown head is still absent, not head-unknown",
+     "lgtm", '', 'absent'),
 ]
 failures = []
 for name, bodies, head, want in FIXTURES:
@@ -122,7 +183,7 @@ if failures:
     sys.exit(1)
 
 print(f"fixture pass: {len(FIXTURES)}/{len(FIXTURES)} discrimination cases "
-      "(present / absent / stale-head / token-vs-prose)")
+      "(present / absent / stale-head / head-unknown / token-vs-prose)")
 
 # ---------------------------------------------------------------------------
 # The live pass.
@@ -131,13 +192,28 @@ pr = os.environ.get("REVIEW_PR", "")
 head = os.environ.get("REVIEW_HEAD", "")
 note = os.environ.get("REVIEW_NOTE", "")
 
-if not pr:
-    print(f"CANNOT-DETERMINE: {note or 'no substrate'} — this check asserts a "
-          "report's presence ON A PULL REQUEST and reports nothing when there "
-          "is no pull request to look at. Not a pass and not a failure.")
+substrate = os.environ.get("REVIEW_SUBSTRATE", "ok")
+
+if substrate == 'no-pr':
+    print(f"CANNOT-DETERMINE: {note} — this check asserts a report's presence "
+          "ON A PULL REQUEST, and the lookup succeeded and established there "
+          "is none. Not a pass and not a failure.")
     sys.exit(0)
 
+if substrate == 'unestablished':
+    print(f"FAIL could not establish the substrate: {note}. This is reported "
+          "as a FAILURE rather than as cannot-determine on purpose: a gate "
+          "that exits 0 whenever its own instrument is unavailable disappears "
+          "silently in exactly the condition where it matters, and 'I could "
+          "not look' is not evidence that there was nothing to see.")
+    sys.exit(1)
+
 state, shas = find_report(os.environ.get("REVIEW_BODIES", ""), head)
+if state == 'head-unknown':
+    print(f"FAIL: PR #{pr} carries a review-lane report, but this run could "
+          "not establish which head it should name. The head is part of "
+          "presence, so an unknown head is not a pass.")
+    sys.exit(1)
 if state == 'present':
     print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}")
 elif state == 'stale':
