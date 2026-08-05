@@ -20,5 +20,38 @@
     "specs/spec-gate-carrier/SPEC.md."
   ],
   "version": "1",
-  "gates": []
+  "gates": [
+    {
+      "id": "terrain-strand-selection",
+      "raised_by": "terrain/terrain.mjs gate + .claude/skills/terrain — the selection screen (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "Which Strand does the article take as material?",
+      "options": [
+        {
+          "id": "no-strand",
+          "label": "Take no Strand from this survey; nothing is selected and the survey stands"
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "dynamic_options": "Strand options are composed per run from the owner's current view (ids strand:<slug>, at most 3 beside the standing option — the selector affordance holds 4); the run's full declaration is written beside its capture in the machine-local run workspace, which never enters the tree (specs/SPEC.md §4 rider 3). Consulted 2026-08-05 (product-lab@16a6dbf6, two framings): no served position discriminates declaring a run-computed option set in a static registry — recorded as a miss, not resolved silently. The class is declared here, the content with the run; a capture that somehow reaches the tree and disagrees with this entry FAILS the options-equality check by design rather than being exempted."
+    },
+    {
+      "id": "terrain-trim-ratification",
+      "raised_by": "terrain/terrain.mjs gate --proposal + .claude/skills/terrain — a rank/trim/hide proposal record presented for ratification (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "The machine proposes narrowing the candidate set — apply it?",
+      "options": [
+        {
+          "id": "decline",
+          "label": "No narrowing; the full candidate set stands"
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation — the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting and the same recorded consult miss as terrain-strand-selection. fork:false deliberately: Terrain attaches no recommendation to a trim — a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
+    }
+  ]
 }
