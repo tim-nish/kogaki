@@ -10,8 +10,14 @@
 # consumer's (specs/SPEC.md §4 sided-evidence clause;
 # policy/consultation-map.md entry 2). kogaki#7, story 1.3.
 #
-# Fails only on a malformed receipt — a `consulted:` line whose pin is not
-# `<repo>@<sha> <file:line[,line…]>` shaped.
+# Fails only on a malformed receipt, never on a count. Malformed means a pin
+# that is not `<repo>@<sha> <file:line[,line…]>` shaped, or — for a v2 receipt
+# (kogaki#28, story 1.10) — a CONFORMANCE defect in what the receipt asserts:
+# an outcome outside the ratified triple, an `uncovered-after-N` whose N
+# disagrees with the query lines or falls below the re-ask floor, or a receipt
+# carrying some continuation fields and not the rest. All of those are claims
+# the receipt makes about itself; none of them is a count of receipts, so the
+# "never gates on the count" contract is untouched.
 #
 # USE vs MENTION (kogaki#41): a `consulted:` line inside a fenced code block
 # is a QUOTATION of the format, not an emission of a receipt — the scanned
@@ -66,7 +72,13 @@ CONT = re.compile(r'^[ \t]+(request_id|outcome|query):[ \t]*(.*)$')
 # the one field meant to make them harvestable
 # (topics/knowledge-architecture.md:59@ed47fbd; specs/SPEC.md §4).
 OUTCOMES = {'discriminating', 'covered-after-reframing'}
-UNCOVERED = re.compile(r'^uncovered-after-\d+-framings$')
+UNCOVERED = re.compile(r'^uncovered-after-(\d+)-framings$')
+# A miss is not recordable as `uncovered` until it has been re-asked along at
+# least one ALTERNATIVE axis, so two framings is the floor and the token cannot
+# claim fewer. Stated as its own constant and checked as its own clause: the
+# floor is currently also implied by the >=2 query rule below, and an implied
+# invariant is one a later refactor drops without any test noticing.
+MIN_FRAMINGS = 2
 
 
 def outcome_ok(value):
@@ -106,11 +118,47 @@ def scan(source):
             malformed.append((pin, 'pin is not `<repo>@<sha> <file:line…>` shaped'))
             continue
         got = fields.get('outcome')
+        # PRESENCE IMPLIES COMPLETENESS. Continuations stay optional so that a
+        # v1 receipt — no continuation lines at all — is valid, which is
+        # load-bearing for the history. But once ANY continuation is present
+        # the receipt is v2 and owes all three fields SPEC §4 requires; without
+        # this, `outcome: discriminating` alone passes while claiming to be a
+        # v2 receipt.
+        has_cont = bool(fields.get('request_id') or got or fields['query'])
+        if has_cont:
+            missing = [k for k in ('request_id', 'outcome')
+                       if not fields.get(k)]
+            if not fields['query']:
+                missing.append('query')
+            if missing:
+                malformed.append(
+                    (pin, 'a v2 receipt (a continuation line is present) owes '
+                          'request_id, outcome and at least one query; '
+                          f'missing: {", ".join(missing)}'))
+                continue
         if got is not None and not outcome_ok(got):
             malformed.append((pin, f'outcome {got!r} is not the ratified triple '
                                    '(discriminating | covered-after-reframing | '
                                    'uncovered-after-N-framings)'))
             continue
+        # `uncovered-after-N-framings` ASSERTS a number. Validating its shape
+        # only lets a receipt claim seven framings while recording two, which
+        # is the field the AC exists to make readable saying something the
+        # queries contradict.
+        m = UNCOVERED.match(got) if got else None
+        if m:
+            n = int(m.group(1))
+            if n < MIN_FRAMINGS:
+                malformed.append((pin, f'outcome claims {n} framing(s); '
+                                       f'`uncovered` is not recordable below '
+                                       f'{MIN_FRAMINGS} — a miss owes a '
+                                       're-ask along another axis first'))
+                continue
+            if n != len(fields['query']):
+                malformed.append((pin, f'outcome claims {n} framing(s) but '
+                                       f'{len(fields["query"])} query line(s) '
+                                       'are recorded; N names the queries'))
+                continue
         # Every re-framing gets its own query line: the token says WHICH of the
         # two miss-causes was found, and only the queries let a reader check
         # that the re-framing varied the axis rather than rephrasing it.
@@ -126,7 +174,7 @@ def scan(source):
         # did is the review lane's, and the queries are here so that lane has
         # something to read. Revisit if a receipt is ever found carrying two
         # rephrasings — that observation is what would earn a real detector.
-        if got and got != 'discriminating' and len(fields['query']) < 2:
+        elif got and got != 'discriminating' and len(fields['query']) < 2:
             malformed.append((pin, f'outcome {got!r} records '
                                    f'{len(fields["query"])} query line(s); a '
                                    're-framed consult carries every framing'))
@@ -149,17 +197,28 @@ V2_FULL = (GOOD + "\n"
            "  request_id: abc-123\n"
            "  outcome: discriminating\n"
            "  query: the question as issued\n")
-V2_REFRAMED = (GOOD + "\n"
+V2_REFRAMED = (GOOD + "\n  request_id: r\n"
                "  outcome: covered-after-reframing\n"
                "  query: first framing\n"
                "  query: second framing, different axis\n")
-V2_BARE_MISS = GOOD + "\n  outcome: miss\n  query: q\n"
-V2_REFRAMED_ONE_QUERY = (GOOD + "\n"
+V2_BARE_MISS = GOOD + "\n  request_id: r\n  outcome: miss\n  query: q\n"
+V2_REFRAMED_ONE_QUERY = (GOOD + "\n  request_id: r\n"
                          "  outcome: covered-after-reframing\n"
                          "  query: only one framing recorded\n")
-V2_UNCOVERED = (GOOD + "\n"
+V2_UNCOVERED = (GOOD + "\n  request_id: r\n"
                 "  outcome: uncovered-after-2-framings\n"
                 "  query: first\n  query: second\n")
+# --- review fixtures (PR #43): each isolates one validation clause ---
+# N over-claims: 7 framings asserted, 2 recorded.
+V2_N_OVERCLAIMS = (GOOD + "\n  request_id: r\n"
+                   "  outcome: uncovered-after-7-framings\n"
+                   "  query: first\n  query: second\n")
+# N below the floor, with N == the query count so only the floor clause fires.
+V2_N_BELOW_FLOOR = (GOOD + "\n  request_id: r\n"
+                    "  outcome: uncovered-after-1-framings\n"
+                    "  query: only framing\n")
+# A partial v2 receipt: outcome present, request_id and query absent.
+V2_PARTIAL = GOOD + "\n  outcome: discriminating\n"
 # Each fixture asserts (receipts, malformed, total query lines, outcomes).
 # The last two fields are not decoration: a (count, malformed) assertion alone
 # cannot observe whether the continuation fields were parsed at all, so six of
@@ -193,6 +252,15 @@ FIXTURES = [
      ('discriminating', 'covered-after-reframing')),
     ("a fenced v2 block is a mention: its continuations do not leak out",
      "```\n" + V2_FULL + "```\n" + GOOD, 1, 0, 0, ()),
+    # --- PR #43 review fixtures ---
+    ("N over-claims: 7 framings asserted, 2 recorded",
+     V2_N_OVERCLAIMS, 1, 1, 2, ('uncovered-after-7-framings',)),
+    ("N below the floor: `uncovered` needs a re-ask on another axis",
+     V2_N_BELOW_FLOOR, 1, 1, 1, ('uncovered-after-1-framings',)),
+    ("a partial v2 receipt is malformed: outcome without request_id or query",
+     V2_PARTIAL, 1, 1, 0, ('discriminating',)),
+    ("a v1 receipt is untouched by presence-implies-completeness",
+     GOOD, 1, 0, 0, ()),
 ]
 fixture_failures = []
 for name, src, want_count, want_bad, want_q, want_out in FIXTURES:
