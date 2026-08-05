@@ -174,8 +174,20 @@ REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$',
 # prose beside it. `blocking` is the only severity that gates; `open` is the
 # only state that counts. Whether a finding IS blocking is the reviewer's
 # judgment; whether the PR CONTAINS an open blocking one is a fact.
+#
+# BLOCKING IS A BUDGET, NOT A SEVERITY FEELING (kogaki#72, owner ruling
+# 2026-08-06). AutoReview is a policy check and a critical-issue filter, not a
+# perfection machine: single-pass merge is the norm and a park is a measured
+# pipeline defect. The mechanical half of that ruling lives here: a `blocking`
+# finding gates ONLY when it carries its one-line justification —
+# `[policy: <pin>]` or `[harm: <one line>]` — and an unjustified blocking
+# FAILS TOWARD MERGE: it is counted as `should` and the downgrade is reported
+# by name. Whether the justification is ADEQUATE stays the review lane's
+# judgment; whether it is PRESENT is the fact read here. The reviewer that
+# believes something is critical pays one line to say why.
 FINDING = re.compile(
-    r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b', re.MULTILINE)
+    r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b'
+    r'(?P<just>\s*\[(?:policy|harm):[^\]]+\])?', re.MULTILINE)
 
 
 def segments(bodies):
@@ -200,20 +212,26 @@ def segments(bodies):
             continue
         f = FINDING.match(line)
         if f and current is not None:
-            current['findings'].append((f.group(1), f.group(2), line.strip()))
+            current['findings'].append(
+                (f.group(1), f.group(2), bool(f.group('just')), line.strip()))
     return segs
 
 
 def open_blocking(bodies, head):
-    """Findings declared `blocking` and still `open`, in segments whose
-    report names the CURRENT head only. Reads the declared severity and
-    state fields — never the finding's prose."""
-    out = []
+    """JUSTIFIED findings declared `blocking` and still `open`, in segments
+    whose report names the CURRENT head only. Reads the declared severity,
+    state and justification-presence fields — never the finding's prose.
+    Returns (gating, downgraded): an open blocking WITHOUT a
+    `[policy:|harm:]` justification does not gate (kogaki#72 — it fails
+    toward merge as a `should`) and is returned separately so the downgrade
+    is reported by name rather than silently absorbed."""
+    gating, downgraded = [], []
     for seg in segments(bodies):
         if head and (head.startswith(seg['sha']) or seg['sha'].startswith(head)):
-            out.extend(line for sev, state, line in seg['findings']
-                       if sev == 'blocking' and state == 'open')
-    return out
+            for sev, state, just, line in seg['findings']:
+                if sev == 'blocking' and state == 'open':
+                    (gating if just else downgraded).append(line)
+    return gating, downgraded
 
 
 def find_report(bodies, head):
@@ -235,7 +253,7 @@ def find_report(bodies, head):
         # review).
         return 'head-unknown', shas
     if any(head.startswith(s) or s.startswith(head) for s in shas):
-        return ('blocked', shas) if open_blocking(bodies, head) else ('present', shas)
+        return ('blocked', shas) if open_blocking(bodies, head)[0] else ('present', shas)
     return 'stale', shas
 
 
@@ -286,8 +304,14 @@ FIXTURES = [
     ("no report with an unknown head is still absent, not head-unknown",
      "lgtm", '', 'absent'),
     # --- kogaki#34 amendment: converged, not merely reviewed ---
-    ("a report with an OPEN BLOCKING finding is blocked, not present",
+    ("a justified open blocking is blocked, not present",
+     f"review-lane report: {HEAD}\nfinding: blocking open [harm: serves a wrong pin to every consumer]  the pin is wrong",
+     HEAD, 'blocked'),
+    ("an UNJUSTIFIED open blocking does not gate (kogaki#72: fails toward merge)",
      f"review-lane report: {HEAD}\nfinding: blocking open  the pin is wrong",
+     HEAD, 'present'),
+    ("a policy-justified blocking gates like a harm-justified one",
+     f"review-lane report: {HEAD}\nfinding: blocking open [policy: product-lab@ed47fbd3 topics/x.md:9]  violates the ruling",
      HEAD, 'blocked'),
     ("the same finding RESOLVED lets the report through",
      f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed in abc",
@@ -297,7 +321,7 @@ FIXTURES = [
      "finding: nit open  a typo", HEAD, 'present'),
     ("one open blocking among several resolved still blocks",
      f"review-lane report: {HEAD}\nfinding: blocking resolved  a\n"
-     "finding: blocking open  b", HEAD, 'blocked'),
+     "finding: blocking open [harm: b breaks the gate]  b", HEAD, 'blocked'),
     ("prose describing a blocking finding without the field does not gate",
      f"review-lane report: {HEAD}\nThis is blocking and open, I think.",
      HEAD, 'present'),
@@ -305,12 +329,12 @@ FIXTURES = [
      "finding: blocking open  orphaned", HEAD, 'absent'),
     # --- PR #44 review, round 1: findings bind to their report segment ---
     ("an open blocking under a STALE report does not gate the current head",
-     f"review-lane report: 9999999\nfinding: blocking open  old round\n"
+     f"review-lane report: 9999999\nfinding: blocking open [harm: old]  old round\n"
      f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed",
      HEAD, 'present'),
     ("an open blocking in the current head's segment gates despite an older clean report",
      f"review-lane report: 9999999\n"
-     f"review-lane report: {HEAD}\nfinding: blocking open  new defect",
+     f"review-lane report: {HEAD}\nfinding: blocking open [harm: new defect breaks CI]  new defect",
      HEAD, 'blocked'),
 ]
 failures = []
@@ -419,7 +443,11 @@ if state == 'head-unknown':
           "presence, so an unknown head is not a pass.")
     sys.exit(1)
 if state == 'blocked':
-    blocking = open_blocking(bodies, head)
+    blocking, downgraded = open_blocking(bodies, head)
+    for d in downgraded:
+        print(f"NOTE: unjustified blocking downgraded to should, non-gating "
+              f"(kogaki#72 — justify with [policy: <pin>] or [harm: ...] or "
+              f"re-grade): {d}")
     print(f"FAIL: PR #{pr} has a review-lane report for head {head[:7]}, but "
           f"{len(blocking)} finding(s) are declared blocking and still open. "
           "The property is CONVERGED or escalated, not reviewed-once "

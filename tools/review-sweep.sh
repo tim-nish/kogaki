@@ -297,7 +297,8 @@ import json, os, re, subprocess, sys
 
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
-    r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b', re.M)
+    r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b'
+    r'(?P<just>\s*\[(?:policy|harm):[^\]]+\])?', re.M)
 MAX_ROUNDS = 2   # §4 clause 3: two rounds, then a parked owner decision.
 
 # Spawned-session policy, resolved in the shell above and passed in rather than
@@ -507,7 +508,7 @@ def segments(bodies):
             continue
         f = FINDING.match(line)
         if f and cur is not None:
-            cur['findings'].append((f.group(1), f.group(2)))
+            cur['findings'].append((f.group(1), f.group(2), bool(f.group('just'))))
     return segs
 
 
@@ -529,8 +530,10 @@ def decide(bodies, head):
     current = [s for s in segs
                if head and (head.startswith(s['sha']) or s['sha'].startswith(head))]
     if current:
-        blocking = [1 for s in current for sev, st in s['findings']
-                    if sev == 'blocking' and st == 'open']
+        # Only a JUSTIFIED blocking gates (kogaki#72): an unjustified one
+        # fails toward merge as a should — same rule as the presence check.
+        blocking = [1 for s in current for sev, st, just in s['findings']
+                    if sev == 'blocking' and st == 'open' and just]
         return 'author-owes' if blocking else 'done'
     rounds_done = len(segs)
     if rounds_done >= MAX_ROUNDS:
@@ -550,7 +553,9 @@ FIX = [
     ("current report, nothing blocking -> done",
      f"review-lane report: {H}\nfinding: should open  x", H, 'done'),
     ("current report with open blocking -> the author owes, not a respawn",
-     f"review-lane report: {H}\nfinding: blocking open  x", H, 'author-owes'),
+     f"review-lane report: {H}\nfinding: blocking open [harm: x]  x", H, 'author-owes'),
+    ("an UNJUSTIFIED blocking does not hold the PR (kogaki#72) -> done",
+     f"review-lane report: {H}\nfinding: blocking open  x", H, 'done'),
     ("current report whose blocking is resolved -> done",
      f"review-lane report: {H}\nfinding: blocking resolved  x", H, 'done'),
     ("a stale segment's open blocking does not bind the current head",
@@ -572,15 +577,17 @@ def drives_fix(bodies, head):
 
 
 DRIVE = [
-    ("round 1 blocking open -> spawn the fix",
-     f"review-lane report: {H}\nfinding: blocking open  x", H, True),
+    ("round 1 justified blocking -> spawn the fix",
+     f"review-lane report: {H}\nfinding: blocking open [harm: x]  x", H, True),
+    ("unjustified blocking -> NO fix (kogaki#72: it does not gate)",
+     f"review-lane report: {H}\nfinding: blocking open  x", H, False),
     ("nothing blocking -> no fix",
      f"review-lane report: {H}\nfinding: should open  x", H, False),
     ("no report at all -> no fix (that is a review round, not a fix)",
      "", H, False),
     ("rounds spent AND blocking still open -> no fix, the cap binds the driver",
      f"review-lane report: 9999999\nreview-lane report: {H}\n"
-     f"finding: blocking open  x", H, False),
+     f"finding: blocking open [harm: x]  x", H, False),
     ("a stale segment's blocking does not summon a fix for this head",
      f"review-lane report: 9999999\nfinding: blocking open  old\n"
      f"review-lane report: {H}\nfinding: nit open  y", H, False),
@@ -668,6 +675,14 @@ for pr in prs:
             print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent with findings "
                   "still open. §4 clause 3: this is an owner decision, and the "
                   "driver does not spawn a fix it cannot get reviewed.")
+            # Every park is a measured pipeline defect (kogaki#72): the
+            # postmortem stub rides the PR where the park is announced.
+            subprocess.run(["gh", "pr", "comment", str(n), "--body",
+                            f"park-postmortem: {MAX_ROUNDS} rounds spent, "
+                            f"justified blocking findings still open at {head[:7]} "
+                            "— class: unresolved-blocking. A park is a pipeline "
+                            "defect measured against the 1-in-100 budget "
+                            "(kogaki#72); owner decision owed."], check=False)
             counts['park'] = counts.get('park', 0) + 1
         elif mode == 'spawn':
             # Numbered by the round whose findings it answers, not by the round
@@ -697,6 +712,12 @@ for pr in prs:
         print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent and {head[:7]} is "
               "still unreviewed. §4 clause 3: this is an owner decision, "
               "never a third round.")
+        subprocess.run(["gh", "pr", "comment", str(n), "--body",
+                        f"park-postmortem: {MAX_ROUNDS} rounds spent and {head[:7]} "
+                        "is still unreviewed — class: unreviewed-head (a push "
+                        "landed after the final round). A park is a pipeline "
+                        "defect measured against the 1-in-100 budget (kogaki#72); "
+                        "owner decision owed."], check=False)
     else:
         rnd = state.rsplit('-', 1)[1]
         if mode == 'spawn':

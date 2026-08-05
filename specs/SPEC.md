@@ -140,6 +140,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
   **Reopen trigger:** one PR that passed this gate with an empty findings
   record and later needed correction.
 
+  **Blocking is a budget, not a severity feeling** (kogaki#72, owner ruling
+  2026-08-06). The lane is a policy check and a critical-issue filter; the
+  single-pass merge is the norm and a park is a measured pipeline defect
+  against a ~1-in-100 budget. Three classes may block — ratified-position
+  violation the merge would propagate, pipeline breakage, unlicensed scope —
+  and a blocking finding carries its one-line justification in the record
+  (`[policy: <pin>]` or `[harm: …]`). The mechanical half reads the
+  justification's PRESENCE only: an unjustified blocking does not gate and is
+  downgraded to `should` by name, failing toward merge; its ADEQUACY stays
+  the lane's judgment. Every park posts its postmortem stub (what blocked,
+  which class, rounds spent) where the park is announced, and the park count
+  is the number the budget is measured against.
+
   **Two clauses bind the review's own conduct**, and belong to the lane
   rather than to the gate: the review opens with an **unscoped tier-1
   `gloss_index` survey** as a fixed first move — where to look is an output
