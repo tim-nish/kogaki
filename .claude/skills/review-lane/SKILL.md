@@ -133,3 +133,60 @@ run unconditionally and their failures deny. Admitting a judgment act there
 would put a human judgment behind the registry's mechanical-check contract
 and give this lane a deny it must not have. The lane is a harness skill and
 is invoked at review, in the same shape as `.claude/skills/consult-first/`.
+
+## Isolation — a requirement, not a courtesy (kogaki#34, story 1.12)
+
+**This lane runs in a session that did not author the work under review.**
+
+The ground is not preference. An authoring session cannot review its own work
+for the class of defect that consists of **not having applied what it already
+held** — and this repository has the specimen. PR #31 shipped a coined
+outcome-token set while the ratified vocabulary sat unused in the authoring
+session's own context; one pass from a non-authoring session caught it
+(kogaki#32). The served position is `isolation-checks-are-control-arms`: some
+checks work precisely because they know less, so giving them more context is
+contamination rather than improvement.
+
+**And it is advice, not enforcement — stated plainly because the alternative
+is believing otherwise.** Session identity appears in neither git nor GitHub
+metadata: on PR #43 the PR author, every commit author and the comment author
+are one login. `checks/check-review-report.sh` therefore asserts that a report
+*exists*, never that its author was independent. A rule whose only carrier is
+a document someone must read is advice
+(`a-rule-reproduces-only-through-a-default-carrier`), and this section is that
+document. Its removal signal is recorded with the check: a carrier that makes
+independence observable.
+
+## The report's shape
+
+A report is a **pull-request comment** whose first line is a fixed token at a
+fixed position:
+
+```
+review-lane report: <head sha>
+```
+
+followed by the findings in whatever form the lane produces them.
+
+- **A PR comment, not a commit or a file on the branch** — deliberately. The
+  reviewer must not author the branch, and committing to it would make them a
+  contributor to the very work under review.
+- **The head sha is part of the report, not a courtesy.** A report reviewed
+  the code it names; a later push is unreviewed, and the check reports a
+  report naming an older head as **stale** rather than counting it.
+- The check reads **only** that first line. What the findings say is judgment
+  and stays here.
+
+## The postmortem hand-off (kogaki#24 shape)
+
+When a finding is one a consultation would have prevented, the lane's closing
+section emits a **map-entry candidate** in the consultation map's postmortem
+shape — the violating artifact, the trigger terms that would have fired, and
+the question **verbatim** that would have found the served line.
+
+**Proposal only.** The lane writes no entry to `policy/consultation-map.md`.
+Admission is a human act, per the founding two-layer split: what is mechanized
+is the *proposal*, never the judgment. A candidate whose question was
+composed at the filing rather than actually run says so, in the question's own
+prose — the map's provenance rule, which applies to a candidate exactly as it
+applies to an entry.
