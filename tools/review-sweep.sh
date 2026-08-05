@@ -43,6 +43,37 @@
 # they did was the defect kogaki#48 generalized (a decline spent past its
 # boundary).
 #
+# WHAT A SPAWNED SESSION IS GIVEN, DECLARED HERE RATHER THAN ABSORBED
+# (kogaki#52). A spawn inherits whatever the operator's interactive session
+# happens to be configured with unless it is told otherwise, and that is
+# ambient state standing in for policy: the model was inherited (Fable, which
+# the owner has ruled must never run spawned agents), the route was invisible
+# because only the final output was captured, and nothing bounded the run.
+# Three declarations, each with an override, and the defaults are recorded
+# here so the policy is readable without running anything:
+#
+#   model      opus  · $KOGAKI_REVIEW_MODEL      — judgment work; a model
+#                                                  choice for a spawned agent
+#                                                  is operator policy
+#   max turns  60    · $KOGAKI_REVIEW_MAX_TURNS  — a cap is architecture, not
+#                                                  prompt hygiene
+#   log dir    ~/.kogaki/reviews · $KOGAKI_REVIEW_LOG_DIR
+#
+# The cap is the half with a served position behind it: "an agent system that
+# lets one instruction spawn unbounded parallel work is missing a budget
+# mechanism; caps are architecture (config + gates), not prompt hygiene"
+# (consulted: product-lab@ed47fbd3 LESSONS.md:135). It lives in the spawn
+# invocation for that reason — a limit written into the reviewer's prompt is
+# the thing that line refuses.
+#
+# THE ROUTE IS CAPTURED, NOT ONLY THE VERDICT. Each spawn streams to its own
+# per-round file (`pr-<n>-round-<r>.log`), so a reviewer that goes sideways
+# mid-run — scope drift, a tool loop, token burn — is inspectable while it is
+# happening rather than inferred afterwards from a report that reads wrong. A
+# capped or crashed run leaves the PR REPORT-LESS on purpose: the presence
+# gate then fails loudly, which is the designed backstop doing its job, and is
+# why this file never fabricates a partial report.
+#
 # SPAWNING IS OPT-IN. --dry-run is the default: the sweep reports what it
 # would do and mutates nothing. Spawning a session is an outward act, so it
 # needs an explicit --spawn rather than a flag someone forgets is on.
@@ -60,7 +91,12 @@ while [ $# -gt 0 ]; do
     --pr) TARGET_PR="${2:?--pr needs a number}"; shift ;;
     --branch) TARGET_BRANCH="${2:?--branch needs a name}"; shift ;;
     --help|-h)
-      sed -n '2,48p' "$0" | sed 's/^# \{0,1\}//'
+      # Print the whole header block — every comment line after the shebang,
+      # stopping at the first line of code. Previously a literal '2,48p',
+      # which silently truncated the moment the header grew: adding the
+      # spawned-session policy above would have documented it everywhere
+      # except in `--help`, where an operator actually looks for it.
+      awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"
       echo
       echo "usage: tools/review-sweep.sh [--dry-run|--spawn] [--pr N | --branch NAME]"
       echo
@@ -118,7 +154,16 @@ if ! OWNER="$(gh repo view --json owner -q .owner.login 2>/dev/null)" \
   exit 1
 fi
 
+# Spawned-session policy (kogaki#52). Declared, with an override each, and the
+# defaults are the ones the header records — one place to read, one place to
+# change.
+REVIEW_MODEL="${KOGAKI_REVIEW_MODEL:-opus}"
+REVIEW_MAX_TURNS="${KOGAKI_REVIEW_MAX_TURNS:-60}"
+REVIEW_LOG_DIR="${KOGAKI_REVIEW_LOG_DIR:-$HOME/.kogaki/reviews}"
+
 SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
+SWEEP_MODEL="$REVIEW_MODEL" SWEEP_MAX_TURNS="$REVIEW_MAX_TURNS" \
+SWEEP_LOG_DIR="$REVIEW_LOG_DIR" \
 python3 <<'PYEOF'
 import json, os, re, subprocess, sys
 
@@ -126,6 +171,44 @@ REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
     r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b', re.M)
 MAX_ROUNDS = 2   # §4 clause 3: two rounds, then a parked owner decision.
+
+# Spawned-session policy, resolved in the shell above and passed in rather than
+# re-defaulted here — two places that both know a default is two places that
+# can disagree about it (kogaki#52).
+MODEL = os.environ["SWEEP_MODEL"]
+MAX_TURNS = os.environ["SWEEP_MAX_TURNS"]
+LOG_DIR = os.environ["SWEEP_LOG_DIR"]
+
+
+def spawn_log_path(pr, rnd):
+    """One file per PR per round: the route, not only the verdict."""
+    return os.path.join(LOG_DIR, f"pr-{pr}-round-{rnd}.log")
+
+
+def spawn(prompt, log_path):
+    """Run a spawned session with the declared policy, streaming to its log.
+
+    Returns the exit code. Every knob the session runs under is named at the
+    call rather than inherited: the model (never the operator's interactive
+    default), a turn cap, and a route capture. `--verbose --output-format
+    stream-json` is what makes the log a ROUTE — the per-turn record — instead
+    of the final message, which is all the trigger log ever held.
+
+    The log is opened before the process starts and the command line is written
+    into it first, so a spawn that dies immediately still leaves a file saying
+    what was attempted. A log that only appears on success cannot explain a
+    failure, which is the one occasion anybody opens it.
+    """
+    os.makedirs(LOG_DIR, exist_ok=True)
+    cmd = ["claude", "-p", prompt,
+           "--model", MODEL,
+           "--max-turns", str(MAX_TURNS),
+           "--verbose", "--output-format", "stream-json"]
+    with open(log_path, "a", encoding="utf-8") as log:
+        log.write(f"=== spawn: {' '.join(cmd)}\n")
+        log.flush()
+        return subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT,
+                              check=False).returncode
 
 
 def segments(bodies):
@@ -255,24 +338,33 @@ for pr in prs:
     else:
         rnd = state.rsplit('-', 1)[1]
         if mode == 'spawn':
-            print(f"  #{n}: spawning review round {rnd} for {head[:7]}")
+            log_path = spawn_log_path(n, rnd)
+            print(f"  #{n}: spawning review round {rnd} for {head[:7]} "
+                  f"[model {MODEL}, max-turns {MAX_TURNS}] -> {log_path}")
             # A failed spawn is a FAILURE, reported and reflected in the exit
             # code — a sweep that prints "spawning" over a dead binary is the
             # exact fail-open its own substrate check refuses, one level down
             # (PR #46 review, round 1). check=False + inspection rather than
             # check=True: one PR's failed spawn must not abort the sweep of
             # the rest.
-            result = subprocess.run(["claude", "-p", f"/review-lane {n}"],
-                                    check=False)
-            if result.returncode != 0:
-                print(f"  #{n}: FAIL spawn exited {result.returncode} — no "
-                      "review was produced; this is not 'spawned', and the "
-                      "sweep will exit nonzero.")
+            result = spawn(f"/review-lane {n}", log_path)
+            if result != 0:
+                print(f"  #{n}: FAIL spawn exited {result} — no review was "
+                      "produced; this is not 'spawned', and the sweep will "
+                      f"exit nonzero. Route: {log_path}")
+                print(f"  #{n}: if the turn cap ({MAX_TURNS}) was reached, the "
+                      "PR is deliberately left report-less — the presence gate "
+                      "is the loud backstop, and a partial report is never "
+                      "fabricated to make this quiet.")
                 spawn_failures += 1
                 counts['spawn-failed'] = counts.get('spawn-failed', 0) + 1
         else:
+            # The dry run names the policy it WOULD spawn under. A preview that
+            # withheld the model and the cap would leave the operator checking
+            # the one thing a dry run exists to show them by reading the source.
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
-                  "(--dry-run; pass --spawn to act)")
+                  f"[model {MODEL}, max-turns {MAX_TURNS}] -> "
+                  f"{spawn_log_path(n, rnd)} (--dry-run; pass --spawn to act)")
 
 print(f"swept {len(prs)} open PR(s): "
       + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
