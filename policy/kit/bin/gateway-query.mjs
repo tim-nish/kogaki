@@ -29,6 +29,27 @@ function opt(name, fallback = undefined) {
 const consumer = opt("consumer");
 const tool = opt("tool", "policy_lookup");
 const toolArgs = JSON.parse(opt("args", "{}"));
+// Write to stdout and exit only once the write has drained.
+//
+// process.exit() discards whatever is still buffered in an asynchronous
+// stdout — and stdout IS asynchronous whenever it is a pipe (a spawnSync
+// capture, `| head`, a subshell). A file or a TTY writes synchronously, so
+// the same code delivers the whole payload there and truncates on a pipe,
+// which is why only a large response through a captured stdout ever showed
+// it. Setting exitCode first keeps the code correct even if the callback
+// has already fired and the process leaves on its own. kogaki#23.
+function writeThenExit(text, code) {
+  process.exitCode = code;
+  process.stdout.write(`${text}\n`, () => process.exit(code));
+}
+
+// Deliberately NOT writeThenExit: every caller below depends on this not
+// returning — two of them run before the try block and two inside async
+// callbacks, so a deferred exit would fall through to `existsSync(undefined)`
+// rather than degrade. The truncation class does not reach here in practice
+// either: this writes one short line, where the payload path above writes
+// ~500KB. If this ever has to drain, the halt has to be restructured with it
+// — the two changes are one change, not two.
 function unavailable(reason) {
   console.log(`policy_source unavailable: ${reason}`);
   process.exit(11);
@@ -123,8 +144,7 @@ try {
   if (res.error) unavailable(`rpc error: ${res.error.message ?? "unknown"}`);
   const text = (res.result?.content ?? []).map((c) => c.text ?? "").join("");
   if (res.result?.isError) unavailable(`tool error: ${text.slice(0, 200)}`);
-  console.log(text);
-  process.exit(0);
+  writeThenExit(text, 0);
 } catch (e) {
   clearTimeout(timer);
   proc.kill();
