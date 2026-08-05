@@ -76,6 +76,36 @@ if (mode === "validate") {
 }
 
 // recheck
+//
+// TWO OBLIGATIONS ARE ENFORCED HERE, NOT ONE. Pin staleness is the older half;
+// the DEFERRED CONSULT is the other, and until story 1.11 it was enforced
+// nowhere — a body carrying `consult: deferred-to-pickup` passed this recheck
+// clean, so the marker recorded a promise nothing ever collected. SPEC §4's
+// issue-checkpoints clause names this tool as the collector: "an explicit
+// `consult: deferred-to-pickup` marker that the pickup recheck then enforces".
+// The token is matched literally and never re-spelled, per SPEC-issue-creation
+// v7 — it is a fixed token precisely so an audit can find it.
+//
+// DISCHARGE IS A RECEIPT ON THE BODY. What this can observe at pickup is
+// whether the deferred consultation was ever recorded, so a `consulted:` line
+// on the issue is the discharge and its absence is the refusal. It cannot
+// observe a consultation that happens after it runs — which is the point: the
+// refusal is what sends the picker to consult before proceeding.
+//
+// USE vs MENTION, the same rule the receipt check applies (kogaki#41): a
+// marker or a receipt inside a fenced block is a QUOTATION of the grammar, not
+// an emission. An issue body documenting the convention is exactly the text
+// guaranteed to contain both tokens, so fenced regions are stripped first.
+// The unclosed-fence arm must anchor to END OF INPUT, not end of line. Under
+// the `m` flag a bare `$` matches every line ending, so the lazy body matched
+// nothing and only the opening fence marker was stripped — a fenced quotation
+// still read as an emission. `$(?![\s\S])` is end-of-input regardless of `m`.
+const emitted = body.replace(
+  /^[ \t]*(`{3,}|~{3,})[\s\S]*?(?:^[ \t]*\1[ \t]*$|$(?![\s\S]))/gm, "");
+const DEFERRED = /consult:\s*deferred-to-pickup\b/i;
+const RECEIPT = /^\s*consulted:\s*\S+@[0-9a-f]{7,40}\s+\S/m;
+const deferredUndischarged = DEFERRED.test(emitted) && !RECEIPT.test(emitted);
+
 const cur = currentPin();
 const curSha = cur?.split("@").pop() ?? "";
 const curRepo = cur?.includes("@") ? cur.split("@")[0] : "";
@@ -85,10 +115,23 @@ const hubPins = [...new Set(pinTokens
   .filter((p) => !p.qual || p.qual.includes(":") || (curRepo && p.qual.endsWith(curRepo)))
   .map((p) => p.sha))];
 const stale = hubPins.filter((p) => curSha && !curSha.startsWith(p) && !p.startsWith(curSha));
-if (stale.length === 0) {
-  console.log(`ok: pins current (served ${cur})`);
-  process.exit(0);
+
+// Both deltas are reported before exiting. Refusing on the first one found
+// would send the picker back for a second refusal they could have discharged
+// in the same sitting — and the two obligations are independent, so neither
+// subsumes the other.
+if (stale.length > 0) {
+  console.log(`policy moved: issue pinned ${stale.join(", ")}; served is ${cur}`);
+  console.log("the lane refuses with this delta: re-read the pinned lines at the current pin before proceeding");
 }
-console.log(`policy moved: issue pinned ${stale.join(", ")}; served is ${cur}`);
-console.log("the lane refuses with this delta: re-read the pinned lines at the current pin before proceeding");
-process.exit(2);
+if (deferredUndischarged) {
+  console.log("consult deferred to pickup and not discharged: the body carries "
+    + "`consult: deferred-to-pickup` and no `consulted:` receipt");
+  console.log("the lane refuses with this delta: this IS pickup — consult the "
+    + "boundary now and record the receipt on the issue before proceeding");
+}
+if (stale.length > 0 || deferredUndischarged) process.exit(2);
+
+console.log(`ok: pins current (served ${cur})`
+  + (DEFERRED.test(emitted) ? "; deferred consult discharged (receipt present)" : ""));
+process.exit(0);
