@@ -129,7 +129,40 @@ invariant: Gukan guarantees Unit schema, never data schema).
   the gateway keeps to serve them.
 
   A receipt carries the gateway's **`request_id`**, an **outcome token**, and
-  **its queries verbatim**. The request id is a join key, not a read: it lets
+  **its queries verbatim**, in this shape (kogaki#28):
+
+  ```
+  consulted: <repo>@<sha> <file:line[,line][, file:line…]>
+    request_id: <id>
+    outcome: discriminating | covered-after-reframing | uncovered-after-N-framings
+    query: <framing 1, verbatim>
+    query: <framing 2, verbatim>
+  ```
+
+  **What the hub ratifies here is the property, not this format.** The served
+  requirement is a receipt at the point of use with a **fixed token and a
+  fixed position** —
+
+  > A consultation owes a RECEIPT AT THE POINT OF USE — fixed token, fixed
+  > position — because the act produces no artifact the consumer can see and
+  > a consultation that never happens generates no event to hook.
+
+  `consulted: product-lab@ed47fbd3818b9a66954a558d6c88e86574407ece topics/knowledge-architecture.md:18`
+
+  — and the block above is Kogaki's own instantiation of it, chosen here and
+  amendable here. Recorded that way deliberately: treating a format as
+  ratified when what was ratified is the property it instantiates is the
+  defect kogaki#32 cost a spec correction, and the distinction is what keeps
+  a later reader from quoting this block as though the hub had served it.
+
+  Two consequences follow from the shape rather than from taste. **Line one
+  is unchanged from v1**, so every receipt already in git history stays
+  parseable and the `PIN` anchor at `checks/check-consult-receipts.sh:47`
+  needs no change; and **each re-framing gets its own `query:` line**, which
+  is what makes "record the queries verbatim" checkable rather than
+  aspirational when a consult took more than one framing.
+
+  The request id is a join key, not a read: it lets
   the consumer's receipt (the question) be paired with the server's
   access-log row (the answer) **without either side reading the other's
   state**, so the sidedness above is preserved rather than weakened — the
