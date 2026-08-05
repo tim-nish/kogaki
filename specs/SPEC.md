@@ -127,6 +127,23 @@ invariant: Gukan guarantees Unit schema, never data schema).
      round count — so the postmortem hand-off can mine rally residue: a
      finding that took two rounds to land is evidence about the map or about
      author-side prescriptions, harvested without anyone remembering to.
+  5. **A report DECLARES ITS SCOPE — `full` or `delta`** (kogaki#70). A
+     round-2 review is a delta review by default: its subject is round 1's
+     findings × the fix commits, and it re-reviews the whole diff only where
+     the fix touched files outside those findings. That is the right economics
+     — the measured rally spent 43 of its 92 turns re-deriving round 1 — but
+     it changes what the report *attests to*, and **clause 1's mechanical half
+     cannot tell the two apart**: it reads presence and open-blocking findings
+     identically whatever the round. An undeclared delta review is therefore a
+     narrower assurance wearing a full review's clothes, and the merge layer
+     would be trusting a claim nobody made.
+     So the scope is stated **in the record** rather than inferred from the
+     round number. A report carrying no scope declaration is read as `full`,
+     because the pre-kogaki#70 reports are all full reviews and a default that
+     silently narrowed them would rewrite history at the gate.
+     This adds no computable obligation to the merge layer — the split's own
+     test is unchanged, and whether a *delta* scope was appropriate stays the
+     reviewer's judgment, which is the half that belongs in the lane.
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
