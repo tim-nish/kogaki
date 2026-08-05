@@ -115,15 +115,32 @@ invariant: Gukan guarantees Unit schema, never data schema).
   internals: the seam is a read of *served renderings*, not of the state
   the gateway keeps to serve them.
 
-  A receipt carries the gateway's **`request_id`** and an **outcome token**
-  (`hit` | `miss` | `uncovered-after-N-framings`). The request id is a join
-  key, not a read: it lets the consumer's receipt (the question) be paired
-  with the server's access-log row (the answer) **without either side reading
-  the other's state**, so the sidedness above is preserved rather than
-  weakened — the pair becomes readable to whoever holds both, and to no one
-  who holds one. The outcome token makes miss-harvesting a grep rather than
-  an interpretation, which is what feeds the map's postmortem field above
-  (kogaki#25).
+  A receipt carries the gateway's **`request_id`**, an **outcome token**, and
+  **its queries verbatim**. The request id is a join key, not a read: it lets
+  the consumer's receipt (the question) be paired with the server's
+  access-log row (the answer) **without either side reading the other's
+  state**, so the sidedness above is preserved rather than weakened — the
+  pair becomes readable to whoever holds both, and to no one who holds one.
+
+  The outcome token is the hub's ratified triple, quoted rather than coined:
+  **`discriminating`** | **`covered-after-reframing`** |
+  **`uncovered-after-N-framings`**. The middle value is the load-bearing one
+  and a bare `miss` is inadmissible in its place, because an empty result
+  cannot by itself distinguish a surface that lacks the position from a query
+  that failed to reach it —
+
+  > a consult miss is a distill bug OR a query defect, and re-framing at a
+  > different axis is the discriminator that must run before "uncovered" is
+  > recordable
+
+  `consulted: product-lab@ed47fbd3818b9a66954a558d6c88e86574407ece topics/knowledge-architecture.md:59`
+
+  — which is why **recording the queries verbatim is part of the same
+  requirement and not a separate nicety**: the token states which of the two
+  causes was found, and only the queries let a later reader check that the
+  re-framing actually varied the axis. Both halves are what make
+  miss-harvesting a grep rather than an interpretation, feeding the map's
+  postmortem field above (kogaki#25, corrected kogaki#32).
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
