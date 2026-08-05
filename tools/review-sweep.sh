@@ -555,12 +555,56 @@ def decide(bodies, head):
         # fails toward merge as a should — same rule as the presence check.
         blocking = [1 for s in current for sev, st, just in s['findings']
                     if sev == 'blocking' and st == 'open' and just]
+        # THE DOWNGRADE IS REPORTED ON THIS PATH TOO (kogaki#76). The presence
+        # check emits its NOTE from its own loop; this function is the DRIVER's
+        # view of the same finding set, and it was silent — so a blocking the
+        # driver decided not to act on left no trace where the driver's reader
+        # is looking. Same fact, two readers, and only one was told.
+        downgraded = [1 for s in current for sev, st, just in s['findings']
+                      if sev == 'blocking' and st == 'open' and not just]
+        if downgraded:
+            print(f"NOTE: {len(downgraded)} unjustified blocking finding(s) "
+                  "downgraded to should, non-gating (kogaki#72) — the driver "
+                  "does not treat them as author-owes")
         return 'author-owes' if blocking else 'done'
     rounds_done = len(segs)
     if rounds_done >= MAX_ROUNDS:
         return 'park'
     return f'spawn-round-{rounds_done + 1}'
 
+
+# --- the downgrade is REPORTED, not merely non-gating (kogaki#76) ----------
+# THIS FIXTURE IS THE POINT OF THE ISSUE, not a companion to it. A suite
+# described as discriminating in both directions did not catch the NOTE being
+# emitted on one of two paths, because every existing case asserted the
+# OUTCOME (no fix spawned) and none asserted the DISCLOSURE. That is the third
+# instance of one shape in this repository — PR #67 round 1 made the same
+# correction to denied_tools(), and kogaki#69's resolver fixture made it again
+# — so it is asserted here rather than assumed.
+import io as _io, contextlib as _ctx
+_dfail = 0
+def _note_emitted(bodies, head):
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        decide(bodies, head)
+    return "downgraded to should" in buf.getvalue()
+for _label, _bodies, _want in [
+    ("an unjustified blocking REPORTS its downgrade",
+     f"review-lane report: {'abc1234def'}\nfinding: blocking open  x", True),
+    ("a justified blocking reports NO downgrade",
+     f"review-lane report: {'abc1234def'}\nfinding: blocking open [harm: x]  x", False),
+    ("a plain should reports no downgrade",
+     f"review-lane report: {'abc1234def'}\nfinding: should open  x", False),
+]:
+    if _note_emitted(_bodies, 'abc1234def') != _want:
+        print(f"FAIL downgrade-disclosure fixture [{_label}]: "
+              f"emitted={not _want}, want={_want}")
+        _dfail = 1
+if _dfail:
+    print("FAIL: the downgrade NOTE is not reported where the driver decides")
+    sys.exit(1)
+print("disclosure pass: 3/3 downgrade-NOTE cases (unjustified reports, "
+      "justified and should do not)")
 
 # --- fixture pass: the state machine, exercised without a network ---------
 H = 'abc1234def'
@@ -698,17 +742,28 @@ for pr in prs:
                   "driver does not spawn a fix it cannot get reviewed.")
             # Every park is a measured pipeline defect (kogaki#72): the
             # postmortem stub rides the PR where the park is announced.
-            r = subprocess.run(["gh", "pr", "comment", str(n), "--body",
-                            f"park-postmortem: {MAX_ROUNDS} rounds spent, "
-                            f"justified blocking findings still open at {head[:7]} "
-                            "— class: unresolved-blocking. A park is a pipeline "
-                            "defect measured against the 1-in-100 budget "
-                            "(kogaki#72); owner decision owed."], check=False)
-            if r.returncode != 0:
-                print(f"  #{n}: FAIL park-postmortem post exited {r.returncode} "
-                      "— the park stands but its stub did not reach the PR; "
-                      "posting it by hand is owed (PR #73 review, round 1).")
-                spawn_failures += 1
+            # DRY RUN POSTS NOTHING (kogaki#76). This tool's own contract
+            # is that --dry-run "reports and mutates nothing", and it prints
+            # that sentence at the end of every dry run — while both
+            # park-postmortem posts ran unconditioned on the mode. A PR comment
+            # is an outward act, which is the exact ground SPAWNING IS OPT-IN
+            # already states one function away; leaving the post ungated made
+            # the tool violate a contract it announces about itself.
+            _stub = (f"park-postmortem: {MAX_ROUNDS} rounds spent, "
+                     f"justified blocking findings still open at {head[:7]} "
+                     "— class: unresolved-blocking. A park is a pipeline "
+                     "defect measured against the 1-in-100 budget "
+                     "(kogaki#72); owner decision owed.")
+            if mode == 'spawn':
+                r = subprocess.run(["gh", "pr", "comment", str(n), "--body", _stub],
+                                   check=False)
+                if r.returncode != 0:
+                    print(f"  #{n}: FAIL park-postmortem post exited {r.returncode} "
+                          "— the park stands but its stub did not reach the PR; "
+                          "posting it by hand is owed (PR #73 review, round 1).")
+                    spawn_failures += 1
+            else:
+                print(f"  #{n}: would post park-postmortem (--dry-run): {_stub}")
             counts['park'] = counts.get('park', 0) + 1
         elif mode == 'spawn':
             # Numbered by the round whose findings it answers, not by the round
@@ -738,17 +793,23 @@ for pr in prs:
         print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent and {head[:7]} is "
               "still unreviewed. §4 clause 3: this is an owner decision, "
               "never a third round.")
-        r = subprocess.run(["gh", "pr", "comment", str(n), "--body",
-                        f"park-postmortem: {MAX_ROUNDS} rounds spent and {head[:7]} "
-                        "is still unreviewed — class: unreviewed-head (a push "
-                        "landed after the final round). A park is a pipeline "
-                        "defect measured against the 1-in-100 budget (kogaki#72); "
-                        "owner decision owed."], check=False)
-        if r.returncode != 0:
-            print(f"  #{n}: FAIL park-postmortem post exited {r.returncode} "
-                  "— the park stands but its stub did not reach the PR; "
-                  "posting it by hand is owed (PR #73 review, round 1).")
-            spawn_failures += 1
+        # Same dry-run guard as the branch above (kogaki#76) — both posts were
+        # unconditioned, so a dry run mutated two PR surfaces, not one.
+        _stub = (f"park-postmortem: {MAX_ROUNDS} rounds spent and {head[:7]} "
+                 "is still unreviewed — class: unreviewed-head (a push "
+                 "landed after the final round). A park is a pipeline "
+                 "defect measured against the 1-in-100 budget (kogaki#72); "
+                 "owner decision owed.")
+        if mode == 'spawn':
+            r = subprocess.run(["gh", "pr", "comment", str(n), "--body", _stub],
+                               check=False)
+            if r.returncode != 0:
+                print(f"  #{n}: FAIL park-postmortem post exited {r.returncode} "
+                      "— the park stands but its stub did not reach the PR; "
+                      "posting it by hand is owed (PR #73 review, round 1).")
+                spawn_failures += 1
+        else:
+            print(f"  #{n}: would post park-postmortem (--dry-run): {_stub}")
     else:
         rnd = state.rsplit('-', 1)[1]
         if mode == 'spawn':

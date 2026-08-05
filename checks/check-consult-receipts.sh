@@ -192,6 +192,52 @@ def scan(source):
             malformed.append((pin, f'outcome {got!r} records '
                                    f'{len(fields["query"])} query line(s); a '
                                    're-framed consult carries every framing'))
+
+    # CROSS-RECEIPT REUSE — the one defect every per-receipt rule above misses
+    # (kogaki#75). Each check so far validates a receipt AGAINST ITSELF: pin
+    # shape, v2 completeness, the ratified outcome triple, N against the query
+    # count. All of them passed on a receipt whose `request_id` was copied from
+    # an earlier commit with the outcome REVERSED — `uncovered-after-2-framings`
+    # became `discriminating` for the same query verbatim.
+    #
+    # ONE GATEWAY REQUEST CANNOT HAVE TWO OUTCOMES. The request_id is the
+    # server's identity for a single call, so a second receipt bearing it must
+    # agree with the first in every field or one of them is invented. Detecting
+    # that needs a view across receipts, which nothing here had.
+    #
+    # The specimen is this repository's own merged history, authored by the
+    # interactive session rather than by a spawned fixer — form validation
+    # passed while the content was fabricated, which is why the durable fix is
+    # tool-EMITTED receipts (kogaki#66 deliverable 1) and this is only the
+    # consumer-side conformance floor. The server's access log remains the
+    # canonical record, and this check's removal signal already names it.
+    #
+    # Identical full blocks are a DUPLICATE, not a fabrication: the same receipt
+    # quoted twice is honest and is counted once rather than failed.
+    by_id = {}
+    for pin, fields in receipts:
+        rid = fields.get('request_id')
+        if not rid:
+            continue
+        sig = (fields.get('outcome'), tuple(fields['query']))
+        prev = by_id.get(rid)
+        if prev is None:
+            by_id[rid] = (pin, sig)
+            continue
+        prev_pin, prev_sig = prev
+        if prev_sig == sig:
+            continue                      # honest duplicate; counted once below
+        differs = []
+        if prev_sig[0] != sig[0]:
+            differs.append(f'outcome {prev_sig[0]!r} vs {sig[0]!r}')
+        if prev_sig[1] != sig[1]:
+            differs.append(f'{len(prev_sig[1])} query line(s) vs {len(sig[1])}')
+        malformed.append(
+            (pin, f'request_id {rid} is reused with a different reading '
+                  f'({"; ".join(differs)}). One gateway request has one '
+                  'outcome, so one of these receipts is fabricated — compare '
+                  f'against the receipt at {prev_pin!r}'))
+
     return receipts, malformed
 
 
@@ -247,6 +293,56 @@ V2_EMPTY_OUTCOME_ALONE = GOOD + "\n  outcome:\n"
 # discrimination evidence rather than fixtures that look like it.
 FIXTURES = [
     ("real receipt counted", GOOD, 1, 0, 0, ()),
+    # --- cross-receipt reuse (kogaki#75) -----------------------------------
+    # Both directions, because the honest case is the one a naive "same id
+    # twice = fail" rule would break: a receipt quoted twice is not a lie.
+    ("request_id reused with the outcome REVERSED — the merged-history specimen",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n"
+     "  request_id: 9442a05f-e1e6\n"
+     "  outcome: uncovered-after-2-framings\n"
+     "  query: which direction should an unrecognized class default to?\n"
+     "  query: fail toward the safe option or the cheap one?\n"
+     "\n"
+     "consulted: product-lab@f918c515 LESSONS.md:40\n"
+     "  request_id: 9442a05f-e1e6\n"
+     "  outcome: discriminating\n"
+     "  query: which direction should an unrecognized class default to?\n",
+     2, 1, 3, ('uncovered-after-2-framings', 'discriminating')),
+    ("request_id reused with a DIFFERENT query set",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n"
+     "  request_id: aaaa1111\n"
+     "  outcome: discriminating\n"
+     "  query: first question\n"
+     "\n"
+     "consulted: product-lab@f918c515 LESSONS.md:41\n"
+     "  request_id: aaaa1111\n"
+     "  outcome: discriminating\n"
+     "  query: a different question entirely\n",
+     2, 1, 2, ('discriminating', 'discriminating')),
+    ("the SAME receipt quoted twice is an honest duplicate, never a failure",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n"
+     "  request_id: bbbb2222\n"
+     "  outcome: discriminating\n"
+     "  query: one question\n"
+     "\n"
+     "consulted: product-lab@f918c515 LESSONS.md:40\n"
+     "  request_id: bbbb2222\n"
+     "  outcome: discriminating\n"
+     "  query: one question\n",
+     2, 0, 2, ('discriminating', 'discriminating')),
+    ("two DISTINCT request_ids never collide",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n"
+     "  request_id: cccc3333\n"
+     "  outcome: discriminating\n"
+     "  query: q one\n"
+     "\n"
+     "consulted: product-lab@f918c515 LESSONS.md:41\n"
+     "  request_id: dddd4444\n"
+     "  outcome: discriminating\n"
+     "  query: q two\n",
+     2, 0, 2, ('discriminating', 'discriminating')),
+    ("a v1 receipt carries no request_id and cannot collide",
+     GOOD + "\n" + GOOD, 2, 0, 0, ()),
     ("fenced template is a mention: not counted, not malformed",
      TEMPLATE_FENCED, 0, 0, 0, ()),
     ("real receipt beside a fenced template: exactly one counted",
@@ -325,7 +421,9 @@ queries = sum(len(f['query']) for _, f in receipts)
 # The report. Zero is stated, never silent.
 print(f"fixture pass: {len(FIXTURES)}/{len(FIXTURES)} discrimination cases "
       "(mention-in-fence excluded; malformed-outside-fence still fails; "
-      "v2 fields parsed, bare `miss` and an under-recorded re-framing fail)")
+      "v2 fields parsed, bare `miss` and an under-recorded re-framing fail; "
+      "request_id reuse with a changed reading fails, an identical "
+      "duplicate does not)")
 print(f"v2 receipts: {v2} of {len(receipts)} carry request_id/outcome, "
       f"{queries} query line(s) recorded — reported, never gated")
 distinct = sorted(set(pins))
