@@ -70,7 +70,10 @@ distinct pins: <repo>@<sha>, …
 ```
 
 rendering zero as `distinct pins: none — no consultation receipt on this
-branch`. Run that check (or read its CI output) and quote its lines. Do not
+branch`. **Read those lines out of CI's run log** where a completed run exists
+for the head, and run the check locally only where one does not — the ordering
+is fixed below under *What a review reads*, not a free choice. Quote the lines
+whichever source produced them. Do not
 re-derive counts from `git log`, and **never** read gateway state — no
 `~/.tsurezure/`, no access log, no state directory. Kogaki reads its own
 receipts and never the mediating component's private state
@@ -341,6 +344,68 @@ unimproved, so the property is **converged or escalated**, not reviewed-once.
 - **The seam is never asked for a verdict.** The review supplies the claims;
   the seam supplies the positions. Asking it to judge would make a live answer
   authoritative and unpinnable, which the seam's own contract refuses.
+
+## What a review reads, and what it refuses to re-derive (kogaki#70, story 1.18)
+
+A review's turns are for judgment. Every turn spent re-deriving a fact the
+repository has already produced is a turn the two dimensions did not get, and
+the cost is measured rather than supposed: on PR #67 round 1 ran
+`check-consult-receipts.sh` twice, and round 2 ran the **entire registered
+suite in a for-loop** plus individual checks — while that same suite had
+already run in CI against the same head.
+
+**Read CI; do not re-run it.** Where a completed CI run exists for the PR's
+current head and you need a registered check's result, read that run and do not
+run the check locally. `Bash(gh pr checks:*)` and `Bash(gh run:*)` are both
+granted (kogaki#65) precisely so this is the cheap path. Where CI has **not**
+completed for the current head, running the check locally is permitted — and
+where the wait is bounded, waiting for CI is preferred over duplicating it,
+because a local pass on a machine CI has not yet judged is not the fact the
+gate will use.
+
+**Both reads are needed, and the split is measured, not reasoned.** Run
+`31029590605` (PR #89, head `5faedf3`) is this repository's partially-red
+specimen — the registry-driven suite red, the license assertion green — and it
+was read both ways:
+
+| command | what it discriminates |
+|---|---|
+| `gh pr checks <n>` | **jobs only.** Two rows: `Run every registered check (registry-driven) fail`, `Change licensed by a named issue (deny-never-warn) pass`. Nine registered checks ran inside that one red job and it names none of them. |
+| `gh run view <id> --log-failed` | **members.** Each check's own `== <id>` marker and its `ok:` / `FAIL:` lines with the failure text verbatim, and a terminal roll-up `FAIL: boundary-receipts, review-report` naming exactly which members failed. |
+
+So **criterion: the run log, not the summary.** `gh pr checks` tells you the
+suite is red; only the run log tells you *which* check is red, and only the run
+log carries the receipt report's own lines this lane is required to quote.
+Reading the summary alone and calling a red suite a red dimension-2 is the
+error this section exists to stop — every other member may be green.
+
+**Read tool output through bounded, purpose-shaped commands.** Ask the log the
+question you have: `gh run view <id> --log-failed | grep -E '== |FAIL:'` returns
+the per-member verdict in one turn. Ad-hoc byte slicing of a large transcript —
+round 2 read a 70 KB transcript in three `cut -c` slices — is **out of scope for
+a per-PR review**. A reviewer that finds itself needing a parser has found a gap
+in the sweep's own instruments, not a task for this turn: kogaki#65 item 3 gave
+the sweep a denial extractor for exactly that reason. **File for the instrument
+on kogaki#13** as an `out-of-dimension:` line and move on. Improvised byte
+arithmetic re-derives once per round something that belongs once in the tool.
+
+**A probe of the lane's own sandbox is register work, not per-review work.**
+Round 2 of PR #67 spent ~8 turns establishing what its own grants and sandbox
+permitted. That knowledge is real and worth having — the kogaki#65
+grant-escape finding is the specimen, genuinely valuable — but it is a property
+of the lane, not of the PR under review, so it is **recorded once on kogaki#13
+and never re-probed each round**. A reviewer that wants to know what it may run
+reads this file and `tools/review-sweep.sh`'s grant commentary; a reviewer that
+discovers something new about the grants appends it to the register. Paying for
+the same discovery on every round is the sink.
+
+**And when neither source yields the result, say so by name.** If CI has no
+completed run for the head and the local run is unavailable or refused, the
+report says it **cannot determine** that check's result and **names which
+source failed** — "no completed CI run for `<sha>`", or the denial the local
+attempt returned. This is the dimension-2 discipline already stated above,
+unchanged and applied here: an absent result is reported as absent. Silence is
+never a pass, and a check nobody could read is never a check that passed.
 
 ## What fires this lane (kogaki#34 item 2, story 1.13; re-sited by kogaki#47)
 
