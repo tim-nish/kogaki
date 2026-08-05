@@ -74,6 +74,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
   checker appearing in a PR without a license is refused, and the work
   re-routes to an issue.
 
+  **The judgment half runs in a session that did not author the work under
+  review, and that isolation is a requirement rather than a convenience**
+  (kogaki#34). An authoring session cannot review its own work for the class
+  of defect that consists of not having applied what it already held: the
+  specimen is kogaki#32, where a coined token set shipped while the ratified
+  vocabulary sat unused in the authoring session's own context, and an
+  independent review caught it in one pass. So **every PR receives a
+  review-lane report authored outside the authoring session before merge**,
+  and the mechanical half asserts that report's **presence** — a computable
+  fact — while never reading its content, which stays judgment. The transport
+  that produces the report is the implementing story's choice; what this
+  clause binds is the property and its presence check.
+
   The **boundary-receipt binding** is what converts the map from advice an
   agent may remember into a carrier that binds on every PR. It computes two
   sets per branch — the mapped boundaries whose trigger terms match the diff
