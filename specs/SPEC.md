@@ -81,11 +81,64 @@ invariant: Gukan guarantees Unit schema, never data schema).
   specimen is kogaki#32, where a coined token set shipped while the ratified
   vocabulary sat unused in the authoring session's own context, and an
   independent review caught it in one pass. So **every PR receives a
-  review-lane report authored outside the authoring session before merge**,
-  and the mechanical half asserts that report's **presence** — a computable
-  fact — while never reading its content, which stays judgment. The transport
-  that produces the report is the implementing story's choice; what this
-  clause binds is the property and its presence check.
+  review-lane report authored outside the authoring session before merge**.
+
+  **The property is CONVERGED OR ESCALATED, not reviewed-once** (kogaki#34,
+  amended 2026-08-05). A report that lands findings and is never answered
+  leaves the PR reviewed and unimproved, so the lane and the author **rally**:
+  findings return as PR comments or as correction instructions, the author
+  applies them, and the reviewer re-reads — **up to two rounds**, after which
+  the disagreement is a **parked owner decision, never a third round**. The
+  bound is the same discipline the failure rule already carries: a
+  disagreement surviving its machine-machine retry is a decision a human owns.
+
+  Four clauses keep this inside the two-layer split rather than moving
+  judgment into the merge layer:
+
+  1. **The lane stays findings-only and emits a typed findings record** —
+     severity-marked, primary capture, attached to the PR. The mechanical
+     half reads **report present ∧ no open blocking findings**. Whether a
+     finding *is* blocking is the reviewer's judgment; whether the PR
+     *contains* an open blocking one is a computable fact over a declared
+     record, which is the split's own test — "whether a work item LICENSES a
+     check is a judgment … whether a PR CONTAINS an unlicensed check is a
+     computable fact carried at the merge layer"
+     (`consulted: product-lab@ed47fbd3818b9a66954a558d6c88e86574407ece topics/knowledge-architecture.md:36`).
+  2. **The reviewer never pushes to the branch.** Corrections are comments or
+     instructions; the author applies them. A reviewer that authors a fix
+     stops being a control arm, and round two would have no isolated reviewer
+     left.
+  3. **Two rounds, then a parked owner decision.** Never a third.
+  4. **Every round leaves its record** — report, correction instruction,
+     round count — so the postmortem hand-off can mine rally residue: a
+     finding that took two rounds to land is evidence about the map or about
+     author-side prescriptions, harvested without anyone remembering to.
+
+  **The "no open blocking findings" half is CARRIER-LESS, and is marked
+  rather than omitted.** An empty findings record satisfies it, and nothing
+  distinguishes a thorough review that found nothing from one that looked at
+  nothing — the check rests on the reviewer's self-report about its own
+  process, where a rationale is an attestation rather than evidence. A stated
+  policy is admissible as per-artifact-decidable, as detector-designed-in, or
+  as deliberately carrier-less **with a reopen trigger**; carrier-less *by
+  omission* is the defect
+  (`consulted: product-lab@ed47fbd3818b9a66954a558d6c88e86574407ece topics/knowledge-architecture.md:52`).
+  **Reopen trigger:** one PR that passed this gate with an empty findings
+  record and later needed correction.
+
+  **Two clauses bind the review's own conduct**, and belong to the lane
+  rather than to the gate: the review opens with an **unscoped tier-1
+  `gloss_index` survey** as a fixed first move — where to look is an output
+  of the survey rather than a heading the reviewer supplies — and **the seam
+  is never asked for a verdict**: the review supplies the claims, the seam
+  supplies the positions.
+
+  **Ownership, so the layers are not re-derived per sitting:** the property
+  lives here; presence-and-findings enforcement at the merge layer; judgment
+  in the review-lane skill; **orchestration** — spawn on PR-open, rally
+  rounds, author-session messaging — in the lane-command layer, with the
+  transport pluggable and degraded environments falling back to
+  correction-comments on the PR.
 
   The **boundary-receipt binding** is what converts the map from advice an
   agent may remember into a carrier that binds on every PR. It computes two
