@@ -5,8 +5,11 @@
 # WHAT THIS ENFORCES, AND WHAT IT ONLY STATES. The distinction is the point of
 # the check, not a caveat on it.
 #
-#   ENFORCED — a review-lane report EXISTS for this PR's CURRENT head. That is
-#   a computable fact about the PR, and its absence fails.
+#   ENFORCED — a review-lane report EXISTS for this PR's CURRENT head, AND no
+#   finding in it is declared blocking and still open. Both are computable
+#   facts about the PR. The property is CONVERGED OR ESCALATED rather than
+#   reviewed-once (kogaki#34): a report that lands findings and is never
+#   answered leaves the PR reviewed and unimproved.
 #
 #   STATED, NEVER ENFORCED — that the report's author did not author the work
 #   under review. Session identity appears in neither git nor GitHub metadata:
@@ -18,10 +21,25 @@
 #   (`a-rule-reproduces-only-through-a-default-carrier`, surveyed via the
 #   consultation map's entry-1 read prescription before this file was written).
 #
-# It never reads the report's FINDINGS. Presence is mechanical, content is
-# judgment, and a check that read the findings would be the
-# judgment-in-the-mechanical-half defect §4 already refuses for the
-# boundary-receipt binding.
+# IT READS THE DECLARED SEVERITY FIELD AND NEVER THE PROSE. Whether a finding
+# IS blocking is the reviewer's judgment, recorded by the reviewer in a typed
+# record; whether the PR CONTAINS an open blocking one is a fact over that
+# record. That is the two-layer split's own test rather than an exception to
+# it — "whether a work item LICENSES a check is a judgment … whether a PR
+# CONTAINS an unlicensed check is a computable fact carried at the merge
+# layer" (topics/knowledge-architecture.md:36@ed47fbd). A check that read the
+# findings' PROSE to decide their severity would be the
+# judgment-in-the-mechanical-half defect; this one cannot, because the field
+# is all it parses.
+#
+# AND THE NO-OPEN-BLOCKING HALF IS CARRIER-LESS, MARKED RATHER THAN OMITTED.
+# An EMPTY findings record satisfies it, and nothing here distinguishes a
+# thorough review that found nothing from one that looked at nothing: the
+# check rests on the reviewer's self-report about its own process, where a
+# rationale is an attestation rather than evidence. Carrier-less by omission
+# is the defect; carrier-less with a reopen trigger is admissible
+# (topics/knowledge-architecture.md:52@ed47fbd). Reopen trigger: one PR that
+# passed this gate with an empty findings record and later needed correction.
 #
 # THE HEAD SHA IS PART OF PRESENCE, not decoration. A report written against
 # an earlier push reviewed different code, so it is recorded as STALE rather
@@ -124,13 +142,30 @@ import os, re, sys
 # for one.
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$',
                     re.MULTILINE)
+# The typed findings record (kogaki#34 clause 1). One line per finding, a
+# DECLARED severity field — the merge layer reads this field and never the
+# prose beside it. `blocking` is the only severity that gates; `open` is the
+# only state that counts. Whether a finding IS blocking is the reviewer's
+# judgment; whether the PR CONTAINS an open blocking one is a fact.
+FINDING = re.compile(
+    r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b', re.MULTILINE)
+
+
+def open_blocking(bodies):
+    """Findings declared `blocking` and still `open`. Reads the declared
+    severity and state fields only — never the finding's prose."""
+    return [m.group(0).strip() for m in FINDING.finditer(bodies or '')
+            if m.group(1) == 'blocking' and m.group(2) == 'open']
 
 
 def find_report(bodies, head):
-    """Return ('present'|'stale'|'absent'|'head-unknown', shas_seen).
+    """Return ('present'|'stale'|'absent'|'head-unknown'|'blocked', shas).
 
     `stale` means a report exists but names a different head: it reviewed code
     this PR no longer proposes, so it is not presence for THIS head.
+    `blocked` means the report is present for this head and carries at least
+    one finding declared blocking and still open — the converged half of
+    converged-or-escalated (specs/SPEC.md §4, kogaki#34).
     """
     shas = [m.group(1) for m in REPORT.finditer(bodies or '')]
     if not shas:
@@ -142,7 +177,7 @@ def find_report(bodies, head):
         # review).
         return 'head-unknown', shas
     if any(head.startswith(s) or s.startswith(head) for s in shas):
-        return 'present', shas
+        return ('blocked', shas) if open_blocking(bodies) else ('present', shas)
     return 'stale', shas
 
 
@@ -170,6 +205,24 @@ FIXTURES = [
      f"review-lane report: {HEAD}", '', 'head-unknown'),
     ("no report with an unknown head is still absent, not head-unknown",
      "lgtm", '', 'absent'),
+    # --- kogaki#34 amendment: converged, not merely reviewed ---
+    ("a report with an OPEN BLOCKING finding is blocked, not present",
+     f"review-lane report: {HEAD}\nfinding: blocking open  the pin is wrong",
+     HEAD, 'blocked'),
+    ("the same finding RESOLVED lets the report through",
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed in abc",
+     HEAD, 'present'),
+    ("open findings below blocking do not gate",
+     f"review-lane report: {HEAD}\nfinding: should open  naming\n"
+     "finding: nit open  a typo", HEAD, 'present'),
+    ("one open blocking among several resolved still blocks",
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  a\n"
+     "finding: blocking open  b", HEAD, 'blocked'),
+    ("prose describing a blocking finding without the field does not gate",
+     f"review-lane report: {HEAD}\nThis is blocking and open, I think.",
+     HEAD, 'present'),
+    ("findings without a report are not a report",
+     "finding: blocking open  orphaned", HEAD, 'absent'),
 ]
 failures = []
 for name, bodies, head, want in FIXTURES:
@@ -183,7 +236,8 @@ if failures:
     sys.exit(1)
 
 print(f"fixture pass: {len(FIXTURES)}/{len(FIXTURES)} discrimination cases "
-      "(present / absent / stale-head / head-unknown / token-vs-prose)")
+      "(present / absent / stale / head-unknown / blocked / "
+      "severity-below-blocking / prose-vs-field)")
 
 # ---------------------------------------------------------------------------
 # The live pass.
@@ -214,8 +268,19 @@ if state == 'head-unknown':
           "not establish which head it should name. The head is part of "
           "presence, so an unknown head is not a pass.")
     sys.exit(1)
+if state == 'blocked':
+    blocking = open_blocking(os.environ.get("REVIEW_BODIES", ""))
+    print(f"FAIL: PR #{pr} has a review-lane report for head {head[:7]}, but "
+          f"{len(blocking)} finding(s) are declared blocking and still open. "
+          "The property is CONVERGED or escalated, not reviewed-once "
+          "(specs/SPEC.md §4): resolve them, or escalate to a parked owner "
+          "decision after the second round.")
+    for b in blocking:
+        print(f"  {b}")
+    sys.exit(1)
 if state == 'present':
-    print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}")
+    print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}, "
+          "no open blocking findings")
 elif state == 'stale':
     print(f"FAIL: PR #{pr} carries a review-lane report, but it names "
           f"{', '.join(s[:7] for s in shas)} and this head is {head[:7]} — a "

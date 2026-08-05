@@ -190,3 +190,52 @@ is the *proposal*, never the judgment. A candidate whose question was
 composed at the filing rather than actually run says so, in the question's own
 prose — the map's provenance rule, which applies to a candidate exactly as it
 applies to an entry.
+
+## The typed findings record (kogaki#34 clause 1)
+
+Findings are emitted as declared fields, one line each, in the same PR comment
+as the report:
+
+```
+finding: <blocking|should|nit> <open|resolved>  <the finding>
+```
+
+- **The merge check reads the two fields and never the prose.** Whether a
+  finding *is* blocking is your judgment; whether the PR *contains* an open
+  blocking one is a fact over the record. That is the two-layer split's own
+  test, not an exception to it.
+- **`blocking` gates; `should` and `nit` do not.** Marking something blocking
+  is a decision to stop a merge — make it deliberately.
+- Prose describing a finding as blocking, without the field, does **not**
+  gate. The field is the record; the prose is for the reader.
+
+**The gate this feeds is carrier-less on one half, and you should know it:**
+an empty findings record passes. Nothing distinguishes a thorough review that
+found nothing from one that looked at nothing, because the check rests on this
+lane's own self-report. That is marked in `specs/SPEC.md` §4 with its reopen
+trigger rather than left implied — but it means the honesty of an empty record
+is yours to supply, not the gate's to verify.
+
+## The rally — converged or escalated (kogaki#34 clauses 2–4)
+
+A report that lands findings and is never answered leaves the PR reviewed and
+unimproved, so the property is **converged or escalated**, not reviewed-once.
+
+- **Never push to the branch.** Corrections are comments or instructions; the
+  author applies them. A reviewer that authors a fix stops being a control
+  arm — and round two would have no isolated reviewer left.
+- **At most two rounds.** A disagreement that survives them is a **parked
+  owner decision**, never a third round.
+- **Every round leaves its record** — report, correction instruction, round
+  count — so a finding that took two rounds to land becomes evidence about the
+  map or about author-side prescriptions, harvested without anyone
+  remembering to.
+
+## How a review opens, and what it may ask the seam
+
+- **Fixed first move: an unscoped tier-1 `gloss_index` survey.** Where to look
+  is an *output* of the survey, not a heading you supply — a scoped query can
+  only return lines about something you already thought to name.
+- **The seam is never asked for a verdict.** The review supplies the claims;
+  the seam supplies the positions. Asking it to judge would make a live answer
+  authoritative and unpinnable, which the seam's own contract refuses.
