@@ -157,6 +157,33 @@ invariant: Gukan guarantees Unit schema, never data schema).
      which is judgment rather than a computable fact over the record.
      **Reopen trigger:** one PR whose round-2 report declared `delta` and
      missed a defect that lay inside the fix commits it claimed to cover.
+  6. **A report DECLARES ITS COMPLETENESS, and a fragment counts as nothing**
+     (kogaki#74). The report grammar carries a terminal
+     `report-complete: <N> findings`, and clause 1's mechanical half counts a
+     segment **only** when that line is present and `N` equals the segment's
+     own finding lines. A partial report turns nothing green; a split report
+     holds the gate red until its last part lands.
+     **The specimen is a merge that should not have happened.** On PR #71 the
+     reviewer was denied the grants that let it post in one act, so it split
+     its report: the first part — resolving the previous round — landed at
+     15:50:40, the re-check fired, armed auto-merge completed at 15:51:09, and
+     the **complete** report carrying a new open blocking finding arrived at
+     15:53:37 on an already-merged PR. Nothing distinguished a complete report
+     from the first fragment of one, so the gate read a fragment as the verdict.
+     **Both halves are mechanical**, which is why this belongs at the merge
+     layer where clauses 1 and 5 already live: token presence and count
+     equality are computable facts over a declared record, exactly the split's
+     own test. Clause 5's scope declaration and this clause's completeness
+     token are **one grammar over one segmenter** — they are specified together
+     and implemented in a single pass, because two sequential passes over the
+     report parser is how the use-vs-mention defect (kogaki#41) was introduced
+     the first time.
+     **Compatibility, stated rather than left to discovery:** a report with no
+     `report-complete:` line is read as complete, on the same ground clause 5's
+     absent-scope default rests on — every report already in this repository's
+     history was posted whole, and a default that retroactively voided them
+     would empty the gate rather than tighten it. The token binds reports
+     written after it ships.
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
