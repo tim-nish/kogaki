@@ -104,14 +104,29 @@ def scan(source):
             continue
         pin = m.group(1).strip()
         fields = {'query': []}
+        # ONE RULE FOR EMPTY VALUES, applied in the parse rather than inferred
+        # later from truthiness. `saw_cont` records that a continuation line
+        # was PRESENT — which is a fact about the text, not about what the
+        # value happened to be — and an empty value is treated as ABSENT for
+        # every field alike. Deriving presence from truthiness gave three
+        # different behaviours for the same emptiness: an empty `outcome:`
+        # made the receipt look like v1 and skipped every v2 clause, an empty
+        # `request_id:` was correctly reported missing, and empty `query:`
+        # lines COUNTED as recorded framings — so `uncovered-after-3-framings`
+        # with three blank queries satisfied N == len(). That is weaker than
+        # the rephrasing case disclosed below: rephrasing at least records two
+        # questions, this recorded none (PR #43 review).
+        saw_cont = False
         i += 1
         while i < len(lines):
             c = CONT.match(lines[i])
             if not c:
                 break
+            saw_cont = True
             key, value = c.group(1), c.group(2).strip()
-            fields['query'].append(value) if key == 'query' else \
-                fields.__setitem__(key, value)
+            if value:
+                fields['query'].append(value) if key == 'query' else \
+                    fields.__setitem__(key, value)
             i += 1
         receipts.append((pin, fields))
         if not PIN.match(pin):
@@ -124,8 +139,7 @@ def scan(source):
         # the receipt is v2 and owes all three fields SPEC §4 requires; without
         # this, `outcome: discriminating` alone passes while claiming to be a
         # v2 receipt.
-        has_cont = bool(fields.get('request_id') or got or fields['query'])
-        if has_cont:
+        if saw_cont:
             missing = [k for k in ('request_id', 'outcome')
                        if not fields.get(k)]
             if not fields['query']:
@@ -219,6 +233,12 @@ V2_N_BELOW_FLOOR = (GOOD + "\n  request_id: r\n"
                     "  query: only framing\n")
 # A partial v2 receipt: outcome present, request_id and query absent.
 V2_PARTIAL = GOOD + "\n  outcome: discriminating\n"
+# Empty values, all three paths. An empty `outcome:` alone must not read as a
+# v1 receipt, and empty `query:` lines must not count as recorded framings.
+V2_EMPTY_QUERIES = (GOOD + "\n  request_id: r\n"
+                    "  outcome: uncovered-after-3-framings\n"
+                    "  query: \n  query:   \n  query:\n")
+V2_EMPTY_OUTCOME_ALONE = GOOD + "\n  outcome:\n"
 # Each fixture asserts (receipts, malformed, total query lines, outcomes).
 # The last two fields are not decoration: a (count, malformed) assertion alone
 # cannot observe whether the continuation fields were parsed at all, so six of
@@ -245,7 +265,7 @@ FIXTURES = [
      V2_REFRAMED, 1, 0, 2, ('covered-after-reframing',)),
     ("a re-framed outcome with one query line is malformed",
      V2_REFRAMED_ONE_QUERY, 1, 1, 1, ('covered-after-reframing',)),
-    ("uncovered-after-N-framings is accepted for any N",
+    ("uncovered-after-N: N matching its queries and at or above the floor passes",
      V2_UNCOVERED, 1, 0, 2, ('uncovered-after-2-framings',)),
     ("two v2 receipts are two receipts, not one with merged fields",
      V2_FULL + V2_REFRAMED, 2, 0, 3,
@@ -261,6 +281,10 @@ FIXTURES = [
      V2_PARTIAL, 1, 1, 0, ('discriminating',)),
     ("a v1 receipt is untouched by presence-implies-completeness",
      GOOD, 1, 0, 0, ()),
+    ("empty query lines are absent, not recorded framings",
+     V2_EMPTY_QUERIES, 1, 1, 0, ('uncovered-after-3-framings',)),
+    ("an empty outcome alone stays malformed (regression pin: was already caught by the triple clause, now by completeness — the verdict is invariant, only the reason improved)",
+     V2_EMPTY_OUTCOME_ALONE, 1, 1, 0, ()),
 ]
 fixture_failures = []
 for name, src, want_count, want_bad, want_q, want_out in FIXTURES:
