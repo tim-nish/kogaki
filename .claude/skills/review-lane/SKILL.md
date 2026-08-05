@@ -41,6 +41,18 @@ Read the licensing issue named by the PR (title, body, or commits — the same
 Out-of-scope work re-routes: file the carved-out work as its own issue and
 name it in the finding. The PR is not blocked by this lane.
 
+**Deferred slots are this dimension's twin (kogaki#48).** Where the spec or
+story names a `deferred-slot: <name>` the diff fills, check that the
+licensing issue carries the fill-time decision record — choice,
+alternatives, consult receipt — and that the diff matches it. A design
+decision found ONLY in the implementation, with no record on the issue, is
+a **finding whatever its quality**: the specimen is the review-sweep timer,
+whose transport fork arrived at this lane entrenched and pre-argued, and
+whose review evaluated the argument given rather than the fork not taken.
+Review the decision where it was made, not where it landed — and treat an
+UNNAMED deferral ("left to the implementation" with no slot token) as a
+finding against the spec text itself.
+
 ### 2. Consultation-map boundaries touched
 
 For each entry in `policy/consultation-map.md`, decide from the diff whether

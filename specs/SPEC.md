@@ -140,6 +140,29 @@ invariant: Gukan guarantees Unit schema, never data schema).
   transport pluggable and degraded environments falling back to
   correction-comments on the PR.
 
+  **A deferred design slot is filled at a decision gate, never silently
+  inside implementation** (kogaki#48, 2026-08-05). Any spec or story text
+  that leaves a choice "to the implementation" NAMES the slot with the
+  fixed token `deferred-slot: <name>`; an unnamed deferral is the defect,
+  because gates bind to decision documents and an unnamed slot's decision
+  escapes every one of them. Filling a named slot is a DECISION act:
+  before code embeds the choice, the filling sitting consults the seam on
+  the fork and records the decision — choice, alternatives, consult
+  receipt — on the licensing issue. The review lane then reviews the
+  decision where it was made, not the argument where it landed: a design
+  decision found only in the implementation, with no record on the issue,
+  is a finding whatever its quality. The specimen is the review-sweep
+  timer: "transport pluggable" deferred the trigger fork past the
+  issue-stage policy check (which ran on a body containing no transport
+  decision), the fork was decided inside the implementing sitting where
+  only consult-by-initiative covered it, and the PR review met it
+  entrenched and pre-argued — while both discriminating served lines
+  predated the design. This clause is check-policy-at-decision-not-
+  execution applied to the deferral mechanism itself
+  (`consulted: product-lab@ed47fbd3818b9a66954a558d6c88e86574407ece topics/knowledge-architecture.md:9`,
+  `topics/archive/articles.md:29` — the two lines a fill-time consult
+  would have surfaced).
+
   The **boundary-receipt binding** is what converts the map from advice an
   agent may remember into a carrier that binds on every PR. It computes two
   sets per branch — the mapped boundaries whose trigger terms match the diff
