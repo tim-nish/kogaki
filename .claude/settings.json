@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/review-trigger.py\"",
+            "timeout": 10,
+            "statusMessage": "Review trigger (kogaki#47)"
+          }
+        ]
+      }
+    ]
+  }
+}

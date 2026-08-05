@@ -252,10 +252,23 @@ unimproved, so the property is **converged or escalated**, not reviewed-once.
   the seam supplies the positions. Asking it to judge would make a live answer
   authoritative and unpinnable, which the seam's own contract refuses.
 
-## What fires this lane (kogaki#34 item 2, story 1.13)
+## What fires this lane (kogaki#34 item 2, story 1.13; re-sited by kogaki#47)
 
-**A sweep, run where the seam is** — `tools/review-sweep.sh`. Not a GitHub
-Action, and the reason is not preference:
+**An event, never a timer.** The project hook
+(`.claude/hooks/review-trigger.py`, wired in `.claude/settings.json`) fires
+at `gh pr create` and `git push` — the acts that change the review
+substrate — and invokes `tools/review-sweep.sh` in single-target mode,
+detached, so the authoring session never waits and review starts within
+seconds of the PR existing. The timer this section originally recommended
+is **rejected** (owner ruling 2026-08-05: a forced wait is an incorrect
+design however internally consistent; a trigger binds to an act that
+already happens, never a periodic reader). The full sweep survives as
+manual reconciliation only. After a report lands,
+`.github/workflows/review-recheck.yml` re-fires the failed checks run
+mechanically — a landed report leaves the PR green without human touch.
+
+**Run where the seam is** — not a GitHub Action, and the reason is not
+preference:
 
 - the repository holds **no Actions secret**, so no CI-hosted agent can
   authenticate;
@@ -284,14 +297,18 @@ leaves its record** without a separate ledger (§4 clause 4).
 
 **Two honest limits, stated rather than discovered:**
 
-- **A sweep can lose a race with a fast merge; PR-open invocation cannot.**
-  The race is closed elsewhere: 1.12's presence check is a required status
-  check, so a PR without a current-head report cannot merge. A late sweep is
-  late, never skipped.
-- **Installation is machine-local, which makes it advice.** Nothing in the
-  repository installs a timer. What rescues it from being advice with no
-  consequence is the same presence check: an uninstalled sweep means PRs stop
-  merging, which is loud rather than silent.
+- **The hook binds sessions that load this project's settings.** A PR
+  created outside a hooked session (another machine, a bare terminal)
+  spawns nothing — the manual sweep is the reconciliation for those, and
+  the presence check is the loud backstop either way: an unreviewed PR
+  cannot merge, which converts a missed trigger into a visible red check
+  rather than a silent gap.
+- **The spawned session's permissions are machine policy.** `claude -p
+  "/review-lane <n>"` posts its report through `gh`; a machine whose
+  permission config blocks that will show the spawn in
+  `~/.kogaki/review-trigger.log` and a PR that stays report-less — same
+  backstop, same visibility.
 
-Spawning is **opt-in** (`--spawn`); `--dry-run` is the default, because
-spawning a session is an outward act rather than a flag someone forgets is on.
+Spawning is **opt-in** (`--spawn`, which the hook passes); `--dry-run` is
+the default for manual invocations, because spawning a session is an
+outward act rather than a flag someone forgets is on.
