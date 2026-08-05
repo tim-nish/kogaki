@@ -85,22 +85,38 @@
 # and each addition to the served surface owes an edit here, which the
 # fallback above is what makes survivable.
 #
-# EVERY PATTERN HERE WAS EXERCISED, NOT INFERRED — and the first attempt shipped
-# a dead one (PR #67 review, round 1). `Bash(bash checks/:*)` looks obviously
-# correct and is DENIED: a trailing path fragment is not a prefix the matcher
-# accepts, so the reviewer could not run a single check, and because the receipt
-# report has exactly two admissible sources — the check itself, or `gh run view`
-# — and the second was ungranted too, BOTH paths were closed and the review's
-# dimension 2 was forced to cannot-determine. Verified headless, one command per
-# pattern shape: `Bash(bash checks/:*)` DENIED, `Bash(bash:*)` ALLOWED,
-# `Bash(git log:*)` ALLOWED, `Bash(gh run:*)` ALLOWED.
+# EVERY PATTERN HERE WAS EXERCISED, NOT INFERRED — and it took two rounds to get
+# right, both failures worth recording because they are opposite errors.
 #
-# `Bash(bash:*)` rather than an enumeration of check files is deliberate and is
-# the same ruling as above one level down: enumerating the checks would leave
-# check N+1 ungranted by default, which is this file's own defect class. The
-# containment is elsewhere and is structural — an external PR is never spawned
-# against at all (the frontier is composed, not filtered), so the scripts a
-# reviewer can reach are the ones an eligible author already merged or proposed.
+# Round 1 shipped a DEAD grant. `Bash(bash checks/:*)` looks obviously correct
+# and is DENIED: a trailing path fragment is not a prefix the matcher accepts,
+# so the reviewer could not run a single check; and because the receipt report
+# has exactly two admissible sources — the check itself, or `gh run view` — and
+# the second was ungranted too, BOTH paths were closed and dimension 2 was
+# forced to cannot-determine.
+#
+# Round 2's repair was WORSE, and is the more instructive failure.
+# `Bash(bash:*)` is not a narrower grant, it is a GENERAL SHELL: `bash -c
+# "<anything>"` matches it, so the list bounded nothing at all — including the
+# `git push` a reviewer is forbidden. The reviewer reproduced it by running
+# python3 through `bash -c`. Round 1's finding was that an enumeration had an
+# uncovered member; the repair DISSOLVED the enumeration rather than completing
+# it, which trades a coverage gap for an unbounded grant and is a strictly worse
+# object.
+#
+# So the per-check patterns are DERIVED FROM THE REGISTRY rather than typed
+# here. That is what answers the N+1 objection without dissolving anything: the
+# check registry is already the enumeration governing which checks exist
+# (`specs/SPEC.md` §4 — "the suite runs only registered checks"), so a newly
+# registered check is granted BY CONSTRUCTION and an unregistered file is
+# ungranted for the same reason it is unrunnable. One enumeration, one owner,
+# no second list to drift.
+#
+# Verified headless, one command per pattern shape:
+#   Bash(bash checks/:*)                   DENIED   (round 1's dead grant)
+#   Bash(bash checks/check-x.sh:*)         ALLOWED  (the per-check form used)
+#   Bash(bash checks/check-x.sh)           DENIED   (the wildcard is required)
+#   Bash(git log:*) / Bash(gh run:*)       ALLOWED
 #
 # The cap is the half with a served position behind it: "an agent system that
 # lets one instruction spawn unbounded parallel work is missing a budget
@@ -233,9 +249,24 @@ REVIEW_LOG_DIR="${KOGAKI_REVIEW_LOG_DIR:-$HOME/.kogaki/reviews}"
 # from the fixer below — that asymmetry is the presence gate's, not a
 # preference. Never --dangerously-skip-permissions: this repository is public
 # and the user-level merge deny must stay meaningful.
+# One grant per REGISTERED check, derived rather than typed — see the header.
+# A registry that cannot be read yields no check grants at all, which fails
+# toward the narrow side: the reviewer reports cannot-determine (loudly, via
+# the denial comment) instead of silently receiving a wider grant than intended.
+CHECK_TOOLS="$(python3 - <<'GRANTS' 2>/dev/null || true
+import json
+try:
+    reg = json.load(open("checks/registry.json"))
+except Exception:
+    raise SystemExit(0)
+print(",".join(f"Bash(bash checks/{c['file']}:*)" for c in reg.get("checks", [])))
+GRANTS
+)"
+
 REVIEW_TOOLS="${KOGAKI_REVIEW_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr list:*),\
-Bash(gh issue view:*),Bash(gh pr comment:*),Bash(gh run:*),Bash(bash:*),\
+Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr comment:*),Bash(gh run:*),\
+${CHECK_TOOLS:+$CHECK_TOOLS,}\
 Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,\
 mcp__tsurezure__policy_lookup,mcp__tsurezure__gloss_index,\
 mcp__tsurezure__glossary_entry,mcp__tsurezure__topic_thread,\
@@ -245,10 +276,16 @@ mcp__tsurezure__lessons_index}"
 # The fixer edits, commits and pushes. It gets NO `gh pr comment`: it is
 # barred from posting reports, and since kogaki#56 counted reports by trusted
 # author, a comment from it would be counted rather than merely wrong.
+# The round-1 repair reached REVIEW_TOOLS only and left the SAME dead pattern
+# here (PR #67 review, round 2) — so the fixer edited, committed and pushed
+# while unable to run a single check, which is the worse half of the two: the
+# reviewer merely could not verify, the fixer could not verify its own writes.
+# A fix applied at one of two call sites is the shape this file keeps finding.
 FIX_TOOLS="${KOGAKI_FIX_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(git add:*),Bash(git commit:*),\
 Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),\
-Bash(bash checks/:*),Read,Grep,Glob,Edit,Write}"
+${CHECK_TOOLS:+$CHECK_TOOLS,}\
+Read,Grep,Glob,Edit,Write}"
 
 SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
 SWEEP_MODEL="$REVIEW_MODEL" SWEEP_MAX_TURNS="$REVIEW_MAX_TURNS" \
