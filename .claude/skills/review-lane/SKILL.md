@@ -92,6 +92,12 @@ per-item judgment cannot observe recurrence by construction:
 > escalates it, because per-item judgment structurally cannot observe
 > recurrence. … the escape trigger must be a DIFFERENT-UNIT observer."
 > `consulted: product-lab@5f769dfe5c8f5c0c9e82b397c1858c8c0d7a7926 topics/knowledge-architecture.md:36`
+>
+> — quoted here in its v1 form as it was emitted. A receipt written **now**
+> carries the v2 continuation lines (`request_id`, `outcome`, one `query:`
+> per framing) per `specs/SPEC.md` §4; the grammar is documented in
+> `.claude/skills/consult-first/SKILL.md`. Both forms parse: line one is
+> unchanged, which is what keeps every receipt already in git history valid.
 
 So the lane does not widen itself, and no sitting of this lane may add a
 third dimension. Instead:
