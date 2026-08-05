@@ -221,6 +221,8 @@ The `[policy:|harm:]` justification is REQUIRED for a `blocking` to gate
   test, not an exception to it.
 - **`blocking` gates; `should` and `nit` do not.** Marking something blocking
   is a decision to stop a merge — make it deliberately.
+- Prose describing a finding as blocking, without the field, does **not**
+  gate. The field is the record; the prose is for the reader.
 
 **Blocking is a budget, not a severity feeling (kogaki#72, owner ruling
 2026-08-06).** This lane is a policy check and a critical-issue filter, not a
@@ -244,8 +246,6 @@ downgrades it to `should` by name, failing toward merge. **If you are unsure
 whether a finding is blocking, it is not.** Where the total blocking remedy is
 mechanical and tiny, say so in the finding ("remedy: one token") so the fix
 round is as small as the defect.
-- Prose describing a finding as blocking, without the field, does **not**
-  gate. The field is the record; the prose is for the reader.
 
 **The gate this feeds is carrier-less on one half, and you should know it:**
 an empty findings record passes. Nothing distinguishes a thorough review that
