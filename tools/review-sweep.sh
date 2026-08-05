@@ -23,19 +23,25 @@
 # author's context — which is what makes a mechanical trigger the right
 # carrier rather than merely a convenient one.
 #
-# WHAT A SWEEP GIVES UP, AND WHY IT IS SAFE ANYWAY. A sweep can lose a race
-# with a fast merge; PR-open invocation cannot. The race is closed elsewhere:
-# story 1.12's presence check is a REQUIRED status check, so a PR with no
-# report for its current head cannot merge. A late sweep is therefore late,
-# never skipped — the failure mode is a delay, not an unreviewed merge.
+# WHAT FIRES THIS TOOL — AN EVENT, NEVER A TIMER (kogaki#47). The periodic
+# timer this file originally recommended is REJECTED: a timer forces the
+# user to wait for the next tick, and "a mechanism is not correct merely
+# because it behaves according to its own internal rules — if the user
+# experience is bad, it is a mechanism built on an incorrect design"
+# (consulted: product-lab@ed47fbd3 topics/archive/articles.md:29); a trigger
+# binds to "an act that ALREADY HAPPENS … never as a periodic reader"
+# (topics/knowledge-architecture.md:9). The acts that change the review
+# substrate are `gh pr create` and `git push`, and the project-scoped hook
+# (.claude/hooks/review-trigger.py, wired in .claude/settings.json) fires
+# this tool in SINGLE-TARGET mode (--pr N / --branch B), detached, at those
+# acts. The full sweep remains as MANUAL RECONCILIATION only — for PRs
+# created outside a hooked session — and the presence check stays the loud
+# backstop either way: an unreviewed PR cannot merge.
 #
-# AND INSTALLATION IS MACHINE-LOCAL, WHICH MAKES IT ADVICE — said plainly,
-# because "a rule whose only carrier is a document someone must read is
-# advice" and believing otherwise is the defect. Nothing here installs a
-# timer; see the README section this file's --help points at. What rescues it
-# from being advice-with-no-consequence is the same presence check: if the
-# sweep is never installed, PRs simply stop merging, which is loud rather
-# than silent. That is the observable absence an obligation is owed.
+# The three environment facts above rule out ACTIONS-HOSTED review; they
+# never ruled out event-driven local invocation, and reading them as if
+# they did was the defect kogaki#48 generalized (a decline spent past its
+# boundary).
 #
 # SPAWNING IS OPT-IN. --dry-run is the default: the sweep reports what it
 # would do and mutates nothing. Spawning a session is an outward act, so it
@@ -45,21 +51,25 @@ cd "$(dirname "$0")/.."
 
 MODE="dry-run"
 LIMIT=50
-for arg in "$@"; do
-  case "$arg" in
+TARGET_PR=""
+TARGET_BRANCH=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --spawn) MODE="spawn" ;;
     --dry-run) MODE="dry-run" ;;
+    --pr) TARGET_PR="${2:?--pr needs a number}"; shift ;;
+    --branch) TARGET_BRANCH="${2:?--branch needs a name}"; shift ;;
     --help|-h)
-      sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,48p' "$0" | sed 's/^# \{0,1\}//'
       echo
-      echo "usage: tools/review-sweep.sh [--dry-run|--spawn]"
+      echo "usage: tools/review-sweep.sh [--dry-run|--spawn] [--pr N | --branch NAME]"
       echo
-      echo "install (machine-local, never committed — see kogaki#9's rule):"
-      echo "  a periodic timer on a machine whose gateway is registered, e.g."
-      echo "  */15 * * * * cd <repo> && tools/review-sweep.sh --spawn"
+      echo "Fired by the project hook at gh pr create / git push (kogaki#47);"
+      echo "run it bare for a manual reconciliation pass over all open PRs."
       exit 0 ;;
-    *) echo "unknown argument: $arg (try --help)" >&2; exit 2 ;;
+    *) echo "unknown argument: $1 (try --help)" >&2; exit 2 ;;
   esac
+  shift
 done
 
 if ! command -v gh >/dev/null 2>&1; then
@@ -70,7 +80,27 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! prs="$(gh pr list --state open --limit "$LIMIT" \
+# Single-target mode (the hook's path): one PR by number, or resolved from
+# a head branch. A branch with no open PR yet is normal (a push precedes
+# creation) and is a stated no-op, never a failure.
+if [ -n "$TARGET_PR" ]; then
+  if ! one="$(gh pr view "$TARGET_PR" \
+              --json number,headRefOid,author,isCrossRepository 2>/dev/null)"; then
+    echo "FAIL could not establish the substrate: gh pr view $TARGET_PR failed." >&2
+    exit 1
+  fi
+  prs="[$one]"
+elif [ -n "$TARGET_BRANCH" ]; then
+  if ! prs="$(gh pr list --state open --head "$TARGET_BRANCH" \
+              --json number,headRefOid,author,isCrossRepository 2>/dev/null)"; then
+    echo "FAIL could not establish the substrate: the gh lookup failed." >&2
+    exit 1
+  fi
+  if [ "$prs" = "[]" ]; then
+    echo "no open PR for branch $TARGET_BRANCH — a push before PR creation is normal; nothing to do"
+    exit 0
+  fi
+elif ! prs="$(gh pr list --state open --limit "$LIMIT" \
             --json number,headRefOid,author,isCrossRepository 2>/dev/null)"; then
   echo "FAIL could not establish the substrate: the gh lookup failed." >&2
   exit 1
