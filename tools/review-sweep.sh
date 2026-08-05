@@ -55,6 +55,9 @@
 #   model      opus  · $KOGAKI_REVIEW_MODEL      — judgment work; a model
 #                                                  choice for a spawned agent
 #                                                  is operator policy
+#   fix model  sonnet · $KOGAKI_FIX_MODEL        — transcribing findings
+#                                                  already made, not making
+#                                                  them
 #   max turns  60    · $KOGAKI_REVIEW_MAX_TURNS  — a cap is architecture, not
 #                                                  prompt hygiene
 #   log dir    ~/.kogaki/reviews · $KOGAKI_REVIEW_LOG_DIR
@@ -65,6 +68,29 @@
 # (consulted: product-lab@ed47fbd3 LESSONS.md:135). It lives in the spawn
 # invocation for that reason — a limit written into the reviewer's prompt is
 # the thing that line refuses.
+#
+# THE SWEEP IS ALSO THE RALLY DRIVER (kogaki#53). The chain used to be: PR
+# created → reviewer spawned → report lands → author-owes → *waits for someone
+# to notice*. Everything either side of that arrow was event-driven and the fix
+# act alone was not. This tool already holds the `author-owes` verdict at the
+# moment it arises, so it spawns the FIX there and stops: the fix session's own
+# `git push` fires the same hook, which starts round 2 through the same state
+# machine. No new trigger machinery, and ship-cycle is untouched.
+#
+# TWO SESSIONS PER ROUND, NEVER ONE. The reviewer never fixes and the fixer
+# never reviews — the control-arm split is preserved BY CONSTRUCTION rather
+# than by asking one session to wear two hats, which is what makes the
+# bootstrap-era owner waivers (PRs #44/#46/#49, reviewer-fixes) unnecessary
+# rather than normal. The fixer is told in its prompt never to post a
+# `review-lane report:` comment: it runs as the owner, so after kogaki#56's
+# trusted-author filter its report WOULD count, and that is exactly why the
+# prohibition is explicit rather than assumed.
+#
+# THE CAP BINDS THE DRIVER, NOT ONLY THE REVIEWER. With the rounds spent and
+# findings still open, no fix is spawned at all: the next state is `park` by
+# construction, so a fix landing then could never be reviewed, and spawning it
+# would produce unreviewed work and call it progress. §4 clause 3 keeps `park`
+# an owner decision.
 #
 # THE ROUTE IS CAPTURED, NOT ONLY THE VERDICT. Each spawn streams to its own
 # per-round file (`pr-<n>-round-<r>.log`), so a reviewer that goes sideways
@@ -159,10 +185,12 @@ fi
 # change.
 REVIEW_MODEL="${KOGAKI_REVIEW_MODEL:-opus}"
 REVIEW_MAX_TURNS="${KOGAKI_REVIEW_MAX_TURNS:-60}"
+FIX_MODEL="${KOGAKI_FIX_MODEL:-sonnet}"
 REVIEW_LOG_DIR="${KOGAKI_REVIEW_LOG_DIR:-$HOME/.kogaki/reviews}"
 
 SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
 SWEEP_MODEL="$REVIEW_MODEL" SWEEP_MAX_TURNS="$REVIEW_MAX_TURNS" \
+SWEEP_FIX_MODEL="$FIX_MODEL" \
 SWEEP_LOG_DIR="$REVIEW_LOG_DIR" \
 python3 <<'PYEOF'
 import json, os, re, subprocess, sys
@@ -178,6 +206,11 @@ MAX_ROUNDS = 2   # §4 clause 3: two rounds, then a parked owner decision.
 MODEL = os.environ["SWEEP_MODEL"]
 MAX_TURNS = os.environ["SWEEP_MAX_TURNS"]
 LOG_DIR = os.environ["SWEEP_LOG_DIR"]
+# The fixer's model is its OWN knob (kogaki#53). The override MECHANISM is
+# shared with the reviewer's; the variable is not, because one variable cannot
+# carry two different defaults, and review is judgment work while a fix is
+# transcription of findings already made.
+FIX_MODEL = os.environ["SWEEP_FIX_MODEL"]
 
 
 def spawn_log_path(pr, rnd):
@@ -185,7 +218,39 @@ def spawn_log_path(pr, rnd):
     return os.path.join(LOG_DIR, f"pr-{pr}-round-{rnd}.log")
 
 
-def spawn(prompt, log_path):
+def fix_log_path(pr, rnd):
+    """The fixer's route, kept beside the reviewer's and never merged with it.
+
+    Two spawned sessions per round, so two files: reading a rally afterwards
+    means telling who did what, and one interleaved log cannot answer that.
+    """
+    return os.path.join(LOG_DIR, f"pr-{pr}-fix-{rnd}.log")
+
+
+def rounds_used(bodies):
+    """How many review rounds this PR has already spent."""
+    return len(segments(bodies))
+
+
+FIX_PROMPT = (
+    "Resolve the open blocking findings on pull request #{n} in this "
+    "repository.\n\n"
+    "Read the review-lane report comments on the PR, address every finding "
+    "declared `blocking` and still `open`, then commit and push to the PR's "
+    "branch. Pushing is the whole of your job — it fires the review trigger, "
+    "which starts the next review round.\n\n"
+    "Boundaries you must not cross:\n"
+    "- Do NOT post a `review-lane report:` comment. You are the fixer, not "
+    "the reviewer; a report from you would spoof the presence gate.\n"
+    "- Do NOT merge the pull request, and do NOT close its issue.\n"
+    "- Do NOT resolve findings by weakening or deleting the check that "
+    "raised them.\n"
+    "- Address only the blocking findings. `should` and `nit` are the "
+    "author's judgment to weigh, not yours to sweep up."
+)
+
+
+def spawn(prompt, log_path, model=None):
     """Run a spawned session with the declared policy, streaming to its log.
 
     Returns the exit code. Every knob the session runs under is named at the
@@ -201,7 +266,7 @@ def spawn(prompt, log_path):
     """
     os.makedirs(LOG_DIR, exist_ok=True)
     cmd = ["claude", "-p", prompt,
-           "--model", MODEL,
+           "--model", model or MODEL,
            "--max-turns", str(MAX_TURNS),
            "--verbose", "--output-format", "stream-json"]
     with open(log_path, "a", encoding="utf-8") as log:
@@ -235,9 +300,12 @@ def decide(bodies, head):
     Returns one of:
       spawn-round-N  — no report for this head and rounds remain
       park           — no report for this head and the rounds are spent
-      author-owes    — a report for this head carries open blocking findings;
-                       the ball is with the author, so spawning again would
-                       re-review code nobody has changed
+      author-owes    — a report for this head carries open blocking findings.
+                       The ball is with the author, and since kogaki#53 the
+                       driver spawns the FIX here rather than waiting for a
+                       session to notice. What it still never does is spawn a
+                       REVIEW here — that would re-read code nobody has
+                       changed since the report that judged it
       done           — a report for this head with nothing blocking open
     """
     segs = segments(bodies)
@@ -274,6 +342,34 @@ FIX = [
 ]
 bad = [f"{n}: got {decide(b, h)!r}, want {w!r}"
        for n, b, h, w in FIX if decide(b, h) != w]
+
+# --- the driver's own decision (kogaki#53) --------------------------------
+# `decide` says WHAT the state is; this says whether a FIX is spawned for it.
+# The cap is the clause worth exercising: with the rounds spent, an
+# author-owes must NOT spawn a fix, because the fix could never be reviewed.
+# Untested, that branch is where a runaway rally would live.
+
+
+def drives_fix(bodies, head):
+    return decide(bodies, head) == 'author-owes' and rounds_used(bodies) < MAX_ROUNDS
+
+
+DRIVE = [
+    ("round 1 blocking open -> spawn the fix",
+     f"review-lane report: {H}\nfinding: blocking open  x", H, True),
+    ("nothing blocking -> no fix",
+     f"review-lane report: {H}\nfinding: should open  x", H, False),
+    ("no report at all -> no fix (that is a review round, not a fix)",
+     "", H, False),
+    ("rounds spent AND blocking still open -> no fix, the cap binds the driver",
+     f"review-lane report: 9999999\nreview-lane report: {H}\n"
+     f"finding: blocking open  x", H, False),
+    ("a stale segment's blocking does not summon a fix for this head",
+     f"review-lane report: 9999999\nfinding: blocking open  old\n"
+     f"review-lane report: {H}\nfinding: nit open  y", H, False),
+]
+bad += [f"{n}: drives_fix -> {drives_fix(b, h)}, want {w}"
+        for n, b, h, w in DRIVE if drives_fix(b, h) != w]
 if bad:
     print("FAIL fixture pass — the sweep's state machine does not discriminate:")
     for b in bad:
@@ -281,6 +377,9 @@ if bad:
     sys.exit(1)
 print(f"fixture pass: {len(FIX)}/{len(FIX)} state-machine cases "
       "(round 1 / round 2 / park / done / author-owes / stale-segment)")
+print(f"driver pass: {len(DRIVE)}/{len(DRIVE)} fix-spawn cases "
+      "(spawn on blocking / no fix without blocking / no fix without a report "
+      "/ CAP BINDS with rounds spent / stale blocking summons nothing)")
 
 mode = os.environ["SWEEP_MODE"]
 owner = os.environ["SWEEP_OWNER"]
@@ -335,8 +434,46 @@ for pr in prs:
     if state == 'done':
         print(f"  #{n}: reviewed at {head[:7]}, nothing blocking open")
     elif state == 'author-owes':
+        # THE RALLY DRIVES ITSELF FROM HERE (kogaki#53). Everything either side
+        # of this point was already event-driven; the fix act alone waited for
+        # a session to happen to notice. The sweep holds the verdict at the
+        # moment it arises, so the fix is spawned here — and then STOPS: the
+        # fix session's own `git push` fires the existing hook, which starts
+        # round 2 through the same state machine. No new trigger machinery.
+        used = rounds_used(bodies)
         print(f"  #{n}: open blocking findings at {head[:7]} — the author owes "
-              "a fix; not re-reviewing unchanged code")
+              f"a fix; not re-reviewing unchanged code ({used}/{MAX_ROUNDS} "
+              "rounds used)")
+        if used >= MAX_ROUNDS:
+            # The driver never spawns past the cap. A fix landing now could not
+            # be reviewed — the next state is `park` by construction — so
+            # spawning one would produce unreviewed work and call it progress.
+            print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent with findings "
+                  "still open. §4 clause 3: this is an owner decision, and the "
+                  "driver does not spawn a fix it cannot get reviewed.")
+            counts['park'] = counts.get('park', 0) + 1
+        elif mode == 'spawn':
+            # Numbered by the round whose findings it answers, not by the round
+            # its push will start: `pr-N-round-1.log` and `pr-N-fix-1.log` are
+            # then the two halves of one exchange, which is how a rally is read
+            # afterwards. Numbering it by the round it causes would pair each
+            # fix with the review it has not provoked yet.
+            log_path = fix_log_path(n, used)
+            print(f"  #{n}: spawning FIX for round {used}'s findings "
+                  f"[model {FIX_MODEL}, max-turns {MAX_TURNS}] -> {log_path}")
+            result = spawn(FIX_PROMPT.format(n=n), log_path, model=FIX_MODEL)
+            if result != 0:
+                print(f"  #{n}: FAIL fix spawn exited {result} — the findings "
+                      "are still open and no push happened, so no round was "
+                      f"started. Route: {log_path}")
+                spawn_failures += 1
+                counts['fix-failed'] = counts.get('fix-failed', 0) + 1
+            else:
+                counts['fix-spawned'] = counts.get('fix-spawned', 0) + 1
+        else:
+            print(f"  #{n}: would spawn FIX for round {used}'s findings "
+                  f"[model {FIX_MODEL}, max-turns {MAX_TURNS}] -> "
+                  f"{fix_log_path(n, used)} (--dry-run; pass --spawn to act)")
     elif state == 'park':
         print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent and {head[:7]} is "
               "still unreviewed. §4 clause 3: this is an owner decision, "
