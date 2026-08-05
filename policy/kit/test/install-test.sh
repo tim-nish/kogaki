@@ -46,6 +46,38 @@ node "$KIT_DIR/bin/issue-pins.mjs" --validate-body "$TMP/pinless.md" --consumer 
 set -e
 echo "ok: creation-time deny on pinless body"
 
+# 4b. The deferred-consult refusal (kogaki#29, story 1.11) must NOT become a
+#     gateway dependency. `--recheck` enforces two obligations now — a moved
+#     pin and an undischarged `consult: deferred-to-pickup` — and the second is
+#     decidable from the body alone, which makes it tempting to refuse before
+#     the gateway is consulted. That would convert the ratified degrade ("an
+#     unreachable gateway never blocks filing or pickup", exit 11) into a block,
+#     so the pin lookup stays first and this asserts the resulting order: with
+#     the gateway down, an undischarged deferral still exits 11, never 2.
+#     The four-way discrimination of the refusal itself (marker+receipt,
+#     marker alone, no marker, fenced mention) needs a reachable gateway and is
+#     therefore not exercised here — stated rather than left to look covered.
+printf 'Policy pins: product-lab@0123abcdef01\n\nconsult: deferred-to-pickup\n' \
+  > "$TMP/deferred.md"
+set +e
+OUT=$(TSUREZURE_GATEWAY_JS=/nonexistent/gw.js \
+      node "$KIT_DIR/bin/issue-pins.mjs" --recheck "$TMP/deferred.md" \
+      --consumer kit-test --gateway /nonexistent/gw.js 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "unreachable gateway on a deferred body exited $CODE, want 11 (degrade must not become a block)"
+#     Asserting the EXIT CODE and not the line, deliberately. Writing this test
+#     found that `issue-pins.mjs` prints NOTHING on exit 11: it runs
+#     gateway-query through execFileSync with an encoding, which CAPTURES the
+#     child's stdout, so the one degrade line the file's own header promises
+#     ("11 gateway unavailable (one line printed)") is swallowed on both the
+#     validate and recheck paths. That is a defect against story 1.4's kit
+#     contract rather than this story's, and fixing it here would widen a
+#     story-1.11 diff into a kit change no issue licenses — so it is reported,
+#     not repaired, and this assertion states what the code actually
+#     guarantees today instead of a line that never arrives.
+echo "ok: deferred-consult refusal never overrides the gateway degrade (exit 11)"
+
 # 5. Skill is installed where the harness loads it, with frontmatter.
 SKILL="$TMP/repo/.claude/skills/consult-first/SKILL.md"
 [[ -f "$SKILL" ]] || fail "consult-first skill not installed at .claude/skills/"

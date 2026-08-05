@@ -71,6 +71,13 @@
 # reports absence without establishing it is the defect
 # `check-review-report.sh` refuses one layer up.
 #
+# The linked issue is the one named by a LICENSING KEYWORD (`Closes`, `Fixes`,
+# `Resolves`, `License:`), bare or repo-qualified. A loose `#N` anywhere is
+# deliberately not followed: this repository's bodies reference issues they are
+# not licensed by, and fetching one of those would widen the match surface with
+# text the change has no relationship to — a false-positive class that is NOT
+# the accepted one, since no act of the author's discharges it.
+#
 # Tier is `ci`: the PR body and the linked issue are part of the substrate, and
 # neither exists at push time. A check's position in the loop is a cost
 # decision (`a-checks-runtime-multiplies-by-its-loop-position`).
@@ -113,9 +120,15 @@ if [ -n "$issue_body" ]; then
 elif [ "${BOUNDARY_SKIP_ISSUE_LOOKUP:-}" = "1" ]; then
   issue_note="lookup skipped (BOUNDARY_SKIP_ISSUE_LOOKUP=1)"
 else
+  # The licensing reference is written both bare (`Closes #29`) and
+  # repo-qualified (`License: kogaki#29`) in this repository's history, so the
+  # owner token between the keyword and the number is optional. Matching only
+  # the bare form silently dropped the third declared source on every commit
+  # that used the qualified one — a source reported as "not named" when it was
+  # named, which is the reporting defect this check refuses elsewhere.
   _n="$(printf '%s\n%s\n' "$body" "$commits" \
-        | grep -oiE '(closes|fixes|resolves|license:?)[[:space:]]*#[0-9]+' \
-        | grep -oE '[0-9]+' | head -1 || true)"
+        | grep -oiE '(closes|fixes|resolves|license):?[[:space:]]*[A-Za-z0-9_.-]*#[0-9]+' \
+        | grep -oE '#[0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
   if [ -z "$_n" ]; then
     issue_note="no linked issue named in the PR body or commits"
   elif ! command -v gh >/dev/null 2>&1; then
