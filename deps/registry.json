@@ -1,0 +1,74 @@
+{
+  "note": [
+    "The external-dependency registry: the capabilities this repository NEEDS",
+    "but cannot install (specs/spec-external-deps/SPEC.md §2, kogaki#55).",
+    "",
+    "This file is the ENUMERATION. The entry shape it must satisfy lives in",
+    "specs/spec-external-deps/deps-schema.json, and checks/check-external-deps.sh",
+    "reads that schema's field lists rather than restating them — one carrier,",
+    "so amending the contract is one edit and never a two-copy divergence.",
+    "",
+    "An unmet dependency is REPORTED, never gated (SPEC.md §5). The check fails",
+    "on a malformed or incomplete entry and never on a world that currently",
+    "fails to satisfy one: whether a setting elsewhere is flipped is a fact",
+    "about the world outside this repository, which changes without anyone",
+    "touching the diff under review.",
+    "",
+    "`observed_non_members` is the non-member fallback's carrier (SPEC.md §4).",
+    "A capability an act depended on and this list of dependencies did not",
+    "declare is recorded there REPORT-ONLY WITH ITS REASON, never silently",
+    "admitted. Nothing in this repository detects such an observation",
+    "mechanically today — entries are written by hand when a run meets one —",
+    "and that gap is stated in the check's own output rather than left to be",
+    "assumed covered."
+  ],
+  "version": "1",
+  "schema": "specs/spec-external-deps/deps-schema.json",
+  "dependencies": [
+    {
+      "id": "repo-allow-auto-merge",
+      "capability": "the `allow_auto_merge` setting enabled on the GitHub repository tim-nish/kogaki",
+      "needed_by": [
+        "enabling auto-merge on a pull request (`gh pr merge --auto`), which the ship lane uses to hand a converged PR to the branch-protection gates rather than merging it by hand",
+        "the held-run remedy of kogaki#55: a lane that intends to arm auto-merge and finds the repository setting off"
+      ],
+      "verification": {
+        "decidable": true,
+        "command": "gh api repos/tim-nish/kogaki --jq .allow_auto_merge",
+        "answers": "is auto-merge enabled on this repository? the call prints `true` or `false`"
+      },
+      "absence_signature": "`gh pr merge --auto` exits non-zero with \"Auto-merge is not allowed for this repository\", and a lane that does not read that exit reports the PR as handed off while nothing is armed — the stall presents as a PR that simply never merges",
+      "license": "kogaki#55"
+    },
+    {
+      "id": "merge-eligibility-pretooluse-deny",
+      "capability": "the merge-eligibility PreToolUse deny installed in the actor's own Claude Code settings (`~/.claude/settings.json`), written by `~/.claude/tools/story-sync install-hooks`",
+      "needed_by": [
+        "the merge-eligibility rule's enforcement half — the deny is what refuses a `gh pr merge` that no approved-closes receipt covers",
+        "any lane that treats the merge layer as guarded rather than as advice; with the hook uninstalled the rule is a document nobody is required to read"
+      ],
+      "verification": {
+        "decidable": true,
+        "command": "grep -q lint-pr-merge \"$HOME/.claude/settings.json\" 2>/dev/null && echo true || echo false",
+        "answers": "does the actor's settings file register the merge-eligibility PreToolUse hook? the read prints `true` or `false`"
+      },
+      "absence_signature": "an ineligible `gh pr merge` runs to completion and merges — nothing refuses it and nothing logs the refusal that did not happen, so the enforcement gap is visible only in the merged result, which looks exactly like an eligible merge",
+      "license": "kogaki#55"
+    },
+    {
+      "id": "spawned-session-tool-grants",
+      "capability": "the tool grants a spawned reviewer session actually receives from its host (the MCP servers, Bash and file tools available inside the session the review sweep starts)",
+      "needed_by": [
+        "the review sweep's spawned reviewer, which cannot produce a report without the tools that read the diff and post it",
+        "any consultation the spawned session is expected to perform, which needs the gateway tool to be granted inside that session rather than in the spawning one"
+      ],
+      "verification": {
+        "decidable": false,
+        "reason": "the grant set belongs to a session that does not exist until it is spawned, and the host exposes no read of what a future session will be granted — the only way to learn it is to spawn a session and observe what it could do, which is the act this read would have preceded. kogaki#60 declares the grant-list contract; until a host-side read exists this stays a typed `none`, which is evidence, rather than an omission, which is not"
+      },
+      "absence_signature": "the spawned session completes blocked at the permission wall and exits report-less — the sweep records a spawn and no report, which is indistinguishable at read time from a reviewer that found nothing to say",
+      "license": "kogaki#55"
+    }
+  ],
+  "observed_non_members": []
+}
