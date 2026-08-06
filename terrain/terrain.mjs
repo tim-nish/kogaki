@@ -363,7 +363,7 @@ function cmdSurvey(args) {
   console.log(`Journey coverage: ${c.coverage} Lessons carry a Journey — ${c.thin_lessons} thin Lesson(s), the actionable set; the mark reads by absence.`);
   console.log(`Pin: ${record.pin}`);
   console.log(`Survey record: ${out}\n`);
-  for (const s of sections) console.log(`  ${sectionFigure(s, c.of)}`);
+  for (const s of sections) console.log(`  ${tagRow(s)}`);
   console.log(`\nNavigation (narrows nothing): view --survey ${out} [--tag T] [--family lesson|journey] [--sort slug|section]`);
 }
 
@@ -386,6 +386,21 @@ export function denominator(inView, served) {
 
 export function sectionFigure(sec, lessonsServed) {
   return `${sec.name} (${strandFigure(sec.by_family)}); ${denominator(sec.members.length, lessonsServed)}`;
+}
+
+// A count of Lessons, family-named (SPEC.md §9): the figure names the one
+// family §5's candidate model puts on the row.
+export function lessonCount(n) {
+  return `${n} ${n === 1 ? "Lesson" : "Lessons"}`;
+}
+
+// Screen 1's tag row renders a declared ALLOWLIST and nothing else
+// (SPEC.md §9, v5, kogaki#147): the tag name, and the tag's Lesson count. A
+// line class not on the allowlist does not render — the remedy is the
+// constructive form, never a per-column removal, because an enumerated
+// prohibition's non-member fallback is admit.
+export function tagRow(sec) {
+  return `${sec.name} — ${lessonCount((sec.by_family || {}).lesson || 0)}`;
 }
 
 // --------------------------------------------------------------------------
@@ -486,13 +501,10 @@ export const NO_SECOND_TAG = "(no second served tag)";
 // discipline §9 applies to a missing Gloss rendering, at the claim's layer.
 export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clear, never substituted⟩";
 
-// A member's served pin, for the screen's id rows. This is the cite the seam
-// returned, not a Gloss: §6.1 carries no per-Strand Gloss line and no Journey
-// line, and quoting at the pin stays the standing discipline (§3).
-function citeOf(id, candidates) {
-  const c = candidates.find((x) => x.id === id);
-  return c ? c.cite : "⟨no pin⟩";
-}
+// No per-row pin renders on the screen (§6.1 v5, withdrawing v4's per-row
+// pin): the pin is sited ONCE, in the Full Report, whose member records carry
+// the member → served-line map. The WA baseline closed group presentation to
+// "Group ID, Strand ID, gloss, journey — and nothing else" (wa#1115/#1116).
 // The ordering is DECLARED rather than scored: co-tag name ascending, then
 // member id ascending. No scoring, no model call in the ordering.
 export const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
@@ -620,7 +632,16 @@ function cmdCotags(args) {
   let claimless = 0;
   for (const g of shown) {
     g.by_family = familySplit(g.members, record.candidates);
-    console.log(`  ${sectionFigure(g, record.candidates.length)}`);
+    // The served form (SPEC.md §6.1, v5): the heading line carries the
+    // GroupID, the Lesson count and the member Lesson IDs; the claim renders
+    // beneath. Where SubGroups are served the heading carries the count alone
+    // and the IDs live on the SubGroup lines (§6.2). No per-row pin renders on
+    // any screen — the pin is sited ONCE, in the Full Report (§6.1 v5's
+    // withdrawal of the v4 per-row pin; the WA baseline, wa#1115/#1116).
+    const subForHeading = subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag];
+    console.log(subForHeading
+      ? `  ${g.name} — ${lessonCount(g.members.length)}`
+      : `  ${g.name} — ${lessonCount(g.members.length)}: ${g.members.join(", ")}`);
 
     // The GroupClaim FIRST, then the members (§6.1). A claim composed over a
     // member set is PINNED to that set (§7), so the pinning is stated on the
@@ -641,7 +662,7 @@ function cmdCotags(args) {
     // `selected`, so the served screen showed counts and no ids, and no image
     // of a possible Thesis could form. Naming a group narrows what is PRINTED
     // and never what is counted — the cover below is unchanged by it.
-    const sub = subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag];
+    const sub = subForHeading;
     if (sub) {
       const { subgroups } = subgroupPlacement(g, sub, SURVEY_SCHEMA.subdivision);
       for (const sg of subgroups) {
@@ -650,16 +671,16 @@ function cmdCotags(args) {
         // implementation `subdivide` runs — the leaf condition is conjunctive
         // and the two disclosures are disjunctive, and neither gates anything.
         judgeSubgroup(sg, claim);
-        console.log(`\n      ${sectionFigure(sg, record.candidates.length)}`);
+        // The served SubGroup form (§6.2, v5): one line — SubGroupID, Lesson
+        // count, Lesson IDs — then the SubGroupClaim, then the leaf verdict
+        // and any disclosures.
+        console.log(`\n      ${sg.name} (${lessonCount(sg.members.length)}: ${sg.members.join(", ")})`);
         console.log(`          in common: ${sg.claim || NO_CLAIM}`);
         console.log(`          ${sg.leaf_reason}`);
         for (const d of sg.disclosures) console.log(`          DISCLOSURE — ${d}`);
-        for (const id of sg.members) console.log(`          ${id}  ${citeOf(id, record.candidates)}`);
       }
       console.log(`\n      judged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
       console.log("");
-    } else {
-      for (const id of g.members) console.log(`      ${id}  ${citeOf(id, record.candidates)}`);
     }
   }
   if (claimless) {
@@ -1200,28 +1221,53 @@ function cmdReport(args) {
   const dir = reportsDir(args);
   const record = readJson(String(args.survey || fail("report needs --survey <file>")));
   const tag = String(args.tag || fail("report needs --tag <selected tag>"));
-  const groupArg = String(args.group || fail("report needs --group <co-tag>"));
+  const all = Boolean(args["all-groups"]);
+  if (all && args.group) fail("report takes --group <co-tag> or --all-groups, never both");
+  const groupArg = all ? null : String(args.group || fail("report needs --group <co-tag> or --all-groups (SPEC.md §11 v5: the co-tag view generates EAGERLY, one report per composed group)"));
 
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
   const groups = cotagGroups(members, tag);
-  const group = groups.find((g) => g.name === groupArg || g.cotag === groupArg)
-    || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
+  // --all-groups is §11's decided EAGER reading (v5, kogaki#146): one report
+  // per composed group, in the same act as the screen. Generation stays
+  // idempotent per §12.1, so the eager pass and a later re-request are the
+  // same artifact.
+  const targets = all ? groups
+    : [groups.find((g) => g.name === groupArg || g.cotag === groupArg)
+        || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`)];
 
   const claims = args.claims ? readJson(String(args.claims)) : {};
-  const groupClaim = claims[group.name] !== undefined ? claims[group.name] : claims[group.cotag];
-
-  // Subdivision is optional; where present its claims are report material and
-  // the JUDGE PIN becomes part of the identity.
   const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
-  const sub = subdivisions[group.name] !== undefined ? subdivisions[group.name] : subdivisions[group.cotag];
-  let judgePin = NO_JUDGE;
-  if (sub) {
+  const subOf = (g) => (subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+
+  // The judge pin is validated BEFORE any write: a refusal that had already
+  // written some of its targets would be a partial pass presenting as one.
+  let suppliedJudge = null;
+  if (targets.some((g) => subOf(g))) {
     const m = args["judge-model"];
     const e = args["judge-effort"];
     if (!m || !e) fail("--judge-model and --judge-effort are required when the report carries SubGroupClaims: the judge pin is the THIRD component of §12.1's identity, and judged material recorded without it is the drift-undetectable shape");
-    judgePin = { model_id: String(m), effort_tier: String(e) };
+    suppliedJudge = { model_id: String(m), effort_tier: String(e) };
   }
+
+  // One shard fetch for the whole invocation — tag-scoped and bounded (§9),
+  // shared across every target group.
+  let bodies = null;
+  const fetchBodies = () => {
+    if (bodies) return bodies;
+    const lessonBodies = fetchGlossBodies("lessons", tag);
+    const journeyBodies = targets.some((g) => g.members.some((id) => (record.candidates.find((c) => c.id === id) || {}).journey))
+      ? fetchGlossBodies("journeys", tag) : new Map();
+    bodies = { lessonBodies, journeyBodies };
+    return bodies;
+  };
+
+  for (const group of targets) generateReport(group);
+
+  function generateReport(group) {
+  const groupClaim = claims[group.name] !== undefined ? claims[group.name] : claims[group.cotag];
+  const sub = subOf(group);
+  const judgePin = sub ? suppliedJudge : NO_JUDGE;
   const identity = reportIdentity(record.pin, tag, group.name, judgePin);
 
   // §12.1 case 1: same identity, run twice -> ONE report. The rerun is
@@ -1237,9 +1283,7 @@ function cmdReport(args) {
     }
   }
 
-  const lessonBodies = fetchGlossBodies("lessons", tag);
-  const journeyBodies = group.members.some((id) => (record.candidates.find((c) => c.id === id) || {}).journey)
-    ? fetchGlossBodies("journeys", tag) : new Map();
+  const { lessonBodies, journeyBodies } = fetchBodies();
 
   let abnormal = 0;
   const renderMembers = (ids) => ids.map((id) => {
@@ -1293,6 +1337,7 @@ function cmdReport(args) {
   console.log("Classification: REPORT (SPEC.md §2.3, §12) — it ranks nothing, narrows nothing and hides nothing, so it sits in neither act list.");
   console.log("A RENDERING, not an address: nothing downstream resolves a report id, and a Brief records members and pins (SPEC.md §12).");
   console.log("Machine-local and never committed (SPEC.md §12.2; founding spec rider 3).");
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -1458,24 +1503,26 @@ switch (cmd) {
   cotags --survey F --tag T [--group G] [--claims F]
          [--subdivisions F --judge-model M --judge-effort E] [--connective F]
                                             the second navigation step (§6) — narrows nothing.
-                                            GroupClaim first, then the member Lesson IDs, for
-                                            EVERY group (§6.1); SubGroups where §8's conditions
-                                            bind (§6.2). --claims and --subdivisions are maps
-                                            keyed by group name; a group missing a claim is
-                                            MARKED, never substituted.
+                                            The heading carries the GroupID, Lesson count and
+                                            member IDs, claim beneath (§6.1 v5); SubGroups
+                                            where §8's conditions bind (§6.2). --claims and
+                                            --subdivisions are maps keyed by group name; a
+                                            group missing a claim is MARKED, never substituted.
   claim --survey F --tag T --group G --text S [--members a,b]
         [--original F | --original-text S [--original-members a,b]]
                                             GroupClaim first, pinned to its member set (§7);
                                             a subset RE-OFFERS it at the gate carrier
   adopt --claim F --capture F [--original-text S]
                                             record the adopted claim with its members, by id and pin
-  report --survey F --tag T --group G [--claims F] [--subdivisions F]
-         [--judge-model M --judge-effort E] [--report-dir D]
+  report --survey F --tag T (--group G | --all-groups) [--claims F]
+         [--subdivisions F] [--judge-model M --judge-effort E] [--report-dir D]
                                             the Full Report (§12) — untruncated Claims and
                                             Glosses, identified by the TRIPLE (substrate pin,
                                             co-tag query, judge pin), machine-local and never
                                             committed. A rerun under the same identity is
-                                            idempotent, not a duplicate.
+                                            idempotent, not a duplicate. --all-groups is §11's
+                                            decided EAGER reading (v5): the co-tag view
+                                            generates one report per composed group.
   subdivide --survey F --tag T --group G --group-claim S --classification F
             --judge-model M --judge-effort E --screen-budget N
                                             semantic subdivision (§8) — DOGFOOD-FIRST, never
