@@ -53,6 +53,14 @@ jobs:
               path = pathlib.Path("checks") / entry["file"]
               print(f"== {entry['id']} ({path})")
               result = subprocess.run(["bash", str(path)])
+              # The catch ledger's primary capture (kogaki#113): one line per
+              # check per exercised run, in the run log — assembled on demand,
+              # never a stored second ledger (owner decision 2026-08-06). A
+              # "fail" is a catch: the check found what it guards against.
+              # Disclosed limit: Actions log retention bounds the window any
+              # retention judgment can count over.
+              print(f"catch: {entry['id']} outcome="
+                    f"{'pass' if result.returncode == 0 else 'fail'}")
               if result.returncode != 0:
                   failed.append(entry["id"])
           if failed:

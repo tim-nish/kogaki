@@ -4,7 +4,15 @@
     "Registration requires an admission record: the named defect the check",
     "caught or the contract it uniquely carries, the licensing issue, and a",
     "removal signal declared at birth. An unregistered check file is dead",
-    "code; one meta check asserts the registry and the checks/ tree agree."
+    "code; one meta check asserts the registry and the checks/ tree agree.",
+    "",
+    "Every removal signal names its observing instrument (kogaki#113):",
+    "removal_instrument is `act: <the act that already happens and owes the",
+    "removal row>`, `none: <why no act in this repository can observe it>`,",
+    "or `probe: <tree-local shell predicate>` (exit 0 = the signal's",
+    "condition now holds; exit 1 = not yet; anything else = the probe could",
+    "not establish). Probes are evaluated by check-registry-conformance.sh,",
+    "which renders candidates report-only — removal stays a judgment."
   ],
   "checks": [
     {
@@ -15,7 +23,8 @@
         "license": "kogaki#2 (story 1.1); admission-shape widening kogaki#6 (story 1.2)",
         "tier": "pre-push",
         "runtime_ms": 75,
-        "removal_signal": "a suite runner whose discovery is registry-driven, making an unregistered file unrunnable by construction — constrain-generation subsumes this detection"
+        "removal_signal": "a suite runner whose discovery is registry-driven, making an unregistered file unrunnable by construction — constrain-generation subsumes this detection",
+        "removal_instrument": "act: the PR that moves discovery-refusal and admission-shape validation into the runner itself — its licensing issue owes this check's removal row; today's runner iterates registered entries but neither refuses unregistered files nor validates admission shape, so the signal's condition is a judgment over what the runner enforces, not a tree fact"
       }
     },
     {
@@ -26,7 +35,8 @@
         "license": "kogaki#7 (story 1.3); use-mention exclusion kogaki#41; v2 continuation block kogaki#28 (story 1.10)",
         "tier": "pre-push",
         "runtime_ms": 80,
-        "removal_signal": "a gateway-side consumer receipt surface that reports served consultations back to the consumer — that would verify against the server's record rather than the consumer's claim, superseding this check's weaker evidence"
+        "removal_signal": "a gateway-side consumer receipt surface that reports served consultations back to the consumer — that would verify against the server's record rather than the consumer's claim, superseding this check's weaker evidence",
+        "removal_instrument": "none: the superseding carrier would land in tsurezure-gateway, and no act in this repository can observe another repository's surface appearing — the cross-repo hold class product-lab#158 documented"
       }
     },
     {
@@ -37,7 +47,8 @@
         "license": "kogaki#9 (story 1.4); receipt-mode coverage kogaki#66 (story 1.20)",
         "tier": "pre-push",
         "runtime_ms": 6336,
-        "removal_signal": "the kit's separation into its own repository (fires on a second installing consumer, per kogaki#9) — the test goes with it and this repo stops being its home"
+        "removal_signal": "the kit's separation into its own repository (fires on a second installing consumer, per kogaki#9) — the test goes with it and this repo stops being its home",
+        "removal_instrument": "act: the admission gate of a second installing consumer (the trigger kogaki#9 names) — the sitting that admits consumer two owes the kit's move and this check's removal row in the same act"
       }
     },
     {
@@ -48,7 +59,8 @@
         "license": "kogaki#14 (story 1.6); kogaki#15",
         "tier": "pre-push",
         "runtime_ms": 80,
-        "removal_signal": "a second consumer whose proposals differ in shape from Terrain's — the record schema was specced against one implementation, so a second one is the evaluation of the shape, not a widening of it: either the schema generalizes (and this check moves to it) or the contract splits per consumer and this file, which validates a single shape, is the wrong carrier"
+        "removal_signal": "a second consumer whose proposals differ in shape from Terrain's — the record schema was specced against one implementation, so a second one is the evaluation of the shape, not a widening of it: either the schema generalizes (and this check moves to it) or the contract splits per consumer and this file, which validates a single shape, is the wrong carrier",
+        "removal_instrument": "act: the admission gate of a second proposal-emitting consumer — the sitting that admits it evaluates whether the record schema generalizes, and owes this check's re-siting or split in the same act"
       }
     },
     {
@@ -59,7 +71,8 @@
         "license": "kogaki#14 (story 1.7); kogaki#16",
         "tier": "pre-push",
         "runtime_ms": 90,
-        "removal_signal": "a harness-side carrier that enforces the medium binding at the moment a gate is raised — a Stop or PostToolUse hook reading AskUserQuestion tool-use evidence directly (topics/claude-code-ops.md:35@5f769dfe names the transcript/tool-call layer as never exercised). That would verify against the host's own record rather than against a declared registry and a committed capture file, and constrain-generation subsumes after-the-fact detection: this check goes when it lands"
+        "removal_signal": "a harness-side carrier that enforces the medium binding at the moment a gate is raised — a Stop or PostToolUse hook reading AskUserQuestion tool-use evidence directly (topics/claude-code-ops.md:35@5f769dfe names the transcript/tool-call layer as never exercised). That would verify against the host's own record rather than against a declared registry and a committed capture file, and constrain-generation subsumes after-the-fact detection: this check goes when it lands",
+        "removal_instrument": "act: the PR that lands the harness-side medium-binding hook — its licensing issue owes this check's removal row in the same act, so the fired trigger is observed at the act that fires it"
       }
     },
     {
@@ -70,7 +83,8 @@
         "license": "kogaki#14 (umbrella + specs/spec-terrain/SPEC.md); kogaki#17 (story 1.8)",
         "tier": "pre-push",
         "runtime_ms": 90,
-        "removal_signal": "terrain/terrain.mjs validateSurvey becoming the registry-verified SOLE writer of survey records, with the fixture pass exercising the mjs validator directly rather than this mirror — once no unvalidated write path exists, constrain-generation subsumes after-the-fact detection, the same shape the registry meta-check's own removal signal ratified (kogaki#2)"
+        "removal_signal": "terrain/terrain.mjs validateSurvey becoming the registry-verified SOLE writer of survey records, with the fixture pass exercising the mjs validator directly rather than this mirror — once no unvalidated write path exists, constrain-generation subsumes after-the-fact detection, the same shape the registry meta-check's own removal signal ratified (kogaki#2)",
+        "removal_instrument": "act: the PR that makes terrain/terrain.mjs validateSurvey the sole write path — sole-writer-ness is a judgment over write paths, not a tree probe, and that PR's licensing issue owes the removal row"
       }
     },
     {
@@ -81,7 +95,8 @@
         "license": "kogaki#25 (umbrella, specs/SPEC.md §4); kogaki#29 (story 1.11)",
         "tier": "ci",
         "runtime_ms": 120,
-        "removal_signal": "a receipt grammar that names the boundary it discharges — once a receipt carries its own boundary reference, the presence-over-the-branch approximation this check makes is the wrong carrier and is replaced by per-boundary attribution rather than widened. Fires on the reopen trigger in the file header: one PR that matched two or more boundaries, carried a receipt for only one, and shipped a defect the unconsulted boundary would have caught"
+        "removal_signal": "a receipt grammar that names the boundary it discharges — once a receipt carries its own boundary reference, the presence-over-the-branch approximation this check makes is the wrong carrier and is replaced by per-boundary attribution rather than widened. Fires on the reopen trigger in the file header: one PR that matched two or more boundaries, carried a receipt for only one, and shipped a defect the unconsulted boundary would have caught",
+        "removal_instrument": "act: the PR that lands a boundary-naming receipt grammar — its licensing issue owes per-boundary attribution and this check's replacement row in the same act"
       }
     },
     {
@@ -92,7 +107,8 @@
         "license": "kogaki#34 (amended 2026-08-05); kogaki#36 (story 1.12); trusted-author filter kogaki#56",
         "tier": "ci",
         "runtime_ms": 90,
-        "removal_signal": "a carrier that makes the ISOLATION half observable — a harness-side record of which session authored which act, or a review transport whose identity differs from the author's by construction (a bot account, a separate app installation). Today this check enforces presence while isolation is advice; once independence is mechanically decidable, the property worth asserting changes and a presence-only check is the wrong carrier for it"
+        "removal_signal": "a carrier that makes the ISOLATION half observable — a harness-side record of which session authored which act, or a review transport whose identity differs from the author's by construction (a bot account, a separate app installation). Today this check enforces presence while isolation is advice; once independence is mechanically decidable, the property worth asserting changes and a presence-only check is the wrong carrier for it",
+        "removal_instrument": "none: session identity exists in no substrate this repository reads (measured on PR #43 — PR author, commit authors and comment author are one login); the observing carrier would be harness-side or a distinct review identity, both outside this tree"
       }
     },
     {
@@ -103,7 +119,8 @@
         "license": "kogaki#65",
         "tier": "pre-push",
         "runtime_ms": 88,
-        "removal_signal": "the trigger's replacement by a lane-layer invocation that fires the sweep for the PR it just created (kogaki#65 remedy 4's second half) — at that point the hook is the manual-creation fallback rather than the primary carrier, and a fixture over its extraction stops being the thing standing between a batched creation and an unreviewed PR"
+        "removal_signal": "the trigger's replacement by a lane-layer invocation that fires the sweep for the PR it just created (kogaki#65 remedy 4's second half) — at that point the hook is the manual-creation fallback rather than the primary carrier, and a fixture over its extraction stops being the thing standing between a batched creation and an unreviewed PR",
+        "removal_instrument": "act: the PR that lands the lane-layer invocation (kogaki#65 remedy 4, second half) — its licensing issue owes this check's re-classification to manual-fallback carrier in the same act"
       }
     },
     {
@@ -114,7 +131,8 @@
         "license": "kogaki#55 (umbrella + specs/spec-external-deps/SPEC.md); story 1.14",
         "tier": "pre-push",
         "runtime_ms": 900,
-        "removal_signal": "a host-side read of a spawned session's grant set, or any harness surface that reports the capabilities a run will actually have BEFORE it runs — at that point the needed-capability question is answered by the host rather than by a declared enumeration this repository maintains by hand, and a registry whose entries are hand-written is the wrong carrier for it. Fires the day the third entry's typed `none:` becomes decidable"
+        "removal_signal": "a host-side read of a spawned session's grant set, or any harness surface that reports the capabilities a run will actually have BEFORE it runs — at that point the needed-capability question is answered by the host rather than by a declared enumeration this repository maintains by hand, and a registry whose entries are hand-written is the wrong carrier for it. Fires the day the third entry's typed `none:` becomes decidable",
+        "removal_instrument": "probe: python3 -c \"import json,sys; d=json.load(open('deps/registry.json')); e=[x for x in d['dependencies'] if x['id']=='spawned-session-tool-grants']; sys.exit(0 if e and e[0]['verification'].get('decidable') else 1)\""
       }
     }
   ]
