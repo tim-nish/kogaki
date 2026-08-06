@@ -52,6 +52,22 @@
       "free_text_offered": true,
       "fork": false,
       "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation — the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting and the same recorded consult miss as terrain-strand-selection. fork:false deliberately: Terrain attaches no recommendation to a trim — a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
+    },
+    {
+      "id": "terrain-claim-reoffer",
+      "raised_by": "terrain/terrain.mjs claim (subset path) + .claude/skills/terrain — a GroupClaim recomposed over a subset of the set it was pinned to, re-offered (specs/spec-terrain/SPEC.md §7; kogaki#106, story 1.24)",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "The group's members changed, so the claim was recomposed over the subset — which wording is adopted?",
+      "options": [
+        {
+          "id": "keep-original-wording",
+          "label": "Keep the original wording; the recorded member set makes the mismatch legible rather than forbidden"
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "dynamic_options": "The recomposed-claim option comes per run from the *.terrain-claim.json record being presented, whose `claim` was composed over the SUBSET the owner selected. The standing keep-original option is standing because §7 makes it explicitly available: a recomposed claim is a PROPOSAL, and the owner keeping the original wording over a changed member set is a legible mismatch rather than a forbidden one — the record carries the members, so the disagreement is readable rather than hidden. This gate exists because a change to the set a derived expression was derived from is a GATE EVENT rather than a refresh (topics/articles.md:73@f918c515); keeping the claim silently would assert commonality over absent members — a provenance lie — while discarding it would throw away the only thing in the interaction the machine did not supply. fork:false deliberately, for the same reason as terrain-trim-ratification: Terrain attaches no recommendation to which wording is truer over the subset, and a recommendation here would be the machine making the owner's judgment for them. Same run-workspace siting as the other two gates."
     }
   ]
 }
