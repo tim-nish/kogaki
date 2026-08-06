@@ -23,7 +23,8 @@ contracts driven through the harness — none of it is discretion.
    present a view as a shortlist. Screen 1's axis is the served tag
    vocabulary.
 3. **Navigate — screen 2, the co-tag step** —
-   `cotags --survey <record> --tag <T> --claims <F> [--subdivisions <F>]`.
+   `cotags --survey <record> --tag <T> --claims <F>
+   [--subdivisions <F> --judge-model <M> --judge-effort <E>]`.
    **This is where a tag selection lands, not a second `view --tag`.** A flat
    list of Lesson slugs beside a count table is what the co-tag screen
    REPLACES: it lets no image of a possible Thesis form, which is the purpose
@@ -39,7 +40,10 @@ contracts driven through the harness — none of it is discretion.
      a missing Gloss rendering already gets.
    - **SubGroups where §8's conditions bind**, via `--subdivisions`: the
      CONJUNCTIVE leaf condition (composes honestly AND tighter than its
-     parent's) plus the two disjunctive disclosures. **Never a member count.**
+     parent's) plus the two disjunctive disclosures — **the screen judges and
+     renders both**, and **refuses without a judge pin**, because a judged
+     surface that records no judge cannot be seen to drift. **Never a member
+     count.**
      A number in that decision is a defect against §8 — the owner's "five or
      more" is calibration evidence for where the undiscriminating-claim
      condition binds, not a threshold.
