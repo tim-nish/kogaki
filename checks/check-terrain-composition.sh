@@ -48,6 +48,101 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# --- cotags fixture (kogaki#105, story 1.23) --------------------------------
+# THE COMPOSER IS JAVASCRIPT, SO IT GETS A JAVASCRIPT FIXTURE. Same shape as
+# check-boundary-receipts.sh's shell fixture for its shell resolver: it runs on
+# every invocation, needs no network, and is not behind a flag, because a
+# fixture behind a flag is one nobody runs.
+#
+# It covers what the python pass structurally cannot see. That pass validates
+# SURVEY RECORDS, and the cotags step writes no record of any kind — so before
+# this block, nothing in the committed suite exercised `cotags` at all, and the
+# `(no second served tag)` group and the declared sort were observable only to
+# whoever ran the command by hand. That is the state #105's Review Focus names.
+#
+# No new admission is owed: this extends an ALREADY-REGISTERED check with
+# coverage of the same subsystem's same three contracts, inheriting its
+# admission record, tier and removal signal — the served position on extending
+# a registered check rather than minting one (consulted at kogaki#113, receipt
+# on master).
+#
+# BOTH DIRECTIONS OF THE COVER GUARD ARE FIRED. The passing direction alone
+# would leave `cotagCover`'s refusal in exactly the condition PR #123's review
+# found it in: present, correct-looking, and unreachable.
+node --input-type=module - <<'JS'
+import { readFileSync } from "node:fs";
+import { cotagGroups, cotagCover, NO_SECOND_TAG, COTAG_SORT }
+  from "./terrain/terrain.mjs";
+import { spawnSync } from "node:child_process";
+
+const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const TAG = "testing";
+const record = JSON.parse(readFileSync(FIXTURE, "utf8"));
+const members = record.candidates.filter((c) => (c.tags || []).includes(TAG));
+
+const fails = [];
+const eq = (label, got, want) => {
+  const g = JSON.stringify(got), w = JSON.stringify(want);
+  if (g !== w) fails.push(`${label}: got ${g}, want ${w}`);
+};
+
+const groups = cotagGroups(members, TAG);
+
+// 1. The lone-tag member lands in the explicit group rather than being dropped.
+const lone = groups.find((g) => g.cotag === NO_SECOND_TAG);
+if (!lone) fails.push(`no ${JSON.stringify(NO_SECOND_TAG)} group composed, though lesson:delta carries ${JSON.stringify(TAG)} and nothing else`);
+else eq("the (no second served tag) group's members", lone.members, ["lesson:delta"]);
+
+// 2. The DECLARED sort, both axes, asserted as values rather than as prose.
+//    COTAG_SORT is quoted so a change to the declaration that the ordering does
+//    not follow fails here rather than reading as documentation drift.
+eq(`group order — ${COTAG_SORT}`, groups.map((g) => g.cotag),
+   [NO_SECOND_TAG, "architecture", "cost"]);
+eq("member order inside a multi-member group (id ascending)",
+   (groups.find((g) => g.cotag === "architecture") || {}).members,
+   ["lesson:alpha", "lesson:bravo"]);
+eq("group names carry the `<tag> × <co-tag>` form",
+   groups.map((g) => g.name).slice(1, 2), [`${TAG} × architecture`]);
+
+// 3. The cover guard, PASSING direction: a faithful composition covers.
+const ok = cotagCover(members, groups);
+eq("cover over a faithful composition — uncovered", ok.uncovered, []);
+eq("cover over a faithful composition — invented", ok.invented, []);
+eq("cover size", ok.covered.size, members.length);
+
+// 4. The cover guard, FAILING directions. These are the cases that were
+//    unreachable before the guard took its group list as a parameter.
+const dropped = groups.map((g) => ({ ...g, members: g.members.filter((m) => m !== "lesson:charlie") }));
+eq("a composition that DROPPED a member is caught",
+   cotagCover(members, dropped).uncovered, ["lesson:charlie"]);
+const stranger = groups.map((g, i) => (i === 0 ? { ...g, members: [...g.members, "lesson:echo"] } : g));
+eq("a composition that ADDED a non-member is caught",
+   cotagCover(members, stranger).invented, ["lesson:echo"]);
+eq("a composition that dropped one and gained one is caught on BOTH counts",
+   [cotagCover(members, dropped.map((g, i) => (i === 0 ? { ...g, members: [...g.members, "lesson:echo"] } : g))).uncovered,
+    cotagCover(members, dropped.map((g, i) => (i === 0 ? { ...g, members: [...g.members, "lesson:echo"] } : g))).invented],
+   [["lesson:charlie"], ["lesson:echo"]]);
+
+// 5. The wiring, end to end: the composers above are what the subcommand runs.
+//    A unit that passes while nothing invokes it is the orphan shape.
+const run = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG],
+  { encoding: "utf8" });
+if (run.status !== 0) fails.push(`cotags --tag ${TAG} exited ${run.status}: ${(run.stderr || "").trim()}`);
+for (const want of [NO_SECOND_TAG, `Cover: ${members.length} of ${members.length}`, "counted AFTER composition"]) {
+  if (!String(run.stdout).includes(want)) fails.push(`the rendered step does not carry ${JSON.stringify(want)}`);
+}
+
+if (fails.length) {
+  console.log("FAIL cotags fixture — the second navigation step does not discriminate:");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("cotags fixture: 11/11 cases (lone-tag group; declared sort on both "
+  + "axes; group-name form; cover passing; cover DROPPED / ADDED / both, all "
+  + "three fired; end-to-end subcommand wiring)");
+JS
+
 python3 - <<'EOF'
 import json, pathlib, sys
 from collections import Counter

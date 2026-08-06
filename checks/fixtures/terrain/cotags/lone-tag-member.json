@@ -1,0 +1,79 @@
+{
+  "_purpose": "Synthetic survey record for the cotags fixture in checks/check-terrain-composition.sh (kogaki#105, story 1.23). It exists to make TWO properties of the second navigation step observable to the suite rather than to one manual run: the explicit `(no second served tag)` group, which needs a member carrying the selected tag and nothing else, and the declared sort, which needs at least two co-tag groups and at least two members inside one of them. `lesson:delta` is the lone-tag member and is the whole reason this file is not one of the conforming/ records.",
+  "id": "terrain-cotags-fixture",
+  "generated_by": "fixture",
+  "pin": "product-lab@16a6dbf64b5e5471c196c48bf7f2d53c2ea8fd57",
+  "candidates": [
+    {
+      "id": "lesson:bravo",
+      "slug": "bravo",
+      "family": "lesson",
+      "tags": ["testing", "architecture"],
+      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
+    },
+    {
+      "id": "lesson:alpha",
+      "slug": "alpha",
+      "family": "lesson",
+      "tags": ["testing", "architecture"],
+      "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
+      "journey": {
+        "slug": "alpha",
+        "cite": "gloss/ELEMENTS.jsonl:5@16a6dbf6"
+      }
+    },
+    {
+      "id": "lesson:charlie",
+      "slug": "charlie",
+      "family": "lesson",
+      "tags": ["testing", "cost"],
+      "cite": "gloss/ELEMENTS.jsonl:3@16a6dbf6"
+    },
+    {
+      "id": "lesson:delta",
+      "slug": "delta",
+      "family": "lesson",
+      "tags": ["testing"],
+      "cite": "gloss/ELEMENTS.jsonl:4@16a6dbf6"
+    },
+    {
+      "id": "lesson:echo",
+      "slug": "echo",
+      "family": "lesson",
+      "tags": ["cost"],
+      "cite": "gloss/ELEMENTS.jsonl:6@16a6dbf6"
+    }
+  ],
+  "journeys": [
+    {
+      "slug": "alpha",
+      "cite": "gloss/ELEMENTS.jsonl:5@16a6dbf6"
+    }
+  ],
+  "sections": [
+    {
+      "name": "testing",
+      "members": ["lesson:alpha", "lesson:bravo", "lesson:charlie", "lesson:delta"],
+      "by_family": { "lesson": 4, "journey": 1 }
+    },
+    {
+      "name": "architecture",
+      "members": ["lesson:alpha", "lesson:bravo"],
+      "by_family": { "lesson": 2, "journey": 1 }
+    },
+    {
+      "name": "cost",
+      "members": ["lesson:charlie", "lesson:echo"],
+      "by_family": { "lesson": 2, "journey": 0 }
+    }
+  ],
+  "no_relation_section": "(no served tag)",
+  "completeness": {
+    "placed": 5,
+    "of": 5,
+    "counted_over": "placements",
+    "family": "lesson",
+    "by_family": { "lesson": 5, "journey": 1 },
+    "thin_lessons": 4
+  }
+}
