@@ -1,6 +1,8 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v4.4, amended 2026-08-06 — the identity sweep is redone by
+**Status:** v4.5, amended 2026-08-06 — §12.2's normative bullet states the
+key in §12.1's own form (it enumerated four members and called them a triple),
+and story 1.30's two pointers are corrected. v4.4 amended 2026-08-06 — the identity sweep is redone by
 ENUMERATING every site that states the key rather than by matching a wording,
 which is what let "identity pair" and "(pin, query) key" survive v4.3; story
 1.30's contradictory story question is withdrawn. v4.3 amended 2026-08-06 — §12.1's HEADING, opening sentence and
@@ -1203,8 +1205,8 @@ answered here.
 filename the emitter chooses.** These are two jobs, not one:
 
 - **Identity is normative.** A request for the report of
-  `(pin, tag, group, judge pin)`
-  must resolve to exactly the report that triple identifies, and to a new one
+  `(pin, query, judge pin)` — the query itself being `(selected tag, named
+  group)` — must resolve to exactly the report that identity identifies, and to a new one
   when any component differs. Every rule in §12.1 binds here.
 - **The filename is implementer-owned and carries no authority.** Nothing may
   read meaning out of it, parse it to recover the triple, or key on it — the
