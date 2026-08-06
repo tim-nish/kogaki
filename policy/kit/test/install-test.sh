@@ -194,4 +194,152 @@ node "$KIT_DIR/bin/gateway-query.mjs" --self-test \
   || fail "receipt-composition fixtures failed"
 echo "ok: receipt-composition fixture pass (AC 1, AC 2)"
 
+# 9. The consult ENTRY POINT (kogaki#94, story 1.21): the query discipline as
+#    an affordance rather than prose. Same arrangement as case 8 — every
+#    property here is decidable without a reachable gateway, because everything
+#    the entry point adds is a property of the INVOCATION rather than of the
+#    wire. What no case here covers is a live consult through the entry point;
+#    stated rather than left to look covered, as 4b and 8 state their own.
+#
+# 9a. AC 1 — ONE receipt composer. The entry point delegates to the transport
+#     and composes nothing: a second composer is the transcription surface the
+#     whole clause exists to remove, so its absence is asserted rather than
+#     trusted to review. The entry point may MENTION the grammar (its degraded
+#     statement quotes a hand-composed template); what it may not do is build a
+#     `consulted:` line or a `request_id:` continuation of its own.
+ENTRY="$KIT_DIR/bin/consult.mjs"
+[[ -f "$ENTRY" ]] || fail "no consult entry point at bin/consult.mjs"
+if grep -n 'consulted: \${\|request_id: \${\|consult-receipt: tool-emitted' "$ENTRY"; then
+  fail "the entry point composes a receipt of its own (AC 1: one path, no second composer)"
+fi
+grep -q 'gateway-query.mjs' "$ENTRY" || fail "the entry point does not route through the transport"
+echo "ok: the entry point routes to the transport and composes no receipt (AC 1)"
+
+# 9b. AC 2 — a verdict-shaped input is corrected AT THE POINT OF USE and not
+#     forwarded. The gateway path is deliberately a nonexistent one: if the
+#     correction ever stopped preceding the call, this case would exit 11
+#     instead of 3, which is what makes it evidence rather than decoration.
+set +e
+OUT=$(node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js \
+      --claim 'were there any problems with this PR?' --outcome discriminating 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 3 ]] || fail "a verdict-shaped input exited $CODE, want 3"
+printf '%s' "$OUT" | grep -q 'the seam serves positions, not verdicts; state the claim the decision turns on' \
+  || fail "the fixed correction was not returned: $OUT"
+printf '%s' "$OUT" | grep -q 'restate' || fail "the correction is a denial, not an affordance: $OUT"
+if printf '%s' "$OUT" | grep -q 'policy_source unavailable'; then
+  fail "the verdict-shaped question was forwarded to the gateway"
+fi
+echo "ok: a verdict-shaped input is corrected at the point of use, re-submittably (AC 2)"
+
+# 9c. AC 2 — the affordance closes: the corrected claim is re-submittable in
+#     the SAME act. With the restatement supplied the run proceeds to the wire
+#     (and degrades there, this gateway being nonexistent), which is the only
+#     observable that distinguishes an affordance from a nicer denial.
+set +e
+OUT=$(node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js \
+      --claim 'were there any problems with this PR?' \
+      --restate 'a review report names the head it reviewed' --outcome discriminating 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "a restated claim exited $CODE, want 11 (it should reach the wire)"
+echo "ok: the corrected claim is re-submittable in the same act (AC 2)"
+
+# 9d. AC 3 — the token is the CALLER's. `deferred-slot:
+#     consult-outcome-token-assignment` is FILLED (owner decision 2026-08-06,
+#     specs/SPEC.md §4): the operator supplies the token and the tool fails
+#     rather than guessing. Asserted on the entry point as well as on the
+#     transport because the entry point is the surface a session touches, and a
+#     default here would reinstate the guess the fill declined (A1).
+set +e
+OUT=$(node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js --claim 'a claim' 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 2 ]] || fail "a missing --outcome exited $CODE, want 2"
+printf '%s' "$OUT" | grep -q 'OPERATOR' || fail "the refusal does not name who assigns the token: $OUT"
+echo "ok: a missing --outcome fails rather than guessing (AC 3)"
+
+# 9e. AC 3 — the two-framings floor, carried at the call rather than
+#     remembered. A non-discriminating outcome with one framing is refused with
+#     what the re-framing owes; the same invocation with the second framing
+#     proceeds. Both directions, because a floor that refused everything would
+#     pass a one-directional test.
+set +e
+OUT=$(node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js \
+      --claim 'a claim' --outcome covered-after-reframing 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 4 ]] || fail "a non-discriminating outcome with one framing exited $CODE, want 4"
+printf '%s' "$OUT" | grep -q 'DIFFERENT AXIS' || fail "the floor refusal does not say what the re-framing owes: $OUT"
+set +e
+node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js \
+  --claim 'axis one' --claim 'axis two' --outcome covered-after-reframing >/dev/null 2>&1
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "two framings exited $CODE, want 11 (the floor is met; it should reach the wire)"
+echo "ok: the two-framings floor prompts for exactly one re-framing (AC 3)"
+
+# 9f. AC 3/AC 4 — the framing COUNT is emitted as a transport fact, and a token
+#     contradicting it is refused rather than repaired. Repairing it would be
+#     the tool assigning the token by the back door, which is A1 declined.
+set +e
+OUT=$(node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js \
+      --claim 'axis one' --claim 'axis two' --outcome uncovered-after-2-framings 2>&1)
+set -e
+printf '%s' "$OUT" | grep -q '^framings: 2 (observed)' || fail "the framing count was not emitted: $OUT"
+set +e
+OUT=$(node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js \
+      --claim 'axis one' --claim 'axis two' --outcome uncovered-after-7-framings 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 2 ]] || fail "an N contradicting the observed count exited $CODE, want 2"
+printf '%s' "$OUT" | grep -q 'N names the queries' || fail "the refusal does not name the contradiction: $OUT"
+echo "ok: the framing count is emitted; a token contradicting it is refused (AC 3, AC 4)"
+
+# 9g. AC 4 — one `--args` per framing reaches the transport, so every framing
+#     actually run gets its own `query:` line, under a FIXED BOUND of one
+#     re-framing. The query lines themselves are the transport's and are
+#     covered by its own fixtures (8e); what is asserted here is the bound,
+#     which is the half that makes it "never a search loop".
+set +e
+OUT=$(node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js \
+      --claim a --claim b --claim c --outcome uncovered-after-3-framings 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 2 ]] || fail "three framings exited $CODE, want 2 (the bound is one re-framing)"
+printf '%s' "$OUT" | grep -q 'never a search loop' || fail "the bound refusal does not name the failure it prevents: $OUT"
+echo "ok: the framing bound holds — one axis, one re-framing, no search loop (AC 4)"
+
+# 9h. AC 5 — the degraded path is STATED, and its receipt example is in the
+#     shape `check-consult-receipts.sh` actually accepts. The marker must be
+#     UNINDENTED and ABOVE line one: the checker recognises only
+#     request_id/outcome/query as continuation keys, so an unrecognised
+#     INDENTED key above them ends the continuation scan and the receipt parses
+#     as a field-less v1 line — silently, and passing. A wrong example is a
+#     wrong receipt in every PR that follows it, which is why this is asserted
+#     on the emitted text rather than trusted to the source.
+set +e
+OUT=$(node "$ENTRY" --consumer kit-test --gateway /nonexistent/gw.js \
+      --claim 'a claim' --outcome discriminating 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "the degraded entry-point run exited $CODE, want 11"
+printf '%s\n' "$OUT" | grep -q '^policy_source unavailable:' || fail "the transport's degrade line is missing: $OUT"
+printf '%s\n' "$OUT" | grep -q '^consult-receipt: hand-composed — ' \
+  || fail "the degraded statement's marker is absent or indented: $OUT"
+printf '%s\n' "$OUT" | grep -q 'mcp__tsurezure__policy_lookup' \
+  || fail "the degraded path does not name the existing direct route: $OUT"
+printf '%s\n' "$OUT" | grep -q 'does not degrade to nothing' \
+  || fail "the degraded path is not stated as a discipline: $OUT"
+# The marker sits directly above line one, and the continuations under it.
+printf '%s\n' "$OUT" | grep -A 1 '^consult-receipt: hand-composed' | grep -q '^consulted: ' \
+  || fail "the marker is not directly above line one of the example: $OUT"
+echo "ok: the degraded path is stated, with a correctly shaped marked receipt (AC 5)"
+
+# 9i. AC 1–5 — the entry point's own fixture pass, sited with the code it
+#     covers, the same arrangement as 8e.
+node "$ENTRY" --self-test || fail "consult entry-point fixtures failed"
+echo "ok: consult entry-point fixture pass (AC 1–5)"
+
 echo "ALL PASS"
