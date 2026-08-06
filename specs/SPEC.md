@@ -249,8 +249,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **The weakening is stated rather than argued away.** A sha is
      self-evidencing; a recomputed equality is only as good as its
      recomputation and its base resolution. Two bounds keep it honest: the
-     comparison is over the diff **against the base**, so a base that moved
-     yields a different diff and no carry-forward; and an equality that cannot
+     comparison is over the diff **against the base**, so a base that moved is
+     VISIBLE in the comparison and yields no carry-forward whenever it changed
+     the diff; and an equality that cannot
      be computed — either diff unreadable — is **not** a carry-forward but the
      existing `stale` state, failing toward the reviewed side, on the same
      ground clause 1's head-unknown state already occupies. This is
@@ -258,33 +259,130 @@ invariant: Gukan guarantees Unit schema, never data schema).
      5 and 6 already occupy, and it adds no judgment clause: whether the diffs
      are equal is a computable fact over two artifacts the check can read.
 
-     `deferred-slot: report-base-resolution`
+     **`deferred-slot: report-base-resolution` is FILLED** (owner decision
+     2026-08-06, kogaki#96): **(c) — the base is RECORDED IN THE REPORT.** The
+     report grammar gains a base field, so the base of head A becomes a **read
+     rather than a derivation**.
 
-     — **how the check obtains the base of head A**, which is the one input
-     this clause names and does not supply. A report records the head it
+     The slot asked **how the check obtains the base of head A**, the one input
+     this clause names and does not supply: a report recorded the head it
      reviewed (`review-lane report: <head sha>`) and **not** the base it was
-     diffed against, so "the diff that report reviewed at A" is not yet
-     recoverable from the record. Three resolutions, stated without selecting
-     among them: **(a)** use the PR's *current* base, which is free and is
-     wrong exactly when the base moved — the case the paragraph above relies on
-     to refuse a carry-forward; **(b)** use the merge-base at A, which is
-     computable from history alone but re-derives a fact rather than reading
-     one, and can differ from the base CI actually used; **(c)** record the
-     base in the report, which makes it a read rather than a derivation and is
-     the only option that survives a rewritten history — at the cost of a new
-     report-grammar field and of binding reports written before it ships to
-     (a) or (b) anyway.
+     diffed against, so "the diff that report reviewed at A" was not
+     recoverable from the record. It is recorded now, on the adjacent-line
+     grammar stated below.
 
-     The fork is **inside this clause's own weakening**, not beside it: the
-     admission of a second instrument is only as strong as its base
-     resolution, and (a), (b) and (c) do not merely cost different amounts —
-     they make the carry-forward correct in different circumstances. Named
-     rather than left to the implementation, per the deferred-slot clause
-     below: filling it is a decision act owed on kogaki#96 with its choice,
-     alternatives and consult receipt **before** code embeds it. The recorded
-     recomputation, the round-counter guarantee and the fail-toward-`stale`
-     bound are all implementable without filling it, which is why this clause
-     ships with the slot open rather than waiting on it.
+     The ground for (c) is this clause's own weakening: the admission of a
+     second instrument is only as strong as its base resolution, and (c) is the
+     one resolution that makes the base a **recorded fact** rather than a
+     reconstruction. It is also the only one that survives a rewritten history
+     — a force-push, a re-based base branch or a squashed elder each destroy
+     the history (a) and (b) read, and neither notices that it has.
+
+     The alternatives, recorded because a decision without them is an
+     assertion. *(a) — use the PR's CURRENT base.* Free, no machinery, no
+     grammar change. Declined as **wrong exactly where this clause needs it
+     right**: it is wrong when the base moved, which is the case the weakening
+     paragraph above relies on to *refuse* a carry-forward. A round-2 review
+     demonstrated the inversion on this repository's own artifact — story
+     1.26's AC 6 names a **moved-base no-carry-forward** fixture, and under (a)
+     that fixture inverts, because both diffs are taken against the same
+     current base and the base move becomes invisible. An option under which
+     this clause's own counter-example cannot be written down is not a cheaper
+     (c); it is a different rule. *(b) — use the merge-base at A.* Computable
+     from history alone, no grammar change. Declined as **re-deriving a fact
+     rather than reading one**: it reconstructs the base from history instead
+     of reading what the reviewing act held, and can differ from the base CI
+     actually used — in which case the check compares a diff nobody reviewed
+     against a diff nobody produced. It is nonetheless sound in *direction*, a
+     moved base does move the merge-base, which is why it survives below as the
+     transitional fallback rather than being discarded outright.
+
+     The discriminating served position, quoted verbatim at its pin:
+
+     > ask first whether the thing is a fact or a judgment: a fact gets a
+     > mechanical carrier at the moment it is decidable, and a judgment rides a
+     > gate that already exists
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:58`
+
+     The base of a reviewed diff **is a fact, and it is decidable exactly
+     once** — at the moment the reviewing act runs. Afterwards nothing recovers
+     it: (a) and (b) do not read that fact, they reconstruct a candidate for
+     it, which is the substitution the fact/judgment split exists to route
+     away from. This clause had already classified the subject correctly — "the
+     pin's SUBJECT is the content and the sha is its INSTRUMENT" — and the base
+     is the other half of what makes a diff the content it is. And the layer
+     rule sites the carrier:
+
+     > when that layer belongs to another system, the carrier goes at the last
+     > boundary you control
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`
+
+     The history a base lives in belongs to git and to whoever force-pushes it.
+     The last boundary this repository controls is the report the reviewing act
+     writes, which is where the fact is therefore carried.
+
+     **THE GRAMMAR CHANGE, grounded in the parser that must read it.** The base
+     rides an **adjacent line beside the report token**, never a widening of
+     it:
+
+     ```
+     review-lane report: <head sha>
+     review-base: <base sha>
+     review-scope: full | delta          — absent is read as `full`
+     finding: ...
+     report-complete: <N> findings       — absent is read as complete
+     ```
+
+     `review-base:` is anchored WHOLE exactly as its two siblings are, takes
+     the same 7–40 hex sha the report token takes, is read in the **same single
+     pass** over the **same segmenter**, and the **first declaration wins** — a
+     second is a malformed report, not a correction, on clauses 5 and 6's
+     established rule. Its value is the commit the reviewing act **actually
+     diffed against**, read as a value in that same act under the
+     never-reconstruct-a-sha rule kogaki#91 imposes on the head; a base sha
+     assembled from a prefix is the same defect one field over. **Absent means
+     no recorded base** — the transitional case below — and never a default
+     sha.
+
+     The adjacent form is not a preference. Widening the token to
+     `review-lane report: <sha> <base>` is the shape that was **exercised and
+     failed** for the scope declaration (story 1.17, through
+     `tools/review-sweep.sh`'s embedded fixture pass): with the token's regex
+     not widened in lockstep, a declared report segmented to **nothing** and
+     was read as *absent*. That regex lives in two files —
+     `checks/check-review-report.sh:188` and `tools/review-sweep.sh:628` — and
+     an adjacent line leaves **both untouched**, which is precisely why clauses
+     5 and 6 already have this shape. A third declaration on the established
+     pattern is the change whose failure mode does not exist.
+
+     **The cost, stated rather than absorbed. Reports written before the field
+     ships carry no base at all**, and the carry-forward cannot read one from
+     them. Those reports fall back to **(b), the merge-base at A** — and
+     deliberately **not** to (a), because (a) is the option this fill just
+     declined for making a base move invisible, and a fallback that fails open
+     on this clause's own counter-example is worse than no carry-forward at
+     all. (b) fails toward the reviewed side: where the merge-base it
+     reconstructs is not the base CI used, the diffs differ and the result is
+     the existing `stale` state, which is the safe one.
+
+     **That fallback is TRANSITIONAL, not a second permanent instrument**, and
+     it carries an end condition rather than an intention: it applies only to a
+     report carrying no `review-base:` line, so it expires when the last such
+     report is no longer live on an open PR — no flag, no configuration, and
+     nothing to remove but the branch of the check that reads it. A permanent
+     second base resolution would reintroduce one layer down the fork this slot
+     just closed, and would be indistinguishable from having selected (b).
+
+     **What (c) does NOT make true, recorded so the next reader does not
+     over-read it.** A recorded base makes a base move *visible*; it does not
+     make every base move a refusal. A base that moved and left the diff
+     **byte-identical** still carries forward — and that is this clause's
+     subject/instrument rule operating correctly rather than a leak, because
+     the pin's subject is the content and the content is what was compared.
+     What (a) loses is not the refusal but the *visibility*: it cannot tell the
+     two cases apart at all.
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
