@@ -1,6 +1,9 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v4.1, amended 2026-08-06 — three review-lane findings on PR #134
+**Status:** v4.2, amended 2026-08-06 — the key's arity is UNIFORM (v4.1's
+content-conditional judge-pin exception is WITHDRAWN: it decided the key from
+the report's own content, so no request could form it) and §11's trigger names
+its discharging act. v4.1 amended 2026-08-06 — three review-lane findings on PR #134
 repaired under kogaki#131/#133's own license: §12 requires a report to RECORD
 its identity, §12.1 puts the JUDGE PIN in the key where judged material is
 present, and §11's trigger declares itself DEAD until story 1.30 merges. v4
@@ -982,6 +985,14 @@ adjacent deliberately — a later sitting reopening either should read both.
   correctly placed, and completely dead, because something it depends on is
   never produced by anything"
   (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 gloss/lessons/testing.md:11`).
+  **The discharging act is story 1.30's own PR** (v4.2, kogaki#131): the
+  sitting that merges 1.30 re-reads this bullet and flips it live. Naming the
+  event without naming what observes it would leave the flip to nobody —
+  "postponing a decision until some event happens works only if something
+  notices the event"
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 gloss/INDEX.md:53`)
+  — which is the carrier-less-by-omission shape this bullet's own
+  admissibility argument refuses, one level down.
 
 ## 12. The Full Report — untruncated material, keyed to what produced it
 
@@ -998,12 +1009,14 @@ through, where §6.1's screen is what they navigate.
 **A report RECORDS its own identity, and this is a requirement rather than an
 implication** — v4.1, kogaki#131. Every Full Report carries, in its own
 content, the **substrate pin**, the **selected tag**, the **named group**, and
-the **judge pin** where its material includes SubGroupClaims. Without this
+the **judge pin** — the last taking the typed value `none` where no judged
+material is present, per §12.1's uniform arity, so the recorded set is the key
+exactly and never a subset of it. Without this
 clause the artifact is unresolvable: §12.1 states identity as a *property* of
 a report rather than an obligation to record one, and §12.2 forbids the only
 other source — "nothing may read meaning out of [the filename], parse it to
-recover the pair, or key on it — the report's own recorded pin and query are
-the only source of that." An implementer could satisfy every other clause here
+recover the pair, or key on it — the report's own recorded pin, query and
+judge pin are the only source of that." An implementer could satisfy every other clause here
 and emit reports that no request could ever resolve to, which is the
 `establish-the-substrate-before-reporting` shape: the artifact would agree with
 everything and be founded on nothing.
@@ -1051,9 +1064,10 @@ from `agents × report` under the same tag, and from `agents × architecture`
 reached under tag `architecture`. Nothing else enters the key: not the
 composed claims, not the run.
 
-**The JUDGE PIN is the one exception, and it is in the key** — v4.1,
-kogaki#131. Where a report's material includes SubGroupClaims, its identity is
-the **triple (substrate pin, co-tag query, judge pin)**. v4 excluded the
+**The JUDGE PIN is the third component, ALWAYS** — v4.2, kogaki#131. A
+report's identity is the **triple (substrate pin, co-tag query, judge pin)**,
+and where no judged material is present the judge pin takes the typed value
+`none`. v4 excluded the
 subdivision from the key, and §6.2 in the same amendment made judge identity
 drift-critical — "a per-invocation judged surface with no judge pin is the
 drift-undetectable shape, where *recomputed fresh* silently becomes
@@ -1064,13 +1078,27 @@ report by identity and two by content**, arriving from the judge side instead
 of the name side. A key that admits that is the second authority growing in the
 dark, and it would be this section refuting itself four paragraphs apart.
 
-**Where a report carries no SubGroupClaims the pair remains the whole key** —
-there is no judged material to drift, so the exception has nothing to bind and
-adding a null component would make two indistinguishable reports distinct.
-This is stated rather than left to be inferred, because an exception silently
-inherited by cases that never had its justification is what
-`an-inherited-exemption-signals-nothing` names: an exception exists to skip a
-check, so its wrongful inheritance emits no error and no failing test.
+**The arity is UNIFORM, and v4.1's content-conditional exception is
+WITHDRAWN.** v4.1 keyed a report as a pair or a triple according to whether it
+carried SubGroupClaims — which decides the key's shape from the report's own
+content, so a requester holding `(pin, tag, group)` could not form the key
+without already holding the report it was trying to address. **An identity a
+request cannot construct is not an identity.** `none` is therefore a **typed
+value that must be present**, never an omitted component — the same discipline
+`park`'s three required declarations already follow, where `none` is a value
+that must be typed.
+
+**So the fourth case is stated rather than left open:** same pin, same query,
+one run subdivided and one not are **two reports that coexist**, keyed
+`(pin, query, <judge pin>)` and `(pin, query, none)`. They neither collide nor
+supersede.
+
+v4.1's withdrawn reasoning — that a null component "would make two
+indistinguishable reports distinct" — was **false**: a report carrying
+SubGroupClaims and one carrying none are distinguishable by their content,
+which is exactly why they are two reports rather than one. The withdrawal is
+recorded rather than edited away, because a reader holding v4.1 must find the
+disposition rather than an absence.
 
 **This was decided rather than deferred, and the distinction is the point.**
 v3 left it to the implementer's PR. But the third row above states a rule —
@@ -1162,7 +1190,8 @@ filename the emitter chooses.** These are two jobs, not one:
   when any component differs. Every rule in §12.1 binds here.
 - **The filename is implementer-owned and carries no authority.** Nothing may
   read meaning out of it, parse it to recover the pair, or key on it — the
-  report's own recorded pin and query are the only source of that. A filename
+  report's own recorded pin, query and judge pin are the only source of that.
+  A filename
   is at most a convenience for a human listing a directory.
 
 The split is not invented for this case; the hub already draws it between a
