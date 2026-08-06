@@ -462,21 +462,183 @@ invariant: Gukan guarantees Unit schema, never data schema).
   state whose only carrier is a prompt sentence — one already observed not to
   hold — is carrier-less by omission.
 
-  `deferred-slot: refusal-signal-source`
+  **`deferred-slot: refusal-signal-source` is FILLED** (owner decision
+  2026-08-06, kogaki#100): **the EVENT is primary and the TERMINAL FIELD is
+  the backstop.** The wrapper keys prevention on the in-session
+  `{"type":"system","subtype":"permission_denied"}` stream event, and keeps the
+  terminal `permission_denials` field of the `{"type":"result"}` record as the
+  guaranteed measurement path. Prevention when the CLI supplies the event;
+  honest measurement always.
 
-  — which signal the wrapper keys the terminal refusal on: an **in-session**
-  permission-denial signal, or the **after-the-fact** `permission_denials`
-  field in the spawn's result record. The fork is real rather than mechanical:
-  "refused, will never work" and "failed, worth retrying" are not always
-  decidable from the error alone, and a carrier that reads a transient failure
-  as terminal costs the review a dimension it could have had — while the
-  result-record field is reliable and arrives only after the turns are already
-  spent. Named rather than left to the implementation, per the deferred-slot
-  clause below: filling it is a decision act owed on kogaki#100 with its
-  choice, alternatives and consult receipt **before** code embeds it. The
-  report-grammar half and the prompt reclassification are implementable without
-  filling it, which is why this clause ships with the slot open rather than
-  waiting on it.
+  The slot asked **which signal the wrapper keys the terminal refusal on** — an
+  in-session permission-denial signal, or the after-the-fact
+  `permission_denials` field. **This was decided on measurement rather than on
+  argument, and the measurement is recorded here because it is the evidence.**
+
+  - **The field is TERMINAL-ONLY, so the fork as originally framed was
+    mis-stated.** Across the real route logs in `~/.kogaki/reviews/` the key
+    `permission_denials` appears on **zero** non-`result` objects; every
+    occurrence is on the `{"type":"result"}` line, always the last line of its
+    spawn. There is no "in-session field" to choose. At the decision the count
+    was **33 logs carrying 282 denials**; re-counted at the close of the same
+    run it is **33 of 35 logs carrying 294 denials** — the totals moved because
+    the run kept reviewing, and the zero did not.
+  - **An in-session EVENT does exist, under a different name.** It is emitted
+    at the moment of the denial, one per denial, before the corresponding
+    `tool_result`:
+    `{"type":"system","subtype":"permission_denied","tool_name":…,`
+    `"tool_use_id":…,"decision_reason_type":…,"message":…}`. Coverage against
+    the terminal field is **exact and 1:1 by `tool_use_id`** — no misses, no
+    extras — in every log that carries events (26 at the decision, 40 at the
+    re-count).
+  - **It arrives with real lead time**, which is the whole point: PR #102's
+    first denial event is at log line 33 of 189, with ~156 stream lines still
+    unspent. On PR #98 — the specimen this clause was written from — the first
+    event is at line 52 of 546.
+  - **It is CLI-VERSION-SCOPED, and the boundary is inside this very run.**
+    `pr-90-round-2.log` (CLI **2.1.222**, 09:55) carries 12 denials and **zero**
+    events. Every log from 11:03 onward is **2.1.223** and carries full
+    coverage. The capability appeared mid-run and can leave the same way.
+
+  **PREMISE 1 — the version dependence is STATED, not assumed, and the carrier
+  degrades to the backstop rather than to nothing.** This clause's prevention
+  half holds **on the premise that the harness emits the
+  `permission_denied` system event** — observed on Claude Code CLI 2.1.223 and
+  observed *absent* on 2.1.222. The premise is written down in the shape this
+  repository already uses for one, because the alternative has a measured
+  failure mode: an automation policy that ran for months "on the unstated
+  premise that every open PR was the owner's own" was falsified by an
+  environment nobody had related to the flag —
+
+  > the conjunction must also include ENVIRONMENTAL properties … which no
+  > consumer of the flag evaluates, so the environment changes out from under
+  > every consumer with no carrier noticing
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/claude-code-ops.md:31`
+
+  and the served surface requires the scope be **named** rather than left as a
+  claim about the world:
+
+  > when the failing layer sits outside the repository, the violation layer is
+  > the HARNESS, and *no carrier is possible* is admissible only as *no carrier
+  > is possible in configuration X*, with X named — because the sentence's whole
+  > function is to stop people looking
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/claude-code-ops.md:37`
+
+  X is named: **CLI ≥ 2.1.223**. The premise is a **report, never a gate** —
+  the same disposition `claude-toolkit`'s merge-eligibility spec reached for its
+  own environment precondition (§"Why the environment precondition is a report,
+  not a gate") — because a version preflight would be one more check per
+  incident and would withhold the lane on exactly the environments that still
+  have a working backstop.
+
+  **How the absence is made observable, since an obligation cannot be gated.**
+  "The event did not arrive" produces no event to hook, so the remedy is a
+  signal, not a check:
+
+  > an obligation cannot be gated at all and needs its absence made visible
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`
+
+  > prohibitions get mechanical carriers, obligations get prose plus a
+  > visible-absence signal … the act stays behavioral, its absence made
+  > observable rather than discovered late
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/archive/knowledge-architecture.md:177`
+
+  So the wrapper **reconciles the two signals at the end of every spawn** and
+  states the result in the run log: the count of events it observed in-session
+  against the count in the terminal `permission_denials` field. An absent event
+  path then reads as **"prevention unavailable this run — N denials measured,
+  0 prevented"**, and never as "no denials". This is the second conjunct of
+  reachability the served surface names — a path whose guard is constant-false
+  is indistinguishable from a deliberately-disabled one, "leaving a declared
+  observable over a real run as the only thing carrying the intent"
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:38`).
+  **The measurement half never degrades**: AC 5's count comes from the terminal
+  field, which is present on every spawn at every version observed.
+
+  **PREMISE 2 — refused is cleanly separable from FAILED, and NOT from
+  REPHRASE-ABLE.** The counter this slot was named with — "refused, will never
+  work" and "failed, worth retrying" are not always decidable from the error
+  alone — **is discharged for the failed/refused axis and stands for the
+  rephrase-able axis.**
+
+  *Discharged.* Of the `is_error: true` tool results in the same logs, the
+  denials are **disjoint from the ordinary failures**: at the decision, 282 of
+  296 were permission denials and 14 were ordinary failures
+  (`jq: command not found`, `File does not exist`, a token-limit refusal,
+  `ENOTDIR`); at the close-of-run re-count, 294 of 310 and 16. **None** of the
+  ordinary failures carries a denial event or appears in the terminal field. A
+  carrier keyed on the **event** — never on `is_error` — therefore cannot read
+  a transient failure as terminal. A carrier keyed on `is_error` would, which
+  is why the key is named here rather than left to the implementation.
+
+  *Standing, and it must not be papered over.* **The log does not distinguish a
+  rephrase-able denial from a dead-end one.** 13 of the 26 events at the
+  decision (22 of 40 at the re-count) carry
+  `decision_reason_type: subcommandResults`, naming one offending sub-part of a
+  compound command — *"This Bash command contains multiple operations. The
+  following part requires approval: git fetch …"* — which is precisely the
+  class kogaki#74's exercise found had **granted alternatives**. And
+  `decision_reason_type` was **absent on 6 of 26** (8 of 40), so it is a weak
+  hint at best, never a discriminator. Against that, PR #98's log shows the same
+  command denied on a **byte-identical retry**, so "terminal for that command"
+  is right about the *command*; what it does not settle is whether the *intent*
+  had a reachable form. The implementer must not read "terminal" as "the
+  reviewer had nothing else to try": the route to AC 1's `cannot-determine` is
+  the correct exit, and naming a granted alternative stays the `COMPOSITION`
+  prompt's static job (kogaki#74), not something this signal can compute.
+
+  **Shape facts the implementer needs, so they are not re-derived from the
+  logs.** The event carries `tool_name`, `tool_use_id`, `message` and
+  `decision_reason_type` — and **not `tool_input`**. The command text that
+  `denied_tools()` renders as its `Bash(<first three words>)` label lives only
+  in the preceding `assistant` tool_use block, joinable by `tool_use_id`, and in
+  the terminal field. A live reader wanting the same label must **join
+  backwards**; it cannot read it off the event.
+
+  **UNPROVEN, recorded as unproven rather than assumed.** All 26 observed events
+  (40 at the re-count) carried `tool_name: "Bash"`. **MCP-tool, `Write` and
+  `Edit` denials are unproven on the event path.** They do reach the terminal
+  field — older logs carry *"Claude requested permissions to use
+  `mcp__tsurezure__gloss_index`"* and *"…to edit /home/tomoya/.claude/…"* — so
+  the backstop covers them and the prevention half is **not** known to. The
+  clause must not be implemented as though event coverage is universal. Per the
+  served rule that a criterion stated as a future observation "binds only if a
+  named mechanism performs the observation and reopens on failure"
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/claude-code-ops.md:40`),
+  the named mechanism is the same end-of-spawn reconciliation above: a terminal
+  denial with **no matching event** is what a non-Bash denial looks like, and
+  the reconciliation line is where it becomes visible.
+
+  **The alternatives, recorded because a decision without them is an
+  assertion.** *(1) — the terminal field alone.* Reliable, already parsed,
+  version-independent, and the only measurement path. **Declined as unable to
+  prevent anything**: it is the last line of the spawn, so every turn the burn
+  costs is already spent when it arrives. It survives, undiminished, as the
+  backstop half. *(2) — the event alone.* The smaller change, one signal, no
+  reconciliation. **Declined because it degrades to nothing**: on a CLI without
+  the event the review would silently report zero denials, which is the
+  measured-absence defect this whole clause exists to end, and the version
+  boundary is inside this run rather than hypothetical. *(3) — key on
+  `is_error: true` and classify.* Needs no new signal at all. **Declined on the
+  measurement**: 16 of 310 error results are ordinary failures and the
+  classification would be a string match on error prose, which is the transient-
+  read-as-terminal failure the slot's own counter names. The event makes the
+  distinction a **read** rather than a guess, and that is the discriminating
+  fact/judgment split — "a fact gets a mechanical carrier at the moment it is
+  decidable" — the position this section already quotes at its pin under the
+  `consult-outcome-token-assignment` fill (`LESSONS.md:58`), applied here rather
+  than re-consulted.
+
+  **What this fill does NOT decide.** Where the prevention lives inside the
+  wrapper, whether the terminal set is keyed on the command string or on a
+  normalized form, and whether AC 5's count belongs in the report as well as the
+  run log, are story 1.28's to settle; none of them is a named slot and none of
+  them is this decision. The report-grammar half and the prompt
+  reclassification were always implementable without the fill.
 
   **Ownership, so the layers are not re-derived per sitting:** the property
   lives here; presence-and-findings enforcement at the merge layer; judgment
