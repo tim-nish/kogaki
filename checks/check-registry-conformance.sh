@@ -17,10 +17,11 @@
 # not run — and it is reserved for a decided negative: a probe whose own
 # inputs are absent owes exit 2, never the healthy-looking not-yet an
 # absent-reads-as-false coercion produces (kogaki#116). Any other exit, or a
-# timeout, is COULD-NOT-ESTABLISH in the probe's own words — a crash is
-# never spent as a finding — and it FAILS, because probes are declared
-# tree-local, so a probe that cannot run is a defect in the declaration
-# rather than a fact about the world. `none:`
+# timeout, is COULD-NOT-ESTABLISH in the probe's own words, flattened onto
+# one line because this row is line-oriented and so are its readers — a
+# crash is never spent as a finding — and it FAILS, because probes are
+# declared tree-local, so a probe that cannot run is a defect in the
+# declaration rather than a fact about the world. `none:`
 # entries render as greppable residue rows: an unobservable signal is
 # evidence when typed and an omission when not. The embedded fixture pass
 # below exercises every branch on synthetic registries, every invocation.
@@ -111,7 +112,13 @@ def run_probes(entries, runner=None):
             rows.append(f"probe-not-yet: {entry['id']} — condition not "
                         f"present")
         else:
-            said = f", saying: {words}" if words else " and said nothing"
+            # The row is line-oriented and its readers are line-oriented (the
+            # review lane greps `== |FAIL:`), so the probe's own words are
+            # flattened onto one line before splicing — a traceback, the
+            # likeliest crash, embeds newlines mid-line and would break every
+            # such reader (kogaki#116).
+            flat = " | ".join(x for x in str(words).splitlines() if x.strip())
+            said = f", saying: {flat}" if flat else " and said nothing"
             failures.append(
                 f"FAIL probe could not establish: {entry['id']} — the probe "
                 f"exited {code}{said}; this is the probe's own failure, not "
@@ -165,6 +172,12 @@ def fixture_pass():
     rows, f = run_probes([entry("probe: mute")], runner=lambda c: (2, ""))
     cases.append(("a wordless crash says so rather than quoting nothing",
                   any("said nothing" in x for x in f)))
+    rows, f = run_probes([entry("probe: noisy")], runner=lambda c: (
+        3, "Traceback (most recent call last):\n  File \"<stdin>\", line 4\n"
+           "ValueError: nothing to decide"))
+    cases.append(("multiline probe words render on one line",
+                  any("could not establish" in x for x in f)
+                  and all("\n" not in x for x in f + rows)))
     rows, f = run_probes([entry("none: unreachable")])
     cases.append(("none renders residue row",
                   any(x.startswith("instrument-none:") for x in rows)))
