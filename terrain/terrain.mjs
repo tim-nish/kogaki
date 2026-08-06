@@ -841,15 +841,29 @@ function cmdClaim(args) {
   let originBlock;
   if (original) {
     originBlock = { original_claim: original.claim, original_members: original.members,
+                    original_members_provenance: "recorded",
                     original_source: "claim-record" };
   } else if (originText) {
+    // The member set may be DERIVED from the group the claim was composed over
+    // — §6.1 composes a GroupClaim over a group's WHOLE member set, so those
+    // members genuinely are a screen-composed origin's. What §7 forbids is the
+    // substitution being SILENT: a derived set and a recorded one are otherwise
+    // indistinguishable at the gate, and the owner comparing a recomposed claim
+    // against its origin cannot see which they hold. So the fallback announces
+    // itself at the point of substitution, which is the only place the evidence
+    // still exists, and `derived` is a WRITTEN value rather than an omission.
+    const derived = !originMembers;
     originBlock = { original_claim: originText,
                     original_members: originMembers || group.members,
-                    original_source: "screen-composed (passed as an argument; the screen writes no record — SPEC.md §7)" };
+                    original_members_provenance: derived ? "derived" : "recorded",
+                    original_source: derived
+                      ? "screen-composed (wording passed as an argument; MEMBER SET DERIVED from the group it was composed over, not recorded — SPEC.md §7)"
+                      : "screen-composed (passed as an argument; the screen writes no record — SPEC.md §7)" };
   } else {
     // An absent origin is STATED, never fabricated (§7 v4 rider). A gate that
     // silently omitted it would present a recomposed wording as if it had one.
     originBlock = { original_claim: null, original_members: null,
+                    original_members_provenance: "none",
                     original_source: "NONE — this is the first composition over this set; no original exists and none is invented (SPEC.md §7)" };
   }
   const declPath = emitGateDeclaration(dir, CLAIM_GATE, [
