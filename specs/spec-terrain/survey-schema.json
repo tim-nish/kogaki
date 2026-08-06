@@ -54,6 +54,30 @@
       "coverage_rationale": "the coverage figure (thin Lessons / Lessons) rides beside the mark; falsifier 2's reversal trigger is coverage >= 99%, and SPEC.md §5.2 declares `instrument: none` for it — it is printed, never read by a check, and this schema does not supply the carrier that section deliberately withholds"
     }
   },
+  "group_claim": {
+    "note": "SPEC.md §7 — a claim composed over a member set is PINNED to that set. The record carries the member IDS, not only the claim text, because a derived expression's truth is relative to the set it was derived from.",
+    "required": ["id", "kind", "pin", "group", "claim", "members", "member_pins", "composed_over", "adopted"],
+    "kind_must_be": "group-claim",
+    "composed_over_must_be": "members",
+    "composed_over_rationale": "the claim is composed over the MEMBERS, so a change to the member set is a GATE EVENT rather than a refresh (SPEC.md §7)",
+    "member_pin_required": ["id", "cite"],
+    "adopted_must_be": false,
+    "adopted_rationale": "a group-claim record is a per-invocation RENDERING and is never itself the adopted claim; adoption is the owner's act at the gate and lands in an adopted-claim record",
+    "narrowing_keys_forbidden": ["selected", "trimmed", "hidden", "excluded", "dropped"],
+    "narrowing_rationale": "composing a claim over a group is PRESENTATION and narrows nothing on its own; a subset selection is the OWNER's act, and rank/trim/hide still route through the proposal contract (SPEC.md §2.3, §8.2)"
+  },
+  "adopted_claim": {
+    "note": "SPEC.md §7 — the brief records the adopted claim TOGETHER WITH the members it was composed from, by member id and pin, never by a group id.",
+    "required": ["id", "kind", "pin", "claim", "claim_source", "members", "member_pins", "gate"],
+    "kind_must_be": "adopted-claim",
+    "claim_sources": ["recomposed", "original-wording-kept", "free-text"],
+    "claim_source_rationale": "the recomposed claim is a PROPOSAL: the owner may keep the original wording, and the recorded member set is what makes the resulting mismatch LEGIBLE rather than forbidden (SPEC.md §7)",
+    "member_pin_required": ["id", "cite"],
+    "group_id_keys_forbidden": ["group", "group_id", "group_name", "cotag"],
+    "group_id_rationale": "recorded by member id and pin and NEVER by a group id — a group id lets the member set change underneath the claim without the record moving, which is the provenance lie §7 refuses",
+    "gate_required": ["gate_id", "stop_id", "answer"],
+    "gate_rationale": "adoption happens only at the gate carrier (manifest item 4): the recomposed claim is re-offered as a GATE EVENT, never a silent refresh, so an adopted claim with no gate row was never offered"
+  },
   "records_home": {
     "glob": "*.terrain-survey.json",
     "scope": "anywhere in the repository",
