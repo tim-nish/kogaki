@@ -1007,7 +1007,9 @@ export function judgeSubgroup(sg, groupClaim) {
   if (vd.trails_into_enumeration === true || namesAMember) {
     sg.disclosures.push(`degenerate-claim: the claim trails into enumeration${namesAMember ? " (it names a member's slug)" : ""}`);
   }
-  if (vd.true_of_every_member === true || (sg.claim || "").trim() === String(groupClaim || "").trim()) {
+  const sgText = (sg.claim || "").trim();
+  const parentText = String(groupClaim || "").trim();
+  if (vd.true_of_every_member === true || (sgText !== "" && sgText === parentText)) {
     sg.disclosures.push("undiscriminating-claim: honest, but true of every member at the size served — an honest summary true of every member discriminates between none");
   }
   return sg;

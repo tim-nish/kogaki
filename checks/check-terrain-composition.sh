@@ -259,8 +259,16 @@ const notLeaf = spawnSync(process.execPath,
 if (!String(withSubs.stdout).includes("leaf: the claim composes honestly AND is tighter")) {
   fails.push("the screen does not render the SubGroup's LEAF VERDICT — §6.2 requires the screen to judge, not merely render");
 }
-if (!String(notLeaf.stdout).includes("the split bought nothing")) {
-  fails.push("flipping tighter_than_parent to false did not change the screen's verdict — the fixture supplies verdicts the code does not read, which presents as covering the leaf condition while covering only rendering");
+// Asserted on the string UNIQUE to the judge-supplied SubGroup, not on
+// "the split bought nothing". `subgroupPlacement` appends the unplaced-members
+// SubGroup with `tighter_than_parent: false`, so that phrase is present
+// whatever the flipped verdict says — an assertion that could not fail, added
+// while closing the class of assertions that cannot fail.
+if (!String(withSubs.stdout).includes("leaf: the claim composes honestly AND is tighter")) {
+  fails.push("the judge-supplied SubGroup's LEAF verdict does not render when both conjuncts hold (§6.2)");
+}
+if (String(notLeaf.stdout).includes("leaf: the claim composes honestly AND is tighter")) {
+  fails.push("flipping tighter_than_parent to false did NOT change the screen's verdict — the fixture supplies verdicts the code does not read, which presents as covering the leaf condition while covering only rendering");
 }
 if (!String(withSubs.stdout).includes("judged by m / high")) {
   fails.push("the screen does not record its judge pin (§6.2)");
