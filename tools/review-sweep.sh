@@ -365,6 +365,45 @@
 #   finding: ...                        — zero or more
 #   report-complete: <N> findings       — absent is read as complete
 #
+# A ROUND IS A REVIEW THAT WAS PERFORMED (kogaki#91). Measured on PR #67: a
+# reviewer took the real 12-char prefix `5586353629bb` and INVENTED THE TAIL,
+# posting `5586353629bb0995463037856b76dc59721ce3a0` — a sha that does not
+# exist. The presence check refused it, the reviewer re-posted against the true
+# head `5586353629bbd35af93f1032349af113774871ba`, and two segments landed for
+# one performed review. `segments()` then said 4 rounds where 3 had happened,
+# and everything derived from the count inherited the error: the
+# two-rounds-then-park bound (§4 clause 3), round-2 delta scoping (§4 clause
+# 5), and cost attribution per round.
+#
+# So `rounds_used()` counts only segments whose sha RESOLVES TO A COMMIT. The
+# report is not stale, it is UNFOUNDED — a result reported over a substrate
+# that was never established — and the distinction is the whole fix: a stale
+# report reviewed something, and a fabricated one reviewed nothing.
+#
+# Three properties, each with a fixture:
+#   · cannot-determine COUNTS the round. An unreadable object store must not
+#     be able to manufacture free rounds, which is the failure direction that
+#     would matter here.
+#   · a resolvable stale sha is STILL a round. This discounts fabrication,
+#     never history.
+#   · the discount is ANNOUNCED on every path, including `done` — the first
+#     version put the notice beside the arithmetic, where `done` returns above
+#     it, so the specimen that motivated the issue was the one case that stayed
+#     silent. The notice matters more than the count it explains: it says a
+#     fabricated sha is sitting on the PR.
+#
+# The generation half lives in the reviewer's own contract
+# (`.claude/skills/review-lane/SKILL.md`): the sha is READ AS A VALUE from
+# `gh pr view --json headRefOid` and never assembled from a prefix, a shorter
+# sha is always safe where an invented one never is, and the reviewer verifies
+# with `git cat-file -e` before posting. This half is the mechanical gate that
+# does not depend on a session following prose:
+#
+#   "a prohibition is violated at the tool boundary and wants a mechanical gate
+#   there — stated one layer up in prose it is enforced by whichever
+#   consideration happens to be strongest when the moment arrives"
+#   (consulted: product-lab@f918c515 topics/archive/knowledge-architecture.md:172)
+#
 # SCOPE IS SURFACED, NEVER GATED. Clause 5 is deliberately carrier-less with a
 # named reopen trigger: whether a declared `delta` was the HONEST one is
 # judgment, and nothing here can compute it. What this file does is read the
@@ -984,9 +1023,17 @@ def fix_log_path(pr, rnd):
     return os.path.join(LOG_DIR, f"pr-{pr}-fix-{rnd}.log")
 
 
-def rounds_used(bodies):
-    """How many review rounds this PR has already spent."""
-    return len(segments(bodies))
+def rounds_used(bodies, resolves=None):
+    """How many review rounds this PR has already spent.
+
+    A segment whose cited sha resolves to no commit is NOT a round (kogaki#91)
+    — see `performed()`. This is the ONE place the count is computed, and
+    `decide()` calls it rather than re-deriving: the round count has two
+    consumers (the state machine's park bound and the driver's cap), and a
+    discount applied at one of two call sites is the shape this file keeps
+    finding.
+    """
+    return sum(1 for s in segments(bodies) if performed(s, resolves))
 
 
 FIX_PROMPT = (
@@ -1344,6 +1391,64 @@ def segments(bodies):
     return segs
 
 
+_RESOLVE_CACHE = {}
+
+
+def sha_resolves(sha):
+    """Does this sha name a commit in THIS repository? True / False / None.
+
+    None is cannot-determine (git unavailable, the object store unreadable) and
+    every caller treats it as True — the fail-safe side here is to keep
+    counting, because discounting a round on an unreadable answer would let an
+    unresolvable environment manufacture extra rounds instead of removing fake
+    ones.
+
+    Memoized: `decide()` is called repeatedly across the fixture pass and once
+    per PR, and the answer for a given sha cannot change within a run.
+    """
+    if sha in _RESOLVE_CACHE:
+        return _RESOLVE_CACHE[sha]
+    try:
+        r = subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+                           stdin=subprocess.DEVNULL, capture_output=True,
+                           text=True)
+        out = r.returncode == 0
+    except OSError:
+        out = None
+    _RESOLVE_CACHE[sha] = out
+    return out
+
+
+def performed(seg, resolves=None):
+    """Was this segment a round that actually HAPPENED? (kogaki#91)
+
+    A segment cites a sha. If that sha does not name a commit, the round it
+    claims was never performed against anything — the report is UNFOUNDED
+    rather than merely wrong, and counting it inflates every number derived
+    from the round count: the two-rounds-then-park bound (§4 clause 3), round-2
+    delta scoping (§4 clause 5), and cost attribution per round.
+
+    Measured on PR #67: a reviewer took the real prefix `5586353629bb` and
+    invented the tail, posted the report, was refused by the presence check,
+    and re-posted against the true head. Both segments were counted, so
+    `segments()` said 4 rounds where 3 were performed. Nothing was deleted and
+    the re-post disclosed the fabrication, so the specimen is fully on record.
+
+    Deliberately NOT folded into `counted()`. Completeness (§4 clause 6) asks
+    whether an artifact ARRIVED WHOLE; this asks whether the thing it reports
+    on EXISTS. Two different questions with two different fail-safe sides —
+    a fragment must not turn anything green, while an unresolvable sha must not
+    be able to invent a round — and one predicate answering both would have to
+    pick one of them.
+
+    `resolves` is injected so the fixture pass can state the repository's
+    answers rather than depend on this repository's object store, which is the
+    only way a case about a sha that does NOT exist can be written at all.
+    """
+    r = (resolves or sha_resolves)(seg['sha'])
+    return r is not False
+
+
 def counted(seg):
     """Does this segment COUNT? §4 clause 6 — a fragment counts as nothing.
 
@@ -1387,7 +1492,7 @@ def head_scope(bodies, head):
     return None, False
 
 
-def decide(bodies, head):
+def decide(bodies, head, resolves=None):
     """The sweep's whole state machine, as a pure function.
 
     Returns one of:
@@ -1415,6 +1520,25 @@ def decide(bodies, head):
     segment naming it.
     """
     segs = segments(bodies)
+    # ANNOUNCED BEFORE ANY RETURN, on EVERY path (kogaki#91). The first version
+    # of this put the notice beside the round arithmetic, where `done` and
+    # `author-owes` return above it — so on the exact specimen that motivated
+    # the issue (a fabricated sha beside a good report, which decides `done`)
+    # the discount was silent. That is the kogaki#76 shape for the third time
+    # in this file: the outcome was right and the disclosure was missing, on
+    # one of two paths. The fixture below caught it, which is why it asserts
+    # the NOTE rather than only the verdict.
+    #
+    # And the notice is worth more than the arithmetic it explains: it says a
+    # FABRICATED SHA IS SITTING ON THE PR. The round count merely stops being
+    # wrong; this is what sends somebody to look.
+    for s in segs:
+        if not performed(s, resolves):
+            print(f"NOTE: a report cites `{s['sha']}`, which resolves to NO "
+                  "COMMIT — the round it claims was never performed against "
+                  "anything and is NOT counted (kogaki#91). A sha was probably "
+                  "reconstructed from a short prefix; the report is unfounded, "
+                  "not merely stale")
     current = head_segments(segs, head)
     if any(counted(s) for s in current):
         # Only a JUSTIFIED blocking gates (kogaki#72): an unjustified one
@@ -1444,7 +1568,15 @@ def decide(bodies, head):
                   f"`report-complete: {s['complete']} findings` but carries "
                   f"{len(s['findings'])} — a FRAGMENT counts as nothing "
                   "(§4 clause 6, kogaki#74); this head is not reviewed")
-    rounds_done = len(segs)
+    # A ROUND IS A REVIEW THAT WAS PERFORMED (kogaki#91). A segment citing a
+    # sha that does not resolve reports on nothing, and counting it spends a
+    # round the author never received — on PR #67 that made the count 4 where 3
+    # were performed, and the two-rounds-then-park bound was the thing paying.
+    # Announced rather than silently discounted: a report that reached the PR
+    # and was not counted is a different fact from no report at all, and this
+    # one also says a fabricated sha is on the record where somebody should
+    # look at it.
+    rounds_done = rounds_used(bodies, resolves)
     if rounds_done >= MAX_ROUNDS:
         return 'park'
     return f'spawn-round-{rounds_done + 1}'
@@ -1687,8 +1819,18 @@ FIX = [
      f"review-lane report: 9999999\nfinding: blocking open  old\n"
      f"review-lane report: {H}\nfinding: nit open  y", H, 'done'),
 ]
-bad = [f"{n}: got {decide(b, h)!r}, want {w!r}"
-       for n, b, h, w in FIX if decide(b, h) != w]
+# The existing cases' `9999999` / `8888888` are STALE heads — a real earlier
+# head of the same PR — so they are handed a resolver that says every sha
+# resolves (kogaki#91). Without it these cases would silently change meaning:
+# the synthetic shas resolve to nothing in this repository's object store, so
+# they would start exercising the PHANTOM path while their labels still said
+# `stale`, and the park case would stop testing the cap it was written for.
+def _ALL(_sha):
+    return True
+
+
+bad = [f"{n}: got {decide(b, h, _ALL)!r}, want {w!r}"
+       for n, b, h, w in FIX if decide(b, h, _ALL) != w]
 
 # --- the driver's own decision (kogaki#53) --------------------------------
 # `decide` says WHAT the state is; this says whether a FIX is spawned for it.
@@ -1697,8 +1839,9 @@ bad = [f"{n}: got {decide(b, h)!r}, want {w!r}"
 # Untested, that branch is where a runaway rally would live.
 
 
-def drives_fix(bodies, head):
-    return decide(bodies, head) == 'author-owes' and rounds_used(bodies) < MAX_ROUNDS
+def drives_fix(bodies, head, resolves=None):
+    return (decide(bodies, head, resolves) == 'author-owes'
+            and rounds_used(bodies, resolves) < MAX_ROUNDS)
 
 
 DRIVE = [
@@ -1717,8 +1860,80 @@ DRIVE = [
      f"review-lane report: 9999999\nfinding: blocking open  old\n"
      f"review-lane report: {H}\nfinding: nit open  y", H, False),
 ]
-bad += [f"{n}: drives_fix -> {drives_fix(b, h)}, want {w}"
-        for n, b, h, w in DRIVE if drives_fix(b, h) != w]
+bad += [f"{n}: drives_fix -> {drives_fix(b, h, _ALL)}, want {w}"
+        for n, b, h, w in DRIVE if drives_fix(b, h, _ALL) != w]
+
+# --- a fabricated sha is not a round (kogaki#91) --------------------------
+# THE PR #67 SPECIMEN, replayed. A reviewer took the real 12-char prefix
+# `5586353629bb` and invented the tail; the presence check refused it and the
+# reviewer re-posted against the true head. Two segments landed for one
+# performed review, and every consumer of the round count read 4 where 3 had
+# happened.
+#
+# The resolver is INJECTED rather than read from this repository's object
+# store, because the case the fixture exists to state — a sha that does NOT
+# exist — cannot be written against a real store at all: any literal chosen
+# today could become a real object tomorrow, and the case would silently
+# invert. `_ONLY(*live)` says exactly which shas the repository has.
+_FAKE = "5586353629bb0995463037856b76dc59721ce3a0"   # posted 15:09:48, no such commit
+_TRUE = "5586353629bbd35af93f1032349af113774871ba"   # the real head, 15:12:00
+
+
+def _ONLY(*live):
+    return lambda sha: any(s.startswith(sha) or sha.startswith(s) for s in live)
+
+
+_pfail = 0
+for _label, _bodies, _head, _res, _want_state, _want_rounds in [
+    ("the PR #67 specimen: a fabricated sha beside the true head is ONE round",
+     f"review-lane report: {_FAKE}\nfinding: nit open  x\n"
+     f"review-lane report: {_TRUE}\nfinding: nit open  y",
+     _TRUE, _ONLY(_TRUE), 'done', 1),
+    ("a fabricated sha ALONE leaves the head unreviewed at round 1, "
+     "not round 2",
+     f"review-lane report: {_FAKE}\nfinding: nit open  x",
+     _TRUE, _ONLY(_TRUE), 'spawn-round-1', 0),
+    ("TWO phantoms cannot park a PR that has had no review",
+     f"review-lane report: {_FAKE}\nreview-lane report: 1234567abc",
+     _TRUE, _ONLY(_TRUE), 'spawn-round-1', 0),
+    ("a STALE sha that RESOLVES is still a round — this discounts fabrication, "
+     "never history",
+     f"review-lane report: 9999999\nreview-lane report: {_TRUE}",
+     _TRUE, _ALL, 'done', 2),
+    ("cannot-determine counts the round: an unreadable store must not be able "
+     "to invent free rounds",
+     f"review-lane report: 9999999\nreview-lane report: 8888888",
+     _TRUE, lambda _s: None, 'park', 2),
+    ("a phantom's open blocking does not summon a fix for this head",
+     f"review-lane report: {_FAKE}\nfinding: blocking open [harm: x]  x",
+     _TRUE, _ONLY(_TRUE), 'spawn-round-1', 0),
+]:
+    _buf = _io.StringIO()
+    with _ctx.redirect_stdout(_buf):
+        _got = decide(_bodies, _head, _res)
+        _rounds = rounds_used(_bodies, _res)
+    if (_got, _rounds) != (_want_state, _want_rounds):
+        print(f"FAIL phantom fixture [{_label}]: state={_got!r} rounds={_rounds}, "
+              f"want state={_want_state!r} rounds={_want_rounds}")
+        _pfail = 1
+    # THE DISCOUNT IS ANNOUNCED, never silent. A round removed from the count
+    # with no trace is the kogaki#76 shape: the outcome is right and the
+    # operator cannot tell it happened — and here the untold fact is that a
+    # FABRICATED SHA IS SITTING ON THE PR, which is the thing somebody should
+    # go and look at.
+    _said = "resolves to NO COMMIT" in _buf.getvalue()
+    _expected_note = _rounds < len(segments(_bodies))
+    if _said != _expected_note:
+        print(f"FAIL phantom fixture [{_label}]: the discount was "
+              f"{'announced without happening' if _said else 'SILENT'}")
+        _pfail = 1
+if _pfail:
+    print("FAIL: a fabricated sha still counts as a round, or is discounted "
+          "silently — kogaki#91")
+    sys.exit(1)
+print("phantom pass: 6/6 unresolvable-sha cases (the PR #67 specimen counts "
+      "1 round not 2; phantoms cannot park; a resolvable stale sha still "
+      "counts; cannot-determine counts; every discount is announced)")
 if bad:
     print("FAIL fixture pass — the sweep's state machine does not discriminate:")
     for b in bad:
@@ -1837,15 +2052,17 @@ def _declare(bodies):
     return "\n".join(out)
 
 
+# `_ALL` for the same reason the cases above take it: these are the SAME
+# bodies, whose synthetic shas stand for real earlier heads (kogaki#91).
 for _n, _b, _h, _w in FIX:
-    if decide(_declare(_b), _h) != _w:
+    if decide(_declare(_b), _h, _ALL) != _w:
         print(f"FAIL declared-state fixture [{_n}]: "
-              f"got {decide(_declare(_b), _h)!r}, want {_w!r}")
+              f"got {decide(_declare(_b), _h, _ALL)!r}, want {_w!r}")
         _gfail = 1
 for _n, _b, _h, _w in DRIVE:
-    if drives_fix(_declare(_b), _h) != _w:
+    if drives_fix(_declare(_b), _h, _ALL) != _w:
         print(f"FAIL declared-drive fixture [{_n}]: "
-              f"got {drives_fix(_declare(_b), _h)}, want {_w}")
+              f"got {drives_fix(_declare(_b), _h, _ALL)}, want {_w}")
         _gfail = 1
 # And a FRAGMENT for the current head is NOT a reviewed head: the state falls
 # through to the round it would have been without any report.
@@ -1864,7 +2081,7 @@ for _n, _b, _h, _w in [
      f"review-lane report: {H}\nfinding: should open  x\n"
      "report-complete: 1 findings", H, 'done'),
 ]:
-    _got = decide(_b, _h)
+    _got = decide(_b, _h, _ALL)
     if _got != _w:
         print(f"FAIL fragment fixture [{_n}]: got {_got!r}, want {_w!r}")
         _gfail = 1

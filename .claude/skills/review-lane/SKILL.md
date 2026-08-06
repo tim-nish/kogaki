@@ -192,6 +192,39 @@ report-complete: <N> findings
 - **The head sha is part of the report, not a courtesy.** A report reviewed
   the code it names; a later push is unreviewed, and the check reports a
   report naming an older head as **stale** rather than counting it.
+- **READ THE SHA AS A VALUE. NEVER RECONSTRUCT ONE (kogaki#91).** The sha you
+  write comes from one read — `gh pr view <n> --json headRefOid` — copied
+  whole. Do **not** assemble a full sha from a short prefix you saw in `git
+  log --oneline`, a CI line, an earlier comment, or your own previous report,
+  and do not extend a 7- or 12-char prefix to 40 characters by any means. On
+  PR #67 a reviewer took the real prefix `5586353629bb` and invented the tail,
+  posting `5586353629bb0995463037856b76dc59721ce3a0` — **a sha that does not
+  exist**. It shares twelve characters with the true head
+  `5586353629bbd35af93f1032349af113774871ba`, which is exactly why nothing
+  about it looked wrong.
+
+  A shorter sha is always safe and an invented one never is: if you hold only
+  a prefix, **write the prefix**. The grammar accepts 7–40 characters and the
+  matcher compares prefixes either way, so a 12-char report is counted
+  identically to a 40-char one. Padding buys nothing and risks everything.
+
+  **Verify before you post.** `git cat-file -e <sha>^{commit}` in your
+  worktree must succeed for the sha you are about to write. If it does not,
+  the report is unfounded — a claim computed over a commit that does not
+  exist — and it must be repaired at composition rather than posted and
+  refused downstream:
+
+  > A mechanism must ESTABLISH ITS SUBSTRATE before reporting a result over
+  > it … The failing version is not wrong but **unfounded**, and presents as a
+  > normal result because nothing distinguishes "computed over nothing" from
+  > "computed and found nothing."
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/archive/knowledge-architecture.md:183`
+
+  And do not re-post to correct it. A refused report followed by a corrected
+  one leaves **two** segments on the PR, which is the round-count inflation
+  half of the same defect — `tools/review-sweep.sh` now discounts the
+  unresolvable segment, but the cheap fix is not to create it.
 - **The declarations are separate adjacent lines, and the report token is
   never widened.** `review-lane report: <sha> delta` is *not* the grammar.
   That form was exercised through `tools/review-sweep.sh`'s embedded fixture
