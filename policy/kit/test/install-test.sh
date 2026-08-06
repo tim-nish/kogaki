@@ -127,4 +127,71 @@ printf '%s' "$OUT" | grep -q 'not configured' \
   || fail "unconfigured gateway did not report a configuration miss: $OUT"
 echo "ok: no colocation default (gateway is configuration-only)"
 
+# 8. Receipt mode (kogaki#66, story 1.20). Every property below is decidable
+#    WITHOUT a reachable gateway — the wire behaviour by the degrade paths, the
+#    composition by the emitter's own fixture pass (8e), which runs over
+#    synthetic responses shaped like the gateway's. What no case here covers is
+#    a composition against a LIVE response; that is stated rather than left to
+#    look covered, the same way case 4b states its own limit.
+#
+# 8a. AC 4 — the transport REFUSES rather than assigning the outcome token.
+#     `deferred-slot: consult-outcome-token-assignment` is open on kogaki#66,
+#     so a default here would be code embedding an undecided choice. The
+#     message must name the slot: a bare usage error would send the caller
+#     looking for a syntax mistake instead of a pending decision.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
+      --tool policy_lookup --args '{"question":"x"}' --receipt 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 2 ]] || fail "receipt mode without --outcome exited $CODE, want 2"
+printf '%s' "$OUT" | grep -q 'consult-outcome-token-assignment' \
+  || fail "the refusal does not name the deferred slot: $OUT"
+if printf '%s' "$OUT" | grep -q '^consult'; then fail "a refusal emitted a receipt line: $OUT"; fi
+echo "ok: receipt mode refuses rather than assigning the outcome token (AC 4)"
+
+# 8b. AC 3 — a degraded run emits NO receipt block. A receipt for a consult
+#     that did not happen is the fabrication the clause exists to prevent, so
+#     the one-line/exit-11 contract must survive receipt mode unchanged.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
+      --tool policy_lookup --args '{"question":"x"}' --receipt --outcome discriminating 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "degraded receipt-mode run exited $CODE, want 11"
+[[ $(printf '%s\n' "$OUT" | wc -l) -eq 1 ]] || fail "degraded receipt-mode run printed more than one line: $OUT"
+printf '%s' "$OUT" | grep -q '^policy_source unavailable:' || fail "degrade line malformed: $OUT"
+if printf '%s' "$OUT" | grep -q 'consult-receipt:'; then fail "a degraded run emitted a receipt block"; fi
+echo "ok: a degraded run emits no receipt (AC 3)"
+
+# 8c. AC 3/AC 1 — the pre-1.20 invocation is byte-for-byte unaffected. Receipt
+#     mode is opt-in, and a transport that started appending a block to every
+#     caller's stdout would break every consumer parsing the tool result.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
+      --tool policy_lookup --args '{"question":"x"}' 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "non-receipt invocation changed: exited $CODE, want 11"
+if printf '%s' "$OUT" | grep -q 'consult-receipt:'; then fail "non-receipt mode emitted a receipt block"; fi
+echo "ok: receipt mode is opt-in; the pre-1.20 invocation is unchanged"
+
+# 8d. AC 5 — the marked-exception token is UNINDENTED, and that is a
+#     correctness constraint rather than a style one. `check-consult-receipts.sh`
+#     recognises only request_id/outcome/query as continuation keys, so an
+#     unrecognised INDENTED key above them ends the continuation scan and the
+#     receipt parses as a field-less v1 line — silently, and passing. This
+#     asserts the emitter never indents its marker, which is the half a doc
+#     sentence cannot hold.
+grep -q '^ *"consult-receipt: tool-emitted",' "$KIT_DIR/bin/gateway-query.mjs" \
+  || fail "the emitted marker is not the fixed unindented \`consult-receipt:\` token"
+echo "ok: the receipt marker is the fixed unindented token (AC 5)"
+
+# 8e. AC 1/AC 2 — the composition itself, over synthetic responses. Run here
+#     rather than duplicated here: the emitter carries its own fixtures, so a
+#     change to the composition and the evidence for it stay in one file.
+node "$KIT_DIR/bin/gateway-query.mjs" --self-test \
+  || fail "receipt-composition fixtures failed"
+echo "ok: receipt-composition fixture pass (AC 1, AC 2)"
+
 echo "ALL PASS"

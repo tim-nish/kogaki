@@ -21,3 +21,16 @@ surface the miss with the question, never widen the read. A served miss is
 an answer and a distill-bug signal, not a license to explore. An unreachable
 gateway prints one `policy_source unavailable:` line and the work proceeds
 without policy interaction.
+
+**The receipt is emitted by the transport, not transcribed.** Every response
+above carries the `request_id` and the served `consulted:` line the receipt
+needs, so `gateway-query.mjs --receipt --outcome <token>` prints the complete
+block after the tool results — one `--args` per framing, one `query:` line per
+framing actually run. `--outcome` has no default: the token is a reading rather
+than an observation, and who assigns it is open
+(`deferred-slot: consult-outcome-token-assignment`), so the transport refuses
+(exit 2) rather than guessing. A degraded run emits **no** receipt — one
+`policy_source unavailable:` line and exit 11, as above. Consulting through a
+surface the kit does not mediate still owes a receipt; compose it by hand and
+mark it `consult-receipt: hand-composed — <why>` on its own unindented line
+above line one, so the exception rate is countable.
