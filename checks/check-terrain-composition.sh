@@ -70,8 +70,10 @@ cd "$(dirname "$0")/.."
 # would leave `cotagCover`'s refusal in exactly the condition PR #123's review
 # found it in: present, correct-looking, and unreachable.
 node --input-type=module - <<'JS'
-import { readFileSync } from "node:fs";
-import { cotagGroups, cotagCover, NO_SECOND_TAG, COTAG_SORT }
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { cotagGroups, cotagCover, NO_SECOND_TAG, COTAG_SORT, NO_CLAIM }
   from "./terrain/terrain.mjs";
 import { spawnSync } from "node:child_process";
 
@@ -133,14 +135,100 @@ for (const want of [NO_SECOND_TAG, `Cover: ${members.length} of ${members.length
   if (!String(run.stdout).includes(want)) fails.push(`the rendered step does not carry ${JSON.stringify(want)}`);
 }
 
+// 6. GroupClaim-first rendering AT the screen (kogaki#128, story 1.29 — §6.1).
+//    Each assertion below is written against the DEFECT it discriminates, not
+//    against the feature: the v2 screen emitted member ids only under --group,
+//    composed no claim at all, and had no way to say a claim was missing.
+const idsWithoutGroup = members.every((m) => String(run.stdout).includes(m.id));
+if (!idsWithoutGroup) {
+  fails.push("member Lesson IDs do not all appear WITHOUT --group — this is kogaki#128's specific defect, and a screen with no visible ids fails Terrain's purpose regardless of what else it shows (§6.1)");
+}
+// A screen with no claims supplied must SAY so, per group and in aggregate.
+// A missing claim that rendered as blank is indistinguishable from a group
+// whose members share nothing, which is the substitution §6.1 forbids.
+if (!String(run.stdout).includes(NO_CLAIM)) {
+  fails.push("a group with no composed GroupClaim does not carry the ABNORMAL marker — a missing claim must be marked, never substituted (§6.1)");
+}
+if (!/ABNORMAL: 3 of 3 group\(s\)/.test(String(run.stdout))) {
+  fails.push("the claimless aggregate is not stated — a per-group marker with no total lets a screen be mostly claimless without saying so (§6.1)");
+}
+
+// Claims supplied: served FIRST, and the pinning stated where the claim is.
+const CLAIMS = join(tmpdir(), `cotags-claims-${process.pid}.json`);
+writeFileSync(CLAIMS, JSON.stringify({
+  [`${TAG} × architecture`]: "both hold that a guard is only real once something exercised it",
+}));
+const withClaim = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS],
+  { encoding: "utf8" });
+if (withClaim.status !== 0) fails.push(`cotags --claims exited ${withClaim.status}: ${(withClaim.stderr || "").trim()}`);
+const claimLines = String(withClaim.stdout).split("\n");
+const claimAt = claimLines.findIndex((l) => l.includes("in common: both hold that a guard"));
+const groupAt = claimLines.findIndex((l) => l.includes(`${TAG} × architecture (`));
+if (claimAt < 0 || groupAt < 0 || claimAt !== groupAt + 1) {
+  fails.push("the GroupClaim is not served FIRST, immediately under its GroupID — §6.1's order is the whole of what it asks for");
+}
+const memberAt = claimLines.findIndex((l, i) => i > groupAt && l.includes("lesson:alpha"));
+if (!(memberAt > claimAt)) fails.push("the member ids do not follow the claim — GroupClaim first, THEN the members (§6.1)");
+if (!String(withClaim.stdout).includes("pinned to 2 member(s)")) {
+  fails.push("a screen-composed claim does not state the member set it is pinned to — §7's pinning is what makes a later subset selection a gate event rather than a refresh");
+}
+// A claim naming no composed group is refused: composition may attach text to
+// a group and may do nothing else.
+const BADCLAIMS = join(tmpdir(), `cotags-badclaims-${process.pid}.json`);
+writeFileSync(BADCLAIMS, JSON.stringify({ "testing × nonesuch": "invented" }));
+const badClaim = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", BADCLAIMS],
+  { encoding: "utf8" });
+if (badClaim.status === 0) {
+  fails.push("a --claims entry naming no composed group was ACCEPTED — a claim carries no selection authority and may not invent a group (§6.1)");
+}
+
+// 7. SubGroups on the screen (kogaki#128, story 1.29 — §6.2), and the cover
+//    they inherit: a member the judge leaves unplaced is NAMED, never dropped.
+const SUBS = join(tmpdir(), `cotags-subs-${process.pid}.json`);
+writeFileSync(SUBS, JSON.stringify({
+  [`${TAG} × architecture`]: [
+    { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
+      members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+  ],
+}));
+const withSubs = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS, "--subdivisions", SUBS],
+  { encoding: "utf8" });
+if (withSubs.status !== 0) fails.push(`cotags --subdivisions exited ${withSubs.status}: ${(withSubs.stderr || "").trim()}`);
+if (!String(withSubs.stdout).includes("guards that cannot fail")) {
+  fails.push("the SubGroup does not render on the screen (§6.2)");
+}
+if (!String(withSubs.stdout).includes("in common: a check whose inputs make failure unreachable")) {
+  fails.push("the SubGroupClaim does not render above its Lesson IDs (§6.2)");
+}
+if (!String(withSubs.stdout).includes("(fits no composed SubGroup)")
+    || !String(withSubs.stdout).includes("lesson:bravo")) {
+  fails.push("a member the judge left unplaced was DROPPED rather than named in the explicit SubGroup — subdivision decides WHERE a member appears and hides none (§8)");
+}
+
+// 8. The prohibition §8 states and §6.2 inherits: no member-count threshold.
+//    Read against the source, because the property is the ABSENCE of a number
+//    and no run can observe an absence by executing.
+const cotagSrc = readFileSync("terrain/terrain.mjs", "utf8")
+  .split("function cmdCotags(")[1].split("\n// ---")[0];
+const numericCompare = cotagSrc.match(/\.length\s*[<>]=?\s*\d+|\d+\s*[<>]=?\s*[a-zA-Z_$][\w$]*\.length/);
+if (numericCompare) {
+  fails.push(`cmdCotags compares a member count against a numeric constant (${numericCompare[0]}) — kogaki#128's "five or more" is calibration evidence, and a threshold in this code is a defect against §8 and §6.2`);
+}
+
 if (fails.length) {
   console.log("FAIL cotags fixture — the second navigation step does not discriminate:");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("cotags fixture: 11/11 cases (lone-tag group; declared sort on both "
+console.log("cotags fixture: 21/21 cases (lone-tag group; declared sort on both "
   + "axes; group-name form; cover passing; cover DROPPED / ADDED / both, all "
-  + "three fired; end-to-end subcommand wiring)");
+  + "three fired; end-to-end subcommand wiring; ids without --group; absent-claim "
+  + "marker per-group and in aggregate; claim served FIRST then members; pinning "
+  + "stated; invented group refused; SubGroup and SubGroupClaim rendered; unplaced "
+  + "member named not dropped; no member-count threshold in the source)");
 JS
 
 python3 - <<'EOF'
