@@ -1,12 +1,41 @@
 #!/usr/bin/env node
 // Minimal stdio MCP client for the tsurezure gateway — the kit's one transport.
 // Usage: gateway-query.mjs --consumer <name> --tool <tool> --args '<json>'
+//        [--args '<json>' …]            one --args per FRAMING, in order
+//        [--receipt --outcome <token>]   emit the consult receipt block
 //        [--gateway <path-to-dist/index.js>]
 //
 // Contract (client-kit README): on ANY failure to reach or converse with the
 // gateway, print exactly one `policy_source unavailable: <reason>` line and
 // exit 11 — the caller logs it once and proceeds without policy interaction.
 // On success, print the tool result's text content to stdout and exit 0.
+//
+// RECEIPT MODE (kogaki#66, story 1.20; specs/SPEC.md §4 "the receipt is
+// EMITTED BY THE TOOL THAT PERFORMED THE CONSULT"). With --receipt the
+// transport prints, after the tool results it prints today, one v2 receipt
+// block in the grammar SPEC §4 fixes. It composes that block ONLY from what
+// it observed on the wire:
+//   * line one is the gateway's OWN `consulted:` rendering, copied whole for a
+//     single framing and merged across framings for several — never re-derived;
+//   * `request_id:` is the id the gateway returned;
+//   * one `query:` line per framing ACTUALLY RUN, verbatim as sent.
+// Nothing here is remembered, so the transcription defects the clause exists
+// to prevent (kogaki#32's coined vocabulary, kogaki#75's copied request_id)
+// are unproducible on this path.
+//
+// The `outcome` token is NOT the transport's to assign. It is a READING of
+// whether the answer discriminated, and SPEC §4 leaves
+// `deferred-slot: consult-outcome-token-assignment` open — who assigns it is
+// a decision act owed on kogaki#66. So --outcome is REQUIRED in receipt mode
+// and there is no default and no inference: the transport refuses (exit 2)
+// rather than guessing. That refusal is deliberately not a fill; whichever way
+// the slot is later decided, the observed half above is unaffected.
+//
+// Exit 12 — `receipt not composable: <reason>`. The consult happened and its
+// results are printed, but the wire did not carry what a receipt asserts (a
+// non-JSON result, an absent request_id or `consulted:` line, framings whose
+// pins disagree, a framing that is not one line). Refusing beats emitting a
+// block the transport cannot stand behind.
 //
 // The gateway's location is MACHINE-LOCAL CONFIGURATION, never a committed
 // path and never directory adjacency (kogaki#9). Resolution order:
@@ -25,10 +54,38 @@ function opt(name, fallback = undefined) {
   const i = argv.indexOf(`--${name}`);
   return i >= 0 ? argv[i + 1] : fallback;
 }
+// Every occurrence, in order. `--args` repeats once per FRAMING and `--tool`
+// may repeat alongside it; a single `--tool` covers every framing, which is
+// the common case (one question re-framed against `policy_lookup`).
+function opts(name) {
+  const out = [];
+  for (let i = 0; i < argv.length; i++) if (argv[i] === `--${name}`) out.push(argv[i + 1]);
+  return out;
+}
+function flag(name) {
+  return argv.includes(`--${name}`);
+}
 
 const consumer = opt("consumer");
 const tool = opt("tool", "policy_lookup");
-const toolArgs = JSON.parse(opt("args", "{}"));
+const rawArgsList = opts("args");
+const toolList = opts("tool");
+const receiptMode = flag("receipt");
+const outcome = opt("outcome");
+// One framing per --args; no --args at all is the historical single empty call.
+const framings = (rawArgsList.length ? rawArgsList : ["{}"]).map((raw, i) => ({
+  raw,
+  tool: toolList[i] ?? tool,
+  args: JSON.parse(raw),
+}));
+const toolArgs = framings[0].args;
+
+// `--self-test` exercises the receipt composition against synthetic responses
+// and exits, touching no gateway. Sited here so it runs BEFORE any resolution
+// or spawn: the properties it checks are pure functions of a served response,
+// and a test that needed a live substrate could not run in CI at all. The
+// function is a hoisted declaration defined with the composition it covers.
+if (flag("self-test")) selfTest();
 // Write to stdout and exit only once the write has drained.
 //
 // process.exit() discards whatever is still buffered in an asynchronous
@@ -93,6 +150,24 @@ if (!consumer) {
   console.error("usage: gateway-query.mjs --consumer <name> --tool <tool> --args '<json>'");
   process.exit(2);
 }
+// A USAGE check, sited beside `!consumer` above and therefore ahead of the
+// reachability probe below: an invocation that cannot produce a receipt is
+// malformed whether or not the gateway answers, and reaching out first would
+// spend a real consult on a call that was always going to refuse. The ordering
+// costs the ratified degrade nothing — an UNCONFIGURED gateway is decided
+// above this line and still exits 11, and a well-formed receipt-mode call
+// against an unreachable gateway degrades exactly as before (AC 3).
+if (receiptMode && !outcome) {
+  console.error(
+    "refusing to emit a receipt without --outcome: the token is a READING of " +
+      "whether the answer discriminated, and specs/SPEC.md §4 leaves " +
+      "`deferred-slot: consult-outcome-token-assignment` open (kogaki#66). " +
+      "The transport asserts only what it observed; it does not guess this. " +
+      "Supply one of: discriminating | covered-after-reframing | " +
+      "uncovered-after-N-framings",
+  );
+  process.exit(2);
+}
 if (!existsSync(gateway)) unavailable(`gateway not found at ${gateway}`);
 
 const proc = spawn("node", [gateway, "--consumer", consumer], {
@@ -131,6 +206,196 @@ function rpc(id, method, params) {
   });
 }
 
+// --- receipt composition (kogaki#66, story 1.20) ----------------------------
+//
+// Every function below reads the served response and NOTHING else. The one
+// place a value could be invented is the `outcome` token, and it is not
+// composed here at all — it arrives on the command line or the run refused
+// before the gateway was reached.
+
+// The query as SENT. `policy_lookup`'s framing is its `question`; for any
+// other tool the args JSON as the caller typed it is the framing, because the
+// transport has no privileged reading of another tool's argument shape.
+function framingText({ args, raw }) {
+  const q = args?.question;
+  return typeof q === "string" && q.trim() ? q.trim() : raw.trim();
+}
+
+// A served `consulted:` line is `consulted: <repo>@<sha> <file:spec[, file:spec…]>`.
+// Groups are separated by comma-space, specs inside a group by bare commas —
+// the gateway's own rendering, which is why line one is copied rather than
+// rebuilt whenever there is only one framing to copy.
+function splitServedPin(line, pin) {
+  const prefix = `consulted: ${pin} `;
+  return line.startsWith(prefix) ? line.slice(prefix.length).trim() : null;
+}
+
+// Merge several framings' file lists under one pin, preserving first-seen
+// order for both files and their line specs. Union, never re-derivation: every
+// entry here came off a served line.
+function mergeTails(tails) {
+  const byFile = new Map();
+  for (const tail of tails) {
+    for (const group of tail.split(/,\s+/)) {
+      const i = group.indexOf(":");
+      if (i < 0) continue;
+      const file = group.slice(0, i);
+      const specs = group.slice(i + 1).split(",").filter(Boolean);
+      const seen = byFile.get(file) ?? [];
+      for (const s of specs) if (!seen.includes(s)) seen.push(s);
+      byFile.set(file, seen);
+    }
+  }
+  return [...byFile].map(([f, s]) => `${f}:${s.join(",")}`).join(", ");
+}
+
+// Returns the receipt block, or throws with the reason it is not composable.
+// The throw is the point: a receipt the transport cannot stand behind is worse
+// than none, because the marked-exception path exists for exactly that case.
+function composeReceipt(observed, outcomeToken) {
+  const parsed = observed.map(({ text }, i) => {
+    let d;
+    try {
+      d = JSON.parse(text);
+    } catch {
+      throw new Error(`framing ${i + 1} did not return a JSON response`);
+    }
+    if (!d?.request_id) throw new Error(`framing ${i + 1} carried no request_id`);
+    if (typeof d?.consulted !== "string" || !d.consulted.startsWith("consulted: "))
+      throw new Error(`framing ${i + 1} carried no served \`consulted:\` line`);
+    if (typeof d?.pin !== "string") throw new Error(`framing ${i + 1} carried no pin`);
+    return d;
+  });
+  const pin = parsed[0].pin;
+  if (parsed.some((d) => d.pin !== pin))
+    throw new Error(
+      "framings resolved against different substrate commits " +
+        `(${[...new Set(parsed.map((d) => d.pin))].join(" vs ")}); ` +
+        "one receipt carries one pin",
+    );
+  const queries = observed.map((o, i) => {
+    const q = framingText(o.framing);
+    if (q.includes("\n"))
+      throw new Error(`framing ${i + 1} spans several lines; \`query:\` is one line`);
+    return q;
+  });
+  // Line one: the gateway's own rendering when there is exactly one framing,
+  // its union when there are several.
+  let lineOne;
+  if (parsed.length === 1) {
+    lineOne = parsed[0].consulted;
+  } else {
+    const tails = parsed.map((d, i) => {
+      const t = splitServedPin(d.consulted, pin);
+      if (t === null) throw new Error(`framing ${i + 1}'s served line does not carry its own pin`);
+      return t;
+    });
+    lineOne = `consulted: ${pin} ${mergeTails(tails)}`;
+  }
+  // ONE request_id, and it is the LAST framing's — the answer the outcome is a
+  // reading of. Stated rather than left to the reader: a re-framed consult is
+  // several gateway calls and the v2 grammar carries one id, so which one is a
+  // choice, and the honest one is the call the recorded outcome refers to. The
+  // earlier framings stay auditable through their own `query:` lines.
+  const requestId = parsed[parsed.length - 1].request_id;
+  return [
+    // The marked-exception axis (specs/SPEC.md §4 condition 2). A fixed,
+    // greppable, UNINDENTED key, so the rate of hand-composed receipts is a
+    // count rather than an inference. Unindented is load-bearing, not style:
+    // `checks/check-consult-receipts.sh`'s continuation regex recognises only
+    // request_id/outcome/query, and an unrecognised INDENTED key placed above
+    // them ends the continuation scan — the receipt then parses as a v1 line
+    // with every field silently dropped, and passes. Measured on the shipped
+    // checker, story 1.20; this is the story's open question, closed.
+    "consult-receipt: tool-emitted",
+    lineOne,
+    `  request_id: ${requestId}`,
+    `  outcome: ${outcomeToken}`,
+    ...queries.map((q) => `  query: ${q}`),
+  ].join("\n");
+}
+
+// --- fixture pass -----------------------------------------------------------
+// Discrimination evidence for the composition, over synthetic responses shaped
+// like the gateway's own. Each case fails a composer that lacks the clause it
+// names — the same standard `checks/check-consult-receipts.sh`'s embedded
+// fixtures are held to. What it deliberately does NOT cover: the wire itself
+// (spawn, rpc, degradation), which needs a live gateway and is exercised by
+// `policy/kit/test/install-test.sh` cases 3, 7 and 8 instead.
+function selfTest() {
+  const PIN = "product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74";
+  const served = (id, tail) => JSON.stringify({
+    pin: PIN, request_id: id, consulted: `consulted: ${PIN} ${tail}`, lines: [],
+  });
+  const framing = (q) => ({ raw: JSON.stringify({ question: q }), args: { question: q } });
+  const one = [{ framing: framing("first framing"), text: served("id-1", "LESSONS.md:31") }];
+  const two = [
+    one[0],
+    { framing: framing("second framing, another axis"), text: served("id-2", "LESSONS.md:40, topics/x.md:9") },
+  ];
+  const compose = (obs, tok) => {
+    try {
+      return composeReceipt(obs, tok);
+    } catch (e) {
+      return `THREW: ${e.message}`;
+    }
+  };
+  const cases = [
+    // AC 1 — the complete block, with line one copied whole from the server.
+    ["single framing copies the served line one verbatim",
+     () => compose(one, "discriminating").split("\n")[1] === `consulted: ${PIN} LESSONS.md:31`],
+    ["the block leads with the fixed unindented marker",
+     () => compose(one, "discriminating").split("\n")[0] === "consult-receipt: tool-emitted"],
+    ["continuation lines are indented, in SPEC §4 order",
+     () => compose(one, "discriminating").split("\n").slice(2).join("|") ===
+       "  request_id: id-1|  outcome: discriminating|  query: first framing"],
+    // AC 2 — every framing gets its own query line, not the last one only.
+    ["two framings emit TWO query lines, verbatim as sent",
+     () => compose(two, "uncovered-after-2-framings").split("\n").filter((l) => l.startsWith("  query: ")).join("|") ===
+       "  query: first framing|  query: second framing, another axis"],
+    ["two framings merge their served pins under one line one",
+     () => compose(two, "uncovered-after-2-framings").split("\n")[1] ===
+       `consulted: ${PIN} LESSONS.md:31,40, topics/x.md:9`],
+    ["the request_id is the LAST framing's — the answer the outcome reads",
+     () => compose(two, "uncovered-after-2-framings").includes("  request_id: id-2")],
+    // AC 4 — the token is carried, never chosen.
+    ["the outcome token is passed through untouched",
+     () => compose(one, "covered-after-reframing").includes("  outcome: covered-after-reframing")],
+    // Refusals: a receipt the transport cannot stand behind is never emitted.
+    ["a non-JSON response refuses rather than composing",
+     () => compose([{ framing: framing("q"), text: "not json" }], "discriminating")
+       .startsWith("THREW: framing 1 did not return a JSON response")],
+    ["a response without request_id refuses",
+     () => compose([{ framing: framing("q"), text: JSON.stringify({ pin: PIN, consulted: `consulted: ${PIN} a.md:1` }) }],
+       "discriminating").startsWith("THREW: framing 1 carried no request_id")],
+    ["a response without a served `consulted:` line refuses",
+     () => compose([{ framing: framing("q"), text: JSON.stringify({ pin: PIN, request_id: "r" }) }],
+       "discriminating").startsWith("THREW: framing 1 carried no served")],
+    ["framings resolved against different commits refuse — one receipt, one pin",
+     () => compose([one[0], { framing: framing("q2"),
+       text: JSON.stringify({ pin: "product-lab@0000000", request_id: "r", consulted: "consulted: product-lab@0000000 a.md:1" }) }],
+       "uncovered-after-2-framings").startsWith("THREW: framings resolved against different substrate commits")],
+    ["a multi-line framing refuses — `query:` is one line",
+     () => compose([{ framing: framing("line one\nline two"), text: served("r", "a.md:1") }], "discriminating")
+       .startsWith("THREW: framing 1 spans several lines")],
+    // A non-policy_lookup tool has no `question`; the args as sent are the framing.
+    ["a tool without a `question` argument records the args as sent",
+     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" } },
+       text: served("r", "gloss/lessons/testing.md:1-157") }], "discriminating")
+       .includes('  query: {"tag":"lessons/testing"}')],
+  ];
+  const failures = cases.filter(([, f]) => f() !== true).map(([n]) => n);
+  if (failures.length) {
+    console.log("FAIL receipt composition fixtures:");
+    for (const f of failures) console.log(`  ${f}`);
+    process.exit(1);
+  }
+  console.log(`fixture pass: ${cases.length}/${cases.length} receipt-composition cases ` +
+    "(line one copied from the server; one query line per framing; pins merged " +
+    "under one commit; the outcome token carried, never chosen; five refusals)");
+  process.exit(0);
+}
+
 try {
   await rpc(1, "initialize", {
     protocolVersion: "2024-11-05",
@@ -138,13 +403,42 @@ try {
     clientInfo: { name: "tsurezure-client-kit", version: "0.1.0" },
   });
   proc.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} }) + "\n");
-  const res = await rpc(2, "tools/call", { name: tool, arguments: toolArgs });
+  // Results are BUFFERED, never streamed, so a run that degrades on framing 2
+  // still prints exactly one `policy_source unavailable:` line and nothing
+  // else — the one-line contract is over the whole invocation, not per call.
+  const observed = [];
+  for (const [i, framing] of framings.entries()) {
+    timer.refresh();
+    const res = await rpc(2 + i, "tools/call", { name: framing.tool, arguments: framing.args });
+    if (res.error) unavailable(`rpc error: ${res.error.message ?? "unknown"}`);
+    const text = (res.result?.content ?? []).map((c) => c.text ?? "").join("");
+    if (res.result?.isError) unavailable(`tool error: ${text.slice(0, 200)}`);
+    observed.push({ framing, text });
+  }
   clearTimeout(timer);
   proc.kill();
-  if (res.error) unavailable(`rpc error: ${res.error.message ?? "unknown"}`);
-  const text = (res.result?.content ?? []).map((c) => c.text ?? "").join("");
-  if (res.result?.isError) unavailable(`tool error: ${text.slice(0, 200)}`);
-  writeThenExit(text, 0);
+  const results = observed.map((o) => o.text).join("\n");
+  // writeThenExit RETURNS (it defers the exit until stdout drains), so every
+  // branch below is exclusive rather than a fallthrough guarded by an early
+  // return that does not exist.
+  if (!receiptMode) {
+    writeThenExit(results, 0);
+  } else {
+    let block = null;
+    let why = null;
+    try {
+      block = composeReceipt(observed, outcome);
+    } catch (e) {
+      why = e.message;
+    }
+    if (block === null) {
+      // The consult HAPPENED — its results are the caller's — but the wire did
+      // not carry what a receipt asserts. Print the results, refuse the block.
+      writeThenExit(`${results}\nreceipt not composable: ${why}`, 12);
+    } else {
+      writeThenExit(`${results}\n\n${block}`, 0);
+    }
+  }
 } catch (e) {
   clearTimeout(timer);
   proc.kill();
