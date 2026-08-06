@@ -172,13 +172,16 @@ independence observable.
 ## The report's shape
 
 A report is a **pull-request comment** whose first line is a fixed token at a
-fixed position:
+fixed position, and which **declares its scope and its completeness** on two
+further fixed lines (`specs/SPEC.md` §4 clauses 5 and 6):
 
 ```
 review-lane report: <head sha>
+review-scope: <full|delta>
+finding: <blocking|should|nit> <open|resolved> [policy: <pin> | harm: <one line>]  <the finding>
+…
+report-complete: <N> findings
 ```
-
-followed by the findings in whatever form the lane produces them.
 
 - **A PR comment, not a commit or a file on the branch** — deliberately. The
   reviewer must not author the branch, and committing to it would make them a
@@ -186,8 +189,69 @@ followed by the findings in whatever form the lane produces them.
 - **The head sha is part of the report, not a courtesy.** A report reviewed
   the code it names; a later push is unreviewed, and the check reports a
   report naming an older head as **stale** rather than counting it.
-- The check reads **only** that first line. What the findings say is judgment
-  and stays here.
+- **The declarations are separate adjacent lines, and the report token is
+  never widened.** `review-lane report: <sha> delta` is *not* the grammar.
+  That form was exercised through `tools/review-sweep.sh`'s embedded fixture
+  pass before this was written: with the token's regex not widened in
+  lockstep, a declared report segmented to **nothing** and read as *absent*.
+  The regex lives in two files; the adjacent form is the one whose failure
+  mode does not exist. Same use-vs-mention class kogaki#41 fixed once.
+- The check reads **only** these declared lines. What the findings say is
+  judgment and stays here.
+
+### `review-scope:` — what the report attests to (§4 clause 5, kogaki#70)
+
+`full` reviewed the whole diff. `delta` reviewed the previous round's findings
+× the fix commits: each finding checked resolved, and only the diff the fix
+introduced re-read.
+
+- **A round-2 review is `delta` by default.** That is the right economics — the
+  measured rally (PR #67) spent 43 of its 92 turns re-deriving round 1's own
+  observations: the PR view, the issue view, the full diff, the registry diff,
+  the receipts check, all again.
+- **`delta` is a default, never a ceiling.** If the fix touched files **outside
+  the ones round 1's findings named**, escalate to `full` for the diff and
+  declare `full`. New code nobody has reviewed is not covered by a report about
+  old findings.
+- **Round 2 reads round 1's report as its input.** The round-1 report is
+  segment-bound to its head and is on the PR; read it rather than
+  reconstructing its observations from the PR from scratch. That reconstruction
+  is the cost clause 5 exists to stop paying.
+- **Omitting the line declares `full`.** The default is the compatibility
+  direction — every report already in this repository's history is a full
+  review — so *never* omit it to mean "I did not decide". Write the one you
+  performed.
+- **Nothing verifies your declaration, and that is stated rather than hidden.**
+  A reviewer that declares `delta` and reads nothing is indistinguishable at
+  the gate from one that read the fix commits. Clause 5 is deliberately
+  carrier-less with a named reopen trigger — one PR whose round-2 report
+  declared `delta` and missed a defect lying inside the fix commits it claimed
+  to cover. The honesty of the declaration is yours to supply.
+
+### `report-complete:` — and a fragment counts as nothing (§4 clause 6, kogaki#74)
+
+End the report with `report-complete: <N> findings`, where **N is exactly the
+number of `finding:` lines above it**. The merge check counts your segment
+**only** when that line is present and the count matches.
+
+- **A partial report turns nothing green.** A split report holds the gate red
+  until its last part lands.
+- **The specimen is a merge that should not have happened.** On PR #71 the
+  reviewer was denied the grants that let it post in one act, so it split its
+  report: the first part — resolving the previous round — landed at 15:50:40,
+  the re-check fired, armed auto-merge completed at 15:51:09, and the
+  **complete** report carrying a new open blocking finding arrived at 15:53:37
+  on an already-merged PR. Nothing distinguished a complete report from the
+  first fragment of one, so the gate read a fragment as the verdict.
+- **Write the terminal line last, and write it once.** The first
+  `report-complete:` in a segment is the one that counts, and any `finding:`
+  line written after it still counts toward N — so a report that keeps writing
+  past its own terminal token fails count equality and is read as a fragment.
+- **An absent line is read as complete.** The token binds reports written after
+  it ships; voiding this repository's history would empty the gate rather than
+  tighten it. That is compatibility, not permission to omit it.
+- **Both lines are anchored whole.** Mentioning `report-complete:` inside a
+  finding's prose declares nothing — it is a mention, not a declaration.
 
 ## The postmortem hand-off (kogaki#24 shape)
 
@@ -320,6 +384,15 @@ convenient one.
 
 Rounds are counted from the report segments themselves, so **every round
 leaves its record** without a separate ledger (§4 clause 4).
+
+**A fragment is not a report for any of these states** (§4 clause 6). A segment
+whose `report-complete:` count does not match its own finding lines produces
+neither `done` nor `author-owes`: the head is simply unreviewed, and the sweep
+says so by name rather than reporting "no report" for a report that plainly
+arrived. The round it spent is still counted as spent — the cost was paid
+whether or not the artifact arrived whole — so a reviewer that fragments twice
+parks the PR. Its own open blocking findings still gate, because a fragment
+turns nothing *green* and incompleteness must never be a way to hide one.
 
 **Two honest limits, stated rather than discovered:**
 
