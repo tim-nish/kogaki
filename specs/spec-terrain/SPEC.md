@@ -1,6 +1,11 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v4.2, amended 2026-08-06 — the key's arity is UNIFORM (v4.1's
+**Status:** v4.3, amended 2026-08-06 — §12.1's HEADING, opening sentence and
+normative TABLE are brought into line with the triple (v4.2 changed the rule in
+prose and left the table stating the old one), "the pair" is swept from the
+four remaining identity sites, and story 1.30's acceptance criteria are
+corrected to the triple with its merge named as §11's flip. v4.2 amended
+2026-08-06 — the key's arity is UNIFORM (v4.1's
 content-conditional judge-pin exception is WITHDRAWN: it decided the key from
 the report's own content, so no request could form it) and §11's trigger names
 its discharging act. v4.1 amended 2026-08-06 — three review-lane findings on PR #134
@@ -1015,7 +1020,7 @@ exactly and never a subset of it. Without this
 clause the artifact is unresolvable: §12.1 states identity as a *property* of
 a report rather than an obligation to record one, and §12.2 forbids the only
 other source — "nothing may read meaning out of [the filename], parse it to
-recover the pair, or key on it — the report's own recorded pin, query and
+recover the triple, or key on it — the report's own recorded pin, query and
 judge pin are the only source of that." An implementer could satisfy every other clause here
 and emit reports that no request could ever resolve to, which is the
 `establish-the-substrate-before-reporting` shape: the artifact would agree with
@@ -1045,17 +1050,26 @@ So a Brief, a proposal, or a recommendation **may never cite a report id**.
 They cite members and pins, exactly as they do today. A report id addresses a
 rendering for the owner's own re-reading and nothing downstream resolves one.
 
-### 12.1 Identity — the pair (substrate pin, co-tag query)
+### 12.1 Identity — the triple (substrate pin, co-tag query, judge pin)
 
 A Full Report is identified by the **substrate pin** in effect when it was
-generated and the **co-tag query** that produced it. The three cases the
-issue states, restated as the rule they share:
+generated, the **co-tag query** that produced it, and the **judge pin** under
+which its material was judged — the last taking the typed value `none` where
+no judged material is present. The cases, restated as the rule they share:
 
 | act | result |
 |---|---|
-| same pin, same query, run twice | **one** report — the rerun is idempotent, not a duplicate |
-| pin advances, same query | **two** reports, one per pin |
+| same pin, same query, same judge pin, run twice | **one** report — the rerun is idempotent, not a duplicate |
+| pin advances, rest unchanged | **two** reports, one per pin |
 | same pin, different query | **two** reports, one per query |
+| same pin, same query, one run subdivided and one not | **two** reports — `(pin, query, <judge pin>)` and `(pin, query, none)`, coexisting; neither collides nor supersedes |
+
+**This table is the normative form.** kogaki#129 stated three cases and v4
+carried them verbatim; the fourth is v4.2's, and it is written *into the
+table* rather than only into the prose below, because the table is what an
+implementer reads first and a table contradicted by a later paragraph is a
+rule that is wrong as written for every reader who stops at it (v4.3,
+kogaki#131).
 
 **The co-tag query IS the pair (selected tag, named group)** — v4, kogaki#131.
 Two reports are the same report when both components match, and different
@@ -1132,7 +1146,7 @@ computed over different denominators, which is the same-key-different-content
 collision the hub already refuses at a resolver
 (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:145`).
 
-**Why the pin and not a version field.** The pair is not a convenience key;
+**Why the pin and not a version field.** The triple is not a convenience key;
 it is the ratified shape for a derivation that outlives its computation:
 
 > "An artifact that will be ACTED ON after it is computed carries the state it
@@ -1186,10 +1200,10 @@ answered here.
 filename the emitter chooses.** These are two jobs, not one:
 
 - **Identity is normative.** A request for the report of `(pin, tag, group)`
-  must resolve to exactly the report that pair identifies, and to a new one
+  must resolve to exactly the report that triple identifies, and to a new one
   when any component differs. Every rule in §12.1 binds here.
 - **The filename is implementer-owned and carries no authority.** Nothing may
-  read meaning out of it, parse it to recover the pair, or key on it — the
+  read meaning out of it, parse it to recover the triple, or key on it — the
   report's own recorded pin, query and judge pin are the only source of that.
   A filename
   is at most a convenience for a human listing a directory.
@@ -1198,7 +1212,7 @@ The split is not invented for this case; the hub already draws it between a
 **join key** and a **citation that is provenance**
 (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:171`),
 where a component was found joining on the citation and reporting 32 of 35
-entries as orphaned. A filename derived from the pair is exactly that hazard's
+entries as orphaned. A filename derived from the triple is exactly that hazard's
 shape: it looks like a key, is not one, and drifts silently the first time an
 emitter changes how it renders a group name.
 
