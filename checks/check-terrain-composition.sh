@@ -809,3 +809,131 @@ if (seamAbsent) {
     + "and untruncated asserted per artifact)");
 }
 JS
+
+# --- claim re-offer origin fixture (kogaki#143) ------------------------------
+#
+# WHY THIS IS AN EXTENSION AND NOT A TENTH CHECK. `claim`'s origin path is
+# terrain composition — §7's claim lifecycle is the contract this file already
+# carries — so the coverage lands inside an existing member's declared contract
+# and no admission record is owed. A tenth check for one finding is the
+# one-member-per-incident growth the served surface names as the tell that you
+# are on the wrong side ("a check suite growing at roughly one member per
+# incident", product-lab@f918c515 LESSONS.md:45), in a repository whose
+# founding decision put a rebuilt suite under a high admission bar to avoid it.
+#
+# WHAT IT DISCRIMINATES. §7's v4 rider defines THREE origin branches and story
+# 1.31 shipped all three untested — no registered check invoked `terrain.mjs
+# claim` at all, and PR #141's acceptance table named a test that did not
+# exist. The third branch is the one most worth holding: its whole content is
+# that an absent origin is STATED and never fabricated, so its failure mode is
+# a MISSING line rather than a wrong one, which no assertion about present
+# content would catch.
+#
+# Seam-free by construction: `claim` reads the survey record and the gate
+# registry and never reaches the gateway, so unlike the Full Report block above
+# this one runs everywhere.
+node --input-type=module - <<'JS'
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+
+const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const TAG = "testing";
+const GROUP = "architecture";
+const fails = [];
+
+// The re-offer is a GATE EVENT and fires only on a SUBSET selection (§7), so
+// every case below names a proper subset of the group's members.
+const claim = (dir, extra) => spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "claim", "--survey", FIXTURE, "--tag", TAG, "--group", GROUP,
+   "--text", "the recomposed wording", "--members", "lesson:alpha",
+   "--run-dir", dir, ...extra], { encoding: "utf8" });
+
+const declarationIn = (dir) => {
+  const f = readdirSync(dir).find((x) => x.endsWith(".run-declaration.json"));
+  return f ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null;
+};
+
+// Branch 1 — RECORD. The pre-existing path: `--original <claim record>`.
+const d1 = mkdtempSync(join(tmpdir(), "claim-record-"));
+const seed = claim(d1, []);
+if (seed.status !== 0) fails.push(`claim (seed) exited ${seed.status}: ${(seed.stderr || "").trim()}`);
+const seedRec = readdirSync(d1).find((x) => x.endsWith(".terrain-claim.json"));
+if (!seedRec) fails.push("claim wrote no claim record for the subset selection");
+const d1b = mkdtempSync(join(tmpdir(), "claim-record-b-"));
+const fromRecord = claim(d1b, ["--original", join(d1, seedRec || "")]);
+if (fromRecord.status !== 0) fails.push(`claim --original exited ${fromRecord.status}: ${(fromRecord.stderr || "").trim()}`);
+const g1 = declarationIn(d1b);
+if (!g1) fails.push("the record branch emitted no gate run declaration");
+else if (g1.original_source !== "claim-record") {
+  fails.push(`the record branch's origin_source is ${JSON.stringify(g1.original_source)}, not "claim-record"`);
+} else if (!g1.original_claim || !Array.isArray(g1.original_members)) {
+  fails.push("the record branch carries no original claim or member set into the gate");
+}
+
+// Branch 2 — SCREEN-COMPOSED. §7's v4 rider: the screen writes NO record, so
+// the origin travels as ARGUMENTS. This is the branch the rider was written
+// for, and before kogaki#133 it was unreachable — `--original` reads a record
+// and the screen produces none, so exactly the claims v3 moved earlier reached
+// the owner with nothing to compare against.
+const d2 = mkdtempSync(join(tmpdir(), "claim-screen-"));
+const fromArgs = claim(d2, ["--original-text", "the screen's original line",
+                            "--original-members", "lesson:alpha,lesson:bravo"]);
+if (fromArgs.status !== 0) fails.push(`claim --original-text exited ${fromArgs.status}: ${(fromArgs.stderr || "").trim()}`);
+const g2 = declarationIn(d2);
+if (!g2) fails.push("the screen-composed branch emitted no gate run declaration");
+else {
+  if (g2.original_claim !== "the screen's original line") {
+    fails.push(`the screen-composed origin did not reach the gate: original_claim is ${JSON.stringify(g2.original_claim)}`);
+  }
+  if (JSON.stringify(g2.original_members) !== JSON.stringify(["lesson:alpha", "lesson:bravo"])) {
+    fails.push(`the screen-composed origin's MEMBER SET did not reach the gate: ${JSON.stringify(g2.original_members)} — the rider records the adopted claim together with the members it was composed from, so the wording alone is half the contract`);
+  }
+  if (!/screen-composed/.test(String(g2.original_source))) {
+    fails.push(`the screen-composed branch does not declare its source: ${JSON.stringify(g2.original_source)}`);
+  }
+}
+// No record is written BY THE SCREEN — the origin is passed, not persisted, so
+// §7's no-record rider stands. The claim record `claim` writes for its own
+// subset is the pre-existing artifact and is not what that rider governs.
+if (readdirSync(d2).filter((f) => f.endsWith(".terrain-claim.json")).length !== 1) {
+  fails.push("the screen-composed branch wrote an unexpected number of claim records — the origin travels as an argument and persists nothing of its own");
+}
+
+// Branch 3 — ABSENT. The branch whose entire content is that the absence is
+// STATED and never fabricated. Its failure mode is a MISSING line rather than
+// a wrong one, so it is asserted positively (the declaration says NONE) AND
+// negatively (nothing was invented).
+const d3 = mkdtempSync(join(tmpdir(), "claim-absent-"));
+const noOrigin = claim(d3, []);
+if (noOrigin.status !== 0) fails.push(`claim (no origin) exited ${noOrigin.status}: ${(noOrigin.stderr || "").trim()}`);
+const g3 = declarationIn(d3);
+if (!g3) fails.push("the absent-origin branch emitted no gate run declaration");
+else {
+  if (!/^NONE\b/.test(String(g3.original_source))) {
+    fails.push(`the absent-origin branch does not STATE the absence: original_source is ${JSON.stringify(g3.original_source)} — an omitted field and a field reading NONE are the same silence to a reader and different silences to a grep`);
+  }
+  if (g3.original_claim !== null || g3.original_members !== null) {
+    fails.push(`the absent-origin branch FABRICATED an origin: claim=${JSON.stringify(g3.original_claim)} members=${JSON.stringify(g3.original_members)}`);
+  }
+}
+
+// The three branches are genuinely distinct at the gate. Written because the
+// cheapest way to pass every assertion above is one branch that happens to
+// satisfy all of them.
+const sources = [g1, g2, g3].filter(Boolean).map((g) => String(g.original_source));
+if (new Set(sources).size !== sources.length) {
+  fails.push(`the origin branches do not discriminate — ${JSON.stringify(sources)} contains a duplicate, so at least two paths are indistinguishable at the gate`);
+}
+
+if (fails.length) {
+  console.log("FAIL claim re-offer origin fixture — §7's v4 rider is not observed:");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("claim re-offer origin fixture: 12/12 cases (record branch carries claim and "
+  + "members; screen-composed branch carries BOTH wording and member set as arguments and "
+  + "persists nothing of its own; absent branch STATES the absence and fabricates neither "
+  + "field; the three sources are mutually distinct at the gate)");
+JS
