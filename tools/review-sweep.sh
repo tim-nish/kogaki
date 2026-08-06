@@ -803,6 +803,19 @@ POSTING = (
     "the head stays unreviewed, so write the terminal line last and write it "
     "once. A round-2 review is `delta` by default and `full` whenever the fix "
     "touched files outside the ones round 1's findings named."
+    "\n\nA REFUSAL IS TERMINAL FOR THAT COMMAND (specs/SPEC.md §4, kogaki#100). "
+    "If a command you compose is refused, that command is OVER — do not "
+    "rephrase it, pipe it, redirect it, or hunt for a form that gets through. "
+    "This is ENFORCED, not requested: a gate refuses every rephrasing of an "
+    "already-denied command, so the turns are spent for nothing. Write the "
+    "dimension you could not cover as its own adjacent line, "
+    "`cannot-determine: <dimension> — <why>` (name the DIMENSION and the "
+    "missing grant, e.g. `cannot-determine: CI status — `gh run view` is not "
+    "granted`), and FINISH the review. That line is reported and never gated: "
+    "it is not a finding, it does not count toward `report-complete:`, and it "
+    "never blocks. A refused capability costs one dimension, not your report — "
+    "and a review missing one dimension is worth far more than no review, "
+    "which is what a spawn that spends its last turns rephrasing produces."
 )
 
 
@@ -819,6 +832,23 @@ POSTING = (
 # from typing a command — the denial already does that, silently and one turn
 # too late. This is the generation side of the same fix; the grant table is the
 # enumeration, and it stayed the size it was.
+#
+# RECLASSIFIED: THIS TEXT IS ERGONOMICS, NOT CONTROL (kogaki#100 AC 4). Its
+# closing two sentences — "never re-attempt a refused command in another form"
+# and "Do not spend turns probing for a form that gets through" — were the
+# ONLY carrier of §4's third conduct clause, and prose is advisory to a system
+# whose job is to satisfy instructions. It was measured failing on the very
+# next PR: on PR #98 this exact text was in the second spawn's own context
+# while that spawn spent its last four turns rephrasing one refused command.
+#
+# The text is KEPT, deliberately. Deleting it would remove a useful hint — the
+# granted alternative named beside each refused shape is something no signal
+# can compute, and naming one stays this prompt's static job. But it is marked
+# here so the next reader does not take it for the carrier again: the carrier
+# is the `PreToolUse` denial gate installed by `spawn()` below, and any gate
+# upstream of the violation layer counts as ergonomics rather than control —
+# which is the served line's own word for it
+# (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`).
 #
 # The fixer never gets this, for the same reason it never gets POSTING: it
 # holds a different grant list (no `gh pr comment`, no `gh api` question to
@@ -1266,6 +1296,273 @@ def remove_worktree(base, tree, log=None):
     return why is None
 
 
+# =========================================================================
+# A REFUSAL IS TERMINAL FOR THAT COMMAND (specs/SPEC.md §4's third conduct
+# clause, kogaki#100). The rule already shipped as PROSE, in the COMPOSITION
+# block above, and was measured failing on the very next PR: on PR #98 that
+# prompt was present in the second spawn's own context while the spawn spent
+# its last four turns rephrasing one refused command, and the first spawn
+# issued nine denials of one intent. Both ended `error_max_turns` and neither
+# posted a report.
+#
+# WHY THE CARRIER IS HERE. A prohibition needs a mechanical gate AT THE TOOL
+# BOUNDARY, and where that boundary belongs to another system the carrier goes
+# at the last boundary you control, with any gate upstream of it counting as
+# ergonomics rather than control
+# (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`).
+# The permission boundary is the harness's. The last boundary this repository
+# controls is the SPAWN, so the gate is installed by the spawn: the wrapper
+# reads the session's own stream, and a `PreToolUse` hook it writes refuses the
+# second attempt. Where that prevention lives inside the wrapper is story
+# 1.28's to settle and is explicitly not a named slot (§4, "What this fill does
+# NOT decide").
+#
+# THE SIGNAL IS THE EVENT, NEVER `is_error` (the `refusal-signal-source` fill,
+# owner decision 2026-08-06). The in-session
+# `{"type":"system","subtype":"permission_denied"}` event is emitted at the
+# moment of the denial, one per denial, with real lead time — PR #102's first
+# is at stream line 33 of 189. Keying on `is_error: true` instead would read a
+# transient failure as terminal: measured, 16 of 310 error results are ordinary
+# failures (`jq: command not found`, `File does not exist`, `ENOTDIR`) and NONE
+# of them carries a denial event. The event makes the distinction a READ.
+#
+# IT IS CLI-VERSION-SCOPED AND THAT IS A STATED PREMISE, NOT AN ASSUMPTION.
+# The event is observed present on CLI 2.1.223 and observed ABSENT on 2.1.222 —
+# a boundary that fell inside the very run the fill was measured on. The
+# prevention half therefore DEGRADES TO THE BACKSTOP, never to nothing: the
+# terminal `permission_denials` field of the `{"type":"result"}` record is
+# present on every spawn at every version observed and is what AC 5's count is
+# taken from. There is NO version preflight and the lane is never withheld —
+# a report, never a gate. `reconcile()` below is what makes the absence
+# visible, because an absent event generates nothing to hook.
+#
+# AND "TERMINAL" IS ABOUT THE COMMAND, NOT THE INTENT. The log does not
+# distinguish a rephrase-able denial from a dead-end one:
+# `decision_reason_type: subcommandResults` names one offending sub-part of a
+# compound command — the class kogaki#74 found HAD granted alternatives — and
+# it is absent on roughly a fifth of events, so it is a weak hint and never a
+# discriminator. Naming a granted alternative stays the COMPOSITION prompt's
+# static job. The correct exit is the report's `cannot-determine:` line.
+
+
+# THE KEY RULE HAS EXACTLY ONE COPY, and it is a source STRING because it must
+# run in two processes: here, where a denial is turned into a key, and in the
+# generated `PreToolUse` gate, where an incoming call is matched against one.
+# Two hand-written copies of a rule are two things that can disagree — the
+# defect this file has already found twice, once per call site — so the gate
+# EMBEDS this text verbatim rather than restating it, and a fixture below
+# compiles the generated gate and asserts the two agree.
+TERMINAL_KEY_SRC = '''
+def terminal_key(tool_name, command):
+    """The key a refused command is made terminal under.
+
+    A NORMALIZED FORM RATHER THAN THE RAW COMMAND STRING, which is the choice
+    specs/SPEC.md §4 leaves to story 1.28. The raw string would not survive a
+    rephrasing — and rephrasing is precisely the measured behaviour (PR #98's
+    last four turns) — so a raw key would gate nothing it was built to gate.
+
+    The normal form is the command's FIRST THREE WORDS under its tool name:
+    exactly the label `denied_tools()` renders, so the operator-facing name of
+    a denial and the key it is refused under are one string rather than two
+    that can disagree.
+
+    THE WIDTH IS THE WHOLE DESIGN, chosen against a measured failure in BOTH
+    directions. Wider (the tool name alone, or the leading word) OVER-blocks:
+    22 of 40 observed events are `subcommandResults`, one offending sub-part of
+    a COMPOUND command, so keying `git` on a denied `git fetch` would make the
+    granted `git log` terminal too — turning this gate into the review-deleting
+    failure kogaki#100 exists to end. Narrower (the raw string) UNDER-blocks,
+    as above. Three words separates `git fetch origin` from `git log --oneline`
+    while absorbing everything a rephrasing changes after them — a redirect, a
+    flag, a pipe.
+    """
+    words = (command or "").split()
+    return f"{tool_name}({' '.join(words[:3])})" if words else (tool_name or "")
+'''
+exec(TERMINAL_KEY_SRC)
+
+
+def denial_gate_source():
+    """The `PreToolUse` hook program, generated with the key rule EMBEDDED.
+
+    `terminal_key` is inlined from its own source rather than restated, so the
+    wrapper that WRITES a key and the hook that MATCHES one cannot drift apart.
+    Two copies of a rule are two things that can disagree; one copy and a
+    mechanical transcription is the shape this file already uses for every
+    knob it passes to its own heredoc.
+
+    THE GATE FAILS OPEN, deliberately and in exactly one direction. An
+    unreadable state file, an unparseable payload or a missing python all exit
+    0 and admit the call: this half is PREVENTION, an enhancement over the
+    guaranteed measurement path, and a gate that refused the review whenever
+    its own instrument was unavailable would cost the whole review to save
+    some turns — the trade kogaki#100 is against.
+    """
+    return (
+        "# GENERATED per spawn by tools/review-sweep.sh — never edited in\n"
+        "# place. `terminal_key` below is this file's ONLY copy of the key\n"
+        "# rule, transcribed verbatim from its single definition.\n"
+        "import json, os, sys\n\n"
+        + TERMINAL_KEY_SRC
+        + "\n\ndef main():\n"
+        "    try:\n"
+        "        ev = json.load(sys.stdin)\n"
+        "        terminal = json.load(open(os.environ['KOGAKI_TERMINAL_DENIALS']))\n"
+        "    except Exception:\n"
+        "        return 0                      # fails OPEN: prevention only\n"
+        "    key = terminal_key(ev.get('tool_name') or '',\n"
+        "                       (ev.get('tool_input') or {}).get('command') or '')\n"
+        "    if key not in terminal:\n"
+        "        return 0\n"
+        "    try:\n"
+        "        with open(os.environ['KOGAKI_TERMINAL_PREVENTED'], 'a') as f:\n"
+        "            f.write(key + '\\n')\n"
+        "    except Exception:\n"
+        "        pass\n"
+        "    print(json.dumps({'hookSpecificOutput': {\n"
+        "        'hookEventName': 'PreToolUse',\n"
+        "        'permissionDecision': 'deny',\n"
+        "        'permissionDecisionReason': (\n"
+        "            'REFUSED ALREADY, AND A REFUSAL IS TERMINAL FOR THAT '\n"
+        "            'COMMAND (specs/SPEC.md §4, kogaki#100). `' + key + '` was "
+        "already denied in this session. Do NOT rephrase it, pipe it, or '\n"
+        "            'retry it in another form — every form is refused. Record "
+        "the blocked dimension in your report as a '\n"
+        "            '`cannot-determine: <dimension> — <why>` line and finish "
+        "the review. A refused capability costs ONE dimension, not the '\n"
+        "            'report.')}}))\n"
+        "    return 0\n\n\n"
+        "sys.exit(main())\n"
+    )
+
+
+class DenialWatch:
+    """Reads the spawn's own stream and makes each refused command terminal.
+
+    THREE JOBS, and they degrade independently. It (1) writes the terminal key
+    set the hook reads, which is the PREVENTION half and needs the event; (2)
+    counts events for AC 6's reconciliation; and (3) takes AC 5's count from
+    the terminal `permission_denials` field, which is the MEASUREMENT half and
+    never degrades.
+
+    THE BACKWARD JOIN IS WHY THIS READS THE WHOLE STREAM. The event carries
+    `tool_name`, `tool_use_id`, `message` and `decision_reason_type` — and NOT
+    `tool_input`. The command text lives only in the PRECEDING `assistant`
+    tool_use block, so the label a key is built from must be joined backwards
+    by `tool_use_id`. That is a fact about the event shape recorded in §4 so it
+    is not re-derived from the logs, and it is the reason a live reader cannot
+    simply read the label off the event.
+    """
+
+    def __init__(self, state_path, prevented_path):
+        self.state_path = state_path
+        self.prevented_path = prevented_path
+        self.pending = {}        # tool_use_id -> (tool_name, command)
+        self.terminal = []       # keys, in first-seen order
+        self.events = 0          # in-session denial events observed
+        self.measured = 0        # entries in the terminal permission_denials
+        self.non_bash = []       # events whose tool is not Bash — unproven path
+
+    def feed(self, line):
+        """One stream line. Never raises: a malformed line is not a reason to
+        take down a review, and the measurement half is read again at close."""
+        try:
+            rec = json.loads(line)
+        except (ValueError, TypeError):
+            return
+        if not isinstance(rec, dict):
+            return
+        if rec.get("type") == "assistant":
+            for block in ((rec.get("message") or {}).get("content") or []):
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    self.pending[block.get("id")] = (
+                        block.get("name") or "",
+                        (block.get("input") or {}).get("command") or "")
+            return
+        if rec.get("type") == "system" and rec.get("subtype") == "permission_denied":
+            self.events += 1
+            name, command = self.pending.get(
+                rec.get("tool_use_id"), (rec.get("tool_name") or "", ""))
+            name = name or (rec.get("tool_name") or "")
+            if name and name != "Bash":
+                # UNPROVEN, recorded as unproven. All observed events carried
+                # `tool_name: "Bash"`; MCP-tool, Write and Edit denials are
+                # unproven on the event path and are expected to reach only the
+                # terminal field. One seen here is the observation §4 names as
+                # the thing that would prove coverage wider than measured.
+                self.non_bash.append(name)
+            key = terminal_key(name, command)
+            if key and key not in self.terminal:
+                self.terminal.append(key)
+                self.publish()
+            return
+        if rec.get("type") == "result":
+            self.measured = len(rec.get("permission_denials") or [])
+
+    def publish(self):
+        """Write the terminal set for the hook, which runs in another process.
+
+        Written whole on every addition rather than appended: the hook reads it
+        with one `json.load`, and a partially-appended file is a parse error
+        that fails the gate open.
+        """
+        try:
+            with open(self.state_path, "w", encoding="utf-8") as f:
+                json.dump(self.terminal, f)
+        except OSError:
+            pass
+
+    def prevented(self):
+        """How many calls the hook actually refused — the gate's own record.
+
+        A path whose guard is constant-false is indistinguishable from a
+        deliberately disabled one, so the prevention half reports its own
+        firings rather than being inferred from the terminal set's size.
+        """
+        try:
+            with open(self.prevented_path, encoding="utf-8") as f:
+                return sum(1 for line in f if line.strip())
+        except OSError:
+            return 0
+
+    def reconcile(self):
+        """AC 6 — the two signals, reconciled, stated. Returns the log lines.
+
+        THE ABSENT CASE IS THE POINT. "The event did not arrive" produces no
+        event to hook, so an obligation of this shape needs its absence made
+        VISIBLE rather than gated. A run whose CLI predates the event path must
+        read as *prevention unavailable — N denials measured, 0 prevented* and
+        NEVER as "no denials": the two are indistinguishable in the output
+        otherwise, which is the measured-absence defect this whole clause was
+        written against.
+        """
+        out = [f"=== denials: {self.measured} measured (terminal "
+               f"`permission_denials`), {self.events} observed in-session, "
+               f"{len(self.terminal)} terminal command(s), "
+               f"{self.prevented()} prevented"]
+        if self.events == 0 and self.measured > 0:
+            out.append(f"=== prevention unavailable this run — "
+                       f"{self.measured} denials measured, 0 prevented. The "
+                       "in-session `permission_denied` event did not arrive; "
+                       "it is observed on Claude Code CLI >= 2.1.223 and "
+                       "absent on 2.1.222 (specs/SPEC.md §4, PREMISE 1). This "
+                       "is a REPORT, not a gate: the measurement half is "
+                       "undiminished and the review was never withheld.")
+        elif self.measured > self.events:
+            out.append(f"=== {self.measured - self.events} denial(s) reached "
+                       "the terminal field with NO matching in-session event. "
+                       "That is what a denial class the event path does not "
+                       "cover looks like — MCP-tool, `Write` and `Edit` "
+                       "denials are unproven on the event path (specs/SPEC.md "
+                       "§4, UNPROVEN), and this line is the named mechanism "
+                       "that observes it.")
+        for name in sorted(set(self.non_bash)):
+            out.append(f"=== a denial event carried tool_name {name!r}, which "
+                       "the event path was NOT proven to cover — recorded "
+                       "because it widens what is known, not assumed.")
+        return out
+
+
 def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
           tag="review", max_turns=None):
     """Run a spawned session with the declared policy, streaming to its log.
@@ -1285,11 +1582,41 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
     written next, beside it, so a leaked worktree is findable from the record.
     """
     os.makedirs(LOG_DIR, exist_ok=True)
+    # A refusal is terminal for that command (kogaki#100). The state file, the
+    # gate's own firing record and the generated hook all sit BESIDE this
+    # spawn's log, so a run is diagnosable from one directory and two
+    # concurrent spawns cannot share a terminal set.
+    denials_path = log_path + ".denials.json"
+    prevented_path = log_path + ".prevented"
+    gate_path = log_path + ".gate.py"
+    watch = DenialWatch(denials_path, prevented_path)
+    watch.publish()                       # an empty set, so the hook always reads
+    for stale in (prevented_path,):
+        try:
+            os.remove(stale)
+        except OSError:
+            pass
+    try:
+        with open(gate_path, "w", encoding="utf-8") as g:
+            g.write(denial_gate_source())
+        gate_settings = json.dumps({"hooks": {"PreToolUse": [
+            {"matcher": "*", "hooks": [
+                {"type": "command", "command": f"python3 {gate_path}"}]}]}})
+    except OSError:
+        # The gate could not be installed. Prevention is an ENHANCEMENT over
+        # the guaranteed measurement path, so the spawn proceeds without it and
+        # says so, rather than withholding the review.
+        gate_settings = None
     cmd = ["claude", "-p", prompt + HEADLESS,
            "--model", model or MODEL,
            "--max-turns", str(max_turns or MAX_TURNS),
            "--allowedTools", tools or REVIEW_TOOLS,
            "--verbose", "--output-format", "stream-json"]
+    if gate_settings:
+        cmd += ["--settings", gate_settings]
+    env = dict(os.environ,
+               KOGAKI_TERMINAL_DENIALS=denials_path,
+               KOGAKI_TERMINAL_PREVENTED=prevented_path)
     with open(log_path, "a", encoding="utf-8") as log:
         log.write(f"=== spawn: {' '.join(cmd)}\n")
         log.flush()
@@ -1313,9 +1640,33 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
             # regardless of WHICH descriptor carried it, which is why it is
             # the fix rather than tracking down the specific fd: a per-source
             # suppression would leave source N+1 live.
-            return subprocess.run(cmd, stdin=subprocess.DEVNULL,
-                                  stdout=log, stderr=subprocess.STDOUT,
-                                  cwd=tree, check=False).returncode
+            # STREAMED RATHER THAN REDIRECTED (kogaki#100). The log is written
+            # line by line and FLUSHED per line, so it stays exactly the
+            # artifact it was — a spawn that dies mid-run still leaves every
+            # line it produced — while the same lines pass through the denial
+            # watch on their way there. The terminal set has to be built while
+            # the session is still running, because a signal that arrives at
+            # the last line of the spawn cannot prevent anything: every turn
+            # the burn costs is already spent by then. That is the whole reason
+            # the event is primary and the terminal field is the backstop.
+            proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT,
+                                    cwd=tree, env=env, text=True, bufsize=1)
+            for line in proc.stdout:
+                log.write(line)
+                log.flush()
+                watch.feed(line)
+            proc.stdout.close()
+            code = proc.wait()
+            if gate_settings is None:
+                log.write("=== denial gate NOT installed (its state files "
+                          "could not be written) — prevention unavailable "
+                          "this spawn; the measurement half is unaffected\n")
+            for line in watch.reconcile():
+                log.write(line + "\n")
+            log.flush()
+            return code
         finally:
             # EVERY exit path, not only success: a non-zero exit and an
             # exception both reach here.
@@ -1359,12 +1710,12 @@ def denied_tools(log_path):
                 r'"tool_name":\s*"([^"]*)"((?:(?!"tool_name").)*)', blob, re.S):
             name, rest = entry
             cmd = re.search(r'"command":\s*"([^"]*)"', rest)
-            if cmd:
-                # First three words: enough to name the act, short enough that
-                # a comment listing several denials stays readable.
-                label = f"{name}({' '.join(cmd.group(1).split()[:3])})"
-            else:
-                label = name
+            # First three words: enough to name the act, short enough that a
+            # comment listing several denials stays readable — and since
+            # kogaki#100 it is `terminal_key()` rather than a second copy of
+            # the same expression, so the label an operator reads and the key a
+            # command is made terminal under are ONE string by construction.
+            label = terminal_key(name, cmd.group(1) if cmd else "")
             if label and label not in labels:
                 labels.append(label)
     return labels
@@ -1944,6 +2295,185 @@ if _cfail:
     sys.exit(1)
 print("cost pass: 7/7 rendering cases (four fields · absent record · missing "
       "field is `?` not 0 · the append is idempotent)")
+
+# --- a refusal is terminal for that command (kogaki#100) -------------------
+# EXERCISED, NOT REASONED ABOUT. Every input below is the real stream shape
+# recorded in §4 so it is not re-derived from the logs: the event carries
+# `tool_name`, `tool_use_id`, `message` and `decision_reason_type` and NOT
+# `tool_input`, so the command text is joined BACKWARDS from the preceding
+# `assistant` tool_use block. A suite that fed the event a `tool_input` it
+# never carries would pass while the live path produced bare tool names.
+_dfail = 0
+_ASSIST = ('{"type":"assistant","message":{"content":[{"type":"tool_use",'
+           '"id":"tu_1","name":"Bash","input":{"command":'
+           '"git fetch origin master"}}]}}')
+_DENY = ('{"type":"system","subtype":"permission_denied","tool_name":"Bash",'
+         '"tool_use_id":"tu_1","decision_reason_type":"subcommandResults",'
+         '"message":"requires approval"}')
+for _label, _got, _want in [
+    ("the key is the first three words under the tool name",
+     terminal_key("Bash", "git fetch origin master --prune"),
+     "Bash(git fetch origin)"),
+    ("a rephrasing past the third word hits the SAME key — which is the whole "
+     "reason the key is normalized",
+     terminal_key("Bash", "git fetch origin 2>&1 | tail -3"),
+     "Bash(git fetch origin)"),
+    ("a DIFFERENT git subcommand is a different key — the compound-command "
+     "class kogaki#74 found has granted alternatives must not be over-blocked",
+     terminal_key("Bash", "git log --oneline -5"), "Bash(git log --oneline)"),
+    ("a tool with no command keys on its own name",
+     terminal_key("mcp__tsurezure__gloss_index", ""),
+     "mcp__tsurezure__gloss_index"),
+    ("a short command keys on what there is",
+     terminal_key("Bash", "jq"), "Bash(jq)"),
+    ("and `denied_tools`' operator-facing label is the SAME string, because it "
+     "is now the same function", terminal_key("Bash", "git fetch origin master"),
+     "Bash(git fetch origin)"),
+]:
+    if _got != _want:
+        print(f"FAIL denial fixture [{_label}]: {_got!r}, want {_want!r}")
+        _dfail = 1
+
+# The watch, over a stream in the order the harness emits it.
+_w = DenialWatch(os.devnull, os.devnull)
+for _line in (_ASSIST, _DENY,
+              '{"type":"result","permission_denials":[{"tool_name":"Bash"}]}'):
+    _w.feed(_line)
+for _label, _got, _want in [
+    ("the backward join by tool_use_id recovers the command the event lacks",
+     _w.terminal, ["Bash(git fetch origin)"]),
+    ("the in-session event is counted", _w.events, 1),
+    ("the terminal field supplies the measurement (AC 5)", _w.measured, 1),
+]:
+    if _got != _want:
+        print(f"FAIL denial fixture [{_label}]: {_got!r}, want {_want!r}")
+        _dfail = 1
+
+# A denial whose tool_use_id joins to NOTHING still makes a key, from the
+# event's own tool_name: an unjoinable event must degrade to a coarser key
+# rather than to no key at all.
+_w2 = DenialWatch(os.devnull, os.devnull)
+_w2.feed('{"type":"system","subtype":"permission_denied","tool_name":"Write",'
+         '"tool_use_id":"tu_missing"}')
+if _w2.terminal != ["Write"] or _w2.non_bash != ["Write"]:
+    print(f"FAIL denial fixture [an unjoinable non-Bash event]: "
+          f"{_w2.terminal!r} / {_w2.non_bash!r}")
+    _dfail = 1
+
+# ORDINARY FAILURES ARE NOT DENIALS. The key is the EVENT, never `is_error`:
+# 16 of 310 error results in the measured corpus are ordinary failures and none
+# carries a denial event. A carrier keyed on `is_error` would read a transient
+# failure as terminal, which is the slot's own counter-argument.
+_w3 = DenialWatch(os.devnull, os.devnull)
+_w3.feed(_ASSIST)
+_w3.feed('{"type":"user","message":{"content":[{"type":"tool_result",'
+         '"tool_use_id":"tu_1","is_error":true,"content":"jq: command not found"}]}}')
+_w3.feed('{"type":"result","permission_denials":[]}')
+if _w3.terminal or _w3.events or _w3.measured:
+    print(f"FAIL denial fixture [an ordinary failure is not a denial]: "
+          f"{_w3.terminal!r} / {_w3.events} / {_w3.measured}")
+    _dfail = 1
+
+# AC 6 — the reconciliation, in all three shapes. The ABSENT case is the point:
+# it must read as prevention-unavailable and NEVER as "no denials".
+_recon = [
+    ("both signals present", 2, 2, "denials: 2 measured", None),
+    ("the event path ABSENT — the CLI 2.1.222 shape", 12, 0,
+     "prevention unavailable this run", "12 denials measured, 0 prevented"),
+    ("a denial the event path does not cover", 3, 1,
+     "reached\nthe terminal field with NO matching in-session event".replace(
+         "\n", " "), None),
+    ("no denials at all says nothing about prevention", 0, 0,
+     "denials: 0 measured", None),
+]
+for _label, _measured, _events, _must, _also in _recon:
+    _w4 = DenialWatch(os.devnull, os.devnull)
+    _w4.measured, _w4.events = _measured, _events
+    _text = " ".join(_w4.reconcile())
+    if _must not in _text or (_also and _also not in _text):
+        print(f"FAIL denial fixture [{_label}]: {_text!r}")
+        _dfail = 1
+    if _measured and not _events and "no denials" in _text.lower():
+        print(f"FAIL denial fixture [{_label}]: an absent event path reported "
+              "as 'no denials' — the measured-absence defect itself")
+        _dfail = 1
+
+# THE GENERATED GATE IS EXERCISED, not merely written. A hook that never ran is
+# a carrier whose inputs have no writer: it would look installed and refuse
+# nothing. This compiles it, then runs its decision over both directions.
+_gate_src = denial_gate_source()
+try:
+    _ns = {}
+    exec(compile(_gate_src.replace("sys.exit(main())", ""),
+                 "<denial-gate>", "exec"), _ns)
+    if _ns["terminal_key"]("Bash", "git fetch origin master") != \
+            terminal_key("Bash", "git fetch origin master"):
+        print("FAIL denial fixture [the generated gate's key rule drifted from "
+              "its one definition]")
+        _dfail = 1
+except Exception as _e:                      # noqa: BLE001 — the fixture IS the report
+    print(f"FAIL denial fixture [the generated gate does not compile]: {_e}")
+    _dfail = 1
+_gate_file = os.path.join(tempfile.mkdtemp(prefix="kogaki-gate-"), "gate.py")
+with open(_gate_file, "w", encoding="utf-8") as _f:
+    _f.write(_gate_src)
+_state = _gate_file + ".json"
+_prev = _gate_file + ".prevented"
+with open(_state, "w", encoding="utf-8") as _f:
+    json.dump(["Bash(git fetch origin)"], _f)
+_genv = dict(os.environ, KOGAKI_TERMINAL_DENIALS=_state,
+             KOGAKI_TERMINAL_PREVENTED=_prev)
+for _label, _payload, _want_deny in [
+    ("a terminal command is REFUSED on any rephrasing",
+     {"tool_name": "Bash", "tool_input": {"command": "git fetch origin 2>&1"}},
+     True),
+    ("an untouched command is admitted",
+     {"tool_name": "Bash", "tool_input": {"command": "git log --oneline"}},
+     False),
+    ("a different tool is admitted", {"tool_name": "Read", "tool_input": {}},
+     False),
+]:
+    _r = subprocess.run(["python3", _gate_file], input=json.dumps(_payload),
+                        capture_output=True, text=True, env=_genv)
+    _denied = "deny" in _r.stdout
+    if _denied != _want_deny or _r.returncode != 0:
+        print(f"FAIL denial fixture [{_label}]: rc={_r.returncode} "
+              f"out={_r.stdout!r} err={_r.stderr!r}")
+        _dfail = 1
+    if _denied and "cannot-determine" not in _r.stdout:
+        print(f"FAIL denial fixture [{_label}]: the refusal does not route the "
+              "session to a cannot-determine line (AC 3)")
+        _dfail = 1
+# AND IT FAILS OPEN, in exactly one direction: prevention is an enhancement
+# over the guaranteed measurement path, so an unreadable state file admits the
+# call rather than costing the whole review.
+_r = subprocess.run(["python3", _gate_file],
+                    input=json.dumps({"tool_name": "Bash",
+                                      "tool_input": {"command": "git fetch origin"}}),
+                    capture_output=True, text=True,
+                    env=dict(os.environ, KOGAKI_TERMINAL_DENIALS="/nonexistent",
+                             KOGAKI_TERMINAL_PREVENTED=_prev))
+if "deny" in _r.stdout or _r.returncode != 0:
+    print(f"FAIL denial fixture [an unreadable state file must fail OPEN]: "
+          f"rc={_r.returncode} out={_r.stdout!r}")
+    _dfail = 1
+# The gate records its OWN firings, so prevention is never inferred.
+if not os.path.exists(_prev) or not open(_prev).read().strip():
+    print("FAIL denial fixture [the gate did not record its firing, so "
+          "prevention would be inferred rather than observed]")
+    _dfail = 1
+shutil.rmtree(os.path.dirname(_gate_file), ignore_errors=True)
+if _dfail:
+    print("FAIL: a refusal is not terminal for that command (kogaki#100)")
+    sys.exit(1)
+print("denial pass: 6/6 key cases (three-word normal form / rephrasing hits / "
+      "sibling subcommand does not / no-command / short / one label) + 3 watch "
+      "cases (backward join, event count, terminal-field measurement) + "
+      "unjoinable-event + ordinary-failure-is-not-a-denial + 4 reconciliation "
+      "shapes (the absent event path never reads as 'no denials') + 5 "
+      "generated-gate cases (compiles, key rule has not drifted, refuses a "
+      "rephrasing with a cannot-determine route, admits siblings and other "
+      "tools, fails OPEN, records its own firing)")
 
 # --- fixture pass: the state machine, exercised without a network ---------
 H = 'abc1234def'

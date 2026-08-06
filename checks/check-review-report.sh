@@ -86,7 +86,19 @@
 #   review-base: <base sha>             — absent means NO RECORDED BASE
 #   review-scope: full | delta          — absent is read as `full`
 #   finding: ...
+#   cannot-determine: <dimension> — <why>   — REPORTED, never gated
 #   report-complete: <N> findings       — absent is read as complete
+#
+# A REFUSED CAPABILITY DEGRADES A DIMENSION, IT DOES NOT DELETE A REPORT (§4's
+# third conduct clause, kogaki#100). `cannot-determine:` is where a reviewer
+# blocked by a refused command puts the blocked dimension INSTEAD OF RETRYING —
+# on PR #98 a spawn spent its last four turns rephrasing one refused command and
+# posted no report at all. The line is REPORTED AND NEVER GATED, on the same
+# side of the two-layer split as `review-scope:`: whether a blocked dimension
+# should have been obtained is the lane's judgment, which is where clause 5
+# already puts scope honesty. Concretely it is NOT a finding, it does NOT count
+# toward `report-complete:` equality, and it never blocks — a line whose whole
+# purpose is to record an absence cannot also be a reason to fail.
 #
 # Only ONE of them is enforced here, and the asymmetry is the two-layer split
 # rather than an inconsistency. COMPLETENESS is two mechanical facts — the
@@ -296,6 +308,14 @@ COMPLETE = re.compile(r'^\s*report-complete:\s*(\d+)\s+findings?\s*$',
 # and tools/review-sweep.sh, both of which an adjacent line leaves untouched.
 # A `review-base:` inside a finding's prose is a MENTION, never a declaration.
 BASE = re.compile(r'^\s*review-base:\s*([0-9a-f]{7,40})\s*$', re.MULTILINE)
+# THE BLOCKED DIMENSION (§4's third conduct clause, kogaki#100). A fourth
+# adjacent declaration on the established pattern, anchored WHOLE, read in the
+# same pass. Its payload is taken WHOLE and is deliberately unvalidated beyond
+# being non-empty: the line is REPORTED and never gated, so refusing a shape
+# would be gating the one declaration whose entire job is to record that
+# something could not be obtained. The `<dimension> — <why>` split is rendered
+# when the separator is there and the raw payload is shown when it is not.
+CANNOT = re.compile(r'^\s*cannot-determine:\s*(\S.*?)\s*$', re.MULTILINE)
 
 
 def counted(seg):
@@ -340,8 +360,10 @@ def segments(bodies):
     state; a new round supersedes by writing a new report, not by mutating
     an old one.
 
-    Each segment also carries its three DECLARATIONS (§4 clauses 5, 6 and 7),
-    read in this same pass: `scope` ('full'|'delta'|None), `complete`
+    Each segment also carries its DECLARATIONS (§4 clauses 5, 6 and 7 and the
+    third conduct clause), read in this same pass: `cannot` (every blocked
+    dimension declared, in order — reported, never gated), `scope`
+    ('full'|'delta'|None), `complete`
     (the declared N, or None) and `base` (the recorded base sha, or None —
     absent means NO RECORDED BASE, never a default sha, and routes the
     carry-forward to clause 7's transitional fallback). The FIRST declaration
@@ -362,7 +384,7 @@ def segments(bodies):
     for line in (bodies or '').splitlines():
         r = REPORT.match(line)
         if r:
-            current = {'sha': r.group(1), 'findings': [],
+            current = {'sha': r.group(1), 'findings': [], 'cannot': [],
                        'scope': None, 'complete': None, 'base': None}
             segs.append(current)
             continue
@@ -372,6 +394,17 @@ def segments(bodies):
         if b:
             if current['base'] is None:
                 current['base'] = b.group(1)
+            continue
+        cd = CANNOT.match(line)
+        if cd:
+            # EVERY one is kept, unlike the single-valued declarations above: a
+            # review can be blocked on several dimensions, and a first-wins rule
+            # here would silently drop the second and third disclosures. It is
+            # appended to its OWN list and never to `findings`, which is what
+            # makes AC 2's three properties true by construction rather than by
+            # a rule someone must remember — not a finding, no effect on count
+            # equality, never a gate.
+            current['cannot'].append(cd.group(1))
             continue
         s = SCOPE.match(line)
         if s:
@@ -430,6 +463,20 @@ def head_scope(bodies, head, carried=()):
         if counted(seg):
             return scope_of(seg), seg['scope'] is not None
     return None, False
+
+
+def head_cannot(bodies, head, carried=()):
+    """Every blocked dimension this head's segments declared, in order.
+
+    REPORTED, NEVER GATED (kogaki#100 AC 2). It is returned for rendering and
+    is read by nothing that decides a state: `find_report` never consults it,
+    `counted()` never counts it, and `open_blocking` never sees it. A refused
+    capability costs one dimension, not the review.
+    """
+    out = []
+    for seg in head_segments(segments(bodies), head, carried):
+        out.extend(seg['cannot'])
+    return out
 
 
 def carry_forward(bodies, head, base_b, diff_at, merge_base):
@@ -953,6 +1000,98 @@ print(f"carry-forward pass: {len(CARRY)}/{len(CARRY)} clause-7 cases "
       "and its two refusals / blocked and fragment still bind / self), plus "
       "the record-is-written and not-a-round assertions")
 
+# --- the blocked dimension (§4's third conduct clause, kogaki#100) ----------
+# REPORTED, NEVER GATED. Every case asserts the state AND the dimensions read,
+# because the risk this line carries is the inverse of the one the gated
+# declarations carry: not that it fails to parse, but that it acquires gating
+# force it must not have. A `cannot-determine:` that could turn a report red
+# would make a refused capability delete the review — which is the defect
+# kogaki#100 exists to end, reintroduced by its own remedy.
+CD = [
+    ("a blocked dimension is read, and the report stays PRESENT",
+     f"review-lane report: {HEAD}\n"
+     "cannot-determine: CI status — `gh run view` is not granted\n"
+     "report-complete: 0 findings", HEAD, 'present',
+     ["CI status — `gh run view` is not granted"]),
+    ("SEVERAL blocked dimensions are all kept — a first-wins rule here would "
+     "silently drop the second disclosure",
+     f"review-lane report: {HEAD}\n"
+     "cannot-determine: CI status — ungranted\n"
+     "cannot-determine: the registry diff — ungranted\n"
+     "report-complete: 0 findings", HEAD, 'present',
+     ["CI status — ungranted", "the registry diff — ungranted"]),
+    ("a blocked dimension does NOT count toward report-complete equality "
+     "(AC 2) — one finding, two blocked dimensions, declares 1",
+     f"review-lane report: {HEAD}\nfinding: should open  x\n"
+     "cannot-determine: CI status — ungranted\n"
+     "cannot-determine: the registry diff — ungranted\n"
+     "report-complete: 1 findings", HEAD, 'present',
+     ["CI status — ungranted", "the registry diff — ungranted"]),
+    ("a blocked dimension NEVER blocks, whatever its prose says",
+     f"review-lane report: {HEAD}\n"
+     "cannot-determine: security — blocking, open, and I could not check it\n"
+     "report-complete: 0 findings", HEAD, 'present',
+     ["security — blocking, open, and I could not check it"]),
+    ("a payload without the em-dash is still read — the line is reported, so "
+     "refusing a shape would be gating the one declaration that cannot gate",
+     f"review-lane report: {HEAD}\ncannot-determine: CI status",
+     HEAD, 'present', ["CI status"]),
+    ("an EMPTY payload is not a declaration",
+     f"review-lane report: {HEAD}\ncannot-determine:   ", HEAD, 'present', []),
+    ("MENTIONING cannot-determine in a finding's prose declares nothing",
+     f"review-lane report: {HEAD}\n"
+     "finding: nit open  write a cannot-determine: line here instead\n"
+     "report-complete: 1 findings", HEAD, 'present', []),
+    ("a blocked dimension before any report belongs to no segment",
+     f"cannot-determine: CI status — ungranted\n"
+     f"review-lane report: {HEAD}", HEAD, 'present', []),
+    ("a blocked dimension under a STALE report is not this head's disclosure",
+     "review-lane report: 9999999\ncannot-determine: CI status — ungranted\n"
+     f"review-lane report: {HEAD}", HEAD, 'present', []),
+    ("a real open blocking still gates beside a blocked dimension — the line "
+     "excuses nothing else in the report",
+     f"review-lane report: {HEAD}\n"
+     "cannot-determine: CI status — ungranted\n"
+     "finding: blocking open [harm: the pin serves a wrong line]  x\n"
+     "report-complete: 1 findings", HEAD, 'blocked',
+     ["CI status — ungranted"]),
+    ("a FRAGMENT is still a fragment beside a blocked dimension",
+     f"review-lane report: {HEAD}\n"
+     "cannot-determine: CI status — ungranted\n"
+     "report-complete: 4 findings", HEAD, 'incomplete',
+     ["CI status — ungranted"]),
+]
+cd_bad = []
+for name, bodies, head_fx, want_state, want_cd in CD:
+    got_state, _ = find_report(bodies, head_fx)
+    got_cd = head_cannot(bodies, head_fx)
+    if got_state != want_state or got_cd != want_cd:
+        cd_bad.append(f"{name}: got ({got_state!r}, {got_cd}), "
+                      f"want ({want_state!r}, {want_cd})")
+# AC 2 asserted DIRECTLY rather than only through the cases above: the declared
+# count is compared against the finding lines alone, so adding blocked
+# dimensions to a counted report must not move it off `present` — and removing
+# them must not either.
+_cd_base = (f"review-lane report: {HEAD}\nfinding: should open  x\n"
+            "report-complete: 1 findings")
+_cd_more = (f"review-lane report: {HEAD}\nfinding: should open  x\n"
+            "cannot-determine: a — b\ncannot-determine: c — d\n"
+            "report-complete: 1 findings")
+if find_report(_cd_base, HEAD)[0] != find_report(_cd_more, HEAD)[0]:
+    cd_bad.append("blocked dimensions changed count equality (AC 2: they are "
+                  "not findings and do not count)")
+if cd_bad:
+    print("FAIL fixture pass — the blocked-dimension line is not reported-and-"
+          "never-gated:")
+    for f in cd_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print(f"blocked-dimension pass: {len(CD)}/{len(CD)} cannot-determine cases "
+      "(read / several kept / not counted / never blocks / no-em-dash / empty "
+      "/ use-vs-mention / before-any-report / stale-segment / a real blocking "
+      "still gates / a fragment is still a fragment), plus the count-equality "
+      "invariance assertion")
+
 # --- trust assembly fixtures (kogaki#56): author-filtering, both directions.
 OWN = 'repo-owner'
 TRUST_FIX = [
@@ -1066,6 +1205,20 @@ def _merge_base(base, rev):
 
 carried = []
 state, shas = find_report(bodies, head)
+
+
+def _report_blocked_dimensions():
+    """Print this head's `cannot-determine:` lines. REPORTED, NEVER GATED.
+
+    Called on every terminal branch that has a report for this head rather
+    than only on the passing one: a dimension the reviewer could not obtain is
+    exactly as worth knowing when the report is blocked or a fragment, and a
+    disclosure printed only on success is one nobody sees on the runs that
+    needed it.
+    """
+    for dim in head_cannot(bodies, head, carried):
+        print(f"NOTE: the reviewer declared a BLOCKED DIMENSION, reported and "
+              f"never gated (kogaki#100): cannot-determine: {dim}")
 if state == 'stale':
     # §4 clause 7: the sha is the instrument, the content is the subject. Only
     # attempted on the stale branch — a report already naming this head needs
@@ -1090,6 +1243,7 @@ if state == 'head-unknown':
           "presence, so an unknown head is not a pass.")
     sys.exit(1)
 if state == 'blocked':
+    _report_blocked_dimensions()
     blocking, downgraded = open_blocking(bodies, head, carried)
     for d in downgraded:
         print(f"NOTE: unjustified blocking downgraded to should, non-gating "
@@ -1104,6 +1258,7 @@ if state == 'blocked':
         print(f"  {b}")
     sys.exit(1)
 if state == 'incomplete':
+    _report_blocked_dimensions()
     print(f"FAIL: PR #{pr} carries a review-lane report for head {head[:7]}, "
           "but it is a FRAGMENT and a fragment counts as nothing "
           "(specs/SPEC.md §4 clause 6, kogaki#74). A partial report turns "
@@ -1124,6 +1279,7 @@ if state == 'present':
     # review's clothes the clause was written against. It is REPORTED, never
     # enforced: whether a declared `delta` was honest is judgment, and clause 5
     # is carrier-less by design with a named reopen trigger.
+    _report_blocked_dimensions()
     scope, declared = head_scope(bodies, head, carried)
     print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}, "
           "no open blocking findings")
