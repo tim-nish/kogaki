@@ -1,11 +1,23 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v2.1, amended 2026-08-06 — §9's
+**Status:** v3, authored 2026-08-06 (kogaki#128 + kogaki#129, the coupled
+screen/report cluster). v2.1 amended 2026-08-06 — §9's
 `deferred-slot: terrain-family-split-carrier` is FILLED with alternative (a),
 the split in the RECORD (kogaki#26/#27). v2 authored 2026-08-06 (kogaki#26 +
 kogaki#27, the coupled Terrain-v2 cluster). v1 authored 2026-08-05
 (kogaki#14).
 **Governs:** port manifest item 1 (`specs/SPEC.md` §5).
+
+**What v3 adds, and why it is one decision rather than two.** v2 shipped
+`claim` (§7) and `subdivide` (§8) as commands and left the co-tag screen
+composing neither, so the machinery existed and the served screen did not use
+it. v3 binds **what the co-tag screen serves** (§6.1) and **where the
+untruncated material lives** (§12, the Full Report). The two were decided
+together because neither is decidable alone: a compact screen is only honest
+if the material it omits is reachable, and a report is only necessary if the
+screen is compact. `specs/SPEC.md` §5's manifest entry is again **not**
+amended — §§6.1 and 12 bind the *application* of the three contracts and
+introduce no fourth.
 
 **What v2 adds:** the candidate model (§5), the co-tag second navigation step
 (§6), GroupClaim-first rendering with claim pinning (§7), semantic
@@ -343,6 +355,87 @@ binding *harder*, not softer:
 
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:110`
 
+### 6.1 What the co-tag screen SERVES — the compact GroupClaim-first form
+
+**This section folds kogaki#128.** Its defect specimen is live and reproduces
+at this amendment's pin: the served co-tag screen prints a co-tag count table
+and, beside it, a flat `All 59 Lesson slugs, in served order:` dump. **No
+GroupClaim appears anywhere and no Lesson IDs are visible *grouped*.** The
+composition defect is that v2's machinery is unreached, not that it is wrong
+— `cotagGroups` places every member (`terrain/terrain.mjs:488-503`) and
+`cmdCotags` prints each group's *figure* while emitting member IDs **only
+under `--group`** (`terrain/terrain.mjs:571-580`); `claim`
+(`terrain/terrain.mjs:663`) and `subdivide` compose the missing halves and
+nothing calls them, the skill's own flow being survey → view → narrow →
+select with no co-tag step at all (`.claude/skills/terrain/SKILL.md`).
+
+**The screen serves, per group, in this order:** the **GroupID**, the
+**GroupClaim** — §7's composed "in common:" line — and the **member Lesson
+IDs**. Where §8's conditions bind, the members are served as SubGroups, each
+carrying its own SubGroupClaim above its Lesson IDs (§6.2). Every figure
+names its families under §9, unchanged.
+
+**The screen carries no per-Strand Gloss line and no Journey line.** The
+untruncated Claims and Glosses live in the Full Report (§12), which the owner
+pulls per named group. That split is the ratified form rather than a new
+design here:
+
+> "Top-N is WITHDRAWN and the compact all-groups form replaces it: the
+> narrowing act moved to the owner, which is what puts the replacement inside
+> the second-proposer boundary. **Every group renders as member ids plus the
+> composed commonality line** … [elided: "sorted descending by member count";
+> Kogaki's shipped `COTAG_SORT` diverges and the divergence is carried at §11]
+> … with the owner pulling a **Full Report** per named group. … the boundary's
+> test is not whether a machine computed something but **whether what reached
+> the owner is smaller than what exists**. Nothing is smaller."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:79`
+
+  request_id: a50873dc-3240-4019-9fb9-2c3c18d64c6e
+  outcome: discriminating
+  query: Should a navigation screen carry a compact list of IDs and claims with the full untruncated material living in a separate report artifact, or should the screen itself carry the reading material? Does moving reading material off the screen into a report hide anything?
+
+**The flat slug dump is REMOVED, and the removal is not a narrowing.** It is
+the same members, served grouped instead of served twice — every Lesson ID
+still reaches the screen inside at least one Group, which is exactly what
+§2.1's cover counted in placements already guarantees and what
+`COTAG_COVER_INCOMPLETE` already refuses on
+(`terrain/terrain.mjs:534-544, 583-586`). Nothing that reaches the owner is
+smaller than what exists, so §2.3's boundary is untouched. The dump's defect
+was never that it showed too much: it is that a flat list beside a count
+table lets **no image of a possible Thesis form**, which is the purpose §6
+exists to serve.
+
+**Purpose clause, stated here because the screen is judged against it.**
+Terrain is a support system for **beginning** Brief creation and does not
+itself start one; its job is surfacing which combination of Lesson IDs the
+owner would enter when they later compose a Brief. **A screen with no visible
+Lesson IDs fails that purpose regardless of what else it shows** — which is
+the reading under which kogaki#128 is a defect rather than a preference.
+
+### 6.2 SubGroups on the screen, and the threshold that is NOT one
+
+**kogaki#128 asks for SubGroups "when a Group has many members (five or
+more)". That number is admitted as CALIBRATION EVIDENCE and refused as a
+threshold**, on §8's own standing rule — "Terrain implements no member-count
+threshold. A number appearing in its code as one is a defect against this
+paragraph." The issue's "five or more" is the same shape as the owner's
+"above ~4 members" that §8 already ruled on: evidence for *where the
+undiscriminating-claim condition binds*, never the condition itself.
+
+So the screen serves SubGroups where **§8's conjunctive leaf condition and
+its two disjunctive disclosures** put them, and the implementation carries no
+`5`. This is recorded rather than silently corrected because the issue states
+the number as the rule, and a reader holding kogaki#128 must find the
+disposition rather than an absence.
+
+**§8.1's ordering is unchanged by this section, and this section makes its
+gate DUE.** Subdivision ships dogfood-first — implemented → dogfooded →
+owner-verdicted → offered — and §8.1's offering gate is **undischarged**.
+Serving SubGroups on the co-tag screen is what gives the owner output to
+verdict; it is not the verdict, and merging it does not discharge the gate.
+Carried as `deferred-slot: terrain-subdivision-offering-verdict`.
+
 ## 7. GroupClaim-first rendering, and claim pinning
 
 Selecting a co-tag group shows **the GroupClaim first**, then the member
@@ -377,6 +470,21 @@ member set making the mismatch **legible rather than forbidden**.
 The re-offer is a gate and therefore routes through the gate carrier
 (manifest item 4), not through an affordance of Terrain's own — §4 is
 unchanged and §1's refusal still binds.
+
+**v3 rider (kogaki#128): the GroupClaim is composed AT the co-tag screen, for
+every group, not only under a separate `claim` invocation.** v2 left claim
+composition reachable only by naming one group, which is why the served
+screen carried none. Two consequences, and neither weakens anything above:
+
+- **Composing a claim for every group narrows nothing** and writes no record.
+  §6's classification is unchanged — the screen stays NAVIGATION, and the
+  no-record rule at `terrain/terrain.mjs:470-483` binds the composition too.
+  A claim record is written only when the owner acts on a group, which is
+  where pinning and the re-offer gate already live.
+- **The pinning rule binds per group at screen scope.** Each screen-composed
+  claim is pinned to the member set it was composed over, so a later subset
+  selection is the same gate event this section already defines. Nothing here
+  creates a second claim lifecycle; it moves the *first* composition earlier.
 
 ## 8. Semantic subdivision — a judged substrate one level down
 
@@ -730,3 +838,133 @@ adjacent deliberately — a later sitting reopening either should read both.
   v1 text read "Whether Kogaki's Terrain ports it is not decided by this
   spec"; v2 decides it. The bullet is kept as a pointer rather than removed,
   so a reader holding v1 finds the disposition rather than an absence.
+- **The co-tag group ORDERING** (v3, kogaki#128). The served surface orders
+  groups "sorted descending by member count"
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:79`),
+  while Kogaki's shipped `COTAG_SORT` declares "co-tag name ascending, then
+  member id ascending" (`terrain/terrain.mjs:486`), adopted under §6. Both are
+  declared deterministic sorts and both are admitted as navigation, so neither
+  is a violation; which one Kogaki serves is **undecided here**. kogaki#128
+  raises the screen's *composition* and not its ordering, and deciding an
+  unasked question inside another issue's sitting is how a decision escapes
+  the gate that should have carried it. Reopen at the next Terrain sitting, or
+  when a dogfood run reports the ordering as a defect.
+- **Whether a Full Report is generated EAGERLY per co-tag view or PULLED on
+  demand** (v3, kogaki#129). kogaki#129 licenses "every co-tag view" producing
+  one; the served line §12 leans on describes "the owner **pulling** a Full
+  Report per named group"
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:79`).
+  **Both satisfy §12 in full** — its content, identity, classification and
+  location rules are indifferent to when generation fires — so neither is a
+  violation and the divergence is not a defect. It is carried here rather than
+  only as a story question so that a reader holding kogaki#129 and reading §12
+  finds the disposition rather than an absence, which is the same duty the
+  ordering bullet above discharges. The implementer states which they built,
+  in the PR.
+
+## 12. The Full Report — untruncated material, keyed to what produced it
+
+**This section folds kogaki#129**, and it is the other half of §6.1: the
+screen is compact only because this artifact exists. Its defect specimen is
+an absence — the 2026-08-06 dogfooding run produced no report artifact
+anywhere in the flow.
+
+**What it is.** For a co-tag view, the **untruncated** material: GroupClaim
+and SubGroupClaim in full, and the complete Lesson and Journey Glosses, with
+**no truncation anywhere**. It is what the owner reads to think a Thesis
+through, where §6.1's screen is what they navigate.
+
+**It is a REPORT, and therefore not a choice.** It ranks nothing, narrows
+nothing, and hides nothing, so it sits in neither act list and the runtime
+writes it as a report — §2.3 and `record-schema.json`'s act classification are
+untouched. Nothing that reaches the owner through it is smaller than what
+exists.
+
+**It is a RENDERING, and therefore not an address.** This is the constraint
+that governs what may key on it:
+
+> "the Full Report is a RENDERING, not an address"
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:71`
+
+> "A G-id may be accepted at the screen that defined it and expands
+> immediately to member ids, but the brief records members and pins, never a
+> G-id, and recommendations may never key on one — *the Full Report is a
+> RENDERING, not an address*"
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:64`
+
+So a Brief, a proposal, or a recommendation **may never cite a report id**.
+They cite members and pins, exactly as they do today. A report id addresses a
+rendering for the owner's own re-reading and nothing downstream resolves one.
+
+### 12.1 Identity — the pair (substrate pin, co-tag query)
+
+A Full Report is identified by the **substrate pin** in effect when it was
+generated and the **co-tag query** that produced it. The three cases the
+issue states, restated as the rule they share:
+
+| act | result |
+|---|---|
+| same pin, same query, run twice | **one** report — the rerun is idempotent, not a duplicate |
+| pin advances, same query | **two** reports, one per pin |
+| same pin, different query | **two** reports, one per query |
+
+**Why the pin and not a version field.** The pair is not a convenience key;
+it is the ratified shape for a derivation that outlives its computation:
+
+> "An artifact that will be ACTED ON after it is computed carries the state it
+> was computed against, and acting on it RE-VERIFIES rather than re-resolves
+> … The shared failure is **silent re-resolution**, which converts a stale
+> artifact into a *confident wrong action* — worse than an error, because the
+> mechanism reports success."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/archive/knowledge-architecture.md:161`
+
+> "Versioning is PINS, never a version field … A version number would be a
+> conformance copy of the pins with no declared precedence and no mismatch
+> check"
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:83`
+
+  request_id: 4e9961fa-b7c2-467b-bf1e-6f4183f1cf8b
+  outcome: discriminating
+  query: A derived report artifact keyed to the substrate pin and the query it was computed against, regenerated idempotently per (pin, query) — is a derived rendering a second authority, and should such artifacts be committed or machine-local?
+
+**The pin is the mismatch check, which is what makes a stored derivation
+admissible at all.** The objection this has to answer is
+`derivable-artifact-is-a-view-not-a-noun` — "A proposal table is a regenerated
+VIEW, never a saved artifact to execute later"
+(`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/archive/claude-code-ops.md:66`).
+It does not reach this case, on the same line's own terms and for two
+independent reasons. First, that rule governs artifacts **acted on** after
+computation, and a Full Report is **read**, never executed — it is a report,
+per the clause above. Second, the same line names the remedy it demands for
+stored derivation: "the pin **is** the mismatch check and the tracker is the
+declared authority." The (pin, query) key is that mismatch check, with the
+**served surface authoritative and the report subordinate**. That is
+`conformance-copy-needs-declared-precedence` satisfied rather than evaded — a
+copy with declared, checkable subordination is conformance; a copy without one
+is a second authority growing in the dark.
+
+**A report generated under a superseded pin is never silently refreshed.** It
+is kept as the reading of that pin, and a request under a new pin produces a
+new report. Re-resolving one onto current content would assert that the owner
+read something they did not.
+
+### 12.2 Location — machine-local, never committed
+
+Reports are written to the **machine-local run workspace** (`~/.kogaki/runs/…`
+or `$KOGAKI_RUN_DIR`), alongside the survey records they derive from, and are
+**never committed**. This is decided here rather than deferred, because the
+precedent is unambiguous and already binding: founding spec rider 3 makes the
+run workspace machine-local and uncommitted, `.claude/skills/terrain/SKILL.md`
+states it as a hard line, and the §9 fill on kogaki#26/#27 measured **zero**
+committed survey records. A report is a derivation *of* a survey record and
+cannot be more public than its input.
+
+**Consequence, stated so it is not discovered later:** a Full Report is not a
+citable artifact for anything outside the machine that made it. Article
+material is quoted from served renderings at pins (`specs/SPEC.md` §2), never
+from a report — which is the same boundary the rendering-not-an-address clause
+above draws, arriving from the storage side.
