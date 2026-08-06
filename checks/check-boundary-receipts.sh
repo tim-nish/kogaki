@@ -111,6 +111,15 @@
 # rather than the PR body — the latter would falsify the compound-source
 # reading above rather than merely add a count to it.
 #
+# THAT TRIGGER'S SECOND LIMB IS NOT READABLE FROM THIS CHECK'S OUTPUT, so the
+# act that reads it is named here rather than left to be invented. Because
+# `changed text` is a compound (below), a report of `matched on '<term>' in
+# changed text` does not say which half matched. Re-run the same range with
+# `CONSULT_PR_BODY` unset: if the match survives, the matching text is the
+# COMMIT prose and the limb has fired; if the run reports `no mapped boundary
+# matched`, the match came from the PR body and the reading above holds. A
+# trigger whose observation needs a step nobody wrote down fires never.
+#
 # THE SOURCE SET IS DECLARED, AND SO IS WHAT IT COULD NOT READ. Trigger terms
 # match against diff paths, changed text (commit messages and the PR body), and
 # the linked issue body. Where a source is unavailable the check SAYS SO rather
