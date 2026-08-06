@@ -253,13 +253,54 @@ while some Lessons lack Journeys. At 100% coverage the marks decorate
 everything and inform nothing, and the design's own rationale expires. The
 reversal trigger is stated in advance rather than discovered: **coverage
 ≥ 99% (thin Lessons ≤ 1 of the served denominator)** reopens §5 as a design
-question. It is 90.3% today. The instrument is the survey run itself, which
-already computes both halves — no new measurement act, and no periodic
-reader.
+question. It is 90.3% today.
+
+**Falsifier 2 has NO READING ACT, and the two falsifiers are not equally
+sited.** This is stated plainly because the pair otherwise reads as
+symmetrical and is not:
+
+| | Falsifier 1 (orphan Journey) | Falsifier 2 (coverage ≥ 99%) |
+|---|---|---|
+| Computed | yes, every survey run | yes, every survey run |
+| **Read** | **yes** — refuses the write | **no — nothing reads it** |
+| Carrier | generation-time refusal; an acceptance criterion in story 1.22, fixture-verified | none |
+| Fires by | the code stopping | a human noticing a percentage |
+
+Falsifier 1 has a carrier at its violation layer: the value is computed and
+the survey **refuses**, so the trigger cannot fire unobserved. Falsifier 2 is
+computed and then **printed** — its firing depends on a person reading a
+number in survey output and recognizing what it means. **No check observes
+it, story 1.22 explicitly disclaims it, and this spec declares no periodic
+reader** (a periodic reader is refused deliberately: it would convert a
+demand trigger into a schedule).
+
+**The cost of that, stated rather than absorbed.** A held item whose trigger
+nothing reads can fire and go unnoticed — the failure mode is
+*fired-and-unread*, and it presents as nothing happening. So Falsifier 2 is
+honestly a **weaker instrument than Falsifier 1**: it is a stated reopen
+condition on a rendered number, not a guarantee, and it should not be quoted
+later as though the design were mechanically protected against saturation.
+What would earn it a real carrier is the ratified form — a held item names an
+act that ALREADY HAPPENS and observes the quantity its trigger fires on, or
+declares `instrument: none`. This section chooses the second and says so:
+
+> **instrument: none** — for Falsifier 2. Declared at authoring, per the rule
+> that the declaration binds at authoring time and never as a periodic
+> reader.
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:9`
+
+The candidate act, named so a later sitting does not re-derive it: the survey
+run already computes both halves, so the coverage figure could ride the
+survey's own emitted output as a declared threshold row rather than a bare
+percentage. That is a **carrier proposal, not a decision** — building it is
+not licensed here, and it is not smuggled in as one.
 
 Both falsifiers are **properties of the served corpus, not of Kogaki's
 code**, which is why they are stated as triggers on a measurement Terrain
-already takes rather than as tests over an implementation.
+already takes rather than as tests over an implementation. That is the
+reason for their shape; it is not a reason Falsifier 2 needs no carrier, and
+the paragraph above is not to be read as supplying one.
 
 ## 6. Navigation — the co-tag second step
 
@@ -377,6 +418,46 @@ else, never that the group was fine
 Terrain implements no member-count threshold. A number appearing in its code
 as one is a defect against this paragraph.
 
+**That prohibition is UNCARRIED, and this is its declaration rather than its
+enforcement.** The sentence above is prose one layer up from where it can be
+broken. `checks/check-terrain-composition.sh` declares three figure codes —
+`FIGURE_NOT_OVER_PLACEMENTS`, `FIGURE_FAMILY_UNNAMED`, `FIGURE_MISMATCH` —
+and **none of them observes a member-count threshold**. Nothing in this
+repository detects one. So the rule as written is **advisory**, and calling
+it a defect does not make it detectable: a prohibition stated in prose is
+advisory to a system whose job is to satisfy instructions, and a rule is
+enforced only at the layer where it can be broken.
+
+**Why it is declared uncarried rather than given a check here.** The
+governing rule admits exactly three states, and the third is this one:
+
+> "A stated policy is admissible in exactly three states — decidable from the
+> artifact an existing check inspects, shipped with a detector whose unit
+> matches the property's unit, or **deliberately carrier-less and marked with
+> a reopen trigger** — and the unit is derived from how the policy is
+> violated, never inherited from the neighbouring gates."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:24`
+
+State one fails: the figure codes inspect a survey record, and a threshold
+lives in subdivision code, not in the record — the unit does not match, and
+re-pointing a figure check at it would be inheriting the unit from the
+neighbouring gate, which that same line forbids. State two is not taken here
+because admitting a check is its own act with its own admission record
+(contract, license, tier, measured runtime, removal signal) and this sitting
+is not licensed to write one. So: **state three, declared.**
+
+**Reopen trigger:** the first subdivision implementation that reaches review
+carrying a numeric constant in its split or stop logic. At that point the
+property has a violating artifact, its unit is known from how it was
+violated, and a detector can be specified against a real specimen rather than
+against an imagined one. Until then the carrier is the **review lane**, which
+reads the judgment half — and a review lane is a reader, not a gate, which is
+exactly the weakness being declared.
+
+This is the shape kogaki#100 is this repository's live specimen of, named
+here so v2 is not read as having closed it.
+
 ### 8.1 Measurement before offering — the rider that binds this section
 
 **Subdivision ships dogfood-first. It is not offered until the owner has
@@ -455,13 +536,47 @@ recomputation to section-level figures is the mechanism, and the refusal
 stays **generation-time**: constrain generation, then detect what generation
 cannot promise.
 
-**Whether the family split belongs in the survey RECORD (a per-section
-`by_family`) or only in the rendering is an implementation choice**, declared
-as one here rather than left silent. If the record changes,
-`specs/spec-terrain/survey-schema.json` is the **single carrier** — the check
+`deferred-slot: terrain-family-split-carrier`
+
+**Whether the per-section family split belongs in the survey RECORD or only
+in the RENDERING is NOT decided here, and it is named as a slot rather than
+left to the implementation.** v2's first draft called it "an implementation
+choice, declared as one here rather than left silent"; that was the defect
+`specs/SPEC.md` §4's kogaki#48 clause names, and declaring a deferral is not
+an exemption from naming it — an unnamed slot's decision escapes every gate
+that binds to a decision document, which is precisely what "declared as an
+implementation choice" would have let happen.
+
+**The alternatives, stated, neither chosen:**
+
+- **(a) In the RECORD** — `survey-schema.json` gains a per-section
+  `by_family`, the section figure is recomputed from placements and refused
+  on mismatch exactly as `completeness.by_family` already is, and the check
+  inherits it. Buys mechanical enforcement at the same layer the existing
+  figure guarantee lives; costs a served-record shape change, which is a
+  schema version and a conformance surface.
+- **(b) In the RENDERING only** — sections carry no new field and the split
+  is computed at print time from candidates already in the record. Buys no
+  schema change; costs the generation-time refusal, because there is no
+  stored figure to disagree with placements, so §2.1's "constrain generation,
+  then detect" degrades to detection for section figures.
+
+**Filling this slot is a DECISION act, owed on kogaki#26/#27 before code
+embeds it** — the filling sitting consults the seam on the fork and records
+choice, alternatives and receipt on the licensing issue. Not filled here, and
+deliberately not consulted here: a fill-time consult performed by the sitting
+that named the slot would decide it inside the naming sitting, which is the
+same escape one step earlier.
+
+**Story 1.22's dependent acceptance criterion is BLOCKED on this slot** and
+says so in its own text.
+
+Independent of which alternative is taken: **if the record changes,
+`specs/spec-terrain/survey-schema.json` is the single carrier** — the check
 reads those lists rather than restating them — and
 `checks/check-terrain-composition.sh` inherits the extension without a second
-copy.
+copy. That clause binds alternative (a) and is vacuous under (b); it is not
+a partial fill.
 
 ## 10. Parked, with grounds — the Lessons-or-Decisions opening gate
 
