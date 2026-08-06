@@ -184,6 +184,7 @@ review-base: <base sha>
 review-scope: <full|delta>
 finding: <blocking|should|nit> <open|resolved> [policy: <pin> | harm: <one line>]  <the finding>
 …
+cannot-determine: <dimension> — <why>
 report-complete: <N> findings
 ```
 
@@ -290,6 +291,34 @@ introduced re-read.
   carrier-less with a named reopen trigger — one PR whose round-2 report
   declared `delta` and missed a defect lying inside the fix commits it claimed
   to cover. The honesty of the declaration is yours to supply.
+
+### `cannot-determine:` — a refusal is terminal, and the blocked dimension is reported (§4's third conduct clause, kogaki#100)
+
+**When a command you compose is refused, that command is over.** Do not rephrase
+it, pipe it, redirect it, or look for a form that gets through. Write the
+dimension you could not cover as `cannot-determine: <dimension> — <why>` and
+**finish the review**.
+
+- **This is enforced, not requested.** The spawn installs a `PreToolUse` gate:
+  once a command is denied, every rephrasing of it is refused by the gate
+  itself, and the refusal message points you back here. The prose in your
+  composition constraint is **ergonomics**; the gate is the control. On PR #98
+  a reviewer with that prose in its context spent its **last four turns**
+  rephrasing one refused command and posted no report at all.
+- **A refused capability costs ONE dimension, not the report.** That is the
+  whole point of the line: a review missing the CI dimension is worth far more
+  than no review.
+- **It is REPORTED and never gated.** A `cannot-determine:` line is not a
+  finding, does not count toward `report-complete:`, and never turns the gate
+  red. Whether a blocked dimension should have been obtained is judgment — the
+  same side of the split `review-scope:` sits on.
+- **Name the dimension, not the command.** "CI status — `gh run view` is not
+  granted" tells the operator what is missing from the review *and* what grant
+  would fix it. "could not run a command" tells them neither.
+- **Terminal is about the COMMAND, not about your intent.** A denial often names
+  one offending sub-part of a compound command, and a granted alternative may
+  well exist — your composition constraint names one per refused shape. Reach
+  for the *named alternative*; do not go hunting for a form that slips through.
 
 ### `report-complete:` — and a fragment counts as nothing (§4 clause 6, kogaki#74)
 
