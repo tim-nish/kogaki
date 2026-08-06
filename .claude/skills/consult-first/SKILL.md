@@ -12,11 +12,44 @@ arises (is X ratified / current design?). Consult **before acting**, at the
 moment the question forms — the tool is in your list precisely so this is
 not a remembered ceremony.
 
-**How to consult:** one bounded question per claim — `policy_lookup` with
-the claim the decision turns on. Never a whole-surface read, never a
+**How to consult:** through the entry point, which carries the discipline
+below so it is not a memory test (`specs/SPEC.md` §4, kogaki#66):
+
+```
+policy/kit/bin/consult.mjs --consumer <name> \
+  --claim '<the claim the decision turns on>' \
+  --claim '<the re-framing, along a DIFFERENT axis>' \
+  --outcome discriminating | covered-after-reframing | uncovered-after-N-framings
+```
+
+One bounded claim per `--claim`. Never a whole-surface read, never a
 pre-picked file list: the claim bounds the read. Quote served lines
 **verbatim at their pin** (`file:line@commit`); a paraphrase of served
 policy is an unratified rendering and never ships.
+
+The entry point runs the lookup and emits the receipt **through the
+transport** (there is one receipt composer in the kit, in
+`gateway-query.mjs`). What it adds is the three rules that used to live only
+in this file as sentences:
+
+- **The seam is never asked for a verdict.** A verdict-shaped input — a
+  question asking whether something is acceptable, correct or problematic
+  rather than stating a claim — is corrected **at the point of use** and not
+  forwarded (exit 3): *the seam serves positions, not verdicts; state the
+  claim the decision turns on*. The review supplies the claims, the seam
+  supplies the positions. The correction is an affordance, not a denial:
+  re-submit in the same act with `--restate '<the claim>'`, once per flagged
+  framing, in order.
+- **A non-discriminating return owes exactly one re-framing along a different
+  axis.** Any `--outcome` other than `discriminating` with a single `--claim`
+  is refused (exit 4) with what the second framing owes. The entry point
+  **prompts**; it does not compose the re-framing for you, because whether the
+  axis really varied is a judgment and this tool holds no reading of the
+  return. Supply the second `--claim` and the same invocation proceeds.
+- **The count is the tool's and the token is yours.** The framing count and
+  every `query:` line are transport facts and are emitted as such; `--outcome`
+  is required and never derived (below). One re-framing is the bound — one
+  axis, a fixed bound, never a search loop.
 
 **Outcomes:**
 - **Hit** — the position shapes the proposal; the pin rides the artifact
@@ -56,7 +89,9 @@ consulted: <repo>@<sha> <file:line[,line][, file:line…]>
 ```
 
 **Do not compose this by hand when the transport can emit it** (`specs/SPEC.md`
-§4, kogaki#66). Ask the transport for the block and paste what it printed:
+§4, kogaki#66). `consult.mjs` above prints the block after the tool results;
+the transport underneath it is callable directly when you need a tool other
+than `policy_lookup` or more framings than the entry point's bound:
 
 ```
 policy/kit/bin/gateway-query.mjs --consumer <name> --tool policy_lookup \
@@ -65,19 +100,32 @@ policy/kit/bin/gateway-query.mjs --consumer <name> --tool policy_lookup \
   --receipt --outcome <token>
 ```
 
-One `--args` per framing, in the order you ran them; the block comes out after
-the tool results. The transport holds the real `request_id` and the framings it
-actually sent, so it has nothing to remember — which is what makes the two
-shipped transcription defects unproducible on this path rather than merely
-detected (kogaki#32's coined vocabulary, kogaki#75's copied `request_id`).
+One `--args` per framing, in the order you ran them. The transport holds the
+real `request_id` and the framings it actually sent, so it has nothing to
+remember — which is what makes the two shipped transcription defects
+unproducible on this path rather than merely detected (kogaki#32's coined
+vocabulary, kogaki#75's copied `request_id`). Going around the entry point
+costs you the three rules above; say so in the PR if you do.
 
-- **`--outcome` is required and the transport never guesses it.** The token is
-  a *reading* of whether the answer discriminated, and who assigns it is still
-  open (`deferred-slot: consult-outcome-token-assignment`, owed on kogaki#66).
-  Without it the transport refuses with exit 2 rather than choosing.
-- **A degraded run emits no receipt.** One `policy_source unavailable:` line
-  and exit 11, unchanged: a receipt for a consult that did not happen is the
-  fabrication the clause exists to prevent. Exit 12 —
+- **`--outcome` is required and no tool here ever guesses it.** The token is a
+  *reading* of whether the answer discriminated, and **the operator supplies
+  it** — `deferred-slot: consult-outcome-token-assignment` is FILLED (owner
+  decision 2026-08-06, `specs/SPEC.md` §4, kogaki#66). The tools emit only what
+  they observed as fact — the `request_id`, every `query:` line, the framing
+  count — and fail rather than guessing the rest. Without `--outcome` both the
+  entry point and the transport refuse with exit 2 rather than choosing. A
+  token that contradicts an observed fact (an `uncovered-after-N` whose N is
+  not the number of framings) is refused too, never repaired: repairing it
+  would be the tool assigning the token by the back door.
+- **A degraded run emits no receipt, and the fallback is stated rather than
+  silent.** One `policy_source unavailable:` line and exit 11, unchanged: a
+  receipt for a consult that did not happen is the fabrication the clause
+  exists to prevent. The entry point then prints the degraded path itself —
+  the direct MCP tools (`mcp__tsurezure__policy_lookup` and its neighbours in
+  `policy/CAPABILITIES.md`) with the same bounded claim and the same one
+  re-framing, plus a hand-composed receipt carrying the marker below. If the
+  entry point itself is unavailable, that same route is the answer; the
+  discipline degrades to prose, it does not degrade to nothing. Exit 12 —
   `receipt not composable:` — is the other refusal: the consult happened, its
   results are printed, and the wire did not carry what a receipt asserts.
 - **A hand-composed receipt stays admissible and is MARKED.** Consulting

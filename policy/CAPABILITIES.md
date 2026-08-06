@@ -22,14 +22,29 @@ an answer and a distill-bug signal, not a license to explore. An unreachable
 gateway prints one `policy_source unavailable:` line and the work proceeds
 without policy interaction.
 
+**The entry point is `consult.mjs`; the transport underneath it is
+`gateway-query.mjs`.** `consult.mjs --consumer <name> --claim '<claim>'
+[--claim '<re-framing>'] --outcome <token>` runs the lookup and emits the
+receipt through the transport (one receipt composer, no second one). It carries
+the query discipline as an affordance: a **verdict-shaped** input is corrected
+at the point of use and not forwarded (exit 3, re-submittable in the same act
+with `--restate`); a non-discriminating outcome carrying a single framing is
+refused with what the re-framing owes (exit 4); the framing count is emitted as
+the transport fact it is, under a bound of one re-framing. Exits 11 and 12 come
+from the transport unchanged, and on 11 the entry point prints the degraded
+path rather than leaving it silent. Reach for the transport directly only for a
+tool other than `policy_lookup` or for more framings than the bound.
+
 **The receipt is emitted by the transport, not transcribed.** Every response
 above carries the `request_id` and the served `consulted:` line the receipt
 needs, so `gateway-query.mjs --receipt --outcome <token>` prints the complete
 block after the tool results — one `--args` per framing, one `query:` line per
 framing actually run. `--outcome` has no default: the token is a reading rather
-than an observation, and who assigns it is open
-(`deferred-slot: consult-outcome-token-assignment`), so the transport refuses
-(exit 2) rather than guessing. A degraded run emits **no** receipt — one
+than an observation and **the operator supplies it** — the
+`consult-outcome-token-assignment` fill (owner decision 2026-08-06,
+specs/SPEC.md §4) — so both tools refuse (exit 2) rather than guessing, and
+refuse a token contradicting an observed fact rather than repairing it. A
+degraded run emits **no** receipt — one
 `policy_source unavailable:` line and exit 11, as above. Consulting through a
 surface the kit does not mediate still owes a receipt; compose it by hand and
 mark it `consult-receipt: hand-composed — <why>` on its own unindented line
