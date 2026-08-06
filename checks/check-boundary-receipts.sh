@@ -64,12 +64,67 @@
 # diff paths alone was the considered alternative and was declined: it would
 # silently shrink what the map binds.
 #
+# THAT DECLINE NOW HAS ITS FIRST MEASURED INSTANCE, RECORDED HERE SO THE NEXT
+# READER MEETS THE EVIDENCE RATHER THAN RE-DERIVING IT (kogaki#126). Reproduced
+# at master `38d47d3` with `BOUNDARY_SKIP_ISSUE_LOOKUP=1`, base `3a352ee`, head
+# `da638af` (PR #123, story 1.23), PR #123's body supplied as `CONSULT_PR_BODY`:
+#
+#   FAIL: 1 mapped boundary/boundaries matched this branch and NO consult
+#   receipt is present — #1 Check/CI infrastructure (matched on 'check' in
+#   changed text).
+#
+# The diff over that range is `terrain/terrain.mjs` and nothing else — no check,
+# no hook, no registry entry. The cost was exactly one consultation, discharged
+# with a genuine receipt on the branch; nothing about PR #123 was shaped to
+# avoid the match. Two facts about the instance are worth more than the instance
+# itself, because both are invisible from the output line alone:
+#
+#   - THE MATCHING TEXT WAS THE PR BODY, NOT THE COMMIT PROSE. Neither `da638af`
+#     nor `e8a2cef` carries an entry-1 trigger term in its commit message; the
+#     same range run with no `CONSULT_PR_BODY` reports `no mapped boundary
+#     matched this branch`. The report says `changed text` for both halves of
+#     `BOUNDARY_TEXT`, so prose written ABOUT a change after the fact is
+#     indistinguishable in the output from prose written AS the change. Any
+#     future proposal to weight or scope the sources has to name that split
+#     first, because the source it would weight is a compound.
+#   - THE MATCH SOURCE IS BASE-DEPENDENT, SO THE CLASS IS INVISIBLE FROM MERGED
+#     HISTORY. At master, `git merge-base origin/master da638af` resolves to
+#     `7353af8`, whose range pulls in `3a352ee`, which does touch `checks/` —
+#     run over THAT range the same check reports `matched on 'check' in diff
+#     paths` and passes. Looking for this class after the fact will not find it.
+#
+# THE DECLINE STANDS ON THAT EVIDENCE (kogaki#126, spec sitting 2026-08-07;
+# candidate 1 of three, selected by the owner). Weighting the sources so a
+# path-signal match binds while a changed-text-only match merely reports was
+# declined again: it is a judgment clause, which `specs/SPEC.md:687-691`
+# forecloses in as many words — this is "a presence check over two declared
+# enumerations" that "adds no judgment clause". Per-term source scoping was
+# declined as adding a per-term field to the map's entry schema, contracted at
+# `specs/SPEC.md:47-49`. What carries the decision is the map's own accretion
+# polarity — "each entry routes to a judgment rather than encoding one, so a
+# member that turns out not to apply costs a consultation rather than a false
+# verdict" — which prices a spurious match at exactly one consultation
+# deliberately, and one consultation is the entire measured cost so far.
+# `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:35`
+# Reopen trigger: a spurious match whose discharge cost more than its one
+# consultation, or a second instance whose matching text is the COMMIT prose
+# rather than the PR body — the latter would falsify the compound-source
+# reading above rather than merely add a count to it.
+#
 # THE SOURCE SET IS DECLARED, AND SO IS WHAT IT COULD NOT READ. Trigger terms
 # match against diff paths, changed text (commit messages and the PR body), and
 # the linked issue body. Where a source is unavailable the check SAYS SO rather
 # than reporting a clean pass over a smaller denominator — an instrument that
 # reports absence without establishing it is the defect
 # `check-review-report.sh` refuses one layer up.
+#
+# THE MIDDLE SOURCE IS A COMPOUND AND THE OUTPUT DOES NOT SAY SO. `changed text`
+# is `BOUNDARY_TEXT="$commits\n$body"`, so three DECLARED sources are reported
+# as two labels and a match on the PR body is indistinguishable from a match on
+# the commit prose. This is stated rather than repaired: reporting the halves
+# separately is a change to what the instrument SAYS, which kogaki#126 left
+# untouched along with the matcher, and the measured instance recorded above is
+# the reason a later reader needs to know the label is lossy.
 #
 # The linked issue is the one named by a LICENSING KEYWORD (`Closes`, `Fixes`,
 # `Resolves`, `License:`), bare or repo-qualified. A loose `#N` anywhere is

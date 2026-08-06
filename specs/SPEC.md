@@ -695,6 +695,28 @@ invariant: Gukan guarantees Unit schema, never data schema).
   the typed loop's mechanical half — an obligation generates no event to
   hook, but a PR is an event, so receipt-absence over a diff is a computable
   fact rather than an absence with nothing to observe (kogaki#25).
+
+  **The match surface stays as declared, and the decision now rests on a
+  measured instance rather than an anticipation** (kogaki#126). The three
+  sources above are the whole surface, and `changed text` among them is a
+  **compound** — commit messages and the PR body, matched together and
+  reported under one label. A trigger term appearing incidentally in any of
+  them binds the boundary and the remedy is the ordinary one: record a
+  receipt, `uncovered-after-N-framings` being a conforming answer. That was
+  ratified at story 1.11 against an anticipated cost; kogaki#126 supplies the
+  first measured one (PR #123 / `da638af`, diff `terrain/terrain.mjs` only,
+  matched on the PR body, discharged with one genuine consultation), and the
+  measurement is recorded in `checks/check-boundary-receipts.sh`'s header
+  beside the decline it tests, not restated here. Two candidate narrowings
+  were declined **on this text**: weighting the sources so a path-signal match
+  binds while a changed-text-only match reports is the judgment clause the
+  sentence above forecloses, and per-term source scoping adds a per-term field
+  to the entry schema contracted in this section's consultation-map bullet.
+  The ground is the map's accretion polarity — a member that turns out not to
+  apply costs a consultation rather than a false verdict
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:35`)
+  — which prices a spurious match at exactly one consultation on purpose, and
+  one consultation is the entire cost measured so far.
 - **Review altitude is a declared property of the diff, and the instrument's
   own diff is its own class** (kogaki#99). The tier that decides a spawned
   review's model and turn cap was until now an invariant carried only in code —
