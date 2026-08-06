@@ -20,6 +20,7 @@
 // lives in the machine-local run workspace (default ~/.kogaki/runs/...),
 // never in the repository (specs/SPEC.md §4 rider 3).
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { homedir, tmpdir } from "node:os";
@@ -1038,6 +1039,203 @@ function cmdSubdivide(args) {
 }
 
 // --------------------------------------------------------------------------
+// report — the Full Report (SPEC.md §12).
+//
+// The other half of §6.1's compact screen: the screen is what the owner
+// NAVIGATES, this is what they READ. Untruncated Claims and Glosses, with no
+// truncation anywhere — which is why it parses the served shard whole rather
+// than through `parseGlossShard`, whose whole job is to cut a headline.
+//
+// It is a REPORT and therefore not a choice: it ranks nothing, narrows
+// nothing and hides nothing, so it sits in neither act list (§2.3, §12).
+//
+// It is a RENDERING and therefore NOT AN ADDRESS: nothing downstream resolves
+// a report id, and a Brief cites members and pins exactly as it does today
+// (topics/articles.md:64,71@f918c515).
+// --------------------------------------------------------------------------
+export const NO_GLOSS_BODY = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
+export const NO_JUDGE = "none";
+
+// The shard, parsed WHOLE. `parseGlossShard` above returns the first sentence
+// because a screen row is a headline; §12 forbids truncation anywhere, so the
+// report cannot reuse it — the same shard read for two purposes needs two
+// readers, not one reader with a flag.
+export function parseGlossFull(resp) {
+  const out = new Map();
+  let slug = null;
+  let body = [];
+  let cite = null;
+  const flush = () => {
+    if (slug && body.length) out.set(slug, { body: body.join("\n").trim(), cite });
+    slug = null; body = []; cite = null;
+  };
+  for (const line of resp.lines || []) {
+    const t = line.text;
+    if (t.startsWith("## ")) { flush(); slug = t.slice(3).trim(); continue; }
+    if (!slug) continue;
+    // `Source:` closes an entry; `---` separates them. Everything between the
+    // heading and those is the entry's body, kept WHOLE — no sentence match,
+    // no cap, no ellipsis, because §12 forbids truncation anywhere.
+    if (t.startsWith("Source:") || t.startsWith("---")) { flush(); continue; }
+    if (t.trim() === "") { if (body.length) body.push(""); continue; }
+    if (!body.length) cite = line.cite;
+    body.push(t);
+  }
+  flush();
+  return out;
+}
+
+function fetchGlossBodies(kind, tag) {
+  const resp = gatewayQuery("gloss_index", { tag: `${kind}/${tag}` });
+  if (resp.miss) return new Map();
+  return parseGlossFull(resp);
+}
+
+// Where reports live. §12.2: the MACHINE-LOCAL run workspace, never committed.
+// A STABLE home rather than a per-invocation directory, because §12.1's first
+// case — same identity, run twice, ONE report — is a claim across invocations
+// and a timestamped directory would make every rerun a duplicate by
+// construction.
+function reportsDir(args) {
+  const dir = args["report-dir"] || process.env.KOGAKI_RUN_DIR
+    || join(homedir(), ".kogaki", "reports");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+// The identity TRIPLE (§12.1): substrate pin, co-tag query (selected tag,
+// named group), judge pin — the last typed `none` where no judged material is
+// present. UNIFORM ARITY: `none` is a value that must be present, never an
+// omitted component, because a key whose shape depends on the report's own
+// content is one a request cannot construct.
+export function reportIdentity(pin, tag, group, judgePin) {
+  return {
+    pin,
+    query: { tag, group },
+    judge_pin: judgePin || NO_JUDGE,
+  };
+}
+
+// The filename is derived from the identity ONLY so that reruns collide on
+// disk. Nothing reads it: §12.2 makes the recorded components the sole source
+// of identity, and this hash is not parsed back anywhere.
+function identityDigest(identity) {
+  return createHash("sha256")
+    .update(JSON.stringify([identity.pin, identity.query.tag, identity.query.group,
+      identity.judge_pin === NO_JUDGE ? NO_JUDGE
+        : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`]))
+    .digest("hex").slice(0, 16);
+}
+
+export function sameIdentity(a, b) {
+  return JSON.stringify(reportIdentityKey(a)) === JSON.stringify(reportIdentityKey(b));
+}
+function reportIdentityKey(i) {
+  return [i.pin, i.query.tag, i.query.group,
+    i.judge_pin === NO_JUDGE ? NO_JUDGE
+      : `${i.judge_pin.model_id}/${i.judge_pin.effort_tier}`];
+}
+
+function cmdReport(args) {
+  const dir = reportsDir(args);
+  const record = readJson(String(args.survey || fail("report needs --survey <file>")));
+  const tag = String(args.tag || fail("report needs --tag <selected tag>"));
+  const groupArg = String(args.group || fail("report needs --group <co-tag>"));
+
+  const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
+  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
+  const groups = cotagGroups(members, tag);
+  const group = groups.find((g) => g.name === groupArg || g.cotag === groupArg)
+    || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
+
+  const claims = args.claims ? readJson(String(args.claims)) : {};
+  const groupClaim = claims[group.name] !== undefined ? claims[group.name] : claims[group.cotag];
+
+  // Subdivision is optional; where present its claims are report material and
+  // the JUDGE PIN becomes part of the identity.
+  const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
+  const sub = subdivisions[group.name] !== undefined ? subdivisions[group.name] : subdivisions[group.cotag];
+  let judgePin = NO_JUDGE;
+  if (sub) {
+    const m = args["judge-model"];
+    const e = args["judge-effort"];
+    if (!m || !e) fail("--judge-model and --judge-effort are required when the report carries SubGroupClaims: the judge pin is the THIRD component of §12.1's identity, and judged material recorded without it is the drift-undetectable shape");
+    judgePin = { model_id: String(m), effort_tier: String(e) };
+  }
+  const identity = reportIdentity(record.pin, tag, group.name, judgePin);
+
+  // §12.1 case 1: same identity, run twice -> ONE report. The rerun is
+  // idempotent, not a duplicate, so an existing report with THIS identity is
+  // returned rather than rewritten.
+  const out = join(dir, `terrain-full-report-${identityDigest(identity)}.json`);
+  if (existsSync(out)) {
+    const prior = readJson(out);
+    if (sameIdentity(prior.identity, identity)) {
+      console.log(`Full Report already exists for this identity — the rerun is IDEMPOTENT, not a duplicate (SPEC.md §12.1): ${out}`);
+      console.log(`Identity: pin=${identity.pin} query=(${tag}, ${group.name}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
+      return;
+    }
+  }
+
+  const lessonBodies = fetchGlossBodies("lessons", tag);
+  const journeyBodies = group.members.some((id) => (record.candidates.find((c) => c.id === id) || {}).journey)
+    ? fetchGlossBodies("journeys", tag) : new Map();
+
+  let abnormal = 0;
+  const renderMembers = (ids) => ids.map((id) => {
+    const c = record.candidates.find((x) => x.id === id) || {};
+    const lg = lessonBodies.get(c.slug);
+    const jg = c.journey ? journeyBodies.get(c.slug) : null;
+    if (!lg) abnormal++;
+    if (c.journey && !jg) abnormal++;
+    return {
+      id, cite: c.cite || null,
+      gloss: lg ? lg.body : NO_GLOSS_BODY,
+      gloss_cite: lg ? lg.cite : null,
+      journey_gloss: c.journey ? (jg ? jg.body : NO_GLOSS_BODY) : null,
+      journey_cite: c.journey && jg ? jg.cite : null,
+    };
+  });
+
+  let subgroups = null;
+  if (sub) {
+    const placed = subgroupPlacement(group, sub, SURVEY_SCHEMA.subdivision);
+    subgroups = placed.subgroups.map((sg) => ({
+      name: sg.name,
+      claim: sg.claim || NO_CLAIM,
+      members: renderMembers(sg.members),
+    }));
+  }
+
+  const report = {
+    id: `terrain-full-report-${identityDigest(identity)}`,
+    kind: "full-report",
+    // The identity is RECORDED, not implied (§12): §12.2 makes these the only
+    // source of it, so a report that carried none could never be resolved.
+    identity,
+    classification: "report",
+    narrows: false,
+    truncated: false,
+    group_claim: groupClaim !== undefined && String(groupClaim).trim() !== "" ? groupClaim : NO_CLAIM,
+    subgroups,
+    members: subgroups ? null : renderMembers(group.members),
+    counted: familySplit(group.members, record.candidates),
+    lessons_served: record.candidates.length,
+  };
+  writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
+
+  console.log(`Full Report (untruncated; SPEC.md §12): ${out}`);
+  console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, ${group.name}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
+  console.log(`${sectionFigure(Object.assign({}, group, { by_family: report.counted }), record.candidates.length)}`);
+  if (abnormal) {
+    console.log(`ABNORMAL: ${abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9, §12).`);
+  }
+  console.log("Classification: REPORT (SPEC.md §2.3, §12) — it ranks nothing, narrows nothing and hides nothing, so it sits in neither act list.");
+  console.log("A RENDERING, not an address: nothing downstream resolves a report id, and a Brief records members and pins (SPEC.md §12).");
+  console.log("Machine-local and never committed (SPEC.md §12.2; founding spec rider 3).");
+}
+
+// --------------------------------------------------------------------------
 // act — the second-proposer boundary, enforced by enumeration.
 // --------------------------------------------------------------------------
 function cmdAct(args) {
@@ -1182,6 +1380,7 @@ switch (cmd) {
   case "claim": cmdClaim(args); break;
   case "adopt": cmdAdopt(args); break;
   case "subdivide": cmdSubdivide(args); break;
+  case "report": cmdReport(args); break;
   case "act": cmdAct(args); break;
   case "gate": cmdGate(args); break;
   case "capture": cmdCapture(args); break;
@@ -1208,6 +1407,13 @@ switch (cmd) {
                                             a subset RE-OFFERS it at the gate carrier
   adopt --claim F --capture F [--original-text S]
                                             record the adopted claim with its members, by id and pin
+  report --survey F --tag T --group G [--claims F] [--subdivisions F]
+         [--judge-model M --judge-effort E] [--report-dir D]
+                                            the Full Report (§12) — untruncated Claims and
+                                            Glosses, identified by the TRIPLE (substrate pin,
+                                            co-tag query, judge pin), machine-local and never
+                                            committed. A rerun under the same identity is
+                                            idempotent, not a duplicate.
   subdivide --survey F --tag T --group G --group-claim S --classification F
             --judge-model M --judge-effort E --screen-budget N
                                             semantic subdivision (§8) — DOGFOOD-FIRST, never
