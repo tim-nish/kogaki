@@ -573,10 +573,39 @@ TIER_ORDINARY_MAX_TURNS="${KOGAKI_REVIEW_TIER_ORDINARY_MAX_TURNS:-24}"
 #
 # THE MEMBER LIST IS DELIBERATELY NARROW — the two members the measured defect
 # names, and no more. A deliberately narrow instrument owes a NAMED TRIGGER
-# that widens it, and this is that trigger: `KOGAKI_REVIEW_TIER_REFLEXIVE_PATHS`
-# has the same shape as the other two overrides, so widening the class is a
-# declaration an operator makes rather than an edit to this file
+# that widens or escalates it
 # (consulted: product-lab@f918c515 topics/knowledge-architecture.md:51).
+# `KOGAKI_REVIEW_TIER_REFLEXIVE_PATHS` has the same shape as the other two
+# overrides, so widening the class is a declaration an operator makes rather
+# than an edit to this file.
+#
+# THAT OVERRIDE IS THE WIDENING MECHANISM AND IS NOT THE TRIGGER, and the two
+# are not the same thing. The served position's load-bearing half is
+# structural: "the trigger cannot live inside the instrument … the escape
+# trigger must be a DIFFERENT-UNIT observer" — per-item judgment cannot see
+# recurrence by construction, and this table is per-item by construction. An
+# operator setting the override has to ALREADY KNOW a third path deserves
+# membership; nothing here observes that it keeps deserving one and fires. So:
+#
+#   instrument: none — for the widening trigger. Declared at authoring, per
+#   the rule that a held item names an act that ALREADY HAPPENS and observes
+#   the quantity its trigger fires on, or declares `instrument: none`.
+#
+# (consulted: product-lab@f918c515 topics/knowledge-architecture.md:9,
+#  gloss/lessons/testing.md:131 — "Shipping with none of these is fine only if
+#  you write down that you are doing so and what would make you revisit it.")
+# Declared rather than fabricated: no act in this repo today counts reviews
+# that stalled on a path outside the list, and inventing an observer that
+# cannot be pointed at would be worse than none — its silence would read as
+# the class being right. WHAT WOULD MAKE THIS REVISITED: a second measured
+# stall, on a path this table does not name. The candidate carrier, named so a
+# later sitting does not re-derive it: the spawn log under `REVIEW_LOG_DIR`
+# already carries the `=== spawn:` line (hence the model and cap actually
+# used) and the raw result stream (hence `error_max_turns` when it happens),
+# so counting stalls by tier is an act that already happens plus one field —
+# the resolved CLASS is the field the log does not carry today. That is a
+# carrier PROPOSAL, not a decision, and building it is not licensed here.
+#
 # `checks/check-review-report.sh` is a KNOWN OPEN QUESTION and is NOT a member:
 # it is already careful via `checks/**`, so membership carries no behavioural
 # delta today — only a different reported class — and that is not decided here.
