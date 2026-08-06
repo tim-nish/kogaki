@@ -797,6 +797,163 @@ function cmdAdopt(args) {
 }
 
 // --------------------------------------------------------------------------
+// subdivide — semantic subdivision as a judged substrate one level down
+// (SPEC.md §8), DOGFOOD-FIRST.
+//
+// Placement plus title-derivation, hiding none: a cap decides WHICH members
+// appear, subdivision decides WHERE each appears and hides none. It is
+// therefore inside the presentation-only invariant and is NOT the refused
+// within-axis cap.
+//
+// NOT OFFERED BY DEFAULT. Co-tags stay the default for a run naming no
+// substrate, and this path is reachable only by naming it. Running it, and
+// merging it, ARRIVES at §8.1's offering gate rather than discharging it.
+//
+// WHICH MODEL judges is a per-invocation PINNED FACT and not a decision this
+// code makes: the judge pin (model id + effort tier) is ADOPTED for
+// per-invocation judged surfaces and names terrain screens, claims and
+// groupings among them, with the judge-migration tripwire as its complement —
+// the pin makes a judge change observable, the tripwire makes it
+// consequential. So the classification and its verdicts arrive as input and
+// the record pins the judge that produced them. Terrain names no model.
+//
+// NO NUMERIC CONSTANT APPEARS IN THE SPLIT OR STOP LOGIC. §8's declared
+// reopen trigger is the first subdivision implementation reaching review with
+// one, and inventing a threshold to stand in for the judge's verdicts would
+// fire it. The leaf condition is the CONJUNCTION of the judge's two verdicts;
+// the three instruments are REPORTED quantities and gate nothing; the screen
+// budget arrives per run rather than as a constant here.
+// --------------------------------------------------------------------------
+// The SubGroup's own two rendered lines — its name and its claim. Rendering
+// arithmetic for the screen-budget instrument; it gates nothing and is not
+// stop logic.
+const LINES_PER_SUBGROUP_HEADER = 2;
+
+function cmdSubdivide(args) {
+  const dir = runDir(args);
+  const block = SURVEY_SCHEMA.subdivision;
+  const record = readJson(String(args.survey || fail("subdivide needs --survey <file>")));
+  const tag = String(args.tag || fail("subdivide needs --tag <selected tag>"));
+  const groupArg = String(args.group || fail("subdivide needs --group <co-tag>"));
+  const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the subgroup claims are judged TIGHTER THAN"));
+  const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
+  const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
+  const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code, so no numeric constant enters this runtime (SPEC.md §8)"));
+  const classification = readJson(String(args.classification || fail("subdivide needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own composes_honestly / tighter_than_parent / trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
+
+  const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
+  const parent = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
+
+  // Compose the SubGroups from the judge's placement. A member the judge
+  // invented is refused; a member the judge left unplaced is placed in the
+  // EXPLICIT named SubGroup rather than dropped — subdivision hides none.
+  const subgroups = [];
+  const placedIds = new Set();
+  for (const sg of classification) {
+    const name = String(sg.subgroup || fail("each SubGroup needs a `subgroup` name"));
+    const members = [...new Set(sg.members || [])].sort();
+    const stray = members.filter((id) => !parent.members.includes(id));
+    if (stray.length) fail(`SubGroup ${JSON.stringify(name)} places ${stray.join(", ")}, which are not members of ${parent.name} — subdivision decides WHERE a member appears, never that a new one exists`);
+    members.forEach((id) => placedIds.add(id));
+    subgroups.push({ name, claim: String(sg.claim || ""), members, verdicts: sg });
+  }
+  const unplaced = parent.members.filter((id) => !placedIds.has(id));
+  if (unplaced.length) {
+    subgroups.push({
+      name: block.no_member_hidden_subgroup,
+      claim: "These members fit none of the composed SubGroups. They are named rather than dropped.",
+      members: unplaced.sort(),
+      verdicts: { composes_honestly: true, tighter_than_parent: false, legible_at_a_glance: true },
+    });
+    unplaced.forEach((id) => placedIds.add(id));
+  }
+
+  for (const sg of subgroups) {
+    sg.by_family = familySplit(sg.members, record.candidates);
+    const vd = sg.verdicts;
+
+    // The leaf condition, CONJUNCTIVE. Both conjuncts are the judge's own
+    // verdicts and neither is re-derived from a proxy.
+    const honest = vd.composes_honestly === true;
+    const tighter = vd.tighter_than_parent === true;
+    sg.leaf = honest && tighter;
+    sg.leaf_reason = honest
+      ? (tighter ? "leaf: the claim composes honestly AND is tighter than its parent's"
+                 : "NOT a leaf: the claim composes honestly but is not tighter than its parent's — the split bought nothing")
+      : "NOT a leaf: the claim does not compose honestly — split further";
+
+    // The two disclosures, DISJUNCTIVE: each is evaluated independently and
+    // neither gates the other, because the first alone does not detect the
+    // condition the second names.
+    sg.disclosures = [];
+    const namesAMember = sg.members.some((id) => sg.claim.includes(id.replace(/^lesson:/, "")));
+    if (vd.trails_into_enumeration === true || namesAMember) {
+      sg.disclosures.push(`degenerate-claim: the claim trails into enumeration${namesAMember ? " (it names a member's slug)" : ""}`);
+    }
+    if (vd.true_of_every_member === true || sg.claim.trim() === groupClaim.trim()) {
+      sg.disclosures.push("undiscriminating-claim: honest, but true of every member at the size served — an honest summary true of every member discriminates between none");
+    }
+
+    // Three instruments, three quantities, none a threshold, none gating.
+    sg.instruments = {
+      relative_share_of_placements: parent.members.length
+        ? Number((sg.members.length / parent.members.length).toFixed(4)) : 0,
+      // Line arithmetic for the rendering destination, not a threshold and not
+      // stop logic: one line for the SubGroup name, one for its claim, one per
+      // member. It gates nothing — the budget is REPORTED against the need.
+      screen_budget_lines: { needs: LINES_PER_SUBGROUP_HEADER + sg.members.length, budget: screenBudget },
+      legible_at_a_glance: vd.legible_at_a_glance === true,
+    };
+  }
+
+  // The cover, counted AFTER composition, over placements.
+  const uncovered = parent.members.filter((id) => !placedIds.has(id));
+  if (uncovered.length) fail(`SUBDIVISION_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${parent.name} appear in no SubGroup: ${uncovered.join(", ")}. ${block.no_member_hidden_rationale}`);
+
+  parent.by_family = familySplit(parent.members, record.candidates);
+  const id = `terrain-subdivision-${Date.now()}`;
+  const out = {
+    id,
+    kind: "subdivision",
+    pin: record.pin,
+    judge: { model_id: modelId, effort_tier: effortTier },
+    group: parent.name,
+    group_claim: groupClaim,
+    parent_members: parent.members,
+    subgroups: subgroups.map(({ verdicts, ...rest }) => ({ ...rest, judge_verdicts: verdicts })),
+    cover: { placed: placedIds.size, of: parent.members.length, counted_over: "placements" },
+    offered_by_default: false,
+    lessons_served: record.candidates.length,
+  };
+  for (const f of block.required) {
+    if (out[f] === undefined || out[f] === null || out[f] === "") fail(`refusing to write a non-conforming subdivision record: missing ${f}`);
+  }
+  if (out.offered_by_default !== block.offered_by_default_must_be) fail("refusing to write a subdivision record marked offered by default (SPEC.md §8.1)");
+  const path = join(dir, `${id}.terrain-subdivision.json`);
+  writeFileSync(path, JSON.stringify(out, null, 2) + "\n");
+
+  // Rendering: GroupClaim FIRST, then the SubGroups each with its own composed
+  // claim, then the Lessons per SubGroup.
+  console.log(sectionFigure(parent, record.candidates.length));
+  console.log(`  in common: ${groupClaim}\n`);
+  for (const sg of subgroups) {
+    console.log(`  ${sg.name} (${strandFigure(sg.by_family)}); ${denominator(sg.members.length, record.candidates.length)}`);
+    console.log(`    in common: ${sg.claim}`);
+    console.log(`    ${sg.leaf_reason}`);
+    for (const d of sg.disclosures) console.log(`    DISCLOSURE — ${d}`);
+    const ins = sg.instruments;
+    console.log(`    instruments (three quantities, none a threshold, none gating): relative share of placements ${(ins.relative_share_of_placements * 100).toFixed(1)}%; screen budget ${ins.screen_budget_lines.needs} lines needed of ${ins.screen_budget_lines.budget}; legible at a glance: ${ins.legible_at_a_glance}`);
+    for (const id2 of sg.members) console.log(`      ${id2}`);
+    console.log("");
+  }
+  console.log(`Cover: ${out.cover.placed} of ${out.cover.of} parent members placed in at least one SubGroup — counted AFTER composition, over placements. No member is hidden.`);
+  console.log(`Judge pin: ${modelId} (effort ${effortTier}) — the fourth component on the pin discipline, so a change of serving judge is OBSERVABLE and fires the judge-migration tripwire.`);
+  console.log(`Subdivision ranks, trims and hides nothing — those still route through the proposal contract, and the >${MAX_STRAND_OPTIONS}-option trim guard at the selection gate stands (SPEC.md §8.2).`);
+  console.log(`Dogfood specimen: ${path}`);
+  console.log("NOT OFFERED BY DEFAULT. Co-tags are the default for a run naming no substrate; subdivision is reachable only by naming it. Producing this specimen ARRIVES at §8.1's offering gate rather than discharging it — merged code evidences existence, never the gate's standing. The hub-side gate (product-lab:q_a/staging/2026-07-31-subdivision-offering-measurement-due.md) remains undischarged.");
+}
+
+// --------------------------------------------------------------------------
 // act — the second-proposer boundary, enforced by enumeration.
 // --------------------------------------------------------------------------
 function cmdAct(args) {
@@ -940,6 +1097,7 @@ switch (cmd) {
   case "cotags": cmdCotags(args); break;
   case "claim": cmdClaim(args); break;
   case "adopt": cmdAdopt(args); break;
+  case "subdivide": cmdSubdivide(args); break;
   case "act": cmdAct(args); break;
   case "gate": cmdGate(args); break;
   case "capture": cmdCapture(args); break;
@@ -961,6 +1119,10 @@ switch (cmd) {
                                             a subset RE-OFFERS it at the gate carrier
   adopt --claim F --capture F [--original-text S]
                                             record the adopted claim with its members, by id and pin
+  subdivide --survey F --tag T --group G --group-claim S --classification F
+            --judge-model M --judge-effort E --screen-budget N
+                                            semantic subdivision (§8) — DOGFOOD-FIRST, never
+                                            offered by default; co-tags are the default
   act --act rank|trim|hide --where --why --label --ids a,b   proposal record (item 3 contract)
   act --act <other>                         report record — the non-member fallback
   gate --gate ID --ids a,b | --proposal F   per-run gate declaration (item 4 carrier)
