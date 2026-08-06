@@ -46,10 +46,44 @@
 # than counted — `proposals-carry-the-state-they-were-computed-against` applied
 # to the reviewing act.
 #
-# A REPORT DECLARES ITS SCOPE AND ITS COMPLETENESS (§4 clauses 5 and 6;
-# kogaki#70, kogaki#74), on two adjacent lines beside the report token:
+# BUT THE SHA IS THE INSTRUMENT AND THE CONTENT IS THE SUBJECT (§4 clause 7,
+# kogaki#96). A report naming head A CARRIES FORWARD to head B when the PR's
+# diff against its base at B is byte-identical to the diff that report reviewed
+# at A. The occasion is the pipeline's own mandated post-squash rebase, which
+# necessarily produces a new head while changing no reviewed content: observed
+# on PR #89, whose only exit was an owner `--admin` merge. A carry-forward is
+# NOT a round and consumes none of clause 3's bound.
+#
+#   THE EQUALITY IS RECOMPUTED AND RECORDED, NEVER ASSUMED. The check computes
+#   both diffs at gate time and writes the pair it compared — each `base..head`
+#   range and its digest — into its own output, so a later reader re-runs the
+#   comparison instead of trusting it. A carry-forward that left no record
+#   would be the silent re-derivation clause 7 forbids at its pin.
+#
+#   THE BASE OF A IS READ, NEVER DERIVED, whenever the report recorded one:
+#   `report-base-resolution` was filled to (c) on 2026-08-06 (kogaki#96), so
+#   `review-base:` is the base of A. It is the one resolution that survives a
+#   rewritten history, and the only one under which a base MOVE is visible at
+#   all — (a), the PR's current base, takes both diffs against one base and so
+#   cannot tell "the base moved" from "the content changed".
+#
+#   THE FALLBACK IS TRANSITIONAL AND FAILS TOWARD THE REVIEWED SIDE. A report
+#   written before the field ships carries no base; those fall back to (b), the
+#   merge-base at A, and NEVER to (a). Where that derived base is not the one
+#   reviewed the diffs differ and the result is `stale`, which is the safe
+#   outcome. It is keyed on the line's absence alone — no flag, no
+#   configuration — and expires with the last base-less live report.
+#
+#   AND AN UNCOMPUTABLE EQUALITY IS `stale`, NEVER A CARRY-FORWARD. An
+#   unresolvable base or an unreadable revision fails toward the reviewed side,
+#   the same choice head-unknown already makes below.
+#
+# A REPORT DECLARES ITS SCOPE, ITS BASE AND ITS COMPLETENESS (§4 clauses 5, 6
+# and 7; kogaki#70, kogaki#74, kogaki#96), on adjacent lines beside the report
+# token:
 #
 #   review-lane report: <head sha>
+#   review-base: <base sha>             — absent means NO RECORDED BASE
 #   review-scope: full | delta          — absent is read as `full`
 #   finding: ...
 #   report-complete: <N> findings       — absent is read as complete
@@ -93,6 +127,12 @@ cd "$(dirname "$0")/.."
 
 PR_NUMBER="${REVIEW_PR_NUMBER:-}"
 HEAD_SHA="${REVIEW_HEAD_SHA:-}"
+# The PR's CURRENT base (§4 clause 7). Unlike the head it is NOT part of
+# presence: it is the input to the carry-forward alone, so an unresolvable base
+# disables the carry-forward and leaves the existing `stale` outcome, and it
+# must never reach the substrate-unestablished branch below. Failing toward the
+# reviewed side is the whole design of the second instrument.
+BASE_SHA="${REVIEW_BASE_SHA:-}"
 COMMENTS="${REVIEW_PR_COMMENTS:-}"   # pre-trusted bodies (test injection route)
 COMMENTS_JSON=""                      # authored comments, filtered before parse
 TRUSTED_OWNER="${REVIEW_TRUSTED_OWNER:-}"
@@ -149,6 +189,10 @@ if [ "$substrate" = "ok" ] && [ -n "$PR_NUMBER" ]; then
       HEAD_SHA=""
     fi
   fi
+  if [ -z "$BASE_SHA" ] && command -v gh >/dev/null 2>&1; then
+    BASE_SHA="$(gh pr view "$PR_NUMBER" --json baseRefOid \
+                -q .baseRefOid 2>/dev/null || true)"
+  fi
   # Comments are fetched WITH their authors, and only trusted authors'
   # comments carry reports or findings (kogaki#56): on a public repository
   # anyone can comment, so an author-blind parse lets a fork-PR author spoof
@@ -177,9 +221,10 @@ if [ "$substrate" = "ok" ] && [ -n "$PR_NUMBER" ]; then
 fi
 
 REVIEW_PR="$PR_NUMBER" REVIEW_HEAD="$HEAD_SHA" REVIEW_BODIES="$COMMENTS" \
+REVIEW_BASE="$BASE_SHA" \
 REVIEW_COMMENTS_JSON="$COMMENTS_JSON" REVIEW_OWNER="$TRUSTED_OWNER" \
 REVIEW_NOTE="$substrate_note" REVIEW_SUBSTRATE="$substrate" python3 <<'EOF'
-import json, os, re, sys
+import hashlib, json, os, re, subprocess, sys
 
 # A report's first line, fixed token and fixed position — the same discipline
 # the consult receipt carries, and for the same reason: a report announced in
@@ -242,6 +287,15 @@ FINDING = re.compile(
 SCOPE = re.compile(r'^\s*review-scope:\s*(full|delta)\s*$', re.MULTILINE)
 COMPLETE = re.compile(r'^\s*report-complete:\s*(\d+)\s+findings?\s*$',
                       re.MULTILINE)
+# THE BASE THE REPORT ACTUALLY DIFFED AGAINST (§4 clause 7, kogaki#96 — the
+# `report-base-resolution` slot filled to (c)). A third declaration on the
+# established adjacent-line pattern: anchored WHOLE, taking the same 7–40 hex
+# sha the report token takes, read in the SAME single pass over the SAME
+# segmenter, first declaration wins. The report token is NOT widened — that
+# form was exercised and failed in story 1.17, and its regex lives in this file
+# and tools/review-sweep.sh, both of which an adjacent line leaves untouched.
+# A `review-base:` inside a finding's prose is a MENTION, never a declaration.
+BASE = re.compile(r'^\s*review-base:\s*([0-9a-f]{7,40})\s*$', re.MULTILINE)
 
 
 def counted(seg):
@@ -258,10 +312,19 @@ def scope_of(seg):
     return seg['scope'] or 'full'
 
 
-def head_segments(segs, head):
-    """The segments naming THIS head — abbreviated shas match either way."""
+def head_segments(segs, head, carried=()):
+    """The segments naming THIS head — abbreviated shas match either way.
+
+    `carried` holds the shas of segments PROVEN to have reviewed this head's
+    content (§4 clause 7): a carried segment is this head's segment for every
+    purpose below — presence, open-blocking, completeness and scope — because
+    the clause admits a second instrument for the same pin, not a second class
+    of report. Default empty, so nothing that does not ask for a carry-forward
+    behaves differently by one line.
+    """
     return [s for s in segs
-            if head and (head.startswith(s['sha']) or s['sha'].startswith(head))]
+            if (head and (head.startswith(s['sha']) or s['sha'].startswith(head)))
+            or s['sha'] in carried]
 
 
 def segments(bodies):
@@ -277,9 +340,12 @@ def segments(bodies):
     state; a new round supersedes by writing a new report, not by mutating
     an old one.
 
-    Each segment also carries its two DECLARATIONS (§4 clauses 5 and 6),
-    read in this same pass: `scope` ('full'|'delta'|None) and `complete`
-    (the declared N, or None). The FIRST declaration of each kind wins: a
+    Each segment also carries its three DECLARATIONS (§4 clauses 5, 6 and 7),
+    read in this same pass: `scope` ('full'|'delta'|None), `complete`
+    (the declared N, or None) and `base` (the recorded base sha, or None —
+    absent means NO RECORDED BASE, never a default sha, and routes the
+    carry-forward to clause 7's transitional fallback). The FIRST declaration
+    of each kind wins: a
     later line must never revise an earlier claim about the same segment, so
     a second declaration is IGNORED and the report stays otherwise intact —
     there is no malformed state, and the duplicate invalidates nothing. The
@@ -297,11 +363,16 @@ def segments(bodies):
         r = REPORT.match(line)
         if r:
             current = {'sha': r.group(1), 'findings': [],
-                       'scope': None, 'complete': None}
+                       'scope': None, 'complete': None, 'base': None}
             segs.append(current)
             continue
         if current is None:
             continue        # a declaration before any report belongs to none
+        b = BASE.match(line)
+        if b:
+            if current['base'] is None:
+                current['base'] = b.group(1)
+            continue
         s = SCOPE.match(line)
         if s:
             if current['scope'] is None:
@@ -319,7 +390,7 @@ def segments(bodies):
     return segs
 
 
-def open_blocking(bodies, head):
+def open_blocking(bodies, head, carried=()):
     """JUSTIFIED findings declared `blocking` and still `open`, in segments
     whose report names the CURRENT head only. Reads the declared severity,
     state and justification-presence fields — never the finding's prose.
@@ -328,15 +399,14 @@ def open_blocking(bodies, head):
     toward merge as a `should`) and is returned separately so the downgrade
     is reported by name rather than silently absorbed."""
     gating, downgraded = [], []
-    for seg in segments(bodies):
-        if head and (head.startswith(seg['sha']) or seg['sha'].startswith(head)):
-            for sev, state, just, line in seg['findings']:
-                if sev == 'blocking' and state == 'open':
-                    (gating if just else downgraded).append(line)
+    for seg in head_segments(segments(bodies), head, carried):
+        for sev, state, just, line in seg['findings']:
+            if sev == 'blocking' and state == 'open':
+                (gating if just else downgraded).append(line)
     return gating, downgraded
 
 
-def fragments(bodies, head):
+def fragments(bodies, head, carried=()):
     """This head's segments that DO NOT count — (declared, actual) each.
 
     Reported by name rather than absorbed into 'absent': a report that reached
@@ -345,23 +415,104 @@ def fragments(bodies, head):
     fact ran. The PR #71 specimen is precisely a fragment nobody could see.
     """
     return [(s['complete'], len(s['findings']))
-            for s in head_segments(segments(bodies), head) if not counted(s)]
+            for s in head_segments(segments(bodies), head, carried)
+            if not counted(s)]
 
 
-def head_scope(bodies, head):
+def head_scope(bodies, head, carried=()):
     """(scope, declared) for this head's counted report, or (None, False).
 
     Reported, never gated (§4 clause 5): what a report ATTESTS TO belongs on
     the gate's own line, because presence and open-blocking read identically
     whatever the round and a delta review is otherwise invisible here.
     """
-    for seg in head_segments(segments(bodies), head):
+    for seg in head_segments(segments(bodies), head, carried):
         if counted(seg):
             return scope_of(seg), seg['scope'] is not None
     return None, False
 
 
-def find_report(bodies, head):
+def carry_forward(bodies, head, base_b, diff_at, merge_base):
+    """§4 clause 7: which segments PROVABLY reviewed this head's content.
+
+    Returns (carried, record) — the shas that carry forward, and the lines that
+    NAME what was compared. The equality is RECOMPUTED AND RECORDED, never
+    assumed: `record` carries each `base..rev` range and its digest for both
+    sides, so a later reader re-runs the comparison instead of trusting it (AC
+    2). A carry-forward that left no record is the silent re-derivation clause 7
+    forbids at its pin.
+
+    Both git reads are INJECTED rather than called here — `diff_at(base, rev)`
+    returning the diff text or None, `merge_base(a, b)` returning a sha or None
+    — so the fixture pass exercises every branch with no repository and no
+    network, on the same ground the rest of this file's fixtures rest on.
+
+    A's base is READ from its `review-base:` line whenever it recorded one
+    (resolution (c)). A base-less report — every report written before the field
+    shipped — falls back to the MERGE-BASE at A (resolution (b)) and never to
+    the PR's current base (resolution (a)): (a) takes both diffs against one
+    base, which makes a base move invisible, and a fallback that fails open on
+    this clause's own counter-example is worse than no carry-forward at all.
+    The fallback is transitional and keyed on the line's absence alone.
+
+    Anything uncomputable — an unresolvable base, an unreadable revision — is
+    NOT a carry-forward (AC 3). It leaves `carried` empty, the caller keeps the
+    existing `stale` state, and the reason is still named in `record`.
+    """
+    record, carried = [], []
+    diff_b = diff_at(base_b, head) if base_b else None
+    if base_b is None:
+        record.append("carry-forward NOT computed: the PR's current base could "
+                      "not be resolved, so there is nothing to compare against "
+                      "— stale, failing toward the reviewed side")
+        return carried, record
+    if diff_b is None:
+        record.append(f"carry-forward NOT computed: the diff "
+                      f"{base_b[:7]}..{head[:7]} could not be read — stale, "
+                      "failing toward the reviewed side")
+        return carried, record
+    record.append(f"carry-forward candidate: this head's diff is "
+                  f"{base_b[:7]}..{head[:7]} [{digest(diff_b)}]")
+    for seg in segments(bodies):
+        a = seg['sha']
+        if head.startswith(a) or a.startswith(head):
+            continue                      # already this head's own segment
+        if seg['base'] is not None:
+            base_a, how = seg['base'], "recorded `review-base:` (resolution c)"
+        else:
+            base_a = merge_base(base_b, a)
+            how = ("merge-base at A — the report records no base, so clause 7's "
+                   "TRANSITIONAL fallback (resolution b)")
+            if base_a is None:
+                record.append(f"  {a[:7]}: no carry-forward — the report records "
+                              "no base and the merge-base could not be resolved")
+                continue
+        diff_a = diff_at(base_a, a)
+        if diff_a is None:
+            record.append(f"  {a[:7]}: no carry-forward — the diff "
+                          f"{base_a[:7]}..{a[:7]} could not be read ({how})")
+            continue
+        same = diff_a == diff_b
+        record.append(f"  {a[:7]}: reviewed {base_a[:7]}..{a[:7]} "
+                      f"[{digest(diff_a)}] via {how} — "
+                      f"{'IDENTICAL, carries forward' if same else 'DIFFERS, stale'}")
+        if same:
+            carried.append(a)
+    return carried, record
+
+
+def digest(text):
+    """A short, re-computable name for a diff — `sha256:<12 hex>`.
+
+    The record names the RANGES and this digest rather than pasting two diffs
+    into a gate's output: the ranges are what a reader re-runs, and the digest
+    is what they compare their own result against. `sha256(git diff output)` is
+    reproducible by anyone holding the repository.
+    """
+    return "sha256:" + hashlib.sha256(text.encode('utf-8')).hexdigest()[:12]
+
+
+def find_report(bodies, head, carried=()):
     """Return ('present'|'stale'|'absent'|'head-unknown'|'blocked'
     |'incomplete', shas).
 
@@ -382,6 +533,13 @@ def find_report(bodies, head):
     says a fragment turns nothing GREEN, and letting incompleteness swallow a
     blocking finding would be the inverse: a partial report used to hide one.
     Both states are red; the earlier one is the more specific sentence.
+
+    `carried` (§4 clause 7) names segments PROVEN to have reviewed this head's
+    content, computed by `carry_forward` above. A carried segment is treated as
+    this head's own for every state below, which is what makes the second
+    instrument an instrument for the SAME pin: a carry-forward's own open
+    blocking still gates, and its fragment still counts as nothing. It is not a
+    round and touches no counter here.
     """
     segs = segments(bodies)
     shas = [seg['sha'] for seg in segs]
@@ -393,10 +551,10 @@ def find_report(bodies, head):
         # with the permissive value as the fallback, is failing open (PR #44
         # review).
         return 'head-unknown', shas
-    current = head_segments(segs, head)
+    current = head_segments(segs, head, carried)
     if not current:
         return 'stale', shas
-    if open_blocking(bodies, head)[0]:
+    if open_blocking(bodies, head, carried)[0]:
         return 'blocked', shas
     if not any(counted(seg) for seg in current):
         return 'incomplete', shas
@@ -589,15 +747,20 @@ for name, bodies, head_fx, want in [
     if got != want:
         decl_bad.append(f"{name}: fragments={got}, want {want}")
 # And the declarations must not change a verdict the parser already reached:
-# every case above re-run with both lines present, scoped `full` and counted.
+# every case above re-run with all THREE lines present — a recorded base, scope
+# `full` and a matching count. The base line is included here rather than only
+# in its own suite because the risk clause 7 carries is the same one clauses 5
+# and 6 carried: not that the token fails to parse, but that reading it
+# DISTURBS the segmentation clauses 1-4 rest on.
 def _declare(bodies):
     out, buf = [], []
 
     def flush():
         if buf:
             n = sum(1 for l in buf if FINDING.match(l))
-            out.extend([buf[0], "review-scope: full", *buf[1:],
-                        f"report-complete: {n} findings"])
+            out.extend([buf[0], "review-base: 1111111",
+                        "review-scope: full",
+                        *buf[1:], f"report-complete: {n} findings"])
     for line in bodies.splitlines():
         if REPORT.match(line):
             flush()
@@ -624,7 +787,171 @@ print(f"declaration pass: {len(DECL)}/{len(DECL)} scope-and-completeness cases "
       "(declared / absent-is-full / absent-is-complete / count equality / "
       "fragment / the PR #71 split report and its completion / use-vs-mention "
       "/ first-declaration-wins), 3 fragment-disclosure cases, and all "
-      f"{len(FIXTURES)} cases above re-run with both declarations present")
+      f"{len(FIXTURES)} cases above re-run with all three declarations present")
+
+# --- the base declaration and the carry-forward (§4 clause 7, kogaki#96) -----
+# AC 7 first: `review-base:` is READ on the established adjacent-line pattern.
+# Each case asserts the parsed base AND that the report's state is unchanged by
+# it — a third declaration that shifted a verdict on its own would be the
+# widened-token failure one field over.
+BASE_FIX = [
+    ("a recorded base is read",
+     f"review-lane report: {HEAD}\nreview-base: fedcba9\n"
+     "report-complete: 0 findings", HEAD, 'present', 'fedcba9'),
+    ("an ABSENT base is None — never a default sha (clause 7's transitional "
+     "case, not a missing base)",
+     f"review-lane report: {HEAD}\nreview-scope: delta", HEAD, 'present', None),
+    ("the FIRST base declaration wins; a second is IGNORED and the report "
+     "stays PRESENT (AC 7 — the sibling rule, not a malformed state)",
+     f"review-lane report: {HEAD}\nreview-base: fedcba9\nreview-base: 0000000",
+     HEAD, 'present', 'fedcba9'),
+    ("MENTIONING review-base in a finding's prose declares nothing",
+     f"review-lane report: {HEAD}\n"
+     "finding: nit open  the review-base: fedcba9 line is missing here",
+     HEAD, 'present', None),
+    ("a malformed base value is not a declaration and does not gate",
+     f"review-lane report: {HEAD}\nreview-base: not-a-sha", HEAD,
+     'present', None),
+    ("a base declared before any report belongs to no segment",
+     f"review-base: fedcba9\nreview-lane report: {HEAD}", HEAD,
+     'present', None),
+    ("each segment carries its OWN base",
+     f"review-lane report: 9999999\nreview-base: 1111111\n"
+     f"review-lane report: {HEAD}\nreview-base: 2222222", HEAD,
+     'present', '2222222'),
+]
+base_bad = []
+for name, bodies, head_fx, want_state, want_base in BASE_FIX:
+    got_state, _ = find_report(bodies, head_fx)
+    segs_fx = head_segments(segments(bodies), head_fx)
+    got_base = segs_fx[0]['base'] if segs_fx else None
+    if got_state != want_state or got_base != want_base:
+        base_bad.append(f"{name}: got ({got_state!r}, {got_base!r}), "
+                        f"want ({want_state!r}, {want_base!r})")
+
+# AC 6: the carry-forward itself, over an INJECTED pair of git readers so every
+# branch is exercised with no repository and no network. `D` maps a
+# (base, rev) range to its diff text; a range absent from it is UNREADABLE,
+# which is AC 3's fail-toward-the-reviewed-side case. `M` maps (base_b, A) to
+# the merge-base at A, which is AC 8's transitional fallback.
+# Every fixture sha is 7 hex characters, because `review-base:` takes the same
+# 7–40 hex the report token takes: a mnemonic-but-non-hex placeholder is not a
+# declaration at all, and a suite built on one would assert the fallback path
+# everywhere while reporting that it had tested the recorded one.
+B_HEAD, A_HEAD = 'bbbbbbb', 'aaaaaaa'
+BASE_B, BASE_A, MOVED = '0b0b0b0', '0a0a0a0', '0d0d0d0'
+SAME, OTHER = "diff --git a/x b/x\n+one\n", "diff --git a/x b/x\n+two\n"
+
+
+def _reader(table):
+    return lambda base, rev: table.get((base, rev))
+
+
+CARRY = [
+    ("identical-diff carry-forward — same recorded base, byte-identical diffs",
+     f"review-lane report: {A_HEAD}\nreview-base: {BASE_B}\n"
+     "report-complete: 0 findings",
+     {(BASE_B, B_HEAD): SAME, (BASE_B, A_HEAD): SAME}, {}, 'present'),
+    ("changed-diff no-carry-forward — same recorded base, the diffs differ",
+     f"review-lane report: {A_HEAD}\nreview-base: {BASE_B}\n"
+     "report-complete: 0 findings",
+     {(BASE_B, B_HEAD): SAME, (BASE_B, A_HEAD): OTHER}, {}, 'stale'),
+    ("moved-base no-carry-forward — the recorded base is NOT the PR's current "
+     "base AND the move changed the diff",
+     f"review-lane report: {A_HEAD}\nreview-base: {MOVED}\n"
+     "report-complete: 0 findings",
+     {(BASE_B, B_HEAD): SAME, (MOVED, A_HEAD): OTHER}, {}, 'stale'),
+    ("moved-base-but-identical-diff CARRIES FORWARD — the case that "
+     "distinguishes 'the base moved' from 'the content changed', and the one "
+     "resolution (a) cannot express at all",
+     f"review-lane report: {A_HEAD}\nreview-base: {MOVED}\n"
+     "report-complete: 0 findings",
+     {(BASE_B, B_HEAD): SAME, (MOVED, A_HEAD): SAME}, {}, 'present'),
+    ("uncomputable-diff staleness — A's revision is unreadable",
+     f"review-lane report: {A_HEAD}\nreview-base: {BASE_A}\n"
+     "report-complete: 0 findings",
+     {(BASE_B, B_HEAD): SAME}, {}, 'stale'),
+    ("uncomputable-diff staleness — THIS head's own diff is unreadable, so "
+     "nothing is compared at all",
+     f"review-lane report: {A_HEAD}\nreview-base: {BASE_B}\n"
+     "report-complete: 0 findings",
+     {(BASE_B, A_HEAD): SAME}, {}, 'stale'),
+    ("base-less report — AC 8's TRANSITIONAL fallback derives the merge-base "
+     "at A, never the PR's current base",
+     f"review-lane report: {A_HEAD}\nreport-complete: 0 findings",
+     {(BASE_B, B_HEAD): SAME, (BASE_A, A_HEAD): SAME}, {(BASE_B, A_HEAD): BASE_A},
+     'present'),
+    ("base-less report whose derived merge-base is NOT the base reviewed — the "
+     "diffs differ and the result is the safe one",
+     f"review-lane report: {A_HEAD}\nreport-complete: 0 findings",
+     {(BASE_B, B_HEAD): SAME, (MOVED, A_HEAD): OTHER}, {(BASE_B, A_HEAD): MOVED},
+     'stale'),
+    ("base-less report whose merge-base will not resolve is stale, never a "
+     "carry-forward",
+     f"review-lane report: {A_HEAD}\nreport-complete: 0 findings",
+     {(BASE_B, B_HEAD): SAME}, {}, 'stale'),
+    ("a carried segment's OWN open blocking still gates — the second "
+     "instrument is for the SAME pin, not a weaker one",
+     f"review-lane report: {A_HEAD}\nreview-base: {BASE_B}\n"
+     "finding: blocking open [harm: the gate would pass an unresolved defect]  x\n"
+     "report-complete: 1 findings",
+     {(BASE_B, B_HEAD): SAME, (BASE_B, A_HEAD): SAME}, {}, 'blocked'),
+    ("a carried segment that is a FRAGMENT still counts as nothing",
+     f"review-lane report: {A_HEAD}\nreview-base: {BASE_B}\n"
+     "report-complete: 4 findings",
+     {(BASE_B, B_HEAD): SAME, (BASE_B, A_HEAD): SAME}, {}, 'incomplete'),
+    ("a report already naming THIS head needs no carry-forward and is not "
+     "compared against itself",
+     f"review-lane report: {B_HEAD}\nreport-complete: 0 findings",
+     {}, {}, 'present'),
+]
+carry_bad = []
+for name, bodies, diffs, mbases, want in CARRY:
+    state_fx, _ = find_report(bodies, B_HEAD)
+    carried_fx, record_fx = [], []
+    if state_fx == 'stale':
+        carried_fx, record_fx = carry_forward(
+            bodies, B_HEAD, BASE_B, _reader(diffs), _reader(mbases))
+        state_fx, _ = find_report(bodies, B_HEAD, carried_fx)
+    if state_fx != want:
+        carry_bad.append(f"{name}: got {state_fx!r}, want {want!r}")
+    # AC 2: a carry-forward that leaves no record is the silent re-derivation
+    # clause 7 forbids. Asserting the outcome while never asserting the
+    # disclosure is the habit kogaki#76 was filed over.
+    if carried_fx and not any('IDENTICAL' in l for l in record_fx):
+        carry_bad.append(f"{name}: carried forward but named no comparison")
+    if carried_fx and not any(BASE_B[:7] in l and B_HEAD[:7] in l
+                              for l in record_fx):
+        carry_bad.append(f"{name}: the record does not name THIS head's diff")
+
+# AC 5: a carry-forward is not a round and consumes none. The round bound lives
+# in tools/review-sweep.sh's MAX_ROUNDS over `review-lane report:` segments;
+# nothing here writes a report, so the segment count a round counter reads is
+# the same before and after the carry-forward. Asserted rather than assumed.
+_carry_bodies = (f"review-lane report: {A_HEAD}\nreview-base: {BASE_B}\n"
+                 "report-complete: 0 findings")
+_before = len(segments(_carry_bodies))
+_carried, _ = carry_forward(_carry_bodies, B_HEAD, BASE_B,
+                            _reader({(BASE_B, B_HEAD): SAME,
+                                     (BASE_B, A_HEAD): SAME}), _reader({}))
+if not _carried or len(segments(_carry_bodies)) != _before:
+    carry_bad.append("a carry-forward changed the segment count a round "
+                     "counter reads (AC 5: it is not a round)")
+
+if base_bad or carry_bad:
+    print("FAIL fixture pass — the recorded base and the carry-forward do not "
+          "behave as §4 clause 7 states:")
+    for f in base_bad + carry_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print(f"base pass: {len(BASE_FIX)}/{len(BASE_FIX)} review-base cases "
+      "(read / absent-is-None / first-declaration-wins / use-vs-mention / "
+      "malformed / before-any-report / per-segment)")
+print(f"carry-forward pass: {len(CARRY)}/{len(CARRY)} clause-7 cases "
+      "(identical-diff / changed-diff / moved-base-changed / "
+      "moved-base-identical / uncomputable either side / base-less fallback "
+      "and its two refusals / blocked and fragment still bind / self), plus "
+      "the record-is-written and not-a-round assertions")
 
 # --- trust assembly fixtures (kogaki#56): author-filtering, both directions.
 OWN = 'repo-owner'
@@ -710,14 +1037,60 @@ if raw_json.strip():
               f"{login!r} was excluded — spoof-shaped, reported not counted "
               "(kogaki#56; trust = repo owner + merge_author_allowlist).")
 
+def _git(*args):
+    """A git read, or None. Never raises: an unavailable or unexecutable git,
+    an unknown revision and a non-zero exit are all 'could not read', which is
+    AC 3's fail-toward-the-reviewed-side input rather than a check failure."""
+    try:
+        r = subprocess.run(["git", *args], stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, check=False)
+    except OSError:
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def _diff_at(base, rev):
+    """The diff a review at `rev` proposed against `base` — the three-dot form,
+    which is what a PR diff IS: the changes on rev since it diverged from base,
+    never base's own later commits. `--no-color` and a fixed context are named
+    rather than inherited, because the comparison is BYTE equality and a diff
+    rendered under someone's git config is a different string for the same
+    content."""
+    return _git("diff", "--no-color", "--unified=3", f"{base}...{rev}")
+
+
+def _merge_base(base, rev):
+    out = _git("merge-base", base, rev)
+    return out.strip() if out and out.strip() else None
+
+
+carried = []
 state, shas = find_report(bodies, head)
+if state == 'stale':
+    # §4 clause 7: the sha is the instrument, the content is the subject. Only
+    # attempted on the stale branch — a report already naming this head needs
+    # no second instrument, and the git reads are not spent where they cannot
+    # change the answer.
+    base = os.environ.get("REVIEW_BASE", "").strip()
+    carried, record = carry_forward(bodies, head, base or None,
+                                    _diff_at, _merge_base)
+    for line in record:
+        print(f"clause-7 {line}")
+    if carried:
+        state, shas = find_report(bodies, head, carried)
+        print(f"CARRY-FORWARD: the report naming "
+              f"{', '.join(c[:7] for c in carried)} reviewed content "
+              f"byte-identical to head {head[:7]}'s, so it is presence for this "
+              "head (specs/SPEC.md §4 clause 7, kogaki#96). The comparison is "
+              "recorded above and is re-runnable; it is NOT a round and "
+              "consumes none of the two-round bound.")
 if state == 'head-unknown':
     print(f"FAIL: PR #{pr} carries a review-lane report, but this run could "
           "not establish which head it should name. The head is part of "
           "presence, so an unknown head is not a pass.")
     sys.exit(1)
 if state == 'blocked':
-    blocking, downgraded = open_blocking(bodies, head)
+    blocking, downgraded = open_blocking(bodies, head, carried)
     for d in downgraded:
         print(f"NOTE: unjustified blocking downgraded to should, non-gating "
               f"(kogaki#72 — justify with [policy: <pin>] or [harm: ...] or "
@@ -736,7 +1109,7 @@ if state == 'incomplete':
           "(specs/SPEC.md §4 clause 6, kogaki#74). A partial report turns "
           "nothing green, and a split report holds the gate red until its "
           "last part lands — which is the merge PR #71 should not have had.")
-    for declared, actual in fragments(bodies, head):
+    for declared, actual in fragments(bodies, head, carried):
         print(f"  declares `report-complete: {declared} findings` but carries "
               f"{actual} finding line(s)")
     print("  Post the report whole, in ONE comment, with its terminal "
@@ -751,7 +1124,7 @@ if state == 'present':
     # review's clothes the clause was written against. It is REPORTED, never
     # enforced: whether a declared `delta` was honest is judgment, and clause 5
     # is carrier-less by design with a named reopen trigger.
-    scope, declared = head_scope(bodies, head)
+    scope, declared = head_scope(bodies, head, carried)
     print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}, "
           "no open blocking findings")
     print(f"scope: {scope}" + ("" if declared else

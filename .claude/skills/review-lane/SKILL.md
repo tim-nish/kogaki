@@ -175,11 +175,12 @@ independence observable.
 ## The report's shape
 
 A report is a **pull-request comment** whose first line is a fixed token at a
-fixed position, and which **declares its scope and its completeness** on two
-further fixed lines (`specs/SPEC.md` §4 clauses 5 and 6):
+fixed position, and which **declares its base, its scope and its completeness**
+on three further fixed lines (`specs/SPEC.md` §4 clauses 5, 6 and 7):
 
 ```
 review-lane report: <head sha>
+review-base: <base sha>
 review-scope: <full|delta>
 finding: <blocking|should|nit> <open|resolved> [policy: <pin> | harm: <one line>]  <the finding>
 …
@@ -235,6 +236,32 @@ report-complete: <N> findings
 - The check reads **only** these declared lines. What the findings say is
   judgment and stays here.
 
+### `review-base:` — the base you actually diffed against (§4 clause 7, kogaki#96)
+
+Write the commit your review was diffed against, from one read —
+`gh pr view <n> --json baseRefOid` — copied whole. **The same
+read-the-sha-as-a-value rule the head carries applies here** (kogaki#91): a
+base sha assembled from a prefix is the invented-sha defect one field over, and
+a short prefix is always safe where an invented tail never is.
+
+- **This is what lets your report survive a rebase that changed nothing.** The
+  head sha is the *instrument*; the content you reviewed is the *subject*. When
+  the pipeline's own mandated post-squash rebase produces a new head, the merge
+  check recomputes both diffs and carries your report forward if they are
+  byte-identical — but only if it can tell which base yours was taken against.
+  On PR #89 it could not, and the only exit was an owner `--admin` merge.
+- **A base MOVE is not by itself a refusal.** A base that moved and left the
+  diff byte-identical still carries forward; that is the subject/instrument rule
+  working, not a leak. What the recorded base buys is the *visibility* to tell
+  the two cases apart at all.
+- **Omitting the line means NO RECORDED BASE — never a default.** Such a report
+  falls back to the merge-base at your head, which is transitional and fails
+  toward the reviewed side: where the derived base is not the one you used, the
+  diffs differ and the report reads `stale`. Write the line.
+- **First declaration wins, and a second is simply ignored** — the same rule
+  `review-scope:` and `report-complete:` already follow. A duplicate does not
+  invalidate the report, but write it once anyway.
+
 ### `review-scope:` — what the report attests to (§4 clause 5, kogaki#70)
 
 `full` reviewed the whole diff. `delta` reviewed the previous round's findings
@@ -286,8 +313,9 @@ number of `finding:` lines above it**. The merge check counts your segment
 - **An absent line is read as complete.** The token binds reports written after
   it ships; voiding this repository's history would empty the gate rather than
   tighten it. That is compatibility, not permission to omit it.
-- **Both lines are anchored whole.** Mentioning `report-complete:` inside a
-  finding's prose declares nothing — it is a mention, not a declaration.
+- **All three lines are anchored whole.** Mentioning `report-complete:`,
+  `review-scope:` or `review-base:` inside a finding's prose declares nothing —
+  it is a mention, not a declaration.
 
 ## The postmortem hand-off (kogaki#24 shape)
 
