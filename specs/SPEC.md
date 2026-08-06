@@ -360,6 +360,60 @@ invariant: Gukan guarantees Unit schema, never data schema).
   the typed loop's mechanical half — an obligation generates no event to
   hook, but a PR is an event, so receipt-absence over a diff is a computable
   fact rather than an absence with nothing to observe (kogaki#25).
+- **Review altitude is a declared property of the diff, and the instrument's
+  own diff is its own class** (kogaki#99). The tier that decides a spawned
+  review's model and turn cap was until now an invariant carried only in code —
+  the table at `tools/review-sweep.sh:549-554`, resolved by `resolve_tier()` at
+  `tools/review-sweep.sh:804` — with no clause here, so the first thing this
+  does is write it down. The declared classes are `careful` and `ordinary`; any
+  careful path carries the whole diff and is never averaged down; an unmatched
+  path falls to the careful side, which is the fail-safe. The served ground for
+  declaring it at all rather than re-judging per sweep:
+
+  > A check's runtime is paid once per iteration of the loop it gates, so its
+  > position in the loop is a multiplier on its cost and assertion ALTITUDE is
+  > a latency decision rather than only a coverage one … the remedy is a
+  > declared tier carried by the check file rather than a judgment re-made per
+  > sweep.
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:40`
+
+  **A third class is declared above both and is resolved FIRST: a diff that
+  touches the reviewing instrument itself.** It carries the careful tier's
+  model and cap. The shipped table classes `tools/**` and `.claude/skills/**`
+  as `ordinary`, which puts `tools/review-sweep.sh` and
+  `.claude/skills/review-lane/**` — the review machinery — in the cheap tier,
+  so the classifier calls its own instrument cheap. Measured on PR #98: two
+  consecutive spawned reviewers, both `error_max_turns` at 25 turns against a
+  cap of 24, ~$2 spent, no report posted, the PR left unreviewed. Resolving the
+  reflexive class before the careful/ordinary axis is what stops a diff that
+  also matches something cheaper from averaging it away.
+
+  **It is a class with its own trigger rather than two paths appended to an
+  existing list**, because the served design rule is exactly that:
+
+  > A check inherits the trigger of the gate it is sited in, and can be
+  > ANTI-CORRELATED with its own need … A check anti-correlated with its need
+  > is worse than no check, because its silence reads as a clean result.
+  > Design rule: **site a check at a trigger that is its own subject, or give
+  > it its own trigger.**
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/archive/claude-code-ops.md:24`
+
+  and because a deliberately narrow instrument owes a **named** trigger that
+  widens or escalates it — the hub ruling only that one is owed and expressly
+  declining to select among the candidate forms, which is a consumer decision
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:51`).
+  Appending two paths to the careful list would fix this instance and leave the
+  class unnamed, so instance N+1 is uncovered by default.
+
+  **The cost counter is carried, not dismissed.** kogaki#70 shipped the tier
+  table to REDUCE review cost, and every widening spends that. This one is
+  bounded by construction — its members are the review machinery's own paths, a
+  small and self-limiting set — and the careful/ordinary table is **unchanged**,
+  so nothing else in the repository moves tier. The membership is declared
+  beside the other two tables and carries the same operator override they do:
+  one place to read, one place to change.
 - **Issue checkpoints:** issues carry policy pins; checked at creation and
   at pickup against the current served surface
   (`topics/claude-code-ops.md` 2026-08-04). Where an issue body matches a
