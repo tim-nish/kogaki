@@ -480,10 +480,10 @@ function cmdView(args) {
 // quantities and none of them is a count of members; a number appearing here
 // as one would be a defect against SPEC.md §8.
 // --------------------------------------------------------------------------
-const NO_SECOND_TAG = "(no second served tag)";
+export const NO_SECOND_TAG = "(no second served tag)";
 // The ordering is DECLARED rather than scored: co-tag name ascending, then
 // member id ascending. No scoring, no model call in the ordering.
-const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
+export const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
 
 export function cotagGroups(members, selectedTag) {
   const byCotag = new Map();
@@ -500,6 +500,46 @@ export function cotagGroups(members, selectedTag) {
     cotag: k,
     members: byCotag.get(k).sort(),
   }));
+}
+
+// The cover measurement, over a COMPOSED GROUP LIST TREATED AS UNTRUSTED.
+//
+// This is the repair of a guard that could not fail (PR #123 review). The
+// earlier form derived both sides of the comparison from `cotagGroups`'s own
+// return value, and `cotagGroups` places every member by construction — so
+// `uncovered` was empty for every possible input and the refusal was
+// unreachable. A check that cannot fail is not a lenient check; it is theatre,
+// and it looks identical to a check that has been switched off
+// (`a-dissolved-unit-retires-its-check-never-re-points-it`,
+// gloss/lessons/testing.md:29@f918c515). Worse, it is the structurally-incapable
+// shape rather than the merely narrow one: no reading of its output bore on the
+// question, so a passing audit and a broken composition were the same
+// observation (topics/claude-code-ops.md:56@f918c515).
+//
+// So the two sides are now derived INDEPENDENTLY and the function takes the
+// group list as a PARAMETER rather than computing it: `members` is the record's
+// own answer to which Strands carry the selected tag, `groups` is whatever the
+// composer produced. That gives the guard an input that can make it fail —
+// which is the whole of #105's criterion that the count run AFTER composition,
+// "because a composer that cannot omit in principle can still omit in fact"
+// (topics/articles.md:74@f918c515). The evidence that it fires is
+// checks/check-terrain-composition.sh's cotags fixture, which runs both
+// directions on every invocation; an unexercised guard's health may be inferred
+// only from runs that executed it (`absence-verification-counts-exercised-trials`).
+//
+// `invented` is the same measurement from the other side: a composer may not
+// add a member either, and a cover fraction that ignores its numerator's
+// provenance would pass a group list that dropped one member and gained one
+// stranger.
+export function cotagCover(members, groups) {
+  const expected = members.map((c) => c.id);
+  const expectedSet = new Set(expected);
+  const covered = new Set(groups.flatMap((g) => g.members || []));
+  return {
+    covered,
+    uncovered: expected.filter((id) => !covered.has(id)).sort(),
+    invented: [...covered].filter((id) => !expectedSet.has(id)).sort(),
+  };
 }
 
 function cmdCotags(args) {
@@ -536,11 +576,16 @@ function cmdCotags(args) {
     if (selected) for (const id of g.members) console.log(`      ${id}`);
   }
 
-  // The cover, counted AFTER composition, over the groups as rendered.
-  const covered = new Set(groups.flatMap((g) => g.members));
-  const uncovered = members.map((c) => c.id).filter((id) => !covered.has(id));
+  // The cover, counted AFTER composition, over ALL composed groups — never
+  // over `shown`. Selecting a group narrows what is PRINTED and narrows
+  // nothing about what is counted, which is why `--group` cannot shrink the
+  // denominator or the numerator of the figure below.
+  const { covered, uncovered, invented } = cotagCover(members, groups);
   if (uncovered.length) {
-    fail(`COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.sort().join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md §2.1, §6).`);
+    fail(`COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md §2.1, §6).`);
+  }
+  if (invented.length) {
+    fail(`COTAG_COVER_INVENTED — ${invented.length} id(s) appear in a co-tag group without carrying ${JSON.stringify(tag)}: ${invented.join(", ")}. Composition may group the members and may not add one; a cover counted without checking its numerator's provenance would pass a group list that dropped a member and gained a stranger (SPEC.md §2.1, §6).`);
   }
   const split = familySplit(members.map((c) => c.id), record.candidates);
   console.log(`\nCover: ${covered.size} of ${members.length} member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: ${strandFigure(split)}; ${denominator(members.length, record.candidates.length)}.`);
@@ -688,6 +733,15 @@ function cmdCapture(args) {
   console.log(`Captured ${row.stop_id} (gate ${decl.id}) → ${out} — machine-local run state, never committed.`);
 }
 
+// The CLI dispatch runs only when this file IS the entry point. Without the
+// guard, importing the module to exercise one of its exported composers runs
+// the dispatch with no command, which prints the usage banner and calls
+// process.exit — so the module was unimportable and every composer in it was
+// reachable only through a subprocess. A mechanism no fixture can call is the
+// orphan shape one level in (`orphan-mechanisms-fail-the-suite`).
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+
+function main() {
 const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 switch (cmd) {
@@ -705,7 +759,7 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <survey|view|act|gate|capture|validate> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <survey|view|cotags|act|gate|capture|validate> [--run-dir DIR] ...
   survey                                    compose the survey from the seam (element_survey)
   view --survey F [--tag T] [--family X]    navigation — narrows nothing
   cotags --survey F --tag T [--group G] [--connective F]
@@ -716,4 +770,5 @@ switch (cmd) {
   capture --declaration F --tool-use-id ID --option X | --free-text S
   validate --survey F                       run the composition rules on a record`);
     process.exit(cmd ? 1 : 0);
+}
 }
