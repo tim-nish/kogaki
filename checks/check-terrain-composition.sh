@@ -164,12 +164,17 @@ const withClaim = spawnSync(process.execPath,
 if (withClaim.status !== 0) fails.push(`cotags --claims exited ${withClaim.status}: ${(withClaim.stderr || "").trim()}`);
 const claimLines = String(withClaim.stdout).split("\n");
 const claimAt = claimLines.findIndex((l) => l.includes("in common: both hold that a guard"));
-const groupAt = claimLines.findIndex((l) => l.includes(`${TAG} × architecture (`));
+const groupAt = claimLines.findIndex((l) => l.includes(`${TAG} × architecture — `));
 if (claimAt < 0 || groupAt < 0 || claimAt !== groupAt + 1) {
-  fails.push("the GroupClaim is not served FIRST, immediately under its GroupID — §6.1's order is the whole of what it asks for");
+  fails.push("the GroupClaim is not served immediately under its group heading — §6.1 v5's order (heading line, then the claim)");
 }
-const memberAt = claimLines.findIndex((l, i) => i > groupAt && l.includes("lesson:alpha"));
-if (!(memberAt > claimAt)) fails.push("the member ids do not follow the claim — GroupClaim first, THEN the members (§6.1)");
+// §6.1 v5's heading form: the heading LINE carries the Lesson count and the
+// member IDs — `<GroupID> — N Lessons: ids` — with the claim beneath. The v3
+// members-after-claim order is superseded by the WA baseline's heading form.
+const heading = claimLines[groupAt] || "";
+if (!/2 Lessons: lesson:alpha, lesson:bravo/.test(heading)) {
+  fails.push("the group heading does not carry its Lesson count and member IDs on the heading line (§6.1 v5: `<GroupID> — N Lessons: ids`)");
+}
 if (!String(withClaim.stdout).includes("pinned to 2 member(s)")) {
   fails.push("a screen-composed claim does not state the member set it is pinned to — §7's pinning is what makes a later subset selection a gate event rather than a refresh");
 }
@@ -202,7 +207,11 @@ if (!String(withSubs.stdout).includes("guards that cannot fail")) {
   fails.push("the SubGroup does not render on the screen (§6.2)");
 }
 if (!String(withSubs.stdout).includes("in common: a check whose inputs make failure unreachable")) {
-  fails.push("the SubGroupClaim does not render above its Lesson IDs (§6.2)");
+  fails.push("the SubGroupClaim does not render beneath its SubGroup line (§6.2 v5)");
+}
+// §6.2 v5's line form: `<SubGroupID> (N Lessons: ids)`, claim on the next line.
+if (!/guards that cannot fail \(1 Lesson: lesson:alpha\)/.test(String(withSubs.stdout))) {
+  fails.push("the SubGroup line does not carry its Lesson count and IDs (§6.2 v5: `<SubGroupID> (N Lessons: ids)`)");
 }
 if (!String(withSubs.stdout).includes("(fits no composed SubGroup)")
     || !String(withSubs.stdout).includes("lesson:bravo")) {
@@ -307,21 +316,36 @@ const SKILL = readFileSync(".claude/skills/terrain/SKILL.md", "utf8");
 if (!/cotags --survey/.test(SKILL)) {
   fails.push("the skill's flow does not name the co-tag step — its absence is what routed a tag selection to a second `view --tag` and produced the dump (§6.1)");
 }
+// §11 decided EAGER (v5, kogaki#146): the co-tag step generates the Full
+// Reports in the same act. The 2026-08-06 defect was a flow that served the
+// screen and generated nothing, so the flow naming the eager act is the
+// carrier at the layer where it was broken.
+if (!/--all-groups/.test(SKILL)) {
+  fails.push("the skill's co-tag step does not name eager report generation (`report … --all-groups`) — §11's decided EAGER reading (v5), and its absence is the 2026-08-06 no-report defect");
+}
+// The serve-verbatim rule (§2.4's flow rule, kogaki#150): the sitting that
+// re-rendered the runtime's output is the layer where three merged contracts
+// failed at once, so the rule must be stated in the flow's own instructions.
+if (!/SERVED\s+VERBATIM|served verbatim/i.test(SKILL)) {
+  fails.push("the skill does not carry the serve-the-renderer-verbatim rule — re-rendering is how member IDs, SubGroup verdicts and ABNORMAL markers vanished on 2026-08-06 (kogaki#150)");
+}
 
 if (fails.length) {
   console.log("FAIL cotags fixture — the second navigation step does not discriminate:");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("cotags fixture: 29/29 cases (lone-tag group; declared sort on both "
+console.log("cotags fixture: 33/33 cases (lone-tag group; declared sort on both "
   + "axes; group-name form; cover passing; cover DROPPED / ADDED / both, all "
   + "three fired; end-to-end subcommand wiring; ids without --group; absent-claim "
-  + "marker per-group and in aggregate; claim served FIRST then members; pinning "
-  + "stated; invented group refused; SubGroup and SubGroupClaim rendered; unplaced "
-  + "member named not dropped; leaf verdict rendered; a flipped verdict CHANGES it; "
-  + "judge pin recorded and REFUSED when absent; degenerate-claim disclosure rendered; "
-  + "no slug dump on the screen; the skill names the co-tag step; no member-count "
-  + "threshold across cmdCotags, subgroupPlacement and judgeSubgroup)");
+  + "marker per-group and in aggregate; claim beneath its heading; the v5 heading "
+  + "carries count + IDs; pinning stated; invented group refused; SubGroup line "
+  + "carries count + IDs with its claim beneath; unplaced member named not dropped; "
+  + "leaf verdict rendered; a flipped verdict CHANGES it; judge pin recorded and "
+  + "REFUSED when absent; degenerate-claim disclosure rendered; no slug dump on the "
+  + "screen; the skill names the co-tag step, eager --all-groups reports, and the "
+  + "serve-verbatim rule; no member-count threshold across cmdCotags, "
+  + "subgroupPlacement and judgeSubgroup)");
 JS
 
 python3 - <<'EOF'
