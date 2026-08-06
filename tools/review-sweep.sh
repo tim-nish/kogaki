@@ -309,6 +309,9 @@
 #   argument. Each half has an env override and is readable without running
 #   anything, which is the property every other declaration here holds.
 #
+#   reflexive tools/review-sweep.sh, .claude/skills/review-lane/**
+#            -> opus,   60 turns   ($KOGAKI_REVIEW_TIER_REFLEXIVE_PATHS)
+#            MATCHED FIRST, above the careful/ordinary axis (kogaki#99).
 #   careful  spec/**, specs/**, checks/**, policy/**, .claude/hooks/**
 #            -> opus,   60 turns   ($KOGAKI_REVIEW_TIER_CAREFUL_PATHS)
 #   ordinary tools/**, docs/**, .claude/skills/**, .claude/*.json, *.md
@@ -552,6 +555,33 @@ TIER_ORDINARY_PATHS="${KOGAKI_REVIEW_TIER_ORDINARY_PATHS:-\
 tools/**,docs/**,.claude/skills/**,.claude/*.json,*.md}"
 TIER_ORDINARY_MODEL="${KOGAKI_REVIEW_TIER_ORDINARY_MODEL:-sonnet}"
 TIER_ORDINARY_MAX_TURNS="${KOGAKI_REVIEW_TIER_ORDINARY_MAX_TURNS:-24}"
+# THE REFLEXIVE CLASS (kogaki#99) — a diff that touches the REVIEWING
+# INSTRUMENT ITSELF. It is a THIRD CLASS above both, with its own trigger,
+# resolved FIRST, and NOT two paths appended to the careful list: appending
+# would have said "review-sweep.sh is careful for the same reason specs/ is",
+# and it is not — it is careful because the diff is editing the thing doing the
+# reviewing, and the run's line has to be able to say that. It carries the
+# CAREFUL tier's model and cap (REVIEW_MODEL/REVIEW_MAX_TURNS), no third pair
+# of knobs: nothing measured asks for a cap above 60, and inventing one would
+# be a number with no evidence under it.
+#
+# Measured on PR #98: `tools/review-sweep.sh` and
+# `.claude/skills/review-lane/SKILL.md` are both ORDINARY by path
+# (`tools/**`, `.claude/skills/**`), so two consecutive reviewers of the
+# reviewer ran at sonnet/24, both ended `error_max_turns` at 25 turns, ~$2
+# spent, NO REPORT POSTED. The classifier was calling its own instrument cheap.
+#
+# THE MEMBER LIST IS DELIBERATELY NARROW — the two members the measured defect
+# names, and no more. A deliberately narrow instrument owes a NAMED TRIGGER
+# that widens it, and this is that trigger: `KOGAKI_REVIEW_TIER_REFLEXIVE_PATHS`
+# has the same shape as the other two overrides, so widening the class is a
+# declaration an operator makes rather than an edit to this file
+# (consulted: product-lab@f918c515 topics/knowledge-architecture.md:51).
+# `checks/check-review-report.sh` is a KNOWN OPEN QUESTION and is NOT a member:
+# it is already careful via `checks/**`, so membership carries no behavioural
+# delta today — only a different reported class — and that is not decided here.
+TIER_REFLEXIVE_PATHS="${KOGAKI_REVIEW_TIER_REFLEXIVE_PATHS:-\
+tools/review-sweep.sh,.claude/skills/review-lane/**}"
 REVIEW_LOG_DIR="${KOGAKI_REVIEW_LOG_DIR:-$HOME/.kogaki/reviews}"
 # Where "outside the repository" is (kogaki#61). The system temp root, which
 # is outside every repository by construction; an operator who wants a
@@ -616,6 +646,7 @@ SWEEP_MODEL="$REVIEW_MODEL" SWEEP_MAX_TURNS="$REVIEW_MAX_TURNS" \
 SWEEP_FIX_MODEL="$FIX_MODEL" \
 SWEEP_REVIEW_TOOLS="$REVIEW_TOOLS" SWEEP_FIX_TOOLS="$FIX_TOOLS" \
 SWEEP_LOG_DIR="$REVIEW_LOG_DIR" SWEEP_WORKTREE_ROOT="$SPAWN_WORKTREE_ROOT" \
+SWEEP_TIER_REFLEXIVE_PATHS="$TIER_REFLEXIVE_PATHS" \
 SWEEP_TIER_CAREFUL_PATHS="$TIER_CAREFUL_PATHS" \
 SWEEP_TIER_ORDINARY_PATHS="$TIER_ORDINARY_PATHS" \
 SWEEP_TIER_ORDINARY_MODEL="$TIER_ORDINARY_MODEL" \
@@ -682,6 +713,8 @@ REPO_ROOT = os.path.realpath(os.getcwd())
 # The tier table (kogaki#81), resolved in the shell above and passed in on the
 # same ground every other knob is: two places that both know a default are two
 # places that can disagree about it.
+TIER_REFLEXIVE_PATHS = [p for p in
+                        os.environ["SWEEP_TIER_REFLEXIVE_PATHS"].split(",") if p]
 TIER_CAREFUL_PATHS = [p for p in
                       os.environ["SWEEP_TIER_CAREFUL_PATHS"].split(",") if p]
 TIER_ORDINARY_PATHS = [p for p in
@@ -801,7 +834,8 @@ def path_in_class(path, patterns):
     return None
 
 
-def resolve_tier(paths, careful_paths=None, ordinary_paths=None):
+def resolve_tier(paths, careful_paths=None, ordinary_paths=None,
+                 reflexive_paths=None):
     """Resolve (model, max_turns, class, fallback, why) from diff paths.
 
     `class` is the declared class that produced the tier, or None when the
@@ -812,18 +846,38 @@ def resolve_tier(paths, careful_paths=None, ordinary_paths=None):
     The fail-safe side is the careful tier. A needlessly expensive review costs
     about $3; a too-cheap review of an unclassified diff passes the gate
     silently, which is the failure the presence check cannot see.
+
+    THE REFLEXIVE CLASS IS RESOLVED FIRST, above the careful/ordinary axis
+    (kogaki#99). It carries the careful tier's model and cap; what it adds is
+    the CLASS the run's line names, so a review of the reviewer is legible as
+    one.
     """
     # The tables default to the configured ones and are passed explicitly by
     # the fixture below, so an operator who overrides the table does not turn
     # this tool red over cases written against the shipped one.
     cp = TIER_CAREFUL_PATHS if careful_paths is None else careful_paths
     op = TIER_ORDINARY_PATHS if ordinary_paths is None else ordinary_paths
+    rp = TIER_REFLEXIVE_PATHS if reflexive_paths is None else reflexive_paths
     careful = (MODEL, MAX_TURNS)
     if paths is None:
         return (*careful, None, True,
                 "the diff paths could not be read, so no class could be matched")
     if not paths:
         return (*careful, None, True, "the diff listed no paths")
+    # THE REFLEXIVE CLASS IS TESTED FIRST, ABOVE THE CAREFUL/ORDINARY AXIS
+    # (kogaki#99). The precedence is a CODE FACT and not an ordering accident:
+    # a reflexive path is also an ordinary path by `tools/**`, so a diff
+    # touching the reviewer resolved cheap for as long as the axis was tested
+    # first. It is placed here, before `careful_hit`, so a reflexive path that
+    # is ALSO careful still reports `reflexive` — the tier is the same either
+    # way and the CLASS is the thing the operator needs to read.
+    reflexive_hit = next(((p, pat) for p, pat in
+                          ((p, path_in_class(p, rp)) for p in paths) if pat),
+                         None)
+    if reflexive_hit:
+        return (*careful, "reflexive", False,
+                f"{reflexive_hit[0]} matches {reflexive_hit[1]} — the diff "
+                f"touches the reviewing instrument itself")
     hits = [(p, path_in_class(p, cp)) for p in paths]
     careful_hit = next(((p, pat) for p, pat in hits if pat), None)
     if careful_hit:
@@ -1658,7 +1712,8 @@ print("isolation pass: 4/4 outside-the-repository cases (root / under-root "
 _tfail = 0
 _TC = ["spec/**", "specs/**", "checks/**", "policy/**", ".claude/hooks/**"]
 _TO = ["tools/**", "docs/**", ".claude/skills/**", ".claude/*.json", "*.md"]
-_TT = {"careful_paths": _TC, "ordinary_paths": _TO}
+_TR = ["tools/review-sweep.sh", ".claude/skills/review-lane/**"]
+_TT = {"careful_paths": _TC, "ordinary_paths": _TO, "reflexive_paths": _TR}
 for _label, _paths, _want_class, _want_fallback, _want_cheap in [
     ("a checks/ path resolves careful", ["checks/registry.json"],
      "careful", False, False),
@@ -1668,20 +1723,42 @@ for _label, _paths, _want_class, _want_fallback, _want_cheap in [
     ("spec/ and policy/ and the hooks are careful",
      ["spec/SPEC.md", "policy/source.yaml", ".claude/hooks/review-trigger.py"],
      "careful", False, False),
+    # The ordinary cases below deliberately do NOT use `tools/review-sweep.sh`
+    # as their stand-in for cheap code any more: it is the reviewing instrument
+    # and is now reflexive. A `.claude/skills/` member that is NOT the review
+    # lane carries the ordinary side instead, which also asserts that the new
+    # class did not swallow `.claude/skills/**` whole.
     ("ordinary code resolves ordinary",
-     ["tools/review-sweep.sh", "docs/stories/1.19.md", "README.md"],
+     [".claude/skills/terrain/SKILL.md", "docs/stories/1.19.md", "README.md"],
      "ordinary", False, True),
     ("a MIXED diff takes its most careful file, never an average",
-     ["tools/review-sweep.sh", "specs/SPEC.md"], "careful", False, False),
+     [".claude/skills/terrain/SKILL.md", "specs/SPEC.md"],
+     "careful", False, False),
     ("`*.md` is top level only — specs/SPEC.md is NOT ordinary",
      ["specs/SPEC.md"], "careful", False, False),
     ("an unclassified path falls back, and never to the cheap tier",
      ["deps/spec-external-deps.json"], None, True, False),
     ("ordinary + one unclassified path falls back for the whole diff",
-     ["tools/review-sweep.sh", "gates/g.json"], None, True, False),
+     [".claude/skills/terrain/SKILL.md", "gates/g.json"], None, True, False),
     ("an unreadable diff is cannot-determine, which falls back",
      None, None, True, False),
     ("an empty diff falls back rather than resolving cheap", [], None, True, False),
+    # --- the reflexive class (kogaki#99) ---------------------------------
+    # The measured defect first: `tools/review-sweep.sh` is ALSO `tools/**`,
+    # so before this class existed the review of the reviewer resolved
+    # sonnet/24 and died at the cap without posting. The case below is the
+    # regression that would catch a re-ordering of the resolver.
+    ("the reviewing instrument is REFLEXIVE, not ordinary, though it is also "
+     "`tools/**`", ["tools/review-sweep.sh"], "reflexive", False, False),
+    ("the review lane's skill is reflexive, though it is also "
+     "`.claude/skills/**`", [".claude/skills/review-lane/SKILL.md"],
+     "reflexive", False, False),
+    ("reflexive + ordinary: the reflexive class WINS the whole diff",
+     ["tools/review-sweep.sh", "README.md"], "reflexive", False, False),
+    ("reflexive + careful: the same tier either way, but the class REPORTED "
+     "is the reflexive one",
+     [".claude/skills/review-lane/SKILL.md", "specs/SPEC.md"],
+     "reflexive", False, False),
 ]:
     _m, _t, _k, _fb, _why = resolve_tier(_paths, **_TT)
     _cheap = (_m == TIER_ORDINARY_MODEL and str(_t) == str(TIER_ORDINARY_MAX_TURNS))
@@ -1705,12 +1782,43 @@ if _tfail:
     print("FAIL: the tier does not resolve from the diff, or resolves silently "
           "— an unobservable fallback is the kogaki#65 defect")
     sys.exit(1)
-print("tier pass: 10/10 diff-class cases (careful / ordinary / mixed-takes-"
-      "careful / branch-blind / unclassified, unreadable and empty fall back "
-      "to the careful side, and every fallback announces itself)")
-if (TIER_CAREFUL_PATHS, TIER_ORDINARY_PATHS) != (_TC, _TO):
+print("tier pass: 14/14 diff-class cases (reflexive-first / careful / ordinary "
+      "/ mixed-takes-careful / branch-blind / unclassified, unreadable and "
+      "empty fall back to the careful side, and every fallback announces "
+      "itself)")
+
+# The reflexive class is DELIBERATELY NARROW, so its NAMED WIDENING MECHANISM
+# is asserted rather than described: an operator who declares
+# $KOGAKI_REVIEW_TIER_REFLEXIVE_PATHS gets their list, and a member that is not
+# on it falls back through the ordinary axis. A narrow list with an
+# unexercised override is a narrow list with no trigger.
+_rofail = 0
+for _label, _rp, _paths, _want_class in [
+    ("an operator's widened list reaches a path the shipped one does not",
+     _TR + ["checks/check-review-report.sh"], ["checks/check-review-report.sh"],
+     "reflexive"),
+    ("and without that declaration the same path is plain `careful`",
+     _TR, ["checks/check-review-report.sh"], "careful"),
+    ("an operator's NARROWED list gives up the class it dropped",
+     [".claude/skills/review-lane/**"], ["tools/review-sweep.sh"], "ordinary"),
+]:
+    _k = resolve_tier(_paths, careful_paths=_TC, ordinary_paths=_TO,
+                      reflexive_paths=_rp)[2]
+    if _k != _want_class:
+        print(f"FAIL reflexive-override fixture [{_label}]: class={_k!r}, "
+              f"want {_want_class!r}")
+        _rofail = 1
+if _rofail:
+    print("FAIL: the reflexive class has no working operator override, so a "
+          "deliberately narrow list has no named way to widen")
+    sys.exit(1)
+print("reflexive-override pass: 3/3 cases (widened / shipped / narrowed)")
+
+if ((TIER_CAREFUL_PATHS, TIER_ORDINARY_PATHS, TIER_REFLEXIVE_PATHS)
+        != (_TC, _TO, _TR)):
     print("NOTE: the tier table is OVERRIDDEN by env — the cases above "
           "exercised the shipped table, and this run resolves against "
+          f"reflexive={','.join(TIER_REFLEXIVE_PATHS)} "
           f"careful={','.join(TIER_CAREFUL_PATHS)} "
           f"ordinary={','.join(TIER_ORDINARY_PATHS)}")
 
