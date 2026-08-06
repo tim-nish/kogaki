@@ -24,12 +24,15 @@
 // are unproducible on this path.
 //
 // The `outcome` token is NOT the transport's to assign. It is a READING of
-// whether the answer discriminated, and SPEC §4 leaves
-// `deferred-slot: consult-outcome-token-assignment` open — who assigns it is
-// a decision act owed on kogaki#66. So --outcome is REQUIRED in receipt mode
-// and there is no default and no inference: the transport refuses (exit 2)
-// rather than guessing. That refusal is deliberately not a fill; whichever way
-// the slot is later decided, the observed half above is unaffected.
+// whether the answer discriminated, and SPEC §4 assigns it to the OPERATOR —
+// `deferred-slot: consult-outcome-token-assignment` is FILLED (owner decision
+// 2026-08-06 on kogaki#66: A2, the caller supplies the token; A1, the tool
+// assigning mechanically, was declined). So --outcome is REQUIRED in receipt
+// mode and there is no default and no inference: the transport refuses
+// (exit 2) rather than guessing. The refusal predates the fill and coincides
+// with it — see the ordering disclosure in specs/SPEC.md §4 — so nothing here
+// changed when the slot closed except that the behaviour is now decided
+// rather than interim.
 //
 // Exit 12 — `receipt not composable: <reason>`. The consult happened and its
 // results are printed, but the wire did not carry what a receipt asserts (a
@@ -160,8 +163,8 @@ if (!consumer) {
 if (receiptMode && !outcome) {
   console.error(
     "refusing to emit a receipt without --outcome: the token is a READING of " +
-      "whether the answer discriminated, and specs/SPEC.md §4 leaves " +
-      "`deferred-slot: consult-outcome-token-assignment` open (kogaki#66). " +
+      "whether the answer discriminated, and specs/SPEC.md §4 assigns it to " +
+      "the OPERATOR (the `consult-outcome-token-assignment` fill, kogaki#66). " +
       "The transport asserts only what it observed; it does not guess this. " +
       "Supply one of: discriminating | covered-after-reframing | " +
       "uncovered-after-N-framings",
