@@ -201,6 +201,90 @@ invariant: Gukan guarantees Unit schema, never data schema).
      history was posted whole, and a default that retroactively voided them
      would empty the gate rather than tighten it. The token binds reports
      written after it ships.
+  7. **A report CARRIES FORWARD to a new head when the content it reviewed is
+     provably unchanged** (kogaki#96). The head sha is part of presence
+     (`checks/check-review-report.sh:44` — "THE HEAD SHA IS PART OF PRESENCE,
+     not decoration"), and that binding composes with the toolkit's mandated
+     post-squash rebase (`~/work/claude-toolkit/commands/implement-story.md:250`,
+     restated at `:418` — "after a squash merge use `git rebase --onto <default>
+     <old elder branch>` so the elder's pre-squash commits are dropped rather
+     than replayed") into a state with **no legal exit**: the rebase necessarily
+     produces a new head, the report is invalidated against it, and clause 3's
+     bound forbids the third round that would replace it. Observed 2026-08-06 on
+     PR #89, whose only exit was an owner `--admin` merge bypassing branch
+     protection — and whose rebase changed **no reviewed content at all**, the
+     pre- and post-rebase diffs hashing identically to
+     `cf756413139e7a46069343c0517099c8d2de087b`. The park it produced counted
+     against the kogaki#72 budget while being caused by the pipeline's own
+     mandated step.
+
+     So the pin's SUBJECT is the content and the sha is its INSTRUMENT, and a
+     second instrument is admitted for the same pin: **a report naming head A is
+     present for head B when the PR's diff against its base at B is
+     byte-identical to the diff that report reviewed at A.** The round counter
+     is untouched — a carry-forward is not a round and consumes none.
+
+     **The equality is recomputed and RECORDED, never assumed.** A carry-forward
+     is a gate EVENT: the check computes both diffs at gate time, compares them,
+     and writes the pair it compared into its own output, so a later reader can
+     re-run the comparison rather than trust it. A carry-forward that leaves no
+     record is the silent re-derivation the served position forbids:
+
+     > the hub's own `gloss_sha:` discipline settles the record:
+     > `specs/gloss.md` §2.2 pins a rendering to the sha of the content it was
+     > made from, and a mismatch **re-surfaces the gate rather than silently
+     > re-rendering**. That mechanism's content is not about lessons — it is
+     > that a derived expression's truth is relative to the set it was derived
+     > from, so the derivation carries that set and a change to the set is a
+     > GATE EVENT rather than a refresh.
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:73`
+
+     Read against this defect the line discriminates in both directions at once:
+     it endorses pinning a derived judgment to the content it was made from —
+     which is what admits the carry-forward, since unchanged content is an
+     unchanged member set — and it refuses the *silent* refresh, which is what
+     makes the recorded recomputation load-bearing rather than decorative.
+
+     **The weakening is stated rather than argued away.** A sha is
+     self-evidencing; a recomputed equality is only as good as its
+     recomputation and its base resolution. Two bounds keep it honest: the
+     comparison is over the diff **against the base**, so a base that moved
+     yields a different diff and no carry-forward; and an equality that cannot
+     be computed — either diff unreadable — is **not** a carry-forward but the
+     existing `stale` state, failing toward the reviewed side, on the same
+     ground clause 1's head-unknown state already occupies. This is
+     per-artifact-decidable at the merge layer, the admissible state clauses 1,
+     5 and 6 already occupy, and it adds no judgment clause: whether the diffs
+     are equal is a computable fact over two artifacts the check can read.
+
+     `deferred-slot: report-base-resolution`
+
+     — **how the check obtains the base of head A**, which is the one input
+     this clause names and does not supply. A report records the head it
+     reviewed (`review-lane report: <head sha>`) and **not** the base it was
+     diffed against, so "the diff that report reviewed at A" is not yet
+     recoverable from the record. Three resolutions, stated without selecting
+     among them: **(a)** use the PR's *current* base, which is free and is
+     wrong exactly when the base moved — the case the paragraph above relies on
+     to refuse a carry-forward; **(b)** use the merge-base at A, which is
+     computable from history alone but re-derives a fact rather than reading
+     one, and can differ from the base CI actually used; **(c)** record the
+     base in the report, which makes it a read rather than a derivation and is
+     the only option that survives a rewritten history — at the cost of a new
+     report-grammar field and of binding reports written before it ships to
+     (a) or (b) anyway.
+
+     The fork is **inside this clause's own weakening**, not beside it: the
+     admission of a second instrument is only as strong as its base
+     resolution, and (a), (b) and (c) do not merely cost different amounts —
+     they make the carry-forward correct in different circumstances. Named
+     rather than left to the implementation, per the deferred-slot clause
+     below: filling it is a decision act owed on kogaki#96 with its choice,
+     alternatives and consult receipt **before** code embeds it. The recorded
+     recomputation, the round-counter guarantee and the fail-toward-`stale`
+     bound are all implementable without filling it, which is why this clause
+     ships with the slot open rather than waiting on it.
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
