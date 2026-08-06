@@ -1,6 +1,15 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v4.5, amended 2026-08-06 — §12.2's normative bullet states the
+**Status:** v5, amended 2026-08-07 — the 2026-08-06 dogfooding round
+(kogaki#146–#150) lands as five decisions over one file: §2.4 declares the
+**WA baseline** (Terrain design only, never generalized) with the divergence
+register; §6.1 adopts the baseline's served form — member IDs on the group
+heading, claim beneath — and **withdraws v4's per-row pin** (the pin is
+stated once, in the Full Report); §6.2 adopts the SubGroup line form;
+§9 gains the screen-1 tag-row **allowlist** (tag name + Lesson count, a line
+class not on it does not render); §11's eager-versus-pull fork is **decided:
+eager**, owner-ruled 2026-08-06 (kogaki#146), a declared divergence from the
+baseline's pull, with the reopen trigger closed as spent. v4.5 amended 2026-08-06 — §12.2's normative bullet states the
 key in §12.1's own form (it enumerated four members and called them a triple),
 and story 1.30's two pointers are corrected. v4.4 amended 2026-08-06 — the identity sweep is redone by
 ENUMERATING every site that states the key rather than by matching a wording,
@@ -152,6 +161,38 @@ This is the line §1's declined alternative would have cut the port at, which
 is why it is stated as an enumeration with both sides named rather than as a
 principle. **An act not in either list is a report, not a choice** — Terrain
 surfaces it as unclassified with its reason and takes no narrowing action.
+
+### 2.4 The WA baseline — Terrain design only, divergences declared
+
+**Kogaki's Terrain reproduces WA's Terrain design by default** (owner ruling
+2026-08-07, kogaki#150): `writing-assistant specs/spec-terrain/SPEC.md`,
+`presentation.md`, and their amendment files are the design baseline, and a
+Kogaki divergence from them is **declared in this spec with a
+source-qualified pin** — the discipline §5.1 already executes once, promoted
+to the standing default.
+
+**The scope limit is part of the clause, not a footnote: the inheritance is
+limited STRICTLY to Terrain design.** Kogaki was created specifically to
+separate Draft and Brief completely from WA, and nothing here may be read as
+a general WA inheritance — not for Draft, not for Brief, not for any other
+subsystem. A sitting citing this section for a non-Terrain design question
+is misusing it.
+
+**The divergence register**, so a reader can count them rather than hunt:
+
+1. **Lessons-only candidate rows** (§5.1) — diverges from a served hub line;
+   declared there with its falsifiers.
+2. **The Full Report as a durable machine-local file** (§12.2) — WA's report
+   renders from held state and writes no file (wa#986 declined md-export
+   twice); Kogaki's durability half was decided at kogaki#129.
+3. **Eager report generation at the co-tag view** (§11, decided v5) — WA's
+   owner pulls a report per named group; the eager reading is owner-ruled
+   2026-08-06 (kogaki#146).
+
+An entry lands here in the same amendment that creates the divergence; a
+divergence found shipping without an entry is a defect against this section
+(the specimen that motivated it: v4's per-row pin, §6.1, shipped undeclared
+and is withdrawn in this same amendment).
 
 ## 3. Inputs — served renderings only
 
@@ -425,6 +466,41 @@ Brief — a row whose provenance is invisible is the one place that discipline
 would buy nothing. **It remains a pin and never a Gloss:** the rule above is
 unchanged, and a row that grew a headline would breach it.
 
+**The v4 clause above is WITHDRAWN, and the served form is the baseline's**
+— v5, kogaki#148/#149. The WA baseline had already closed group
+presentation: *"Group ID, Strand ID, gloss, journey — and nothing else"*,
+the per-Strand pin rendering on **no** surface and the **shared pin stated
+once** in the Full Report, with the member → served-line map at the
+report's end (`writing-assistant specs/spec-terrain/
+amendments-2026-07-30--2026-08-01.md`, wa#1115/#1116). v4's per-row pin was
+that decision re-opened without declaring the divergence — §2.4's named
+specimen. The withdrawal is recorded rather than edited away, so a reader
+holding v4 finds the disposition. §3's discipline is not weakened: the pin
+still travels with everything quoted; it is **sited once**, in the report,
+where the reading happens.
+
+**The served form, per group** — v5, kogaki#148/#149, the baseline's own
+heading form (wa#1115/#1116, wa#1075):
+
+```text
+<GroupID> — N Lessons: <lesson-id>, <lesson-id>, …
+    in common: <GroupClaim>
+```
+
+- The **heading line** carries the GroupID, the Lesson count, and the member
+  Lesson IDs. The count names its family (§9).
+- The **GroupClaim renders beneath the heading**, whole — a claim is never
+  clipped mid-text; where §7's pinning statement rides it, it follows the
+  claim.
+- Where §8's conditions put SubGroups on the group, the members render as
+  SubGroups per §6.2's form instead of on the heading line, and the heading
+  carries the count alone.
+
+This amends the v3 ordering sentence above ("the GroupID, the GroupClaim …
+and the member Lesson IDs") to the baseline's heading form; the *content*
+served is identical, and nothing that reaches the owner is smaller than what
+exists.
+
 That split is the ratified form rather than a new design here:
 
 > "Top-N is WITHDRAWN and the compact all-groups form replaces it: the
@@ -515,6 +591,25 @@ The siting is the reason this belongs at the screen rather than upstream:
 the verdicts makes the *dogfood specimen* honest, which is what the offering
 verdict is taken over. A specimen that hid its own judgment would make the
 gate decorative.
+
+**The served SubGroup form** — v5, kogaki#148, the baseline's model rendered
+in the owner-ruled line shape (wa#980/#1041: parent GroupClaim as the
+section header, each SubGroup its own composed claim, hierarchy visible;
+owner format ruling 2026-08-06):
+
+```text
+<SubGroupID> (N Lessons: <lesson-id>, <lesson-id>, …)
+    in common: <SubGroupClaim>
+```
+
+One line — SubGroupID, Lesson count, Lesson IDs; the SubGroupClaim on the
+next. The leaf verdict and any disclosures follow the claim, per this
+section's judging requirements, and the judge pin renders once for the
+screen. The 2026-08-06 dogfood specimen — a 27-member group served as a
+single GroupClaim-shaped paragraph with no IDs and no SubGroups — is the
+defect this form is stated against; the owner's "five", like kogaki#128's
+and WA's "~4", stays calibration evidence for where the
+undiscriminating-claim condition binds, and no member count enters the code.
 
 ## 7. GroupClaim-first rendering, and claim pinning
 
@@ -750,6 +845,26 @@ is Lessons, so a candidate-row figure names **Lessons** and the Journey half
 appears as the coverage mark's own count; a figure spanning both families
 names both. The mixed-family bare count is the "132 of 246" casualty shape
 §2.1 quotes, and kogaki#26 is its live specimen.
+
+**Screen 1's tag rows carry a declared ALLOWLIST, and a line class not on it
+does not render** — v5, kogaki#147. Permitted on a tag row: **the tag name,
+and the tag's Lesson count**. Nothing else is permitted until this allowlist
+is amended. The 2026-08-06 dogfood specimen served a `placements` column
+beside the Lesson column; the remedy is stated as an allowlist rather than
+as that column's removal because an enumerated prohibition's non-member
+fallback is admit — the shape rule is the hub's
+(`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:45`),
+and the screen form is the baseline's (wa#1138: *"the screen carries a
+declared allowlist of line classes … and a line class not on it does not
+render"*; wa#647/#802: the one count that survives on screen 1 is the
+per-member count, which under §5's candidate model is the Lesson count).
+**Scope:** this governs the per-tag rows only. The completeness figure stays
+counted over placements and family-named (§2.1, hub-ratified), the survey
+RECORD keeps its placement counts and per-section `by_family` (the
+`FIGURE_MISMATCH` path below is untouched), and the family-naming example
+earlier in this section is amended where it conflicts: a tag row's figure is
+its Lesson count, the Journey half carried by the coverage mark's own count
+per §5.
 
 **Where the recomputation lives.** `terrain/terrain.mjs` already recomputes
 `by_family` from the placements the figure claims to be counted over, and
@@ -1003,6 +1118,22 @@ adjacent deliberately — a later sitting reopening either should read both.
   (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 gloss/INDEX.md:53`)
   — which is the carrier-less-by-omission shape this bullet's own
   admissibility argument refuses, one level down.
+  **DECIDED — v5, kogaki#146: EAGER.** The co-tag view generates the Full
+  Report per composed group; the owner ruled it 2026-08-06 after the first
+  dogfood run under story 1.30's merge produced none. This is a **declared
+  divergence from the WA baseline** (§2.4 entry 3 — WA's owner pulls per
+  named group, wa#938), and it supersedes the fork rather than winning it:
+  both readings satisfied §12, and the owner chose. Two carrier notes,
+  recorded so the trigger's history stays legible: (1) story 1.30's merge
+  sitting (PR #140) built the pull shape and did **not** flip this bullet's
+  trigger live as v4.2 required — that omission is repaired here by the
+  decision making the trigger moot; (2) the trigger is **closed as spent**,
+  not left armed: with eager decided, a multi-report sitting is the
+  specified behaviour and observes nothing. **Siting:** the runtime carries
+  generation for every composed group (`report --all-groups`); the flow's
+  co-tag step invokes it in the same act as the screen, and
+  `.claude/skills/terrain/SKILL.md` states it. §12's content, identity and
+  location rules are indifferent to this timing and are unchanged.
 
 ## 12. The Full Report — untruncated material, keyed to what produced it
 
@@ -1015,6 +1146,13 @@ anywhere in the flow.
 and SubGroupClaim in full, and the complete Lesson and Journey Glosses, with
 **no truncation anywhere**. It is what the owner reads to think a Thesis
 through, where §6.1's screen is what they navigate.
+
+**When it is generated: at the co-tag view, eagerly, one per composed
+group** — v5, kogaki#146, §11's decided bullet. Generation is idempotent
+per §12.1's identity, so the eager pass and a later re-request are the same
+artifact. The report renders the shared substrate pin **once**, in its
+identity, and carries the member → served-line map in its member records —
+the pin-once siting §6.1's v5 withdrawal moved here (wa#1115/#1116).
 
 **A report RECORDS its own identity, and this is a requirement rather than an
 implication** — v4.1, kogaki#131. Every Full Report carries, in its own
