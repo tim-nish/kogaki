@@ -1,12 +1,32 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v3, authored 2026-08-06 (kogaki#128 + kogaki#129, the coupled
-screen/report cluster). v2.1 amended 2026-08-06 — §9's
+**Status:** v4, amended 2026-08-06 (kogaki#131 and kogaki#133, decided as two
+separate selections). v3 authored 2026-08-06 (kogaki#128 + kogaki#129, the
+coupled screen/report cluster). v2.1 amended 2026-08-06 — §9's
 `deferred-slot: terrain-family-split-carrier` is FILLED with alternative (a),
 the split in the RECORD (kogaki#26/#27). v2 authored 2026-08-06 (kogaki#26 +
 kogaki#27, the coupled Terrain-v2 cluster). v1 authored 2026-08-05
 (kogaki#14).
 **Governs:** port manifest item 1 (`specs/SPEC.md` §5).
+
+**What v4 adds, and why it is two decisions rather than one.** v3 shipped
+§6.1/§6.2/§7 and §12 together because neither half was decidable alone. v4's
+two issues are **not** coupled that way — kogaki#131 completes §12's own
+contract, kogaki#133 completes the screen's — so they were decided as separate
+selections over one file. They share `specs/spec-terrain/SPEC.md`, which is a
+scheduling edge and not a decision dependency.
+
+- **kogaki#131 → §11, §12.1, §12.2.** The co-tag query key is **decided**
+  rather than deferred: v3's third identity case stated a rule whose
+  discriminator was undefined, which is carrier-less by omission rather than a
+  postponement. §12.2 discharges kogaki#129's naming ask by separating
+  *resolution* (normative, §12.1's pair) from *the filename* (implementer-owned,
+  authority-free). §11's eager-versus-pull bullet gains the reopen trigger it
+  lacked. Spec-only: no story, and the fix is the spec change.
+- **kogaki#133 → §6.1, §6.2, §7.** The screen judges its SubGroups and requires
+  the judge pin; a screen-composed claim's origin travels into its re-offer as
+  an argument, leaving §7's no-record rider standing; and the per-member pin is
+  named rather than left as an unexplained column. Decomposed to story 1.31.
 
 **What v3 adds, and why it is one decision rather than two.** v2 shipped
 `claim` (§7) and `subdivide` (§8) as commands and left the co-tag screen
@@ -377,8 +397,18 @@ names its families under §9, unchanged.
 
 **The screen carries no per-Strand Gloss line and no Journey line.** The
 untruncated Claims and Glosses live in the Full Report (§12), which the owner
-pulls per named group. That split is the ratified form rather than a new
-design here:
+pulls per named group.
+
+**Each member row carries its served pin beside its ID** — v4, kogaki#133.
+This is one token more than the ratified form quoted below names, so it is
+stated rather than left as an unexplained column. Two grounds: §3's
+quote-at-the-pin discipline governs every served rendering Terrain emits, and
+the screen is where the owner reads the IDs they will later enter into a
+Brief — a row whose provenance is invisible is the one place that discipline
+would buy nothing. **It remains a pin and never a Gloss:** the rule above is
+unchanged, and a row that grew a headline would breach it.
+
+That split is the ratified form rather than a new design here:
 
 > "Top-N is WITHDRAWN and the compact all-groups form replaces it: the
 > narrowing act moved to the owner, which is what puts the replacement inside
@@ -436,6 +466,39 @@ Serving SubGroups on the co-tag screen is what gives the owner output to
 verdict; it is not the verdict, and merging it does not discharge the gate.
 Carried as `deferred-slot: terrain-subdivision-offering-verdict`.
 
+**The screen JUDGES its SubGroups; it does not merely render them** — v4,
+kogaki#133. v3's wording ("where §8's conjunctive leaf condition and its two
+disjunctive disclosures put them") was satisfied in the shipped screen by the
+caller's JSON alone: the runtime placed members and printed name, claim and
+ids, evaluating neither conjunct and emitting neither disclosure. Three
+requirements close that:
+
+- **The screen renders each SubGroup's leaf verdict** — which conjunct held
+  and which failed — exactly as `subdivide` does over the same shape.
+- **The screen emits both disclosures**, degenerate-claim and
+  undiscriminating-claim, on the same disjunctive terms §8 states. Neither
+  gates anything; both are disclosures.
+- **The screen REQUIRES the judge pin** — model id and effort tier — on the
+  same ground `subdivide` refuses without one: a per-invocation judged surface
+  with no judge pin is the drift-undetectable shape, where "recomputed fresh"
+  silently becomes "recomputed by a different judge". A judged surface that
+  records no judge is not cheaper than one that does; it is one whose drift
+  cannot be seen.
+
+The siting is the reason this belongs at the screen rather than upstream:
+
+> "A rule is enforced only at the layer where it can be broken … when that
+> layer belongs to another system, the carrier goes at the last boundary you
+> control, with any gate upstream of it counting as ergonomics rather than
+> control."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`
+
+**This does not pre-empt §8.1's gate.** Requiring the judge pin and rendering
+the verdicts makes the *dogfood specimen* honest, which is what the offering
+verdict is taken over. A specimen that hid its own judgment would make the
+gate decorative.
+
 ## 7. GroupClaim-first rendering, and claim pinning
 
 Selecting a co-tag group shows **the GroupClaim first**, then the member
@@ -485,6 +548,38 @@ screen carried none. Two consequences, and neither weakens anything above:
   claim is pinned to the member set it was composed over, so a later subset
   selection is the same gate event this section already defines. Nothing here
   creates a second claim lifecycle; it moves the *first* composition earlier.
+
+**The origin travels as an ARGUMENT, and the no-record rider stands** — v4,
+kogaki#133. v3 moved claim composition to the screen and the screen writes no
+record, while the re-offer's original-wording context was reachable only from
+a claim *record*. So for exactly the claims v3 moved earlier, the owner would
+have met a recomposed claim with nothing to compare it against — which the
+governing line names as the failure, not a shortfall:
+
+> "[[gate-input-surface-is-part-of-the-contract]] settles the presentation
+> (machine-proposed proposal plus free-form override, never raw-artifact
+> homework — **handing the owner a stale claim and expecting them to notice it
+> no longer fits IS homework**) … a recomposed claim is a proposal, so an owner
+> may keep the original wording with the recorded member set making the
+> mismatch legible rather than forbidden."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:73`
+
+  request_id: e743df88-b483-4669-a633-f6c2d4d6c99d
+  outcome: discriminating
+  query: A derived expression is composed at a surface that deliberately writes no record; a later change to its member set must re-offer it as a gate event carrying the original for comparison. How is the origin carried across a boundary where nothing is persisted?
+
+**The mechanism is an argument, not a record.** The caller that composed the
+screen's claims already holds their text; the re-offer takes the original
+claim and its member set the same way it takes the claim text itself. So the
+obligation is met **without reopening the "writes no record" rider** — the
+served line binds what must reach the owner and leaves the transport open, and
+the transport that requires no new persistence is the one that leaves §7's
+navigation classification untouched.
+
+**An origin that is genuinely absent is stated, never fabricated.** Where a
+re-offer has no original — the first composition over a set — the gate says so
+rather than presenting the recomposed wording as if it had one.
 
 ## 8. Semantic subdivision — a judged substrate one level down
 
@@ -861,6 +956,19 @@ adjacent deliberately — a later sitting reopening either should read both.
   finds the disposition rather than an absence, which is the same duty the
   ordering bullet above discharges. The implementer states which they built,
   in the PR.
+  **Reopen trigger** (v4, kogaki#131): the **first Terrain run that generates
+  two or more Full Reports in one sitting**. That is the act on which the two
+  readings first diverge observably — under *pull* the count matches the groups
+  the owner named, under *eager* it matches the groups on the screen — and it
+  is an act that already happens rather than a periodic reader.
+  The trigger is stated because a bullet carrying neither a decision nor a
+  trigger is carrier-less by omission, which is the named defect:
+  "A stated policy is admissible in exactly THREE states — per-artifact-decidable
+  (state it), detector designed in (measure it), or **deliberately carrier-less
+  (mark it, with a reopen trigger)** — and carrier-less BY OMISSION is the
+  defect"
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:52`).
+  **Instrument:** the report count a generating run already produces.
 
 ## 12. The Full Report — untruncated material, keyed to what produced it
 
@@ -910,6 +1018,45 @@ issue states, restated as the rule they share:
 | pin advances, same query | **two** reports, one per pin |
 | same pin, different query | **two** reports, one per query |
 
+**The co-tag query IS the pair (selected tag, named group)** — v4, kogaki#131.
+Two reports are the same report when both components match, and different
+otherwise; `agents × architecture` under tag `agents` is a different query
+from `agents × report` under the same tag, and from `agents × architecture`
+reached under tag `architecture`. Nothing else enters the key: not the
+composed claims, not the subdivision, not the run.
+
+**This was decided rather than deferred, and the distinction is the point.**
+v3 left it to the implementer's PR. But the third row above states a rule —
+"same pin, different query → two reports" — whose discriminator was undefined,
+so the rule was not decidable from the artifact, carried no detector, and was
+not marked carrier-less with a trigger. That is none of the three admissible
+states:
+
+> "A stated policy is admissible in exactly THREE states — per-artifact-decidable
+> (state it), detector designed in (measure it), or deliberately carrier-less
+> (mark it, with a reopen trigger) — and **carrier-less BY OMISSION is the
+> defect**."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:52`
+
+  request_id: ca778d10-dd16-48bb-8cff-194c687be8c0
+  outcome: discriminating
+  query: When a design decision is deferred, what distinguishes a named deferred slot from an open question carried in a spec's open section? Does an identity key discharge a naming decision, or is naming a separate deferral owed its own record?
+
+An incompleteness in a shipped invariant is not a postponement, so it gets a
+decision rather than a `deferred-slot:` token. Contrast §11's two open
+questions, which are genuine forks between readings that both satisfy §12 —
+those are marked, with triggers.
+
+**Why (selected tag, named group) and not the group name alone.** A co-tag
+group's name already embeds both (`agents × architecture`), so the pair looks
+redundant — and it is not, because §6's groups are composed *per selected tag*
+and the same unordered pair is reachable from either side. Keying on the
+rendered name alone would silently merge two reports whose member sets are
+computed over different denominators, which is the same-key-different-content
+collision the hub already refuses at a resolver
+(`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:145`).
+
 **Why the pin and not a version field.** The pair is not a convenience key;
 it is the ratified shape for a derivation that outlives its computation:
 
@@ -952,7 +1099,38 @@ is kept as the reading of that pin, and a request under a new pin produces a
 new report. Re-resolving one onto current content would assert that the owner
 read something they did not.
 
-### 12.2 Location — machine-local, never committed
+### 12.2 Location and naming — machine-local, never committed
+
+**Naming, and how it differs from identity** — v4, kogaki#131. kogaki#129
+asked the sitting to decide three things: where reports live, **their
+naming**, and whether they are committed. v3 decided the first and third and
+left the second to be read out of §12.1, which does not answer it — so it is
+answered here.
+
+**A report is RESOLVED by §12.1's identity pair, and NAMED by whatever
+filename the emitter chooses.** These are two jobs, not one:
+
+- **Identity is normative.** A request for the report of `(pin, tag, group)`
+  must resolve to exactly the report that pair identifies, and to a new one
+  when any component differs. Every rule in §12.1 binds here.
+- **The filename is implementer-owned and carries no authority.** Nothing may
+  read meaning out of it, parse it to recover the pair, or key on it — the
+  report's own recorded pin and query are the only source of that. A filename
+  is at most a convenience for a human listing a directory.
+
+The split is not invented for this case; the hub already draws it between a
+**join key** and a **citation that is provenance**
+(`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:171`),
+where a component was found joining on the citation and reporting 32 of 35
+entries as orphaned. A filename derived from the pair is exactly that hazard's
+shape: it looks like a key, is not one, and drifts silently the first time an
+emitter changes how it renders a group name.
+
+**So a naming scheme is neither specified nor forbidden here** — and that is
+the decision, not a second deferral. An emitter may name reports however it
+likes, *because* nothing is permitted to depend on the name. Had naming been
+left to a `deferred-slot:`, the slot would have implied a decision was owed
+before code could proceed; none is.
 
 Reports are written to the **machine-local run workspace** (`~/.kogaki/runs/…`
 or `$KOGAKI_RUN_DIR`), alongside the survey records they derive from, and are
