@@ -279,9 +279,15 @@ def segments(bodies):
 
     Each segment also carries its two DECLARATIONS (§4 clauses 5 and 6),
     read in this same pass: `scope` ('full'|'delta'|None) and `complete`
-    (the declared N, or None). The FIRST declaration of each kind wins — a
-    second is a malformed report, not a correction, and a later line must
-    never revise an earlier claim about the same segment. Findings written
+    (the declared N, or None). The FIRST declaration of each kind wins: a
+    later line must never revise an earlier claim about the same segment, so
+    a second declaration is IGNORED and the report stays otherwise intact —
+    there is no malformed state, and the duplicate invalidates nothing. The
+    fixture below pins exactly that ('the FIRST declaration wins; a later
+    line cannot revise it' expects `present` with the first values). Said
+    plainly because this docstring previously called a second declaration
+    "a malformed report", which the code beneath it has never done, and story
+    1.26 AC 7 inherited the wrong word from here. Findings written
     AFTER a `report-complete:` line still count as findings, so a report that
     keeps writing past its own terminal token fails count equality; that is
     the fragment case behaving as it should, not a special rule for it."""
