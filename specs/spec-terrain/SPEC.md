@@ -1,6 +1,10 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v4, amended 2026-08-06 (kogaki#131 and kogaki#133, decided as two
+**Status:** v4.1, amended 2026-08-06 — three review-lane findings on PR #134
+repaired under kogaki#131/#133's own license: §12 requires a report to RECORD
+its identity, §12.1 puts the JUDGE PIN in the key where judged material is
+present, and §11's trigger declares itself DEAD until story 1.30 merges. v4
+amended 2026-08-06 (kogaki#131 and kogaki#133, decided as two
 separate selections). v3 authored 2026-08-06 (kogaki#128 + kogaki#129, the
 coupled screen/report cluster). v2.1 amended 2026-08-06 — §9's
 `deferred-slot: terrain-family-split-carrier` is FILLED with alternative (a),
@@ -968,7 +972,16 @@ adjacent deliberately — a later sitting reopening either should read both.
   (mark it, with a reopen trigger)** — and carrier-less BY OMISSION is the
   defect"
   (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:52`).
-  **Instrument:** the report count a generating run already produces.
+  **Instrument:** the report count a generating run produces.
+  **The trigger becomes LIVE when story 1.30 merges, and is DEAD until then**
+  (v4.1, kogaki#131) — §12's own defect specimen is that no run produces a
+  report at all today, so the instrument has no writer and the trigger cannot
+  fire however well-formed it is. Stated rather than left implicit, because a
+  trigger that is dead for a reason nobody wrote down is indistinguishable from
+  one that is live and simply has not fired: "a safeguard can be merged,
+  correctly placed, and completely dead, because something it depends on is
+  never produced by anything"
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 gloss/lessons/testing.md:11`).
 
 ## 12. The Full Report — untruncated material, keyed to what produced it
 
@@ -981,6 +994,19 @@ anywhere in the flow.
 and SubGroupClaim in full, and the complete Lesson and Journey Glosses, with
 **no truncation anywhere**. It is what the owner reads to think a Thesis
 through, where §6.1's screen is what they navigate.
+
+**A report RECORDS its own identity, and this is a requirement rather than an
+implication** — v4.1, kogaki#131. Every Full Report carries, in its own
+content, the **substrate pin**, the **selected tag**, the **named group**, and
+the **judge pin** where its material includes SubGroupClaims. Without this
+clause the artifact is unresolvable: §12.1 states identity as a *property* of
+a report rather than an obligation to record one, and §12.2 forbids the only
+other source — "nothing may read meaning out of [the filename], parse it to
+recover the pair, or key on it — the report's own recorded pin and query are
+the only source of that." An implementer could satisfy every other clause here
+and emit reports that no request could ever resolve to, which is the
+`establish-the-substrate-before-reporting` shape: the artifact would agree with
+everything and be founded on nothing.
 
 **It is a REPORT, and therefore not a choice.** It ranks nothing, narrows
 nothing, and hides nothing, so it sits in neither act list and the runtime
@@ -1023,7 +1049,28 @@ Two reports are the same report when both components match, and different
 otherwise; `agents × architecture` under tag `agents` is a different query
 from `agents × report` under the same tag, and from `agents × architecture`
 reached under tag `architecture`. Nothing else enters the key: not the
-composed claims, not the subdivision, not the run.
+composed claims, not the run.
+
+**The JUDGE PIN is the one exception, and it is in the key** — v4.1,
+kogaki#131. Where a report's material includes SubGroupClaims, its identity is
+the **triple (substrate pin, co-tag query, judge pin)**. v4 excluded the
+subdivision from the key, and §6.2 in the same amendment made judge identity
+drift-critical — "a per-invocation judged surface with no judge pin is the
+drift-undetectable shape, where *recomputed fresh* silently becomes
+*recomputed by a different judge*". Those two clauses together produced exactly
+the collision §12.1 already rejects name-keying over: two reports whose
+`(pin, tag, group)` match but whose judged content differs would be **one
+report by identity and two by content**, arriving from the judge side instead
+of the name side. A key that admits that is the second authority growing in the
+dark, and it would be this section refuting itself four paragraphs apart.
+
+**Where a report carries no SubGroupClaims the pair remains the whole key** —
+there is no judged material to drift, so the exception has nothing to bind and
+adding a null component would make two indistinguishable reports distinct.
+This is stated rather than left to be inferred, because an exception silently
+inherited by cases that never had its justification is what
+`an-inherited-exemption-signals-nothing` names: an exception exists to skip a
+check, so its wrongful inheritance emits no error and no failing test.
 
 **This was decided rather than deferred, and the distinction is the point.**
 v3 left it to the implementer's PR. But the third row above states a rule —
