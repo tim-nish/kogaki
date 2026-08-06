@@ -1,7 +1,10 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v2, amended 2026-08-06 (kogaki#26 + kogaki#27, the coupled
-Terrain-v2 cluster). v1 authored 2026-08-05 (kogaki#14).
+**Status:** v2.1, amended 2026-08-06 — §9's
+`deferred-slot: terrain-family-split-carrier` is FILLED with alternative (a),
+the split in the RECORD (kogaki#26/#27). v2 authored 2026-08-06 (kogaki#26 +
+kogaki#27, the coupled Terrain-v2 cluster). v1 authored 2026-08-05
+(kogaki#14).
 **Governs:** port manifest item 1 (`specs/SPEC.md` §5).
 
 **What v2 adds:** the candidate model (§5), the co-tag second navigation step
@@ -538,45 +541,133 @@ cannot promise.
 
 `deferred-slot: terrain-family-split-carrier`
 
-**Whether the per-section family split belongs in the survey RECORD or only
-in the RENDERING is NOT decided here, and it is named as a slot rather than
-left to the implementation.** v2's first draft called it "an implementation
+**`deferred-slot: terrain-family-split-carrier` is FILLED** (owner decision
+2026-08-06, kogaki#26/#27): **(a) — the per-section family split lives in the
+RECORD.** `specs/spec-terrain/survey-schema.json` gains a per-section
+`by_family`; the section figure is **recomputed from the placements it claims
+to be counted over and refused on mismatch exactly as `completeness.by_family`
+already is**, extending the existing `FIGURE_MISMATCH` path rather than adding
+a second mechanism; `checks/check-terrain-composition.sh` inherits it.
+
+**The slot asked** whether the per-section family split belongs in the survey
+RECORD or only in the RENDERING. v2's first draft called it "an implementation
 choice, declared as one here rather than left silent"; that was the defect
 `specs/SPEC.md` §4's kogaki#48 clause names, and declaring a deferral is not
 an exemption from naming it — an unnamed slot's decision escapes every gate
 that binds to a decision document, which is precisely what "declared as an
-implementation choice" would have let happen.
+implementation choice" would have let happen. Naming it was v2's repair. This
+is the fill, and it lands **before** stories 1.22–1.25 embed either answer,
+which is the ordering that clause exists to produce.
 
-**The alternatives, stated, neither chosen:**
+**The alternatives, recorded because a decision without them is an assertion:**
 
-- **(a) In the RECORD** — `survey-schema.json` gains a per-section
+- **(a) In the RECORD — CHOSEN.** `survey-schema.json` gains a per-section
   `by_family`, the section figure is recomputed from placements and refused
   on mismatch exactly as `completeness.by_family` already is, and the check
   inherits it. Buys mechanical enforcement at the same layer the existing
   figure guarantee lives; costs a served-record shape change, which is a
-  schema version and a conformance surface.
-- **(b) In the RENDERING only** — sections carry no new field and the split
-  is computed at print time from candidates already in the record. Buys no
-  schema change; costs the generation-time refusal, because there is no
-  stored figure to disagree with placements, so §2.1's "constrain generation,
-  then detect" degrades to detection for section figures.
+  schema version and a conformance surface — priced against the code below,
+  where it is smaller than that sentence reads.
+- **(b) In the RENDERING only — DECLINED.** Sections carry no new field and
+  the split is computed at print time from candidates already in the record.
+  Buys no schema change; costs the generation-time refusal, because there is
+  no stored figure to disagree with placements. The declining reason is
+  stated below, and it is sharper than "degrades to detection".
 
-**Filling this slot is a DECISION act, owed on kogaki#26/#27 before code
-embeds it** — the filling sitting consults the seam on the fork and records
-choice, alternatives and receipt on the licensing issue. Not filled here, and
-deliberately not consulted here: a fill-time consult performed by the sitting
-that named the slot would decide it inside the naming sitting, which is the
-same escape one step earlier.
+**The grounds for (a).** The served surface discriminates toward the record on
+four independent lines, and none of them favours the rendering:
 
-**Story 1.22's dependent acceptance criterion is BLOCKED on this slot** and
-says so in its own text.
+> "A tool's config may hold copies of facts whose authority lives elsewhere
+> only under a declared precedence rule (which side wins on mismatch) plus a
+> mechanical mismatch check; a copy with declared, checkable subordination is
+> conformance — a copy without one is a second authority growing in the dark."
 
-Independent of which alternative is taken: **if the record changes,
-`specs/spec-terrain/survey-schema.json` is the single carrier** — the check
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:114`
+
+(a) is exactly that shape: **placements authoritative, the stored section
+figure subordinate, `FIGURE_MISMATCH` the mechanical check.** The reading is
+not novel here — the hub has already ratified it for a derived rendering: "a
+derived rendering is not a second authority … explicitly derived … and the sha
+pin as the mechanical mismatch check. That is a copy with declared, checkable
+subordination — conformance, which that lesson permits"
+(`topics/archive/knowledge-architecture.md:72`). `LESSONS.md:87`
+(carry-a-rule-at-its-violation-layer) sites it: a section figure is **created
+at record-write**, which is the layer at which it can be wrong, so that is
+where the guarantee belongs. And `LESSONS.md:42` supplies the measurement
+clause — "a count owes its enumeration at the point of MEASUREMENT rather than
+at the point of dispute" — which (a) satisfies by enumerating at composition
+and (b) does not, enumerating at print.
+
+**The counter-line, recorded rather than buried.** One served line points the
+other way, and a fill that hid it would be the assertion this section refuses:
+
+> "The access log is PRIMARY CAPTURE and a reader over it is permitted: the
+> no-second-ledger rule forbids storing the DERIVED COUNT, never the record
+> written at the act."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:19`
+
+A per-section `by_family` **is** a derived count, so the tension is real. It is
+answered by in-repo precedent rather than by re-reasoning:
+`completeness.by_family` is the identical shape — a stored derived count over
+the same placements — ratified at v1 (kogaki#14/#17) and already refused on
+mismatch at `terrain/terrain.mjs:206-209,278`. Under (b) the record would be
+**inconsistent with itself**: section figures unguarded while the completeness
+figure beside them, counted over the same placements, is guarded.
+
+**Why (b) is declined, stated at its real cost.** Under (b) the refusal does
+not degrade to detection — **there is no detection either.**
+`checks/check-terrain-composition.sh` reads only the record, so a section
+figure that never enters the record is unobservable at every layer this
+repository owns. (b) was therefore never the carrier-free option it appeared
+to be: choosing it would have obliged this section to mark the rule
+**deliberately carrier-less with a reopen trigger**, on the served three-state
+rule —
+
+> "A stated policy is admissible in exactly THREE states — per-artifact-
+> decidable (state it), detector designed in (measure it), or deliberately
+> carrier-less (mark it, with a reopen trigger) — and carrier-less BY OMISSION
+> is the defect."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:52`
+
+**(a)'s costs, measured against the code rather than estimated.** Measured at
+41ad16a and recorded so a later reader does not re-inflate the price:
+
+- `survey-schema.json` gains **one** mandatory field — `section_required`
+  gains `by_family`.
+- `"version": "1"` → `"2"` has **zero readers**: nothing in `terrain/` or
+  `checks/` reads `schema["version"]`, so the bump is a label for humans and
+  breaks no code path.
+- **Zero records to migrate**: `find . -name '*.terrain-survey.json'` returns
+  0, because real runs live in the machine-local run workspace and are never
+  committed (`records_home.rationale`; `specs/SPEC.md` §4 rider 3).
+- The conformance surface is **two files**, both under
+  `checks/fixtures/terrain/conforming/`. The 13 nonconforming fixtures assert
+  `expected in got`, so an additional `SECTION_MISSING_FIELD` alongside the
+  code each one names does not fail it; they need no edit.
+- **No new check is admitted**, so no admission record, tier, runtime figure
+  or removal signal is owed.
+
+**One claim below is corrected here rather than left to surprise the
+implementer.** The closing clause says the check "inherits the extension
+without a second copy". That holds for the **field lists**, which
+`survey-schema.json` carries once and the check reads. It does **not** hold for
+the **recompute algorithm**, which is already written twice —
+`terrain/terrain.mjs:193-215` (JS, generation-time) and
+`checks/check-terrain-composition.sh:146-163` (Python, merge-layer). (a)
+extends **both**. The duplication predates this fill and is not created by it;
+collapsing it is not licensed by this decision, and it is named so the next
+reader meets it in the spec rather than in the diff.
+
+**Story 1.22's dependent acceptance criterion UNBLOCKS as written** under (a),
+and its BLOCKED markers are cleared citing this section.
+
+The record changes, so the clause binds rather than being vacuous:
+**`specs/spec-terrain/survey-schema.json` is the single carrier** — the check
 reads those lists rather than restating them — and
-`checks/check-terrain-composition.sh` inherits the extension without a second
-copy. That clause binds alternative (a) and is vacuous under (b); it is not
-a partial fill.
+`checks/check-terrain-composition.sh` inherits the extension of those lists
+without a second copy, subject to the recompute-algorithm correction above.
 
 ## 10. Parked, with grounds — the Lessons-or-Decisions opening gate
 
