@@ -177,6 +177,79 @@
 #   Bash(bash checks/check-x.sh)           DENIED   (the wildcard is required)
 #   Bash(git log:*) / Bash(gh run:*)       ALLOWED
 #
+# THE SECOND EXERCISE (kogaki#74, 2026-08-06) — and it moved ONE member.
+# The issue arrived carrying a list of denial labels harvested from five rounds
+# of route logs, with the expectation that each becomes a grant. Exercised the
+# same way the first table was, one command per shape against a fixed grant
+# list, the list did not survive contact:
+#
+#   gh pr view 91 --json number                       ALLOWED
+#   gh pr diff 91 --name-only | head -5               ALLOWED  (a PIPE decomposes)
+#   bash checks/check-review-report.sh 2>&1           ALLOWED  (a REDIRECT does not defeat it)
+#   for n in 1 2; do git log -1 --format=%h; done     ALLOWED  (a LOOP is not unmatchable)
+#   CONSULT_BASE_SHA=HEAD bash checks/check-...sh     DENIED
+#   git -C <worktree> log -1 --format=%h              DENIED
+#   gh api repos/<o>/<r>/commits/<sha> --jq .sha      DENIED
+#   python3 -c "print(1)"                             DENIED
+#
+# Three of the harvested shapes were NOT denials of the shape at all. The route
+# log's label is the command's FIRST THREE WORDS (see denied_tools below), so a
+# pipe, a redirect and a loop all *print* as if the leading command were
+# refused; they are not, and three of the eight proposed grants would have been
+# entries for a denial that never happened. That is the accretion tell arriving
+# through the front door — the list would have grown by three members with no
+# defect behind any of them.
+#
+# Of the four real denials, exactly ONE is expressible-and-bounded, and it is
+# the one the issue names first: `Write`. It is a TOOL, not a shell prefix, so
+# granting it widens the surface by one named capability and by nothing else.
+# It ships. The other three do not, and the reason is measured rather than
+# argued:
+#
+#   ENV-PREFIXED — PROVEN UNMATCHABLE, not merely missing. With
+#   `Bash(CONSULT_BASE_SHA=HEAD bash checks/check-review-report.sh:*)` granted,
+#   `CONSULT_BASE_SHA=HEAD …` is ALLOWED and `CONSULT_BASE_SHA=74d4ccd …` is
+#   DENIED. The assignment is part of the matched prefix, so the grant is
+#   PER VALUE — and the value here is a sha. A literal-prefix allowlist would
+#   need one entry per commit, which is the tell exactly: "a check suite
+#   growing at roughly one member per incident"
+#   (consulted: product-lab@f918c515 LESSONS.md:45).
+#
+#   `git -C <worktree>` — `Bash(git -C:*)` makes it ALLOWED and is refused
+#   anyway: it grants git in ANY directory, including `git push`, which is the
+#   §4 clause 2 prohibition the reviewer's --detach exists to enforce. This is
+#   round 2's `Bash(bash:*)` mistake in a new costume — a coverage gap traded
+#   for an unbounded grant.
+#
+#   `gh api` — `Bash(gh api:*)` makes it ALLOWED and is refused on the same
+#   ground: `gh api -X DELETE …` matches it. `gh api` is a general HTTP client
+#   the way `bash` is a general shell.
+#
+#   `python3` — refused without exercise for the reason already written above:
+#   a general interpreter dissolves the enumeration rather than completing it.
+#
+# So the answer to three of the four is NOT a grant, and this is the whole
+# point of the entry: where free composition is irreducible the served position
+# is to SHRINK the surface rather than police it better, and here it is
+# reducible — every one of the three has a granted alternative that needs no
+# new grant at all, because the reviewer's own execution context already
+# supplies what it was composing around:
+#
+#   env-prefixed check   -> run the check BARE. Both checks resolve their own
+#                           base from `git merge-base origin/master HEAD` when
+#                           $CONSULT_BASE_SHA is empty, and the worktree has
+#                           `origin/master`. The prefix was never needed.
+#   git -C <worktree>    -> run BARE git. `spawn()` passes `cwd=tree`, so the
+#                           session's cwd IS the worktree it was reaching into.
+#   gh api …/commits/sha -> `gh pr view <n> --json headRefOid`, already granted
+#                           — and reading the head as a VALUE rather than
+#                           reconstructing it is kogaki#91's half of the same
+#                           surface.
+#
+# That is what COMPOSITION below carries into the reviewer's prompt. The
+# grant table gained one member; the other three shapes were removed from the
+# reviewer's repertoire instead of being admitted to the table.
+#
 # The cap is the half with a served position behind it: "an agent system that
 # lets one instruction spawn unbounded parallel work is missing a budget
 # mechanism; caps are architecture (config + gates), not prompt hygiene"
@@ -457,6 +530,14 @@ SPAWN_WORKTREE_ROOT="${KOGAKI_SPAWN_WORKTREE_ROOT:-${TMPDIR:-/tmp}}"
 # A registry that cannot be read yields no check grants at all, which fails
 # toward the narrow side: the reviewer reports cannot-determine (loudly, via
 # the denial comment) instead of silently receiving a wider grant than intended.
+#
+# `Write` is the ONE member kogaki#74's exercise added (header, second
+# exercise). It is what makes the #70 post-once rule implementable rather than
+# aspirational: a large report composes to a file and posts in a single
+# `gh pr comment --body-file`, where the heredoc form obliged the reviewer to
+# hold the whole body in one shell argument. It is a TOOL rather than a shell
+# prefix, so it is bounded by construction — it cannot become a general
+# interpreter the way `Bash(bash:*)` or `Bash(gh api:*)` can.
 CHECK_TOOLS="$(python3 - <<'GRANTS' 2>/dev/null || true
 import json
 try:
@@ -471,7 +552,7 @@ REVIEW_TOOLS="${KOGAKI_REVIEW_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr list:*),\
 Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr comment:*),Bash(gh run:*),\
 ${CHECK_TOOLS:+$CHECK_TOOLS,}\
-Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,\
+Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,Write,\
 mcp__tsurezure__policy_lookup,mcp__tsurezure__gloss_index,\
 mcp__tsurezure__glossary_entry,mcp__tsurezure__topic_thread,\
 mcp__tsurezure__element_survey,mcp__tsurezure__surface_names,\
@@ -592,8 +673,10 @@ HEADLESS = (
 POSTING = (
     "\n\nPOSTING CONTRACT — ONE COMPOSITION, ONE POST, ONE VERIFICATION. "
     "Compose the whole report before you post anything, then post it in a "
-    "SINGLE act with `--body-file` — `gh pr comment <n> --body-file -` fed by "
-    "one heredoc (you hold no Write grant, so `-` is the file). Then verify "
+    "SINGLE act with `--body-file` — you hold `Write` (kogaki#74), so compose "
+    "the report to a file and post it with `gh pr comment <n> --body-file "
+    "<path>`; `--body-file -` fed by one heredoc remains correct for a short "
+    "report. Then verify "
     "ONCE, with `gh pr view <n> --json comments`, that it landed. If it did "
     "not land, STOP and exit without posting again, and do not re-post a "
     "report you have already posted. On PR #67 a reviewer made FOUR "
@@ -609,6 +692,48 @@ POSTING = (
     "the head stays unreviewed, so write the terminal line last and write it "
     "once. A round-2 review is `delta` by default and `full` whenever the fix "
     "touched files outside the ones round 1's findings named."
+)
+
+
+# The composition constraint, appended to the REVIEWER's prompt only
+# (kogaki#74). Three shapes the route logs recorded as denied are NOT admitted
+# to the grant table — the header's second exercise records why, and each is
+# either per-value unmatchable or expressible only as an unbounded grant. What
+# ships instead is this: the shapes are removed from the reviewer's repertoire,
+# with the already-granted alternative named beside each, so the reviewer never
+# composes the command that would be refused.
+#
+# It is a prompt rather than a grant because the act being constrained is
+# COMPOSITION, and there is no allowlist entry whose absence prevents a session
+# from typing a command — the denial already does that, silently and one turn
+# too late. This is the generation side of the same fix; the grant table is the
+# enumeration, and it stayed the size it was.
+#
+# The fixer never gets this, for the same reason it never gets POSTING: it
+# holds a different grant list (no `gh pr comment`, no `gh api` question to
+# have), and a constraint naming grants it does not hold would be noise it has
+# to reason about.
+COMPOSITION = (
+    "\n\nCOMPOSE ONLY WHAT YOU ARE GRANTED (kogaki#74). Three command shapes "
+    "are DENIED by design, not by oversight, and each has a granted "
+    "alternative that is strictly better — reach for the alternative rather "
+    "than the shape, and never re-attempt a refused command in another form."
+    "\n\n1. NO leading environment assignment "
+    "(`CONSULT_BASE_SHA=<sha> bash checks/...`). The assignment is part of the "
+    "matched prefix, so such a grant would be per-VALUE and the value is a "
+    "sha. Run every check BARE — `bash checks/<name>.sh` — and it resolves its "
+    "own base from `git merge-base origin/master HEAD`, which is exactly what "
+    "you would have supplied."
+    "\n\n2. NO `git -C <path>`. You are ALREADY INSIDE the worktree you would "
+    "point at: this session's working directory is a fresh worktree detached "
+    "at the PR head. Run bare `git log` / `git diff` / `git show`."
+    "\n\n3. NO `gh api` and NO `python3`. Whatever you wanted from the API, "
+    "`gh pr view <n> --json <fields>` almost certainly serves — in particular "
+    "the head sha is `--json headRefOid`, READ AS A VALUE and never assembled "
+    "from a short prefix."
+    "\n\nIf something you need is genuinely ungranted, say so IN THE REPORT as "
+    "a cannot-determine on the dimension it blocked, and finish the review. "
+    "Do not spend turns probing for a form that gets through."
 )
 
 
@@ -1064,6 +1189,17 @@ def denied_tools(log_path):
     entries carry the tool name and its input. Returns a de-duplicated,
     ordered list of short labels — a comment naming forty variations of one
     denial is a comment nobody finishes reading.
+
+    THE LABEL IS A NAME FOR THE ACT, NEVER A GRANT TO PASTE (kogaki#74). It is
+    the command's FIRST THREE WORDS, so a piped, redirected or looped command
+    prints as though its LEADING command were refused. kogaki#74 arrived with
+    eight labels harvested from route logs and proposed as eight grants; the
+    headless exercise showed three of them — a pipe, a `2>&1` and a `for`
+    loop — were ALLOWED shapes whose labels merely looked like denials. A
+    reader who grows the grant list from this list grows it by members with no
+    defect behind them, which is why the truncation is now disclosed at the
+    only place the list is published (`post_stall_comment`) rather than known
+    only here.
     """
     try:
         with open(log_path, encoding="utf-8", errors="replace") as f:
@@ -1138,8 +1274,13 @@ def post_stall_comment(pr, head, log_path, reason, denials):
         lines.append("Tools the spawned session was denied:")
         lines += [f"- `{d}`" for d in denials]
         lines.append("")
-        lines.append("Each is a grant the sweep must declare "
-                     "(`KOGAKI_REVIEW_TOOLS`, kogaki#65).")
+        lines.append(
+            "Each label is the command's FIRST THREE WORDS, not a grant "
+            "string — a piped or redirected command prints as though its "
+            "leading command were refused. Exercise a shape headless before "
+            "adding it to `KOGAKI_REVIEW_TOOLS` (kogaki#65, kogaki#74): three "
+            "of the eight labels harvested this way turned out to name "
+            "ALLOWED shapes.")
     else:
         lines.append("No permission denials were recorded, so the cause is "
                      "elsewhere — the turn cap, or a session that ended "
@@ -1440,6 +1581,52 @@ if (TIER_CAREFUL_PATHS, TIER_ORDINARY_PATHS) != (_TC, _TO):
           "exercised the shipped table, and this run resolves against "
           f"careful={','.join(TIER_CAREFUL_PATHS)} "
           f"ordinary={','.join(TIER_ORDINARY_PATHS)}")
+
+# --- the grant table and its composition constraint (kogaki#74) -----------
+# The table is asserted in BOTH directions, because the issue's whole risk was
+# one-directional: a list that only ever grows passes any test that asks
+# "is X granted?". These cases also ask what must NEVER be granted, and name
+# the reason inline so a future widening has to argue with it rather than
+# silently satisfy the file.
+#
+# The reviewer/fixer split is asserted on the PROMPT too, not only the tools.
+# COMPOSITION names grants the fixer does not hold, and the file's own recorded
+# habit is that a fix applied at one of two call sites is the shape it keeps
+# finding — so the second call site is checked here rather than assumed.
+_gfail = 0
+_RT = REVIEW_TOOLS.split(",")
+for _label, _cond in [
+    ("`Write` is granted — the post-once rule is unimplementable without it",
+     "Write" in _RT),
+    ("`gh pr comment` stays with the reviewer", "Bash(gh pr comment:*)" in _RT),
+    ("NEVER `Bash(bash:*)` — a general shell dissolves the enumeration",
+     "Bash(bash:*)" not in _RT),
+    ("NEVER `Bash(gh api:*)` — `gh api -X DELETE` matches it",
+     "Bash(gh api:*)" not in _RT),
+    ("NEVER `Bash(git -C:*)` — it grants `git push` in any directory, which "
+     "the reviewer's --detach exists to prevent",
+     "Bash(git -C:*)" not in _RT),
+    ("NEVER `Bash(python3:*)` — a general interpreter, same class as `bash`",
+     "Bash(python3:*)" not in _RT),
+    ("the reviewer is told not to compose the refused shapes",
+     "COMPOSE ONLY WHAT YOU ARE GRANTED" in COMPOSITION),
+    ("...and the alternative is named for each of the three, so the "
+     "constraint is actionable rather than a prohibition",
+     all(s in COMPOSITION
+         for s in ("merge-base", "ALREADY INSIDE", "headRefOid"))),
+    ("the fixer never receives the posting contract", "POSTING" not in FIX_TOOLS),
+]:
+    if not _cond:
+        print(f"FAIL grant fixture [{_label}]")
+        _gfail = 1
+if _gfail:
+    print("FAIL: the grant table or its composition constraint does not hold — "
+          "a table that only grows is the one-member-per-incident tell "
+          "(LESSONS.md:45)")
+    sys.exit(1)
+print("grant pass: 9/9 cases (Write granted; four unbounded grants refused by "
+      "name; the composition constraint reaches the reviewer with an "
+      "alternative per refused shape)")
 
 # --- the run's cost is RENDERED from held data (kogaki#81) ----------------
 # The four fields come from a `result` record this file already captures, so
@@ -1888,7 +2075,7 @@ for pr in prs:
             # (PR #46 review, round 1). check=False + inspection rather than
             # check=True: one PR's failed spawn must not abort the sweep of
             # the rest.
-            result = spawn(f"/review-lane {n}" + POSTING, log_path,
+            result = spawn(f"/review-lane {n}" + POSTING + COMPOSITION, log_path,
                            model=r_model, tools=REVIEW_TOOLS,
                            ref=head, detach=True, tag=f"review-{n}",
                            max_turns=r_turns)
