@@ -623,18 +623,62 @@ invariant: Gukan guarantees Unit schema, never data schema).
      assign it wrongly, and that is the precise failure the re-framing
      discriminator exists to prevent
      (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:59`).
-     So this spec binds the *emitter* and does not bind the *assigner*:
+     So this spec binds the *emitter* and does not bind the *assigner*.
 
-     `deferred-slot: consult-outcome-token-assignment`
+     **`deferred-slot: consult-outcome-token-assignment` is FILLED** (owner
+     decision 2026-08-06, kogaki#66): **the operator supplies the token.** The
+     transport emits only what it observed as fact — the `request_id`, every
+     `query:` line, and the framing count — and takes the `outcome` token from
+     its caller, **failing rather than guessing** when none is supplied.
 
-     — who assigns the `outcome` token when the tool emits the receipt: the tool
-     mechanically, or the tool emitting the framings and their count with the
-     operator supplying the token. Named rather than left to the
-     implementation, per the deferred-slot clause above: filling it is a
-     decision act owed on kogaki#66 with its choice, alternatives and consult
-     receipt **before** code embeds it. Conditions 1 and 2 are implementable
-     without filling it, which is why the clause ships with the slot open rather
-     than waiting on it.
+     The alternatives, recorded because a decision without them is an assertion.
+     *A1 — the tool assigns mechanically*, deriving the token from the return it
+     saw. Declined: the token is a reading, and a tool assigning
+     `uncovered-after-N-framings` mechanically may assign it wrongly, which is
+     the precise failure the re-framing discriminator exists to prevent.
+     *A3 — split by decidability*, the tool assigning only tokens decidable from
+     transport facts (`degraded`, and an unreachable gateway) and requiring the
+     caller for the rest. Declined as the more complex shape for no gain here:
+     the split's own boundary is a judgment about which tokens are decidable,
+     so it reintroduces at the schema level the reading it removes at the call
+     — and the degraded case already has its own carrier in condition 2's
+     marked exception.
+
+     The discriminating served position, quoted verbatim at its pin:
+
+     > ask first whether the thing is a fact or a judgment: a fact gets a
+     > mechanical carrier at the moment it is decidable, and a judgment rides a
+     > gate that already exists
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:58`
+
+     supported by the carrier rule, on where a pending human reading is carried:
+
+     > a pending human verdict needs its carrier at the render layer, because
+     > the human acts on what they see and not on what the authoritative file
+     > contains
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`
+
+     Condition 3 above had already classified the token on the judgment side —
+     "the `outcome` token is a *reading* of whether the answer discriminated" —
+     so the fill applies the fact/judgment split this spec had already made and
+     stopped one step short of executing. `request_id` and the `query:` lines
+     are facts the transport holds and it emits them; the reading rides the
+     gate the caller already is.
+
+     **The ordering is disclosed rather than presented as clean.** PR #101
+     (story 1.20, open at the time of this decision) already ships `--outcome`
+     as a required argument with no inference. Its author framed that as story
+     1.20 AC 4's **refusal** — "the emitter does not silently choose an
+     assignment strategy … **This criterion is a refusal, not a fill**" — rather
+     than as a fill, and the refusal happens to coincide with A2. That is
+     fortunate, not procedural: **the code was written before this record
+     existed, and this record ratifies it rather than following it.** Had the
+     owner selected A1, PR #101 would have needed to change. The deferred-slot
+     clause asks for the decision *before* code embeds the choice, and on this
+     slot the sequence ran the other way round; recorded here so the next
+     reader does not mistake the agreement for compliance.
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
