@@ -194,7 +194,8 @@ writeFileSync(SUBS, JSON.stringify({
   ],
 }));
 const withSubs = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS, "--subdivisions", SUBS],
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
+   "--subdivisions", SUBS, "--judge-model", "m", "--judge-effort", "high"],
   { encoding: "utf8" });
 if (withSubs.status !== 0) fails.push(`cotags --subdivisions exited ${withSubs.status}: ${(withSubs.stderr || "").trim()}`);
 if (!String(withSubs.stdout).includes("guards that cannot fail")) {
@@ -211,11 +212,92 @@ if (!String(withSubs.stdout).includes("(fits no composed SubGroup)")
 // 8. The prohibition §8 states and §6.2 inherits: no member-count threshold.
 //    Read against the source, because the property is the ABSENCE of a number
 //    and no run can observe an absence by executing.
-const cotagSrc = readFileSync("terrain/terrain.mjs", "utf8")
-  .split("function cmdCotags(")[1].split("\n// ---")[0];
-const numericCompare = cotagSrc.match(/\.length\s*[<>]=?\s*\d+|\d+\s*[<>]=?\s*[a-zA-Z_$][\w$]*\.length/);
-if (numericCompare) {
-  fails.push(`cmdCotags compares a member count against a numeric constant (${numericCompare[0]}) — kogaki#128's "five or more" is calibration evidence, and a threshold in this code is a defect against §8 and §6.2`);
+// The unit is EVERY function the split decision passes through, not one source
+// slice. kogaki#133's finding 5: the earlier guard read only `cmdCotags`, so a
+// threshold in `subgroupPlacement` — where the split logic actually lives —
+// was outside the slice it claimed to cover.
+const SRC = readFileSync("terrain/terrain.mjs", "utf8");
+const sliceOf = (fn) => {
+  const i = SRC.indexOf(fn);
+  if (i < 0) { fails.push(`the no-threshold guard cannot find ${fn} — its unit has drifted from the code`); return ""; }
+  const rest = SRC.slice(i + fn.length);
+  const end = rest.indexOf("\n// ---");
+  return rest.slice(0, end < 0 ? rest.length : end);
+};
+for (const fn of ["function cmdCotags(", "export function subgroupPlacement(", "export function judgeSubgroup("]) {
+  const src = sliceOf(fn);
+  const m = src.match(/\.length\s*[<>]=?\s*\d+|\d+\s*[<>]=?\s*[a-zA-Z_$][\w$]*\.length/);
+  if (m) fails.push(`${fn.trim()} compares a member count against a numeric constant (${m[0]}) — kogaki#128's "five or more" is calibration evidence, and a threshold here is a defect against §8 and §6.2`);
+}
+// WHAT THIS GUARD CANNOT SEE, stated rather than implied. §8 declares the
+// member-count prohibition deliberately carrier-less with a reopen trigger, so
+// this narrows the gap and does not close it: a threshold written as a NAMED
+// CONSTANT, or compared against a variable holding the count, passes the
+// pattern above. A guard silently narrower than the property it names is the
+// appearance half of "a check that cannot fail is theatre".
+console.log("no-threshold guard: covers literal `<count> <op> <digits>` comparisons in "
+  + "cmdCotags, subgroupPlacement and judgeSubgroup. NOT covered: a named constant, or a "
+  + "comparison against a variable holding the count — §8's prohibition stays "
+  + "declared carrier-less, and this narrows the gap rather than closing it.");
+
+// The fixture's verdict fields are READ by the code under test (finding 4).
+// Written the other way, a case supplying composes_honestly / tighter_than_parent
+// that nothing reads presents as covering the leaf condition while covering
+// only rendering — so the assertion flips a verdict and requires the output to
+// change with it.
+const SUBS_NOT_LEAF = join(tmpdir(), `cotags-subs-notleaf-${process.pid}.json`);
+writeFileSync(SUBS_NOT_LEAF, JSON.stringify({
+  [`${TAG} × architecture`]: [
+    { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
+      members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: false, legible_at_a_glance: true },
+  ],
+}));
+const notLeaf = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
+   "--subdivisions", SUBS_NOT_LEAF, "--judge-model", "m", "--judge-effort", "high"],
+  { encoding: "utf8" });
+if (!String(withSubs.stdout).includes("leaf: the claim composes honestly AND is tighter")) {
+  fails.push("the screen does not render the SubGroup's LEAF VERDICT — §6.2 requires the screen to judge, not merely render");
+}
+if (!String(notLeaf.stdout).includes("the split bought nothing")) {
+  fails.push("flipping tighter_than_parent to false did not change the screen's verdict — the fixture supplies verdicts the code does not read, which presents as covering the leaf condition while covering only rendering");
+}
+if (!String(withSubs.stdout).includes("judged by m / high")) {
+  fails.push("the screen does not record its judge pin (§6.2)");
+}
+const noPin = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS, "--subdivisions", SUBS],
+  { encoding: "utf8" });
+if (noPin.status === 0) {
+  fails.push("the screen served SubGroups with NO judge pin — a judged surface that records no judge cannot be seen to drift (§6.2)");
+}
+// A disclosure fires and is rendered (§6.2, §8) — disjunctive, gating nothing.
+const SUBS_DEGEN = join(tmpdir(), `cotags-subs-degen-${process.pid}.json`);
+writeFileSync(SUBS_DEGEN, JSON.stringify({
+  [`${TAG} × architecture`]: [
+    { subgroup: "sg", claim: "this claim names alpha outright", members: ["lesson:alpha"],
+      composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+  ],
+}));
+const degen = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
+   "--subdivisions", SUBS_DEGEN, "--judge-model", "m", "--judge-effort", "high"],
+  { encoding: "utf8" });
+if (!String(degen.stdout).includes("DISCLOSURE — degenerate-claim")) {
+  fails.push("the degenerate-claim disclosure does not render on the screen (§6.2, §8)");
+}
+
+// AC 7's carrier (finding 3): the flat slug dump has no literal section in the
+// runtime — it was produced by the skill routing a tag selection to a second
+// `view --tag`. So the absence is observed on BOTH sides: the co-tag screen
+// emits no such section, and the skill names the co-tag step as where a tag
+// selection lands.
+if (/All \d+ Lesson slugs|in served order/.test(String(withSubs.stdout) + String(run.stdout))) {
+  fails.push("the co-tag screen emits a flat slug listing — §6.1 removes it, and the members are served grouped instead");
+}
+const SKILL = readFileSync(".claude/skills/terrain/SKILL.md", "utf8");
+if (!/cotags --survey/.test(SKILL)) {
+  fails.push("the skill's flow does not name the co-tag step — its absence is what routed a tag selection to a second `view --tag` and produced the dump (§6.1)");
 }
 
 if (fails.length) {
@@ -223,12 +305,15 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("cotags fixture: 21/21 cases (lone-tag group; declared sort on both "
+console.log("cotags fixture: 29/29 cases (lone-tag group; declared sort on both "
   + "axes; group-name form; cover passing; cover DROPPED / ADDED / both, all "
   + "three fired; end-to-end subcommand wiring; ids without --group; absent-claim "
   + "marker per-group and in aggregate; claim served FIRST then members; pinning "
   + "stated; invented group refused; SubGroup and SubGroupClaim rendered; unplaced "
-  + "member named not dropped; no member-count threshold in the source)");
+  + "member named not dropped; leaf verdict rendered; a flipped verdict CHANGES it; "
+  + "judge pin recorded and REFUSED when absent; degenerate-claim disclosure rendered; "
+  + "no slug dump on the screen; the skill names the co-tag step; no member-count "
+  + "threshold across cmdCotags, subgroupPlacement and judgeSubgroup)");
 JS
 
 python3 - <<'EOF'

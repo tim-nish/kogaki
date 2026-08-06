@@ -600,6 +600,17 @@ function cmdCotags(args) {
       fail(`--subdivisions names ${JSON.stringify(k)}, which is no composed group (SPEC.md §6.2)`);
     }
   }
+  // The screen REQUIRES the judge pin wherever it serves SubGroups (§6.2), on
+  // the same ground `subdivide` refuses without one: a per-invocation judged
+  // surface with no judge pin is the drift-undetectable shape, where
+  // "recomputed fresh" silently becomes "recomputed by a different judge".
+  let judgePin = null;
+  if (Object.keys(subdivisions).length) {
+    const m = args["judge-model"];
+    const e = args["judge-effort"];
+    if (!m || !e) fail("--judge-model and --judge-effort are required when the screen serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md §6.2, §8)");
+    judgePin = { model_id: String(m), effort_tier: String(e) };
+  }
 
   const selected = args.group ? String(args.group) : null;
   const shown = selected ? groups.filter((g) => g.name === selected || g.cotag === selected) : groups;
@@ -635,10 +646,17 @@ function cmdCotags(args) {
       const { subgroups } = subgroupPlacement(g, sub, SURVEY_SCHEMA.subdivision);
       for (const sg of subgroups) {
         sg.by_family = familySplit(sg.members, record.candidates);
+        // The screen JUDGES rather than merely rendering (§6.2). Same
+        // implementation `subdivide` runs — the leaf condition is conjunctive
+        // and the two disclosures are disjunctive, and neither gates anything.
+        judgeSubgroup(sg, claim);
         console.log(`\n      ${sectionFigure(sg, record.candidates.length)}`);
         console.log(`          in common: ${sg.claim || NO_CLAIM}`);
+        console.log(`          ${sg.leaf_reason}`);
+        for (const d of sg.disclosures) console.log(`          DISCLOSURE — ${d}`);
         for (const id of sg.members) console.log(`          ${id}  ${citeOf(id, record.candidates)}`);
       }
+      console.log(`\n      judged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
       console.log("");
     } else {
       for (const id of g.members) console.log(`      ${id}  ${citeOf(id, record.candidates)}`);
@@ -786,10 +804,36 @@ function cmdClaim(args) {
 
   // The set changed, so this is a GATE EVENT rather than a refresh. The
   // re-offer goes through the gate carrier — never a Terrain-local affordance.
+  // The ORIGIN travels into the gate — as a RECORD where one exists, and as
+  // ARGUMENTS where the claim was composed AT THE SCREEN (§7's v4 rider).
+  // The screen deliberately writes no record, so before this the re-offer for
+  // exactly the claims v3 moved earlier reached the owner with nothing to
+  // compare against — and handing the owner a stale claim and expecting them
+  // to notice it no longer fits IS homework (topics/articles.md:73@f918c515).
+  // No record is written here either: the caller already holds what it
+  // composed, so the origin is passed rather than persisted.
   const original = args.original ? readJson(String(args.original)) : null;
+  const originText = args["original-text"] ? String(args["original-text"]) : null;
+  const originMembers = args["original-members"]
+    ? String(args["original-members"]).split(",").map((s) => s.trim()).filter(Boolean)
+    : null;
+  let originBlock;
+  if (original) {
+    originBlock = { original_claim: original.claim, original_members: original.members,
+                    original_source: "claim-record" };
+  } else if (originText) {
+    originBlock = { original_claim: originText,
+                    original_members: originMembers || group.members,
+                    original_source: "screen-composed (passed as an argument; the screen writes no record — SPEC.md §7)" };
+  } else {
+    // An absent origin is STATED, never fabricated (§7 v4 rider). A gate that
+    // silently omitted it would present a recomposed wording as if it had one.
+    originBlock = { original_claim: null, original_members: null,
+                    original_source: "NONE — this is the first composition over this set; no original exists and none is invented (SPEC.md §7)" };
+  }
   const declPath = emitGateDeclaration(dir, CLAIM_GATE, [
     { id: `adopt-recomposed:${id}`, label: `Adopt the recomposed wording over these ${members.length} member(s): ${text}` },
-  ], original ? { original_claim: original.claim, original_members: original.members } : {});
+  ], originBlock);
   console.log(`\nThe member set changed, so the claim is RE-OFFERED as a gate event, never silently refreshed and never carried over unchanged.`);
   console.log(`Gate run declaration: ${declPath}`);
   console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on — then \`capture\`, then \`adopt --claim ${out} --capture <capture file>\`.`);
@@ -933,6 +977,42 @@ export function subgroupPlacement(parent, classification, block) {
   return { subgroups, placedIds };
 }
 
+// The JUDGMENT half of subdivision (§8), extracted beside `subgroupPlacement`
+// so the co-tag screen (§6.2) and `subdivide` share ONE implementation.
+//
+// kogaki#133's first finding is what this closes: the screen placed members
+// and printed name, claim and ids while evaluating neither conjunct and
+// emitting neither disclosure, so "where §8's conditions put them" was
+// satisfied by the caller's JSON alone. A second copy of these rules would be
+// a second place for the leaf condition to drift; the rule is enforced at the
+// layer where it can be broken, and both surfaces break it the same way.
+export function judgeSubgroup(sg, groupClaim) {
+  const vd = sg.verdicts || {};
+
+  // The leaf condition, CONJUNCTIVE. Both conjuncts are the judge's own
+  // verdicts and neither is re-derived from a proxy.
+  const honest = vd.composes_honestly === true;
+  const tighter = vd.tighter_than_parent === true;
+  sg.leaf = honest && tighter;
+  sg.leaf_reason = honest
+    ? (tighter ? "leaf: the claim composes honestly AND is tighter than its parent's"
+               : "NOT a leaf: the claim composes honestly but is not tighter than its parent's — the split bought nothing")
+    : "NOT a leaf: the claim does not compose honestly — split further";
+
+  // The two disclosures, DISJUNCTIVE: each is evaluated independently and
+  // neither gates the other, because the first alone does not detect the
+  // condition the second names.
+  sg.disclosures = [];
+  const namesAMember = sg.members.some((id) => (sg.claim || "").includes(id.replace(/^lesson:/, "")));
+  if (vd.trails_into_enumeration === true || namesAMember) {
+    sg.disclosures.push(`degenerate-claim: the claim trails into enumeration${namesAMember ? " (it names a member's slug)" : ""}`);
+  }
+  if (vd.true_of_every_member === true || (sg.claim || "").trim() === String(groupClaim || "").trim()) {
+    sg.disclosures.push("undiscriminating-claim: honest, but true of every member at the size served — an honest summary true of every member discriminates between none");
+  }
+  return sg;
+}
+
 function cmdSubdivide(args) {
   const dir = runDir(args);
   const block = SURVEY_SCHEMA.subdivision;
@@ -955,29 +1035,7 @@ function cmdSubdivide(args) {
 
   for (const sg of subgroups) {
     sg.by_family = familySplit(sg.members, record.candidates);
-    const vd = sg.verdicts;
-
-    // The leaf condition, CONJUNCTIVE. Both conjuncts are the judge's own
-    // verdicts and neither is re-derived from a proxy.
-    const honest = vd.composes_honestly === true;
-    const tighter = vd.tighter_than_parent === true;
-    sg.leaf = honest && tighter;
-    sg.leaf_reason = honest
-      ? (tighter ? "leaf: the claim composes honestly AND is tighter than its parent's"
-                 : "NOT a leaf: the claim composes honestly but is not tighter than its parent's — the split bought nothing")
-      : "NOT a leaf: the claim does not compose honestly — split further";
-
-    // The two disclosures, DISJUNCTIVE: each is evaluated independently and
-    // neither gates the other, because the first alone does not detect the
-    // condition the second names.
-    sg.disclosures = [];
-    const namesAMember = sg.members.some((id) => sg.claim.includes(id.replace(/^lesson:/, "")));
-    if (vd.trails_into_enumeration === true || namesAMember) {
-      sg.disclosures.push(`degenerate-claim: the claim trails into enumeration${namesAMember ? " (it names a member's slug)" : ""}`);
-    }
-    if (vd.true_of_every_member === true || sg.claim.trim() === groupClaim.trim()) {
-      sg.disclosures.push("undiscriminating-claim: honest, but true of every member at the size served — an honest summary true of every member discriminates between none");
-    }
+    judgeSubgroup(sg, groupClaim);
 
     // Three instruments, three quantities, none a threshold, none gating.
     sg.instruments = {
@@ -1395,14 +1453,16 @@ switch (cmd) {
     console.log(`usage: terrain.mjs <survey|view|cotags|act|gate|capture|validate> [--run-dir DIR] ...
   survey                                    compose the survey from the seam (element_survey)
   view --survey F [--tag T] [--family X]    navigation — narrows nothing
-  cotags --survey F --tag T [--group G] [--claims F] [--subdivisions F] [--connective F]
+  cotags --survey F --tag T [--group G] [--claims F]
+         [--subdivisions F --judge-model M --judge-effort E] [--connective F]
                                             the second navigation step (§6) — narrows nothing.
                                             GroupClaim first, then the member Lesson IDs, for
                                             EVERY group (§6.1); SubGroups where §8's conditions
                                             bind (§6.2). --claims and --subdivisions are maps
                                             keyed by group name; a group missing a claim is
                                             MARKED, never substituted.
-  claim --survey F --tag T --group G --text S [--members a,b] [--original F]
+  claim --survey F --tag T --group G --text S [--members a,b]
+        [--original F | --original-text S [--original-members a,b]]
                                             GroupClaim first, pinned to its member set (§7);
                                             a subset RE-OFFERS it at the gate carrier
   adopt --claim F --capture F [--original-text S]
