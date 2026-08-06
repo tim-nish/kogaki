@@ -481,6 +481,17 @@ function cmdView(args) {
 // as one would be a defect against SPEC.md §8.
 // --------------------------------------------------------------------------
 export const NO_SECOND_TAG = "(no second served tag)";
+// A group with no composed claim is MARKED, never substituted — the same
+// discipline §9 applies to a missing Gloss rendering, at the claim's layer.
+export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clear, never substituted⟩";
+
+// A member's served pin, for the screen's id rows. This is the cite the seam
+// returned, not a Gloss: §6.1 carries no per-Strand Gloss line and no Journey
+// line, and quoting at the pin stays the standing discipline (§3).
+function citeOf(id, candidates) {
+  const c = candidates.find((x) => x.id === id);
+  return c ? c.cite : "⟨no pin⟩";
+}
 // The ordering is DECLARED rather than scored: co-tag name ascending, then
 // member id ascending. No scoring, no model call in the ordering.
 export const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
@@ -564,16 +575,76 @@ function cmdCotags(args) {
     }
   }
 
+  // GroupClaim-first rendering, AT the screen, for EVERY group (§6.1, §7's v3
+  // rider). v2 composed a claim only under a separate `claim` invocation naming
+  // one group, which is why the served screen carried none — the machinery was
+  // built and unreached. The composer's prompt, model and wording stay outside
+  // this runtime exactly as §7 leaves them, so the claims ARRIVE AS ARGUMENTS;
+  // what is bound here is that every group gets one and that a missing one is
+  // marked rather than substituted.
+  const claims = args.claims ? readJson(String(args.claims)) : {};
+  for (const k of Object.keys(claims)) {
+    if (!groups.some((g) => g.name === k || g.cotag === k)) {
+      fail(`--claims names ${JSON.stringify(k)}, which is no composed group — a claim carries no selection authority and may not invent, merge or rename a group (SPEC.md §6.1)`);
+    }
+  }
+  // SubGroups, where §8's conditions bind (§6.2). The decision to subdivide is
+  // §8's CONJUNCTIVE leaf condition and its two disclosures, judged by the
+  // composer — never a member count. kogaki#128's "five or more" is calibration
+  // evidence for where the undiscriminating-claim condition binds, and there is
+  // deliberately no number here to be that threshold.
+  const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
+  for (const k of Object.keys(subdivisions)) {
+    if (!groups.some((g) => g.name === k || g.cotag === k)) {
+      fail(`--subdivisions names ${JSON.stringify(k)}, which is no composed group (SPEC.md §6.2)`);
+    }
+  }
+
   const selected = args.group ? String(args.group) : null;
   const shown = selected ? groups.filter((g) => g.name === selected || g.cotag === selected) : groups;
   if (selected && shown.length === 0) fail(`no co-tag group ${JSON.stringify(selected)} in ${tag}`);
 
   console.log(`${tag} — the second navigation step. Grouped by co-tag; sort: ${COTAG_SORT}.\n`);
+  let claimless = 0;
   for (const g of shown) {
     g.by_family = familySplit(g.members, record.candidates);
     console.log(`  ${sectionFigure(g, record.candidates.length)}`);
+
+    // The GroupClaim FIRST, then the members (§6.1). A claim composed over a
+    // member set is PINNED to that set (§7), so the pinning is stated on the
+    // screen where the claim is: the owner reading a subset later gets a gate
+    // event, and that only means anything if they saw what it was pinned to.
+    const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
+    if (claim !== undefined && String(claim).trim() !== "") {
+      console.log(`      in common: ${claim}`);
+      console.log(`      pinned to ${g.members.length} member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)`);
+    } else {
+      claimless++;
+      console.log(`      in common: ${NO_CLAIM}`);
+    }
     if (prose[g.name]) console.log(`      ${prose[g.name]}`);
-    if (selected) for (const id of g.members) console.log(`      ${id}`);
+
+    // The member Lesson IDs, for EVERY group and WITHOUT --group being named.
+    // This is kogaki#128's specific defect: v2 emitted them only under
+    // `selected`, so the served screen showed counts and no ids, and no image
+    // of a possible Thesis could form. Naming a group narrows what is PRINTED
+    // and never what is counted — the cover below is unchanged by it.
+    const sub = subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag];
+    if (sub) {
+      const { subgroups } = subgroupPlacement(g, sub, SURVEY_SCHEMA.subdivision);
+      for (const sg of subgroups) {
+        sg.by_family = familySplit(sg.members, record.candidates);
+        console.log(`\n      ${sectionFigure(sg, record.candidates.length)}`);
+        console.log(`          in common: ${sg.claim || NO_CLAIM}`);
+        for (const id of sg.members) console.log(`          ${id}  ${citeOf(id, record.candidates)}`);
+      }
+      console.log("");
+    } else {
+      for (const id of g.members) console.log(`      ${id}  ${citeOf(id, record.candidates)}`);
+    }
+  }
+  if (claimless) {
+    console.log(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
   }
 
   // The cover, counted AFTER composition, over ALL composed groups — never
@@ -829,24 +900,15 @@ function cmdAdopt(args) {
 // stop logic.
 const LINES_PER_SUBGROUP_HEADER = 2;
 
-function cmdSubdivide(args) {
-  const dir = runDir(args);
-  const block = SURVEY_SCHEMA.subdivision;
-  const record = readJson(String(args.survey || fail("subdivide needs --survey <file>")));
-  const tag = String(args.tag || fail("subdivide needs --tag <selected tag>"));
-  const groupArg = String(args.group || fail("subdivide needs --group <co-tag>"));
-  const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the subgroup claims are judged TIGHTER THAN"));
-  const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
-  const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
-  const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code, so no numeric constant enters this runtime (SPEC.md §8)"));
-  const classification = readJson(String(args.classification || fail("subdivide needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own composes_honestly / tighter_than_parent / trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
-
-  const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
-  const parent = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
-
-  // Compose the SubGroups from the judge's placement. A member the judge
-  // invented is refused; a member the judge left unplaced is placed in the
-  // EXPLICIT named SubGroup rather than dropped — subdivision hides none.
+// The PLACEMENT half of subdivision, extracted so the co-tag screen (§6.2) and
+// `subdivide` (§8) share ONE composer rather than each carrying its own.
+//
+// It is this half — not the instruments and not the leaf verdicts — that owns
+// the guarantee subdivision hides none: a member the judge invented is refused,
+// and a member the judge left unplaced lands in the EXPLICIT named SubGroup
+// rather than being dropped. Two copies of that would be two places for the
+// cover to be wrong, and the second copy is the one nobody re-reads.
+export function subgroupPlacement(parent, classification, block) {
   const subgroups = [];
   const placedIds = new Set();
   for (const sg of classification) {
@@ -867,6 +929,28 @@ function cmdSubdivide(args) {
     });
     unplaced.forEach((id) => placedIds.add(id));
   }
+  return { subgroups, placedIds };
+}
+
+function cmdSubdivide(args) {
+  const dir = runDir(args);
+  const block = SURVEY_SCHEMA.subdivision;
+  const record = readJson(String(args.survey || fail("subdivide needs --survey <file>")));
+  const tag = String(args.tag || fail("subdivide needs --tag <selected tag>"));
+  const groupArg = String(args.group || fail("subdivide needs --group <co-tag>"));
+  const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the subgroup claims are judged TIGHTER THAN"));
+  const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
+  const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
+  const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code, so no numeric constant enters this runtime (SPEC.md §8)"));
+  const classification = readJson(String(args.classification || fail("subdivide needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own composes_honestly / tighter_than_parent / trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
+
+  const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
+  const parent = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
+
+  // Compose the SubGroups from the judge's placement. A member the judge
+  // invented is refused; a member the judge left unplaced is placed in the
+  // EXPLICIT named SubGroup rather than dropped — subdivision hides none.
+  const { subgroups, placedIds } = subgroupPlacement(parent, classification, block);
 
   for (const sg of subgroups) {
     sg.by_family = familySplit(sg.members, record.candidates);
@@ -1112,8 +1196,13 @@ switch (cmd) {
     console.log(`usage: terrain.mjs <survey|view|cotags|act|gate|capture|validate> [--run-dir DIR] ...
   survey                                    compose the survey from the seam (element_survey)
   view --survey F [--tag T] [--family X]    navigation — narrows nothing
-  cotags --survey F --tag T [--group G] [--connective F]
-                                            the second navigation step (§6) — narrows nothing
+  cotags --survey F --tag T [--group G] [--claims F] [--subdivisions F] [--connective F]
+                                            the second navigation step (§6) — narrows nothing.
+                                            GroupClaim first, then the member Lesson IDs, for
+                                            EVERY group (§6.1); SubGroups where §8's conditions
+                                            bind (§6.2). --claims and --subdivisions are maps
+                                            keyed by group name; a group missing a claim is
+                                            MARKED, never substituted.
   claim --survey F --tag T --group G --text S [--members a,b] [--original F]
                                             GroupClaim first, pinned to its member set (§7);
                                             a subset RE-OFFERS it at the gate carrier
