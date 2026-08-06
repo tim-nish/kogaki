@@ -467,6 +467,89 @@ function cmdView(args) {
 }
 
 // --------------------------------------------------------------------------
+// cotags — the second navigation step (SPEC.md §6). Selecting a tag displays
+// the other tags its members carry, grouped by co-tag with counts.
+//
+// It is NAVIGATION in the full §2.3 sense — it is that section's `enumerate`
+// and `sort` applied to the tags the members already carry on the served
+// surface — so it writes NO record of any kind, proposal or otherwise. A
+// navigation act wrapped as a proposal is a contract violation from the other
+// direction (record-schema.json acts).
+//
+// Nothing here is a member-count threshold. §8's three instruments are three
+// quantities and none of them is a count of members; a number appearing here
+// as one would be a defect against SPEC.md §8.
+// --------------------------------------------------------------------------
+const NO_SECOND_TAG = "(no second served tag)";
+// The ordering is DECLARED rather than scored: co-tag name ascending, then
+// member id ascending. No scoring, no model call in the ordering.
+const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
+
+export function cotagGroups(members, selectedTag) {
+  const byCotag = new Map();
+  for (const c of members) {
+    const others = (c.tags || []).filter((t) => t !== selectedTag);
+    const keys = others.length ? others : [NO_SECOND_TAG];
+    for (const k of keys) {
+      if (!byCotag.has(k)) byCotag.set(k, []);
+      byCotag.get(k).push(c.id);
+    }
+  }
+  return [...byCotag.keys()].sort().map((k) => ({
+    name: `${selectedTag} × ${k}`,
+    cotag: k,
+    members: byCotag.get(k).sort(),
+  }));
+}
+
+function cmdCotags(args) {
+  const record = readJson(String(args.survey || fail("cotags needs --survey <file>")));
+  const tag = String(args.tag || fail("cotags needs --tag <selected tag>"));
+  const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
+  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`);
+  const groups = cotagGroups(members, tag);
+
+  // Machine-composed connective prose at render time is ADMISSIBLE (§6), and
+  // it arrives with the invariants binding HARDER. The composer may attach
+  // text to a group and may do nothing else: membership is re-derived here and
+  // never taken from the composer, and the cover is counted AFTER composition —
+  // because a composer that cannot omit in principle can still omit in fact.
+  let prose = {};
+  if (args.connective) {
+    prose = readJson(String(args.connective));
+    for (const k of Object.keys(prose)) {
+      if (!groups.some((g) => g.name === k)) {
+        fail(`connective prose names ${JSON.stringify(k)}, which is no composed group — prose carries no selection authority and may not invent, merge or rename a group (SPEC.md §6)`);
+      }
+    }
+  }
+
+  const selected = args.group ? String(args.group) : null;
+  const shown = selected ? groups.filter((g) => g.name === selected || g.cotag === selected) : groups;
+  if (selected && shown.length === 0) fail(`no co-tag group ${JSON.stringify(selected)} in ${tag}`);
+
+  console.log(`${tag} — the second navigation step. Grouped by co-tag; sort: ${COTAG_SORT}.\n`);
+  for (const g of shown) {
+    g.by_family = familySplit(g.members, record.candidates);
+    console.log(`  ${sectionFigure(g, record.candidates.length)}`);
+    if (prose[g.name]) console.log(`      ${prose[g.name]}`);
+    if (selected) for (const id of g.members) console.log(`      ${id}`);
+  }
+
+  // The cover, counted AFTER composition, over the groups as rendered.
+  const covered = new Set(groups.flatMap((g) => g.members));
+  const uncovered = members.map((c) => c.id).filter((id) => !covered.has(id));
+  if (uncovered.length) {
+    fail(`COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.sort().join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md §2.1, §6).`);
+  }
+  const split = familySplit(members.map((c) => c.id), record.candidates);
+  console.log(`\nCover: ${covered.size} of ${members.length} member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: ${strandFigure(split)}; ${denominator(members.length, record.candidates.length)}.`);
+  console.log(`Classification: NAVIGATION (SPEC.md §2.3 — enumerate + sort over tags the members already carry on the served surface). No proposal record is written, and no record of any kind.`);
+  console.log(`Narrows nothing: the survey record is unchanged, the full candidate set stays reachable, and free text still reaches every Strand at the gate.`);
+  if (!selected) console.log(`\nSelect a group (still narrowing nothing): cotags --survey <F> --tag ${tag} --group "<co-tag>"`);
+}
+
+// --------------------------------------------------------------------------
 // act — the second-proposer boundary, enforced by enumeration.
 // --------------------------------------------------------------------------
 function cmdAct(args) {
@@ -610,6 +693,7 @@ const args = parseArgs(rest);
 switch (cmd) {
   case "survey": cmdSurvey(args); break;
   case "view": cmdView(args); break;
+  case "cotags": cmdCotags(args); break;
   case "act": cmdAct(args); break;
   case "gate": cmdGate(args); break;
   case "capture": cmdCapture(args); break;
@@ -624,6 +708,8 @@ switch (cmd) {
     console.log(`usage: terrain.mjs <survey|view|act|gate|capture|validate> [--run-dir DIR] ...
   survey                                    compose the survey from the seam (element_survey)
   view --survey F [--tag T] [--family X]    navigation — narrows nothing
+  cotags --survey F --tag T [--group G] [--connective F]
+                                            the second navigation step (§6) — narrows nothing
   act --act rank|trim|hide --where --why --label --ids a,b   proposal record (item 3 contract)
   act --act <other>                         report record — the non-member fallback
   gate --gate ID --ids a,b | --proposal F   per-run gate declaration (item 4 carrier)
