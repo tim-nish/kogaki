@@ -311,12 +311,74 @@ invariant: Gukan guarantees Unit schema, never data schema).
   which class, rounds spent) where the park is announced, and the park count
   is the number the budget is measured against.
 
-  **Two clauses bind the review's own conduct**, and belong to the lane
+  **Three clauses bind the review's own conduct**, and belong to the lane
   rather than to the gate: the review opens with an **unscoped tier-1
   `gloss_index` survey** as a fixed first move — where to look is an output
-  of the survey rather than a heading the reviewer supplies — and **the seam
-  is never asked for a verdict**: the review supplies the claims, the seam
-  supplies the positions.
+  of the survey rather than a heading the reviewer supplies; **the seam
+  is never asked for a verdict** — the review supplies the claims, the seam
+  supplies the positions; and **a refusal is terminal for that command**
+  (kogaki#100).
+
+  **A refusal is terminal, and the blocked dimension is REPORTED rather than
+  retried.** When a reviewer composes a command its grants do not admit, the
+  refusal ends that command: the session records it, states the blocked
+  dimension in the report as a `cannot-determine`, and finishes the review. A
+  second attempt at a refused command — in any rephrasing — is itself refused.
+  A single missing grant then costs one capability rather than the whole
+  review.
+
+  **This is a RELOCATION, not a new rule.** The rule already shipped as prose,
+  in the `COMPOSITION` prompt kogaki#74 added — `tools/review-sweep.sh:759`
+  ("never re-attempt a refused command in another form") and `:775` ("Do not
+  spend turns probing for a form that gets through") — and was measured failing
+  on the very next PR. On PR #98 the post-kogaki#74 prompt was present in the
+  second spawn's own context while that spawn spent its last four turns
+  rephrasing one refused command; the first spawn issued nine denials of one
+  intent and re-issued an identical `git worktree add` with
+  `dangerouslyDisableSandbox: true`. Both ended `error_max_turns` and neither
+  posted a report. The served position names why prose was never going to hold
+  it:
+
+  > A rule is enforced only at the layer where it can be broken — a prohibition
+  > needs a mechanical gate at the tool boundary because prose is advisory to a
+  > system whose job is to satisfy instructions; an obligation cannot be gated
+  > at all and needs its absence made visible … and when that layer belongs to
+  > another system, the carrier goes at the last boundary you control, with any
+  > gate upstream of it counting as ergonomics rather than control.
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`
+
+  The permission boundary belongs to the harness, so **the carrier goes at the
+  last boundary Kogaki controls** — the spawn wrapper in the lane-command
+  layer, where the orchestration property below already lives — and the report
+  grammar gains the `cannot-determine` line that gives the reviewer somewhere
+  to put the blocked dimension, so a refused capability degrades a dimension
+  instead of deleting a report. The prompt text stays and is reclassified as
+  **ergonomics rather than control**, which is the served line's own word for
+  a gate upstream of the violation layer.
+
+  **kogaki#74's resolution is what makes this the designed steady state rather
+  than an edge case**: by refusing three proposed grants and naming granted
+  alternatives instead, it decided that a reviewer meeting a refusal and
+  routing around it is normal operation, not an accident. A designed steady
+  state whose only carrier is a prompt sentence — one already observed not to
+  hold — is carrier-less by omission.
+
+  `deferred-slot: refusal-signal-source`
+
+  — which signal the wrapper keys the terminal refusal on: an **in-session**
+  permission-denial signal, or the **after-the-fact** `permission_denials`
+  field in the spawn's result record. The fork is real rather than mechanical:
+  "refused, will never work" and "failed, worth retrying" are not always
+  decidable from the error alone, and a carrier that reads a transient failure
+  as terminal costs the review a dimension it could have had — while the
+  result-record field is reliable and arrives only after the turns are already
+  spent. Named rather than left to the implementation, per the deferred-slot
+  clause below: filling it is a decision act owed on kogaki#100 with its
+  choice, alternatives and consult receipt **before** code embeds it. The
+  report-grammar half and the prompt reclassification are implementable without
+  filling it, which is why this clause ships with the slot open rather than
+  waiting on it.
 
   **Ownership, so the layers are not re-derived per sitting:** the property
   lives here; presence-and-findings enforcement at the merge layer; judgment
