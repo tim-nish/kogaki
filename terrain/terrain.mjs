@@ -121,8 +121,10 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     }
   }
   const candidates = Array.isArray(record.candidates) ? record.candidates : [];
+  const journeys = Array.isArray(record.journeys) ? record.journeys : [];
   const sections = Array.isArray(record.sections) ? record.sections : [];
   const ids = new Set();
+  const lessonSlugs = new Set();
   candidates.forEach((c, i) => {
     for (const f of s.candidate_required) {
       if (c[f] === undefined || c[f] === null || c[f] === "") {
@@ -131,7 +133,10 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     }
     if (c.family !== undefined && !schema.families.includes(c.family)) {
       v.push(`FAMILY_UNKNOWN — candidates[${i}].family=${JSON.stringify(c.family)}; the served families are ${schema.families.join("|")}`);
+    } else if (c.family !== undefined && c.family !== schema.candidate_family_must_be) {
+      v.push(`CANDIDATE_NOT_A_LESSON — candidates[${i}].family=${JSON.stringify(c.family)}: ${schema.candidate_family_rationale}`);
     }
+    if (c.slug) lessonSlugs.add(c.slug);
     if (c.id) {
       if (ids.has(c.id)) {
         v.push(`CANDIDATE_ID_DUPLICATE — ${JSON.stringify(c.id)} appears twice; a duplicate id silently merges two Strands and breaks the cover (a journey shares its lesson's slug — qualify by family)`);
@@ -141,6 +146,13 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     narrowingKeys(c, s).forEach((k) =>
       v.push(`NAVIGATION_STATE_NARROWS — candidates[${i}] carries ${JSON.stringify(k)}: ${s.narrowing_rationale}`));
   });
+  // Falsifier 1 (SPEC.md §5.2) — a Journey whose slug matches no Lesson has no
+  // row to be marked on, so the re-projection would drop it. Generation-time
+  // refusal, never a rendering-time warning; the orphan slugs are named.
+  const orphans = journeys.filter((j) => j && j.slug && !lessonSlugs.has(j.slug)).map((j) => j.slug);
+  if (orphans.length) {
+    v.push(`JOURNEY_ORPHAN — ${orphans.length} Journey(s) match no Lesson row: ${orphans.sort().join(", ")}: ${s.orphan_journey_rationale}`);
+  }
   const placed = new Set();
   sections.forEach((sec, i) => {
     for (const f of s.section_required) {
@@ -150,12 +162,29 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     }
     narrowingKeys(sec, s).forEach((k) =>
       v.push(`NAVIGATION_STATE_NARROWS — sections[${i}] carries ${JSON.stringify(k)}: ${s.narrowing_rationale}`));
+    const secPlaced = [];
     for (const m of sec.members || []) {
       if (!ids.has(m)) {
         v.push(`PLACEMENT_UNKNOWN_STRAND — sections[${i}] places ${JSON.stringify(m)}, which is no candidate`);
       } else {
         placed.add(m);
+        secPlaced.push(m);
       }
+    }
+    // The section figure is recomputed from the placements it claims to be
+    // counted over and refused on mismatch, exactly as completeness.by_family
+    // already is — the fill of terrain-family-split-carrier with (a)
+    // (SPEC.md §9). Placements authoritative, the stored figure subordinate,
+    // FIGURE_MISMATCH the mechanical check, at the layer the figure is made.
+    if (sec.by_family && typeof sec.by_family === "object") {
+      const want = familySplit(secPlaced, candidates, schema);
+      const bad = [];
+      for (const fam of schema.families) {
+        if (sec.by_family[fam] !== undefined && sec.by_family[fam] !== want[fam]) {
+          bad.push(`sections[${i}].by_family.${fam}=${sec.by_family[fam]} recomputed=${want[fam]}`);
+        }
+      }
+      if (bad.length) v.push(`FIGURE_MISMATCH — ${bad.join("; ")}`);
     }
   });
   for (const id of ids) {
@@ -190,12 +219,7 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     }
     // The figure is recomputed from the placements it claims to be counted
     // over. A stored figure that disagrees is a wrong number, not a view.
-    const byFamily = { };
-    for (const fam of schema.families) byFamily[fam] = 0;
-    for (const id of placed) {
-      const c = candidates.find((x) => x.id === id);
-      if (c && byFamily[c.family] !== undefined) byFamily[c.family]++;
-    }
+    const byFamily = familySplit([...placed], candidates, schema);
     const mismatches = [];
     if (comp.placed !== undefined && comp.placed !== placed.size) {
       mismatches.push(`placed=${comp.placed} recomputed=${placed.size}`);
@@ -210,6 +234,16 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
         }
       }
     }
+    // The coverage half rides the same recompute. SPEC.md §5.2 declares
+    // `instrument: none` for falsifier 2, and this is not that carrier: it
+    // refuses a WRONG coverage figure, it does not read the threshold.
+    const thin = [...placed].filter((id) => {
+      const c = candidates.find((x) => x && x.id === id);
+      return c && c.family === schema.candidate_family_must_be && !c[s.journey_mark_key];
+    }).length;
+    if (comp.thin_lessons !== undefined && comp.thin_lessons !== thin) {
+      mismatches.push(`thin_lessons=${comp.thin_lessons} recomputed=${thin}`);
+    }
     if (mismatches.length) {
       v.push(`FIGURE_MISMATCH — ${mismatches.join("; ")}`);
     }
@@ -221,13 +255,37 @@ function narrowingKeys(obj, s) {
   return s.narrowing_keys_forbidden.filter((k) => Object.prototype.hasOwnProperty.call(obj, k));
 }
 
+// The family split over a set of placed ids. Under SPEC.md §5 the rows are
+// Lessons, so the Journey half is counted from the MARKS the placed Lessons
+// carry — Lessons plus marks reconstructs the Strand set exactly (§5.2), which
+// is what keeps `agents (115 — 59 lessons + 56 journeys)` a true statement
+// about 115 Strands while the section holds 59 rows.
+export function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
+  const s = schema.survey;
+  const markKey = s.journey_mark_key;
+  const out = {};
+  for (const fam of schema.families) out[fam] = 0;
+  for (const id of ids) {
+    const c = candidates.find((x) => x && x.id === id);
+    if (!c) continue;
+    if (out[c.family] !== undefined) out[c.family]++;
+    if (c.family === schema.candidate_family_must_be && c[markKey] && out.journey !== undefined) out.journey++;
+  }
+  return out;
+}
+
 // --------------------------------------------------------------------------
 // survey — read the seam, compose, validate, write.
 // --------------------------------------------------------------------------
 function cmdSurvey(args) {
   const dir = runDir(args);
   const resp = gatewayQuery("element_survey", { kinds: SURVEY_SCHEMA.families });
-  const candidates = [];
+  // The candidate row is ONE LESSON (SPEC.md §5). Journeys are read into their
+  // own list and become a MARK on their Lesson's row; the list stays in the
+  // record so count-in remains computable against count-out (§5.2) and so
+  // falsifier 1 has an artifact to be decided from.
+  const lessons = [];
+  const journeys = [];
   for (const line of resp.lines || []) {
     let rec;
     try {
@@ -235,20 +293,28 @@ function cmdSurvey(args) {
     } catch {
       fail(`unparseable served record at ${line.cite} — surfaced, not skipped: a silently dropped record breaks the cover`);
     }
-    if (!SURVEY_SCHEMA.families.includes(rec.kind)) continue;
-    // A Strand is ONE Lesson or ONE Journey (the ratified family), and a
-    // journey shares its lesson's slug — so the slug alone conflates two
-    // Strands and the id is family-qualified. Caught live by the
-    // generation-time refusal (FIGURE_MISMATCH, first run 2026-08-05).
-    candidates.push({ id: `${rec.kind}:${rec.slug}`, slug: rec.slug, family: rec.kind, tags: rec.tags || [], cite: line.cite });
+    if (rec.kind === "lesson") {
+      // The id stays family-qualified: a journey shares its lesson's slug, and
+      // the qualification is what kept the two apart when both were rows.
+      lessons.push({ id: `lesson:${rec.slug}`, slug: rec.slug, family: "lesson", tags: rec.tags || [], cite: line.cite, journey: null });
+    } else if (rec.kind === "journey") {
+      journeys.push({ slug: rec.slug, cite: line.cite });
+    }
+  }
+  // The mark reads by ABSENCE: a Lesson with no Journey is decorated, a Lesson
+  // with one is not.
+  const journeyBySlug = new Map(journeys.map((j) => [j.slug, j]));
+  for (const c of lessons) {
+    const j = journeyBySlug.get(c.slug);
+    if (j) c.journey = { slug: j.slug, cite: j.cite };
   }
   // Compose: one section per served tag (screen 1's axis is the served tag
-  // vocabulary, SPEC.md §2.2); multi-tag Strands place in every section they
+  // vocabulary, SPEC.md §2.2); multi-tag Lessons place in every section they
   // relate to — completeness is a COVER counted in placements, not a
   // partition (SPEC.md §2.1).
   const byTag = new Map();
   const tagless = [];
-  for (const c of candidates) {
+  for (const c of lessons) {
     if (c.tags.length === 0) { tagless.push(c.id); continue; }
     for (const t of c.tags) {
       if (!byTag.has(t)) byTag.set(t, []);
@@ -257,26 +323,29 @@ function cmdSurvey(args) {
   }
   const sections = [...byTag.keys()].sort().map((t) => ({ name: t, axis: "served-tag", members: byTag.get(t) }));
   if (tagless.length > 0) sections.push({ name: NO_RELATION_SECTION, axis: "served-tag", members: tagless });
-  // The figure — counted AFTER composition, over placements.
+  // The figures — counted AFTER composition, over placements, each carrying
+  // its family split so no emitted number is bare (SPEC.md §2.1, §9).
+  for (const s of sections) s.by_family = familySplit(s.members, lessons);
   const placed = new Set(sections.flatMap((s) => s.members));
-  const byFamily = {};
-  for (const fam of SURVEY_SCHEMA.families) {
-    byFamily[fam] = candidates.filter((c) => placed.has(c.id) && c.family === fam).length;
-  }
+  const byFamily = familySplit([...placed], lessons);
+  const thin = [...placed].filter((id) => !lessons.find((c) => c.id === id).journey).length;
   const id = `terrain-survey-${Date.now()}`;
   const record = {
     id,
     generated_by: "terrain/terrain.mjs",
     pin: resp.pin,
-    candidates,
+    candidates: lessons,
+    journeys,
     sections,
     no_relation_section: NO_RELATION_SECTION,
     completeness: {
       placed: placed.size,
-      of: candidates.length,
+      of: lessons.length,
       family: SURVEY_SCHEMA.family_label,
       by_family: byFamily,
       counted_over: "placements",
+      thin_lessons: thin,
+      coverage: placed.size ? `${byFamily.journey}/${placed.size}` : "0/0",
     },
   };
   const violations = validateSurvey(record);
@@ -286,29 +355,115 @@ function cmdSurvey(args) {
   const out = join(dir, `${id}.terrain-survey.json`);
   writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
   // Rendering. The figure takes the first line here as a PRESENTATION choice;
-  // whether it is contract is carried open at SPEC.md §5 and not decided by
+  // whether it is contract is carried open at SPEC.md §11 and not decided by
   // this runtime.
   const c = record.completeness;
-  console.log(`Completeness: ${c.placed} of ${c.of} ${c.family} placed (lesson ${c.by_family.lesson}, journey ${c.by_family.journey}); counted over placements.`);
+  console.log(`Completeness: ${denominator(c.placed, c.of)} placed (${strandFigure(c.by_family)}); counted over placements.`);
+  console.log(`Journey coverage: ${c.coverage} Lessons carry a Journey — ${c.thin_lessons} thin Lesson(s), the actionable set; the mark reads by absence.`);
   console.log(`Pin: ${record.pin}`);
   console.log(`Survey record: ${out}\n`);
-  for (const s of sections) console.log(`  ${s.name} (${s.members.length})`);
+  for (const s of sections) console.log(`  ${sectionFigure(s, c.of)}`);
   console.log(`\nNavigation (narrows nothing): view --survey ${out} [--tag T] [--family lesson|journey] [--sort slug|section]`);
+}
+
+// ---- Figure rendering. Every emitted figure names the families it counted
+// (SPEC.md §2.1, §9): `agents (115 — 59 lessons + 56 journeys)`, never
+// `agents (115)`. Every screen showing candidate rows states its denominator
+// in Lessons (§5). These two helpers are the only place a Terrain figure is
+// composed, so a new screen cannot emit a bare count by forgetting to.
+export function strandFigure(split) {
+  const total = SURVEY_SCHEMA.families.reduce((n, f) => n + (split[f] || 0), 0);
+  return `${total} — ${SURVEY_SCHEMA.families.map((f) => {
+    const n = split[f] || 0;
+    return `${n} ${n === 1 ? f : `${f}s`}`;
+  }).join(" + ")}`;
+}
+
+export function denominator(inView, served) {
+  return `${inView} of ${served} Lessons`;
+}
+
+export function sectionFigure(sec, lessonsServed) {
+  return `${sec.name} (${strandFigure(sec.by_family)}); ${denominator(sec.members.length, lessonsServed)}`;
 }
 
 // --------------------------------------------------------------------------
 // view — navigation. Narrows nothing; the record is never rewritten.
 // --------------------------------------------------------------------------
+// A tier-2 gloss shard, parsed into slug → { headline, cite }. The headline is
+// the SERVED rendering's first sentence, quoted at the cite the seam returned —
+// never re-parsed from a file and never composed here (SPEC.md §3, §9).
+export function parseGlossShard(resp) {
+  const out = new Map();
+  const lines = resp.lines || [];
+  let slug = null;
+  for (const line of lines) {
+    const t = line.text;
+    if (t.startsWith("## ")) { slug = t.slice(3).trim(); continue; }
+    if (!slug) continue;
+    if (t.trim() === "" || t.startsWith("Source:") || t.startsWith("---")) continue;
+    const sentence = t.match(/^.*?[.!?](?=\s|$)/);
+    out.set(slug, { headline: (sentence ? sentence[0] : t).trim(), cite: line.cite });
+    slug = null;
+  }
+  return out;
+}
+
+// Tag-scoped and bounded: one shard per viewed tag, addressed `<kind>/<tag>`
+// and never `<tag>` alone. No fan-out, no whole-corpus prefetch (SPEC.md §9).
+function fetchHeadlines(kind, tags) {
+  const out = new Map();
+  for (const t of tags) {
+    const resp = gatewayQuery("gloss_index", { tag: `${kind}/${t}` });
+    if (resp.miss) continue;
+    for (const [slug, entry] of parseGlossShard(resp)) if (!out.has(slug)) out.set(slug, entry);
+  }
+  return out;
+}
+
+const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
+
 function cmdView(args) {
   const record = readJson(String(args.survey || fail("view needs --survey <file>")));
-  const tags = args.tag ? [].concat(args.tag) : null;
+  const tags = args.tag ? [].concat(args.tag).map(String) : null;
   const family = args.family ? String(args.family) : null;
   let list = record.candidates;
   if (tags) list = list.filter((c) => tags.some((t) => c.tags.includes(t)));
-  if (family) list = list.filter((c) => c.family === family);
+  // The rows are Lessons; a family filter selects rows whose Strand set
+  // includes that family, so `--family journey` is the marked rows.
+  if (family === "journey") list = list.filter((c) => c.journey);
+  else if (family) list = list.filter((c) => c.family === family);
   list = [...list].sort((a, b) => a.id.localeCompare(b.id));
-  for (const c of list) console.log(`  ${c.id}  [${c.family}]  (${c.tags.join(", ") || "no relation"})  ${c.cite}`);
-  console.log(`\n${list.length} of ${record.candidates.length} ${SURVEY_SCHEMA.family_label} in view — a view, not a narrowing: the survey record is unchanged and every Strand stays selectable (free text reaches all of them at the gate).`);
+
+  // Headlines are fetched only for the tags actually being viewed. Without a
+  // --tag there is no shard to read, and prefetching the corpus to fill the
+  // gap is the fan-out §9 forbids — so the absence is stated instead.
+  let heads = new Map();
+  let journeyHeads = new Map();
+  if (tags) {
+    heads = fetchHeadlines("lessons", tags);
+    if (list.some((c) => c.journey)) journeyHeads = fetchHeadlines("journeys", tags);
+  }
+  let missing = 0;
+  for (const c of list) {
+    const mark = c.journey ? "" : "  ○ thin (no Journey)";
+    console.log(`  ${c.id}  (${c.tags.join(", ") || "no relation"})  ${c.cite}${mark}`);
+    if (!tags) continue;
+    const h = heads.get(c.slug);
+    if (h) console.log(`      “${h.headline}”  ${h.cite}`);
+    else { missing++; console.log(`      ${NO_HEADLINE}`); }
+    if (c.journey) {
+      const jh = journeyHeads.get(c.slug);
+      console.log(jh ? `      ↳ Journey: “${jh.headline}”  ${jh.cite}` : `      ↳ Journey: ${NO_HEADLINE}`);
+    }
+  }
+  const split = familySplit(list.map((c) => c.id), record.candidates);
+  console.log(`\n${denominator(list.length, record.candidates.length)} in view (${strandFigure(split)}) — a view, not a narrowing: the survey record is unchanged and every Strand stays selectable (free text reaches all of them at the gate).`);
+  if (!tags) {
+    console.log("Gloss headlines are tag-scoped (one shard per viewed tag) — name a --tag to read them. No whole-corpus prefetch is taken to fill this in (SPEC.md §9).");
+  } else if (missing) {
+    console.log(`ABNORMAL: ${missing} of ${list.length} rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
+  }
 }
 
 // --------------------------------------------------------------------------
