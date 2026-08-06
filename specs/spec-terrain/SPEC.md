@@ -1,6 +1,9 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v4.3, amended 2026-08-06 — §12.1's HEADING, opening sentence and
+**Status:** v4.4, amended 2026-08-06 — the identity sweep is redone by
+ENUMERATING every site that states the key rather than by matching a wording,
+which is what let "identity pair" and "(pin, query) key" survive v4.3; story
+1.30's contradictory story question is withdrawn. v4.3 amended 2026-08-06 — §12.1's HEADING, opening sentence and
 normative TABLE are brought into line with the triple (v4.2 changed the rule in
 prose and left the table stating the old one), "the pair" is swept from the
 four remaining identity sites, and story 1.30's acceptance criteria are
@@ -1061,7 +1064,7 @@ no judged material is present. The cases, restated as the rule they share:
 |---|---|
 | same pin, same query, same judge pin, run twice | **one** report — the rerun is idempotent, not a duplicate |
 | pin advances, rest unchanged | **two** reports, one per pin |
-| same pin, different query | **two** reports, one per query |
+| same pin, different query, judge pin held fixed or not | **two** reports, one per query — a differing query is two reports whatever the judge pin |
 | same pin, same query, one run subdivided and one not | **two** reports — `(pin, query, <judge pin>)` and `(pin, query, none)`, coexisting; neither collides nor supersedes |
 
 **This table is the normative form.** kogaki#129 stated three cases and v4
@@ -1177,7 +1180,7 @@ independent reasons. First, that rule governs artifacts **acted on** after
 computation, and a Full Report is **read**, never executed — it is a report,
 per the clause above. Second, the same line names the remedy it demands for
 stored derivation: "the pin **is** the mismatch check and the tracker is the
-declared authority." The (pin, query) key is that mismatch check, with the
+declared authority." The (pin, query, judge pin) key is that mismatch check, with the
 **served surface authoritative and the report subordinate**. That is
 `conformance-copy-needs-declared-precedence` satisfied rather than evaded — a
 copy with declared, checkable subordination is conformance; a copy without one
@@ -1196,10 +1199,11 @@ naming**, and whether they are committed. v3 decided the first and third and
 left the second to be read out of §12.1, which does not answer it — so it is
 answered here.
 
-**A report is RESOLVED by §12.1's identity pair, and NAMED by whatever
+**A report is RESOLVED by §12.1's identity TRIPLE, and NAMED by whatever
 filename the emitter chooses.** These are two jobs, not one:
 
-- **Identity is normative.** A request for the report of `(pin, tag, group)`
+- **Identity is normative.** A request for the report of
+  `(pin, tag, group, judge pin)`
   must resolve to exactly the report that triple identifies, and to a new one
   when any component differs. Every rule in §12.1 binds here.
 - **The filename is implementer-owned and carries no authority.** Nothing may
