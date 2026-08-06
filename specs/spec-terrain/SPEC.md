@@ -1,6 +1,9 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v5, amended 2026-08-07 — the 2026-08-06 dogfooding round
+**Status:** v5.1, amended 2026-08-07 — §7 states that a DERIVED origin member
+set announces itself as derived (kogaki#145), and §9's allowlist scope clause is
+tightened so it cannot be read against the allowlist it scopes (kogaki#154).
+v5 amended 2026-08-07 — the 2026-08-06 dogfooding round
 (kogaki#146–#150) lands as five decisions over one file: §2.4 declares the
 **WA baseline** (Terrain design only, never generalized) with the divergence
 register; §6.1 adopts the baseline's served form — member IDs on the group
@@ -693,6 +696,41 @@ navigation classification untouched.
 re-offer has no original — the first composition over a set — the gate says so
 rather than presenting the recomposed wording as if it had one.
 
+**A DERIVED origin member set announces itself as derived** — v5.1,
+kogaki#145. Where an origin's wording is supplied but its member set is not,
+the set may be taken from the group the claim was composed over: §6.1 composes
+a GroupClaim over a group's **whole** member set, so that group's members
+genuinely *are* a screen-composed origin's members, and requiring the caller to
+restate a list it did not choose would be the raw-artifact homework §7's own
+presentation clause refuses.
+
+**What is forbidden is the substitution being silent.** A derived member set
+and a recorded one are otherwise indistinguishable at the gate, and the owner
+comparing a recomposed claim against its origin is comparing against something
+whose provenance they cannot see. So the gate declaration **distinguishes the
+two**, and the distinction is a written value rather than an omission:
+
+> "When a consuming stage silently falls back to a substitute instead of
+> requesting what an upstream stage produced … **make the fallback announce
+> itself at the point of substitution, which is the only place the evidence
+> still exists**."
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:44`
+
+> "an omitted field and a field reading `none` are the same silence to a reader
+> and **completely different silences to a grep**"
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:11`
+
+  request_id: ab40dd58-b542-4faa-9f84-4c9b3a306431
+  outcome: discriminating
+  query: When a recorded field can be inferred from current state instead of supplied, should the inference be forbidden, allowed silently, or allowed but marked as inferred? Is a value that was derived rather than recorded distinguishable from one that was recorded?
+
+**Forbidding the inference was the alternative and was declined**: it buys a
+declaration containing nothing a machine derived, at the cost of ceremony on
+every screen caller, and the served line asks for *announcement* rather than
+*prohibition*.
+
 ## 8. Semantic subdivision — a judged substrate one level down
 
 **This section replaces v1 §5's open slot.** v1 carried "Whether Kogaki's
@@ -863,8 +901,17 @@ counted over placements and family-named (§2.1, hub-ratified), the survey
 RECORD keeps its placement counts and per-section `by_family` (the
 `FIGURE_MISMATCH` path below is untouched), and the family-naming example
 earlier in this section is amended where it conflicts: a tag row's figure is
-its Lesson count, the Journey half carried by the coverage mark's own count
-per §5.
+its Lesson count **and nothing else travels with it** — the Journey half is
+carried on the **candidate rows**, by the coverage mark's own count per §5,
+never on the tag row.
+
+**That last clause is tightened rather than added** (v5.1, kogaki#154). Its
+v5 form — "the Journey half carried by the coverage mark's own count per §5" —
+was readable as a second figure travelling *with the tag row*, which is the one
+reading the allowlist directly forbids: a tag row carries the tag name and the
+Lesson count, and **nothing else is permitted**. A scope paragraph that can be
+read against the rule it scopes is worth one token, because the ambiguity sits
+in the sentence a reader reaches for when asking what a tag row may carry.
 
 **Where the recomputation lives.** `terrain/terrain.mjs` already recomputes
 `by_family` from the placements the figure claims to be counted over, and

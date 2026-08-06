@@ -48,6 +48,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# NOTE ON CASE COUNTS (kogaki#145). These blocks used to close with a hand-
+# written "N/N cases" fraction. The number was compared to nothing, so it
+# attested to nothing and drifted every time a case was added — the last count
+# read 12 over 17 assertion sites. It is REMOVED rather than computed: a
+# counter would have to be incremented at every assertion site, which is the
+# same hand-maintenance one layer down, and a wrong count is worse than none
+# because it reads as a measurement. What each block still carries is the
+# ENUMERATION of what it exercised, which is checkable against the block by
+# reading it and cannot silently disagree with a number.
+#
 # --- cotags fixture (kogaki#105, story 1.23) --------------------------------
 # THE COMPOSER IS JAVASCRIPT, SO IT GETS A JAVASCRIPT FIXTURE. Same shape as
 # check-boundary-receipts.sh's shell fixture for its shell resolver: it runs on
@@ -335,7 +345,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("cotags fixture: 33/33 cases (lone-tag group; declared sort on both "
+console.log("cotags fixture: PASS — cases exercised (lone-tag group; declared sort on both "
   + "axes; group-name form; cover passing; cover DROPPED / ADDED / both, all "
   + "three fired; end-to-end subcommand wiring; ids without --group; absent-claim "
   + "marker per-group and in aggregate; claim beneath its heading; the v5 heading "
@@ -821,12 +831,12 @@ if (fails.length) {
   process.exit(1);
 }
 if (seamAbsent) {
-  console.log("Full Report fixture: 5/5 seam-free cases (whole-body reader vs headline "
+  console.log("Full Report fixture: PASS — seam-free cases exercised (whole-body reader vs headline "
     + "reader; uniform triple with `none` typed; judged vs unjudged do not collide; "
     + "identical identities compare equal) — the 8 artifact-counting cases are "
     + "CANNOT-DETERMINE here, stated above.");
 } else {
-  console.log("Full Report fixture: 13/13 cases (whole-body reader vs headline reader; "
+  console.log("Full Report fixture: PASS — cases exercised (whole-body reader vs headline reader; "
     + "uniform triple with `none` typed; judged vs unjudged do not collide; identical "
     + "identities compare equal; the four §12.1 cases counted over real artifacts, "
     + "including judge-pin refusal writing nothing; identity recorded, classification "
@@ -956,8 +966,156 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("claim re-offer origin fixture: 12/12 cases (record branch carries claim and "
+console.log("claim re-offer origin fixture: PASS — cases exercised (record branch carries claim and "
   + "members; screen-composed branch carries BOTH wording and member set as arguments and "
   + "persists nothing of its own; absent branch STATES the absence and fabricates neither "
   + "field; the three sources are mutually distinct at the gate)");
+JS
+
+# --- v5 residuals + origin provenance (kogaki#154, kogaki#145) ---------------
+#
+# EXTENSION, NOT NEW CHECKS. `tagRow`'s shape, `--all-groups`' fan-out and the
+# claim origin's provenance are all terrain composition — inside this member's
+# carried contract — and the registry `contract` field is corrected in the same
+# diff to name what the member actually covers, which is kogaki#145's finding 1
+# and the reason no admission record is owed here.
+#
+# The forms below were RULED by the owner on 2026-08-06 and shipped with no
+# assertion over them, which is the state worth paying for: "a guard's value is
+# observable only when it fires ... every time it was not right is unrecorded"
+# (product-lab@f918c515 topics/archive/knowledge-architecture.md:163).
+node --input-type=module - <<'JS'
+import { readFileSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { tagRow } from "./terrain/terrain.mjs";
+
+const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const TAG = "testing";
+const fails = [];
+
+// 1. kogaki#147's ALLOWLIST has a carrier. `tagRow` is the single composer for
+//    screen 1's tag rows — a real construction constraint — but nothing
+//    observed that its output stays ON the allowlist. Permitted: the tag name
+//    and the tag's Lesson count. Nothing else.
+const row = tagRow({ name: "architecture", by_family: { lesson: 2, journey: 7 } });
+if (!row.includes("architecture")) fails.push(`tagRow drops the tag name: ${JSON.stringify(row)}`);
+if (!/\b2\b/.test(row)) fails.push(`tagRow drops the Lesson count: ${JSON.stringify(row)}`);
+// The Journey half is carried on the CANDIDATE rows, never on the tag row
+// (SPEC.md §9 v5.1). 7 is the journey count and must not appear.
+if (/\b7\b/.test(row)) {
+  fails.push(`tagRow carries the JOURNEY half (${JSON.stringify(row)}) — §9's allowlist permits the tag name and the Lesson count and nothing else; the Journey half is the candidate rows' (v5.1, kogaki#154)`);
+}
+// A line class not on the allowlist does not render: no cite, no tag list, no
+// gloss. Asserted against a section carrying fields a composer could reach for.
+const rich = tagRow({ name: "architecture", by_family: { lesson: 2 },
+                      cite: "gloss/ELEMENTS.jsonl:1@abc", tags: ["x", "y"],
+                      gloss: "a headline that must not render" });
+if (/gloss\/ELEMENTS|a headline that must not render|\bx\b, ?\by\b/.test(rich)) {
+  fails.push(`tagRow rendered a line class off the allowlist: ${JSON.stringify(rich)}`);
+}
+// The composer is still WIRED. A unit that passes while nothing invokes it is
+// the orphan shape, and screen 1 is where the allowlist is broken.
+if (!/for \(const s of sections\) console\.log\(`  \$\{tagRow\(s\)\}`\)/.test(readFileSync("terrain/terrain.mjs", "utf8"))) {
+  fails.push("cmdSurvey no longer composes its tag rows through tagRow — the allowlist's single construction constraint is bypassed, which no assertion over tagRow itself can see");
+}
+
+// 2. kogaki#146's EAGER fan-out. Seam-aware exactly as the Full Report block
+//    above: `report` reads served Gloss renderings, so where the seam is absent
+//    these cases report CANNOT-DETERMINE rather than failing the diff.
+const RD = mkdtempSync(join(tmpdir(), "terrain-allgroups-"));
+const run = (extra) => spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+   "--report-dir", RD, ...extra], { encoding: "utf8" });
+const reports = () => readdirSync(RD).filter((f) => f.startsWith("terrain-full-report-")).length;
+
+const probe = run(["--all-groups"]);
+const seamAbsent = probe.status === 11
+  || (probe.status !== 0 && /policy_source unavailable|gateway/i.test(String(probe.stderr) + String(probe.stdout)));
+if (seamAbsent) {
+  console.log("v5 residuals: CANNOT-DETERMINE for the 4 --all-groups cases — the served "
+    + "seam is unavailable here and `report` reads through it. The tagRow allowlist cases "
+    + "above are seam-free and RAN.");
+} else {
+  if (probe.status !== 0) fails.push(`report --all-groups exited ${probe.status}: ${(probe.stderr || "").trim()}`);
+  // ONE REPORT PER COMPOSED GROUP. The fixture's `testing` tag composes three
+  // co-tag groups, so the eager pass writes three.
+  if (reports() !== 3) fails.push(`--all-groups wrote ${reports()} report(s) over 3 composed groups — the eager reading is one report per group (SPEC.md §11 v5)`);
+  // IDEMPOTENT across the eager pass, per group, exactly as the single form is.
+  run(["--all-groups"]);
+  if (reports() !== 3) fails.push(`a second --all-groups pass wrote ${reports()} report(s) — the eager pass is idempotent per identity, not a duplicate per invocation`);
+  // The judge-pin validation is PRE-WRITE. A refusal that had already written
+  // some of its targets would be a partial pass presenting as one, which is
+  // the whole reason the validation is sited before the fan-out.
+  const RD2 = mkdtempSync(join(tmpdir(), "terrain-allgroups-partial-"));
+  const SUBS = join(RD2, "subs.json");
+  writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: [
+    { subgroup: "sg", claim: "c", members: ["lesson:alpha"],
+      composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }]}));
+  const partial = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+     "--report-dir", RD2, "--all-groups", "--subdivisions", SUBS], { encoding: "utf8" });
+  if (partial.status === 0) {
+    fails.push("--all-groups with SubGroupClaims and no judge pin was ACCEPTED — the pin is §12.1's third identity component");
+  }
+  if (readdirSync(RD2).filter((f) => f.startsWith("terrain-full-report-")).length !== 0) {
+    fails.push("the judge-pin refusal had already written some of its targets — a partial pass presenting as one, which is what siting the validation BEFORE the fan-out exists to prevent");
+  }
+}
+
+// 3. kogaki#145's origin PROVENANCE. A derived member set and a recorded one
+//    are otherwise indistinguishable at the gate.
+const CD = mkdtempSync(join(tmpdir(), "claim-prov-"));
+const claimRun = (dir, extra) => spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "claim", "--survey", FIXTURE, "--tag", TAG, "--group", "architecture",
+   "--text", "recomposed", "--members", "lesson:alpha", "--run-dir", dir, ...extra], { encoding: "utf8" });
+const decl = (dir) => {
+  const f = readdirSync(dir).find((x) => x.endsWith(".run-declaration.json"));
+  return f ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null;
+};
+const dDer = mkdtempSync(join(tmpdir(), "prov-derived-"));
+claimRun(dDer, ["--original-text", "orig"]);
+const gDer = decl(dDer);
+const dRec = mkdtempSync(join(tmpdir(), "prov-recorded-"));
+claimRun(dRec, ["--original-text", "orig", "--original-members", "lesson:alpha,lesson:bravo"]);
+const gRec = decl(dRec);
+if (!gDer || !gRec) fails.push("the provenance cases emitted no gate run declaration");
+else {
+  if (gDer.original_members_provenance !== "derived") {
+    fails.push(`a DERIVED origin member set is not announced as derived: ${JSON.stringify(gDer.original_members_provenance)} — the substitution is silent, and a derived set is indistinguishable at the gate from a recorded one (SPEC.md §7 v5.1)`);
+  }
+  if (gRec.original_members_provenance !== "recorded") {
+    fails.push(`a RECORDED origin member set is announced as ${JSON.stringify(gRec.original_members_provenance)}`);
+  }
+  // The two produce the SAME member set — which is exactly why the marking is
+  // the only thing that distinguishes them, and why asserting on the set alone
+  // could never have caught this.
+  if (JSON.stringify(gDer.original_members) !== JSON.stringify(gRec.original_members)) {
+    fails.push("the derived and recorded cases no longer produce the same member set, so this pair no longer discriminates the marking from the value");
+  }
+  if (gDer.original_source === gRec.original_source) {
+    fails.push("the derived and recorded origins carry the same `original_source` prose — the announcement is not at the point of substitution");
+  }
+}
+// A written value, never an omission: the absent branch says `none` rather
+// than dropping the field, so the three states are greppable.
+const dNone = mkdtempSync(join(tmpdir(), "prov-none-"));
+claimRun(dNone, []);
+const gNone = decl(dNone);
+if (!gNone || gNone.original_members_provenance !== "none") {
+  fails.push(`the absent-origin branch omits its provenance rather than writing \`none\` — an omitted field and a field reading \`none\` are the same silence to a reader and different silences to a grep`);
+}
+
+if (fails.length) {
+  console.log("FAIL v5 residuals + origin provenance:");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log(`v5 residuals + origin provenance: PASS — ${seamAbsent ? "seam-free cases" : "cases"} exercised `
+  + "(tagRow keeps the tag name and Lesson count, drops the Journey half, renders no "
+  + "off-allowlist line class, and is still wired into screen 1"
+  + (seamAbsent ? "" : "; --all-groups writes one report per group, is idempotent, and its "
+  + "judge-pin refusal writes NOTHING")
+  + "; derived vs recorded vs none provenance all distinguished over an identical member set)");
 JS
