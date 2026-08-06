@@ -8,19 +8,15 @@
       "slug": "strand-a",
       "family": "lesson",
       "tags": [
-        "architecture",
-        "cost"
+        "architecture"
       ],
       "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
-      "journey": {
-        "slug": "strand-a",
-        "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
-      }
+      "journey": null
     }
   ],
   "journeys": [
     {
-      "slug": "strand-a",
+      "slug": "strand-ghost",
       "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
     }
   ],
@@ -32,17 +28,7 @@
       ],
       "by_family": {
         "lesson": 1,
-        "journey": 1
-      }
-    },
-    {
-      "name": "cost",
-      "members": [
-        "lesson:strand-a"
-      ],
-      "by_family": {
-        "lesson": 1,
-        "journey": 1
+        "journey": 0
       }
     }
   ],
@@ -53,10 +39,12 @@
     "family": "Strand (Lesson|Journey)",
     "by_family": {
       "lesson": 1,
-      "journey": 1
+      "journey": 0
     },
     "counted_over": "placements",
-    "thin_lessons": 0,
-    "coverage": "1/1"
-  }
+    "thin_lessons": 1,
+    "coverage": "0/1"
+  },
+  "_expect": "JOURNEY_ORPHAN",
+  "_note": "Falsifier 1 (SPEC.md §5.2): a Journey whose slug matches no Lesson has no row to be marked on and would be silently dropped by the re-projection. Zero at the amendment's pin, so the criterion is verified here rather than by the live corpus."
 }

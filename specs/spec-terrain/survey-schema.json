@@ -8,23 +8,50 @@
     "as record-schema.json (item 3) and gate-schema.json (item 4).",
     "The three contracts bound here are SPEC.md §2.1–§2.3: completeness is",
     "a cover counted in placements, grouping is presentation-only, and the",
-    "second-proposer boundary keeps narrowing out of navigation state."
+    "second-proposer boundary keeps narrowing out of navigation state.",
+    "v2 (kogaki#26/#27, story 1.22) carries SPEC.md §5's candidate model and",
+    "§9's family-named figures: candidate rows are LESSONS ONLY, the Journey",
+    "family is a per-Lesson MARK read by absence, `journeys` carries the",
+    "served Journey set so count-in stays computable against count-out, and",
+    "`section_required` gains `by_family` — the fill of",
+    "`deferred-slot: terrain-family-split-carrier` with alternative (a), the",
+    "per-section family split living in the RECORD (owner decision",
+    "2026-08-06, SPEC.md §9).",
+    "The single-carrier clause covers these FIELD LISTS. It does NOT cover",
+    "the recompute ALGORITHM, which is written twice on purpose —",
+    "terrain/terrain.mjs (generation-time refusal) and",
+    "check-terrain-composition.sh (merge-layer detection). SPEC.md §9",
+    "records that correction; collapsing the duplication is not licensed."
   ],
-  "version": "1",
+  "version": "2",
   "families": ["lesson", "journey"],
   "family_label": "Strand (Lesson|Journey)",
+  "candidate_family_must_be": "lesson",
+  "candidate_family_rationale": "a candidate row is ONE Lesson and a Journey is a MARK on its Lesson's row, never a row of its own (SPEC.md §5); a journey-family candidate is the two-family row model arriving back as data",
   "survey": {
-    "required": ["id", "generated_by", "pin", "candidates", "sections", "no_relation_section", "completeness"],
+    "required": ["id", "generated_by", "pin", "candidates", "journeys", "sections", "no_relation_section", "completeness"],
     "candidate_required": ["id", "family", "tags", "cite"],
-    "section_required": ["name", "members"],
+    "section_required": ["name", "members", "by_family"],
     "narrowing_keys_forbidden": ["selected", "trimmed", "hidden", "excluded", "dropped"],
     "narrowing_rationale": "sections gate nothing and a navigation step carries no selection authority (SPEC.md §2.2); a narrowing key in navigation state is the refused minimal-form bundling arriving as a field",
+    "journey_mark_key": "journey",
+    "journey_mark_rationale": "the mark reads by ABSENCE — a Lesson with no Journey is decorated, a Lesson with one is not (SPEC.md §5); the key is present on every candidate, null when the Lesson is thin",
+    "journeys_rationale": "the served Journey set, carried so count-in stays computable against count-out: Lessons plus marks reconstructs the Strand set exactly, and a Journey whose slug matches no Lesson has no row to be marked on (SPEC.md §5.2, falsifier 1)",
+    "orphan_journey_rationale": "falsifier 1 — a Journey whose slug matches no Lesson candidate is silently dropped by the re-projection, so the survey is REFUSED at generation time and the orphan slugs are named; §2.1 forbids the silent drop and a rendering-time warning is not the carrier",
+    "section": {
+      "by_family_rationale": "the per-section family split lives in the RECORD (deferred-slot terrain-family-split-carrier, alternative (a), owner decision 2026-08-06, SPEC.md §9): placements are authoritative, the stored section figure is subordinate, and FIGURE_MISMATCH is the mechanical check — the same shape completeness.by_family already has, at the layer the figure is created",
+      "counted": "lesson = member Lessons; journey = member Lessons carrying a Journey mark. The rendered section figure is their sum, which is the Strand count `agents (115 — 59 lessons + 56 journeys)` §9 names, never a bare 115"
+    },
     "completeness": {
       "required": ["placed", "of", "family", "by_family", "counted_over"],
       "counted_over_must_be": "placements",
       "counted_over_rationale": "the count runs AFTER composition; a figure computed over the candidate set reads as a pass while material is missing (SPEC.md §2.1)",
       "family_must_name": "Strand (Lesson|Journey)",
-      "family_rationale": "every figure names which family it counted — a bare count is a defect, not a terse rendering (SPEC.md §2.1; GLOSSARY.md:248@924cce3)"
+      "family_rationale": "every figure names which family it counted — a bare count is a defect, not a terse rendering (SPEC.md §2.1; GLOSSARY.md:248@924cce3)",
+      "denominator_key": "of",
+      "denominator_rationale": "`placed` and `of` are counted IN LESSONS — every screen showing candidate rows states its denominator in Lessons (SPEC.md §5); the load-bearing half of the design is the denominator rather than the mark, because it is what makes the next coverage inversion visible on-screen. `by_family` beside it carries the Strand split, so the figure names its families without the denominator drifting off Lessons",
+      "coverage_keys": ["thin_lessons", "coverage"],
+      "coverage_rationale": "the coverage figure (thin Lessons / Lessons) rides beside the mark; falsifier 2's reversal trigger is coverage >= 99%, and SPEC.md §5.2 declares `instrument: none` for it — it is printed, never read by a check, and this schema does not supply the carrier that section deliberately withholds"
     }
   },
   "records_home": {

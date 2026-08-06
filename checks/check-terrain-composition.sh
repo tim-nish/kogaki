@@ -16,6 +16,24 @@
 #      refused minimal-form bundling arriving as a field.
 # Plus: every record carries the pin the seam returned (SPEC.md §3).
 #
+# Schema v2 (kogaki#26/#27, story 1.22) extends the same three contracts to
+# SPEC.md §5's candidate model and §9's family-named figures — no new contract
+# and no new admission, since this check is already registered with its
+# admission record and removal signal and its loop position is unchanged:
+#   - rows are LESSONS ONLY and a Journey is a MARK on its Lesson's row
+#     (CANDIDATE_NOT_A_LESSON);
+#   - a Journey matching no Lesson is falsifier 1 and refuses the record
+#     (JOURNEY_ORPHAN, §5.2 — a generation-time refusal, mirrored here);
+#   - the per-section family split lives in the RECORD and is recomputed from
+#     the placements it claims to count, refused on mismatch through the
+#     EXISTING FIGURE_MISMATCH path (the fill of
+#     `deferred-slot: terrain-family-split-carrier` with alternative (a),
+#     owner decision 2026-08-06, SPEC.md §9).
+# The recompute algorithm below is the SECOND copy — terrain/terrain.mjs
+# familySplit is the first. §9 records that the single-carrier clause covers
+# survey-schema.json's field lists and NOT this algorithm, and that (a)
+# extends both halves; collapsing them is not licensed.
+#
 # What this check does NOT carry is stated in its own output: whether the
 # grouping axis serves the owner, whether section names are honest, and
 # whether a proposal's narrowing was worth ratifying are JUDGMENTS and route
@@ -43,6 +61,8 @@ CODES = {
     "SURVEY_MISSING_FIELD",
     "CANDIDATE_MISSING_FIELD",
     "CANDIDATE_ID_DUPLICATE",
+    "CANDIDATE_NOT_A_LESSON",
+    "JOURNEY_ORPHAN",
     "FAMILY_UNKNOWN",
     "SECTION_MISSING_FIELD",
     "PLACEMENT_UNKNOWN_STRAND",
@@ -63,6 +83,34 @@ def empty(x):
     return x is None or x == "" or x == []
 
 
+def family_split(ids, candidates):
+    """The family split over a set of placed ids.
+
+    The SECOND copy of this algorithm — terrain/terrain.mjs familySplit is the
+    first (generation-time). SPEC.md §9 records the correction that the
+    single-carrier clause covers survey-schema.json's FIELD LISTS and not this
+    recompute, which alternative (a) extends in BOTH halves. Collapsing the
+    duplication is not licensed by that decision; it is named here so the next
+    reader meets it in the code as well as in the spec.
+
+    Rows are Lessons, so the Journey half is counted from the MARKS the placed
+    Lessons carry — Lessons plus marks reconstructs the Strand set (§5.2)."""
+    mark = schema["survey"]["journey_mark_key"]
+    lesson_family = schema["candidate_family_must_be"]
+    out = {f: 0 for f in schema["families"]}
+    by_id = {c.get("id"): c for c in candidates if isinstance(c, dict)}
+    for cid in ids:
+        c = by_id.get(cid)
+        if c is None:
+            continue
+        fam = c.get("family")
+        if fam in out:
+            out[fam] += 1
+        if fam == lesson_family and c.get(mark) and "journey" in out:
+            out["journey"] += 1
+    return out
+
+
 def validate_survey(record):
     """Return a list of (code, detail). Empty list = conforming.
     Mirrors terrain/terrain.mjs validateSurvey — the generation half."""
@@ -74,10 +122,13 @@ def validate_survey(record):
 
     candidates = record.get("candidates")
     candidates = candidates if isinstance(candidates, list) else []
+    journeys = record.get("journeys")
+    journeys = journeys if isinstance(journeys, list) else []
     sections = record.get("sections")
     sections = sections if isinstance(sections, list) else []
 
     ids = set()
+    lesson_slugs = set()
     for i, c in enumerate(candidates):
         for f in s["candidate_required"]:
             if f not in c or (empty(c[f]) and f != "tags"):
@@ -87,6 +138,12 @@ def validate_survey(record):
             v.append(("FAMILY_UNKNOWN",
                       f"candidates[{i}].family={fam!r}; the served families are "
                       + "|".join(schema["families"])))
+        elif fam is not None and fam != schema["candidate_family_must_be"]:
+            v.append(("CANDIDATE_NOT_A_LESSON",
+                      f"candidates[{i}].family={fam!r}: "
+                      + schema["candidate_family_rationale"]))
+        if c.get("slug"):
+            lesson_slugs.add(c["slug"])
         if c.get("id"):
             if c["id"] in ids:
                 v.append(("CANDIDATE_ID_DUPLICATE",
@@ -99,6 +156,17 @@ def validate_survey(record):
                 v.append(("NAVIGATION_STATE_NARROWS",
                           f"candidates[{i}] carries {k!r}: {s['narrowing_rationale']}"))
 
+    # Falsifier 1 (SPEC.md §5.2) — a Journey whose slug matches no Lesson has
+    # no row to be marked on. The generation half REFUSES the write; this is
+    # the detection half behind it, and it names the orphan slugs too.
+    orphans = sorted(j["slug"] for j in journeys
+                     if isinstance(j, dict) and j.get("slug")
+                     and j["slug"] not in lesson_slugs)
+    if orphans:
+        v.append(("JOURNEY_ORPHAN",
+                  f"{len(orphans)} Journey(s) match no Lesson row: "
+                  + ", ".join(orphans) + f": {s['orphan_journey_rationale']}"))
+
     placed = set()
     for i, sec in enumerate(sections):
         for f in s["section_required"]:
@@ -108,12 +176,26 @@ def validate_survey(record):
             if k in sec:
                 v.append(("NAVIGATION_STATE_NARROWS",
                           f"sections[{i}] carries {k!r}: {s['narrowing_rationale']}"))
+        sec_placed = []
         for m in sec.get("members") or []:
             if m not in ids:
                 v.append(("PLACEMENT_UNKNOWN_STRAND",
                           f"sections[{i}] places {m!r}, which is no candidate"))
             else:
                 placed.add(m)
+                sec_placed.append(m)
+        # The section figure is recomputed from the placements it claims to be
+        # counted over and refused on mismatch, exactly as completeness.by_family
+        # already is — terrain-family-split-carrier filled with (a) (SPEC.md §9).
+        if isinstance(sec.get("by_family"), dict):
+            want = family_split(sec_placed, candidates)
+            bad = []
+            for f in schema["families"]:
+                if f in sec["by_family"] and sec["by_family"][f] != want[f]:
+                    bad.append(f"sections[{i}].by_family.{f}="
+                               f"{sec['by_family'][f]} recomputed={want[f]}")
+            if bad:
+                v.append(("FIGURE_MISMATCH", "; ".join(bad)))
 
     for cid in sorted(ids - placed):
         v.append(("COVER_STRAND_UNPLACED",
@@ -143,12 +225,7 @@ def validate_survey(record):
                       f"completeness.family={fam!r}: {cs['family_rationale']}"))
 
         # Recompute the figure from the placements it claims to count.
-        by_family = {f: 0 for f in schema["families"]}
-        by_id = {c.get("id"): c for c in candidates}
-        for cid in placed:
-            f = (by_id.get(cid) or {}).get("family")
-            if f in by_family:
-                by_family[f] += 1
+        by_family = family_split(placed, candidates)
         mismatches = []
         if "placed" in comp and comp["placed"] != len(placed):
             mismatches.append(f"placed={comp['placed']} recomputed={len(placed)}")
@@ -159,6 +236,16 @@ def validate_survey(record):
                 if f in comp["by_family"] and comp["by_family"][f] != by_family[f]:
                     mismatches.append(
                         f"by_family.{f}={comp['by_family'][f]} recomputed={by_family[f]}")
+        # The coverage half rides the same recompute. SPEC.md §5.2 declares
+        # `instrument: none` for falsifier 2 — this refuses a WRONG coverage
+        # figure and deliberately does not read the >=99% threshold.
+        mark = s["journey_mark_key"]
+        by_id = {c.get("id"): c for c in candidates if isinstance(c, dict)}
+        thin = sum(1 for cid in placed
+                   if (by_id.get(cid) or {}).get("family") == schema["candidate_family_must_be"]
+                   and not (by_id.get(cid) or {}).get(mark))
+        if "thin_lessons" in comp and comp["thin_lessons"] != thin:
+            mismatches.append(f"thin_lessons={comp['thin_lessons']} recomputed={thin}")
         if mismatches:
             v.append(("FIGURE_MISMATCH", "; ".join(mismatches)))
     return v

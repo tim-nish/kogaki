@@ -4,48 +4,75 @@
   "pin": "product-lab@16a6dbf64b5e5471c196c48bf7f2d53c2ea8fd57",
   "candidates": [
     {
-      "id": "strand-a",
+      "id": "lesson:strand-a",
+      "slug": "strand-a",
       "family": "lesson",
       "tags": [
         "architecture"
       ],
-      "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
+      "journey": {
+        "slug": "strand-a",
+        "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
+      }
     },
     {
-      "id": "strand-b",
-      "family": "journey",
+      "id": "lesson:strand-b",
+      "slug": "strand-b",
+      "family": "lesson",
       "tags": [
         "architecture",
         "cost"
       ],
-      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:3@16a6dbf6",
+      "journey": null
     },
     {
-      "id": "strand-c",
+      "id": "lesson:strand-c",
+      "slug": "strand-c",
       "family": "lesson",
       "tags": [],
-      "cite": "gloss/ELEMENTS.jsonl:3@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:4@16a6dbf6",
+      "journey": null
+    }
+  ],
+  "journeys": [
+    {
+      "slug": "strand-a",
+      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
     }
   ],
   "sections": [
     {
       "name": "architecture",
       "members": [
-        "strand-a",
-        "strand-b"
-      ]
+        "lesson:strand-a",
+        "lesson:strand-b"
+      ],
+      "by_family": {
+        "lesson": 2,
+        "journey": 1
+      }
     },
     {
       "name": "cost",
       "members": [
-        "strand-b"
-      ]
+        "lesson:strand-b"
+      ],
+      "by_family": {
+        "lesson": 1,
+        "journey": 0
+      }
     },
     {
       "name": "No relation (no served tag)",
       "members": [
-        "strand-c"
-      ]
+        "lesson:strand-c"
+      ],
+      "by_family": {
+        "lesson": 1,
+        "journey": 0
+      }
     }
   ],
   "no_relation_section": "No relation (no served tag)",
@@ -54,9 +81,11 @@
     "of": 3,
     "family": "Strand (Lesson|Journey)",
     "by_family": {
-      "lesson": 2,
+      "lesson": 3,
       "journey": 1
     },
-    "counted_over": "placements"
+    "counted_over": "placements",
+    "thin_lessons": 2,
+    "coverage": "1/3"
   }
 }

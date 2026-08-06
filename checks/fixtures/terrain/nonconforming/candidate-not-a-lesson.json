@@ -8,37 +8,28 @@
       "slug": "strand-a",
       "family": "lesson",
       "tags": [
-        "architecture",
-        "cost"
+        "architecture"
       ],
       "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
-      "journey": {
-        "slug": "strand-a",
-        "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
-      }
-    }
-  ],
-  "journeys": [
+      "journey": null
+    },
     {
+      "id": "journey:strand-a",
       "slug": "strand-a",
+      "family": "journey",
+      "tags": [
+        "architecture"
+      ],
       "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
     }
   ],
+  "journeys": [],
   "sections": [
     {
       "name": "architecture",
       "members": [
-        "lesson:strand-a"
-      ],
-      "by_family": {
-        "lesson": 1,
-        "journey": 1
-      }
-    },
-    {
-      "name": "cost",
-      "members": [
-        "lesson:strand-a"
+        "lesson:strand-a",
+        "journey:strand-a"
       ],
       "by_family": {
         "lesson": 1,
@@ -48,15 +39,17 @@
   ],
   "no_relation_section": "No relation (no served tag)",
   "completeness": {
-    "placed": 1,
-    "of": 1,
+    "placed": 2,
+    "of": 2,
     "family": "Strand (Lesson|Journey)",
     "by_family": {
       "lesson": 1,
       "journey": 1
     },
     "counted_over": "placements",
-    "thin_lessons": 0,
-    "coverage": "1/1"
-  }
+    "thin_lessons": 1,
+    "coverage": "1/2"
+  },
+  "_expect": "CANDIDATE_NOT_A_LESSON",
+  "_note": "SPEC.md §5: a candidate row is ONE Lesson and a Journey is a MARK on its row, never a row of its own. A journey-family candidate is the two-family row model arriving back as data — the shape whose bare mixed-family count is kogaki#26's specimen."
 }
