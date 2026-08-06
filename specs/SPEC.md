@@ -488,9 +488,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
     `tool_result`:
     `{"type":"system","subtype":"permission_denied","tool_name":…,`
     `"tool_use_id":…,"decision_reason_type":…,"message":…}`. Coverage against
-    the terminal field is **exact and 1:1 by `tool_use_id`** — no misses, no
-    extras — in every log that carries events (26 at the decision, 40 at the
-    re-count).
+    the terminal field is **exact and 1:1 by `tool_use_id` — no misses, no
+    extras — WITHIN every log that carries events**, and the unit is **events**:
+    **26** at the decision, **40** at the re-count. **State the share, because
+    "no misses" is otherwise read as covering the corpus:** those are 26 of the
+    282 denials then and 40 of the 294 now — the event-carrying logs are the
+    7 logs from the 2.1.223 boundary onward, and the ~86% remainder are
+    2.1.222 logs that carry the terminal field and **no** events at all. The
+    1:1 claim is about the logs where the capability exists; it is not evidence
+    about the ones where it does not, and it is the same fact as the version
+    premise below seen from the other side.
   - **It arrives with real lead time**, which is the whole point: PR #102's
     first denial event is at log line 33 of 189, with ~156 stream lines still
     unspent. On PR #98 — the specimen this clause was written from — the first
