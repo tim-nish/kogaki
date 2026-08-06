@@ -595,6 +595,208 @@ function cmdCotags(args) {
 }
 
 // --------------------------------------------------------------------------
+// claim / adopt — GroupClaim-first rendering, and claim pinning (SPEC.md §7).
+//
+// A claim composed over a member set is PINNED to that set: the record carries
+// the member IDS and their pins, not only the claim text, because a derived
+// expression's truth is relative to the set it was derived from. A subset
+// selection therefore RECOMPOSES the claim and RE-OFFERS it as a GATE EVENT —
+// never a silent refresh and never carried over unchanged. Keeping a group
+// claim over a changed subset asserts commonality over absent members (a
+// provenance lie); discarding it throws away the only thing in the interaction
+// the machine did not supply.
+//
+// The composer's prompt, model and wording are implementation and are NOT
+// specified by §7 — so the text arrives as an argument. What is bound here is
+// the pinning, the gate event and the record's shape.
+//
+// The re-offer routes through the gate carrier (manifest item 4), never
+// through an affordance of Terrain's own: §1's refusal and §4's out-of-scope
+// decision are unchanged by this story, so `claim` emits the same run
+// declaration `gate` emits and adoption happens only against a capture.
+// --------------------------------------------------------------------------
+const CLAIM_GATE = "terrain-claim-reoffer";
+
+function memberPins(ids, candidates) {
+  return ids.map((id) => {
+    const c = candidates.find((x) => x.id === id);
+    if (!c) fail(`member ${JSON.stringify(id)} is no candidate in this survey — a claim cannot be pinned to a member the survey does not carry`);
+    return { id, cite: c.cite };
+  });
+}
+
+function validateClaimRecord(rec, block) {
+  const v = [];
+  for (const f of block.required) {
+    if (rec[f] === undefined || rec[f] === null || rec[f] === "") v.push(`CLAIM_MISSING_FIELD — ${f}`);
+  }
+  if (rec.kind !== block.kind_must_be) v.push(`CLAIM_KIND_UNKNOWN — kind=${JSON.stringify(rec.kind)}, expected ${block.kind_must_be}`);
+  if (Array.isArray(rec.members) && rec.members.length === 0) v.push("CLAIM_UNPINNED — a claim with no member set is not pinned to anything");
+  const pins = rec.member_pins || [];
+  if (Array.isArray(rec.members) && pins.length !== rec.members.length) {
+    v.push(`CLAIM_UNPINNED — ${rec.members.length} member(s) but ${pins.length} pin(s): the record carries the member ids AND their pins, never the text alone`);
+  }
+  for (const p of pins) {
+    for (const f of block.member_pin_required) {
+      if (!p || p[f] === undefined || p[f] === "") v.push(`CLAIM_UNPINNED — member_pins entry missing ${f}`);
+    }
+  }
+  for (const k of block.narrowing_keys_forbidden || []) {
+    if (Object.prototype.hasOwnProperty.call(rec, k)) v.push(`NAVIGATION_STATE_NARROWS — claim record carries ${JSON.stringify(k)}: ${block.narrowing_rationale}`);
+  }
+  for (const k of block.group_id_keys_forbidden || []) {
+    if (Object.prototype.hasOwnProperty.call(rec, k)) v.push(`CLAIM_RECORDED_BY_GROUP_ID — ${JSON.stringify(k)}: ${block.group_id_rationale}`);
+  }
+  if (block.composed_over_must_be && rec.composed_over !== block.composed_over_must_be) {
+    v.push(`CLAIM_NOT_OVER_MEMBERS — composed_over=${JSON.stringify(rec.composed_over)}: ${block.composed_over_rationale}`);
+  }
+  if (block.adopted_must_be !== undefined && rec.adopted !== block.adopted_must_be) {
+    v.push(`CLAIM_ADOPTED_WITHOUT_GATE — ${block.adopted_rationale}`);
+  }
+  if (block.claim_sources && !block.claim_sources.includes(rec.claim_source)) {
+    v.push(`CLAIM_SOURCE_UNKNOWN — claim_source=${JSON.stringify(rec.claim_source)}; the sources are ${block.claim_sources.join("|")}`);
+  }
+  return v;
+}
+
+function cmdClaim(args) {
+  const dir = runDir(args);
+  const record = readJson(String(args.survey || fail("claim needs --survey <file>")));
+  const tag = String(args.tag || fail("claim needs --tag <selected tag>"));
+  const groupArg = String(args.group || fail("claim needs --group <co-tag>"));
+  const text = String(args.text || fail("--text is required: the composed \"in common:\" line. §7 binds the pinning, the gate event and the record's shape — the composer's prompt, model and wording are not specified here and are not invented here."));
+  const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
+  const group = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
+
+  const subset = args.members ? String(args.members).split(",").map((s) => s.trim()).filter(Boolean) : null;
+  if (subset) {
+    const stray = subset.filter((id) => !group.members.includes(id));
+    if (stray.length) fail(`--members names ${stray.join(", ")}, which are not members of ${group.name} — a subset is a subset of the set the claim was pinned to`);
+  }
+  const members = subset || group.members;
+  const isSubset = Boolean(subset) && subset.length !== group.members.length;
+
+  // GroupClaim FIRST, then the member Lessons (§7). Every count beside a claim
+  // names its families and states its denominator in Lessons (§9).
+  group.by_family = familySplit(group.members, record.candidates);
+  console.log(sectionFigure(group, record.candidates.length));
+  console.log(`  in common: ${text}`);
+  console.log(`  pinned to ${members.length} member(s)${isSubset ? ` — a SUBSET of the group's ${group.members.length}` : ""}\n`);
+  for (const p of memberPins(members, record.candidates)) console.log(`    ${p.id}  ${p.cite}`);
+
+  const id = `terrain-claim-${Date.now()}`;
+  const claimRec = {
+    id,
+    kind: "group-claim",
+    pin: record.pin,
+    group: group.name,
+    claim: text,
+    members,
+    member_pins: memberPins(members, record.candidates),
+    composed_over: "members",
+    adopted: false,
+    counted: familySplit(members, record.candidates),
+    lessons_served: record.candidates.length,
+    recomposed_over_subset: isSubset,
+  };
+  const violations = validateClaimRecord(claimRec, SURVEY_SCHEMA.group_claim);
+  if (violations.length) fail(`refusing to write a non-conforming claim record:\n  ${violations.join("\n  ")}`);
+  const out = join(dir, `${id}.terrain-claim.json`);
+  writeFileSync(out, JSON.stringify(claimRec, null, 2) + "\n");
+  console.log(`\nClaim record (pinned to its member set, adopted: false): ${out}`);
+  console.log(`Subset figure: ${strandFigure(claimRec.counted)}; ${denominator(members.length, record.candidates.length)}.`);
+  console.log("Composing a claim narrows nothing on its own — the survey record is unchanged and a subset selection is the OWNER's act; rank, trim and hide still route through the proposal contract (SPEC.md §2.3, §8.2).");
+
+  if (!isSubset) {
+    console.log("\nFull-group claim: this rendering is per-invocation. It is not persisted as the adopted claim, and it does not survive a subset selection (SPEC.md §7).");
+    return;
+  }
+
+  // The set changed, so this is a GATE EVENT rather than a refresh. The
+  // re-offer goes through the gate carrier — never a Terrain-local affordance.
+  const original = args.original ? readJson(String(args.original)) : null;
+  const declPath = emitGateDeclaration(dir, CLAIM_GATE, [
+    { id: `adopt-recomposed:${id}`, label: `Adopt the recomposed wording over these ${members.length} member(s): ${text}` },
+  ], original ? { original_claim: original.claim, original_members: original.members } : {});
+  console.log(`\nThe member set changed, so the claim is RE-OFFERED as a gate event, never silently refreshed and never carried over unchanged.`);
+  console.log(`Gate run declaration: ${declPath}`);
+  console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on — then \`capture\`, then \`adopt --claim ${out} --capture <capture file>\`.`);
+}
+
+// The one place a run declaration is composed, shared by `gate` and by the
+// claim re-offer: the re-offer routes through manifest item 4's carrier and
+// never through an affordance of Terrain's own (SPEC.md §7, §4).
+function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
+  const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
+  if (!registered) fail(`${gateId} is not declared in gates/registry.json — an unregistered gate is the uncovered-by-default shape`);
+  const seen = new Set(dynamicOptions.map((o) => o.id));
+  const declaration = {
+    ...registered,
+    ...extra,
+    options: [...dynamicOptions, ...registered.options.filter((o) => !seen.has(o.id))],
+    declared_at: new Date().toISOString(),
+    run_declaration: true,
+  };
+  delete declaration.dynamic_options;
+  const out = join(dir, `${gateId}.run-declaration.json`);
+  writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
+  return out;
+}
+
+function cmdAdopt(args) {
+  const dir = runDir(args);
+  const claimRec = readJson(String(args.claim || fail("adopt needs --claim <terrain-claim record>")));
+  const capture = readJson(String(args.capture || fail("adopt needs --capture <gate-capture file> — adoption happens only at the gate, never as a refresh")));
+  const row = [...(capture.rows || [])].reverse().find((r) => r.gate_id === CLAIM_GATE)
+    || fail(`no ${CLAIM_GATE} row in the capture — a recomposed claim that was never offered cannot be adopted (SPEC.md §7)`);
+  const answer = row.payload && row.payload.answer;
+  if (!answer) fail("the capture row carries no answer");
+
+  let claim = null;
+  let source = null;
+  if (answer.free_text) {
+    claim = answer.free_text;
+    source = "free-text";
+  } else if (String(answer.option || "").startsWith("adopt-recomposed:")) {
+    claim = claimRec.claim;
+    source = "recomposed";
+  } else if (answer.option === "keep-original-wording") {
+    claim = String(args["original-text"] || fail("--original-text is required when the owner kept the original wording: the adopted record carries the wording that was adopted, over the members it is now pinned to"));
+    source = "original-wording-kept";
+  } else {
+    fail(`answer option ${JSON.stringify(answer.option)} is not an adoption outcome this gate offers`);
+  }
+
+  // The members are ALWAYS the set the claim is now pinned to — the subset.
+  // Keeping the original wording keeps the WORDING, never the old member set:
+  // the recorded member set is exactly what makes the mismatch LEGIBLE rather
+  // than forbidden (§7). The full-group claim survives only in the
+  // per-invocation rendering and is never persisted here.
+  const id = `terrain-adopted-claim-${Date.now()}`;
+  const adopted = {
+    id,
+    kind: "adopted-claim",
+    pin: claimRec.pin,
+    claim,
+    claim_source: source,
+    members: claimRec.members,
+    member_pins: claimRec.member_pins,
+    counted: claimRec.counted,
+    lessons_served: claimRec.lessons_served,
+    gate: { gate_id: row.gate_id, stop_id: row.stop_id, answer: row.payload.answer },
+  };
+  const violations = validateClaimRecord(adopted, SURVEY_SCHEMA.adopted_claim);
+  if (violations.length) fail(`refusing to write a non-conforming adopted-claim record:\n  ${violations.join("\n  ")}`);
+  const out = join(dir, `${id}.terrain-adopted-claim.json`);
+  writeFileSync(out, JSON.stringify(adopted, null, 2) + "\n");
+  console.log(`Adopted claim (${source}) recorded with the members it was composed from — by member id and pin, never by a group id: ${out}`);
+  if (source === "original-wording-kept") {
+    console.log("The original wording now stands over a CHANGED member set. The record carries that set, so the mismatch is legible rather than forbidden (SPEC.md §7).");
+  }
+  console.log(`Members (${strandFigure(adopted.counted)}); ${denominator(adopted.members.length, adopted.lessons_served)} — by id: ${adopted.members.join(", ")}`);
+}
+
+// --------------------------------------------------------------------------
 // act — the second-proposer boundary, enforced by enumeration.
 // --------------------------------------------------------------------------
 function cmdAct(args) {
@@ -669,8 +871,6 @@ function cmdAct(args) {
 function cmdGate(args) {
   const dir = runDir(args);
   const gateId = String(args.gate || fail("gate needs --gate <terrain-strand-selection|terrain-trim-ratification>"));
-  const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
-  if (!registered) fail(`${gateId} is not declared in gates/registry.json — an unregistered gate is the uncovered-by-default shape`);
   let strandOptions = [];
   if (args.proposal) {
     const p = readJson(String(args.proposal));
@@ -686,18 +886,8 @@ function cmdGate(args) {
   // already carries an option with the same id (the premise negation IS the
   // standing decline) is not doubled — a duplicated option id would make
   // options_offered unable to say which one was answered.
-  const seen = new Set(strandOptions.map((o) => o.id));
-  const standing = registered.options.filter((o) => !seen.has(o.id));
-  const declaration = {
-    ...registered,
-    options: [...strandOptions, ...standing],
-    declared_at: new Date().toISOString(),
-    run_declaration: true,
-  };
-  delete declaration.dynamic_options;
-  const out = join(dir, `${gateId}.run-declaration.json`);
-  writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
-  console.log(JSON.stringify(declaration, null, 2));
+  const out = emitGateDeclaration(dir, gateId, strandOptions);
+  console.log(readFileSync(out, "utf8").trimEnd());
   console.log(`\nRun declaration: ${out}`);
   console.log("Render through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. Then record with `capture`.");
 }
@@ -748,6 +938,8 @@ switch (cmd) {
   case "survey": cmdSurvey(args); break;
   case "view": cmdView(args); break;
   case "cotags": cmdCotags(args); break;
+  case "claim": cmdClaim(args); break;
+  case "adopt": cmdAdopt(args); break;
   case "act": cmdAct(args); break;
   case "gate": cmdGate(args); break;
   case "capture": cmdCapture(args); break;
@@ -764,6 +956,11 @@ switch (cmd) {
   view --survey F [--tag T] [--family X]    navigation — narrows nothing
   cotags --survey F --tag T [--group G] [--connective F]
                                             the second navigation step (§6) — narrows nothing
+  claim --survey F --tag T --group G --text S [--members a,b] [--original F]
+                                            GroupClaim first, pinned to its member set (§7);
+                                            a subset RE-OFFERS it at the gate carrier
+  adopt --claim F --capture F [--original-text S]
+                                            record the adopted claim with its members, by id and pin
   act --act rank|trim|hide --where --why --label --ids a,b   proposal record (item 3 contract)
   act --act <other>                         report record — the non-member fallback
   gate --gate ID --ids a,b | --proposal F   per-run gate declaration (item 4 carrier)
