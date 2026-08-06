@@ -69,9 +69,13 @@ def run_probes(entries, runner=None):
     """
     if runner is None:
         def runner(cmd):
-            return subprocess.run(
-                ["bash", "-c", cmd], capture_output=True,
-                timeout=PROBE_TIMEOUT_S).returncode
+            # Returns (exit code, stderr tail): the could-not-establish row
+            # quotes the probe's own words, not only its exit code (PR #114
+            # review, finding 2).
+            result = subprocess.run(
+                ["bash", "-c", cmd], capture_output=True, text=True,
+                timeout=PROBE_TIMEOUT_S)
+            return result.returncode, result.stderr.strip()[-200:]
     rows, failures = [], []
     counts = {"act": 0, "none": 0, "probe": 0, "candidate": 0}
     for entry in entries:
@@ -87,7 +91,7 @@ def run_probes(entries, runner=None):
         if kind == "act":
             continue  # observed at the named act, nothing to run here
         try:
-            code = runner(payload)
+            code, words = runner(payload)
         except subprocess.TimeoutExpired:
             failures.append(
                 f"FAIL probe could not establish: {entry['id']} — the probe "
@@ -104,10 +108,11 @@ def run_probes(entries, runner=None):
             rows.append(f"probe-not-yet: {entry['id']} — condition not "
                         f"present")
         else:
+            said = f", saying: {words}" if words else " and said nothing"
             failures.append(
                 f"FAIL probe could not establish: {entry['id']} — the probe "
-                f"exited {code}; this is the probe's own failure, not a "
-                f"finding about the check")
+                f"exited {code}{said}; this is the probe's own failure, not "
+                f"a finding about the check")
     rows.append(
         f"removal-instruments: {counts['act']} act, {counts['none']} none, "
         f"{counts['probe']} probe ({counts['candidate']} candidate)")
@@ -138,19 +143,25 @@ def fixture_pass():
     cases.append(("admission shape still enforced",
                   any("admission record incomplete" in x for x in f)))
 
-    rows, f = run_probes([entry("probe: fires")], runner=lambda c: 0)
+    rows, f = run_probes([entry("probe: fires")], runner=lambda c: (0, ""))
     cases.append(("probe exit 0 renders candidate, never fails",
                   any(x.startswith("removal-candidate:") for x in rows)
                   and not f))
-    rows, f = run_probes([entry("probe: quiet")], runner=lambda c: 1)
+    rows, f = run_probes([entry("probe: quiet")], runner=lambda c: (1, ""))
     cases.append(("probe exit 1 renders not-yet",
                   any(x.startswith("probe-not-yet:") for x in rows)
                   and not f))
-    rows, f = run_probes([entry("probe: broken")], runner=lambda c: 3)
+    rows, f = run_probes([entry("probe: broken")],
+                         runner=lambda c: (3, "its own words"))
     cases.append(("probe crash is could-not-establish and fails",
                   any("could not establish" in x for x in f)
                   and not any(x.startswith("removal-candidate:")
                               for x in rows)))
+    cases.append(("could-not-establish quotes the probe's own words",
+                  any("its own words" in x for x in f)))
+    rows, f = run_probes([entry("probe: mute")], runner=lambda c: (2, ""))
+    cases.append(("a wordless crash says so rather than quoting nothing",
+                  any("said nothing" in x for x in f)))
     rows, f = run_probes([entry("none: unreachable")])
     cases.append(("none renders residue row",
                   any(x.startswith("instrument-none:") for x in rows)))

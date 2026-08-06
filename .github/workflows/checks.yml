@@ -51,16 +51,19 @@ jobs:
           failed = []
           for entry in entries:
               path = pathlib.Path("checks") / entry["file"]
-              print(f"== {entry['id']} ({path})")
+              print(f"== {entry['id']} ({path})", flush=True)
               result = subprocess.run(["bash", str(path)])
               # The catch ledger's primary capture (kogaki#113): one line per
               # check per exercised run, in the run log — assembled on demand,
               # never a stored second ledger (owner decision 2026-08-06). A
               # "fail" is a catch: the check found what it guards against.
               # Disclosed limit: Actions log retention bounds the window any
-              # retention judgment can count over.
+              # retention judgment can count over. Flushed per line: the run
+              # log is the primary and only capture, so a cancelled job must
+              # not lose the catches already made (PR #114 review, finding 3).
               print(f"catch: {entry['id']} outcome="
-                    f"{'pass' if result.returncode == 0 else 'fail'}")
+                    f"{'pass' if result.returncode == 0 else 'fail'}",
+                    flush=True)
               if result.returncode != 0:
                   failed.append(entry["id"])
           if failed:
