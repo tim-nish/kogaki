@@ -201,6 +201,90 @@ invariant: Gukan guarantees Unit schema, never data schema).
      history was posted whole, and a default that retroactively voided them
      would empty the gate rather than tighten it. The token binds reports
      written after it ships.
+  7. **A report CARRIES FORWARD to a new head when the content it reviewed is
+     provably unchanged** (kogaki#96). The head sha is part of presence
+     (`checks/check-review-report.sh:44` — "THE HEAD SHA IS PART OF PRESENCE,
+     not decoration"), and that binding composes with the toolkit's mandated
+     post-squash rebase (`~/work/claude-toolkit/commands/implement-story.md:250`,
+     restated at `:418` — "after a squash merge use `git rebase --onto <default>
+     <old elder branch>` so the elder's pre-squash commits are dropped rather
+     than replayed") into a state with **no legal exit**: the rebase necessarily
+     produces a new head, the report is invalidated against it, and clause 3's
+     bound forbids the third round that would replace it. Observed 2026-08-06 on
+     PR #89, whose only exit was an owner `--admin` merge bypassing branch
+     protection — and whose rebase changed **no reviewed content at all**, the
+     pre- and post-rebase diffs hashing identically to
+     `cf756413139e7a46069343c0517099c8d2de087b`. The park it produced counted
+     against the kogaki#72 budget while being caused by the pipeline's own
+     mandated step.
+
+     So the pin's SUBJECT is the content and the sha is its INSTRUMENT, and a
+     second instrument is admitted for the same pin: **a report naming head A is
+     present for head B when the PR's diff against its base at B is
+     byte-identical to the diff that report reviewed at A.** The round counter
+     is untouched — a carry-forward is not a round and consumes none.
+
+     **The equality is recomputed and RECORDED, never assumed.** A carry-forward
+     is a gate EVENT: the check computes both diffs at gate time, compares them,
+     and writes the pair it compared into its own output, so a later reader can
+     re-run the comparison rather than trust it. A carry-forward that leaves no
+     record is the silent re-derivation the served position forbids:
+
+     > the hub's own `gloss_sha:` discipline settles the record:
+     > `specs/gloss.md` §2.2 pins a rendering to the sha of the content it was
+     > made from, and a mismatch **re-surfaces the gate rather than silently
+     > re-rendering**. That mechanism's content is not about lessons — it is
+     > that a derived expression's truth is relative to the set it was derived
+     > from, so the derivation carries that set and a change to the set is a
+     > GATE EVENT rather than a refresh.
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:73`
+
+     Read against this defect the line discriminates in both directions at once:
+     it endorses pinning a derived judgment to the content it was made from —
+     which is what admits the carry-forward, since unchanged content is an
+     unchanged member set — and it refuses the *silent* refresh, which is what
+     makes the recorded recomputation load-bearing rather than decorative.
+
+     **The weakening is stated rather than argued away.** A sha is
+     self-evidencing; a recomputed equality is only as good as its
+     recomputation and its base resolution. Two bounds keep it honest: the
+     comparison is over the diff **against the base**, so a base that moved
+     yields a different diff and no carry-forward; and an equality that cannot
+     be computed — either diff unreadable — is **not** a carry-forward but the
+     existing `stale` state, failing toward the reviewed side, on the same
+     ground clause 1's head-unknown state already occupies. This is
+     per-artifact-decidable at the merge layer, the admissible state clauses 1,
+     5 and 6 already occupy, and it adds no judgment clause: whether the diffs
+     are equal is a computable fact over two artifacts the check can read.
+
+     `deferred-slot: report-base-resolution`
+
+     — **how the check obtains the base of head A**, which is the one input
+     this clause names and does not supply. A report records the head it
+     reviewed (`review-lane report: <head sha>`) and **not** the base it was
+     diffed against, so "the diff that report reviewed at A" is not yet
+     recoverable from the record. Three resolutions, stated without selecting
+     among them: **(a)** use the PR's *current* base, which is free and is
+     wrong exactly when the base moved — the case the paragraph above relies on
+     to refuse a carry-forward; **(b)** use the merge-base at A, which is
+     computable from history alone but re-derives a fact rather than reading
+     one, and can differ from the base CI actually used; **(c)** record the
+     base in the report, which makes it a read rather than a derivation and is
+     the only option that survives a rewritten history — at the cost of a new
+     report-grammar field and of binding reports written before it ships to
+     (a) or (b) anyway.
+
+     The fork is **inside this clause's own weakening**, not beside it: the
+     admission of a second instrument is only as strong as its base
+     resolution, and (a), (b) and (c) do not merely cost different amounts —
+     they make the carry-forward correct in different circumstances. Named
+     rather than left to the implementation, per the deferred-slot clause
+     below: filling it is a decision act owed on kogaki#96 with its choice,
+     alternatives and consult receipt **before** code embeds it. The recorded
+     recomputation, the round-counter guarantee and the fail-toward-`stale`
+     bound are all implementable without filling it, which is why this clause
+     ships with the slot open rather than waiting on it.
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
@@ -227,12 +311,74 @@ invariant: Gukan guarantees Unit schema, never data schema).
   which class, rounds spent) where the park is announced, and the park count
   is the number the budget is measured against.
 
-  **Two clauses bind the review's own conduct**, and belong to the lane
+  **Three clauses bind the review's own conduct**, and belong to the lane
   rather than to the gate: the review opens with an **unscoped tier-1
   `gloss_index` survey** as a fixed first move — where to look is an output
-  of the survey rather than a heading the reviewer supplies — and **the seam
-  is never asked for a verdict**: the review supplies the claims, the seam
-  supplies the positions.
+  of the survey rather than a heading the reviewer supplies; **the seam
+  is never asked for a verdict** — the review supplies the claims, the seam
+  supplies the positions; and **a refusal is terminal for that command**
+  (kogaki#100).
+
+  **A refusal is terminal, and the blocked dimension is REPORTED rather than
+  retried.** When a reviewer composes a command its grants do not admit, the
+  refusal ends that command: the session records it, states the blocked
+  dimension in the report as a `cannot-determine`, and finishes the review. A
+  second attempt at a refused command — in any rephrasing — is itself refused.
+  A single missing grant then costs one capability rather than the whole
+  review.
+
+  **This is a RELOCATION, not a new rule.** The rule already shipped as prose,
+  in the `COMPOSITION` prompt kogaki#74 added — `tools/review-sweep.sh:759`
+  ("never re-attempt a refused command in another form") and `:775` ("Do not
+  spend turns probing for a form that gets through") — and was measured failing
+  on the very next PR. On PR #98 the post-kogaki#74 prompt was present in the
+  second spawn's own context while that spawn spent its last four turns
+  rephrasing one refused command; the first spawn issued nine denials of one
+  intent and re-issued an identical `git worktree add` with
+  `dangerouslyDisableSandbox: true`. Both ended `error_max_turns` and neither
+  posted a report. The served position names why prose was never going to hold
+  it:
+
+  > A rule is enforced only at the layer where it can be broken — a prohibition
+  > needs a mechanical gate at the tool boundary because prose is advisory to a
+  > system whose job is to satisfy instructions; an obligation cannot be gated
+  > at all and needs its absence made visible … and when that layer belongs to
+  > another system, the carrier goes at the last boundary you control, with any
+  > gate upstream of it counting as ergonomics rather than control.
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`
+
+  The permission boundary belongs to the harness, so **the carrier goes at the
+  last boundary Kogaki controls** — the spawn wrapper in the lane-command
+  layer, where the orchestration property below already lives — and the report
+  grammar gains the `cannot-determine` line that gives the reviewer somewhere
+  to put the blocked dimension, so a refused capability degrades a dimension
+  instead of deleting a report. The prompt text stays and is reclassified as
+  **ergonomics rather than control**, which is the served line's own word for
+  a gate upstream of the violation layer.
+
+  **kogaki#74's resolution is what makes this the designed steady state rather
+  than an edge case**: by refusing three proposed grants and naming granted
+  alternatives instead, it decided that a reviewer meeting a refusal and
+  routing around it is normal operation, not an accident. A designed steady
+  state whose only carrier is a prompt sentence — one already observed not to
+  hold — is carrier-less by omission.
+
+  `deferred-slot: refusal-signal-source`
+
+  — which signal the wrapper keys the terminal refusal on: an **in-session**
+  permission-denial signal, or the **after-the-fact** `permission_denials`
+  field in the spawn's result record. The fork is real rather than mechanical:
+  "refused, will never work" and "failed, worth retrying" are not always
+  decidable from the error alone, and a carrier that reads a transient failure
+  as terminal costs the review a dimension it could have had — while the
+  result-record field is reliable and arrives only after the turns are already
+  spent. Named rather than left to the implementation, per the deferred-slot
+  clause below: filling it is a decision act owed on kogaki#100 with its
+  choice, alternatives and consult receipt **before** code embeds it. The
+  report-grammar half and the prompt reclassification are implementable without
+  filling it, which is why this clause ships with the slot open rather than
+  waiting on it.
 
   **Ownership, so the layers are not re-derived per sitting:** the property
   lives here; presence-and-findings enforcement at the merge layer; judgment
@@ -276,6 +422,60 @@ invariant: Gukan guarantees Unit schema, never data schema).
   the typed loop's mechanical half — an obligation generates no event to
   hook, but a PR is an event, so receipt-absence over a diff is a computable
   fact rather than an absence with nothing to observe (kogaki#25).
+- **Review altitude is a declared property of the diff, and the instrument's
+  own diff is its own class** (kogaki#99). The tier that decides a spawned
+  review's model and turn cap was until now an invariant carried only in code —
+  the table at `tools/review-sweep.sh:549-554`, resolved by `resolve_tier()` at
+  `tools/review-sweep.sh:804` — with no clause here, so the first thing this
+  does is write it down. The declared classes are `careful` and `ordinary`; any
+  careful path carries the whole diff and is never averaged down; an unmatched
+  path falls to the careful side, which is the fail-safe. The served ground for
+  declaring it at all rather than re-judging per sweep:
+
+  > A check's runtime is paid once per iteration of the loop it gates, so its
+  > position in the loop is a multiplier on its cost and assertion ALTITUDE is
+  > a latency decision rather than only a coverage one … the remedy is a
+  > declared tier carried by the check file rather than a judgment re-made per
+  > sweep.
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:40`
+
+  **A third class is declared above both and is resolved FIRST: a diff that
+  touches the reviewing instrument itself.** It carries the careful tier's
+  model and cap. The shipped table classes `tools/**` and `.claude/skills/**`
+  as `ordinary`, which puts `tools/review-sweep.sh` and
+  `.claude/skills/review-lane/**` — the review machinery — in the cheap tier,
+  so the classifier calls its own instrument cheap. Measured on PR #98: two
+  consecutive spawned reviewers, both `error_max_turns` at 25 turns against a
+  cap of 24, ~$2 spent, no report posted, the PR left unreviewed. Resolving the
+  reflexive class before the careful/ordinary axis is what stops a diff that
+  also matches something cheaper from averaging it away.
+
+  **It is a class with its own trigger rather than two paths appended to an
+  existing list**, because the served design rule is exactly that:
+
+  > A check inherits the trigger of the gate it is sited in, and can be
+  > ANTI-CORRELATED with its own need … A check anti-correlated with its need
+  > is worse than no check, because its silence reads as a clean result.
+  > Design rule: **site a check at a trigger that is its own subject, or give
+  > it its own trigger.**
+
+  `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/archive/claude-code-ops.md:24`
+
+  and because a deliberately narrow instrument owes a **named** trigger that
+  widens or escalates it — the hub ruling only that one is owed and expressly
+  declining to select among the candidate forms, which is a consumer decision
+  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:51`).
+  Appending two paths to the careful list would fix this instance and leave the
+  class unnamed, so instance N+1 is uncovered by default.
+
+  **The cost counter is carried, not dismissed.** kogaki#70 shipped the tier
+  table to REDUCE review cost, and every widening spends that. This one is
+  bounded by construction — its members are the review machinery's own paths, a
+  small and self-limiting set — and the careful/ordinary table is **unchanged**,
+  so nothing else in the repository moves tier. The membership is declared
+  beside the other two tables and carries the same operator override they do:
+  one place to read, one place to change.
 - **Issue checkpoints:** issues carry policy pins; checked at creation and
   at pickup against the current served surface
   (`topics/claude-code-ops.md` 2026-08-04). Where an issue body matches a
@@ -423,18 +623,62 @@ invariant: Gukan guarantees Unit schema, never data schema).
      assign it wrongly, and that is the precise failure the re-framing
      discriminator exists to prevent
      (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:59`).
-     So this spec binds the *emitter* and does not bind the *assigner*:
+     So this spec binds the *emitter* and does not bind the *assigner*.
 
-     `deferred-slot: consult-outcome-token-assignment`
+     **`deferred-slot: consult-outcome-token-assignment` is FILLED** (owner
+     decision 2026-08-06, kogaki#66): **the operator supplies the token.** The
+     transport emits only what it observed as fact — the `request_id`, every
+     `query:` line, and the framing count — and takes the `outcome` token from
+     its caller, **failing rather than guessing** when none is supplied.
 
-     — who assigns the `outcome` token when the tool emits the receipt: the tool
-     mechanically, or the tool emitting the framings and their count with the
-     operator supplying the token. Named rather than left to the
-     implementation, per the deferred-slot clause above: filling it is a
-     decision act owed on kogaki#66 with its choice, alternatives and consult
-     receipt **before** code embeds it. Conditions 1 and 2 are implementable
-     without filling it, which is why the clause ships with the slot open rather
-     than waiting on it.
+     The alternatives, recorded because a decision without them is an assertion.
+     *A1 — the tool assigns mechanically*, deriving the token from the return it
+     saw. Declined: the token is a reading, and a tool assigning
+     `uncovered-after-N-framings` mechanically may assign it wrongly, which is
+     the precise failure the re-framing discriminator exists to prevent.
+     *A3 — split by decidability*, the tool assigning only tokens decidable from
+     transport facts (`degraded`, and an unreachable gateway) and requiring the
+     caller for the rest. Declined as the more complex shape for no gain here:
+     the split's own boundary is a judgment about which tokens are decidable,
+     so it reintroduces at the schema level the reading it removes at the call
+     — and the degraded case already has its own carrier in condition 2's
+     marked exception.
+
+     The discriminating served position, quoted verbatim at its pin:
+
+     > ask first whether the thing is a fact or a judgment: a fact gets a
+     > mechanical carrier at the moment it is decidable, and a judgment rides a
+     > gate that already exists
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:58`
+
+     supported by the carrier rule, on where a pending human reading is carried:
+
+     > a pending human verdict needs its carrier at the render layer, because
+     > the human acts on what they see and not on what the authoritative file
+     > contains
+
+     `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 LESSONS.md:87`
+
+     Condition 3 above had already classified the token on the judgment side —
+     "the `outcome` token is a *reading* of whether the answer discriminated" —
+     so the fill applies the fact/judgment split this spec had already made and
+     stopped one step short of executing. `request_id` and the `query:` lines
+     are facts the transport holds and it emits them; the reading rides the
+     gate the caller already is.
+
+     **The ordering is disclosed rather than presented as clean.** PR #101
+     (story 1.20, open at the time of this decision) already ships `--outcome`
+     as a required argument with no inference. Its author framed that as story
+     1.20 AC 4's **refusal** — "the emitter does not silently choose an
+     assignment strategy … **This criterion is a refusal, not a fill**" — rather
+     than as a fill, and the refusal happens to coincide with A2. That is
+     fortunate, not procedural: **the code was written before this record
+     existed, and this record ratifies it rather than following it.** Had the
+     owner selected A1, PR #101 would have needed to change. The deferred-slot
+     clause asks for the decision *before* code embeds the choice, and on this
+     slot the sequence ran the other way round; recorded here so the next
+     reader does not mistake the agreement for compliance.
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
