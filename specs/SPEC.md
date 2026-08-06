@@ -66,6 +66,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
   named defect it caught or the contract it uniquely carries, plus the
   licensing issue. An unregistered check file is dead code found by one meta
   check. Admission also declares the check's **removal signal** at birth.
+  That signal owes a typed **observing instrument** at admission too — the
+  field naming what in this repository would notice the signal's condition,
+  or why nothing can. Its grammar is carried once, in
+  `checks/registry.json`'s own note, and is pointed at rather than restated
+  here; `checks/check-registry-conformance.sh` refuses an admission whose
+  instrument is missing or malformed (kogaki#113).
 - **External-dependency registry** (`deps/registry.json`): the capabilities
   this repository **needs but cannot install** — a spawned session's tool
   grants, a repository setting, a user-level hook's install state — declared
