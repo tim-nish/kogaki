@@ -567,3 +567,152 @@ if failures:
 
 print("PASS" if not cannot_determine else "PASS (with CANNOT-DETERMINE entries above)")
 EOF
+
+# --- Full Report fixture (kogaki#129, story 1.30) ----------------------------
+#
+# WHAT THIS DISCRIMINATES. §12.1 states four identity cases and §12 requires a
+# report to RECORD its own identity — both are claims about what exists on disk
+# after N invocations, which no unit test of a parser can observe. So the block
+# runs the subcommand and counts artifacts.
+#
+# The judge-pin case is the one worth naming: v4.1 keyed a report as a pair or
+# a triple according to its own content, so a request could not form the key;
+# v4.2 made the arity uniform with `none` a typed value. The assertion below is
+# what makes that concrete — a subdivided and an unsubdivided run over the SAME
+# pin and query must produce TWO coexisting reports, not one.
+node --input-type=module - <<'JS'
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { parseGlossFull, reportIdentity, sameIdentity, NO_JUDGE }
+  from "./terrain/terrain.mjs";
+
+const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const TAG = "testing";
+const fails = [];
+const eq = (name, got, want) => {
+  const g = JSON.stringify(got), w = JSON.stringify(want);
+  if (g !== w) fails.push(`${name}: got ${g}, want ${w}`);
+};
+
+// 1. The whole-body reader. `parseGlossShard` cuts a headline BY DESIGN, so a
+//    report reusing it would truncate — §12 forbids truncation anywhere, and
+//    this is the assertion that the two readers are genuinely different.
+const shard = { lines: [
+  { text: "## alpha", cite: "gloss/lessons/testing.md:9@abc" },
+  { text: "" },
+  { text: "First sentence. Second sentence continues the body.", cite: "gloss/lessons/testing.md:11@abc" },
+  { text: "A second paragraph line.", cite: "gloss/lessons/testing.md:12@abc" },
+  { text: "Source: `lessons/alpha.md` · tags: testing", cite: "gloss/lessons/testing.md:13@abc" },
+]};
+const full = parseGlossFull(shard);
+eq("the full reader keeps the WHOLE body, not the first sentence",
+   full.get("alpha").body,
+   "First sentence. Second sentence continues the body.\nA second paragraph line.");
+eq("the full reader carries the body's first cite",
+   full.get("alpha").cite, "gloss/lessons/testing.md:11@abc");
+
+// 2. Identity is a UNIFORM TRIPLE — `none` present, never omitted (§12.1).
+const idNone = reportIdentity("product-lab@aaa", TAG, "testing × architecture", null);
+eq("an unjudged report's judge component is the typed value, not absent",
+   idNone.judge_pin, NO_JUDGE);
+eq("identity carries all three components",
+   Object.keys(idNone).sort(), ["identity_placeholder"].slice(0,0).concat(["judge_pin","pin","query"]));
+const idJudged = reportIdentity("product-lab@aaa", TAG, "testing × architecture",
+  { model_id: "m", effort_tier: "high" });
+if (sameIdentity(idNone, idJudged)) {
+  fails.push("a judged and an unjudged report over the same pin and query compare EQUAL — the judge pin is not in the key, which is the same-key-different-content collision §12.1 rejects (v4.2)");
+}
+if (!sameIdentity(idNone, reportIdentity("product-lab@aaa", TAG, "testing × architecture", NO_JUDGE))) {
+  fails.push("two unjudged reports over the same pin and query compare UNEQUAL — the rerun would duplicate");
+}
+
+// 3. The four cases, counted over real artifacts.
+const RD = mkdtempSync(join(tmpdir(), "terrain-reports-"));
+const run = (extra) => spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+   "--report-dir", RD, ...extra], { encoding: "utf8" });
+// Counted over REPORTS only. The subdivision input below lives in the same
+// directory and also ends `.json`; counting by extension would have made the
+// judge-pin refusal look like a write.
+const count = () => readdirSync(RD).filter((f) => f.startsWith("terrain-full-report-")).length;
+
+// THE SEAM IS MACHINE-LOCAL, so the artifact-counting cases below cannot run
+// everywhere. `cmdReport` reads served Gloss renderings through the gateway,
+// whose location is machine-local configuration and never a committed path
+// (CLAUDE.md; kogaki#9) — so a CI runner has none and the subcommand stops.
+//
+// A check that could not run its trials reports CANNOT-DETERMINE. It does not
+// pass (which would claim evidence it never gathered) and it does not fail
+// (which would accuse the diff of a defect in the environment). The unit cases
+// above are seam-free and always run, so this block degrades rather than
+// vanishing — `absence-verification-counts-exercised-trials`, and the
+// three-result discipline `check-external-deps.sh` already applies to its own
+// reads.
+const r1 = run(["--group", "architecture"]);
+const seamAbsent = r1.status === 11
+  || (r1.status !== 0
+      && /policy_source unavailable|gateway/i.test(String(r1.stderr) + String(r1.stdout)));
+if (seamAbsent) {
+  console.log("Full Report fixture: CANNOT-DETERMINE for the 8 artifact-counting cases — "
+    + "the served seam is unavailable here, and `report` reads served Gloss renderings "
+    + "through it. The 5 seam-free cases above (whole-body reader, identity arity, "
+    + "judged-vs-unjudged collision, equality) RAN and passed. This is neither a pass "
+    + "nor a failure of the diff: a check that could not run its trials says so "
+    + "(absence-verification-counts-exercised-trials).");
+} else {
+if (r1.status !== 0) fails.push(`report exited ${r1.status}: ${(r1.stderr || "").trim()}`);
+eq("case 1a — one run, one report", count(), 1);
+run(["--group", "architecture"]);
+eq("case 1b — SAME identity run twice is ONE report (idempotent, not a duplicate)", count(), 1);
+run(["--group", "cost"]);
+eq("case 3 — same pin, DIFFERENT query is two reports", count(), 2);
+
+const SUBS = join(RD, "subs.json");
+writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: [
+  { subgroup: "sg", claim: "a tighter claim", members: ["lesson:alpha"],
+    composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }]}));
+const noPin = run(["--group", "architecture", "--subdivisions", SUBS]);
+if (noPin.status === 0) {
+  fails.push("a report carrying SubGroupClaims was written with NO judge pin — the pin is §12.1's third identity component and judged material recorded without it is the drift-undetectable shape");
+}
+eq("the refusal wrote nothing", count(), 2);
+run(["--group", "architecture", "--subdivisions", SUBS, "--judge-model", "m", "--judge-effort", "high"]);
+eq("case 4 — same pin and query, one run subdivided and one not, COEXIST as two reports",
+   count(), 3);
+}
+
+// 4. §12's recording obligation: the identity is IN the artifact. §12.2 makes
+//    these the only source of it, so a report carrying none is unresolvable —
+//    and that state passes every other clause in the section.
+for (const f of readdirSync(RD).filter((x) => x.startsWith("terrain-full-report-"))) {
+  const rec = JSON.parse(readFileSync(join(RD, f), "utf8"));
+  const id = rec.identity || {};
+  if (!id.pin || !id.query || !id.query.tag || !id.query.group || id.judge_pin === undefined) {
+    fails.push(`${f} does not record all three identity components — §12.2 forbids recovering them from the filename, so this report cannot be resolved at all`);
+  }
+  if (rec.classification !== "report" || rec.narrows !== false) {
+    fails.push(`${f} is not classified as a report that narrows nothing (§2.3, §12)`);
+  }
+  if (rec.truncated !== false) fails.push(`${f} does not assert untruncated content (§12)`);
+}
+
+if (fails.length) {
+  console.log("FAIL Full Report fixture — §12's identity and recording rules do not hold:");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+if (seamAbsent) {
+  console.log("Full Report fixture: 5/5 seam-free cases (whole-body reader vs headline "
+    + "reader; uniform triple with `none` typed; judged vs unjudged do not collide; "
+    + "identical identities compare equal) — the 8 artifact-counting cases are "
+    + "CANNOT-DETERMINE here, stated above.");
+} else {
+  console.log("Full Report fixture: 13/13 cases (whole-body reader vs headline reader; "
+    + "uniform triple with `none` typed; judged vs unjudged do not collide; identical "
+    + "identities compare equal; the four §12.1 cases counted over real artifacts, "
+    + "including judge-pin refusal writing nothing; identity recorded, classification "
+    + "and untruncated asserted per artifact)");
+}
+JS

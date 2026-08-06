@@ -45,14 +45,29 @@ contracts driven through the harness — none of it is discretion.
      condition binds, not a threshold.
    - The screen carries **no per-Strand Gloss line and no Journey line**. That
      material is the Full Report's (§12).
-4. **Narrow (only through the contract)** — if a shortlist is wanted
+4. **Read in full — the Full Report** —
+   `report --survey <record> --tag <T> --group <G> [--claims <F>]
+   [--subdivisions <F> --judge-model <M> --judge-effort <E>]`.
+   The screen is what the owner **navigates**; this is what they **read**.
+   Untruncated Claims and the complete Lesson and Journey Glosses, written to
+   the machine-local reports home and **never committed**.
+   - **Identity is the triple (substrate pin, co-tag query, judge pin)**, with
+     `none` typed where nothing was judged. A rerun under the same identity is
+     **idempotent** — one report, not a duplicate — and a run under a new
+     substrate pin, a different `(tag, group)`, or a different judge produces
+     another.
+   - **A report carrying SubGroupClaims REFUSES without a judge pin.** Judged
+     material recorded without its judge is the drift-undetectable shape.
+   - **It is a rendering, not an address.** Never cite a report id in a Brief
+     or a proposal — cite members and pins, exactly as before.
+5. **Narrow (only through the contract)** — if a shortlist is wanted
    (e.g. the selector affordance holds only 4 options), that is a **trim**:
    `act --act trim --where … --why … --label … --ids …`. The record carries
    the machine premise and its negation as a first-class option. Present it
    at the `terrain-trim-ratification` gate. Never trim silently — a single
    ranking affordance on a navigation screen is the refused minimal-form
    bundling.
-5. **Select** — `gate --gate terrain-strand-selection --ids a,b,c` (≤3
+6. **Select** — `gate --gate terrain-strand-selection --ids a,b,c` (≤3
    Strands; more is a trim, and the runtime refuses). Render the printed
    declaration through **AskUserQuestion exactly as declared**: options
    verbatim, nothing pre-selected, free text always on — the medium binding
