@@ -135,10 +135,13 @@ echo "ok: no colocation default (gateway is configuration-only)"
 #    look covered, the same way case 4b states its own limit.
 #
 # 8a. AC 4 — the transport REFUSES rather than assigning the outcome token.
-#     `deferred-slot: consult-outcome-token-assignment` is open on kogaki#66,
-#     so a default here would be code embedding an undecided choice. The
-#     message must name the slot: a bare usage error would send the caller
-#     looking for a syntax mistake instead of a pending decision.
+#     `deferred-slot: consult-outcome-token-assignment` is FILLED (owner
+#     decision 2026-08-06 on kogaki#66): the OPERATOR supplies the token, so a
+#     default here would reinstate the guess the fill declined (A1). The
+#     message must still name the slot — that is how the caller finds who owns
+#     the token rather than reading the exit as a syntax mistake. This comment
+#     said "is open" until the fill's prose was reconciled; the assertion below
+#     is unchanged, because the behaviour never was.
 set +e
 OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
       --tool policy_lookup --args '{"question":"x"}' --receipt 2>&1)
