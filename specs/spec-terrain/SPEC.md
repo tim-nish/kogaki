@@ -12,7 +12,12 @@ routes it into `subgroupPlacement`'s catch-all, which returns one SubGroup
 holding every member, with `members` nulled. A prohibition on minting `none` is
 necessary and not sufficient. An **executable conformance fixture at the
 producer/consumer boundary** is required by the amendment, not suggested by it.
-v8, amended 2026-08-07 — **§12/§12.1 is RECONCILED with
+
+**Superseded status (v8), kept whole so a reader holding it finds the
+disposition rather than an absence** — v9 amends §12.1's encoding and leaves
+every clause below standing:
+
+**Status:** v8, amended 2026-08-07 — **§12/§12.1 is RECONCILED with
 kogaki#168** (kogaki#189, owner selection), the reconciliation §6.2 and §8.1
 received in PR #178 and §12 did not, because neither of that PR's issues
 licensed §12. **A judge pin of `none` on a CO-TAG-GENERATED Full Report is
@@ -1977,6 +1982,16 @@ dogfood round that composes without the artifact, or any sitting licensing a
 change to `cotags`' argument validation"* — and this sitting **is** the second
 limb: it licenses exactly that change. A trigger whose condition has fired is
 discharged by acting, never re-armed.
+
+**This REVERSES kogaki#212's own reading, and the reversal is named rather
+than quietly reconciled** (PR #213 round-1 nit). The issue body rules the
+opposite in as many words — *"That trigger is **kept**, and this issue is what
+makes it readable"* — which was correct when written, because at filing time no
+sitting had yet licensed the change the second limb names. This sitting is that
+sitting, so the later verdict wins and the superseded reading is stated here
+rather than left for a reader holding the issue to discover as a contradiction.
+`policy/consultation-map.md` entry 3's served line asks for exactly this: when
+they conflict the later verdict wins **and the conflict is reported**.
 
 **A scheduling edge is stated here and written to no `depends_on`.** The story
 this decomposes to edits `terrain/terrain.mjs` and
