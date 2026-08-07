@@ -1,6 +1,30 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v7, amended 2026-08-07 — the 2026-08-07 dogfood round's **flow**
+**Status:** v8, amended 2026-08-07 — **§12/§12.1 is RECONCILED with
+kogaki#168** (kogaki#189, owner selection), the reconciliation §6.2 and §8.1
+received in PR #178 and §12 did not, because neither of that PR's issues
+licensed §12. **A judge pin of `none` on a CO-TAG-GENERATED Full Report is
+NON-CONFORMANT** — a failed run's output, never a coexisting peer — because
+"required" governs the **judgment**, so every report the required path
+produces has a judge. **`none` is NOT deleted:** it stays typed and admissible
+in the identity triple, because deleting it would reinstate the
+content-conditional arity v4.2 withdrew — an identity a request cannot
+construct is not an identity — so the rule binds the *artifact* and leaves the
+*key space* untouched. §12.1's **normative table row 4** and its **fourth-case
+paragraph** are superseded in place, restated on the judge pin's *value*
+rather than its presence, with v4.2's prior wording quoted; v4.1's withdrawal
+paragraph gains a rider separating distinguishability (a property of the key)
+from conformance (a property of the artifact). **Idempotence is unchanged** —
+it never read the judge pin's value. **§8's no-member-count-threshold rule is
+untouched**, and a group whose leaf condition fails renders no SubGroups,
+carries its judge pin, and is **fully conformant**. Alternative (2) — retain
+`none` for reports produced outside the co-tag path — is **DECLINED on a
+finding**: no such path exists (`report` requires `--tag` and resolves to a
+co-tag group), so ratifying it would create a conformance category with no
+members; the bullet carries its reopen point. **No runtime change** —
+`terrain/terrain.mjs` is not edited by this amendment, and the runtime half is
+carried as **kogaki#199**.
+v7, amended 2026-08-07 — the 2026-08-07 dogfood round's **flow**
 half lands as one coupled sitting over **kogaki#161, #164, #166** and
 **kogaki#162's fork half**, under one owner selection. New **§6.3** binds the
 **post-tag-selection window to exactly two acts** — the served screen relayed
@@ -1962,9 +1986,11 @@ the pin-once siting §6.1's v5 withdrawal moved here (wa#1115/#1116).
 **A report RECORDS its own identity, and this is a requirement rather than an
 implication** — v4.1, kogaki#131. Every Full Report carries, in its own
 content, the **substrate pin**, the **selected tag**, the **named group**, and
-the **judge pin** — the last taking the typed value `none` where no judged
-material is present, per §12.1's uniform arity, so the recorded set is the key
-exactly and never a subset of it. Without this
+the **judge pin** — which on a report generated at the co-tag view is
+**always a real judge pin and never `none`** (§12.1's kogaki#168
+reconciliation, below), while `none` remains the typed value the component
+takes in the key space, per §12.1's uniform arity, so the recorded set is the
+key exactly and never a subset of it. Without this
 clause the artifact is unresolvable: §12.1 states identity as a *property* of
 a report rather than an obligation to record one, and §12.2 forbids the only
 other source — "nothing may read meaning out of [the filename], parse it to
@@ -2003,14 +2029,17 @@ rendering for the owner's own re-reading and nothing downstream resolves one.
 A Full Report is identified by the **substrate pin** in effect when it was
 generated, the **co-tag query** that produced it, and the **judge pin** under
 which its material was judged — the last taking the typed value `none` where
-no judged material is present. The cases, restated as the rule they share:
+no judged material is present. **On a co-tag-generated report `none` is
+non-conformant** — the kogaki#168 reconciliation below, which changes which
+reports are conformant and changes the key space not at all. The cases,
+restated as the rule they share:
 
 | act | result |
 |---|---|
 | same pin, same query, same judge pin, run twice | **one** report — the rerun is idempotent, not a duplicate |
 | pin advances, rest unchanged | **two** reports, one per pin |
 | same pin, different query, judge pin held fixed or not | **two** reports, one per query — a differing query is two reports whatever the judge pin |
-| same pin, same query, one run subdivided and one not | **two** reports — `(pin, query, <judge pin>)` and `(pin, query, none)`, coexisting; neither collides nor supersedes |
+| same pin, same query, **different judge pin** | **two** reports, one per judge pin — coexisting; neither collides nor supersedes. A co-tag-generated report always carries a real judge pin, so `none` is never the discriminator on this row (kogaki#168, below) |
 
 **This table is the normative form.** kogaki#129 stated three cases and v4
 carried them verbatim; the fourth is v4.2's, and it is written *into the
@@ -2051,16 +2080,232 @@ value that must be present**, never an omitted component — the same discipline
 that must be typed.
 
 **So the fourth case is stated rather than left open:** same pin, same query,
-one run subdivided and one not are **two reports that coexist**, keyed
-`(pin, query, <judge pin>)` and `(pin, query, none)`. They neither collide nor
-supersede.
+**two different judge pins** are **two reports that coexist**, keyed
+`(pin, query, <judge pin A>)` and `(pin, query, <judge pin B>)`. They neither
+collide nor supersede.
+
+**The fourth case's v4.2 wording is SUPERSEDED, and the supersession is
+recorded rather than edited away** — v8, kogaki#189. v4.2 stated it as *"one
+run subdivided and one not"*, keyed `(pin, query, <judge pin>)` and
+`(pin, query, none)`. Under kogaki#168 that pair cannot both be conformant
+co-tag-generated reports, so the case is restated on the axis that still
+distinguishes two conformant reports — **the judge pin's value**, not its
+presence. Nothing about the case's *rule* changed: a differing third component
+is two reports. What changed is which values the third component may take on a
+conformant co-tag report.
 
 v4.1's withdrawn reasoning — that a null component "would make two
 indistinguishable reports distinct" — was **false**: a report carrying
 SubGroupClaims and one carrying none are distinguishable by their content,
 which is exactly why they are two reports rather than one. The withdrawal is
 recorded rather than edited away, because a reader holding v4.1 must find the
-disposition rather than an absence.
+disposition rather than an absence. **Rider, v8 (kogaki#189):** that sentence
+remains a correct refutation of v4.1's premise and is **not** a licence to
+generate the pair it describes. It says two such reports would be *distinct*;
+it never said both would be *conformant*, and after kogaki#168 the second of
+them is a failed run's output. Distinguishability is a property of the key;
+conformance is a property of the artifact. Conflating them is what let §12.1
+read against the ruling for one amendment.
+
+**§12/§12.1 RECONCILED WITH kogaki#168** — v8, owner selection 2026-08-07
+(kogaki#189). The 2026-08-07 owner ruling makes SubGroups on the screen and in
+the Full Reports **REQUIRED** — every run without them is a contract violation
+and a failed run (§6.2, §8.1). PR #178 landed that ruling with an explicit
+reconciling paragraph in **§6.2** and **§8.1** and **none in §12**, because
+neither kogaki#167 nor kogaki#168 licensed §12; §8.1 named the gap rather than
+widening into it, and this is the carrier it named. This section records what
+the ruling does to its own identity rule, in the same shape those two sections
+use, because two of its clauses would otherwise be read as still denying it.
+
+**THE DISPOSITION: a judge pin of `none` on a CO-TAG-GENERATED Full Report is
+NON-CONFORMANT.** Such an artifact is a failed run's output, not a coexisting
+peer. "Required" governs the **judgment**, so the judgment may not be skipped,
+and therefore **every report the required path produces has a judge**. The rule
+binds the *artifact*; it does not touch the *key space*.
+
+**`none` is NOT deleted, and the two halves are kept apart deliberately:**
+
+- **At the SCHEMA and IDENTITY level, `none` stays valid and typed.** §12.1's
+  third component still takes it, and the uniform-arity clause above is
+  untouched. This is not leniency — deleting it would **re-create the exact
+  defect v4.2 withdrew v4.1 over**. A key whose third component may be absent
+  is a key whose shape depends on the report's own content, so *"a requester
+  holding `(pin, tag, group)` could not form the key without already holding
+  the report it was trying to address"*. **An identity a request cannot
+  construct is not an identity.** A request must still be able to *form*
+  `(pin, query, none)` — and it must resolve, to the reports minted under it
+  before this amendment and to nothing else.
+- **At the CONFORMANCE level, `none` is refused on the co-tag path.** A run at
+  the co-tag view may never **mint** a report carrying it.
+
+**The idempotence rule is unchanged, and this is checkable rather than
+asserted.** Idempotence is keyed on the triple: same pin, same query, same
+judge pin, run twice → one report. That rule never read the judge pin's
+*value*, only its identity with another's, so narrowing the set of values a
+conformant report may carry cannot disturb it. Row 1 of the table above stands
+verbatim.
+
+**§8's rule that a group's leaf condition may fail is UNTOUCHED, and this is
+the clause most at risk of being over-read.** §6.2 states it, in the same
+paragraph that holds §8's threshold rule open: *"A group whose leaf condition
+fails renders no SubGroups and is fully conformant; what is refused is a run
+that **never asked**."* §8's **no-member-count-threshold** rule is likewise
+untouched — §6.2's *"No member-count threshold is introduced or implied"*
+stands exactly as written, nothing here introduces a floor on members, and a
+reading of this amendment that supplies one is a misreading, refused in
+advance. This section takes its disposition from the *other* half of that same
+paragraph — SubGroups appear where §8's leaf condition puts them, *"judged,
+with the judge pin required"* — which is the judgment-side obligation, and it
+is the only half §12 needs. So the conformant artifact for a judged-but-empty
+group is a report
+carrying **its judge pin and zero SubGroupClaims** — *not* a report carrying
+`none`. `none` and an empty SubGroupClaim set are not synonyms and never were:
+
+- **judge pin present, zero SubGroupClaims** = the judgment ran and found no
+  leaf split. **Conformant.**
+- **judge pin `none`** = no judgment is attested. **Non-conformant on the
+  co-tag path**, because it is indistinguishable from a run that never asked —
+  which is precisely what §6.2's drift clause refuses: *"a per-invocation
+  judged surface with no judge pin is the drift-undetectable shape, where
+  *recomputed fresh* silently becomes *recomputed by a different judge*"*.
+
+Recording emptiness under `none` would make the conformant case and the
+violation the same artifact, and that is the state this amendment ends.
+
+**The alternatives, recorded because a decision without them is an assertion:**
+
+- **(1) `none` valid at the schema level, non-conformant on a co-tag-generated
+  report — CHOSEN.** The narrow reading: required means the judgment may not
+  be skipped, so any report produced by the required path has a judge. Buys
+  the ruling's full force on every artifact the required path can emit, at no
+  cost to the key's constructibility. Costs nothing that was load-bearing —
+  the only artifacts it excludes are ones kogaki#168 already calls failed runs.
+- **(2) Retain `none` for reports produced OUTSIDE the co-tag path —
+  DECLINED, and declined on a finding rather than on preference.** This
+  alternative is admissible **only if such a path exists**, and the sitting
+  looked for one rather than assuming. **It does not exist.** Every report is
+  produced by `report`, which **requires** `--tag <selected tag>` and resolves
+  its target to a co-tag group — `--all-groups` over the composed groups, or
+  `--group <co-tag>` naming one of them; there is no third form and no
+  invocation that yields a report outside a co-tag query
+  (`terrain/terrain.mjs` `cmdReport`). §12's own opening states the same thing
+  from the contract side: the artifact is defined *"for a co-tag view"*.
+  Ratifying (2) would therefore create **a conformance category with no
+  members** — a rule about artifacts nothing can produce, which is
+  carrier-less by construction rather than by omission and worse, because it
+  reads as coverage. **Should such a path ever be admitted, this bullet is the
+  reopen point**, and admitting it is the trigger: the sitting that introduces
+  a non-co-tag report generator re-reads this bullet, because that is the act
+  on which (2) first acquires a member.
+- **(3) Delete `none` from the identity triple — NOT SELECTED, and refused on
+  §12.1's own prior reasoning** rather than on this sitting's judgment. It
+  reinstates the content-conditional arity v4.2 withdrew, four paragraphs
+  above. kogaki#189 named this as the constraint the disposition had to
+  satisfy, not an option it could take.
+- **(4) Spec-only reconciliation WITHOUT deciding — record the tension here
+  and mark it with a reopen trigger. DECLINED, and recorded because it was
+  genuinely respectable.** This was a prepared alternative at kogaki#189's
+  triage, and it is admissible on the three-state rule quoted above:
+  deliberately carrier-less *with a mark and a trigger* is one of the three
+  legitimate states, so declining it needs a reason rather than a dismissal.
+  The reason is that the three-state rule governs a **stated policy** whose
+  carrier is missing, and that is not this section's condition. §12.1's defect
+  is not an unenforced rule — it is a **normative table that reads against a
+  ruling that already binds**. Marking a contradiction as carrier-less does
+  not make the table stop asserting the thing kogaki#168 refused; the row
+  would go on telling every implementer who stops at it that `none` is a
+  conformant peer, which is the *table contradicted by a later paragraph*
+  hazard v4.3 wrote the fourth case into the table to avoid. A trigger cannot
+  fix a rule that is wrong as written. **Note the asymmetry with kogaki#199
+  above, which is not inconsistency:** the *runtime* rule is genuinely a
+  stated policy with no carrier yet, so it takes the marked-with-a-trigger
+  state legitimately; the *table* was asserting a falsehood, which that state
+  does not cover.
+
+**(1)'s own recorded counter-argument, answered rather than left standing.**
+kogaki#189's triage put one objection to this alternative: declaring `none`
+non-conformant *"makes row 4 describe an artifact the required path can no
+longer produce, so the row becomes a statement about a non-co-tag path that
+§12 does not establish exists"* — and the objection was correct about the
+naive repair. It is answered by **how** row 4 was rewritten rather than by
+denying it: the row is restated on the judge pin's **value** (two different
+judge pins) instead of its **presence** (subdivided versus not), so it now
+describes a pair the required path produces routinely — the same query judged
+by two different judges — and asserts nothing about any non-co-tag path. Had
+row 4 merely deleted its `none` limb, the objection would have landed.
+
+**The grounds, and the boundary of what the substrate settled.** The served
+surface **does not discriminate** the key-space question — two framings
+returned `coverage: partial` with no line reaching it, and that is recorded as
+the outcome rather than dressed up. What the second framing **did** return
+discriminating is the *form* this amendment had to take:
+
+> "**a decision leaves the served surface only by explicit supersession, never
+> by aging** — supersession has an author, aging does not."
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:88`
+
+That is why v4.2's fourth-case wording is **superseded in place with its prior
+text quoted**, and why v4.1's withdrawal paragraph gains a rider instead of
+being rewritten: a reader holding either must find the disposition rather than
+an absence. The same line is why `none` is not quietly dropped from the
+schema — an unrecorded deletion is aging, and it has an exact failure mode
+here, since the next reader would meet a key they cannot construct and no
+record of why.
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:88, LESSONS.md:87`
+
+  request_id: 71bebdb9-639a-48ce-816e-7dccd5b396b6
+  outcome: covered-after-reframing
+  query: A ruling makes a mechanism REQUIRED. A derived artifact identity key includes a component that takes a typed null value where the mechanism did not run. Does making the mechanism required remove the null from the key space, or only from the set of conformant artifacts?
+  query: When a required judgment produces an EMPTY outcome, must the artifact still record the judge that produced the emptiness, or may it record nothing? Is a key that omits the judge on an empty outcome a conformance-copy defect?
+
+**What this amendment leaves owed, named rather than implied.** The disposition
+is **spec prose**; `terrain/terrain.mjs` is **not edited here**. The runtime
+currently derives the judge pin as *supplied-judge when a subdivision entry is
+present, `none` otherwise* (`cmdReport`), so a group whose judgment ran and
+produced **no** leaf split is emitted with `none` — the conformant case
+recorded as the violation, which is the defect this section names above. The
+correction is that a co-tag-generated report **requires** its judge pin
+unconditionally, independently of whether SubGroupClaims are present. That is
+a **runtime** change, it touches the served instruction surface that supplies
+the subdivision input, and neither is licensed by kogaki#189 — whose acceptance
+is entirely §12/§12.1 prose. It is carried as **kogaki#199** rather than fixed
+here, on the same discipline §8.1 applied to this section: widening a sitting
+to a surface its issue does not name is how a decision escapes the gate that
+should carry it. The skill-layer half of kogaki#168 remains **kogaki#183**.
+
+**And the carrier is owed rather than optional, on the served line this
+sitting re-read at pickup.** This section states a conformance rule in
+**prose**, while the layer at which that rule can actually be broken is
+`cmdReport`:
+
+> "A rule is in force only at the layer where it can actually be broken;
+> recording it one level up yields a system that is **documented as compliant
+> and is not.** … a prohibition needs a deterministic check at the point of
+> action, since written guidance is merely advisory to something whose job is
+> to satisfy instructions."
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e gloss/lessons/knowledge-architecture.md:161`
+
+So §12.1 v8 without kogaki#199 is **exactly** the documented-as-compliant
+state that line names, and this paragraph is the mark that a carrier is owed
+rather than a claim that the rule is already in force. The prohibition — no
+co-tag run mints `none` — is stated here and **enforced nowhere until
+kogaki#199 lands**, which is the deliberately-carrier-less state marked with
+its trigger, not carrier-less by omission.
+
+**A CURRENCY FINDING, recorded because it is the fifth instance this week and
+the first that changed an argument.** kogaki#189's filing pinned this line at
+`product-lab@0cb46066653ef3db2e33f69971829d25c06b6507`; the served head at
+pickup was `98195e0aef221aa82c47bb632324127745469f2e`, and
+`issue-pins --recheck` **refused with the delta** rather than passing — the
+behaviour §8.1's finding said was missing, working here. The line was
+therefore re-read **by content** at the current pin before being relied on, as
+§8.1 instructs, and the quote above is that re-read rather than the filing's.
+This is recorded as evidence that re-reading by content is not ceremony: the
+re-read is what supplied the ground for carrying kogaki#199 at all, which the
+sitting would otherwise have argued from scope alone.
 
 **This was decided rather than deferred, and the distinction is the point.**
 v3 left it to the implementer's PR. But the third row above states a rule —
