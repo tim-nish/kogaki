@@ -45,7 +45,10 @@ The rule binds here because this is the layer where it can be broken.
    vocabulary.
 3. **Navigate — the co-tag screen** —
    `cotags --survey <record> --tag <T> --claims <F>
-   [--subdivisions <F> --judge-model <M> --judge-effort <E>]`.
+   --subdivisions <F> --judge-model <M> --judge-effort <E>`.
+   **Nothing on that line is optional** — `--subdivisions` and its judge pin
+   are unbracketed because kogaki#168 made the subdivision judgment REQUIRED
+   (§6.2); see the SubGroups bullet below.
    **This is where a tag selection lands, not a second `view --tag`.** The
    owner names a tag and the flow goes **straight here** — the tag screen's
    row view runs only when the owner asks to browse rows, and **no question
@@ -53,6 +56,36 @@ The rule binds here because this is the layer where it can be broken.
    list of Lesson slugs beside a count table is what the co-tag screen
    REPLACES: it lets no image of a possible Thesis form, which is the purpose
    Terrain exists to serve (`specs/spec-terrain/SPEC.md` §6.1).
+   - **FIRST, bound the input — `compose-input --survey <record> --tag <T>`**
+     (kogaki#163 lever 3, story 1.33; SPEC.md §9's *"one shard pair per viewed
+     tag"*). It writes one tag-scoped artifact, and **every GroupClaim and
+     every SubGroupClaim is composed from that artifact** — never from the
+     whole survey, never from per-group material. `material` is keyed by
+     member id and `groups` carry ids only, so a member in several groups is
+     read once and no group has per-group material to re-read. The same
+     artifact serves the §8 judgment and spends no further read.
+     Measured, not argued (tag `architecture`, PR #193's live run against
+     `product-lab@12ba65dd`): composing per-group spent one served-material
+     read per **placement** — 131 reads over 70 Lessons, ~19 minutes between
+     naming the tag and anything appearing. Through `compose-input` the same
+     tag, grown to 172 placements, spent **4** reads and 2 min 23 s. The read
+     count is bounded by the CANDIDATES and does not grow with the placements.
+     **This is not a third act.** It is the input step act (1) below has
+     always required — a composer had to read material to write `--claims` at
+     all — so it sits **inside** act (1), exactly where §6.3 puts the
+     subdivision judgment, and the two-act window is unchanged.
+     **This line is advisory and is NOT a carrier, and saying so is part of
+     it.** A rule written into a skill file is *"advisory, real, worth
+     writing, and NOT a carrier"* (`product-lab@98195e0a
+     topics/articles.md:106`) — the layer where this one breaks is the
+     composer's own composition step, which no artifact here owns. What IS
+     carried: the bound is structural **inside** the artifact (`groups` carry
+     ids only, so a per-group copy is unwritable), and
+     `checks/check-terrain-composition.sh` counts the reads a stub gateway
+     served and holds them fixed while the placements multiply. Neither
+     observes whether a given session took the artifact at all — that gap is
+     real, is named at kogaki#194, and this bullet narrows it rather than
+     closing it.
    - **You compose the claims; the runtime renders them.** `--claims` is a
      JSON map from group name to that group's composed "in common:" line —
      the plain-register statement of what its members share. §7 binds the
@@ -62,37 +95,69 @@ The rule binds here because this is the layer where it can be broken.
    - **Every group gets one.** A group with no claim renders an explicit
      ABNORMAL marker and nothing is substituted for it — the same discipline
      a missing Gloss rendering already gets.
-   - **SubGroups where §8's conditions bind**, via `--subdivisions`: the
-     CONJUNCTIVE leaf condition (composes honestly AND tighter than its
-     parent's) plus the two disjunctive disclosures — **the screen judges and
-     renders both**, and **refuses without a judge pin**, because a judged
-     surface that records no judge cannot be seen to drift. **Never a member
-     count.**
+   - **THE SUBDIVISION JUDGMENT IS REQUIRED — a run without it is a FAILED
+     run** (SPEC.md §6.2 and §8.1; kogaki#168, owner ruling 2026-08-07). The
+     verdict came back stronger than the offering §8.1's ordering
+     anticipated: **REQUIRE, not offer.** SubGroups on the screen and in the
+     Full Reports are a required part of the served surface, and until a run
+     serves them **every Terrain run is a contract violation and is treated
+     as a FAILED run** — so a dogfood verdict taken on any *other* aspect of
+     such a run is a verdict on a failed specimen. This is why
+     `--subdivisions` is unbracketed everywhere it appears in this skill.
+   - **"Required" governs the JUDGMENT, never the OUTCOME.** You may not skip
+     the judgment; it does not follow that every group subdivides. SubGroups
+     appear exactly where §8 puts them: the CONJUNCTIVE leaf condition
+     (composes honestly AND tighter than its parent's) plus the two
+     disjunctive disclosures — **the screen judges and renders both**, and
+     **refuses without a judge pin**, because a judged surface that records
+     no judge cannot be seen to drift. A group whose leaf condition fails
+     renders no SubGroups and is **fully conformant**; what is refused is a
+     run that **never asked**. **Never a member count.**
      A number in that decision is a defect against §8 — the owner's "five or
      more" is calibration evidence for where the undiscriminating-claim
-     condition binds, not a threshold.
+     condition binds, not a threshold, and "required" must not be read as
+     re-admitting it.
    - The screen carries **no per-Strand Gloss line and no Journey line**. That
      material is the Full Report's (§12). **No per-row pin renders either**
      (§6.1 v5) — the pin is sited once, in the Full Report.
+     **This is a RATIFIED divergence, not a defect to repair** — SPEC.md §2.4
+     **register entry 4** (owner selection 2026-08-07, kogaki#167,
+     alternative (b)). The WA baseline this spec inherits does promise a
+     gloss and a journey per row; the owner declined restoring them on screen
+     size read against kogaki#168, since SubGroups being REQUIRED would
+     multiply those lines across every SubGroup of every group. Do not
+     "repair" it — read entry 4 first.
    - **The same act generates the Full Reports, eagerly** (§11 decided, v5,
      kogaki#146): immediately after `cotags`, run
      `report --survey <record> --tag <T> --all-groups --claims <F>
-     [--subdivisions <F> --judge-model <M> --judge-effort <E>]` — one report
+     --subdivisions <F> --judge-model <M> --judge-effort <E>` — one report
      per composed group, idempotent per identity. A co-tag view that served
      the screen and generated no reports is the 2026-08-06 defect specimen.
+     **`--subdivisions` is not optional here either**: §6.2 requires SubGroups
+     in the Full Reports as well as on the screen, so an all-groups run
+     without it produces the exact artifact the ruling calls a failed run.
    - **ONCE A TAG IS NAMED, EXACTLY TWO ACTS REMAIN** (SPEC.md §6.3;
      kogaki#166, owner ruling 2026-08-07): **(1)** run `cotags` and relay its
      screen verbatim, **(2)** run `report --all-groups`. **Nothing else runs
      until the owner speaks in chat.** The subdivision judgment is part of act
      (1) — you judge and render SubGroups inside the screen, never as a third
-     step beside it. **No question UI may appear in this window. None** — not
+     step beside it — and **`compose-input` and the claim composition it feeds
+     are part of act (1) for the same reason**: they are how act (1)'s
+     arguments come to exist, not a step beside it. Two acts, still two.
+     **No question UI may appear in this window. None** — not
      to pick a co-tag group, not to ask "what next", not to ask for a second
      tag. Reports are eager, so there is nothing left to authorize. After the
      screen, state the available acts in plain chat prose and stop.
 4. **Read in full — the Full Report** — already generated by the co-tag
-   screen; `report --survey <record> --tag <T> --group <G> [--claims <F>]
-   [--subdivisions <F> --judge-model <M> --judge-effort <E>]` re-resolves one
+   screen; `report --survey <record> --tag <T> --group <G> --claims <F>
+   --subdivisions <F> --judge-model <M> --judge-effort <E>` re-resolves one
    (idempotent — same identity, same artifact).
+   **Carry the subdivisions and the judge pin through the re-resolve.** A
+   re-resolve without them does not re-resolve anything: judge pin `none` is
+   a **different identity**, so it writes a *second* Full Report carrying no
+   SubGroups — a new artifact of exactly the shape §6.2 calls a failed run,
+   sitting beside the conformant one. Compose from the same `compose-input`
+   artifact the screen used and it costs no further read.
    The screen is what the owner **navigates**; this is what they **read**.
    Untruncated Claims and the complete Lesson and Journey Glosses, written to
    the machine-local reports home and **never committed**.
@@ -122,6 +187,15 @@ The rule binds here because this is the layer where it can be broken.
 
 ## Hard lines
 
+- **Never serve a co-tag screen or a Full Report without the subdivision
+  judgment** (SPEC.md §6.2/§8.1; kogaki#168). It is REQUIRED, it carries a
+  judge pin, and a run that skipped it is a FAILED run whose other output may
+  not be verdicted. "Required" governs the judgment, not the outcome — no
+  member count, ever.
+- **Compose from `compose-input`, never from the whole survey** (SPEC.md §9;
+  kogaki#163). One tag-scoped shard pair per run feeds every GroupClaim and
+  every SubGroupClaim. Composing per group spends one read per placement,
+  which is what the ~19-minute 2026-08-07 run bought.
 - **After a tag has been selected, never launch a question UI** (SPEC.md §6.3).
   Never ask which co-tag group or SubGroup to open, never ask whether to run a
   step, never ask "what next". Render, then state the available acts in plain
