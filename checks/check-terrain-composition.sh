@@ -164,9 +164,21 @@ if (!/ABNORMAL: 3 of 3 group\(s\)/.test(String(run.stdout))) {
 }
 
 // Claims supplied: served FIRST, and the pinning stated where the claim is.
+// §11 v10 typed claims record (kogaki#212): the composition pin travels WITH
+// the claims, carrying the member set `compose-input` served per group.
+const SURVEY_PIN = JSON.parse(readFileSync(FIXTURE, "utf8")).pin;
+const SERVED = {
+  [`${TAG} × (no second served tag)`]: ["lesson:delta"],
+  [`${TAG} × architecture`]: ["lesson:alpha", "lesson:bravo"],
+  [`${TAG} × cost`]: ["lesson:charlie"],
+};
+const pinFor = (groups) => ({ tag: TAG, pin: SURVEY_PIN, groups });
 const CLAIMS = join(tmpdir(), `cotags-claims-${process.pid}.json`);
 writeFileSync(CLAIMS, JSON.stringify({
-  [`${TAG} × architecture`]: "both hold that a guard is only real once something exercised it",
+  composition_pin: pinFor(SERVED),
+  claims: {
+    [`${TAG} × architecture`]: "both hold that a guard is only real once something exercised it",
+  },
 }));
 const withClaim = spawnSync(process.execPath,
   ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS],
@@ -191,12 +203,86 @@ if (!String(withClaim.stdout).includes("pinned to 2 member(s)")) {
 // A claim naming no composed group is refused: composition may attach text to
 // a group and may do nothing else.
 const BADCLAIMS = join(tmpdir(), `cotags-badclaims-${process.pid}.json`);
-writeFileSync(BADCLAIMS, JSON.stringify({ "testing × nonesuch": "invented" }));
+// The pin DECLARES the invented group, so this case still reaches §6.1's
+// refusal rather than being intercepted by §11 v10's subset check. Without
+// that, the fixture would pass for the wrong reason — a live instance of the
+// dead-fixture class story 1.36 exists to catch, created by this very change.
+writeFileSync(BADCLAIMS, JSON.stringify({
+  composition_pin: pinFor({ ...SERVED, "testing × nonesuch": [] }),
+  claims: { "testing × nonesuch": "invented" },
+}));
 const badClaim = spawnSync(process.execPath,
   ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", BADCLAIMS],
   { encoding: "utf8" });
 if (badClaim.status === 0) {
   fails.push("a --claims entry naming no composed group was ACCEPTED — a claim carries no selection authority and may not invent a group (§6.1)");
+} else if (!/no composed group/.test(String(badClaim.stderr))) {
+  fails.push("the invented-group refusal was reached by the WRONG guard — this case must exercise §6.1, not §11's subset check");
+}
+
+// --- §11 v10 / kogaki#212: the composition-pin guard, BOTH directions -------
+// AC6 is explicit that a fixture demonstrating only acceptance does not
+// discharge it, so the conformant path and the refusal are asserted as a pair,
+// and the refusal is asserted to NAME the member that fell outside — which is
+// the whole reason the pin carries the served set rather than a digest.
+
+// 1. CONFORMANT: a claim composed over a SUBSET of the served members is
+//    normal work and must be accepted. This is why the check is subset rather
+//    than equality — equality would forbid a legitimate composition.
+const SUBSETCLAIMS = join(tmpdir(), `cotags-subset-${process.pid}.json`);
+writeFileSync(SUBSETCLAIMS, JSON.stringify({
+  composition_pin: pinFor(SERVED),
+  claims: { [`${TAG} × cost`]: "a claim over one of the served groups" },
+}));
+const subsetOk = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", SUBSETCLAIMS],
+  { encoding: "utf8" });
+if (subsetOk.status !== 0) {
+  fails.push(`a claim over a SUBSET of the served groups was refused — subset is legitimate composition, and an equality check would forbid it: ${String(subsetOk.stderr).trim().slice(0, 160)}`);
+}
+
+// 2. REFUSED, AND THE OFFENDER NAMED: a group whose composed membership
+//    exceeds what compose-input served is the session that took the pin and
+//    composed from the whole survey anyway.
+const OUTSIDECLAIMS = join(tmpdir(), `cotags-outside-${process.pid}.json`);
+writeFileSync(OUTSIDECLAIMS, JSON.stringify({
+  composition_pin: pinFor({ ...SERVED, [`${TAG} × architecture`]: ["lesson:alpha"] }),
+  claims: { [`${TAG} × architecture`]: "composed over a member the bounded read never served" },
+}));
+const outside = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", OUTSIDECLAIMS],
+  { encoding: "utf8" });
+if (outside.status === 0) {
+  fails.push("a claim composed OUTSIDE the bounded read was accepted — the subset relation is what makes composing from the whole survey unproducible (§11 v10)");
+} else if (!/lesson:bravo/.test(String(outside.stderr))) {
+  fails.push("the out-of-bound refusal did not NAME the offending member — a digest could refuse but not name, which is why the pin carries the served set (§11 v10)");
+}
+
+// 3. A BARE MAP is refused by name, as §12.1 v9 refuses the withdrawn bare
+//    array — so a stale composer fails loudly rather than silently.
+const BAREMAP = join(tmpdir(), `cotags-baremap-${process.pid}.json`);
+writeFileSync(BAREMAP, JSON.stringify({ [`${TAG} × cost`]: "no provenance at all" }));
+const bare = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", BAREMAP],
+  { encoding: "utf8" });
+if (bare.status === 0) {
+  fails.push("a BARE {group: claim} map was accepted — the withdrawn pre-v10 form must be refused by name (§11 v10)");
+} else if (!/bare \{group: claim\} map/.test(String(bare.stderr))) {
+  fails.push("the bare-map refusal did not NAME the defect — a refusal that does not say what to write instead sends the composer guessing");
+}
+
+// 4. AC4 — the pin BINDS the survey record it was computed against. A stale
+//    pin must not become a confident wrong acceptance.
+const STALEPIN = join(tmpdir(), `cotags-stalepin-${process.pid}.json`);
+writeFileSync(STALEPIN, JSON.stringify({
+  composition_pin: { tag: TAG, pin: "product-lab@0000000000000000000000000000000000000000", groups: SERVED },
+  claims: { [`${TAG} × cost`]: "composed against a different survey" },
+}));
+const stale = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", STALEPIN],
+  { encoding: "utf8" });
+if (stale.status === 0) {
+  fails.push("a composition pin computed against a DIFFERENT survey was accepted — a stale pin must not become a confident wrong acceptance (§11 v10 AC4)");
 }
 
 // 7. SubGroups on the screen (kogaki#128, story 1.29 — §6.2), and the cover
@@ -1522,6 +1608,34 @@ const compose = (rec, tag) => {
   const c = counting();
   return { input: composeInput(rec, tag, groups, c.fn), calls: c.calls, groups };
 };
+
+// AC1 (§11 v10, kogaki#212) — THE PRODUCER HALF. Every consumer fixture above
+// builds the composition pin by hand, so none of them would notice if
+// `compose-input` stopped emitting one, or emitted an empty one. That gap is
+// exactly the dead-fixture shape story 1.36 exists to catch, so the emitter is
+// asserted here against a REAL `composeInput` call.
+{
+  const t = compose(record, "testing");
+  const cp = t.input.composition_pin;
+  if (!cp) {
+    fails.push("compose-input emits no composition_pin — every downstream guard is then unreachable (§11 v10)");
+  } else {
+    eq("the pin names its tag", cp.tag, "testing");
+    eq("the pin binds the survey record it was computed against", cp.pin, record.pin);
+    // THE SERVED MEMBER SET, not a digest. A digest supports equality, not
+    // subset, and can name no offender — which is why v10 corrected it.
+    const served = cp.groups || {};
+    eq("the pin carries one entry per composed group",
+       Object.keys(served).sort(), t.groups.map((g) => g.name).sort());
+    for (const g of t.groups) {
+      eq(`the pin carries the MEMBER SET served for ${g.name}`,
+         (served[g.name] || []).slice().sort(), g.members.slice().sort());
+    }
+    if (Object.values(served).every((v) => !Array.isArray(v) || v.length === 0)) {
+      fails.push("the pin's groups carry no members — a subset check over an empty set admits nothing and names no offender");
+    }
+  }
+}
 
 // Case 1 — ONE SHARD PAIR, and only the half a member actually needs.
 // `testing`: 4 members, one of them (lesson:alpha) carrying a Journey.
