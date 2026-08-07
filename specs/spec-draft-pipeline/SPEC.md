@@ -283,12 +283,12 @@ queries and what they returned:
   well-aimed look that found nothing, **not an exhaustive enumeration** —
   the query was the one the trigger's own wording supplies, and the surface
   answered with the trigger rather than with the instrument. Re-running this
-  lookup would reproduce the truncation, not lift it; the exhaustive read is
-  the pair the response's own `continue` block names —
-  `topic_thread("articles")` and `topic_thread("knowledge-architecture")`,
-  each returning its whole topic thread rather than a slice of topic
-  candidates. A reader who needs exhaustiveness runs those two; a reader
-  deciding whether to rely on the ledger today has enough.
+  lookup would reproduce the truncation, not lift it. The exhaustive read is
+  `topic_thread("articles")` and `topic_thread("knowledge-architecture")` —
+  the two topics §5's receipt pins, read through the served tool that returns
+  "one whole topic decision-thread file, pinned and line-quoted" rather than
+  a slice of topic candidates. A reader who needs exhaustiveness runs those
+  two; a reader deciding whether to rely on the ledger today has enough.
 
 **The nearest plausible-and-wrong instrument, named so nobody reaches for it
 later: this spec's own §6 Candidates gate.** It is the obvious candidate — the
