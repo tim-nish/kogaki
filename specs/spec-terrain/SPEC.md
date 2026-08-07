@@ -1,6 +1,26 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v6, amended 2026-08-07 — the 2026-08-07 dogfood round lands as one
+**Status:** v7, amended 2026-08-07 — the 2026-08-07 dogfood round's **flow**
+half lands as one coupled sitting over **kogaki#161, #164, #166** and
+**kogaki#162's fork half**, under one owner selection. New **§6.3** binds the
+**post-tag-selection window to exactly two acts** — the served screen relayed
+verbatim, and §11's eager Full Reports — with §6.2's subdivision judgment
+**inside the screen act**, never beside it as a third; and **no question UI may
+appear in that window**, stated as an allowlist with its non-member fallback.
+**§2.4's flow rule gains its POSITIVE limb** (kogaki#164): the runtime's
+rendering is relayed **in full, in the user-visible reply, as the first act
+after the command returns**, and a refusal's stderr the same way — the shipped
+rule bound only "never re-render", so relaying *nothing* satisfied its letter.
+**Scope is deliberately REDUCED from what the rulings said**, and the reduction
+is the decision rather than an omission: kogaki#161's **opening-gate** half does
+**not** land, because §10's parking rests on a served refusal
+(`topics/articles.md:95`) that the substrate has not spoken to since
+**2026-08-05** while the ruling is dated **2026-08-07**. It is recorded in §10
+as the **ground for a later unparking**, naming which reachability conjunct it
+establishes and which it leaves open; **§10 stays parked and its trigger is
+untouched.** **No runtime change** — `terrain/terrain.mjs` is not
+edited by this amendment.
+v6, amended 2026-08-07 — the 2026-08-07 dogfood round lands as one
 coupled sitting over two issues. **kogaki#167** (owner selection, alternative
 **(b)**): §6.1's screen form **STANDS** and §2.4's divergence register gains
 the entry it was missing — **entry 4**, the per-Strand Gloss line and Journey
@@ -284,6 +304,70 @@ have. What the two specimens share is the tell: both were divergences from a
 baseline the *adjacent paragraph quoted*, which is the position where a
 divergence is least likely to be noticed and most likely to read as a
 contradiction to whoever notices it next.
+
+**THE FLOW RULE, AND THE POSITIVE LIMB IT WAS MISSING — v7, kogaki#164.**
+`.claude/skills/terrain/SKILL.md:14` cites "SPEC.md §2.4's flow rule
+(kogaki#150)" as this section's, so the rule is stated **here**, in full, and
+the skill states it operationally. It has two limbs and only one shipped:
+
+- **The negative limb, as shipped (v5, kogaki#150).** The screens and the Full
+  Report are the runtime's renderings, **served verbatim**: the flow composes
+  the runtime's *inputs* — the claims, the subdivisions — and relays its
+  *output* as-is, and **never re-renders, summarizes, reformats, tabulates or
+  paraphrases** what the runtime printed.
+- **The POSITIVE limb, added here.** The runtime's rendering is relayed **in
+  full, in the user-visible reply, as the FIRST act after the command
+  returns** — before any gate, any question, and any other tool call. **A
+  runtime refusal's stderr is relayed the same way and is never swallowed.**
+
+**Why the positive limb is a repair and not a restatement.** The negative limb
+binds a list of *transformations*, so **relaying nothing satisfies its letter**
+— and that is not hypothetical: the 2026-08-07 dogfood run's `architecture`
+co-tag screen was produced and never reached the owner, the flow moving
+straight into a question UI while all eleven groups and their composed claims
+existed in the run's own artifacts (kogaki#164, reproduced read-only against
+the run record). The 2026-08-06 specimen was **re-rendering**, which the
+negative limb catches; the 2026-08-07 specimen is **omission**, which it does
+not. A blank screen must be impossible whether the runtime printed a screen or
+an error, and only the positive limb makes it so.
+
+**This clause is PROSE, and prose at this layer is ADVISORY rather than a
+carrier — stated because the served surface says so and a clause claiming
+otherwise would be the defect it is guarding against:**
+
+> "the rule there is to SHRINK the free-form surface rather than lint it …
+> `carry-a-rule-at-its-violation-layer` sites the carrier where the rule can be
+> broken, which here is the model's own composition step — a layer the product
+> does not own — so a rule written into a skill file or CLAUDE.md is
+> **advisory, real, worth writing, and NOT a carrier**; adding one and calling
+> the layer covered is the seventh application of the same remedy class in a
+> new costume."
+
+`consulted: product-lab@12ba65dde00031cf92a5d98da75c1ca608f2d1b7 topics/articles.md:106`
+
+  request_id: 2f45fe3b-4827-4c3e-b08c-c5d3cf0da8af
+  outcome: discriminating
+  query: Is reachability the conjunction of a resolving address and a surface that discloses it, and must a fix invoking that conjunction name which conjunct it establishes and which it leaves open?
+
+**Receipt provenance, disclosed rather than implied.** That query was **not
+aimed at this line.** It was one wide `policy_lookup` whose ranked return set
+included `topics/articles.md:106` alongside the conjunction lines §10 relies
+on, and the line was found **by reading that return set**, not by a framing
+that sought it. Recorded because a later reader re-running the stated question
+to check this quotation should know what they will and will not get, and
+because a receipt that reads as though the query targeted the line would
+attest a provenance the call does not have — the same defect one level down
+from the reused-`request_id` shape §8.1 names.
+
+So this limb is written **knowing what it buys**: the relay layer is the
+harness's own composition step, which this repository does not own, and no
+check here can observe whether a string reached the owner's visible reply. What
+the clause buys is that a run which relayed nothing is now **visibly** in
+breach of a stated obligation rather than conformant with a negative list —
+worth writing, and not the same thing as enforced. The served line's own
+prescription is **shrinking the free-form surface**, which is what §6.3's
+allowlist does for the window where this defect actually occurred; the two
+clauses are one remedy read from its two ends.
 
 ## 3. Inputs — served renderings only
 
@@ -768,6 +852,185 @@ single GroupClaim-shaped paragraph with no IDs and no SubGroups — is the
 defect this form is stated against; the owner's "five", like kogaki#128's
 and WA's "~4", stays calibration evidence for where the
 undiscriminating-claim condition binds, and no member count enters the code.
+
+### 6.3 The post-tag-selection window — exactly two acts, and no question
+
+**Owner ruling 2026-08-07 (kogaki#166), landing in one clause with
+kogaki#164's relay limb (§2.4), kogaki#161's tag-selection limb, and
+kogaki#162's fork half.** Once the owner has named a tag, the flow contains
+**exactly two acts**, in this order:
+
+1. **The served screen.** `cotags` runs and its rendering is relayed under
+   §2.4's flow rule — in full, in the user-visible reply, as the first act
+   after the command returns.
+2. **The eager Full Reports.** `report --all-groups`, per §11's decided-eager
+   contract (v5, kogaki#146) — one report per composed group, idempotent per
+   identity.
+
+**Nothing else runs until the owner speaks in chat.**
+
+**§6.2's subdivision judgment is part of ACT 1 and is never a third act
+beside it.** kogaki#168 makes SubGroups **REQUIRED**, and "required" governs
+the judgment rather than the outcome: the run judges every group's leaf
+condition and renders the SubGroups §8 puts there, **inside** the screen act,
+carrying its judge pin. This is stated because an act allowlist drafted
+without it fails in both directions — it would either exclude the judgment
+(making every run a §6.2 contract violation) or admit a third act (making the
+window three acts wide, which the ruling refuses). A group whose leaf
+condition fails renders no SubGroups and is fully conformant; what is refused
+is a run that **never asked**.
+
+**The ruling's conditional, resolved against the contract rather than left
+open.** The ruling states: *if* the contract required authorization before
+generating the Full Reports, the only permissible post-selection question
+would be whether to generate them. The contract does **not** require it — §11
+is decided EAGER — so the only candidate question has nothing to ask, and the
+permissible set reduces to **zero**.
+
+**THE QUESTION ALLOWLIST FOR THIS WINDOW: it is empty. No question UI may
+appear after a tag has been selected. None.** The 2026-08-07 run inserted
+three — a co-tag selection question, a "what next" question, and a second-tag
+selection question — and each is refused **independently of how it was
+rendered**, which is what an allowlist buys and an enumeration does not.
+Navigation is never a question here: the owner navigates by naming things in
+chat, and free text reaches everything.
+
+**The non-member fallback is stated, because that is the allowlist's
+load-bearing half rather than its completeness:**
+
+> "For an enumeration of admissible kinds the load-bearing half is not
+> completeness, which is unachievable, but the **non-member fallback** —
+> surface anything outside the list as report-only with its reason, or declare
+> it out of scope."
+
+`consulted: product-lab@12ba65dde00031cf92a5d98da75c1ca608f2d1b7 LESSONS.md:104`
+
+  request_id: 2f45fe3b-4827-4c3e-b08c-c5d3cf0da8af
+  outcome: discriminating
+  query: Is reachability the conjunction of a resolving address and a surface that discloses it, and must a fix invoking that conjunction name which conjunct it establishes and which it leaves open?
+
+**Receipt provenance, disclosed rather than implied** — as at §2.4, and for
+the same reason. The query recorded above was **not aimed at `LESSONS.md:104`**;
+it was one wide `policy_lookup` whose ranked return set included that line, and
+the line was found **by reading the return set** rather than by a framing that
+sought it. The three sites in this amendment carrying this `request_id` all
+record the **same** query because they rest on the **same single call** — which
+is the identical-duplicate case rather than the reuse-with-a-changed-reading
+case — and this note is what keeps the distinction visible to a reader who
+cannot see the call.
+
+**The fallback here is REFUSE, not report-only, and the window is what makes
+that admissible.** An act in this window that is neither of the two named is a
+**defect against this section**, and a question UI in this window is a defect
+whatever it asks. Report-only is the correct fallback for an open-ended
+enumeration; this enumeration is closed by the eager contract — the window has
+a known beginning (the owner names a tag), a known end (the owner speaks
+again), and exactly two acts inside it — so there is no admissible remainder
+to surface.
+
+**kogaki#162's fork is CLOSED by this clause.** A tag named by the owner lands
+**directly at the co-tag step**, not at a second `view --tag`; the per-tag row
+view runs only when the owner asks to browse rows. **No question mediates the
+fork.** The 2026-08-07 "do you want a screen-1 pass?" question was the
+symptom; the undeclared fork was the cause, and `.claude/skills/terrain/
+SKILL.md` already carried the landing rule while nothing carried the
+no-question rule. The vocabulary half of kogaki#162 shipped at story 1.32; this
+is the half that story deliberately excluded, and it lands here rather than
+there because it is this group's decision.
+
+**SCOPE — this allowlist governs the POST-SELECTION WINDOW ONLY, and the limit
+is the decision rather than an omission.** kogaki#161 proposed a question
+allowlist over the *whole* flow. **Two of its limbs do not land here**, and
+both are withheld on the reasons §10 states:
+
+- **The opening Lessons/Decisions gate** (kogaki#161 item 1). Recorded at §10
+  as the ground for a later unparking, against §10's existing and **unfired**
+  trigger; §10 stays parked.
+- **The tag-screen prohibition** (kogaki#161 item 2) — *"no question UI may be
+  launched for tag selection"*. That question is asked **before** a tag is
+  named, so it falls outside this clause's window by the clause's own opening
+  words, and it acquires **no carrier in this amendment**. It travels with the
+  opening gate rather than with §6.3.
+
+What **does** land from kogaki#161 is items 3 and 4 — the "what next" question
+and the second-tag question — which sit inside the window and are refused by
+the empty allowlist above. Stated at its cost: **the flow before a tag is
+named has no stated allowlist after this amendment**, and the four-question
+dogfood specimen is only **partly** answered. What is bought instead is that
+the clause that does land rests on a line the substrate has actually spoken
+to; the ground is at §10.
+
+**Alternatives declined, with their reasons, because a decline recorded only
+in a sitting's comments is invisible to the sitting that picks the question up
+next:**
+
+- **The prose allowlist at FULL scope (the opening gate included) — DECLINED
+  on currency.** It would ratify a 2026-08-07 ruling against a served line
+  carrying nothing newer than **2026-08-05**, which is the failure kogaki#169
+  was filed for, committed again. §10 carries the full reasoning.
+- **A MECHANICAL carrier in the runtime — DECLINED at both scopes.** The
+  proposal was to have `terrain/terrain.mjs` prove the relay, e.g. by minting a
+  token at `cotags` and requiring it at the next call. The runtime can prove a
+  token **was carried into the next call**; it cannot prove **the screen
+  reached the owner's visible reply**, which is the property §2.4's positive
+  limb is about. What it buys is therefore a proxy resting on the executor's
+  own cooperation — an attestation that the attested party writes — and it
+  would additionally make `cotags` and `report`, today **re-runnable read-only
+  commands**, stateful. That cost is concrete rather than theoretical:
+  kogaki#163's and kogaki#164's findings were **both reproduced by re-running
+  `cotags` read-only** against an existing run record, which a stateful
+  handshake would have prevented. Declined on the proxy and on the
+  reproducibility loss together; **no runtime change is made by this
+  amendment.**
+
+**Disposition read under `policy/consultation-map.md` entry 3 (record
+disposition).** The entry binds this amendment — it records two **declined**
+alternatives, an **adopted** owner ruling, a **parking that still stands**
+(§10) and a **reopen condition** — and its prescription was executed rather
+than assumed. The gloss shard was surveyed headline-first and **read whole**
+(343 lines), and **all four carriers were read WHOLE with their comments**
+(`gh issue view 161 --comments`, and the same for 164, 166 and 162), because a
+body-only read is the partial projection that satisfies a total-read rule
+without discharging it. **The reads changed the amendment rather than
+confirming it:** kogaki#161's own triage comment records the coupling and the
+instruction that the amendment must record the ruling *against* §10's parking
+"so §10's trigger history stays legible" — which is what §10's note does
+rather than unparking — and kogaki#162's second comment establishes that the
+fork half was deliberately excluded from story 1.32 and left to this group,
+which is why §6.3 closes it. **No contradicting record was found on any
+carrier.** The entry's own rider is honoured: `issue-pins --recheck` does
+**not** discharge this read.
+
+`consulted: product-lab@12ba65dde00031cf92a5d98da75c1ca608f2d1b7 gloss/lessons/knowledge-architecture.md:1-343`
+
+  request_id: 09346900-e0ff-40ed-8d65-47d86b447d0f
+  outcome: discriminating
+  query: gloss_index("lessons/knowledge-architecture") — entry 3's headline-first survey, read whole before this amendment's disposition reading was written.
+
+The shard is cited at the range the call returned rather than at the lines
+relied on, because the tool served it whole and a receipt naming only the
+useful lines would report a narrower read than was performed. The lines relied
+on within it are `:41` (a partial projection can satisfy a total-read rule),
+`:197` (declare precedence per axis), and `:203` (declines travel with their
+boundary) — the last is why both declines above carry their distinguishing
+reason **on the same statement as the decline** rather than a line below it.
+
+**A CURRENCY FINDING THIS AMENDMENT MUST RECORD, because it is the ground of
+its own reduced scope.** The served hub HEAD has moved **again** since v6:
+`0cb46066653ef3db2e33f69971829d25c06b6507` is now
+`12ba65dde00031cf92a5d98da75c1ca608f2d1b7`. Re-verified **by content** at the
+new HEAD: §10's refusal is still `topics/articles.md:95` (v6's correction
+holds), and `topics/articles.md:80` still holds the Top-N withdrawal — so
+**§11's two sites pinned `:79` remain wrong and remain kogaki#188's**, left
+uncorrected here on purpose because §11 is another sitting's surface. One
+further drift is recorded rather than repaired: the conjunction lesson is at
+**`LESSONS.md:47`** at this HEAD, not `:46` as the sitting brief carried it —
+found by content, and named because it is the same class one level down.
+
+**What this clause does NOT claim.** Per §2.4's advisory-not-a-carrier
+statement, this allowlist is enforced at no layer this repository owns. It
+shrinks the free-form surface — which is the served prescription — and it does
+not detect its own violation. A dogfood run remains the instrument.
 
 ## 7. GroupClaim-first rendering, and claim pinning
 
@@ -1477,6 +1740,120 @@ the served refusal above objects to an entry screen omitting material. §5.1
 declares that divergence and §5.2 states its falsifiers; this parking is
 where the *Decisions* half of the same objection waits. The two are recorded
 adjacent deliberately — a later sitting reopening either should read both.
+
+**AN OWNER RULING NOW EXISTS ON THIS GATE, AND IT IS RECORDED AS GROUND FOR A
+LATER UNPARKING RATHER THAN APPLIED — v7, kogaki#161.** The 2026-08-07 dogfood
+round produced an owner ruling directly on this parked design: *exactly one
+question may be asked at the beginning, offering two choices — view **Lessons**
+(the co-tag flow) or view **Decisions** (not yet implemented; choosing it
+states so and stops).* **§10 is NOT unparked. The trigger above — "after
+article creation from Lessons is working" — has NOT fired and is untouched.**
+**kogaki#161's tag-selection ruling is carried only in PART, and saying so
+precisely is what stops this note becoming an over-report.** §6.3 lands the
+portion that falls **inside** the post-selection window — the second-tag
+question and the "what next" question, kogaki#161's items 4 and 3. The
+ruling's **own site is NOT carried**: item 2 is *"once Lessons is chosen, no
+question UI may be launched for tag selection — the screen renders, and the
+owner names a tag in chat"*, and that question sits at **the tag screen,
+before any tag has been named**, which is outside §6.3's window by that
+clause's own opening words. It is **withheld together with the opening gate**
+and acquires **no carrier in this amendment**. Recorded at this length because
+the risk here is the over-report rather than the gap: a later sitting reading
+"the tag-selection half landed" would close kogaki#161 with an owner-ruled
+prohibition still uncarried. The two reasons below are why the withheld
+material is withheld.
+
+**FIRST REASON — the ruling is newer than anything the substrate has said, and
+ratifying it here would be ratifying a fresh ruling against a stale line.**
+Measured at this amendment, by content rather than by resolution:
+
+- The refusal this parking rests on is served at
+  **`topics/articles.md:95`** and is dated **2026-07-28**. It still reads word
+  for word as §10 quotes it, and it still stands.
+- The newest decision line in that whole thread is **2026-08-05** (the
+  offering-measurement re-point at `:9`). **Nothing served postdates
+  2026-08-05 on this question**, while the owner's ruling is **2026-08-07**.
+- The thread's own frontmatter reads **`updated: 2026-08-07`**, which is
+  misleading in exactly the direction that causes the error: a reader checking
+  freshness by the header would conclude the substrate had spoken as recently
+  as the ruling, when its newest line on any subject is two days older.
+
+So the substrate is **silent** on this gate, not supportive of it. Unparking
+now would record a fresh ruling as though a served line had ratified it —
+which is the failure kogaki#169 was filed for, and repeating it inside the
+amendment that documents it would be the defect committed from the inside.
+Recency is why the substrate is silent here, never why it would lose.
+
+`consulted: product-lab@12ba65dde00031cf92a5d98da75c1ca608f2d1b7 topics/articles.md:1-127`
+
+  request_id: 717591ba-19a2-4a72-ad23-74ca7e7d35df
+  outcome: discriminating
+  query: topic_thread("articles") — the decision thread read WHOLE (127 lines) so the currency of §10's parking line travels with it rather than being asserted from an excerpt, and so the newest served date can be measured rather than taken from the frontmatter.
+
+**SECOND REASON — the ruled gate satisfies ONE conjunct of the refusal's own
+conjunction, and a full unparking would ratify half of it.** The refusal at
+`:95` does not object generically; it invokes a named conjunction and says
+which side failed:
+
+> "`reachability-is-address-plus-discovery` holds that reachability is the
+> conjunction of a resolving address and a surface that discloses it; **the
+> decision shards have addresses and screen 1 discloses nothing about them**,
+> so ratifying the exclusion would record a discovery failure as a design."
+
+That lesson binds how this note must be written:
+
+> "a fix satisfying one conjunct presents as discharging the whole rule,
+> because it cites the rule accurately and the citation lends the untouched
+> conjunct its air of completeness — so **a fix invoking a conjunction lesson
+> must name which conjunct it establishes and name the one it leaves open**."
+
+`consulted: product-lab@12ba65dde00031cf92a5d98da75c1ca608f2d1b7 LESSONS.md:47, topics/articles.md:95, topics/knowledge-architecture.md:165`
+
+  request_id: 2f45fe3b-4827-4c3e-b08c-c5d3cf0da8af
+  outcome: discriminating
+  query: Is reachability the conjunction of a resolving address and a surface that discloses it, and must a fix invoking that conjunction name which conjunct it establishes and which it leaves open?
+
+**Naming them, per that duty — and the conjunction is verified per BOUNDARY,
+recursively**, which is what makes the naming exact rather than a formality:
+*"the hub's tier-1 index and a consumer's screen 1 are the same kind of
+surface at two boundaries … address + discovery applied independently at each
+hop, verified by whoever owns that hop … decision shards passed every hub
+conjunct and failed the consumer's"*
+(`topics/knowledge-architecture.md:165`, same receipt as above). The hub's hop
+is already whole; the hop this spec owns is Terrain's own entry surface, and
+on **that** hop:
+
+- **The conjunct the ruled gate ESTABLISHES: DISCOVERY.** An opening screen
+  offering "view Decisions" as a named family is a surface that discloses the
+  decision material exists, so screen 1 would no longer "disclose nothing
+  about them" — which is the exact clause `:95` indicts. This is discovery and
+  not some third property: *"`offered` is the SAME property as discovery and
+  must not become a third conjunct"* (same pin), so the gate's offering is
+  precisely the failing conjunct being repaired, not an adjacent improvement.
+- **The conjunct it LEAVES OPEN: ADDRESS, at this hop.** The ruling builds no
+  Decisions path — choosing it *"states so and stops"* by the ruling's own
+  terms — so after the gate ships, **nothing at Terrain's boundary resolves to
+  decision material.** The shards' hub-side addresses are untouched and remain
+  established; what stays absent is a route from Terrain's own surface to
+  them. A reader must not take `:95`'s "the decision shards have addresses" as
+  discharging this: that sentence measures the **hub's** hop, and per `:165` no
+  party can verify another's.
+
+**So the honest summary is: the ruled gate would repair the consumer-side
+DISCOVERY conjunct and would leave the consumer-side ADDRESS conjunct open.**
+That is a real advance on the refusal and it is not a discharge of it. Recorded
+this way so the sitting that unparks §10 inherits a stated remainder rather
+than a citation that reads as complete.
+
+**What a later unparking therefore owes**, named so it is an act rather than a
+mood: (1) the trigger above fires — article creation from Lessons is working;
+(2) a served line dated after 2026-08-05 speaks to the two-family entry gate,
+or the owner ratifies knowingly against a silent substrate and the amendment
+says so; and (3) the amendment names the **address** conjunct's disposition —
+either a Decisions path that resolves, or an explicit record that the gate
+ships with discovery established and address still open. Absent (3), the
+unparking would be the half-conjunction ratification this note exists to
+prevent.
 
 ## 11. Open — carried as questions, never as contract
 
