@@ -1759,9 +1759,44 @@ class DenialWatch:
 SPAWN_IN_FLIGHT = 76   # nothing was spawned: a round for this log is live
 TERMINAL_MARK = "=== spawn terminal:"
 SPAWN_MARK = "=== spawn:"   # the line that opens each attempt in a round log
+PID_MARK = "=== spawn pid:"  # the owning process, so liveness is asked rather than inferred
 
 
-def round_state(log_path, now=None, ttl=None, exists=None, mtime=None, text=None):
+def attempt_pid(text):
+    """The pid recorded by THIS attempt, or None — kogaki#227.
+
+    Scoped to the text after the last `=== spawn:` line for the same reason the
+    terminal mark is: a re-used round log carries earlier attempts, and an
+    earlier attempt's pid answers about a process that is not this round's.
+    """
+    attempt = text.rsplit(SPAWN_MARK, 1)[-1] if SPAWN_MARK in text else text
+    m = re.search(rf"^{re.escape(PID_MARK)}\s*(\d+)\s*$", attempt, re.M)
+    return int(m.group(1)) if m else None
+
+
+def pid_alive(pid):
+    """True / False / None — and None is a REAL answer, not a failure.
+
+    None means liveness could not be observed: no recorded pid, or a pid from
+    another host or namespace where the number means nothing here. The caller
+    falls back to the window there and SAYS SO, rather than reporting in-flight
+    from an absence it never checked.
+    """
+    if pid is None:
+        return None
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # It exists and is not ours. Alive is the honest answer.
+        return True
+    except Exception:
+        return None
+
+
+def round_state(log_path, now=None, ttl=None, exists=None, mtime=None, text=None, pid=None):
     """`in-flight` | `finished` | `absent` for one (pr, round) — kogaki#204.
 
     A POLL READS STATE; IT MUST NEVER RE-FIRE THE TRIGGER IT IS WAITING ON.
@@ -1827,6 +1862,22 @@ def round_state(log_path, now=None, ttl=None, exists=None, mtime=None, text=None
     attempt = text.rsplit(SPAWN_MARK, 1)[-1] if SPAWN_MARK in text else text
     if TERMINAL_MARK in attempt:
         return 'finished'
+    # ASK FIRST (§4 clause 4 v2, kogaki#227). A recorded pid makes liveness
+    # LOCALLY DECIDABLE, and a guard that infers it from silence makes a
+    # positive claim out of not-observed PLUS source-not-consulted — the
+    # two-valued report that is most confident exactly when it knows least.
+    #
+    # consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/archive/claude-code-ops.md:67
+    alive = pid_alive(attempt_pid(text) if pid is None else pid)
+    if alive is True:
+        return 'in-flight'
+    if alive is False:
+        # Observed gone. The round is free IMMEDIATELY — this is the whole of
+        # the #225 specimen, where a killed sweep blocked its own retry for the
+        # balance of a 30-minute window.
+        return 'absent'
+    # alive is None: liveness could not be observed. ONLY HERE does the window
+    # decide, and the caller says it could not ask.
     if mtime is None:
         try:
             mtime = os.path.getmtime(log_path)
@@ -1937,6 +1988,17 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
                KOGAKI_TERMINAL_PREVENTED=prevented_path)
     with open(log_path, "a", encoding="utf-8") as log:
         log.write(f"=== spawn: {' '.join(cmd)}\n")
+        # LIVENESS IS ASKED, NOT INFERRED (§4 clause 4 v2, kogaki#227). The
+        # sweep process owns the round for its whole lifetime — it waits on the
+        # child — so ITS pid is the liveness fact a reader consults instead of
+        # guessing from silence.
+        #
+        # WRITTEN AFTER THE COMMAND LINE, and the order is load-bearing:
+        # `attempt_pid` scopes to the text following the LAST `=== spawn:` line,
+        # so a pid recorded before it is scoped out and the probe silently never
+        # fires — the guard would fall back to the window on every real run
+        # while every hand-built fixture passed. Caught by asserting the writer.
+        log.write(f"{PID_MARK} {os.getpid()}\n")
         log.flush()
         try:
             base, tree = make_worktree(tag, ref, detach)
@@ -3279,6 +3341,19 @@ if round_state(_lp2) != 'finished':
     print("FAIL in-flight fixture [an isolation failure CLOSES its round] — "
           "the log would read in-flight for the whole window and block its own retry")
     _inflight_fail = 1
+# THE WRITER, asserted on the same real spawn() call (kogaki#227). Every case
+# above builds the pid line by hand, so none would notice if spawn() stopped
+# recording it — the producer gap that made two mutants free.
+with open(_lp2, encoding="utf-8", errors="replace") as _pf:
+    _ptxt = _pf.read()
+if PID_MARK not in _ptxt:
+    print("FAIL in-flight fixture [spawn() does not record its pid] — liveness is then "
+          "unobservable and every round falls back to the window, which is the v1 defect")
+    _inflight_fail = 1
+elif attempt_pid(_ptxt) != os.getpid():
+    print(f"FAIL in-flight fixture [spawn() records the WRONG pid]: got {attempt_pid(_ptxt)}, "
+          f"want {os.getpid()} — the owning process is the sweep, which waits on the child")
+    _inflight_fail = 1
 shutil.rmtree(_tmpd2, ignore_errors=True)
 
 # The completion path's write, asserted on the source because the behavioural
@@ -3335,6 +3410,87 @@ if round_state(_lp3) != 'in-flight':
           "the terminal mark is sticky and the guard protects only the first spawn")
     _inflight_fail = 1
 shutil.rmtree(_tmpd3, ignore_errors=True)
+
+# --- kogaki#227: liveness is ASKED, and cannot-determine is a real answer ---
+#
+# Every case here fails against the v1 two-valued form, which read a dead
+# session as in-flight for the balance of the window.
+_LIVE = os.getpid()                     # certainly alive: this process
+# ...verified, not assumed — but BOUNDED. An unbounded search here needs the
+# very capability the fixture exists to test: under a `pid_alive` that never
+# reports False, `while True` spins forever instead of failing. A tripwire must
+# be expressible in acts the design can still perform when the failure is
+# present (`a-tripwire-cannot-need-the-missing-capability`). Observed: this
+# loop hung a mutation run for 180s before the bound was added.
+_DEAD = None
+for _cand in range(2 ** 22, 2 ** 22 + 200):
+    if pid_alive(_cand) is False:
+        _DEAD = _cand
+        break
+if _DEAD is None:
+    print("FAIL liveness fixture [no observably-dead pid found in 200 candidates] — "
+          "pid_alive never reported False, so the dead-session cases below cannot run")
+    _inflight_fail = 1
+    _DEAD = 2 ** 22
+
+for _label, _kw, _want in [
+    ("a RECORDED LIVE pid is in flight, however old the file",
+     dict(exists=True, text=f"{SPAWN_MARK} x\n{PID_MARK} {_LIVE}",
+          now=9e9, mtime=0.0, ttl=60), 'in-flight'),
+    ("THE #225 SPECIMEN: a dead session frees its round IMMEDIATELY, inside the window",
+     dict(exists=True, text=f"{SPAWN_MARK} x\n{PID_MARK} {_DEAD}",
+          now=1000.0, mtime=999.0, ttl=1800), 'absent'),
+    ("no recorded pid -> cannot-determine, and the WINDOW decides (inside)",
+     dict(exists=True, text=f"{SPAWN_MARK} x", now=1000.0, mtime=990.0,
+          ttl=1800), 'in-flight'),
+    ("no recorded pid -> cannot-determine, and the WINDOW decides (outside)",
+     dict(exists=True, text=f"{SPAWN_MARK} x", now=1000.0, mtime=0.0,
+          ttl=60), 'absent'),
+    ("a terminal line still wins over any pid — finished is finished",
+     dict(exists=True, text=f"{SPAWN_MARK} x\n{PID_MARK} {_LIVE}\n{_T}",
+          now=1000.0, mtime=999.0, ttl=1800), 'finished'),
+    ("an EARLIER attempt's pid does not answer for this one",
+     dict(exists=True,
+          text=f"{SPAWN_MARK} a\n{PID_MARK} {_LIVE}\n{_T}\n{SPAWN_MARK} b",
+          now=1000.0, mtime=0.0, ttl=60), 'absent'),
+]:
+    _got = round_state("/nonexistent", **_kw)
+    if _got != _want:
+        print(f"FAIL liveness fixture [{_label}]: got {_got!r}, want {_want!r}")
+        _inflight_fail = 1
+
+# The three-valued predicate itself, asserted apart from the state machine:
+# None is a REAL answer meaning "could not observe", never a failure.
+for _label, _pid, _want in [("a live pid", _LIVE, True),
+                            ("a dead pid", _DEAD, False),
+                            ("no pid at all -> cannot-determine", None, None)]:
+    if pid_alive(_pid) is not _want:
+        print(f"FAIL liveness fixture [pid_alive: {_label}]")
+        _inflight_fail = 1
+
+# `attempt_pid` is scoped to the CURRENT attempt, for the same reason the
+# terminal mark is — a re-used log carries earlier attempts' pids.
+if attempt_pid(f"{SPAWN_MARK} a\n{PID_MARK} 111\n{SPAWN_MARK} b\n{PID_MARK} 222") != 222:
+    print("FAIL liveness fixture [attempt_pid reads the CURRENT attempt's pid]")
+    _inflight_fail = 1
+if attempt_pid(f"{SPAWN_MARK} a\n{PID_MARK} 111\n{SPAWN_MARK} b") is not None:
+    print("FAIL liveness fixture [an attempt with no pid line is cannot-determine, not the previous pid]")
+    _inflight_fail = 1
+
+# --dry-run must consult the SAME predicate as --spawn, or the prediction is
+# not the act's precondition (kogaki#227's second defect).
+with open('tools/review-sweep.sh', encoding='utf-8') as _df:
+    _dsrc = _df.read()
+# COUNT, do not merely search: this assertion's own literal is an occurrence,
+# so `not in` can never be true and the check could never fire — the searched-
+# for text finding ITSELF, the same self-match that made the completion-path
+# assertion vacuous in story 1.38. Two occurrences = the call site plus this
+# line; one = the call site is gone.
+if _dsrc.count("_dry_state = round_state(spawn_log_path(n, rnd))") < 2:
+    print("FAIL liveness fixture [--dry-run does not consult the in-flight guard] — "
+          "a prediction that does not evaluate the gate it predicts is a different "
+          "question wearing the answer's clothes")
+    _inflight_fail = 1
 
 # The sentinel must be distinguishable from every real exit code, or the
 # caller's `result != 0` branch would swallow it and post a stall comment
@@ -3827,6 +3983,23 @@ for pr in prs:
             # withheld the model and the cap would leave the operator checking
             # the one thing a dry run exists to show them by reading the source.
             print(f"  #{n}: {tier_label}")
+            # THE PREDICTION CONSULTS THE GATE IT PREDICTS (§4 clause 4 v2,
+            # kogaki#227). A dry run said `would spawn` while the immediately
+            # following --spawn refused on the in-flight guard, so the
+            # prediction was not the act's precondition — a different question
+            # wearing the answer's clothes. An operator who trusted it fired a
+            # no-op and read the refusal as a new failure. Evaluating the same
+            # predicate is what makes the two paths unable to disagree.
+            _dry_state = round_state(spawn_log_path(n, rnd))
+            if _dry_state == 'in-flight':
+                try:
+                    _age = int(time.time() - os.path.getmtime(spawn_log_path(n, rnd)))
+                except OSError:
+                    _age = -1
+                print(f"  #{n}: would NOT spawn review round {rnd} — a round is "
+                      f"already IN FLIGHT (log {spawn_log_path(n, rnd)}, last wrote "
+                      f"{_age}s ago). --spawn would refuse here too (kogaki#204).")
+                continue
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
                   f"[model {r_model}, max-turns {r_turns}, "
                   f"{len(REVIEW_TOOLS.split(','))} granted tools, worktree "
