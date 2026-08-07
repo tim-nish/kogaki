@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Minimal stdio MCP client for the tsurezure gateway — the kit's one transport.
 // Usage: gateway-query.mjs --consumer <name> --tool <tool> --args '<json>'
-//        [--args '<json>' …]            one --args per FRAMING, in order
+//        [--args '<json>' …]             one --args per FRAMING, in order
+//        [--question '<q>' …]            one --question per --args, SAME ORDER
 //        [--receipt --outcome <token>]   emit the consult receipt block
 //        [--gateway <path-to-dist/index.js>]
 //
@@ -22,6 +23,29 @@
 // Nothing here is remembered, so the transcription defects the clause exists
 // to prevent (kogaki#32's coined vocabulary, kogaki#75's copied request_id)
 // are unproducible on this path.
+//
+// THE QUESTION TRAVELS WITH THE CALL (kogaki#160 finding 4). Until this
+// change the `query:` line was DERIVED: `policy_lookup`'s framing has a
+// `question` argument and was recorded from it, and every other tool had its
+// `--args` JSON recorded instead — so a `gloss_index` consult emitted
+// `query: {"tag":"lessons/testing"}`, a serialized tool argument in the field
+// `policy/consultation-map.md:46` defines as "**The question, verbatim**".
+// There was no field in which such a consult COULD record its question, which
+// made the omission a seam gap rather than an authoring slip.
+//
+// `--question` closes it by construction: one per `--args`, in the SAME ORDER,
+// and REQUIRED in receipt mode. It is bound to A CALL, never to the invocation
+// — `framings[i]`, `--question i`, and the response to call i are one record
+// (`observed[i]`), and `composeReceipt` reads that record rather than three
+// parallel lists. So the `request_id` the receipt carries (the LAST framing's,
+// the answer the outcome is a reading of) and the LAST `query:` line are the
+// same gateway call's, and cannot be recombined by hand afterwards. Ships
+// against three shipped failures where a receipt was self-consistent on its
+// face and wrong; see specs/SPEC.md §4 for the record.
+//
+// A `--question` that disagrees with a `policy_lookup` framing's own
+// `question` argument is REFUSED rather than reconciled: one of the two is not
+// what ran, and the transport asserts only what it observed.
 //
 // The `outcome` token is NOT the transport's to assign. It is a READING of
 // whether the answer discriminated, and SPEC §4 assigns it to the OPERATOR —
@@ -73,13 +97,18 @@ const consumer = opt("consumer");
 const tool = opt("tool", "policy_lookup");
 const rawArgsList = opts("args");
 const toolList = opts("tool");
+const questionList = opts("question");
 const receiptMode = flag("receipt");
 const outcome = opt("outcome");
 // One framing per --args; no --args at all is the historical single empty call.
+// `question` is positional against `--args`: framing i's question is
+// `--question` i. Carried ON the framing rather than in a parallel array, so
+// there is no index at which a question and a call can drift apart.
 const framings = (rawArgsList.length ? rawArgsList : ["{}"]).map((raw, i) => ({
   raw,
   tool: toolList[i] ?? tool,
   args: JSON.parse(raw),
+  question: questionList[i],
 }));
 const toolArgs = framings[0].args;
 
@@ -171,6 +200,44 @@ if (receiptMode && !outcome) {
   );
   process.exit(2);
 }
+// The same USAGE siting, and for the same reason: an invocation that cannot
+// produce a truthful `query:` line is malformed whether or not the gateway
+// answers, and reaching out first would spend a real consult on a call that
+// was always going to refuse. Checked as a COUNT against the framings, because
+// the defect this closes is a question bound to the invocation rather than to
+// the call whose outcome is recorded (kogaki#160 finding 4).
+if (receiptMode && questionList.length !== framings.length) {
+  console.error(
+    `refusing to emit a receipt with ${questionList.length} --question for ` +
+      `${framings.length} framing(s): the \`query:\` line is THE QUESTION, ` +
+      "VERBATIM (policy/consultation-map.md:46), and one question per call is " +
+      "what binds it to the call whose request_id and outcome the receipt " +
+      "carries. Pass one --question per --args, in the same order. Before " +
+      "this argument existed the transport recorded the --args JSON for any " +
+      "tool but `policy_lookup`, which is a serialized tool argument and not " +
+      "a question anyone can reuse (kogaki#160 finding 4).",
+  );
+  process.exit(2);
+}
+// A disagreement is refused, never reconciled: one of the two is not what ran.
+for (const [i, f] of framings.entries()) {
+  const embedded = f.args?.question;
+  if (
+    receiptMode &&
+    typeof embedded === "string" &&
+    embedded.trim() &&
+    embedded.trim() !== String(f.question).trim()
+  ) {
+    console.error(
+      `framing ${i + 1}: --question disagrees with the framing's own ` +
+        `\`question\` argument.\n  --args: ${embedded.trim()}\n  ` +
+        `--question: ${String(f.question).trim()}\n` +
+        "One of these is not what ran. The transport asserts only what it " +
+        "observed and does not choose between them.",
+    );
+    process.exit(2);
+  }
+}
 if (!existsSync(gateway)) unavailable(`gateway not found at ${gateway}`);
 
 const proc = spawn("node", [gateway, "--consumer", consumer], {
@@ -216,12 +283,30 @@ function rpc(id, method, params) {
 // composed here at all — it arrives on the command line or the run refused
 // before the gateway was reached.
 
-// The query as SENT. `policy_lookup`'s framing is its `question`; for any
-// other tool the args JSON as the caller typed it is the framing, because the
-// transport has no privileged reading of another tool's argument shape.
-function framingText({ args, raw }) {
-  const q = args?.question;
-  return typeof q === "string" && q.trim() ? q.trim() : raw.trim();
+// The question THIS CALL asked, as the caller stated it. Read off the framing
+// record — the same object that carries the args that were sent — so the
+// question and the call are one value and not two lists that could be zipped
+// wrongly. `policy_lookup`'s embedded `question` argument is accepted as the
+// question when `--question` repeats it (they are checked for agreement at the
+// usage site above); every other tool has no question in its arguments at all,
+// which is the gap `--question` exists to fill.
+//
+// NO FALLBACK TO THE ARGS JSON. That fallback is the defect: it produced a
+// well-formed receipt whose `query:` line was `{"tag":"lessons/testing"}` —
+// a transport fact recorded honestly in a field reserved for a question, so
+// nothing on the path could tell a reader what was actually asked.
+function framingText({ question, args }, i) {
+  const q = typeof question === "string" && question.trim()
+    ? question.trim()
+    : typeof args?.question === "string" && args.question.trim()
+      ? args.question.trim()
+      : null;
+  if (q === null)
+    throw new Error(
+      `framing ${i + 1} carries no --question; the \`query:\` line is the ` +
+        "question verbatim and the transport does not derive one from --args",
+    );
+  return q;
 }
 
 // A served `consulted:` line is `consulted: <repo>@<sha> <file:spec[, file:spec…]>`.
@@ -277,7 +362,7 @@ function composeReceipt(observed, outcomeToken) {
         "one receipt carries one pin",
     );
   const queries = observed.map((o, i) => {
-    const q = framingText(o.framing);
+    const q = framingText(o.framing, i);
     if (q.includes("\n"))
       throw new Error(`framing ${i + 1} spans several lines; \`query:\` is one line`);
     return q;
@@ -300,6 +385,14 @@ function composeReceipt(observed, outcomeToken) {
   // several gateway calls and the v2 grammar carries one id, so which one is a
   // choice, and the honest one is the call the recorded outcome refers to. The
   // earlier framings stay auditable through their own `query:` lines.
+  //
+  // WHICH CALL'S ID AND QUESTION TRAVEL TOGETHER, stated because leaving it
+  // implicit is what shipped a wrong receipt: `parsed[i]` and `queries[i]` are
+  // both read off `observed[i]`, so the LAST `query:` line is the question
+  // asked of the call whose `request_id` is emitted, and every earlier
+  // `query:` line names an earlier call in the order they ran. A caller
+  // recomposing a receipt by hand can pair an id with another framing's
+  // question; this composer cannot, because it never holds them apart.
   const requestId = parsed[parsed.length - 1].request_id;
   return [
     // The marked-exception axis (specs/SPEC.md §4 condition 2). A fixed,
@@ -330,7 +423,7 @@ function selfTest() {
   const served = (id, tail) => JSON.stringify({
     pin: PIN, request_id: id, consulted: `consulted: ${PIN} ${tail}`, lines: [],
   });
-  const framing = (q) => ({ raw: JSON.stringify({ question: q }), args: { question: q } });
+  const framing = (q) => ({ raw: JSON.stringify({ question: q }), args: { question: q }, question: q });
   const one = [{ framing: framing("first framing"), text: served("id-1", "LESSONS.md:31") }];
   const two = [
     one[0],
@@ -381,11 +474,35 @@ function selfTest() {
     ["a multi-line framing refuses — `query:` is one line",
      () => compose([{ framing: framing("line one\nline two"), text: served("r", "a.md:1") }], "discriminating")
        .startsWith("THREW: framing 1 spans several lines")],
-    // A non-policy_lookup tool has no `question`; the args as sent are the framing.
-    ["a tool without a `question` argument records the args as sent",
-     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" } },
+    // --- kogaki#160 finding 4: the question travels with the call ------------
+    // The regression pin, inverted. This exact emission is what shipped:
+    // a `gloss_index` consult whose `query:` line was its serialized --args.
+    // It must now REFUSE rather than compose, because a receipt recording a
+    // tool argument in the question field is self-consistent on its face and
+    // tells a reader nothing about what was asked.
+    ["a tool with no `question` argument and no --question REFUSES, never records the args",
+     () => { const r = compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" } },
+               text: served("r", "gloss/lessons/testing.md:1-157") }], "discriminating");
+             return r.startsWith("THREW: framing 1 carries no --question") &&
+               !r.includes('{"tag":"lessons/testing"}'); }],
+    ["a non-policy_lookup framing WITH --question records the question, not the args",
+     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+         question: "does a served line discriminate how a check-suite member is admitted?" },
        text: served("r", "gloss/lessons/testing.md:1-157") }], "discriminating")
-       .includes('  query: {"tag":"lessons/testing"}')],
+       .includes("  query: does a served line discriminate how a check-suite member is admitted?")],
+    // The BINDING property, and the one the three shipped failures turned on:
+    // the emitted request_id and the LAST query line are the same call's.
+    ["the carried request_id and the LAST query line come from the same call",
+     () => { const b = compose(two, "uncovered-after-2-framings").split("\n");
+             return b.includes("  request_id: id-2") &&
+               b[b.length - 1] === "  query: second framing, another axis"; }],
+    ["--question overrides nothing it disagrees with: it is read off the framing that ran",
+     () => { const obs = [
+               { framing: { raw: "{}", args: {}, question: "call one's question" }, text: served("id-A", "a.md:1") },
+               { framing: { raw: "{}", args: {}, question: "call two's question" }, text: served("id-B", "a.md:2") }];
+             const b = compose(obs, "uncovered-after-2-framings");
+             return b.includes("  request_id: id-B") &&
+               b.indexOf("  query: call one's question") < b.indexOf("  query: call two's question"); }],
   ];
   const failures = cases.filter(([, f]) => f() !== true).map(([n]) => n);
   if (failures.length) {
@@ -395,7 +512,8 @@ function selfTest() {
   }
   console.log(`fixture pass: ${cases.length}/${cases.length} receipt-composition cases ` +
     "(line one copied from the server; one query line per framing; pins merged " +
-    "under one commit; the outcome token carried, never chosen; five refusals)");
+    "under one commit; the outcome token carried, never chosen; the question " +
+    "bound to the call whose request_id is emitted; six refusals)");
   process.exit(0);
 }
 
