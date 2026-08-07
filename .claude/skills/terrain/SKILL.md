@@ -49,6 +49,27 @@ The rule binds here because this is the layer where it can be broken.
    **Nothing on that line is optional** — `--subdivisions` and its judge pin
    are unbracketed because kogaki#168 made the subdivision judgment REQUIRED
    (§6.2); see the SubGroups bullet below.
+
+   **THE SUBDIVISION FILE IS A TYPED RECORD PER GROUP** (§12.1 v9,
+   kogaki#199). Compose it as:
+
+   ```json
+   {
+     "<tag> × architecture": { "judged": true, "subgroups": [ { "subgroup": "…", "claim": "…", "members": ["lesson:…"], "composes_honestly": true, "tighter_than_parent": true, "legible_at_a_glance": true } ] },
+     "<tag> × cost":         { "judged": true, "subgroups": [] }
+   }
+   ```
+
+   **`"subgroups": []` is the conformant record for a group whose judgment RAN
+   and found no leaf split** — it is not the same as omitting the group, and
+   the difference is the whole point. Omitting a group says *not judged*, which
+   the co-tag path **refuses**: `report` will not mint a judge pin of `none`,
+   because a report carrying `none` is indistinguishable from a run that never
+   asked (§12.1 v9). **Write an entry for every composed group.**
+
+   A bare array — the pre-v9 form — is **refused by name** rather than read as
+   the old shape, so a stale composer fails loudly instead of silently getting
+   back the accidental semantics that made judged-empty unrecordable.
    **This is where a tag selection lands, not a second `view --tag`.** The
    owner names a tag and the flow goes **straight here** — the tag screen's
    row view runs only when the owner asks to browse rows, and **no question
