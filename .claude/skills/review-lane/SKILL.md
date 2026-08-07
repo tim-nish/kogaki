@@ -41,6 +41,28 @@ Read the licensing issue named by the PR (title, body, or commits — the same
 Out-of-scope work re-routes: file the carved-out work as its own issue and
 name it in the finding. The PR is not blocked by this lane.
 
+**Fixture discrimination is this dimension's other twin (kogaki#230).** Where
+the diff **adds or changes a fixture**, check that the PR record carries its
+**mutation evidence** — the mutation table, naming each mutation and which
+fixtures fail it. `specs/SPEC.md` §4 carries the obligation; this reads for it.
+
+**Presence, not truth, and never a gate.** Read that the table is there and
+that each new or changed fixture appears in it. Whether a mutation was the
+*right* one, and whether the table is honest, is judgment and stays yours — a
+finding, at the kogaki#72 budget's severity, never a deny. Nothing here turns
+a merge red.
+
+The specimen is kogaki#209: three of kogaki#203's four regression fixtures
+passed **with the defect present**, behind a green `38/38` line claiming
+protection that did not exist. A fixture whose only demonstrated failure mode
+is total absence of the code has not been shown to discriminate, and a diff
+that adds one is adding a coverage claim rather than coverage.
+
+**Why this lands here as well as in the spec, rather than only here:** a skill
+binds only the sittings that invoke it, and an **authoring** sitting never
+invokes this one. The spec is what binds the author; this is what makes the
+absence visible.
+
 **Deferred slots are this dimension's twin (kogaki#48).** Where the spec or
 story names a `deferred-slot: <name>` the diff fills, check that the
 licensing issue carries the fill-time decision record — choice,
