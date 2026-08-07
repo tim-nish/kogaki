@@ -1829,7 +1829,10 @@ def round_state(log_path, now=None, ttl=None, exists=None, mtime=None, text=None
                         a fresh spawn is permitted IMMEDIATELY; or no file at
                         all; or liveness unobservable AND the window expired.
       cannot-determine  no terminal line and liveness COULD NOT BE OBSERVED —
-                        no pid recorded for this attempt. ONLY HERE does the
+                        no OBSERVABLE pid for this attempt: none recorded, or
+                        one this host cannot probe (another host or namespace,
+                        which is the case the window is retained FOR). ONLY
+                        HERE does the
                         declared window decide, and the token exists so the
                         decline can say it could not ask rather than reporting
                         a liveness it never checked.
@@ -1935,8 +1938,20 @@ def decline_line(state, log_path, age, ttl):
     clause-bearing half is identical by construction because it is one string.
     """
     if state == 'cannot-determine':
-        return (f"a round's liveness COULD NOT BE OBSERVED — no pid recorded for "
-                f"this attempt, so the {ttl}s window decided and nothing spawned "
+        # NAMES THE CAUSE-CLASS, NEVER ONE CAUSE (PR #231 review round 2).
+        # This said "no pid recorded for this attempt", and `pid_alive()`
+        # returns None from TWO places — no recorded pid, OR a pid this host
+        # cannot probe (another host or namespace, the bare `except`). The
+        # second is precisely the case §4 clause 4 v2 RETAINS the window for
+        # ("across a container or host boundary the probe means nothing"), so
+        # on the motivating run the operator was told a pid was not recorded
+        # when one was, and sent looking for a missing write in `spawn()` that
+        # is not missing. A narrower instance of round 1's own defect: a
+        # positive claim about WHICH cause fired, made without discriminating
+        # them. The honest sentence names both and picks neither.
+        return (f"a round's liveness COULD NOT BE OBSERVED — no observable pid "
+                f"for this attempt (none recorded, or one this host cannot "
+                f"probe), so the {ttl}s window decided and nothing spawned "
                 f"(log {log_path}, last wrote {age}s ago). This is NOT a report "
                 f"that the round is alive: it is a report that the question could "
                 f"not be asked (specs/SPEC.md §4 clause 4 v2, kogaki#227).")
@@ -3569,6 +3584,13 @@ if _cd == _if:
     print("FAIL decline fixture [both blocking states print the SAME sentence] — "
           "this is the exact two-valued report §4 clause 4 v2 was ratified to end")
     _inflight_fail = 1
+# The cause-CLASS, not one cause: both arms of pid_alive()'s None must be
+# representable in the sentence, or the operator is sent after the wrong repair.
+if 'none recorded' not in _cd or 'cannot probe' not in _cd:
+    print("FAIL decline fixture [the cannot-determine decline names ONE cause "
+          "where the state has TWO] — a pid this host cannot probe is exactly "
+          "the case the window is retained for, and it is not 'none recorded'")
+    _inflight_fail = 1
 if 'COULD NOT BE OBSERVED' not in _cd or 'could not be asked' not in _cd:
     print("FAIL decline fixture [the cannot-determine decline does not SAY it "
           "could not ask] — the clause binds the artifact, not the internal state")
@@ -3604,7 +3626,26 @@ if _dsrc.count("_fix_state = round_state(fix_log_path(n, used))") < 2:
 # fired on a file that was already correct. A source-scanning assertion owes the
 # same discrimination it demands — the searched-for text finding itself, one
 # more time, which is why the comment survives here rather than being deleted.
-if any(re.search(r"^\s*(?:el)?if\s+state == 'in-flight'", _l)
+# THE VARIABLE GROUP IS `\w*state`, NOT `state` (PR #231 review round 2).
+# The first version required the name to be exactly `state`, so it covered
+# `spawn()`'s one occurrence and NO other — while its FAIL text claimed the
+# class. Both dry-run call sites are `_dry_state` and `_fix_state`, and before
+# the fix commit one of them literally read `if _dry_state == 'in-flight':`,
+# the exact shape the message describes. The assertion written to stop call
+# site N+1 from escaping was itself scoped to call site N's SPELLING — the
+# per-call-site defect one level up, in the guard against it.
+#
+# Asserted rather than asserted-about: the pattern must match the spellings
+# that actually occur here, or the claim is decoration again.
+for _spell in ("if state == 'in-flight':",
+               "    if _dry_state == 'in-flight':",
+               "        elif _fix_state == 'in-flight':"):
+    if not re.search(r"^\s*(?:el)?if\s+\w*state == 'in-flight'", _spell):
+        print(f"FAIL liveness fixture [the blocking-literal tripwire does not "
+              f"match {_spell.strip()!r}] — it would pass over the very call "
+              f"sites it names")
+        _inflight_fail = 1
+if any(re.search(r"^\s*(?:el)?if\s+\w*state == 'in-flight'", _l)
        for _l in _dsrc.splitlines()):
     print("FAIL liveness fixture [a call site tests the 'in-flight' literal rather "
           "than BLOCKS_A_SPAWN] — cannot-determine would silently spawn there")
