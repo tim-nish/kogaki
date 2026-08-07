@@ -58,11 +58,66 @@
 // changed when the slot closed except that the behaviour is now decided
 // rather than interim.
 //
+// THE ANSWER MUST EVIDENCE THE ADDRESS THE FRAMING SENT (kogaki#181). This is
+// the ANSWER-field twin of kogaki#160, and it is a DIFFERENT defect at the same
+// seam: `--question` makes the recorded query provably the query that ran, and
+// says nothing about whether the call reached the artifact the arguments named.
+// An unrecognized address FORM is DROPPED rather than refused — the gateway
+// answers the broader call and returns a well-formed response to a query it did
+// not run, so the receipt is honest about every field it holds and its answer
+// is another artifact's. Four such receipts shipped in one session (PR #170's
+// lane): well-formed, citing real lines, their arguments never in effect.
+//
+// MEASURED ON THE WIRE, at product-lab@98195e0a, rather than assumed. Every
+// served tool answers an unrecognized address one of exactly two ways:
+//
+//   * a tool whose address argument is REQUIRED (`policy_lookup.question`,
+//     `glossary_entry.name`, `topic_thread.topic`, `surface_names.kind`)
+//     rejects the call at schema validation — an MCP -32602 the wire loop below
+//     already turns into the exit-11 degrade. Unreachable by construction.
+//   * a tool whose address argument is OPTIONAL (`gloss_index.tag`,
+//     `lessons_index.tags`, `element_survey.kind`/`.tag`) SILENTLY DROPS the
+//     key and serves the unfiltered artifact: `gloss_index` returns
+//     `gloss/INDEX.md` instead of `gloss/lessons/testing.md`, `element_survey`
+//     returns 814 ELEMENTS lines instead of 146. `miss: false`, a real
+//     `request_id`, a real `consulted:` line. This is the defect, entire.
+//
+// So "evidences the address" resolves to TWO checks, and both read only the
+// wire:
+//   (a) THE FORM, checked where the ambiguity is CREATED. Every key a framing
+//       sends must be one the served `tools/list` schema declares for that
+//       tool. This is the served ruling applied at the only layer Kogaki owns:
+//       "where identity is derived by discarding a component, the discarding
+//       step is the only place the collision is visible … gate where the
+//       ambiguity is created" — and the discarding step reachable from here is
+//       the argument object this transport composes, checked before its answer
+//       is believed.
+//   (b) THE ECHO, where the gateway gives one. A MISS response carries `tool`
+//       and `request`, so the served answer names the address it answered; the
+//       transport requires them to be the address it sent. Only the keys the
+//       framing SENT are compared — a normalized `null` the gateway adds for an
+//       absent optional key is the gateway's business, not a contradiction.
+//
+// WHAT IS NOT DECIDABLE CONSUMER-SIDE, declared rather than left silent. On the
+// HIT path the gateway echoes NOTHING: a `gloss_index` hit and an unfiltered
+// `gloss_index` hit differ only in the served path, and an `element_survey` hit
+// differs only in a line COUNT the transport has no corpus knowledge to judge.
+// After (a) and (b) the residual claim — that a DECLARED, well-formed address
+// was actually applied — rests on an inference about the producer's behaviour
+// and not on an observation, and the transport does not assert it. Deriving it
+// back out of the `consulted:` path is exactly the re-derivation the same
+// served ruling forbids ("must QUOTE ratified renderings rather than re-derive
+// them", `topics/articles.md:102`), so it is NOT done here. That half is routed
+// to the gateway repository as its own item: echo `tool` and `request` on the
+// HIT path as the MISS path already does, and (b) becomes total. See
+// specs/SPEC.md §4 condition 5.
+//
 // Exit 12 — `receipt not composable: <reason>`. The consult happened and its
 // results are printed, but the wire did not carry what a receipt asserts (a
 // non-JSON result, an absent request_id or `consulted:` line, framings whose
-// pins disagree, a framing that is not one line). Refusing beats emitting a
-// block the transport cannot stand behind.
+// pins disagree, a framing that is not one line, an address form the served
+// tool does not declare, or a served echo naming a different call). Refusing
+// beats emitting a block the transport cannot stand behind.
 //
 // The gateway's location is MACHINE-LOCAL CONFIGURATION, never a committed
 // path and never directory adjacency (kogaki#9). Resolution order:
@@ -337,6 +392,55 @@ function mergeTails(tails) {
   return [...byFile].map(([f, s]) => `${f}:${s.join(",")}`).join(", ");
 }
 
+// THE ANSWER EVIDENCES THE ADDRESS THE FRAMING SENT, or the receipt refuses
+// (kogaki#181; specs/SPEC.md §4 condition 5). Throws with the reason; the two
+// limbs are (a) the address FORM against the served schema and (b) the address
+// ECHO where the gateway serves one. Reads `declared` — the served
+// `tools/list` properties for THIS framing's tool, observed on this same wire
+// and carried on the framing's own record, so a schema and a call cannot drift
+// apart any more than a question and a call can.
+function assertAddressEvidenced({ framing, declared }, d, i) {
+  const sent = framing.args ?? {};
+  const keys = Object.keys(sent);
+
+  // (a) THE FORM. An undeclared key is the whole shipped defect: the gateway
+  // does not refuse it, it drops it and answers the broader call.
+  if (!(declared instanceof Set))
+    throw new Error(
+      `framing ${i + 1} was not checked against \`${framing.tool}\`'s served ` +
+        "argument schema (the gateway listed no tools), so the transport " +
+        "cannot establish that this response answers the address it sent",
+    );
+  const undeclared = keys.filter((k) => !declared.has(k));
+  if (undeclared.length)
+    throw new Error(
+      `framing ${i + 1} addressed \`${framing.tool}\` with ` +
+        `${undeclared.map((k) => `\`${k}\``).join(", ")}, which the served tool ` +
+        "does not declare (it declares " +
+        `${[...declared].map((k) => `\`${k}\``).join(", ") || "no arguments"}). ` +
+        "An undeclared key is DROPPED, not refused: the gateway answers the " +
+        "broader call, so this response is well-formed and is not an answer " +
+        "to the query that was asked",
+    );
+
+  // (b) THE ECHO. Served only on the miss path today; required to agree when
+  // it is served, and never invented when it is not. The hit path's silence is
+  // the half routed upstream, and it is silent here rather than guessed at.
+  if (d.miss !== true) return;
+  if (typeof d.tool === "string" && d.tool !== framing.tool)
+    throw new Error(
+      `framing ${i + 1} addressed \`${framing.tool}\` and the served response ` +
+        `answers \`${d.tool}\``,
+    );
+  if (d.request && typeof d.request === "object")
+    for (const k of keys)
+      if (JSON.stringify(d.request[k]) !== JSON.stringify(sent[k]))
+        throw new Error(
+          `framing ${i + 1} sent \`${k}\`=${JSON.stringify(sent[k])} and the ` +
+            `served response answers \`${k}\`=${JSON.stringify(d.request[k])}`,
+        );
+}
+
 // Returns the receipt block, or throws with the reason it is not composable.
 // The throw is the point: a receipt the transport cannot stand behind is worse
 // than none, because the marked-exception path exists for exactly that case.
@@ -354,6 +458,9 @@ function composeReceipt(observed, outcomeToken) {
     if (typeof d?.pin !== "string") throw new Error(`framing ${i + 1} carried no pin`);
     return d;
   });
+  // Per-framing, like the parse checks above and for the same reason: an
+  // answer to another call is not repaired by anything the other framings say.
+  for (const [i, o] of observed.entries()) assertAddressEvidenced(o, parsed[i], i);
   const pin = parsed[0].pin;
   if (parsed.some((d) => d.pin !== pin))
     throw new Error(
@@ -423,11 +530,20 @@ function selfTest() {
   const served = (id, tail) => JSON.stringify({
     pin: PIN, request_id: id, consulted: `consulted: ${PIN} ${tail}`, lines: [],
   });
-  const framing = (q) => ({ raw: JSON.stringify({ question: q }), args: { question: q }, question: q });
-  const one = [{ framing: framing("first framing"), text: served("id-1", "LESSONS.md:31") }];
+  // The served `tools/list` properties, as the gateway declares them at
+  // product-lab@98195e0a — carried on every record because kogaki#181 makes an
+  // unchecked address form a refusal rather than a pass.
+  const LOOKUP = new Set(["question", "topic_hints"]);
+  const GLOSS = new Set(["tag"]);
+  const framing = (q) => ({
+    raw: JSON.stringify({ question: q }), args: { question: q }, question: q,
+    tool: "policy_lookup",
+  });
+  const one = [{ framing: framing("first framing"), text: served("id-1", "LESSONS.md:31"), declared: LOOKUP }];
   const two = [
     one[0],
-    { framing: framing("second framing, another axis"), text: served("id-2", "LESSONS.md:40, topics/x.md:9") },
+    { framing: framing("second framing, another axis"), text: served("id-2", "LESSONS.md:40, topics/x.md:9"),
+      declared: LOOKUP },
   ];
   const compose = (obs, tok) => {
     try {
@@ -468,11 +584,11 @@ function selfTest() {
      () => compose([{ framing: framing("q"), text: JSON.stringify({ pin: PIN, request_id: "r" }) }],
        "discriminating").startsWith("THREW: framing 1 carried no served")],
     ["framings resolved against different commits refuse — one receipt, one pin",
-     () => compose([one[0], { framing: framing("q2"),
+     () => compose([one[0], { framing: framing("q2"), declared: LOOKUP,
        text: JSON.stringify({ pin: "product-lab@0000000", request_id: "r", consulted: "consulted: product-lab@0000000 a.md:1" }) }],
        "uncovered-after-2-framings").startsWith("THREW: framings resolved against different substrate commits")],
     ["a multi-line framing refuses — `query:` is one line",
-     () => compose([{ framing: framing("line one\nline two"), text: served("r", "a.md:1") }], "discriminating")
+     () => compose([{ framing: framing("line one\nline two"), text: served("r", "a.md:1"), declared: LOOKUP }], "discriminating")
        .startsWith("THREW: framing 1 spans several lines")],
     // --- kogaki#160 finding 4: the question travels with the call ------------
     // The regression pin, inverted. This exact emission is what shipped:
@@ -481,13 +597,16 @@ function selfTest() {
     // tool argument in the question field is self-consistent on its face and
     // tells a reader nothing about what was asked.
     ["a tool with no `question` argument and no --question REFUSES, never records the args",
-     () => { const r = compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" } },
+     () => { const r = compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+               tool: "gloss_index" }, declared: GLOSS,
                text: served("r", "gloss/lessons/testing.md:1-157") }], "discriminating");
              return r.startsWith("THREW: framing 1 carries no --question") &&
                !r.includes('{"tag":"lessons/testing"}'); }],
     ["a non-policy_lookup framing WITH --question records the question, not the args",
      () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+         tool: "gloss_index",
          question: "does a served line discriminate how a check-suite member is admitted?" },
+       declared: GLOSS,
        text: served("r", "gloss/lessons/testing.md:1-157") }], "discriminating")
        .includes("  query: does a served line discriminate how a check-suite member is admitted?")],
     // The BINDING property, and the one the three shipped failures turned on:
@@ -498,11 +617,68 @@ function selfTest() {
                b[b.length - 1] === "  query: second framing, another axis"; }],
     ["--question overrides nothing it disagrees with: it is read off the framing that ran",
      () => { const obs = [
-               { framing: { raw: "{}", args: {}, question: "call one's question" }, text: served("id-A", "a.md:1") },
-               { framing: { raw: "{}", args: {}, question: "call two's question" }, text: served("id-B", "a.md:2") }];
+               { framing: { raw: "{}", args: {}, question: "call one's question", tool: "policy_lookup" },
+                 declared: LOOKUP, text: served("id-A", "a.md:1") },
+               { framing: { raw: "{}", args: {}, question: "call two's question", tool: "policy_lookup" },
+                 declared: LOOKUP, text: served("id-B", "a.md:2") }];
              const b = compose(obs, "uncovered-after-2-framings");
              return b.includes("  request_id: id-B") &&
                b.indexOf("  query: call one's question") < b.indexOf("  query: call two's question"); }],
+
+    // --- kogaki#181: the ANSWER must evidence the ADDRESS the framing sent ---
+    // The regression pin for the four receipts of PR #170's lane. Measured
+    // against the served schemas at product-lab@98195e0a: `gloss_index`
+    // declares `tag` and nothing else, so `tags` is DROPPED by the gateway and
+    // the response served is `gloss/INDEX.md` — a well-formed answer to the
+    // unfiltered call. It must now REFUSE rather than compose.
+    ["an UNDECLARED address key REFUSES — the gateway drops it and answers the broader call",
+     () => { const r = compose([{ framing: { raw: '{"tags":"lessons/testing"}',
+               args: { tags: "lessons/testing" }, tool: "gloss_index", question: "a question" },
+               declared: GLOSS, text: served("r", "gloss/INDEX.md:3-189") }], "discriminating");
+             return r.startsWith("THREW: framing 1 addressed `gloss_index` with `tags`") &&
+               r.includes("does not declare") && r.includes("DROPPED"); }],
+    ["the same address DECLARED composes — the check bounds the form, it does not forbid the tool",
+     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+         tool: "gloss_index", question: "a question" }, declared: GLOSS,
+       text: served("r", "gloss/lessons/testing.md:1-157") }], "discriminating")
+       .includes("  query: a question")],
+    ["unobserved served schemas REFUSE rather than assuming the address landed",
+     () => compose([{ framing: { raw: "{}", args: {}, tool: "gloss_index", question: "q" },
+       text: served("r", "gloss/INDEX.md:3") }], "discriminating")
+       .startsWith("THREW: framing 1 was not checked against `gloss_index`'s served argument schema")],
+    // The ECHO limb. A miss is the one path the gateway names its own address
+    // on, and a miss is a legitimate answer — so it composes when it agrees and
+    // refuses when it does not.
+    ["a MISS echoing the address sent composes — a miss is an answer, not a defect",
+     () => compose([{ framing: { raw: '{"tag":"zzz/nope"}', args: { tag: "zzz/nope" },
+         tool: "gloss_index", question: "q" }, declared: GLOSS,
+       text: JSON.stringify({ miss: true, tool: "gloss_index", request: { tag: "zzz/nope" },
+         pin: PIN, request_id: "r", consulted: `consulted: ${PIN} miss` }) }], "discriminating")
+       .includes("  request_id: r")],
+    ["a MISS whose echoed request contradicts the address sent REFUSES",
+     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+         tool: "gloss_index", question: "q" }, declared: GLOSS,
+       text: JSON.stringify({ miss: true, tool: "gloss_index", request: { tag: "something/else" },
+         pin: PIN, request_id: "r", consulted: `consulted: ${PIN} miss` }) }], "discriminating")
+       .startsWith('THREW: framing 1 sent `tag`="lessons/testing" and the served response answers')],
+    ["a MISS echoing a DIFFERENT TOOL REFUSES",
+     () => compose([{ framing: { raw: "{}", args: {}, tool: "gloss_index", question: "q" }, declared: GLOSS,
+       text: JSON.stringify({ miss: true, tool: "lessons_index", pin: PIN, request_id: "r",
+         consulted: `consulted: ${PIN} miss` }) }], "discriminating")
+       .startsWith("THREW: framing 1 addressed `gloss_index` and the served response answers `lessons_index`")],
+    ["the echo compares only the keys the framing SENT — a normalized null the gateway adds is not a contradiction",
+     () => compose([{ framing: { raw: '{"kind":"zzz"}', args: { kind: "zzz" },
+         tool: "element_survey", question: "q" }, declared: new Set(["kind", "tag"]),
+       text: JSON.stringify({ miss: true, tool: "element_survey", request: { kind: "zzz", tag: null },
+         pin: PIN, request_id: "r", consulted: `consulted: ${PIN} miss` }) }], "discriminating")
+       .includes("  request_id: r")],
+    // THE BOUNDARY, pinned so it is not mistaken for an oversight. A HIT
+    // carries no echo at all, and the transport does NOT re-derive one from the
+    // served path — that is the half routed to the gateway repository.
+    ["a HIT carries no echo and is not required to invent one — the undecidable half is silent, not guessed",
+     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+         tool: "gloss_index", question: "q" }, declared: GLOSS,
+       text: served("r", "gloss/INDEX.md:3-189") }], "discriminating").includes("  query: q")],
   ];
   const failures = cases.filter(([, f]) => f() !== true).map(([n]) => n);
   if (failures.length) {
@@ -513,7 +689,10 @@ function selfTest() {
   console.log(`fixture pass: ${cases.length}/${cases.length} receipt-composition cases ` +
     "(line one copied from the server; one query line per framing; pins merged " +
     "under one commit; the outcome token carried, never chosen; the question " +
-    "bound to the call whose request_id is emitted; six refusals)");
+    "bound to the call whose request_id is emitted; the ANSWER bound to the " +
+    "ADDRESS — an undeclared key and a contradicting served echo both refuse, " +
+    "and the hit path's absent echo is left undecided rather than re-derived; " +
+    "ten refusals)");
   process.exit(0);
 }
 
@@ -527,14 +706,36 @@ try {
   // Results are BUFFERED, never streamed, so a run that degrades on framing 2
   // still prints exactly one `policy_source unavailable:` line and nothing
   // else — the one-line contract is over the whole invocation, not per call.
+  // THE SERVED ADDRESS FORMS, read off the SAME wire as the calls (kogaki#181).
+  // Requested only in receipt mode: the check it feeds exists to bound what a
+  // receipt may assert, and a non-receipt run asserts nothing, so the ratified
+  // degrade and the pre-receipt invocation keep their exact shapes and spend no
+  // extra round trip. A gateway that lists no tools leaves `declared`
+  // undefined, and `assertAddressEvidenced` refuses on that rather than
+  // assuming the address landed.
+  let declaredByTool = null;
+  if (receiptMode) {
+    timer.refresh();
+    const listed = await rpc(2, "tools/list", {});
+    if (Array.isArray(listed.result?.tools))
+      declaredByTool = new Map(
+        listed.result.tools.map((t) => [
+          t.name,
+          new Set(Object.keys(t.inputSchema?.properties ?? {})),
+        ]),
+      );
+  }
   const observed = [];
   for (const [i, framing] of framings.entries()) {
     timer.refresh();
-    const res = await rpc(2 + i, "tools/call", { name: framing.tool, arguments: framing.args });
+    const res = await rpc(3 + i, "tools/call", { name: framing.tool, arguments: framing.args });
     if (res.error) unavailable(`rpc error: ${res.error.message ?? "unknown"}`);
     const text = (res.result?.content ?? []).map((c) => c.text ?? "").join("");
     if (res.result?.isError) unavailable(`tool error: ${text.slice(0, 200)}`);
-    observed.push({ framing, text });
+    // The declared schema rides the framing's OWN record, exactly as its
+    // question does — so the schema, the arguments and the response that
+    // answered them are one value and cannot be zipped wrongly.
+    observed.push({ framing, text, declared: declaredByTool?.get(framing.tool) });
   }
   clearTimeout(timer);
   proc.kill();
