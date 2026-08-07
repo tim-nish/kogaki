@@ -366,8 +366,26 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--report-dir", RDJE, "--group", "architecture", "--subdivisions", SJE,
      "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
+  // SEAM-AWARE, exactly as every other report-running block in this file
+  // (`:874-878`, `:965-969`, `:1175-1178`). `report` reads served Gloss
+  // renderings, so where no gateway is configured it degrades with exit 11 —
+  // and a fixture that read that as a hard failure would be RED on every
+  // machine without a seam while passing on the author's. Round 1 of PR #225
+  // caught exactly that: the suite was green locally and red in CI, which is
+  // the signature of a seam dependency rather than of the diff.
+  // A check that cannot run its trials SAYS SO (absence-verification-counts-
+  // exercised-trials); it does not report a pass it did not earn, and it does
+  // not fail a diff it did not test.
+  const jeSeamAbsent = je.status === 11
+    || (je.status !== 0
+        && /policy_source unavailable|gateway/i.test(String(je.stderr) + String(je.stdout)));
   const written = readdirSync(RDJE).filter((f) => f.startsWith("terrain-full-report-"));
-  if (je.status !== 0 || written.length !== 1) {
+  if (jeSeamAbsent) {
+    console.log("AC7 consumer half: CANNOT-DETERMINE for the judged-empty artifact cases — "
+      + "the served seam is unavailable here and `report` reads served Gloss renderings "
+      + "through it. The producer half (the skill teaches the typed record and its "
+      + "judged-empty form) and the bare-array refusal below are seam-free and RAN.");
+  } else if (je.status !== 0 || written.length !== 1) {
     fails.push(`a judged-EMPTY group did not produce its report (exit ${je.status}, `
       + `${written.length} written): ${(je.stderr || "").trim().slice(0, 200)}`);
   } else {
@@ -399,10 +417,16 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--report-dir", RDJE, "--group", "architecture", "--subdivisions", SLEGACY,
      "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
+  // SEAM-FREE BY CONSTRUCTION, and that is why it stays a hard assertion:
+  // `readSubdivisionEntry` refuses while validating the input, BEFORE any shard
+  // fetch, so the refusal fires with or without a gateway. Only the NAMING
+  // assertion is seam-conditional — under degrade the process exits 11 with the
+  // `policy_source unavailable` line instead, so requiring "bare array" in
+  // stderr there would fail on the absence rather than on the behaviour.
   if (legacy.status === 0) {
     fails.push("a BARE ARRAY subdivision entry was accepted — the withdrawn pre-v9 form must be refused by name, "
       + "or a stale composer silently recovers the truthiness semantics v9 removed");
-  } else if (!/bare array/.test(legacy.stderr || "")) {
+  } else if (!jeSeamAbsent && !/bare array/.test(legacy.stderr || "")) {
     fails.push("the bare-array entry was refused without NAMING the defect — a refusal that does not say what to write instead sends the composer guessing");
   }
 
@@ -426,7 +450,11 @@ console.log("cotags fixture: PASS — cases exercised (lone-tag group; declared 
   + "carries count + IDs with its claim beneath; unplaced member named not dropped; "
   + "leaf verdict rendered; a flipped verdict CHANGES it; judge pin recorded and "
   + "REFUSED when absent; degenerate-claim disclosure rendered; no slug dump on the "
-  + "screen; the skill names the co-tag step, eager --all-groups reports, and the "
+  + "screen; AC7's boundary pair — the skill teaches the v9 typed record and its "
+  + "judged-empty form, and a judged-EMPTY group runs END TO END with a real judge "
+  + "pin, ZERO SubGroupClaims and its members intact (seam-aware: CANNOT-DETERMINE "
+  + "where no gateway is configured) — plus the withdrawn bare array refused BY NAME; "
+  + "the skill names the co-tag step, eager --all-groups reports, and the "
   + "serve-verbatim rule; no member-count threshold across cmdCotags, "
   + "subgroupPlacement and judgeSubgroup)");
 JS
