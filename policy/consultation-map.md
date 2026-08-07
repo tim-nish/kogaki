@@ -35,7 +35,7 @@ address, which is the argument `gloss_index` takes; it never names a served
 file path, because a path is a fact about how the substrate stores its
 renderings and this map may not depend on one.
 
-**A `Served line (pinned)` pin must RESOLVE ON THE SERVED SURFACE** (kogaki#171).
+**A `Served line (pinned)` pin must RESOLVE ON THE SERVED SURFACE** (kogaki#176).
 The pin's own enumeration is `surface_names`, and it returns
 `topics/…`, `gloss/lessons/…`, `gloss/journeys/…`, `gloss/decisions/…` and
 nothing else — so a pin into a hub *repository* path (`specs/qa-gateway.md`
@@ -46,13 +46,49 @@ committed by the file that exists to prevent it: the entry looks pinned, and
 nothing about it says the pin was never resolvable. Resolve the pin before the
 entry lands, and record the hub commit it resolved at.
 
+**Its ground is this map's founding Invariant 1, quoted at its pin** — the
+clause is the operative reading of a ratified position, not a new one:
+
+> "Invariant 1: entries are pointers + trigger terms + a one-line summary
+> QUOTING the served line at its pin, never a paraphrase — a paraphrase makes
+> the map a conformance copy with no declared precedence, and on any divergence
+> the served surface wins and the entry is repaired."
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:44`
+
+Both of that invariant's limbs entail the clause. A pin into a hub repository
+path quotes no *served* line, so such an entry fails the first limb outright;
+and the repair the second limb prescribes — the served surface wins, the entry
+is repaired — is inoperable for an entry that can never be checked against that
+surface. Refusing at authoring is therefore not an added rule but the only
+moment at which such an entry could conform, because it cannot conform later.
+
+**This clause SHIPPED UNLICENSED, and that is recorded here rather than
+repaired away.** It landed in PR #173 attributed to `(kogaki#171)` — whose text
+is entirely about the *occasion* (a new map entry filed on a miss) and never
+about this file's **contract half**. PR #173's own review lane caught it as
+finding 1 (at head `ac2a356`) and prescribed a re-route rather than a revert.
+kogaki#176 is that re-route: it supplies the licence the clause never had, on
+the served ground above, which is why line one of this clause now attributes to
+#176. For the interval between landing and ratification the clause bound every
+filer with no licence behind it. That gap stays written down, because a clause
+quietly legitimised by later use — attribution tidied, history closed — is
+precisely the shape this file exists to surface.
+
 **It binds entries filed after it, and entry 1 is the known non-conformer.**
 Entry 1's pin names `topics/claude-code-ops.md` with no line and no hub commit
 ("2026-08-04 governance lines"), which is the condition this clause describes;
-entries 2 and 3 conform. The clause is declared forward-binding rather than
-applied retroactively here because repairing entry 1's pin means re-resolving
-its served line, which no issue in front of this file authorizes — so the
-repair is owed on its own carrier (kogaki#175) rather than silently deferred.
+entries 2 and 3 conform. **The non-conformance is broader than the missing
+line.** Resolving the pin at `98195e0a` shows entry 1's quoted text sits on no
+single served line: "a check suite is budgeted at its loop position; suite
+membership is opt-in per loop; admission carries a removal signal" is line 22's
+kernel, while "declared at birth" is line 24's. A splice reads as one quotation,
+and an unresolvable pin is exactly what keeps it invisible — so this is the
+clause's own case rather than an exception to it. The clause is declared
+forward-binding rather than applied retroactively here because repairing entry 1
+means re-resolving its served line *and re-cutting its quote*, which no issue in
+front of this file authorizes — so the repair is owed on its own carrier
+(kogaki#175) rather than silently deferred.
 A rule whose own file fails it, with nothing saying so, is the latent
 contradiction this map exists to surface.
 
