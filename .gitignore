@@ -3,3 +3,10 @@
 .local/
 __pycache__/
 *.pyc
+
+# The Full Report's OWNER RENDERING (SPEC.md §2.5.2, SPEC-terrain §12.2 v11,
+# kogaki#234). Repo-VISIBLE so the owner reads it where they work; NOT
+# committed, because it derives from uncommitted survey records and inherits
+# their sensitivity — visibility and publication are two decisions and this
+# line is the second one, made explicitly rather than by where the file landed.
+reports/
