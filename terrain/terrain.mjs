@@ -19,7 +19,7 @@
 // Run state (survey records, proposal records, gate declarations, captures)
 // lives in the machine-local run workspace (default ~/.kogaki/runs/...),
 // never in the repository (specs/SPEC.md §4 rider 3).
-import { spawnSync } from "node:child_process";
+import { spawnSync, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -1529,16 +1529,125 @@ function cmdComposeInput(args) {
   console.log(`\nNext: cotags --survey ${String(args.survey)} --tag ${tag} --claims <F> [--subdivisions <F> --judge-model M --judge-effort E]`);
 }
 
-// Where reports live. §12.2: the MACHINE-LOCAL run workspace, never committed.
-// A STABLE home rather than a per-invocation directory, because §12.1's first
-// case — same identity, run twice, ONE report — is a claim across invocations
-// and a timestamped directory would make every rerun a duplicate by
-// construction.
+// Where the machine RECORD lives (§12.2 v11). A record is machine-facing and
+// the run workspace is its legitimate home — the owner ruling moved the
+// RENDERING, not this. A STABLE home rather than a per-invocation directory,
+// because §12.1's first case — same identity, run twice, ONE report — is a
+// claim across invocations and a timestamped directory would make every rerun
+// a duplicate by construction.
 function reportsDir(args) {
   const dir = args["report-dir"] || process.env.KOGAKI_RUN_DIR
     || join(homedir(), ".kogaki", "reports");
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+// Where the OWNER RENDERING lives (§12.2 v11, kogaki#234). The working tree,
+// because a Full Report is what the owner reads to think a Thesis through and
+// `specs/SPEC.md` §2.5 rules that a machine-local hidden directory DECLARES a
+// file machine-facing. Terrain was in a failed state under that rule until this
+// existed.
+//
+// The discriminator is LIFETIME, never format: a run workspace holds things
+// whose lifetime is the RUN, the tree holds things whose lifetime is the
+// OWNER's (§2.5.1). Defaulting to the repository root rather than to cwd is
+// deliberate — the location must not depend on where the command was invoked
+// from, which would be the producing stage's convenience picking the location
+// again, one layer down.
+function renderingsDir(args) {
+  const dir = args["rendering-dir"] || process.env.KOGAKI_REPORTS_DIR
+    || join(repoRoot(), "reports");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+// The owner surface prints a REPO-RELATIVE path (§2.5 clause 3): no owner-facing
+// output names a machine-local hidden path outside debugging, and an absolute
+// path into someone's home directory is the specimen that clause was written
+// against. Falls back to the absolute path only when the file genuinely sits
+// outside the tree, where hiding the location would be worse than showing it.
+export function relFromRepo(p, root) {
+  const r = root === undefined ? repoRoot() : root;
+  const pre = r.endsWith("/") ? r : r + "/";
+  return p.startsWith(pre) ? p.slice(pre.length) : p;
+}
+
+function repoRoot() {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || process.cwd();
+  } catch {
+    // No git, or not a checkout. cwd is the honest fallback and it is REPORTED
+    // at the call site rather than silently substituted — a rendering written
+    // somewhere the owner did not expect is the defect this whole section is
+    // about, so it must not happen quietly.
+    return process.cwd();
+  }
+}
+
+// The owner register (§12.2 v11). Markdown, because the artifact's whole job is
+// to be READ — the JSON beside it keeps every machine property, so nothing here
+// is load-bearing for identity and nothing may parse it back.
+export function renderReportMarkdown(report, tag) {
+  const L = [];
+  const i = report.identity;
+  L.push(`# Full Report — ${i.query.group}`);
+  L.push("");
+  L.push(`*Selected tag:* \`${tag}\`  `);
+  L.push(`*Substrate pin:* \`${i.pin}\`  `);
+  L.push(`*Judge:* ${i.judge_pin === NO_JUDGE ? "`none`"
+    : `\`${i.judge_pin.model_id}/${i.judge_pin.effort_tier}\``}`);
+  L.push("");
+  L.push("> Untruncated. This report ranks nothing, narrows nothing and hides");
+  L.push("> nothing (SPEC-terrain §2.3, §12). It is a RENDERING, not an address:");
+  L.push("> article material is quoted from served renderings at pins, never");
+  L.push("> from a report.");
+  L.push("");
+  L.push("## Group claim");
+  L.push("");
+  L.push(report.group_claim === NO_CLAIM ? "*(none composed)*" : report.group_claim);
+  L.push("");
+  if (report.subgroups && report.subgroups.length) {
+    L.push("## SubGroups");
+    for (const sg of report.subgroups) {
+      L.push("");
+      L.push(`### ${sg.name}`);
+      L.push("");
+      L.push(sg.claim === NO_CLAIM ? "*(no SubGroupClaim)*" : sg.claim);
+      L.push("");
+      for (const m of sg.members) L.push(`- ${memberLine(m)}`);
+    }
+  } else if (report.subgroups && report.subgroups.length === 0) {
+    // JUDGED-EMPTY is not the same silence as unjudged, and the rendering must
+    // not flatten them (§12.1 v9). A reader seeing no SubGroups section could
+    // not tell "the judgment produced no split" from "nobody judged".
+    L.push("## SubGroups");
+    L.push("");
+    L.push("*The judgment produced NO split — this is a judged-empty outcome,");
+    L.push("not an absent judgment. Members are listed below.*");
+    L.push("");
+    for (const m of report.members || []) L.push(`- ${memberLine(m)}`);
+  } else {
+    L.push("## Members");
+    L.push("");
+    for (const m of report.members || []) L.push(`- ${memberLine(m)}`);
+  }
+  L.push("");
+  L.push("## Counted");
+  L.push("");
+  for (const [fam, n] of Object.entries(report.counted || {})) L.push(`- ${fam}: ${n}`);
+  L.push(`- lessons served: ${report.lessons_served}`);
+  L.push("");
+  return L.join("\n") + "\n";
+}
+
+function memberLine(m) {
+  if (m && typeof m === "object") {
+    const id = m.id || m.slug || "";
+    const gloss = m.gloss || m.claim || "";
+    return gloss ? `\`${id}\` — ${gloss}` : `\`${id}\``;
+  }
+  return String(m);
 }
 
 // The identity TRIPLE (§12.1): substrate pin, co-tag query (selected tag,
@@ -1728,7 +1837,21 @@ function cmdReport(args) {
   };
   writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
 
-  console.log(`Full Report (untruncated; SPEC.md §12): ${out}`);
+  // THE OWNER RENDERING, in the SAME ACT (§12.2 v11, kogaki#234). A run that
+  // wrote the record and not the rendering would leave the owner exactly where
+  // the ruling found them, so this is not conditional on a flag: `--no-render`
+  // is the opt-out and its absence is the default.
+  let rendered = null;
+  if (!args["no-render"]) {
+    const rdir = renderingsDir(args);
+    rendered = join(rdir, `terrain-full-report-${identityDigest(identity)}.md`);
+    writeFileSync(rendered, renderReportMarkdown(report, tag));
+  }
+
+  if (rendered) {
+    console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md §12.2): ${relFromRepo(rendered)}`);
+  }
+  console.log(`machine record (JSON, identity + idempotence; SPEC.md §12.1): ${out}`);
   console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, ${group.name}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
   console.log(`${sectionFigure(Object.assign({}, group, { by_family: report.counted }), record.candidates.length)}`);
   if (abnormal) {
@@ -1736,7 +1859,9 @@ function cmdReport(args) {
   }
   console.log("Classification: REPORT (SPEC.md §2.3, §12) — it ranks nothing, narrows nothing and hides nothing, so it sits in neither act list.");
   console.log("A RENDERING, not an address: nothing downstream resolves a report id, and a Brief records members and pins (SPEC.md §12).");
-  console.log("Machine-local and never committed (SPEC.md §12.2; founding spec rider 3).");
+  console.log("The RENDERING is repo-visible and NOT committed; the RECORD is "
+    + "machine-local (SPEC.md §2.5.2, §12.2 v11). Two artifacts, two rules — "
+    + "visibility and publication are separate decisions.");
   }
 }
 

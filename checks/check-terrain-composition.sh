@@ -80,7 +80,7 @@ cd "$(dirname "$0")/.."
 # would leave `cotagCover`'s refusal in exactly the condition PR #123's review
 # found it in: present, correct-looking, and unreachable.
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { cotagGroups, cotagCover, NO_SECOND_TAG, COTAG_SORT, NO_CLAIM }
@@ -895,7 +895,7 @@ EOF
 # what makes that concrete — a subdivided and an unsubdivided run over the SAME
 # pin and query must produce TWO coexisting reports, not one.
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -1572,7 +1572,7 @@ JS
 # ($TSUREZURE_GATEWAY_JS) at checks/fixtures/terrain/compose-input/stub-gateway.mjs.
 # Nothing here reaches the real substrate, so the block runs in CI identically.
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -1742,6 +1742,120 @@ if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
   fails.push("the claimless ABNORMAL block does not name `compose-input` — the bounded input is reachable only if the surface that needs it says so, and a mechanism nothing points at is the orphan shape one layer up");
 }
 
+// --- kogaki#234: the owner rendering exists, in the TREE, and the owner
+// surface never names a machine-local path ---
+//
+// THE PROPERTY IS THE ARTIFACT'S LOCATION AND THE SURFACE'S WORDS, so both are
+// asserted. Terrain was in a failed state under `specs/SPEC.md` §2.5 while a
+// human-facing report lived under `~/.kogaki/` — and every §12.1 assertion
+// passed throughout, because identity and idempotence are true of a file
+// wherever it sits. A suite that could not see this is why the defect survived
+// two ratified sittings.
+{
+  const tree = mkdtempSync(join(tmpdir(), "kogaki-tree-"));
+  const run = mkdtempSync(join(tmpdir(), "kogaki-run-"));
+  const subs = join(run, "subs.json");
+  writeFileSync(subs, JSON.stringify({
+    "testing × architecture": { judged: true, subgroups: [] },
+  }));
+  const r = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
+     "--group", "architecture", "--subdivisions", subs,
+     "--report-dir", run, "--rendering-dir", join(tree, "reports"),
+     "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
+  const out = String(r.stdout) + String(r.stderr);
+
+  // SEAM-AWARE, exactly as every other report-running block here: `report`
+  // reads served Gloss renderings, so with no gateway it degrades with exit 11.
+  // A fixture reading that as failure would be RED on every machine without a
+  // seam and green on the author's — the PR #225 signature.
+  const seamAbsent = r.status === 11
+    || (r.status !== 0 && /policy_source unavailable|gateway/i.test(out));
+
+  if (seamAbsent) {
+    console.log("kogaki#234 artifact split: CANNOT-DETERMINE — the served seam is "
+      + "unavailable here and `report` reads served Gloss through it. The "
+      + "gitignore assertion below is seam-free and RAN.");
+  } else if (r.status !== 0) {
+    fails.push(`the report run failed (exit ${r.status}): ${out.trim().slice(0, 200)}`);
+  } else {
+    const rdir = join(tree, "reports");
+    const mds = existsSync(rdir) ? readdirSync(rdir).filter((f) => f.endsWith(".md")) : [];
+    if (mds.length === 0) {
+      fails.push("no owner RENDERING was written to the tree — the run produced a machine record and left the owner exactly where kogaki#234's ruling found them");
+    }
+    if (readdirSync(run).filter((f) => f.endsWith(".json") && f.startsWith("terrain-full-report-")).length === 0) {
+      fails.push("no machine RECORD was written to the run workspace — the split is two artifacts, and dropping the record trades one violation for another");
+    }
+    if (mds.length) {
+      const body = readFileSync(join(rdir, mds[0]), "utf8");
+      // READABLE, not a JSON blob behind a .md name: the whole ruling is about
+      // what the owner opens.
+      if (!/^# Full Report/m.test(body) || !/^## /m.test(body)) {
+        fails.push("the owner rendering is not owner-register Markdown — a machine format behind a .md name satisfies the location clause and defeats its purpose");
+      }
+      if (/^\s*[{[]/.test(body)) fails.push("the owner rendering is serialized JSON");
+    }
+    // §2.5 clause 3 — THE OWNER SURFACE. The specimen the clause was written
+    // against is a run announcing "written to ~/.kogaki/reports/".
+    if (/\.kogaki\//.test(out) || /\.local\//.test(out)) {
+      fails.push("the owner surface printed a machine-local hidden path — §2.5 clause 3 forbids it outside debugging, and naming one tells the owner the opposite of what is true");
+    }
+    if (!/reports\/[^\s]*\.md/.test(out)) {
+      fails.push("the owner surface does not name the repo-relative rendering path — a file the owner cannot find is not repo-visible in any sense that matters");
+    }
+  }
+  rmSync(tree, { recursive: true, force: true });
+  rmSync(run, { recursive: true, force: true });
+}
+
+// THE DEFAULT LOCATION, EXERCISED (kogaki#234). The block above passes
+// `--rendering-dir`, so it proves the flag and says NOTHING about where a real
+// run writes — and a real run is what the owner ruling is about. Pointing the
+// mutation probe at the default is what caught this: moving the default back
+// to `~/.kogaki/reports` left every assertion above green.
+//
+// This is the dead-fixture class kogaki#230 binds, arriving through an
+// override rather than through a missing assertion: a fixture that supplies
+// the value under test cannot see the default drift.
+{
+  const run2 = mkdtempSync(join(tmpdir(), "kogaki-run2-"));
+  const subs2 = join(run2, "subs.json");
+  writeFileSync(subs2, JSON.stringify({
+    "testing × architecture": { judged: true, subgroups: [] },
+  }));
+  const d = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
+     "--group", "architecture", "--subdivisions", subs2, "--report-dir", run2,
+     "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
+  const dout = String(d.stdout) + String(d.stderr);
+  const dSeamAbsent = d.status === 11
+    || (d.status !== 0 && /policy_source unavailable|gateway/i.test(dout));
+  if (dSeamAbsent) {
+    console.log("kogaki#234 default location: CANNOT-DETERMINE — seam unavailable.");
+  } else if (d.status !== 0) {
+    fails.push(`the default-location run failed (exit ${d.status}): ${dout.trim().slice(0, 160)}`);
+  } else {
+    if (/\.kogaki\//.test(dout)) {
+      fails.push("with NO --rendering-dir, the owner surface names a machine-local path — the DEFAULT is where a real run lands, and the ruling is about real runs");
+    }
+    if (!/^Full Report — READ THIS ONE[^\n]*: reports\//m.test(dout)) {
+      fails.push("the default rendering path is not repo-relative `reports/…` — the default must satisfy §2.5 without the operator passing a flag");
+    }
+  }
+  rmSync(run2, { recursive: true, force: true });
+}
+
+// And the rendering must be IGNORED rather than committed (§2.5.2): visibility
+// and publication are separate decisions, and letting `git add` settle the
+// second is the defect LESSONS.md:112 names by name.
+{
+  const g = spawnSync("git", ["check-ignore", "reports/x.md"], { encoding: "utf8" });
+  if (g.status !== 0) {
+    fails.push("reports/ is not gitignored — the rendering derives from uncommitted survey records and inherits their sensitivity; committing it is a declassification act needing its own grounds");
+  }
+}
+
 if (fails.length) {
   console.log("FAIL compose-input bounded-read fixture — the composer's input is not bounded to the tag-scoped shard (kogaki#163, SPEC.md §9):");
   for (const f of fails) console.log(`  - ${f}`);
@@ -1753,5 +1867,5 @@ console.log("compose-input bounded-read fixture: PASS — cases exercised (one t
   + "material untruncated; reads UNCHANGED across a record whose placements were multiplied over "
   + "the same candidates — the pair no single run can display; the COMMAND path run end to end "
   + "against a stub gateway that counted the reads it served, rather than the accounting the run "
-  + "printed about itself; and the claimless co-tag screen naming the bounded input as its remedy)");
+  + "printed about itself; and the claimless co-tag screen naming the bounded input as its remedy); kogaki#234: the owner RENDERING lands in the TREE as owner-register Markdown while the machine RECORD lands in the run workspace, the owner surface names the repo-relative path and NO machine-local hidden path, and reports/ is gitignored — visibility and publication decided separately)");
 JS

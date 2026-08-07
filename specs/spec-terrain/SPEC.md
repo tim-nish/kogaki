@@ -1,6 +1,14 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v10, amended 2026-08-07 — **§11's composition pin carries the
+**Status:** v11, amended 2026-08-08 (kogaki#234) — **the Full Report's
+machine-local location is STRUCK as incorrect state and divergence-register
+entry 2 with it.** Owner ruling 2026-08-08 (`specs/SPEC.md` §2.5): human-facing
+files live in the repository or a designated storage path. §12.2 now splits the
+report into a machine RECORD (JSON, run workspace, all of §12.1 unchanged) and
+an owner RENDERING (Markdown, `reports/` in the working tree, default-on,
+repo-visible and uncommitted). Both prior positions — WA's write-no-file and
+Kogaki's durable-machine-local — are ruled wrong; neither survives as a
+supported mode. v10, amended 2026-08-07 — **§11's composition pin carries the
 SERVED MEMBER SET, and the claims artifact is the carrier** (kogaki#212, owner
 selection). v9 named a **digest** while requiring a **subset** refusal that
 names offending members — a mechanism that cannot deliver the property the same
@@ -280,9 +288,27 @@ is misusing it.
 
 1. **Lessons-only candidate rows** (§5.1) — diverges from a served hub line;
    declared there with its falsifiers.
-2. **The Full Report as a durable machine-local file** (§12.2) — WA's report
+2. ~~**The Full Report as a durable machine-local file** (§12.2) — WA's report
    renders from held state and writes no file (wa#986 declined md-export
-   twice); Kogaki's durability half was decided at kogaki#129.
+   twice); Kogaki's durability half was decided at kogaki#129.~~
+   **STRUCK 2026-08-08 (kogaki#234) — the entry recorded a divergence Kogaki
+   was not entitled to, and BOTH positions it named are ruled wrong.** The WA
+   baseline (render from held state, write no file) and Kogaki's own ratified
+   answer (a durable machine-LOCAL file) are both superseded by the owner's
+   repository-wide rule at `specs/SPEC.md` §2.5: the DURABILITY half survives
+   and the LOCATION half is reversed — a durable file, in the working tree,
+   repo-visible and uncommitted.
+   **Why this entry is the register's own sharpest lesson.** It did everything
+   §2.4 asks: the divergence was declared, in the amendment that created it,
+   with its baseline named. And it was still wrong, because **a register
+   records THAT you diverged and cannot check whether you were ENTITLED to** —
+   the served line `product-lab@dec0d568 LESSONS.md:132` had held the answer
+   for three weeks and no consultation at that sitting reached for it. The
+   entry is struck rather than re-pointed: there is no surviving divergence
+   here to record, only a corrected position.
+   **The register does not shrink to three.** Entries keep their numbers so
+   citations stay valid, and a struck entry stays countable — a register whose
+   members silently renumber is one whose history cannot be quoted.
 3. **Eager report generation at the co-tag view** (§11, decided v5) — WA's
    owner pulls a report per named group; the eager reading is owner-ruled
    2026-08-06 (kogaki#146).
@@ -2783,17 +2809,87 @@ likes, *because* nothing is permitted to depend on the name. Had naming been
 left to a `deferred-slot:`, the slot would have implied a decision was owed
 before code could proceed; none is.
 
-Reports are written to the **machine-local run workspace** (`~/.kogaki/runs/…`
-or `$KOGAKI_RUN_DIR`), alongside the survey records they derive from, and are
-**never committed**. This is decided here rather than deferred, because the
-precedent is unambiguous and already binding: founding spec rider 3 makes the
-run workspace machine-local and uncommitted, `.claude/skills/terrain/SKILL.md`
-states it as a hard line, and the §9 fill on kogaki#26/#27 measured **zero**
-committed survey records. A report is a derivation *of* a survey record and
-cannot be more public than its input.
+### STRUCK — the machine-local location, reversed 2026-08-08 (kogaki#234)
 
-**Consequence, stated so it is not discovered later:** a Full Report is not a
-citable artifact for anything outside the machine that made it. Article
-material is quoted from served renderings at pins (`specs/SPEC.md` §2), never
-from a report — which is the same boundary the rendering-not-an-address clause
-above draws, arriving from the storage side.
+**The paragraph below was normative from v3 until 2026-08-08 and is WRONG.**
+It is struck rather than deleted, per §2.4's reversal discipline, because a
+silently removed clause leaves the argument that produced it available to be
+made again:
+
+> ~~Reports are written to the **machine-local run workspace**
+> (`~/.kogaki/runs/…` or `$KOGAKI_RUN_DIR`), alongside the survey records they
+> derive from, and are **never committed**. … A report is a derivation *of* a
+> survey record and cannot be more public than its input.~~
+
+**Struck by owner ruling 2026-08-08** (`specs/SPEC.md` §2.5): human-facing
+files live in the repository or an explicitly designated storage path, and a
+machine-local hidden directory *declares* a file machine-facing. The Full
+Report is human-facing by this spec's own words — §12 calls it what the owner
+reads to think a Thesis through — so Terrain was **in a failed state under the
+rule** until this amendment.
+
+**It does not survive as a supported mode, a configuration option, or a
+selectable historical alternative.** The owner's instruction is explicit that
+the prior positions are wrong rather than superseded-but-admissible, and a
+struck clause left switchable is a future bug with a ratified excuse.
+
+**WHERE THE ARGUMENT WENT WRONG, which is the part worth keeping.** *"A report
+is a derivation of a survey record and cannot be more public than its input"*
+is a true sentence doing the wrong job. It reasons about **sensitivity** and
+was used to settle **location** — and those are two axes, which
+`product-lab@dec0d568 LESSONS.md:112` separates by name: *"never let storage
+location silently decide visibility."* Reading it correctly gives
+repo-**visible** and un-**committed**, which is exactly what §12.2 now
+specifies. The old clause reached a wrong answer by collapsing two questions
+into one, and it looked rigorous doing it.
+
+The other precedents it cited are unharmed and still binding: founding rider 3
+makes the **run workspace** machine-local and uncommitted, and the §9 fill
+measured zero committed **survey records**. Both remain true. Neither was ever
+evidence about where a *rendering for a human* belongs.
+
+### 12.2 (v11) Two artifacts, two rules — the machine record and the owner rendering
+
+**The conflation is what produced the violation, so the split is the fix.** A
+Full Report is two artifacts with two homes:
+
+| | machine record | owner rendering |
+| --- | --- | --- |
+| purpose | identity, idempotence, downstream reads | what the owner reads to think a Thesis through |
+| format | JSON | Markdown (owner register) |
+| home | run workspace — `$KOGAKI_RUN_DIR` or `~/.kogaki/runs/…` | **`reports/` in the working tree** |
+| lifetime | the RUN | the OWNER's |
+| committed | no | **no — but repo-VISIBLE**, see below |
+
+- **The machine record keeps everything §12.1 says.** The identity triple, the
+  idempotence claim across invocations, the stable home that makes a rerun
+  collide rather than duplicate — all of it binds the JSON, unchanged. A record
+  is machine-facing and the run workspace is its legitimate home; nothing in
+  the ruling touches it.
+- **The owner rendering is generated by DEFAULT on a terrain run.** An opt-out
+  may exist for the explicit-request case; the owner expects it unused, so its
+  absence blocks nothing and no `deferred-slot:` is owed for it — a
+  not-yet-built convenience with no decision inside it is not a deferred fork.
+- **Both are written in the same act.** A run that produced the record and not
+  the rendering would reproduce the 2026-08-06 defect specimen from the other
+  side, and the rendering is what the ruling is about.
+
+**Repo-visible, NOT committed, and that is one decision made twice rather than
+one decision made once.** `reports/` is `.gitignore`d. Clause 1 of §2.5 is
+satisfied by the file being in the tree where the owner works; §2.5.2 forbids
+letting that placement also decide publication. The rendering derives from
+survey records that are uncommitted, so it inherits their sensitivity — and
+committing it would be a declassification act needing grounds this sitting does
+not have and was not asked for. **The ruling governs visibility; it grants no
+publication.**
+
+**Naming is unchanged** — the filename stays implementer-owned and carries no
+authority, for exactly the reasons v4 gave. Both artifacts may share a derived
+basename; nothing parses either.
+
+**Consequence, restated and NARROWED.** A Full Report — in either form — is
+still not a citable artifact. Article material is quoted from served renderings
+at pins (`specs/SPEC.md` §2), never from a report. What has changed is
+**where the owner reads it**, not what it may ground: the rendering-not-an-address
+clause above is untouched, and moving a file into the tree does not make it
+evidence.

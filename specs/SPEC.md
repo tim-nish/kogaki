@@ -27,6 +27,88 @@ defect class unproducible rather than detected
 (`topics/knowledge-architecture.md` 2026-08-04; `topics/articles.md`
 2026-08-04, the evidence re-scoping).
 
+## 2.5 Human-facing files live where the human works (owner ruling 2026-08-08)
+
+**Repository-wide. Owner ruling 2026-08-08, carrier kogaki#234**, quoted as
+ruled:
+
+> "Human-facing files may exist only in the repository itself or in a path
+> explicitly designated for storage. Placing a file under `~/.local`,
+> `~/.xxx`, or any machine-local hidden directory is itself a declaration
+> that the file is not intended to be exposed directly to the owner.
+> Outside debugging, paths under those locations must not even be surfaced
+> in the UI."
+
+Three clauses, each binding separately so a partial compliance is visible:
+
+1. **Location.** An artifact whose purpose is to be *read, reviewed, edited or
+   hand-copied by the owner* lives in the working tree or in a path the owner
+   explicitly designated for storage. Machine-readable intermediates, caches,
+   journals and resumable run state live in machine-state directories.
+2. **The location IS the declaration.** Writing a human-facing file under a
+   machine-local hidden directory is not a neutral storage choice — it
+   *declares* the file machine-facing. A component doing that is in a failed
+   state whatever its prose says about the file's purpose.
+3. **The owner surface.** No owner-facing output — skill text, session output,
+   a command's closing lines — prints a `~/.kogaki/…`, `~/.local/…` or
+   equivalent hidden path **outside debugging**.
+
+**This is not a Kogaki invention, and the served line predates the ruling by
+three weeks:** *"Human-facing artifacts (for reading, review, editing,
+hand-copy) live in the user's working repo; machine-readable intermediates,
+caches, journals, and resumable state live in machine-state dirs."*
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:132, topics/articles.md:34`
+  request_id: a3673fc1-066f-4374-81f5-d8fe0f1ba7e1
+  outcome: discriminating
+  query: Human-facing artifacts live where the human works, and a derived artifact inherits its source's sensitivity — where does a generated report belong, and is it committed or ignored?
+
+**Recording that the position was already served is the uncomfortable half and
+is kept deliberately.** Kogaki ratified the opposite for its Full Report
+(kogaki#129/#131, `specs/spec-terrain/SPEC.md` §12.2) *and declared it as a
+divergence*, which is the discipline working — the entry was written, the
+register was countable. What the register could not do is notice that the
+divergence contradicted a portfolio lesson nobody consulted at that sitting.
+**A divergence register records that you diverged; it does not check whether
+you were entitled to.**
+
+### 2.5.1 The discriminator is LIFETIME, not format or audience-in-principle
+
+A run workspace holds things whose lifetime is the **run**; a repo-visible
+location holds things whose lifetime is the **owner's**. The served
+application of this is exact — an artifact was found in a run workspace keyed
+by recency *"so at draft time the owner cannot enumerate or select one —
+[[artifacts-live-where-human-works]] exactly, the location decided by WHICH
+STAGE PRODUCED IT rather than by WHO CONSUMES IT"*
+(`product-lab@dec0d568 topics/articles.md:34`).
+
+That is the general form of this defect: **the producing stage's convenience
+picks the location, and nobody re-asks on behalf of the consumer.** A component
+satisfies this section by asking whose lifetime the artifact has, never by
+asking which stage wrote it.
+
+### 2.5.2 Visibility is decided EXPLICITLY, never by storage location
+
+A human-facing artifact in the working tree is **repo-visible**; whether it is
+also **committed** is a separate decision that each carrier makes and states.
+The two are not the same question and must not be answered by one act.
+
+The served constraint is directional and it binds here:
+
+> "A derived artifact (summary, distilled line, report) inherits the highest
+> sensitivity of its sources unless an explicit human-held gate deliberately
+> lowers it — summarization/promotion is a declassification surface; route
+> every cross-boundary derivation through one logged gate, and **never let
+> storage location silently decide visibility**."
+
+`product-lab@dec0d568 LESSONS.md:112` (receipt above)
+
+So this section **moves** artifacts and **grants no publication**. A derivation
+of uncommitted material becomes repo-visible without becoming committed; making
+it committed is a declassification act needing its own grounds. A carrier that
+moved a file into the tree and let the default `git add` decide the rest would
+satisfy clause 1 while committing the defect this line names.
+
 ## 3. The guarantee split
 
 **Kogaki guarantees citation integrity — a quoted claim was quoted, and its
