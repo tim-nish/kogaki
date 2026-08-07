@@ -338,8 +338,11 @@ served surface and neither discriminated file-interior layout
 (`outcome: uncovered-after-2-framings`; `request_id:
 bf5be3a2-ab69-4899-a7ca-0df5d909c3cd`). The nearest served line — *"the stronger
 move being to serve structure so there is nothing to parse at all"*
-(`LESSONS.md:45`) — governs **format contracts between a producer and a consumer
-holding separate suites**, not a human-edited artifact's interior, so it is
+(`product-lab@98195e0a LESSONS.md:45`) — governs **format contracts between a
+producer and a consumer holding separate suites**, which the line states in its
+own terms (*"because producer and consumer hold separate suites over one
+contract, neither side can see the break"*), not a human-edited artifact's
+interior, so it is
 recorded here as **adjacent reasoning and not as grounding**. Claiming it would
 be the over-reach this spec's own citation discipline refuses.
 
@@ -374,11 +377,59 @@ grounding.
 
 kogaki#177 holds ~20 admitted Moves carrying no served pin, behind the trigger
 *"when the hub distils the 2026-08-06 rulings"* — which **fired on 2026-08-07**,
-so served pins now exist. The first ingestion run is the natural vehicle for
+so served pins now exist.
+
+**The disposition read is stated, with what it rests on and what it does not.**
+This is a record-disposition act — adopting one record as the live word on
+whether a held condition has discharged — so the ground is named rather than
+assumed: the served surface at `product-lab@98195e0a` carries 2026-08-07
+decision lines (`topics/knowledge-architecture.md:9,12,14-15`), which is
+**positive evidence that the distillation occurred**, not an inference from
+recency. The distinction is the one
+`product-lab@98195e0a LESSONS.md:56` draws — *"recency is evidence about when
+someone wrote and never about what they could see"* — and it binds here: what is
+claimed is that the 2026-08-06 rulings are **now served and pinnable**, which is
+checkable at the pin. What is **not** claimed is that every Move #177 holds has
+a matching served line; that is per-Move and is resolved at ingestion, not here.
+
+The first ingestion run is the natural vehicle for
 writing each accepted Move's `sources` derivation pointer, discharging #177 in
 the same pass; running #177 as a follow-up over the saved files is equally
-admissible. **That sub-fork is the implementing sitting's to decide**, and it is
-named here rather than left implicit so the sitting meets it as a decision.
+admissible.
+
+**That fork is NAMED rather than described, and the token is what names it:**
+
+    deferred-slot: move-sources-derivation-vehicle
+    instrument: the first `moves/` ingestion run — the act that either fills
+                this slot or demonstrably does not, and which cannot occur
+                without the filler being present at it
+
+Prose saying *"the implementing sitting's to decide"* was this section's first
+draft and it is the defect the token exists to replace: `specs/SPEC.md`
+§"deferred slots" binds any text leaving a choice *to the implementation* to the
+fixed token, **because gates bind to decision documents and an unnamed slot's
+decision escapes every one of them**. The served position is the same one a
+level up — *"a sitting that leaves a design choice to the implementation either
+DECIDES the fork there … or emits a NAMED SLOT whose filling is itself a
+decision act … An UNNAMED deferral is the defect"*
+(`product-lab@98195e0a topics/knowledge-architecture.md:16`) — and it names this
+exact escape route: the fork is *"legally exported past every decision-time
+instrument"*, met at review *"entrenched, pre-argued"*. **Naming it in prose is
+what the token replaces, not a lighter form of it.**
+
+The `instrument:` line is written rather than omitted, per
+`product-lab@98195e0a topics/knowledge-architecture.md:20` — *"`instrument: none`
+is a first-class value that is WRITTEN, never omitted"* — since **an omitted
+field and a field reading `none` are the same silence to a reader and completely
+different silences to a grep**. Here the instrument is not `none`: the slot's
+filling rides an act that already has to happen.
+
+Filling it is a decision act owed on kogaki#223 — choice, alternatives and
+receipt — **before the command embeds either answer**. This spec does not decide
+it, and deferral is priced here rather than banned:
+`topics/knowledge-architecture.md:16` is explicit that the rule is
+**DECIDE-OR-NAME, never force-decide**, since forcing it now would decide
+without the information the first run produces.
 
 ## 7. The Move library is ADMITTED — v1's hold REVERSED, and the reversal recorded
 
