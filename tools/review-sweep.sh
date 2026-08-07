@@ -1239,6 +1239,17 @@ def rally_cycles(bodies, resolves=None):
       the round it records, which is what keeps AC 1 from buying its
       representability with a new over-count.
 
+    THE NOT-COLLAPSING HALF COUPLES THIS TO kogaki#204, and the coupling runs
+    one way (PR #208 review round 1). #190's two causes are disjoint in
+    MECHANISM and they stop being disjoint in CONSEQUENCE the moment a mark
+    costs a round: on #190's own PR #180 specimen — a polling loop that
+    re-fired the trigger and completed three sessions at one head — the old
+    behaviour was three free spawns and the new behaviour is a mark each and a
+    PARK on the second. That is the correct reading of the spend, and it is
+    also why #204's writer-side guard moves from open to urgent: until it
+    lands, a caller bug that used to be silent spends the operator's whole cap.
+    Recorded here, at the line that causes it, rather than only on the issue.
+
     Head grouping is PREFIX-BASED because report shas may be abbreviated, and
     the most specific spelling is kept as the group's representative — the
     longest sha is the one least likely to swallow a sibling head.
@@ -1258,6 +1269,28 @@ def rally_cycles(bodies, resolves=None):
     unattested = [u for u in unverified_marks(bodies)
                   if not any(same_head(h, u) for h in heads)]
     return heads, unattested
+
+
+def park_class(bodies, resolves=None):
+    """Which KIND of park this is — selected from the count, never asserted.
+
+    The postmortem stub said `unreviewed-head (a push landed after the final
+    round)` unconditionally, and that was true while every counted round came
+    from a report that had landed. Charging an unread spawn (kogaki#190) makes
+    a park reachable with no push at all, so the stub would have named a cause
+    that did not occur — in the one artifact the owner reads to decide what to
+    do about the park. Three compositions of the count, three classes.
+    """
+    heads, unattested = rally_cycles(bodies, resolves)
+    if unattested and not heads:
+        return (f"class: unverified-rounds ({len(unattested)} spawned "
+                "session(s) whose report could not be read; NO report has "
+                "ever landed on this PR)")
+    if unattested:
+        return (f"class: mixed-rounds ({len(heads)} reviewed head(s) and "
+                f"{len(unattested)} spawned session(s) whose report could not "
+                "be read)")
+    return "class: unreviewed-head (a push landed after the final round)"
 
 
 def rounds_used(bodies, resolves=None):
@@ -2169,6 +2202,22 @@ def decide(bodies, head, resolves=None):
                   "anything and is NOT counted (kogaki#91). A sha was probably "
                   "reconstructed from a short prefix; the report is unfounded, "
                   "not merely stale")
+    # AND THE SAME DISCLOSURE FOR THE ROUNDS NOBODY COULD READ (kogaki#190).
+    # Emitted here, before any return, on the same ground and for the same
+    # reason as the loop above: `decide()` already announces a round it
+    # DISCOUNTED, and a round it CHARGES to a spawn whose report was never
+    # readable is the more surprising of the two — the count moved and the PR
+    # carries no report explaining why. Without it, AC 2's "the two facts
+    # remain distinct in the output" held on the arm's own line and nowhere
+    # the state machine speaks.
+    _uh, _um = rally_cycles(bodies, resolves)
+    if _um:
+        print(f"NOTE: {len(_um)} round(s) are charged to spawned session(s) "
+              "whose report could NOT be read (kogaki#190) — cannot-determine, "
+              "not a review. The head they name is NOT reviewed and the merge "
+              "gate stays red; what they establish is only that the round was "
+              "paid for. Route logs are named on the PR beside each "
+              "`review-round-unverified:` line")
     current = head_segments(segs, head)
     if any(counted(s) for s in current):
         # Only a JUSTIFIED blocking gates (kogaki#72): an unjustified one
@@ -2909,14 +2958,52 @@ for _label, _ok in [
     if not _ok:
         print(f"FAIL cycle fixture [{_label}]")
         _cfail = 1
+# THE CHARGE IS DISCLOSED WHERE THE STATE MACHINE SPEAKS, and the class the
+# park announces is SELECTED (PR #208 review round 1). AC 2 asks that a
+# cannot-determine stay distinct from a genuine absence IN THE OUTPUT, and the
+# first cut discharged that on the arm's own printed line and nowhere else —
+# so a park whose rounds were all unread spawns printed a postmortem blaming a
+# push that never happened. Both halves are asserted over the EMITTED TEXT,
+# because a fixture that asserts only the verdict is exactly what let the
+# downgrade NOTE ship on one of two paths (kogaki#76).
+for _label, _bodies, _want_note, _want_class in [
+    ("a charged unread spawn is ANNOUNCED by decide()",
+     f"review-round-unverified: {_CH}", True, "unverified-rounds"),
+    ("two of them park, and the park does NOT blame a push",
+     f"review-round-unverified: {_CH}\nreview-round-unverified: {_CH}",
+     True, "unverified-rounds"),
+    ("a mark beside a real report is a MIXED park, counted as both",
+     f"review-lane report: 9999999\nreview-round-unverified: 8888888",
+     True, "mixed-rounds"),
+    ("reports only: no notice, and the historical class is unchanged",
+     "review-lane report: 9999999\nreview-lane report: 8888888",
+     False, "unreviewed-head (a push landed after the final round)"),
+    ("no bodies at all: the historical class, and no notice",
+     "", False, "unreviewed-head"),
+]:
+    _buf = _io.StringIO()
+    with _ctx.redirect_stdout(_buf):
+        decide(_bodies, _CH, _ALL)
+    _said = "could NOT be read" in _buf.getvalue()
+    if _said != _want_note:
+        print(f"FAIL cycle fixture [{_label}]: the charge was "
+              f"{'announced without happening' if _said else 'SILENT'}")
+        _cfail = 1
+    _got_class = park_class(_bodies, _ALL)
+    if _want_class not in _got_class:
+        print(f"FAIL cycle fixture [{_label}]: park class {_got_class!r} "
+              f"does not carry {_want_class!r}")
+        _cfail = 1
 if _cfail:
     print("FAIL: a round is still counted per segment, or a spawn nobody "
-          "could read is still free — kogaki#190")
+          "could read is still free or silent — kogaki#190")
     sys.exit(1)
 print("cycle pass: 10/10 round-counting cases (two reviewers on one head is "
       "ONE round; distinct heads still park; an unread spawn costs a round; "
       "two of them park; a report subsumes its mark) + 5 mark-is-not-a-report "
-      "reader cases + 5 posted-body cases")
+      "reader cases + 5 posted-body cases + 5 disclosure cases (the charge is "
+      "announced by decide(); the park SELECTS its class and never blames a "
+      "push that did not happen)")
 
 if bad:
     print("FAIL fixture pass — the sweep's state machine does not discriminate:")
@@ -3242,9 +3329,18 @@ for pr in prs:
               "never a third round.")
         # Same dry-run guard as the branch above (kogaki#76) — both posts were
         # unconditioned, so a dry run mutated two PR surfaces, not one.
+        #
+        # THE CLASS IS SELECTED, NEVER ASSERTED (kogaki#190, PR #208 review
+        # round 1). It read `unreviewed-head (a push landed after the final
+        # round)` unconditionally, which was true while every counted round
+        # came from a report that had landed. Once an UNREAD spawn can spend a
+        # round, a park is reachable with no push at all — and the stub would
+        # have told the owner a cause that did not occur, in the one artifact
+        # they read to decide what to do. That is the shape this file names
+        # three times in its own comments: the outcome right, the disclosure
+        # wrong. The three classes are the three compositions of the count.
         _stub = (f"park-postmortem: {MAX_ROUNDS} rounds spent and {head[:7]} "
-                 "is still unreviewed — class: unreviewed-head (a push "
-                 "landed after the final round). A park is a pipeline "
+                 f"is still unreviewed — {park_class(bodies)}. A park is a pipeline "
                  "defect measured against the 1-in-100 budget (kogaki#72); "
                  "owner decision owed.")
         if mode == 'spawn':
