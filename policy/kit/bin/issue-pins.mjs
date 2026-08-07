@@ -269,6 +269,24 @@ export function parseCites(body) {
 // advisory. Refusing makes the shape unproducible, which is the ratified
 // direction, and it is what README's positive re-cut already describes.
 //
+// THE SERVED SURFACE RULES FOR REFUSAL, and it was asked (PR #221 review
+// round 1, blocking finding). The nearest ratified instance is structurally
+// identical — an ambiguous input shape that silently resolves to the wrong
+// thing while every downstream check passes:
+//
+//   "Naming the requested path rather than the resolved one converts a lookup
+//    failure into a provenance failure, and provenance failures survive
+//    verification precisely because the citation is well-formed. … a collision
+//    wants REFUSAL OR QUALIFICATION at the resolver, never a first-hit-wins
+//    guess."
+//
+// consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:154
+//
+// An indented pin-quote is that collision one layer down: the body is
+// well-formed to every reader that anchors at column 0, and the phantom pin it
+// leaves behind survives verification for the same reason. The lenient arm is
+// the first-hit-wins guess this line refuses.
+//
 // The price is paid rather than hidden: this makes a previously-tolerated
 // body fail, so the change owes a count of the bodies it breaks.
 // AC2 — the `@<sha>` provenance field, EXTRACTED so it can be asserted
