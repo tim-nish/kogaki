@@ -133,6 +133,96 @@ invariant: Gukan guarantees Unit schema, never data schema).
      round count — so the postmortem hand-off can mine rally residue: a
      finding that took two rounds to land is evidence about the map or about
      author-side prescriptions, harvested without anyone remembering to.
+
+     **The record begins at the SPAWN, not at the report, and a round IN
+     FLIGHT is representable** (kogaki#204, owner selection 2026-08-07). A
+     poll reads state; **it must never re-fire the trigger it is waiting
+     on.** `tools/review-sweep.sh --spawn --pr <n>` spawned a session on
+     every invocation with nothing relating one invocation to the round
+     already in flight, so run inside a polling loop — the natural way to
+     wait, since the tool is the only thing that reports the round's state —
+     it re-fired the trigger it was being used to watch. Measured on PR #180:
+     three sessions completed (29, 24 and 33 turns) and the budget read
+     exhausted.
+
+     The served position is that a system where one instruction can commit
+     all available spend is **missing a component**:
+
+     > "the fault is not the wording of the instruction but the absence of
+     > any budget mechanism between the instruction and the spawn"
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e gloss/lessons/claude-code-ops.md:59`
+     (`uncapped-fanout-is-a-harness-gap`)
+
+     **The carrier is the per-round spawn log, which already exists** — and
+     kogaki#204's premise that "there is no persisted per-round state today"
+     is corrected here rather than carried forward. `spawn_log_path(pr, rnd)`
+     is already keyed per PR per round (`tools/review-sweep.sh:1168`), and
+     `spawn()` writes the command line into it **before the process starts**
+     (`tools/review-sweep.sh:1716`, `:1775-1781`), precisely so "a spawn that
+     dies immediately still leaves a file saying what was attempted". What it
+     lacks is a **terminal** line, so existence alone cannot separate in
+     flight from finished. That is what this clause adds:
+
+     - in flight — the log exists, carries no terminal line, and its mtime is
+       inside a declared staleness window;
+     - finished — the terminal line is present, written on **every** exit
+       path;
+     - abandoned — no terminal line and the mtime is outside the window, so a
+       fresh spawn is permitted rather than blocked forever by a killed run.
+
+     **The staleness window is declared in configuration, never derived.** It
+     is a judgment, and a judgment that lives only in code is one nobody can
+     see they are relying on.
+
+     **Sited in `spawn()`, not at its call sites** — the same rule this file
+     already applies to isolation (`tools/review-sweep.sh:90`), and the same
+     place the served line puts the missing component: between the
+     instruction and the spawn. A per-call-site guard would leave call site
+     N+1 uncovered by default.
+
+     **A second invocation REPORTS the in-flight round and exits 0.** It
+     names the PR, the round, the log path and the age. It does not refuse,
+     because the documented caller is a **loop**:
+
+     > "when the verdict count is zero, no gate-shaped nag may be emitted —
+     > repeatedly walking the owner to an empty gate is exactly the
+     > channel-eroding failure"
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/archive/knowledge-architecture.md:197`
+
+     A poll that exits non-zero on its normal case makes *not yet done*
+     indistinguishable from *broken*, and the operator's repair is `|| true`,
+     which removes the guard by ergonomics. Disclosure is **not** traded away
+     for this: the in-flight round is printed on every iteration. Only the
+     exit code is at issue, and the loud-refusal alternative was declined on
+     exactly that distinction rather than on a preference for quiet.
+
+     **The carrier owes an enumerated reader set, and it is owed at
+     implementation rather than discovered one reader at a time:**
+
+     > "a carrier owes an enumerated **READER** set rather than only a write
+     > contract … a per-reader fix repairs one reader and leaves the count
+     > unchanged"
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:43`
+     (`atomic-writes-say-nothing-about-readers`)
+
+     `rounds_used()`, `rally_cycles()`, `decide()`, `park_class()` and the
+     `--recent` path all read round state today; the implementing story
+     enumerates them and states which consult the new terminal line.
+
+     Out of scope, declared: `MAX_ROUNDS` itself, the merge gate, and the
+     `landed is None` accounting — that last is kogaki#190's **first** cause
+     and story 1.35's subject, and this clause governs its second, which is a
+     **writer** defect no repair to what `rounds_used()` can read discharges.
+
+       request_id: 6bd60580-695a-47a4-8c21-074e207bfd92, bf2f2d9f-e144-4eda-9fe8-ce0882bf929f
+       outcome: covered-after-reframing
+       query: a tool invoked inside a polling loop that finds its work already in flight — should it refuse with a non-zero exit or report the in-flight state and exit zero
+       query: a guard that declines to act should its decline be loud or silent — when does a non-zero exit train the caller to suppress it
+
+     **deferred slots: none.**
   5. **A report DECLARES ITS SCOPE — `full` or `delta`** (kogaki#70). A
      round-2 review is a delta review by default: its subject is round 1's
      findings × the fix commits, and it re-reviews the whole diff only where
@@ -1389,6 +1479,44 @@ invariant: Gukan guarantees Unit schema, never data schema).
        directly.** A miss is itself a legitimate answer and stays recordable —
        what is refused is a miss whose echo names a different call.
 
+     **A `tools/list` RPC ERROR DEGRADES RATHER THAN REFUSING, AND THE SERVED
+     ANSWERS ARE GIVEN UP WITH IT** (kogaki#206, owner selection 2026-08-07).
+     The enumeration above attributes exit 11 only to `-32602` schema
+     validation on required-address tools, which is no longer the whole of it.
+     In **receipt mode**, `policy/kit/bin/gateway-query.mjs:744` routes a
+     `tools/list` rpc error to `unavailable()` — exit **11**, one line, before
+     any `tools/call` is issued. So a gateway that answers `tools/call`
+     perfectly well is reported unavailable and **its answers are discarded
+     unfetched**. Before that re-route, `declaredByTool` stayed null, the
+     `tools/call` loop still ran, and the operator got the served answers plus
+     `receipt not composable` (exit 12).
+
+     **This is recorded rather than repaired, and the reason is uniformity.**
+     The `tools/call` loop routes its **own** rpc errors to `unavailable()`
+     identically (`policy/kit/bin/gateway-query.mjs:757`); PR #201 made the
+     routing uniform, which is what its round-1 nit asked for — three causes
+     had collapsed into one refusal message. Undoing it for `tools/list` alone
+     would restore the split, trading a recorded judgment for an unrecorded
+     inconsistency. The transport cannot verify an address it has no schema
+     for, so refusing to compose a receipt from an unverifiable catalogue is
+     defensible; what was wrong was that the judgment lived **only in a code
+     comment** while this condition stated the opposite shape.
+
+     **The counter-argument is recorded rather than left standing.** Exit 11
+     prints `policy_source unavailable`, and on this path the source is *not*
+     unavailable — it is up and answering. Exit 12's own documented meaning
+     (`policy/kit/bin/gateway-query.mjs:115`) — *"The consult happened and its
+     results are printed, but the wire did not carry what a receipt asserts"* —
+     describes a missing **catalogue** at least as well. The alternative that
+     restores answers-then-exit-12 for `tools/list` specifically was therefore
+     genuinely available and is **declined on the uniformity ground above**,
+     not on preference. **Reopen point:** a sitting that finds the exit-11
+     message itself misleading in practice re-reads this paragraph, because
+     that is the cost this selection knowingly accepted.
+
+     Receipt mode only. Non-receipt mode and the pre-receipt invocation are
+     genuinely unaffected.
+
      So the condition is two checks, both reading **only** the wire:
 
      (a) **THE FORM, checked where the ambiguity is CREATED.** Every key a
@@ -1529,10 +1657,26 @@ invariant: Gukan guarantees Unit schema, never data schema).
      at all, on emissions made from here on: a receipt already recorded was
      composed from a response that this condition never inspects, and the
      checker's scan window (`merge-base..HEAD` plus the PR body) reaches no file
-     on the default branch. The transport's non-receipt path, the exit-11
-     degrade, and the pre-receipt invocation are byte-for-byte unaffected
+     on the default branch. The transport's non-receipt path and the
+     pre-receipt invocation are byte-for-byte unaffected
      (`policy/kit/test/install-test.sh` cases 3, 7, 8b and 8c, unchanged and
      passing).
+
+     **The exit-11 degrade is NOT byte-for-byte unaffected, and this sentence
+     is the correction** (kogaki#206). Its prior form named the exit-11 degrade
+     in that unaffected list, and that was an overclaim: **receipt mode's
+     degrade is WIDENED**, because a `tools/list` rpc error now enters exit 11
+     before any `tools/call` is issued, where it previously left the loop
+     running and produced exit 12 with the served answers printed. See the
+     `tools/list` paragraph in condition 5 above, which records the behaviour
+     and the ground on which it was kept. **Non-receipt mode's degrade is
+     unaffected**, and the narrowing is exactly to that: the unaffected claim
+     holds for the non-receipt path and not for receipt mode.
+
+     A self-consistent-and-incomplete claim is precisely what condition 5
+     exists to refuse, so leaving one standing *inside* that condition's own
+     backward-compatibility paragraph was the sharper defect — not the widened
+     behaviour, which was chosen deliberately.
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
