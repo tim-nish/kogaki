@@ -250,6 +250,81 @@ export function parseCites(body) {
   return [...seen.values()];
 }
 
+// AN INDENTED `pin-quote:` IS REFUSED BY NAME (kogaki#209, story 1.36 AC6).
+//
+// THE DEFECT IS DOUBLE INVISIBILITY, and it needs all three readers to see it.
+// Every site that handles a pin-quote line anchors at column 0 — this parser,
+// `parseCites`'s strip, and the pin scan's strip — so an indented line is:
+//   · MISSED by `parsePinQuotes`, so it stores no hash and buys no trial; and
+//   · LEFT IN THE TEXT by both strips, so its `@<sha>` reaches the pin scan as
+//     a phantom pin and fires `policy moved` against a body citing one.
+// The body cites one pin, the scan sees two, and neither half reports the
+// line it actually stumbled over.
+//
+// REFUSED RATHER THAN TOLERATED. The declined alternative — anchor every site
+// at `^[ \t]*` so an indented line parses normally — is strictly
+// backward-compatible and fixes the asymmetry by making all three readers
+// lenient. It was declined at the gate because it leaves the shape PRODUCIBLE
+// and only removes its worst consequence, which makes the placement rule
+// advisory. Refusing makes the shape unproducible, which is the ratified
+// direction, and it is what README's positive re-cut already describes.
+//
+// THE SERVED SURFACE RULES FOR REFUSAL, and it was asked (PR #221 review
+// round 1, blocking finding). The nearest ratified instance is structurally
+// identical — an ambiguous input shape that silently resolves to the wrong
+// thing while every downstream check passes:
+//
+//   "Naming the requested path rather than the resolved one converts a lookup
+//    failure into a provenance failure, and provenance failures survive
+//    verification precisely because the citation is well-formed. … a collision
+//    wants REFUSAL OR QUALIFICATION at the resolver, never a first-hit-wins
+//    guess."
+//
+// consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:154
+//
+// An indented pin-quote is that collision one layer down: the body is
+// well-formed to every reader that anchors at column 0, and the phantom pin it
+// leaves behind survives verification for the same reason. The lenient arm is
+// the first-hit-wins guess this line refuses.
+//
+// The price is paid rather than hidden: this makes a previously-tolerated
+// body fail, so the change owes a count of the bodies it breaks.
+// AC2 — the `@<sha>` provenance field, EXTRACTED so it can be asserted
+// directly and round-tripped rather than inferred from an emission.
+//
+// The field is OPTIONAL in the grammar, so an unparsed pin must OMIT it rather
+// than emit a bare `@`: `pin-quote: <file>:<line>@ q1:<hex>` matches nothing in
+// `parsePinQuotes` — the optional group fails at `@ ` and `\s+` cannot match at
+// `@` — so the writer would produce a line its own reader silently drops, which
+// is the dead-guard shape this change is quoted against.
+export function provField(currentPin) {
+  const shaRaw = (currentPin ?? "").split("@").pop().slice(0, 7);
+  return /^[0-9a-f]{7}$/.test(shaRaw) ? `@${shaRaw}` : "";
+}
+
+// AC3 — which served files the content pass fetches, EXTRACTED as a pure
+// function over `(cites, quotes)`.
+//
+// ONLY FETCH WHAT THERE IS A TRIAL FOR. `judgeContent` returns `unhashed`
+// before it ever consults `fetched`, so fetching a file no cite carries a hash
+// for buys a discarded gateway call — and every body that predates
+// `--emit-pin-quotes` is in that state, which would have made the common case
+// the expensive one.
+export function filesToFetch(cites, quotes) {
+  return [...new Set(cites
+    .filter((c) => c.line !== null && quotes.has(`${c.file}:${c.line}`))
+    .map((c) => c.file))];
+}
+
+export function indentedPinQuotes(body) {
+  const out = [];
+  const lines = stripFences(body).split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (/^[ \t]+pin-quote:/.test(lines[i])) out.push({ line: i + 1, text: lines[i].trim() });
+  }
+  return out;
+}
+
 // `pin-quote: <file>:<line>@<sha> q1:<hex>` — unindented, outside any fence.
 export function parsePinQuotes(body) {
   const map = new Map();
@@ -361,6 +436,31 @@ export function tally(results) {
 // established for <cannot-tell + unhashed>", which on an all-drifted body read
 // "NOT established for 0 of 2" while two lines had just failed — an
 // understatement of exactly the kind this issue exists to remove.
+// AC1 — THE EXIT-11 PREDICATE, EXTRACTED. Input: the `judgeContent` results.
+// Output: whether the run exits 11, and with what count.
+//
+// A check that cannot run its trial SAYS SO rather than handing back a clean
+// exit code. When the body stored hashes but not ONE of them could be
+// exercised, this is not a pass — it is an unreachable seam, and it exits 11
+// on the same degrade contract an unreachable gateway already uses.
+//
+// WHY IT IS NOT THE TALLY FORM, which is what makes this worth extracting.
+// `tally()` counts VERDICTS over all results, so a tally-shaped predicate
+// (`t["cannot-tell"] === total`) is false whenever the body also carries an
+// UNHASHED cite — and an unhashed cite is exactly what every pre-`--emit`
+// body is full of. The distinction is that this predicate counts only the
+// HASHED trials: the ones that were supposed to run. A body with one stored
+// hash that could not be exercised and nine unhashed cites is an unreachable
+// seam, and the tally form calls it clean.
+export function exitsEleven(results) {
+  const hashedTrials = results.filter((r) => r.hashed).length;
+  const hashedUnexercised = results.filter((r) => r.hashed && r.verdict === "cannot-tell").length;
+  return {
+    exit11: hashedTrials > 0 && hashedUnexercised === hashedTrials,
+    count: hashedUnexercised,
+  };
+}
+
 export function contentSummary(results) {
   const t = tally(results);
   const total = results.length;
@@ -482,9 +582,7 @@ function contentPass(body) {
   // is in that state, which would have made the common case the expensive one
   // and contradicted this change's own stated economy. Caught in review
   // round 1.
-  const files = [...new Set(cites
-    .filter((c) => c.line !== null && quotes.has(`${c.file}:${c.line}`))
-    .map((c) => c.file))];
+  const files = filesToFetch(cites, quotes);
   const fetched = files.length ? fetchSurfaces(files) : new Map();
   return judgeContent(body, fetched);
 }
@@ -627,6 +725,91 @@ function selfTest() {
      () => parsePinQuotes(`pin-quote: topics/articles.md:79@ ${quoteHash(TOP_N_80)}\n`).size === 0],
     ["the phrase `pins current` never appears alone as a whole-body verdict",
      () => !contentSummary(judgeContent(body(""), drifted)).includes("pins current")],
+
+    // -- story 1.36 (kogaki#209): the fixtures that DISCRIMINATE ------------
+    // Every case below fails when its own fix is reverted. Three of #203's
+    // four fixtures did not, and this block is the repair: each names the
+    // mutation it survives, and each was run against that mutation.
+
+    // AC1 — the exit-11 predicate, asserted directly rather than through a
+    // process exit. The TALLY FORM is the mutation: `t["cannot-tell"] ===
+    // total` counts verdicts over ALL results, so it goes false the moment a
+    // body also carries an unhashed cite — which every pre-emit body does.
+    ["AC1 one stored hash, unexercised -> exit 11",
+     () => exitsEleven([{ hashed: true, verdict: "cannot-tell" }]).exit11 === true],
+    ["AC1 and it reports the COUNT, not merely the fact",
+     () => exitsEleven([{ hashed: true, verdict: "cannot-tell" },
+                        { hashed: true, verdict: "cannot-tell" }]).count === 2],
+    ["AC1 an unexercised hash BESIDE unhashed cites still exits 11 (the tally form says clean)",
+     () => exitsEleven([{ hashed: true, verdict: "cannot-tell" },
+                        { hashed: false, verdict: "unhashed" },
+                        { hashed: false, verdict: "unhashed" }]).exit11 === true],
+    ["AC1 one hash VERIFIED -> no exit 11, however many others could not run",
+     () => exitsEleven([{ hashed: true, verdict: "verified" },
+                        { hashed: true, verdict: "cannot-tell" }]).exit11 === false],
+    ["AC1 no stored hashes at all -> not an unreachable seam, just nothing to check",
+     () => exitsEleven([{ hashed: false, verdict: "unhashed" }]).exit11 === false],
+    ["AC1 an empty result set never exits 11",
+     () => exitsEleven([]).exit11 === false],
+
+    // AC2 — `prov`, asserted directly AND round-tripped through the real
+    // reader. The bare-`@` case is the one the review named: a writer that
+    // emitted it would produce a line its own reader silently drops.
+    ["AC2 a parsed 7-hex pin yields its provenance field",
+     () => provField("product-lab@98195e0aef221aa82c47bb632324127745469f2e") === "@98195e0"],
+    ["AC2 an UNPARSED pin yields the empty string, never a bare `@`",
+     () => provField(null) === "" && provField("") === "" && provField("no-at-sign") === ""],
+    ["AC2 a non-hex tail yields the empty string",
+     () => provField("product-lab@zzzzzzz") === ""],
+    ["AC2 a REAL emitted line round-trips through parsePinQuotes",
+     () => {
+       const line = `pin-quote: topics/articles.md:80${provField("product-lab@98195e0aef221aa82c47bb632324127745469f2e")} ${quoteHash(TOP_N_80)}`;
+       return parsePinQuotes(line + "\n").get("topics/articles.md:80")?.takenAt === "98195e0";
+     }],
+    ["AC2 the UNPARSED-pin emission round-trips too — this is what a bare `@` would break",
+     () => {
+       const line = `pin-quote: topics/articles.md:80${provField(null)} ${quoteHash(TOP_N_80)}`;
+       return parsePinQuotes(line + "\n").get("topics/articles.md:80")?.hash === quoteHash(TOP_N_80);
+     }],
+
+    // AC3 — contentPass's file scoping, over `(cites, quotes)` directly.
+    ["AC3 an unhashed body selects NO files — the common case stays free",
+     () => filesToFetch(parseCites(body("")), parsePinQuotes(body(""))).length === 0],
+    ["AC3 a hashed cite selects its own file",
+     () => filesToFetch(
+       parseCites(body(`pin-quote: topics/articles.md:79@f918c51 q1:0000000000000000`)),
+       parsePinQuotes(body(`pin-quote: topics/articles.md:79@f918c51 q1:0000000000000000`))
+     ).join() === "topics/articles.md"],
+    ["AC3 a hash for a line the body does not cite selects nothing",
+     () => filesToFetch(
+       parseCites(`consulted: product-lab@${SHA} topics/articles.md:79`),
+       parsePinQuotes("pin-quote: LESSONS.md:1@f918c51 q1:0000000000000000\n")
+     ).length === 0],
+    ["AC3 a range cite is never fetched — it has no line to trial",
+     () => filesToFetch(
+       parseCites(`consulted: product-lab@${SHA} gloss/lessons/testing.md:1-157`),
+       parsePinQuotes("pin-quote: gloss/lessons/testing.md:1@f918c51 q1:0000000000000000\n")
+     ).length === 0],
+
+    // AC6 — the doubly-invisible indented shape, and the three readers that
+    // together make it invisible.
+    ["AC6 an indented pin-quote is DETECTED by name, with its line number",
+     () => { const r = indentedPinQuotes("  pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000\n");
+             return r.length === 1 && r[0].line === 1; }],
+    ["AC6 a tab-indented one too",
+     () => indentedPinQuotes("\tpin-quote: topics/articles.md:79@abc1234 q1:0000000000000000\n").length === 1],
+    ["AC6 a column-0 pin-quote is NOT flagged",
+     () => indentedPinQuotes("pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000\n").length === 0],
+    ["AC6 one inside a fence is not flagged — a quotation is not an emission",
+     () => indentedPinQuotes("```\n  pin-quote: topics/articles.md:79@abc1234 q1:0\n```\n").length === 0],
+    ["AC6 THE DEFECT ITSELF: the indented line's @sha reaches the pin scan as a phantom",
+     () => {
+       const b = `consulted: product-lab@${SHA} topics/articles.md:79\n  pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000\n`;
+       const scanned = b.replace(/^pin-quote:.*$/gm, "");
+       const shas = [...new Set([...scanned.matchAll(/@([0-9a-f]{7,40})\b/g)].map((m) => m[1]))];
+       // two pins where the body cites one, and parsePinQuotes stored nothing
+       return shas.length === 2 && parsePinQuotes(b).size === 0 && indentedPinQuotes(b).length === 1;
+     }],
   ].filter(Boolean);
 
   const failures = cases.filter(([, f]) => { try { return f() !== true; } catch (e) { return true; } }).map(([n]) => n);
@@ -687,8 +870,7 @@ if (mode === "emit") {
   // optional group fails at `@ ` and `\s+` cannot match at `@` — so the writer
   // would have produced a line its own reader silently drops: the dead-guard
   // shape this whole change is quoted against. Caught in review round 1.
-  const shaRaw = (cur ?? "").split("@").pop().slice(0, 7);
-  const prov = /^[0-9a-f]{7}$/.test(shaRaw) ? `@${shaRaw}` : "";
+  const prov = provField(cur);
   let emitted = 0;
   const skipped = [];
   for (const c of cites) {
@@ -710,6 +892,21 @@ if (mode === "emit") {
 }
 
 if (mode === "validate") {
+  // AC6 — refused BY NAME at the authoring gate, which is where the shape is
+  // produced. Constraining generation beats detecting it later: this is the
+  // one moment the body can still be fixed by the author who wrote it.
+  const indented = indentedPinQuotes(body);
+  if (indented.length) {
+    for (const q of indented) {
+      console.log(`deny: line ${q.line} — a \`pin-quote:\` line is INDENTED: ${q.text.slice(0, 72)}`);
+    }
+    console.log("  a pin-quote line belongs BELOW the whole `consulted:` block, at column 0 —");
+    console.log("  never between line one and its continuations. An indented one is doubly");
+    console.log("  invisible: parsePinQuotes misses it, so it stores no hash and buys no");
+    console.log("  trial, while its `@<sha>` is left in the text for the pin scan to read as");
+    console.log("  a second pin — so the body cites one and the scan sees two.");
+    process.exit(1);
+  }
   if (!/policy pins/i.test(body)) {
     console.log("deny: no Policy pins section — an issue carries the policy state it was computed against");
     process.exit(1);
@@ -735,6 +932,16 @@ if (mode === "validate") {
 
 // recheck
 //
+// An indented pin-quote is REPORTED here rather than refused (AC6). At pickup
+// the body is already filed and the picker cannot fix its author's line
+// placement, so a refusal would strand the pickup; naming it keeps the
+// phantom-pin cause visible where it would otherwise surface as an
+// unexplained `policy moved`.
+for (const q of indentedPinQuotes(body)) {
+  console.log(`indented pin-quote at line ${q.line} — it stores no hash and its `
+    + "@<sha> reaches the pin scan as a phantom pin: " + q.text.slice(0, 60));
+}
+
 // THREE OBLIGATIONS ARE ENFORCED HERE. Pin staleness is the oldest; the
 // DEFERRED CONSULT is the second (story 1.11); CONTENT LIVENESS is the third
 // (kogaki#188), and until it existed a pin could drift, resolve cleanly to the
@@ -775,8 +982,6 @@ const t = tally(content);
 // range cites and address-less files as "stored hashes that could not be
 // exercised", so a body whose only cites are ranges exited 11 reporting a
 // count of hashes that do not exist. Caught in review round 1.
-const hashedTrials = content.filter((r) => r.hashed).length;
-const hashedUnexercised = content.filter((r) => r.hashed && r.verdict === "cannot-tell").length;
 
 // Every delta is reported before exiting. Refusing on the first one found
 // would send the picker back for a second refusal they could have discharged
@@ -818,8 +1023,9 @@ if (stale.length > 0 || deferredUndischarged || t.drifted > 0) {
 // exit code. When the body stored hashes but not one of them could be
 // exercised, this is not a pass — it is an unreachable seam, and it exits 11
 // on the same degrade contract an unreachable gateway already uses.
-if (hashedTrials > 0 && hashedUnexercised === hashedTrials) {
-  console.log(`content trial did not run: ${hashedUnexercised} stored quote hash(es) and not one could be `
+const eleven = exitsEleven(content);
+if (eleven.exit11) {
+  console.log(`content trial did not run: ${eleven.count} stored quote hash(es) and not one could be `
     + "exercised against the served surface — this is NOT a clean result, it is an unverified one");
   process.exit(11);
 }
