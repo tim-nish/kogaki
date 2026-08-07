@@ -1,6 +1,8 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v1, authored 2026-08-07 (kogaki#127).
+**Status:** v2, amended 2026-08-07 (kogaki#169). v1 authored 2026-08-07
+(kogaki#127); §7's hold is **reversed** by this amendment and the reversal is
+recorded at §7.0 rather than edited away.
 **Governs:** port manifest item 2 (`specs/SPEC.md` §5) — its structure half.
 
 ## 1. The manifest entry is a name and a contract, never a design
@@ -85,16 +87,48 @@ and the count is taken **after** composition, because a composer that cannot
 omit in principle can still omit in fact. That is a served invariant, not a
 local one, and it is quoted at §5.
 
-## 4. A step, and what a step may not be
+## 4. A step, the Move it binds, and what neither may be
 
-The Brief's structure section is a **sequence of steps**. Each step states,
-in prose:
+**Two shapes, not one.** The Brief's structure section is a **sequence of
+steps**; a step may **bind** a Move from the library at §7. A step and a Move
+are **separate types, and binding changes the type of neither** — a Brief
+Step may bind a Move to the Thesis, and that makes the step neither a Move
+nor the Move a step. The distinction is load-bearing and is the correction
+kogaki#169 carries: a step is *this article's* sequence element, authored per
+article and discarded with it; a Move is a durable, source-specific precedent
+that outlives any one article. Collapsing them would make every Move an
+article's private property and every step a library entry, which is neither.
 
-- **materials** — which Strands, which Journeys, the Thesis, or an earlier
-  step's conclusion it works on. Materials are many-to-many with steps.
-- **purpose** — what the step does to the reader.
-- **reader state before** and **reader state after**.
-- **rationale** — why *this article's* materials make this the next step.
+### 4.1 The step — the Brief's sequence element
+
+- **`step_id`** — the step's identity within this Brief.
+- **`move`** — a binding to a Move library entry (§7), or **absent**. A step
+  need not bind a Move; see the no-mandatory-Moves constraint at §7.5.
+- **`materials`** — which Strands, which Journeys, the Thesis, a
+  `reader_assumption`, or `constructed_material` it works on. Materials are
+  **many-to-many** with steps.
+- **`purpose`** — what the step does to the reader.
+- **`reader_state_before`** and **`reader_state_after`**.
+- **`depends_on`** — the earlier steps whose conclusions this step stands on.
+- **`rationale`** — why *this article's* materials make this the next step.
+
+### 4.2 The Move library entry — the adopted field subset
+
+The subset adopted in the 2026-08-06 consultation and re-ruled by the owner
+2026-08-07, in full, with nothing added:
+
+- **`id`**
+- **`status`** — one of `observed` | `generalized` | `proposed` | `validated`.
+- **`intent`**
+- **`requires`**
+- **`effect`**
+- **`constraints`**
+- **`failure_modes`**
+- **`sources`**
+
+**Moves ↔ Strands are many-to-many.** A Move may bind **no** Strand, several
+Strands, a Journey, the Thesis, or an earlier step's conclusion. Nothing
+requires a Move to have a Strand, and nothing stops a Strand carrying many.
 
 The rationale field is normative and is the whole point of the shape. The
 served declination that governs article structure says what fixes the
@@ -119,14 +153,46 @@ a name is admissible in a Candidate's *rendering* and inadmissible in the
 material that *produces* it. A composer that reads a name before it has a
 rationale has generated from a name, whatever the name's provenance.
 
-**Deliberately absent from the step's shape**, each because it would be the
-generating half in another costume: any typed vocabulary of step kinds, any
-adjacency table of which step may follow which, any fit rule proposing a
-shape from the material. Adjacency is reasoned per article from the step's
-own before/after states. The library that would carry a typed vocabulary is
-**held**, with its trigger and its instrument declaration, at §7.
+**The describe-never-generate boundary stands unchanged under v2**, and
+admitting the Move library does not touch it. It constrains **names**: a name
+may describe a composed structure afterwards and may never generate it
+beforehand. A `move` binding is **not** a name read before a rationale — the
+step's `rationale` is authored from *this article's* materials, and the
+binding records which durable precedent that reasoning turned out to
+instance. A composer that selected a Move first and then wrote a rationale to
+fit it would be generating from a name, and that is refused here whatever the
+name's provenance. The order is the invariant, not the vocabulary's absence.
 
-## 5. The obligations ledger
+**Deliberately absent from the step's shape**, each because it would be the
+generating half in another costume: any **adjacency table** of which step may
+follow which (no `compatible_previous_moves` / `compatible_next_moves`), any
+**fit rule** proposing a shape from the material, and any `material_roles`
+typing of what a material is *for* within a step. Adjacency is reasoned per
+article from the step's own before/after states. A stored flowchart is the
+declined menu one level down, and it stays out.
+
+## 5. The Brief's centre, and the obligations ledger inside it
+
+### 5.1 The settled structure section
+
+v2 binds the Brief's whole structure section, not the step shape alone:
+
+- **`reader_start`** — where the reader is before the article.
+- **`reader_target`** — where the article leaves them.
+- **`opening_question`**
+- **`thesis`** — read from Terrain (§3), never invented here.
+- **`sequence`** — the ordered steps of §4.1.
+- **`strand_coverage`** — per selected Strand: `used_by_steps` and
+  `role_in_thesis`.
+- **`unresolved_obligations`** — the ledger of §5.2.
+- **`thesis_closure`** — `explanation` and `established_by_steps`.
+- **`tradeoffs`**
+
+§3 (Thesis and Strands read from Terrain) and §6 (Candidates on the existing
+gates, reasoning surfaced and never verdicts) are consistent with this shape
+and stand unchanged under v2.
+
+### 5.2 The obligations ledger
 
 The Brief carries an **obligations ledger** so Thesis closure is readable at
 the gate rather than reconstructed there. Every question a step opens, every
@@ -145,10 +211,37 @@ step that discharges it.
 > count check runs AFTER composition**, since a composer that cannot omit in
 > principle can still omit in fact."
 
-`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:9,11, topics/articles.md:41,74,120`
+The quoted line is the 2026-07-29 completeness entry. v1 cited it as `:74` at
+pin `f918c515`; it is the same text at `:75` at the current pin, after the
+insertion recorded at §9.2.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:75`
+  request_id: e3fc01a8-baab-4c5e-8ac5-a86ad3e08059
+  outcome: discriminating
+  query: topic_thread("articles") — does the COMPLETENESS invariant follow the selected set into drafting, and when does the count check run relative to composition?
+
+**Receipt-integrity correction (kogaki#169, caution 2).** v1 carried
+`request_id e6abb4ef-d145-4411-b308-90d9ef475ae9` **here**, as the receipt for
+the completeness quote above. That was a defect: `e6abb4ef`'s recorded query
+asks *"Does a cross-run signature ledger exist…"* and never asked about the
+completeness invariant. The line was returned incidentally, among the twenty
+that lookup rendered — genuinely returned, but by a query about something
+else, so the receipt evidenced no one having asked whether the invariant
+binds. It is **not deleted**, because it is a true record of a read that
+happened; it is **relocated to the reading it actually is**, the ledger-absence
+measurement at §7.2, where its query is its subject. kogaki#127's umbrella
+claim of "4 distinct request_ids, one query and one reading each — no reuse"
+was inaccurate for this one id and is accurate again once it sits at §7.2
+alone.
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:9,11, topics/articles.md:41,120`
   request_id: e6abb4ef-d145-4411-b308-90d9ef475ae9
   outcome: discriminating
   query: Does a cross-run signature ledger exist — what act or instrument measures whether composed article structures have rationale untied to the article's own materials?
+
+**The reading this receipt is:** the ledger-absence measurement. Its subject
+is §7.2, and §7.2's "receipt at §5" pointers resolve here. It does **not**
+support §5's completeness quote; that quote's receipt is `e3fc01a8` above.
 
 There is **no mechanical judge** of any of this. kogaki#127 excludes a Probe
 successor, mechanical evidence resolution, and automatic requires/effect
@@ -156,12 +249,29 @@ judgment by name, and `specs/SPEC.md` §3 already sites the split: Kogaki
 guarantees citations, the substrate guarantees facts. Composition quality is
 judged at the human gate.
 
-`deferred-slot: obligations-ledger-carrier` — whether the ledger is a
-section of the Brief document, a machine-readable sidecar the gate reads, or
-a projection assembled per Candidate at gate time. Three resolutions,
-**none selected**: the choice changes what a consumer may bind to, so it is a
-decision act owed on kogaki#127 with its own consult before code embeds it,
-per `specs/SPEC.md` §4's deferred-slot clause.
+`deferred-slot: obligations-ledger-carrier` — **RESOLVED** by this amendment
+(kogaki#169), to **resolution (a): a section of the Brief document.** The
+ledger is `unresolved_obligations` in §5.1's structure section, each entry
+carrying **`introduced_by`** and **`discharged_by`** as step references.
+
+The other two resolutions v1 listed — a machine-readable sidecar the gate
+reads, and a projection assembled per Candidate at gate time — are **not
+selected**. Recorded here rather than deleted so the alternatives stay
+countable.
+
+**This is not a fresh three-way choice made by this sitting.** The settled
+design already sites the ledger on the Brief, and the sitting **confirms that
+against the record** rather than re-deriving the fork: siting
+`unresolved_obligations` on the Brief is what makes Thesis closure a
+**checkable ledger** — the same document carries the obligations and the
+`thesis_closure` that must discharge them, so the gate reads one artifact and
+a sidecar cannot drift from it. A projection assembled at gate time was the
+weaker option for the reason `derivable-artifact-is-a-view-not-a-noun` names
+from the other side: the entries are **authored judgments** ("this step opens
+this question"), not something a computation reveals from data already kept,
+so they need a record and the record belongs where its consumer reads it.
+v1's "three resolutions, **none selected**" **no longer describes the state**
+and is struck.
 
 ## 6. Candidates ride the existing gate — no new carrier, no new check
 
@@ -193,7 +303,109 @@ carries "none of these — the Thesis or the selected set is what should
 change", flagged `negates_premise`. The free-text channel does not discharge
 it.
 
-## 7. The Move library is HELD — its trigger is served, and no act observes it
+## 7. The Move library is ADMITTED — v1's hold REVERSED, and the reversal recorded
+
+### 7.0 The reversal record
+
+**v2 admits what v1 held.** The `moves/` library — one owner-editable
+markdown file per Move, plus `moves/INDEX.md` — is admitted as **the Brief's
+composition vocabulary**, and the step-level `move` binding of §4.1 is
+admitted with it. The Brief's core is **Thesis + Strands + Moves**.
+
+**This is recorded as a reversal, not as a rewrite.** v1's §7 is retained
+below at §7.R, complete and unedited, including the reasoning that no longer
+governs. The rule is served and it is the reason this section has the shape
+it has:
+
+> "…a design can be rejected after its code merged and nothing in the code
+> points at that verdict. Before claiming anything is implemented, complete,
+> or ready, ask what evidence you are holding; if it is mechanical, you have
+> established existence and said nothing about approval, so **read the
+> decision record for verdicts dated after that evidence, and when they
+> conflict the later verdict wins and the conflict is reported rather than
+> quietly reconciled**."
+
+`gloss/lessons/knowledge-architecture.md:257@0cb46066653ef3db2e33f69971829d25c06b6507`
+(`merged-code-evidences-existence-never-standing`; receipt at §9.1)
+
+`b3722cb` — v1's merge — is **existence** evidence. The owner's 2026-08-07
+ruling is a **later verdict**. Later verdict wins; the conflict is reported
+here rather than quietly reconciled. The same surface refuses the opposite
+move, of letting the shipped artifact settle the question by being shipped:
+shipping first is not approving, and accepting a shipped shape merely because
+it exists amends the contract by accident
+(`gloss/lessons/architecture.md:89@0cb46066653ef3db2e33f69971829d25c06b6507`,
+`a-shipped-ahead-implementation-does-not-ratify-its-shape`; receipt at §9.1).
+
+**The cause: the hold was selected from a consult surface that could not see
+the adoption.** Named, not smoothed over. The 2026-08-06 consultation settled
+the Move design — Move as a third core type, the field subset at §4.2, the D1
+collisions resolved — and those rulings reached only an unswept hub staging
+file and kogaki#127's own thread. They never reached `topics/articles.md`,
+whose newest decision line at the time of v1's sitting was the 2026-08-04
+closed-structure-vocabulary declination. v1's sitting read that thread whole
+and honestly; the adoption was **not there to find**. So v1 served a
+superseded declination as the live word, and framed the admit-now alternative
+as "proceeding against a live served declination" when the question had in
+fact been resolved two days earlier.
+
+**The pin recheck could not have caught it, and that is the structural
+point.** `issue-pins.mjs --recheck` compares **SHAs**. An adoption that never
+lands on the served surface leaves the SHA unchanged, so a staleness of
+exactly this kind is invisible to it by construction. **Currency of a pin is
+not liveness of a line.**
+
+**What is reversed is a HOLD — not a served declination.** This distinction
+is the whole difference between correcting a misread and overruling the hub,
+and it is stated precisely:
+
+- **v1 never ruled the Move library declined.** Its own words: the library is
+  *"arguably* that vocabulary rebuilt one granularity down. This sitting does
+  **not** rule that it is." v1 declined to admit while it believed the
+  question open. The owner's ruling closes the question. There is therefore
+  no served verdict being overturned — there is a hold being lifted by the
+  authority that could always lift it.
+- **The declination's own boundary excludes the Move design.** Read whole
+  rather than one line at a time, `topics/articles.md:121` declines named
+  frameworks "**each carrying slot obligations, plus a fit rule proposing
+  candidates**". The Move design excludes **both** constituents by explicit
+  rider — no mandatory Moves, no minimum sequence, no obligatory opening
+  shape (no slot obligations); Recipes cite-as-precedent and never
+  retrieve-as-generator, requires/effect judgment-class and never
+  type-checked (no fit rule). It also satisfies the declination's own
+  positive prescription, that "the rationale be tied to THIS article's
+  materials" — a step binds its Move to *this* article's Strands, Journeys,
+  Thesis, or an earlier step's conclusion.
+
+The served surface names this failure mode exactly, and names it as a defect
+of the **quoting**, not of the practice:
+
+> "When you write down that some approach was rejected, put the
+> distinguishing reason on the same line as the rejection, because tools and
+> future readers quote one line at a time. If the detail that separates the
+> rejected shape from the very similar approach you do accept lives on a
+> neighbouring line, **a single-line quote will manufacture a contradiction
+> that the full record already resolves**. … When someone reports that an
+> approved practice contradicts a recorded rejection, check the wording of
+> the rejection line first, since the fix is usually the line rather than the
+> practice."
+
+`gloss/lessons/knowledge-architecture.md:203@0cb46066653ef3db2e33f69971829d25c06b6507`
+(`declines-travel-with-their-boundary`; receipt at §9.1)
+
+That is the diagnosis of v1 §7: it quoted the declination alone and read the
+Move library into it. **The fix is the reading, not the practice.**
+
+### 7.R v1's text, retained
+
+**Everything from here to the end of §7.4 is v1's text, kept verbatim and
+superseded by §7.0.** It is retained because a reversal that edits away what
+it reversed leaves the next reader unable to see that anything was reversed.
+Read it as the record of a decision that no longer governs: its "held"
+is now "admitted", and its §7.1 trigger is discharged by owner ruling rather
+than by the ledger it names. §7.2's `instrument: none` measurement and §7.3's
+account of what would have to exist **remain true and remain useful** — no
+cross-run signature ledger exists today, and none is scheduled here.
 
 **What is held.** A `moves/` library of Move *types* — one owner-editable
 markdown file per type, carrying Intent / Requires / Effect / Constraints /
@@ -377,6 +589,62 @@ label it as advice than to believe it is installed
 `a-rule-reproduces-only-through-a-default-carrier`). §7.2's closing sentence
 is that label, written on purpose.
 
+### 7.5 The constraints that survive the reversal
+
+Admitting the library carries the 2026-08-06 consultation's **own riders**
+forward as binding constraints. They are what keep the admitted thing on the
+permitted side of the declination's boundary, so they are not decoration:
+
+- **No mandatory Moves.** No step is required to bind one.
+- **No minimum sequence**, and **no obligatory opening shape.** Slot
+  obligations manufacture the property they require — the retired
+  Surprise-slot precedent — so none are imposed.
+- **No `compatible_previous_moves` / `compatible_next_moves` adjacency
+  lists**, and **no `material_roles`** (§4). A stored flowchart is the
+  declined menu one level down.
+- **Recipes cite-as-precedent, never retrieve-as-generator.** Reopening is an
+  owner decision, never a schema default (§8).
+- **`requires`/`effect` matching is judgment-class.** It is **surfaced as
+  gate evidence** (§6) and is **never type-checked**. No machinery renders a
+  verdict on whether a Move's requires are met.
+- **Pin resolution remains the sole mechanical kill criterion.** Nothing else
+  in this pipeline blocks mechanically.
+- **The describe-never-generate boundary of §4 is untouched** by the
+  admission.
+
+### 7.6 The ~20 derived Moves, and what their `sources` are not yet
+
+Roughly twenty Moves were derived in the 2026-08-06 consultation. They enter
+as **source-specific precedents, `status: observed`** — the claim-first
+reading: each records a move observed in a particular source, not a
+generalization licensed across sources. Promotion to `generalized`,
+`proposed`, or `validated` is a later act with its own grounds.
+
+**Their `sources` cannot cite a served pin today, and this spec says so
+rather than manufacturing one.** The Moves sit in the hub's staging file
+(`product-lab:q_a/staging/2026-08-06-composition-language-moves-and-reader-path.md`),
+and **staging is not on the served surface** — verified for this amendment,
+not assumed: `surface_names` enumerates no staging address, and
+`topic_thread("articles")` at the current pin returns the article-design
+thread **whole, 127 lines, with zero occurrences of "Move", "Moves", or
+`moves/`** (§9.1). That absence is the same fact that caused the defect §7.0
+records, still true at the moment this amendment is written.
+
+So, stated exactly:
+
+- **What the sources are:** the book passages and source material each Move
+  was observed in, named in prose, plus the hub staging file as the
+  derivation's location.
+- **What they are not:** served pins. No `sources` entry may be written in
+  `path:line@sha` form against the served surface until the hub distils the
+  2026-08-06 rulings onto it.
+- **Why the amendment does not wait for that sweep:** the *ruling* travels via
+  kogaki#169 directly, carried by the owner, not derived from the surface.
+  The hub-side distillation is gated hub-side and this spec does not depend on
+  it. It remains **owed** — until it lands, a future consult of the served
+  surface alone will reproduce v1's misread, which is exactly why §7.0 records
+  the cause rather than only the correction.
+
 ## 8. Non-goals
 
 Restated with their grounds so the exclusions are not re-litigated per
@@ -394,5 +662,92 @@ sitting:
   on its own admission.
 - **No automated composition scoring**, and **no check registered by this
   spec** (§6).
-- **No Move library** (§7), and no typed step vocabulary or adjacency table
-  (§4).
+- **No adjacency table and no fit rule** (§4) — and no `material_roles`.
+  ~~**No Move library** (§7), and no typed step vocabulary~~ — **struck by
+  v2 (kogaki#169)**: the Move library is admitted at §7 as the composition
+  vocabulary, and §4.1's step carries a `move` binding. The strike is shown
+  rather than silently removed, for the reason §7.0 gives.
+
+## 9. The reads this amendment rests on
+
+### 9.1 Receipts
+
+Every quote v2 adds is verified at the **current** pin, not inherited from
+v1's. One query, one reading, one request_id each — no receipt is carried
+across queries.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/knowledge-architecture.md:203,257`
+  request_id: 7f74c874-76a3-4e14-b8d4-4d3310545bbb
+  outcome: discriminating
+  query: gloss_index("lessons/knowledge-architecture") — when a merged artifact conflicts with a later ruling, and when does a single-line quote of a rejection manufacture a contradiction the full record resolves?
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:14,42,75,121`
+  request_id: e3fc01a8-baab-4c5e-8ac5-a86ad3e08059
+  outcome: discriminating
+  query: topic_thread("articles") — does the served article-design thread carry the 2026-08-06 Move adoption, what is its newest line, what does the declination name as its constituents, and does the completeness invariant follow the selected set into drafting?
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/architecture.md:89,149`
+  request_id: 6ec7185d-247a-43a5-a1b9-15a439e90d8e
+  outcome: discriminating
+  query: consultation-map entry 2 read prescription — survey lessons/architecture headline-first before writing a record that claims evidence about a consultation.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/claude-code-ops.md:1-67`
+  request_id: 08784dd0-4634-4539-a11e-c5259c9a6b13
+  outcome: discriminating
+  query: consultation-map entry 1 read prescription — survey lessons/claude-code-ops headline-first before a diff whose prose matches the check-infrastructure boundary.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/testing.md:1-157`
+  request_id: 5fcb7c8c-e394-424b-98f2-1dafc7c66342
+  outcome: discriminating
+  query: consultation-map entry 1 read prescription — survey lessons/testing headline-first before a diff whose prose matches the check-infrastructure boundary.
+
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:9,11`
+  request_id: fdea0642-fc3c-46ac-a63a-63b3a7cad0b4
+  outcome: discriminating
+  query: topic_thread("knowledge-architecture") — what does a held or parked item owe its trigger, and is `instrument: none` written or omitted?
+
+**Entry 1 matched on the word "check" in changed prose again**, as it did for
+v1 (§7.4), and the prescribed read was performed rather than waived. This
+spec still touches no file under `checks/` and still registers no check; §6's
+no-new-check clause is unchanged by v2.
+
+### 9.2 The served surface moved mid-sitting, and the pins were re-read
+
+**Recorded because a re-read that is not written down is indistinguishable
+from an assumption.** kogaki#169's pins were taken at
+`product-lab@f918c515`. During this sitting the served pin advanced to
+`product-lab@0cb46066653ef3db2e33f69971829d25c06b6507`, and
+`issue-pins.mjs --recheck` **refused with the delta**, exactly as designed:
+
+> `policy moved: issue pinned f918c515…; served is product-lab@0cb46066…`
+> `the lane refuses with this delta: re-read the pinned lines at the current pin before proceeding`
+
+The re-read was performed and the delta resolved:
+
+- `topics/articles.md` gained a header date change and **one new decision
+  line** (a 2026-08-05 entry re-pointing the semantic-subdivision offering
+  measurement to Kogaki), taking the thread from 126 to 127 lines. Every line
+  this amendment relies on is **content-identical**, displaced by exactly
+  **+1**: `:13`→`:14`, `:41`→`:42`, `:74`→`:75`, `:120`→`:121`.
+- `gloss/lessons/knowledge-architecture.md` is **unchanged**: `:203` and
+  `:257` carry the same text at the same numbers.
+- **The Move adoption still has not landed**: the thread at the new pin
+  contains zero occurrences of "Move", "Moves", or `moves/`. §7.6's pin gap
+  and §7.0's stale-consult diagnosis both hold at the **current** pin, not
+  merely at the one #169 was filed against.
+
+**A note the displacement earns.** That a one-line insertion moved four of
+this spec's citations is the served defect
+`bind-references-to-identities-not-positions`
+(`gloss/lessons/architecture.md:149@0cb46066653ef3db2e33f69971829d25c06b6507`;
+receipt at §9.1) happening to this document: a reference pointing at a
+position is "a defect waiting for its date". v2 therefore names the **section
+heading or lesson slug** beside each line number wherever it adds a citation,
+so the identity survives the next insertion. v1's existing citations are left
+at their original pin and numbers — they are records of reads that happened,
+not claims about the surface today, and rewriting them would destroy that.
+
+**Not repaired here:** the spec's older `f918c515` citations are not
+re-pinned wholesale. That is a corpus-wide reference-hygiene question larger
+than this amendment, and silently re-pinning historical receipts is the
+opposite of what §7.0 is for.
