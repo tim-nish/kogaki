@@ -1,6 +1,24 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v5.1, amended 2026-08-07 — §7 states that a DERIVED origin member
+**Status:** v6, amended 2026-08-07 — the 2026-08-07 dogfood round lands as one
+coupled sitting over two issues. **kogaki#167** (owner selection, alternative
+**(b)**): §6.1's screen form **STANDS** and §2.4's divergence register gains
+the entry it was missing — **entry 4**, the per-Strand Gloss line and Journey
+line dropped between v3 and v5 — so the divergence is deliberate and ratified
+rather than accidental, and §6.1's v3 clause can no longer be read as
+contradicting the WA baseline it quotes; **no runtime change**, and the cost
+is recorded rather than argued away. **kogaki#168** (owner ruling): SubGroups
+on the screen and in the Full Reports are **REQUIRED** — every run without
+them is a contract violation and a FAILED run — which **discharges** §6.2's
+`deferred-slot: terrain-subdivision-offering-verdict` as §8.1's owner-verdict
+step delivered, **declines kogaki#163's never-default latency lever**, leaves
+§8's no-member-count-threshold rule and §8.1's co-tags-default rider
+untouched, and keeps the **hub-side** gate pointer named with its upstream
+proposal owed. §8.1 additionally records a **currency finding**: the served
+hub HEAD moved and the load-bearing line moved with it while
+`issue-pins --recheck` reported `pins current` — kogaki#169's gap, reproduced
+in this file.
+v5.1, amended 2026-08-07 — §7 states that a DERIVED origin member
 set announces itself as derived (kogaki#145), and §9's allowlist scope clause is
 tightened so it cannot be read against the allowlist it scopes (kogaki#154).
 v5 amended 2026-08-07 — the 2026-08-06 dogfooding round
@@ -191,11 +209,75 @@ is misusing it.
 3. **Eager report generation at the co-tag view** (§11, decided v5) — WA's
    owner pulls a report per named group; the eager reading is owner-ruled
    2026-08-06 (kogaki#146).
+4. **No per-Strand Gloss line and no Journey line on the screen** (§6.1,
+   dropped at v3, ratified here at v6) — the baseline had closed group
+   presentation as *"Group ID, Strand ID, gloss, journey — and nothing
+   else"* (`writing-assistant specs/spec-terrain/
+   amendments-2026-07-30--2026-08-01.md`, wa#1115/#1116); Kogaki's screen
+   serves the IDs and the composed claim and serves **neither the per-Strand
+   gloss nor the journey**, which live in the Full Report (§12).
+
+**Entry 4 is stated at length because it is the entry this section was
+missing**, and its absence is what let §6.1 be read as self-contradictory:
+
+- **What was dropped, and when.** v3 moved the per-Strand Gloss and Journey
+  material off the screen into the Full Report. v5 then adopted the *same*
+  baseline's heading shape (member IDs on the heading, claim beneath) and
+  quoted the baseline's closed presentation while silently keeping v3's rule
+  — so from v3 until this amendment the screen diverged from a baseline it
+  cites in the adjacent paragraph, with no entry here. kogaki#167 is that
+  gap filed.
+- **The divergence is now DELIBERATE and RATIFIED, not accidental.** Owner
+  selection 2026-08-07 (kogaki#167), alternative **(b)**: the v5 screen form
+  **stands** and the record gains this entry — the contradiction is resolved
+  by amending the record rather than the behaviour. **No runtime change**;
+  `terrain/terrain.mjs` `cmdCotags` already implements the ratified form.
+- **The owner's ground for keeping it.** Restoring the lines was live as
+  alternative (a) and was declined on screen size read against kogaki#168,
+  ruled in the same sitting: SubGroups are **REQUIRED**, so a per-Strand
+  Gloss line and Journey line would multiply across every SubGroup of every
+  group rather than appearing once per group, running the screen against
+  §8's `screen_budget_lines` instrument
+  (`terrain/terrain.mjs:1082-1084`). The owner chose to keep the screen's
+  size rather than restore the lines.
+- **The cost is real and is recorded rather than argued away.** The screen
+  keeps running without the Gloss and Journey lines the baseline it cites
+  promises — which is exactly the drop kogaki#167 was filed about, and what
+  the 2026-08-07 dogfood round saw as "Gloss all cleared and removed". An
+  owner navigating the screen reads Lesson IDs and a composed claim with no
+  per-Strand headline until they open the Full Report. This entry does not
+  make that cost smaller; it makes it **declared**, which is the only thing
+  §2.4 was ever able to buy.
+
+The served surface discriminates toward recording rather than reversing:
+
+> "A consumer that ships ahead of the hub wording DECLARES its divergence in
+> the artifact, with a source-qualified pin … naming the diverged line
+> converts an unratified shape into a CHECKABLE PROPOSAL … The hub's line
+> still wins; what changed is that the gate had something exact to ratify
+> rather than a shape to reverse-engineer."
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/knowledge-architecture.md:121`
+
+  request_id: def8743a-472d-4d23-a61b-9cde5b9a7c0f
+  outcome: discriminating
+  query: When a served presentation diverges from an inherited baseline it still quotes, is the correct repair to restore the baseline form or to record the divergence in a register, and what does a deliberate ratified divergence owe that an accidental one does not?
 
 An entry lands here in the same amendment that creates the divergence; a
 divergence found shipping without an entry is a defect against this section
 (the specimen that motivated it: v4's per-row pin, §6.1, shipped undeclared
 and is withdrawn in this same amendment).
+
+**Entry 4 was itself filed late, and that is the section's SECOND specimen
+rather than an exception to the sentence above.** The rule is that an entry
+lands in the amendment that creates the divergence; entry 4's divergence was
+created at v3 and its entry lands at v6, three amendments later. Recorded as
+a defect against this section and repaired here, because a register that
+quietly back-dates its own late entries would report a compliance it does not
+have. What the two specimens share is the tell: both were divergences from a
+baseline the *adjacent paragraph quoted*, which is the position where a
+divergence is least likely to be noticed and most likely to read as a
+contradiction to whoever notices it next.
 
 ## 3. Inputs — served renderings only
 
@@ -460,6 +542,19 @@ names its families under §9, unchanged.
 untruncated Claims and Glosses live in the Full Report (§12), which the owner
 pulls per named group.
 
+**This clause and the baseline quoted below are RECONCILED at §2.4's register
+entry 4 — they are a DECLARED DIVERGENCE and not a contradiction** — v6,
+kogaki#167. The baseline's closed group presentation, quoted verbatim a few
+paragraphs down, names a per-Strand `gloss` and `journey`; this clause serves
+neither. From v3 until this amendment that gap sat in §6.1 with no entry in
+§2.4's register, and two adjacent paragraphs of this section therefore read
+as contradicting each other — which is how kogaki#167 found it. **The clause
+STANDS**: owner selection 2026-08-07, alternative **(b)**, the record is
+amended and the behaviour is not, and no runtime changes. A reader holding
+either paragraph is directed to **§2.4 entry 4** for the disposition, the
+owner's ground, and the cost — the register is what reconciles them, and
+neither paragraph is edited to hide the gap.
+
 **Each member row carries its served pin beside its ID** — v4, kogaki#133.
 This is one token more than the ratified form quoted below names, so it is
 stated rather than left as an unexplained column. Two grounds: §3's
@@ -561,6 +656,48 @@ owner-verdicted → offered — and §8.1's offering gate is **undischarged**.
 Serving SubGroups on the co-tag screen is what gives the owner output to
 verdict; it is not the verdict, and merging it does not discharge the gate.
 Carried as `deferred-slot: terrain-subdivision-offering-verdict`.
+
+**`deferred-slot: terrain-subdivision-offering-verdict` is DISCHARGED** —
+v6, owner ruling 2026-08-07 (kogaki#168). **The slot asked** for the
+owner-verdict step of §8.1's implemented → dogfooded → owner-verdicted →
+offered ordering: it held the question open because merged subdivision code
+evidences existence and never the gate's standing. The 2026-08-06 and
+2026-08-07 dogfood rounds produced the specimen it was waiting on — judged
+SubGroup output carrying judge pins in the architecture Full Reports — the
+owner has now seen that output across two rounds, and this is the verdict
+delivered. The slot is **discharged**, not re-pointed: the act it named has
+been performed by the actor it named.
+
+**What the verdict returned is stronger than the offering the ordering
+anticipated: REQUIRE, not offer.** SubGroups on the screen and in the Full
+Reports are a **required** part of the served surface. Until a run serves
+them, **every Terrain run is a contract violation and is treated as a FAILED
+run** — and a dogfood verdict taken on any *other* aspect of such a run is a
+verdict on a failed specimen, which is why kogaki#165 (the subdivide crash)
+and this ruling are upstream of every further Terrain dogfood round.
+
+**"Required" governs the JUDGMENT, never the outcome — §8's threshold rule is
+untouched.** A run may not **skip the subdivision judgment**; it does not
+follow that every group subdivides. SubGroups appear exactly where §8's
+conjunctive leaf condition and its two disjunctive disclosures put them,
+judged, with the judge pin required by the three requirements below. **No
+member-count threshold is introduced or implied** — §8's standing rule that a
+number appearing in the code as one is a defect stands unchanged, and this
+ruling must not be read as re-admitting kogaki#128's "five or more" through
+the word "required". A group whose leaf condition fails renders no SubGroups
+and is fully conformant; what is refused is a run that **never asked**.
+
+**The alternative this ruling OVERRULES, named because another issue carries
+it and the two must not be read against each other.** kogaki#163 proposed
+enforcing "never default" — removing the judge pass from the default path —
+as a **latency** fix. **That lever is DECLINED by this ruling**: the judge
+pass is mandatory. kogaki#163's latency finding is *not* dismissed and stands
+on its own; it must be solved with its other levers — relaying the screen
+before report generation, and bounding claim and subdivision composition to
+the tag-scoped served Gloss shard — or with new ones, **never by dropping
+SubGroups**. Recorded here rather than only on the issue thread because a
+lever declined in one issue's comments is invisible to the sitting that picks
+up the other.
 
 **The screen JUDGES its SubGroups; it does not merely render them** — v4,
 kogaki#133. v3's wording ("where §8's conjunctive leaf condition and its two
@@ -838,6 +975,83 @@ The hub-side offering gate is **undischarged**
 and Kogaki's reimplementation inherits the ordering rather than the
 discharge. **Merging Kogaki's subdivision code does not discharge it either**
 — that is the same lesson one repository over.
+
+**The ordering RAN TO COMPLETION on Kogaki's own specimen, and its last step
+is now DELIVERED** — v6, owner ruling 2026-08-07 (kogaki#168). Implemented
+(§8's `subdivide`), dogfooded (2026-08-06 and 2026-08-07), owner-verdicted
+(kogaki#168). §6.2's `deferred-slot: terrain-subdivision-offering-verdict` is
+discharged there, where the slot was declared; this section records what that
+discharge does to its own three sentences, because two of them would
+otherwise be read as still denying it.
+
+- **"It is not offered until the owner has verdicted its output" is
+  SATISFIED, not weakened.** The verdict exists and its content is stronger
+  than an offering: SubGroups are **REQUIRED**, so there is no flag left to
+  offer and no default left to flip. The ordering was never a prohibition on
+  arriving at its own last step — it was a prohibition on **skipping** to
+  the last step, and nothing here skipped.
+- **"Co-tags stay the default for a run naming no substrate" STANDS,
+  entirely untouched.** That rider is about which **substrate** a run
+  surveys — co-tags versus journey-similarity — and the hub carries it in
+  its own right: *"the discharge licensed an OFFERING, not a promotion —
+  co-tags remains the default for a run naming no substrate"*
+  (`topics/articles.md:64`). **SubGroups render INSIDE a co-tag group**;
+  requiring them decides nothing whatever about the substrate. A reading of
+  kogaki#168 that promotes some other substrate to the default is a
+  misreading of this section, and is refused here in advance.
+- **The HUB-SIDE gate pointer stays NAMED, and is NOT claimed as discharged
+  by this spec.** The staging pointer above remains as written. The hub
+  re-pointed the offering measurement to Kogaki as the successor
+  implementation on 2026-08-05 — *"the measurement is owed by kogaki#27's
+  subdivision implementation and fires when that ships, not before"*, with
+  the measure-before-offer **ordering surviving unchanged**
+  (`topics/articles.md:9`) — so this consumer-side verdict is delivered
+  against a measurement the hub itself routed here. **What Kogaki may do is
+  record its own verdict; what it may not do is write the hub's record.**
+  The gateway is read-only, so the disposition owed upstream is a
+  **proposal staged through the hub's own intake**, not an edit made from
+  this side, and it is **owed rather than done** as of this amendment. The
+  conflict between the inherited never-default ordering and this
+  consumer-side REQUIRE verdict is therefore **surfaced here rather than
+  silently resolved**, exactly as kogaki#168 asks.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:9,54,64`
+
+  request_id: d39e620d-aced-4dba-a84d-1ac7951163a7
+  outcome: discriminating
+  query: When a downstream owner delivers the verdict that a dogfood-first mechanism's output is REQUIRED rather than optional, does that discharge the inherited offering gate, or does the never-default ordering still stand?
+
+**CURRENCY OF THE SERVED LINES THIS SECTION RESTS ON — checked at this
+amendment, and recorded because the mechanism that would normally carry it
+CANNOT SEE THIS.** `policy/kit/bin/issue-pins.mjs --recheck` returns
+`ok: pins current` for both kogaki#167 and kogaki#168 by comparing SHAs. That
+is not line liveness, and here the difference is demonstrable rather than
+theoretical:
+
+- **The served hub HEAD has MOVED** since this section was written:
+  `f918c5158c718394b3a0e4f10239d75bbb451b74`, pinned above and at §6.1, is
+  now `0cb46066653ef3db2e33f69971829d25c06b6507`.
+- **The load-bearing line MOVED WITH IT.** The *"shipping a judged substrate
+  ARRIVES at its offering gate"* quote is pinned above at
+  `topics/articles.md:53`; at the served HEAD the same text is
+  `topics/articles.md:54`. Same content, different line — and the recheck
+  reported `pins current` straight across that move. **This is the gap
+  kogaki#169 was filed about, reproduced in this file**, and it is why the
+  check below was done by content rather than by resolution.
+- **No served line postdates the ruling this section records, and none was
+  read as if it did.** The newest content in `topics/articles.md` is
+  **2026-08-05** (the re-point at `:9`), and `GLOSSARY.md:234` still reads
+  *"semantic subdivision adopted 2026-07-31 with its offering measurement
+  outstanding"* at `updated: 2026-08-05`. The owner's ruling is **2026-08-07**
+  — two days newer than anything served. **So the substrate cannot speak to
+  kogaki#168 either way**: what is quoted from it here is the *ordering* the
+  ruling completes, never a line endorsing or denying the ruling itself. The
+  verdict is the owner's own and is carried, not derived.
+- **What this means for a later reader.** A recheck that returns
+  `pins current` over this section is evidence about SHAs and not about
+  whether these lines still say what they said. Re-read
+  `topics/articles.md:9,54,64` and `GLOSSARY.md:234` **by content** before
+  relying on them, and expect their line numbers to have moved again.
 
 ### 8.2 The second-proposer boundary is unchanged by §§6–8
 
