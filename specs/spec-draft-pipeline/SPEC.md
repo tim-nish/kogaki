@@ -305,6 +305,81 @@ carries "none of these — the Thesis or the selected set is what should
 change", flagged `negates_premise`. The free-text channel does not discharge
 it.
 
+## 6.9 Move INGESTION — how a Move enters the library (kogaki#223)
+
+§7 admits `moves/` and `moves/INDEX.md`; **nothing said how a Move gets there**,
+so the library was admitted with no intake. Verified rather than assumed before
+writing: zero occurrences of ingest, normalize or selection-screen anywhere in
+this spec.
+
+**The workflow, owner-decided.** Input is a **free-form markdown file the owner
+writes**. A kogaki command reads it and proposes each Move in exactly §4.2's
+eight-field schema, stripping the excluded draft fields (`material_roles`,
+`compatible_previous/next_moves`, `examples`) — the delete-me.md drafts predate
+the field subset and carry them. An **agent review** applies the authoring
+discipline as **judgment**: one transition not an arc, separable from content,
+an id naming the operation in established terms, effect differing from
+requires, statable invalidity, dedupe against the existing ids (a near-duplicate
+proposes a `sources` amendment rather than a new entry), honest `status`
+(`validated` is never assignable here), and `sources` naming real passages with
+no fabricated citations. Then **one selection screen**: per-Move accept /
+decline / free-form, the owner deciding. Accepted Moves land one file each in
+`moves/`, and the command regenerates `moves/INDEX.md`.
+
+**ADMISSION IS THE OWNER'S ACT AT THAT SCREEN, never the command's.** Review may
+split or rename, so the reviewed proposal is not the authored file — nothing
+self-admits.
+
+### 6.9.1 The file interior — the §4.2 block IS the file body
+
+**Owner selection 2026-08-08 (kogaki#223), and it is recorded as an UNCOVERED
+fork resolved by judgment rather than by policy.** Two framings were put to the
+served surface and neither discriminated file-interior layout
+(`outcome: uncovered-after-2-framings`; `request_id:
+bf5be3a2-ab69-4899-a7ca-0df5d909c3cd`). The nearest served line — *"the stronger
+move being to serve structure so there is nothing to parse at all"*
+(`LESSONS.md:45`) — governs **format contracts between a producer and a consumer
+holding separate suites**, not a human-edited artifact's interior, so it is
+recorded here as **adjacent reasoning and not as grounding**. Claiming it would
+be the over-reach this spec's own citation discipline refuses.
+
+The eight fields of §4.2 render as a **structured block as the file body**, and
+`moves/INDEX.md`'s row derives mechanically from those same fields.
+
+**The declined arm, with its real cost.** Headed prose sections per field are
+friendlier for fields that are genuinely paragraphs, and keep the artifact
+unmistakably a *document* rather than a record — the side §7.5's
+no-verdict-machinery ruling leans toward. It is declined because the INDEX row
+would then be **composed rather than derived**, so INDEX and files can drift and
+the regeneration contract would have to bind the derivation rather than the
+freshness; and because a **missing field is invisible** in prose — an absent
+heading reads as a stylistic choice where a block leaves a hole.
+
+**The selected arm's own cost is stated rather than discovered:** long fields
+read poorly as block scalars in a library a human is expected to *read*, and a
+structured body invites the reflex to treat it as machine-authoritative — which
+is one step from the verdict machinery §7.5 excludes. **Nothing in this section
+makes the block a verdict surface**: the review is judgment, the screen is the
+owner's, and no lint is admitted.
+
+### 6.9.2 Constraints inherited, not restated
+
+No Recipes and no retrieval-index applicability blocks; no adjacency or
+material-role fields; no verdict machinery and no lint; no Probe and no
+mechanical evidence resolution — quotation from served renderings at pins
+remains the boundary. Pin resolution stays the sole mechanical instrument on
+grounding.
+
+### 6.9.3 kogaki#177's trigger has FIRED, and the coupling is named here
+
+kogaki#177 holds ~20 admitted Moves carrying no served pin, behind the trigger
+*"when the hub distils the 2026-08-06 rulings"* — which **fired on 2026-08-07**,
+so served pins now exist. The first ingestion run is the natural vehicle for
+writing each accepted Move's `sources` derivation pointer, discharging #177 in
+the same pass; running #177 as a follow-up over the saved files is equally
+admissible. **That sub-fork is the implementing sitting's to decide**, and it is
+named here rather than left implicit so the sitting meets it as a decision.
+
 ## 7. The Move library is ADMITTED — v1's hold REVERSED, and the reversal recorded
 
 ### 7.0 The reversal record
