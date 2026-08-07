@@ -373,24 +373,63 @@ mechanical evidence resolution — quotation from served renderings at pins
 remains the boundary. Pin resolution stays the sole mechanical instrument on
 grounding.
 
-### 6.9.3 kogaki#177's trigger has FIRED, and the coupling is named here
+### 6.9.3 kogaki#177's trigger is CANNOT-DETERMINE at the pin, and the coupling is named here
 
-kogaki#177 holds ~20 admitted Moves carrying no served pin, behind the trigger
-*"when the hub distils the 2026-08-06 rulings"* — which **fired on 2026-08-07**,
-so served pins now exist.
+**CORRECTION RECORD (kogaki#236). The heading of this section and its opening
+claim were WRONG, and they are withdrawn here rather than edited away**, because
+the false claim is what the next reader needs to see was caught. Both were
+ratified at PR #235 and merged.
 
-**The disposition read is stated, with what it rests on and what it does not.**
-This is a record-disposition act — adopting one record as the live word on
-whether a held condition has discharged — so the ground is named rather than
-assumed: the served surface at `product-lab@98195e0a` carries 2026-08-07
-decision lines (`topics/knowledge-architecture.md:9,12,14-15`), which is
-**positive evidence that the distillation occurred**, not an inference from
-recency. The distinction is the one
-`product-lab@98195e0a LESSONS.md:56` draws — *"recency is evidence about when
-someone wrote and never about what they could see"* — and it binds here: what is
-claimed is that the 2026-08-06 rulings are **now served and pinnable**, which is
-checkable at the pin. What is **not** claimed is that every Move #177 holds has
-a matching served line; that is per-Move and is resolved at ingestion, not here.
+**What was written:**
+
+> kogaki#177's trigger *"when the hub distils the 2026-08-06 rulings"* — which
+> **fired on 2026-08-07**, so served pins now exist.
+
+**What is measured at `product-lab@98195e0a`, the pin this section itself
+cites:**
+
+| probe | result |
+| --- | --- |
+| `topic_thread("articles")`, all 127 lines | **0** lines matching `Move`; newest decision line **2026-08-05** |
+| `policy_lookup` — the Move eight-field schema, Reader Path, grounds test | `coverage: low`, **0** Move hits |
+| `surface_names(kind=topics)`, full enumeration | 20 identifiers, **none** Move-bearing |
+
+The 2026-08-06 Move rulings are **not served**. The trigger's state is
+**cannot-determine at this pin**, and the honest reading of an unobservable
+condition is not *fired*.
+
+**THE DEFECT IN THE REASONING IS THE PART WORTH KEEPING.** The ground offered
+was that `topics/knowledge-architecture.md:9,12,14-15` carry **2026-08-07**
+lines. Those lines are real — and they are the **baseline-dissolution** batch
+(`q_a/2026-08-07-baseline-dissolution-and-consult-discipline`), a different
+sitting from the Move batch the trigger names. **Evidence of *a* distillation
+was read as evidence of *the* distillation**, on nothing but a shared date.
+
+That is `product-lab@98195e0a LESSONS.md:56` landing on the axis the original
+did not check — *"recency is evidence about when someone wrote and never about
+what they could see"* — and the sharp part is that the original **quoted this
+very line** while committing the error it names. Its hedge (claiming only that
+the rulings are *"served and pinnable"*, not that every Move has a line) does
+**not** rescue it: the unhedged half is the false half, because **which**
+rulings was never verified. A bound drawn around the wrong axis reads as care
+and buys nothing.
+
+**The rule this section now carries, stated so the next instance is
+unrepresentable rather than merely listed:** a claim that a hub trigger has
+fired is evidenced by **the named batch's own lines at the pin**, never by a
+same-dated neighbour. Date-adjacency is not evidence of content.
+
+**What is NOT claimed:** that the hub never distilled the Move batch. Only that
+it is not served at `98195e0a` — which is the whole of what a consumer can
+check, and `topics/knowledge-architecture.md:15` is explicit that a consumer
+holding only the hub's answer *"will confidently report the wrong KIND of
+absence"*. If the batch exists unserved, that is a hub-side gap and kogaki#236
+is the consumer-side evidence.
+
+**What survives unchanged:** the two arms of the coupling below, and the named
+slot. Only the premise that served pins **exist** is withdrawn — which makes
+the slot's filling *more* clearly a decision, not less, since neither arm can
+be taken until the pins resolve.
 
 The first ingestion run is the natural vehicle for
 writing each accepted Move's `sources` derivation pointer, discharging #177 in
