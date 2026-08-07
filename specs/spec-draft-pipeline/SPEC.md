@@ -371,9 +371,12 @@ Move adoption. Measured at the new pin rather than assumed, over the whole
 `topics/articles.md:4@0cb46066653ef3db2e33f69971829d25c06b6507` (receipt at §9.1)
 
 So the freshness field advanced **two days past the newest decision the file
-contains**, and past the adoption it still does not contain. Before the sweep,
-a reader consulting the thread saw nothing newer than 2026-08-04 and could
-grow suspicious — the staleness was **legible in the content**. After it, the
+contains**, and past the adoption it still does not contain. Before the sweep
+— that is, at `f918c515` — a reader consulting the thread saw nothing newer
+than **2026-08-04** and could grow suspicious: the staleness was **legible in
+the content**. (The two dates belong to different pins, and this section's
+whole subject is a date that misleads, so each is named with its own:
+**2026-08-04** newest at `f918c515`, **2026-08-05** newest at `0cb46066`.) After it, the
 header asserts currency to 2026-08-07 while the adoption remains missing.
 **The one cue that would have prompted a second look was removed and replaced
 by a cue pointing the other way.**
@@ -738,6 +741,16 @@ across queries.
   request_id: 5fcb7c8c-e394-424b-98f2-1dafc7c66342
   outcome: discriminating
   query: consultation-map entry 1 read prescription — survey lessons/testing headline-first before a diff whose prose matches the check-infrastructure boundary.
+
+**One receipt below is carried from the v2 sitting rather than newly read, and
+that is disclosed rather than left for a reader to detect.** `7f74c874` on
+`gloss/lessons/knowledge-architecture` was performed **at the v2 sitting**
+(kogaki#169), and the served pin has **not moved since** — it is
+`0cb46066653ef3db2e33f69971829d25c06b6507` there and here. It is reused for
+the same reading, at the same pin, so §9.1's "one query, one reading, one
+request_id" invariant holds; what would breach it is reusing an id for a
+*different* reading, which is the `e6abb4ef` defect §5 corrects. `c1260d67` is
+the read performed **for this amendment**.
 
 `consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:4,121`
   request_id: c1260d67-aa98-4463-8511-f063f2e79443
