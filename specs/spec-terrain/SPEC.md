@@ -2001,6 +2001,50 @@ files. And **kogaki#205 edits this very section (§11)** to correct its two
 `topics/articles.md:79` pins to `:80`. Neither is a dependency; both are
 ordering facts for whichever lane runs second.
 
+**PIN CORRECTION — §11's two Top-N sites, corrected BY CONTENT** (v10,
+kogaki#205). The ordering bullet and the eager-vs-pulled bullet above both
+quoted the served **Top-N withdrawal** line and both pinned it at
+`topics/articles.md:79@f918c51`. That was the last uncorrected instance of the
+drift §6.1, §8.1 and §10 already carry blocks for: those sections enumerated
+these two sites and left them standing, and kogaki#188 assigned the repair to
+"whichever sitting next holds §11" — a sitting, which is not a carrier, which
+is why kogaki#205 exists.
+
+**Re-read at the served head rather than renumbered on trust.** At
+`product-lab@98195e0aef221aa82c47bb632324127745469f2e`:
+
+- **`:80`** holds the Top-N withdrawal — *"Top-N is WITHDRAWN and the compact
+  all-groups form replaces it"* — and carries **both** phrases the two bullets
+  quote: *"sorted descending by member count"* and *"the owner pulling a Full
+  Report per named group"*.
+- **`:79`** holds a **different 2026-07-29 decision**, the co-tag
+  second-navigation-step adoption.
+
+So the old pins **still resolved, and resolved to the wrong line** — the
+dangerous form, because resolution checking is exactly what succeeds on it, and
+`--recheck` reported `ok: pins current` across it before kogaki#188 taught it to
+compare content.
+
+**The old pin is recorded here rather than edited away**, so a reader holding
+`topics/articles.md:79@f918c51` finds the disposition rather than an absence —
+the same duty §6.1's block discharges, and the reason that block leaves its own
+original standing.
+
+**Each corrected pin carries its stored quote hash**, so the next relocation is
+caught mechanically rather than by another manual currency sweep. Emitted with
+`policy/kit/bin/issue-pins.mjs --emit-pin-quotes` at the head above:
+
+pin-quote: topics/articles.md:80@98195e0 q1:bb4d672787a22b82
+
+Recorded beside it, because it is what makes the correction checkable rather
+than asserted: the superseded line hashes to `q1:12827f4b86bc9271` at the same
+head, a different value, which is the mechanical statement that `:79` and `:80`
+are not the same text.
+
+  request_id: 62918f1c-bd6e-4b7c-a983-cb6394ef466a
+  outcome: discriminating
+  query: topics/articles.md:79 and :80 read at the served head to confirm by content which line holds the Top-N withdrawal the two §11 bullets quote
+
 **Consultation-map entry 3's survey covers this section and §12.1** (PR #213
 round-1 finding). Both amendments adopt a record as the live word on a
 decision's disposition — this one rules kogaki#212's own "trigger kept" reading
@@ -2032,7 +2076,7 @@ call was made.
   so a reader holding v1 finds the disposition rather than an absence.
 - **The co-tag group ORDERING** (v3, kogaki#128). The served surface orders
   groups "sorted descending by member count"
-  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:79`),
+  (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/articles.md:80`),
   while Kogaki's shipped `COTAG_SORT` declares "co-tag name ascending, then
   member id ascending" (`terrain/terrain.mjs:486`), adopted under §6. Both are
   declared deterministic sorts and both are admitted as navigation, so neither
@@ -2045,7 +2089,7 @@ call was made.
   demand** (v3, kogaki#129). kogaki#129 licenses "every co-tag view" producing
   one; the served line §12 leans on describes "the owner **pulling** a Full
   Report per named group"
-  (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:79`).
+  (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/articles.md:80`).
   **Both satisfy §12 in full** — its content, identity, classification and
   location rules are indifferent to when generation fires — so neither is a
   violation and the divergence is not a defect. It is carried here rather than
