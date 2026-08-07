@@ -523,10 +523,11 @@ queries and what they returned:
 - **The kogaki corpus.** `git ls-files | grep -iE
   '^(moves|drafts?|briefs?|articles?)/|brief|draft|canonical'`, run
   2026-08-07 at branch `spec/127-draft-pipeline` over all 147 tracked files —
-  the command filters nothing out, and the 116 files that remain when
-  `docs/stories/` is dropped return the same one. **Sole hit: this spec file
-  itself.** No `moves/`, no `drafts/`, no `briefs/`, no `articles/`, no
-  composed Brief and no rendered article exist in this repository.
+  the command applies no path exclusion. **Sole hit: this spec file itself**,
+  and re-running it over the 116 files that remain when `docs/stories/` is
+  dropped returns that same hit. No `moves/`, no `drafts/`, no `briefs/`, no
+  `articles/`, no composed Brief and no rendered article exist in this
+  repository.
 - **The ledger.** The §5 receipt's query, asked of the served surface at
   `product-lab@f918c515`. Its **top hit was the trigger's own sentence**
   (`topics/articles.md:120`) and **nothing in the response named a ledger**.
@@ -536,12 +537,13 @@ queries and what they returned:
   well-aimed look that found nothing, **not an exhaustive enumeration** —
   the query was the one the trigger's own wording supplies, and the surface
   answered with the trigger rather than with the instrument. Re-running this
-  lookup would reproduce the truncation, not lift it. The exhaustive read is
-  `topic_thread("articles")` and `topic_thread("knowledge-architecture")` —
-  the two topics §5's receipt pins, read through the served tool that returns
-  "one whole topic decision-thread file, pinned and line-quoted" rather than
-  a slice of topic candidates. A reader who needs exhaustiveness runs those
-  two; a reader deciding whether to rely on the ledger today has enough.
+  lookup would reproduce the truncation, not lift it. The exhaustive read of
+  the two topics §5's receipt pins is `topic_thread("articles")` and
+  `topic_thread("knowledge-architecture")`, read through the served tool that
+  returns "one whole topic decision-thread file, pinned and line-quoted"
+  rather than a slice of topic candidates. A reader who needs exhaustiveness
+  runs those two; a reader deciding whether to rely on the ledger today has
+  enough.
 
 **The nearest plausible-and-wrong instrument, named so nobody reaches for it
 later: this spec's own §6 Candidates gate.** It is the obvious candidate — the
