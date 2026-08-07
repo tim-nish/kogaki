@@ -1937,6 +1937,16 @@ becomes unproducible rather than discouraged, which is the ratified shape:
 
 `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:47`
 
+**Both lines above are v1 receipts, and the reason is stated rather than left
+to look like an omission** (PR #213 round-1). This section's sitting issued **no
+gateway call of its own**: `LESSONS.md:47` and `LESSONS.md:63` were surfaced by
+the call recorded in §12.1 (`request_id: 9e835f18-de01-4579-ab88-b5751a003103`),
+made for kogaki#199's encoding fork, and were re-read there rather than
+re-queried here. Copying that call's `request_id` and `query:` down to this
+section would attach kogaki#199's framing to kogaki#212's decision — a receipt
+asserting that a question was asked about this fork when it was not. A v1
+receipt is valid; a misattributed v2 receipt is worse than none.
+
 **The two declined alternatives, with grounds.**
 
 - **A cross-run observer at a different unit — DECLINED.** Its case was real
@@ -1976,8 +1986,17 @@ files. And **kogaki#205 edits this very section (§11)** to correct its two
 `topics/articles.md:79` pins to `:80`. Neither is a dependency; both are
 ordering facts for whichever lane runs second.
 
-  request_id: 9e835f18-de01-4579-ab88-b5751a003103
-  outcome: covered-after-reframing
+**Consultation-map entry 3's survey covers this section and §12.1** (PR #213
+round-1 finding). Both amendments adopt a record as the live word on a
+decision's disposition — this one rules kogaki#212's own "trigger kept" reading
+superseded, and §12.1 rules the runtime's judged-empty behaviour
+non-conformant — which is entry 3's act class. The survey is recorded once, at
+`specs/SPEC.md` §4 condition 5, with its `request_id`, both halves run
+(headline-first over all 56 `knowledge-architecture` headlines, and the
+carriers read whole with `--comments`), and its result: **no record superseding
+any of the four dispositions exists.** It is cited here rather than duplicated,
+because a receipt copied to a second site is a second assertion that a second
+call was made.
 
 **deferred slots: none.**
 
