@@ -218,7 +218,7 @@ insertion recorded at §9.2.
 `consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:75`
   request_id: e3fc01a8-baab-4c5e-8ac5-a86ad3e08059
   outcome: discriminating
-  query: topic_thread("articles") — does the COMPLETENESS invariant follow the selected set into drafting, and when does the count check run relative to composition?
+  query: topic_thread("articles") — does the served article-design thread carry the 2026-08-06 Move adoption, what is its newest line, what does the declination name as its constituents, and does the completeness invariant follow the selected set into drafting?
 
 **Receipt-integrity correction (kogaki#169, caution 2).** v1 carried
 `request_id e6abb4ef-d145-4411-b308-90d9ef475ae9` **here**, as the receipt for
@@ -228,8 +228,9 @@ completeness invariant. The line was returned incidentally, among the twenty
 that lookup rendered — genuinely returned, but by a query about something
 else, so the receipt evidenced no one having asked whether the invariant
 binds. It is **not deleted**, because it is a true record of a read that
-happened; it is **relocated to the reading it actually is**, the ledger-absence
-measurement at §7.2, where its query is its subject. kogaki#127's umbrella
+happened, and it is **not moved** either — it stays where it sits and is
+re-labelled to the reading it actually is, the ledger-absence measurement
+whose subject is §7.2, where its query is its subject. kogaki#127's umbrella
 claim of "4 distinct request_ids, one query and one reading each — no reuse"
 was inaccurate for this one id and is accurate again once it sits at §7.2
 alone.
