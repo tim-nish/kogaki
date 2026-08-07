@@ -52,6 +52,14 @@ The Brief's **durable home** — where the document lives, checkpoints and
 resume — is manifest item 5's and is not decided here. v1 describes the
 Brief's structure section and says nothing about its file.
 
+**The whitelist's other two members are owed, not silently covered.** §1's
+inheritance whitelist has four members; items 1 and 2 (the Terrain → Brief
+pipeline, and reading Thesis and Strands) are discharged by §3. Item 3 —
+Draft creation driven by questions in a UI — and item 4 — the CanonicalDraft
+and Variant concepts — are **neither bound nor excluded by v1**: this spec
+stops at the Brief's structure, and both live downstream of it. Listed here
+so the remainder stays countable rather than being read as covered.
+
 ## 3. The Thesis and the Strands are read, not invented
 
 The article-design substrate is served and ratified:
@@ -137,7 +145,7 @@ step that discharges it.
 > count check runs AFTER composition**, since a composer that cannot omit in
 > principle can still omit in fact."
 
-`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:9,11, topics/articles.md:41,74`
+`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:9,11, topics/articles.md:41,74,120`
   request_id: e6abb4ef-d145-4411-b308-90d9ef475ae9
   outcome: discriminating
   query: Does a cross-run signature ledger exist — what act or instrument measures whether composed article structures have rationale untied to the article's own materials?
@@ -266,10 +274,16 @@ queries and what they returned:
   no `drafts/`, no `briefs/`, no `articles/`, no composed Brief and no
   rendered article exist in this repository.
 - **The ledger.** The §5 receipt's query, asked of the served surface at
-  `product-lab@f918c515`. It returned the trigger's own sentence
-  (`topics/articles.md:120`) and **no ledger**, in a response whose topic
-  coverage included every article- and knowledge-architecture decision line
-  the surface holds on instruments.
+  `product-lab@f918c515`. Its **top hit was the trigger's own sentence**
+  (`topics/articles.md:120`) and **nothing in the response named a ledger**.
+  What the response was is stated exactly, because the strength of an
+  absence is the strength of the look: coverage `partial`, `truncated: true`,
+  **20 lines rendered out of 290 topic candidates**. So this is a
+  well-aimed look that found nothing, **not an exhaustive enumeration** —
+  the query was the one the trigger's own wording supplies, and the surface
+  answered with the trigger rather than with the instrument. A reader who
+  needs exhaustiveness must re-run it; a reader deciding whether to rely on
+  the ledger today has enough.
 
 **The nearest plausible-and-wrong instrument, named so nobody reaches for it
 later: this spec's own §6 Candidates gate.** It is the obvious candidate — the
