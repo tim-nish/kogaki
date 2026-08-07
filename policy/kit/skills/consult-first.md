@@ -91,12 +91,13 @@ consulted: <repo>@<sha> <file:line[,line][, file:line…]>
 **Do not compose this by hand when the transport can emit it** (`specs/SPEC.md`
 §4, kogaki#66). `consult.mjs` above prints the block after the tool results;
 the transport underneath it is callable directly when you need a tool other
-than `policy_lookup` or more framings than the entry point's bound:
+than `policy_lookup` in a shape the entry point does not carry, or more
+framings than the entry point's bound:
 
 ```
 policy/kit/bin/gateway-query.mjs --consumer <name> --tool policy_lookup \
-  --args '{"question":"<framing 1>"}' \
-  --args '{"question":"<framing 2>"}' \
+  --args '{"question":"<framing 1>"}' --question '<framing 1>' \
+  --args '{"question":"<framing 2>"}' --question '<framing 2>' \
   --receipt --outcome <token>
 ```
 
@@ -106,6 +107,34 @@ remember — which is what makes the two shipped transcription defects
 unproducible on this path rather than merely detected (kogaki#32's coined
 vocabulary, kogaki#75's copied `request_id`). Going around the entry point
 costs you the three rules above; say so in the PR if you do.
+
+- **`--question` is required in receipt mode, one per `--args`, same order**
+  (kogaki#160 finding 4). The `query:` line is *the question, verbatim* —
+  the key a later reader reuses to reach the same ruling
+  (`the consultation map's Miss-postmortem field`) — and until this argument existed the
+  transport had to derive it: `policy_lookup`'s question came off its own
+  arguments, and every other tool had its `--args` JSON recorded instead. A
+  `gloss_index` consult therefore emitted `query: {"tag":"lessons/testing"}`
+  and passed every check, which is a well-formed receipt that records nothing
+  anyone can reuse. **The question binds to a CALL, not to the invocation:**
+  framing *i*'s `--question` is the question asked of framing *i*'s gateway
+  call, and the receipt's `request_id` is the LAST framing's — so the last
+  `query:` line and the `request_id` are the same call's, and every earlier
+  `query:` line names an earlier call in the order they ran. Without one per
+  framing the transport refuses (exit 2) before the wire; a `--question`
+  disagreeing with a `policy_lookup` framing's own `question` argument is
+  refused too, because one of the two is not what ran.
+- **A prescription whose tool is not `policy_lookup` now goes through the entry
+  point.** `consult.mjs` takes `--args '<json>'` positionally against
+  `--claim`, sending the tool its arguments and the claim as the call's
+  question — so the consultation map's entry-1 prescription (`gloss_index`)
+  is mediated rather than requiring a bare transport call:
+
+```
+policy/kit/bin/consult.mjs --consumer <name> --tool gloss_index \
+  --claim '<the question this read is for>' --args '{"tag":"lessons/testing"}' \
+  --outcome <token>
+```
 
 - **`--outcome` is required and no tool here ever guesses it.** The token is a
   *reading* of whether the answer discriminated, and **the operator supplies

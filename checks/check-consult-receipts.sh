@@ -14,10 +14,31 @@
 # that is not `<repo>@<sha> <file:line[,line…]>` shaped, or — for a v2 receipt
 # (kogaki#28, story 1.10) — a CONFORMANCE defect in what the receipt asserts:
 # an outcome outside the ratified triple, an `uncovered-after-N` whose N
-# disagrees with the query lines or falls below the re-ask floor, or a receipt
-# carrying some continuation fields and not the rest. All of those are claims
-# the receipt makes about itself; none of them is a count of receipts, so the
-# "never gates on the count" contract is untouched.
+# disagrees with the query lines or falls below the re-ask floor, a receipt
+# carrying some continuation fields and not the rest, or — kogaki#160 finding 4
+# — a `query:` line holding a serialized tool argument rather than a question.
+# All of those are claims the receipt makes about itself; none of them is a
+# count of receipts, so the "never gates on the count" contract is untouched.
+#
+# BACKWARD COMPATIBILITY of the finding-4 clause, stated rather than assumed.
+# This check scans the BRANCH's own commit range (merge-base..HEAD) plus the PR
+# body CI supplies — never a file on the default branch and never the whole
+# history — so the receipts already merged, including `208fd83`'s, are outside
+# every future scan window and no branch fails on work it did not author. The
+# receipt GRAMMAR is unchanged: no field is added, renamed, or reordered, and a
+# v1 receipt (no continuation lines) has no query lines for the clause to read,
+# so it stays valid exactly as before. What narrows is the admissible VALUE of
+# a field that already existed, on emissions made from here on.
+#
+# THE HOLE IN THAT ARGUMENT, named rather than left for someone to find (PR
+# #186 review, finding 3). The `merge-base..HEAD` half is range-bounded and
+# holds. `CONSULT_PR_BODY` is NOT: a PR body that QUOTES a previously-merged
+# defective receipt puts that receipt inside the scan window, and the clause
+# fires on text the branch did not author. That is not a new hazard — it is
+# the use-vs-mention rule above, and its discharge is the same one: a quoted
+# receipt belongs in a fence, where it is a mention and is excluded. Stated
+# here because "backward compatible" without this sentence is the kind of
+# self-consistent-and-incomplete claim this whole clause exists to refuse.
 #
 # USE vs MENTION (kogaki#41): a `consulted:` line inside a fenced code block
 # is a QUOTATION of the format, not an emission of a receipt — the scanned
@@ -53,7 +74,7 @@ body="${CONSULT_PR_BODY:-}"
 
 CONSULT_SOURCE="$commits
 $body" CONSULT_RANGE="$range_desc" python3 <<'EOF'
-import os, re, sys
+import json, os, re, sys
 
 # A receipt's line one: `consulted: <repo>@<sha> <file:line[,line][, file:line…]>`
 RECEIPT = re.compile(r'^\s*consulted:\s*(.+)$', re.MULTILINE)
@@ -83,6 +104,39 @@ MIN_FRAMINGS = 2
 
 def outcome_ok(value):
     return value in OUTCOMES or bool(UNCOVERED.match(value))
+
+
+def args_shaped(value):
+    """True when a `query:` value is a serialized TOOL ARGUMENT, not a question.
+
+    kogaki#160 finding 4. `the consultation map's Miss-postmortem field` defines the field as
+    "**The question, verbatim** — the query that would have found the served
+    line … situation-specific keys for reaching a particular ruling", and the
+    grammar accepted any non-empty value, so this shipped and passed:
+
+        query: {"tag":"lessons/claude-code-ops"}
+
+    Its cause was a SEAM GAP, not an authoring slip: `gateway-query.mjs` read
+    the query off `policy_lookup`'s `question` argument and fell back to the
+    raw `--args` JSON for every other tool, so a `gloss_index` consult had no
+    field in which to record its question. The transport now takes `--question`
+    per call and REFUSES without it, which makes this emission unproducible on
+    the tool path. This clause is the floor under the marked-exception path —
+    the same division condition 2 already draws — and it is deliberately the
+    narrowest rule that discriminates: a JSON object or array literal is a tool
+    argument in a field reserved for prose, and nothing else is judged.
+
+    A question is not disqualified for containing braces or quotes; only a
+    value that IS a JSON object/array from end to end fails. Ordinary prose
+    starting with `{` and parsing as JSON is not a shape this field produces.
+    """
+    v = value.strip()
+    if not (v.startswith('{') or v.startswith('[')):
+        return False
+    try:
+        return isinstance(json.loads(v), (dict, list))
+    except ValueError:
+        return False
 
 
 def scan(source):
@@ -150,6 +204,25 @@ def scan(source):
                           'request_id, outcome and at least one query; '
                           f'missing: {", ".join(missing)}'))
                 continue
+        # THE QUERY FIELD HOLDS A QUESTION, NEVER A TOOL ARGUMENT (kogaki#160
+        # finding 4). Checked before the outcome clauses because a receipt
+        # whose queries are argument blobs tells a reader nothing about what
+        # was asked, and every clause below reasons about the query lines as
+        # if they were questions — N naming them, the re-framing floor reading
+        # them. Applied to v1 receipts too: a v1 receipt has no query lines at
+        # all, so the clause is vacuous there and the history stays valid.
+        blobs = [q for q in fields['query'] if args_shaped(q)]
+        if blobs:
+            malformed.append(
+                (pin, f'query line {blobs[0]!r} is a serialized tool argument, '
+                      'not a question. The consultation map defines '
+                      'this field as the question verbatim — a key a later '
+                      'reader can reuse to reach the same ruling. Pass '
+                      '`--question` to the transport, one per `--args`, in the '
+                      'same order; it is required in receipt mode and binds '
+                      'the question to the call whose request_id this receipt '
+                      'carries'))
+            continue
         if got is not None and not outcome_ok(got):
             malformed.append((pin, f'outcome {got!r} is not the ratified triple '
                                    '(discriminating | covered-after-reframing | '
@@ -285,6 +358,30 @@ V2_EMPTY_QUERIES = (GOOD + "\n  request_id: r\n"
                     "  outcome: uncovered-after-3-framings\n"
                     "  query: \n  query:   \n  query:\n")
 V2_EMPTY_OUTCOME_ALONE = GOOD + "\n  outcome:\n"
+# --- kogaki#160 finding 4: the query field holds a question ------------------
+# THE SPECIMEN, verbatim from `208fd83`'s merged receipt. It passed every
+# clause above it: pin-shaped, v2-complete, ratified outcome, N absent. What it
+# records is the transport's `--args`, which is an honest transport fact in the
+# one field reserved for the question a later reader could reuse.
+V2_ARGS_AS_QUERY = (GOOD + "\n  request_id: r\n"
+                    "  outcome: discriminating\n"
+                    '  query: {"tag":"lessons/claude-code-ops"}\n')
+# The mixed case: one real question, one blob. One blob is enough to fail —
+# a receipt that records what was asked for some of its calls and not others
+# is exactly the self-consistent-on-its-face shape this closes.
+V2_ONE_BLOB_AMONG_QUESTIONS = (GOOD + "\n  request_id: r\n"
+                               "  outcome: uncovered-after-2-framings\n"
+                               "  query: does a served line discriminate the admission of a check?\n"
+                               '  query: {"tag":"lessons/testing"}\n')
+# The NEGATIVES that make the clause discriminating rather than a brace ban.
+# A question may contain braces, quotes, or JSON-looking fragments and still be
+# a question; only a value that is a JSON object/array end to end is refused.
+V2_BRACES_IN_A_QUESTION = (GOOD + "\n  request_id: r\n"
+                           "  outcome: discriminating\n"
+                           '  query: should a {"tag": …} argument ever stand in for the question?\n')
+V2_JSON_SCALAR_IS_NOT_ARGS = (GOOD + "\n  request_id: r\n"
+                              "  outcome: discriminating\n"
+                              "  query: {not json at all\n")
 # Each fixture asserts (receipts, malformed, total query lines, outcomes).
 # The last two fields are not decoration: a (count, malformed) assertion alone
 # cannot observe whether the continuation fields were parsed at all, so six of
@@ -381,6 +478,15 @@ FIXTURES = [
      V2_EMPTY_QUERIES, 1, 1, 0, ('uncovered-after-3-framings',)),
     ("an empty outcome alone stays malformed (regression pin: was already caught by the triple clause, now by completeness — the verdict is invariant, only the reason improved)",
      V2_EMPTY_OUTCOME_ALONE, 1, 1, 0, ()),
+    # --- kogaki#160 finding 4 ---
+    ("the merged specimen: a serialized tool argument in the query field fails",
+     V2_ARGS_AS_QUERY, 1, 1, 1, ('discriminating',)),
+    ("one argument blob among real questions is enough to fail",
+     V2_ONE_BLOB_AMONG_QUESTIONS, 1, 1, 2, ('uncovered-after-2-framings',)),
+    ("a question CONTAINING braces and quotes is still a question",
+     V2_BRACES_IN_A_QUESTION, 1, 0, 1, ('discriminating',)),
+    ("a value that opens a brace but is not JSON is not judged an argument",
+     V2_JSON_SCALAR_IS_NOT_ARGS, 1, 0, 1, ('discriminating',)),
 ]
 fixture_failures = []
 for name, src, want_count, want_bad, want_q, want_out in FIXTURES:
@@ -423,7 +529,8 @@ print(f"fixture pass: {len(FIXTURES)}/{len(FIXTURES)} discrimination cases "
       "(mention-in-fence excluded; malformed-outside-fence still fails; "
       "v2 fields parsed, bare `miss` and an under-recorded re-framing fail; "
       "request_id reuse with a changed reading fails, an identical "
-      "duplicate does not)")
+      "duplicate does not; a serialized tool argument in the query field "
+      "fails while a question containing braces does not)")
 print(f"v2 receipts: {v2} of {len(receipts)} carry request_id/outcome, "
       f"{queries} query line(s) recorded — reported, never gated")
 distinct = sorted(set(pins))

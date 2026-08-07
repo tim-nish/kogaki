@@ -889,7 +889,17 @@ invariant: Gukan guarantees Unit schema, never data schema).
   kogaki#32 class *unproducible*; the check keeps catching it for the exception
   path below, which is exactly the division the typed improvement loop asks for.
 
-  Three conditions bound the clause:
+  **That "unchanged" held for the producer move and does NOT hold for
+  condition 4** (kogaki#160). Moving the producer left the field *values*
+  alone, so shape did not move with it. Condition 4 narrows the admissible
+  value of a field that already existed — a `query:` line may not hold a
+  serialized tool argument — and the same division applies one level down: the
+  transport makes that emission unproducible, and the check catches it on the
+  marked-exception path. No field is added, renamed, or reordered, so the
+  grammar block above is unchanged and every receipt already in history stays
+  parseable.
+
+  Four conditions bound the clause:
 
   1. **The emitting tool is the one that made the call** — the kit's own
      transport (`policy/kit/bin/gateway-query.mjs`, which today contains no
@@ -974,6 +984,198 @@ invariant: Gukan guarantees Unit schema, never data schema).
      clause asks for the decision *before* code embeds the choice, and on this
      slot the sequence ran the other way round; recorded here so the next
      reader does not mistake the agreement for compliance.
+
+  4. **THE QUESTION TRAVELS WITH THE CALL. `--question` is required in receipt
+     mode, one per `--args`, and the `query:` line may not hold a serialized
+     tool argument** (owner selection 2026-08-07, kogaki#160 finding 4).
+
+     `policy/consultation-map.md:67@a3b635d` already defines the field:
+
+     > **The question, verbatim** — the query that would have found the served
+     > line. This is the field the map accumulates: situation-specific keys for
+     > reaching a particular ruling, written by the sitting that discovered one
+     > was needed.
+
+     That definition is unchanged and is not amended here. What changes is the
+     transport, which could not honour it: `gateway-query.mjs` *derived* the
+     `query:` line, reading it off `policy_lookup`'s own `question` argument
+     and falling back to the raw `--args` JSON for every other tool. So a
+     `gloss_index` consult — the consultation map's own entry-1 prescription —
+     emitted `query: {"tag":"lessons/claude-code-ops"}` and passed every check.
+     That was the honest transport fact, recorded in the one field reserved for
+     a question, because **there was no field in which such a consult could
+     record its question**: a seam gap, not an authoring slip.
+
+     **What is common to the three failures this closes**, named because the
+     shape is the argument and none of them is a typo. All reached pushed
+     commits inside one week, and a **fourth instance of the same class** is
+     recorded below with the boundary it marks:
+
+     - a receipt carrying a `request_id` another receipt had already claimed
+       against a *different* reading (caught by the review lane on PR #156,
+       corrected forward);
+     - four receipts whose gateway addresses were **silently dropped** for an
+       unrecognized address form — well-formed on their face while their
+       arguments never took effect (PR #170's lane);
+     - a receipt on master carrying `request_id e6abb4ef` for a quote its
+       recorded query never asked about.
+
+     Each is **a receipt that is self-consistent on its face and false**,
+     because nothing on the path could tell a reader that the recorded query is
+     the query that ran. Every per-receipt clause in
+     `checks/check-consult-receipts.sh` validates a receipt against itself, and
+     all three passed. This is
+     `a-defect-your-instrument-absorbs-reads-as-clean` at its own instrument:
+
+     > To catch such a problem you need a measurement that does not absorb it —
+     > a stated limit that gets checked, or a deliberately weak tester whose
+     > failure is the signal.
+
+     `consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/testing.md:23`
+
+     **WHICH CALL'S ID AND QUESTION TRAVEL TOGETHER — the binding, stated
+     because leaving it implicit is what shipped the first failure.** A
+     re-framed consult is several gateway calls, and the v2 grammar carries
+     **one** `request_id`: the LAST framing's, the answer the outcome is a
+     reading of. So `--question` binds to **a call**, never to the invocation:
+     framing *i*'s `--question` is the question asked of framing *i*'s gateway
+     call, the `query:` lines are emitted in the order the calls ran, and the
+     **last `query:` line and the `request_id` are therefore the same call's**.
+     Failure 1 happened because one invocation's several framings each have
+     their own `request_id` and the wrong one was carried.
+
+     **What actually changed here, stated precisely** (PR #186 review, nit 1).
+     The composer's *positional* pairing already held: it read `parsed[i]` and
+     `queries[i]` off `observed[i]` before this condition existed. What did not
+     hold is that the question was **derived** — so for any tool but
+     `policy_lookup` the value at index *i* was the arguments, and the receipt
+     was correctly paired to a call while saying nothing about what that call
+     asked. The pairing is now pinned by a fixture rather than left as an
+     accident of the loop, and the value it pairs is a question. The property
+     this condition adds is the second half; the first is made checkable, not
+     created.
+
+     **The remedy is constrain-shaped, and that is the discriminating served
+     position** — the same line the triage lane read when it declined to
+     re-shape this issue:
+
+     > When the same class of defect keeps returning and every fix adds one
+     > more forbidden item to a list, the list is the wrong instrument — it can
+     > only describe the problem you already had, so it is always one incident
+     > behind. The alternative is to restrict what the system can produce in
+     > the first place … Checking still has a place, but only where something
+     > genuinely must be composed fresh, and the right response there is to
+     > make that area smaller rather than to inspect it harder.
+
+     `consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/testing.md:77`
+
+     The area that must still be composed fresh is condition 2's marked
+     exception, and that is exactly where the check clause applies.
+
+     **The alternatives, recorded because a decision without them is an
+     assertion.**
+     *B — document the duty in the kit docs*, stating that a
+     transport-mediated non-`policy_lookup` consult owes a hand-written
+     `query:` line. **Declined:** the check would still accept any non-empty
+     value, so the seam stays exactly as wide as it is and the duty relocates
+     to a reader. It is the enumerated-list side of the line quoted above, and
+     it fails `a-rule-reproduces-only-through-a-default-carrier` — a rule
+     written in a document affects only the authors who go and look it up.
+     *C — record the gap with a reopen trigger.* **Declined:** spec-only, and
+     it leaves the defect reachable. A hold owes its measurement, and here the
+     measurement already exists and is three: the class has recurred three
+     times in one week, which is the condition under which
+     `persistence-through-fixes-falsifies-the-diagnosis` says the answer is not
+     a stronger version of the same detection.
+
+     **What condition 4 deliberately does NOT do.** It does not judge whether a
+     recorded question is a *good* question, nor whether two framings varied
+     their axis — both are readings, and the unit that could observe them is a
+     reader, not this check (`match-the-detectors-unit-to-the-propertys-unit`,
+     `gloss/lessons/testing.md:131` at the pin above). The clause is the
+     narrowest rule that discriminates: a value that is a JSON object or array
+     end to end is a tool argument in a field reserved for prose. A question
+     *containing* braces or quotes is a question, and both directions carry
+     fixtures.
+
+     **THE FOURTH INSTANCE, AND THE BOUNDARY IT MARKS — what `--question` does
+     NOT reach.** The three above are receipts misrepresenting *the query*.
+     The fourth is a served surface misrepresenting *its own currency*, and it
+     is live at the pin this condition was written against. Measured, not
+     reported: `topic_thread("articles")` at
+     `product-lab@0cb46066653ef3db2e33f69971829d25c06b6507` returns 127 lines
+     whose frontmatter reads `updated: 2026-08-07` (`topics/articles.md:4`),
+     whose newest dated decision line is **2026-08-05**, which carry **no line
+     dated 2026-08-06 at all**, and in which `Move`/`Moves`/`moves/` occurs
+     **zero** times — so the 2026-08-06 adoption kogaki#169 is about is still
+     absent from the surface after a sweep that advanced the freshness date
+     past it.
+
+     Condition 4 makes the recorded query provably the query that ran. It does
+     **not** make a served line's *liveness* checkable, and
+     `policy/kit/bin/issue-pins.mjs --recheck` still compares SHAs — so a
+     receipt can now be perfectly honest about what it asked and about which
+     call answered, while the answer it quotes is superseded by a ruling the
+     surface has not swept. The served surface says so in as many words:
+
+     > Being written more recently says when someone wrote, not what they
+     > could see.
+
+     `consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/knowledge-architecture.md:197`
+
+     > if it is mechanical, you have established existence and said nothing
+     > about approval, so read the decision record for verdicts dated after
+     > that evidence, and when they conflict the later verdict wins and the
+     > conflict is reported rather than quietly reconciled
+
+     `consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/knowledge-architecture.md:257`
+
+     The carrier for that half is the consultation map's **entry 3, "Record
+     disposition"** (kogaki#171), which names `--recheck` explicitly as what
+     does *not* discharge it. This clause is stated here so no reader takes the
+     seam to be closed end to end: **the query half is now mechanical, the
+     liveness half remains a read.**
+
+     **Backward compatibility.** No field is added, renamed, or reordered, so
+     the grammar block above stands and every v1 receipt (no continuation lines,
+     therefore no query lines) is untouched.
+     `checks/check-consult-receipts.sh` scans the branch's own commit range
+     (`merge-base..HEAD`) plus the PR body CI supplies — never a file on the
+     default branch, never the whole history — so receipts already merged,
+     including `208fd83`'s, lie outside every future scan window and no branch
+     fails on work it did not author. What narrows is the admissible value of
+     an existing field, on emissions made from here on.
+
+     **With one hole, named rather than left to be found** (PR #186 review).
+     The commit range is bounded; `CONSULT_PR_BODY` is not. A PR body that
+     *quotes* a previously-merged defective receipt brings it inside the scan
+     window, and the clause fires on text that branch did not author. It is
+     not a new hazard — it is the use-vs-mention rule (kogaki#41), and its
+     discharge is the same: a quoted receipt belongs in a fence, where it is a
+     mention. Recorded because "backward compatible" without this sentence is
+     itself a self-consistent and incomplete claim, which is the shape this
+     condition exists to refuse.
+
+     **The silent-address drop is CARVED OUT, not smuggled in.** Failure 2
+     above is a different defect: an unrecognized address form returns a
+     well-formed response to a query the gateway did not run, so `--question`
+     records a question truthfully while the *answer* beside it is another
+     artifact's. The hub has already ruled on the general shape —
+
+     > a basename collision does not error and does not return empty, it
+     > returns 283 well-formed lines of the **wrong artifact**, the server logs
+     > an `allow`, and the shadowed kind never appears in the access log —
+     > both ends read success
+
+     `consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/archive/knowledge-architecture.md:23`
+
+     — and places enforcement at the layer where the ambiguity is created
+     rather than at serve time (`topics/archive/knowledge-architecture.md:24`,
+     same pin). Making the transport fail loudly on an unrecognized address is
+     therefore a real and probably owed change, and it is **outside kogaki#160's
+     licence**, which is finding 4's receipt contract. It is filed through the
+     typed path as its own issue rather than ridden in here, and named here so
+     it is not left unrecorded.
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
