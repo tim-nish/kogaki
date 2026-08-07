@@ -217,6 +217,31 @@ The rule binds here because this is the layer where it can be broken.
   kogaki#163). One tag-scoped shard pair per run feeds every GroupClaim and
   every SubGroupClaim. Composing per group spends one read per placement,
   which is what the ~19-minute 2026-08-07 run bought.
+
+  **THIS LINE IS NOW ENFORCED, not merely stated** (SPEC.md §11 v10,
+  kogaki#212). `compose-input` emits a **composition pin** carrying the member
+  set it served per group; the claims artifact carries that pin **with** the
+  claims, and `cotags` refuses claims whose members are not a **subset** of it,
+  **naming the members that fall outside**. So the claims file is a typed
+  record:
+
+  ```json
+  {
+    "composition_pin": { "tag": "<T>", "pin": "<survey record pin>",
+                         "groups": { "<T> × architecture": ["lesson:alpha", "lesson:bravo"] } },
+    "claims": { "<T> × architecture": "…" }
+  }
+  ```
+
+  **Copy `composition_pin` straight out of `compose-input`'s output** — do not
+  hand-write it. A bare `{group: claim}` map is **refused by name**, as
+  `--subdivisions` refuses its withdrawn bare array, and a pin computed against
+  a different survey record is refused too rather than silently re-resolved.
+
+  Composing a claim over a **subset** of the served members is normal work and
+  is accepted; what is refused is a claim naming material the bounded read never
+  served. The pin carries the **set**, not a hash, because a hash could refuse
+  and could not tell you *which* member was outside.
 - **After a tag has been selected, never launch a question UI** (SPEC.md §6.3).
   Never ask which co-tag group or SubGroup to open, never ask whether to run a
   step, never ask "what next". Render, then state the available acts in plain

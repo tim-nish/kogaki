@@ -600,7 +600,26 @@ function cmdCotags(args) {
   // this runtime exactly as §7 leaves them, so the claims ARRIVE AS ARGUMENTS;
   // what is bound here is that every group gets one and that a missing one is
   // marked rather than substituted.
-  const claims = args.claims ? readJson(String(args.claims)) : {};
+  // §11 v10 (kogaki#212): the claims artifact is a TYPED RECORD carrying the
+  // composition pin, and the pin is checked by CONTENT before any claim is
+  // rendered. `readClaimsRecord` refuses a bare map by name and refuses a pin
+  // computed against a different survey.
+  const _claimsRaw = args.claims ? readJson(String(args.claims)) : null;
+  const { claims, pin: _compPin } = readClaimsRecord(_claimsRaw, record);
+  // THE SUBSET REFUSAL, naming what falls outside the bounded read. Composing
+  // from the whole survey is what this makes unproducible.
+  if (_compPin) {
+    const outside = claimsOutsideBound(claims, _compPin, groups);
+    if (outside.length) {
+      const detail = outside.map((o) => o.members.length
+        ? `${o.group}: ${o.members.join(", ")} (${o.reason})`
+        : `${o.group} (${o.reason})`).join("; ");
+      fail(`--claims were composed OUTSIDE the bounded read: ${detail}. `
+        + "Every claim must be composed from the material `compose-input` served, and "
+        + "the composition pin records what that was — recompose from it rather than "
+        + "from the whole survey (SPEC.md §11 v10)");
+    }
+  }
   for (const k of Object.keys(claims)) {
     if (!groups.some((g) => g.name === k || g.cotag === k)) {
       fail(`--claims names ${JSON.stringify(k)}, which is no composed group — a claim carries no selection authority and may not invent, merge or rename a group (SPEC.md §6.1)`);
@@ -1208,6 +1227,97 @@ export const NO_JUDGE = "none";
 // the served surface rules against: "a collision wants REFUSAL OR
 // QUALIFICATION at the resolver, never a first-hit-wins guess"
 // (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:154`).
+// THE TYPED CLAIMS RECORD, and the subset refusal it exists to make possible
+// (§11 v10, kogaki#212).
+//
+// WHY THE CLAIMS ARTIFACT IS THE CARRIER. The pin has to accompany the claims,
+// and v9 never said where it lives. It lives HERE, in one artifact with them,
+// because a pin in a separate file can go stale beside the claims it
+// accompanies and nothing in the tool would catch that — the same
+// existence-versus-standing gap the subset check exists to close, moved one
+// file over. It also mirrors §12.1 v9's typed subdivision record, so both
+// composed inputs carry one shape rule learned once.
+//
+//   { "composition_pin": { "tag": …, "pin": …, "groups": { "<G>": ["lesson:…"] } },
+//     "claims":         { "<G>": "…" } }
+//
+// A BARE MAP IS REFUSED BY NAME, as §12.1 v9 refuses the withdrawn bare array:
+// two encodings for one fact would let a stale composer silently keep the
+// unguarded shape.
+export function readClaimsRecord(raw, record) {
+  if (raw === undefined || raw === null) return { claims: {}, pin: null };
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    fail("--claims must be an object (SPEC.md §11 v10)");
+  }
+  if (!("composition_pin" in raw) || !("claims" in raw)) {
+    fail("--claims is a bare {group: claim} map, which is the withdrawn pre-v10 form. "
+      + "A claim composed outside the bounded read is what this refuses, and a bare map "
+      + "carries no evidence of where it was composed from. Write "
+      + '{"composition_pin": {...}, "claims": {...}} — `compose-input` emits the pin '
+      + "(SPEC.md §11 v10)");
+  }
+  const pin = raw.composition_pin;
+  if (!pin || typeof pin !== "object" || Array.isArray(pin)) {
+    fail("--claims carries no usable `composition_pin` object (SPEC.md §11 v10)");
+  }
+  if (!pin.groups || typeof pin.groups !== "object" || Array.isArray(pin.groups)) {
+    fail("--claims `composition_pin` carries no `groups` map. It must hold the MEMBER "
+      + "SET compose-input served, per group — a digest cannot support a subset check "
+      + "and can name no offender (SPEC.md §11 v10)");
+  }
+  // AC4 — THE PIN BINDS THE SURVEY RECORD IT WAS COMPUTED AGAINST. A stale pin
+  // must not become a confident wrong acceptance: re-resolving it silently
+  // against a different record is the shape where the guard passes and the
+  // claim it admitted was composed from material this survey never served.
+  if (record && pin.pin && record.pin && pin.pin !== record.pin) {
+    fail(`--claims was composed against survey pin ${pin.pin}, and this run's survey is `
+      + `${record.pin}. The bounded read it evidences is not this one — re-run `
+      + "compose-input against this survey and recompose (SPEC.md §11 v10)");
+  }
+  const claims = raw.claims;
+  if (!claims || typeof claims !== "object" || Array.isArray(claims)) {
+    fail("--claims `claims` must be a {group: claim} object (SPEC.md §11 v10)");
+  }
+  return { claims, pin };
+}
+
+// AC3 — THE SUBSET CHECK, bound by CONTENT and naming what falls outside.
+//
+// This is the load-bearing half. A pin asserting only that `compose-input` RAN
+// is satisfiable by a session that runs it, takes the pin, and composes from
+// the whole survey anyway — existence evidence standing in for standing
+// (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:63`).
+// The subset relation is what makes composing outside the bounded read
+// UNPRODUCIBLE rather than discouraged.
+//
+// Returns the offending entries, so the caller can NAME them. An empty array is
+// a pass. Pure over its inputs, so the fixtures can state both directions
+// without a gateway.
+export function claimsOutsideBound(claims, pin, groups) {
+  const out = [];
+  const served = pin && pin.groups ? pin.groups : {};
+  for (const name of Object.keys(claims)) {
+    // A claim naming a group the bounded read never served is outside it,
+    // whatever its members are.
+    if (!Object.prototype.hasOwnProperty.call(served, name)) {
+      out.push({ group: name, reason: "no such group in the bounded read", members: [] });
+      continue;
+    }
+    // And a group whose composed membership exceeds what was served is outside
+    // it too — the subset direction. A NARROWER set is fine: composing a claim
+    // over a subset of the served members is normal work, which is exactly why
+    // this is a subset test and not equality.
+    const g = groups.find((x) => x.name === name || x.cotag === name);
+    if (!g) continue;
+    const allowed = new Set(served[name] || []);
+    const stray = g.members.filter((m) => !allowed.has(m));
+    if (stray.length) {
+      out.push({ group: name, reason: "members outside the bounded read", members: stray });
+    }
+  }
+  return out;
+}
+
 export function readSubdivisionEntry(name, entry) {
   if (entry === undefined || entry === null) return null;   // absent: not judged
   if (Array.isArray(entry)) {
@@ -1348,6 +1458,25 @@ export function composeInput(record, tag, groups, fetchShard) {
     kind: "composition-input",
     tag,
     pin: record.pin,
+    // THE COMPOSITION PIN (§11 v10, kogaki#212). The claim composer copies this
+    // into its claims artifact, and `cotags` refuses claims whose members are
+    // not a SUBSET of what it covers — which is what makes composing from the
+    // whole survey unproducible rather than merely discouraged.
+    //
+    // IT CARRIES THE SERVED MEMBER SET, NOT A DIGEST, and that correction is
+    // the whole of why the guard can do its job. A digest supports EQUALITY,
+    // not subset, and can name no offender — so it could not deliver the
+    // refusal §11 states, which names the members that fall outside. The
+    // property was load-bearing and the digest was the mechanism, so the
+    // mechanism gave way
+    // (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:86`).
+    //
+    // It costs no new computation: `groups` below is already assembled.
+    composition_pin: {
+      tag,
+      pin: record.pin,
+      groups: Object.fromEntries(groups.map((g) => [g.name, [...g.members]])),
+    },
     bound: COMPOSITION_INPUT_BOUND,
     // ids only. See the structural note above: this is the half that makes a
     // per-group re-read unwritable rather than merely discouraged.
@@ -1464,7 +1593,15 @@ function cmdReport(args) {
     : [groups.find((g) => g.name === groupArg || g.cotag === groupArg)
         || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`)];
 
-  const claims = args.claims ? readJson(String(args.claims)) : {};
+  // THE SECOND READER OF THE SAME ARTIFACT (§11 v10, kogaki#212). `cotags` and
+  // `report` are handed the same `--claims` file, so migrating one and leaving
+  // the other reading the flat map would put two encodings behind one file —
+  // the defect §12.1 v9 fixed for `--subdivisions` by migrating both readers in
+  // one change. `report` does not re-run the subset check (that is the screen's
+  // gate, and it has already refused there) but it MUST read the same shape, or
+  // a typed record would silently render every group's claim as absent.
+  const { claims } = readClaimsRecord(
+    args.claims ? readJson(String(args.claims)) : null, record);
   const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
   const subOf = (g) => readSubdivisionEntry(
     g.name,
