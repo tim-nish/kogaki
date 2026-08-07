@@ -1238,6 +1238,40 @@ invariant: Gukan guarantees Unit schema, never data schema).
         misrepresenting *its own currency*, not a line that moved. A quote hash
         cannot see it, and this clause does not claim to. It remains a read,
         and entry 3 of the consultation map remains its carrier.
+     4. **A content-verified pin still does not discharge a DISPOSITION read**,
+        and this is the most available over-read of the change: the consultation
+        map's entry 3 names `--recheck` as what does *not* settle "which record
+        is the live word", and **its substance survives this amendment in full.**
+        The served surface discriminates the two directly — whether something
+        was built "is local, mechanically self-evident, free to check, and looks
+        final … whereas whether it is still accepted, rejected, or superseded
+        lives in prose somewhere else and never surfaces unless you deliberately
+        go looking … if it is mechanical, you have established existence and
+        said nothing about approval":
+
+        `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e gloss/lessons/knowledge-architecture.md:257`
+        (`merged-code-evidences-existence-never-standing`)
+
+        A verified quote hash establishes that the cited line **still says what
+        it said**. It says nothing about whether what it says is **still the
+        live ruling**. Entry 3's evidence sentence — which cites the old
+        SHA-only behaviour and the removed `pins current` wording — is now
+        stale and is owed a re-cut on its own carrier; its *rule* is not.
+
+     **And the declined direction keeps its served ground, so a future sitting
+     inherits the measurement rather than this verdict.** The corpus states the
+     position plainly: in an append-only corpus with hard size limits, moving
+     text is "not a rare event but a routine one", which makes "any reference
+     pointing at a position, such as a file and a line number, a defect waiting
+     for its date" — and "the fragile kind is not leftover mess, it is a rule
+     nobody enforced."
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e gloss/lessons/knowledge-architecture.md:119`
+     (`bind-references-to-identities-not-positions`)
+
+     That line is the case **for** anchor migration, recorded inside the clause
+     that declines it. What this change ships is the enforcement of the fragile
+     form's failure, not a defence of the form.
 
      So the amended statement of where the seam stands: **the query half is
      mechanical; the liveness half is mechanical for any cited line that

@@ -206,7 +206,14 @@ export function stripFences(body) {
 // Both are collected. `line` is null for a range, which is what routes a range
 // to `cannot-tell (range cite)` rather than to a silent pass.
 export function parseCites(body) {
-  const emitted = stripFences(body);
+  // `pin-quote:` LINES ARE STRIPPED FIRST. Shape (b) below matches any
+  // `<file>:<line>@<sha>`, which is exactly a pin-quote line's own provenance
+  // field — so an unstripped body has every pin-quote MANUFACTURE the cite it
+  // was supposed to be evidence about. Harmless while the real cite is still
+  // present (the keys dedupe), and not harmless once that cite is edited away:
+  // the orphaned hash keeps generating a trial, and a drifted one would refuse
+  // on a line the body no longer cites. Caught in review round 1.
+  const emitted = stripFences(body).replace(/^pin-quote:.*$/gm, "");
   const out = [];
   const push = (file, spec, sha) => {
     const single = /^(\d+)$/.exec(spec);
@@ -282,39 +289,48 @@ export function servedAddress(file) {
 // touches a gateway: `fetched` is `Map<file, {ok, lines: Map<line, text>, reason}>`.
 // The wire is exercised separately (`policy/kit/test/install-test.sh`), which
 // is the same split gateway-query.mjs's own self-test declares.
+// EVERY RESULT CARRIES `hashed`, and it is a fact about the BODY rather than
+// about the verdict. A `cannot-tell` reached because a cite is a range, or
+// because its file has no served address, carries NO stored hash — and reading
+// "did a trial exist to run?" off the verdict tally instead conflated the two:
+// a body whose only cites are ranges (this change's own commit receipt is one)
+// counted as "stored hashes that could not be exercised" and exited 11 with a
+// count of hashes that do not exist. Caught in review round 1; the fix is to
+// carry the fact rather than infer it.
 export function judgeContent(body, fetched) {
   const cites = parseCites(body);
   const quotes = parsePinQuotes(body);
   const results = [];
   for (const c of cites) {
-    const stored = quotes.get(`${c.file}:${c.line}`);
+    const stored = c.line === null ? undefined : quotes.get(`${c.file}:${c.line}`);
+    const hashed = stored !== undefined;
     if (c.line === null) {
-      results.push({ ...c, verdict: "cannot-tell", reason: "range cite — a whole-shard read, not a quoted line" });
+      results.push({ ...c, hashed, verdict: "cannot-tell", reason: "range cite — a whole-shard read, not a quoted line" });
       continue;
     }
     if (!stored) {
-      results.push({ ...c, verdict: "unhashed" });
+      results.push({ ...c, hashed, verdict: "unhashed" });
       continue;
     }
     const f = fetched.get(c.file);
     if (!f || !f.ok) {
-      results.push({ ...c, verdict: "cannot-tell", reason: f?.reason ?? "the served file was not fetched" });
+      results.push({ ...c, hashed, verdict: "cannot-tell", reason: f?.reason ?? "the served file was not fetched" });
       continue;
     }
     // MECHANICALLY CONFIRM THE SOURCE HAS RECORDS IN SCOPE before trusting a
     // count — a fetch that came back with nothing is a trial that did not run,
     // not a trial that passed.
     if (f.lines.size === 0) {
-      results.push({ ...c, verdict: "cannot-tell", reason: "the served fetch returned no records in scope" });
+      results.push({ ...c, hashed, verdict: "cannot-tell", reason: "the served fetch returned no records in scope" });
       continue;
     }
     const text = f.lines.get(c.line);
     if (text === undefined) {
-      results.push({ ...c, verdict: "cannot-tell", reason: `the served file has no line ${c.line} (it now ends at ${Math.max(...f.lines.keys())})` });
+      results.push({ ...c, hashed, verdict: "cannot-tell", reason: `the served file has no line ${c.line} (it now ends at ${Math.max(...f.lines.keys())})` });
       continue;
     }
     if (quoteHash(text) === stored.hash) {
-      results.push({ ...c, verdict: "verified" });
+      results.push({ ...c, hashed, verdict: "verified" });
       continue;
     }
     // Drifted. Because the WHOLE file was fetched, say where the quote went —
@@ -324,7 +340,7 @@ export function judgeContent(body, fetched) {
     for (const [n, t] of f.lines) {
       if (quoteHash(t) === stored.hash) { movedTo = n; break; }
     }
-    results.push({ ...c, verdict: "drifted", movedTo, foundHash: quoteHash(text), nowHolds: normalizeQuote(text).slice(0, 110) });
+    results.push({ ...c, hashed, verdict: "drifted", movedTo, foundHash: quoteHash(text), nowHolds: normalizeQuote(text).slice(0, 110) });
   }
   return results;
 }
@@ -459,7 +475,16 @@ function fetchSurfaces(files) {
 
 function contentPass(body) {
   const cites = parseCites(body);
-  const files = [...new Set(cites.filter((c) => c.line !== null).map((c) => c.file))];
+  const quotes = parsePinQuotes(body);
+  // ONLY FETCH WHAT THERE IS A TRIAL FOR. `judgeContent` returns `unhashed`
+  // before it ever consults `fetched`, so fetching a file no cite carries a
+  // hash for buys a discarded gateway call — and EVERY body in existence today
+  // is in that state, which would have made the common case the expensive one
+  // and contradicted this change's own stated economy. Caught in review
+  // round 1.
+  const files = [...new Set(cites
+    .filter((c) => c.line !== null && quotes.has(`${c.file}:${c.line}`))
+    .map((c) => c.file))];
   const fetched = files.length ? fetchSurfaces(files) : new Map();
   return judgeContent(body, fetched);
 }
@@ -575,6 +600,31 @@ function selfTest() {
      () => { const s = contentSummary(judgeContent(
                body(`pin-quote: topics/articles.md:79@f918c51 ${quoteHash(TOP_N_80)}`), drifted));
              return s.includes("ESTABLISHED for 0 of 1") && s.includes("1 drifted"); }],
+    // --- review round 1 regressions, each the inverse of a shipped slip ----
+    ["a range-only body carries NO trials, so nothing can report unexercised hashes",
+     () => { const r = judgeContent(`consulted: product-lab@${SHA} gloss/lessons/testing.md:1-157`, new Map());
+             return r.every((x) => x.hashed === false) && r.filter((x) => x.hashed).length === 0; }],
+    ["an address-less cite carries no trial either — it is unhashed, not an unexercised hash",
+     () => judgeContent(`consulted: product-lab@${SHA} topics/archive/knowledge-architecture.md:161`, new Map())
+       .every((x) => x.hashed === false)],
+    ["a cite WITH a stored hash that cannot be fetched IS an unexercised trial",
+     () => judgeContent(body(`pin-quote: topics/articles.md:79@f918c51 q1:0000000000000000`),
+       new Map([["topics/articles.md", { ok: false, reason: "the content trial did not run — gateway unreachable" }]]))
+       .filter((x) => x.hashed && x.verdict === "cannot-tell").length === 1],
+    ["a pin-quote line does NOT manufacture a cite of its own",
+     () => parseCites("pin-quote: topics/articles.md:79@f918c51 q1:0000000000000000\n").length === 0],
+    ["an orphaned pin-quote generates no trial once its cite is edited away",
+     () => judgeContent("pin-quote: topics/articles.md:79@f918c51 q1:0000000000000000\n", drifted).length === 0],
+    // The emit->parse round trip the review named as absent. Both provenance
+    // shapes must survive their own reader.
+    ["an emitted pin-quote WITH provenance parses back",
+     () => parsePinQuotes(`pin-quote: topics/articles.md:79@98195e0 ${quoteHash(TOP_N_80)}\n`)
+       .get("topics/articles.md:79")?.hash === quoteHash(TOP_N_80)],
+    ["an emitted pin-quote with the provenance OMITTED parses back too",
+     () => parsePinQuotes(`pin-quote: topics/articles.md:79 ${quoteHash(TOP_N_80)}\n`)
+       .get("topics/articles.md:79")?.hash === quoteHash(TOP_N_80)],
+    ["a bare `@` with no sha is what the writer must never emit — it parses as nothing",
+     () => parsePinQuotes(`pin-quote: topics/articles.md:79@ ${quoteHash(TOP_N_80)}\n`).size === 0],
     ["the phrase `pins current` never appears alone as a whole-body verdict",
      () => !contentSummary(judgeContent(body(""), drifted)).includes("pins current")],
   ].filter(Boolean);
@@ -631,7 +681,14 @@ if (mode === "emit") {
     process.exit(0);
   }
   const fetched = fetchSurfaces([...new Set(cites.map((c) => c.file))]);
-  const sha = (cur ?? "").split("@").pop().slice(0, 7);
+  // The `@<sha>` provenance field is OPTIONAL in the grammar, and an unparsed
+  // pin must therefore omit it rather than emit a bare `@`. `pin-quote:
+  // <file>:<line>@ q1:<hex>` matches nothing in `parsePinQuotes` — the
+  // optional group fails at `@ ` and `\s+` cannot match at `@` — so the writer
+  // would have produced a line its own reader silently drops: the dead-guard
+  // shape this whole change is quoted against. Caught in review round 1.
+  const shaRaw = (cur ?? "").split("@").pop().slice(0, 7);
+  const prov = /^[0-9a-f]{7}$/.test(shaRaw) ? `@${shaRaw}` : "";
   let emitted = 0;
   const skipped = [];
   for (const c of cites) {
@@ -641,7 +698,7 @@ if (mode === "emit") {
       skipped.push(`${c.key} — ${f?.ok ? "the served file has no such line" : f?.reason ?? "not fetched"}`);
       continue;
     }
-    console.log(`pin-quote: ${c.file}:${c.line}@${sha} ${quoteHash(text)}`);
+    console.log(`pin-quote: ${c.file}:${c.line}${prov} ${quoteHash(text)}`);
     emitted++;
   }
   // Report the shortfall in the same breath as the emission: a writer that
@@ -713,7 +770,13 @@ const stale = hubPins.filter((p) => curSha && !curSha.startsWith(p) && !p.starts
 // call, so an unreachable seam has already exited 11 above with its one line.
 const content = contentPass(body);
 const t = tally(content);
-const hashedTrials = t.verified + t.drifted + t["cannot-tell"];
+// The number of trials that EXISTED to run — a fact about the body, read off
+// each result's `hashed` flag. Deriving it from the verdict tally counted
+// range cites and address-less files as "stored hashes that could not be
+// exercised", so a body whose only cites are ranges exited 11 reporting a
+// count of hashes that do not exist. Caught in review round 1.
+const hashedTrials = content.filter((r) => r.hashed).length;
+const hashedUnexercised = content.filter((r) => r.hashed && r.verdict === "cannot-tell").length;
 
 // Every delta is reported before exiting. Refusing on the first one found
 // would send the picker back for a second refusal they could have discharged
@@ -755,8 +818,8 @@ if (stale.length > 0 || deferredUndischarged || t.drifted > 0) {
 // exit code. When the body stored hashes but not one of them could be
 // exercised, this is not a pass — it is an unreachable seam, and it exits 11
 // on the same degrade contract an unreachable gateway already uses.
-if (hashedTrials > 0 && t.verified === 0 && t["cannot-tell"] === hashedTrials) {
-  console.log(`content trial did not run: ${t["cannot-tell"]} stored quote hash(es) and not one could be `
+if (hashedTrials > 0 && hashedUnexercised === hashedTrials) {
+  console.log(`content trial did not run: ${hashedUnexercised} stored quote hash(es) and not one could be `
     + "exercised against the served surface — this is NOT a clean result, it is an unverified one");
   process.exit(11);
 }
