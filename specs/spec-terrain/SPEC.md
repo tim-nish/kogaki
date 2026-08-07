@@ -1051,16 +1051,17 @@ implementation was archived — it **re-pointed it to Kogaki**:
 > SPECIMEN does not survive, so the measurement is owed by kogaki#27's
 > subdivision implementation and **fires when that ships, not before**."
 
-`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:1-127`
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:9`
 
   request_id: 6d49edc3-e9bd-487b-b11c-6b9013c29661
   outcome: discriminating
-  query: topic_thread("articles") — the decision thread read WHOLE (127 lines) so this line's boundary travels with it, rather than relied on as an excerpt.
+  query: topic_thread("articles") — the decision thread read WHOLE (127 lines) so the offering-measurement re-point's boundary travels with it rather than being relied on as an excerpt.
 
-Pinned at the range the call returned, not at the one line relied on — the
-same rule this amendment applies to the gloss shard below. The line relied on
-within it is `:9`; the pin-currency findings in this section (`:54`, `:80`,
-`:95`) were verified against this same whole read.
+The pin names `:9`, the line **relied on**; the call returned the thread whole
+(`topics/articles.md:1-127`) and the query line above records that, because
+what discharges the boundary-quoting duty here is the **whole read**, not the
+one line. The pin-currency findings in this section — `:54`, `:80`, `:95` —
+were all verified by content against that same read.
 
 **Read whole, this line DISCHARGES the slot rather than re-pointing it
 again**, and the distinction is worth stating because a fragment of it reads
@@ -1104,7 +1105,7 @@ this read, and here it demonstrably did not.
 
   request_id: 4c76a49b-6e16-4974-b596-f3cb72748a55
   outcome: discriminating
-  query: gloss_index("lessons/knowledge-architecture") — the entry-3 read prescription's headline-first survey, executed whole (343 lines) before this disposition was written down.
+  query: gloss_index("lessons/knowledge-architecture") — entry 3's headline-first survey, read whole before the disposition was written.
 
 The shard is cited at the range the call actually returned rather than at the
 three lines relied on, because the tool served the shard whole and a receipt
