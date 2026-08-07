@@ -46,6 +46,16 @@ committed by the file that exists to prevent it: the entry looks pinned, and
 nothing about it says the pin was never resolvable. Resolve the pin before the
 entry lands, and record the hub commit it resolved at.
 
+**It binds entries filed after it, and entry 1 is the known non-conformer.**
+Entry 1's pin names `topics/claude-code-ops.md` with no line and no hub commit
+("2026-08-04 governance lines"), which is the condition this clause describes;
+entries 2 and 3 conform. The clause is declared forward-binding rather than
+applied retroactively here because repairing entry 1's pin means re-resolving
+its served line, which no issue in front of this file authorizes — so the
+repair is owed on its own carrier (kogaki#175) rather than silently deferred.
+A rule whose own file fails it, with nothing saying so, is the latent
+contradiction this map exists to surface.
+
 **Miss postmortem** — recorded when an entry is added on a miss:
 
 - **Violating artifact** — what shipped, or was about to.
