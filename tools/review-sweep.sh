@@ -1290,6 +1290,34 @@ def park_class(bodies, resolves=None):
         return (f"class: mixed-rounds ({len(heads)} reviewed head(s) and "
                 f"{len(unattested)} spawned session(s) whose report could not "
                 "be read)")
+    # THE FOURTH CLASS, SELECTED ON `counted()` RATHER THAN `performed()`
+    # (kogaki#210). Every branch above reads `rally_cycles()`, which groups on
+    # `performed()` — does the cited sha name a commit. That is the right
+    # predicate for CHARGING and the wrong one for this ANNOUNCEMENT: a
+    # fragment is performed, so it is charged a round (deliberately, see
+    # `decide()`), and it lands in `heads` — after which the default branch
+    # announced `a push landed after the final round`, naming a push that did
+    # not happen and a head-move that did not occur, in the one artifact the
+    # owner reads to decide what to do about a park.
+    #
+    # The two predicates are kept apart on purpose — `performed()`'s own
+    # docstring says it is "Deliberately NOT folded into `counted()` … Two
+    # different questions with two different fail-safe sides" — and the class
+    # selector read the wrong one of the two. The detector's unit must match
+    # the property's unit, and the property here is REVIEW ("this head was
+    # reviewed / a push landed after it"), not EXISTENCE.
+    #
+    # SCOPE BOUNDARY, stated so this is not over-read: `rally_cycles()`'s
+    # charging is UNTOUCHED. A fragment spent a round and is still counted as
+    # one. What changes is only the class derived from that count. A fix that
+    # stopped charging fragments would be fixing the wrong thing.
+    segs = segments(bodies)
+    reviewed = [h for h in heads
+                if any(counted(s) for s in head_segments(segs, h))]
+    if heads and not reviewed:
+        return (f"class: fragment-rounds ({len(heads)} charged head(s), none "
+                "carrying a COUNTED report — every round was a fragment, so "
+                "no push landed and no head moved)")
     return "class: unreviewed-head (a push landed after the final round)"
 
 
@@ -2980,6 +3008,20 @@ for _label, _bodies, _want_note, _want_class in [
      False, "unreviewed-head (a push landed after the final round)"),
     ("no bodies at all: the historical class, and no notice",
      "", False, "unreviewed-head"),
+    # kogaki#210 — the fourth class. Every case above turns on `performed()`;
+    # these turn on `counted()`, and each FAILS against the three-class form,
+    # which announced a push that did not happen.
+    ("one head, fragment only: a FRAGMENT park, and it blames no push",
+     f"review-lane report: {_CH}\nfinding: nit open  x\nreport-complete: 4 findings",
+     False, "fragment-rounds"),
+    ("two charged heads, both fragments: still a fragment park",
+     "review-lane report: 9999999\nfinding: nit open  x\nreport-complete: 4 findings\n"
+     "review-lane report: 8888888\nfinding: nit open  y\nreport-complete: 3 findings",
+     False, "fragment-rounds"),
+    ("a fragment beside a COUNTED report at another head: a head WAS reviewed",
+     "review-lane report: 9999999\nfinding: nit open  x\nreport-complete: 4 findings\n"
+     "review-lane report: 8888888",
+     False, "unreviewed-head (a push landed after the final round)"),
 ]:
     _buf = _io.StringIO()
     with _ctx.redirect_stdout(_buf):
@@ -3001,9 +3043,10 @@ if _cfail:
 print("cycle pass: 10/10 round-counting cases (two reviewers on one head is "
       "ONE round; distinct heads still park; an unread spawn costs a round; "
       "two of them park; a report subsumes its mark) + 5 mark-is-not-a-report "
-      "reader cases + 5 posted-body cases + 5 disclosure cases (the charge is "
+      "reader cases + 5 posted-body cases + 8 disclosure cases (the charge is "
       "announced by decide(); the park SELECTS its class and never blames a "
-      "push that did not happen)")
+      "push that did not happen; a park whose charged heads carry no COUNTED "
+      "report is a FRAGMENT park, and one counted head anywhere is not)")
 
 if bad:
     print("FAIL fixture pass — the sweep's state machine does not discriminate:")
