@@ -1142,7 +1142,7 @@ JS
 # the instrument: `legible_at_a_glance: false` (or `: true`) as a literal also
 # stops the ReferenceError and reports a quantity that no longer reads the
 # judge's verdict. So the third instrument is asserted to DISCRIMINATE over two
-# otherwise-identical runs, and the implicit `(fits no composed SubGroup)`
+# otherwise-identical runs, and the PLACEMENT-COMPOSED `(fits no composed SubGroup)`
 # SubGroup — whose verdicts are composed by placement rather than supplied by
 # the judge — is asserted to carry it too, that being the one SubGroup no
 # judge input can set.
@@ -1162,7 +1162,7 @@ const GROUP = "architecture";  // parent members: lesson:alpha, lesson:bravo
 const SCHEMA = JSON.parse(readFileSync("specs/spec-terrain/survey-schema.json", "utf8")).subdivision;
 const fails = [];
 
-// The instrument list and the implicit SubGroup's name are READ from the
+// The instrument list and the fallback SubGroup's name are READ from the
 // single carrier, never restated here — the same discipline the blocks above
 // hold for the survey field lists.
 const INSTRUMENTS = SCHEMA.instruments.required;
@@ -1250,15 +1250,15 @@ if (legible.record && illegible.record && strip(legible) !== strip(illegible)) {
 // SubGroup above, so it lands in the EXPLICIT named SubGroup whose verdicts
 // placement composes. No judge input can set its instrument, which is why it
 // is the one SubGroup a judge-supplied fixture would never cover.
-const implicit = legible.record
+const placementComposed = legible.record
   && legible.record.subgroups.find((s) => s.name === NO_FIT);
-if (!implicit) {
+if (!placementComposed) {
   fails.push(`no ${JSON.stringify(NO_FIT)} SubGroup in the record — lesson:bravo was placed by no judge SubGroup and must be NAMED rather than dropped`);
 } else {
-  if (!implicit.members.includes("lesson:bravo")) {
-    fails.push(`the ${JSON.stringify(NO_FIT)} SubGroup does not hold the unplaced member: ${JSON.stringify(implicit.members)}`);
+  if (!placementComposed.members.includes("lesson:bravo")) {
+    fails.push(`the ${JSON.stringify(NO_FIT)} SubGroup does not hold the unplaced member: ${JSON.stringify(placementComposed.members)}`);
   }
-  const missing = INSTRUMENTS.filter((k) => implicit.instruments === undefined || implicit.instruments[k] === undefined);
+  const missing = INSTRUMENTS.filter((k) => placementComposed.instruments === undefined || placementComposed.instruments[k] === undefined);
   if (missing.length) {
     fails.push(`the ${JSON.stringify(NO_FIT)} SubGroup is missing instrument(s) ${missing.join(", ")} — its verdicts are composed by placement, so no classification fixture can supply them and only the command path reaches it`);
   }
@@ -1274,7 +1274,7 @@ if (fails.length) {
 }
 console.log("subdivide command fixture: PASS — cases exercised (the COMMAND runs end to end "
   + "and writes its record past the instruments loop, no ReferenceError; the third instrument "
-  + "discriminates a true from a false verdict over an otherwise-identical run; the implicit "
+  + "discriminates a true from a false verdict over an otherwise-identical run; the "
   + `${JSON.stringify(NO_FIT)} SubGroup names the unplaced member and carries all three `
   + "instruments, the list read from the schema)");
 JS
