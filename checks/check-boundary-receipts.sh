@@ -120,6 +120,32 @@
 # matched`, the match came from the PR body and the reading above holds. A
 # trigger whose observation needs a step nobody wrote down fires never.
 #
+# THE SECOND LIMB HAS FIRED — PR #159, recorded here rather than left to the
+# next reader to rediscover (kogaki#160 finding 1). Entry 1 matched on `check`;
+# with `CONSULT_PR_BODY` unset the match SURVIVED; the commit prose carried the
+# term. The limb's own wording is met.
+#
+# AND IT IS A WEAKER INSTANCE THAN THE LIMB'S WORDING IMPLIES. The match was
+# OVER-DETERMINED, not localised: #158's issue body independently carries
+# `check-consult-receipts.sh`, and `term_pattern("check")`'s word bound
+# (`:327-330`) is satisfied by the hyphen — verified by executing the pattern
+# against that string, not by re-reading prose. `match_boundaries` iterates the
+# source list in fixed order and `break`s at the first hit (`:342`), and the
+# order is `diff paths`, `changed text`, `linked issue body` (`:454-456`), so a
+# hit in `changed text` MASKS the linked issue body entirely. The receipt was
+# therefore owed unavoidably — no rewording of any commit could have dodged it.
+#
+# WHAT THE ABLATION ACT ABOVE CAN AND CANNOT SEE, stated so the record does not
+# install a false confidence in the instrument. It CAN discriminate commit
+# prose from PR body: `changed text` is exactly those two, so ablating one
+# separates them validly, and a review report characterising the act as one
+# that "provably cannot discriminate" is too strong and is not carried here.
+# What it CANNOT see is over-determination by a third source, because the
+# `break` has already discarded it. So the limb fired on a match the act reads
+# correctly as commit-prose-carrying and cannot establish was commit-prose-ONLY.
+# The compound-source reading is not falsified by this instance; it is not
+# confirmed by it either, and the count now stands at one.
+#
 # THE SOURCE SET IS DECLARED, AND SO IS WHAT IT COULD NOT READ. Trigger terms
 # match against diff paths, changed text (commit messages and the PR body), and
 # the linked issue body. Where a source is unavailable the check SAYS SO rather

@@ -33,7 +33,8 @@ refused with what the re-framing owes (exit 4); the framing count is emitted as
 the transport fact it is, under a bound of one re-framing. Exits 11 and 12 come
 from the transport unchanged, and on 11 the entry point prints the degraded
 path rather than leaving it silent. Reach for the transport directly only for a
-tool other than `policy_lookup` or for more framings than the bound.
+tool whose shape the entry point does not carry, or for more framings than the
+bound.
 
 **The receipt is emitted by the transport, not transcribed.** Every response
 above carries the `request_id` and the served `consulted:` line the receipt
@@ -43,7 +44,17 @@ framing actually run. `--outcome` has no default: the token is a reading rather
 than an observation and **the operator supplies it** — the
 `consult-outcome-token-assignment` fill (owner decision 2026-08-06,
 specs/SPEC.md §4) — so both tools refuse (exit 2) rather than guessing, and
-refuse a token contradicting an observed fact rather than repairing it. A
+refuse a token contradicting an observed fact rather than repairing it.
+**`--question` is required in receipt mode, one per `--args` and in the same
+order** (kogaki#160 finding 4): the `query:` line is the question verbatim, and
+before this argument existed the transport derived it — recording a non-
+`policy_lookup` tool's `--args` JSON in the question field, which passed every
+check while telling a reader nothing. The question is bound to a **call**, so
+the receipt's `request_id` (the last framing's) and the last `query:` line are
+the same gateway call's. `consult.mjs` also takes `--args` positionally against
+`--claim`, so a prescription whose tool is not `policy_lookup` — the
+consultation map's entry-1 `gloss_index` read — is mediated by the entry point
+rather than requiring a bare transport call. A
 degraded run emits **no** receipt — one
 `policy_source unavailable:` line and exit 11, as above. Consulting through a
 surface the kit does not mediate still owes a receipt; compose it by hand and

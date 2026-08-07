@@ -158,7 +158,8 @@ echo "ok: receipt mode refuses rather than assigning the outcome token (AC 4)"
 #     the one-line/exit-11 contract must survive receipt mode unchanged.
 set +e
 OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
-      --tool policy_lookup --args '{"question":"x"}' --receipt --outcome discriminating 2>&1)
+      --tool policy_lookup --args '{"question":"x"}' --question 'x' \
+      --receipt --outcome discriminating 2>&1)
 CODE=$?
 set -e
 [[ $CODE -eq 11 ]] || fail "degraded receipt-mode run exited $CODE, want 11"
@@ -166,6 +167,39 @@ set -e
 printf '%s' "$OUT" | grep -q '^policy_source unavailable:' || fail "degrade line malformed: $OUT"
 if printf '%s' "$OUT" | grep -q 'consult-receipt:'; then fail "a degraded run emitted a receipt block"; fi
 echo "ok: a degraded run emits no receipt (AC 3)"
+
+# 8b-i. kogaki#160 finding 4 — receipt mode refuses without one `--question`
+#     per `--args`, and refuses BEFORE the wire. Sited beside 8a because it is
+#     the same class of refusal for the same reason: an invocation that cannot
+#     produce a truthful `query:` line is malformed whether or not the gateway
+#     answers, and reaching out first would spend a real consult on a call that
+#     was always going to refuse. The exit-2-not-11 assertion IS the ordering
+#     assertion — this gateway path does not exist, so an 11 here would mean
+#     the check ran after the reachability probe.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
+      --tool gloss_index --args '{"tag":"lessons/testing"}' \
+      --receipt --outcome discriminating 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 2 ]] || fail "receipt mode without --question exited $CODE, want 2"
+printf '%s' "$OUT" | grep -q 'THE QUESTION' \
+  || fail "the refusal does not name what the query field holds: $OUT"
+if printf '%s' "$OUT" | grep -q 'consult-receipt:'; then fail "a refusal emitted a receipt block"; fi
+echo "ok: receipt mode refuses without a per-call --question, ahead of the wire (kogaki#160)"
+
+# 8b-ii. The disagreement case. A `--question` that contradicts the framing's
+#     own `question` argument means one of the two is not what ran, and the
+#     transport asserts only what it observed rather than choosing between them.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
+      --tool policy_lookup --args '{"question":"what was sent"}' --question 'what was recorded' \
+      --receipt --outcome discriminating 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 2 ]] || fail "a disagreeing --question exited $CODE, want 2"
+printf '%s' "$OUT" | grep -q 'disagrees' || fail "the refusal does not name the disagreement: $OUT"
+echo "ok: a --question disagreeing with the args is refused, never reconciled (kogaki#160)"
 
 # 8c. AC 3/AC 1 — the pre-1.20 invocation is byte-for-byte unaffected. Receipt
 #     mode is opt-in, and a transport that started appending a block to every

@@ -4,6 +4,8 @@
 //
 // Usage: consult.mjs --consumer <name> --claim '<claim>' [--claim '<claim 2>']
 //        --outcome <token> [--restate '<claim>' …] [--tool <tool>]
+//        [--args '<json>' …]   one per --claim, in order; for a prescription
+//                              whose tool is not `policy_lookup`
 //        [--gateway <path-to-dist/index.js>]
 //
 // A SIBLING of gateway-query.mjs, never a rewrite of it. Every consult this
@@ -137,11 +139,29 @@ export function verdictShaped(text) {
 // or the refusal to print. Pure so the fixture pass below can fire every branch
 // without a gateway, a child process, or a temp directory: every property this
 // entry point adds is a property of the invocation, not of the wire.
-export function discipline({ framings, restatements = [], outcome }) {
+export function discipline({ framings, restatements = [], outcome, argsList = [] }) {
   const refuse = (code, ...lines) => ({ ok: false, code, message: lines.join("\n") });
 
   if (!framings.length)
     return refuse(2, "usage: consult.mjs --consumer <name> --claim '<claim>' --outcome <token>");
+
+  // `--args` is positional against `--claim`. A partial list would silently
+  // send some framings as `policy_lookup` and some as the named tool, which is
+  // the same shape of quiet mismatch this issue exists to close.
+  if (argsList.length && argsList.length !== framings.length)
+    return refuse(
+      2,
+      `--args given ${argsList.length} time(s) for ${framings.length} framing(s); ` +
+        "`--args` is positional against `--claim` — one per framing, in order, " +
+        "or none at all.",
+    );
+  for (const [i, a] of argsList.entries()) {
+    try {
+      JSON.parse(a);
+    } catch {
+      return refuse(2, `--args ${i + 1} is not valid JSON: ${a}`);
+    }
+  }
 
   // AC 2 — corrected at the POINT OF USE, before the gateway is reached. A
   // verdict-shaped question that is forwarded and then apologised for has
@@ -253,11 +273,27 @@ export function discipline({ framings, restatements = [], outcome }) {
 
 // One `--args` per framing, in order — the transport's own contract, and the
 // only place framings become a wire call.
-export function transportArgv({ consumer, framings, outcome, tool, gateway }) {
+//
+// EVERY framing also carries its own `--question`, and it is the `--claim`
+// itself (kogaki#160 finding 4). The claim IS the question here, which is
+// precisely why this entry point never produced the defect and the transport
+// did: `policy_lookup` embeds the question in its arguments, so nothing had to
+// be carried alongside. Emitting `--question` anyway is not ceremony — it is
+// what lets this entry point mediate a prescription whose tool is NOT
+// `policy_lookup` (the consultation map's entry 1 prescribes `gloss_index`),
+// which until now it could not do at all.
+//
+// `--args` is OPTIONAL and positional against `--claim`. When given, framing
+// i's arguments are `argsList[i]` as typed and its question is claim i; when
+// absent, the historical `policy_lookup` shape is unchanged. So a `gloss_index`
+// consult states the shard it read AND the question it was reading for, and
+// the receipt records the second.
+export function transportArgv({ consumer, framings, outcome, tool, gateway, argsList = [] }) {
   const argv = ["--consumer", consumer];
-  for (const f of framings) {
+  for (const [i, f] of framings.entries()) {
     argv.push("--tool", tool ?? "policy_lookup");
-    argv.push("--args", JSON.stringify({ question: f }));
+    argv.push("--args", argsList[i] ?? JSON.stringify({ question: f }));
+    argv.push("--question", f);
   }
   argv.push("--receipt", "--outcome", outcome);
   if (gateway) argv.push("--gateway", gateway);
@@ -354,10 +390,27 @@ function selfTest() {
     ["a bare `miss` is inadmissible",
      () => run({ framings: ["a", "b"], outcome: "miss" }).message.includes("ratified triple")],
     // AC 4 — every framing is its own query line, under a fixed bound.
-    ["one --args per framing, in order, with --receipt and the caller's token",
+    ["one --args and one --question per framing, in order, with --receipt and the caller's token",
      () => transportArgv({ consumer: "kogaki", framings: ["first", "second"], outcome: "uncovered-after-2-framings" })
-             .join(" ") === '--consumer kogaki --tool policy_lookup --args {"question":"first"} ' +
-             '--tool policy_lookup --args {"question":"second"} --receipt --outcome uncovered-after-2-framings'],
+             .join(" ") === '--consumer kogaki --tool policy_lookup --args {"question":"first"} --question first ' +
+             '--tool policy_lookup --args {"question":"second"} --question second --receipt --outcome uncovered-after-2-framings'],
+    // --- kogaki#160 finding 4 ------------------------------------------------
+    // The seam gap named: entry 1's prescription is `gloss_index`, which takes
+    // a shard address and no question, so before this the entry point could not
+    // mediate it and the transport recorded the address in the question field.
+    ["a non-policy_lookup prescription sends the tool's args AND the claim as the question",
+     () => transportArgv({ consumer: "kogaki", framings: ["does a served line discriminate check admission?"],
+             argsList: ['{"tag":"lessons/testing"}'], tool: "gloss_index", outcome: "discriminating" })
+             .join(" ") === '--consumer kogaki --tool gloss_index --args {"tag":"lessons/testing"} ' +
+             '--question does a served line discriminate check admission? --receipt --outcome discriminating'],
+    ["--args positional against --claim: a partial list is refused, never half-applied",
+     () => { const r = run({ framings: ["a", "b"], argsList: ['{"tag":"x"}'], outcome: "covered-after-reframing" });
+             return r.code === 2 && r.message.includes("positional against `--claim`"); }],
+    ["--args that is not JSON is refused before a consult is spent",
+     () => run({ framings: ["a"], argsList: ["not json"], outcome: "discriminating" }).code === 2],
+    ["no --args at all leaves the policy_lookup shape untouched",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating" })
+             .includes("--question")],
     ["--gateway is forwarded untouched (the location stays machine-local)",
      () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating", gateway: "/g.js" })
              .slice(-2).join(" ") === "--gateway /g.js"],
@@ -389,7 +442,9 @@ function selfTest() {
   console.log(`fixture pass: ${cases.length}/${cases.length} entry-point cases ` +
     "(the verdict correction and its --restate affordance; six real framings " +
     "that must still reach the seam; the two-framings floor; the token refused " +
-    "rather than derived; the bound; the degraded statement's unindented marker)");
+    "rather than derived; the bound; the claim forwarded as the call's own " +
+    "--question, including for a non-policy_lookup prescription; the degraded " +
+    "statement's unindented marker)");
   process.exit(0);
 }
 
@@ -418,6 +473,7 @@ const verdict = discipline({
   framings: opts("claim"),
   restatements: opts("restate"),
   outcome,
+  argsList: opts("args"),
 });
 if (!verdict.ok) {
   console.error(verdict.message);
@@ -444,6 +500,7 @@ const child = spawnSync(
     outcome,
     tool: opt("tool"),
     gateway: opt("gateway"),
+    argsList: opts("args"),
   })],
   { stdio: "inherit" },
 );
