@@ -35,6 +35,27 @@ address, which is the argument `gloss_index` takes; it never names a served
 file path, because a path is a fact about how the substrate stores its
 renderings and this map may not depend on one.
 
+**A `Served line (pinned)` pin must RESOLVE ON THE SERVED SURFACE** (kogaki#171).
+The pin's own enumeration is `surface_names`, and it returns
+`topics/…`, `gloss/lessons/…`, `gloss/journeys/…`, `gloss/decisions/…` and
+nothing else — so a pin into a hub *repository* path (`specs/qa-gateway.md`
+was the one filed) names a file the served surface will never return, and an
+entry carrying one cannot be checked against the surface that is supposed to
+win on divergence. That is the pinned-quote invariant's own defect class,
+committed by the file that exists to prevent it: the entry looks pinned, and
+nothing about it says the pin was never resolvable. Resolve the pin before the
+entry lands, and record the hub commit it resolved at.
+
+**It binds entries filed after it, and entry 1 is the known non-conformer.**
+Entry 1's pin names `topics/claude-code-ops.md` with no line and no hub commit
+("2026-08-04 governance lines"), which is the condition this clause describes;
+entries 2 and 3 conform. The clause is declared forward-binding rather than
+applied retroactively here because repairing entry 1's pin means re-resolving
+its served line, which no issue in front of this file authorizes — so the
+repair is owed on its own carrier (kogaki#175) rather than silently deferred.
+A rule whose own file fails it, with nothing saying so, is the latent
+contradiction this map exists to surface.
+
 **Miss postmortem** — recorded when an entry is added on a miss:
 
 - **Violating artifact** — what shipped, or was about to.
@@ -129,3 +150,76 @@ field.
     line, composed here rather than replayed from a record: "Is the gateway
     access log a surface Kogaki may read, or is consult evidence sided
     between the server's log and the consumer's receipts?"
+
+### 3. Record disposition — adopting one record as the live word on what a decision decided
+
+- **Trigger terms:** contradiction, record disagreement, which record wins,
+  spec vs staging, adopted vs proposes, superseded, unswept, declination,
+  declined, adopted, still stands, reopen condition
+- **Read prescription:**
+  - *act class:* adopting any record as the **live word on a decision's
+    disposition** — what it adopted, declined, held, or superseded — before
+    that reading is written into a spec, a review reply, or a gate. The class
+    engages **whether or not a second record has been seen.** An occasion
+    scoped to a *visible* contradiction fires only after someone has already
+    found both sides, which is after the cost has been paid; the case this
+    entry is for is the one where the disagreement is latent because the
+    other record has not been swept.
+  - *survey before acting:* `gloss_index("lessons/knowledge-architecture")`
+    — headline-first, before the reading is written down — **and the carrier
+    itself read WHOLE** (`gh issue view <n> --comments`, untruncated), because
+    a rule that names a source is satisfied by a partial view of it: "When you
+    write a rule that names a source, also name what a complete read of that
+    source includes — otherwise every partial view counts as compliance"
+    (`gloss/lessons/knowledge-architecture.md:41@0cb4606`,
+    `a-partial-projection-can-satisfy-a-total-read-rule`).
+  - *what does NOT discharge it:* `policy/kit/bin/issue-pins.mjs --recheck`.
+    It compares SHAs, so an unmoved hub HEAD exits 0 `pins current` while the
+    line at that pin is superseded by something not yet swept into it. Pin
+    currency is a fact about the commit; liveness is a fact about the line.
+- **Served line (pinned):** the disposition read has two halves and neither is
+  settled by recency alone — "Say which system decides which half. Being
+  written more recently says when someone wrote, not what they could see"
+  (`gloss/lessons/knowledge-architecture.md:197@0cb4606`,
+  `declare-precedence-per-axis-not-per-artifact`) — and within the standing
+  half a disagreement is surfaced rather than absorbed: "read the decision
+  record for verdicts dated after that evidence, and when they conflict the
+  later verdict wins and the conflict is reported rather than quietly
+  reconciled" (`gloss/lessons/knowledge-architecture.md:257@0cb4606`,
+  `merged-code-evidences-existence-never-standing`).
+- **Origin miss:** `specs/spec-draft-pipeline/SPEC.md` v1 (PR #157, `b3722cb`)
+  shipped with the Move library held, because the spec lane read
+  `topics/articles.md`, whose newest line on the question was a **2026-08-04
+  declination**, and adopted it as the live word on kogaki#127's disposition —
+  while the owner's **2026-08-06 adoption** existed only in an unswept hub
+  staging file. Four receipts were emitted, every one well-formed, every one
+  serving a superseded line as the live word; the branch's pin recheck exited
+  0. The same disagreement surfaced hub-side the next day, as a direct
+  spec-vs-staging contradiction about the same act, and was resolved silently
+  there too (kogaki#171). **Sited here** because the consequence was exposed
+  here — the wrong standing claim fed this repo's Brief decision chain and the
+  contradiction's spec side is this repo's artifact; the hub-side carrier is
+  product-lab#160's Recall-rule amendment, cross-referenced so neither filing
+  assumes the other.
+- **Postmortem:**
+  - *violating artifact:* `specs/spec-draft-pipeline/SPEC.md` v1 §7's hold of
+    the Move library, and the 2026-08-07 review reply "Move library held —
+    settled design" that rested on it, both produced by adopting one record's
+    newest line as the disposition without reading for a later one.
+  - *triggering terms:* declination, declined, reopen condition — **measured
+    rather than assumed.** Over the twelve most recently merged PRs at
+    `1453248`, the declared list matches #157 (the violating PR), #156 and
+    #144, and nothing else. The terms this entry was filed with — contradiction,
+    spec vs staging, adopted vs proposes, unswept, superseded, record
+    disagreement — match the miss **nowhere**, in the diff paths, the changed
+    text or the linked issue body, because a latent disagreement is never
+    described as a contradiction by the act that commits it. They stay declared
+    beside the disposition vocabulary rather than instead of it: they are the
+    terms of the *found* case, which this entry also covers.
+  - *the question, verbatim:* **reconstructed at this filing, not run** — no
+    query was issued at either moment of resolution. Composed here, and then
+    issued against the served surface at this filing, where it discriminated:
+    "Two records disagree about what a decision adopted — a spec says one
+    thing, an unswept staging file says another. May the disagreement be
+    resolved silently by ratification status, or must the conflict be surfaced
+    as a finding before either side is adopted?"
