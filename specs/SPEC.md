@@ -1479,6 +1479,44 @@ invariant: Gukan guarantees Unit schema, never data schema).
        directly.** A miss is itself a legitimate answer and stays recordable —
        what is refused is a miss whose echo names a different call.
 
+     **A `tools/list` RPC ERROR DEGRADES RATHER THAN REFUSING, AND THE SERVED
+     ANSWERS ARE GIVEN UP WITH IT** (kogaki#206, owner selection 2026-08-07).
+     The enumeration above attributes exit 11 only to `-32602` schema
+     validation on required-address tools, which is no longer the whole of it.
+     In **receipt mode**, `policy/kit/bin/gateway-query.mjs:744` routes a
+     `tools/list` rpc error to `unavailable()` — exit **11**, one line, before
+     any `tools/call` is issued. So a gateway that answers `tools/call`
+     perfectly well is reported unavailable and **its answers are discarded
+     unfetched**. Before that re-route, `declaredByTool` stayed null, the
+     `tools/call` loop still ran, and the operator got the served answers plus
+     `receipt not composable` (exit 12).
+
+     **This is recorded rather than repaired, and the reason is uniformity.**
+     The `tools/call` loop routes its **own** rpc errors to `unavailable()`
+     identically (`policy/kit/bin/gateway-query.mjs:757`); PR #201 made the
+     routing uniform, which is what its round-1 nit asked for — three causes
+     had collapsed into one refusal message. Undoing it for `tools/list` alone
+     would restore the split, trading a recorded judgment for an unrecorded
+     inconsistency. The transport cannot verify an address it has no schema
+     for, so refusing to compose a receipt from an unverifiable catalogue is
+     defensible; what was wrong was that the judgment lived **only in a code
+     comment** while this condition stated the opposite shape.
+
+     **The counter-argument is recorded rather than left standing.** Exit 11
+     prints `policy_source unavailable`, and on this path the source is *not*
+     unavailable — it is up and answering. Exit 12's own documented meaning
+     (`policy/kit/bin/gateway-query.mjs:115`) — *"The consult happened and its
+     results are printed, but the wire did not carry what a receipt asserts"* —
+     describes a missing **catalogue** at least as well. The alternative that
+     restores answers-then-exit-12 for `tools/list` specifically was therefore
+     genuinely available and is **declined on the uniformity ground above**,
+     not on preference. **Reopen point:** a sitting that finds the exit-11
+     message itself misleading in practice re-reads this paragraph, because
+     that is the cost this selection knowingly accepted.
+
+     Receipt mode only. Non-receipt mode and the pre-receipt invocation are
+     genuinely unaffected.
+
      So the condition is two checks, both reading **only** the wire:
 
      (a) **THE FORM, checked where the ambiguity is CREATED.** Every key a
@@ -1619,10 +1657,26 @@ invariant: Gukan guarantees Unit schema, never data schema).
      at all, on emissions made from here on: a receipt already recorded was
      composed from a response that this condition never inspects, and the
      checker's scan window (`merge-base..HEAD` plus the PR body) reaches no file
-     on the default branch. The transport's non-receipt path, the exit-11
-     degrade, and the pre-receipt invocation are byte-for-byte unaffected
+     on the default branch. The transport's non-receipt path and the
+     pre-receipt invocation are byte-for-byte unaffected
      (`policy/kit/test/install-test.sh` cases 3, 7, 8b and 8c, unchanged and
      passing).
+
+     **The exit-11 degrade is NOT byte-for-byte unaffected, and this sentence
+     is the correction** (kogaki#206). Its prior form named the exit-11 degrade
+     in that unaffected list, and that was an overclaim: **receipt mode's
+     degrade is WIDENED**, because a `tools/list` rpc error now enters exit 11
+     before any `tools/call` is issued, where it previously left the loop
+     running and produced exit 12 with the served answers printed. See the
+     `tools/list` paragraph in condition 5 above, which records the behaviour
+     and the ground on which it was kept. **Non-receipt mode's degrade is
+     unaffected**, and the narrowing is exactly to that: the unaffected claim
+     holds for the non-receipt path and not for receipt mode.
+
+     A self-consistent-and-incomplete claim is precisely what condition 5
+     exists to refuse, so leaving one standing *inside* that condition's own
+     backward-compatibility paragraph was the sharper defect — not the widened
+     behaviour, which was chosen deliberately.
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
