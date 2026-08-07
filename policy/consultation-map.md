@@ -245,21 +245,38 @@ field.
     a rule that names a source is satisfied by a partial view of it: "When you
     write a rule that names a source, also name what a complete read of that
     source includes — otherwise every partial view counts as compliance"
-    (`gloss/lessons/knowledge-architecture.md:41@0cb4606`,
+    (`gloss/lessons/knowledge-architecture.md:41@98195e0`,
     `a-partial-projection-can-satisfy-a-total-read-rule`).
   - *what does NOT discharge it:* `policy/kit/bin/issue-pins.mjs --recheck`.
-    It compares SHAs, so an unmoved hub HEAD exits 0 `pins current` while the
-    line at that pin is superseded by something not yet swept into it. Pin
-    currency is a fact about the commit; liveness is a fact about the line.
+    Since kogaki#188 it compares **content**, not only SHAs: a stored
+    `pin-quote:` hash is checked against the text re-fetched at the cited
+    line, a moved quote is refused with the delta naming the corrected line
+    number, and every exit states what it verified and what it did not
+    (`content: liveness ESTABLISHED for N of M cited line(s)` beside
+    `content: NOT VERIFIED — … commit SHAs were compared, which is not line
+    liveness`). **The rule is unchanged and the tool is now stronger; what
+    the tool establishes is still the wrong half.** A verified quote hash
+    proves the cited line **still says what it said** — its *existence* — and
+    says nothing about whether what it says is **still the live ruling** —
+    its *standing*. Pin currency is a fact about the commit, content currency
+    a fact about the line, and disposition a fact about neither: a line can be
+    byte-identical at a current pin and superseded by a verdict recorded
+    somewhere the tool never reads.
+    Re-cut 2026-08-07 (kogaki#207) because the prior evidence sentence — "It
+    compares SHAs, so an unmoved hub HEAD exits 0 `pins current`" — had become
+    false of the shipped tool while the clause it supported stayed true, and a
+    reader checking it against `--recheck` would find it false and could
+    reasonably read the whole clause as lapsed. The **trigger terms and the
+    act class above are untouched**; this is a re-cut, never a repeal.
 - **Served line (pinned):** the disposition read has two halves and neither is
   settled by recency alone — "Say which system decides which half. Being
   written more recently says when someone wrote, not what they could see"
-  (`gloss/lessons/knowledge-architecture.md:197@0cb4606`,
+  (`gloss/lessons/knowledge-architecture.md:197@98195e0`,
   `declare-precedence-per-axis-not-per-artifact`) — and within the standing
   half a disagreement is surfaced rather than absorbed: "read the decision
   record for verdicts dated after that evidence, and when they conflict the
   later verdict wins and the conflict is reported rather than quietly
-  reconciled" (`gloss/lessons/knowledge-architecture.md:257@0cb4606`,
+  reconciled" (`gloss/lessons/knowledge-architecture.md:257@98195e0`,
   `merged-code-evidences-existence-never-standing`).
 - **Origin miss:** `specs/spec-draft-pipeline/SPEC.md` v1 (PR #157, `b3722cb`)
   shipped with the Move library held, because the spec lane read
