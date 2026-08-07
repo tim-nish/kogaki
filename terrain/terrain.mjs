@@ -1082,7 +1082,12 @@ function cmdSubdivide(args) {
       // stop logic: one line for the SubGroup name, one for its claim, one per
       // member. It gates nothing — the budget is REPORTED against the need.
       screen_budget_lines: { needs: LINES_PER_SUBGROUP_HEADER + sg.members.length, budget: screenBudget },
-      legible_at_a_glance: vd.legible_at_a_glance === true,
+      // Read from the SubGroup's own carried verdicts rather than a binding in
+      // this scope: story 1.31 moved `const vd = sg.verdicts || {}` into
+      // `judgeSubgroup`, and this third instrument — the only `vd.` site left
+      // outside that function — named nothing from that commit onward
+      // (kogaki#165).
+      legible_at_a_glance: (sg.verdicts || {}).legible_at_a_glance === true,
     };
   }
 
