@@ -72,6 +72,65 @@ invariant: Gukan guarantees Unit schema, never data schema).
   `checks/registry.json`'s own note, and is pointed at rather than restated
   here; `checks/check-registry-conformance.sh` refuses an admission whose
   instrument is missing or malformed (kogaki#113).
+- **Fixture discrimination** (kogaki#230): a diff that **adds or changes a
+  fixture** carries its **mutation evidence** in the PR record — the mutation
+  table, naming each mutation and which fixtures fail it. A fixture
+  *discriminates* when it can fail on the defect it guards, and the only proof
+  is reverting that fix in isolation and watching the fixture fail.
+
+  **Scoped to the fixture-bearing DIFF, deliberately not to check admission.**
+  The specimen is kogaki#209: three of kogaki#203's four regression fixtures
+  passed with the defect present, behind a green `38/38` line claiming
+  protection that did not exist — and story 1.36 repaired that by amending
+  fixtures **inside an existing registered check**, admitting nothing. A clause
+  riding the admission record above would therefore not have covered the
+  instance that produced it. Coverage is the set of occasions a carrier is
+  installed on, and admission is the wrong occasion:
+
+  > "A managed block pointing at a file the harness never loads is
+  > **installation on zero occasions**, and it is strictly worse than no
+  > installation because the pointer's existence is what stops anyone
+  > checking."
+
+  `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:29`
+    request_id: e405d81b-8cb4-4cd8-a832-7178f577bf51
+    outcome: discriminating
+    query: an obligation attached to a registration event rather than to the act itself — does it cover the occasions the act actually occurs on
+
+  **This is an OBLIGATION, so it gets prose plus a visible-absence signal and
+  never a gate.** An absence produces no event to hook, so nothing can deny it;
+  the review lane reads for the table's presence under its dimension 1, and
+  absence is a finding at the kogaki#72 budget's severity. **Nothing gates
+  mechanically** on the table's presence or content — presence of prose is not
+  a property worth a mechanical gate, and the table's *truth* is judgment.
+
+  **The rule lives here and its read lives in the lane, and both are required.**
+  Siting it only in `.claude/skills/review-lane/SKILL.md` would bind only the
+  sittings that invoke that skill — and an **authoring** sitting never does:
+
+  > "a **skill binds only the sittings that invoke it**, so siting the rule
+  > there reproduces exactly that failure … it lands as a stated obligation
+  > plus a visible-absence signal, **never a pretend gate**"
+
+  `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/archive/knowledge-architecture.md:40`
+
+  **No mutation-testing harness, and the decline carries its reopen trigger.**
+  Every instance since story 1.36 was caught by the practice or by the lane, so
+  machinery here would be expansion ahead of escape evidence. **The trigger is a
+  vacuous fixture shipping past review despite this clause.** `instrument: none`
+  — no standing act in this repository observes that condition, and none is
+  invented; it would be seen by the sitting that next mutates the fixture and
+  finds it already green.
+
+  **Why the clause is timed now rather than after the next instance.** The class
+  recurred in four consecutive sittings — kogaki#209's three dead fixtures,
+  story 1.38's terminal-line fixture passing against its own mutant, stories
+  1.37 and 1.39's producer halves that no consumer fixture exercised, and
+  kogaki#227's fix that would never have fired on a real run — every one caught
+  by a mutation pass and none by reading, while the rule propagated as
+  remembered prose. kogaki#220 and #223 are about to author fixtures at volume
+  in sittings that were not present for story 1.36.
+
 - **External-dependency registry** (`deps/registry.json`): the capabilities
   this repository **needs but cannot install** — a spawned session's tool
   grants, a repository setting, a user-level hook's install state — declared
