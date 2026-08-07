@@ -395,6 +395,29 @@
 #     silent. The notice matters more than the count it explains: it says a
 #     fabricated sha is sitting on the PR.
 #
+# A ROUND IS A CYCLE, NOT A SEGMENT (kogaki#190). The rule above says which
+# segments are eligible to be counted; it does not say what a round IS, and
+# counting the eligible segments assumed one segment per round. Two reviewers
+# landing on the SAME head produce two segments and spend the whole two-round
+# cap without a single rally cycle completing — the author never got the thing
+# a spent round buys them, which is a chance to move the head. Four cap
+# incidents in one session came through that gap, and no stricter rule about
+# which SEGMENTS count could have closed it, because the defect is the unit.
+#
+# So `rally_cycles()` groups performed segments BY HEAD: a head reviewed by
+# three reviewers is one round.
+#
+# The same function closes the opposite error, which is the one #190 was filed
+# about. A spawned session whose report could not be READ left no trace in the
+# comment bodies at all, so it cost the operator a real review and cost the
+# budget nothing — an unbounded number of them could repeat against a cap that
+# never moved. That fact is now WRITTEN where the budget looks, under its own
+# token (`review-round-unverified:`), and the two halves count differently on
+# purpose: reports at one head collapse into one cycle, unverified marks do
+# not, and a performed report SUBSUMES a mark at its own head so the PR #174
+# specimen — the report had landed, the read failed at that instant — is
+# charged exactly once.
+#
 # The generation half lives in the reviewer's own contract
 # (`.claude/skills/review-lane/SKILL.md`): the sha is READ AS A VALUE from
 # `gh pr view --json headRefOid` and never assembled from a prefix, a shorter
@@ -716,6 +739,16 @@ FINDING = re.compile(
 # mentioning `report-complete:` is a mention and never a declaration.
 SCOPE = re.compile(r'^\s*review-scope:\s*(full|delta)\s*$', re.M)
 COMPLETE = re.compile(r'^\s*report-complete:\s*(\d+)\s+findings?\s*$', re.M)
+# A SPAWNED ROUND WHOSE OUTCOME COULD NOT BE READ (kogaki#190). Its own token,
+# on the same anchored-whole-line grammar as the three above, and DELIBERATELY
+# NOT the report token: `segments()` never opens a segment for it, so it can
+# satisfy neither the presence check, nor `counted()`, nor `head_scope()`, and
+# `decide()` can never reach `done` or `author-owes` through it. What it does
+# reach is the CYCLE COUNT — see `rally_cycles()`. That is the whole of AC 1
+# and AC 2: representable to the budget, and never an assertion that a review
+# landed.
+UNVERIFIED = re.compile(r'^\s*review-round-unverified:\s*([0-9a-f]{7,40})\s*$',
+                        re.M)
 MAX_ROUNDS = 2   # §4 clause 3: two rounds, then a parked owner decision.
 
 # Spawned-session policy, resolved in the shell above and passed in rather than
@@ -1146,17 +1179,134 @@ def fix_log_path(pr, rnd):
     return os.path.join(LOG_DIR, f"pr-{pr}-fix-{rnd}.log")
 
 
+def same_head(a, b):
+    """Do these two shas name the same head? Abbreviations match either way.
+
+    The same predicate `head_segments()` already applies, lifted out so the
+    cycle count and the presence side cannot drift apart on what "this head"
+    means.
+    """
+    return bool(a) and bool(b) and (a.startswith(b) or b.startswith(a))
+
+
+def unverified_marks(bodies):
+    """Every `review-round-unverified:` sha, in order, duplicates kept.
+
+    Duplicates are kept deliberately — see `rally_cycles()`. Each line records
+    a SEPARATE session that was spawned and paid for, and collapsing them is
+    the thing that would let repetition go unbounded.
+    """
+    return [m.group(1) for m in UNVERIFIED.finditer(bodies or '')]
+
+
+def rally_cycles(bodies, resolves=None):
+    """The rounds this PR has spent, counted in CYCLES rather than segments.
+
+    THE DETECTOR'S UNIT MUST MATCH THE PROPERTY'S UNIT (kogaki#190). What the
+    two-round cap bounds is the RALLY: review a head, the author fixes, the
+    push moves the head, review again. That is the cycle, and its unit is the
+    HEAD — a cycle completes when the head moves. `rounds_used()` counted
+    SEGMENTS, which is a different unit, and the gap between them is not
+    theoretical: two reviewers landing on one head produced two segments,
+    spent the whole cap, and the author was never given the one thing a spent
+    round is supposed to buy them — a chance to move the head. Four cap
+    incidents in one session came through that gap.
+
+    So: performed segments are grouped by head, and a head is ONE cycle
+    however many reviewers reported against it.
+
+    Returns `(heads, unattested)`:
+
+      heads       one entry per distinct head that a PERFORMED report names
+                  (`performed()`, kogaki#91 — a fabricated sha still reviewed
+                  nothing and still counts as nothing).
+      unattested  the `review-round-unverified:` marks whose head has NO
+                  performed report — rounds that were spawned and paid for
+                  and left no readable artifact at all (kogaki#190).
+
+    THE TWO HALVES COUNT DIFFERENTLY, and the asymmetry is the point:
+
+    · Reports at one head COLLAPSE, because they are one cycle's artifacts.
+    · Unverified marks at one head DO NOT, because each is a separate paid
+      session that produced nothing. Collapsing them would leave the sweep
+      free to respawn at the same head forever — the identical unboundedness
+      the mark exists to close, moved one level in.
+
+    · A mark is SUBSUMED by a performed report at the same head. That is the
+      #190 specimen exactly: the report HAD landed on PR #174 and the sweep's
+      read failed at that instant. The next sweep sees both, and the head
+      costs ONE cycle. A cannot-determine can therefore never double-charge
+      the round it records, which is what keeps AC 1 from buying its
+      representability with a new over-count.
+
+    THE NOT-COLLAPSING HALF COUPLES THIS TO kogaki#204, and the coupling runs
+    one way (PR #208 review round 1). #190's two causes are disjoint in
+    MECHANISM and they stop being disjoint in CONSEQUENCE the moment a mark
+    costs a round: on #190's own PR #180 specimen — a polling loop that
+    re-fired the trigger and completed three sessions at one head — the old
+    behaviour was three free spawns and the new behaviour is a mark each and a
+    PARK on the second. That is the correct reading of the spend, and it is
+    also why #204's writer-side guard moves from open to urgent: until it
+    lands, a caller bug that used to be silent spends the operator's whole cap.
+    Recorded here, at the line that causes it, rather than only on the issue.
+
+    Head grouping is PREFIX-BASED because report shas may be abbreviated, and
+    the most specific spelling is kept as the group's representative — the
+    longest sha is the one least likely to swallow a sibling head.
+    """
+    heads = []
+    for s in segments(bodies):
+        if not performed(s, resolves):
+            continue
+        sha = s['sha']
+        for i, h in enumerate(heads):
+            if same_head(h, sha):
+                if len(sha) > len(h):
+                    heads[i] = sha
+                break
+        else:
+            heads.append(sha)
+    unattested = [u for u in unverified_marks(bodies)
+                  if not any(same_head(h, u) for h in heads)]
+    return heads, unattested
+
+
+def park_class(bodies, resolves=None):
+    """Which KIND of park this is — selected from the count, never asserted.
+
+    The postmortem stub said `unreviewed-head (a push landed after the final
+    round)` unconditionally, and that was true while every counted round came
+    from a report that had landed. Charging an unread spawn (kogaki#190) makes
+    a park reachable with no push at all, so the stub would have named a cause
+    that did not occur — in the one artifact the owner reads to decide what to
+    do about the park. Three compositions of the count, three classes.
+    """
+    heads, unattested = rally_cycles(bodies, resolves)
+    if unattested and not heads:
+        return (f"class: unverified-rounds ({len(unattested)} spawned "
+                "session(s) whose report could not be read; NO report has "
+                "ever landed on this PR)")
+    if unattested:
+        return (f"class: mixed-rounds ({len(heads)} reviewed head(s) and "
+                f"{len(unattested)} spawned session(s) whose report could not "
+                "be read)")
+    return "class: unreviewed-head (a push landed after the final round)"
+
+
 def rounds_used(bodies, resolves=None):
     """How many review rounds this PR has already spent.
 
     A segment whose cited sha resolves to no commit is NOT a round (kogaki#91)
-    — see `performed()`. This is the ONE place the count is computed, and
+    — see `performed()`. A head reviewed twice is not two rounds and a spawn
+    nobody could read is not zero (kogaki#190) — see `rally_cycles()`, which
+    holds both rules so this stays the ONE place the count is computed, and
     `decide()` calls it rather than re-deriving: the round count has two
-    consumers (the state machine's park bound and the driver's cap), and a
-    discount applied at one of two call sites is the shape this file keeps
-    finding.
+    consumers (the state machine's park bound at `decide()` and the driver's
+    fix cap in the sweep loop), and a discount applied at one of two call
+    sites is the shape this file keeps finding.
     """
-    return sum(1 for s in segments(bodies) if performed(s, resolves))
+    heads, unattested = rally_cycles(bodies, resolves)
+    return len(heads) + len(unattested)
 
 
 FIX_PROMPT = (
@@ -1785,6 +1935,70 @@ def post_stall_comment(pr, head, log_path, reason, denials):
         return False
 
 
+def unverified_round_body(head, log_path, denials):
+    """The comment that makes a cannot-determine round representable.
+
+    Composed as a pure function so the fixture pass can assert what it says
+    without a network — the property that matters here is what the TEXT
+    carries, not that `gh` was called.
+
+    Three things at once, and they are separable claims:
+
+    · AC 1 — the `review-round-unverified:` line is the budget record. It is
+      the only durable trace this arm has ever had; before it, the fact lived
+      in one run's stdout and the round was free.
+    · AC 2 — it is NOT a report. Different token, so `segments()` opens
+      nothing, the presence gate stays red, and nothing here asserts that a
+      review happened. Cannot-determine keeps its own name.
+    · AC 3 — it reaches the PR, in the same manner as the `spawn-failed` and
+      `report-degraded` arms, so the fact does not survive only in the log.
+
+    Why a PR comment rather than machine-local state, since story 1.35 left
+    that open: the budget is derived from the PR's comment bodies, and state
+    beside the tool would be invisible to `rounds_used()` on any other
+    machine — the same PR, swept twice, would have two different budgets. The
+    story's own worry about this option was that a synthetic segment fed to a
+    segment-counting budget compounds the over-count. It does, which is why
+    `rally_cycles()` lands first: against a CYCLE count the mark is bounded by
+    the head it names, and a real report at that head subsumes it entirely.
+    """
+    lines = [f"review-round-unverified: {head}",
+             "",
+             f"**review-lane spawn produced no readable outcome** for "
+             f"`{head[:7]}` — the report could not be verified (the PR comment "
+             "read failed).",
+             "",
+             "This is CANNOT-DETERMINE, which is neither a report nor an "
+             "absence. It carries no presence token, asserts nothing about "
+             "whether a review landed, and the merge gate stays red — "
+             "correctly.",
+             "",
+             "It is recorded because the round was **paid for**: a session "
+             "ran and consumed a real review round. The line above is what "
+             "the budget reads, so a spawn whose outcome nobody could read is "
+             "no longer free (kogaki#190). If a report for this head does "
+             "become readable later, that report SUBSUMES this line and the "
+             "head still costs one round — this can never double-charge.",
+             ""]
+    if denials:
+        lines.append("Tools the spawned session was denied:")
+        lines += [f"- `{d}`" for d in denials]
+        lines.append("")
+    lines += [f"Route log: `{log_path}`"]
+    return "\n".join(lines)
+
+
+def post_unverified_round(pr, head, log_path, denials):
+    """Put `unverified_round_body()` on the PR. True iff it landed."""
+    try:
+        subprocess.run(["gh", "pr", "comment", str(pr), "--body",
+                        unverified_round_body(head, log_path, denials)],
+                       stdin=subprocess.DEVNULL, capture_output=True, check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
 def segments(bodies):
     """Same segmentation the presence check uses: a report line opens a
     segment holding the findings under it. Duplicated deliberately rather
@@ -1916,9 +2130,14 @@ def scope_of(seg):
 
 
 def head_segments(segs, head):
-    """The segments naming THIS head — abbreviated shas match either way."""
-    return [s for s in segs
-            if head and (head.startswith(s['sha']) or s['sha'].startswith(head))]
+    """The segments naming THIS head — abbreviated shas match either way.
+
+    Shares `same_head()` with the cycle count (kogaki#190) rather than
+    restating the prefix test: "this head" is one question, and the presence
+    side and the budget side answering it differently is precisely the
+    two-instruments-disagree shape this file was already carrying.
+    """
+    return [s for s in segs if same_head(head, s['sha'])]
 
 
 def head_scope(bodies, head):
@@ -1983,6 +2202,22 @@ def decide(bodies, head, resolves=None):
                   "anything and is NOT counted (kogaki#91). A sha was probably "
                   "reconstructed from a short prefix; the report is unfounded, "
                   "not merely stale")
+    # AND THE SAME DISCLOSURE FOR THE ROUNDS NOBODY COULD READ (kogaki#190).
+    # Emitted here, before any return, on the same ground and for the same
+    # reason as the loop above: `decide()` already announces a round it
+    # DISCOUNTED, and a round it CHARGES to a spawn whose report was never
+    # readable is the more surprising of the two — the count moved and the PR
+    # carries no report explaining why. Without it, AC 2's "the two facts
+    # remain distinct in the output" held on the arm's own line and nowhere
+    # the state machine speaks.
+    _uh, _um = rally_cycles(bodies, resolves)
+    if _um:
+        print(f"NOTE: {len(_um)} round(s) are charged to spawned session(s) "
+              "whose report could NOT be read (kogaki#190) — cannot-determine, "
+              "not a review. The head they name is NOT reviewed and the merge "
+              "gate stays red; what they establish is only that the round was "
+              "paid for. Route logs are named on the PR beside each "
+              "`review-round-unverified:` line")
     current = head_segments(segs, head)
     if any(counted(s) for s in current):
         # Only a JUSTIFIED blocking gates (kogaki#72): an unjustified one
@@ -2599,7 +2834,13 @@ for _label, _bodies, _head, _res, _want_state, _want_rounds in [
     # FABRICATED SHA IS SITTING ON THE PR, which is the thing somebody should
     # go and look at.
     _said = "resolves to NO COMMIT" in _buf.getvalue()
-    _expected_note = _rounds < len(segments(_bodies))
+    # DERIVED FROM THE CONDITION, not from the arithmetic. This read
+    # `_rounds < len(segments(...))` until kogaki#190, which was the same
+    # number only while one segment meant one round — once two reviewers on
+    # one head became ONE round, a shortfall stopped implying a discount and
+    # this assertion would have demanded a NOTE about a fabrication that had
+    # not happened. Ask `performed()` what `decide()` asks it.
+    _expected_note = any(not performed(_s, _res) for _s in segments(_bodies))
     if _said != _expected_note:
         print(f"FAIL phantom fixture [{_label}]: the discount was "
               f"{'announced without happening' if _said else 'SILENT'}")
@@ -2611,6 +2852,159 @@ if _pfail:
 print("phantom pass: 6/6 unresolvable-sha cases (the PR #67 specimen counts "
       "1 round not 2; phantoms cannot park; a resolvable stale sha still "
       "counts; cannot-determine counts; every discount is announced)")
+
+# --- a round is a CYCLE, and a cycle nobody could read still costs ---------
+# kogaki#190. TWO PROPERTIES, ONE FIXTURE BLOCK, because they are one function.
+#
+#   · THE UNIT. The cap bounds rallies, and `rounds_used()` counted segments.
+#     The specimen is the first case below and it is not hypothetical: two
+#     reviewers landing on one head spent the whole cap while the author was
+#     never given a chance to move the head, four times in one session. A
+#     stricter rule about WHICH segments count could never have caught it —
+#     the property's unit is the head and the detector's unit was the segment,
+#     so the cases here are written over pairs, not over single segments.
+#
+#   · THE ARM WITH NO RECORD. A spawn whose report could not be read left
+#     nothing in `bodies`, so it cost a real review and cost the budget zero.
+#     The mark closes that, and the LAST THREE cases are the ones that keep the
+#     close from buying itself an over-count: a mark is subsumed by a real
+#     report at its own head, it never turns anything green, and it is not a
+#     report to any reader that asks.
+#
+# Both directions are asserted. A budget that can only grow is as wrong as one
+# that cannot: the `--UNDER` cases below would pass under a counter that simply
+# charged more, and the `--OVER` cases would pass under the old one.
+_cfail = 0
+_CH = 'abc1234def'
+for _label, _bodies, _head, _res, _want_state, _want_rounds in [
+    # OVER — the incident. Two reviewers, one head, one cycle.
+    ("THE SPECIMEN: two reviewers on ONE head is ONE round, not a park",
+     "review-lane report: 9999999\nreview-lane report: 9999999",
+     _CH, _ALL, 'spawn-round-2', 1),
+    ("two reports on the CURRENT head is one round, and the head is reviewed",
+     f"review-lane report: {_CH}\nreview-lane report: {_CH}\n"
+     "finding: nit open  x",
+     _CH, _ALL, 'done', 1),
+    ("an abbreviated and a full spelling of one head are ONE cycle",
+     f"review-lane report: abc1234\nreview-lane report: {_CH}",
+     _CH, _ALL, 'done', 1),
+    # UNDER — distinct heads are still distinct rounds. The fix must not
+    # collapse a real rally into one cycle.
+    ("two DISTINCT heads are still two rounds, and still park",
+     "review-lane report: 9999999\nreview-lane report: 8888888",
+     _CH, _ALL, 'park', 2),
+    # UNDER — the unverified arm. Free before this story.
+    ("a spawn nobody could read COSTS a round (it was paid for)",
+     "review-round-unverified: 9999999",
+     _CH, _ALL, 'spawn-round-2', 1),
+    ("TWO unverified spawns at one head park the PR — the repetition is bounded",
+     f"review-round-unverified: {_CH}\nreview-round-unverified: {_CH}",
+     _CH, _ALL, 'park', 2),
+    ("a mark and a report on different heads are two rounds",
+     "review-lane report: 9999999\nreview-round-unverified: 8888888",
+     _CH, _ALL, 'park', 2),
+    # OVER — and the mark must not double-charge the round it records. This is
+    # the PR #174 specimen: the report HAD landed and the read failed.
+    ("a report SUBSUMES a mark at its own head — one round, never two",
+     f"review-round-unverified: {_CH}\nreview-lane report: {_CH}",
+     _CH, _ALL, 'done', 1),
+    # A MARK IS NOT A REPORT. It costs a round and turns nothing green.
+    ("a mark at the current head leaves that head UNREVIEWED",
+     f"review-round-unverified: {_CH}",
+     _CH, _ALL, 'spawn-round-2', 1),
+    ("a mark cannot hold a PR at author-owes either — it carries no findings",
+     f"review-round-unverified: {_CH}\nfinding: blocking open [harm: x]  x",
+     _CH, _ALL, 'spawn-round-2', 1),
+]:
+    _buf = _io.StringIO()
+    with _ctx.redirect_stdout(_buf):
+        _got = decide(_bodies, _head, _res)
+        _rounds = rounds_used(_bodies, _res)
+    if (_got, _rounds) != (_want_state, _want_rounds):
+        print(f"FAIL cycle fixture [{_label}]: state={_got!r} rounds={_rounds}, "
+              f"want state={_want_state!r} rounds={_want_rounds}")
+        _cfail = 1
+# THE MARK IS NOT A REPORT TO ANY READER THAT ASKS (AC 2), asserted over the
+# readers rather than over the regex: a token that only the counter treats as
+# a non-report is a token the presence side may still be fooled by, and this
+# file's own filed defect is two instruments disagreeing about one artifact.
+_mark = f"review-round-unverified: {_CH}"
+for _label, _got, _want in [
+    ("`segments()` opens NO segment for a mark", segments(_mark), []),
+    ("no head segment either", head_segments(segments(_mark), _CH), []),
+    ("`head_scope()` sees no report", head_scope(_mark, _CH), (None, False)),
+    ("the mark IS visible to the budget", unverified_marks(_mark), [_CH]),
+    ("prose mentioning the phrase is not a mark",
+     unverified_marks("I saw a review-round-unverified: line somewhere"), []),
+]:
+    if _got != _want:
+        print(f"FAIL cycle fixture [{_label}]: got {_got!r}, want {_want!r}")
+        _cfail = 1
+# WHAT REACHES THE PR (AC 3) is asserted over the composed text, so the arm's
+# contract is exercised without a network. The body must carry the marker as
+# its OWN anchored line — a marker that lands indented, or after prose the
+# regex will not match, is a round that is still free while looking recorded.
+_body = unverified_round_body(_CH, "/tmp/pr-1-round-1.log", ["Bash(gh pr:*)"])
+for _label, _ok in [
+    ("the posted body carries the mark where the budget reads it",
+     unverified_marks(_body) == [_CH]),
+    ("the posted body is NOT a report and opens no segment",
+     segments(_body) == []),
+    ("it names the denied tools it observed", "Bash(gh pr:*)" in _body),
+    ("it routes the reader to the log", "/tmp/pr-1-round-1.log" in _body),
+    ("it says cannot-determine rather than claiming a review",
+     "CANNOT-DETERMINE" in _body),
+]:
+    if not _ok:
+        print(f"FAIL cycle fixture [{_label}]")
+        _cfail = 1
+# THE CHARGE IS DISCLOSED WHERE THE STATE MACHINE SPEAKS, and the class the
+# park announces is SELECTED (PR #208 review round 1). AC 2 asks that a
+# cannot-determine stay distinct from a genuine absence IN THE OUTPUT, and the
+# first cut discharged that on the arm's own printed line and nowhere else —
+# so a park whose rounds were all unread spawns printed a postmortem blaming a
+# push that never happened. Both halves are asserted over the EMITTED TEXT,
+# because a fixture that asserts only the verdict is exactly what let the
+# downgrade NOTE ship on one of two paths (kogaki#76).
+for _label, _bodies, _want_note, _want_class in [
+    ("a charged unread spawn is ANNOUNCED by decide()",
+     f"review-round-unverified: {_CH}", True, "unverified-rounds"),
+    ("two of them park, and the park does NOT blame a push",
+     f"review-round-unverified: {_CH}\nreview-round-unverified: {_CH}",
+     True, "unverified-rounds"),
+    ("a mark beside a real report is a MIXED park, counted as both",
+     f"review-lane report: 9999999\nreview-round-unverified: 8888888",
+     True, "mixed-rounds"),
+    ("reports only: no notice, and the historical class is unchanged",
+     "review-lane report: 9999999\nreview-lane report: 8888888",
+     False, "unreviewed-head (a push landed after the final round)"),
+    ("no bodies at all: the historical class, and no notice",
+     "", False, "unreviewed-head"),
+]:
+    _buf = _io.StringIO()
+    with _ctx.redirect_stdout(_buf):
+        decide(_bodies, _CH, _ALL)
+    _said = "could NOT be read" in _buf.getvalue()
+    if _said != _want_note:
+        print(f"FAIL cycle fixture [{_label}]: the charge was "
+              f"{'announced without happening' if _said else 'SILENT'}")
+        _cfail = 1
+    _got_class = park_class(_bodies, _ALL)
+    if _want_class not in _got_class:
+        print(f"FAIL cycle fixture [{_label}]: park class {_got_class!r} "
+              f"does not carry {_want_class!r}")
+        _cfail = 1
+if _cfail:
+    print("FAIL: a round is still counted per segment, or a spawn nobody "
+          "could read is still free or silent — kogaki#190")
+    sys.exit(1)
+print("cycle pass: 10/10 round-counting cases (two reviewers on one head is "
+      "ONE round; distinct heads still park; an unread spawn costs a round; "
+      "two of them park; a report subsumes its mark) + 5 mark-is-not-a-report "
+      "reader cases + 5 posted-body cases + 5 disclosure cases (the charge is "
+      "announced by decide(); the park SELECTS its class and never blames a "
+      "push that did not happen)")
+
 if bad:
     print("FAIL fixture pass — the sweep's state machine does not discriminate:")
     for b in bad:
@@ -2935,9 +3329,18 @@ for pr in prs:
               "never a third round.")
         # Same dry-run guard as the branch above (kogaki#76) — both posts were
         # unconditioned, so a dry run mutated two PR surfaces, not one.
+        #
+        # THE CLASS IS SELECTED, NEVER ASSERTED (kogaki#190, PR #208 review
+        # round 1). It read `unreviewed-head (a push landed after the final
+        # round)` unconditionally, which was true while every counted round
+        # came from a report that had landed. Once an UNREAD spawn can spend a
+        # round, a park is reachable with no push at all — and the stub would
+        # have told the owner a cause that did not occur, in the one artifact
+        # they read to decide what to do. That is the shape this file names
+        # three times in its own comments: the outcome right, the disclosure
+        # wrong. The three classes are the three compositions of the count.
         _stub = (f"park-postmortem: {MAX_ROUNDS} rounds spent and {head[:7]} "
-                 "is still unreviewed — class: unreviewed-head (a push "
-                 "landed after the final round). A park is a pipeline "
+                 f"is still unreviewed — {park_class(bodies)}. A park is a pipeline "
                  "defect measured against the 1-in-100 budget (kogaki#72); "
                  "owner decision owed.")
         if mode == 'spawn':
@@ -3004,6 +3407,33 @@ for pr in prs:
                 # state distinct from the two it sits between.
                 print(f"  #{n}: spawned, but the report could not be verified "
                       "(comment read failed) — not counted as reviewed")
+                # AND IT IS WRITTEN WHERE THE BUDGET LOOKS (kogaki#190). This
+                # arm was the unbudgeted member of its own dispatch family:
+                # `spawn-failed` posts a stall comment, `report-degraded` posts
+                # one and the report is already in `bodies` — and this one
+                # incremented a display tally and returned. `counts` is created
+                # fresh each run and read once, to print the closing line, so
+                # the fact died with the process and the round was FREE. An
+                # unbounded number of these could repeat against a cap that
+                # never moved.
+                denials = denied_tools(log_path)
+                if denials:
+                    print(f"  #{n}: denied tools: {', '.join(denials)}")
+                if post_unverified_round(n, head, log_path, denials):
+                    print(f"  #{n}: recorded the round as spent-but-unverified "
+                          "on the PR (not in report form — it must never "
+                          "satisfy the presence token)")
+                else:
+                    # THE FAILURE TO RECORD IS A FAILURE, not a footnote. The
+                    # round is unrepresentable exactly when this post does not
+                    # land, which is the state the arm existed in before — so
+                    # it is reported and reflected in the exit code rather than
+                    # left to the summary's tally.
+                    print(f"  #{n}: FAIL could NOT record the unverified round "
+                          "on the PR — the round stays FREE to the budget and "
+                          "the fact survives only in the route log. Post "
+                          f"`review-round-unverified: {head}` by hand.")
+                    spawn_failures += 1
                 counts['unverified'] = counts.get('unverified', 0) + 1
             else:
                 # A REPORT IS NOT PROOF THE REVIEW WAS UNDEGRADED (PR #67
