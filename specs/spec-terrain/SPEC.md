@@ -1131,7 +1131,10 @@ theoretical:
   `topics/articles.md:53`; at the served HEAD the same text is
   `topics/articles.md:54`. Same content, different line — and the recheck
   reported `pins current` straight across that move. **This is the gap
-  kogaki#169 was filed about, reproduced in this file**, and it is why the
+  kogaki#188 carries** (kogaki#169 is the nearest neighbour and is CLOSED, on
+  a different question — a merge against a superseded declination — so it is
+  named as kin rather than as this defect's carrier), **reproduced in this
+  file**, and it is why the
   check below was done by content rather than by resolution.
 - **No served line postdates the ruling this section records, and none was
   read as if it did.** The newest content in `topics/articles.md` is
