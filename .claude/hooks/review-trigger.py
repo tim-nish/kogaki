@@ -65,11 +65,138 @@ def self_test():
         if got != want:
             print(f"FAIL {name}: got {got}, want {want}")
             failures += 1
+    # kogaki#211 — the branch fallback's OPERAND, exercised apart from the
+    # resolution it feeds. Every case here fails against the pre-fix code,
+    # which read CLAUDE_PROJECT_DIR and never looked at the payload at all.
+    origin_cases = [
+        ("payload cwd is the pushing tree",
+         {"cwd": "/tmp/wt", "tool_input": {"command": "git push"}}, "/tmp/wt"),
+        ("an explicit -C wins over cwd — the push names its own tree",
+         {"cwd": "/repo", "tool_input": {"command": "git -C /tmp/wt push"}}, "/tmp/wt"),
+        ("a quoted -C path is unquoted",
+         {"cwd": "/repo", "tool_input": {"command": "git -C '/tmp/w t' push"}}, "/tmp/w t"),
+        ("no cwd and no -C -> None, so the caller keeps the old fallback",
+         {"tool_input": {"command": "git push"}}, None),
+        ("blank cwd is absent, never a directory",
+         {"cwd": "   ", "tool_input": {"command": "git push"}}, None),
+        ("a bare push from the project root still resolves there",
+         {"cwd": "/repo", "tool_input": {"command": "git push -u origin HEAD"}}, "/repo"),
+    ]
+    for name, payload, want in origin_cases:
+        got = push_origin_dir(payload)
+        if got != want:
+            print(f"FAIL origin {name}: got {got!r}, want {want!r}")
+            failures += 1
+
+    # The default-branch early return is UNCHANGED and must stay so: the fix
+    # reaches the right tree without loosening which branches spawn.
+    branch_cases = [("feature branch spawns", "spec/199-x", True),
+                    ("master never spawns (a push there is a merge)", "master", False),
+                    ("main never spawns", "main", False),
+                    ("detached HEAD never spawns", "HEAD", False),
+                    ("unresolvable branch never spawns", "", False)]
+    for name, branch, want in branch_cases:
+        got = spawns_for_branch(branch)
+        if got != want:
+            print(f"FAIL branch {name}: got {got}, want {want}")
+            failures += 1
+
     if failures:
         return 1
     print(f"trigger pass: {len(cases)}/{len(cases)} pr-extraction cases "
-          "(multi-PR / single / duplicate / ordered / none / empty)")
+          "(multi-PR / single / duplicate / ordered / none / empty); "
+          f"{len(origin_cases)}/{len(origin_cases)} push-origin cases "
+          "(cwd / explicit -C / quoted path / absent / blank / project root); "
+          f"{len(branch_cases)}/{len(branch_cases)} branch-guard cases "
+          "(feature / master / main / detached / unresolvable)")
     return 0
+
+
+def push_origin_dir(data):
+    """The directory the push was actually made FROM, or None (kogaki#211).
+
+    THE MISSING OPERAND. The branch fallback used to resolve at
+    `CLAUDE_PROJECT_DIR`, which is the main checkout — so a push issued from a
+    git worktree resolved the WRONG tree's branch, found `master` there, and
+    returned early. Under worktree work, which the lane commands prescribe, the
+    fallback's guard is effectively constant-false, and enumeration cannot see
+    that: the check exercises a pure function and the defect is in the
+    resolution the impure half performs.
+
+    Two sources, in order, both facts about THIS invocation rather than about
+    the session's configuration:
+
+      1. an explicit `git -C <path>` in the command — the push names its own
+         tree, so nothing needs to be inferred;
+      2. the payload's `cwd` — the shell the command ran in.
+
+    Returns None when neither is present, and the caller then falls back to
+    CLAUDE_PROJECT_DIR exactly as before. A missing operand degrades to the old
+    behaviour rather than to a refusal: the trigger's job is to fire, and a
+    fallback that declined on absence would trade under-firing for more of it.
+    """
+    cmd = (data.get("tool_input") or {}).get("command", "") or ""
+    # `-C` only, and quoted forms first so a path containing a space is not
+    # truncated at its first space — the alternation order is the fix, since a
+    # bare `\S+` matches the quoted case too and would win if it came first.
+    m = re.search(r"\bgit\b[^|;&\n]*?\s-C\s+('[^']*'|\"[^\"]*\"|\S+)", cmd)
+    if m:
+        return m.group(1).strip("'\"")
+    cwd = data.get("cwd")
+    return cwd.strip() if isinstance(cwd, str) and cwd.strip() else None
+
+
+def spawns_for_branch(branch):
+    """Does a push on this branch warrant a review spawn?
+
+    UNCHANGED BY kogaki#211, and deliberately so: a push to the default branch
+    is a MERGE, not a review-substrate change, and the fix must reach the right
+    tree without loosening this. Kept as a pure function so the check can
+    exercise it apart from the resolution that feeds it — which is the half
+    that was wrong.
+    """
+    return branch not in ("", "HEAD", "master", "main")
+
+
+def _git(d, *args):
+    return subprocess.run(["git", "-C", d, *args],
+                          capture_output=True, text=True, timeout=5).stdout.strip()
+
+
+def same_repository(a, b):
+    """Do two directories belong to ONE repository, worktrees included?
+
+    `--git-common-dir` is the discriminator kogaki#211 names: a linked worktree
+    has its own `--git-dir` and SHARES `--git-common-dir` with the main
+    checkout, so this is true across worktrees of one repo and false across
+    unrelated repos.
+
+    This is a SAFETY bound rather than a convenience. Once the branch may be
+    resolved at a directory the payload supplies, an unrelated repository's
+    push could otherwise resolve a non-default branch and spawn THIS repo's
+    sweep against it. An empty result on either side returns False: a
+    cannot-determine is not a match.
+
+    THE RESULT IS RESOLVED AGAINST ITS OWN DIRECTORY, and that is required
+    rather than tidy. `--git-common-dir` answers RELATIVE from a main checkout
+    (`.git`) and ABSOLUTE from a linked worktree, so comparing the raw strings
+    reports a worktree and its own main checkout as different repositories —
+    which is exactly the false answer that would leave kogaki#211's defect in
+    place while looking fixed. `--path-format=absolute` would normalise this
+    and is NOT used: it arrived in git 2.31 and is silently echoed back as an
+    argument by older gits (measured on 2.25.1), so it would reintroduce the
+    same false negative on the machines most likely to be running it.
+    """
+    def common(d):
+        try:
+            out = _git(d, "rev-parse", "--git-common-dir")
+        except Exception:
+            return ""
+        if not out:
+            return ""
+        return os.path.realpath(out if os.path.isabs(out) else os.path.join(d, out))
+    ca, cb = common(a), common(b)
+    return bool(ca) and bool(cb) and ca == cb
 
 
 def main():
@@ -101,23 +228,46 @@ def main():
     # installed on the right occasion and bound to ONE INSTANCE of it. The
     # remedy is to fire per instance, so a caller batching its creations
     # cannot silently drop the ones after the first.
+    state_dir = os.path.expanduser("~/.kogaki")
+    os.makedirs(state_dir, exist_ok=True)
+    log = open(os.path.join(state_dir, "review-trigger.log"), "a")
+
     prs = pr_numbers(data.get("tool_response"))
     if prs:
         invocations = [["--spawn", "--pr", num] for num in prs]
     else:
+        # RESOLVE WHERE THE PUSH HAPPENED, NOT WHERE THE PROJECT ROOT IS
+        # (kogaki#211). `origin` is the pushing tree when the payload supplies
+        # one and it belongs to this repository; otherwise the project root,
+        # unchanged.
+        origin = push_origin_dir(data)
+        if origin and os.path.isdir(origin) and same_repository(origin, repo):
+            resolved_at, elsewhere = origin, os.path.realpath(origin) != os.path.realpath(repo)
+        else:
+            resolved_at, elsewhere = repo, False
         try:
-            branch = subprocess.run(
-                ["git", "-C", repo, "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True, text=True, timeout=5).stdout.strip()
+            branch = _git(resolved_at, "rev-parse", "--abbrev-ref", "HEAD")
         except Exception:
             return
-        if branch in ("", "HEAD", "master", "main"):
+        if not spawns_for_branch(branch):
+            # A SILENT DECLINE IS WHAT LET THIS RUN TWICE UNNOTICED, so the
+            # decline states where it resolved and whether that was the tree
+            # the push came from. This is an OBLIGATION — an absence generates
+            # no event to hook — so it is discharged by making the absence
+            # observable, never by a gate.
+            log.write(
+                f"--- decline: branch {branch!r} resolved at {resolved_at}"
+                f"{' (the pushing tree)' if elsewhere else ''}"
+                f"{'' if elsewhere else ' (project root)'}"
+                f" — no spawn; a push to the default branch is a merge\n")
+            log.flush()
             return
         invocations = [["--spawn", "--branch", branch]]
-
-    state_dir = os.path.expanduser("~/.kogaki")
-    os.makedirs(state_dir, exist_ok=True)
-    log = open(os.path.join(state_dir, "review-trigger.log"), "a")
+        if elsewhere:
+            log.write(f"--- resolved at the pushing worktree {resolved_at} "
+                      f"(project root {repo} would have resolved a different "
+                      f"branch)\n")
+            log.flush()
     for args in invocations:
         log.write(f"--- trigger: {' '.join(args)}\n")
         log.flush()
