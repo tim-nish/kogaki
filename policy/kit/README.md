@@ -70,9 +70,30 @@ logs the line once and proceeds without policy interaction.
 
       pin-quote: topics/articles.md:79@f918c51 q1:1a2b3c4d5e6f7a8b
 
-  It is a **sibling** of the `consulted:` receipt block, never an indented key
-  inside it: `checks/check-consult-receipts.sh`'s continuation scan recognises
-  only `request_id`, `outcome` and `query`, and an unrecognised indented key
-  ends the scan and silently drops every field.
+  **THE PLACEMENT RULE, STATED POSITIVELY: a `pin-quote:` line goes BELOW the
+  whole `consulted:` block, at column 0 — never between line one and its
+  continuations.** Written this way round deliberately (kogaki#209): the rule
+  used to name only the *indented* failure, which left the
+  unindented-but-interleaved case — a column-0 `pin-quote:` sitting between a
+  `consulted:` line and its `request_id:`/`outcome:`/`query:` continuations —
+  reading as compliant while breaking the same scan.
+
+  Both failures follow from one fact about the readers, and it is worth
+  knowing rather than memorising:
+
+  - `checks/check-consult-receipts.sh`'s continuation scan recognises only
+    `request_id`, `outcome` and `query`, and **stops at the first line that is
+    not one of them**. Anything between a receipt's line one and its
+    continuations therefore ends the scan and silently drops every field after
+    it — the receipt reads as v1 and its queries become invisible.
+  - An **indented** `pin-quote:` is worse, and is now **refused by name** at
+    `--validate-body`. It is *doubly* invisible: `parsePinQuotes` anchors at
+    column 0 so it stores no hash and buys no trial, while both strip sites
+    anchor there too and so leave its `@<sha>` in the text for the pin scan to
+    read as a **second pin** — the body cites one, the scan sees two, and the
+    phantom fires `policy moved` with nothing naming the line that caused it.
+
+  So: below the block, at column 0. A run that puts it anywhere else is
+  refused at authoring and reported at pickup.
 - `bin/issue-pins.mjs --self-test` — the content-liveness fixture pass, pure
   and gateway-free; runs inside `test/install-test.sh`.
