@@ -190,6 +190,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      > channel-eroding failure"
 
      `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/archive/knowledge-architecture.md:197`
+       request_id: bf2f2d9f-e144-4eda-9fe8-ce0882bf929f
+       outcome: covered-after-reframing
+       query: a guard that declines to act should its decline be loud or silent — when does a non-zero exit train the caller to suppress it
 
      A poll that exits non-zero on its normal case makes *not yet done*
      indistinguishable from *broken*, and the operator's repair is `|| true`,
@@ -206,6 +209,10 @@ invariant: Gukan guarantees Unit schema, never data schema).
      > unchanged"
 
      `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:43`
+       request_id: 6bd60580-695a-47a4-8c21-074e207bfd92
+       outcome: discriminating
+       query: a tool invoked inside a polling loop that finds its work already in flight — should it refuse with a non-zero exit or report the in-flight state and exit zero
+
      (`atomic-writes-say-nothing-about-readers`)
 
      `rounds_used()`, `rally_cycles()`, `decide()`, `park_class()` and the
@@ -217,10 +224,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
      and story 1.35's subject, and this clause governs its second, which is a
      **writer** defect no repair to what `rounds_used()` can read discharges.
 
-       request_id: 6bd60580-695a-47a4-8c21-074e207bfd92, bf2f2d9f-e144-4eda-9fe8-ce0882bf929f
-       outcome: covered-after-reframing
-       query: a tool invoked inside a polling loop that finds its work already in flight — should it refuse with a non-zero exit or report the in-flight state and exit zero
-       query: a guard that declines to act should its decline be loud or silent — when does a non-zero exit train the caller to suppress it
+     **Two gateway calls, two receipts, recorded where they were brought to
+     bear** (PR #213 round-1 nits). The exit-contract fork took two framings;
+     each call carries its own `request_id` beside the line it surfaced, and
+     the reframing outcome sits on the framing that discriminated. A
+     comma-joined pair on one `request_id:` line is one opaque id matching
+     neither call — §4's grammar above is singular, and the collision check
+     keys on that field.
 
      **deferred slots: none.**
   5. **A report DECLARES ITS SCOPE — `full` or `delta`** (kogaki#70). A
@@ -1516,6 +1526,40 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      Receipt mode only. Non-receipt mode and the pre-receipt invocation are
      genuinely unaffected.
+
+     **Consultation-map entry 3's survey, run late and recorded with its
+     lateness** (PR #213 round-1 finding). This condition and clause 4 above
+     each adopt a record as the **live word on a decision's disposition** —
+     #206 rules PR #201's shipped behaviour live and this condition's prior
+     "byte-for-byte unaffected" sentence an overclaim; #204 rules its own
+     issue's premise incomplete — which is entry 3's act class exactly. The
+     amending sitting emitted receipts on *remedy shape* and none on the
+     *disposition read*, so the entry's prescribed survey went unrun while the
+     mechanical check passed, because it counts receipts present and cannot see
+     which boundary they answer.
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e gloss/INDEX.md:61,113,144`
+       request_id: cb73f8f9-3bf2-488f-9379-8b7826c67ab5
+       outcome: discriminating
+       query: entry 3's headline-first survey over lessons/knowledge-architecture, read before this disposition reading was written down — does any served position overturn the four disposition rulings of PR #213
+
+     **Both halves were run and the result is stated:** the headline-first pass
+     over all 56 `knowledge-architecture` headlines, and the carriers
+     themselves read **whole** with their comment threads
+     (`gh issue view <n> --comments` on #199, #204, #206, #212 — one comment
+     each, all authored by the amending sitting itself). **No record
+     superseding any of the four dispositions exists**, so every reading
+     stands; the survey changed no verdict and its value is that this sentence
+     can now be written.
+
+     **The miss reproduced the very lesson the entry cites, which is why it is
+     recorded rather than quietly filled.** The triage sitting read the four
+     issue *bodies* and not their *comment threads* —
+     `a-partial-projection-can-satisfy-a-total-read-rule`: *"A rule that says
+     'check the source' can be satisfied by a tool that shows only part of that
+     source, and nothing will look wrong."* Entry 3 names `--comments`,
+     untruncated, for exactly this reason, and a body-only read looked like
+     compliance.
 
      So the condition is two checks, both reading **only** the wire:
 

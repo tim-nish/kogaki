@@ -12,7 +12,12 @@ routes it into `subgroupPlacement`'s catch-all, which returns one SubGroup
 holding every member, with `members` nulled. A prohibition on minting `none` is
 necessary and not sufficient. An **executable conformance fixture at the
 producer/consumer boundary** is required by the amendment, not suggested by it.
-v8, amended 2026-08-07 — **§12/§12.1 is RECONCILED with
+
+**Superseded status (v8), kept whole so a reader holding it finds the
+disposition rather than an absence** — v9 amends §12.1's encoding and leaves
+every clause below standing:
+
+**Status:** v8, amended 2026-08-07 — **§12/§12.1 is RECONCILED with
 kogaki#168** (kogaki#189, owner selection), the reconciliation §6.2 and §8.1
 received in PR #178 and §12 did not, because neither of that PR's issues
 licensed §12. **A judge pin of `none` on a CO-TAG-GENERATED Full Report is
@@ -1937,6 +1942,16 @@ becomes unproducible rather than discouraged, which is the ratified shape:
 
 `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:47`
 
+**Both lines above are v1 receipts, and the reason is stated rather than left
+to look like an omission** (PR #213 round-1). This section's sitting issued **no
+gateway call of its own**: `LESSONS.md:47` and `LESSONS.md:63` were surfaced by
+the call recorded in §12.1 (`request_id: 9e835f18-de01-4579-ab88-b5751a003103`),
+made for kogaki#199's encoding fork, and were re-read there rather than
+re-queried here. Copying that call's `request_id` and `query:` down to this
+section would attach kogaki#199's framing to kogaki#212's decision — a receipt
+asserting that a question was asked about this fork when it was not. A v1
+receipt is valid; a misattributed v2 receipt is worse than none.
+
 **The two declined alternatives, with grounds.**
 
 - **A cross-run observer at a different unit — DECLINED.** Its case was real
@@ -1968,6 +1983,16 @@ change to `cotags`' argument validation"* — and this sitting **is** the second
 limb: it licenses exactly that change. A trigger whose condition has fired is
 discharged by acting, never re-armed.
 
+**This REVERSES kogaki#212's own reading, and the reversal is named rather
+than quietly reconciled** (PR #213 round-1 nit). The issue body rules the
+opposite in as many words — *"That trigger is **kept**, and this issue is what
+makes it readable"* — which was correct when written, because at filing time no
+sitting had yet licensed the change the second limb names. This sitting is that
+sitting, so the later verdict wins and the superseded reading is stated here
+rather than left for a reader holding the issue to discover as a contradiction.
+`policy/consultation-map.md` entry 3's served line asks for exactly this: when
+they conflict the later verdict wins **and the conflict is reported**.
+
 **A scheduling edge is stated here and written to no `depends_on`.** The story
 this decomposes to edits `terrain/terrain.mjs` and
 `.claude/skills/terrain/SKILL.md`, which kogaki#199's story 1.37 also edits —
@@ -1976,8 +2001,17 @@ files. And **kogaki#205 edits this very section (§11)** to correct its two
 `topics/articles.md:79` pins to `:80`. Neither is a dependency; both are
 ordering facts for whichever lane runs second.
 
-  request_id: 9e835f18-de01-4579-ab88-b5751a003103
-  outcome: covered-after-reframing
+**Consultation-map entry 3's survey covers this section and §12.1** (PR #213
+round-1 finding). Both amendments adopt a record as the live word on a
+decision's disposition — this one rules kogaki#212's own "trigger kept" reading
+superseded, and §12.1 rules the runtime's judged-empty behaviour
+non-conformant — which is entry 3's act class. The survey is recorded once, at
+`specs/SPEC.md` §4 condition 5, with its `request_id`, both halves run
+(headline-first over all 56 `knowledge-architecture` headlines, and the
+carriers read whole with `--comments`), and its result: **no record superseding
+any of the four dispositions exists.** It is cited here rather than duplicated,
+because a receipt copied to a second site is a second assertion that a second
+call was made.
 
 **deferred slots: none.**
 
