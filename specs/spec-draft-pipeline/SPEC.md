@@ -1,6 +1,7 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v2, amended 2026-08-07 (kogaki#169). v1 authored 2026-08-07
+**Status:** v2.1, amended 2026-08-07 (kogaki#179 — the reversal record's
+second-order cause). v2 amended 2026-08-07 (kogaki#169). v1 authored 2026-08-07
 (kogaki#127); §7's hold is **reversed** by this amendment and the reversal is
 recorded at §7.0 rather than edited away.
 **Governs:** port manifest item 2 (`specs/SPEC.md` §5) — its structure half.
@@ -356,6 +357,45 @@ lands on the served surface leaves the SHA unchanged, so a staleness of
 exactly this kind is invisible to it by construction. **Currency of a pin is
 not liveness of a line.**
 
+**And the surface has since learned to claim the currency it does not have —
+the second-order trap, recorded because it is what would cause the next
+recurrence (kogaki#179).** The hub swept during the v2 sitting itself, moving
+the served pin from `f918c515` to `0cb46066`. The sweep did **not** bring the
+Move adoption. Measured at the new pin rather than assumed, over the whole
+127-line thread:
+
+- **`Moves` → 0 occurrences. `Move ` → 0. `moves/` → 0.**
+- **Newest actual decision line: `2026-08-05`.**
+- **Frontmatter: `updated: 2026-08-07`.**
+
+`topics/articles.md:4@0cb46066653ef3db2e33f69971829d25c06b6507` (receipt at §9.1)
+
+So the freshness field advanced **two days past the newest decision the file
+contains**, and past the adoption it still does not contain. Before the sweep
+— that is, at `f918c515` — a reader consulting the thread saw nothing newer
+than **2026-08-04** and could grow suspicious: the staleness was **legible in
+the content**. (The two dates belong to different pins, and this section's
+whole subject is a date that misleads, so each is named with its own:
+**2026-08-04** newest at `f918c515`, **2026-08-05** newest at `0cb46066`.) After it, the
+header asserts currency to 2026-08-07 while the adoption remains missing.
+**The one cue that would have prompted a second look was removed and replaced
+by a cue pointing the other way.**
+
+The general form, so this does not read as one file's accident: **an
+`updated:` field maintained by an act other than the one that appends
+decisions can drift ahead of its own content**, and every consumer treating
+that date as a liveness signal inherits the false premise. It is the same
+shape as the pin rule one level down — and note what it survives. Here the
+SHA **did** move, the recheck **did** refuse with the delta, and the
+prescribed re-read **was** performed (§9.2). None of the three found the
+adoption, because none of them counts content. **Only counting the content
+does.**
+
+**Stated plainly so the next sitting does not repeat the search: there is no
+served line ratifying Moves, at either pin.** This amendment rests on the
+owner's 2026-08-07 ruling carried in kogaki#169, not on served material, and
+that is a fact about the record rather than a gap in this sitting's looking.
+
 **What is reversed is a HOLD — not a served declination.** This distinction
 is the whole difference between correcting a misread and overruling the hub,
 and it is stated precisely:
@@ -702,6 +742,21 @@ across queries.
   outcome: discriminating
   query: consultation-map entry 1 read prescription — survey lessons/testing headline-first before a diff whose prose matches the check-infrastructure boundary.
 
+**One receipt below is carried from the v2 sitting rather than newly read, and
+that is disclosed rather than left for a reader to detect.** `7f74c874` on
+`gloss/lessons/knowledge-architecture` was performed **at the v2 sitting**
+(kogaki#169), and the served pin has **not moved since** — it is
+`0cb46066653ef3db2e33f69971829d25c06b6507` there and here. It is reused for
+the same reading, at the same pin, so §9.1's "one query, one reading, one
+request_id" invariant holds; what would breach it is reusing an id for a
+*different* reading, which is the `e6abb4ef` defect §5 corrects. `c1260d67` is
+the read performed **for this amendment**.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:4,121`
+  request_id: c1260d67-aa98-4463-8511-f063f2e79443
+  outcome: discriminating
+  query: topic_thread("articles") — after the sweep, does the served article-design thread carry the 2026-08-06 Move adoption, what is its newest actual decision line, and what date does its frontmatter claim?
+
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:9,11`
   request_id: fdea0642-fc3c-46ac-a63a-63b3a7cad0b4
   outcome: discriminating
@@ -736,6 +791,13 @@ The re-read was performed and the delta resolved:
   contains zero occurrences of "Move", "Moves", or `moves/`. §7.6's pin gap
   and §7.0's stale-consult diagnosis both hold at the **current** pin, not
   merely at the one #169 was filed against.
+- **But the frontmatter now says otherwise** (kogaki#179). The header at
+  `:4` reads `updated: 2026-08-07`, while the **newest actual decision line
+  is `2026-08-05`** and the adoption is absent. The counts, taken over the
+  whole 127-line thread rather than sampled: `Moves` 0, `Move ` 0, `moves/`
+  0. So the surface's freshness signal is **two days ahead of its own newest
+  decision**. §7.0 records what follows from that; it is noted here as a
+  measurement because this section is where the measurements live.
 
 **A note the displacement earns.** That a one-line insertion moved four of
 this spec's citations is the served defect
