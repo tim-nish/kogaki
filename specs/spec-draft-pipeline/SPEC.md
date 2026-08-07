@@ -269,10 +269,11 @@ queries and what they returned:
 
 - **The kogaki corpus.** `git ls-files | grep -iE
   '^(moves|drafts?|briefs?|articles?)/|brief|draft|canonical'`, run
-  2026-08-07 at branch `spec/127-draft-pipeline` over all 147 tracked files,
-  excluding `docs/stories/`. **Sole hit: this spec file itself.** No `moves/`,
-  no `drafts/`, no `briefs/`, no `articles/`, no composed Brief and no
-  rendered article exist in this repository.
+  2026-08-07 at branch `spec/127-draft-pipeline` over all 147 tracked files —
+  the command filters nothing out, and the 116 files that remain when
+  `docs/stories/` is dropped return the same one. **Sole hit: this spec file
+  itself.** No `moves/`, no `drafts/`, no `briefs/`, no `articles/`, no
+  composed Brief and no rendered article exist in this repository.
 - **The ledger.** The §5 receipt's query, asked of the served surface at
   `product-lab@f918c515`. Its **top hit was the trigger's own sentence**
   (`topics/articles.md:120`) and **nothing in the response named a ledger**.
@@ -281,9 +282,13 @@ queries and what they returned:
   **20 lines rendered out of 290 topic candidates**. So this is a
   well-aimed look that found nothing, **not an exhaustive enumeration** —
   the query was the one the trigger's own wording supplies, and the surface
-  answered with the trigger rather than with the instrument. A reader who
-  needs exhaustiveness must re-run it; a reader deciding whether to rely on
-  the ledger today has enough.
+  answered with the trigger rather than with the instrument. Re-running this
+  lookup would reproduce the truncation, not lift it; the exhaustive read is
+  the pair the response's own `continue` block names —
+  `topic_thread("articles")` and `topic_thread("knowledge-architecture")`,
+  each returning its whole topic thread rather than a slice of topic
+  candidates. A reader who needs exhaustiveness runs those two; a reader
+  deciding whether to rely on the ledger today has enough.
 
 **The nearest plausible-and-wrong instrument, named so nobody reaches for it
 later: this spec's own §6 Candidates gate.** It is the obvious candidate — the
