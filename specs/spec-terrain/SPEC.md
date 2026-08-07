@@ -1,5 +1,15 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v10, amended 2026-08-07 — **§11's composition pin carries the
+SERVED MEMBER SET, and the claims artifact is the carrier** (kogaki#212, owner
+selection). v9 named a **digest** while requiring a **subset** refusal that
+names offending members — a mechanism that cannot deliver the property the same
+sentence states. The property is load-bearing, so the digest gives way. v9 also
+required the pin to *accompany* the claims without saying where it lives; the
+claims artifact becomes a typed record `{composition_pin, claims}`, mirroring
+§12.1's typed subdivision record. A bare map is refused by name. The v9
+disposition below is otherwise unchanged.
+
 **Status:** v9, amended 2026-08-07 — **§12.1's subdivision-input EMPTY-OUTCOME
 ENCODING is DECIDED** (kogaki#199, owner selection): `--subdivisions` takes a
 typed per-group record, so *judged, empty* (`{"judged": true, "subgroups": []}`)
@@ -1917,9 +1927,89 @@ text, which is advisory to something whose job is to satisfy instructions.
 
 **THE RESOLUTION: a `cotags` refusal keyed to the composition input, bound by
 CONTENT rather than by presence.** `compose-input` emits a **composition pin**
-beside its bounded read — the tag, the survey record's pin, and a digest of the
-**member set it served** — and `cotags --claims` requires that pin and refuses
-when the claims' group/member set is not a subset of what the pin covers.
+beside its bounded read — the tag, the survey record's pin, and **the member set
+it served, per group** — and `cotags --claims` requires that pin and refuses
+when the claims' group/member set is not a subset of what the pin covers,
+**naming the members that fall outside it**.
+
+**v10 — THE MECHANISM IS CORRECTED, AND THE PROPERTY IS WHAT SURVIVES**
+(kogaki#212, owner selection 2026-08-07). v9 wrote this clause as "a **digest**
+of the member set it served" while requiring, in the same sentence, a refusal on
+**subset** — and story 1.39 AC3 requires that refusal to **name the offending
+members**. A digest supports **equality**, not subset, and can name no offender:
+the mechanism this section named could not deliver the property this section
+states. The prior wording is quoted here rather than edited away, because a
+reader holding v9 must find the disposition rather than an absence.
+
+The served surface decides which half gives way:
+
+> "When a rule states both a property and the mechanism that currently delivers
+> it, it must say **which is load-bearing** — otherwise the mechanism silently
+> becomes the rule, and later work that would preserve the property by a better
+> carrier reads as a violation; the test is not whether the mechanism is named
+> but **what work the naming does**, so consult the rationale, not the
+> phrasing."
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:86`
+  request_id: 7f79869e-e808-4ae9-b377-063490be7de9
+  outcome: discriminating
+  query: a guard required to name which elements violated it cannot be built on a hash of the set — what must the evidence carry
+
+This section's **rationale** is stated two paragraphs down and is unambiguous:
+composing outside the bounded read must become **unproducible** rather than
+discouraged. The digest was the *mechanism* named to carry that, so the digest
+is what gives way. **Trimming the property to fit it — re-cutting the refusal
+from subset to equality — was the declined alternative**, and it is declined on
+more than symmetry: equality forbids a legitimate act, since composing claims
+for a **subset** of the served groups is normal work, so an equality guard would
+push composers back toward all-or-nothing. A per-group **digest** was also
+declined: it detects that a group's membership changed and still cannot say
+**which** member is outside the bounded read, so it meets AC3's detection half
+and abandons its naming half.
+
+**The correction costs no new computation.** `composeInput` already emits
+`groups: [{ name, cotag, members }]`, so the member set is assembled before the
+pin is written; only the pin's **shape** changes. What it costs is size — one id
+list per group rather than one hash — and that is stated rather than discovered.
+
+**THE CARRIER: the claims artifact becomes a TYPED RECORD** (kogaki#212, owner
+selection 2026-08-07). v9 required a composition pin to *accompany* the claims
+and never said **where it lives**, while the claims file is a flat
+`{group: claim}` map with nowhere to put one — an unnamed deferral inside a
+section that declared `deferred slots: none`. It is named and filled here:
+
+    {
+      "composition_pin": { "tag": "<T>", "pin": "<survey record pin>",
+                           "groups": { "<T> × architecture": ["lesson:…", …] } },
+      "claims": { "<T> × architecture": "…" }
+    }
+
+It mirrors §12.1 v9's typed subdivision record, so both composed inputs carry
+one shape rule learned once, and **claim and provenance travel in one artifact**:
+a pin in a separate file can go stale relative to the claims beside it, and
+nothing in the tool would catch that. The declined alternative — a separate
+`--composition-pin` flag — needs no format change at all and is genuinely
+smaller, and it permits exactly that separation, which is the same
+existence-versus-standing gap the subset check exists to close, moved one file
+over.
+
+**A bare `{group: claim}` map is refused BY NAME**, as §12.1 v9 refuses the
+withdrawn bare array, so a stale composer fails loudly rather than silently.
+
+**Three obligations ride with this, because it is a second breaking format
+change to a composed input.** *"The population that gains the new field is the
+population whose parse changes"* — so the implementing sitting owes a boundary
+fixture in **both** directions (a conformant record accepted; a non-subset
+refused with the offending members **named**), the bare-map refusal by name, and
+a **measured** count of existing claims artifacts the change breaks, or a stated
+zero.
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:45`
+
+**Scope boundary, so the implementing sitting does not widen:** `--subdivisions`
+arguably wants the same symmetry and is **out of scope** — kogaki#212 licenses
+the composition-input carrier, not a general re-typing of every composed input.
+§12.1 v9 already gave `--subdivisions` its own typed form for its own reason.
 
 **Why content and not presence, which is the whole of the design.** A stamp
 asserting only that `compose-input` *ran* is satisfiable by a session that runs
