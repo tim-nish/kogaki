@@ -223,12 +223,109 @@ invariant: Gukan guarantees Unit schema, never data schema).
      lacks is a **terminal** line, so existence alone cannot separate in
      flight from finished. That is what this clause adds:
 
-     - in flight — the log exists, carries no terminal line, and its mtime is
-       inside a declared staleness window;
      - finished — the terminal line is present, written on **every** exit
        path;
-     - abandoned — no terminal line and the mtime is outside the window, so a
-       fresh spawn is permitted rather than blocked forever by a killed run.
+     - in flight — no terminal line, **and the spawning process is observed to
+       be alive**;
+     - abandoned — no terminal line and the process is observed to be **gone**,
+       so a fresh spawn is permitted immediately;
+     - cannot-determine — no terminal line and **liveness could not be
+       observed** (no recorded pid, or a pid from another host or namespace).
+       Only here does the declared staleness window decide, and the decline
+       **says that it could not ask**.
+
+     **v2 — LIVENESS IS ASKED, NOT INFERRED FROM SILENCE** (kogaki#227, owner
+     selection 2026-08-08). v1 gave the window as the mechanism and had only
+     two answers, so a session that **died before reaching its `finally`** left
+     the log terminal-line-less and was read as *in flight* for the balance of
+     the window — blocking exactly the retry a dead session most needs. The
+     served surface rules on the shape:
+
+     > "the 2026-07-22 three-valued rule binds — **not-observed plus
+     > source-not-consulted is cannot-determine, never 'absent'** — and the
+     > two-valued report is at its most confident exactly when the system knows
+     > least"
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/archive/claude-code-ops.md:67`
+       request_id: 34cfed61-2496-4d4f-8bf2-3a8a0dabdf66
+       outcome: discriminating
+       query: a guard that infers liveness from silence when the fact is locally decidable — is a timeout window an acceptable mechanism or a substitute for asking
+
+     `round_state()` was making a **positive claim** — *in flight* — out of
+     *no recent write* (not-observed) plus *never having asked whether the
+     process lives* (source-not-consulted). The process is locally decidable, so
+     the guard now **asks**: `spawn()` records its pid, and a reader probes it.
+
+     **THE WINDOW IS RETAINED AND DEMOTED, NOT DELETED.** It is no longer the
+     mechanism; it is what decides the **cannot-determine** case, and that is
+     what makes the third value real rather than swapping one mechanism that
+     lies-when-blind for another. A pid is machine-local: across a container or
+     host boundary the probe means nothing, and the fallback must **announce
+     that it could not ask** rather than silently reporting *in flight*. The
+     staleness window's declaration-in-configuration rule below is unchanged and
+     now governs that fallback.
+
+     **The cost of this polarity is STATED, because v2 argued it in one
+     direction only** (PR #231 review round 1). Asking first means an
+     **observed-alive round is no longer bounded above**: v1 released every
+     round after the window, and v2 releases one **never**, for as long as the
+     probed number answers. Two reachable ways that happens — a **recycled
+     pid**, since the sweep's pid outlives its run in a log and `kill(pid, 0)`
+     cannot tell reuse from the original (a `PermissionError` deliberately
+     reading as alive makes this likelier, not less), and a session that
+     **hangs alive** rather than dying. Either pins the round permanently, a
+     state v1 could not reach.
+
+     **It is accepted rather than repaired here, and the trade is named so it
+     is chosen rather than discovered.** The failure v1 had was a *killed*
+     session blocking its own retry for the balance of the window — silent,
+     recurring, and the #225 specimen; the failure v2 admits is a *hung or
+     recycled* pid blocking it indefinitely, which is louder (the decline
+     prints on every poll, naming the log and its age) and rarer. Trading a
+     silent common failure for a loud rare one is the direction this repository
+     takes elsewhere, and it is the reason the fourth token prints the age at
+     all.
+
+     **The bound is a NAMED SLOT rather than an unstated remainder:**
+
+         deferred-slot: inflight-liveness-upper-bound
+         instrument: the decline line itself — it prints the log path and the
+                     age on every poll, so a round pinned past any plausible
+                     review duration is visible in the sweep's own output
+                     rather than requiring a separate observer
+
+     Filling it means qualifying the recorded pid so reuse is detectable — a
+     start-time or the command line beside it, compared at probe — and it is
+     **not decided here** because the cheap version (start-time from
+     `/proc`) is not portable and the portable version is a second mechanism,
+     which is the same ground on which `flock` was declined just below. The
+     slot is named per DECIDE-OR-NAME rather than left as a gap the next
+     reader rediscovers.
+
+     **The declined alternatives, recorded with their grounds.** An
+     **OS-released lock** (`flock`) is strictly stronger for the local case —
+     the kernel releases it on any death, including `kill -9`, with no cleanup
+     code that could be skipped — and is declined because it adds a second
+     carrier beside a round log that already exists and already has readers
+     (the same argument story 1.38 used to choose the terminal line over a
+     lockfile), because `flock` semantics differ across filesystems so its
+     failure is silent and platform-shaped, and because it answers *"is
+     anything holding this round"* rather than *"which process"*, losing the
+     disclosure the decline line already provides. **Shortening the window** is
+     declined because it does not answer the finding — it infers wrongly for
+     less time — and because it makes the opposite failure reachable: a
+     genuinely slow round would read as abandoned and get a second session
+     spawned on top of it, which is kogaki#204's original defect returning,
+     bought with the fix for this one.
+
+     **`--dry-run` REPORTS THE GUARD'S VERDICT** (kogaki#227's second defect).
+     A dry run predicted `would spawn` while the immediately following
+     `--spawn` refused on the guard, so the prediction was **not the act's
+     precondition** and an operator who trusted it fired a no-op and read the
+     refusal as a new failure. A prediction that does not consult the gate it
+     predicts is a different question wearing the answer's clothes. `--dry-run`
+     now evaluates the same predicate and says so — `would NOT spawn — in
+     flight, Ns remaining` — so the two paths cannot disagree by construction.
 
      **The staleness window is declared in configuration, never derived.** It
      is a judgment, and a judgment that lives only in code is one nobody can
