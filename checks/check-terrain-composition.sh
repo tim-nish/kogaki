@@ -1246,7 +1246,7 @@ if (legible.record && illegible.record && strip(legible) !== strip(illegible)) {
   fails.push("the legible and illegible runs differ outside the instruments block, so the pair no longer isolates the verdict");
 }
 
-// Case 3 — THE IMPLICIT SUBGROUP. `lesson:bravo` is placed by no judge
+// Case 3 — THE PLACEMENT-COMPOSED SUBGROUP. `lesson:bravo` is placed by no judge
 // SubGroup above, so it lands in the EXPLICIT named SubGroup whose verdicts
 // placement composes. No judge input can set its instrument, which is why it
 // is the one SubGroup a judge-supplied fixture would never cover.
