@@ -2202,6 +2202,37 @@ violation the same artifact, and that is the state this amendment ends.
   reinstates the content-conditional arity v4.2 withdrew, four paragraphs
   above. kogaki#189 named this as the constraint the disposition had to
   satisfy, not an option it could take.
+- **(4) Spec-only reconciliation WITHOUT deciding — record the tension here
+  and mark it with a reopen trigger. DECLINED, and recorded because it was
+  genuinely respectable.** This was a prepared alternative at kogaki#189's
+  triage, and it is admissible on the three-state rule quoted above:
+  deliberately carrier-less *with a mark and a trigger* is one of the three
+  legitimate states, so declining it needs a reason rather than a dismissal.
+  The reason is that the three-state rule governs a **stated policy** whose
+  carrier is missing, and that is not this section's condition. §12.1's defect
+  is not an unenforced rule — it is a **normative table that reads against a
+  ruling that already binds**. Marking a contradiction as carrier-less does
+  not make the table stop asserting the thing kogaki#168 refused; the row
+  would go on telling every implementer who stops at it that `none` is a
+  conformant peer, which is the *table contradicted by a later paragraph*
+  hazard v4.3 wrote the fourth case into the table to avoid. A trigger cannot
+  fix a rule that is wrong as written. **Note the asymmetry with kogaki#199
+  above, which is not inconsistency:** the *runtime* rule is genuinely a
+  stated policy with no carrier yet, so it takes the marked-with-a-trigger
+  state legitimately; the *table* was asserting a falsehood, which that state
+  does not cover.
+
+**(1)'s own recorded counter-argument, answered rather than left standing.**
+kogaki#189's triage put one objection to this alternative: declaring `none`
+non-conformant *"makes row 4 describe an artifact the required path can no
+longer produce, so the row becomes a statement about a non-co-tag path that
+§12 does not establish exists"* — and the objection was correct about the
+naive repair. It is answered by **how** row 4 was rewritten rather than by
+denying it: the row is restated on the judge pin's **value** (two different
+judge pins) instead of its **presence** (subdivided versus not), so it now
+describes a pair the required path produces routinely — the same query judged
+by two different judges — and asserts nothing about any non-co-tag path. Had
+row 4 merely deleted its `none` limb, the objection would have landed.
 
 **The grounds, and the boundary of what the substrate settled.** The served
 surface **does not discriminate** the key-space question — two framings
