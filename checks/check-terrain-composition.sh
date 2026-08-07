@@ -80,7 +80,7 @@ cd "$(dirname "$0")/.."
 # would leave `cotagCover`'s refusal in exactly the condition PR #123's review
 # found it in: present, correct-looking, and unreachable.
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { cotagGroups, cotagCover, NO_SECOND_TAG, COTAG_SORT, NO_CLAIM }
@@ -203,10 +203,12 @@ if (badClaim.status === 0) {
 //    they inherit: a member the judge leaves unplaced is NAMED, never dropped.
 const SUBS = join(tmpdir(), `cotags-subs-${process.pid}.json`);
 writeFileSync(SUBS, JSON.stringify({
-  [`${TAG} × architecture`]: [
+  // §12.1 v9 typed record (kogaki#199): the judgment is STATED, never inferred
+  // from an array's truthiness.
+  [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
       members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
-  ],
+  ] },
 }));
 const withSubs = spawnSync(process.execPath,
   ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
@@ -266,10 +268,10 @@ console.log("no-threshold guard: covers literal `<count> <op> <digits>` comparis
 // change with it.
 const SUBS_NOT_LEAF = join(tmpdir(), `cotags-subs-notleaf-${process.pid}.json`);
 writeFileSync(SUBS_NOT_LEAF, JSON.stringify({
-  [`${TAG} × architecture`]: [
+  [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
       members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: false, legible_at_a_glance: true },
-  ],
+  ] },
 }));
 const notLeaf = spawnSync(process.execPath,
   ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
@@ -301,10 +303,10 @@ if (noPin.status === 0) {
 // A disclosure fires and is rendered (§6.2, §8) — disjunctive, gating nothing.
 const SUBS_DEGEN = join(tmpdir(), `cotags-subs-degen-${process.pid}.json`);
 writeFileSync(SUBS_DEGEN, JSON.stringify({
-  [`${TAG} × architecture`]: [
+  [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "sg", claim: "this claim names alpha outright", members: ["lesson:alpha"],
       composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
-  ],
+  ] },
 }));
 const degen = spawnSync(process.execPath,
   ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
@@ -336,6 +338,77 @@ if (!/--all-groups/.test(SKILL)) {
 // The serve-verbatim rule (§2.4's flow rule, kogaki#150): the sitting that
 // re-rendered the runtime's output is the layer where three merged contracts
 // failed at once, so the rule must be stated in the flow's own instructions.
+// AC7 — THE CONFORMANCE FIXTURE AT THE PRODUCER/CONSUMER BOUNDARY
+// (§12.1 v9, kogaki#199). The producer is this skill, which composes the
+// subdivision input; the consumer is `cmdReport`. They hold separate suites
+// over one contract, so neither side can see the break — which is why the
+// amendment REQUIRES this fixture rather than suggesting it.
+//
+// consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:45
+//
+// The producer half: the instruction must teach the TYPED record and must say
+// that an empty subgroups list is the judged-empty form. A skill that still
+// showed a bare array would send every composer into the refusal.
+if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKILL)) {
+  fails.push("the skill does not teach the v9 typed subdivision record with its judged-empty form "
+    + '(`{"judged": true, "subgroups": []}`) — the producer would compose an input the consumer refuses');
+}
+
+// The consumer half, exercised END TO END on the case v9 exists to make
+// expressible: a group whose judgment RAN and found no leaf split.
+{
+  const RDJE = mkdtempSync(join(tmpdir(), "terrain-judged-empty-"));
+  const SJE = join(RDJE, "subs.json");
+  writeFileSync(SJE, JSON.stringify({
+    [`${TAG} × architecture`]: { judged: true, subgroups: [] },
+  }));
+  const je = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+     "--report-dir", RDJE, "--group", "architecture", "--subdivisions", SJE,
+     "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
+  const written = readdirSync(RDJE).filter((f) => f.startsWith("terrain-full-report-"));
+  if (je.status !== 0 || written.length !== 1) {
+    fails.push(`a judged-EMPTY group did not produce its report (exit ${je.status}, `
+      + `${written.length} written): ${(je.stderr || "").trim().slice(0, 200)}`);
+  } else {
+    const rec = JSON.parse(readFileSync(join(RDJE, written[0]), "utf8"));
+    // AC3: the judge pin is real, the SubGroupClaims are ZERO, the catch-all
+    // did NOT fire, and the members survived.
+    if (rec.identity.judge_pin === "none") {
+      fails.push("a judged-empty group minted a judge pin of `none` — the conformant case recorded as the violation (§12.1 v9)");
+    }
+    if (!Array.isArray(rec.subgroups) || rec.subgroups.length !== 0) {
+      fails.push(`a judged-empty group carries ${JSON.stringify(rec.subgroups)} rather than ZERO SubGroupClaims `
+        + "— the no_member_hidden_subgroup catch-all manufactured a SubGroup the judgment did not make");
+    }
+    if (!Array.isArray(rec.members) || rec.members.length !== 2) {
+      fails.push("a judged-empty group lost its MEMBERS — they are not in `subgroups`, so nulling them drops the whole membership from the artifact");
+    }
+    // AC4: distinguishable from a never-judged artifact, which carries `none`.
+    if (rec.identity.judge_pin === "none" || typeof rec.identity.judge_pin !== "object") {
+      fails.push("a judged-empty artifact is not distinguishable from a never-judged one");
+    }
+  }
+  // The withdrawn pre-v9 BARE ARRAY is refused by name rather than read as the
+  // old form. Without this, a stale composer silently gets back the accidental
+  // truthiness semantics that made judged-empty unrecordable — two encodings
+  // behind one file, which is the collision the served surface rules against.
+  const SLEGACY = join(RDJE, "legacy.json");
+  writeFileSync(SLEGACY, JSON.stringify({ [`${TAG} × architecture`]: [] }));
+  const legacy = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+     "--report-dir", RDJE, "--group", "architecture", "--subdivisions", SLEGACY,
+     "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
+  if (legacy.status === 0) {
+    fails.push("a BARE ARRAY subdivision entry was accepted — the withdrawn pre-v9 form must be refused by name, "
+      + "or a stale composer silently recovers the truthiness semantics v9 removed");
+  } else if (!/bare array/.test(legacy.stderr || "")) {
+    fails.push("the bare-array entry was refused without NAMING the defect — a refusal that does not say what to write instead sends the composer guessing");
+  }
+
+  rmSync(RDJE, { recursive: true, force: true });
+}
+
 if (!/SERVED\s+VERBATIM|served verbatim/i.test(SKILL)) {
   fails.push("the skill does not carry the serve-the-renderer-verbatim rule — re-rendering is how member IDs, SubGroup verdicts and ABNORMAL markers vanished on 2026-08-06 (kogaki#150)");
 }
@@ -757,9 +830,29 @@ if (!sameIdentity(idNone, reportIdentity("product-lab@aaa", TAG, "testing × arc
 
 // 3. The four cases, counted over real artifacts.
 const RD = mkdtempSync(join(tmpdir(), "terrain-reports-"));
+// EVERY GROUP IS JUDGED on the co-tag path (§6.2), so v9 refuses a `report`
+// whose target carries no subdivision entry rather than minting `none` for it
+// (kogaki#199). These cases are about IDENTITY and idempotence, not about
+// subdivision, so they supply the conformant judged-EMPTY record for every
+// composed group — which is itself the case §12.1 v9 exists to make
+// expressible, exercised here on every one of them.
+const JUDGED_EMPTY = join(RD, "judged-empty.json");
+writeFileSync(JUDGED_EMPTY, JSON.stringify({
+  [`${TAG} × (no second served tag)`]: { judged: true, subgroups: [] },
+  [`${TAG} × architecture`]: { judged: true, subgroups: [] },
+  [`${TAG} × cost`]: { judged: true, subgroups: [] },
+}));
+const JUDGE = ["--judge-model", "m", "--judge-effort", "high"];
+const withDefaults = (extra) => {
+  const hasSubs = extra.includes("--subdivisions");
+  const hasPin = extra.includes("--judge-model");
+  return [...extra,
+    ...(hasSubs ? [] : ["--subdivisions", JUDGED_EMPTY]),
+    ...(hasPin ? [] : JUDGE)];
+};
 const run = (extra) => spawnSync(process.execPath,
   ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
-   "--report-dir", RD, ...extra], { encoding: "utf8" });
+   "--report-dir", RD, ...withDefaults(extra)], { encoding: "utf8" });
 // Counted over REPORTS only. The subdivision input below lives in the same
 // directory and also ends `.json`; counting by extension would have made the
 // judge-pin refusal look like a write.
@@ -797,17 +890,56 @@ run(["--group", "cost"]);
 eq("case 3 — same pin, DIFFERENT query is two reports", count(), 2);
 
 const SUBS = join(RD, "subs.json");
-writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: [
+writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: { judged: true, subgroups: [
   { subgroup: "sg", claim: "a tighter claim", members: ["lesson:alpha"],
-    composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }]}));
-const noPin = run(["--group", "architecture", "--subdivisions", SUBS]);
+    composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }] }}));
+// The judge-pin refusal, exercised WITHOUT the conformant default the helper
+// injects — otherwise this case would assert a refusal it had just prevented.
+const noPin = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+   "--report-dir", RD, "--group", "architecture", "--subdivisions", SUBS],
+  { encoding: "utf8" });
 if (noPin.status === 0) {
-  fails.push("a report carrying SubGroupClaims was written with NO judge pin — the pin is §12.1's third identity component and judged material recorded without it is the drift-undetectable shape");
+  fails.push("a report was written with NO judge pin — v9 requires it for EVERY report invocation, and a co-tag run may never mint `none`");
 }
 eq("the refusal wrote nothing", count(), 2);
+
+// A report with NO subdivision entry for its target is refused too (v9): an
+// absent entry is `not judged`, and minting `none` for it is precisely what
+// §12.1 v9 forbids. This case is the one that could not exist before — the
+// runtime had no way to say `judged, empty`, so it said `none` and called the
+// conformant case a violation.
+const noEntry = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+   "--report-dir", RD, "--group", "architecture",
+   "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
+if (noEntry.status === 0) {
+  fails.push("a report was written for a group with NO subdivision entry — an absent entry is `not judged`, and the co-tag path must refuse rather than mint `none` (§12.1 v9)");
+}
+eq("the unjudged refusal wrote nothing either", count(), 2);
+
+// CASE 4, RE-CUT for v9, and the re-cut carries a consequence worth asserting
+// rather than absorbing. It used to read "one run subdivided and one not
+// COEXIST", which rested on an unsubdivided run minting `none` — a state v9
+// refuses, so the old case asserts a pair the required path can no longer
+// produce. §12.1 v8 anticipated exactly this and restated its own row 4 on the
+// judge pin's VALUE rather than its PRESENCE.
+//
+// 4a — WITH the pin required unconditionally, a subdivided run and a
+// judged-empty run BY THE SAME JUDGE now share an identity, because identity
+// is (pin, query, judge pin) and the SubGroupClaims are not in it. Under v8
+// they differed only because one of them carried `none`. So this is idempotent
+// rather than a second report — row 1 of §12.1's table, reached by a path that
+// did not exist before.
+const before4 = count();
 run(["--group", "architecture", "--subdivisions", SUBS, "--judge-model", "m", "--judge-effort", "high"]);
-eq("case 4 — same pin and query, one run subdivided and one not, COEXIST as two reports",
-   count(), 3);
+eq("case 4a — a subdivided run at the SAME judge as an earlier judged-empty one is IDEMPOTENT",
+   count(), before4);
+// 4b — the same query judged by a DIFFERENT judge is the pair the required
+// path produces routinely, and it is what row 4 now describes.
+run(["--group", "architecture", "--subdivisions", SUBS, "--judge-model", "m2", "--judge-effort", "high"]);
+eq("case 4b — same pin and query, TWO DIFFERENT judge pins, COEXIST as two reports",
+   count(), before4 + 1);
 }
 
 // 4. §12's recording obligation: the identity is IN the artifact. §12.2 makes
@@ -1025,9 +1157,18 @@ if (!/for \(const s of sections\) console\.log\(`  \$\{tagRow\(s\)\}`\)/.test(re
 //    above: `report` reads served Gloss renderings, so where the seam is absent
 //    these cases report CANNOT-DETERMINE rather than failing the diff.
 const RD = mkdtempSync(join(tmpdir(), "terrain-allgroups-"));
+const JUDGED_EMPTY2 = join(RD, "judged-empty.json");
+writeFileSync(JUDGED_EMPTY2, JSON.stringify({
+  [`${TAG} × (no second served tag)`]: { judged: true, subgroups: [] },
+  [`${TAG} × architecture`]: { judged: true, subgroups: [] },
+  [`${TAG} × cost`]: { judged: true, subgroups: [] },
+}));
 const run = (extra) => spawnSync(process.execPath,
   ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
-   "--report-dir", RD, ...extra], { encoding: "utf8" });
+   "--report-dir", RD,
+   ...(extra.includes("--subdivisions") ? [] : ["--subdivisions", JUDGED_EMPTY2]),
+   ...(extra.includes("--judge-model") ? [] : ["--judge-model", "m", "--judge-effort", "high"]),
+   ...extra], { encoding: "utf8" });
 const reports = () => readdirSync(RD).filter((f) => f.startsWith("terrain-full-report-")).length;
 
 const probe = run(["--all-groups"]);
@@ -1050,9 +1191,9 @@ if (seamAbsent) {
   // the whole reason the validation is sited before the fan-out.
   const RD2 = mkdtempSync(join(tmpdir(), "terrain-allgroups-partial-"));
   const SUBS = join(RD2, "subs.json");
-  writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: [
+  writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "sg", claim: "c", members: ["lesson:alpha"],
-      composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }]}));
+      composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }] }}));
   const partial = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--report-dir", RD2, "--all-groups", "--subdivisions", SUBS], { encoding: "utf8" });

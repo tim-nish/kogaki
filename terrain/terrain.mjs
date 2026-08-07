@@ -616,6 +616,12 @@ function cmdCotags(args) {
     if (!groups.some((g) => g.name === k || g.cotag === k)) {
       fail(`--subdivisions names ${JSON.stringify(k)}, which is no composed group (SPEC.md §6.2)`);
     }
+    // THE SECOND READER OF THE SAME MAP, migrated in the same change
+    // (§12.1 v9, kogaki#199 AC6). `cmdReport` and this screen read one input;
+    // migrating one and not the other would put two encodings behind one file
+    // and rebuild the defect between them — the producer/consumer split where
+    // neither side's suite can see the break.
+    readSubdivisionEntry(k, subdivisions[k]);
   }
   // The screen REQUIRES the judge pin wherever it serves SubGroups (§6.2), on
   // the same ground `subdivide` refuses without one: a per-invocation judged
@@ -643,8 +649,17 @@ function cmdCotags(args) {
     // and the IDs live on the SubGroup lines (§6.2). No per-row pin renders on
     // any screen — the pin is sited ONCE, in the Full Report (§6.1 v5's
     // withdrawal of the v4 per-row pin; the WA baseline, wa#1115/#1116).
-    const subForHeading = subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag];
-    console.log(subForHeading
+    const _entry = readSubdivisionEntry(
+      g.name, subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+    // The screen's own reader takes the SubGroupClaim list out of the typed
+    // record. A judged-empty group has none, which is the conformant state and
+    // renders as no SubGroups rather than as a catch-all.
+    const subForHeading = _entry ? _entry.subgroups : undefined;
+    // Keyed on whether there ARE SubGroupClaims, never on whether the entry
+    // exists: `[]` is truthy, and a judged-empty group that hid its members
+    // behind the subdivided heading would drop the whole membership from the
+    // screen — the same trap the report's `members` field carried.
+    console.log(subForHeading && subForHeading.length
       ? `  ${g.name} — ${lessonCount(g.members.length)}`
       : `  ${g.name} — ${lessonCount(g.members.length)}: ${g.members.join(", ")}`);
 
@@ -667,7 +682,10 @@ function cmdCotags(args) {
     // `selected`, so the served screen showed counts and no ids, and no image
     // of a possible Thesis could form. Naming a group narrows what is PRINTED
     // and never what is counted — the cover below is unchanged by it.
-    const sub = subForHeading;
+    // A judged-empty group renders NO SubGroups. Calling subgroupPlacement on
+    // an empty list would sweep every member into `no_member_hidden_subgroup`
+    // and manufacture a SubGroup the judgment did not make.
+    const sub = subForHeading && subForHeading.length ? subForHeading : null;
     if (sub) {
       const { subgroups } = subgroupPlacement(g, sub, SURVEY_SCHEMA.subdivision);
       for (const sg of subgroups) {
@@ -1165,6 +1183,57 @@ function cmdSubdivide(args) {
 export const NO_GLOSS_BODY = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
 export const NO_JUDGE = "none";
 
+// THE TYPED SUBDIVISION ENTRY (§12.1 v9, kogaki#199).
+//
+// WHAT IT REPLACES, and why the old shape had to go rather than be tolerated.
+// The entry used to be a bare array and its presence was tested for truthiness,
+// so `[]` — a judged group with no leaf split — was TRUTHY and took the
+// judged branch by accident, while an absent key and `{}` took the unjudged
+// one. Three inputs, three different conformance outcomes, and NONE of them
+// was the artifact §12.1 names as conformant: `subgroupPlacement(group, [], …)`
+// placed nothing, computed `unplaced` as every member, and pushed the
+// `no_member_hidden_subgroup` catch-all, after which `members` was nulled. A
+// group whose judgment ran and found no split could not be recorded at all.
+//
+// The distinction is now STATED rather than inferred from a language
+// property nothing documents:
+//
+//   {"G": {"judged": true, "subgroups": [ … ]}}   judged, with a leaf split
+//   {"G": {"judged": true, "subgroups": []}}      judged, EMPTY — conformant
+//   key absent                                    not judged — refused on the co-tag path
+//
+// A BARE ARRAY IS REFUSED BY NAME rather than read as the old form. Accepting
+// it would leave two encodings for one fact, and a composer emitting the old
+// shape would get the old accidental semantics back silently — the collision
+// the served surface rules against: "a collision wants REFUSAL OR
+// QUALIFICATION at the resolver, never a first-hit-wins guess"
+// (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:154`).
+export function readSubdivisionEntry(name, entry) {
+  if (entry === undefined || entry === null) return null;   // absent: not judged
+  if (Array.isArray(entry)) {
+    fail(`--subdivisions entry for ${JSON.stringify(name)} is a bare array, which is the `
+      + `withdrawn pre-v9 form. Judged-empty and never-judged are different states and a `
+      + `bare array cannot say which: write {"judged": true, "subgroups": [...]}, or omit `
+      + `the key if the group was not judged (SPEC.md §12.1 v9)`);
+  }
+  if (typeof entry !== "object") {
+    fail(`--subdivisions entry for ${JSON.stringify(name)} must be an object `
+      + `{"judged": true, "subgroups": [...]} (SPEC.md §12.1 v9)`);
+  }
+  if (entry.judged !== true) {
+    fail(`--subdivisions entry for ${JSON.stringify(name)} does not declare "judged": true. `
+      + `The judgment is what the entry attests; an entry that does not state it is `
+      + `indistinguishable from a run that never asked (SPEC.md §12.1 v9, §6.2)`);
+  }
+  if (!Array.isArray(entry.subgroups)) {
+    fail(`--subdivisions entry for ${JSON.stringify(name)} needs a "subgroups" array — `
+      + `[] states JUDGED AND EMPTY, which is conformant and is not the same as absent `
+      + `(SPEC.md §12.1 v9)`);
+  }
+  return { judged: true, subgroups: entry.subgroups };
+}
+
+
 // The shard, parsed WHOLE. `parseGlossShard` above returns the first sentence
 // because a screen row is a headline; §12 forbids truncation anywhere, so the
 // report cannot reuse it — the same shard read for two purposes needs two
@@ -1397,16 +1466,35 @@ function cmdReport(args) {
 
   const claims = args.claims ? readJson(String(args.claims)) : {};
   const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
-  const subOf = (g) => (subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+  const subOf = (g) => readSubdivisionEntry(
+    g.name,
+    subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
 
-  // The judge pin is validated BEFORE any write: a refusal that had already
-  // written some of its targets would be a partial pass presenting as one.
-  let suppliedJudge = null;
-  if (targets.some((g) => subOf(g))) {
-    const m = args["judge-model"];
-    const e = args["judge-effort"];
-    if (!m || !e) fail("--judge-model and --judge-effort are required when the report carries SubGroupClaims: the judge pin is the THIRD component of §12.1's identity, and judged material recorded without it is the drift-undetectable shape");
-    suppliedJudge = { model_id: String(m), effort_tier: String(e) };
+  // THE JUDGE PIN IS REQUIRED UNCONDITIONALLY (§12.1 v9, kogaki#199), not only
+  // when a target carries SubGroupClaims. "Required" governs the JUDGMENT, so
+  // every report the required path produces has a judge — and the previous
+  // gating on `targets.some(subOf)` is exactly what let a judged-but-empty
+  // group be minted with `none`, recording the conformant case as the
+  // violation. Validated BEFORE any write: a refusal that had already written
+  // some of its targets would be a partial pass presenting as one.
+  const m = args["judge-model"];
+  const e = args["judge-effort"];
+  if (!m || !e) {
+    fail("--judge-model and --judge-effort are required for EVERY report invocation "
+      + "(SPEC.md §12.1 v9). A co-tag-generated Full Report may never mint a judge pin "
+      + "of `none`: judged-with-no-split and never-judged are different states, and a "
+      + "report carrying `none` is indistinguishable from a run that never asked");
+  }
+  const suppliedJudge = { model_id: String(m), effort_tier: String(e) };
+
+  // EVERY TARGET MUST BE JUDGED. An absent entry is `not judged`, and the
+  // co-tag path refuses it rather than minting `none` for it — the whole of
+  // what §12.1 v9 forbids.
+  const unjudged = targets.filter((g) => subOf(g) === null).map((g) => g.name);
+  if (unjudged.length) {
+    fail(`--subdivisions carries no entry for ${unjudged.join(", ")}. On the co-tag path `
+      + `every group is judged (§6.2), so a missing entry cannot be recorded: write `
+      + `{"judged": true, "subgroups": []} for a group whose judgment found no leaf split`);
   }
 
   // One shard fetch for the whole invocation — tag-scoped and bounded (§9),
@@ -1426,7 +1514,11 @@ function cmdReport(args) {
   function generateReport(group) {
   const groupClaim = claims[group.name] !== undefined ? claims[group.name] : claims[group.cotag];
   const sub = subOf(group);
-  const judgePin = sub ? suppliedJudge : NO_JUDGE;
+  // Unconditional now: `sub` is non-null for every target (refused above), and
+  // NO_JUDGE is never minted here. It stays exported and valid in the identity
+  // triple — §12.1's uniform arity is untouched and `(pin, query, none)` is
+  // still constructible by a requester who does not hold the report.
+  const judgePin = suppliedJudge;
   const identity = reportIdentity(record.pin, tag, group.name, judgePin);
 
   // §12.1 case 1: same identity, run twice -> ONE report. The rerun is
@@ -1460,9 +1552,17 @@ function cmdReport(args) {
     };
   });
 
+  // JUDGED-EMPTY IS ZERO SubGroupClaims, and the catch-all must NOT fire for it
+  // (§12.1 v9). `subgroupPlacement` places nothing on an empty list and then
+  // sweeps every member into `no_member_hidden_subgroup` — correct when a
+  // judgment produced a split that missed some members, wrong when it produced
+  // no split at all, because it manufactures a SubGroup the judgment did not
+  // make.
   let subgroups = null;
-  if (sub) {
-    const placed = subgroupPlacement(group, sub, SURVEY_SCHEMA.subdivision);
+  if (sub && sub.subgroups.length === 0) {
+    subgroups = [];
+  } else if (sub) {
+    const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
     subgroups = placed.subgroups.map((sg) => ({
       name: sg.name,
       claim: sg.claim || NO_CLAIM,
@@ -1481,7 +1581,11 @@ function cmdReport(args) {
     truncated: false,
     group_claim: groupClaim !== undefined && String(groupClaim).trim() !== "" ? groupClaim : NO_CLAIM,
     subgroups,
-    members: subgroups ? null : renderMembers(group.members),
+    // A judged-empty group keeps its MEMBERS: they are not in `subgroups`, so
+    // nulling them here would drop the group's whole membership from the
+    // artifact. Keyed on whether any SubGroupClaim exists, never on whether the
+    // group was judged.
+    members: subgroups && subgroups.length ? null : renderMembers(group.members),
     counted: familySplit(group.members, record.candidates),
     lessons_served: record.candidates.length,
   };
