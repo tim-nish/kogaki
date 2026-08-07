@@ -1758,6 +1758,7 @@ class DenialWatch:
 
 SPAWN_IN_FLIGHT = 76   # nothing was spawned: a round for this log is live
 TERMINAL_MARK = "=== spawn terminal:"
+SPAWN_MARK = "=== spawn:"   # the line that opens each attempt in a round log
 
 
 def round_state(log_path, now=None, ttl=None, exists=None, mtime=None, text=None):
@@ -1802,7 +1803,29 @@ def round_state(log_path, now=None, ttl=None, exists=None, mtime=None, text=None
                 text = f.read()
         except OSError:
             return 'absent'
-    if TERMINAL_MARK in text:
+    # THE MARK IS READ ONLY IN THE CURRENT ATTEMPT, never over the whole file
+    # (PR #219 review round 1, blocking finding 1).
+    #
+    # `spawn()` opens the log with "a" — append, never truncate — and the round
+    # NUMBER does not advance on a report-less spawn: `decide()` returns
+    # `spawn-round-{rounds_used + 1}`, and `rounds_used()` moves only on a
+    # performed report segment or a `review-round-unverified:` mark. A spawn
+    # that exits non-zero, or exits 0 having posted nothing, posts a STALL
+    # COMMENT, which is deliberately not in report form and carries no mark. So
+    # the count stays put, the next poll resolves the SAME spawn-round-N, and
+    # `spawn_log_path(pr, rnd)` hands back a file that already carries the
+    # previous attempt's terminal line.
+    #
+    # Read over the whole file, the guard then answers `finished` forever and
+    # protects only the FIRST spawn at that key — while the issue closes and the
+    # story reads discharged. That is the report-less path this file already has
+    # a whole FAIL branch and a stall comment for, and the one an operator polls
+    # hardest. `fix_log_path()` keys on the same arithmetic and inherits it.
+    #
+    # Scoping to the text after the LAST `=== spawn:` line makes the mark a fact
+    # about THIS attempt rather than about the file.
+    attempt = text.rsplit(SPAWN_MARK, 1)[-1] if SPAWN_MARK in text else text
+    if TERMINAL_MARK in attempt:
         return 'finished'
     if mtime is None:
         try:
@@ -1853,11 +1876,30 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
             age = int(time.time() - os.path.getmtime(log_path))
         except OSError:
             age = -1
-        print(f"  a round is already IN FLIGHT for this log — nothing spawned "
+        _m = re.search(r"pr-(\d+)-(?:round|fix)-(\d+)\.log$", log_path)
+        _who = f"PR #{_m.group(1)} round {_m.group(2)}" if _m else "this round"
+        print(f"  {_who}: a round is already IN FLIGHT — nothing spawned "
               f"(log {log_path}, last wrote {age}s ago, window {INFLIGHT_TTL}s). "
               f"A poll reads state; it must never re-fire the trigger it is "
               f"waiting on (kogaki#204).")
         return SPAWN_IN_FLIGHT
+    # CLAIM THE ROUND BEFORE ANY SETUP WORK (PR #219 review round 1, nit 3).
+    # The state read above and the log's first write were several statements
+    # apart — DenialWatch.publish(), the stale-file removal and the gate-source
+    # write all sat between them — so two invocations landing inside that window
+    # both read `absent` and both spawned. A poll loop with a sleep will not hit
+    # it; a hook firing beside a manual sweep can. Writing the attempt's opening
+    # line first shrinks the window to a single append, and it is the same line
+    # `round_state()` scopes the terminal mark to, so the claim and the reader
+    # agree by construction.
+    # The line SAYS WHAT IT IS. This is a route log — "a spawn that dies
+    # immediately still leaves a file saying what was attempted" — so a
+    # placeholder dressed as the command line would be a lie in the one
+    # artifact anybody opens to diagnose a failure. The real command line
+    # follows a few statements later and re-opens the attempt scope, which is
+    # what `round_state()` reads.
+    with open(log_path, "a", encoding="utf-8") as _claim:
+        _claim.write(f"{SPAWN_MARK} (round claimed; the command line follows)\n")
     # A refusal is terminal for that command (kogaki#100). The state file, the
     # gate's own firing record and the generated hook all sit BESIDE this
     # spawn's log, so a run is diagnosable from one directory and two
@@ -3257,6 +3299,42 @@ if 'TERMINAL_MARK' not in _after_finally:
           "spawn()'s finally block no longer writes the terminal line, so every "
           "finished round reads in-flight until the window expires")
     _inflight_fail = 1
+
+# AC7's BEHAVIOURAL half (PR #219 review round 1, finding 2). The cases above
+# assert `round_state()`; this asserts the GUARD BRANCH — that `spawn()`
+# presented with an in-flight log returns the sentinel having launched nothing.
+# Deleting the `if state == 'in-flight'` block failed no fixture before this,
+# which is the dead-fixture shape story 1.36 exists to catch, committed inside
+# the change that cites it. Cheap precisely because the guard returns BEFORE
+# any Popen.
+_tmpd3 = tempfile.mkdtemp()
+_lp3 = os.path.join(_tmpd3, "pr-997-round-1.log")
+with open(_lp3, "w") as _f:
+    _f.write(SPAWN_MARK + " claude -p /review-lane 997\n")
+_buf3 = _io.StringIO()
+with _ctx.redirect_stdout(_buf3):
+    _rc3 = spawn("fixture — must never launch", _lp3, ref="HEAD", tag="fixture-inflight")
+if _rc3 != SPAWN_IN_FLIGHT:
+    print(f"FAIL in-flight fixture [spawn() returns the sentinel on an in-flight log]: got {_rc3}")
+    _inflight_fail = 1
+if "IN FLIGHT" not in _buf3.getvalue() or "997" not in _buf3.getvalue():
+    print("FAIL in-flight fixture [the decline names the PR and round]")
+    _inflight_fail = 1
+# It launched nothing: the guard returns before the gate file is ever written.
+if os.path.exists(_lp3 + ".gate.py"):
+    print("FAIL in-flight fixture [spawn() did setup work before declining]")
+    _inflight_fail = 1
+
+# AND THE STICKY CASE, which is what finding 1 was: a log carrying a CLOSED
+# attempt followed by a NEW `=== spawn:` line is in flight again, not finished
+# forever.
+with open(_lp3, "a") as _f:
+    _f.write(_T + "\n" + SPAWN_MARK + " claude -p /review-lane 997 (second attempt)\n")
+if round_state(_lp3) != 'in-flight':
+    print("FAIL in-flight fixture [a re-used round log reads the CURRENT attempt] — "
+          "the terminal mark is sticky and the guard protects only the first spawn")
+    _inflight_fail = 1
+shutil.rmtree(_tmpd3, ignore_errors=True)
 
 # The sentinel must be distinguishable from every real exit code, or the
 # caller's `result != 0` branch would swallow it and post a stall comment
