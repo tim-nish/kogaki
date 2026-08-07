@@ -373,7 +373,7 @@ mechanical evidence resolution — quotation from served renderings at pins
 remains the boundary. Pin resolution stays the sole mechanical instrument on
 grounding.
 
-### 6.9.3 kogaki#177's trigger is CANNOT-DETERMINE at the pin, and the coupling is named here
+### 6.9.3 kogaki#177's trigger — a false FIRED, a correction, and a verified FIRED
 
 **CORRECTION RECORD (kogaki#236). The heading of this section and its opening
 claim were WRONG, and they are withdrawn here rather than edited away**, because
@@ -419,8 +419,30 @@ unrepresentable rather than merely listed:** a claim that a hub trigger has
 fired is evidenced by **the named batch's own lines at the pin**, never by a
 same-dated neighbour. Date-adjacency is not evidence of content.
 
-**What is NOT claimed:** that the hub never distilled the Move batch. Only that
-it is not served at `98195e0a` — which is the whole of what a consumer can
+**RESOLVED THE SAME DAY, AND THE RESOLUTION IS THE POINT (kogaki#177).**
+Re-consulted hours later, the seam returns pin
+`product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299`, where the Move batch
+`q_a/2026-08-07-move-architecture-and-composition-language` **is served** —
+`topics/articles.md:10,11,14,16,17,19,20,22`, carrying the eight-field schema,
+the semantic-economy policy, the grounds test, the `entailed` flag, the
+judgment-class ruling, the Reader Path blocks and the analysis-document home.
+**kogaki#177's trigger HAS fired**, verified at the named batch's own lines.
+
+So the hub committed between two consultations in one session, and **the
+correction above stayed true across that commit** — because it claimed only
+what it measured. Had it said *"the hub has not distilled the Move batch"*, it
+would have been false within hours, and a spec carrying a confidently false
+absence claim is worse than the over-claim it replaced. **The rule this section
+carries was vindicated by the first case it met:** evidence is the named
+batch's own lines at the pin, which made this check decisive where a date would
+have been another coin-flip.
+
+The two arms of the coupling and the named slot are **unchanged** — what
+changes is that both are now *reachable*, so the slot's filling is live work
+rather than blocked work.
+
+**What is NOT claimed, and what kept the record true:** that the hub never
+distilled the Move batch. Only that it was not served at `98195e0a` — which is the whole of what a consumer can
 check, and `topics/knowledge-architecture.md:15` is explicit that a consumer
 holding only the hub's answer *"will confidently report the wrong KIND of
 absence"*. If the batch exists unserved, that is a hub-side gap and kogaki#236
