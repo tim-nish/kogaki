@@ -779,6 +779,17 @@ invariant: Gukan guarantees Unit schema, never data schema).
   marker that the pickup recheck then enforces. The occasion thus fires at
   the two checkpoints the lifecycle **already owns** — authoring and pickup —
   with no new ceremony and no third gate (kogaki#25).
+  **Pin currency and line liveness are two checks, not one** (kogaki#188).
+  Currency is a fact about the *commit*; liveness is a fact about the *line*,
+  and because the substrate is append-only, a pin drifts as a matter of course
+  and the dangerous drift **still resolves** — onto different content, past
+  every guard that asks whether a pin resolves. The pickup recheck therefore
+  also compares a cited line's **stored quote hash** against the text now at
+  that line, and refuses with the delta. It stays at the pickup checkpoint
+  the lifecycle already owns; it is still no third gate. Optional per cite,
+  and every run states which lines it verified and which it did not — the
+  full clause, with the alternatives declined and the gaps that survive, is
+  in this section's condition-4 amendment.
 - **Typed improvement loop:** a missed **mechanical** property strengthens
   the merge carrier; a missed **judgment** improves what the judgment gate
   is told — which served lines are quoted at the gate — and never becomes a
@@ -1135,6 +1146,113 @@ invariant: Gukan guarantees Unit schema, never data schema).
      does *not* discharge it. This clause is stated here so no reader takes the
      seam to be closed end to end: **the query half is now mechanical, the
      liveness half remains a read.**
+
+     **AMENDED — the liveness half is now PARTLY mechanical (kogaki#188).**
+     The paragraph above stands as the record of what was true when it was
+     written, and this amendment states precisely how far it has moved, because
+     "liveness is checkable now" is exactly the over-read the paragraph exists
+     to prevent.
+
+     `--recheck` gained a **content comparison** beside its SHA comparison. A
+     cited line may carry a **stored quote hash** on the issue body — one
+     unindented `pin-quote: <file>:<line>@<sha> q1:<hex>` line — and at pickup
+     the served surface is re-fetched at the current head, the text now at that
+     line is normalized and hashed, and a mismatch **refuses with the delta**,
+     naming the line the quote moved to. The defect it closes is not drift as
+     such but drift that **still resolves**: three instances shipped past every
+     guard in this repository in one session, because resolution checking is
+     precisely what succeeds on them.
+
+     **What was decided, and what was declined.** Three directions were on the
+     issue; the operator took the first.
+
+     - **Taken — resolve and compare content.** Bounded: it adds one optional
+       line per cited line and changes no existing citation. It detects the
+       consequence and makes no claim to prevent the cause.
+     - **Declined — anchor migration** (cite served material by a
+       relocation-stable key rather than `file:line`). This addresses the
+       **cause**, and it matches what the corpus has already measured: `CAP-n`
+       and `#issue` anchors survived every relocation while **148 unpinned
+       `file:line` citations broke repeatedly**. It is declined here only
+       because it changes the form of **every existing pin** across this
+       repository and the hub, and the bounded fix was chosen. Recorded as
+       declined-on-scope rather than declined-on-merit, so that a future
+       sitting reopening it inherits the measurement rather than the verdict.
+     - **Declined — report rather than gate.** Honest about its limits but it
+       **detects nothing**, so the drift still ships with a disclaimer. Its
+       honesty is nonetheless kept, **underneath** the detection rather than
+       instead of it — see the output rule below.
+
+     **Relocation is CORRECT, and this clause does not treat it as a fault.**
+     In an append-only corpus with size ceilings, relocation is a mandatory
+     recurring act, so every cross-reference form is either relocation-stable
+     or a scheduled future defect. Line numbers are the fragile form. Nothing
+     here makes them durable; what it does is make their failure *loud* at the
+     one checkpoint that already runs.
+
+     **THE LOAD-BEARING RULE, and the reason the issue was filed:** `--recheck`'s
+     output may **never imply content liveness it did not check.** The phrase
+     `ok: pins current` is gone, because a clean exit code reading as evidence
+     that a cited line still says what it said IS the defect. Every exit now
+     states the trials that ran and the trials that did not — including a body
+     with no stored hashes at all, which exits 0 as it always did and says in
+     the same breath that commit SHAs were compared, **which is not line
+     liveness.**
+
+     **Three results, not two**, and this is served rather than invented: a
+     check of this shape must "mechanically confirm the source has some records
+     in scope before trusting your own count; when it has none, report that you
+     cannot tell instead of reporting that the problem is fixed"
+     (`gloss/lessons/testing.md:53`,
+     `absence-verification-counts-exercised-trials`). So a cited line is
+     `verified`, `drifted`, or `cannot-tell` — and `verified` is reachable only
+     through a fetch that actually returned records for that file. **A check
+     that cannot run its trial says so**: when a body stores hashes and not one
+     could be exercised, the run exits **11**, never a clean 0. And the fault
+     branch speaks in its own words — a `cannot-tell` is never worded as drift,
+     because a fault re-worded as a finding "turns into a confident accusation
+     against innocent code" (`gloss/lessons/testing.md:35`,
+     `a-fallback-worded-as-a-finding-accuses`).
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e gloss/lessons/testing.md:35,53`
+
+     **The hash has a writer.** `--emit-pin-quotes` resolves a body's cites at
+     the current head and prints paste-ready `pin-quote:` lines. Without it the
+     stored hash would be an input nothing produces, and the guard would be
+     merged, correctly placed and **completely dead** while everything on the
+     surface said installed (`gloss/lessons/testing.md:11`,
+     `a-carrier-is-not-installed-until-its-inputs-have-writers`).
+
+     **What is still a read, stated so the seam is not taken to be closed.**
+     Three gaps survive this change, named rather than left to be found:
+     1. A cite with **no stored hash** is not content-checked at all. Every pin
+        recorded before this change is in that state; the output says so per
+        run, and `--emit-pin-quotes` is how a body leaves it.
+     2. `topics/archive/*` and `GLOSSARY.md` have **no served bulk
+        line-addressable form** (measured: `topic_thread("archive/…")` is a
+        miss; `surface_names(kind:"glossary")` returns headings only), so cites
+        into them are `cannot-tell` — declared, never silently skipped.
+     3. **The freshness trap is untouched.** The fourth instance recorded above
+        — a surface whose frontmatter reads `updated: 2026-08-07` while its
+        newest dated decision line is 2026-08-05 — is a served surface
+        misrepresenting *its own currency*, not a line that moved. A quote hash
+        cannot see it, and this clause does not claim to. It remains a read,
+        and entry 3 of the consultation map remains its carrier.
+
+     So the amended statement of where the seam stands: **the query half is
+     mechanical; the liveness half is mechanical for any cited line that
+     carries a stored quote hash, and a read everywhere else — with every run
+     saying which of the two it just did.**
+
+     **Backward compatibility (kogaki#188).** No existing body changes meaning
+     and none can newly fail. `pin-quote:` is **optional**; a body without it
+     is reported as `no stored quote hash` and exits exactly as before. The
+     authoring checkpoint **reports** coverage and does not require it, so a
+     `consult: none` filing is unaffected. The `@<sha>` on a `pin-quote:` line
+     is provenance and is **excluded from the pin scan** — counting it would
+     make every hash-carrying body report `policy moved` the instant the hub
+     advanced, which is always. What changed for existing bodies is the
+     **output**, deliberately: the old wording asserted more than it checked.
 
      **Backward compatibility.** No field is added, renamed, or reordered, so
      the grammar block above stands and every v1 receipt (no continuation lines,
