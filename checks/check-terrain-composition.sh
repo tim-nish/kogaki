@@ -1278,3 +1278,197 @@ console.log("subdivide command fixture: PASS — cases exercised (the COMMAND ru
   + `${JSON.stringify(NO_FIT)} SubGroup names the unplaced member and carries all three `
   + "instruments, the list read from the schema)");
 JS
+
+# --- compose-input BOUNDED-READ fixture (kogaki#163, story 1.33) -------------
+#
+# WHY THIS IS AN EXTENSION AND NOT A TENTH CHECK. `compose-input` is Terrain
+# composition — it is the input half of §6.1/§6.2's claims and SubGroupClaims,
+# both already inside this member's admission contract — so the coverage lands
+# in the declared contract and no admission record is owed. The loop position
+# is unchanged, which is the quantity the served line prices: "where a check
+# sits in your workflow matters as much as how long it takes"
+# (`a-checks-runtime-multiplies-by-its-loop-position`,
+# gloss/lessons/claude-code-ops.md:11@12ba65dd). The registry `contract` is
+# extended in the same diff to name what is now covered.
+#
+# WHAT IT DISCRIMINATES, and why the shape is unusual. The property is a COUNT
+# OF SERVED-MATERIAL READS that must not grow with the placement count. Two
+# things follow, and both are why this block does not look like the others:
+#
+#   1. THE COUNT IS OBSERVED, NEVER READ OFF THE ARTIFACT. `compose-input`
+#      prints an accounting line and writes an `accounting` block; this check
+#      reads neither as evidence. "If it survives because the check is reading
+#      the system's own explanation of what it did, an explanation is not
+#      evidence, and you need something else"
+#      (`match-the-detectors-unit-to-the-propertys-unit`,
+#      gloss/lessons/testing.md:131@12ba65dd). So the unit case counts calls
+#      into an injected fetcher, and the command case counts lines a STUB
+#      GATEWAY appended as it served them.
+#
+#   2. NO SINGLE RUN CAN DISPLAY IT. "Bounded by the candidates" and "grows
+#      with the placements" agree on any one input; they disagree only across
+#      inputs that hold the candidates fixed and multiply the placements. Case
+#      2 is that pair, which is the same served line's other half — a property
+#      that "survives because the problem is repetition or sameness" needs a
+#      detector that looks across many outputs.
+#
+# Seam-free by construction, at BOTH layers: the unit cases inject their own
+# fetcher, and the command case points the kit's own machine-local resolution
+# ($TSUREZURE_GATEWAY_JS) at checks/fixtures/terrain/compose-input/stub-gateway.mjs.
+# Nothing here reaches the real substrate, so the block runs in CI identically.
+node --input-type=module - <<'JS'
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { composeInput, cotagGroups, COMPOSITION_INPUT_BOUND, NO_GLOSS_BODY }
+  from "./terrain/terrain.mjs";
+
+const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const STUB = "checks/fixtures/terrain/compose-input/stub-gateway.mjs";
+const record = JSON.parse(readFileSync(FIXTURE, "utf8"));
+const fails = [];
+const eq = (label, got, want) => {
+  const g = JSON.stringify(got), w = JSON.stringify(want);
+  if (g !== w) fails.push(`${label}: got ${g}, want ${w}`);
+};
+
+// A fetcher that RECORDS every call. This is the detector's unit: the read
+// itself, not the runtime's report of how many it took.
+const counting = () => {
+  const calls = [];
+  const fn = (kind) => {
+    calls.push(kind);
+    return new Map([["alpha", { body: "alpha body", cite: "gloss/lessons/x.md:1@stub" }],
+                    ["bravo", { body: "bravo body", cite: "gloss/lessons/x.md:2@stub" }],
+                    ["charlie", { body: "charlie body", cite: "gloss/lessons/x.md:3@stub" }],
+                    ["delta", { body: "delta body", cite: "gloss/lessons/x.md:4@stub" }],
+                    ["echo", { body: "echo body", cite: "gloss/lessons/x.md:5@stub" }]]);
+  };
+  return { fn, calls };
+};
+const compose = (rec, tag) => {
+  const members = rec.candidates.filter((c) => (c.tags || []).includes(tag));
+  const groups = cotagGroups(members, tag);
+  const c = counting();
+  return { input: composeInput(rec, tag, groups, c.fn), calls: c.calls, groups };
+};
+
+// Case 1 — ONE SHARD PAIR, and only the half a member actually needs.
+// `testing`: 4 members, one of them (lesson:alpha) carrying a Journey.
+const testing = compose(record, "testing");
+eq("the shards actually fetched for a tag with a Journey member", testing.calls, ["lessons", "journeys"]);
+eq("material is one entry per CANDIDATE carrying the tag",
+   testing.input.material.map((m) => m.id),
+   ["lesson:alpha", "lesson:bravo", "lesson:charlie", "lesson:delta"]);
+if (new Set(testing.input.material.map((m) => m.id)).size !== testing.input.material.length) {
+  fails.push("material carries a duplicate member id — a member appearing in several groups must appear ONCE");
+}
+// `cost`: lesson:charlie and lesson:echo, neither carrying a Journey. The
+// second fetch is CONDITIONAL, and a composer that took the pair
+// unconditionally would pass case 1 and fail here.
+eq("the journey shard is NOT fetched for a tag no member of which carries one",
+   compose(record, "cost").calls, ["lessons"]);
+
+// The structural half of the bound: groups carry IDS ONLY. A group that
+// carried material would be a per-group copy, which is the shape the bound
+// exists to make unwritable rather than merely discouraged.
+const strayMaterial = testing.input.groups.filter((g) => g.members.some((m) => typeof m !== "string"));
+if (strayMaterial.length) {
+  fails.push(`a composed group carries member MATERIAL rather than ids (${strayMaterial.map((g) => g.name).join(", ")}) — the bound is structural: a member in several groups must have one entry to point at, not one copy per group`);
+}
+for (const g of testing.input.groups) {
+  const unresolved = g.members.filter((id) => !testing.input.material.some((m) => m.id === id));
+  if (unresolved.length) fails.push(`group ${JSON.stringify(g.name)} references ${unresolved.join(", ")}, which are in no material entry — an id-only group is only bounded if every id resolves`);
+}
+// The bound is DECLARED in the artifact rather than left to the reader.
+eq("the artifact states its own bound", testing.input.bound, COMPOSITION_INPUT_BOUND);
+// UNTRUNCATED, because §8's leaf condition asks whether a SubGroupClaim is
+// TIGHTER THAN its parent's — a headline-only input would decide that conjunct
+// by what the bound withheld rather than by the material.
+if (testing.input.material.some((m) => m.gloss !== NO_GLOSS_BODY && /…|\.\.\.$/.test(m.gloss))) {
+  fails.push("a material entry is truncated — the bound is on the number of reads, never on what a read returns (§12 forbids truncation anywhere)");
+}
+
+// Case 2 — READS DO NOT GROW WITH PLACEMENTS. The discriminator, and the one
+// no single run can display: the SAME four candidates, re-tagged so the co-tag
+// axis explodes the placement count, must cost the same reads.
+const many = JSON.parse(readFileSync(FIXTURE, "utf8"));
+const EXTRA = ["architecture", "cost", "agents", "testing-ops", "policy", "seam", "gates", "runtime", "records"];
+for (const c of many.candidates) if ((c.tags || []).includes("testing")) c.tags = ["testing", ...EXTRA];
+const exploded = compose(many, "testing");
+const placementsOf = (r) => r.groups.reduce((n, g) => n + g.members.length, 0);
+const before = placementsOf(testing), after = placementsOf(exploded);
+if (!(after > before)) {
+  fails.push(`the exploded record did not actually multiply the placements (${before} -> ${after}) — the pair no longer discriminates and the case below proves nothing`);
+}
+eq(`reads over ${after} placements (up from ${before}), same 4 candidates`, exploded.calls, testing.calls);
+eq("material size over the exploded record — bounded by CANDIDATES",
+   exploded.input.material.length, testing.input.material.length);
+
+// Case 3 — THE COMMAND PATH, over a REAL transport and a stub gateway, with
+// the reads counted by the server that served them. The unit cases above
+// cannot see the wiring: a composer that passes every one of them while
+// `cmdComposeInput` fetches per group would look identical here.
+const dir = mkdtempSync(join(tmpdir(), "compose-input-"));
+const LOG = join(dir, "gateway-calls.log");
+// A survey record whose members sit in SEVERAL groups each, so the
+// once-per-member property has something to be violated on at the command.
+const multi = JSON.parse(readFileSync(FIXTURE, "utf8"));
+for (const c of multi.candidates) if ((c.tags || []).includes("testing")) c.tags = ["testing", "architecture", "cost", "agents"];
+const SURVEY = join(dir, "multi.terrain-survey.json");
+writeFileSync(SURVEY, JSON.stringify(multi, null, 2) + "\n");
+
+const run = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "compose-input", "--survey", SURVEY, "--tag", "testing", "--run-dir", dir],
+  { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB, STUB_GATEWAY_CALL_LOG: LOG } });
+if (run.status !== 0) {
+  fails.push(`compose-input exited ${run.status}: ${(run.stderr || "").trim() || String(run.stdout).slice(-400)}`);
+}
+const served = existsSync(LOG) ? readFileSync(LOG, "utf8").trim().split("\n").filter(Boolean) : [];
+// THE COUNT THE SERVER OBSERVED. Four candidates in four groups each = 16
+// placements; a per-group composer costs 16 reads and this costs 2.
+eq("gateway calls the STUB actually served (not the number the run reported)",
+   served, ['gloss_index {"tag":"lessons/testing"}', 'gloss_index {"tag":"journeys/testing"}']);
+
+const artifact = readdirSync(dir).find((f) => f.startsWith("terrain-composition-input-"));
+if (!artifact) {
+  fails.push("compose-input wrote no artifact — the command path is what the composer reads, and a unit that passes while nothing invokes it is the orphan shape");
+} else {
+  const out = JSON.parse(readFileSync(join(dir, artifact), "utf8"));
+  const placements = out.groups.reduce((n, g) => n + g.members.length, 0);
+  if (placements <= out.material.length) {
+    fails.push(`the command fixture has ${placements} placement(s) over ${out.material.length} candidate(s) — with placements at or below candidates the once-per-member property is vacuous here`);
+  }
+  eq("the artifact holds ONE entry per member across all its groups",
+     out.material.length, new Set(out.groups.flatMap((g) => g.members)).size);
+  if (out.material.some((m) => m.gloss === NO_GLOSS_BODY)) {
+    fails.push("a member came back with no served rendering from the stub — the stub serves every fixture slug, so this is the address, not the material");
+  }
+}
+
+// Case 4 — THE POINTER IS REACHABLE FROM THE SCREEN THAT NEEDS IT. A run that
+// composed no claims lands on the claimless ABNORMAL block; the remedy there
+// names the bounded input rather than "compose something", because composing
+// per group is exactly what the ~19 minutes bought. Seam-free: `cotags` makes
+// no gateway call.
+const claimless = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", "testing"],
+  { encoding: "utf8" });
+if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
+  fails.push("the claimless ABNORMAL block does not name `compose-input` — the bounded input is reachable only if the surface that needs it says so, and a mechanism nothing points at is the orphan shape one layer up");
+}
+
+if (fails.length) {
+  console.log("FAIL compose-input bounded-read fixture — the composer's input is not bounded to the tag-scoped shard (kogaki#163, SPEC.md §9):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("compose-input bounded-read fixture: PASS — cases exercised (one tag-scoped shard "
+  + "pair per run, with the journey half fetched only where a member carries one; groups carry "
+  + "IDS ONLY so a per-group copy is unwritable and every id resolves into the material; the "
+  + "material untruncated; reads UNCHANGED across a record whose placements were multiplied over "
+  + "the same candidates — the pair no single run can display; the COMMAND path run end to end "
+  + "against a stub gateway that counted the reads it served, rather than the accounting the run "
+  + "printed about itself; and the claimless co-tag screen naming the bounded input as its remedy)");
+JS

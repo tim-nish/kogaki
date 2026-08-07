@@ -365,6 +365,11 @@ function cmdSurvey(args) {
   console.log(`Survey record: ${out}\n`);
   for (const s of sections) console.log(`  ${tagRow(s)}`);
   console.log(`\nNavigation (narrows nothing): view --survey ${out} [--tag T] [--family lesson|journey] [--sort slug|section]`);
+  // The bounded-input pointer, sited at the step BEFORE the one that needs it.
+  // A composer reaching for material per group has already spent the reads by
+  // the time `cotags` runs, so a pointer only on the co-tag screen would arrive
+  // after the cost (kogaki#163 lever 3).
+  console.log(`Before composing claims for a tag: compose-input --survey ${out} --tag T — ${COMPOSITION_INPUT_BOUND}. Composing from per-group material instead spends one read per PLACEMENT, which is what the 2026-08-07 architecture run measured at ~19 minutes.`);
 }
 
 // ---- Figure rendering. Every emitted figure names the families it counted
@@ -685,6 +690,10 @@ function cmdCotags(args) {
   }
   if (claimless) {
     console.log(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
+    // The remedy names the BOUNDED input rather than "go compose something":
+    // the fault above is cleared by composing, and the way composing was
+    // costing ~19 minutes was per-group reads (kogaki#163 lever 3).
+    console.log(`Compose them from the bounded input — compose-input --survey ${String(args.survey)} --tag ${tag} — and pass the result back as --claims (and --subdivisions, which §8's judgment is composed from the SAME artifact and spends no further read).`);
   }
 
   // The cover, counted AFTER composition, over ALL composed groups — never
@@ -1191,6 +1200,137 @@ function fetchGlossBodies(kind, tag) {
   return parseGlossFull(resp);
 }
 
+// --------------------------------------------------------------------------
+// compose-input — the BOUNDED input the claim and subdivision composers read
+// (kogaki#163 lever 3; SPEC.md §9's "Tag-scoped and bounded — one shard pair
+// per viewed tag", and §7's silence on the composer's input).
+//
+// WHAT THIS FIXES, measured rather than argued. Dogfood run 2026-08-07, tag
+// `architecture`: 70 Lessons, 11 co-tag groups, 131 placements, ~19 minutes
+// between the survey record write and the last Full Report write. The runtime
+// was never the cost — re-running `cotags` read-only over the same record
+// renders instantly — the cost was COMPOSITION, and it grew in the wrong
+// quantity: the composer reached for each group's material once per group, so
+// 70 Lessons cost 131 reads. The material a group needs is a subset of the
+// material the TAG's shard pair already carries, and that pair is already §9's
+// budget, so the excess bought nothing.
+//
+// THE BOUND IS STRUCTURAL, NOT ADVISORY. `material` is keyed by member id and
+// `groups` carry ids only — references into it. A member appearing in five
+// groups therefore appears ONCE in this artifact, and there is no shape in
+// which a per-group copy could be written: the composer has no per-group
+// material to re-read because none exists. That is the difference between
+// bounding an input and asking a composer to be frugal with one.
+//
+// THE FETCHER IS INJECTED, and that is what makes the bound OBSERVABLE. The
+// property this story asserts is a count of served-material reads, so the
+// detector's unit has to be the read itself — "if the check is reading the
+// system's own explanation of what it did, an explanation is not evidence"
+// (`match-the-detectors-unit-to-the-propertys-unit`,
+// gloss/lessons/testing.md:131@12ba65dd). A `reads:` field this function wrote
+// about itself would be exactly that explanation, so the accounting block
+// below is a REPORT for the operator and the check does not read it: the
+// fixture passes a counting fetcher and counts the calls, and a second fixture
+// holds the candidate set fixed while multiplying the placements to show the
+// count does not move with them (AC3's discriminator, which no single run can
+// display).
+//
+// It composes NOTHING and judges NOTHING. The claim wording stays the
+// composer's (§7 leaves it there) and the leaf condition stays the judge's
+// (§8); this hands over material and the group structure, and no verdict.
+// --------------------------------------------------------------------------
+export const COMPOSITION_INPUT_BOUND =
+  "one tag-scoped served Gloss shard pair, fetched once for the run (SPEC.md §9)";
+
+export function composeInput(record, tag, groups, fetchShard) {
+  const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
+  // The journey shard is fetched only where a member carries a Journey — the
+  // same conditional `report` already applies. An unconditional second fetch
+  // would be a read taken for material no member has.
+  const anyJourney = members.some((c) => c.journey);
+  const lessonBodies = fetchShard("lessons");
+  const journeyBodies = anyJourney ? fetchShard("journeys") : new Map();
+
+  let abnormal = 0;
+  const material = [...members]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((c) => {
+      const lg = lessonBodies.get(c.slug);
+      const jg = c.journey ? journeyBodies.get(c.slug) : null;
+      if (!lg) abnormal++;
+      if (c.journey && !jg) abnormal++;
+      return {
+        id: c.id,
+        cite: c.cite || null,
+        // Untruncated, exactly as §12 serves it: the composer judging whether a
+        // SubGroupClaim is TIGHTER THAN its parent's is the reader §8's leaf
+        // condition addresses, and a headline-only input would decide that
+        // conjunct by what the bound withheld. A missing rendering is MARKED
+        // and never substituted (§9), at this layer as at every other.
+        gloss: lg ? lg.body : NO_GLOSS_BODY,
+        gloss_cite: lg ? lg.cite : null,
+        journey_gloss: c.journey ? (jg ? jg.body : NO_GLOSS_BODY) : null,
+        journey_cite: c.journey && jg ? jg.cite : null,
+      };
+    });
+
+  const placements = groups.reduce((n, g) => n + g.members.length, 0);
+  return {
+    kind: "composition-input",
+    tag,
+    pin: record.pin,
+    bound: COMPOSITION_INPUT_BOUND,
+    // ids only. See the structural note above: this is the half that makes a
+    // per-group re-read unwritable rather than merely discouraged.
+    groups: groups.map((g) => ({ name: g.name, cotag: g.cotag, members: g.members })),
+    material,
+    // For the OPERATOR, not for the check. A self-reported number is not
+    // evidence of the property it reports.
+    accounting: {
+      shard_fetches: 1 + (anyJourney ? 1 : 0),
+      candidates: material.length,
+      placements,
+      abnormal,
+    },
+  };
+}
+
+function cmdComposeInput(args) {
+  const dir = runDir(args);
+  const record = readJson(String(args.survey || fail("compose-input needs --survey <file>")));
+  const tag = String(args.tag || fail("compose-input needs --tag <selected tag>"));
+  const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
+  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`);
+  const groups = cotagGroups(members, tag);
+
+  // Memoized per kind, so the "fetched once for the run" half of §9's bound is
+  // enforced HERE rather than assumed of the caller. `composeInput` asks for a
+  // kind at most once already; this makes a future second caller unable to
+  // spend a second read either.
+  const seen = new Map();
+  const fetchShard = (kind) => {
+    if (!seen.has(kind)) seen.set(kind, fetchGlossBodies(kind, tag));
+    return seen.get(kind);
+  };
+
+  const input = composeInput(record, tag, groups, fetchShard);
+  const out = join(dir, `terrain-composition-input-${tag.replace(/[^a-zA-Z0-9]+/g, "-")}.json`);
+  writeFileSync(out, JSON.stringify(input, null, 2) + "\n");
+
+  const a = input.accounting;
+  console.log(`Composition input (bounded): ${out}`);
+  console.log(`Bound: ${COMPOSITION_INPUT_BOUND}.`);
+  console.log(`Reads: ${a.shard_fetches} served-material fetch(es) for ${a.candidates} candidate(s) across ${a.placements} placement(s) in ${input.groups.length} group(s) — the read count is bounded by the CANDIDATES and does not grow with the placements.`);
+  console.log(`${denominator(a.candidates, record.candidates.length)} carry ${tag}; ${strandFigure(familySplit(members.map((c) => c.id), record.candidates))}.`);
+  if (a.abnormal) {
+    console.log(`ABNORMAL: ${a.abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
+  }
+  console.log(`Compose EVERY GroupClaim and EVERY SubGroupClaim from this one artifact: \`material\` is keyed by member id and \`groups\` carry ids only, so a member in several groups is read once, and no group has per-group material to re-read.`);
+  console.log(`Classification: REPORT (SPEC.md §2.3) — it ranks nothing, narrows nothing and hides nothing. It composes no claim and judges no leaf condition: the claim wording stays the composer's (§7) and the leaf condition the judge's (§8).`);
+  console.log(`Machine-local run workspace, never committed (founding spec rider 3).`);
+  console.log(`\nNext: cotags --survey ${String(args.survey)} --tag ${tag} --claims <F> [--subdivisions <F> --judge-model M --judge-effort E]`);
+}
+
 // Where reports live. §12.2: the MACHINE-LOCAL run workspace, never committed.
 // A STABLE home rather than a per-invocation directory, because §12.1's first
 // case — same identity, run twice, ONE report — is a claim across invocations
@@ -1501,6 +1641,7 @@ switch (cmd) {
   case "survey": cmdSurvey(args); break;
   case "view": cmdView(args); break;
   case "cotags": cmdCotags(args); break;
+  case "compose-input": cmdComposeInput(args); break;
   case "claim": cmdClaim(args); break;
   case "adopt": cmdAdopt(args); break;
   case "subdivide": cmdSubdivide(args); break;
@@ -1516,9 +1657,15 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <survey|view|cotags|act|gate|capture|validate> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <survey|view|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
   survey                                    compose the survey from the seam (element_survey)
   view --survey F [--tag T] [--family X]    navigation — narrows nothing
+  compose-input --survey F --tag T          the BOUNDED input for the claim and subdivision
+                                            composers (§9): one tag-scoped shard pair, fetched
+                                            once, material keyed by member id and groups
+                                            carrying ids only — so a member in several groups
+                                            is read once and the read count does not grow with
+                                            the placements. Run it BEFORE composing --claims.
   cotags --survey F --tag T [--group G] [--claims F]
          [--subdivisions F --judge-model M --judge-effort E] [--connective F]
                                             the second navigation step (§6) — narrows nothing.
