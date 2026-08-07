@@ -93,6 +93,35 @@ printf '%s' "$OUT" | grep -q '^policy_source unavailable:' \
   || fail "validate-body exited 11 without the promised degrade line: $OUT"
 echo "ok: validate-body degrade (one line, exit 11)"
 
+# 4d. THE THIRD ENTRY POINT owes the same promise (kogaki#188). `--emit-pin-quotes`
+#     is the WRITER for the stored quote hash, and it reaches the gateway through
+#     the same helper — so an unreachable seam must degrade there too, in one
+#     line, rather than emitting a partial hash list that would read as a
+#     complete one. A writer that quietly produces fewer hashes than there are
+#     cites is how a content check ends up merged, correctly placed and dead.
+printf 'consulted: product-lab@0123abcdef01 topics/articles.md:79\n' > "$TMP/emit.md"
+set +e
+OUT=$(TSUREZURE_GATEWAY_JS=/nonexistent/gw.js \
+      node "$KIT_DIR/bin/issue-pins.mjs" --emit-pin-quotes "$TMP/emit.md" \
+      --consumer kit-test --gateway /nonexistent/gw.js 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "emit-pin-quotes with an unreachable gateway exited $CODE, want 11"
+[[ $(printf '%s\n' "$OUT" | wc -l) -eq 1 ]] || fail "emit-pin-quotes degrade printed more than one line: $OUT"
+printf '%s' "$OUT" | grep -q '^policy_source unavailable:' \
+  || fail "emit-pin-quotes exited 11 without the promised degrade line: $OUT"
+echo "ok: emit-pin-quotes degrade (one line, exit 11)"
+
+# 4e. The content-liveness fixture pass (kogaki#188), sited with the code it
+#     covers — the same arrangement as 8e and 9i below. Every case is a pure
+#     function of a body and an already-fetched surface, so the whole pass runs
+#     with NO gateway; the wire itself is exercised by 4b/4c/4d's degrade paths.
+#     The regression pin inside it is the live drift this issue was filed for:
+#     `topics/articles.md:79` still RESOLVES while holding different content,
+#     which is the form no resolution check can catch.
+node "$KIT_DIR/bin/issue-pins.mjs" --self-test || fail "issue-pins content-liveness fixtures failed"
+echo "ok: issue-pins content-liveness fixture pass (kogaki#188)"
+
 # 5. Skill is installed where the harness loads it, with frontmatter.
 SKILL="$TMP/repo/.claude/skills/consult-first/SKILL.md"
 [[ -f "$SKILL" ]] || fail "consult-first skill not installed at .claude/skills/"
