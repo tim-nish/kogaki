@@ -1119,3 +1119,162 @@ console.log(`v5 residuals + origin provenance: PASS — ${seamAbsent ? "seam-fre
   + "judge-pin refusal writes NOTHING")
   + "; derived vs recorded vs none provenance all distinguished over an identical member set)");
 JS
+
+# --- subdivide COMMAND fixture (kogaki#165) ----------------------------------
+#
+# WHY THIS IS AN EXTENSION AND NOT A TENTH CHECK. §8's subdivision record is
+# terrain composition — this member's admission record already names §6.2's
+# SubGroup judging and §8's schema is the same survey-schema.json carrier — so
+# the coverage lands inside the declared contract and no admission record is
+# owed. The registry `contract` field is corrected in the same diff to name
+# what is now covered, which is kogaki#145's finding 1 applied to itself.
+#
+# WHAT IT DISCRIMINATES. `subdivide` crashed on EVERY invocation with
+# `ReferenceError: vd is not defined` from story 1.31's extraction until
+# kogaki#165 — for the whole of that window no registered check invoked the
+# COMMAND, only its exported composers, and the co-tag screen reaches
+# subdivision through `subgroupPlacement` + `judgeSubgroup` and never through
+# `cmdSubdivide`, so every exercised path masked a dead command. Coverage of
+# the composers could not have caught it and still cannot; only the command
+# path can. Case 1 is that regression, held at the command.
+#
+# Cases 2 and 3 exist because removing the crash is not the same as restoring
+# the instrument: `legible_at_a_glance: false` (or `: true`) as a literal also
+# stops the ReferenceError and reports a quantity that no longer reads the
+# judge's verdict. So the third instrument is asserted to DISCRIMINATE over two
+# otherwise-identical runs, and the PLACEMENT-COMPOSED `(fits no composed SubGroup)`
+# SubGroup — whose verdicts are composed by placement rather than supplied by
+# the judge — is asserted to carry it too, that being the one SubGroup no
+# judge input can set.
+#
+# Seam-free by construction: `subdivide` reads the survey record and the
+# classification file and never reaches the gateway, so this block runs
+# everywhere.
+node --input-type=module - <<'JS'
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+
+const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const TAG = "testing";
+const GROUP = "architecture";  // parent members: lesson:alpha, lesson:bravo
+const SCHEMA = JSON.parse(readFileSync("specs/spec-terrain/survey-schema.json", "utf8")).subdivision;
+const fails = [];
+
+// The instrument list and the fallback SubGroup's name are READ from the
+// single carrier, never restated here — the same discipline the blocks above
+// hold for the survey field lists.
+const INSTRUMENTS = SCHEMA.instruments.required;
+const NO_FIT = SCHEMA.no_member_hidden_subgroup;
+
+const write = (dir, name, body) => {
+  const p = join(dir, name);
+  writeFileSync(p, JSON.stringify(body, null, 2) + "\n");
+  return p;
+};
+
+// One invocation of the COMMAND — the whole point of this block. Everything it
+// needs is supplied per run; no numeric constant enters the runtime (§8).
+const subdivide = (classification) => {
+  const dir = mkdtempSync(join(tmpdir(), "subdivide-"));
+  const cls = write(dir, "classification.json", classification);
+  const r = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "subdivide", "--survey", FIXTURE, "--tag", TAG,
+     "--group", GROUP, "--group-claim", "the parent group's line",
+     "--judge-model", "fixture-judge", "--judge-effort", "low",
+     "--screen-budget", "40", "--classification", cls, "--run-dir", dir],
+    { encoding: "utf8" });
+  const f = readdirSync(dir).find((x) => x.endsWith(".terrain-subdivision.json"));
+  return { r, dir, record: f ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null };
+};
+
+const sg = (name, extra) => ({
+  subgroup: name,
+  claim: "a line narrower than the parent's, composed over the placed members",
+  members: ["lesson:alpha"],
+  composes_honestly: true,
+  tighter_than_parent: true,
+  ...extra,
+});
+
+// Case 1 — THE REGRESSION. The command runs to completion and writes its
+// record. The crash sat in the instruments loop, which every invocation
+// executes BEFORE the record write, so a written record is the evidence the
+// loop was reached and survived; the exit status alone would not say where.
+const legible = subdivide([sg("the legible split", { legible_at_a_glance: true })]);
+if (legible.r.status !== 0) {
+  fails.push(`subdivide exited ${legible.r.status}: ${(legible.r.stderr || "").trim()}`);
+}
+if (/ReferenceError/.test(legible.r.stderr || "")) {
+  fails.push(`subdivide raised a ReferenceError — the story-1.31 extraction left a name behind again: ${(legible.r.stderr || "").trim()}`);
+}
+if (!legible.record) {
+  fails.push("subdivide wrote no subdivision record — the instruments loop runs before the write, so an unwritten record means the command did not get past it");
+}
+
+// Every SubGroup carries all three instruments, the list read from the schema.
+for (const s of legible.record ? legible.record.subgroups : []) {
+  const missing = INSTRUMENTS.filter((k) => s.instruments === undefined || s.instruments[k] === undefined);
+  if (missing.length) fails.push(`SubGroup ${JSON.stringify(s.name)} is missing instrument(s) ${missing.join(", ")}`);
+}
+
+// Case 2 — THE INSTRUMENT DISCRIMINATES. Identical in every other respect, so
+// the verdict is the only thing that can move the reported quantity. A literal
+// in place of the read would pass case 1 and fail here.
+const illegible = subdivide([sg("the legible split", { legible_at_a_glance: false })]);
+if (illegible.r.status !== 0) {
+  fails.push(`subdivide (illegible case) exited ${illegible.r.status}: ${(illegible.r.stderr || "").trim()}`);
+}
+const readInstrument = (res, name) => {
+  const s = res.record && res.record.subgroups.find((x) => x.name === name);
+  return s ? s.instruments.legible_at_a_glance : undefined;
+};
+const yes = readInstrument(legible, "the legible split");
+const no = readInstrument(illegible, "the legible split");
+if (yes !== true || no !== false) {
+  fails.push(`the third instrument does not read the judge's verdict at the command: true-verdict reported ${JSON.stringify(yes)} and false-verdict reported ${JSON.stringify(no)} — removing the crash is not the same as restoring the quantity, and a literal passes every assertion that does not vary the input`);
+}
+// The rest of the record is genuinely identical, which is what makes the pair
+// above a discrimination rather than two unrelated runs. `judge_verdicts` is
+// the flipped INPUT carried through to the record and is excluded with the
+// instruments — comparing it would only restate that the two runs differ where
+// they were made to differ.
+const strip = (res) => JSON.stringify((res.record ? res.record.subgroups : []).map(
+  ({ instruments, judge_verdicts, ...rest }) => rest));
+if (legible.record && illegible.record && strip(legible) !== strip(illegible)) {
+  fails.push("the legible and illegible runs differ outside the instruments block, so the pair no longer isolates the verdict");
+}
+
+// Case 3 — THE PLACEMENT-COMPOSED SUBGROUP. `lesson:bravo` is placed by no judge
+// SubGroup above, so it lands in the EXPLICIT named SubGroup whose verdicts
+// placement composes. No judge input can set its instrument, which is why it
+// is the one SubGroup a judge-supplied fixture would never cover.
+const placementComposed = legible.record
+  && legible.record.subgroups.find((s) => s.name === NO_FIT);
+if (!placementComposed) {
+  fails.push(`no ${JSON.stringify(NO_FIT)} SubGroup in the record — lesson:bravo was placed by no judge SubGroup and must be NAMED rather than dropped`);
+} else {
+  if (!placementComposed.members.includes("lesson:bravo")) {
+    fails.push(`the ${JSON.stringify(NO_FIT)} SubGroup does not hold the unplaced member: ${JSON.stringify(placementComposed.members)}`);
+  }
+  const missing = INSTRUMENTS.filter((k) => placementComposed.instruments === undefined || placementComposed.instruments[k] === undefined);
+  if (missing.length) {
+    fails.push(`the ${JSON.stringify(NO_FIT)} SubGroup is missing instrument(s) ${missing.join(", ")} — its verdicts are composed by placement, so no classification fixture can supply them and only the command path reaches it`);
+  }
+  if (legible.record.cover.placed !== legible.record.cover.of) {
+    fails.push(`the cover is incomplete: ${legible.record.cover.placed} of ${legible.record.cover.of}`);
+  }
+}
+
+if (fails.length) {
+  console.log("FAIL subdivide command fixture — §8's command path is not observed:");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("subdivide command fixture: PASS — cases exercised (the COMMAND runs end to end "
+  + "and writes its record past the instruments loop, no ReferenceError; the third instrument "
+  + "discriminates a true from a false verdict over an otherwise-identical run; the "
+  + `${JSON.stringify(NO_FIT)} SubGroup names the unplaced member and carries all three `
+  + "instruments, the list read from the schema)");
+JS
