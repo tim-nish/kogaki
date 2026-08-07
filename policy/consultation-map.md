@@ -75,22 +75,44 @@ filer with no licence behind it. That gap stays written down, because a clause
 quietly legitimised by later use — attribution tidied, history closed — is
 precisely the shape this file exists to surface.
 
-**It binds entries filed after it, and entry 1 is the known non-conformer.**
-Entry 1's pin names `topics/claude-code-ops.md` with no line and no hub commit
-("2026-08-04 governance lines"), which is the condition this clause describes;
-entries 2 and 3 conform. **The non-conformance is broader than the missing
-line.** Resolving the pin at `98195e0a` shows entry 1's quoted text sits on no
-single served line: "a check suite is budgeted at its loop position; suite
-membership is opt-in per loop; admission carries a removal signal" is line 22's
-kernel, while "declared at birth" is line 24's. A splice reads as one quotation,
-and an unresolvable pin is exactly what keeps it invisible — so this is the
-clause's own case rather than an exception to it. The clause is declared
-forward-binding rather than applied retroactively here because repairing entry 1
-means re-resolving its served line *and re-cutting its quote*, which no issue in
-front of this file authorizes — so the repair is owed on its own carrier
-(kogaki#175) rather than silently deferred.
-A rule whose own file fails it, with nothing saying so, is the latent
-contradiction this map exists to surface.
+**Entry 1 was this clause's one non-conformer, and its repair — kogaki#175 —
+is recorded here rather than tidied away.** As filed, entry 1's pin named
+`topics/claude-code-ops.md` with no line and no hub commit ("2026-08-04
+governance lines"), which is exactly the condition this clause describes;
+entries 2 and 3 conformed. **The non-conformance was broader than the missing
+line.** Entry 1's quoted text sat on **no single served line**: "a check suite
+is budgeted at its loop position; suite membership is opt-in per loop;
+admission carries a removal signal" is line 22's kernel — which ends there,
+full stop — while "declared at birth" was taken from line 24's "Admission
+requires a REMOVAL SIGNAL DECLARED AT BIRTH". The entry read as one quotation
+and was a **splice of two lines**, and the unresolvable pin is precisely what
+kept that invisible: nothing could be checked against the surface that is
+supposed to win on divergence. This was the clause's own case rather than an
+exception to it.
+
+**What the repair therefore had to do, and why adding `:22@<sha>` would not
+have been one.** Pinning the spliced text to `:22` would have produced a pin
+resolving to a line the quote does not match — the divergence case, newly
+created by the repair. The quote had to be **re-cut**. Resolving it at
+`98195e0a` shows the position entry 1 was reaching for genuinely spans two
+served lines: the budgeting/opt-in kernel at `:22`, and the removal-signal-at-
+birth admission rule at `:24`, which is the operative half for that entry's act
+class. Entry 1 now quotes **both, each whole at its own pin** — the form entry 3
+already uses — rather than paraphrasing two lines into one sentence, which
+would be the splice defect one level down. Invariant 1's binding property is
+that the text be a verbatim served quote resolvable at its pin and carry no
+verdict; it is not a requirement that an entry cite exactly one line.
+
+**Why the trail stays.** For the interval between PR #173 and kogaki#175 this
+file stated a rule its own first entry failed, and a reader had nothing telling
+them so — the latent contradiction this map exists to surface. That the defect
+was found by resolving the pin, and only because someone resolved it, is the
+part worth keeping: the clause is not merely satisfied here, it is what made the
+splice findable. The clause was declared forward-binding rather than applied
+retroactively at landing because repairing entry 1 meant re-resolving its served
+line *and* re-cutting its quote, which no issue in front of this file then
+authorized; kogaki#175 is that carrier, and the repair happened there rather
+than silently.
 
 **Miss postmortem** — recorded when an entry is added on a miss:
 
@@ -136,11 +158,27 @@ field.
   - *survey before acting:* `gloss_index("lessons/claude-code-ops")` and
     `gloss_index("lessons/testing")` — headline-first, both shards, before
     the check is written rather than at review.
-- **Served line (pinned):** "a check suite is budgeted at its loop position;
-  suite membership is opt-in per loop; admission carries a removal signal
-  declared at birth" — `topics/claude-code-ops.md`, 2026-08-04 governance
-  lines (product-lab#150 protects the build-vs-adopt clause: the trigger
-  counts check-runner consumers, population one).
+- **Served line (pinned):** the position spans **two** served lines, and each
+  is quoted whole at its own pin rather than joined into one sentence — the
+  governing kernel, and the admission rule that is the operative half for this
+  entry's act class:
+  - "Kernel: a check suite is budgeted at its loop position; suite membership
+    is opt-in per loop; admission carries a removal signal."
+    (`topics/claude-code-ops.md:22@98195e0aef221aa82c47bb632324127745469f2e`)
+  - "Admission requires a REMOVAL SIGNAL DECLARED AT BIRTH, and retention runs
+    on a catch ledger over EXERCISED runs; never-fired members are review
+    candidates, never auto-deletions."
+    (`topics/claude-code-ops.md:24@98195e0aef221aa82c47bb632324127745469f2e`)
+
+  The same line carries the live context an implementer of a new check needs —
+  "NO CURRENT MEMBER CARRIES ONE, which is the whole reason the family has no
+  shrink lever"
+  (`topics/claude-code-ops.md:24@98195e0aef221aa82c47bb632324127745469f2e`) —
+  which is why the survey is prescribed before the check is written rather than
+  at review. The earlier note that product-lab#150 protects
+  the build-vs-adopt clause (the trigger counts check-runner consumers,
+  population one) is retained as a pointer only; it is not a pinned quote and
+  nothing in this entry rests on it.
 - **Origin miss:** writing-assistant's suite reached 170+ members with no
   admission economics; the rebuild exists partly to prevent the recurrence
   (owner ruling 2026-08-04).
