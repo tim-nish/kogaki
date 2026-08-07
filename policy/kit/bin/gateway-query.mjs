@@ -29,7 +29,7 @@
 // `question` argument and was recorded from it, and every other tool had its
 // `--args` JSON recorded instead — so a `gloss_index` consult emitted
 // `query: {"tag":"lessons/testing"}`, a serialized tool argument in the field
-// `policy/consultation-map.md :67@a3b635d (the Miss-postmortem field)` defines as "**The question, verbatim**".
+// `the consultation map's Miss-postmortem field` defines as "**The question, verbatim**".
 // There was no field in which such a consult COULD record its question, which
 // made the omission a seam gap rather than an authoring slip.
 //
@@ -210,7 +210,7 @@ if (receiptMode && questionList.length !== framings.length) {
   console.error(
     `refusing to emit a receipt with ${questionList.length} --question for ` +
       `${framings.length} framing(s): the \`query:\` line is THE QUESTION, ` +
-      "VERBATIM (policy/consultation-map.md :67@a3b635d (the Miss-postmortem field)), and one question per call is " +
+      "VERBATIM (the consultation map's Miss-postmortem field), and one question per call is " +
       "what binds it to the call whose request_id and outcome the receipt " +
       "carries. Pass one --question per --args, in the same order. Before " +
       "this argument existed the transport recorded the --args JSON for any " +

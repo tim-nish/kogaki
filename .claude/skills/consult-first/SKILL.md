@@ -111,7 +111,7 @@ costs you the three rules above; say so in the PR if you do.
 - **`--question` is required in receipt mode, one per `--args`, same order**
   (kogaki#160 finding 4). The `query:` line is *the question, verbatim* —
   the key a later reader reuses to reach the same ruling
-  (`policy/consultation-map.md :67@a3b635d (the Miss-postmortem field)`) — and until this argument existed the
+  (`the consultation map's Miss-postmortem field`) — and until this argument existed the
   transport had to derive it: `policy_lookup`'s question came off its own
   arguments, and every other tool had its `--args` JSON recorded instead. A
   `gloss_index` consult therefore emitted `query: {"tag":"lessons/testing"}`

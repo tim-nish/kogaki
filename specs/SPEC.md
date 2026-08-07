@@ -989,7 +989,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      mode, one per `--args`, and the `query:` line may not hold a serialized
      tool argument** (owner selection 2026-08-07, kogaki#160 finding 4).
 
-     `policy/consultation-map.md :67@a3b635d (the Miss-postmortem field)` already defines the field:
+     `policy/consultation-map.md:67@a3b635d` already defines the field:
 
      > **The question, verbatim** — the query that would have found the served
      > line. This is the field the map accumulates: situation-specific keys for
@@ -1042,9 +1042,18 @@ invariant: Gukan guarantees Unit schema, never data schema).
      call, the `query:` lines are emitted in the order the calls ran, and the
      **last `query:` line and the `request_id` are therefore the same call's**.
      Failure 1 happened because one invocation's several framings each have
-     their own `request_id` and the wrong one was carried; the transport now
-     reads the id and the question off one record per call and never holds them
-     apart, so pairing them wrongly is not reachable on this path.
+     their own `request_id` and the wrong one was carried.
+
+     **What actually changed here, stated precisely** (PR #186 review, nit 1).
+     The composer's *positional* pairing already held: it read `parsed[i]` and
+     `queries[i]` off `observed[i]` before this condition existed. What did not
+     hold is that the question was **derived** — so for any tool but
+     `policy_lookup` the value at index *i* was the arguments, and the receipt
+     was correctly paired to a call while saying nothing about what that call
+     asked. The pairing is now pinned by a fixture rather than left as an
+     accident of the loop, and the value it pairs is a question. The property
+     this condition adds is the second half; the first is made checkable, not
+     created.
 
      **The remedy is constrain-shaped, and that is the discriminating served
      position** — the same line the triage lane read when it declined to
@@ -1136,6 +1145,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
      including `208fd83`'s, lie outside every future scan window and no branch
      fails on work it did not author. What narrows is the admissible value of
      an existing field, on emissions made from here on.
+
+     **With one hole, named rather than left to be found** (PR #186 review).
+     The commit range is bounded; `CONSULT_PR_BODY` is not. A PR body that
+     *quotes* a previously-merged defective receipt brings it inside the scan
+     window, and the clause fires on text that branch did not author. It is
+     not a new hazard — it is the use-vs-mention rule (kogaki#41), and its
+     discharge is the same: a quoted receipt belongs in a fence, where it is a
+     mention. Recorded because "backward compatible" without this sentence is
+     itself a self-consistent and incomplete claim, which is the shape this
+     condition exists to refuse.
 
      **The silent-address drop is CARVED OUT, not smuggled in.** Failure 2
      above is a different defect: an unrecognized address form returns a

@@ -30,6 +30,16 @@
 # so it stays valid exactly as before. What narrows is the admissible VALUE of
 # a field that already existed, on emissions made from here on.
 #
+# THE HOLE IN THAT ARGUMENT, named rather than left for someone to find (PR
+# #186 review, finding 3). The `merge-base..HEAD` half is range-bounded and
+# holds. `CONSULT_PR_BODY` is NOT: a PR body that QUOTES a previously-merged
+# defective receipt puts that receipt inside the scan window, and the clause
+# fires on text the branch did not author. That is not a new hazard — it is
+# the use-vs-mention rule above, and its discharge is the same one: a quoted
+# receipt belongs in a fence, where it is a mention and is excluded. Stated
+# here because "backward compatible" without this sentence is the kind of
+# self-consistent-and-incomplete claim this whole clause exists to refuse.
+#
 # USE vs MENTION (kogaki#41): a `consulted:` line inside a fenced code block
 # is a QUOTATION of the format, not an emission of a receipt — the scanned
 # population is receipts, and a spec or PR body documenting the grammar is
@@ -99,7 +109,7 @@ def outcome_ok(value):
 def args_shaped(value):
     """True when a `query:` value is a serialized TOOL ARGUMENT, not a question.
 
-    kogaki#160 finding 4. `policy/consultation-map.md :67@a3b635d (the Miss-postmortem field)` defines the field as
+    kogaki#160 finding 4. `the consultation map's Miss-postmortem field` defines the field as
     "**The question, verbatim** — the query that would have found the served
     line … situation-specific keys for reaching a particular ruling", and the
     grammar accepted any non-empty value, so this shipped and passed:
@@ -205,7 +215,7 @@ def scan(source):
         if blobs:
             malformed.append(
                 (pin, f'query line {blobs[0]!r} is a serialized tool argument, '
-                      'not a question. `policy/consultation-map.md :67@a3b635d (the Miss-postmortem field)` defines '
+                      'not a question. The consultation map defines '
                       'this field as the question verbatim — a key a later '
                       'reader can reuse to reach the same ruling. Pass '
                       '`--question` to the transport, one per `--args`, in the '
