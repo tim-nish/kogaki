@@ -1,6 +1,30 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v5.1, amended 2026-08-07 — §7 states that a DERIVED origin member
+**Status:** v6, amended 2026-08-07 — the 2026-08-07 dogfood round lands as one
+coupled sitting over two issues. **kogaki#167** (owner selection, alternative
+**(b)**): §6.1's screen form **STANDS** and §2.4's divergence register gains
+the entry it was missing — **entry 4**, the per-Strand Gloss line and Journey
+line dropped between v3 and v5 — so the divergence is deliberate and ratified
+rather than accidental, and §6.1's v3 clause can no longer be read as
+contradicting the WA baseline it quotes; **no runtime change**, and the cost
+is recorded rather than argued away. **kogaki#168** (owner ruling): SubGroups
+on the screen and in the Full Reports are **REQUIRED** — every run without
+them is a contract violation and a FAILED run — which **discharges** §6.2's
+`deferred-slot: terrain-subdivision-offering-verdict` as §8.1's owner-verdict
+step delivered, **declines kogaki#163's never-default latency lever**, leaves
+§8's no-member-count-threshold rule and §8.1's co-tags-default rider
+untouched, and keeps the **hub-side** gate pointer named with its upstream
+proposal owed. The slot's discharge is grounded in the hub's own 2026-08-05
+re-point of the offering measurement **to Kogaki** (`topics/articles.md:9`,
+read whole), whose condition — "fires when that ships" — is met.
+§8.1 additionally records a **currency finding** in two instances: the served
+hub HEAD moved and a load-bearing line moved with it (`topics/articles.md:53`
+→ `:54`), and — worse — §6.1's Top-N pin `topics/articles.md:79` now
+**resolves to a different decision** (the quote is at `:80`), while
+`issue-pins --recheck` reported `pins current` across both. That is
+kogaki#169's gap reproduced in this file; §6.1's site is corrected in place
+and §11's two sites are named for whoever amends §11 next.
+v5.1, amended 2026-08-07 — §7 states that a DERIVED origin member
 set announces itself as derived (kogaki#145), and §9's allowlist scope clause is
 tightened so it cannot be read against the allowlist it scopes (kogaki#154).
 v5 amended 2026-08-07 — the 2026-08-06 dogfooding round
@@ -191,11 +215,75 @@ is misusing it.
 3. **Eager report generation at the co-tag view** (§11, decided v5) — WA's
    owner pulls a report per named group; the eager reading is owner-ruled
    2026-08-06 (kogaki#146).
+4. **No per-Strand Gloss line and no Journey line on the screen** (§6.1,
+   dropped at v3, ratified here at v6) — the baseline had closed group
+   presentation as *"Group ID, Strand ID, gloss, journey — and nothing
+   else"* (`writing-assistant specs/spec-terrain/
+   amendments-2026-07-30--2026-08-01.md`, wa#1115/#1116); Kogaki's screen
+   serves the IDs and the composed claim and serves **neither the per-Strand
+   gloss nor the journey**, which live in the Full Report (§12).
+
+**Entry 4 is stated at length because it is the entry this section was
+missing**, and its absence is what let §6.1 be read as self-contradictory:
+
+- **What was dropped, and when.** v3 moved the per-Strand Gloss and Journey
+  material off the screen into the Full Report. v5 then adopted the *same*
+  baseline's heading shape (member IDs on the heading, claim beneath) and
+  quoted the baseline's closed presentation while silently keeping v3's rule
+  — so from v3 until this amendment the screen diverged from a baseline it
+  cites in the adjacent paragraph, with no entry here. kogaki#167 is that
+  gap filed.
+- **The divergence is now DELIBERATE and RATIFIED, not accidental.** Owner
+  selection 2026-08-07 (kogaki#167), alternative **(b)**: the v5 screen form
+  **stands** and the record gains this entry — the contradiction is resolved
+  by amending the record rather than the behaviour. **No runtime change**;
+  `terrain/terrain.mjs` `cmdCotags` already implements the ratified form.
+- **The owner's ground for keeping it.** Restoring the lines was live as
+  alternative (a) and was declined on screen size read against kogaki#168,
+  ruled in the same sitting: SubGroups are **REQUIRED**, so a per-Strand
+  Gloss line and Journey line would multiply across every SubGroup of every
+  group rather than appearing once per group, running the screen against
+  §8's `screen_budget_lines` instrument
+  (`terrain/terrain.mjs:1082-1084`). The owner chose to keep the screen's
+  size rather than restore the lines.
+- **The cost is real and is recorded rather than argued away.** The screen
+  keeps running without the Gloss and Journey lines the baseline it cites
+  promises — which is exactly the drop kogaki#167 was filed about, and what
+  the 2026-08-07 dogfood round saw as "Gloss all cleared and removed". An
+  owner navigating the screen reads Lesson IDs and a composed claim with no
+  per-Strand headline until they open the Full Report. This entry does not
+  make that cost smaller; it makes it **declared**, which is the only thing
+  §2.4 was ever able to buy.
+
+The served surface discriminates toward recording rather than reversing:
+
+> "A consumer that ships ahead of the hub wording DECLARES its divergence in
+> the artifact, with a source-qualified pin … naming the diverged line
+> converts an unratified shape into a CHECKABLE PROPOSAL … The hub's line
+> still wins; what changed is that the gate had something exact to ratify
+> rather than a shape to reverse-engineer."
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/knowledge-architecture.md:121`
+
+  request_id: def8743a-472d-4d23-a61b-9cde5b9a7c0f
+  outcome: discriminating
+  query: When a served presentation diverges from an inherited baseline it still quotes, is the correct repair to restore the baseline form or to record the divergence in a register, and what does a deliberate ratified divergence owe that an accidental one does not?
 
 An entry lands here in the same amendment that creates the divergence; a
 divergence found shipping without an entry is a defect against this section
 (the specimen that motivated it: v4's per-row pin, §6.1, shipped undeclared
 and is withdrawn in this same amendment).
+
+**Entry 4 was itself filed late, and that is the section's SECOND specimen
+rather than an exception to the sentence above.** The rule is that an entry
+lands in the amendment that creates the divergence; entry 4's divergence was
+created at v3 and its entry lands at v6, three amendments later. Recorded as
+a defect against this section and repaired here, because a register that
+quietly back-dates its own late entries would report a compliance it does not
+have. What the two specimens share is the tell: both were divergences from a
+baseline the *adjacent paragraph quoted*, which is the position where a
+divergence is least likely to be noticed and most likely to read as a
+contradiction to whoever notices it next.
 
 ## 3. Inputs — served renderings only
 
@@ -460,6 +548,19 @@ names its families under §9, unchanged.
 untruncated Claims and Glosses live in the Full Report (§12), which the owner
 pulls per named group.
 
+**This clause and the baseline quoted below are RECONCILED at §2.4's register
+entry 4 — they are a DECLARED DIVERGENCE and not a contradiction** — v6,
+kogaki#167. The baseline's closed group presentation, quoted verbatim a few
+paragraphs down, names a per-Strand `gloss` and `journey`; this clause serves
+neither. From v3 until this amendment that gap sat in §6.1 with no entry in
+§2.4's register, and two adjacent paragraphs of this section therefore read
+as contradicting each other — which is how kogaki#167 found it. **The clause
+STANDS**: owner selection 2026-08-07, alternative **(b)**, the record is
+amended and the behaviour is not, and no runtime changes. A reader holding
+either paragraph is directed to **§2.4 entry 4** for the disposition, the
+owner's ground, and the cost — the register is what reconciles them, and
+neither paragraph is edited to hide the gap.
+
 **Each member row carries its served pin beside its ID** — v4, kogaki#133.
 This is one token more than the ratified form quoted below names, so it is
 stated rather than left as an unexplained column. Two grounds: §3's
@@ -517,6 +618,18 @@ That split is the ratified form rather than a new design here:
 
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:79`
 
+**PIN CORRECTION — v6, kogaki#167's currency check.** At the served HEAD
+`0cb46066653ef3db2e33f69971829d25c06b6507` the quote above is
+**`topics/articles.md:80`**, not `:79`. This is not cosmetic drift: at that
+HEAD **`:79` holds different content** — the 2026-07-29 adoption of the co-tag
+second navigation step — so the pin as written **still resolves, and resolves
+to the wrong line**, which is the failure mode a resolving-pin check cannot
+see. `issue-pins --recheck` reported `ok: pins current` across it. The
+original sha-qualified pin is left standing rather than edited away, because
+it is an accurate record of what was read at `f918c51`; a reader working at
+the new HEAD uses `:80`. §8.1's currency block carries the general finding and
+names the other two sites that quote this same line.
+
   request_id: a50873dc-3240-4019-9fb9-2c3c18d64c6e
   outcome: discriminating
   query: Should a navigation screen carry a compact list of IDs and claims with the full untruncated material living in a separate report artifact, or should the screen itself carry the reading material? Does moving reading material off the screen into a report hide anything?
@@ -561,6 +674,48 @@ owner-verdicted → offered — and §8.1's offering gate is **undischarged**.
 Serving SubGroups on the co-tag screen is what gives the owner output to
 verdict; it is not the verdict, and merging it does not discharge the gate.
 Carried as `deferred-slot: terrain-subdivision-offering-verdict`.
+
+**`deferred-slot: terrain-subdivision-offering-verdict` is DISCHARGED** —
+v6, owner ruling 2026-08-07 (kogaki#168). **The slot asked** for the
+owner-verdict step of §8.1's implemented → dogfooded → owner-verdicted →
+offered ordering: it held the question open because merged subdivision code
+evidences existence and never the gate's standing. The 2026-08-06 and
+2026-08-07 dogfood rounds produced the specimen it was waiting on — judged
+SubGroup output carrying judge pins in the architecture Full Reports — the
+owner has now seen that output across two rounds, and this is the verdict
+delivered. The slot is **discharged**, not re-pointed: the act it named has
+been performed by the actor it named.
+
+**What the verdict returned is stronger than the offering the ordering
+anticipated: REQUIRE, not offer.** SubGroups on the screen and in the Full
+Reports are a **required** part of the served surface. Until a run serves
+them, **every Terrain run is a contract violation and is treated as a FAILED
+run** — and a dogfood verdict taken on any *other* aspect of such a run is a
+verdict on a failed specimen, which is why kogaki#165 (the subdivide crash)
+and this ruling are upstream of every further Terrain dogfood round.
+
+**"Required" governs the JUDGMENT, never the outcome — §8's threshold rule is
+untouched.** A run may not **skip the subdivision judgment**; it does not
+follow that every group subdivides. SubGroups appear exactly where §8's
+conjunctive leaf condition and its two disjunctive disclosures put them,
+judged, with the judge pin required by the three requirements below. **No
+member-count threshold is introduced or implied** — §8's standing rule that a
+number appearing in the code as one is a defect stands unchanged, and this
+ruling must not be read as re-admitting kogaki#128's "five or more" through
+the word "required". A group whose leaf condition fails renders no SubGroups
+and is fully conformant; what is refused is a run that **never asked**.
+
+**The alternative this ruling OVERRULES, named because another issue carries
+it and the two must not be read against each other.** kogaki#163 proposed
+enforcing "never default" — removing the judge pass from the default path —
+as a **latency** fix. **That lever is DECLINED by this ruling**: the judge
+pass is mandatory. kogaki#163's latency finding is *not* dismissed and stands
+on its own; it must be solved with its other levers — relaying the screen
+before report generation, and bounding claim and subdivision composition to
+the tag-scoped served Gloss shard — or with new ones, **never by dropping
+SubGroups**. Recorded here rather than only on the issue thread because a
+lever declined in one issue's comments is invisible to the sitting that picks
+up the other.
 
 **The screen JUDGES its SubGroups; it does not merely render them** — v4,
 kogaki#133. v3's wording ("where §8's conjunctive leaf condition and its two
@@ -839,6 +994,220 @@ and Kogaki's reimplementation inherits the ordering rather than the
 discharge. **Merging Kogaki's subdivision code does not discharge it either**
 — that is the same lesson one repository over.
 
+**The ordering RAN TO COMPLETION on Kogaki's own specimen, and its last step
+is now DELIVERED** — v6, owner ruling 2026-08-07 (kogaki#168). Implemented
+(§8's `subdivide`), dogfooded (2026-08-06 and 2026-08-07), owner-verdicted
+(kogaki#168). §6.2's `deferred-slot: terrain-subdivision-offering-verdict` is
+discharged there, where the slot was declared; this section records what that
+discharge does to its own three sentences, because two of them would
+otherwise be read as still denying it.
+
+- **"It is not offered until the owner has verdicted its output" is
+  SATISFIED, not weakened.** The verdict exists and its content is stronger
+  than an offering: SubGroups are **REQUIRED**, so there is no flag left to
+  offer and no default left to flip. The ordering was never a prohibition on
+  arriving at its own last step — it was a prohibition on **skipping** to
+  the last step, and nothing here skipped.
+- **"Co-tags stay the default for a run naming no substrate" STANDS,
+  entirely untouched.** That rider is about which **substrate** a run
+  surveys — co-tags versus journey-similarity — and the hub carries it in
+  its own right: *"the discharge licensed an OFFERING, not a promotion —
+  co-tags remains the default for a run naming no substrate"*
+  (`topics/articles.md:64`). **SubGroups render INSIDE a co-tag group**;
+  requiring them decides nothing whatever about the substrate. A reading of
+  kogaki#168 that promotes some other substrate to the default is a
+  misreading of this section, and is refused here in advance.
+- **The HUB-SIDE gate pointer stays NAMED, and is NOT claimed as discharged
+  by this spec.** The staging pointer above remains as written. The hub
+  re-pointed the offering measurement to Kogaki as the successor
+  implementation on 2026-08-05 — *"the measurement is owed by kogaki#27's
+  subdivision implementation and fires when that ships, not before"*, with
+  the measure-before-offer **ordering surviving unchanged**
+  (`topics/articles.md:9`) — so this consumer-side verdict is delivered
+  against a measurement the hub itself routed here. **What Kogaki may do is
+  record its own verdict; what it may not do is write the hub's record.**
+  The gateway is read-only, so the disposition owed upstream is a
+  **proposal staged through the hub's own intake**, not an edit made from
+  this side, and it is **owed rather than done** as of this amendment. The
+  conflict between the inherited never-default ordering and this
+  consumer-side REQUIRE verdict is therefore **surfaced here rather than
+  silently resolved**, exactly as kogaki#168 asks.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:9,54,64`
+
+  request_id: d39e620d-aced-4dba-a84d-1ac7951163a7
+  outcome: discriminating
+  query: When a downstream owner delivers the verdict that a dogfood-first mechanism's output is REQUIRED rather than optional, does that discharge the inherited offering gate, or does the never-default ordering still stand?
+
+**The line that settles the slot, quoted whole rather than in fragment.** The
+hub did not leave the offering measurement unobservable when its original
+implementation was archived — it **re-pointed it to Kogaki**:
+
+> "**The semantic-subdivision OFFERING MEASUREMENT is RE-POINTED to Kogaki
+> rather than declared unobservable … the measurement is owed by the
+> SUCCESSOR implementation.** … the measure-before-offer ORDERING survives
+> unchanged … and nothing about a repository archive discharges an ordering;
+> the CALIBRATION DATA survives and is the re-point's whole value … the
+> SPECIMEN does not survive, so the measurement is owed by kogaki#27's
+> subdivision implementation and **fires when that ships, not before**."
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:9`
+
+  request_id: 6d49edc3-e9bd-487b-b11c-6b9013c29661
+  outcome: discriminating
+  query: topic_thread("articles") — the decision thread read WHOLE (127 lines) so the offering-measurement re-point's boundary travels with it rather than being relied on as an excerpt.
+
+The pin names `:9`, the line **relied on**; the call returned the thread whole
+(`topics/articles.md:1-127`) and the query line above records that, because
+what discharges the boundary-quoting duty here is the **whole read**, not the
+one line. The pin-currency findings in this section — `:54`, `:80`, `:95` —
+were all verified by content against that same read.
+
+**Read whole, this line DISCHARGES the slot rather than re-pointing it
+again**, and the distinction is worth stating because a fragment of it reads
+the other way:
+
+- Its "nothing … discharges an ordering" clause is scoped to a **repository
+  archive**, not to an owner verdict. An archive is an accident of custody; a
+  verdict is the ordering's own named step. The ordering survived the
+  archive — and has now been *executed*, not bypassed.
+- Its condition is **met, not pending**. The measurement "fires when that
+  ships": Kogaki's subdivision implementation **has** shipped, it was
+  dogfooded on 2026-08-06 and 2026-08-07, and the owner verdicted on
+  2026-08-07. The line names Kogaki as the actor owing the measurement and
+  Kogaki's owner is who delivered it.
+- The **calibration data** the re-point exists to preserve is untouched by
+  this amendment — no member-count threshold enters, per §8's standing rule.
+
+So the slot is **discharged, not re-pointed a second time**. What remains
+owed upstream is the *record* of that discharge in the hub, which is a
+proposal through the hub's intake and is tracked as this sitting's one
+deferred remainder — not a further deferral of the decision itself.
+
+**Disposition read under `policy/consultation-map.md` entry 3 (record
+disposition).** The entry binds this amendment — it records a **declined**
+alternative, an **adopted** ruling, and clauses that **still stand** — and
+its prescription was executed rather than assumed: the gloss shard was
+surveyed headline-first, and **both carriers were read WHOLE with their
+comments** (`gh issue view 167 --comments`, `gh issue view 168 --comments`),
+because a body-only read is the partial projection that satisfies a total-read
+rule without discharging it
+(`gloss/lessons/knowledge-architecture.md:41`). The triage comments on both
+issues state the fork as "whether `deferred-slot:
+terrain-subdivision-offering-verdict` is discharged or re-pointed" and record
+that no spec text was amended and no served position was leaned on — which
+is consistent with, and not superseded by, what is written here. **No
+contradicting record was found on either carrier.** The entry's own rider is
+honoured in the finding above: `issue-pins --recheck` does **not** discharge
+this read, and here it demonstrably did not.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/knowledge-architecture.md:1-343`
+
+  request_id: 4c76a49b-6e16-4974-b596-f3cb72748a55
+  outcome: discriminating
+  query: gloss_index("lessons/knowledge-architecture") — entry 3's headline-first survey, read whole before the disposition was written.
+
+The shard is cited at the range the call actually returned rather than at the
+three lines relied on, because the tool served the shard whole and a receipt
+naming only the useful lines would report a narrower read than was performed.
+The lines relied on within it are `:41` (partial projection vs total read),
+`:197` (precedence per axis), and `:203` (declines travel with their
+boundary) — the last is why §2.4 entry 4 carries alternative (a)'s
+distinguishing reason **on the same statement as the decline** rather than a
+line below it.
+
+**CURRENCY OF THE SERVED LINES THIS SECTION RESTS ON — checked at this
+amendment, and recorded because the mechanism that would normally carry it
+CANNOT SEE THIS.** `policy/kit/bin/issue-pins.mjs --recheck` returns
+`ok: pins current` for both kogaki#167 and kogaki#168 by comparing SHAs. That
+is not line liveness, and here the difference is demonstrable rather than
+theoretical:
+
+- **The served hub HEAD has MOVED** since this section was written:
+  `f918c5158c718394b3a0e4f10239d75bbb451b74`, pinned above and at §6.1, is
+  now `0cb46066653ef3db2e33f69971829d25c06b6507`.
+- **The load-bearing line MOVED WITH IT.** The *"shipping a judged substrate
+  ARRIVES at its offering gate"* quote is pinned above at
+  `topics/articles.md:53`; at the served HEAD the same text is
+  `topics/articles.md:54`. Same content, different line — and the recheck
+  reported `pins current` straight across that move. **This is the gap
+  kogaki#188 carries** (kogaki#169 is the nearest neighbour and is CLOSED, on
+  a different question — a merge against a superseded declination — so it is
+  named as kin rather than as this defect's carrier), **reproduced in this
+  file**, and it is why the
+  check below was done by content rather than by resolution.
+- **No served line postdates the ruling this section records, and none was
+  read as if it did.** The newest content in `topics/articles.md` is
+  **2026-08-05** (the re-point at `:9`), and `GLOSSARY.md:234` still reads
+  *"semantic subdivision adopted 2026-07-31 with its offering measurement
+  outstanding"* at `updated: 2026-08-05`. The owner's ruling is **2026-08-07**
+  — two days newer than anything served. **So the substrate cannot speak to
+  kogaki#168 either way**: what is quoted from it here is the *ordering* the
+  ruling completes, never a line endorsing or denying the ruling itself. The
+  verdict is the owner's own and is carried, not derived.
+- **A SECOND, WORSE INSTANCE was found by this check, and it is a resolving
+  pin pointing at the wrong line.** §6.1's Top-N-withdrawal quote is pinned
+  `topics/articles.md:79@f918c51`. At the served HEAD that text is **`:80`**,
+  and **`:79` now holds an unrelated 2026-07-29 decision**. The pin therefore
+  resolves cleanly to content that is not what it was cited for — which no
+  resolution check can catch, since resolution is exactly what succeeds.
+  **Three sites in this spec quote that line:** §6.1 (corrected in place at
+  v6, with the original left standing as the record of what was read) and
+  **two in §11**, at the co-tag-ORDERING bullet and the eager-versus-pull
+  bullet, **left uncorrected here on purpose** — §11 is another sitting's
+  open surface and silently editing its pins would be this same defect
+  committed from the other side. Whoever next amends §11 corrects both to
+  `:80` and re-reads by content; the carrier is named below.
+- **A THIRD instance, in §10, found by another lane and repaired here.**
+  §10's block-quoted refusal is pinned `topics/articles.md:94@f918c51`; at
+  the served HEAD that refusal is **`:95`**, and `:94` holds an unrelated
+  2026-07-28 decision. Corrected in place at §10, **verified by content
+  rather than renumbered on trust** — which is the discipline this section
+  exists to enforce, since renumbering on trust is how the second instance
+  would have been "fixed" into a new wrong pin. The story-1.32 lane found it
+  and could not repair it without colliding on this file; single-writer
+  ownership is why it routed here rather than being fixed where it was found.
+- **The general form, stated because three instances in one session is a
+  class and not bad luck.** `--recheck` compares SHAs, so a pin can drift,
+  resolve cleanly to the wrong content, and pass **every guard this
+  repository has** — including the case where the carrier issue declares
+  `consult: none`, which exits 0 without comparing anything. **A record that
+  is well-formed and wrong is the shape none of these instruments can see**,
+  and it is the same class as a reused `request_id` (a receipt that is
+  well-formed and attests the wrong reading). The repair is not a better
+  comparison of shas; it is reading by content at the moment a pin is relied
+  on. This is carried as a defect with its own carrier rather than left as
+  prose in a spec, because prose naming no actor produces no next action:
+  **kogaki#188**, which also owns §11's two uncorrected sites. (kogaki#169,
+  the nearest existing carrier, is CLOSED and covered a different question —
+  a merge against a superseded declination — so it could not hold this.)
+- **The precedence split, declared per axis rather than per artifact**, since
+  the served surface discriminates it: *"A question like 'what's the status
+  of this?' often has two halves answered by two different systems … If you
+  write one rule for resolving disagreements, such as 'trust the more recent
+  record', you hand one system the final word on facts it has no way to
+  observe"* (`gloss/lessons/knowledge-architecture.md:197`,
+  `declare-precedence-per-axis-not-per-artifact`). **The hub owns the
+  ORDERING axis** — measure-before-offer, inherited and quoted here at its
+  pin. **The owner owns the VERDICT axis** — whether the output serves. This
+  amendment does **not** claim the 2026-08-07 ruling beats the substrate by
+  being newer; the substrate has nothing to beat, because it never spoke to
+  the verdict. Recency is why the substrate is *silent* here, never why it
+  *loses*.
+- **What this means for a later reader.** A recheck that returns
+  `pins current` over this section is evidence about SHAs and not about
+  whether these lines still say what they said, and — per §6.1's correction
+  — not even evidence that a pin points at its own quote. Re-read
+  `topics/articles.md:9,54,64,80,95` and `GLOSSARY.md:234` **by content**
+  before relying on them, and expect their line numbers to have moved again.
+
+**What this amendment leaves owed, named rather than implied:** §12's Full
+Report contract is **not** reconciled with kogaki#168 — §12.1 still presents a
+judge pin of `none` as a conformant peer, which under this ruling it is not
+for a co-tag-generated report. Neither kogaki#167 nor kogaki#168 licenses §12,
+so it is carved out to **kogaki#189** rather than fixed here. The skill-layer
+half is **kogaki#183**, and the upstream record is **kogaki#185**.
+
 ### 8.2 The second-proposer boundary is unchanged by §§6–8
 
 Grouping, claims and subdivision are **presentation** — placement plus
@@ -1068,6 +1437,18 @@ entry surface:
 > design."
 
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:94`
+
+**PIN CORRECTION — v6, kogaki#167's currency check (third instance).** At the
+served HEAD `0cb46066653ef3db2e33f69971829d25c06b6507` the refusal quoted
+above is **`topics/articles.md:95`**, not `:94`; at that HEAD **`:94` holds a
+different 2026-07-28 decision** (per-entry tags on decision renderings,
+declined). **Verified by content, not renumbered on trust** — the text at
+`:95` is the same refusal word for word, and the substance is unchanged: the
+refusal is still served and still standing, so §10's parking is untouched.
+The original sha-qualified pin is left standing as the accurate record of
+what was read at `f918c51`; a reader at the new HEAD uses `:95`. Found by the
+story-1.32 lane, which could not repair it without a collision on this file,
+and repaired here. `issue-pins --recheck` exited 0 across this drift too.
 
   request_id: ef6835eb-a6ff-4054-b2d6-22b7e42cd3be
   outcome: discriminating
