@@ -1051,11 +1051,16 @@ implementation was archived — it **re-pointed it to Kogaki**:
 > SPECIMEN does not survive, so the measurement is owed by kogaki#27's
 > subdivision implementation and **fires when that ships, not before**."
 
-`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:9`
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:1-127`
 
   request_id: 6d49edc3-e9bd-487b-b11c-6b9013c29661
   outcome: discriminating
   query: topic_thread("articles") — the decision thread read WHOLE (127 lines) so this line's boundary travels with it, rather than relied on as an excerpt.
+
+Pinned at the range the call returned, not at the one line relied on — the
+same rule this amendment applies to the gloss shard below. The line relied on
+within it is `:9`; the pin-currency findings in this section (`:54`, `:80`,
+`:95`) were verified against this same whole read.
 
 **Read whole, this line DISCHARGES the slot rather than re-pointing it
 again**, and the distinction is worth stating because a fragment of it reads
@@ -1148,13 +1153,36 @@ theoretical:
   bullet, **left uncorrected here on purpose** — §11 is another sitting's
   open surface and silently editing its pins would be this same defect
   committed from the other side. Whoever next amends §11 corrects both to
-  `:80` and re-reads by content.
+  `:80` and re-reads by content; the carrier is named below.
+- **A THIRD instance, in §10, found by another lane and repaired here.**
+  §10's block-quoted refusal is pinned `topics/articles.md:94@f918c51`; at
+  the served HEAD that refusal is **`:95`**, and `:94` holds an unrelated
+  2026-07-28 decision. Corrected in place at §10, **verified by content
+  rather than renumbered on trust** — which is the discipline this section
+  exists to enforce, since renumbering on trust is how the second instance
+  would have been "fixed" into a new wrong pin. The story-1.32 lane found it
+  and could not repair it without colliding on this file; single-writer
+  ownership is why it routed here rather than being fixed where it was found.
+- **The general form, stated because three instances in one session is a
+  class and not bad luck.** `--recheck` compares SHAs, so a pin can drift,
+  resolve cleanly to the wrong content, and pass **every guard this
+  repository has** — including the case where the carrier issue declares
+  `consult: none`, which exits 0 without comparing anything. **A record that
+  is well-formed and wrong is the shape none of these instruments can see**,
+  and it is the same class as a reused `request_id` (a receipt that is
+  well-formed and attests the wrong reading). The repair is not a better
+  comparison of shas; it is reading by content at the moment a pin is relied
+  on. This is carried as a defect with its own carrier rather than left as
+  prose in a spec, because prose naming no actor produces no next action:
+  **kogaki#188**, which also owns §11's two uncorrected sites. (kogaki#169,
+  the nearest existing carrier, is CLOSED and covered a different question —
+  a merge against a superseded declination — so it could not hold this.)
 - **The precedence split, declared per axis rather than per artifact**, since
   the served surface discriminates it: *"A question like 'what's the status
   of this?' often has two halves answered by two different systems … If you
   write one rule for resolving disagreements, such as 'trust the more recent
   record', you hand one system the final word on facts it has no way to
-  see"* (`gloss/lessons/knowledge-architecture.md:197`,
+  observe"* (`gloss/lessons/knowledge-architecture.md:197`,
   `declare-precedence-per-axis-not-per-artifact`). **The hub owns the
   ORDERING axis** — measure-before-offer, inherited and quoted here at its
   pin. **The owner owns the VERDICT axis** — whether the output serves. This
@@ -1166,8 +1194,15 @@ theoretical:
   `pins current` over this section is evidence about SHAs and not about
   whether these lines still say what they said, and — per §6.1's correction
   — not even evidence that a pin points at its own quote. Re-read
-  `topics/articles.md:9,54,64,80` and `GLOSSARY.md:234` **by content** before
-  relying on them, and expect their line numbers to have moved again.
+  `topics/articles.md:9,54,64,80,95` and `GLOSSARY.md:234` **by content**
+  before relying on them, and expect their line numbers to have moved again.
+
+**What this amendment leaves owed, named rather than implied:** §12's Full
+Report contract is **not** reconciled with kogaki#168 — §12.1 still presents a
+judge pin of `none` as a conformant peer, which under this ruling it is not
+for a co-tag-generated report. Neither kogaki#167 nor kogaki#168 licenses §12,
+so it is carved out to **kogaki#189** rather than fixed here. The skill-layer
+half is **kogaki#183**, and the upstream record is **kogaki#185**.
 
 ### 8.2 The second-proposer boundary is unchanged by §§6–8
 
@@ -1398,6 +1433,18 @@ entry surface:
 > design."
 
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:94`
+
+**PIN CORRECTION — v6, kogaki#167's currency check (third instance).** At the
+served HEAD `0cb46066653ef3db2e33f69971829d25c06b6507` the refusal quoted
+above is **`topics/articles.md:95`**, not `:94`; at that HEAD **`:94` holds a
+different 2026-07-28 decision** (per-entry tags on decision renderings,
+declined). **Verified by content, not renumbered on trust** — the text at
+`:95` is the same refusal word for word, and the substance is unchanged: the
+refusal is still served and still standing, so §10's parking is untouched.
+The original sha-qualified pin is left standing as the accurate record of
+what was read at `f918c51`; a reader at the new HEAD uses `:95`. Found by the
+story-1.32 lane, which could not repair it without a collision on this file,
+and repaired here. `issue-pins --recheck` exited 0 across this drift too.
 
   request_id: ef6835eb-a6ff-4054-b2d6-22b7e42cd3be
   outcome: discriminating
