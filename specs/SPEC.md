@@ -206,6 +206,43 @@ invariant: Gukan guarantees Unit schema, never data schema).
      staleness window's declaration-in-configuration rule below is unchanged and
      now governs that fallback.
 
+     **The cost of this polarity is STATED, because v2 argued it in one
+     direction only** (PR #231 review round 1). Asking first means an
+     **observed-alive round is no longer bounded above**: v1 released every
+     round after the window, and v2 releases one **never**, for as long as the
+     probed number answers. Two reachable ways that happens — a **recycled
+     pid**, since the sweep's pid outlives its run in a log and `kill(pid, 0)`
+     cannot tell reuse from the original (a `PermissionError` deliberately
+     reading as alive makes this likelier, not less), and a session that
+     **hangs alive** rather than dying. Either pins the round permanently, a
+     state v1 could not reach.
+
+     **It is accepted rather than repaired here, and the trade is named so it
+     is chosen rather than discovered.** The failure v1 had was a *killed*
+     session blocking its own retry for the balance of the window — silent,
+     recurring, and the #225 specimen; the failure v2 admits is a *hung or
+     recycled* pid blocking it indefinitely, which is louder (the decline
+     prints on every poll, naming the log and its age) and rarer. Trading a
+     silent common failure for a loud rare one is the direction this repository
+     takes elsewhere, and it is the reason the fourth token prints the age at
+     all.
+
+     **The bound is a NAMED SLOT rather than an unstated remainder:**
+
+         deferred-slot: inflight-liveness-upper-bound
+         instrument: the decline line itself — it prints the log path and the
+                     age on every poll, so a round pinned past any plausible
+                     review duration is visible in the sweep's own output
+                     rather than requiring a separate observer
+
+     Filling it means qualifying the recorded pid so reuse is detectable — a
+     start-time or the command line beside it, compared at probe — and it is
+     **not decided here** because the cheap version (start-time from
+     `/proc`) is not portable and the portable version is a second mechanism,
+     which is the same ground on which `flock` was declined just below. The
+     slot is named per DECIDE-OR-NAME rather than left as a gap the next
+     reader rediscovers.
+
      **The declined alternatives, recorded with their grounds.** An
      **OS-released lock** (`flock`) is strictly stronger for the local case —
      the kernel releases it on any death, including `kill -9`, with no cleanup

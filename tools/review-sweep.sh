@@ -1815,14 +1815,35 @@ def round_state(log_path, now=None, ttl=None, exists=None, mtime=None, text=None
     what was attempted". What it lacked is a TERMINAL line, so existence alone
     could not separate in-flight from finished. That is the whole addition.
 
-    The three states, and why `absent` covers abandonment:
+    THE FOUR STATES (§4 clause 4 v2, kogaki#227). The v1 contract described
+    here was THREE states inferring the window two ways, and it is superseded
+    rather than edited away, because the superseded rule is what a reader
+    reaching for this function's contract would otherwise still get (PR #231
+    review round 1, should):
 
-      finished    the terminal line is present, written on every exit path.
-      in-flight   no terminal line, and the file was touched inside the
-                  declared window.
-      absent      no file at all, OR no terminal line and the file went quiet
-                  outside the window — a killed spawn must not block its round
-                  forever, so an abandoned log permits a fresh spawn.
+      finished          the terminal line is present, written on EVERY exit
+                        path.
+      in-flight         no terminal line, and the spawning process was
+                        OBSERVED ALIVE. Asked and answered.
+      absent            no terminal line and the process was observed GONE, so
+                        a fresh spawn is permitted IMMEDIATELY; or no file at
+                        all; or liveness unobservable AND the window expired.
+      cannot-determine  no terminal line and liveness COULD NOT BE OBSERVED —
+                        no pid recorded for this attempt. ONLY HERE does the
+                        declared window decide, and the token exists so the
+                        decline can say it could not ask rather than reporting
+                        a liveness it never checked.
+
+    v1's rule was `in-flight` when touched inside the window and `absent`
+    outside it — which made the window the FIRST question rather than the last,
+    so a killed session blocked its own retry for the balance of it (the #225
+    specimen) and a slow one read as abandoned. Liveness is locally decidable
+    from a recorded pid, so it is asked FIRST and the window is the fallback.
+
+    Blocking-ness is NOT a property of a single token: `in-flight` and
+    `cannot-determine` both block a spawn, and callers test `BLOCKS_A_SPAWN`
+    rather than either literal. They differ only in what the operator is told,
+    which is the whole reason the fourth token is returned instead of folded.
 
     Pure over its inputs when they are supplied, so the fixture pass can state
     a clock and a filesystem rather than depend on either.
@@ -1877,14 +1898,52 @@ def round_state(log_path, now=None, ttl=None, exists=None, mtime=None, text=None
         # balance of a 30-minute window.
         return 'absent'
     # alive is None: liveness could not be observed. ONLY HERE does the window
-    # decide, and the caller says it could not ask.
+    # decide, and the state it returns SAYS SO — `cannot-determine`, never
+    # `in-flight`.
+    #
+    # THE FOURTH TOKEN EXISTS BECAUSE THE THIRD ONE CANNOT CARRY THIS (PR #231
+    # review round 1, blocking). v2 of §4 clause 4 ratified that the decline
+    # "says that it could not ask", and the first implementation returned
+    # `'in-flight'` from BOTH the observed-alive branch above and this one — so
+    # the code held four states internally and the operator-visible artifact was
+    # still the two-valued report the clause was ratified to END. A state a
+    # caller cannot distinguish is not a state; it is a comment. The clause is
+    # satisfied by what the DECLINE PRINTS, so the token has to reach the
+    # printer, which means it has to leave this function.
     if mtime is None:
         try:
             mtime = os.path.getmtime(log_path)
         except OSError:
             return 'absent'
     now = time.time() if now is None else now
-    return 'in-flight' if (now - mtime) <= ttl else 'absent'
+    return 'cannot-determine' if (now - mtime) <= ttl else 'absent'
+
+
+# Both blocking states, named once. A caller asking "may I spawn?" treats these
+# identically; a caller PRINTING must not, which is the whole of the #231
+# finding — so the shared predicate lives here and the messages stay separate.
+BLOCKS_A_SPAWN = ('in-flight', 'cannot-determine')
+
+
+def decline_line(state, log_path, age, ttl):
+    """The operator-visible sentence for a blocked spawn, one writer.
+
+    Sited here rather than at each call site for the reason this file's header
+    gives about guards: the review path and the dry-run path must not be able
+    to disagree about what they SAY, and two format strings maintained apart is
+    exactly how they would. `--dry-run` prefixes its own "would NOT"; the
+    clause-bearing half is identical by construction because it is one string.
+    """
+    if state == 'cannot-determine':
+        return (f"a round's liveness COULD NOT BE OBSERVED — no pid recorded for "
+                f"this attempt, so the {ttl}s window decided and nothing spawned "
+                f"(log {log_path}, last wrote {age}s ago). This is NOT a report "
+                f"that the round is alive: it is a report that the question could "
+                f"not be asked (specs/SPEC.md §4 clause 4 v2, kogaki#227).")
+    return (f"a round is already IN FLIGHT — its spawning process was OBSERVED "
+            f"ALIVE, so nothing spawned (log {log_path}, last wrote {age}s ago). "
+            f"A poll reads state; it must never re-fire the trigger it is "
+            f"waiting on (kogaki#204).")
 
 
 def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
@@ -1922,17 +1981,14 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
     # `|| true`, which removes the guard by ergonomics. Disclosure is not
     # traded away for that: the in-flight round prints on every iteration.
     state = round_state(log_path)
-    if state == 'in-flight':
+    if state in BLOCKS_A_SPAWN:
         try:
             age = int(time.time() - os.path.getmtime(log_path))
         except OSError:
             age = -1
         _m = re.search(r"pr-(\d+)-(?:round|fix)-(\d+)\.log$", log_path)
         _who = f"PR #{_m.group(1)} round {_m.group(2)}" if _m else "this round"
-        print(f"  {_who}: a round is already IN FLIGHT — nothing spawned "
-              f"(log {log_path}, last wrote {age}s ago, window {INFLIGHT_TTL}s). "
-              f"A poll reads state; it must never re-fire the trigger it is "
-              f"waiting on (kogaki#204).")
+        print(f"  {_who}: {decline_line(state, log_path, age, INFLIGHT_TTL)}")
         return SPAWN_IN_FLIGHT
     # CLAIM THE ROUND BEFORE ANY SETUP WORK (PR #219 review round 1, nit 3).
     # The state read above and the log's first write were several statements
@@ -3274,18 +3330,20 @@ _T = TERMINAL_MARK + " round closed"
 for _label, _kw, _want in [
     ("no log at all -> absent, so the first spawn proceeds",
      dict(exists=False), 'absent'),
-    ("log written, no terminal line, inside the window -> IN FLIGHT",
+    ("log written, no terminal line, NO PID, inside the window -> "
+     "CANNOT-DETERMINE (v1 called this in-flight and could not say why)",
      dict(exists=True, text="=== spawn: claude -p ...", now=1000.0, mtime=990.0,
-          ttl=1800), 'in-flight'),
+          ttl=1800), 'cannot-determine'),
     ("the terminal line is present -> finished, however old",
      dict(exists=True, text="=== spawn: ...\n" + _T, now=9e9, mtime=0.0,
           ttl=1800), 'finished'),
     ("no terminal line and the window has passed -> absent, so a retry is allowed",
      dict(exists=True, text="=== spawn: ...", now=1000.0, mtime=0.0, ttl=60),
      'absent'),
-    ("exactly at the window edge is still in flight (<=, not <)",
+    ("exactly at the window edge still BLOCKS (<=, not <) — and reports "
+     "cannot-determine, since the window only ever decides that case",
      dict(exists=True, text="=== spawn: ...", now=1060.0, mtime=1000.0, ttl=60),
-     'in-flight'),
+     'cannot-determine'),
     ("an isolation failure closes its own round rather than looking live",
      dict(exists=True, text="=== worktree FAILED: x\n" + TERMINAL_MARK +
           " round closed (isolation failed)", now=1000.0, mtime=999.0,
@@ -3303,8 +3361,10 @@ _tmpd = tempfile.mkdtemp()
 _lp = os.path.join(_tmpd, "pr-999-round-1.log")
 with open(_lp, "w") as _f:
     _f.write("=== spawn: claude -p /review-lane 999\n")
-if round_state(_lp) != 'in-flight':
-    print("FAIL in-flight fixture [a freshly written round log reads in-flight]")
+if round_state(_lp) != 'cannot-determine':
+    print("FAIL in-flight fixture [a freshly written PID-LESS round log reads "
+          "cannot-determine, not in-flight — it blocks either way, and the "
+          "operator is told WHICH]")
     _inflight_fail = 1
 with open(_lp, "a") as _f:
     _f.write(_T + "\n")
@@ -3392,8 +3452,12 @@ with _ctx.redirect_stdout(_buf3):
 if _rc3 != SPAWN_IN_FLIGHT:
     print(f"FAIL in-flight fixture [spawn() returns the sentinel on an in-flight log]: got {_rc3}")
     _inflight_fail = 1
-if "IN FLIGHT" not in _buf3.getvalue() or "997" not in _buf3.getvalue():
-    print("FAIL in-flight fixture [the decline names the PR and round]")
+# This log carries NO pid, so the honest decline is cannot-determine — the
+# fixture asserted the "IN FLIGHT" literal before kogaki#231 and would have gone
+# on passing while the operator was told a liveness nobody checked.
+if "COULD NOT BE OBSERVED" not in _buf3.getvalue() or "997" not in _buf3.getvalue():
+    print("FAIL in-flight fixture [the decline names the PR and round, and a "
+          "PID-LESS log declines as cannot-determine rather than as IN FLIGHT]")
     _inflight_fail = 1
 # It launched nothing: the guard returns before the gate file is ever written.
 if os.path.exists(_lp3 + ".gate.py"):
@@ -3405,7 +3469,7 @@ if os.path.exists(_lp3 + ".gate.py"):
 # forever.
 with open(_lp3, "a") as _f:
     _f.write(_T + "\n" + SPAWN_MARK + " claude -p /review-lane 997 (second attempt)\n")
-if round_state(_lp3) != 'in-flight':
+if round_state(_lp3) != 'cannot-determine':
     print("FAIL in-flight fixture [a re-used round log reads the CURRENT attempt] — "
           "the terminal mark is sticky and the guard protects only the first spawn")
     _inflight_fail = 1
@@ -3440,9 +3504,9 @@ for _label, _kw, _want in [
     ("THE #225 SPECIMEN: a dead session frees its round IMMEDIATELY, inside the window",
      dict(exists=True, text=f"{SPAWN_MARK} x\n{PID_MARK} {_DEAD}",
           now=1000.0, mtime=999.0, ttl=1800), 'absent'),
-    ("no recorded pid -> cannot-determine, and the WINDOW decides (inside)",
+    ("no recorded pid -> CANNOT-DETERMINE is RETURNED, window decides (inside)",
      dict(exists=True, text=f"{SPAWN_MARK} x", now=1000.0, mtime=990.0,
-          ttl=1800), 'in-flight'),
+          ttl=1800), 'cannot-determine'),
     ("no recorded pid -> cannot-determine, and the WINDOW decides (outside)",
      dict(exists=True, text=f"{SPAWN_MARK} x", now=1000.0, mtime=0.0,
           ttl=60), 'absent'),
@@ -3492,6 +3556,83 @@ if _dsrc.count("_dry_state = round_state(spawn_log_path(n, rnd))") < 2:
           "question wearing the answer's clothes")
     _inflight_fail = 1
 
+# THE CLAUSE IS SATISFIED BY WHAT THE DECLINE PRINTS, so that is what is
+# asserted (PR #231 review round 1, blocking). §4 clause 4 v2 ratified that the
+# decline "says that it could not ask", and the first implementation satisfied
+# every state assertion above while printing ONE message for both blocking
+# states — four states in the code, a two-valued report at the operator. An
+# assertion over `round_state()` alone cannot catch that, because the defect is
+# downstream of it. These assert the SENTENCE.
+_cd = decline_line('cannot-determine', '/x/pr-9-round-1.log', 12, 1800)
+_if = decline_line('in-flight', '/x/pr-9-round-1.log', 12, 1800)
+if _cd == _if:
+    print("FAIL decline fixture [both blocking states print the SAME sentence] — "
+          "this is the exact two-valued report §4 clause 4 v2 was ratified to end")
+    _inflight_fail = 1
+if 'COULD NOT BE OBSERVED' not in _cd or 'could not be asked' not in _cd:
+    print("FAIL decline fixture [the cannot-determine decline does not SAY it "
+          "could not ask] — the clause binds the artifact, not the internal state")
+    _inflight_fail = 1
+if 'IN FLIGHT' not in _if or 'OBSERVED ALIVE' not in _if:
+    print("FAIL decline fixture [the in-flight decline does not state that "
+          "liveness was OBSERVED] — a positive claim owes its observation")
+    _inflight_fail = 1
+# ...and that a cannot-determine decline never claims liveness it did not check.
+if 'IN FLIGHT' in _cd:
+    print("FAIL decline fixture [the cannot-determine decline still reports IN FLIGHT]")
+    _inflight_fail = 1
+# Both blocking states must actually reach that printer via the guard's own
+# predicate, or the sentences above are unreachable decoration.
+for _st in ('in-flight', 'cannot-determine'):
+    if _st not in BLOCKS_A_SPAWN:
+        print(f"FAIL decline fixture [{_st} does not block a spawn]")
+        _inflight_fail = 1
+if 'absent' in BLOCKS_A_SPAWN or 'finished' in BLOCKS_A_SPAWN:
+    print("FAIL decline fixture [a non-blocking state blocks a spawn]")
+    _inflight_fail = 1
+# THE SIBLING CALL SITE, asserted by the same count discipline as its twin: the
+# FIX branch's dry-run was the one #227 left unguarded.
+if _dsrc.count("_fix_state = round_state(fix_log_path(n, used))") < 2:
+    print("FAIL liveness fixture [--dry-run does not consult the guard on the FIX "
+          "branch] — fixing one call site and leaving its sibling is how the class "
+          "survives its own repair")
+    _inflight_fail = 1
+# And no call site may test a blocking literal directly, which is how the
+# fourth token would get dropped on the floor at call site N+1.
+# Scoped to CODE, not to prose: the first draft of this assertion matched a
+# COMMENT forty lines up that quotes the old literal while describing it, and
+# fired on a file that was already correct. A source-scanning assertion owes the
+# same discrimination it demands — the searched-for text finding itself, one
+# more time, which is why the comment survives here rather than being deleted.
+if any(re.search(r"^\s*(?:el)?if\s+state == 'in-flight'", _l)
+       for _l in _dsrc.splitlines()):
+    print("FAIL liveness fixture [a call site tests the 'in-flight' literal rather "
+          "than BLOCKS_A_SPAWN] — cannot-determine would silently spawn there")
+    _inflight_fail = 1
+
+# AND THE OBSERVED-ALIVE ARM END TO END, which had no spawn()-level coverage at
+# all: every real-file decline fixture wrote a pid-less log, so the branch that
+# makes a POSITIVE liveness claim was asserted only through round_state().
+_tmpd5 = tempfile.mkdtemp()
+_lp5 = os.path.join(_tmpd5, "pr-996-round-1.log")
+with open(_lp5, "w") as _f:
+    _f.write(f"{SPAWN_MARK} claude -p /review-lane 996\n{PID_MARK} {_LIVE}\n")
+_buf5 = _io.StringIO()
+with _ctx.redirect_stdout(_buf5):
+    _rc5 = spawn("fixture — must never launch", _lp5, ref="HEAD", tag="fixture-alive")
+if _rc5 != SPAWN_IN_FLIGHT:
+    print(f"FAIL liveness fixture [a LIVE pid blocks the spawn]: got {_rc5}")
+    _inflight_fail = 1
+if "OBSERVED ALIVE" not in _buf5.getvalue() or "996" not in _buf5.getvalue():
+    print("FAIL liveness fixture [an observed-alive decline states that it "
+          "OBSERVED liveness] — the two blocking states must be told apart at "
+          "the operator, which is the whole of the kogaki#231 finding")
+    _inflight_fail = 1
+if "COULD NOT BE OBSERVED" in _buf5.getvalue():
+    print("FAIL liveness fixture [an observed-alive decline claims it could not ask]")
+    _inflight_fail = 1
+shutil.rmtree(_tmpd5, ignore_errors=True)
+
 # The sentinel must be distinguishable from every real exit code, or the
 # caller's `result != 0` branch would swallow it and post a stall comment
 # about a session that is still running.
@@ -3502,11 +3643,26 @@ if SPAWN_IN_FLIGHT in (0, ISOLATION_FAILED):
 if _inflight_fail:
     print("FAIL: a poll can still re-fire the trigger it is waiting on — kogaki#204")
     sys.exit(1)
-print("in-flight pass: 6/6 round-state cases (absent / in-flight / finished / "
-      "expired / window edge / isolation-failure closes its round) + 2 real-file "
-      "cases + a REAL spawn() call on the isolation path + the completion "
-      "path asserted structurally (disclosed as weaker) + the sentinel is "
-      "distinct from every real exit code")
+# THE ROLL-UP IS THE ONE LINE AN OPERATOR READS TO LEARN WHAT WAS ASSERTED, so
+# it names every half rather than the oldest one (PR #231 review round 1, nit).
+# It had gone unchanged across the kogaki#227 additions, which is the failure
+# mode a summary has: it keeps passing while describing less and less.
+print("in-flight pass: 6/6 round-state cases (absent / cannot-determine / "
+      "finished / expired / window edge / isolation-failure closes its round) "
+      "+ 2 real-file cases + a REAL spawn() call on the isolation path + the "
+      "completion path asserted structurally (disclosed as weaker) + the "
+      "sentinel is distinct from every real exit code; kogaki#227 liveness: "
+      "6/6 liveness state cases (live pid in flight however old / THE #225 "
+      "SPECIMEN, a dead session frees its round immediately / no pid inside "
+      "and outside the window / terminal line still wins / an earlier "
+      "attempt's pid does not answer for this one) + 3 pid_alive cases + 2 "
+      "attempt_pid scoping cases + the spawn() WRITER asserted (the pid line "
+      "must land after the real `=== spawn:` line, or the probe never fires) "
+      "+ both dry-run call sites consult the guard, counted not searched; "
+      "kogaki#231 decline: the two blocking states print DIFFERENT sentences, "
+      "cannot-determine says it could not ask and never claims IN FLIGHT, "
+      "in-flight states that liveness was OBSERVED, both reach the printer "
+      "via BLOCKS_A_SPAWN, and no call site tests a blocking literal directly")
 
 if bad:
     print("FAIL fixture pass — the sweep's state machine does not discriminate:")
@@ -3826,6 +3982,24 @@ for pr in prs:
             # dry run exists so the operator does not have to read the source
             # to learn what the spawn will run under, and where the session
             # will work is exactly that.
+            # THE SIBLING CALL SITE (PR #231 review round 1, should). kogaki#227
+            # fixed the REVIEW branch's dry-run guard and left the FIX branch's
+            # unconditioned, so §4 clause 4's "the two paths cannot disagree by
+            # construction" was true of one path and false of the other — the
+            # #227 specimen exactly, one call site over. That is the shape
+            # `spawn()`'s own comment names: a per-call-site guard leaves call
+            # site N+1 uncovered by default. Fixing one and leaving its sibling
+            # is how the class survives its own repair.
+            _fix_state = round_state(fix_log_path(n, used))
+            if _fix_state in BLOCKS_A_SPAWN:
+                try:
+                    _fage = int(time.time() - os.path.getmtime(fix_log_path(n, used)))
+                except OSError:
+                    _fage = -1
+                print(f"  #{n}: would NOT spawn FIX for round {used} — "
+                      f"{decline_line(_fix_state, fix_log_path(n, used), _fage, INFLIGHT_TTL)} "
+                      f"--spawn would refuse here too.")
+                continue
             print(f"  #{n}: would spawn FIX for round {used}'s findings "
                   f"[model {FIX_MODEL}, max-turns {MAX_TURNS}, "
                   f"{len(FIX_TOOLS.split(','))} granted tools, worktree "
@@ -3991,14 +4165,14 @@ for pr in prs:
             # no-op and read the refusal as a new failure. Evaluating the same
             # predicate is what makes the two paths unable to disagree.
             _dry_state = round_state(spawn_log_path(n, rnd))
-            if _dry_state == 'in-flight':
+            if _dry_state in BLOCKS_A_SPAWN:
                 try:
                     _age = int(time.time() - os.path.getmtime(spawn_log_path(n, rnd)))
                 except OSError:
                     _age = -1
-                print(f"  #{n}: would NOT spawn review round {rnd} — a round is "
-                      f"already IN FLIGHT (log {spawn_log_path(n, rnd)}, last wrote "
-                      f"{_age}s ago). --spawn would refuse here too (kogaki#204).")
+                print(f"  #{n}: would NOT spawn review round {rnd} — "
+                      f"{decline_line(_dry_state, spawn_log_path(n, rnd), _age, INFLIGHT_TTL)} "
+                      f"--spawn would refuse here too.")
                 continue
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
                   f"[model {r_model}, max-turns {r_turns}, "
