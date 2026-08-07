@@ -1893,6 +1893,96 @@ prevent.
 
 ## 11. Open — carried as questions, never as contract
 
+**THE `compose-input` SESSION-COMPLIANCE SLOT IS FILLED, AND IT LEAVES THIS
+SECTION** — v9, owner selection 2026-08-07 (kogaki#212). The slot was deferred
+by PR #198 and, with kogaki#183 and kogaki#194 both CLOSED, its only home was a
+merged PR body — which no lane enumerates and no trigger can read. That is
+carrier-less **by omission**, which `LESSONS.md:26` names as the defect rather
+than as one of the three admissible end states. This paragraph is the ruling
+that ends it.
+
+**The property, stated exactly.** `.claude/skills/terrain/SKILL.md:195` carries
+the hard line *"Compose from `compose-input`, never from the whole survey"*, and
+nothing observes whether a live session obeyed it. `cmdCotags` accepts
+`--survey`, `--tag`, `--claims`, `--subdivisions` and `--connective`
+(`terrain/terrain.mjs:575-591`) and records nothing about **how** the claims
+were composed; `checks/check-terrain-composition.sh` exercises `cotags` end to
+end and observes only its outputs. So the rule lives entirely in instruction
+text, which is advisory to something whose job is to satisfy instructions.
+
+**THE RESOLUTION: a `cotags` refusal keyed to the composition input, bound by
+CONTENT rather than by presence.** `compose-input` emits a **composition pin**
+beside its bounded read — the tag, the survey record's pin, and a digest of the
+**member set it served** — and `cotags --claims` requires that pin and refuses
+when the claims' group/member set is not a subset of what the pin covers.
+
+**Why content and not presence, which is the whole of the design.** A stamp
+asserting only that `compose-input` *ran* is satisfiable by a session that runs
+it, takes the stamp, and composes from the whole survey anyway. That is
+existence evidence standing in for standing:
+
+> "Mechanical existence evidence — merged stories, files on disk, a green log —
+> is local, self-evidencing, free to retrieve and terminal-looking, while the
+> standing of what was built … lives in non-local prose reached only by
+> protocol"
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:63`
+
+Binding the **subset relation** closes it: composing outside the bounded read
+becomes unproducible rather than discouraged, which is the ratified shape:
+
+> "constrain what the pipeline can **PRODUCE** rather than … improve what it
+> can **DETECT** — an enumerated prohibition can only name yesterday's leak
+> while a construction constraint makes tomorrow's unreachable"
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:47`
+
+**The two declined alternatives, with grounds.**
+
+- **A cross-run observer at a different unit — DECLINED.** Its case was real
+  and is recorded: the property genuinely *is* flow-level, about how a session
+  behaved across many calls, and `LESSONS.md:26`'s own rule is that the
+  detector's unit must match the property's. A read-count observer over the
+  gateway access record would match it exactly, flagging the unbounded shape
+  against the bounded one. Declined because it is **detection where a
+  construction constraint is available**, which `LESSONS.md:47` rules against
+  directly; because it needs cross-run state this repository has consistently
+  declined; and because its threshold would have to be calibrated on figures
+  (131 reads / ~19 min against 4 reads / 2 min 23 s at 172 placements) that
+  kogaki#212 explicitly **relays rather than re-measures** and does not stand
+  behind.
+- **A ratified carrier-less marking with a reopen trigger — DECLINED, and
+  genuinely admissible.** `LESSONS.md:26` names it as one of three legitimate
+  end states, and adopting it would still have been a real change, moving the
+  item from carrier-less-by-omission to carrier-less-by-ruling. Declined
+  because a constrain-shaped remedy sits one subcommand's argument validation
+  away, and ruling that no carrier is possible while one is reachable is the
+  shape refused at
+  `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/claude-code-ops.md:40`
+  — *"no carrier is possible* is admissible only as *no carrier is possible in
+  configuration X*, with X named".
+
+**The original trigger is DISCHARGED, not kept.** It read *"the next Terrain
+dogfood round that composes without the artifact, or any sitting licensing a
+change to `cotags`' argument validation"* — and this sitting **is** the second
+limb: it licenses exactly that change. A trigger whose condition has fired is
+discharged by acting, never re-armed.
+
+**A scheduling edge is stated here and written to no `depends_on`.** The story
+this decomposes to edits `terrain/terrain.mjs` and
+`.claude/skills/terrain/SKILL.md`, which kogaki#199's story 1.37 also edits —
+different subcommands (`cotags`/`compose-input` against `report`), the same
+files. And **kogaki#205 edits this very section (§11)** to correct its two
+`topics/articles.md:79` pins to `:80`. Neither is a dependency; both are
+ordering facts for whichever lane runs second.
+
+  request_id: 9e835f18-de01-4579-ab88-b5751a003103
+  outcome: covered-after-reframing
+
+**deferred slots: none.**
+
+---
+
 - **The completeness figure's rendering position.** The served material
   reports a specced burial: a contract that sorts output into buckets makes
   an editorial judgment about reader priority, and the bucket names hide it
