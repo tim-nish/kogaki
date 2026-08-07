@@ -899,7 +899,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
   grammar block above is unchanged and every receipt already in history stays
   parseable.
 
-  Four conditions bound the clause:
+  Five conditions bound the clause:
 
   1. **The emitting tool is the one that made the call** — the kit's own
      transport (`policy/kit/bin/gateway-query.mjs`, which today contains no
@@ -1175,7 +1175,212 @@ invariant: Gukan guarantees Unit schema, never data schema).
      therefore a real and probably owed change, and it is **outside kogaki#160's
      licence**, which is finding 4's receipt contract. It is filed through the
      typed path as its own issue rather than ridden in here, and named here so
-     it is not left unrecorded.
+     it is not left unrecorded. **That issue is kogaki#181, and condition 5
+     below DISCHARGES this carve-out** — its disposition is *discharged*, not
+     *open* and not *re-litigated*. Stated as a disposition rather than left to
+     the reader, because the served rule on record standing asks for exactly
+     that distinction:
+
+     > if it is mechanical, you have established existence and said nothing
+     > about approval, so read the decision record for verdicts dated after that
+     > evidence, and when they conflict the later verdict wins and the conflict
+     > is reported rather than quietly reconciled
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e gloss/lessons/knowledge-architecture.md:257`
+
+     The mechanical evidence here is the merged carve-out paragraph (`3aa73f5`),
+     which establishes that the carve-out *exists* and says nothing about its
+     standing. The verdict dated after it is the owner selection of 2026-08-07
+     recorded in condition 5, and it does **not** conflict with the carve-out —
+     it performs what the carve-out deferred. So there is no conflict to report,
+     and the disposition is recorded here rather than inferred from the
+     paragraph's continued presence.
+
+  5. **THE ANSWER MUST EVIDENCE THE ADDRESS THE FRAMING SENT. The transport
+     refuses the receipt (exit 12, `receipt not composable`) when the served
+     response does not evidence the address, and the half that is not decidable
+     consumer-side is ROUTED UPSTREAM rather than left silent** (owner selection
+     2026-08-07, kogaki#181).
+
+     Condition 4 is the receipt's `query:` field; this is its **answer** field,
+     and the two are different defects at one seam. `--question` makes the
+     recorded query provably the query that ran, and says nothing about whether
+     the call reached the artifact the arguments named. An unrecognized address
+     is **dropped silently**: the gateway returns a well-formed response to a
+     call the operator did not make, and the transport composes a receipt from
+     it. The receipt is then self-consistent and wrong — a real `request_id`, a
+     real served `consulted:` line, a truthful `query:` line, and an answer that
+     is another artifact's. **Four such receipts shipped in a single session**
+     (PR #170's lane, failure 2 above): they looked valid, cited real lines, and
+     their arguments never took effect.
+
+     **WHAT "EVIDENCES THE ADDRESS" MEANS, RESOLVED PER SERVED TOOL — measured
+     on the wire at `product-lab@98195e0a`, not assumed.** The served surface
+     answers an unrecognized address in exactly two ways, and the split is the
+     tool's **argument requiredness**, not its subject matter:
+
+     - **Required-address tools** — `policy_lookup.question`,
+       `glossary_entry.name`, `topic_thread.topic`, `surface_names.kind`.
+       An unrecognized address form fails MCP schema validation (`-32602`)
+       before it reaches the substrate, and the transport's existing wire loop
+       already turns that into the exit-11 degrade. **Evidenced by
+       construction**; nothing is owed.
+     - **Optional-address tools** — `gloss_index.tag`, `lessons_index.tags`,
+       `element_survey.kind`/`.tag`. The undeclared key is **silently dropped**
+       and the unfiltered artifact is served: `gloss_index` returns
+       `gloss/INDEX.md` where `gloss/lessons/testing.md` was addressed, and
+       `element_survey` returns 814 `ELEMENTS.jsonl` lines where 146 were
+       addressed — `miss: false`, a real id, a real pin. **This is the defect,
+       entire.**
+     - **The miss path, every tool.** A miss response carries `tool` and
+       `request`: the gateway names the address it answered. **Evidenced
+       directly.** A miss is itself a legitimate answer and stays recordable —
+       what is refused is a miss whose echo names a different call.
+
+     So the condition is two checks, both reading **only** the wire:
+
+     (a) **THE FORM, checked where the ambiguity is CREATED.** Every key a
+     framing sends must be one the served `tools/list` schema declares for that
+     tool. The served ruling is the one quoted at the carve-out above, and its
+     operative half is about *where*:
+
+     > where identity is derived by discarding a component, the discarding step
+     > is the only place the collision is visible … **gate where the ambiguity
+     > is created** … a **config error detected when the roots are enumerated**
+     > (startup or regeneration), never a serve-time disambiguation
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/archive/knowledge-architecture.md:24`
+
+     Kogaki does not own the gateway's enumeration step and may not reach into
+     it (§2). The discarding step it *does* own is the argument object the
+     transport composes, and checking it there — before the answer is believed —
+     is that ruling applied at the only layer this repository holds.
+
+     (b) **THE ECHO, where the gateway serves one.** On a miss, `tool` and
+     `request` must be the tool and the address the framing sent. Only the keys
+     the framing **sent** are compared: a normalized `null` the gateway adds for
+     an absent optional key is the gateway's rendering, not a contradiction.
+
+     **THE HALF THAT IS NOT DECIDABLE CONSUMER-SIDE, DECLARED RATHER THAN LEFT
+     SILENT — and ROUTED.** On the **hit** path the gateway echoes nothing. A
+     filtered `gloss_index` hit and an unfiltered one differ only in the served
+     path; an `element_survey` hit differs only in a **line count** the
+     transport has no corpus knowledge to judge. After (a) and (b), the residual
+     claim — that a *declared*, well-formed address was actually **applied** —
+     rests on an inference about the producer's behaviour rather than on
+     anything observed, and **this spec does not assert it**. Recovering it by
+     reading the address back out of the `consulted:` path was considered and
+     **declined on a served line**, the same consult, second axis:
+
+     > A remedy-shape check binds PROPOSALS, never captures, and must **QUOTE
+     > ratified renderings rather than re-derive them**
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/articles.md:102`
+
+     Re-deriving the address from the served path would be the consumer
+     reconstructing an identity the producer discarded — the precise move
+     `topics/archive/knowledge-architecture.md:24` places at the producer. So it
+     is **not done here**, and the transport's fixtures pin the boundary: a hit
+     with a declared address composes, and the absent echo is left undecided
+     rather than guessed at.
+
+     **The upstream item.** That half is routed to the gateway repository
+     through the typed path as **tsurezure-gateway#85** — *echo `tool` and
+     `request` on the HIT path as the MISS path already does*. It carries the
+     measurement table above and the served pins, and offers the stricter
+     producer-side alternative (reject an undeclared key at the enumeration
+     step) as an equally discharging remedy. The producer already emits
+     exactly those two fields on a miss, so the ask is not a new mechanism but
+     the removal of an asymmetry; when it lands, limb (b) becomes total and the
+     inference above is retired. The cost is accepted knowingly: a cross-repo
+     escalation, held here as a **declared consumer-side limit** rather than as
+     a silence, because a boundary that is not stated reads as coverage.
+
+     **THE SHAPE SELECTED, AGAINST THE THREE THE TRIAGE SITTING PREPARED.** The
+     triage comment on kogaki#181 held a decision over **(A)** a refusal class
+     *scoped to the tools where the property is decidable*, **(B)** inverting it
+     so the receipt DISCLOSES the address and refuses nothing, and **(C)**
+     routing the whole property upstream. The shipped shape is **none of the
+     three**: it is a served-schema **form** check plus a **miss-echo** check,
+     universal over tools, with (C) composed in for the residual half only. It
+     was selected because the measurement changed the fork:
+
+     *A — a per-tool scoped refusal.* **Declined**, on its own recorded counter:
+     a declared per-tool exemption is an enumeration whose non-member fallback
+     is ADMIT, so served tool N+1 is uncovered by default. The triage assumed
+     the split ran `policy_lookup` (undecidable) against
+     `gloss_index`/`topic_thread` (decidable by path). **Measurement refuted
+     that**: the split is argument **requiredness**, and `topic_thread` — one of
+     A's two "decidable" tools — is in fact safe by schema validation and needs
+     no clause, while `lessons_index` and `element_survey`, which A does not
+     name at all, are the two most exposed. A rule built on the wrong partition
+     would have exempted the wrong tools. The shipped form check needs **no**
+     per-tool list and no exemption: it reads each tool's own served schema, so
+     tool N+1 is covered on arrival.
+     *B — invert it: the receipt discloses an `address:` line and refuses
+     nothing.* **Declined**, and declined explicitly rather than passed over.
+     Its recorded counter is decisive on the served ground this condition is
+     built on: it *makes the defect visible without making it unreachable*,
+     which is detection where constraint was available, and
+     `gloss/lessons/testing.md:77` (quoted at condition 4) says the list is the
+     wrong instrument precisely there. Its recorded point **in favour** is real
+     and is not dismissed: B is the same grammar change **kogaki#187**
+     independently needs, so B would discharge two issues where this shape
+     discharges one. That adjacency is **dormant, not ignored** — kogaki#187 is
+     parking at a count of one, so buying its grammar change here would spend
+     four files and a spec section on a second issue that has not yet met its
+     own threshold. If kogaki#187 is taken up, B's `address:` line becomes the
+     natural carrier and this condition's form check remains the constraint
+     beneath it; the two compose and neither blocks the other. Noted so the
+     later sitting inherits the edge rather than rediscovering it.
+     *C — route the WHOLE property upstream.* **Declined as the sole remedy**
+     and **adopted for its residual half**, which is the composition the triage
+     itself flagged ("C is strongest composed with A, not instead of it"). C
+     alone leaves a cheap consumer-side guard unbuilt where the data is already
+     in hand.
+
+     **The alternatives considered at implementation**, recorded on the same
+     standard.
+     *D — infer the address from the served `consulted:` path.* **Declined** on
+     `topics/articles.md:102` above, and because it is only *partially*
+     available anyway: `gloss_index` happens to encode its tag in the path while
+     `element_survey` and `lessons_index` return the same file at the same pin
+     either way, so the rule would hold for one tool and silently not for two —
+     an instrument that reads as total and is not, which is the shape this
+     condition exists to refuse.
+     *E — check the address at usage time (exit 2) instead of at composition.*
+     **Declined:** the defect is a property of the **answer**, and a usage-time
+     check would pass a call whose address the gateway drops for any reason the
+     schema does not describe. Exit 12 is also the honest code — the consult
+     *happened* and its results are the caller's; what is refused is the
+     receipt, and the results are still printed exactly as the other five
+     refusal classes print them.
+     *F — refuse in non-receipt mode too.* **Declined as out of licence:** exit
+     12 is receipt-mode by definition, and a non-receipt run asserts nothing
+     that could be false. The `tools/list` round trip is therefore spent only
+     in receipt mode, and the ratified degrade and the pre-receipt invocation
+     keep their exact shapes.
+
+     **What condition 5 deliberately does NOT do.** It does not judge whether
+     the *answer* is responsive to the question — that is a reading, and
+     condition 3 assigns readings to the operator. It does not make a served
+     line's **liveness** checkable; that remains the consultation map's entry 3,
+     exactly as condition 4 left it. And it does not claim the seam is closed
+     end to end: **the query half is mechanical, the address FORM is now
+     mechanical, the address APPLICATION on a hit is a producer-side ask, and
+     the liveness half remains a read.**
+
+     **Backward compatibility.** No field is added, renamed, or reordered — the
+     receipt grammar block above is untouched, so
+     `checks/check-consult-receipts.sh` is unchanged and every receipt already
+     on master stays parseable and passing. What narrows is which *calls* may produce a receipt
+     at all, on emissions made from here on: a receipt already recorded was
+     composed from a response that this condition never inspects, and the
+     checker's scan window (`merge-base..HEAD` plus the PR body) reaches no file
+     on the default branch. The transport's non-receipt path, the exit-11
+     degrade, and the pre-receipt invocation are byte-for-byte unaffected
+     (`policy/kit/test/install-test.sh` cases 3, 7, 8b and 8c, unchanged and
+     passing).
 
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
