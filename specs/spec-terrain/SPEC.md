@@ -17,8 +17,8 @@ is the decision rather than an omission: kogaki#161's **opening-gate** half does
 (`topics/articles.md:95`) that the substrate has not spoken to since
 **2026-08-05** while the ruling is dated **2026-08-07**. It is recorded in §10
 as the **ground for a later unparking**, naming which reachability conjunct it
-establishes and which it leaves open; **§10 stays parked and its trigger at
-`:1088` is untouched.** **No runtime change** — `terrain/terrain.mjs` is not
+establishes and which it leaves open; **§10 stays parked and its trigger is
+untouched.** **No runtime change** — `terrain/terrain.mjs` is not
 edited by this amendment.
 v6, amended 2026-08-07 — the 2026-08-07 dogfood round lands as one
 coupled sitting over two issues. **kogaki#167** (owner selection, alternative
@@ -348,6 +348,16 @@ otherwise would be the defect it is guarding against:**
   request_id: 2f45fe3b-4827-4c3e-b08c-c5d3cf0da8af
   outcome: discriminating
   query: Is reachability the conjunction of a resolving address and a surface that discloses it, and must a fix invoking that conjunction name which conjunct it establishes and which it leaves open?
+
+**Receipt provenance, disclosed rather than implied.** That query was **not
+aimed at this line.** It was one wide `policy_lookup` whose ranked return set
+included `topics/articles.md:106` alongside the conjunction lines §10 relies
+on, and the line was found **by reading that return set**, not by a framing
+that sought it. Recorded because a later reader re-running the stated question
+to check this quotation should know what they will and will not get, and
+because a receipt that reads as though the query targeted the line would
+attest a provenance the call does not have — the same defect one level down
+from the reused-`request_id` shape §8.1 names.
 
 So this limb is written **knowing what it buys**: the relay layer is the
 harness's own composition step, which this repository does not own, and no
@@ -899,6 +909,16 @@ load-bearing half rather than its completeness:**
   outcome: discriminating
   query: Is reachability the conjunction of a resolving address and a surface that discloses it, and must a fix invoking that conjunction name which conjunct it establishes and which it leaves open?
 
+**Receipt provenance, disclosed rather than implied** — as at §2.4, and for
+the same reason. The query recorded above was **not aimed at `LESSONS.md:104`**;
+it was one wide `policy_lookup` whose ranked return set included that line, and
+the line was found **by reading the return set** rather than by a framing that
+sought it. The three sites in this amendment carrying this `request_id` all
+record the **same** query because they rest on the **same single call** — which
+is the identical-duplicate case rather than the reuse-with-a-changed-reading
+case — and this note is what keeps the distinction visible to a reader who
+cannot see the call.
+
 **The fallback here is REFUSE, not report-only, and the window is what makes
 that admissible.** An act in this window that is neither of the two named is a
 **defect against this section**, and a question UI in this window is a defect
@@ -920,14 +940,25 @@ there because it is this group's decision.
 
 **SCOPE — this allowlist governs the POST-SELECTION WINDOW ONLY, and the limit
 is the decision rather than an omission.** kogaki#161 proposed a question
-allowlist over the *whole* flow, whose other half is an **opening** Lessons/
-Decisions gate. That half **does not land here.** It is recorded at §10 as the
-ground for a later unparking, against §10's existing and **unfired** trigger,
-and §10 stays parked. Stated at its cost: the opening of the flow therefore
-has **no** stated allowlist after this amendment, and the four-question
-dogfood specimen is only **partly** answered — two of the four questions sat
-at the opening. What is bought instead is that the clause that does land rests
-on a line the substrate has actually spoken to; the ground is at §10.
+allowlist over the *whole* flow. **Two of its limbs do not land here**, and
+both are withheld on the reasons §10 states:
+
+- **The opening Lessons/Decisions gate** (kogaki#161 item 1). Recorded at §10
+  as the ground for a later unparking, against §10's existing and **unfired**
+  trigger; §10 stays parked.
+- **The tag-screen prohibition** (kogaki#161 item 2) — *"no question UI may be
+  launched for tag selection"*. That question is asked **before** a tag is
+  named, so it falls outside this clause's window by the clause's own opening
+  words, and it acquires **no carrier in this amendment**. It travels with the
+  opening gate rather than with §6.3.
+
+What **does** land from kogaki#161 is items 3 and 4 — the "what next" question
+and the second-tag question — which sit inside the window and are refused by
+the empty allowlist above. Stated at its cost: **the flow before a tag is
+named has no stated allowlist after this amendment**, and the four-question
+dogfood specimen is only **partly** answered. What is bought instead is that
+the clause that does land rests on a line the substrate has actually spoken
+to; the ground is at §10.
 
 **Alternatives declined, with their reasons, because a decline recorded only
 in a sitting's comments is invisible to the sitting that picks the question up
@@ -1717,8 +1748,20 @@ question may be asked at the beginning, offering two choices — view **Lessons*
 (the co-tag flow) or view **Decisions** (not yet implemented; choosing it
 states so and stops).* **§10 is NOT unparked. The trigger above — "after
 article creation from Lessons is working" — has NOT fired and is untouched.**
-kogaki#161's tag-selection half landed at §6.3; this half is what §6.3's scope
-clause names as deliberately withheld, and the two reasons below are why.
+**kogaki#161's tag-selection ruling is carried only in PART, and saying so
+precisely is what stops this note becoming an over-report.** §6.3 lands the
+portion that falls **inside** the post-selection window — the second-tag
+question and the "what next" question, kogaki#161's items 4 and 3. The
+ruling's **own site is NOT carried**: item 2 is *"once Lessons is chosen, no
+question UI may be launched for tag selection — the screen renders, and the
+owner names a tag in chat"*, and that question sits at **the tag screen,
+before any tag has been named**, which is outside §6.3's window by that
+clause's own opening words. It is **withheld together with the opening gate**
+and acquires **no carrier in this amendment**. Recorded at this length because
+the risk here is the over-report rather than the gap: a later sitting reading
+"the tag-selection half landed" would close kogaki#161 with an owner-ruled
+prohibition still uncarried. The two reasons below are why the withheld
+material is withheld.
 
 **FIRST REASON — the ruling is newer than anything the substrate has said, and
 ratifying it here would be ratifying a fresh ruling against a stale line.**
