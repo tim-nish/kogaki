@@ -21,8 +21,8 @@
 // never in the repository (specs/SPEC.md §4 rider 3).
 import { spawnSync, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, readdirSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -1536,10 +1536,31 @@ function cmdComposeInput(args) {
 // claim across invocations and a timestamped directory would make every rerun
 // a duplicate by construction.
 function reportsDir(args) {
+  // §12.2 v11's own table gives the record's home as the RUN WORKSPACE, and
+  // kogaki#234 acceptance 4 retires `~/.kogaki/reports/` outright. The v11
+  // amendment moved the RENDERING and left this default naming the directory
+  // the issue removes — so with no KOGAKI_RUN_DIR a real run still wrote the
+  // retired path (PR #240 review round 1, finding 1).
   const dir = args["report-dir"] || process.env.KOGAKI_RUN_DIR
-    || join(homedir(), ".kogaki", "reports");
+    || join(homedir(), ".kogaki", "runs", "reports");
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+// The retired directory, disposed of rather than left to rot (acceptance 4).
+// Reports are idempotently regenerable (§12.1), so there is nothing to migrate
+// — the honest act is to remove it and SAY SO ONCE, never to leave an invalid
+// location on disk looking authoritative. Silent removal is not on the table:
+// deleting a directory the owner may have opened, without a word, is the
+// storage-side twin of the defect this whole change is about.
+function retireLegacyReportsDir() {
+  const legacy = join(homedir(), ".kogaki", "reports");
+  if (!existsSync(legacy)) return;
+  const n = readdirSync(legacy).length;
+  rmSync(legacy, { recursive: true, force: true });
+  console.log(`retired the invalid reports location (kogaki#234): removed ${n} regenerable `
+    + "report(s) from the machine-local directory the owner ruling struck. Reports are "
+    + "idempotent (SPEC-terrain §12.1) — rerun to regenerate at the new locations.");
 }
 
 // Where the OWNER RENDERING lives (§12.2 v11, kogaki#234). The working tree,
@@ -1572,15 +1593,27 @@ export function relFromRepo(p, root) {
   return p.startsWith(pre) ? p.slice(pre.length) : p;
 }
 
+let REPO_ROOT_FALLBACK_ANNOUNCED = false;
+
 function repoRoot() {
   try {
     return execFileSync("git", ["rev-parse", "--show-toplevel"],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || process.cwd();
   } catch {
-    // No git, or not a checkout. cwd is the honest fallback and it is REPORTED
-    // at the call site rather than silently substituted — a rendering written
-    // somewhere the owner did not expect is the defect this whole section is
-    // about, so it must not happen quietly.
+    // No git, or not a checkout. cwd is the honest fallback and it ANNOUNCES
+    // ITSELF — a rendering written somewhere the owner did not expect is the
+    // defect this whole section is about, so it must not happen quietly.
+    //
+    // The first version of this comment CLAIMED the report and no call site
+    // made one (PR #240 review round 1, finding 5): outside a checkout the
+    // rendering landed in `cwd/reports` and the owner saw a bare `reports/…`
+    // with nothing saying which root. A comment asserting a property the code
+    // lacks is worse than no comment — it retires the question.
+    if (!REPO_ROOT_FALLBACK_ANNOUNCED) {
+      REPO_ROOT_FALLBACK_ANNOUNCED = true;
+      console.log(`NOTE: not a git checkout — the owner rendering is written under ${process.cwd()} `
+        + "rather than a repository root. The path printed below is relative to THAT.");
+    }
     return process.cwd();
   }
 }
@@ -1684,6 +1717,7 @@ function reportIdentityKey(i) {
 }
 
 function cmdReport(args) {
+  retireLegacyReportsDir();
   const dir = reportsDir(args);
   const record = readJson(String(args.survey || fail("report needs --survey <file>")));
   const tag = String(args.tag || fail("report needs --tag <selected tag>"));
@@ -1851,7 +1885,19 @@ function cmdReport(args) {
   if (rendered) {
     console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md §12.2): ${relFromRepo(rendered)}`);
   }
-  console.log(`machine record (JSON, identity + idempotence; SPEC.md §12.1): ${out}`);
+  // §2.5 clause 3 binds THIS LINE TOO (PR #240 review round 1, finding 2). The
+  // v11 amendment made the rendering line repo-relative and left its neighbour
+  // printing an absolute `~/.kogaki/…` path — the exact specimen the clause was
+  // written against, one artifact over, inside the diff that ratified it.
+  // The record is machine-facing, so the owner surface names its FILENAME and
+  // says where the class of thing lives; the full path is debugging output and
+  // rides KOGAKI_DEBUG.
+  if (process.env.KOGAKI_DEBUG) {
+    console.log(`machine record (JSON, identity + idempotence; SPEC.md §12.1): ${out}`);
+  } else {
+    console.log("machine record written (JSON, identity + idempotence; SPEC.md §12.1) "
+      + `as ${basename(out)} in the run workspace. Set KOGAKI_DEBUG=1 for its path.`);
+  }
   console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, ${group.name}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
   console.log(`${sectionFigure(Object.assign({}, group, { by_family: report.counted }), record.candidates.length)}`);
   if (abnormal) {

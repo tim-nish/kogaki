@@ -1742,6 +1742,18 @@ if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
   fails.push("the claimless ABNORMAL block does not name `compose-input` — the bounded input is reachable only if the surface that needs it says so, and a mechanism nothing points at is the orphan shape one layer up");
 }
 
+// WHAT ACTUALLY RAN IS RECORDED, because the terminal PASS line must report
+// exercised trials rather than intended ones (PR #240 review round 1, finding
+// 4). The first version printed CANNOT-DETERMINE twice in CI and then asserted
+// all of it as exercised — kogaki#209's specimen, a green line claiming
+// protection that did not exist.
+//   "treat this kind of check as having three results rather than two … when
+//   it has none, report that you cannot tell instead of reporting that the
+//   problem is fixed."  product-lab@dec0d568 gloss/lessons/testing.md:53
+//   "if [the empty-input answer] matches its normal healthy output, the check
+//   is missing and the failure is invisible by construction."  ibid.:107
+const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT REACHED" };
+
 // --- kogaki#234: the owner rendering exists, in the TREE, and the owner
 // surface never names a machine-local path ---
 //
@@ -1773,12 +1785,15 @@ if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
     || (r.status !== 0 && /policy_source unavailable|gateway/i.test(out));
 
   if (seamAbsent) {
+    K234.split = "CANNOT-DETERMINE (seam unavailable)";
     console.log("kogaki#234 artifact split: CANNOT-DETERMINE — the served seam is "
       + "unavailable here and `report` reads served Gloss through it. The "
       + "gitignore assertion below is seam-free and RAN.");
   } else if (r.status !== 0) {
+    K234.split = `FAILED (exit ${r.status})`;
     fails.push(`the report run failed (exit ${r.status}): ${out.trim().slice(0, 200)}`);
   } else {
+    K234.split = "RAN";
     const rdir = join(tree, "reports");
     const mds = existsSync(rdir) ? readdirSync(rdir).filter((f) => f.endsWith(".md")) : [];
     if (mds.length === 0) {
@@ -1796,8 +1811,11 @@ if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
       }
       if (/^\s*[{[]/.test(body)) fails.push("the owner rendering is serialized JSON");
     }
-    // §2.5 clause 3 — THE OWNER SURFACE. The specimen the clause was written
-    // against is a run announcing "written to ~/.kogaki/reports/".
+    // §2.5 clause 3 — THE OWNER SURFACE. This block points `--rendering-dir`
+    // OUTSIDE the repository, where `relFromRepo` returning an absolute path is
+    // the documented and correct behaviour (hiding a location the owner cannot
+    // otherwise find would be worse). So the absolute-path property is asserted
+    // in the DEFAULTS block below, where the rendering genuinely sits in-tree.
     if (/\.kogaki\//.test(out) || /\.local\//.test(out)) {
       fails.push("the owner surface printed a machine-local hidden path — §2.5 clause 3 forbids it outside debugging, and naming one tells the owner the opposite of what is true");
     }
@@ -1824,23 +1842,66 @@ if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
   writeFileSync(subs2, JSON.stringify({
     "testing × architecture": { judged: true, subgroups: [] },
   }));
+  // NEITHER default is overridden here (PR #240 review round 1, finding 3).
+  // The first version passed `--report-dir`, so the `.kogaki` assertions were
+  // evaluated over a path the fixture itself supplied — the same
+  // fixture-supplies-the-value-under-test class as the rendering flag, one flag
+  // over. `KOGAKI_RUN_DIR` steers the RECORD the way the product intends
+  // (`reportsDir` reads it), so the run is redirected by the ENVIRONMENT rather
+  // than by a flag that bypasses the default expression under test.
+  //   "Write down each path and which passing run covers it; a path with no
+  //   named run is untested no matter how healthy the overall suite looks."
+  //   product-lab@dec0d568 gloss/lessons/testing.md:155
   const d = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
-     "--group", "architecture", "--subdivisions", subs2, "--report-dir", run2,
-     "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
+     "--group", "architecture", "--subdivisions", subs2,
+     "--judge-model", "m", "--judge-effort", "high"],
+    { encoding: "utf8", env: Object.assign({}, process.env, { KOGAKI_RUN_DIR: run2 }) });
   const dout = String(d.stdout) + String(d.stderr);
   const dSeamAbsent = d.status === 11
     || (d.status !== 0 && /policy_source unavailable|gateway/i.test(dout));
   if (dSeamAbsent) {
+    K234.defaults = "CANNOT-DETERMINE (seam unavailable)";
     console.log("kogaki#234 default location: CANNOT-DETERMINE — seam unavailable.");
   } else if (d.status !== 0) {
+    K234.defaults = `FAILED (exit ${d.status})`;
     fails.push(`the default-location run failed (exit ${d.status}): ${dout.trim().slice(0, 160)}`);
   } else {
+    K234.defaults = "RAN";
     if (/\.kogaki\//.test(dout)) {
       fails.push("with NO --rendering-dir, the owner surface names a machine-local path — the DEFAULT is where a real run lands, and the ruling is about real runs");
     }
     if (!/^Full Report — READ THIS ONE[^\n]*: reports\//m.test(dout)) {
       fails.push("the default rendering path is not repo-relative `reports/…` — the default must satisfy §2.5 without the operator passing a flag");
+    }
+    // The RECORD's own default expression, read from source rather than from a
+    // run: with KOGAKI_RUN_DIR set above the default branch is not taken, and a
+    // fixture that only exercised the steered path would say nothing about the
+    // retired directory kogaki#234 acceptance 4 removes.
+    // NO OWNER-SURFACE LINE CARRIES AN ABSOLUTE MACHINE PATH, asserted on the
+    // PROPERTY rather than on the `.kogaki` string. Matching that substring
+    // alone cannot see an unconditional absolute print, because every block
+    // steers storage to a tmpdir and `/tmp/…` passes a `.kogaki` test — the
+    // THIRD appearance in this one change of "the fixture cannot see what the
+    // fixture supplied". Here both locations are defaults, so an absolute path
+    // on either line is the defect §2.5 clause 3 names.
+    for (const line of dout.split("\n")) {
+      if (/^(Full Report|machine record)/.test(line) && /\/(home|tmp|var|Users|root)\//.test(line)) {
+        fails.push(`an owner-surface line prints an ABSOLUTE path: ${line.trim().slice(0, 120)} — §2.5 clause 3 keeps machine paths off the owner surface outside debugging, and a tmpdir is no better than a home directory`);
+      }
+    }
+
+    // SCOPED TO THE FUNCTION UNDER TEST, not to the file. The retired path is
+    // still named once on purpose — `retireLegacyReportsDir` has to name what
+    // it removes — so a whole-file scan reports the disposal code as the
+    // defect. Same scoping trap the sweep's blocking-literal tripwire hit; the
+    // fix is the same and the comment survives as the record.
+    const src = readFileSync("terrain/terrain.mjs", "utf8");
+    const body = (src.split("function reportsDir(args) {")[1] || "").split("\n}")[0];
+    if (!body) {
+      fails.push("could not locate reportsDir's body — this assertion is scoped to that function and cannot report a pass it did not earn");
+    } else if (/\.kogaki",\s*"reports"/.test(body.replace(/\s+/g, " "))) {
+      fails.push("the machine record still DEFAULTS to ~/.kogaki/reports — acceptance 4 retires that directory, and with no KOGAKI_RUN_DIR a real run would write it");
     }
   }
   rmSync(run2, { recursive: true, force: true });
@@ -1851,6 +1912,7 @@ if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
 // second is the defect LESSONS.md:112 names by name.
 {
   const g = spawnSync("git", ["check-ignore", "reports/x.md"], { encoding: "utf8" });
+  K234.gitignore = "RAN";
   if (g.status !== 0) {
     fails.push("reports/ is not gitignored — the rendering derives from uncommitted survey records and inherits their sensitivity; committing it is a declassification act needing its own grounds");
   }
@@ -1867,5 +1929,16 @@ console.log("compose-input bounded-read fixture: PASS — cases exercised (one t
   + "material untruncated; reads UNCHANGED across a record whose placements were multiplied over "
   + "the same candidates — the pair no single run can display; the COMMAND path run end to end "
   + "against a stub gateway that counted the reads it served, rather than the accounting the run "
-  + "printed about itself; and the claimless co-tag screen naming the bounded input as its remedy); kogaki#234: the owner RENDERING lands in the TREE as owner-register Markdown while the machine RECORD lands in the run workspace, the owner surface names the repo-relative path and NO machine-local hidden path, and reports/ is gitignored — visibility and publication decided separately)");
+  + "printed about itself; and the claimless co-tag screen naming the bounded input as its remedy)");
+// THE kogaki#234 HALF REPORTS ITS OWN EXERCISED TRIALS, separately and by
+// state, rather than riding the sentence above (PR #240 review round 1,
+// finding 4). A block that did not run must not appear inside a PASS claim.
+console.log(`kogaki#234 artifact location — artifact-split: ${K234.split}; `
+  + `defaults (no --report-dir, no --rendering-dir): ${K234.defaults}; `
+  + `gitignore: ${K234.gitignore}. Asserted WHERE RAN: the owner RENDERING lands `
+  + "in the TREE as owner-register Markdown while the machine RECORD lands in the "
+  + "run workspace; the owner surface names the repo-relative rendering path and NO "
+  + "machine-local hidden path; reportsDir's own default no longer names the retired "
+  + "directory; and reports/ is gitignored — visibility and publication decided "
+  + "separately. A block reading CANNOT-DETERMINE asserted NOTHING.");
 JS
