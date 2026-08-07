@@ -170,10 +170,12 @@ field.
     candidates, never auto-deletions."
     (`topics/claude-code-ops.md:24@98195e0aef221aa82c47bb632324127745469f2e`)
 
-  Same line 24 carries the live context an implementer of a new check needs —
+  The same line carries the live context an implementer of a new check needs —
   "NO CURRENT MEMBER CARRIES ONE, which is the whole reason the family has no
-  shrink lever" — which is why the survey is prescribed before the check is
-  written rather than at review. The earlier note that product-lab#150 protects
+  shrink lever"
+  (`topics/claude-code-ops.md:24@98195e0aef221aa82c47bb632324127745469f2e`) —
+  which is why the survey is prescribed before the check is written rather than
+  at review. The earlier note that product-lab#150 protects
   the build-vs-adopt clause (the trigger counts check-runner consumers,
   population one) is retained as a pointer only; it is not a pinned quote and
   nothing in this entry rests on it.
