@@ -14,10 +14,16 @@ them is a contract violation and a FAILED run — which **discharges** §6.2's
 step delivered, **declines kogaki#163's never-default latency lever**, leaves
 §8's no-member-count-threshold rule and §8.1's co-tags-default rider
 untouched, and keeps the **hub-side** gate pointer named with its upstream
-proposal owed. §8.1 additionally records a **currency finding**: the served
-hub HEAD moved and the load-bearing line moved with it while
-`issue-pins --recheck` reported `pins current` — kogaki#169's gap, reproduced
-in this file.
+proposal owed. The slot's discharge is grounded in the hub's own 2026-08-05
+re-point of the offering measurement **to Kogaki** (`topics/articles.md:9`,
+read whole), whose condition — "fires when that ships" — is met.
+§8.1 additionally records a **currency finding** in two instances: the served
+hub HEAD moved and a load-bearing line moved with it (`topics/articles.md:53`
+→ `:54`), and — worse — §6.1's Top-N pin `topics/articles.md:79` now
+**resolves to a different decision** (the quote is at `:80`), while
+`issue-pins --recheck` reported `pins current` across both. That is
+kogaki#169's gap reproduced in this file; §6.1's site is corrected in place
+and §11's two sites are named for whoever amends §11 next.
 v5.1, amended 2026-08-07 — §7 states that a DERIVED origin member
 set announces itself as derived (kogaki#145), and §9's allowlist scope clause is
 tightened so it cannot be read against the allowlist it scopes (kogaki#154).
@@ -612,6 +618,18 @@ That split is the ratified form rather than a new design here:
 
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:79`
 
+**PIN CORRECTION — v6, kogaki#167's currency check.** At the served HEAD
+`0cb46066653ef3db2e33f69971829d25c06b6507` the quote above is
+**`topics/articles.md:80`**, not `:79`. This is not cosmetic drift: at that
+HEAD **`:79` holds different content** — the 2026-07-29 adoption of the co-tag
+second navigation step — so the pin as written **still resolves, and resolves
+to the wrong line**, which is the failure mode a resolving-pin check cannot
+see. `issue-pins --recheck` reported `ok: pins current` across it. The
+original sha-qualified pin is left standing rather than edited away, because
+it is an accurate record of what was read at `f918c51`; a reader working at
+the new HEAD uses `:80`. §8.1's currency block carries the general finding and
+names the other two sites that quote this same line.
+
   request_id: a50873dc-3240-4019-9fb9-2c3c18d64c6e
   outcome: discriminating
   query: Should a navigation screen carry a compact list of IDs and claims with the full untruncated material living in a separate report artifact, or should the screen itself carry the reading material? Does moving reading material off the screen into a report hide anything?
@@ -1021,6 +1039,77 @@ otherwise be read as still denying it.
   outcome: discriminating
   query: When a downstream owner delivers the verdict that a dogfood-first mechanism's output is REQUIRED rather than optional, does that discharge the inherited offering gate, or does the never-default ordering still stand?
 
+**The line that settles the slot, quoted whole rather than in fragment.** The
+hub did not leave the offering measurement unobservable when its original
+implementation was archived — it **re-pointed it to Kogaki**:
+
+> "**The semantic-subdivision OFFERING MEASUREMENT is RE-POINTED to Kogaki
+> rather than declared unobservable … the measurement is owed by the
+> SUCCESSOR implementation.** … the measure-before-offer ORDERING survives
+> unchanged … and nothing about a repository archive discharges an ordering;
+> the CALIBRATION DATA survives and is the re-point's whole value … the
+> SPECIMEN does not survive, so the measurement is owed by kogaki#27's
+> subdivision implementation and **fires when that ships, not before**."
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/articles.md:9`
+
+  request_id: 6d49edc3-e9bd-487b-b11c-6b9013c29661
+  outcome: discriminating
+  query: topic_thread("articles") — the decision thread read WHOLE (127 lines) so this line's boundary travels with it, rather than relied on as an excerpt.
+
+**Read whole, this line DISCHARGES the slot rather than re-pointing it
+again**, and the distinction is worth stating because a fragment of it reads
+the other way:
+
+- Its "nothing … discharges an ordering" clause is scoped to a **repository
+  archive**, not to an owner verdict. An archive is an accident of custody; a
+  verdict is the ordering's own named step. The ordering survived the
+  archive — and has now been *executed*, not bypassed.
+- Its condition is **met, not pending**. The measurement "fires when that
+  ships": Kogaki's subdivision implementation **has** shipped, it was
+  dogfooded on 2026-08-06 and 2026-08-07, and the owner verdicted on
+  2026-08-07. The line names Kogaki as the actor owing the measurement and
+  Kogaki's owner is who delivered it.
+- The **calibration data** the re-point exists to preserve is untouched by
+  this amendment — no member-count threshold enters, per §8's standing rule.
+
+So the slot is **discharged, not re-pointed a second time**. What remains
+owed upstream is the *record* of that discharge in the hub, which is a
+proposal through the hub's intake and is tracked as this sitting's one
+deferred remainder — not a further deferral of the decision itself.
+
+**Disposition read under `policy/consultation-map.md` entry 3 (record
+disposition).** The entry binds this amendment — it records a **declined**
+alternative, an **adopted** ruling, and clauses that **still stand** — and
+its prescription was executed rather than assumed: the gloss shard was
+surveyed headline-first, and **both carriers were read WHOLE with their
+comments** (`gh issue view 167 --comments`, `gh issue view 168 --comments`),
+because a body-only read is the partial projection that satisfies a total-read
+rule without discharging it
+(`gloss/lessons/knowledge-architecture.md:41`). The triage comments on both
+issues state the fork as "whether `deferred-slot:
+terrain-subdivision-offering-verdict` is discharged or re-pointed" and record
+that no spec text was amended and no served position was leaned on — which
+is consistent with, and not superseded by, what is written here. **No
+contradicting record was found on either carrier.** The entry's own rider is
+honoured in the finding above: `issue-pins --recheck` does **not** discharge
+this read, and here it demonstrably did not.
+
+`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 gloss/lessons/knowledge-architecture.md:1-343`
+
+  request_id: 4c76a49b-6e16-4974-b596-f3cb72748a55
+  outcome: discriminating
+  query: gloss_index("lessons/knowledge-architecture") — the entry-3 read prescription's headline-first survey, executed whole (343 lines) before this disposition was written down.
+
+The shard is cited at the range the call actually returned rather than at the
+three lines relied on, because the tool served the shard whole and a receipt
+naming only the useful lines would report a narrower read than was performed.
+The lines relied on within it are `:41` (partial projection vs total read),
+`:197` (precedence per axis), and `:203` (declines travel with their
+boundary) — the last is why §2.4 entry 4 carries alternative (a)'s
+distinguishing reason **on the same statement as the decline** rather than a
+line below it.
+
 **CURRENCY OF THE SERVED LINES THIS SECTION RESTS ON — checked at this
 amendment, and recorded because the mechanism that would normally carry it
 CANNOT SEE THIS.** `policy/kit/bin/issue-pins.mjs --recheck` returns
@@ -1047,10 +1136,37 @@ theoretical:
   kogaki#168 either way**: what is quoted from it here is the *ordering* the
   ruling completes, never a line endorsing or denying the ruling itself. The
   verdict is the owner's own and is carried, not derived.
+- **A SECOND, WORSE INSTANCE was found by this check, and it is a resolving
+  pin pointing at the wrong line.** §6.1's Top-N-withdrawal quote is pinned
+  `topics/articles.md:79@f918c51`. At the served HEAD that text is **`:80`**,
+  and **`:79` now holds an unrelated 2026-07-29 decision**. The pin therefore
+  resolves cleanly to content that is not what it was cited for — which no
+  resolution check can catch, since resolution is exactly what succeeds.
+  **Three sites in this spec quote that line:** §6.1 (corrected in place at
+  v6, with the original left standing as the record of what was read) and
+  **two in §11**, at the co-tag-ORDERING bullet and the eager-versus-pull
+  bullet, **left uncorrected here on purpose** — §11 is another sitting's
+  open surface and silently editing its pins would be this same defect
+  committed from the other side. Whoever next amends §11 corrects both to
+  `:80` and re-reads by content.
+- **The precedence split, declared per axis rather than per artifact**, since
+  the served surface discriminates it: *"A question like 'what's the status
+  of this?' often has two halves answered by two different systems … If you
+  write one rule for resolving disagreements, such as 'trust the more recent
+  record', you hand one system the final word on facts it has no way to
+  see"* (`gloss/lessons/knowledge-architecture.md:197`,
+  `declare-precedence-per-axis-not-per-artifact`). **The hub owns the
+  ORDERING axis** — measure-before-offer, inherited and quoted here at its
+  pin. **The owner owns the VERDICT axis** — whether the output serves. This
+  amendment does **not** claim the 2026-08-07 ruling beats the substrate by
+  being newer; the substrate has nothing to beat, because it never spoke to
+  the verdict. Recency is why the substrate is *silent* here, never why it
+  *loses*.
 - **What this means for a later reader.** A recheck that returns
   `pins current` over this section is evidence about SHAs and not about
-  whether these lines still say what they said. Re-read
-  `topics/articles.md:9,54,64` and `GLOSSARY.md:234` **by content** before
+  whether these lines still say what they said, and — per §6.1's correction
+  — not even evidence that a pin points at its own quote. Re-read
+  `topics/articles.md:9,54,64,80` and `GLOSSARY.md:234` **by content** before
   relying on them, and expect their line numbers to have moved again.
 
 ### 8.2 The second-proposer boundary is unchanged by §§6–8
