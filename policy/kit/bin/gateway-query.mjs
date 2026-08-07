@@ -399,17 +399,28 @@ function mergeTails(tails) {
 // `tools/list` properties for THIS framing's tool, observed on this same wire
 // and carried on the framing's own record, so a schema and a call cannot drift
 // apart any more than a question and a call can.
-function assertAddressEvidenced({ framing, declared }, d, i) {
+function assertAddressEvidenced({ framing, declared, catalogue }, d, i) {
   const sent = framing.args ?? {};
   const keys = Object.keys(sent);
 
   // (a) THE FORM. An undeclared key is the whole shipped defect: the gateway
   // does not refuse it, it drops it and answers the broader call.
+  // Two DIFFERENT causes reach this refusal and the message names which:
+  // the served catalogue was unreadable (the substrate failing), or it was
+  // read and does not carry this tool (the framing addressing a tool that is
+  // not served). Both are refusals — the transport cannot stand behind either
+  // — but they route to different repairs, so they are not collapsed. A
+  // `tools/list` that returns an rpc error never reaches here at all: it is
+  // routed to the exit-11 degrade at the wire, like every other rpc error.
   if (!(declared instanceof Set))
     throw new Error(
       `framing ${i + 1} was not checked against \`${framing.tool}\`'s served ` +
-        "argument schema (the gateway listed no tools), so the transport " +
-        "cannot establish that this response answers the address it sent",
+        "argument schema, so the transport cannot establish that this " +
+        "response answers the address it sent — " +
+        (catalogue instanceof Map
+          ? `the gateway's served catalogue does not carry \`${framing.tool}\` ` +
+            `(it serves ${[...catalogue.keys()].map((k) => `\`${k}\``).join(", ") || "nothing"})`
+          : "the gateway served no readable tool catalogue"),
     );
   const undeclared = keys.filter((k) => !declared.has(k));
   if (undeclared.length)
@@ -646,6 +657,16 @@ function selfTest() {
      () => compose([{ framing: { raw: "{}", args: {}, tool: "gloss_index", question: "q" },
        text: served("r", "gloss/INDEX.md:3") }], "discriminating")
        .startsWith("THREW: framing 1 was not checked against `gloss_index`'s served argument schema")],
+    // The two causes of that refusal route to different repairs, so the
+    // message discriminates them rather than naming one for both.
+    ["an unreadable catalogue and an unserved TOOL are told apart in the refusal",
+     () => { const noCatalogue = compose([{ framing: { raw: "{}", args: {}, tool: "gloss_index", question: "q" },
+               text: served("r", "a.md:1") }], "discriminating");
+             const notServed = compose([{ framing: { raw: "{}", args: {}, tool: "no_such_tool", question: "q" },
+               catalogue: new Map([["gloss_index", GLOSS]]), text: served("r", "a.md:1") }], "discriminating");
+             return noCatalogue.includes("the gateway served no readable tool catalogue") &&
+               notServed.includes("does not carry `no_such_tool`") &&
+               notServed.includes("it serves `gloss_index`"); }],
     // The ECHO limb. A miss is the one path the gateway names its own address
     // on, and a miss is a legitimate answer — so it composes when it agrees and
     // refuses when it does not.
@@ -717,6 +738,10 @@ try {
   if (receiptMode) {
     timer.refresh();
     const listed = await rpc(2, "tools/list", {});
+    // Routed exactly as the tools/call loop below routes its own rpc errors:
+    // a gateway that cannot be conversed with is a DEGRADE (exit 11), never a
+    // receipt refusal. Only a well-formed catalogue reaches the composer.
+    if (listed.error) unavailable(`rpc error: ${listed.error.message ?? "unknown"}`);
     if (Array.isArray(listed.result?.tools))
       declaredByTool = new Map(
         listed.result.tools.map((t) => [
@@ -735,7 +760,11 @@ try {
     // The declared schema rides the framing's OWN record, exactly as its
     // question does — so the schema, the arguments and the response that
     // answered them are one value and cannot be zipped wrongly.
-    observed.push({ framing, text, declared: declaredByTool?.get(framing.tool) });
+    observed.push({
+      framing, text,
+      declared: declaredByTool?.get(framing.tool),
+      catalogue: declaredByTool,
+    });
   }
   clearTimeout(timer);
   proc.kill();

@@ -1175,8 +1175,26 @@ invariant: Gukan guarantees Unit schema, never data schema).
      therefore a real and probably owed change, and it is **outside kogaki#160's
      licence**, which is finding 4's receipt contract. It is filed through the
      typed path as its own issue rather than ridden in here, and named here so
-     it is not left unrecorded. **That issue is kogaki#181 and it is condition 5
-     below**; the carve-out stands as written and is not re-litigated there.
+     it is not left unrecorded. **That issue is kogaki#181, and condition 5
+     below DISCHARGES this carve-out** — its disposition is *discharged*, not
+     *open* and not *re-litigated*. Stated as a disposition rather than left to
+     the reader, because the served rule on record standing asks for exactly
+     that distinction:
+
+     > if it is mechanical, you have established existence and said nothing
+     > about approval, so read the decision record for verdicts dated after that
+     > evidence, and when they conflict the later verdict wins and the conflict
+     > is reported rather than quietly reconciled
+
+     `consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e gloss/lessons/knowledge-architecture.md:257`
+
+     The mechanical evidence here is the merged carve-out paragraph (`3aa73f5`),
+     which establishes that the carve-out *exists* and says nothing about its
+     standing. The verdict dated after it is the owner selection of 2026-08-07
+     recorded in condition 5, and it does **not** conflict with the carve-out —
+     it performs what the carve-out deferred. So there is no conflict to report,
+     and the disposition is recorded here rather than inferred from the
+     paragraph's continued presence.
 
   5. **THE ANSWER MUST EVIDENCE THE ADDRESS THE FRAMING SENT. The transport
      refuses the receipt (exit 12, `receipt not composable`) when the served
@@ -1278,8 +1296,51 @@ invariant: Gukan guarantees Unit schema, never data schema).
      escalation, held here as a **declared consumer-side limit** rather than as
      a silence, because a boundary that is not stated reads as coverage.
 
-     **The alternatives, recorded because a decision without them is an
-     assertion.**
+     **THE SHAPE SELECTED, AGAINST THE THREE THE TRIAGE SITTING PREPARED.** The
+     triage comment on kogaki#181 held a decision over **(A)** a refusal class
+     *scoped to the tools where the property is decidable*, **(B)** inverting it
+     so the receipt DISCLOSES the address and refuses nothing, and **(C)**
+     routing the whole property upstream. The shipped shape is **none of the
+     three**: it is a served-schema **form** check plus a **miss-echo** check,
+     universal over tools, with (C) composed in for the residual half only. It
+     was selected because the measurement changed the fork:
+
+     *A — a per-tool scoped refusal.* **Declined**, on its own recorded counter:
+     a declared per-tool exemption is an enumeration whose non-member fallback
+     is ADMIT, so served tool N+1 is uncovered by default. The triage assumed
+     the split ran `policy_lookup` (undecidable) against
+     `gloss_index`/`topic_thread` (decidable by path). **Measurement refuted
+     that**: the split is argument **requiredness**, and `topic_thread` — one of
+     A's two "decidable" tools — is in fact safe by schema validation and needs
+     no clause, while `lessons_index` and `element_survey`, which A does not
+     name at all, are the two most exposed. A rule built on the wrong partition
+     would have exempted the wrong tools. The shipped form check needs **no**
+     per-tool list and no exemption: it reads each tool's own served schema, so
+     tool N+1 is covered on arrival.
+     *B — invert it: the receipt discloses an `address:` line and refuses
+     nothing.* **Declined**, and declined explicitly rather than passed over.
+     Its recorded counter is decisive on the served ground this condition is
+     built on: it *makes the defect visible without making it unreachable*,
+     which is detection where constraint was available, and
+     `gloss/lessons/testing.md:77` (quoted at condition 4) says the list is the
+     wrong instrument precisely there. Its recorded point **in favour** is real
+     and is not dismissed: B is the same grammar change **kogaki#187**
+     independently needs, so B would discharge two issues where this shape
+     discharges one. That adjacency is **dormant, not ignored** — kogaki#187 is
+     parking at a count of one, so buying its grammar change here would spend
+     four files and a spec section on a second issue that has not yet met its
+     own threshold. If kogaki#187 is taken up, B's `address:` line becomes the
+     natural carrier and this condition's form check remains the constraint
+     beneath it; the two compose and neither blocks the other. Noted so the
+     later sitting inherits the edge rather than rediscovering it.
+     *C — route the WHOLE property upstream.* **Declined as the sole remedy**
+     and **adopted for its residual half**, which is the composition the triage
+     itself flagged ("C is strongest composed with A, not instead of it"). C
+     alone leaves a cheap consumer-side guard unbuilt where the data is already
+     in hand.
+
+     **The alternatives considered at implementation**, recorded on the same
+     standard.
      *D — infer the address from the served `consulted:` path.* **Declined** on
      `topics/articles.md:102` above, and because it is only *partially*
      available anyway: `gloss_index` happens to encode its tag in the path while
@@ -1310,9 +1371,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      the liveness half remains a read.**
 
      **Backward compatibility.** No field is added, renamed, or reordered — the
-     receipt grammar block above is untouched, so `checks/check-consult-
-     receipts.sh` is unchanged and every receipt already on master stays
-     parseable and passing. What narrows is which *calls* may produce a receipt
+     receipt grammar block above is untouched, so
+     `checks/check-consult-receipts.sh` is unchanged and every receipt already
+     on master stays parseable and passing. What narrows is which *calls* may produce a receipt
      at all, on emissions made from here on: a receipt already recorded was
      composed from a response that this condition never inspects, and the
      checker's scan window (`merge-base..HEAD` plus the PR body) reaches no file
