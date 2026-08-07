@@ -1,6 +1,18 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v8, amended 2026-08-07 — **§12/§12.1 is RECONCILED with
+**Status:** v9, amended 2026-08-07 — **§12.1's subdivision-input EMPTY-OUTCOME
+ENCODING is DECIDED** (kogaki#199, owner selection): `--subdivisions` takes a
+typed per-group record, so *judged, empty* (`{"judged": true, "subgroups": []}`)
+is **stated** rather than inferred from an empty list's truthiness, and
+`--judge-model`/`--judge-effort` are required for **every** `report`
+invocation. The v8 disposition below is unchanged and is what the encoding
+serves. The decision rests on a measurement v8 did not have: the runtime cannot
+emit the conformant judged-empty artifact **at all** today — `[]` being truthy
+routes it into `subgroupPlacement`'s catch-all, which returns one SubGroup
+holding every member, with `members` nulled. A prohibition on minting `none` is
+necessary and not sufficient. An **executable conformance fixture at the
+producer/consumer boundary** is required by the amendment, not suggested by it.
+v8, amended 2026-08-07 — **§12/§12.1 is RECONCILED with
 kogaki#168** (kogaki#189, owner selection), the reconciliation §6.2 and §8.1
 received in PR #178 and §12 did not, because neither of that PR's issues
 licensed §12. **A judge pin of `none` on a CO-TAG-GENERATED Full Report is
@@ -2294,6 +2306,103 @@ rather than a claim that the rule is already in force. The prohibition — no
 co-tag run mints `none` — is stated here and **enforced nowhere until
 kogaki#199 lands**, which is the deliberately-carrier-less state marked with
 its trigger, not carrier-less by omission.
+
+**THE SUBDIVISION INPUT'S EMPTY-OUTCOME ENCODING IS DECIDED** — v9, owner
+selection 2026-08-07 (kogaki#199). The paragraph above named the correction
+and left its *encoding* open; this records the selection, so that the sitting
+implementing kogaki#199 fills no unnamed slot. The rule the encoding must
+satisfy is already stated above and is restated nowhere: the conformant
+artifact for a judged-but-empty group carries **its judge pin and zero
+SubGroupClaims**.
+
+**The finding that decided it, measured at `kogaki@96b6776` rather than
+inferred.** The runtime does not merely emit `none` for a judged-empty group —
+it cannot emit the conformant artifact **at all**, by three composing
+mechanisms, none of which kogaki#199's filing names:
+
+- `subOf(g)` returns `subdivisions[g.name]`, and **`[]` is truthy in
+  JavaScript**, so `{"Group": []}` already takes the judge-required branch
+  (`terrain/terrain.mjs:1405`, `:1429`). Judged-empty is *accidentally*
+  expressible today, by a language property nothing states.
+- On that branch `subgroupPlacement(group, [], …)` places nothing, computes
+  `unplaced` as **every member of the group**, and pushes the
+  `no_member_hidden_subgroup` catch-all (`terrain/terrain.mjs:1011-1020`). So
+  the artifact carries **one SubGroup holding the entire membership**, not
+  zero.
+- `members: subgroups ? null : renderMembers(group.members)`
+  (`terrain/terrain.mjs:1484`) then sets `members` to `null`, because `[]` is
+  truthy there too — so the members are neither in `subgroups` honestly nor in
+  `members` at all.
+
+Three inputs — key absent, `{}`, `[]` — therefore yield three different
+conformance outcomes, and **none of them is the artifact this section names as
+conformant.** A prohibition on minting `none` is necessary and is not
+sufficient: a run could satisfy it and still be unable to produce the
+conformant shape.
+
+**THE ENCODING: `--subdivisions` takes a TYPED per-group record.**
+
+    {"Group": {"judged": true, "subgroups": [ … ]}}   judged, with a leaf split
+    {"Group": {"judged": true, "subgroups": []}}      judged, EMPTY — conformant
+    key absent                                        not judged — refused on the co-tag path
+
+and `--judge-model` / `--judge-effort` are **required for every `report`
+invocation**, not only when SubGroupClaims are present. `judgePin` is the
+supplied judge unconditionally; `NO_JUDGE` is never minted by a co-tag run.
+Two consequences bind the implementation, and they are what the finding above
+makes non-optional: an empty `subgroups` list renders **zero** SubGroupClaims
+and **never** the `no_member_hidden_subgroup` catch-all, and a judged-empty
+group's `members` stay **populated** rather than nulled.
+
+**Why a typed form and not the empty list already accidentally admitted.** The
+declined alternative was to ratify `[]` and change no grammar — the smaller
+diff, reaching neither `SKILL.md` nor kogaki#183's surface, and genuinely
+respectable for that. It is declined because it would rest the boundary between
+a conformant and a non-conformant artifact on **JavaScript's truthiness of an
+empty array**: a composer emitting `{}` rather than `[]` produces the
+non-conformant artifact silently, and nothing anywhere states the rule at the
+layer where it breaks. That is §6.2's own drift-undetectable shape one level
+down. The served surface rules on the form directly:
+
+> "constrain what the pipeline can **PRODUCE** rather than … improve what it
+> can **DETECT** — an enumerated prohibition can only name yesterday's leak
+> while a construction constraint makes tomorrow's unreachable"
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:47`
+(`constrain-generation-not-post-hoc-detection`)
+
+  request_id: 9e835f18-de01-4579-ab88-b5751a003103
+  outcome: covered-after-reframing
+  query: a normative distinction carried by an empty collection's implicit truthiness rather than by a typed form — is an absent key, an empty map and an empty list being three different conformance outcomes a defect
+
+**The cost is stated rather than discovered: this is a breaking change to a
+published input format, and the served surface names exactly that hazard.**
+
+> "A change to a published format damages precisely the records it was meant
+> to improve — the population that gains the new field is the population whose
+> parse changes … because producer and consumer hold separate suites over one
+> contract, neither side can see the break, so the contract owes an
+> **executable conformance fixture at the boundary**"
+
+`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:45`
+
+So the boundary fixture is **required by this amendment rather than suggested
+by it**: the producer is `.claude/skills/terrain/SKILL.md`, which composes the
+subdivision input, and the consumer is `cmdReport`. `cmdCotags`
+(`terrain/terrain.mjs:614-628`) reads the **same** map and follows in the same
+change; a fix that migrates one reader and not the other rebuilds the defect
+between them.
+
+**The skill-layer surface is covered here, and the reason is recorded.** The
+paragraph above routed it to **kogaki#183**, which is now CLOSED — and whose
+skill-layer edits were made, reverted (`kogaki@c2b1aa5`) and re-filed, so the
+work has already been paid for twice. Routing it to a fourth carrier would be a
+third payment for one edit. The single story kogaki#199 decomposes to carries
+both halves, because splitting them produces an intermediate state in which the
+producer emits the old form to a consumer expecting the new one — the precise
+break `LESSONS.md:45` says neither side's suite can see.
+
+**deferred slots: none.**
 
 **A CURRENCY FINDING, recorded because it is the fifth instance this week and
 the first that changed an argument.** kogaki#189's filing pinned this line at
