@@ -1,6 +1,10 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v2.1, amended 2026-08-07 (kogaki#179 — the reversal record's
+**Status:** v3, amended 2026-08-08 (kogaki#220) — **the ratified Move
+architecture is CONSTRUCTED**: §§4.3–4.9 add Reader Path as the artifact and
+its five workflow blocks, the Step's grounding propositions and `entailed`
+flag, the grounds test, path review's judgment-class ruling, semantic economy,
+Journey integrity and the analysis document. v2.1, amended 2026-08-07 (kogaki#179 — the reversal record's
 second-order cause). v2 amended 2026-08-07 (kogaki#169). v1 authored 2026-08-07
 (kogaki#127); §7's hold is **reversed** by this amendment and the reversal is
 recorded at §7.0 rather than edited away.
@@ -47,13 +51,20 @@ is countable rather than assumed:
 | Item 2 gate | v1 |
 | --- | --- |
 | thesis | **bound** as design — §3 |
-| journey incorporation | **partial** — Journeys are admissible step materials (§4), the incorporation gate itself is owed |
+| journey incorporation | **partial** — Journeys are admissible step materials (§4) and §4.8 binds arc integrity; the incorporation gate itself is owed |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
 | plain register with round-trip concessions | **not bound** — it consumes manifest item 6 (the style contract), whose re-homing kogaki#127 excludes from this sitting by name ("No new style artifact") |
 
 The Brief's **durable home** — where the document lives, checkpoints and
 resume — is manifest item 5's and is not decided here. v1 describes the
 Brief's structure section and says nothing about its file.
+
+**The Move architecture is CONSTRUCTED at §§4.3–4.9 (kogaki#220).** Reader
+Path as the artifact plus the five workflow blocks, the Step's grounding and
+the `entailed` flag, the grounds test, path review's judgment-class ruling,
+semantic economy, Journey integrity and the analysis document. **Every clause
+there quotes its served line at a pin**, §4.8 included — its line is
+`topics/articles.md:18@dec0d568`, read at round 2 (receipt at §9.1).
 
 **The whitelist's other two members are owed, not silently covered.** §1's
 inheritance whitelist has four members; items 1 and 2 (the Terrain → Brief
@@ -171,6 +182,264 @@ follow which (no `compatible_previous_moves` / `compatible_next_moves`), any
 typing of what a material is *for* within a step. Adjacency is reasoned per
 article from the step's own before/after states. A stored flowchart is the
 declined menu one level down, and it stays out.
+
+### 4.3 Reader Path — the ARTIFACT, and the five workflow blocks
+
+**Reader Path names the artifact only: the ordered sequence of Steps inside one
+Candidate.** It is not a stage, not a process and not a workflow phase, and the
+blocks that were loosely called by that name get their own fixed names:
+
+    path composition → Move binding → Candidate assembly → path review → Candidate selection
+
+> "Reader Path names the ARTIFACT only — the ordered sequence of Steps inside
+> one Candidate — and the workflow blocks formerly lumped under that name get
+> fixed names: path composition → Move binding → Candidate assembly → path
+> review → Candidate selection. … the describe-never-generate order-invariant
+> lives at the composition→binding boundary; each MUST in the design names the
+> block that judges it. Prior loose Issue usage gets a pointing comment, never
+> an edit."
+
+`product-lab@dec0d568 topics/articles.md:20` (receipt at §9.1)
+
+**Every MUST below names the block that judges it.** That is not
+bookkeeping: a MUST with no named judge is a rule with no occasion, and the
+occasion is the scarce resource. Where this spec states an obligation without
+naming its block, the obligation is defective, not merely unhomed.
+
+**Prior loose usage in Issues gets a pointing comment, never an edit** —
+rewriting a filed Issue to match later vocabulary destroys the record of what
+was actually asked.
+
+### 4.4 The Step's grounding, and the `entailed` flag
+
+A Step's grounds are **specific propositions**, each exactly one of:
+
+- a **Strand proposition**, traceable to sentences in the material;
+- a **named earlier Step's effect** — naming *which effect of which Step*,
+  exactly as a Strand ground names its proposition;
+- a **declared reader assumption**, declared in the Brief and visible at
+  Candidate selection.
+
+Because a previous-Step ground names its effect the same way, **Strand-less
+Steps are covered unchanged** — the test below does not weaken where no Strand
+is involved.
+
+**A proposition not explicit in the material is flagged `entailed` on the Step,
+with its entailment reasoning exposed at the human gate**, because entailment
+is interpretation and is judged rather than silently trusted.
+
+> "A non-explicit Step proposition is flagged `entailed` on the Step with its
+> entailment reasoning exposed at the human gate, and reader assumptions are
+> declared in the Brief, visible at Candidate selection — because entailment is
+> interpretation, judged rather than silently trusted. Semantic reconstruction
+> is allowed (the absence of a rhetorical label in the source does not block
+> it); unsupported completion is prohibited: no facts or examples absent from
+> the Strands, no unstated causal mechanisms, no external material to make a
+> Move applicable, no Strand meaning bent to fit a pre-selected Move, no
+> general-knowledge bridging — and a Move never creates or broadens the premise
+> for its own applicability. When information is unavailable: omit the Step,
+> revise the path, or leave the Strand unused."
+
+`product-lab@dec0d568 topics/articles.md:17`
+
+**The permitted and the prohibited are a pair and neither travels alone.**
+Semantic reconstruction is *allowed* — the absence of a rhetorical label in the
+source does not block a reading. Unsupported completion is *prohibited*, and
+the list is closed as served: no facts or examples absent from the Strands, no
+unstated causal mechanisms, no external material introduced to make a Move
+applicable, no Strand meaning bent to fit a pre-selected Move, no
+general-knowledge bridging. **A Move never creates or broadens the premise for
+its own applicability** — the self-justifying case, which is the one a composer
+reaches for under pressure.
+
+**When information is unavailable there are exactly three moves — omit the
+Step, revise the path, or leave the Strand unused — and inventing material is
+not among them.** Judged at **path review**.
+
+### 4.5 The grounds test — the observable form of describe-never-generate
+
+The composition order is **Strand information → concrete Step reasoning → Move
+binding**, and the order itself is **invisible in the finished Brief**: a
+Move-first composition and a grounds-first composition can produce identical
+text. So the invariant is carried by an observable test rather than by the
+order:
+
+> "The describe-never-generate order — Strand information → concrete Step
+> reasoning → Move binding — is enforced through an OBSERVABLE GROUNDS TEST,
+> because the order itself is invisible in the finished Brief: a Step's
+> rationale must stand with the Move name deleted, on its grounds — a specific
+> Strand proposition, a named earlier Step's effect, or a declared reader
+> assumption. … The observable defect is a Step whose rationale cannot be
+> stated without naming the Move — Move-first composition regardless of
+> whether a Strand is involved."
+
+`product-lab@dec0d568 topics/articles.md:16`
+
+**The test: delete the Move name from the Step's rationale. If what remains
+does not stand on its grounds, the Step was composed Move-first.** Judged at
+**path review**.
+
+This is the §4.2 rationale rule reaching the Step, and it is the same boundary
+§4 already carries from the other side — *a name may DESCRIBE a composed
+structure afterwards and may never GENERATE it beforehand*. What §4.5 adds is
+that the boundary is now **checkable on the artifact** instead of being a claim
+about how the artifact was made.
+
+### 4.6 Path review — every MUST is JUDGMENT, and nothing becomes a lint
+
+> "Every MUST in the Move-composition design is JUDGMENT-CLASS, applied by a
+> review agent at path review: the human gate approves results only and
+> performs no fine-grained edits, and no rule becomes a lint or automated
+> check — **even where deterministic processing is possible**. … this keeps the
+> composition layer inside the no-verdict-machinery hard constraint, with pin
+> resolution remaining the sole mechanical instrument."
+
+`product-lab@dec0d568 topics/articles.md:19`
+
+Three clauses, each doing separate work:
+
+1. **A review agent applies every MUST as judgment.** Not a linter, not a
+   schema check.
+2. **The human gate approves results only** — no fine-grained edits at the
+   gate. An owner editing a Candidate line by line is composing, and the gate
+   would become a second author with no record of the change.
+3. **No rule becomes a lint, even where deterministic processing is
+   possible.** The exclusion is stated at its strongest deliberately: the
+   semantic-economy removal test (§4.7) *looks* mechanizable, and the served
+   line exists so it is never re-read as a lint waiting to be built.
+
+**The three evaluation levels — local Move validity, transition continuity,
+Thesis closure — are NOT licensed checks.** They survive only as reasoning
+surfaced on Candidates at the human gate:
+
+> "The three evaluation levels — local Move validity, transition continuity,
+> Thesis closure — are NOT licensed checks: they survive only as reasoning
+> surfaced on Candidates at the human gate. This supersedes the second-round
+> assessment that they would enter the registered check suite as judgment-class
+> members with admission records; the owner ruled that automatic requires/effect
+> judgment is not needed."
+
+`product-lab@dec0d568 topics/articles.md:11`
+
+**That supersession is recorded rather than absorbed** — an earlier assessment
+had them entering the registered check suite *with admission records*, which is
+a conformant-looking path, and a reader meeting only the outcome would not know
+the check-suite route was considered and refused.
+
+**Pin resolution of every claim remains the sole mechanical instrument on
+grounding, and Moves must not dilute or compete with it.**
+
+### 4.7 Semantic economy — what binds Move AUTHORING
+
+> "The Move semantic economy policy is RATIFIED: a Move describes exactly ONE
+> local transition in reader understanding; every sentence outside sources must
+> be warranted by exactly one of five judgments — identify the operation, the
+> required prior reader state, the produced reader state, a valid-vs-invalid
+> application distinction, or an observable failure form — and a sentence whose
+> removal changes none of them is removed; one proposition appears in exactly
+> one field; sources carries only what locates the observed passage and
+> explains the derivation. A failure mode never paraphrases a constraint, and a
+> Move never describes an article position, a sequence of Moves, a whole-article
+> outcome, or the materials an article must supply."
+
+`product-lab@dec0d568 topics/articles.md:14`
+
+- **One local transition** per Move.
+- **The five-warrant sentence test.** Every sentence outside `sources` is
+  warranted by exactly one of: the operation, the required prior reader state,
+  the produced reader state, a valid-vs-invalid application distinction, an
+  observable failure form. **A sentence whose removal changes none of them is
+  removed.**
+- **One proposition, one field** — a proposition appearing in two fields is a
+  defect in both.
+- **`sources` carries location and derivation only.**
+- **A failure mode never paraphrases a constraint**, and a Move never describes
+  an article position, a sequence of Moves, a whole-article outcome, or the
+  materials an article must supply.
+
+Judged at **Move ingestion's agent review** (§6.9) for a Move entering the
+library, and at **path review** for a Move edited in place. **The removal test
+is applied as judgment and is never mechanized** — §4.6 clause 3 exists for
+this sentence specifically.
+
+**What a Move IS, and the reason the adjacency fields are absent:**
+
+> "Move is ADOPTED as the third core type of the composition layer — the
+> Brief's core is Thesis + Strands + Moves — with exactly the eight-field
+> schema … `material_roles` and the compatible_* adjacency lists are
+> DELIBERATELY ABSENT, because **a stored flowchart is the declined
+> article-framework menu one level down**. A Move is a durable reader-state
+> transition type: no finished prose, no topic-bound content, no encoded
+> position, no verdict machinery; reader states are article-specific
+> propositions, never a global list, and the concrete before/after states live
+> only on the Step that binds the Move. Literature-derived Moves enter as
+> observed or generalized, never validated — promotion is a later act with its
+> own grounds."
+
+`product-lab@dec0d568 topics/articles.md:10`
+
+Two consequences this spec must carry explicitly, because both are easy to
+reintroduce as conveniences:
+
+- **Reader states are article-specific propositions, never a global list**, and
+  the concrete before/after states live **only on the Step**, never on the
+  Move. A Move carrying its own before/after states is a global vocabulary
+  growing quietly.
+- **Literature-derived Moves enter as `observed` or `generalized`, never
+  `validated`.** Promotion is a later act with its own grounds — an importer
+  that admitted a Move as `validated` would be minting a judgment nobody made.
+
+### 4.8 Journey integrity
+
+> "Journey integrity binds composition: a Lesson's claims and evidence project
+> freely into multiple Steps, and a Journey may also support multiple Steps and
+> need not stay contiguous — but its temporal and causal relations (initial
+> understanding → turning point → outcome) are never reversed or severed. The
+> Strand's boundaries remain provenance; what must survive rearrangement is the
+> arc's causality, because rearranging a Journey's internal causality changes
+> its meaning."
+
+`product-lab@dec0d568 topics/articles.md:18`
+
+Four clauses, and the permissive three are as load-bearing as the constraint:
+
+- **A Lesson's claims and evidence project FREELY into multiple Steps.** No
+  budget, no once-per-Strand rule — this is §4.3's "a Strand may support
+  multiple Steps and is never consumed by first use" reaching the Lesson.
+- **A Journey may also support multiple Steps, and NEED NOT STAY CONTIGUOUS.**
+  A Journey's Steps may be separated by Steps grounded elsewhere; adjacency is
+  not what its integrity is made of.
+- **The Strand's boundaries remain PROVENANCE.** They record where material
+  came from and never dictate where it lands — one section per Strand is the
+  source-shaped block §4.3 exists to dissolve.
+- **The temporal and causal relations — initial understanding → turning point
+  → outcome — are never reversed or severed.** What must survive rearrangement
+  is the arc's causality, because rearranging a Journey's internal causality
+  changes its meaning.
+
+So the constraint is on the **arc**, not on the layout: a Journey scattered
+across four non-adjacent Steps in its own causal order is conformant, and two
+adjacent Steps that put the outcome before the turning point are not. Judged at
+**path review**.
+
+### 4.9 The analysis document — where observed sequences live
+
+> "Observed multi-Move sequences live in the separate per-passage analysis
+> document as source-specific prose precedents — never in a Move's sources
+> field (which stays strictly location + derivation) and never as library
+> structure; a Move's sources may point at that document. This reconciles the
+> semantic-economy sources rule with the ratified allowance for recording
+> observed sequences: **one home, structurally unable to migrate into the
+> schema.**"
+
+`product-lab@dec0d568 topics/articles.md:22`
+
+The reconciliation is the point. Recording observed sequences is ratified and
+`sources` may not hold them, so the sequences get **one home** — a per-passage
+analysis document of source-specific prose precedents — and a Move's `sources`
+may *point* at it. **Structurally unable to migrate into the schema**: there is
+no field for a sequence, so the adjacency lists §4.7 excludes cannot return
+through this door.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 
@@ -901,6 +1170,34 @@ sitting:
 ## 9. The reads this amendment rests on
 
 ### 9.1 Receipts
+
+**kogaki#220 (Move architecture construction), 2026-08-08.** §§4.3–4.9 are
+written from these lines and quote them verbatim.
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:10-11,14,16-20,22`
+  request_id: de0275ba-0d8f-497a-8288-0fd2adc5455d
+  outcome: discriminating
+  query: Move library eight fields id status intent requires effect constraints failure_modes sources; Reader Path composition, Move binding, Candidate assembly, path review, Candidate selection; grounds test rationale stands with the Move name deleted
+
+**`:18` was read at round 2 and its own read is recorded, not folded into the
+receipt above.** The first sitting cited `16-17,19-20` and stepped over `:18`,
+and §4.8 then declared the position unserved — an absence claim about a line
+the cite list never reached, which no recheck could falsify because a recheck
+verifies the lines a receipt cites and is silent about the ones it does not.
+The line is served, it is quoted verbatim at §4.8, and the read that found it
+is here rather than absorbed:
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:18`
+  request_id: 9e8cc66b-ee67-46cc-8b80-85eb95a876cc
+  outcome: discriminating
+  query: topic_thread("articles") — Journey integrity: is multi-Step projection of a Journey allowed, may a Journey be non-contiguous, and what do the Strand's boundaries remain?
+
+**The same batch was measured ABSENT earlier the same day** at
+`product-lab@98195e0a` — 0 `Move` lines in `topics/articles.md`, newest decision
+2026-08-05, no Move-bearing topic across a full `surface_names` enumeration.
+The hub committed between the two consultations. Recorded here because §6.9.3
+carries the correction that measurement produced, and a reader meeting only
+this receipt would not know the pins were unresolvable hours before.
 
 Every quote v2 adds is verified at the **current** pin, not inherited from
 v1's. One query, one reading, one request_id each — no receipt is carried
