@@ -55,7 +55,7 @@ def resolve_efficacy_case(payload, opener=None):
     a label the file no longer contains, is an admission record claiming an
     efficacy counterfactual that nothing carries — which is precisely the
     unbound-claim defect kogaki#243 names, rebuilt inside its own repair.
-    So the path must exist AND contain the label literally.
+    So the path must exist AND contain the label literally AND exactly once.
 
     The label is matched as a LITERAL SUBSTRING, never a regex: these labels
     are prose written for humans and carry `(`, `)`, `:` and `—` freely, so
@@ -64,29 +64,53 @@ def resolve_efficacy_case(payload, opener=None):
 
     Split on the FIRST `::` only, because labels routinely contain `:`
     while paths in this tree never contain `::`.
+
+    THE PAYLOAD IS `<path>::<label>` AND NOTHING ELSE. An earlier draft let
+    the author append a prose gloss after ` — `, and this check stripped it
+    before matching — which silently TRUNCATED every label that itself
+    contains ` — ` (the `consult-receipts` label does). Renaming such a
+    label's tail then did NOT break the claim citing it, falsifying the one
+    property this field is sold on. Human prose moved to the sibling
+    `efficacy_note`, on the convention `runtime_ms_note` already sets, and
+    the machine-read field became unambiguous. Recorded because the defect
+    was E′ one level down: the note asserted a binding the code did not
+    enforce, inside the amendment that names E′ (PR #272 review).
+
+    THE MATCH MUST BE UNIQUE. A label occurring more than once identifies
+    nothing — a citation resolving to whichever copy is found first is not
+    a binding — so a non-unique match is refused. This is also what refuses
+    a single common word like `the`. What it deliberately does NOT do is
+    decide that the cited text is a COMPLETE case label, or that its
+    occurrence is code rather than a comment: both are judgments about
+    meaning, and building a language-aware parser for them would be a lint
+    over judgment. `checks/registry.json`'s note claims exactly this and no
+    more.
     """
     if opener is None:
         def opener(path):
             return pathlib.Path(path).read_text(encoding="utf-8")
-    # Strip the trailing prose gloss: everything the author wrote after the
-    # label to explain it. The label ends at the first newline, and entries
-    # are single-line, so the gloss is delimited by " — " on the same line.
-    head, sep, _gloss = payload.partition(" — ")
-    if "::" not in head:
+    if "::" not in payload:
         return False, ("no `::` separator — expected "
                        "`case: <path>::<verbatim label>`")
-    path, _, label = head.partition("::")
+    path, _, label = payload.partition("::")
     path, label = path.strip(), label.strip()
-    if not path or not label:
-        return False, "empty path or empty label around `::`"
+    if not path:
+        return False, "empty path before `::`"
+    if not label:
+        return False, "empty label after `::`"
     try:
         text = opener(path)
     except OSError as exc:
         return False, f"cited path unreadable: {path} ({exc.__class__.__name__})"
-    if label not in text:
+    hits = text.count(label)
+    if hits == 0:
         return False, (f"cited case not found in {path}: "
                        f"{label[:60]!r} appears nowhere in the file")
-    return True, f"{path} carries {label[:50]!r}"
+    if hits > 1:
+        return False, (f"cited case is not unique in {path}: "
+                       f"{label[:60]!r} appears {hits} times, so it "
+                       f"identifies no particular case")
+    return True, f"{path} carries {label[:50]!r} exactly once"
 
 
 def validate_entries(entries, opener=None):
@@ -221,6 +245,8 @@ def fixture_pass():
     TREE = {"real.sh": "prelude\n  cases.append((\"the label\", ok))\n",
             "colon.sh": "labelled x: y here\n",
             "double.sh": "a label carrying x::y inside it\n",
+            "dash.sh": "REVERSED — the merged-history specimen here\n",
+            "twice.sh": "the same words\nand again the same words\n",
             "meta.sh": "a b c\n"}
 
     def fake_open(path):
@@ -271,9 +297,41 @@ def fixture_pass():
     cases.append(("a case with no `::` separator fails",
                   any("no `::` separator" in x
                       for x in eff("case: real.sh the label"))))
-    cases.append(("the trailing prose gloss is stripped before matching",
-                  not eff('case: real.sh::cases.append(("the label", ok))'
-                          " — and here is why that case is the right one")))
+    # The payload is `<path>::<label>` and NOTHING else. The earlier ` — `
+    # gloss-stripping silently truncated every label containing ` — `, so
+    # renaming such a label's tail did not break the claim citing it — the
+    # property the field is sold on, falsified (PR #272 review).
+    cases.append(("a label containing ` — ` is matched WHOLE, never truncated "
+                  "at the dash", not eff("case: dash.sh::REVERSED — the "
+                                         "merged-history specimen")))
+    cases.append(("renaming the TAIL of a ` — ` label breaks the citing claim",
+                  any("appears nowhere" in x
+                      for x in eff("case: dash.sh::REVERSED — a tail nobody "
+                                   "wrote"))))
+    # Uniqueness: a label occurring more than once identifies no particular
+    # case, which is also what refuses a single common word.
+    cases.append(("a label occurring TWICE fails — it identifies no case",
+                  any("not unique" in x
+                      for x in eff("case: twice.sh::the same words"))))
+    cases.append(("a single common word fails on the same rule",
+                  any("not unique" in x for x in eff("case: twice.sh::the"))))
+    # Derived from the diff and initially UNCAUGHT (PR #272 review): the
+    # empty-label guard had no fixture, because the `case: ` case tests the
+    # WHOLE payload empty, which the grammar refuses first.
+    cases.append(("an empty label after `::` fails",
+                  any("empty label" in x for x in eff("case: real.sh::"))))
+    cases.append(("an empty path before `::` fails",
+                  any("empty path" in x for x in eff("case: ::the label"))))
+    # Also initially uncaught: every fixture SET the key, so `.get`'s default
+    # was the sole guard for an entry omitting `efficacy` altogether.
+    absent = {"id": "fx", "file": "check-fx.sh",
+              "admission": {"contract": "c", "license": "l", "tier": "ci",
+                            "removal_signal": "s",
+                            "removal_instrument": "act: x"}}
+    cases.append(("the efficacy KEY entirely absent fails, not only an empty "
+                  "one", any("no efficacy evidence" in x
+                             for x in validate_entries([absent],
+                                                       opener=fake_open))))
     cases.append(("the split is on the FIRST `::`, so a label carrying `:` "
                   "survives", not eff("case: colon.sh::x: y")))
     # Derived from the diff and initially UNCAUGHT: the live registry holds no

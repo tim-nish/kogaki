@@ -20,16 +20,22 @@
     "constrain-generation applied to check EXISTENCE, never to check",
     "EFFICACY. `efficacy` names the counterfactual instead: the case that",
     "CONSTRUCTS the named defect and asserts the check REFUSES it.",
-    "  `case: <path>::<verbatim label>` \u2014 a counterfactual living in the",
-    "  tree. check-registry-conformance.sh refuses the entry unless <path>",
-    "  exists AND contains <label> literally, so renaming or deleting the",
-    "  case breaks the claim that cites it; the label is re-executed by",
-    "  `bash checks/<file>`, since every counterfactual here runs inline on",
-    "  every invocation (a fixture behind a flag is one nobody runs).",
+    "  `case: <path>::<verbatim label>` \u2014 the payload is the path, `::`,",
+    "  and the label, WITH NOTHING APPENDED; human prose goes in the",
+    "  sibling `efficacy_note`, on the convention `runtime_ms_note` sets.",
     "  `none: <why no counterfactual exists in this tree>` \u2014 the honest",
     "  state, and it is a MEASUREMENT rather than a deferral marker.",
-    "Shape is gated; whether the counterfactual is a GOOD one is judgment",
-    "and is never gated \u2014 the same split `probe:` already runs under."
+    "check-registry-conformance.sh refuses a `case:` unless <path> exists",
+    "and contains <label> literally and EXACTLY ONCE. What that buys,",
+    "claimed precisely because overstating it would be the very defect",
+    "kogaki#243 names: editing or deleting the cited text breaks the entry",
+    "that cites it, and a label too generic to identify one case is",
+    "refused as non-unique. What it does NOT decide: that the cited text",
+    "is a COMPLETE case label rather than part of one, or that it occurs",
+    "in code rather than in a comment. Both are judgments about meaning,",
+    "and a language-aware parser for them would be a lint over judgment.",
+    "Shape and resolution are gated; whether the counterfactual is a GOOD",
+    "one is judgment and is never gated \u2014 the split `probe:` runs under."
   ],
   "checks": [
     {
@@ -42,7 +48,8 @@
         "runtime_ms": 75,
         "removal_signal": "a suite runner whose discovery is registry-driven, making an unregistered file unrunnable by construction \u2014 constrain-generation subsumes this detection",
         "removal_instrument": "act: the PR that moves discovery-refusal and admission-shape validation into the runner itself \u2014 its licensing issue owes this check's removal row; today's runner iterates registered entries but neither refuses unregistered files nor validates admission shape, so the signal's condition is a judgment over what the runner enforces, not a tree fact",
-        "efficacy": "case: checks/check-registry-conformance.sh::admission shape still enforced \u2014 fixture_pass() builds a registry entry whose admission record is incomplete and asserts this check reports `admission record incomplete`; the sibling cases `missing instrument fails` and `malformed prefix fails` do the same for the kogaki#113 field"
+        "efficacy": "case: checks/check-registry-conformance.sh::admission shape still enforced",
+        "efficacy_note": "fixture_pass() builds a registry entry whose admission record is incomplete and asserts this check reports `admission record incomplete`; the sibling cases `missing instrument fails` and `malformed prefix fails` do the same for the kogaki#113 field"
       }
     },
     {
@@ -55,7 +62,8 @@
         "runtime_ms": 80,
         "removal_signal": "a gateway-side consumer receipt surface that reports served consultations back to the consumer \u2014 that would verify against the server's record rather than the consumer's claim, superseding this check's weaker evidence",
         "removal_instrument": "none: the superseding carrier would land in tsurezure-gateway, and no act in this repository can observe another repository's surface appearing \u2014 the cross-repo hold class product-lab#158 documented",
-        "efficacy": "case: checks/check-consult-receipts.sh::request_id reused with the outcome REVERSED \u2014 the merged-history specimen \u2014 the FIXTURES pass constructs a receipt reusing a request_id under a reversed outcome and asserts the scanner reports it malformed rather than counting it"
+        "efficacy": "case: checks/check-consult-receipts.sh::request_id reused with the outcome REVERSED \u2014 the merged-history specimen",
+        "efficacy_note": "the FIXTURES pass constructs a receipt reusing a request_id under a reversed outcome and asserts the scanner reports it malformed rather than counting it"
       }
     },
     {
@@ -69,7 +77,8 @@
         "runtime_ms": 6020,
         "removal_signal": "the kit's separation into its own repository (fires on a second installing consumer, per kogaki#9) \u2014 the test goes with it and this repo stops being its home",
         "removal_instrument": "act: the admission gate of a second installing consumer (the trigger kogaki#9 names) \u2014 the sitting that admits consumer two owes the kit's move and this check's removal row in the same act",
-        "efficacy": "case: policy/kit/test/install-test.sh::ok: receipt mode refuses rather than assigning the outcome token (AC 4) \u2014 the counterfactual is sited in the kit's own test because this check is a thin invoker holding no assertions of its own; it drives receipt mode toward assigning the token and asserts a refusal"
+        "efficacy": "case: policy/kit/test/install-test.sh::ok: receipt mode refuses rather than assigning the outcome token (AC 4)",
+        "efficacy_note": "the counterfactual is sited in the kit's own test because this check is a thin invoker holding no assertions of its own; it drives receipt mode toward assigning the token and asserts a refusal"
       }
     },
     {
@@ -82,7 +91,8 @@
         "runtime_ms": 80,
         "removal_signal": "a second consumer whose proposals differ in shape from Terrain's \u2014 the record schema was specced against one implementation, so a second one is the evaluation of the shape, not a widening of it: either the schema generalizes (and this check moves to it) or the contract splits per consumer and this file, which validates a single shape, is the wrong carrier",
         "removal_instrument": "act: the admission gate of a second proposal-emitting consumer \u2014 the sitting that admits it evaluates whether the record schema generalizes, and owes this check's re-siting or split in the same act",
-        "efficacy": "case: checks/fixtures/proposal-contract/nonconforming/free-text-not-accepted.json::_expect \u2014 a non-conforming record declaring the violation code it must raise; the check's CODES_WITHOUT_FIXTURE guard additionally refuses any declared code with no non-conforming fixture, so the counterfactual set cannot silently thin out"
+        "efficacy": "case: checks/fixtures/proposal-contract/nonconforming/free-text-not-accepted.json::_expect",
+        "efficacy_note": "a non-conforming record declaring the violation code it must raise; the check's CODES_WITHOUT_FIXTURE guard additionally refuses any declared code with no non-conforming fixture, so the counterfactual set cannot silently thin out"
       }
     },
     {
@@ -95,7 +105,8 @@
         "runtime_ms": 90,
         "removal_signal": "a harness-side carrier that enforces the medium binding at the moment a gate is raised \u2014 a Stop or PostToolUse hook reading AskUserQuestion tool-use evidence directly (topics/claude-code-ops.md:35@5f769dfe names the transcript/tool-call layer as never exercised). That would verify against the host's own record rather than against a declared registry and a committed capture file, and constrain-generation subsumes after-the-fact detection: this check goes when it lands",
         "removal_instrument": "act: the PR that lands the harness-side medium-binding hook \u2014 its licensing issue owes this check's removal row in the same act, so the fired trigger is observed at the act that fires it",
-        "efficacy": "case: checks/fixtures/gate-carrier/nonconforming/gate-option-preselected.json::_expect \u2014 a captured gate with an option pre-selected, declaring the code it must raise; pre-selection is the defect the medium binding exists to refuse, so this is the named defect constructed rather than a neighbouring one"
+        "efficacy": "case: checks/fixtures/gate-carrier/nonconforming/gate-option-preselected.json::_expect",
+        "efficacy_note": "a captured gate with an option pre-selected, declaring the code it must raise; pre-selection is the defect the medium binding exists to refuse, so this is the named defect constructed rather than a neighbouring one"
       }
     },
     {
@@ -109,7 +120,8 @@
         "runtime_ms_note": "re-measured at this admission act (kogaki#165), which is the convention the `client-kit-install` entry below already states: a runtime is a measurement, and the number is stale rather than wrong. It read 90 while the member had grown from the survey-record scan to the cotags, Full Report, claim-origin, v5-residual and subdivide-command blocks, none of which were measured when they landed. 2830 is the median of three runs at this member's OWN loop position \u2014 pre-push, on a machine where the served seam is REACHABLE, so the seam-reading blocks actually run. Under CI, where the seam is absent and those blocks report CANNOT-DETERMINE, the same member measures ~1040 (run 31144605217). Both figures are the same check; which one applies is a fact about the seam, not about the diff, and the pre-push number is recorded because pre-push is the position the served line prices (`a-checks-runtime-multiplies-by-its-loop-position`). Re-measure at the next admission act that touches this check. RE-MEASURED at kogaki#163's admission act: 3140, the median of three runs at the same pre-push position on the same seam-reachable machine \u2014 the compose-input block adds ~310ms, all of it the stub-gateway command case and none of it a real consult. The CI figure is NOT re-measured here and stays the ~1040 recorded above plus that same stub cost, because the new block is seam-free by construction and does not report CANNOT-DETERMINE there.",
         "removal_signal": "terrain/terrain.mjs validateSurvey becoming the registry-verified SOLE writer of survey records, with the fixture pass exercising the mjs validator directly rather than this mirror \u2014 once no unvalidated write path exists, constrain-generation subsumes after-the-fact detection, the same shape the registry meta-check's own removal signal ratified (kogaki#2)",
         "removal_instrument": "act: the PR that makes terrain/terrain.mjs validateSurvey the sole write path \u2014 sole-writer-ness is a judgment over write paths, not a tree probe, and that PR's licensing issue owes the removal row",
-        "efficacy": "case: checks/fixtures/terrain/nonconforming/strand-silently-dropped.json::_expect \u2014 a survey record dropping a Strand without declaring it, which is the completeness-as-a-cover-counted-in-place contract's own violation, declaring the code it must raise"
+        "efficacy": "case: checks/fixtures/terrain/nonconforming/strand-silently-dropped.json::_expect",
+        "efficacy_note": "a survey record dropping a Strand without declaring it, which is the completeness-as-a-cover-counted-in-place contract's own violation, declaring the code it must raise"
       }
     },
     {
@@ -122,7 +134,8 @@
         "runtime_ms": 120,
         "removal_signal": "a receipt grammar that names the boundary it discharges \u2014 once a receipt carries its own boundary reference, the presence-over-the-branch approximation this check makes is the wrong carrier and is replaced by per-boundary attribution rather than widened. Fires on the reopen trigger in the file header: one PR that matched two or more boundaries, carried a receipt for only one, and shipped a defect the unconsulted boundary would have caught",
         "removal_instrument": "act: the PR that lands a boundary-naming receipt grammar \u2014 its licensing issue owes per-boundary attribution and this check's replacement row in the same act",
-        "efficacy": "case: checks/check-boundary-receipts.sh::matched by diff path, ZERO receipts: this is the failing case \u2014 the FIXTURES pass constructs a branch touching a mapped boundary with no receipt anywhere and asserts this check FAILS; the label names itself as the failing case"
+        "efficacy": "case: checks/check-boundary-receipts.sh::matched by diff path, ZERO receipts: this is the failing case",
+        "efficacy_note": "the FIXTURES pass constructs a branch touching a mapped boundary with no receipt anywhere and asserts this check FAILS; the label names itself as the failing case"
       }
     },
     {
@@ -135,7 +148,8 @@
         "runtime_ms": 90,
         "removal_signal": "a carrier that makes the ISOLATION half observable \u2014 a harness-side record of which session authored which act, or a review transport whose identity differs from the author's by construction (a bot account, a separate app installation). Today this check enforces presence while isolation is advice; once independence is mechanically decidable, the property worth asserting changes and a presence-only check is the wrong carrier for it",
         "removal_instrument": "none: session identity exists in no substrate this repository reads (measured on PR #43 \u2014 PR author, commit authors and comment author are one login); the observing carrier would be harness-side or a distinct review identity, both outside this tree",
-        "efficacy": "case: checks/check-review-report.sh::an open blocking in the current head's segment gates despite an older clean report \u2014 constructs the stale-report escape (a clean older report beside an open blocking finding at the current head) and asserts the check still gates, which is the defect the head-binding exists for"
+        "efficacy": "case: checks/check-review-report.sh::an open blocking in the current head's segment gates despite an older clean report",
+        "efficacy_note": "constructs the stale-report escape (a clean older report beside an open blocking finding at the current head) and asserts the check still gates, which is the defect the head-binding exists for"
       }
     },
     {
@@ -148,7 +162,8 @@
         "runtime_ms": 88,
         "removal_signal": "the trigger's replacement by a lane-layer invocation that fires the sweep for the PR it just created (kogaki#65 remedy 4's second half) \u2014 at that point the hook is the manual-creation fallback rather than the primary carrier, and a fixture over its extraction stops being the thing standing between a batched creation and an unreviewed PR",
         "removal_instrument": "act: the PR that lands the lane-layer invocation (kogaki#65 remedy 4, second half) \u2014 its licensing issue owes this check's re-classification to manual-fallback carrier in the same act",
-        "efficacy": "case: checks/check-review-trigger.sh::an unrelated dir does not \u2014 the worktree probe asserts a directory outside the repository does NOT resolve as sharing it, the false-positive half of the origin resolution kogaki#65 found broken; the hook's own counterfactuals run behind `python3 .claude/hooks/review-trigger.py --self-test`, which this check invokes"
+        "efficacy": "case: checks/check-review-trigger.sh::an unrelated dir does not",
+        "efficacy_note": "the worktree probe asserts a directory outside the repository does NOT resolve as sharing it, the false-positive half of the origin resolution kogaki#65 found broken; the hook's own counterfactuals run behind `python3 .claude/hooks/review-trigger.py --self-test`, which this check invokes"
       }
     },
     {
@@ -161,7 +176,8 @@
         "runtime_ms": 900,
         "removal_signal": "a host-side read of a spawned session's grant set, or any harness surface that reports the capabilities a run will actually have BEFORE it runs \u2014 at that point the needed-capability question is answered by the host rather than by a declared enumeration this repository maintains by hand, and a registry whose entries are hand-written is the wrong carrier for it. Fires the day the third entry's typed `none:` becomes decidable",
         "removal_instrument": "probe: python3 - <<'PY'\nimport json, sys\ntry:\n    d = json.load(open('deps/registry.json'))\n    e = [x for x in d['dependencies'] if x['id'] == 'spawned-session-tool-grants']\nexcept Exception as ex:\n    print(f'probe precondition failed: {ex}', file=sys.stderr)\n    sys.exit(2)\nif not e:\n    print('probe precondition failed: entry spawned-session-tool-grants not found', file=sys.stderr)\n    sys.exit(2)\nv = e[0].get('verification')\nif not isinstance(v, dict) or 'decidable' not in v:\n    print('probe precondition failed: entry spawned-session-tool-grants carries no verification.decidable field \u2014 an absent block is not a not-yet answer (kogaki#116)', file=sys.stderr)\n    sys.exit(2)\nsys.exit(0 if v['decidable'] else 1)\nPY",
-        "efficacy": "case: checks/check-external-deps.sh::a missing required field is rejected \u2014 the FIXTURES pass constructs a dependency entry missing a required field and asserts DEP_MISSING_FIELD; its NEVER FAILS ON THE WORLD siblings assert the converse, that a conforming entry whose read reports ABSENT raises nothing"
+        "efficacy": "case: checks/check-external-deps.sh::a missing required field is rejected",
+        "efficacy_note": "the FIXTURES pass constructs a dependency entry missing a required field and asserts DEP_MISSING_FIELD; its NEVER FAILS ON THE WORLD siblings assert the converse, that a conforming entry whose read reports ABSENT raises nothing"
       }
     }
   ]

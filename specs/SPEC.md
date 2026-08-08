@@ -434,6 +434,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
   verified while binding nothing. Recorded as sub-form **E′ — faultless
   transcription, wrong application**, and it is the reason this field carries a
   command rather than a cite: a cite is exactly the artifact E′ passes through.
+- **Fixture discrimination** (kogaki#230): a diff that **adds or changes a
   fixture** carries its **mutation evidence** in the PR record — the mutation
   table, naming each mutation and which fixtures fail it. A fixture
   *discriminates* when it can fail on the defect it guards, and the only proof
