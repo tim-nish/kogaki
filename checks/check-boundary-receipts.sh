@@ -172,6 +172,9 @@
 # neither exists at push time. A check's position in the loop is a cost
 # decision (`a-checks-runtime-multiplies-by-its-loop-position`).
 set -euo pipefail
+# Captured BEFORE the cd, because the span fixture's end-to-end arm re-runs
+# this same file inside a scratch repository (kogaki#264).
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")/.."
 
 MAP="policy/consultation-map.md"
@@ -187,10 +190,242 @@ if [ -z "$BASE" ]; then
           || git merge-base master "$HEAD_REF" 2>/dev/null || true)"
 fi
 
+# THE PATH SET IS COMPUTED AT THE FORK POINT, NEVER AT THE BASE BRANCH'S TIP
+# (kogaki#264). What CI supplies is `github.event.pull_request.base.sha` —
+# master's tip AT EVENT TIME, not the point this branch forked from — and
+# `git diff A..B` is not a range: git reads it as plain `git diff A B`, a
+# tree-to-tree comparison. So every file that landed on master AFTER this
+# branch forked entered the path set as the reverse delta, and the check
+# reported a mapped-boundary match, at DENY severity, naming a file the branch
+# never touched. The two neighbouring lines read the SAME string as a genuine
+# range (`git log`, `git rev-list` both do), which is why the report looked
+# credible: it printed a commit count computed as a range beside a path set
+# computed as a tree diff, and the count was right.
+#
+# Observed live: PR #261 (one story file) failed on `check` in DIFF PATHS three
+# and a half minutes after PR #254 merged `checks/check-terrain-composition.sh`
+# to master. `git diff --name-only 4926043..1a58df3a` yields four files;
+# `git diff --name-only 7a441d0..1a58df3a`, at the true fork point, yields the
+# one story file the branch changed. The discharge was a rebase, which is
+# consistent — after a rebase `base.sha` IS the fork point.
+#
+# THE REPAIR IS SITED HERE AND NOT IN THE WORKFLOW, stated because the choice
+# is not obvious. `base.sha` is a truthful name for a truthful value, and the
+# workflow's other consumers of it — `check-consult-receipts.sh` and the
+# `license-assertion` job — read it only through `git log` / `git rev-list`,
+# where a tip and a fork point produce the SAME commit set and there is nothing
+# to fix. Recomputing the variable in YAML would change what a correctly-named
+# input means for every reader in order to repair the one reader that misreads
+# it, and no fixture in this repository can see a YAML expression. The defect
+# is the single line that read a range operator as a diff argument; it is
+# repaired where a fixture can watch it, immediately below.
+#
+# THIS DOES NOT REOPEN THE kogaki#126 DECLINE recorded above. That decline —
+# "narrow the match to diff paths alone" — rests on path matches being the
+# RELIABLE signal. This defect poisoned exactly that signal, so repairing the
+# span strengthens the decline rather than reopening it, and no judgment clause
+# is added: the matcher, the sources and the output vocabulary are untouched.
+# It is also NOT the base-dependence note at `:91-93`, which is about
+# `git merge-base` resolving differently when a MERGED branch is re-run locally
+# — a retrospective artifact. This was a live false positive on an OPEN PR.
+
+# The fork point of HEAD from BASE. Fails (rather than substituting a
+# plausible sha) when the two histories have no common ancestor, so the caller
+# can SAY it could not establish the span instead of reporting over a wider one.
+_fork_point() { git merge-base "$1" "$2" 2>/dev/null; }
+
+# The files THIS BRANCH changed. Equivalent to `git diff A...B` and written the
+# long way on purpose: the three-dot form is one keystroke from the two-dot
+# form that caused the defect, and the no-merge-base case has to be visible.
+_branch_paths() { # base, head
+  local _f
+  _f="$(_fork_point "$1" "$2")" || _f="$1"
+  git diff --name-only "$_f" "$2" 2>/dev/null || true
+}
+
+# --- span fixture (kogaki#264) ---------------------------------------------
+# THE PROPERTY'S UNIT IS A TWO-BRANCH HISTORY, so the detector's is too
+# (`match-the-detectors-unit-to-the-propertys-unit`): no fixture over synthetic
+# text can display "the path set contains another branch's file", because the
+# thing that produced it is git's reading of an argument. This constructs the
+# reproduction in a scratch repository — a fork point, a branch touching one
+# story file, and a base branch that then advances with a check-touching commit
+# — and asserts BOTH arms: the naive two-dot form MUST still pull the foreign
+# file in (if it stops doing so, the premise moved and this fixture says so
+# rather than passing quietly), and `_branch_paths` MUST NOT. Reverting the
+# repair fails the second arm. Runs on every invocation, needs no network, and
+# builds its own repository so it is intact where the surrounding checkout is
+# not. Construction failure FAILS rather than skipping: a guard that reports
+# nothing when it could not look is the shape this file refuses elsewhere.
+_span_fixture() {
+  local tmp rc=0
+  tmp="$(mktemp -d 2>/dev/null)" || {
+    echo "FAIL: the span fixture could not create a scratch directory" >&2
+    return 1
+  }
+  (
+    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$tmp" || exit 1
+    git init -q . >/dev/null 2>&1 || exit 1
+    git config user.email fixture@example.invalid
+    git config user.name 'span fixture'
+    mkdir -p docs checks
+    echo one > docs/story.md
+    echo one > checks/check-other.sh
+    git add -A >/dev/null 2>&1
+    git commit -qm 'the fork point' >/dev/null 2>&1 || exit 1
+    trunk="$(git rev-parse --abbrev-ref HEAD)"
+
+    # The branch under test: one story file, no check touched anywhere.
+    git checkout -qb under-test >/dev/null 2>&1 || exit 1
+    echo two > docs/story.md
+    git commit -qam 'the branch under test: one story file' >/dev/null 2>&1 || exit 1
+    head="$(git rev-parse HEAD)"
+
+    # The base branch then advances — ANOTHER branch's check-touching merge.
+    git checkout -q "$trunk" >/dev/null 2>&1 || exit 1
+    echo two > checks/check-other.sh
+    git commit -qam "another branch's check lands on the base branch" \
+      >/dev/null 2>&1 || exit 1
+    tip="$(git rev-parse HEAD)"
+
+    fail=0
+    # Arm 1 — the control. The defect's mechanism must still be present, or
+    # this fixture is asserting nothing.
+    naive="$(git diff --name-only "$tip..$head" | sort | tr '\n' ' ')"
+    case "$naive" in
+      *checks/check-other.sh*) : ;;
+      *) echo "FAIL span fixture [control]: the two-dot form no longer pulls" \
+              "the base branch's own file in — got '$naive'. git's reading of" \
+              "A..B changed; re-derive the defect before trusting arm 2." >&2
+         fail=1 ;;
+    esac
+    # Arm 2 — the repair. The branch's set is the branch's own.
+    got="$(_branch_paths "$tip" "$head" | sort | tr '\n' ' ')"
+    if [ "$got" != "docs/story.md " ]; then
+      echo "FAIL span fixture [advanced base]: got '$got', want" \
+           "'docs/story.md ' — the path set is being computed at the base" \
+           "branch's TIP rather than at the fork point (kogaki#264)." >&2
+      fail=1
+    fi
+    # Arm 3 — no regression when the base IS the fork point, which is the
+    # only case the pre-repair form got right and the one a rebase produces.
+    fork="$(git rev-parse "$trunk"^)"
+    got="$(_branch_paths "$fork" "$head" | sort | tr '\n' ' ')"
+    if [ "$got" != "docs/story.md " ]; then
+      echo "FAIL span fixture [base == fork point]: got '$got', want" \
+           "'docs/story.md '" >&2
+      fail=1
+    fi
+    # Arm 5 — THE LIVE LINE, END TO END, because arms 1-3 exercise
+    # `_branch_paths` and NOTHING IN THEM NOTICES IF THE LIVE SITE STOPS
+    # CALLING IT. That mutation — the live `paths=` assignment reverting to the
+    # two-dot form — reinstates the defect verbatim while every helper-level
+    # arm stays green, which is the fixture-tests-the-helper-not-the-product
+    # shape this repository has shipped before. So this arm runs THIS FILE, in
+    # CI shape (`CONSULT_BASE_SHA` = a base branch tip that has advanced),
+    # against the scratch history, and asserts BOTH directions: clean on the
+    # branch that touched no check, and FAILING on one that did — an arm never
+    # seen to fail is not evidence.
+    if [ -z "${BOUNDARY_SPAN_FIXTURE_INNER:-}" ]; then
+      mkdir -p checks policy
+      cp "$SELF" checks/inner.sh
+      {
+        echo '### 1. Check/CI infrastructure'
+        echo
+        echo '- **Trigger terms:** check'
+        echo '- **Read prescription:** irrelevant here.'
+      } > policy/consultation-map.md
+      _inner() { # base, head
+        BOUNDARY_SPAN_FIXTURE_INNER=1 BOUNDARY_SKIP_ISSUE_LOOKUP=1 \
+        CONSULT_BASE_SHA="$1" CONSULT_HEAD_SHA="$2" CONSULT_PR_BODY= \
+          bash checks/inner.sh >/dev/null 2>&1
+      }
+      # (a) The reproduction. Base has advanced past the fork with a
+      # check-touching commit; the branch itself touched one story file and
+      # carries no receipt. Before the repair this exited 1 — the live CI
+      # false positive, whole.
+      if ! _inner "$tip" "$head"; then
+        echo "FAIL span fixture [end to end]: the check FAILED on a branch" \
+             "that touched no check file — the base branch's own commit is" \
+             "still entering the path set at the live site (kogaki#264)" >&2
+        fail=1
+      fi
+      # (b) The instrument fires. A branch that really does touch a check,
+      # with no receipt, must still be refused; otherwise (a) passes because
+      # the gate stopped working rather than because the span got fixed.
+      if _inner "$fork" "$tip"; then
+        echo "FAIL span fixture [end to end, negative control]: the check" \
+             "PASSED a branch that really does modify a check file with no" \
+             "receipt — arm (a) proves nothing" >&2
+        fail=1
+      fi
+    fi
+
+    # Arm 4 — the degradation path is EXERCISED, not merely declared. With no
+    # common ancestor there is no fork point, and `_branch_paths` falls back to
+    # the base rather than to an empty set: a check that reported no changed
+    # paths because it could not find a span would be reporting absence it
+    # never established. An orphan branch is the only way to reach the fallback,
+    # so without this arm any mutation of it survives the whole suite.
+    git checkout -q --orphan unrelated >/dev/null 2>&1 || exit 1
+    git rm -rqf . >/dev/null 2>&1 || true
+    echo one > unrelated.md
+    git add -A >/dev/null 2>&1
+    git commit -qm 'an unrelated history' >/dev/null 2>&1 || exit 1
+    orphan="$(git rev-parse HEAD)"
+    if git merge-base "$orphan" "$head" >/dev/null 2>&1; then
+      echo "FAIL span fixture [no merge base]: the orphan branch shares an" \
+           "ancestor with the branch under test, so this arm tests nothing" >&2
+      fail=1
+    fi
+    got="$(_branch_paths "$orphan" "$head" | sort | tr '\n' ' ')"
+    case "$got" in
+      *docs/story.md*) : ;;
+      *) echo "FAIL span fixture [no merge base]: got '$got' — with no common" \
+              "ancestor the fallback must still report the branch's files" \
+              "against the base, never an empty set" >&2
+         fail=1 ;;
+    esac
+    exit "$fail"
+  ) || rc=1
+  rm -rf "$tmp"
+  return "$rc"
+}
+if [ -n "${BOUNDARY_SPAN_FIXTURE_INNER:-}" ]; then
+  # This IS an inner run of arm 5. Its job is the live path below; re-running
+  # the arms here would recurse one level and buy nothing.
+  echo "span fixture: skipped (this run IS arm 5's inner invocation)"
+else
+_span_fixture || { echo "FAIL: the span is not the branch's own" >&2; exit 1; }
+echo "span fixture: 5/5 fork-point cases (control: the two-dot form still" \
+     "pulls in a foreign file; advanced base excludes it; base == fork point" \
+     "unchanged; no merge base falls back rather than reporting empty; and END" \
+     "TO END — this file, run in CI shape over that scratch history, is clean" \
+     "on a branch that touched no check and still refuses one that did)"
+fi
+
 if [ -n "$BASE" ]; then
-  paths="$(git diff --name-only "$BASE..$HEAD_REF" 2>/dev/null || true)"
-  commits="$(git log --format='%B' "$BASE..$HEAD_REF" 2>/dev/null || true)"
-  range_desc="$(git rev-list --count "$BASE..$HEAD_REF" 2>/dev/null || echo 0) commit(s)"
+  if FORK="$(_fork_point "$BASE" "$HEAD_REF")"; then
+    _base_sha="$(git rev-parse "$BASE" 2>/dev/null || printf '%s' "$BASE")"
+    if [ "$FORK" = "$_base_sha" ]; then
+      span_note="fork point $(git rev-parse --short "$FORK") == the supplied base"
+    else
+      span_note="fork point $(git rev-parse --short "$FORK"); the supplied \
+base $(git rev-parse --short "$_base_sha" 2>/dev/null || printf '%s' "$_base_sha") \
+has ADVANCED since the fork, so the paths below are this branch's own and not \
+the base branch's"
+    fi
+  else
+    FORK="$BASE"
+    span_note="NO MERGE BASE with $BASE — the paths below are a tree diff \
+against it and MAY NAME FILES THIS BRANCH NEVER TOUCHED"
+  fi
+  # Paths, commits and count all read the SAME span. Before kogaki#264 the
+  # first was a tree diff while the other two were ranges.
+  paths="$(_branch_paths "$BASE" "$HEAD_REF")"
+  commits="$(git log --format='%B' "$FORK..$HEAD_REF" 2>/dev/null || true)"
+  range_desc="$(git rev-list --count "$FORK..$HEAD_REF" 2>/dev/null || echo 0) commit(s) since the $span_note"
 else
   paths="$(git show --name-only --format= "$HEAD_REF" 2>/dev/null || true)"
   commits="$(git log -1 --format='%B' "$HEAD_REF")"
