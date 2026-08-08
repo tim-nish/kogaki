@@ -1818,6 +1818,11 @@ class DenialWatch:
 
 
 SPAWN_IN_FLIGHT = 76   # nothing was spawned: a round for this log is live
+GRANT_REFUSED = 77     # nothing was spawned: no owner grant authorizes the act
+                       # (§4 clauses 3-4, kogaki#295) — distinct from a stall
+                       # by design: a spawn declined for want of authorization
+                       # is a different fact from a session that started and
+                       # produced nothing.
 TERMINAL_MARK = "=== spawn terminal:"
 SPAWN_MARK = "=== spawn:"   # the line that opens each attempt in a round log
 PID_MARK = "=== spawn pid:"  # the owning process, so liveness is asked rather than inferred
@@ -2022,8 +2027,143 @@ def decline_line(state, log_path, age, ttl):
             f"waiting on (kogaki#204).")
 
 
+# --- the third layer: spawn() consumes an owner grant (§4 clauses 3-4,
+# --- kogaki#295; the store contract is claude-toolkit#283's) -----------------
+#
+# The session-level PreToolUse carrier reaches only tool calls made in a
+# session; both PR #293 rounds were created by this file from a process no
+# harness boundary ever saw. The act of process creation is the last boundary
+# this repository controls, so the authorization check lives HERE — in
+# spawn(), never at its call sites, for the same reason the budget mechanism
+# above does: a per-call-site guard leaves call site N+1 uncovered by default.
+#
+# spawn() is SHARED (the driver's fix and the embedded fixtures ride it), so
+# the check is keyed by a REQUIRED GRANT CLASS rather than applied wholesale:
+# `reviewer` consumes a single-use owner grant or refuses fail-closed;
+# `fix` has no grant rule, and §4 clause 4 records that it has none;
+# `fixture` is the embedded pass's own never-launch class. An UNDECLARED
+# class refuses — the load-bearing property: call site N+1 is denied by
+# default rather than admitted.
+
+GRANT_CLASSES = ("reviewer", "fix", "fixture")
+
+
+def _approvals_dir():
+    # expanduser at CALL time, so the embedded fixtures can point HOME at a
+    # scratch store exactly as the hook's own test fixture does.
+    return os.path.join(os.path.expanduser("~"), ".claude", "review-approvals")
+
+
+def _repo_slug():
+    """owner/repo from this working copy's origin remote, else None."""
+    r = subprocess.run(["git", "config", "--get", "remote.origin.url"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    m = re.search(r"[:/]([^/:\s]+)/([^/\s]+?)(?:\.git)?/?$", r.stdout.strip())
+    return f"{m.group(1)}/{m.group(2)}" if m else None
+
+
+def grant_lookup(pr):
+    """The dry-run/act-shared predicate (§4 clause 4; kogaki#227's rule).
+
+    Returns (state, path, record) with state one of:
+      'open'             — an unconsumed grant for (this repo, pr); the
+                           lowest round is returned.
+      'no-grant'         — the store exists and holds none.
+      'store-absent'     — the store DIRECTORY does not exist. Deliberately
+                           its own state (PR #296 review, carried finding):
+                           a store that was never created must not present
+                           as a review lane correctly waiting on the owner.
+      'store-unreadable' — a record failed to parse; fail closed.
+      'no-repo'          — this working copy names no origin to key grants by.
+    NEVER consumes: the dry run reports this state and leaves it; only
+    spawn() stamps a grant, and only after the in-flight guard has passed.
+    """
+    d = _approvals_dir()
+    if not os.path.isdir(d):
+        return ("store-absent", None, None)
+    repo = _repo_slug()
+    if not repo:
+        return ("no-repo", None, None)
+    best = None
+    for name in sorted(os.listdir(d)):
+        if not name.endswith(".json"):
+            continue
+        p = os.path.join(d, name)
+        try:
+            with open(p, encoding="utf-8") as f:
+                rec = json.load(f)
+        except (OSError, ValueError):
+            return ("store-unreadable", p, None)
+        if (rec.get("repo") == repo and str(rec.get("pr")) == str(pr)
+                and not rec.get("consumed_at")):
+            if best is None or int(rec.get("round") or 0) < int(best[1].get("round") or 0):
+                best = (p, rec)
+    return ("open", best[0], best[1]) if best else ("no-grant", None, None)
+
+
+def consume_grant(path, rec, tag):
+    """Stamp one grant spent. The sweep's ONLY write to the store (AC8):
+    read-and-consume, never create — no code path here writes a grant."""
+    rec["consumed_at"] = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())
+    rec["consumed_by"] = f"review-sweep spawn ({tag})"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(rec, f, indent=2)
+        f.write("\n")
+    _grant_log("consume", {"repo": rec.get("repo"), "pr": rec.get("pr"),
+                           "round": rec.get("round"), "spawn": tag})
+
+
+def _grant_log(kind, detail):
+    """Append one JSONL record beside the store; failure changes no decision."""
+    try:
+        with open(os.path.join(_approvals_dir(), "denials.log"), "a",
+                  encoding="utf-8") as f:
+            f.write(json.dumps({
+                "at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()),
+                "kind": kind, **detail}) + "\n")
+    except OSError:
+        pass
+
+
+def grant_refusal_text(pr, state):
+    """The refusal, terminal and legible (AC6): it names the missing
+    approval, prints the same grant instruction the session hook prints, and
+    the store-absent case says THAT rather than presenting as a lane
+    correctly waiting on the owner."""
+    repo = _repo_slug() or "<unresolvable repo>"
+    if state == "store-absent":
+        head = (f"refused: no grant — the approvals store does not exist at "
+                f"{_approvals_dir()}. That is NOT the same fact as no grant: "
+                f"the store was never created (no owner grant has ever been "
+                f"written on this account), so the review lane is dark, not "
+                f"waiting.")
+    elif state == "store-unreadable":
+        head = (f"refused: no grant — the approvals store is unreadable; "
+                f"failing closed rather than spawning against a corrupt "
+                f"store. The store is owner-owned: repair it outside any "
+                f"session.")
+    elif state == "no-repo":
+        head = (f"refused: no grant — this working copy names no origin "
+                f"remote, so no grant can be matched to it.")
+    else:
+        head = (f"refused: no grant — no unconsumed owner approval exists "
+                f"for a reviewer session on {repo} PR #{pr}.")
+    return (head + "\n"
+            f"  Contract (§4 clauses 3-4, kogaki#295; store contract "
+            f"claude-toolkit#283): a reviewer session requires a single-use "
+            f"owner approval naming the PR, whatever invoked this sweep. "
+            f"The owner grants one round by running, in a terminal OUTSIDE "
+            f"any Claude session:\n"
+            f"      ~/.claude/tools/story-sync approve-review "
+            f"--repo {repo} --pr {pr} --round <N>\n"
+            f"  This refusal is terminal: it never retries, and it is logged "
+            f"beside the store.")
+
+
 def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
-          tag="review", max_turns=None):
+          tag="review", max_turns=None, grant_class=None, pr=None):
     """Run a spawned session with the declared policy, streaming to its log.
 
     Returns the exit code. Every knob the session runs under is named at the
@@ -2040,6 +2180,20 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
     failure, which is the one occasion anybody opens it. The worktree path is
     written next, beside it, so a leaked worktree is findable from the record.
     """
+    # THE GRANT CLASS IS REQUIRED, and an undeclared one refuses (AC1/AC3):
+    # checked before any filesystem effect, so a refused call leaves no
+    # artifact. This is the load-bearing property of the third layer — a
+    # default here is what would make the classes an enumeration of the
+    # callers someone remembered, and call site N+1 admitted by omission.
+    if grant_class not in GRANT_CLASSES:
+        print(f"  refused: no grant — spawn() was called with "
+              + ("no grant class" if not grant_class
+                 else f"undeclared grant class {grant_class!r}")
+              + f" (§4 clause 4, kogaki#295). Every call site declares one "
+              f"of {', '.join(GRANT_CLASSES)}; an undeclared class refuses "
+              f"by default rather than being admitted. Nothing was spawned.")
+        _grant_log("refuse-class", {"grant_class": grant_class, "tag": tag})
+        return GRANT_REFUSED
     os.makedirs(LOG_DIR, exist_ok=True)
     # THE BUDGET MECHANISM BETWEEN THE INSTRUCTION AND THE SPAWN (kogaki#204),
     # sited HERE rather than at the call sites for the same reason the
@@ -2066,6 +2220,33 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
         _who = f"PR #{_m.group(1)} round {_m.group(2)}" if _m else "this round"
         print(f"  {_who}: {decline_line(state, log_path, age, INFLIGHT_TTL)}")
         return SPAWN_IN_FLIGHT
+    # THE REVIEWER CLASS CONSUMES OR REFUSES (AC2), sited AFTER the in-flight
+    # guard so a blocked retry preserves the grant, and BEFORE the claim so a
+    # refusal leaves no round artifact. The consume happens here rather than
+    # after isolation: a worktree failure after this point burns the grant —
+    # stated rather than hidden, and accepted because moving the stamp later
+    # would open a claim-vs-consume window two concurrent invocations could
+    # thread. The owner re-grants a burnt round; nothing re-opens a doubled
+    # one.
+    if grant_class == "reviewer":
+        which_pr = pr
+        if which_pr is None:
+            _m_pr = re.search(r"pr-(\d+)-", os.path.basename(log_path))
+            which_pr = _m_pr.group(1) if _m_pr else None
+        if which_pr is None:
+            print("  refused: no grant — a reviewer spawn names no PR, so no "
+                  "approval can be matched (§4 clause 4). Nothing was spawned.")
+            _grant_log("refuse", {"state": "no-pr", "tag": tag})
+            return GRANT_REFUSED
+        _gstate, _gpath, _grec = grant_lookup(which_pr)
+        if _gstate != "open":
+            print("  " + grant_refusal_text(which_pr, _gstate))
+            _grant_log("refuse", {"state": _gstate, "pr": which_pr, "tag": tag})
+            return GRANT_REFUSED
+        consume_grant(_gpath, _grec, tag)
+        print(f"  grant consumed: round {_grec.get('round')} for PR "
+              f"#{which_pr} (single-use; a further round needs a new owner "
+              f"grant)")
     # CLAIM THE ROUND BEFORE ANY SETUP WORK (PR #219 review round 1, nit 3).
     # The state read above and the log's first write were several statements
     # apart — DenialWatch.publish(), the stale-file removal and the gate-source
@@ -3732,7 +3913,7 @@ _tmpd2 = tempfile.mkdtemp()
 _lp2 = os.path.join(_tmpd2, "pr-998-round-1.log")
 _buf2 = _io.StringIO()
 with _ctx.redirect_stdout(_buf2):
-    _rc2 = spawn("fixture — never launched", _lp2, ref=None, tag="fixture-noop")
+    _rc2 = spawn("fixture — never launched", _lp2, ref=None, tag="fixture-noop", grant_class="fixture")
 if "isolation could not be established" not in _buf2.getvalue():
     print("FAIL in-flight fixture [the isolation failure announces itself]")
     _inflight_fail = 1
@@ -3790,7 +3971,7 @@ with open(_lp3, "w") as _f:
     _f.write(SPAWN_MARK + " claude -p /review-lane 997\n")
 _buf3 = _io.StringIO()
 with _ctx.redirect_stdout(_buf3):
-    _rc3 = spawn("fixture — must never launch", _lp3, ref="HEAD", tag="fixture-inflight")
+    _rc3 = spawn("fixture — must never launch", _lp3, ref="HEAD", tag="fixture-inflight", grant_class="fixture")
 if _rc3 != SPAWN_IN_FLIGHT:
     print(f"FAIL in-flight fixture [spawn() returns the sentinel on an in-flight log]: got {_rc3}")
     _inflight_fail = 1
@@ -3987,7 +4168,7 @@ with open(_lp5, "w") as _f:
     _f.write(f"{SPAWN_MARK} claude -p /review-lane 996\n{PID_MARK} {_LIVE}\n")
 _buf5 = _io.StringIO()
 with _ctx.redirect_stdout(_buf5):
-    _rc5 = spawn("fixture — must never launch", _lp5, ref="HEAD", tag="fixture-alive")
+    _rc5 = spawn("fixture — must never launch", _lp5, ref="HEAD", tag="fixture-alive", grant_class="fixture")
 if _rc5 != SPAWN_IN_FLIGHT:
     print(f"FAIL liveness fixture [a LIVE pid blocks the spawn]: got {_rc5}")
     _inflight_fail = 1
@@ -4042,6 +4223,137 @@ print(f"fixture pass: {len(FIX)}/{len(FIX)} state-machine cases "
 print(f"driver pass: {len(DRIVE)}/{len(DRIVE)} fix-spawn cases "
       "(spawn on blocking / no fix without blocking / no fix without a report "
       "/ CAP BINDS with rounds spent / stale blocking summons nothing)")
+
+# --- the third layer: grant fixtures (§4 clauses 3-4, kogaki#295 AC9) --------
+# HOME is pointed at a scratch store for the block, exactly as the session
+# hook's own fixture does; every case cleans up after itself and the real
+# store is never touched.
+_grant_fail = 0
+_ghome = tempfile.mkdtemp()
+_old_home = os.environ.get("HOME")
+os.environ["HOME"] = _ghome
+_gtmp = tempfile.mkdtemp()
+try:
+    # AC3, the load-bearing property: an undeclared class refuses, and a
+    # declared-but-unknown class refuses identically. No artifact is left.
+    _glp = os.path.join(_gtmp, "pr-901-round-1.log")
+    _gbuf = _io.StringIO()
+    with _ctx.redirect_stdout(_gbuf):
+        _grc = spawn("fixture — must never launch", _glp, ref="HEAD",
+                     tag="grant-noclass")
+    if _grc != GRANT_REFUSED or os.path.exists(_glp):
+        print(f"FAIL grant fixture [no class refuses, leaving no artifact]: "
+              f"rc={_grc}, log_exists={os.path.exists(_glp)}")
+        _grant_fail = 1
+    with _ctx.redirect_stdout(_io.StringIO()) as _gbuf2:
+        _grc = spawn("fixture — must never launch", _glp, ref="HEAD",
+                     tag="grant-unknown", grant_class="janitor")
+    if _grc != GRANT_REFUSED:
+        print(f"FAIL grant fixture [an unknown class refuses]: rc={_grc}")
+        _grant_fail = 1
+
+    # Store-absent is ITS OWN state, distinct from no-grant (PR #296 review,
+    # carried finding): a store never created must not read as a lane
+    # correctly waiting on the owner.
+    if grant_lookup("901")[0] != "store-absent":
+        print("FAIL grant fixture [an absent store reports store-absent, "
+              "never no-grant]")
+        _grant_fail = 1
+    _gstore = os.path.join(_ghome, ".claude", "review-approvals")
+    os.makedirs(_gstore)
+    if grant_lookup("901")[0] != "no-grant":
+        print("FAIL grant fixture [an empty store reports no-grant]")
+        _grant_fail = 1
+
+    # AC2 + AC9: a reviewer spawn with no grant refuses fail-closed and
+    # creates nothing; the refusal names the grant instruction.
+    _gbuf3 = _io.StringIO()
+    with _ctx.redirect_stdout(_gbuf3):
+        _grc = spawn("fixture — must never launch", _glp, ref="HEAD",
+                     tag="grant-none", grant_class="reviewer", pr="901")
+    if _grc != GRANT_REFUSED or os.path.exists(_glp):
+        print(f"FAIL grant fixture [reviewer with no grant refuses]: rc={_grc}")
+        _grant_fail = 1
+    if "approve-review" not in _gbuf3.getvalue():
+        print("FAIL grant fixture [the refusal prints the grant instruction]")
+        _grant_fail = 1
+
+    # AC9: an open grant is CONSUMED and the spawn proceeds past the grant
+    # gate — proven without launching anything by riding the isolation-failure
+    # path (ref=None), which returns AFTER the stamp. The record needs no
+    # creator fields: lookup keys repo/pr/round/consumed_at only.
+    _grepo = _repo_slug()
+    _grecp = os.path.join(_gstore, "g901.json")
+    with open(_grecp, "w", encoding="utf-8") as _gf:
+        json.dump({"repo": _grepo, "pr": 901, "round": 1,
+                   "consumed_at": None}, _gf)
+    # AC7 first, on the same record: the dry-run predicate sees it open and
+    # leaves it open.
+    if grant_lookup("901")[0] != "open":
+        print("FAIL grant fixture [the shared predicate sees the open grant]")
+        _grant_fail = 1
+    with open(_grecp, encoding="utf-8") as _gf:
+        if json.load(_gf).get("consumed_at") is not None:
+            print("FAIL grant fixture [the dry-run predicate consumed the "
+                  "grant it predicted on — the preview became the act]")
+            _grant_fail = 1
+    with _ctx.redirect_stdout(_io.StringIO()):
+        _grc = spawn("fixture — never launched", _glp, ref=None,
+                     tag="grant-consume", grant_class="reviewer", pr="901")
+    with open(_grecp, encoding="utf-8") as _gf:
+        _gafter = json.load(_gf)
+    if _grc == GRANT_REFUSED or not _gafter.get("consumed_at"):
+        print(f"FAIL grant fixture [an open grant is consumed and the spawn "
+              f"proceeds past the gate]: rc={_grc}, "
+              f"consumed={_gafter.get('consumed_at')!r}")
+        _grant_fail = 1
+
+    # AC9: the consumed grant does not authorize a second spawn.
+    with _ctx.redirect_stdout(_io.StringIO()):
+        _grc = spawn("fixture — must never launch", _glp, ref="HEAD",
+                     tag="grant-spent", grant_class="reviewer", pr="901")
+    if _grc != GRANT_REFUSED:
+        print(f"FAIL grant fixture [a consumed grant refuses a second "
+              f"spawn]: rc={_grc}")
+        _grant_fail = 1
+
+    # AC2: an unreadable store refuses.
+    with open(os.path.join(_gstore, "bad.json"), "w", encoding="utf-8") as _gf:
+        _gf.write("{not json")
+    if grant_lookup("901")[0] != "store-unreadable":
+        print("FAIL grant fixture [an unreadable store fails closed]")
+        _grant_fail = 1
+
+    # AC8: the sweep never CREATES a grant. The creator's signature field is
+    # the grant-time stamp (the "granted"-prefixed key the owner act alone
+    # writes, outside any session); this file's only store write is the
+    # consume stamp, so that literal must not appear here at all — the
+    # assertion below builds it by concatenation for exactly that reason.
+    # Counted in the source, not searched by eye.
+    with open("tools/review-sweep.sh", encoding="utf-8") as _gsrc_f:
+        _gsrc = _gsrc_f.read()
+    if _gsrc.count("granted" + "_at") != 0:
+        print("FAIL grant fixture [AC8: a grant-creation field appears in the "
+              "sweep — the store is read-and-consume only]")
+        _grant_fail = 1
+finally:
+    os.environ["HOME"] = _old_home if _old_home is not None else ""
+    shutil.rmtree(_ghome, ignore_errors=True)
+    shutil.rmtree(_gtmp, ignore_errors=True)
+
+if _grant_fail:
+    print("FAIL: the third layer does not bind — §4 clauses 3-4, kogaki#295")
+    sys.exit(1)
+if GRANT_REFUSED in (0, ISOLATION_FAILED, SPAWN_IN_FLIGHT):
+    print("FAIL grant fixture [the sentinel collides with a sibling exit code]")
+    sys.exit(1)
+print("spawn-grant pass: 11/11 third-layer cases (no class refuses artifact-less / "
+      "unknown class refuses / store-absent is its own state / empty store is "
+      "no-grant / reviewer refuses grant-less naming the instruction / the "
+      "shared predicate reports without consuming / an open grant consumes "
+      "and proceeds / a spent grant refuses again / unreadable store fails "
+      "closed / the creator field is absent from this file / the sentinel is "
+      "distinct)")
 
 # --- the declarations: one grammar, one segmenter (kogaki#70, kogaki#74) ---
 # THE FORM WAS CHOSEN BY RUNNING THIS PASS, which is story 1.17's own named
@@ -4330,12 +4642,18 @@ for pr in prs:
                   f"-> {log_path}")
             result = spawn(FIX_PROMPT.format(n=n), log_path, model=FIX_MODEL,
                            tools=FIX_TOOLS, ref=head_ref, detach=False,
-                           tag=f"fix-{n}")
+                           tag=f"fix-{n}", grant_class="fix")
             # NOTHING WAS SPAWNED, so nothing is charged and nothing failed
             # (kogaki#204). The sentinel is recognised rather than folded into
             # `result != 0`, which would post a stall comment blaming a fix
             # session that never started.
             if result == SPAWN_IN_FLIGHT:
+                continue
+            if result == GRANT_REFUSED:
+                # A class refusal on the fix path is a CALLER defect (the fix
+                # class has no grant rule), reported in its own count rather
+                # than dressed as a failed session.
+                counts['refused-no-grant'] = counts.get('refused-no-grant', 0) + 1
                 continue
             if result != 0:
                 print(f"  #{n}: FAIL fix spawn exited {result} — the findings "
@@ -4427,7 +4745,7 @@ for pr in prs:
             result = spawn(f"/review-lane {n}" + POSTING + COMPOSITION, log_path,
                            model=r_model, tools=REVIEW_TOOLS,
                            ref=head, detach=True, tag=f"review-{n}",
-                           max_turns=r_turns)
+                           max_turns=r_turns, grant_class="reviewer", pr=n)
             # NOTHING WAS SPAWNED (kogaki#204). Short-circuit BEFORE the
             # artifact question below: `report_present()` would report the
             # in-flight round's absent artifact as `landed is False` and route
@@ -4435,6 +4753,14 @@ for pr in prs:
             # session that is still running. The sentinel is not folded into
             # `result != 0` for exactly that reason.
             if result == SPAWN_IN_FLIGHT:
+                continue
+            # A REFUSED SPAWN IS ITS OWN REPORTED STATE (AC5, §4 clause 4):
+            # not a stall (no session started, so no stall comment blames
+            # one), not a spawn failure (nothing was charged), and never
+            # retried — the refusal already printed the grant instruction and
+            # logged itself beside the store.
+            if result == GRANT_REFUSED:
+                counts['refused-no-grant'] = counts.get('refused-no-grant', 0) + 1
                 continue
             # THE EXIT CODE IS NOT THE VERDICT (kogaki#65 defect 3). A spawn
             # that exits 0 having posted nothing is a FAILURE, and the held
@@ -4542,6 +4868,20 @@ for pr in prs:
                 print(f"  #{n}: would NOT spawn review round {rnd} — "
                       f"{decline_line(_dry_state, spawn_log_path(n, rnd), _age, INFLIGHT_TTL)} "
                       f"--spawn would refuse here too.")
+                continue
+            # THE SAME PREDICATE, WITHOUT ITS SIDE EFFECT (AC7; kogaki#227's
+            # rule where the predicate consumes). grant_lookup() is exactly
+            # what --spawn consults; the dry run reports its state and leaves
+            # the grant open — a prediction that consumed the grant it
+            # predicted on would make the preview the act.
+            _dgs, _dgp, _dgr = grant_lookup(n)
+            if _dgs == "open":
+                print(f"  #{n}: grant check (--dry-run, non-consuming): an "
+                      f"open owner grant exists (round "
+                      f"{_dgr.get('round')}) — --spawn would consume it")
+            else:
+                print(f"  #{n}: would NOT spawn — " + grant_refusal_text(n, _dgs)
+                      .split("\n")[0] + " --spawn would refuse here too.")
                 continue
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
                   f"[model {r_model}, max-turns {r_turns}, "
