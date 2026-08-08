@@ -690,8 +690,9 @@ which condition 4 names and bounds rather than claiming away:**
    leaves that neighbour with **seven**, and this is the condition that catches
    it.
 4. **Every column-0 non-blank line inside a record is a `<key>:` line, or a
-   block-sequence item (`-`) whose immediately preceding column-0 key carried no
-   inline value.** Continuation lines are indented, because that is what YAML
+   block-sequence item (`-`) that IMMEDIATELY FOLLOWS a column-0 key carrying no
+   value at all — no inline value and no indented continuation between them.**
+   Continuation lines are indented, because that is what YAML
    already requires of them, so any *other* unindented line is foreign to the
    record it sits in — a heading, a fence, a rule, a blockquote, a bullet after
    a scalar. This is the condition that sees a `#` heading, which conditions 1–3
@@ -710,12 +711,17 @@ which condition 4 names and bounds rather than claiming away:**
    accepts silently, and the parser catches what is not YAML. Neither is asked
    to do the other's job, and neither is left resting on the other.
 
-   **The `no inline value` qualifier is part of the exemption and not decoration.**
-   Without it the exemption reaches every `-` line anywhere in a record,
-   including a bullet written after a `>-` scalar — which the parser happens to
-   reject today, so the rule would be resting on the parser rather than on
-   itself. With it, a bullet is admissible only in the one position where it is
-   genuinely a sequence item.
+   **The adjacency qualifier is part of the exemption and not decoration, and it
+   took two attempts.** Without any qualifier the exemption reaches every `-`
+   line anywhere in a record, including a bullet after a `>-` scalar — which the
+   parser happens to reject today, so the rule would be resting on the parser
+   rather than on itself. The first qualifier said *no inline value*, which
+   tested the wrong thing one position over: a key whose value is an **indented**
+   scalar or mapping carries no *inline* value, so a column-0 bullet after it
+   passed the rule and was again left to the parser. **The test is adjacency, not
+   inline-ness** — a bullet is admissible only where nothing at all separates it
+   from a valueless key, which is the one position where it is genuinely that
+   key's sequence item.
 
    **ONE RESIDUE REMAINS, AND IT IS BOUNDED AND STATED RATHER THAN CLOSED.** A
    markdown note bullet written *among* the items of a legal column-0 sequence
@@ -725,8 +731,10 @@ which condition 4 names and bounds rather than claiming away:**
    failure", and it is written down because the alternative — leaving the
    unqualified claim standing — is the defect class this whole section exists to
    record. The exposure is small and its shape is exact: **only** inside a block
-   sequence, **only** where the owner chose a sequence for a field §4.2 defines
-   as prose, and it costs a wrong value rather than a lost Move. The selection
+   sequence, **only** where the owner chose a sequence for a field §6.9.1a
+   expects to be prose — §4.2 fixes the field *set* and types only `status`, so
+   the prose expectation is §6.9.1a's and is cited there rather than
+   misattributed — and it costs a wrong value rather than a lost Move. The selection
    screen is where a human sees it, which is the same instrument §6.9 already
    relies on and not a new one.
 
@@ -744,8 +752,9 @@ pass against this one — a case never seen to fail is not evidence:
 | **mid-file `## heading`** | **refused** | **4** (was silently discarded) |
 | **trailing `## heading`** | **refused** | **4** (was silently discarded) |
 | mid-file fence / `---` / `***` / blockquote | refused | 4 (was a parser error, now a rule) |
-| **`- bullet` after a `>-` scalar, inside a record** | **refused** | **4** — via the `no inline value` qualifier; before that qualifier it was refused only by the parser, so the rule rested on the parser rather than on itself |
-| mid-file **markdown** list between records | refused | **4** — the `no inline value` qualifier moved this catch from the parse (condition 2) to the rule, since the preceding key `sources: >-` carries a value; re-measured at this head rather than carried forward |
+| **`- bullet` after a `>-` scalar, inside a record** | **refused** | **4** — via the adjacency qualifier; before it, refused only by the parser, so the rule rested on the parser rather than on itself |
+| **`- bullet` after an INDENTED value or mapping** | **refused** | **4** — the case the first `no inline value` qualifier missed; caught by adjacency, not by inline-ness |
+| mid-file **markdown** list between records | refused | **4** — the qualifier moved this catch to the rule; **before it the catcher was the parser**, not condition 2 (an unqualified exemption swallowed the `-`, and the `ParserError` meant no mapping was built, so condition 2's duplicate-key detection never ran). Re-measured at this head rather than carried forward |
 | **a note bullet among the items of a legal column-0 sequence** | **ADMITTED as data** | **none — the stated residue.** Recorded rather than claimed closed: under a bare key it *is* a sequence item and no grammar separates it from `- one` |
 | leading `## heading` | refused | 1 — and it is listed to record that condition 1 **masks** the parser here, which is why it was the wrong shape to have exercised alone |
 
