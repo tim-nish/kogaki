@@ -727,6 +727,173 @@ invariant: Gukan guarantees Unit schema, never data schema).
      the pin's subject is the content and the content is what was compared.
      What (a) loses is not the refusal but the *visibility*: it cannot tell the
      two cases apart at all.
+  8. **A non-gating finding left OPEN at `done` carries a stated DISPOSITION,
+     and the `done` boundary REPORTS the ones that do not** (kogaki#224, owner
+     selection 2026-08-08 — arm 1 of the three candidate homes the issue
+     framed). The lane contract already says a `should` or a `nit` is
+     non-gating "with a follow-up filed where one is owed"
+     (`.claude/skills/review-lane/SKILL.md`), and **nothing carried that
+     clause**, so it was advice. This clause gives it a carrier and changes
+     what `done` *asserts*: not merely that nothing blocking is open, but that
+     every non-gating finding still open has been **dispositioned or named as
+     undispositioned in the sweep's own output**.
+
+     **THE POLARITY IS REPORT, NEVER GATE, and it is stated first so the fix
+     cannot degrade into the thing it repairs.** kogaki#72's budget rules that
+     `should` and `nit` never gate a merge; that budget is **ratified
+     economics and nothing here reopens it**. The merge layer is
+     **untouched** by this clause — `checks/check-review-report.sh` reads
+     presence and open *blocking* findings exactly as before, and a PR whose
+     every non-gating finding is undispositioned still merges. What changes is
+     that the sweep says so, out loud, at the boundary where the loss happens.
+     The served surface rules on the direction:
+
+     > the review lane's judgment half must **NEVER be designed to depend on a
+     > blocking review verdict** — the shipped design already satisfies this,
+     > its merge-layer check reading a typed findings record with the platform
+     > verdict nowhere in it, but it was arrived at for a different reason, so
+     > this is now a property the design must KEEP rather than a coincidence it
+     > currently enjoys
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:29`
+       request_id: 1a1657f0-a376-4a16-b889-c382a1b77b44
+       outcome: discriminating
+       query: A review lane's non-blocking findings are non-gating by a ratified budget, and they evaporate at merge because nothing re-reads them. Should the carrier that observes undischarged findings at the done boundary REPORT them, or gate on them?
+       query: Is the ratified blocking budget that makes should/nit findings non-gating still the live word on that decision's disposition, or has a later verdict superseded it — and does adding a disposition record at the merge boundary reopen it?
+
+     **The gap is CONFIRMED on the served surface, and this issue is named as
+     its carrier**, so the clause is an instance of a recorded position rather
+     than a local invention:
+
+     > The findings-lifecycle gap the specimen exposes — non-gating findings
+     > correctly left open at merge under the blocking budget, with no carrier
+     > filed for two of them — is CONFIRMED and already carried at kogaki#224;
+     > no new carrier is filed. … the lane finds reliably, and **nothing yet
+     > guarantees a found non-blocking defect survives the merge it rightly did
+     > not block**
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:10`
+
+     **THE SPECIMEN IS THIS REPOSITORY'S OWN WORK, at n=3 in ~24 hours.** PR
+     #221 (story 1.36) merged 2026-08-07T11:32 with **five** findings open and
+     **zero** carriers — three `should`, two `nit` — one of them a real
+     shipped defect (`indentedPinQuotes` reports a wrong line number whenever a
+     fenced block precedes the offending line, because `stripFences` *deletes*
+     rather than blanks). PR #231 merged with three `should` open, repaired
+     post-merge in #238; PR #240 merged with eight open, repaired post-merge in
+     `f2f986c`. **Every one of those merges was correct.** Both repairs
+     happened because somebody re-read the report *by chance*, which is the
+     diagnosis: the discharging act was unnamed.
+
+     > A deferral is discharged only if some standing command owns its class —
+     > an item whose discharging act is unnamed produces no surfaced next
+     > action, and **that silence is caused by the gap rather than evidence of
+     > completeness**
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:45`
+     (`a-tracking-artifact-names-its-discharging-act`)
+
+     **THE GRAMMAR — an adjacent line beside the finding it disposes of**, on
+     the established shape clauses 5, 6 and 7 all use, and for the same reason:
+     the `finding:` token stays byte-identical, so no reader can be
+     desynchronized by construction.
+
+     ```
+     finding: should open  <the finding>
+     carried: #<N> | register            — a named carrier
+     declined: <reason>                  — an explicit decline, reason required
+     ```
+
+     - The line binds to the **immediately preceding `finding:` line** in the
+       same segment. A disposition before any finding disposes of nothing.
+     - **First declaration wins.** A second disposition on one finding is
+       ignored, exactly as a second `review-scope:` is — a later line must
+       never revise an earlier claim.
+     - **Anchored whole**, so `carried:` or `declined:` inside a finding's
+       prose is a **mention and declares nothing** — the use-vs-mention rule
+       kogaki#41 fixed once and clauses 5–7 already carry.
+     - `declined:` **requires a non-empty reason.** A bare `declined:` is not a
+       disposition; it is the evaporation with a word in front of it.
+     - A disposition on a `resolved` finding is harmless and unread: the
+       property is about what is still **open**.
+
+     **WHAT THE CARRIER READS IS PRESENCE, AND NEVER ADEQUACY.** Whether a
+     stated disposition is the *right* one is judgment and stays in the lane;
+     whether a finding carries one is a computable fact over a declared record.
+     That is the split's own test, and the served surface states the trade
+     rather than leaving it to be discovered:
+
+     > *Is a recommendation block present, and does it carry either grounds or
+     > a typed miss?* is a fact the acting code can compute at the moment it
+     > acts; *is this recommendation any good?* is a judgment no machine can
+     > settle, and a check reaching for it would produce unpredictable
+     > denials — the guard nobody can predict is the one the operator routes
+     > around. … this check is satisfied by a well-formed block carrying a BAD
+     > recommendation, and that is the correct trade
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:19`
+     (`authenticate-facts-mechanically-gate-judgments`)
+
+     So `declined: not worth it` satisfies this clause. It is a **record
+     somebody can argue with**, which is exactly what five findings living only
+     in a comment nobody re-reads were not.
+
+     **WHICH CARRIER A DISPOSITION NAMES IS DECIDED BY WHERE THE DEFECT LIVES**,
+     never by severity and never by this repository's default routing:
+
+     > In the diff's own text → the review, resolved before merge; downstream
+     > work the diff merely licenses, or a decision the contributor cannot
+     > make → its own carrier, not blocking. **Location selects, never
+     > severity.**
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:28`
+     (`a-routing-habit-reads-as-conformance-outside-its-domain`)
+
+     **THE REGISTER IS AN ADMISSIBLE CARRIER, so this clause does not mint one
+     issue per nit.** `carried: register` names the kogaki#13 register (or its
+     successor per kogaki#191) and is the right home for an **accretion-class**
+     finding — a mechanical observation whose value is the count rather than
+     the instance, the class the lane's `out-of-dimension:` line already routes
+     there. Requiring an issue for each would convert this clause into the
+     accretion machine the check-suite economics exist to prevent, and the same
+     served line that admits the register warns that "registering everything
+     kills the cadence".
+
+     **WHAT `done` PRINTS.** When the state machine reaches `done`, it lists
+     every **open non-gating** finding on the current head that carries no
+     disposition line — `should`, `nit`, and a `blocking open` the merge layer
+     has **downgraded to `should` for want of a justification**, which is in
+     the class precisely because it fails toward merge. It names the count and
+     the severities, it exits **0**, and it never turns anything red. A `done`
+     with nothing undispositioned prints nothing, on the same
+     no-gate-shaped-nag rule clause 4's in-flight report already obeys.
+
+     **THE DECLINED ARMS, recorded with their grounds** rather than dropped.
+     *Arm 2 — `done` posts one comment enumerating the undischarged findings
+     beside the report it annotates.* Declined: it makes the sweep a **writer
+     on the PR**, and the sweep's own tooling already carries the
+     one-composition-one-post discipline precisely because an automated
+     poster's failure mode is duplicate comments on every poll — a `done` state
+     is re-reached on every invocation, so the natural implementation posts
+     once per poll and the careful one needs its own idempotency record. The
+     report arm needs neither, and the operator running the sweep is the reader
+     the record is for. It stays the better arm the day a *non-operator* needs
+     the record, and that is its reopen trigger.
+     *Arm 3 — a registered check reading disposition lines mechanically.*
+     Declined on the budget itself: by kogaki#72 such a check must **fail
+     toward merge** on `should`/`nit`, which makes a deny-side instrument the
+     wrong tool for the property — it would be a registered member that can
+     never deny, and admission additionally owes it an admission record and a
+     removal signal it has no way to earn. The issue itself names this ("which
+     makes a deny-side check the wrong tool"), and the decline is recorded here
+     rather than left implicit.
+
+     **Out of scope, declared:** the blocking budget (untouched), the merge
+     gate and `checks/check-review-report.sh` (untouched), and whether a
+     *stated* disposition was the honest one — that last is judgment, and it is
+     the same side of the split clause 5's scope declaration sits on.
+
+     **deferred slots: none.**
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing

@@ -761,6 +761,41 @@ COMPLETE = re.compile(r'^\s*report-complete:\s*(\d+)\s+findings?\s*$', re.M)
 # landed.
 UNVERIFIED = re.compile(r'^\s*review-round-unverified:\s*([0-9a-f]{7,40})\s*$',
                         re.M)
+# §4 clause 8 (kogaki#224) — THE DISPOSITION OF A NON-GATING FINDING. Fourth
+# declaration on the SAME adjacent-line grammar, for the third time on the same
+# ground: the `finding:` token stays byte-identical, so no reader of it can be
+# desynchronized by construction.
+#
+# It binds to the IMMEDIATELY PRECEDING `finding:` line in its segment, which is
+# the only thing that makes it a per-FINDING declaration where scope and
+# completeness are per-SEGMENT ones. Anchored whole, so `declined:` inside a
+# finding's prose is a MENTION and declares nothing (kogaki#41) — which matters
+# more here than for its three siblings, because `declined` is ordinary review
+# vocabulary and appears in finding text constantly.
+#
+# WELL-FORMEDNESS IS PART OF THE TOKEN, not a later judgment: `carried:` takes
+# an issue number or the literal `register` (§4 clause 8 admits the kogaki#13
+# register as a carrier so this does not mint one issue per nit), and
+# `declined:` requires a non-empty reason — a bare `declined:` is the
+# evaporation with a word in front of it. A malformed one is REPORTED rather
+# than silently read as absent, because the two are indistinguishable at the
+# boundary otherwise and this file has shipped that shape three times.
+DISPOSITION = re.compile(r'^\s*(?P<kind>carried|declined):\s*(?P<val>.*?)\s*$',
+                         re.M)
+CARRIER = re.compile(r'^(?:#\d+|register)$')
+
+
+def disposition_ok(kind, val):
+    """Is this a WELL-FORMED disposition? §4 clause 8's grammar, one reader."""
+    return bool(CARRIER.match(val)) if kind == 'carried' else bool(val)
+
+
+# The severities §4 clause 8 governs. `blocking` is absent by construction: a
+# JUSTIFIED blocking gates and never reaches `done` open, and an UNJUSTIFIED one
+# is downgraded to `should` by name (kogaki#72) — so it enters this class
+# through the downgrade rather than through this tuple, which is why `decide()`
+# below reads the downgrade set rather than the severity field alone.
+NON_GATING = ('should', 'nit')
 MAX_ROUNDS = 2   # §4 clause 3: two rounds, then a parked owner decision.
 
 # Spawned-session policy, resolved in the shell above and passed in rather than
@@ -851,6 +886,29 @@ POSTING = (
     "the head stays unreviewed, so write the terminal line last and write it "
     "once. A round-2 review is `delta` by default and `full` whenever the fix "
     "touched files outside the ones round 1's findings named."
+    "\n\nEVERY NON-GATING FINDING YOU LEAVE OPEN CARRIES A DISPOSITION "
+    "(specs/SPEC.md §4 clause 8, kogaki#224). A `should` or a `nit` never gates "
+    "a merge (kogaki#72), which is correct and is not changing — but it means "
+    "the merge is the last moment anyone reads your finding, and on PR #221, "
+    "#231 and #240 that is exactly what happened: sixteen findings across three "
+    "PRs, every merge correct, and the only two repairs came from somebody "
+    "re-reading a report BY CHANCE. So on the line AFTER each `finding:` you "
+    "leave `open` at `should` or `nit`, write ONE of:"
+    "\n  `carried: #<N>`      — the issue that now owns it (file it, then name "
+    "it)"
+    "\n  `carried: register`  — the kogaki#13 register, for an accretion-class "
+    "finding whose value is the COUNT rather than the instance; this is what "
+    "stops one issue being minted per nit"
+    "\n  `declined: <reason>` — an explicit decline. A reason is REQUIRED; a "
+    "bare `declined:` is the evaporation with a word in front of it."
+    "\nChoose the carrier by WHERE THE DEFECT LIVES, never by severity: in the "
+    "diff's own text means resolve it in the review; downstream work the diff "
+    "merely licenses means its own carrier. The line is anchored whole, so "
+    "writing `declined:` inside a finding's prose declares NOTHING — it must be "
+    "its own line. The first disposition on a finding wins. This is REPORTED "
+    "and never gated: the sweep's `done` state lists the ones without a "
+    "disposition and merges nothing differently, so an honest `declined:` costs "
+    "you nothing and an omission costs the finding."
     "\n\nA REFUSAL IS TERMINAL FOR THAT COMMAND (specs/SPEC.md §4, kogaki#100). "
     "If a command you compose is refused, that command is OVER — do not "
     "rephrase it, pipe it, redirect it, or hunt for a form that gets through. "
@@ -2334,13 +2392,26 @@ def segments(bodies):
     revise an earlier claim about the same segment. Findings emitted AFTER a
     `report-complete:` line still count as findings, so a report that keeps
     writing past its own terminal token fails count equality — which is the
-    fragment case behaving as it should rather than a special rule for it."""
+    fragment case behaving as it should rather than a special rule for it.
+
+    Each FINDING carries a fourth field, its DISPOSITION (§4 clause 8,
+    kogaki#224): `'carried'`, `'declined'`, or None when the finding declared
+    none. A disposition line binds to the immediately preceding `finding:` line
+    IN THIS SEGMENT — one before any finding disposes of nothing and is dropped
+    — and the FIRST disposition on a finding wins, on the same
+    a-later-line-never-revises-an-earlier-claim rule scope and completeness
+    already follow.
+
+    A MALFORMED disposition (`carried: soon`, a bare `declined:`) is NOT a
+    disposition and is collected separately in `bad_disp`, so `decide()` can
+    say so. Reading it as absent would be correct arithmetic and a silent
+    report — the shape this file has now shipped three times."""
     segs, cur = [], None
     for line in (bodies or '').splitlines():
         r = REPORT.match(line)
         if r:
             cur = {'sha': r.group(1), 'findings': [],
-                   'scope': None, 'complete': None}
+                   'scope': None, 'complete': None, 'bad_disp': []}
             segs.append(cur)
             continue
         if cur is None:
@@ -2357,7 +2428,20 @@ def segments(bodies):
             continue
         f = FINDING.match(line)
         if f:
-            cur['findings'].append((f.group(1), f.group(2), bool(f.group('just'))))
+            cur['findings'].append(
+                (f.group(1), f.group(2), bool(f.group('just')), None))
+            continue
+        d = DISPOSITION.match(line)
+        if d:
+            kind, val = d.group('kind'), d.group('val')
+            if not cur['findings']:
+                continue    # a disposition before any finding disposes of none
+            if not disposition_ok(kind, val):
+                cur['bad_disp'].append(f"{kind}: {val}".rstrip(': '))
+                continue
+            sev, st, just, prev = cur['findings'][-1]
+            if prev is None:            # FIRST declaration wins
+                cur['findings'][-1] = (sev, st, just, kind)
     return segs
 
 
@@ -2467,6 +2551,86 @@ def head_scope(bodies, head):
     return None, False
 
 
+def report_dispositions(current, downgraded):
+    """§4 clause 8 (kogaki#224) — THE `done` BOUNDARY REPORTS UNDISCHARGED
+    NON-GATING FINDINGS. It REPORTS. It never gates, never denies, and never
+    changes the state it was called from.
+
+    THE POLARITY IS THE POINT, so it is stated at the carrier and not only in
+    the spec. kogaki#72's budget is ratified economics: `should` and `nit` NEVER
+    gate a merge, and nothing here reopens that. `checks/check-review-report.sh`
+    is untouched by this clause — a PR whose every non-gating finding is
+    undispositioned merges exactly as it did yesterday. What was missing was not
+    a denial; it was anybody SAYING SO at the boundary where the findings stop
+    being read. The served surface rules on the direction: "the review lane's
+    judgment half must NEVER be designed to depend on a blocking review verdict"
+    (product-lab@dec0d568 topics/claude-code-ops.md:29).
+
+    THE SPECIMEN IS THIS REPOSITORY'S OWN WORK, three times in ~24 hours. PR
+    #221 merged with five findings open and zero carriers — one of them a real
+    shipped defect, `indentedPinQuotes` reporting a wrong line number whenever a
+    fenced block precedes the offending line. PR #231 merged with three `should`
+    open (repaired post-merge in #238); PR #240 with eight (repaired in
+    f2f986c). Every one of those merges was CORRECT. Both repairs happened
+    because somebody re-read the report by chance, which is the diagnosis
+    exactly: "an item whose discharging act is unnamed produces no surfaced next
+    action, and that silence is caused by the gap rather than evidence of
+    completeness" (product-lab@dec0d568 LESSONS.md:45).
+
+    WHAT IT READS IS PRESENCE, NEVER ADEQUACY. `declined: not worth it`
+    satisfies the clause, and that is the correct trade — whether a disposition
+    is the RIGHT one is judgment the lane owns, while whether a finding carries
+    one is a computable fact over a declared record
+    (product-lab@dec0d568 topics/claude-code-ops.md:19,
+    `authenticate-facts-mechanically-gate-judgments`). A record somebody can
+    argue with is the whole delta over five findings nobody re-reads.
+
+    THE DOWNGRADED BLOCKINGS ARE IN THE CLASS, and are passed in rather than
+    recomputed — an unjustified `blocking open` fails toward merge as a `should`
+    (kogaki#72), so it is exactly as non-gating as one, and a class defined on
+    the severity FIELD alone would miss the population the downgrade creates.
+    One reader, one definition; the caller already computed it.
+
+    SILENCE WHEN THERE IS NOTHING TO SAY. A `done` with every finding
+    dispositioned prints nothing, on the same rule clause 4's in-flight report
+    obeys: "when the verdict count is zero, no gate-shaped nag may be emitted"
+    (product-lab@98195e0a topics/archive/knowledge-architecture.md:197). This
+    function is reached on EVERY poll that reaches `done`, so a nag here would
+    be emitted repeatedly at exactly the channel-eroding cadence that line
+    names.
+    """
+    undischarged = [(sev, st) for s in current
+                    for sev, st, _j, d in s['findings']
+                    if sev in NON_GATING and st == 'open' and d is None]
+    # The downgraded set carries `blocking` in its severity field and `should`
+    # in its behaviour; it is named by its behaviour, because that is the fact
+    # the operator needs — the merge did not stop for it.
+    undischarged += [('should (downgraded blocking)', st)
+                     for _s, st, _j, d in downgraded if d is None]
+    bad = [b for s in current for b in s['bad_disp']]
+    if bad:
+        print(f"NOTE: {len(bad)} malformed disposition line(s) — "
+              + "; ".join(f"`{b}`" for b in bad)
+              + " — read as NO disposition (§4 clause 8, kogaki#224). "
+                "`carried:` takes `#<N>` or `register`; `declined:` requires a "
+                "reason")
+    if not undischarged:
+        return
+    counts = {}
+    for sev, _st in undischarged:
+        counts[sev] = counts.get(sev, 0) + 1
+    tally = ", ".join(f"{n} {sev}" for sev, n in sorted(counts.items()))
+    print(f"NOTE: {len(undischarged)} open non-gating finding(s) reach `done` "
+          f"with NO stated disposition ({tally}) — §4 clause 8, kogaki#224. "
+          "This is a REPORT and gates nothing: the merge is governed by "
+          "`blocking` alone (kogaki#72) and is unaffected. Each owes a "
+          "`carried: #<N>` (or `carried: register` for an accretion-class "
+          "finding) or a `declined: <reason>` on the line after the finding, "
+          "chosen by WHERE THE DEFECT LIVES rather than by its severity. "
+          "Undischarged, they evaporate at merge — which is what happened on "
+          "PR #221, #231 and #240")
+
+
 def decide(bodies, head, resolves=None):
     """The sweep's whole state machine, as a pure function.
 
@@ -2479,7 +2643,11 @@ def decide(bodies, head, resolves=None):
                        session to notice. What it still never does is spawn a
                        REVIEW here — that would re-read code nobody has
                        changed since the report that judged it
-      done           — a report for this head with nothing blocking open
+      done           — a report for this head with nothing blocking open.
+                       Since kogaki#224 this transition also REPORTS every open
+                       non-gating finding carrying no disposition (§4 clause 8)
+                       — a report, never a gate: `done` is still `done`, and
+                       the merge is still governed by `blocking` alone
 
     A FRAGMENT COUNTS AS NOTHING (§4 clause 6). A segment whose declared
     `report-complete: <N>` does not equal its own finding lines cannot produce
@@ -2534,20 +2702,24 @@ def decide(bodies, head, resolves=None):
     if any(counted(s) for s in current):
         # Only a JUSTIFIED blocking gates (kogaki#72): an unjustified one
         # fails toward merge as a should — same rule as the presence check.
-        blocking = [1 for s in current for sev, st, just in s['findings']
+        blocking = [1 for s in current for sev, st, just, _d in s['findings']
                     if sev == 'blocking' and st == 'open' and just]
         # THE DOWNGRADE IS REPORTED ON THIS PATH TOO (kogaki#76). The presence
         # check emits its NOTE from its own loop; this function is the DRIVER's
         # view of the same finding set, and it was silent — so a blocking the
         # driver decided not to act on left no trace where the driver's reader
         # is looking. Same fact, two readers, and only one was told.
-        downgraded = [1 for s in current for sev, st, just in s['findings']
+        downgraded = [(sev, st, just, d)
+                      for s in current for sev, st, just, d in s['findings']
                       if sev == 'blocking' and st == 'open' and not just]
         if downgraded:
             print(f"NOTE: {len(downgraded)} unjustified blocking finding(s) "
                   "downgraded to should, non-gating (kogaki#72) — the driver "
                   "does not treat them as author-owes")
-        return 'author-owes' if blocking else 'done'
+        if blocking:
+            return 'author-owes'
+        report_dispositions(current, downgraded)
+        return 'done'
     # THE FRAGMENT IS ANNOUNCED, never silently absent (§4 clause 6). A report
     # that reached the PR and was not counted is a different fact from no
     # report at all, and the operator reading "spawning round 2" deserves to
@@ -2605,6 +2777,158 @@ if _dfail:
     sys.exit(1)
 print("disclosure pass: 3/3 downgrade-NOTE cases (unjustified reports, "
       "justified and should do not)")
+
+# --- §4 clause 8: the disposition grammar and the `done` report (kogaki#224) --
+# SITED HERE, DIRECTLY AFTER decide()'s OTHER DISCLOSURE PASS, AND THAT PLACEMENT
+# IS EVIDENCE-DRIVEN. The first version sat 1,200 lines below, after the phantom
+# and cycle passes — and the mutation run found that the polarity mutant (this
+# clause's ONE binding constraint: invert the report into a gate) was caught by
+# the PHANTOM fixture, which calls sys.exit(1) first, so the assertion that
+# NAMES the constraint never ran at all. A guard that is masked by an earlier
+# exit is asserted nowhere it can speak, which is this file's oldest recurring
+# shape one level up: the fixture existed, passed, and could not have reported
+# the thing it was written for.
+#
+# ASSERTED ON THE VERDICT AS WELL AS THE TEXT, in both directions. The whole
+# point of this clause is that NOTHING CHANGES about what merges, so every case
+# asserts the verdict too, and the polarity case asserts it alone.
+_pfail = 0
+_DH = 'abc1234def'
+
+
+def _disp(bodies, head=_DH):
+    """(verdict, the clause-8 report text or '') for one body."""
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        v = decide(bodies, head)
+    out = buf.getvalue()
+    keep = [l for l in out.splitlines() if 'kogaki#224' in l]
+    return v, "\n".join(keep)
+
+
+def _rep(*lines):
+    return f"review-lane report: {_DH}\n" + "\n".join(lines)
+
+
+for _label, _body, _want_verdict, _want_undisp, _want_bad in [
+    # -- the two directions of the property itself ------------------------
+    ("an undischarged `should open` is REPORTED",
+     _rep("finding: should open  x"), 'done', True, False),
+    ("a `carried: #N` discharges it",
+     _rep("finding: should open  x", "carried: #245"), 'done', False, False),
+    ("a `declined: <reason>` discharges it",
+     _rep("finding: nit open  x", "declined: cosmetic, and the register would "
+          "not read it"), 'done', False, False),
+    ("`carried: register` discharges it — the accretion-class carrier that "
+     "stops one issue per nit (AC 4)",
+     _rep("finding: nit open  x", "carried: register"), 'done', False, False),
+    ("a RESOLVED non-gating finding owes nothing",
+     _rep("finding: should resolved  x"), 'done', False, False),
+    # -- THE POLARITY. This is the constraint, not a companion to it. -----
+    ("THE REPORT NEVER GATES: five undischarged findings still reach `done`",
+     _rep(*["finding: should open  x"] * 3, *["finding: nit open  y"] * 2),
+     'done', True, False),
+    ("and a JUSTIFIED blocking still gates, unaffected by any disposition",
+     _rep("finding: blocking open [harm: x]  x", "carried: #245",
+          "finding: should open  y"), 'author-owes', False, False),
+    # -- the downgraded blocking is IN the class (kogaki#72) --------------
+    ("an UNJUSTIFIED blocking, downgraded to should, is in the class",
+     _rep("finding: blocking open  x"), 'done', True, False),
+    ("and a disposition discharges it there too",
+     _rep("finding: blocking open  x", "declined: the justification is the "
+          "fix, landing here"), 'done', False, False),
+    # -- well-formedness, both arms --------------------------------------
+    ("a BARE `declined:` is malformed — the evaporation with a word in front",
+     _rep("finding: should open  x", "declined:"), 'done', True, True),
+    ("`carried: soon` is malformed — a carrier is an issue or the register",
+     _rep("finding: should open  x", "carried: soon"), 'done', True, True),
+    # -- the anchoring rules the three sibling declarations already carry --
+    ("MENTIONING `declined:` in a finding's prose declares nothing "
+     "(use vs mention, kogaki#41)",
+     _rep("finding: should open  the author declined: to fix it"),
+     'done', True, False),
+    ("a disposition before any finding disposes of nothing",
+     _rep("carried: #245", "finding: should open  x"), 'done', True, False),
+    # THE BINDING IS TO THE IMMEDIATELY PRECEDING FINDING, and the ORDER here
+    # is what makes the case discriminate. The first version put the
+    # disposition BETWEEN the two findings, where a segment-wide mutant is
+    # indistinguishable from the correct parser — at that moment the segment
+    # holds one finding, so binding "to all" and "to the last" are the same
+    # act. Both findings must already be open when the line arrives.
+    ("a disposition after TWO findings binds to the LAST, not to the segment",
+     _rep("finding: should open  x", "finding: nit open  y", "carried: #245"),
+     'done', True, False),
+]:
+    _v, _txt = _disp(_body)
+    _got = (_v, 'NO stated disposition' in _txt,
+            'malformed disposition' in _txt)
+    if _got != (_want_verdict, _want_undisp, _want_bad):
+        print(f"FAIL clause-8 fixture [{_label}]: "
+              f"(verdict, undischarged-reported, malformed-reported)={_got}, "
+              f"want {(_want_verdict, _want_undisp, _want_bad)}")
+        _pfail = 1
+
+# FIRST-DECLARATION-WINS IS A PARSER INVARIANT AND IS ASSERTED AT THE PARSER.
+# It cannot be seen through `decide()` at all: the report says WHICH findings
+# lack a disposition, so overwriting `carried` with `declined` leaves every
+# observable identical and the fixture that tried to assert it through the
+# report text passed against its own mutant. Either the invariant is asserted
+# where it is decidable or it is not asserted — and it is the same rule the
+# three sibling declarations carry, so it is kept and asserted structurally.
+_fw = segments(_rep("finding: should open  x", "carried: #245",
+                    "declined: changed my mind"))[0]
+if _fw['findings'][0][3] != 'carried':
+    print("FAIL clause-8 fixture [the FIRST disposition on a finding wins]: "
+          f"retained {_fw['findings'][0][3]!r}, want 'carried' — a later line "
+          "must never revise an earlier claim (§4 clause 8, the rule clauses "
+          "5, 6 and 7 already follow)")
+    _pfail = 1
+
+# A DISPOSITION LINE IS NOT A FINDING. Count equality (§4 clause 6) must be
+# blind to it, or every dispositioned report becomes a FRAGMENT and this clause
+# would turn the gate RED — the precise failure the polarity constraint forbids,
+# reachable through the parser rather than through the verdict.
+_dc = segments(_rep("finding: should open  x", "carried: #245",
+                    "finding: nit open  y", "declined: cosmetic",
+                    "report-complete: 2 findings"))[0]
+if not (len(_dc['findings']) == 2 and counted(_dc)):
+    print("FAIL clause-8 fixture [a disposition line does not count toward "
+          f"`report-complete:`]: findings={len(_dc['findings'])}, "
+          f"counted={counted(_dc)} — want 2, True. A dispositioned report read "
+          "as a FRAGMENT would turn the gate red on the exact findings "
+          "kogaki#72 says must never gate")
+    _pfail = 1
+
+# THE VERIFICATION SPECIMEN, kept as data rather than as a claim in a commit
+# message: PR #221's round-2 report (745300a, 2026-08-07T11:32), whose six
+# findings are one `blocking resolved` and FIVE open non-gating ones with zero
+# carriers. The merge was CORRECT. This asserts the carrier would have named
+# all five at that PR's own `done`.
+_221 = _rep(
+    "finding: blocking resolved [harm: check-boundary-receipts failed]  ...",
+    "finding: should open  AC6's fixture obligation is still not discharged",
+    "finding: should open  the arm selection still has no decision record",
+    "finding: should open  `indentedPinQuotes` still reports a wrong line "
+    "number whenever a fenced block precedes the offending line",
+    "finding: nit open  the `--recheck` report line is a behaviour change "
+    "#209's Not-in-scope clause does not name",
+    "finding: nit open  the in-source receipt copy is v1-shaped",
+    "report-complete: 6 findings")
+_v221, _t221 = _disp(_221)
+if not (_v221 == 'done' and '5 open non-gating finding(s)' in _t221
+        and '3 should' in _t221 and '2 nit' in _t221):
+    print(f"FAIL clause-8 fixture [the PR #221 specimen]: verdict={_v221}, "
+          f"report={_t221!r} — want `done` naming 5 undischarged findings, "
+          "3 should and 2 nit")
+    _pfail = 1
+
+if _pfail:
+    print("FAIL: §4 clause 8's disposition grammar and `done` report do not "
+          "hold (kogaki#224)")
+    sys.exit(1)
+print("disposition pass: 14/14 grammar cases + first-declaration-wins and "
+      "count-blindness at the parser + the PR #221 specimen (5 undischarged "
+      "findings named at `done`, verdict unchanged)")
 
 # --- OUTSIDE is load-bearing, so it is exercised (kogaki#61) --------------
 # The isolation's whole value is that the spawned session's tree is not the
@@ -3798,6 +4122,7 @@ print(f"declaration pass: {len(_SEG)}/{len(_SEG)} grammar cases (scope "
       "declared / absent-is-full / complete absent-is-complete / count "
       "equality / fragment / past-the-terminal-token / use-vs-mention / "
       "first-declaration-wins / pre-report lines bind to nothing)")
+
 
 # The declarations must not change any verdict the state machine already
 # reaches — asserted by re-running every case above with both lines present.
