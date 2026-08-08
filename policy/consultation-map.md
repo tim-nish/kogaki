@@ -6,11 +6,85 @@ Contract (founding spec §4):
 - An entry = **trigger terms** + a **read prescription** + a one-line summary
   **quoting the served line at its pin** + the pointer. Never a paraphrased
   rule — on divergence the served surface wins and the entry is repaired.
-- Entries are added **only on a miss**: a defect that consultation would
+- Entries are **admitted** only on a miss: a defect that consultation would
   have prevented, exposed in this repo. Each addition names the miss and
-  records its **postmortem**.
+  records its **postmortem**. **The miss rule binds ADMISSION and never
+  PROPOSAL** — the distinction is stated in full below under *Admission and
+  proposal*, and the unqualified reading of this bullet is what that section
+  corrects (kogaki#222).
 - The map **triggers consultation, never carries verdicts.** The answer
   stays in the substrate.
+
+## Admission and proposal — the miss rule binds one and not the other (kogaki#222)
+
+**The contract bullet above, read unqualified, says a machine may not propose a
+map entry. That reading is wrong, and it is written down here rather than left
+to be inferred**, because the first reader of this file would otherwise meet a
+rule that the proposers scheduled against it contradict on their face. The
+served position is quoted whole at its pin:
+
+> "2026-08-07 — **The admission-vs-proposal half survives VERBATIM — miss-only
+> growth binds ADMISSION, never PROPOSAL, and mechanized miss harvesting plus
+> receipt-absence mining remain legitimate proposers — while the third
+> proposer's re-route to the served baseline is STRUCK: wholesale derivation
+> from the tag vocabulary lands instead as an ordinary ONE-TIME SEEDING BATCH
+> of staged lessons.** Supersedes the held seam D4 under
+> q_a/2026-08-07-baseline-dissolution-and-consult-discipline D5.
+> (q_a/2026-08-05-consultation-seam-vocabulary-and-allocation §4 R2)"
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:26`
+
+The same distinction is restated on the served surface at its own pin, in the
+seeding batch's line, with the reason it is restated there — an excerpt from a
+longer line, marked, never spliced with another:
+
+> "… MISS-ONLY GROWTH BINDS ADMISSION, NEVER PROPOSAL, so the batch may propose
+> freely from existing decision content while each member still needs its own
+> `[x]`."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:15`
+
+**What this permits.** A **proposal** — a candidate entry offered to the
+admission act — may be produced by any means, including a machine, and needs no
+miss of its own to be *offered*. Two mechanized proposers are named on the
+served line and are therefore legitimate here:
+
+1. **Miss harvesting** — a recorded consult outcome token of
+   `covered-after-reframing` or `uncovered-after-N-framings` proposes an entry
+   for the occasion that produced it.
+2. **Receipt-absence mining** — the review lane's boundary-vs-receipt record
+   (`.claude/skills/review-lane/SKILL.md` §2, *Consultation-map boundaries
+   touched*) proposes the missing occasion where a boundary was touched with no
+   receipt.
+
+**What this does not permit, and why the line is exactly here.** Neither
+proposer writes this file. Admission stays a human act, still requires the
+miss, and still records the postmortem — and the ground is this map's founding
+Invariant 2, an excerpt quoted at its own pin:
+
+> "… Invariant 2: the map triggers CONSULTATION and never encodes verdicts,
+> because an entry that starts answering is a second authority growing in the
+> dark, sited next to the code where it carries more apparent weight than the
+> surface it copied."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:69`
+
+A proposer that admitted its own findings would be precisely that second
+authority. So the split is not bureaucratic symmetry: **proposal is a
+generation act and admission is a judgment act**, and only the second one is
+what the miss rule was ever protecting.
+
+**Out of scope, declared so this section is not read as licensing it.**
+Wholesale derivation of entries from the corpus is **struck** as a proposer by
+the same served line above; the ratified re-route lands it as a **one-time
+seeding batch of staged lessons through the normal admission gate**, never as a
+standing proposer. A future sitting reading "a machine may propose" as cover for
+a corpus derivation pass is reading past the sentence that struck it.
+
+**A machine-composed proposal discloses its derivation source, and the
+postmortem's question field is where that binds** — see *Miss postmortem*
+below, whose disclosure cases are widened by this section rather than
+reinterpreted by it.
 
 ## The two structured halves (schema v2, kogaki#24)
 
@@ -145,6 +219,46 @@ indistinguishable once written down. Three cases, all disclosed the same way
 Inventing a question and presenting it as a recorded one is the
 conformance-copy defect the pinned-quote rule refuses, moved into a new
 field.
+
+**A FOURTH CASE, and the derivation rule that governs a machine-composed
+proposal** (kogaki#222). The three cases above were written for human acts, and
+the receipt-absence proposer produces a case none of them fits: a boundary was
+touched and **no consultation happened at all**, which is neither *recorded*
+(no query was issued), nor *reconstructed* (there is a live record and inventing
+a question for it is exactly what the rule above refuses), nor *none recorded*
+— that case is scoped to a miss predating the map, and this one does not
+predate anything.
+
+- **not asked** — the proposal is derived from a **receipt-absence** record: a
+  boundary matched and the branch carried no receipt. Say **not asked — derived
+  from `<the review-lane record and its PR>`**, and give **no** question. The
+  absent question is the finding; supplying one would delete it.
+
+And binding every machine-composed proposal, whichever case it lands in:
+
+- **The proposal names the record it was derived from** — the receipt's
+  `request_id` for a miss-harvested proposal, the review-lane
+  boundary-vs-receipt row for a mined one. A miss-harvested proposal fills
+  *recorded* from the receipt's own `query:` line and **quotes it as issued**;
+  it may not compose a better one, because the honest field is the question
+  that actually ran.
+
+The ground is served, and it is about derived expressions generally rather than
+about this file — an excerpt quoted at its own pin:
+
+> "… Keeping a group claim over a changed subset asserts commonality over
+> absent members — a provenance lie — while discarding it throws away the only
+> thing in the interaction the machine did not supply. … a derived expression's
+> truth is relative to the set it was derived from, so the derivation carries
+> that set and a change to the set is a GATE EVENT rather than a refresh."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:88`
+
+A proposal is a derived expression and its source set is the record it was
+harvested from. Carrying that record is what keeps a machine-composed
+postmortem legible at the admission gate rather than indistinguishable from one
+a human wrote — and the map's own choice is the one that line prescribes:
+**make the provenance legible, never forbid the proposal.**
 
 ## Entries
 
