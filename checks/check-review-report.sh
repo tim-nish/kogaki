@@ -354,6 +354,70 @@ BOUNDARY = re.compile(
     r'|(?P<none_why>none)\s+(?P<why>\S.*?)\s*$'
     r'|(?P<entry>\d+)\s+(?P<verdict>covered|uncovered|cannot-determine)\b'
     r'(?P<receipt>\s*\[receipt:[^\]]+\])?)', re.MULTILINE)
+# THE JOINING IDENTITY ACROSS HEADS (§4 clause 10, kogaki#269). A SIXTH adjacent
+# declaration on the established pattern, anchored WHOLE, read in the same pass,
+# binding to the IMMEDIATELY PRECEDING `finding:` line exactly as clause 8's
+# disposition does.
+#
+#   supersedes: <earlier head sha> finding <N>  <grounds>
+#
+# THE DEFECT IT REPAIRS, in its measured shape. The gate's only unit of identity
+# is the head sha. `head_segments()` returns EVERY segment naming the current
+# head and `open_blocking()` iterates all of them, so a downgrade at an
+# UNCHANGED head still gates and always did — a fixture asserting that case
+# would pass on the shipped script and prove nothing. What goes clean is a head
+# unchanged WITH RESPECT TO THE FINDING: the head sha moves for a reason that
+# touched nothing the finding named, every earlier segment stops being read, and
+# a `blocking open` raised at head A survives into head B only as whatever the
+# segment written at B chooses to call it. PR #255 is the specimen — round 1 at
+# `dec255e7` raised two justified blocking, the receipts-only fix `4ba9f97`
+# moved the head, round 2 restated the still-false markdown claim as `should`,
+# and this check printed `ok: … no open blocking findings` on an unrepaired
+# blocking finding. The merge was held by hand; nothing in this repository held
+# it.
+#
+# THE IDENTITY IS (SEGMENT SHA, ORDINAL) AND IT IS A FACT RATHER THAN A READING.
+# `<N>` is the 1-based position of the `finding:` line inside the segment naming
+# `<earlier head sha>`. The ordinal is stable because an earlier segment is
+# APPEND-ONLY by a rule this file already rests on — §4 clause 4's every-round-
+# leaves-its-record, restated in `segments()`: "a new round supersedes by
+# writing a new report, not by mutating an old one". A finding id on every
+# `finding:` line and a re-declaration rule were the two declined arms; their
+# grounds are recorded in §4 clause 10 rather than here.
+#
+# WHAT IS GATED IS THE SILENCE AND NEVER THE SEVERITY. kogaki#72 is untouched:
+# `should` and `nit` are nowhere in the predicate below, an adjudicated
+# downgrade passes exactly as today, and no `should` gates as a `should`. What
+# denies is an earlier-head JUSTIFIED `blocking open` that NO LATER SEGMENT
+# NAMES — the verdict-write that leaves no carrier. The served surface rules on
+# the shape:
+#
+#   "The check DENIES on the block's ABSENCE and never judges its CONTENT …
+#   *Is a recommendation block present, and does it carry either grounds or a
+#   typed miss?* is a fact the acting code can compute at the moment it acts"
+#   `topics/claude-code-ops.md:19@dec0d568`
+#
+# GROUNDS ARE REQUIRED AND UNVALIDATED BEYOND BEING NON-EMPTY, which is
+# `declined:`'s own rule one field over: whether a re-grade's grounds are the
+# HONEST ones is judgment and stays in the lane; whether the line carries any is
+# the fact read here. The requirement does NOT branch on the superseding
+# finding's severity — a severity-dependent arm would put the judgment half back
+# into the mechanical one, which is the whole thing this clause avoids.
+#
+# A MALFORMED `supersedes:` DECLARES NOTHING, so the earlier finding stays
+# unnamed and the gate stays red. That is the safe direction here and the
+# opposite of `cannot-determine:`'s: this token's subject is a finding that
+# ALREADY gated, so failing toward the gate restores the prior state rather than
+# minting a new denial.
+SUPERSEDES = re.compile(
+    r'^\s*supersedes:\s*(?P<sha>[0-9a-f]{7,40})\s+finding\s+(?P<ord>\d+)\s+'
+    r'(?P<grounds>\S.*?)\s*$', re.MULTILINE)
+
+
+def sha_match(a, b):
+    """Two shas name the same commit — abbreviated either way, as everywhere
+    else in this file (`head_segments`'s rule, one implementation of it)."""
+    return bool(a) and bool(b) and (a.startswith(b) or b.startswith(a))
 
 
 def boundary_of(m, line):
@@ -438,7 +502,7 @@ def segments(bodies):
         r = REPORT.match(line)
         if r:
             current = {'sha': r.group(1), 'findings': [], 'cannot': [],
-                       'boundaries': [],
+                       'boundaries': [], 'supersedes': [],
                        'scope': None, 'complete': None, 'base': None}
             segs.append(current)
             continue
@@ -467,6 +531,24 @@ def segments(bodies):
             # never a gate. Every line is appended — a touched-boundary record
             # is a set, not a single-valued declaration.
             current['boundaries'].append(boundary_of(bd, line))
+            continue
+        sp = SUPERSEDES.match(line)
+        if sp:
+            # Bound to the IMMEDIATELY PRECEDING `finding:` line in this
+            # segment, which is what makes it a per-FINDING declaration where
+            # scope, completeness and base are per-SEGMENT ones. A `supersedes:`
+            # before any finding binds to nothing and therefore names nothing —
+            # otherwise a bare line could discharge an earlier blocking with no
+            # re-grade attached to it, which is the evaporation with a token in
+            # front of it. FIRST declaration per finding wins, on clauses 5-8's
+            # established rule: a later line never revises an earlier claim.
+            if current['findings'] and not any(
+                    f == len(current['findings']) - 1
+                    for _s, _n, _g, _l, f in current['supersedes']):
+                current['supersedes'].append(
+                    (sp.group('sha'), int(sp.group('ord')),
+                     sp.group('grounds'), line.strip(),
+                     len(current['findings']) - 1))
             continue
         s = SCOPE.match(line)
         if s:
@@ -499,6 +581,101 @@ def open_blocking(bodies, head, carried=()):
             if sev == 'blocking' and state == 'open':
                 (gating if just else downgraded).append(line)
     return gating, downgraded
+
+
+def superseded_pairs(segs):
+    """(segment index, ordinal) pairs NAMED by a later segment's `supersedes:`.
+
+    A naming counts only when it comes from a segment LATER IN THE RECORD than
+    the one it names — comment order is the only ordering this parser has, and
+    a segment cannot supersede itself or its successors. The naming segment must
+    also COUNT (§4 clause 6): a fragment turns nothing green, and discharging an
+    earlier blocking is turning something green.
+    """
+    named = set()
+    for i, seg in enumerate(segs):
+        if not counted(seg):
+            continue
+        for sha, n, _grounds, _raw, fidx in seg['supersedes']:
+            if fidx is None:
+                continue
+            for j, earlier in enumerate(segs[:i]):
+                if sha_match(earlier['sha'], sha):
+                    named.add((j, n))
+    return named
+
+
+def unadjudicated_blocking(bodies, head, carried=()):
+    """§4 clause 10 — earlier-head JUSTIFIED `blocking open` findings that no
+    later segment supersedes. Returns [(sha, ordinal, line), …].
+
+    THE PREDICATE, exactly. A finding is unadjudicated when all of these hold,
+    and the severity of anything written at the CURRENT head is in none of them:
+
+      1. it sits in a segment that does NOT name the current head and is not
+         carried forward onto it (§4 clause 7) — a finding at the current head
+         is `open_blocking()`'s subject and gates there;
+      2. its segment COUNTS (§4 clause 6) — a fragment declared nothing, so it
+         has nothing to adjudicate;
+      3. it is declared `blocking` and still `open`;
+      4. it carries its `[policy:|harm:]` justification — an UNJUSTIFIED
+         blocking never gated (kogaki#72 fails it toward merge as a `should`),
+         so there is no verdict for a later head to overturn silently;
+      5. no LATER counted segment carries a `supersedes:` line naming
+         (its segment's sha, its 1-based ordinal).
+
+    Only (5) is new. It is the absence of the adjudication carrier on a finding
+    that WAS blocking — which is the one thing kogaki#269 permits a deny to
+    attach to, and it is not the `should`: nothing about the later severity
+    enters this function, and a PR that writes no lower-severity finding at all
+    is caught identically.
+    """
+    segs = segments(bodies)
+    current = {id(s) for s in head_segments(segs, head, carried)}
+    named = superseded_pairs(segs)
+    out = []
+    for i, seg in enumerate(segs):
+        if id(seg) in current or not counted(seg):
+            continue
+        for n, (sev, state, just, line) in enumerate(seg['findings'], 1):
+            if sev == 'blocking' and state == 'open' and just:
+                if (i, n) not in named:
+                    out.append((seg['sha'], n, line))
+    return out
+
+
+def adjudications(bodies, head, carried=()):
+    """§4 clause 10's THREE-WAY RENDERING, from this head's own segments.
+
+    Returns [(kind, sha, ordinal, grounds, finding line), …] where `kind` is:
+
+      `resolved`          — the superseding finding is `blocking resolved`: a
+                            fix is claimed. Whether the fix is REAL is clause
+                            9's row 3, which has no observer and is not this
+                            clause's subject; what is asserted here is only
+                            that the later record NAMES the finding it disposes
+                            of, which is what nothing did before.
+      `adjudicated-down`  — the superseding finding is `should` or `nit`: the
+                            re-grade PR #255 made silently, made out loud.
+      `re-declared`       — still `blocking open` at this head, and gating
+                            through `open_blocking()` as it always did.
+
+    The fourth state — SILENTLY RE-GRADED — is by construction not renderable
+    from here, because it is the absence of every line above. It is what
+    `unadjudicated_blocking()` returns.
+    """
+    out = []
+    for seg in head_segments(segments(bodies), head, carried):
+        for sha, n, grounds, _raw, fidx in seg['supersedes']:
+            sev, state, _just, line = seg['findings'][fidx]
+            if sev == 'blocking' and state == 'resolved':
+                kind = 'resolved'
+            elif sev in ('should', 'nit'):
+                kind = 'adjudicated-down'
+            else:
+                kind = 're-declared'
+            out.append((kind, sha, n, grounds, line))
+    return out
 
 
 def fragments(bodies, head, carried=()):
@@ -651,12 +828,21 @@ def find_report(bodies, head, carried=()):
     lands. It is its own state rather than folded into 'absent' because the
     two owe the reader different sentences.
 
+    `unadjudicated` means every state above is clean, and a finding declared
+    JUSTIFIED BLOCKING AND OPEN at an EARLIER head is named by no later
+    segment's `supersedes:` line — §4 clause 10 (kogaki#269). It is the state
+    PR #255 was in when this check printed `ok`.
+
     ORDER MATTERS, and it is: absent, head-unknown, stale, blocked,
-    incomplete, present. `blocked` is asked BEFORE completeness so that a
-    fragment's own open blocking still gates and is still NAMED — clause 6
-    says a fragment turns nothing GREEN, and letting incompleteness swallow a
-    blocking finding would be the inverse: a partial report used to hide one.
-    Both states are red; the earlier one is the more specific sentence.
+    incomplete, unadjudicated, present. `blocked` is asked BEFORE completeness
+    so that a fragment's own open blocking still gates and is still NAMED —
+    clause 6 says a fragment turns nothing GREEN, and letting incompleteness
+    swallow a blocking finding would be the inverse: a partial report used to
+    hide one. Both states are red; the earlier one is the more specific
+    sentence. `unadjudicated` is asked LAST of the red states because a report
+    that is still a FRAGMENT may yet carry its `supersedes:` lines in the part
+    that has not landed, and telling the reviewer to post the report whole is
+    the more actionable sentence when both are true.
 
     `carried` (§4 clause 7) names segments PROVEN to have reviewed this head's
     content, computed by `carry_forward` above. A carried segment is treated as
@@ -682,6 +868,8 @@ def find_report(bodies, head, carried=()):
         return 'blocked', shas
     if not any(counted(seg) for seg in current):
         return 'incomplete', shas
+    if unadjudicated_blocking(bodies, head, carried):
+        return 'unadjudicated', shas
     return 'present', shas
 
 
@@ -756,9 +944,18 @@ FIXTURES = [
     ("findings without a report are not a report",
      "finding: blocking open  orphaned", HEAD, 'absent'),
     # --- PR #44 review, round 1: findings bind to their report segment ---
-    ("an open blocking under a STALE report does not gate the current head",
+    # RE-TYPED BY §4 clause 10 (kogaki#269), and the change is recorded rather
+    # than made quietly: this case's SUBJECT is segment binding — a stale
+    # round's finding is that round's record and never this head's state — and
+    # that assertion is unchanged. What changed is that the later segment now
+    # NAMES the finding it disposes of, because an earlier justified blocking
+    # discharged by nothing is the state PR #255 merged in. The bare form is
+    # asserted immediately below, where it now denies.
+    ("an open blocking under a STALE report does not gate the current head, "
+     "once the later segment names it",
      f"review-lane report: 9999999\nfinding: blocking open [harm: old]  old round\n"
-     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed",
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: 9999999 finding 1  repaired by the fix commit",
      HEAD, 'present'),
     ("an open blocking in the current head's segment gates despite an older clean report",
      f"review-lane report: 9999999\n"
@@ -1279,6 +1476,243 @@ print(f"boundary pass: {len(BOUNDARY_FIX)}/{len(BOUNDARY_FIX)} "
       "never gates / not a finding), plus the gate-neutrality invariance "
       f"assertion re-run over all {len(BOUNDARY_FIX)}")
 
+# --- the joining identity across heads (§4 clause 10, kogaki#269) -----------
+# THE TWO-HEAD CASE IS THE ONLY ONE THAT PROVES ANYTHING, and the same-head case
+# is carried beside it precisely because it is the one that would have proved
+# nothing: `head_segments()` returns EVERY segment naming the current head and
+# `open_blocking()` iterates all of them, so a downgrade at an unchanged head
+# gated on the shipped script and gates here, unchanged. A fixture asserting
+# only that would have passed before this diff.
+#
+# Each case is a MUTANT DERIVED FROM THIS DIFF (specs/SPEC.md §4): the token
+# literal, the `finding` keyword, the sha and ordinal character classes, the
+# required non-empty grounds, the whole-line anchor, the bind-to-preceding-
+# finding rule, first-declaration-wins, the later-segment-only ordering, the
+# `counted()` guard on both sides, the justification requirement, the
+# open-and-blocking severity/state pair, the current-head exclusion, and the
+# 1-based ordinal. The mutation table in the PR record names which case catches
+# each.
+SUPER_FIX = [
+    # (name, bodies, head, want state, want adjudication kinds, want #unadjudicated)
+    ("a justified blocking at head A restated should at head B with no carrier",
+     "review-lane report: dec255e7\n"
+     "finding: blocking open [policy: §6.9.0 correction 1]  the markdown claim is false\n"
+     "finding: blocking open [harm: zero consultation receipts]  receipts\n"
+     "report-complete: 2 findings\n"
+     f"review-lane report: {HEAD}\n"
+     "finding: should open  the SAME markdown claim, restated\n"
+     "report-complete: 1 findings", HEAD, 'unadjudicated', [], 2),
+    ("THE SAME DOWNGRADE AT AN UNCHANGED HEAD still gates and always did — the "
+     "case a fixture could assert before this diff and learn nothing from",
+     f"review-lane report: {HEAD}\n"
+     "finding: blocking open [harm: x]  the defect\n"
+     "report-complete: 1 findings\n"
+     f"review-lane report: {HEAD}\n"
+     "finding: should open  the SAME defect, downgraded\n"
+     "report-complete: 1 findings", HEAD, 'blocked', [], 0),
+    ("THE ADJUDICATED DOWNGRADE PASSES, exactly as it did before: the deny is "
+     "on the silence, never on the `should` (kogaki#72 untouched)",
+     "review-lane report: dec255e7\n"
+     "finding: blocking open [policy: §6.9.0 correction 1]  the markdown claim is false\n"
+     "report-complete: 1 findings\n"
+     f"review-lane report: {HEAD}\n"
+     "finding: should open  the same claim, re-graded\n"
+     "supersedes: dec255e7 finding 1  measured under PyYAML 6.0.3: loud for "
+     "every construct but `#`, so the claim is narrower than blocking\n"
+     "report-complete: 1 findings", HEAD, 'present', ['adjudicated-down'], 0),
+    ("THE FIX CASE renders as `resolved` and passes — what is asserted is that "
+     "the later record NAMES the finding, never that the fix is real (clause "
+     "9 row 3 has no observer and is not this clause's subject)",
+     "review-lane report: dec255e7\n"
+     "finding: blocking open [harm: the gate reads clean]  x\n"
+     f"review-lane report: {HEAD}\n"
+     "finding: blocking resolved  repaired\n"
+     "supersedes: dec255e7 finding 1  repaired by 72d0b9b1",
+     HEAD, 'present', ['resolved'], 0),
+    ("A RE-DECLARATION at the new head renders as `re-declared` and gates "
+     "through the existing blocked branch, not through this one",
+     "review-lane report: dec255e7\n"
+     "finding: blocking open [harm: still broken]  x\n"
+     f"review-lane report: {HEAD}\n"
+     "finding: blocking open [harm: still broken]  x, still\n"
+     "supersedes: dec255e7 finding 1  unchanged, restated at this head",
+     HEAD, 'blocked', ['re-declared'], 0),
+    ("AN UNJUSTIFIED earlier blocking needs no carrier — it never gated "
+     "(kogaki#72 downgrades it to `should`), so there is no verdict to overturn",
+     "review-lane report: dec255e7\nfinding: blocking open  no justification\n"
+     f"review-lane report: {HEAD}\nfinding: should open  restated",
+     HEAD, 'present', [], 0),
+    ("an earlier `blocking RESOLVED` needs no carrier — the property is about "
+     "what is still open",
+     "review-lane report: dec255e7\n"
+     "finding: blocking resolved [harm: x]  already closed\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  y",
+     HEAD, 'present', [], 0),
+    ("an earlier `should open` needs no carrier — a non-gating finding's "
+     "lifecycle is §4 clause 8's disposition axis, not this one",
+     "review-lane report: dec255e7\nfinding: should open  a nit-ish thing\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  y",
+     HEAD, 'present', [], 0),
+    ("the CURRENT head's own justified blocking is `blocked`, never "
+     "`unadjudicated` — the exclusion, and the state order that carries it",
+     f"review-lane report: {HEAD}\nfinding: blocking open [harm: x]  now",
+     HEAD, 'blocked', [], 0),
+    ("a FRAGMENT at the earlier head declared nothing, so it has nothing to "
+     "adjudicate (§4 clause 6)",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: x]  x\n"
+     "report-complete: 4 findings\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  y\n"
+     "report-complete: 1 findings", HEAD, 'present', [], 0),
+    ("a FRAGMENT cannot discharge: a `supersedes:` in an uncounted segment "
+     "turns nothing green, which is what clause 6 says a fragment does",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: x]  x\n"
+     "report-complete: 1 findings\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding 1  fixed\n"
+     "report-complete: 9 findings", HEAD, 'incomplete', ['resolved'], 1),
+    ("THE ORDINAL IS 1-BASED and it is an identity: naming finding 2 does not "
+     "discharge finding 1",
+     "review-lane report: dec255e7\n"
+     "finding: blocking open [harm: a]  a\nfinding: blocking open [harm: b]  b\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  b fixed\n"
+     "supersedes: dec255e7 finding 2  b repaired",
+     HEAD, 'unadjudicated', ['resolved'], 1),
+    ("both ordinals named discharges both",
+     "review-lane report: dec255e7\n"
+     "finding: blocking open [harm: a]  a\nfinding: blocking open [harm: b]  b\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  a fixed\n"
+     "supersedes: dec255e7 finding 1  a repaired\n"
+     "finding: blocking resolved  b fixed\n"
+     "supersedes: dec255e7 finding 2  b repaired",
+     HEAD, 'present', ['resolved', 'resolved'], 0),
+    ("A SUPERSEDES NAMES BACKWARD ONLY: a line in the EARLIER segment cannot "
+     "discharge a finding written after it",
+     "review-lane report: dec255e7\n"
+     "finding: blocking open [harm: a]  a\n"
+     f"supersedes: {HEAD} finding 1  pre-emptive\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  y",
+     HEAD, 'unadjudicated', [], 1),
+    ("the carrier is DURABLE: a supersedes written at head B still discharges "
+     "at head C, because the record is what carries it",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     "review-lane report: 4ba9f974\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding 1  repaired\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  y",
+     HEAD, 'present', [], 0),
+    ("a `supersedes:` BEFORE ANY FINDING binds to nothing and names nothing — "
+     "otherwise a bare line discharges with no re-grade attached",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nsupersedes: dec255e7 finding 1  bare\n"
+     "finding: nit open  y", HEAD, 'unadjudicated', [], 1),
+    ("MENTIONING supersedes: inside a finding's prose declares nothing "
+     "(use-vs-mention, kogaki#41)",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\n"
+     "finding: nit open  a supersedes: dec255e7 finding 1 line is missing here",
+     HEAD, 'unadjudicated', [], 1),
+    ("GROUNDS ARE REQUIRED: a bare `supersedes: <sha> finding <N>` is not a "
+     "declaration — `declined:`'s own rule, one field over",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding 1", HEAD, 'unadjudicated', [], 1),
+    ("a non-hex sha is not a declaration",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: round-one finding 1  fixed", HEAD, 'unadjudicated', [], 1),
+    ("a sha shorter than seven characters is not a declaration — the same "
+     "7-40 class every sha-bearing token in this file takes",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255 finding 1  fixed", HEAD, 'unadjudicated', [], 1),
+    ("a non-numeric ordinal is not a declaration",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding one  fixed", HEAD, 'unadjudicated', [], 1),
+    ("the `finding` keyword is part of the token — dropping it declares nothing",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 1  fixed", HEAD, 'unadjudicated', [], 1),
+    ("an ABBREVIATED sha matches its longer form, in both directions",
+     "review-lane report: dec255e7c0ffee1234\n"
+     "finding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding 1  repaired", HEAD, 'present',
+     ['resolved'], 0),
+    ("FIRST DECLARATION WINS per finding: a second `supersedes:` on one "
+     "finding is ignored and discharges nothing extra",
+     "review-lane report: dec255e7\n"
+     "finding: blocking open [harm: a]  a\nfinding: blocking open [harm: b]  b\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding 1  repaired\n"
+     "supersedes: dec255e7 finding 2  also repaired",
+     HEAD, 'unadjudicated', ['resolved'], 1),
+    ("a clean two-head history with no earlier blocking at all is untouched — "
+     "the overwhelming majority case pays nothing",
+     "review-lane report: dec255e7\nfinding: should open  a\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  b\n"
+     "report-complete: 1 findings", HEAD, 'present', [], 0),
+]
+super_bad = []
+for name, bodies, head_fx, want_state, want_kinds, want_n in SUPER_FIX:
+    got_state, _ = find_report(bodies, head_fx)
+    got_kinds = [k for k, *_rest in adjudications(bodies, head_fx)]
+    got_n = len(unadjudicated_blocking(bodies, head_fx))
+    if (got_state, got_kinds, got_n) != (want_state, want_kinds, want_n):
+        super_bad.append(f"{name}: got ({got_state!r}, {got_kinds}, {got_n}), "
+                         f"want ({want_state!r}, {want_kinds}, {want_n})")
+# THE CLAUSE-7 INTERACTION, asserted rather than assumed: a segment PROVEN to
+# have reviewed this head's content is this head's segment "for every purpose"
+# (`head_segments`), and that must include this one — otherwise a carry-forward
+# would deny on its own findings.
+_carry_bodies = ("review-lane report: dec255e7\n"
+                 "finding: blocking open [harm: a]  a\n"
+                 f"review-lane report: {HEAD}\nfinding: nit open  y")
+if unadjudicated_blocking(_carry_bodies, HEAD, ('dec255e7',)):
+    super_bad.append("a CARRIED-FORWARD segment (§4 clause 7) is this head's "
+                     "own for every purpose, so its findings must not be read "
+                     "as an earlier head's unadjudicated blocking")
+if len(unadjudicated_blocking(_carry_bodies, HEAD)) != 1:
+    super_bad.append("without the carry-forward the same bodies must be "
+                     "unadjudicated — the control arm for the assertion above")
+# THE GATE-NEUTRALITY LIMIT, stated as an assertion because its shape is the
+# inverse of the boundary record's. Stripping `supersedes:` lines MUST be able
+# to change the verdict — that is what a gating declaration means — so what is
+# asserted instead is the property kogaki#72 constrains: stripping every
+# NON-GATING finding line must never change an `unadjudicated` verdict, because
+# the predicate reads no severity written at the current head.
+for name, bodies, head_fx, want_state, _k, _n in SUPER_FIX:
+    if want_state != 'unadjudicated':
+        continue
+    # The `report-complete:` lines go with them: clause 6's count equality is a
+    # per-segment fact about the lines actually present, so leaving a count
+    # behind that names findings this strip just removed would test clause 6
+    # rather than this one. An absent count reads as complete.
+    stripped = "\n".join(
+        l for l in bodies.splitlines()
+        if not re.match(r'^\s*finding:\s*(should|nit)\b', l)
+        and not COMPLETE.match(l))
+    got_state, _ = find_report(stripped, head_fx)
+    if got_state != 'unadjudicated':
+        super_bad.append(f"kogaki#72[{name}]: removing the non-gating findings "
+                         f"changed the verdict to {got_state!r} — the deny is "
+                         "reading the `should`, not the silence")
+if super_bad:
+    print("FAIL fixture pass — the cross-head severity join does not "
+          "discriminate (specs/SPEC.md §4 clause 10, kogaki#269):")
+    for f in super_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print(f"supersedes pass: {len(SUPER_FIX)}/{len(SUPER_FIX)} cross-head "
+      "severity-join cases (the two-head defect / the same-head control that "
+      "gated already / adjudicated-down / resolved / re-declared / "
+      "unjustified / resolved-and-should earlier findings / current-head "
+      "exclusion / fragment both sides / 1-based ordinal / backward-only / "
+      "durable across a third head / bind-to-preceding-finding / "
+      "use-vs-mention / grounds required / sha and ordinal token classes / "
+      "abbreviated sha / first-wins / the untouched majority), plus the "
+      "clause-7 carry-forward assertion with its control and the kogaki#72 "
+      "severity-blindness assertion")
+
 # --- trust assembly fixtures (kogaki#56): author-filtering, both directions.
 OWN = 'repo-owner'
 TRUST_FIX = [
@@ -1468,9 +1902,24 @@ if state == 'head-unknown':
           "not establish which head it should name. The head is part of "
           "presence, so an unknown head is not a pass.")
     sys.exit(1)
+def _report_adjudications():
+    """Print this head's severity-revision record — §4 clause 10 (kogaki#269).
+
+    REPORTED on every terminal branch that has a report, beside the two
+    disclosures above and for the same reason. This is the three-way
+    distinction the gate could not make before: resolved by a fix, adjudicated
+    down with reasons, or still blocking. The fourth state — silently
+    re-graded — is the deny below and has no line to print.
+    """
+    for kind, sha, n, grounds, line in adjudications(bodies, head, carried):
+        print(f"NOTE: severity revision across heads, {kind} "
+              f"(specs/SPEC.md §4 clause 10, kogaki#269): supersedes "
+              f"{sha[:7]} finding {n} — {grounds}")
+        print(f"  {line}")
 if state == 'blocked':
     _report_blocked_dimensions()
     _report_boundary_record()
+    _report_adjudications()
     blocking, downgraded = open_blocking(bodies, head, carried)
     for d in downgraded:
         print(f"NOTE: unjustified blocking downgraded to should, non-gating "
@@ -1499,6 +1948,28 @@ if state == 'incomplete':
           "`report-complete: <N> findings` line last and N equal to the "
           "number of `finding:` lines above it.")
     sys.exit(1)
+if state == 'unadjudicated':
+    _report_blocked_dimensions()
+    _report_boundary_record()
+    _report_adjudications()
+    rows = unadjudicated_blocking(bodies, head, carried)
+    print(f"FAIL: PR #{pr} has a clean review-lane report for head "
+          f"{head[:7]}, but {len(rows)} finding(s) declared BLOCKING AND OPEN "
+          "at an earlier head are named by no later segment. A head move for "
+          "any reason stops every earlier segment from being read, so a "
+          "severity revised across heads with no adjudication carrier is "
+          "indistinguishable from a fix (specs/SPEC.md §4 clause 10, "
+          "kogaki#269 — PR #255 is the specimen).")
+    for sha, n, line in rows:
+        print(f"  {sha[:7]} finding {n}: {line}")
+    print("  What is denied here is the SILENCE and never the severity: "
+          "kogaki#72's budget is untouched, a `should` gates nothing as a "
+          "`should`, and an adjudicated downgrade passes exactly as before. "
+          "On the line AFTER the finding that disposes of each one, write "
+          "`supersedes: <earlier head sha> finding <N>  <grounds>` — N is the "
+          "1-based position of the `finding:` line in the segment naming that "
+          "sha. Re-declare it `blocking open` instead if it still stands.")
+    sys.exit(1)
 if state == 'present':
     # WHAT THE REPORT ATTESTS TO IS ON THE PASSING LINE (§4 clause 5). Clause
     # 1's mechanical half reads presence and open-blocking identically whatever
@@ -1509,6 +1980,7 @@ if state == 'present':
     # is carrier-less by design with a named reopen trigger.
     _report_blocked_dimensions()
     _report_boundary_record()
+    _report_adjudications()
     scope, declared = head_scope(bodies, head, carried)
     print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}, "
           "no open blocking findings")

@@ -1424,7 +1424,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | # | transition of the review record | type |
      |---|---|---|
      | 1 | a finding is **raised and typed** | **act** — the `finding: <severity> <state>` line, parsed by `checks/check-review-report.sh`'s `FINDING` regex and by `tools/review-sweep.sh`'s segmenter, both anchored whole |
-     | 2 | a **severity is revised across heads** | `none: nothing joins two segments — the severity field is read per segment and the gate's only unit of identity is the head sha, so a head move for any reason discards every earlier segment's severity. The observer is owed and unbuilt at kogaki#269; naming it does not type this row.` |
+     | 2 | a **severity is revised across heads** | **act** — §4 clause 10's `supersedes: <earlier head sha> finding <N>` line, written by the reviewer under `.claude/skills/review-lane/SKILL.md` §`supersedes:` and read at the merge layer by `unadjudicated_blocking()` in `checks/check-review-report.sh`, whose `unadjudicated` state denies a previously-declared justified `blocking` that no later segment names (kogaki#269) |
      | 3 | a finding goes **`open` → `resolved`** | `none: the state token is the reviewer's own attestation about its own work and no act re-derives it from the diff. No carrier is filed, and this row is how that is surfaced.` |
      | 4 | a **report carries forward** to a head that changed no content | **act** — `carry_forward()` in `checks/check-review-report.sh`, which recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it (§4 clause 7) |
      | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
@@ -1432,6 +1432,23 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | 7 | a **fix is authored after its own PR merges** | `none: the sweep enumerates OPEN pull requests and the merge check runs on a pull-request event, so a commit pushed to a merged branch produces neither — no CI run, no licence assertion, no review segment, and gh pr view keeps returning the merged head. No carrier is filed.` |
      | 8 | a **review is degraded** (the session was denied tools) | `none: the in-band carrier cannot-determine: exists and the sweep's report-degraded arm does not write one — it posts a SEPARATE comment bound to no segment, so a later segment carries no record that its session was degraded. kogaki#271 parts (a)-(c) are the retained kogaki work; they are named, and naming them does not type this row.` |
      | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
+
+     **ROW 2 WAS RE-TYPED FROM `none:` TO AN ACT IN THE SAME PULL REQUEST THAT
+     BUILT ITS OBSERVER** (kogaki#269), and the re-typing is recorded here
+     rather than left for the next sitting to discover. At the sitting above,
+     row 2 read *"`none:` nothing joins two segments … the observer is owed and
+     unbuilt at kogaki#269; naming it does not type this row"* — which was the
+     correct type **that day**, on this clause's own rule that an issue which
+     will one day build the observer discharges nothing. §4 clause 10 built it:
+     the `supersedes:` line is a producing site the reviewer writes, and
+     `unadjudicated_blocking()` is an act that already fires on every pull
+     request. **The widening trigger fired and was obeyed**: that diff touches
+     this section's declared line classes and `checks/check-review-report.sh`,
+     two of the four artifacts this enumeration is derived from, so the typing
+     re-ran. Shipping the observer beside a clause still saying it is unbuilt
+     would have been the stale-record class row 5 was found in — four written
+     records asserting a mechanism's behaviour the shipped mechanism
+     contradicted, none of which came back to correct itself.
 
      **THE FOUR ROWS THAT MOVED SINCE FILING, with what moved them.** Recorded
      because a re-typing that silently overwrites its predecessor teaches the
@@ -1532,7 +1549,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **WHAT THIS CLAUSE DOES NOT COVER, declared up front so it cannot become
      a bucket.**
 
-     - **Any transition's own fix.** Row 2 is kogaki#269. Row 6's reader half
+     - **Any transition's own fix.** Row 2 was kogaki#269 and has **landed as
+       clause 10**, which is where its design, its declined forks and its cost
+       live — this clause holds the typing and nothing else. Row 6's reader half
        was kogaki#251 and has landed. Row 9 is kogaki#258 and has landed. Row
        6's substance is kogaki#224, closed and correct. Rows 3, 5's residual
        waste, 7 and 8 are named above and this clause **does not become their
@@ -1581,6 +1600,226 @@ invariant: Gukan guarantees Unit schema, never data schema).
      as where rows 5, 6 and 7 were carried.
 
      **deferred slots: none.**
+
+  10. **A finding's severity is JOINABLE ACROSS HEADS, and a previously-declared
+      `blocking` that no later segment NAMES is denied at the merge layer**
+      (kogaki#269, owner selection 2026-08-08 — the explicit `supersedes:` line
+      on fork 1, deny-on-missing-adjudication on fork 2).
+
+      **THE DEFECT IN ITS CORRECTED SHAPE, stated first because the obvious
+      statement of it is false and the false one is what a fixture would
+      encode.** A downgrade at an **unchanged head does NOT flip the gate**, and
+      that was measured against the shipped script rather than assumed:
+      `head_segments()` returns *every* segment naming the current head and
+      `open_blocking()` iterates all of them, so two segments at one head both
+      bind and a round-1 `blocking open` still gates. **A fixture asserting the
+      same-head case would have passed before this clause and proved nothing.**
+      The accurate sentence is: **a head unchanged with respect to the finding
+      goes clean, because the gate's only unit of identity is the head sha and a
+      head sha moves for reasons unrelated to any particular finding.** The
+      defect therefore requires a **head move**, and the head move need not touch
+      the downgraded finding.
+
+      **THE SPECIMEN is PR #255**, verified at the PR. Round 1 at `dec255e7`
+      raised two justified blocking findings; the receipts-only fix `4ba9f97`
+      moved the head and touched neither claim; round 2 at `4ba9f974` restated
+      the still-false markdown claim as `should open` — same subject, sharper
+      evidence, nothing fixed — and `checks/check-review-report.sh` printed `ok:
+      … no open blocking findings`. The clause was repaired only later, by
+      `72d0b9b1`, and that happened because the merge was held **by hand**.
+      Nothing in this repository held it.
+
+      **WHAT IS WRONG IS THE MISSING CARRIER, NEVER THE REVISION.** A reviewer
+      may legitimately revise a severity — that is judgment, and the two-layer
+      split puts it on the reviewer's side. What is wrong is that the revision
+      left no adjudication carrier: the earlier declaration was not superseded
+      by an act, it simply stopped being read, and the record of *why* the
+      finding stopped blocking existed only as the absence of the word
+      `blocking` in a later comment. The served surface lands on exactly this:
+
+      > "the fix is to move the verdict to where the actor already looks and to
+      > deny the verdict-write that leaves no carrier in the repo that must act;
+      > the converse binds too — a gate-updated record must not carry an
+      > existence claim, so it names a carrier and never asserts that carrier's
+      > state."
+
+      `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:69`
+        request_id: 5bc6e0cd-3ba4-46ca-877e-07a737c1a84c
+        outcome: discriminating
+        query: A merge gate reads a typed findings record per head sha. A finding declared blocking at an earlier head can be restated at a later head with a lower severity and no adjudication line, and the gate reads clean. Should the gate deny on the ABSENCE of an explicit supersedes/adjudication carrier naming the earlier blocking finding, and is a joining identity better carried by an explicit supersedes line than by a per-finding id?
+
+      A downgrade **is** a verdict-write, and before this clause it left no
+      carrier. Re-read live at the current pin this sitting rather than carried
+      forward from the issue body, per kogaki#266 and kogaki#274 — a resolving
+      pin is not a correct pin.
+
+      **THE GRAMMAR — a SIXTH adjacent line beside the finding it re-grades**,
+      on the shape clauses 5, 6, 7 and 8 all use and for the same reason: the
+      `finding:` token stays byte-identical, so no reader can be desynchronized
+      by construction, and the two regexes that parse it
+      (`checks/check-review-report.sh` and `tools/review-sweep.sh`) are left
+      untouched.
+
+      ```
+      finding: <severity> <state>  <the finding>
+      supersedes: <earlier head sha> finding <N>  <grounds>
+      ```
+
+      - **The identity is (segment sha, ordinal).** `<N>` is the **1-based
+        position of the `finding:` line inside the segment naming that sha**.
+        The ordinal is a fact rather than a reading because an earlier segment
+        is **append-only** under clause 4's every-round-leaves-its-record — "a
+        new round supersedes by writing a new report, not by mutating an old
+        one" — so nothing can renumber it after the fact.
+      - The sha takes the same **7–40 hex** class the report token and
+        `review-base:` take, and **matches abbreviated in either direction**,
+        exactly as `head_segments()` already does.
+      - The line **binds to the immediately preceding `finding:` line** in its
+        own segment, which is what makes it a per-**finding** declaration where
+        scope, completeness and base are per-**segment** ones. A `supersedes:`
+        before any finding binds to nothing and **names nothing** — otherwise a
+        bare line would discharge an earlier blocking with no re-grade attached
+        to it, which is the evaporation with a token in front of it.
+      - **First declaration per finding wins**, on clauses 5–8's established
+        rule: a later line never revises an earlier claim.
+      - **Anchored whole**, so `supersedes:` inside a finding's prose is a
+        **mention and declares nothing** (kogaki#41).
+      - **Grounds are REQUIRED and non-empty**, and the requirement does **not**
+        branch on the superseding finding's severity. A severity-dependent arm
+        would put the judgment half back inside the mechanical one, which is the
+        whole thing this clause avoids; the cost is one short phrase on a fix
+        round, and it is the cheaper side of that trade. What is read is
+        **presence and never adequacy** — `declined:`'s own rule one field over,
+        on the same served line clause 8 quotes.
+      - A **malformed** `supersedes:` declares nothing, so the earlier finding
+        stays unnamed and the gate stays **red**. That is the opposite of
+        `cannot-determine:`'s direction and deliberately so: this token's
+        subject is a finding that **already gated**, so failing toward the gate
+        restores the prior state rather than minting a new denial.
+
+      **THE DENY ARM'S PREDICATE, stated exactly, because its polarity is
+      constrained.** After every existing state is clean, the check denies when
+      there exists a `finding:` line for which **all** of the following hold —
+      and the severity of anything written at the **current** head is in none of
+      them:
+
+      1. it sits in a segment that does **not** name the current head and is not
+         carried forward onto it (clause 7);
+      2. its segment **counts** (clause 6) — a fragment declared nothing, so it
+         has nothing to adjudicate;
+      3. it is declared **`blocking`** and still **`open`**;
+      4. it carries its **`[policy:|harm:]` justification** — an unjustified
+         blocking never gated (kogaki#72 fails it toward merge as a `should`),
+         so there is no verdict for a later head to overturn silently;
+      5. **no later counted segment carries a `supersedes:` line naming its
+         segment's sha and its ordinal.**
+
+      Only (5) is new. **THIS GATES THE SILENCE AND NEVER THE SEVERITY.**
+      kogaki#72's budget is **untouched and not reopened**: `should` and `nit`
+      appear nowhere in the predicate, a `should` never gates *as a `should`*, an
+      adjudicated downgrade passes exactly as it did before, and a PR that
+      writes no lower-severity finding at all is caught identically. The deny
+      attaches **only to the absence of the adjudication line on a finding that
+      was blocking**, which is the one attachment kogaki#269 permits. The check
+      asserts it mechanically: every `unadjudicated` fixture is re-run with all
+      `should` and `nit` lines stripped, and the verdict must not move.
+
+      **THE THREE-WAY DISTINCTION THE GATE COULD NOT MAKE is now renderable from
+      the record**, printed on every terminal branch that has a report:
+      `resolved` (the superseding finding is `blocking resolved` — a fix is
+      claimed), `adjudicated-down` (it is `should` or `nit` — the re-grade PR
+      #255 made silently, made out loud), and `re-declared` (still `blocking
+      open`, gating through the existing branch). The fourth state — **silently
+      re-graded** — is by construction the absence of all three, and it is what
+      the deny names.
+
+      **WHAT THIS CLAUSE DOES NOT ASSERT, so the next reader does not over-read
+      it.** It does **not** assert that a claimed fix is real: whether
+      `open → resolved` is honest is clause 9's **row 3**, which has no observer,
+      is not repaired here, and stays typed `none`. What is asserted is only that
+      the later record **names** the finding it disposes of. Nor does it observe
+      rows 5, 7 or 8. And it says nothing about `tools/review-sweep.sh`, whose
+      disposition parser binds to the last-seen `finding:` line and is therefore
+      undisturbed by an adjacent token — the sweep is **unchanged by this
+      clause**, and re-typing row 5 or teaching the sweep to render the join is
+      **handed off** rather than folded in.
+
+      **HOW IT COMPOSES WITH CLAUSE 8'S DISPOSITIONS — a DIFFERENT AXIS, said in
+      as many words because the two are easy to conflate.** Clause 8's
+      `carried:` / `declined:` answers *what happens to this non-gating finding
+      after the merge*: it is a **disposition at the merge boundary**, per
+      finding, **reported and never gated**, read at the sweep's `done` state.
+      `supersedes:` answers *which earlier finding this line is about*: it is an
+      **identity across heads**, per finding, **gated**, read at the merge layer.
+      They are **orthogonal and stack on one finding**, in either order, because
+      each binds to the immediately preceding `finding:` line and each takes its
+      first declaration:
+
+      ```
+      finding: should open  the markdown claim, re-graded
+      supersedes: dec255e7 finding 1  measured: loud for every construct but `#`
+      carried: #285
+      ```
+
+      A downgrade that carries `supersedes:` and no `carried:` passes this
+      clause and is **named as undispositioned** by clause 8's `done` report; one
+      that carries `carried:` and no `supersedes:` is **denied here** and would
+      have been reported there. Neither substitutes for the other, and a reader
+      who treats `declined: not worth it` as an adjudication has answered clause
+      8's question in place of this one.
+
+      **THE DECLINED FORKS, recorded with their grounds** rather than dropped —
+      fork 1's two unselected arms.
+      *A finding id on every `finding:` line.* The **strongest** join by a
+      distance: it makes identity explicit at the point of authorship, survives
+      re-ordering, and would enable general carry-forward of findings rather than
+      the single backward reference this clause buys. Declined on **where the
+      cost lands**: it taxes **every** finding on **every** report to solve a
+      transition that occurs rarely, and it needs an id generator — a new
+      producing site, with its own uniqueness and collision questions — where
+      this arm needs none, because the identity is assembled from two facts the
+      record already carries. It stays the better arm the day a finding must be
+      joined **forward** or across PRs, and that is its reopen trigger.
+      *A re-declaration rule* — a later segment must restate every still-open
+      earlier finding, and silence means resolved. Declined as **the defect
+      one level up**: it adds no field, but identity becomes **textual**, so
+      whether two restatements are the same finding is exactly the *reading*
+      rather than *fact* that acceptance item 1 exists to escape, and PR #255's
+      round 2 — same subject, different words, sharper evidence — is the case it
+      cannot decide.
+
+      **AND FORK 2'S, on the merge layer's polarity.**
+      *Report only, never deny.* Consistent with the report-not-gate polarity
+      clauses 5, 8 and 9 all take, and cheaper. Declined because **PR #255 is
+      the proof that a non-gating signal at a merge boundary evaporates**: the
+      finding was reported, in the reviewer's own words, at the moment of the
+      downgrade — and the merge proceeded. The thing that held it was a human
+      reading raw output, which is the detection path clause 8's own specimen
+      already names as one that does not scale.
+      *No merge-layer change at all.* Declined for leaving the defect live: the
+      gate would keep printing `ok` on an unrepaired blocking finding, which is
+      the state this clause exists to end.
+
+      **THE COST, stated rather than absorbed.** Reports written before this
+      token ships carry no `supersedes:` line, so an open PR that already holds
+      an earlier-head **justified** `blocking open` goes **red** on its next run.
+      That is a real cost and it is the correct direction — every such PR is in
+      exactly the state PR #255 was in — and the remedy is **one line in the
+      next report segment**, an act the lane already performs. There is no flag,
+      no configuration and no grandfather clause, because a grandfather clause
+      here would be indistinguishable from not shipping the deny. The window
+      closes when the last such PR merges.
+
+      **`instrument:`** `checks/check-review-report.sh`, state `unadjudicated`,
+      exercised by the 25-case `supersedes` fixture pass plus the clause-7
+      carry-forward assertion with its control and the kogaki#72
+      severity-blindness assertion. **Removal signal:** a finding id on every
+      `finding:` line (fork 1's declined arm) landing for its own reasons — at
+      which point this clause's identity is a strictly weaker restatement of one
+      the record already carries, and the `supersedes:` token becomes the wrong
+      carrier for it.
+
+      **deferred slots: none.**
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
