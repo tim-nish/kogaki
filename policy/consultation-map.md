@@ -112,9 +112,36 @@ requirement and not a courtesy — an excerpt quoted at its pin:
 
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:41`
 
-**What discriminates it.** The served surface carries a **siting rule**, and it
-keys on authorship of the content read rather than on convenience — an excerpt
-quoted at its own pin:
+**What discriminates it.** **One** served line does the work, and it is quoted
+here under the grounds rather than under an alternative — the correction PR #256
+round 2 earned by reading all three citations at the pin instead of accepting
+this record's reading of them:
+
+> "Decide whether two knowledge stores belong in one repository based on
+> whether they could ever have different visibility, not on whether they cover
+> similar subject matter. … When in doubt, keep them separate and connect them
+> with pointers"
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:311`
+(`repo-boundaries-follow-publication-boundaries`)
+
+Run over these two proposers it yields the split **directly**, with no extension
+of its terms. `policy/kit/bin/` and `tools/` have **different visibility
+futures**: the kit separates into its own repository when a second
+kit-installing consumer exists (kogaki#9), and `tools/` never leaves. Miss
+harvesting can live on the far side of that separation, because everything it
+reads — the hub's `outcome` vocabulary — is there too; receipt-absence mining
+cannot, because its input stays behind. The two proposers **are** kin in subject
+matter (both grow this map), and that is precisely the reason the rule says is
+not one.
+
+**Two supporting lines, and what each is and is not doing.** Recorded this way
+rather than as grounds, because that is where PR #256 round 2 found this record
+wrong: both quotes are verbatim and both pins real, and the defect was
+application, not transcription.
+
+*`:47` — the siting rule, EXTENDED, with the extension named rather than
+hidden.* Served:
 
 > "… The siting rule is who writes a file determines where it lives — the
 > consultation map is consumer-local because consumers author its content
@@ -123,8 +150,17 @@ quoted at its own pin:
 
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:47`
 
-and its test, which the receipt vocabulary is the named instance of — the same
-line story 1.40 AC2 already quotes for the token set:
+On its own terms the rule keys on **who authors the sited file's own content**,
+and both of its worked examples are of that form. Kogaki authors **both**
+proposer scripts, so `:47` does not split them, and read strictly it points at
+A2. What it supplies is the weaker and still useful thing: that siting is
+settled by an **authorship** fact rather than by convenience. Extending that
+fact from the file to the file's **input** is **this repository's step, not a
+served one**, and it is recorded as an extension so no later reader mistakes it
+for a citation.
+
+*`:31` — vocabulary ownership, adjacent to siting and not siting.* The same line
+story 1.40 AC2 quotes for the token set:
 
 > "A consumer owns the SHAPE of its own record and NEVER the VALUES of a field
 > that exists to join across the boundary, and the test is WHO MUST AGREE for
@@ -133,11 +169,13 @@ line story 1.40 AC2 already quotes for the token set:
 
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:31`
 
-Run over the two proposers, that test returns two different answers, which is
-why one fill for both was never available: the `outcome` token is read by both
-sides and is the boundary's, so its reader is kit-shaped; the review lane's
-report is read by one side and is this repository's, so its reader is
-repository-shaped.
+What it settles is **which side each proposer's input belongs to** — the
+`outcome` token is read by both sides and is the boundary's; the review lane's
+report is read by one side and is this repository's. That is the premise the
+visibility rule above then acts on. What it does **not** say is where a *reader*
+of that field lives; the step "the field is the boundary's, so its reader is
+kit-shaped" is unserved, and `:31` calls the receipt's field set "a CONSUMER
+DESIGN DECISION", which cuts mildly the other way.
 
 **The alternatives, recorded because a decision without them is an assertion.**
 
@@ -159,20 +197,13 @@ a directory, and no runtime difference.
 repository-specific component into a package built to be repository-neutral,
 across a boundary that is one-way.** The kit separates into its own repository
 when a second kit-installing consumer exists (kogaki#9, and
-`topics/knowledge-architecture.md:56@dec0d568` above), and the served position
-on that class of boundary is that visibility, not subject-matter kinship,
-decides membership:
-
-> "Decide whether two knowledge stores belong in one repository based on
-> whether they could ever have different visibility, not on whether they cover
-> similar subject matter. … When in doubt, keep them separate and connect them
-> with pointers"
-
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:311`
-(`repo-boundaries-follow-publication-boundaries`)
-
-The two proposers are kin in subject matter — both grow this map — and that is
-exactly the reason the rule says is not one. The Layer-2 boundary is also
+`topics/knowledge-architecture.md:56@dec0d568` above). This is **the same served
+line the grounds above turn on** —
+`gloss/lessons/knowledge-architecture.md:311@dec0d568`, membership by visibility
+and never by subject-matter kinship — pointed at rather than re-quoted here, per
+`pointer-not-copy-for-readable-assets`: a rule that discriminates a fork also
+declines the arm it discriminates against, and quoting it twice would make this
+section carry its own conformance copy. The Layer-2 boundary is
 untouched by this fill and is restated rather than assumed to have survived it,
 per the served surface's own handling of the last home change
 (`topics/knowledge-architecture.md:57@dec0d568`): packaging for the owner's own
@@ -191,12 +222,21 @@ real sides rather than an anticipated second one.
 **The naming sitting's premise is CORRECTED here, not carried forward.**
 kogaki#222 named this slot with "no served line discriminates it". Re-read at
 the current pin — the issue pinned `product-lab@98195e0a`, the served surface
-answers at `@dec0d568` — that premise is **false**: the siting rule at
-`topics/knowledge-architecture.md:47` and its who-must-agree test at `:31` both
-discriminate it directly. The correction is reported rather than quietly
+answers at `@dec0d568` — that premise is **false**:
+`gloss/lessons/knowledge-architecture.md:311` discriminates it directly, on its
+own terms and without extension. The correction is reported rather than quietly
 reconciled, which is the disposition discipline this file's entry 3 exists for.
 It changes nothing about the fill: the served rule and the owner's selection
 agree, so no fork re-opens.
+
+**Which line falsifies the premise was itself corrected**, and the correction is
+recorded rather than smoothed over. This record first hung the falsification on
+`:47` and `:31`, and PR #256 round 2 read all three citations at the pin and
+found that the first two do not carry it — the transcription was faultless and
+the *application* was not, which is the residue the receipt machinery
+structurally cannot catch. `:311` was already quoted here, under declined
+alternative A3, so the falsification was sound and mis-filed rather than
+unfounded. The grounds above are re-cut to say so.
 
 **What this fill does NOT decide.** File names, whether the two proposers share
 a module or a library, and whether either is ever registered as a check (both
@@ -209,7 +249,14 @@ undischarged obligation and is not touched here.
 2 refuses an **entry** that encodes a verdict, because an entry that answers is
 a second authority beside the substrate it copied. This is not an entry and not
 a policy answer: it is this repository's own decision about where its own files
-sit, and it is recorded in the section that ratified the proposers because that
+sit. **Stated exactly, because it is a first:** the four prior deferred-slot
+fills all sit in a *spec* file (`specs/SPEC.md:606`, `:976`, `:1449`,
+`specs/spec-terrain/SPEC.md:1635`), and this is the first sited outside one. The
+governing principle is unchanged — a fill lands in the section that governs the
+surface — and `7b23d32` ratified the proposers entirely inside this file, with
+`specs/SPEC.md` carrying no proposer governance at all. What is new is only that
+the governing section happens not to be a spec (PR #256 round 2, `carried:
+register`). It is recorded in the section that ratified the proposers because that
 is where the next reader meets them. The served lines above are quoted at their
 pins as grounds, and on any divergence the served surface wins.
 
