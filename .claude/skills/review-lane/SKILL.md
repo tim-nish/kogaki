@@ -232,7 +232,8 @@ A report is a **pull-request comment** whose first line is a fixed token at a
 fixed position, and which **declares its base, its scope and its completeness**
 on three further fixed lines (`specs/SPEC.md` §4 clauses 5, 6 and 7), its
 **boundary-vs-receipt record** on a `boundary:` line per touched entry
-(kogaki#258):
+(kogaki#258), and the **disposition** of a non-gating finding it leaves open on
+a `carried:` / `declined:` line adjacent to that finding (§4 clause 8):
 
 ```
 review-lane report: <head sha>
@@ -241,6 +242,8 @@ review-scope: <full|delta>
 boundary: <entry N> <covered|uncovered|cannot-determine> [receipt: <pin>]  <what in the diff touched it>
 boundary: none  <why no map entry was touched>
 finding: <blocking|should|nit> <open|resolved> [policy: <pin> | harm: <one line>]  <the finding>
+carried: #<N> | register
+declined: <reason>
 …
 cannot-determine: <dimension> — <why>
 report-complete: <N> findings
@@ -293,8 +296,10 @@ report-complete: <N> findings
   The regex lives in two files; the adjacent form is the one whose failure
   mode does not exist. Same use-vs-mention class kogaki#41 fixed once.
 - The check reads **only** these declared lines. What the findings say is
-  judgment and stays here. `boundary:` is parsed and printed by
-  `checks/check-review-report.sh` but never gated.
+  judgment and stays here. `carried:` / `declined:` are read by neither the
+  merge check nor the sweep's state machine as a gate — clause 8 declares
+  `checks/check-review-report.sh` untouched — and `boundary:` is parsed and
+  printed there but never gated.
 
 ### `boundary:` — the per-entry boundary-vs-receipt record (kogaki#258)
 
@@ -464,6 +469,71 @@ number of `finding:` lines above it**. The merge check counts your segment
 - **All three lines are anchored whole.** Mentioning `report-complete:`,
   `review-scope:` or `review-base:` inside a finding's prose declares nothing —
   it is a mention, not a declaration.
+
+### `carried:` / `declined:` — the disposition of a non-gating finding (§4 clause 8, kogaki#224)
+
+A `should` or `nit` you leave **open** at `done` carries a stated disposition
+on the line immediately after it. These are the lines you type:
+
+```
+finding: should open  <the finding>
+carried: #<N> | register            — a named carrier
+declined: <reason>                  — an explicit decline, reason required
+```
+
+- **`carried: register` names kogaki#246**, this lane's register — the carrier
+  kogaki#191 split out. kogaki#13 is the lane's *deliverable* record and is not
+  its register, so a disposition routed there routes to a retired carrier.
+- **The register is an admissible carrier and this clause mints no issue per
+  nit.** It is the right home for an accretion-class finding — a mechanical
+  observation whose value is the count rather than the instance, the class the
+  `out-of-dimension:` line already routes there.
+- **Which carrier a disposition names is decided by where the defect lives**,
+  never by severity: in the diff's own text → resolve it in the review;
+  downstream work the diff merely licenses → its own carrier.
+- **Presence is read, adequacy never is.** `declined: not worth it` satisfies
+  the clause. It is a record somebody can argue with, which is what five
+  findings living only in a comment nobody re-reads were not.
+- Where the sweep reaches `done`, it lists every open non-gating finding on the
+  current head that carries **no** disposition line. It exits 0 and turns
+  nothing red.
+
+**This is a POINTER, not a second copy of the clause — and the precedence is
+declared.** The grammar block above is reproduced here because it is the
+literal text a reviewer types and cannot compose from a description. The
+**five sub-rules that govern it** — binding to the immediately preceding
+`finding:` line, first-declaration-wins, anchored-whole, the required non-empty
+reason, and a disposition on a `resolved` finding being unread — are **at
+`specs/SPEC.md` §4 clause 8 and are deliberately not restated here.** **On any
+divergence between this section and clause 8, clause 8 wins**, and this section
+is repaired.
+
+The declaration is not ceremony. A local restatement of a governing record is a
+conformance copy, and the served position states the condition on which one is
+admissible at all:
+
+> A tool's config may hold copies of facts whose authority lives elsewhere only
+> under a declared precedence rule (which side wins on mismatch) plus a
+> mechanical mismatch check; a copy with declared, checkable subordination is
+> conformance — **a copy without one is a second authority growing in the
+> dark.**
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:122`
+(`conformance-copy-needs-declared-precedence`)
+
+> the re-expression must happen once at the source and be ratified there,
+> because **a reader who restates the record locally serves a rendering nobody
+> approved and the error hides behind an exact quotation**
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:91`
+(`a-derived-view-inherits-its-substrates-register`)
+
+**The mismatch check is the half this section does NOT have, and it is marked
+rather than implied.** Nothing mechanically compares this grammar block against
+clause 8's, so the second condition of the served rule is unmet and the
+precedence declaration above is carrying the whole weight. That is stated here
+so the gap is a known one rather than an assumption; the reopen trigger is one
+divergence between the two blocks reaching a reviewer.
 
 ## The postmortem hand-off (kogaki#24 shape)
 
