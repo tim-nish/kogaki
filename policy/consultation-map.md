@@ -275,7 +275,7 @@ surface's own kind-qualification rule, quoted at its pin:
 > **Shard kinds** (`specs/gloss.md` §5.1 — a shard is addressed by
 > `<kind>/<tag>`, never by `<tag>` alone):
 
-`consulted: product-lab@ed47fbd3818b9a66954a558d6c88e86574407ece gloss/INDEX.md:12-17`
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/INDEX.md:12-17`
 
 The kinds are `lessons/<tag>`, `journeys/<tag>`, and `decisions/<topic>` —
 the last sharded by topic rather than by tag. A prescription names that
@@ -297,12 +297,12 @@ entry lands, and record the hub commit it resolved at.
 **Its ground is this map's founding Invariant 1, quoted at its pin** — the
 clause is the operative reading of a ratified position, not a new one:
 
-> "Invariant 1: entries are pointers + trigger terms + a one-line summary
+> "… Invariant 1: entries are pointers + trigger terms + a one-line summary
 > QUOTING the served line at its pin, never a paraphrase — a paraphrase makes
 > the map a conformance copy with no declared precedence, and on any divergence
 > the served surface wins and the entry is repaired."
 
-`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:44`
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:69`
 
 Both of that invariant's limbs entail the clause. A pin into a hub repository
 path quotes no *served* line, so such an entry fails the first limb outright;
@@ -310,6 +310,73 @@ and the repair the second limb prescribes — the served surface wins, the entry
 is repaired — is inoperable for an entry that can never be checked against that
 surface. Refusing at authoring is therefore not an added rule but the only
 moment at which such an entry could conform, because it cannot conform later.
+
+### A RESOLVING pin is not a STANDING one — this file's own cites drifted, and what now observes the next drift (kogaki#266)
+
+**What happened, stated before the remedy.** Six of this file's served cites
+were pinned at `product-lab@98195e0a`. The hub moved to `dec0d568` and **every
+one of them still resolved — to a different decision line than the one quoted
+beside it.** Not one was missing; each prescribed lesson still existed, intact,
+further down its file. Re-read line by line at `dec0d568` through the gateway
+and repaired here: `topics/knowledge-architecture.md:44 → :69` (this section's
+own Invariant 1 ground, the sharpest instance — the file's warrant for its own
+form was mis-pinned), `topics/claude-code-ops.md:22 → :41` and `:24 → :43`
+(entry 1's two lines), and entry 3's three,
+`gloss/lessons/knowledge-architecture.md:41 → :47`, `:197 → :209`, `:257 → :269`.
+Two further cites were pinned at older commits — `gloss/INDEX.md:12-17@ed47fbd`
+and `topics/archive/knowledge-architecture.md:271@bb68ccf` — and were **not**
+drifted: both were re-read at `dec0d568`, found byte-identical, and had their
+pins refreshed rather than repaired. That distinction is reported rather than
+folded into a count of six, because a repair that overstates its own evidence
+is the defect class this section exists for.
+
+**Why nothing caught it, and why the obvious remedy is REFUSED rather than
+deferred.** `policy/kit/bin/issue-pins.mjs --recheck` compares stored
+`pin-quote:` hashes against re-fetched text — real content verification, and it
+is kogaki's own file, since `policy/kit/install.sh` never copies `bin/`. So the
+first question is whether this file's cites can simply carry those hashes.
+**They cannot today, and the reason was established by running the tool over
+this file rather than by reading it:** `--emit-pin-quotes` hashed **9 of this
+file's 24 cites**. `parseCites` recognises a `consulted:` line only when it is
+unindented and unwrapped, and this file wraps every one of them in inline
+backticks as prose formatting, so fifteen cites — including the
+`topics/knowledge-architecture.md:44` instance above, the very worst of the six
+— are invisible to the parser. Of the nine it did see, one more was declined
+(`topics/archive/…` has no `servedAddress` form, though `policy_lookup` serves
+it), and this file's one range cite routes to `cannot-tell` by contract.
+
+Landing a checker over that 9-of-24 subset would fail **this file's own entry 3
+prescription**, quoted there at its pin: *"When you write a rule that names a
+source, also name what a complete read of that source includes — otherwise
+every partial view counts as compliance"*
+(`gloss/lessons/knowledge-architecture.md:47@dec0d568`,
+`a-partial-projection-can-satisfy-a-total-read-rule`). A green check covering
+nine cites, over a file whose rule is that *every* cite is checked, is that
+lesson exactly — and it would be quieter than today's silence, because today at
+least nothing claims coverage. So the partial mechanism is **declined on the
+ground rather than deferred for capacity.**
+
+**What the mechanism costs, named rather than left as "future work."** It needs
+a decision this sitting may not take alone: widening `parseCites` to see a
+backticked `consulted:` line widens what counts as an **emission** for every
+issue body the kit parses, which is the use-vs-mention boundary kogaki#41 drew
+and kogaki#209 hardened. That is a fork, and per DECIDE-OR-NAME —
+*"a sitting that leaves a design choice to the implementation either DECIDES the
+fork there, consulting the substrate on it, or emits a NAMED SLOT whose filling
+is itself a decision act"* (`topics/knowledge-architecture.md:41@dec0d568`) —
+it is emitted as a named carrier and not improvised.
+
+- `carried: #274` — the mechanization: the parser fork above, where this file's
+  `pin-quote:` block lives, and the registered check that reads it. **Kogaki's
+  own, no handoff owed**; the shipped template
+  (`policy/kit/templates/consultation-map.md`) carries none of these cites, so
+  no consumer inherits the drift.
+- **`instrument: none`** — written rather than implied, which is this
+  repository's own requirement of a decline. **Until #274 lands, the only thing
+  observing a drift in this file is a lane that re-reads a cite's content at
+  the current pin by hand.** That discipline caught all six of these; it is not
+  a mechanism, it fires only where someone happens to look, and saying so is the
+  point of writing it down.
 
 **This clause SHIPPED UNLICENSED, and that is recorded here rather than
 repaired away.** It landed in PR #173 attributed to `(kogaki#171)` — whose text
@@ -330,9 +397,12 @@ governance lines"), which is exactly the condition this clause describes;
 entries 2 and 3 conformed. **The non-conformance was broader than the missing
 line.** Entry 1's quoted text sat on **no single served line**: "a check suite
 is budgeted at its loop position; suite membership is opt-in per loop;
-admission carries a removal signal" is line 22's kernel — which ends there,
-full stop — while "declared at birth" was taken from line 24's "Admission
-requires a REMOVAL SIGNAL DECLARED AT BIRTH". The entry read as one quotation
+admission carries a removal signal" is line 22's kernel **as that file stood at
+`98195e0a`** — which ends there, full stop — while "declared at birth" was taken
+from the same commit's line 24, "Admission requires a REMOVAL SIGNAL DECLARED AT
+BIRTH". Both line numbers in this paragraph are `@98195e0a` facts and resolve
+nowhere useful at the current head; the entry's own cites above carry the
+current ones. The entry read as one quotation
 and was a **splice of two lines**, and the unresolvable pin is precisely what
 kept that invisible: nothing could be checked against the surface that is
 supposed to win on divergence. This was the clause's own case rather than an
@@ -345,11 +415,19 @@ created by the repair. The quote had to be **re-cut**. Resolving it at
 `98195e0a` shows the position entry 1 was reaching for genuinely spans two
 served lines: the budgeting/opt-in kernel at `:22`, and the removal-signal-at-
 birth admission rule at `:24`, which is the operative half for that entry's act
-class. Entry 1 now quotes **both, each whole at its own pin** — the form entry 3
+class. Entry 1 now quotes **both, each at its own pin** — the form entry 3
 already uses — rather than paraphrasing two lines into one sentence, which
 would be the splice defect one level down. Invariant 1's binding property is
 that the text be a verbatim served quote resolvable at its pin and carry no
 verdict; it is not a requirement that an entry cite exactly one line.
+**The kernel quote is an EXCERPT and now says so** (kogaki#266): it is the
+closing clause of a longer decision line and carries the leading `…` this file's
+own excerpt convention requires, which is what keeps it distinguishable from the
+splice it replaced — a splice joins two lines and reads as one, an excerpt takes
+part of one line and marks the part it left. The removal-signal quote is the
+line's opening sentence and is whole; the third fragment beside it
+(`NO CURRENT MEMBER CARRIES ONE`) is mid-line and is already carried inside
+prose rather than as a standalone quotation.
 
 **Why the trail stays.** For the interval between PR #173 and kogaki#175 this
 file stated a rule its own first entry failed, and a reader had nothing telling
@@ -450,18 +528,18 @@ a human wrote — and the map's own choice is the one that line prescribes:
   is quoted whole at its own pin rather than joined into one sentence — the
   governing kernel, and the admission rule that is the operative half for this
   entry's act class:
-  - "Kernel: a check suite is budgeted at its loop position; suite membership
+  - "… Kernel: a check suite is budgeted at its loop position; suite membership
     is opt-in per loop; admission carries a removal signal."
-    (`topics/claude-code-ops.md:22@98195e0aef221aa82c47bb632324127745469f2e`)
+    (`topics/claude-code-ops.md:41@dec0d568`)
   - "Admission requires a REMOVAL SIGNAL DECLARED AT BIRTH, and retention runs
     on a catch ledger over EXERCISED runs; never-fired members are review
     candidates, never auto-deletions."
-    (`topics/claude-code-ops.md:24@98195e0aef221aa82c47bb632324127745469f2e`)
+    (`topics/claude-code-ops.md:43@dec0d568`)
 
   The same line carries the live context an implementer of a new check needs —
   "NO CURRENT MEMBER CARRIES ONE, which is the whole reason the family has no
   shrink lever"
-  (`topics/claude-code-ops.md:24@98195e0aef221aa82c47bb632324127745469f2e`) —
+  (`topics/claude-code-ops.md:43@dec0d568`) —
   which is why the survey is prescribed before the check is written rather than
   at review. The earlier note that product-lab#150 protects
   the build-vs-adopt clause (the trigger counts check-runner consumers,
@@ -494,7 +572,7 @@ a human wrote — and the map's own choice is the one that line prescribes:
 - **Served line (pinned):** "served mode = server-side access log is the
   canonical record (caller, realm, files, pin), consumer `consulted:` lines
   remain as their own receipts; logging lives with whichever component
-  mediates access" — `topics/archive/knowledge-architecture.md:271@bb68ccf`.
+  mediates access" — `topics/archive/knowledge-architecture.md:271@dec0d568`.
 - **Origin miss:** kogaki#7 was classified story-sized on 2026-08-05 without
   consulting this boundary; its acceptance criterion ("verified against the
   gateway access log") would have produced an unimplementable story — the log
@@ -533,7 +611,7 @@ a human wrote — and the map's own choice is the one that line prescribes:
     a rule that names a source is satisfied by a partial view of it: "When you
     write a rule that names a source, also name what a complete read of that
     source includes — otherwise every partial view counts as compliance"
-    (`gloss/lessons/knowledge-architecture.md:41@98195e0`,
+    (`gloss/lessons/knowledge-architecture.md:47@dec0d568`,
     `a-partial-projection-can-satisfy-a-total-read-rule`).
   - *what does NOT discharge it:* `policy/kit/bin/issue-pins.mjs --recheck`.
     Since kogaki#188 it compares **content**, not only SHAs: a stored
@@ -559,12 +637,12 @@ a human wrote — and the map's own choice is the one that line prescribes:
 - **Served line (pinned):** the disposition read has two halves and neither is
   settled by recency alone — "Say which system decides which half. Being
   written more recently says when someone wrote, not what they could see"
-  (`gloss/lessons/knowledge-architecture.md:197@98195e0`,
+  (`gloss/lessons/knowledge-architecture.md:209@dec0d568`,
   `declare-precedence-per-axis-not-per-artifact`) — and within the standing
   half a disagreement is surfaced rather than absorbed: "read the decision
   record for verdicts dated after that evidence, and when they conflict the
   later verdict wins and the conflict is reported rather than quietly
-  reconciled" (`gloss/lessons/knowledge-architecture.md:257@98195e0`,
+  reconciled" (`gloss/lessons/knowledge-architecture.md:269@dec0d568`,
   `merged-code-evidences-existence-never-standing`).
 - **Origin miss:** `specs/spec-draft-pipeline/SPEC.md` v1 (PR #157, `b3722cb`)
   shipped with the Move library held, because the spec lane read
