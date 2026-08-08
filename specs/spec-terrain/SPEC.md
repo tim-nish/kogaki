@@ -3162,9 +3162,29 @@ by**:
 
 So the division is: **the three substrates enumerate, and the Thesis bounds the
 expansion of that enumeration** — how far the traversal runs and where it stops.
-Empty becomes reachable exactly as §13.2 claims, because a Thesis-bounded
-expansion that reaches its stopping condition with nothing surfaced has produced
-a result rather than failed.
+
+**`deferred-slot: the bound's unit` — decided by kogaki#300's story 1.44, not
+here.** This section fixes *that* a stopping condition exists and that it may
+never be a relevance predicate; it does not fix what the condition is measured
+in (traversal depth, member count, substrate exhaustion, or another unit). The
+slot is named here rather than only on the story because a reader of §13.3
+alone would otherwise meet text that reads as complete.
+
+**And §13.2's "empty is an informative outcome" is reachable only once that
+slot is filled — stated rather than asserted.** Under a bound that may change
+only *how many*, an empty neighborhood over a **non-empty** enumeration would
+mean the bound halted at zero, and a bound halting at zero for one Thesis and
+not another has decided something about the first neighbor — precisely the tell
+this section names below. So on the text as it stands, empty is guaranteed
+reachable only where the enumeration is itself empty, in which case the Thesis
+is not what made the outcome informative. Whether §13.2's claim holds in the
+stronger form it intends depends on the unit the slot above carries: a unit
+operating on **which substrates and how deep the traversal runs** can reach
+empty without ever judging a neighbor, while a unit operating on neighbor count
+cannot. Filling the slot is a decision act owed on kogaki#300 with its own
+alternatives and receipt, and an implementation that picks a unit in code has
+settled it silently — which is the defect this whole amendment exists to
+prevent, one level down.
 
 **Why this is a bound and not a filter, stated because the two are one
 refactor apart.** A filter over the rendered set would *narrow* what reaches the
