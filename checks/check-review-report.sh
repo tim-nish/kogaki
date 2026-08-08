@@ -1570,9 +1570,14 @@ print(f"boundary pass: {len(BOUNDARY_FIX)}/{len(BOUNDARY_FIX)} "
 # required non-empty grounds, the whole-line anchor, the bind-to-preceding-
 # finding rule, first-declaration-wins, the later-segment-only ordering, the
 # `counted()` guard on both sides, the justification requirement, the
-# open-and-blocking severity/state pair, the current-head exclusion, and the
-# 1-based ordinal. The mutation table in the PR record names which case catches
-# each.
+# open-and-blocking severity/state pair, the current-head exclusion, the
+# 1-based ordinal, and — since the identity was repaired — the ordinal running
+# over the SHA rather than the segment, an ordinal past the end resolving to
+# nothing rather than to a neighbour, each sha numbered independently, and a
+# fragment consuming its ordinals so the identity stays uncoupled from clause
+# 6. The `ordinal_of()` half is covered by the round-trip assertion below
+# rather than by a case here. The mutation table in the PR record names which
+# case catches each.
 SUPER_FIX = [
     # (name, bodies, head, want state, want adjudication kinds, want #unadjudicated)
     ("a justified blocking at head A restated should at head B with no carrier",

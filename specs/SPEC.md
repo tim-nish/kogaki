@@ -1888,9 +1888,11 @@ invariant: Gukan guarantees Unit schema, never data schema).
       from the sweep is not a claim that the merge gate is green.**
 
       **`instrument:`** `checks/check-review-report.sh`, state `unadjudicated`,
-      exercised by the 25-case `supersedes` fixture pass plus the clause-7
-      carry-forward assertion with its control and the kogaki#72
-      severity-blindness assertion. **Removal signal:** a finding id on every
+      exercised by the 32-case `supersedes` fixture pass plus the clause-7
+      carry-forward assertion with its control, the kogaki#72
+      severity-blindness assertion, and the round-trip assertion binding the
+      ordinal the deny PRINTS to the one a `supersedes:` line MEANS.
+      **Removal signal:** a finding id on every
       `finding:` line (fork 1's declined arm) landing for its own reasons — at
       which point this clause's identity is a strictly weaker restatement of one
       the record already carries, and the `supersedes:` token becomes the wrong
