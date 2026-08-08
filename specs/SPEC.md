@@ -850,8 +850,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
      (`a-routing-habit-reads-as-conformance-outside-its-domain`)
 
      **THE REGISTER IS AN ADMISSIBLE CARRIER, so this clause does not mint one
-     issue per nit.** `carried: register` names the kogaki#13 register (or its
-     successor per kogaki#191) and is the right home for an **accretion-class**
+     issue per nit.** `carried: register` names the review lane's register,
+     **kogaki#246** — the carrier kogaki#191 split out; kogaki#13 is the lane's
+     *deliverable* record and is not its register. This clause **names** that
+     carrier and asserts nothing about its state; the register's own semantics
+     and lifecycle are resolved at kogaki#246 rather than restated here. It is
+     the right home for an **accretion-class**
      finding — a mechanical observation whose value is the count rather than
      the instance, the class the lane's `out-of-dimension:` line already routes
      there. Requiring an issue for each would convert this clause into the
