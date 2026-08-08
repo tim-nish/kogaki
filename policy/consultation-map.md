@@ -7,7 +7,7 @@ Contract (founding spec §4):
   **quoting the served line at its pin** + the pointer. Never a paraphrased
   rule — on divergence the served surface wins and the entry is repaired.
 - Entries are **admitted** only on a miss: a defect that consultation would
-  have prevented, exposed in this repo. Each addition names the miss and
+  have prevented, exposed in this repo. Each **admission** names the miss and
   records its **postmortem**. **The miss rule binds ADMISSION and never
   PROPOSAL** — the distinction is stated in full below under *Admission and
   proposal*, and the unqualified reading of this bullet is what that section
@@ -188,7 +188,7 @@ line *and* re-cutting its quote, which no issue in front of this file then
 authorized; kogaki#175 is that carrier, and the repair happened there rather
 than silently.
 
-**Miss postmortem** — recorded when an entry is added on a miss:
+**Miss postmortem** — recorded when an entry is **admitted** on a miss:
 
 - **Violating artifact** — what shipped, or was about to.
 - **Triggering terms** — the terms present in it that would have fired this
