@@ -343,22 +343,69 @@ invariant: Gukan guarantees Unit schema, never data schema).
 ## 4. Compliance mechanism (established before any pipeline code)
 
 - **Consultation map** (`policy/consultation-map.md`): the occasions file —
-  boundaries at which policy consultation is required, grown only by miss,
-  entries as pinned quotes + trigger terms, never paraphrased rules. Ships
-  with one seed entry (check-infrastructure changes). An entry additionally
-  declares a **read prescription** — the act class, and the served gloss
-  shard(s) to survey headline-first *before* acting — because `policy_lookup`
-  answers only questions the consumer thought to ask, while a standing
-  headline read surfaces lines nobody asked about. The prescription sits on
-  the permitted side of the finding-aid carve-out: it pre-computes *where to
-  ask*, never *what is true* (`topics/knowledge-architecture.md` 2026-08-02).
-  An entry added on a miss also records that miss's **postmortem** — the
+  boundaries at which policy consultation is required, entries **admitted**
+  only on a miss, entries as pinned quotes + trigger terms, never paraphrased
+  rules. **The miss rule binds ADMISSION and never PROPOSAL** — a candidate
+  entry may be produced by any means, including a machine, while admission
+  stays a human act that still requires the miss. That split is stated in full,
+  with its served quotes at their pins and the shapes it does not license, in
+  `policy/consultation-map.md` §*Admission and proposal*, and is **pointed at
+  here rather than restated** (kogaki#222, kogaki#252; see the precedence rule
+  below). Ships with one seed entry (check-infrastructure changes). An entry
+  additionally declares a **read prescription** — the act class, and the served
+  gloss shard(s) to survey headline-first *before* acting — because
+  `policy_lookup` answers only questions the consumer thought to ask, while a
+  standing headline read surfaces lines nobody asked about. The prescription
+  sits on the permitted side of the finding-aid carve-out: it pre-computes
+  *where to ask*, never *what is true*
+  (`topics/knowledge-architecture.md` 2026-08-02).
+  An entry **admitted** on a miss also records that miss's **postmortem** — the
   violating artifact, the boundary terms that would have triggered, and the
   question **verbatim** that would have found the served line — so the
   accumulated questions become the situation-specific keys for reaching a
   particular ruling. The map still triggers consultation and never carries a
   verdict; a paraphrase in any of these fields is the conformance-copy defect
   the pinned-quote rule exists to refuse (kogaki#24).
+
+  **PRECEDENCE, declared per axis rather than per artifact (kogaki#252).** This
+  bullet and `policy/consultation-map.md` are two texts about one contract, and
+  which one wins depends on the axis, because *"a question like 'what's the
+  status of this?' often has two halves answered by two different systems …
+  Say which system decides which half"*
+  (`product-lab@dec0d568 gloss/lessons/knowledge-architecture.md:209`,
+  `declare-precedence-per-axis-not-per-artifact`):
+  - **What an entry must CONTAIN — the contract's fields.** This section wins;
+    the map's own header cites it (*"Contract (founding spec §4)"*) and a field
+    added or removed here is a change the map conforms to.
+  - **What a rule SAYS — the content of any position quoted in either text.**
+    Neither wins: **the served surface does**, and both are repaired against it.
+    That is the map's own first bullet (*"on divergence the served surface wins
+    and the entry is repaired"*), applied here rather than restated for this
+    section alone.
+  - **The admission/proposal split in particular.** `policy/consultation-map.md`
+    §*Admission and proposal* is the carrier of its full statement. This bullet
+    holds only the founding constraint plus a pointer, so what can drift here is
+    an **address**, not a rule — *"a pointer can only go wrong by naming the
+    wrong location, which the cheapest possible check catches, whereas a
+    duplicate drifts in content with nothing announcing it"*
+    (`product-lab@dec0d568 gloss/lessons/knowledge-architecture.md:287`,
+    `pointer-not-copy-for-readable-assets`). Restating the split here in full is
+    the shape kogaki#252 was filed against: a copy with no declared precedence
+    and no mismatch check.
+  - **What this deliberately does NOT do:** invert the direction and make §4 a
+    bare pointer at the map. The map points here for its contract; a pointer
+    back would leave a reader of either text circling between them with the
+    founding constraint stated in neither.
+
+  `instrument: none` for the residual copy — the words *admitted only on a
+  miss* and the admission/proposal sentence above. **Why nothing is licensed:**
+  the pointer shape leaves one path and one clause to agree on, and no standing
+  act in this repository reads two prose texts against each other; a check
+  comparing them would be comparing registers that are deliberately different,
+  which is the instrument-reads-wrongly-at-speed shape §2.6.3 declines.
+  **Reopen trigger:** this bullet growing a second sentence of the split's
+  content, or `policy/consultation-map.md` §*Admission and proposal* being
+  renamed or removed without this pointer moving with it.
 - **Check registry** (`checks/registry.json`): the suite runs **only
   registered checks**, and registration requires an admission record — the
   named defect it caught or the contract it uniquely carries, plus the
