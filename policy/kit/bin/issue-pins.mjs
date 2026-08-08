@@ -192,9 +192,22 @@ export function quoteHash(text) {
 // ending, so the lazy body matched nothing and only the opening fence marker
 // was stripped — a fenced quotation still read as an emission.
 // `$(?![\s\S])` is end-of-input regardless of `m`.
+//
+// THE FENCED REGION IS BLANKED, NEVER DELETED (kogaki#248). `indentedPinQuotes`
+// indexes over this result and reports `line i + 1` to the author, so deleting
+// the region moved every line below a fence up by what the deletion swallowed
+// and the refusal named a line the author did not write — compounding, since a
+// second fence subtracts again. Which regions are stripped is UNCHANGED; only
+// the replacement is, so the three readers that ask this for use-vs-mention
+// (`parseCites`, `parsePinQuotes`, and the deferred-consult scan) see exactly
+// what they saw before: every one of them is line-anchored under `m`, and a
+// blanked line matches none of their patterns any more than an absent one did.
+// Blanking every non-newline character is what preserves the 1:1 line
+// correspondence — dropping the region's newlines is precisely the defect.
 export function stripFences(body) {
   return body.replace(
-    /^[ \t]*(`{3,}|~{3,})[\s\S]*?(?:^[ \t]*\1[ \t]*$|$(?![\s\S]))/gm, "");
+    /^[ \t]*(`{3,}|~{3,})[\s\S]*?(?:^[ \t]*\1[ \t]*$|$(?![\s\S]))/gm,
+    (fenced) => fenced.replace(/[^\n]/g, ""));
 }
 
 // A served cite is `<file>:<spec>`, and it reaches a body in two shapes:
@@ -604,6 +617,18 @@ function selfTest() {
     `Policy pins\n\nconsulted: product-lab@${SHA} topics/articles.md:79\n${extra}\n`;
   const drifted = surface("topics/articles.md", [[79, TOP_N_79], [80, TOP_N_80]]);
   const clean = surface("topics/articles.md", [[79, TOP_N_80]]);
+  // kogaki#248's assertion form: the REPORTED LINE NUMBERS, cross-checked
+  // against the ORIGINAL body's own numbering. `lines[n - 1]` must be the very
+  // line reported, so the number is held against the text the author wrote
+  // rather than against whatever intermediate the code indexed over. Throws on
+  // an out-of-range number, which the runner below counts as a failure.
+  const reportedAt = (lines, expected) => {
+    const body = lines.join("\n");
+    const r = indentedPinQuotes(body);
+    const original = body.split("\n");
+    return r.length === expected.length
+      && r.every((q, i) => q.line === expected[i] && original[q.line - 1].trim() === q.text);
+  };
 
   const cases = [
     // --- normalization: the hash survives whitespace, and only whitespace ---
@@ -810,6 +835,97 @@ function selfTest() {
        // two pins where the body cites one, and parsePinQuotes stored nothing
        return shas.length === 2 && parsePinQuotes(b).size === 0 && indentedPinQuotes(b).length === 1;
      }],
+
+    // -- kogaki#248: the REPORTED LINE NUMBER is the original body's ---------
+    // AC6's fixtures above protect the DETECTION and not the number: every one
+    // of them puts the offending line at line 1, or in a body with no fence
+    // above it, so all of them pass against a `stripFences` that deletes its
+    // fenced region. The refusal the author actually reads is `indented
+    // pin-quote at line N`, so N is the property, and a fence above the line
+    // shifted it by the fence's height. Each case below therefore asserts the
+    // NUMBER, and cross-checks it against the ORIGINAL body's own numbering —
+    // `body.split("\n")[line - 1]` must be the very line reported, which is
+    // the claim a count or a substring cannot make. The bodies are ordinary
+    // issue prose fed to the real function; nothing here hands the function
+    // its own intermediate.
+    //
+    // RUN AGAINST THE DELETING FORM before the fix: the three cases carrying a
+    // closed fence ABOVE the offending line failed there — reporting 9, [3,5]
+    // and 2 where the bodies say 11, [7,9] and 4 — and pass after it. The
+    // remaining cases pass against both forms; each says so on its own line,
+    // because a case that cannot fail is a boundary and not evidence.
+    // Deleting form: reported 9 — two short, the three fenced lines having
+    // collapsed to the one empty line the deletion leaves behind.
+    ["kogaki#248 a fence ABOVE the indented line does not shift its reported number",
+     () => reportedAt([
+       "## The defect",                                                  // 1
+       "",                                                               // 2
+       "The emitted shape is:",                                          // 3
+       "",                                                               // 4
+       "```",                                                            // 5
+       "pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000",    // 6
+       "```",                                                            // 7
+       "",                                                               // 8
+       "and this body emits it indented, which is the defect:",          // 9
+       "",                                                               // 10
+       "  pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000",  // 11
+       "",                                                               // 12
+     ], [11])],
+    // Deleting form: reported 3 and 5 — short by four, both fences' losses
+    // summed, so the error COMPOUNDS down a body rather than being a fixed
+    // offset a reader could learn to correct for.
+    ["kogaki#248 TWO fences above, and two offending lines, all numbers exact",
+     () => reportedAt([
+       "~~~",                                                            // 1
+       "  pin-quote: topics/articles.md:79@abc1234 q1:0",                 // 2 (quoted)
+       "~~~",                                                            // 3
+       "```",                                                            // 4
+       "consulted: product-lab@abc1234 topics/articles.md:79",            // 5
+       "```",                                                            // 6
+       "  pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000",  // 7
+       "prose between them",                                             // 8
+       "\tpin-quote: LESSONS.md:45@abc1234 q1:1111111111111111",          // 9
+       "",                                                               // 10
+     ], [7, 9])],
+    // Deleting form: reported 2.
+    ["kogaki#248 a fence at the VERY START still leaves the line below it at its own number",
+     () => reportedAt([
+       "```",                                                            // 1
+       "pin-quote: topics/articles.md:79@abc1234 q1:0",                   // 2
+       "```",                                                            // 3
+       "  pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000",  // 4
+       "",                                                               // 5
+     ], [4])],
+    ["kogaki#248 an UNTERMINATED fence above swallows the rest — nothing is flagged, as before",
+     () => reportedAt(["intro", "```", "not closed",
+       "  pin-quote: topics/articles.md:79@abc1234 q1:0", ""], [])],
+    // Boundary, not a discriminator: nothing above the line is deleted, so the
+    // deleting form answers 2 as well.
+    ["kogaki#248 an unterminated fence BELOW the line leaves that line's number alone",
+     () => reportedAt(["intro",
+       "  pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000",
+       "```", "not closed", ""], [2])],
+    // The control arm, named as one: it passes against both forms, so it is
+    // stated as a control rather than counted as evidence for the fix.
+    ["kogaki#248 with NO fence at all the number is the body's own — the control arm",
+     () => reportedAt(["intro", "", "more prose",
+       "  pin-quote: topics/articles.md:79@abc1234 q1:0000000000000000", ""], [4])],
+    // THE CONTRACT ON A LINE INSIDE A FENCE IS UNCHANGED — use vs mention
+    // (kogaki#41): a fenced `pin-quote:` is a QUOTATION of the grammar, and
+    // blanking must not turn it back into an emission. Asserted here with a
+    // fence above it as well, which the AC6 case at the top cannot see.
+    ["kogaki#248 an indented pin-quote INSIDE a fence stays unflagged, fence above and all",
+     () => indentedPinQuotes([
+       "```", "quoted first", "```", "",
+       "```", "  pin-quote: topics/articles.md:79@abc1234 q1:0", "```", "",
+     ].join("\n")).length === 0],
+    // The other three stripFences readers must be untouched by the change:
+    // they match line-anchored, and a blanked line matches nothing a deleted
+    // one matched either.
+    ["kogaki#248 blanking does not resurrect a fenced `consulted:` line as a cite",
+     () => parseCites(`intro\n\`\`\`\nconsulted: product-lab@${SHA} topics/articles.md:79\n\`\`\`\n`).length === 0],
+    ["kogaki#248 blanking does not resurrect a fenced `pin-quote:` line as a stored hash",
+     () => parsePinQuotes("intro\n```\npin-quote: topics/articles.md:79@f918c51 q1:0000000000000000\n```\n").size === 0],
   ].filter(Boolean);
 
   const failures = cases.filter(([, f]) => { try { return f() !== true; } catch (e) { return true; } }).map(([n]) => n);
