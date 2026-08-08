@@ -344,7 +344,96 @@ invariant: Gukan guarantees Unit schema, never data schema).
   `checks/registry.json`'s own note, and is pointed at rather than restated
   here; `checks/check-registry-conformance.sh` refuses an admission whose
   instrument is missing or malformed (kogaki#113).
-- **Fixture discrimination** (kogaki#230): a diff that **adds or changes a
+
+  **The admission record additionally owes RE-EXECUTABLE EFFICACY EVIDENCE**
+  (kogaki#243, owner selection 2026-08-08 — fork 1). Constrain-generation was
+  applied to check **existence** and never to check **efficacy**: the schema
+  requires the record naming the defect caught, and **nothing in this
+  repository has ever run that defect against that check**. The named defect
+  is therefore self-attested capability prose — the check is admitted on its
+  author's belief that it catches what they say it catches, which is this
+  repository's own inward-binding defect sitting in the one schema best placed
+  to refuse it. So the record gains an `efficacy` field naming the
+  **counterfactual** — the named defect *constructed* and the check observed
+  to **refuse** it — in a form a later reader can **re-run** rather than
+  re-read. Its grammar is carried once, in `checks/registry.json`'s own note,
+  beside the `removal_instrument` grammar it deliberately mirrors, and is
+  pointed at rather than restated here.
+
+  **This and kogaki#232 half 1 are ONE amendment to one record, and are stated
+  together so the pair is not re-solved twice.** Both say the same thing about
+  the same artifact: *an admission record's claims owe an observer*.
+  `removal_instrument` gives the **removal signal** its observing act;
+  `efficacy` gives the **named defect** its observing act. Half 1 is already
+  discharged — every registered entry carries a typed `removal_instrument` and
+  the conformance check refuses a missing or malformed one — so what remained
+  of the pair was this half alone.
+
+  **POLARITY — a SCHEMA OBLIGATION whose SHAPE is gated and whose TRUTH is
+  not**, and this is deliberately the opposite polarity from the
+  fixture-discrimination clause below. The two differ because their violations
+  differ: a derived-from mutant set is violated by an **absence in prose no
+  check reads**, while an admission record is a **structured artifact one check
+  already parses on every run**. The served rule places each at the layer where
+  it breaks:
+
+  > "a **prohibition** needs a mechanical gate at the tool boundary because
+  > prose is advisory to a system whose job is to satisfy instructions; an
+  > **obligation** cannot be gated at all and needs its absence made visible"
+
+  `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:95`
+    request_id: ff355029-3662-4495-ae77-a267ea4580df
+    outcome: discriminating
+    query: Should a schema obligation requiring an admission record to contain re-executable efficacy evidence be enforced as a mechanical gate at the tool boundary, or stated as an obligation with visible absence? Is a required record FIELD a prohibition or an obligation for enforcement-layer purposes?
+
+  **A missing or malformed `efficacy` field is a computable fact about a
+  committed artifact, so it is gated** — the same carrier, on the same run,
+  that already refuses a missing `removal_instrument`. This is the ratified
+  constrain-generation shape rather than a new denial:
+
+  > "**CONSTRAIN GENERATION** is the design's best move: the suite runs only
+  > REGISTERED checks and the **registry schema REQUIRES the admission
+  > record** … so an unregistered check file is dead code found by one meta
+  > check rather than a policed behaviour"
+
+  `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:70`
+
+  **Whether the counterfactual is a GOOD one stays judgment and is never
+  gated.** The check validates that the field is present and well-formed; it
+  does not decide that the constructed defect is the defect the record names.
+  That split is the same one the `probe:` instrument already runs under —
+  evaluated mechanically, rendered report-only, with the judgment left where
+  it belongs. **§2.6.3's ruling is untouched and kogaki#72's blocking budget is
+  not reopened**: nothing here reads a review finding or blocks a merge on one.
+
+  **Why RE-EXECUTABLE, and not a citation** — the sub-form that forced it. The
+  served rule names the remedy for exactly this weakness:
+
+  > "the check rests on the model's **SELF-REPORT** about its own process,
+  > where **a rationale is an attestation rather than evidence** and requiring
+  > a reason does not make the reason load-bearing"
+
+  > "a self-report weakness is simulable WITHIN one unit and its remedy is
+  > **per-unit EVIDENCE (the counterfactual test)**, not distribution-level
+  > measurement"
+
+  `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:86-87`
+    request_id: ff355029-3662-4495-ae77-a267ea4580df
+    outcome: discriminating
+
+  A citation-shaped efficacy field would have re-bought the defect one level
+  along, and kogaki#243's evidence base contains the specimen that proves it:
+  **PR #256's faultless transcription, wrong application** — verbatim quotes at
+  real pins that did not bear on the claim they were cited for. **That is an
+  instance of form E** (*prose asserts a property no carrier holds*), not a
+  sixth form: the forms are grouped by **where the binding broke**, and this
+  breaks at the description beside the carrier, which is E's site exactly. What
+  earns it a name is not a new break site but a new **detectability** — it is
+  the only member of E that this repository's **outward** machinery actively
+  certifies, the pin resolving and the quote matching, so it presents as
+  verified while binding nothing. Recorded as sub-form **E′ — faultless
+  transcription, wrong application**, and it is the reason this field carries a
+  command rather than a cite: a cite is exactly the artifact E′ passes through.
   fixture** carries its **mutation evidence** in the PR record — the mutation
   table, naming each mutation and which fixtures fail it. A fixture
   *discriminates* when it can fail on the defect it guards, and the only proof

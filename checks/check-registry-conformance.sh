@@ -25,6 +25,17 @@
 # entries render as greppable residue rows: an unobservable signal is
 # evidence when typed and an omission when not. The embedded fixture pass
 # below exercises every branch on synthetic registries, every invocation.
+#
+# Efficacy validation (kogaki#243): every admission record additionally
+# carries `efficacy` — `case: <path>::<verbatim label>` or `none: <why>` —
+# and a `case:` is RESOLVED against the tree, failing unless the path exists
+# and contains the label literally. This is the inward half of the evidence
+# discipline: the record's claim about the defect the check CATCHES was
+# previously self-attested prose, and constrain-generation had been applied
+# to check EXISTENCE but never to check EFFICACY. Shape and resolution are
+# gated because they are computable facts about a committed artifact;
+# whether the cited counterfactual is a GOOD one stays judgment and is never
+# gated, the same split `probe:` runs under.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -32,10 +43,53 @@ python3 - <<'EOF'
 import json, pathlib, re, subprocess, sys, tempfile
 
 INSTRUMENT = re.compile(r'^(act|none|probe): \S', re.DOTALL)
+EFFICACY = re.compile(r'^(case|none): \S', re.DOTALL)
 PROBE_TIMEOUT_S = 10
 
 
-def validate_entries(entries):
+def resolve_efficacy_case(payload, opener=None):
+    """Resolve a `case: <path>::<label>` payload against the tree.
+
+    Returns (ok, detail). The binding this check exists to make mechanical
+    is that the CITED CASE EXISTS: a `case:` naming a path that is gone, or
+    a label the file no longer contains, is an admission record claiming an
+    efficacy counterfactual that nothing carries — which is precisely the
+    unbound-claim defect kogaki#243 names, rebuilt inside its own repair.
+    So the path must exist AND contain the label literally.
+
+    The label is matched as a LITERAL SUBSTRING, never a regex: these labels
+    are prose written for humans and carry `(`, `)`, `:` and `—` freely, so
+    regex-matching them would make the check's own behavior depend on
+    punctuation nobody chose for that purpose.
+
+    Split on the FIRST `::` only, because labels routinely contain `:`
+    while paths in this tree never contain `::`.
+    """
+    if opener is None:
+        def opener(path):
+            return pathlib.Path(path).read_text(encoding="utf-8")
+    # Strip the trailing prose gloss: everything the author wrote after the
+    # label to explain it. The label ends at the first newline, and entries
+    # are single-line, so the gloss is delimited by " — " on the same line.
+    head, sep, _gloss = payload.partition(" — ")
+    if "::" not in head:
+        return False, ("no `::` separator — expected "
+                       "`case: <path>::<verbatim label>`")
+    path, _, label = head.partition("::")
+    path, label = path.strip(), label.strip()
+    if not path or not label:
+        return False, "empty path or empty label around `::`"
+    try:
+        text = opener(path)
+    except OSError as exc:
+        return False, f"cited path unreadable: {path} ({exc.__class__.__name__})"
+    if label not in text:
+        return False, (f"cited case not found in {path}: "
+                       f"{label[:60]!r} appears nowhere in the file")
+    return True, f"{path} carries {label[:50]!r}"
+
+
+def validate_entries(entries, opener=None):
     """Shape validation over registry data. Returns a list of failure lines."""
     failures = []
     for entry in entries:
@@ -62,6 +116,27 @@ def validate_entries(entries):
                 f"FAIL removal_instrument malformed: checks/{entry['file']} "
                 f"— must start `act: `, `none: `, or `probe: `, "
                 f"got {instrument[:40]!r}")
+        # Efficacy evidence (kogaki#243). Same strictness as the field above:
+        # the admission record's claim about what the check CATCHES owes a
+        # re-executable counterfactual, not prose.
+        efficacy = str(admission.get("efficacy", ""))
+        if not efficacy.strip():
+            failures.append(
+                f"FAIL admission record has no efficacy evidence: "
+                f"checks/{entry['file']} — declare "
+                f"`case: <path>::<verbatim label>` or `none: <why>` "
+                f"(kogaki#243)")
+        elif not EFFICACY.match(efficacy):
+            failures.append(
+                f"FAIL efficacy malformed: checks/{entry['file']} "
+                f"— must start `case: ` or `none: `, "
+                f"got {efficacy[:40]!r}")
+        elif efficacy.startswith("case: "):
+            ok, detail = resolve_efficacy_case(efficacy[len("case: "):], opener)
+            if not ok:
+                failures.append(
+                    f"FAIL efficacy case does not resolve: "
+                    f"checks/{entry['file']} — {detail}")
     return failures
 
 
@@ -133,11 +208,29 @@ def fixture_pass():
     """Synthetic registries through the same functions the live path uses."""
     def entry(instrument, id_="fx", **admission):
         base = {"contract": "c", "license": "l", "tier": "ci",
-                "removal_signal": "s"}
+                "removal_signal": "s", "efficacy": "none: fixture entry"}
         base.update(admission)
         if instrument is not None:
             base["removal_instrument"] = instrument
         return {"id": id_, "file": f"check-{id_}.sh", "admission": base}
+
+    # A stand-in tree for the efficacy cases below, so they exercise
+    # resolve_efficacy_case's real logic without depending on the live tree —
+    # a fixture that reads the repository would pass for reasons the fixture
+    # does not control, which is form A of kogaki#243's own taxonomy.
+    TREE = {"real.sh": "prelude\n  cases.append((\"the label\", ok))\n",
+            "colon.sh": "labelled x: y here\n",
+            "double.sh": "a label carrying x::y inside it\n",
+            "meta.sh": "a b c\n"}
+
+    def fake_open(path):
+        if path not in TREE:
+            raise FileNotFoundError(path)
+        return TREE[path]
+
+    def eff(payload, **kw):
+        return validate_entries([entry("act: x", efficacy=payload, **kw)],
+                                opener=fake_open)
 
     cases = []
     f = validate_entries([entry(None)])
@@ -152,6 +245,53 @@ def fixture_pass():
     f = validate_entries([entry("act: x", removal_signal="")])
     cases.append(("admission shape still enforced",
                   any("admission record incomplete" in x for x in f)))
+
+    # Efficacy evidence (kogaki#243). Mutants derived from the diff that
+    # introduced the field — each changed literal and branch is a mutant, and
+    # the case catching it is named beside it in the PR record.
+    f = validate_entries([entry("act: x", efficacy="")], opener=fake_open)
+    cases.append(("missing efficacy fails",
+                  any("no efficacy evidence" in x for x in f)))
+    cases.append(("malformed efficacy prefix fails",
+                  any("efficacy malformed" in x
+                      for x in eff("somebody ran it once"))))
+    cases.append(("an empty payload after `case: ` fails",
+                  bool(eff("case: "))))
+    cases.append(("efficacy `none: <why>` is accepted — a typed none is "
+                  "evidence", not eff("none: no counterfactual exists")))
+    cases.append(("a case resolving to a real path and label is accepted",
+                  not eff('case: real.sh::cases.append(("the label", ok))')))
+    cases.append(("a case citing a MISSING PATH fails",
+                  any("does not resolve" in x
+                      for x in eff("case: gone.sh::the label"))))
+    cases.append(("a case whose label is ABSENT from the cited file fails — "
+                  "the unbound claim this field exists to refuse",
+                  any("appears nowhere in the file" in x
+                      for x in eff("case: real.sh::a label nobody wrote"))))
+    cases.append(("a case with no `::` separator fails",
+                  any("no `::` separator" in x
+                      for x in eff("case: real.sh the label"))))
+    cases.append(("the trailing prose gloss is stripped before matching",
+                  not eff('case: real.sh::cases.append(("the label", ok))'
+                          " — and here is why that case is the right one")))
+    cases.append(("the split is on the FIRST `::`, so a label carrying `:` "
+                  "survives", not eff("case: colon.sh::x: y")))
+    # Derived from the diff and initially UNCAUGHT: the live registry holds no
+    # label containing `::`, so first-vs-last split was unobservable and a
+    # `rpartition` mutant survived the pass. The case is authored rather than
+    # the mutant dropped.
+    cases.append(("the split is on the FIRST `::` even when the LABEL carries "
+                  "`::` too", not eff("case: double.sh::x::y")))
+    # Also initially uncaught: an empty reason passes the non-empty test
+    # (`\"none:\"` is truthy after strip) and is refused only by the grammar's
+    # trailing `\\S`, which nothing exercised — the same omission
+    # check-external-deps names as `the omission the typed none refuses`.
+    cases.append(("an empty reason after `none: ` fails — a typed none with "
+                  "no why is the omission it exists to refuse",
+                  any("efficacy malformed" in x for x in eff("none: "))))
+    cases.append(("the label is matched LITERALLY, never as a regex",
+                  any("appears nowhere in the file" in x
+                      for x in eff("case: meta.sh::a (b) c"))))
 
     rows, f = run_probes([entry("probe: fires")], runner=lambda c: (0, ""))
     cases.append(("probe exit 0 renders candidate, never fails",
@@ -289,5 +429,6 @@ for line in failures:
 if failures:
     sys.exit(1)
 print(f"ok: registry and checks/ tree agree ({len(present)} check(s)); "
-      "every admission record complete; every removal signal instrumented")
+      "every admission record complete; every removal signal instrumented; "
+      "every efficacy case resolves to a label its cited file carries")
 EOF
