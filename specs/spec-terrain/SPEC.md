@@ -3250,11 +3250,31 @@ already reviews this file. It also makes §13.5's tell observable rather than
 notional — the mapping's contents change with **a spec amendment**, which is a
 review, and never with the Thesis handed to a run.
 
-The site is named rather than the table being populated: the mapping's *rows*
-are implementation-time content that the first real Thesis kinds will supply,
-and §13.7's blast-radius rule already binds that act. What this amendment fixes
-is where they must land and what reviews them — so that #302 reads a site, and
-does not choose one.
+**The table, seeded (v14, kogaki#300).** It carries one row today:
+
+| Thesis kind | substrates traversed | depth |
+|---|---|---|
+| *(default)* | `source_batch`, `cross_links`, shared carrier issue | 1 |
+
+**The default row is the widest bound this unit can express, which is why
+seeding it narrows nothing.** All three substrates at depth 1 is the maximum
+traversal §13.3 admits, so §13.1's widen-only classification is untouched by
+its presence; a row can only ever traverse *less*, and only by amending this
+table.
+
+**Two consequences stated rather than left to be discovered.** First, until a
+second row exists the Thesis changes nothing about the traversal — the
+mechanism is in place and **unexercised**, which is the honest description and
+not a defect to hide: §13.5's dogfooding trigger is what earns the second row,
+exactly as it earns the extension. Second, a Thesis matching no row resolves to
+*(default)* rather than refusing, so the surface degrades to the full
+enumeration rather than to nothing — the failure direction §13.1 requires.
+
+The rows the first real Thesis kinds supply are added by **amending this
+table**, which is the review act the clause above names. Deliberately *not*
+cited to §13.7: that section enumerates the implementation files and closes
+"None of this section is implemented", so it binds the implementing act and
+carries no rule about amending §13.3.
 
 **Why this is a bound and not a filter, stated because the two are one
 refactor apart.** A filter over the rendered set would *narrow* what reaches the
