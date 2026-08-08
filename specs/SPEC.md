@@ -725,6 +725,50 @@ invariant: Gukan guarantees Unit schema, never data schema).
      from an unauthorized one; authorization is readable only at the session
      layer, which is where the deny lives. Non-convergence in one round is an
      ABNORMAL CONDITION — a stop-and-escalate signal, never a spawn trigger.
+
+     **THE BOUND IS CARRIED AT THREE LAYERS, NOT TWO — the session boundary
+     does not see every route, and PR #293 is the proof** (kogaki#295, owner
+     selection 2026-08-08). The two-layer split above is correct and is not
+     reopened; what was wrong is the tacit premise that *every* reviewer
+     session is created from inside a Claude Code session, where a PreToolUse
+     carrier can see it. **Both** reviewer sessions for PR #293 were created
+     by `tools/review-sweep.sh` (rounds 1 and 2, 09:56:02Z and 10:03:36Z)
+     with `claude-toolkit#283`'s gate — installed at 09:17Z, before either —
+     **never invoked**: no harness tool call launched the sweep in either
+     window, so the launcher sat outside every session's tool boundary and
+     appears in no transcript. The hook's own docstring already declared this
+     limit (*"Spawns from outside this user's Claude Code sessions — another
+     machine, another account, CI, cron. A session hook reaches only tool
+     calls made in"* a session), which makes it a **known** uncovered route
+     rather than a discovered one.
+
+     **So the third layer is the act of process creation**, and it is where
+     the rule is carried because it is the last boundary this repository
+     controls:
+
+     > When the layer where a rule's violation occurs belongs to ANOTHER
+     > SYSTEM, no carrier can be installed there — the carrier goes at the
+     > LAST BOUNDARY YOU CONTROL, and any gate upstream of it is ergonomics
+     > rather than control.
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/archive/knowledge-architecture.md:158`
+
+     The session hook is not demoted by this and stays exactly as installed:
+     it reaches the routes it can see, sooner, with a better message. The two
+     **compose** — whichever boundary sees the act first consumes the grant,
+     and a single-use grant is consumed exactly once either way — so this is
+     defence in depth rather than a replacement, and the upstream gate is the
+     ergonomics half the served line names.
+
+     **This is NOT the cap-at-the-spawner shape returning, and the difference
+     is stated because the resemblance is close.** Three prior attempts
+     bounded a **count** inside one caller's logic and failed; this binds
+     **authorization** at process creation, which is route-independent by
+     construction — a count can be evaded by a second caller, an unconsumed
+     grant cannot be, because the grant is the thing being spent rather than
+     the caller's own bookkeeping. Clause 4's mechanism is unchanged: the
+     round budget is still observed there, and what changes is that a round
+     within budget is no longer *sufficient* to spawn.
   4. **Every round leaves its record** — report, correction instruction,
      round count — so the postmortem hand-off can mine rally residue: a
      finding that took two rounds to land is evidence about the map or about
@@ -874,9 +918,52 @@ invariant: Gukan guarantees Unit schema, never data schema).
      instruction and the spawn. A per-call-site guard would leave call site
      N+1 uncovered by default.
 
+     **`spawn()` CARRIES CLAUSE 3'S THIRD LAYER, and it is keyed by a
+     DECLARED GRANT CLASS rather than applied wholesale** (kogaki#295). The
+     siting rule above is why the authorization check lands here and not at
+     the reviewer call site; the grant class is why landing it here does not
+     over-gate. `spawn()` is **shared** — the driver spawns the *fix* through
+     it (`tools/review-sweep.sh:4331`) and the fixtures spawn noop and
+     never-launch cases through it — while `claude-toolkit#283`'s contract is
+     about **reviewer** sessions. A blanket consume at the exec point would
+     therefore gate work that ruling never reached.
+
+     So the class is a **required argument**, and the three properties are
+     what make it a constraint rather than an enumeration:
+
+     - **`reviewer`** consumes a single-use owner grant from the approvals
+       store and **refuses fail-closed** without one — an unreadable or
+       unparseable store refuses, and an already-consumed grant refuses, on
+       the same fail-closed rule the session hook states.
+     - **Every other class declares itself** and is governed by its own rule,
+       which for the fix path is today **none**; that absence is stated here
+       rather than left to be read as coverage.
+     - **An UNDECLARED class refuses.** This is the load-bearing one: it is
+       what keeps call site N+1 denied by default instead of admitted, which
+       is the same non-member-fallback discipline the siting rule above rests
+       on. A new caller that forgets the argument does not silently inherit
+       the fix path's freedom.
+
+     **The refusal is terminal and legible, and is its OWN state.** It names
+     the missing approval, never retries, and the park and stall reporting
+     read *refused: no grant* as distinct from a stall — a spawn that was
+     declined for want of authorization is a different fact from a session
+     that started and produced nothing, and collapsing them would recreate
+     the class kogaki#271 clause 10 exists to end one layer over.
+
+     **`--dry-run` consults the same predicate WITHOUT consuming**
+     (kogaki#227). This is the one place that rule needs restating rather
+     than citing, because here the predicate has a **side effect** and the
+     prediction must not reproduce it: the dry run reports whether an open
+     grant exists and leaves it open. A prediction that consumed the grant it
+     was predicting on would make the preview the act.
+
      **A second invocation REPORTS the in-flight round and exits 0.** It
-     names the PR, the round, the log path and the age. It does not refuse,
-     because the documented caller is a **loop**:
+     names the PR, the round, the log path and the age. It does not refuse
+     **on that ground** — the in-flight case is a report, and the refusing
+     arm above belongs to the missing-grant case, which is a different
+     condition reached before it. The reason the in-flight case reports is
+     that the documented caller is a **loop**:
 
      > "when the verdict count is zero, no gate-shaped nag may be emitted —
      > repeatedly walking the owner to an empty gate is exactly the
