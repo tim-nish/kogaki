@@ -1752,7 +1752,8 @@ if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
 //   problem is fixed."  product-lab@dec0d568 gloss/lessons/testing.md:53
 //   "if [the empty-input answer] matches its normal healthy output, the check
 //   is missing and the failure is invisible by construction."  ibid.:107
-const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT REACHED" };
+const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT REACHED",
+               material: "NOT REACHED", rerun: "NOT REACHED" };
 
 // --- kogaki#234: the owner rendering exists, in the TREE, and the owner
 // surface never names a machine-local path ---
@@ -1907,6 +1908,233 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
   rmSync(run2, { recursive: true, force: true });
 }
 
+// --- kogaki#234, the 2026-08-08 DOGFOOD FALSIFICATION: what the rendering
+// CARRIES, and what the RERUN's owner surface SAYS -------------------------
+//
+// Acceptance items 2 and 5 were verified LANDED by artifact inspection and then
+// falsified by a live run, which is the failure mode #234's own remedy (c)
+// exists to name. Both defects are kogaki#243 FORM E — prose asserting a
+// property no carrier holds — and both shipped past a fixture that was green:
+//
+//   A. The rendering opened with `> Untruncated.` and printed `- journey: 1`
+//      in its Counted block while carrying no journey and no served cite at
+//      all. `grep -c "gloss/lessons/"` over every file in `reports/` returned
+//      ZERO. The record carries `cite`, `gloss_cite`, `journey_gloss` and
+//      `journey_cite` per member; the renderer emitted `id` and `gloss`.
+//   B. With KOGAKI_DEBUG unset, a RERUN printed the absolute
+//      `/home/…/.kogaki/runs/reports/….json` and NO repo-relative rendering
+//      path at all. PR #240 round 1 finding 2 fixed exactly this on the
+//      fresh-write branch and left the rerun branch untouched — and a rerun is
+//      the path a SECOND look always takes.
+//
+// WHY THE EXISTING BLOCKS COULD NOT SEE EITHER. They assert that a `.md` was
+// written, that it opens `# Full Report`, that it has an `## ` heading and is
+// not JSON, and that the FRESH run's surface names `reports/…`. Every one of
+// those is true of a rendering that dropped four of its six served fields, and
+// every one is evaluated on the first invocation only.
+//
+// SO THIS BLOCK ASSERTS THE RENDERED BYTES AGAINST THE RECORD THAT PRODUCED
+// THEM, and asserts finding B on the SECOND invocation specifically. The
+// expected values are READ OUT OF THE MACHINE RECORD rather than written here:
+// a literal copied into the fixture is a second author's belief, and the
+// property is that the two artifacts agree.
+//
+// THE SEAM IS THE STUB, not the real gateway — the same stub, resolved the
+// same way, that case 3 above already uses. The pre-existing kogaki#234 blocks
+// leave the seam unset and so read CANNOT-DETERMINE on every machine without
+// one, which for THESE two properties would mean asserting nothing anywhere:
+// the material only exists on a run that reached served Gloss.
+{
+  const run3 = mkdtempSync(join(tmpdir(), "kogaki-run3-"));
+  const subs3 = join(run3, "subs.json");
+  writeFileSync(subs3, JSON.stringify({
+    "testing × architecture": { judged: true, subgroups: [] },
+  }));
+  const argv = ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
+    "--group", "architecture", "--subdivisions", subs3,
+    "--judge-model", "m", "--judge-effort", "high"];
+  // NEITHER RENDERING LOCATION IS OVERRIDDEN. `--rendering-dir` would supply
+  // the value under test, which is the class PR #240 round 1 finding 3 already
+  // caught once in this file; the record is steered by KOGAKI_RUN_DIR, which is
+  // the product's own environment variable rather than a flag that bypasses the
+  // default expression.
+  const env3 = Object.assign({}, process.env, {
+    KOGAKI_RUN_DIR: run3, TSUREZURE_GATEWAY_JS: STUB,
+  });
+  delete env3.KOGAKI_REPORTS_DIR;
+  delete env3.KOGAKI_DEBUG;
+  const seamOut = (r) => String(r.stdout) + String(r.stderr);
+  const seamAbsent3 = (r) => r.status === 11
+    || (r.status !== 0 && /policy_source unavailable|gateway/i.test(seamOut(r)));
+  const count = (hay, needle) => hay.split(needle).length - 1;
+
+  const r1 = spawnSync(process.execPath, argv, { encoding: "utf8", env: env3 });
+  if (seamAbsent3(r1)) {
+    K234.material = "CANNOT-DETERMINE (seam unavailable)";
+    K234.rerun = "CANNOT-DETERMINE (seam unavailable)";
+    console.log("kogaki#234 rendered material + rerun surface: CANNOT-DETERMINE — the "
+      + "stub gateway did not answer, so neither property was asserted here.");
+  } else if (r1.status !== 0) {
+    // A THROWN ERROR IS NOT A PASS. The fresh run is a precondition of both
+    // properties below, so a non-zero exit that is not the declared degrade is
+    // reported as a failure rather than skipped over.
+    K234.material = `FAILED (exit ${r1.status})`;
+    K234.rerun = `FAILED (exit ${r1.status})`;
+    fails.push(`the fresh report run failed (exit ${r1.status}): ${seamOut(r1).trim().slice(0, 200)}`);
+  } else {
+    const recName = readdirSync(run3).find((f) => f.startsWith("terrain-full-report-") && f.endsWith(".json"));
+    const md = recName ? join("reports", recName.replace(/\.json$/, ".md")) : null;
+    if (!recName || !existsSync(md)) {
+      K234.material = "FAILED";
+      K234.rerun = "FAILED";
+      fails.push("the fresh run produced no record/rendering pair at the DEFAULT rendering location — every assertion below reads those two artifacts against each other and can report nothing without both");
+    } else {
+      const rec = JSON.parse(readFileSync(join(run3, recName), "utf8"));
+      const members = (rec.members && rec.members.length ? rec.members
+        : (rec.subgroups || []).flatMap((sg) => sg.members || []));
+      const withJourney = members.filter((m) => m.journey_gloss !== null && m.journey_gloss !== undefined);
+
+      // THE FIXTURE MUST BE ABLE TO FAIL. Each of these guards a way the block
+      // could report a pass it did not earn — no members, no journey to drop,
+      // or a single-line body that a flattening renderer carries just as well.
+      if (members.length === 0) {
+        fails.push("the record carries no members — the rendered-material assertions below would be vacuously true");
+      }
+      if (withJourney.length === 0) {
+        fails.push("no member in the record carries a Journey — the dropped-Journey property (the `- journey: 1` with no journey) has nothing to be violated on here");
+      }
+      if (withJourney.length === members.length) {
+        fails.push("every member carries a Journey — the no-Journey statement has no member to be stated about, so half the rendering's Journey contract is unexercised");
+      }
+      if (!members.some((m) => String(m.gloss).includes("\n"))) {
+        fails.push("no served Gloss body in the record is multi-line — a one-line body fits a bullet row, so this block cannot distinguish a whole-body renderer from the flattening one it replaced");
+      }
+
+      // THE RENDERED BYTES, ASSERTED AGAINST THE RECORD. `includes` of the
+      // WHOLE body is the completeness property stated directly: a truncated,
+      // headline-only or ellipsised rendering fails it, and a prefix assertion
+      // would not.
+      const assertMaterial = (body, where) => {
+        for (const m of members) {
+          const id = m.id;
+          if (!body.includes(`\`${id}\``)) fails.push(`${where}: member ${id} is not named in the rendering`);
+          if (m.cite && !body.includes(m.cite)) {
+            fails.push(`${where}: the member → SERVED-LINE map is missing for ${id} — §12 requires the report to carry it, and \`${m.cite}\` appears nowhere in the rendered bytes`);
+          }
+          if (m.gloss_cite && !body.includes(m.gloss_cite)) {
+            fails.push(`${where}: the Lesson Gloss cite for ${id} (\`${m.gloss_cite}\`) is absent — this is the \`grep -c "gloss/lessons/"\` returning ZERO that the 2026-08-08 run measured`);
+          }
+          if (!body.includes(String(m.gloss))) {
+            fails.push(`${where}: the COMPLETE Lesson Gloss for ${id} is not in the rendering — §12 requires the complete Glosses with no truncation anywhere, and the file asserts \`> Untruncated.\` while it holds`);
+          }
+          if (m.journey_gloss !== null && m.journey_gloss !== undefined) {
+            if (!body.includes(String(m.journey_gloss))) {
+              fails.push(`${where}: the COMPLETE Journey Gloss for ${id} is not in the rendering — the Counted block prints a journey count with nothing behind it`);
+            }
+            if (m.journey_cite && !body.includes(m.journey_cite)) {
+              fails.push(`${where}: the Journey Gloss cite for ${id} (\`${m.journey_cite}\`) is absent`);
+            }
+          }
+        }
+        // THE COUNTED BLOCK AND THE BODY MUST AGREE. `- journey: 1` over a file
+        // containing no journey is the specimen; a count and a carrier that can
+        // disagree silently is what let it ship.
+        const journeyBlocks = count(body, "**Journey Gloss**");
+        if (journeyBlocks !== members.length) {
+          fails.push(`${where}: ${journeyBlocks} Journey Gloss statement(s) for ${members.length} member(s) — every member states its Journey or states that it has none, so absence is never silence`);
+        }
+        const citedJourneys = count(body, "**Journey Gloss** — `");
+        if (citedJourneys !== withJourney.length) {
+          fails.push(`${where}: ${citedJourneys} cited Journey Gloss(es) in the rendering against ${withJourney.length} in the record — the rendering disagrees with the artifact it derives from`);
+        }
+        const counted = (rec.counted || {}).journey || 0;
+        if (counted !== withJourney.length) {
+          fails.push(`${where}: the Counted block claims journey: ${counted} while ${withJourney.length} member(s) carry one`);
+        }
+      };
+
+      const fresh = readFileSync(md, "utf8");
+      assertMaterial(fresh, "fresh rendering");
+      K234.material = "RAN";
+
+      // --- FINDING B: THE RERUN BRANCH, WHICH IS A DIFFERENT BRANCH ---------
+      // The rendering is REMOVED first. A rerun that returned early would leave
+      // it removed, so its reappearance is the observable for "both are written
+      // in the same act" (§12.2 v11) and the whole block below cannot pass by
+      // reading the FIRST run's leftovers.
+      rmSync(md, { force: true });
+      const r2 = spawnSync(process.execPath, argv, { encoding: "utf8", env: env3 });
+      const out2 = String(r2.stdout);
+      if (r2.status !== 0) {
+        K234.rerun = `FAILED (exit ${r2.status})`;
+        fails.push(`the RERUN failed (exit ${r2.status}): ${seamOut(r2).trim().slice(0, 200)}`);
+      } else {
+        K234.rerun = "RAN";
+        // THE RERUN BRANCH IS THE ONE UNDER TEST, so the block proves it took
+        // that branch. Without this the assertions below would be satisfied by
+        // a second FRESH write, which passes already and proves nothing.
+        if (!/IDEMPOTENT/.test(out2)) {
+          fails.push("the second invocation did not report the idempotent rerun — this block asserts the RERUN branch's owner surface, and it cannot assert a branch it did not reach");
+        }
+        if (!existsSync(md)) {
+          fails.push("the rerun did not write the owner rendering — §12.2 v11 says both artifacts are written in the same act, and a rerun that regenerates only the machine record leaves a deleted, stale or never-rendered file standing while reporting success");
+        } else {
+          const again = readFileSync(md, "utf8");
+          assertMaterial(again, "rerun rendering");
+          if (again !== fresh) {
+            fails.push("the rerun's rendering differs BYTE FOR BYTE from the fresh one — the rendering is a pure function of the record, so a difference means one of them is not");
+          }
+        }
+        if (!/^Full Report — READ THIS ONE[^\n]*: reports\//m.test(out2)) {
+          fails.push("the RERUN's owner surface carries no repo-relative `reports/…` READ THIS ONE line — §12.2 v11's pointer is dropped on the path a second look always takes");
+        }
+        if (/\.kogaki\//.test(out2)) {
+          fails.push("the RERUN's owner surface names a machine-local hidden path — §2.5 clause 3 forbids it outside debugging");
+        }
+        // THE PROPERTY IS "ABSOLUTE PATH", NOT THE `.kogaki` SPELLING. Every
+        // block here steers storage into a tmpdir, so a `.kogaki` substring
+        // test passes over `/tmp/…` — the third time in this file that a
+        // fixture could not see what the fixture supplied.
+        for (const line of out2.split("\n")) {
+          if (/\/(home|tmp|var|Users|root)\//.test(line)) {
+            fails.push(`the RERUN prints an ABSOLUTE machine path on the owner surface: ${line.trim().slice(0, 140)}`);
+          }
+        }
+      }
+
+      // THE DEBUGGING EXCEPTION IS AN AFFORDANCE, asserted in its own
+      // direction. §2.5 clause 3 excepts debugging, so a fix that simply
+      // deleted the record line would satisfy every assertion above while
+      // removing the operator's only way to find the file. Asserting only the
+      // refusal cannot tell a guard from a deletion.
+      const r3 = spawnSync(process.execPath, argv,
+        { encoding: "utf8", env: Object.assign({}, env3, { KOGAKI_DEBUG: "1" }) });
+      if (r3.status === 0) {
+        if (!String(r3.stdout).includes(join(run3, recName))) {
+          fails.push("with KOGAKI_DEBUG=1 the rerun does not print the machine record's full path — the clause excepts debugging, and a deleted line is not a guard");
+        }
+        if (!/IDEMPOTENT/.test(String(r3.stdout))) {
+          fails.push("the KOGAKI_DEBUG invocation did not take the rerun branch, so it asserts the debugging exception on the wrong path");
+        }
+      } else {
+        fails.push(`the KOGAKI_DEBUG rerun failed (exit ${r3.status}) — the debugging direction was not asserted`);
+      }
+
+      // AND THE OPT-OUT STILL OPTS OUT on the rerun path. `--no-render` is
+      // §12.2 v11's named opt-out; a rerun that wrote the rendering regardless
+      // would be a second default wearing a flag's name.
+      rmSync(md, { force: true });
+      const r4 = spawnSync(process.execPath, argv.concat(["--no-render"]),
+        { encoding: "utf8", env: env3 });
+      if (r4.status === 0 && existsSync(md)) {
+        fails.push("`--no-render` wrote the owner rendering anyway on the rerun path — the opt-out is not one");
+      }
+      rmSync(md, { force: true });
+    }
+  }
+  rmSync(run3, { recursive: true, force: true });
+}
+
 // And the rendering must be IGNORED rather than committed (§2.5.2): visibility
 // and publication are separate decisions, and letting `git add` settle the
 // second is the defect LESSONS.md:112 names by name.
@@ -1933,6 +2161,23 @@ console.log("compose-input bounded-read fixture: PASS — cases exercised (one t
 // THE kogaki#234 HALF REPORTS ITS OWN EXERCISED TRIALS, separately and by
 // state, rather than riding the sentence above (PR #240 review round 1,
 // finding 4). A block that did not run must not appear inside a PASS claim.
+console.log(`kogaki#234 rendered material: ${K234.material}; rerun owner surface: ${K234.rerun}. `
+  + "Asserted WHERE RAN, on the RENDERED BYTES read against the machine record that "
+  + "produced them and never against a literal written here: every member's served "
+  + "line, its Lesson Gloss cite and COMPLETE body, its Journey Gloss cite and "
+  + "COMPLETE body where it has one and an explicit statement where it has not, and "
+  + "the Counted journey figure agreeing with the members that carry one — the "
+  + "`> Untruncated.` / `- journey: 1` specimen of the 2026-08-08 dogfood run. And on "
+  + "the SECOND invocation specifically (proven to have taken the idempotent-rerun "
+  + "branch, with the rendering DELETED first so no leftover can satisfy it): the "
+  + "repo-relative READ THIS ONE line present, no `.kogaki` path, NO absolute machine "
+  + "path on any line, the rendering regenerated byte-identical, the KOGAKI_DEBUG "
+  + "direction still printing the record's full path, and `--no-render` still opting "
+  + "out. A block reading CANNOT-DETERMINE asserted NOTHING. NOT COVERED, stated "
+  + "rather than left to be inferred: the member block's HEADING DEPTH under a "
+  + "composed SubGroup — this fixture's group is judged-empty, so members render at "
+  + "the top level and a mutation collapsing depth 4 to 3 survives the whole suite. "
+  + "Depth carries no §12 property, so it is named here rather than asserted.");
 console.log(`kogaki#234 artifact location — artifact-split: ${K234.split}; `
   + `defaults (no --report-dir, no --rendering-dir): ${K234.defaults}; `
   + `gitignore: ${K234.gitignore}. Asserted WHERE RAN: the owner RENDERING lands `

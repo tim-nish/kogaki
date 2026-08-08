@@ -1618,6 +1618,34 @@ function repoRoot() {
   }
 }
 
+// THE OWNER SURFACE'S ARTIFACT LINES, IN ONE PLACE (§2.5 clause 3, §12.2 v11).
+//
+// This function exists because there are TWO paths that finish a report — the
+// fresh write and the idempotent rerun — and PR #240 round 1 finding 2 fixed
+// clause 3 on the first and left the second printing the absolute
+// `~/.kogaki/runs/reports/….json` with no repo-relative rendering path at all.
+// The live run of 2026-08-08 took the rerun path, which is the path a SECOND
+// look always takes, and got the machine path and no "READ THIS ONE" line.
+//
+// Two branches printing the same contract in two places is what made a
+// one-branch fix look complete, so the contract is stated ONCE and both
+// branches call it. A duplicated invariant is one that a later fix updates
+// half of.
+function announceArtifacts(rendered, recordPath) {
+  if (rendered) {
+    console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md §12.2): ${relFromRepo(rendered)}`);
+  }
+  // The record is machine-facing, so the owner surface names its FILENAME and
+  // says where the class of thing lives; the full path is debugging output and
+  // rides KOGAKI_DEBUG.
+  if (process.env.KOGAKI_DEBUG) {
+    console.log(`machine record (JSON, identity + idempotence; SPEC.md §12.1): ${recordPath}`);
+  } else {
+    console.log("machine record written (JSON, identity + idempotence; SPEC.md §12.1) "
+      + `as ${basename(recordPath)} in the run workspace. Set KOGAKI_DEBUG=1 for its path.`);
+  }
+}
+
 // The owner register (§12.2 v11). Markdown, because the artifact's whole job is
 // to be READ — the JSON beside it keeps every machine property, so nothing here
 // is load-bearing for identity and nothing may parse it back.
@@ -1648,7 +1676,7 @@ export function renderReportMarkdown(report, tag) {
       L.push("");
       L.push(sg.claim === NO_CLAIM ? "*(no SubGroupClaim)*" : sg.claim);
       L.push("");
-      for (const m of sg.members) L.push(`- ${memberLine(m)}`);
+      for (const m of sg.members) L.push(...memberBlock(m, 4));
     }
   } else if (report.subgroups && report.subgroups.length === 0) {
     // JUDGED-EMPTY is not the same silence as unjudged, and the rendering must
@@ -1659,11 +1687,11 @@ export function renderReportMarkdown(report, tag) {
     L.push("*The judgment produced NO split — this is a judged-empty outcome,");
     L.push("not an absent judgment. Members are listed below.*");
     L.push("");
-    for (const m of report.members || []) L.push(`- ${memberLine(m)}`);
+    for (const m of report.members || []) L.push(...memberBlock(m, 3));
   } else {
     L.push("## Members");
     L.push("");
-    for (const m of report.members || []) L.push(`- ${memberLine(m)}`);
+    for (const m of report.members || []) L.push(...memberBlock(m, 3));
   }
   L.push("");
   L.push("## Counted");
@@ -1674,13 +1702,54 @@ export function renderReportMarkdown(report, tag) {
   return L.join("\n") + "\n";
 }
 
-function memberLine(m) {
-  if (m && typeof m === "object") {
-    const id = m.id || m.slug || "";
-    const gloss = m.gloss || m.claim || "";
-    return gloss ? `\`${id}\` — ${gloss}` : `\`${id}\``;
+// ONE MEMBER, WHOLE (§12). The record carries six served fields per member —
+// `id`, `cite`, `gloss`, `gloss_cite`, `journey_gloss`, `journey_cite` — and
+// this is the surface §12 addresses when it says "the complete Lesson and
+// Journey Glosses, with no truncation anywhere" and that the report "carries
+// the member → served-line map in its member records".
+//
+// THE DEFECT THIS REPLACES. The previous renderer emitted `\`id\` — gloss` and
+// dropped the other four. The live dogfood run of 2026-08-08 (kogaki#234
+// comment 5223800169) found `grep -c "gloss/lessons/"` returning ZERO over
+// every file in `reports/`, no Journey Gloss text anywhere, and a file that
+// opened with `> Untruncated.` and printed `- journey: 1` in its Counted block
+// while containing no journey. That is the kogaki#243 form-E shape exactly:
+// the prose asserted a property no carrier held, and every §12.1 assertion
+// stayed green because identity and idempotence are true of a rendering that
+// drops its material.
+//
+// The member is a BLOCK rather than a list row because the property is
+// UNTRUNCATED: a served Gloss body is multi-line prose, and a bullet row can
+// only carry it by flattening or by cutting. A form that cannot hold the whole
+// value is the truncation, one layer down from the code that does the cutting.
+//
+// ABSENCE IS STATED, never left as a gap. A member with no Journey and a
+// member whose Journey went missing render differently, and neither renders as
+// silence — the same rule §12.1 v9 applies to judged-empty SubGroups. Without
+// it the Counted block's `journey: N` has nothing in the body to agree with,
+// which is how the run above produced a count with no material behind it.
+export function memberBlock(m, level) {
+  const h = "#".repeat(Math.max(1, Math.min(6, level || 3)));
+  if (!m || typeof m !== "object") return [`${h} \`${String(m)}\``, ""];
+  const id = m.id || m.slug || "";
+  const L = [`${h} \`${id}\``, ""];
+  L.push(m.cite ? `*Served line:* \`${m.cite}\`` : "*Served line:* **NOT RECORDED** — the survey record carried no cite for this member.");
+  L.push("");
+  L.push(m.gloss_cite ? `**Lesson Gloss** — \`${m.gloss_cite}\`` : "**Lesson Gloss** — *no served cite recorded*");
+  L.push("");
+  L.push(m.gloss !== undefined && m.gloss !== null ? String(m.gloss)
+    : (m.claim !== undefined && m.claim !== null ? String(m.claim) : NO_GLOSS_BODY));
+  L.push("");
+  if (m.journey_gloss === undefined || m.journey_gloss === null) {
+    L.push("**Journey Gloss** — *this member carries no Journey.*");
+    L.push("");
+  } else {
+    L.push(m.journey_cite ? `**Journey Gloss** — \`${m.journey_cite}\`` : "**Journey Gloss** — *no served cite recorded*");
+    L.push("");
+    L.push(String(m.journey_gloss));
+    L.push("");
   }
-  return String(m);
+  return L;
 }
 
 // The identity TRIPLE (§12.1): substrate pin, co-tag query (selected tag,
@@ -1808,7 +1877,24 @@ function cmdReport(args) {
   if (existsSync(out)) {
     const prior = readJson(out);
     if (sameIdentity(prior.identity, identity)) {
-      console.log(`Full Report already exists for this identity — the rerun is IDEMPOTENT, not a duplicate (SPEC.md §12.1): ${out}`);
+      // IDEMPOTENT ON THE RECORD, AND THE RENDERING IS STILL WRITTEN IN THIS
+      // ACT (§12.2 v11: "Both are written in the same act"). Idempotence is a
+      // claim about the RECORD — one identity, one report — and the rendering
+      // is a pure function of that record, so re-deriving it is the same
+      // artifact rather than a second one. Writing it rather than skipping it
+      // is what makes a rerun self-healing: the rendering's lifetime is the
+      // OWNER's (§2.5.1), so it can be deleted, be stale from an older
+      // renderer, or never have existed because the first run passed
+      // `--no-render`, and none of those are states a second run should leave
+      // standing while reporting success.
+      let priorRendered = null;
+      if (!args["no-render"]) {
+        priorRendered = join(renderingsDir(args), `terrain-full-report-${identityDigest(identity)}.md`);
+        writeFileSync(priorRendered, renderReportMarkdown(prior, tag));
+      }
+      console.log("Full Report already exists for this identity — the rerun is IDEMPOTENT, "
+        + "not a duplicate (SPEC.md §12.1).");
+      announceArtifacts(priorRendered, out);
       console.log(`Identity: pin=${identity.pin} query=(${tag}, ${group.name}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
       return;
     }
@@ -1882,22 +1968,11 @@ function cmdReport(args) {
     writeFileSync(rendered, renderReportMarkdown(report, tag));
   }
 
-  if (rendered) {
-    console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md §12.2): ${relFromRepo(rendered)}`);
-  }
-  // §2.5 clause 3 binds THIS LINE TOO (PR #240 review round 1, finding 2). The
-  // v11 amendment made the rendering line repo-relative and left its neighbour
-  // printing an absolute `~/.kogaki/…` path — the exact specimen the clause was
-  // written against, one artifact over, inside the diff that ratified it.
-  // The record is machine-facing, so the owner surface names its FILENAME and
-  // says where the class of thing lives; the full path is debugging output and
-  // rides KOGAKI_DEBUG.
-  if (process.env.KOGAKI_DEBUG) {
-    console.log(`machine record (JSON, identity + idempotence; SPEC.md §12.1): ${out}`);
-  } else {
-    console.log("machine record written (JSON, identity + idempotence; SPEC.md §12.1) "
-      + `as ${basename(out)} in the run workspace. Set KOGAKI_DEBUG=1 for its path.`);
-  }
+  // §2.5 clause 3 binds BOTH artifact lines (PR #240 review round 1, finding
+  // 2), on this path and on the rerun path alike — see `announceArtifacts`,
+  // which is where the contract now lives so that neither path can drift from
+  // the other again.
+  announceArtifacts(rendered, out);
   console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, ${group.name}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
   console.log(`${sectionFigure(Object.assign({}, group, { by_family: report.counted }), record.candidates.length)}`);
   if (abnormal) {
@@ -2096,8 +2171,12 @@ switch (cmd) {
          [--subdivisions F] [--judge-model M --judge-effort E] [--report-dir D]
                                             the Full Report (§12) — untruncated Claims and
                                             Glosses, identified by the TRIPLE (substrate pin,
-                                            co-tag query, judge pin), machine-local and never
-                                            committed. A rerun under the same identity is
+                                            co-tag query, judge pin). TWO ARTIFACTS (§12.2 v11):
+                                            the machine RECORD in the run workspace, and the
+                                            owner RENDERING in reports/ in the working tree —
+                                            repo-visible and still never committed. Both are
+                                            written in the same act; --no-render opts out of the
+                                            rendering. A rerun under the same identity is
                                             idempotent, not a duplicate. --all-groups is §11's
                                             decided EAGER reading (v5): the co-tag view
                                             generates one report per composed group.
