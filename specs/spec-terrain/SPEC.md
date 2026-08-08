@@ -1,5 +1,21 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v12, amended 2026-08-08 (kogaki#289, owner selection) — **§13 adds
+the provenance-neighborhood surface: a Thesis-bounded, propose-only widening of
+the candidate set across tag boundaries, disclosing the substrate that reached
+each suggestion.** The defect it removes is that today's candidate set is
+**co-tag-bounded**, so a contemporaneous Grain under an unrelated tag is
+unreachable from the co-tag group holding its siblings. §2's three inherited
+contracts are **untouched and no divergence is declared**: the second-proposer
+boundary engages only when something *narrows* the candidate set, and a widening
+act is never smaller than what exists, so §2.3's residual clause — "an act not
+in either list is a report, not a choice" — classifies the surface rather than
+being amended by it. §4 moves the surface in scope by decision; §11 gains one
+open question. **The design carries a measured join correction the licensing
+issue did not have** (§13.3): `source_batch` does **not** resolve to a
+`kind: batch` record by equality across the whole corpus, and the failure is
+silent.
+
 **Status:** v11, amended 2026-08-08 (kogaki#234) — **the Full Report's
 machine-local location is STRUCK as incorrect state and divergence-register
 entry 2 with it.** Owner ruling 2026-08-08 (`specs/SPEC.md` §2.5): human-facing
@@ -470,6 +486,23 @@ Any proposal-rendering or gate-payload affordance of Terrain's own — those
 are items 3 and 4, and building them here is §1's refused alternative. Also
 out: probe, harvest, fact sheets, the sources gate, the provenance map/judge,
 and the interview's mandated asks, all dropped by `specs/SPEC.md` §5.
+
+**IN scope by decision, v12 (kogaki#289): the provenance-neighborhood surface,
+§13.** It is named here rather than only at §13 because this section is where a
+reader checks whether a surface is admitted, and a surface admitted only in its
+own section is admitted where nobody looks for the answer.
+
+**Why it is not the affordance the paragraph above refuses.** §13's suggestions
+are **not proposals** in this spec's sense. §2.3 fixes "proposal" to the act of
+**narrowing** the candidate set, and routes `rank`/`trim`/`hide` to
+`specs/spec-proposal-contract/SPEC.md` on exactly that ground
+(`specs/spec-proposal-contract/SPEC.md:27-29` records Terrain as its first
+consumer and reproduces the split). A widening view narrows nothing, so it grows
+no proposal-rendering affordance and needs none — the word "propose-only" in
+kogaki#289's riders means *suggests without gating*, which is this spec's
+**report**, not this spec's **proposal**. The two senses collide in English and
+not in the contract; §13.1 states the mapping so a later reader does not resolve
+the collision the other way and conclude §1's refused alternative was built.
 
 ## 5. The candidate model — Lessons-only rows, Journey marked by absence
 
@@ -2260,6 +2293,26 @@ call was made.
   `.claude/skills/terrain/SKILL.md` states it. §12's content, identity and
   location rules are indifferent to this timing and are unchanged.
 
+- **OPEN (v12, kogaki#289): is `projects:` a fourth neighborhood substrate?**
+  §13.2 fixes the substrate set at three because kogaki#289's adopted riders
+  fixed it at three. The measurement taken for §13.3 found a fourth field
+  present on every lesson record and carrying exactly the kind of link the
+  other three carry — `"projects": ["product-lab", "writing-assistant",
+  "tanuki"]` at `gloss/ELEMENTS.jsonl:8`, and `["kogaki"]` at
+  `gloss/ELEMENTS.jsonl:41`
+  (`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/ELEMENTS.jsonl:8,41`).
+  It is **not adopted here** and the reason is a boundary rather than an
+  oversight: `projects:` is already load-bearing as **harvest scope** in the
+  evidence model ("repositories are harvest SCOPE (the union of the thesis's
+  Strands' `projects:`) and never evidence binding",
+  `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:97`),
+  so recruiting it as a *relevance* substrate would give one field two jobs
+  across two subsystems, which is the shape that ruling declines one level up.
+  Carried as a question, never as contract, per this section's own rule.
+  **Its trigger is §13.5's dogfooding gate** — a recorded miss whose Grain
+  shares only `projects:` with the candidate set is what would decide it, and
+  that is an observation rather than a date.
+
 ## 12. The Full Report — untruncated material, keyed to what produced it
 
 **This section folds kogaki#129**, and it is the other half of §6.1: the
@@ -2893,3 +2946,290 @@ at pins (`specs/SPEC.md` §2), never from a report. What has changed is
 **where the owner reads it**, not what it may ground: the rendering-not-an-address
 clause above is untouched, and moving a file into the tree does not make it
 evidence.
+
+## 13. The provenance neighborhood — a Thesis-bounded widening of the candidate set
+
+**This section folds kogaki#289** (owner-adopted direction 2026-08-08; hub
+assessment `product-lab:q_a/staging/2026-08-08-terrain-cross-tag-expansion-for-candidate-strands.md`).
+It designs the mechanical layer only. The LLM-relevance extension is not
+designed here and not promised — §13.5 is its gate, and discard stays a valid
+outcome.
+
+### 13.0 The defect, and the served ground it actually rests on
+
+The candidate set reaching the owner is **co-tag-bounded**. A contemporaneous
+Grain under an unrelated tag — the specimen is an OwnerRule lesson explaining
+*why* a design direction changed, sitting in the same sitting's batch as the
+design-change Strands — is unreachable from the co-tag group that holds those
+Strands. Nothing on the screen says it exists.
+
+**The ground is `[[reachability-is-address-plus-discovery]]`, and it is worth
+stating which lesson does *not* apply, because kogaki#289's own riders name the
+other one.** The served surface separates them explicitly:
+
+> "Ratifying the exclusion is REFUSED: an entry screen structurally omitting 54%
+> of served material is a discovery failure, not an honest scope.
+> `[[reachability-is-address-plus-discovery]]` holds that reachability is the
+> conjunction of a resolving address and a surface that discloses it … **The harm
+> is deliberately NOT the one `[[grouping-upstream-of-selection-is-a-gate]]`
+> names — that governs granularity, where the full set is present and only the
+> choosable unit is coarsened, so a reader applying it here finds no violation;
+> here the material is absent from the axis entirely**, and that lesson's
+> diagnostic question returns zero for this corpus, decided by an axis that was
+> never asked about it."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:109`
+
+  outcome: discriminating
+  query: Is a remedy that adds a propose-only expansion view surfacing same-provenance items constrain-shaped or individual-prohibition-shaped?
+  query: grouping upstream of selection is a gate; propose-only suggestions that keep the full population reachable and disclose their substrate; naming the enumeration so a coverage claim has a denominator
+
+kogaki#289's rider list cites `[[grouping-upstream-of-selection-is-a-gate]]`.
+That citation is **corrected here rather than carried**: by the quoted line's
+own words a reader applying it to this defect "finds no violation", so resting
+the surface on it would leave the design grounded in a position that returns
+zero for this corpus. The rider's *content* — propose-only, upstream of
+selection, full population reachable — survives unchanged and is §13.1; only its
+authority moves.
+
+**Which conjunct this section establishes, and which it leaves open.** The
+ground is a conjunction lesson, and its own rider binds the act that invokes it:
+"a fix satisfying one conjunct presents as discharging the whole rule, because
+it cites the rule accurately and the citation lends the untouched conjunct its
+air of completeness — so a fix invoking a conjunction lesson must name which
+conjunct it establishes and name the one it leaves open"
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:54`).
+Stated plainly: **§13 establishes DISCOVERY and does not close ADDRESS.** The
+surface discloses that the neighborhood exists, which is the conjunct the
+co-tag-bounded screen was failing. The address conjunct stays open exactly where
+§13.3 says it does — a `source_batch` that does not resolve by equality for the
+12 legacy batches — and §13.3's unresolved marker is a *disclosure* of that gap,
+never a repair of it. A reader taking §13 as closing reachability for this
+corpus is reading the untouched conjunct's air of completeness rather than this
+section.
+
+**The standing beyond article quality**, carried from the licensing issue and
+not re-derived: the 2026-08-01 contradiction-cost ruling admits thesis-first
+reading *because* "the surprise channel is the terrain listing rather than the
+repository". A co-tag-bounded Terrain weakens that channel, so this surface
+defends the premise of a ratified position rather than only improving a screen.
+
+### 13.1 What it is under §2 — a report, never a proposal, and no divergence owed
+
+The neighborhood **widens**. It never narrows, never reorders the candidate set,
+never hides a row, and gates nothing.
+
+**§2's three inherited contracts are untouched, and this is the load-bearing
+paragraph of the section.** §2.3 defines a proposal as the act of narrowing:
+
+> "the boundary engages exactly when something other than the owner narrows the
+> candidate set, and its test is whether what reached the owner is smaller than
+> what exists"
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:89`
+
+Nothing here is smaller. So:
+
+- **§2.3 is applied, not amended.** Its enumeration lists only narrowing acts,
+  and its residual clause governs the rest — "An act not in either list is a
+  report, not a choice — Terrain surfaces it as unclassified with its reason and
+  takes no narrowing action" (§2.3). A widening act is in neither list, and the
+  clause's own remedy is exactly what §13.4 requires: surface it **with its
+  reason**, take no narrowing action. The residual clause is doing the work it
+  was written for; adding a widening branch to an **inherited** contract would
+  be a consumer amending the manifest's own text, which §2's preamble forbids
+  ("inherited unamended").
+- **No §5.1-style declared divergence is owed**, and the absence is recorded so
+  a reader does not infer one was skipped. §5.1's discipline binds a consumer
+  shipping *ahead of* a served ruling; here the served ruling is the ground.
+- **The candidate model in §5 is unchanged.** §2.2 reserves "what the candidate
+  set *is*" to §5 and says grouping never touches it; the neighborhood is
+  symmetric — it is a **view beside** the candidate set, so it touches neither.
+  A neighborhood suggestion becomes a candidate only by the **owner's** act of
+  taking it, which is the selection §2.2 protects.
+- **"Propose-only" is the licensing issue's word and not this spec's.** In
+  kogaki#289 it means *suggests without gating*; in this spec a **proposal** is
+  a narrowing act routed to `specs/spec-proposal-contract/SPEC.md`
+  (`specs/spec-proposal-contract/SPEC.md:27-29`). The mapping is
+  §289-propose-only → **this spec's report**. §4 states why the collision
+  matters: resolved the other way, a reader concludes Terrain grew a
+  proposal-rendering affordance of its own and that §1's refused alternative was
+  built.
+
+### 13.2 Input is the candidate set AND the tentative Thesis
+
+The surface takes **two** inputs: the candidate Strand set, and the tentative
+Thesis or story hypothesis. Both are required. Strand-set-only similarity is
+**declined**, and the decline is mechanical rather than aesthetic:
+
+> "Whether a falsifiable question exists at the time of a read decides whether
+> that read has a relevance criterion, a stopping condition and a grade — so
+> prepare pointers in advance and never answers; a pre-computed answer has no
+> denominator, and no instrument can tell a good one from a bad one."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:33`
+(`[[a-read-without-a-question-cannot-be-bounded-or-graded]]`)
+
+The Thesis is that question. Without it the neighborhood has no relevance
+bound, so it grows toward corpus size and has no grade — a suggestion list
+nobody can call wrong. With it, **empty is an informative outcome**, and a
+neighborhood that returns nothing is a result rather than a failure. That is
+also why this surface is **not** a third sibling *entry point*: it takes a
+candidate set plus a Thesis, so it sits downstream of whichever entry produced
+them (Lessons co-tag today, Decisions later).
+
+### 13.3 The three substrates, and the join that does not hold by equality
+
+Three links, all served today, verified through the seam at this amendment's
+pin rather than quoted from the licensing issue:
+
+| substrate | link | verification |
+|---|---|---|
+| `source_batch` | same-sitting provenance | `gloss/ELEMENTS.jsonl:1,4,7-8,10,22-23,30,41,47-48,53-54,73,85,93,96,107,122-123,132,135,141,148` — present on every lesson record read |
+| `cross_links` | the `[[slug]]` graph | same records; e.g. five links at `gloss/ELEMENTS.jsonl:8`, and the empty list at `:4`, which is a value rather than an absence |
+| shared carrier issue | issue numbers in pins | consumer-side, read from the pins Terrain already holds |
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/ELEMENTS.jsonl:1,4,7-8,10,22-23,30,41,47-48,53-54,73,85,93,96,107,122-123,132,135,141,148`
+
+**THE MEASURED CORRECTION — `source_batch` does not resolve by equality, and it
+fails silently.** kogaki#289 carries the caveat in the right direction ("batch
+membership joins through `kind: batch` records' `members`, never by
+string-equality on `source_batch`") and states it against a figure — "65/289
+records point inside a batch dir" — that is a different quantity from the one
+that decides the join. The measurement taken for this amendment:
+
+- **148 `kind: batch` records**, carrying **293 member references** in total
+  (`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/ELEMENTS.jsonl:745-892`).
+- Their ids split across **two namespaces**: **136 dated slugs**
+  (`q_a/2026-07-30-topic-file-cap-and-recall-cost`) and **12 legacy numbered**
+  (`q_a/3`, `q_a/10`, `q_a/18`).
+- A lesson's `source_batch` matches a **dated** id exactly —
+  `q_a/2026-07-30-topic-file-cap-and-recall-cost` at `gloss/ELEMENTS.jsonl:1`
+  resolves to the batch record at `gloss/ELEMENTS.jsonl:854`.
+- It does **not** match a **legacy** id: the lesson at
+  `gloss/ELEMENTS.jsonl:85` carries `source_batch: "q_a/3/answer.md"` while the
+  batch record's id is `"q_a/3"` (`gloss/ELEMENTS.jsonl:891`). The `/answer.md`
+  suffix defeats equality. Same shape at `:141` (`q_a/18/answer.md` against
+  `q_a/18`, `gloss/ELEMENTS.jsonl:753`).
+
+**So the resolver joins through the batch record's `members`, and an
+unresolvable `source_batch` is reported rather than dropped.** The failure mode
+this forbids is the specific one: an equality join returns *no batch-mates* for
+every Grain in the 12 legacy batches, and presents that as "this Grain has no
+same-sitting siblings" — indistinguishable on screen from a Grain that genuinely
+has none. That is this surface reproducing, one layer down, the exact silent
+exclusion §13.0 exists to remove, and it is
+`[[a-defect-your-instrument-absorbs-reads-as-clean]]`
+(`gloss/ELEMENTS.jsonl:8`) with this section as its instrument. A batch-mate
+lookup that cannot resolve its `source_batch` therefore emits an **explicit
+unresolved marker naming the value**, never an empty result.
+
+**`members` is family-keyed, which makes §13.4 cheap rather than expensive.**
+The served shape is `{"members": {"journey": [...], "lesson": [...]}}`
+(`gloss/ELEMENTS.jsonl:745`), so the join already carries each batch-mate's
+family; §13.4's no-pooling rule needs no additional lookup and no inference.
+
+### 13.4 Disclosure, denominator, and families that are never pooled
+
+Three obligations on the rendering, each inherited:
+
+1. **Every suggestion discloses the substrate that reached it** — batch-mate,
+   cross-link, or shared carrier — and names it. This is §2.3's residual clause
+   ("surfaces it as unclassified **with its reason**") satisfied literally: the
+   substrate *is* the reason. A suggestion whose substrate is not stated is
+   non-conformant, not terse.
+2. **The view names its enumeration, and the figure names its family.** §2.1
+   binds every Terrain figure to state its denominator's family, and the
+   neighborhood owes it twice over, because a coverage claim over a
+   self-supplied denominator is the shape the hub refuses: "a coverage claim is
+   admissible only over an enumeration the claimant did NOT receive from the
+   party the claim is made to — so where scope must come from the human, the
+   human supplies a REGION and the phase does the enumerating"
+   (`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:61`).
+   Here the owner supplies the region — candidate set plus Thesis — and the
+   surface enumerates and **reports what it looked for and did not find**,
+   including the unresolved-`source_batch` markers of §13.3.
+3. **Populations are never pooled.** A batch-mate may be a Journey, a Decision,
+   or a Position rather than a Lesson. Such a suggestion renders in its **own
+   named family section** and never inside the Strand candidate list:
+
+   > "The facade converges the INVARIANT SPINE and must NEVER merge the
+   > POPULATIONS. … The 2026-07-28 ruling minted no umbrella term over Strand
+   > and thread-line DELIBERATELY, because a covering word is what let a
+   > 132-of-246 figure be measured over Lessons ∪ Decisions and quoted into
+   > decisions taken under a Lesson-or-Journey definition — so a facade offering
+   > one pooled selectable list would rebuild that hazard mechanically rather
+   > than verbally."
+
+   `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:72`
+
+   This is the obligation the surface is most likely to breach by convenience,
+   because the neighborhood's whole appeal is that it crosses boundaries — and
+   family is the one boundary it must not cross. §13.3's family-keyed `members`
+   is what makes compliance mechanical.
+
+**Completeness is unaffected, and the reason is §2.1's own.** The count runs
+after composition over the **placements** of the set the owner adopted; a
+widening view upstream of adoption changes what *may* be adopted and not what
+was placed. A neighborhood suggestion the owner does not take is not a dropped
+Strand — it was never in the composed set.
+
+### 13.5 The extend-or-discard gate
+
+The LLM-relevance extension enters **only** if the mechanical layer measurably
+misses during dogfooding, by the subdivision precedent: implemented →
+dogfooded → owner-verdicted (§8.1's measurement-before-offering rider, applied
+unchanged). **Discard stays a valid outcome**, and so does "mechanical layer
+sufficient".
+
+The trigger is an observation, never a date: **a recorded run in which the
+owner names a Grain that belonged in the Strand set and that none of §13.2's
+three substrates reached.** The unresolved-`source_batch` markers of §13.3 are
+deliberately *not* that evidence — an unresolved join is a mechanical defect to
+fix, and counting it as a relevance miss would buy the extension with the
+mechanical layer's own bugs.
+
+### 13.6 Placement, and the coupling that is refused
+
+**Terrain only.** The Brief's closed-Strand-set invariant is untouched:
+mid-composition gap discovery keeps its ratified remedies, and re-opening a
+closed set routes back through Terrain as an **owner** act.
+
+**No Move coupling, and it is a prohibition rather than a scope note.**
+Expansion is Thesis-driven. Suggesting Grains *because they would make a Move
+applicable* is the declined adjacency/Recipe shape, whose named observable
+defect is Move-first composition — the article's shape choosing its material.
+A neighborhood that consulted the Move set would invert the dependency this
+section exists to preserve.
+
+### 13.7 What this binds in the implementation
+
+Stated as blast radius, with shipped-code pointers read at this amendment:
+
+- **`terrain/terrain.mjs`** — a new subcommand beside the eleven dispatched at
+  `terrain/terrain.mjs:2128-2138`. It is a **sibling of `cotags`**
+  (`terrain/terrain.mjs:574`), not a change to it: `cotags` composes within one
+  tag and its `--claims` refusal is keyed to `compose-input`'s composition pin
+  (§11), which a widening view must not perturb. The neighborhood reads the
+  survey record and the Thesis and emits its own artifact.
+- **`compose-input`'s bounded read is unchanged** (`terrain/terrain.mjs:1496`).
+  §11's subset refusal is what guarantees claims are composed only from served
+  members; a neighborhood suggestion the owner **took** enters through the
+  ordinary candidate path and is covered by that pin, and one the owner did not
+  take is absent from both. **No amendment to §11 is owed** — recorded because
+  a widening surface upstream of a subset guard is exactly where a reader would
+  expect one.
+- **`.claude/skills/terrain/SKILL.md`** — the flow gains the surface. Its hard
+  line "Compose from `compose-input`, never from the whole survey"
+  (`.claude/skills/terrain/SKILL.md:226`) is untouched and, note, is *why* the
+  neighborhood cannot be implemented as a wider survey read at composition time.
+- **`checks/check-terrain-composition.sh`** — the conformance home. The three
+  mechanically checkable properties are substrate disclosure per suggestion, a
+  stated per-family denominator, and an explicit unresolved marker for a
+  `source_batch` that does not resolve. The third is the one with a ready
+  fixture: a legacy-numbered batch (`q_a/3` against `q_a/3/answer.md`) is a
+  real corpus member, so the check has a live specimen rather than a synthetic
+  one.
+
+**None of this section is implemented.** It is the design kogaki#289 scoped, and
+the implementation is a separate licensed act.
