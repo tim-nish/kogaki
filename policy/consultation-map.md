@@ -86,6 +86,133 @@ postmortem's question field is where that binds** — see *Miss postmortem*
 below, whose disclosure cases are widened by this section rather than
 reinterpreted by it.
 
+### `deferred-slot: proposer-siting` is FILLED — the split is by PORTABILITY (kogaki#222)
+
+**Owner decision 2026-08-08, kogaki#222.** The two proposers named above are
+sited **apart**, and the axis is what each one READS:
+
+- **Miss harvesting** (story 1.40) lives in **`policy/kit/bin/`**. Its whole
+  input is the receipt's `outcome` token, whose value set is the **hub's** and
+  not this repository's, so the proposer works unchanged in any kit-installing
+  consumer. It travels with the kit because it depends on nothing this
+  repository authors.
+- **Receipt-absence mining** (story 1.41) lives in **`tools/`**, beside
+  `tools/review-sweep.sh`. Its input is `.claude/skills/review-lane/SKILL.md`
+  §2's boundary-vs-receipt record — an artifact **this** repository authors and
+  whose shape this repository owns. It cannot travel, and a copy of it in the
+  kit would be a component whose input does not exist at the other end.
+
+**Recorded before code embeds it**, which is the decide-or-name rule's own
+requirement and not a courtesy — an excerpt quoted at its pin:
+
+> "… a sitting that leaves a design choice to the implementation either DECIDES
+> the fork there, consulting the substrate on it, or emits a NAMED SLOT whose
+> filling is itself a decision act — consult, then record choice, alternatives
+> and receipt on the licensing issue BEFORE code embeds it."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:41`
+
+**What discriminates it.** The served surface carries a **siting rule**, and it
+keys on authorship of the content read rather than on convenience — an excerpt
+quoted at its own pin:
+
+> "… The siting rule is who writes a file determines where it lives — the
+> consultation map is consumer-local because consumers author its content
+> (their own misses) and the baseline is hub-served because the owner authors
+> its content …"
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:47`
+
+and its test, which the receipt vocabulary is the named instance of — the same
+line story 1.40 AC2 already quotes for the token set:
+
+> "A consumer owns the SHAPE of its own record and NEVER the VALUES of a field
+> that exists to join across the boundary, and the test is WHO MUST AGREE for
+> the field to work: a field read by one side is that side's, a field read by
+> both is the boundary's, and the boundary's owner is the hub."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:31`
+
+Run over the two proposers, that test returns two different answers, which is
+why one fill for both was never available: the `outcome` token is read by both
+sides and is the boundary's, so its reader is kit-shaped; the review lane's
+report is read by one side and is this repository's, so its reader is
+repository-shaped.
+
+**The alternatives, recorded because a decision without them is an assertion.**
+
+*A2 — both in `tools/`, deferring the export until a second kit-installing
+consumer exists.* Its appeal is real: the separation trigger has not fired, and
+`policy/kit/` sits in this repository today anyway. **Declined on the cost of
+finding out late.** A packaging error is invisible to every executed path —
+"a design model can be correct on every executed path and wrong in where its
+files sit, because nothing executes a directory layout"
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:56`),
+the line that also records the 2026-08-05 audit finding the kit's design HELD
+BEHAVIORALLY AND BROKE IN PACKAGING with two colocation defaults. So the
+deferral does not buy information; it buys a relocation nothing will signal is
+owed. **The cost of declining it is stated rather than hidden:** if the second
+consumer never arrives, the portable proposer sat in the kit for no benefit —
+a directory, and no runtime difference.
+
+*A3 — both in `policy/kit/bin/`, one home.* **Declined because it exports a
+repository-specific component into a package built to be repository-neutral,
+across a boundary that is one-way.** The kit separates into its own repository
+when a second kit-installing consumer exists (kogaki#9, and
+`topics/knowledge-architecture.md:56@dec0d568` above), and the served position
+on that class of boundary is that visibility, not subject-matter kinship,
+decides membership:
+
+> "Decide whether two knowledge stores belong in one repository based on
+> whether they could ever have different visibility, not on whether they cover
+> similar subject matter. … When in doubt, keep them separate and connect them
+> with pointers"
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:311`
+(`repo-boundaries-follow-publication-boundaries`)
+
+The two proposers are kin in subject matter — both grow this map — and that is
+exactly the reason the rule says is not one. The Layer-2 boundary is also
+untouched by this fill and is restated rather than assumed to have survived it,
+per the served surface's own handling of the last home change
+(`topics/knowledge-architecture.md:57@dec0d568`): packaging for the owner's own
+repositories is internal work and proceeds; the kit as a product for unknown
+third parties stays a held candidate, and siting one file in `policy/kit/bin/`
+is not a step toward it.
+
+**The counter-line, met rather than skipped.** `encode-the-boundary-that-is-real`
+warns against baking a distinction whose axis has only one live value
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:239`).
+It does not bite here, and the reason is the test the lesson itself gives:
+portability has **two live values in today's content** — one proposer reads the
+hub's grammar, the other reads a local record — so the boundary already has two
+real sides rather than an anticipated second one.
+
+**The naming sitting's premise is CORRECTED here, not carried forward.**
+kogaki#222 named this slot with "no served line discriminates it". Re-read at
+the current pin — the issue pinned `product-lab@98195e0a`, the served surface
+answers at `@dec0d568` — that premise is **false**: the siting rule at
+`topics/knowledge-architecture.md:47` and its who-must-agree test at `:31` both
+discriminate it directly. The correction is reported rather than quietly
+reconciled, which is the disposition discipline this file's entry 3 exists for.
+It changes nothing about the fill: the served rule and the owner's selection
+agree, so no fork re-opens.
+
+**What this fill does NOT decide.** File names, whether the two proposers share
+a module or a library, and whether either is ever registered as a check (both
+stories declare that out of scope) are the implementing sittings' to settle;
+none is a named slot and none is this decision. Story 1.41's own precondition —
+a declared line shape for `SKILL.md` §2's record — is a separate, still
+undischarged obligation and is not touched here.
+
+**Why this record sits in this file without violating Invariant 2.** Invariant
+2 refuses an **entry** that encodes a verdict, because an entry that answers is
+a second authority beside the substrate it copied. This is not an entry and not
+a policy answer: it is this repository's own decision about where its own files
+sit, and it is recorded in the section that ratified the proposers because that
+is where the next reader meets them. The served lines above are quoted at their
+pins as grounds, and on any divergence the served surface wins.
+
 ## The two structured halves (schema v2, kogaki#24)
 
 **Read prescription** — the act class, and the served gloss shard(s) to
