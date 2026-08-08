@@ -1,15 +1,45 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v14, amended 2026-08-09 (kogaki#300, owner selection) — **the bound's
+unit is TRAVERSAL: substrates × depth, and `deferred-slot: the bound's unit` is
+FILLED.** The Thesis names which provenance links are worth following and how
+far; no enumerated neighbor is ever scored, ranked or dropped, so §13.3's
+forbidden act never becomes available rather than being prohibited and
+reachable. **The Thesis→substrate mapping is DECLARED, never inferred per run**
+— the clause that keeps §13.5's relevance judgment from being absorbed by the
+back door. A neighbor-count cap was **declined on the served surface**: a size
+budget whose eviction set is decided on meaning "has no usable lever … the
+eviction set is a property of the corpus, not a dial"
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:47`).
+**PR #301 round-2 finding 5 is discharged by repairing the v13 block itself,
+in place, rather than by this block asserting the repair from above** — the
+correction finding 5 actually named. A later record says when someone wrote,
+never what an earlier one says
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:209,269`),
+so a v14 block claiming v13 is now qualified would leave every reader of v13
+meeting the unqualified claim unchanged. v13's block below now carries the
+qualification and names the slot it opened; this block records that the slot is
+filled.
+Implementation is licensed by kogaki#300 (stories 1.44/#302, 1.45/#303) and is
+not in this amendment.
+
 **Status:** v13, amended 2026-08-09 (kogaki#300, owner selection) — **§13.3 says
 where the Thesis binds, which §13.2 required and §13.3 left silent.** The fork
 was found by PR #298's round-2 review and carried on #289: §13.2 declares the
 Thesis a REQUIRED input while §13.3's three substrates are each computable from
 the candidate set alone, so the mechanical layer as specified returned the same
 neighborhood for every Thesis and §13.2's "empty is an informative outcome" was
-unreachable from anything §13.3 described. Resolved on the served ground that a
-question supplies a **relevance bound, stopping condition and grade** rather
-than a filter: the substrates **enumerate**, the Thesis **bounds the
-expansion**. §13.2 is unchanged — it was right. §13.5 gains the boundary clause
+unreachable from anything §13.3 described. Resolved **conditionally** on the
+served ground that a question supplies a **relevance bound, stopping condition
+and grade** rather than a filter: the substrates **enumerate**, the Thesis
+**bounds the expansion**. *(Repaired in place 2026-08-09 by v14, kogaki#300:
+this block originally read "Resolved" without qualification and named no slot,
+while the §13.3 text it describes made the resolution conditional on
+`deferred-slot: the bound's unit` — **opened by this amendment, filled by
+v14**. The correction is written here rather than asserted from the block
+above, because a reader arriving at this block would otherwise still meet the
+unqualified claim; a later record cannot change what an earlier one says.)*
+§13.2 is unchanged — it was right. §13.5 gains the boundary clause
 keeping that bound distinct from the extend-or-discard judgment it holds behind
 a trigger. Implementation is licensed by kogaki#300 and is not in this
 amendment.
@@ -3163,28 +3193,88 @@ by**:
 So the division is: **the three substrates enumerate, and the Thesis bounds the
 expansion of that enumeration** — how far the traversal runs and where it stops.
 
-**`deferred-slot: the bound's unit` — decided by kogaki#300's story 1.44, not
-here.** This section fixes *that* a stopping condition exists and that it may
-never be a relevance predicate; it does not fix what the condition is measured
-in (traversal depth, member count, substrate exhaustion, or another unit). The
-slot is named here rather than only on the story because a reader of §13.3
-alone would otherwise meet text that reads as complete.
+**The unit is TRAVERSAL: substrates × depth (v14, kogaki#300, slot filled).**
+The Thesis answers *which provenance links are worth following, and how far* —
+`source_batch` one hop, `cross_links` two, shared-carrier off, and so on. The
+bound is therefore expressed entirely in the traversal's own terms, never in
+terms of the neighbors it yields.
 
-**And §13.2's "empty is an informative outcome" is reachable only once that
-slot is filled — stated rather than asserted.** Under a bound that may change
-only *how many*, an empty neighborhood over a **non-empty** enumeration would
-mean the bound halted at zero, and a bound halting at zero for one Thesis and
-not another has decided something about the first neighbor — precisely the tell
-this section names below. So on the text as it stands, empty is guaranteed
-reachable only where the enumeration is itself empty, in which case the Thesis
-is not what made the outcome informative. Whether §13.2's claim holds in the
-stronger form it intends depends on the unit the slot above carries: a unit
-operating on **which substrates and how deep the traversal runs** can reach
-empty without ever judging a neighbor, while a unit operating on neighbor count
-cannot. Filling the slot is a decision act owed on kogaki#300 with its own
-alternatives and receipt, and an implementation that picks a unit in code has
-settled it silently — which is the defect this whole amendment exists to
-prevent, one level down.
+**That is what makes the forbidden act unreachable rather than merely
+prohibited.** Under this unit the bound is applied *before* a neighbor exists to
+judge: removing the Thesis changes which substrates are traversed, hence how
+many neighbors are enumerated, and no enumerated neighbor is ever scored,
+ranked or dropped. The tell below stays satisfied structurally — there is no
+step at which a relevance verdict on a neighbor could be inserted without
+visibly changing the unit.
+
+**And §13.2's "empty is an informative outcome" is reachable in the strong form
+it intends.** A Thesis whose relevant substrates yield no members produces an
+empty neighborhood as a *result about the corpus* — the traversal ran and found
+nothing — rather than as a bound that halted at zero over material it declined
+to look at. The v13 form of this section could not support that claim and said
+so; this unit is what discharges it.
+
+**A neighbor-count cap was declined, and the ground is served rather than
+aesthetic.** A top-N over neighbors is a size budget whose eviction set is
+decided on meaning:
+
+> "A size budget enforced by evicting members whose membership is decided on
+> MEANING rather than size has no usable lever — the eviction set is a property
+> of the corpus, not a dial, and pulling it past that point destroys the
+> guarantee the collection exists for."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:47`
+
+The surfacing-threshold alternative (`LESSONS.md:134`, a threshold gating what
+surfaces by default while below-bar items stay reachable) was also declined
+here, on the narrower ground that it *ranks* — which this section forbids the
+bound from doing — so adopting it would have meant amending that clause rather
+than filling this slot.
+
+**The Thesis→substrate mapping is DECLARED, never inferred per run.** Deciding
+which substrates a given Thesis makes relevant is judgment, and judgment about
+relevance is what §13.5 holds behind its trigger. So the mapping is a stated,
+reviewable declaration the run *reads*, not something computed from the Thesis
+at call time: an implementation that derives the substrate set from the Thesis
+per run has moved §13.5's extension inside the mechanical layer through the one
+door this unit leaves open.
+
+**And the declaration's site is named here, not left to the implementation
+(v14, kogaki#300).** The mapping is a **table in this section of this SPEC**,
+amended by the same act that amends any other clause of it. The clause above
+rests its whole admissibility on the mapping being "written down and reviewed
+once", and only a site with a *review act attached* delivers that: a literal in
+`terrain/terrain.mjs` or a JSON file beside it is written down and reviewed by
+nothing in particular, whereas a spec section is reviewed by the act that
+already reviews this file. It also makes §13.5's tell observable rather than
+notional — the mapping's contents change with **a spec amendment**, which is a
+review, and never with the Thesis handed to a run.
+
+**The table, seeded (v14, kogaki#300).** It carries one row today:
+
+| Thesis kind | substrates traversed | depth |
+|---|---|---|
+| *(default)* | `source_batch`, `cross_links`, shared carrier issue | 1 |
+
+**The default row is the widest bound this unit can express, which is why
+seeding it narrows nothing.** All three substrates at depth 1 is the maximum
+traversal §13.3 admits, so §13.1's widen-only classification is untouched by
+its presence; a row can only ever traverse *less*, and only by amending this
+table.
+
+**Two consequences stated rather than left to be discovered.** First, until a
+second row exists the Thesis changes nothing about the traversal — the
+mechanism is in place and **unexercised**, which is the honest description and
+not a defect to hide: §13.5's dogfooding trigger is what earns the second row,
+exactly as it earns the extension. Second, a Thesis matching no row resolves to
+*(default)* rather than refusing, so the surface degrades to the full
+enumeration rather than to nothing — the failure direction §13.1 requires.
+
+The rows the first real Thesis kinds supply are added by **amending this
+table**, which is the review act the clause above names. Deliberately *not*
+cited to §13.7: that section enumerates the implementation files and closes
+"None of this section is implemented", so it binds the implementing act and
+carries no rule about amending §13.3.
 
 **Why this is a bound and not a filter, stated because the two are one
 refactor apart.** A filter over the rendered set would *narrow* what reaches the
@@ -3267,6 +3357,17 @@ implementation whose bound requires judging a neighbor against the Thesis has
 built this extension without its trigger firing, and the observable tell is
 that removing the Thesis would change *which* neighbors are surfaced rather
 than *how many*.
+
+**The declared Thesis→substrate mapping is outside this gate, and stays outside
+only while it is declared (v14, kogaki#300).** §13.3's unit needs a mapping from
+Thesis to traversed substrates, and choosing that mapping is relevance judgment
+— this section's own subject. It is admissible in the mechanical layer for
+exactly one reason: it is **written down and reviewed once**, not computed per
+run, so it is a stated configuration a reader can audit rather than a verdict
+the tool reaches about a Thesis it was handed. An implementation that infers
+the mapping at call time has entered this extension without its trigger firing,
+and the tell is the same shape as §13.3's: the mapping's contents would change
+with the Thesis rather than with a review.
 
 The `§13.2` in this section's trigger sentence was corrected to `§13.3` in the
 same amendment: the three substrates are enumerated there, and the mis-citation
