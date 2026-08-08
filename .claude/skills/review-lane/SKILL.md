@@ -299,10 +299,14 @@ report-complete: <N> findings
   The regex lives in two files; the adjacent form is the one whose failure
   mode does not exist. Same use-vs-mention class kogaki#41 fixed once.
 - The check reads **only** these declared lines. What the findings say is
-  judgment and stays here. `carried:` / `declined:` are read by neither the
+  judgment and stays here. Which of them can turn the merge layer red, stated
+  per class rather than left to be inferred: `finding:` **gates** (a justified
+  `blocking open` at this head), and since §4 clause 10 **`supersedes:` gates
+  too** — by its *absence*, on an earlier head's justified `blocking open` that
+  no later segment names. `carried:` / `declined:` are read by neither the
   merge check nor the sweep's state machine as a gate — clause 8 declares
-  `checks/check-review-report.sh` untouched — and `boundary:` is parsed and
-  printed there but never gated.
+  `checks/check-review-report.sh` untouched — and `boundary:` and
+  `cannot-determine:` are parsed and printed there but never gated.
 
 ### `boundary:` — the per-entry boundary-vs-receipt record (kogaki#258)
 

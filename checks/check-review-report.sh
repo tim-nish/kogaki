@@ -5,11 +5,15 @@
 # WHAT THIS ENFORCES, AND WHAT IT ONLY STATES. The distinction is the point of
 # the check, not a caveat on it.
 #
-#   ENFORCED — a review-lane report EXISTS for this PR's CURRENT head, AND no
-#   finding in it is declared blocking and still open. Both are computable
-#   facts about the PR. The property is CONVERGED OR ESCALATED rather than
-#   reviewed-once (kogaki#34): a report that lands findings and is never
-#   answered leaves the PR reviewed and unimproved.
+#   ENFORCED — THREE properties, all computable facts about the PR. (1) A
+#   review-lane report EXISTS for this PR's CURRENT head. (2) No finding in it
+#   is declared blocking and still open. The property is CONVERGED OR ESCALATED
+#   rather than reviewed-once (kogaki#34): a report that lands findings and is
+#   never answered leaves the PR reviewed and unimproved. (3) Since §4 clause
+#   10 (kogaki#269), no finding declared JUSTIFIED BLOCKING AND OPEN at an
+#   EARLIER head is left unnamed by every later segment — the `unadjudicated`
+#   state. That third one gates the SILENCE and never the severity: kogaki#72's
+#   budget is untouched and no `should` gates as a `should`.
 #
 #   STATED, NEVER ENFORCED — that the report's author did not author the work
 #   under review. Session identity appears in neither git nor GitHub metadata:
@@ -85,9 +89,16 @@
 #   review-lane report: <head sha>
 #   review-base: <base sha>             — absent means NO RECORDED BASE
 #   review-scope: full | delta          — absent is read as `full`
+#   boundary: <entry N> <verdict> [receipt: <pin>]  — REPORTED, never gated
 #   finding: ...
+#   supersedes: <earlier head sha> finding <N>  <grounds>   — GATED (clause 10)
 #   cannot-determine: <dimension> — <why>   — REPORTED, never gated
 #   report-complete: <N> findings       — absent is read as complete
+#
+# This enumeration is the report's SHAPE and is re-derived whenever a line
+# class is added — it had already fallen a class behind (`boundary:`,
+# kogaki#258) before `supersedes:` was added to it, which is the
+# stale-self-description class §4 clause 9 exists to type.
 #
 # A REFUSED CAPABILITY DEGRADES A DIMENSION, IT DOES NOT DELETE A REPORT (§4's
 # third conduct clause, kogaki#100). `cannot-determine:` is where a reviewer
@@ -421,6 +432,15 @@ BOUNDARY = re.compile(
 # opposite of `cannot-determine:`'s: this token's subject is a finding that
 # ALREADY gated, so failing toward the gate restores the prior state rather than
 # minting a new denial.
+# THE LEADING `^` IS EQUIVALENT HERE, AND THAT IS RECORDED RATHER THAN LEFT
+# LOOKING LOAD-BEARING. Measured: removing it kills no fixture, and it cannot,
+# because this pattern is only ever used as `SUPERSEDES.match(line)` over a
+# SINGLE line — `re.match` already anchors at position 0. The operative
+# use-vs-mention guard is `.match()` plus the leading `\s*`, not the caret; the
+# caret is kept for byte-level consistency with the five sibling tokens, which
+# is a readability choice and not a behaviour. The TRAILING `$` is NOT
+# equivalent — without it `\S.*?` captures one character — and is asserted by
+# the grounds-extent assertion in the fixture pass.
 SUPERSEDES = re.compile(
     r'^\s*supersedes:\s*(?P<sha>[0-9a-f]{7,40})\s+finding\s+(?P<ord>\d+)\s+'
     r'(?P<grounds>\S.*?)\s*$', re.MULTILINE)
@@ -896,7 +916,7 @@ def digest(text):
 
 def find_report(bodies, head, carried=()):
     """Return ('present'|'stale'|'absent'|'head-unknown'|'blocked'
-    |'incomplete', shas).
+    |'incomplete'|'unadjudicated', shas).
 
     `stale` means a report exists but names a different head: it reviewed code
     this PR no longer proposes, so it is not presence for THIS head.
@@ -1575,9 +1595,25 @@ print(f"boundary pass: {len(BOUNDARY_FIX)}/{len(BOUNDARY_FIX)} "
 # over the SHA rather than the segment, an ordinal past the end resolving to
 # nothing rather than to a neighbour, each sha numbered independently, and a
 # fragment consuming its ordinals so the identity stays uncoupled from clause
-# 6. The `ordinal_of()` half is covered by the round-trip assertion below
-# rather than by a case here. The mutation table in the PR record names which
-# case catches each.
+# 6, the backward-only walk asserted where a forward one would change the
+# verdict, the severity conjunct asserted with a JUSTIFIED earlier `should`,
+# the ordinal's 1-based FLOOR (`finding 0`), and whitespace-only grounds.
+# `ordinal_of()` is covered by the round-trip assertion below, and the grounds'
+# EXTENT by the grounds assertion beside it.
+#
+# SIX OF THESE WERE ADDED BECAUSE THEY WERE MEASURED TO SURVIVE (PR #287 round
+# 3), not because they were reasoned about: a mutation harness applied each
+# mutant to a copy of this file and ran this pass. The lesson is in the shape
+# they shared — in every case an assertion existed that LOOKED like it covered
+# the property and structurally could not reach it. The round-trip assertion
+# could not see `ordinal_of()`'s per-sha grouping because no `unadjudicated`
+# case had a preceding segment at a DIFFERENT sha; the backward-only case
+# named a finding a forward walk would not have reached either; the severity
+# case's earlier `should` carried no justification, so the `just` conjunct
+# refused it first; and a bare `supersedes:` with no trailing space is refused
+# by `\s+` before `\S` is consulted. The mutation table in the PR record names
+# which case catches each, and records the one mutant that is EQUIVALENT rather
+# than uncaught — the leading `^`, redundant under `.match()`.
 SUPER_FIX = [
     # (name, bodies, head, want state, want adjudication kinds, want #unadjudicated)
     ("a justified blocking at head A restated should at head B with no carrier",
@@ -1795,6 +1831,46 @@ SUPER_FIX = [
      f"review-lane report: {HEAD}\nfinding: blocking resolved  b fixed\n"
      "supersedes: dec255e7 finding 2  B's finding, numbered past the fragment",
      HEAD, 'present', ['resolved'], 0),
+    # --- MUTANTS THAT SURVIVED THE FIRST TABLE (PR #287 round 3). Each was
+    # measured against the shipped file with a mutation harness rather than
+    # reasoned about, and each case below was added because it KILLS the named
+    # mutant. The pattern in all six is the same: an assertion existed that
+    # LOOKED like it covered the property, and could not reach it.
+    ("an UNADJUDICATED finding whose segment is PRECEDED BY A DIFFERENT SHA — "
+     "the shape this PR's own record has, and the one the round-trip "
+     "assertion could not reach until now (kills: ordinal_of's per-sha "
+     "grouping)",
+     "review-lane report: 4ba9f974\nfinding: blocking open [harm: b]  at B\n"
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  at A\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  y",
+     HEAD, 'unadjudicated', [], 2),
+    ("a `supersedes:` in an EARLIER segment cannot name a finding that only "
+     "appears LATER — the backward-only walk, asserted where a forward walk "
+     "would change the verdict (kills: resolution over all segments)",
+     "review-lane report: 4ba9f974\nfinding: should open  x\n"
+     "supersedes: dec255e7 finding 1  premature\n"
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  y",
+     HEAD, 'unadjudicated', [], 1),
+    ("an earlier JUSTIFIED `should open` is still not a deny subject — the "
+     "severity conjunct, asserted with the justification present so that "
+     "dropping it changes the verdict (kills: sev == 'blocking')",
+     "review-lane report: dec255e7\nfinding: should open [harm: x]  justified should\n"
+     f"review-lane report: {HEAD}\nfinding: nit open  y",
+     HEAD, 'present', [], 0),
+    ("`finding 0` names nothing — the ordinal is 1-based at its FLOOR, not "
+     "merely in its arithmetic (kills: count >= n)",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding 0  zero-based",
+     HEAD, 'unadjudicated', ['resolved'], 1),
+    ("grounds of WHITESPACE ONLY are not grounds — the `\\S` guard, which a "
+     "no-trailing-space fixture cannot reach because `\\s+` already refuses "
+     "there (kills: the grounds class relaxed to `.*?`)",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  a\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding 1" + "   ",
+     HEAD, 'unadjudicated', [], 1),
     ("a clean two-head history with no earlier blocking at all is untouched — "
      "the overwhelming majority case pays nothing",
      "review-lane report: dec255e7\nfinding: should open  a\n"
@@ -1830,6 +1906,23 @@ for name, bodies, head_fx, want_state, _k, want_n in SUPER_FIX:
                 f"{'nothing' if hit is None else segs_fx[hit[0]]['findings'][hit[1]][3]!r} "
                 f"rather than back to {line_fx!r} — the paste-ready line names "
                 "a different finding than the one denied")
+# THE GROUNDS ARE CAPTURED WHOLE, asserted because nothing else reads their
+# EXTENT. Every case above asserts the adjudication's `kind` and none asserts
+# its text, so the trailing `$` anchor could be dropped and `\S.*?` would
+# lazily capture ONE CHARACTER with every state assertion still green — and the
+# grounds are what a human reads to judge a re-grade. One case, asserted
+# verbatim (PR #287 round 3; kills: the SUPERSEDES trailing anchor).
+_g_bodies = ("review-lane report: dec255e7\n"
+             "finding: blocking open [harm: a]  a\n"
+             f"review-lane report: {HEAD}\nfinding: should open  re-graded\n"
+             "supersedes: dec255e7 finding 1  measured under PyYAML 6.0.3")
+_g_want = "measured under PyYAML 6.0.3"
+_g_got = [g for _k, _s, _n, g, _l in adjudications(_g_bodies, HEAD)]
+if _g_got != [_g_want]:
+    super_bad.append(f"grounds extent: got {_g_got}, want {[_g_want]} — the "
+                     "grounds are captured to the end of the line, and a "
+                     "single-character capture would satisfy every other "
+                     "assertion in this pass")
 # THE CLAUSE-7 INTERACTION, asserted rather than assumed: a segment PROVEN to
 # have reviewed this head's content is this head's segment "for every purpose"
 # (`head_segments`), and that must include this one — otherwise a carry-forward
@@ -1882,9 +1975,12 @@ print(f"supersedes pass: {len(SUPER_FIX)}/{len(SUPER_FIX)} cross-head "
       "abbreviated sha / first-wins / the untouched majority / TWO REVIEWERS "
       "AT ONE HEAD in four shapes, the ordinal running over the sha and not "
       "the segment / an ordinal past the end / heads numbered independently / "
-      "a fragment consuming its ordinals), plus the clause-7 carry-forward "
-      "assertion with its control and the kogaki#72 severity-blindness "
-      "assertion")
+      "a fragment consuming its ordinals / a denied segment PRECEDED BY A "
+      "DIFFERENT SHA / a forward-naming supersedes / a justified earlier "
+      "`should` / `finding 0` / whitespace-only grounds), plus the clause-7 "
+      "carry-forward assertion with its control, the kogaki#72 "
+      "severity-blindness assertion, the printed-ordinal round trip and the "
+      "grounds-extent assertion")
 
 # --- trust assembly fixtures (kogaki#56): author-filtering, both directions.
 OWN = 'repo-owner'
