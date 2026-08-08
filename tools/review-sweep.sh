@@ -774,8 +774,10 @@ UNVERIFIED = re.compile(r'^\s*review-round-unverified:\s*([0-9a-f]{7,40})\s*$',
 # vocabulary and appears in finding text constantly.
 #
 # WELL-FORMEDNESS IS PART OF THE TOKEN, not a later judgment: `carried:` takes
-# an issue number or the literal `register` (§4 clause 8 admits the kogaki#13
-# register as a carrier so this does not mint one issue per nit), and
+# an issue number or the literal `register` (§4 clause 8 admits the review
+# lane's register, kogaki#246, as a carrier so this does not mint one issue per
+# nit; the carrier is named in prose only — the pattern below matches the
+# literal token `register` and has never carried an issue number), and
 # `declined:` requires a non-empty reason — a bare `declined:` is the
 # evaporation with a word in front of it. A malformed one is REPORTED rather
 # than silently read as absent, because the two are indistinguishable at the
@@ -896,7 +898,8 @@ POSTING = (
     "leave `open` at `should` or `nit`, write ONE of:"
     "\n  `carried: #<N>`      — the issue that now owns it (file it, then name "
     "it)"
-    "\n  `carried: register`  — the kogaki#13 register, for an accretion-class "
+    "\n  `carried: register`  — the review lane's register, kogaki#246, for an "
+    "accretion-class "
     "finding whose value is the COUNT rather than the instance; this is what "
     "stops one issue being minted per nit"
     "\n  `declined: <reason>` — an explicit decline. A reason is REQUIRED; a "
