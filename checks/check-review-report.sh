@@ -1048,10 +1048,13 @@ for name, bodies, diffs, mbases, want in CARRY:
                               for l in record_fx):
         carry_bad.append(f"{name}: the record does not name THIS head's diff")
 
-# AC 5: a carry-forward is not a round and consumes none. The round bound lives
-# in tools/review-sweep.sh's MAX_ROUNDS over `review-lane report:` segments;
-# nothing here writes a report, so the segment count a round counter reads is
-# the same before and after the carry-forward. Asserted rather than assumed.
+# AC 5: a carry-forward is not a round and consumes none. The round bound is
+# enforced in tools/review-sweep.sh's MAX_ROUNDS over review CYCLES grouped by
+# head (kogaki#190 — the earlier "over segments" wording here was the fifth
+# stale record of that falsified count, found by kogaki#290), and OBSERVED at
+# this gate by `_rounds_observation` over distinct heads with counted
+# segments; nothing here writes a report, so neither count moves across the
+# carry-forward. Asserted rather than assumed.
 _carry_bodies = (f"review-lane report: {A_HEAD}\nreview-base: {BASE_B}\n"
                  "report-complete: 0 findings")
 _before = len(segments(_carry_bodies))
@@ -1315,6 +1318,96 @@ if trust_bad:
 print(f"trust pass: {len(TRUST_FIX)}/{len(TRUST_FIX)} author-filter cases "
       "(foreign-report-spoof / trusted / hostage-inverse / allowlist / chatty)")
 
+
+def _rounds_observation(bodies, bound=2):
+    """kogaki#290: the §4 clause 3 bound, OBSERVED at the record. Never gates.
+
+    Returns the lines to print (empty when the record is inside the bound), so
+    the fixture pass below asserts on them and the live pass prints them.
+
+    THE UNIT IS DISCLOSED AND IS NOT THE SWEEP'S: this counts DISTINCT HEADS
+    NAMED BY COUNTED REPORT SEGMENTS in the trusted comments — data this gate
+    already parses for presence and staleness — not `rounds_used()`'s cycle
+    resolution in tools/review-sweep.sh. Re-implementing that resolution here
+    is the two-implementations defect kogaki#52 names and the trade PR #287
+    declined in the mirror direction (kogaki#288); a coarser count with its
+    unit stated beats a finer count maintained twice. Abbreviated and full
+    spellings of one sha are merged; a fragment counts as nothing here exactly
+    as it does everywhere else (§4 clause 6); a carry-forward writes no
+    segment and so adds no head.
+
+    REPORT, NOT DENY, decided rather than defaulted (kogaki#290 acceptance):
+    producer identity is instrument-none at this record — an owner-authorized
+    third round (claude-toolkit#283's approval flow) is indistinguishable
+    here from an unauthorized one, and a deny would hold every authorized
+    round hostage to an adjudication carrier clause 3 does not have. The deny
+    lives at the layer where authorization IS readable: the session boundary,
+    where claude-toolkit#283's PreToolUse carrier refuses any reviewer spawn
+    without a single-use owner grant naming the PR and round. This line is
+    the other half of that seam: it makes a crossing VISIBLE whoever produced
+    it, including producers no session hook can reach.
+    """
+    heads = []
+    for seg in segments(bodies):
+        if not counted(seg):
+            continue
+        sha = seg['sha']
+        for i, h in enumerate(heads):
+            if h.startswith(sha) or sha.startswith(h):
+                heads[i] = max(h, sha, key=len)
+                break
+        else:
+            heads.append(sha)
+    if len(heads) <= bound:
+        return []
+    return [
+        f"NOTE: rounds observed at the record, reported and never gated "
+        f"(kogaki#290): {len(heads)} distinct heads carry counted report "
+        f"segments — {', '.join(h[:7] for h in heads)} — against the §4 "
+        f"clause 3 bound of {bound} (\"Two rounds, then a parked owner "
+        f"decision. Never a third.\").",
+        f"  The unit here is distinct-heads-with-counted-segments, not the "
+        f"sweep's cycle count; whether any round past the bound was "
+        f"authorized is not readable at the record (producer identity: "
+        f"instrument-none). Authorization is checked where it exists: a "
+        f"reviewer session requires a single-use owner approval naming the "
+        f"PR and round (claude-toolkit#283). A crossing with no such grant "
+        f"is the abnormal condition the owner ruled on 2026-08-08 — stop, "
+        f"do not spawn, escalate.",
+    ]
+
+
+# The observation must discriminate (kogaki#290 acceptance: a PR carrying
+# performed segments at three distinct heads must not read the same as one
+# carrying two), stay silent inside the bound, merge abbreviated spellings,
+# and give fragments no weight.
+_R1, _R2, _R3 = 'ccccccc', 'ddddddd', 'eeeeeee'
+_seg = lambda sha: (f"review-lane report: {sha}\nfinding: should open  x\n"
+                    "report-complete: 1 findings")
+_frag = lambda sha: (f"review-lane report: {sha}\nfinding: should open  x\n"
+                     "report-complete: 5 findings")
+rounds_bad = []
+for name, fx_bodies, want_lines in [
+    ("two heads stay silent", "\n".join([_seg(_R1), _seg(_R2)]), 0),
+    ("three heads are named", "\n".join([_seg(_R1), _seg(_R2), _seg(_R3)]), 2),
+    ("an abbreviated respelling is one head, not two",
+     "\n".join([_seg(_R1), _seg(_R2), _seg(_R1 + 'fffffff'[:5])]), 0),
+    ("a third head that is only a fragment adds nothing",
+     "\n".join([_seg(_R1), _seg(_R2), _frag(_R3)]), 0),
+]:
+    got = _rounds_observation(fx_bodies)
+    if len(got) != want_lines:
+        rounds_bad.append(f"{name}: {len(got)} line(s), want {want_lines}")
+    if want_lines and "3 distinct heads" not in got[0]:
+        rounds_bad.append(f"{name}: the count is not on the line: {got[0]}")
+if rounds_bad:
+    print("FAIL fixture pass — the rounds observation does not discriminate:")
+    for f in rounds_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print("rounds pass: 4/4 record-side bound cases "
+      "(silent-in-bound / crossing-named / respelling-merged / fragment-weightless)")
+
 # ---------------------------------------------------------------------------
 # The live pass.
 # ---------------------------------------------------------------------------
@@ -1392,6 +1485,13 @@ def _merge_base(base, rev):
 
 carried = []
 state, shas = find_report(bodies, head)
+
+# kogaki#290: the record-side rounds observation prints on EVERY terminal
+# state — a crossed bound is exactly as worth seeing on a red PR as on a
+# green one, and the specimen (PR #287) was red for a different reason when
+# its third round landed unobserved.
+for _line in _rounds_observation(bodies):
+    print(_line)
 
 
 def _report_blocked_dimensions():
@@ -1480,7 +1580,11 @@ if state == 'blocked':
           f"{len(blocking)} finding(s) are declared blocking and still open. "
           "The property is CONVERGED or escalated, not reviewed-once "
           "(specs/SPEC.md §4): resolve them, or escalate to a parked owner "
-          "decision after the second round.")
+          "decision after the second round. A round past the bound requires "
+          "a single-use owner approval naming this PR and round "
+          "(claude-toolkit#283); this gate observes the bound in its rounds "
+          "line (kogaki#290) and does not enforce it — non-convergence in "
+          "one round is an abnormal condition, not a spawn trigger.")
     for b in blocking:
         print(f"  {b}")
     sys.exit(1)

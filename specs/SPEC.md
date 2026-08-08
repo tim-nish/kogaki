@@ -712,7 +712,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
      instructions; the author applies them. A reviewer that authors a fix
      stops being a control arm, and round two would have no isolated reviewer
      left.
-  3. **Two rounds, then a parked owner decision.** Never a third.
+  3. **Two rounds, then a parked owner decision.** Never a third. The bound
+     is carried at two layers, split by where its inputs are readable
+     (kogaki#290, owner ruling 2026-08-08): it is **enforced at the session
+     boundary** — creating a reviewer session requires a single-use owner
+     approval naming the PR and round, denied fail-closed by the PreToolUse
+     carrier `claude-toolkit#283` installs — and **observed at the record** by
+     the merge gate's reported, never-gating rounds line
+     (`checks/check-review-report.sh` `_rounds_observation`). The gate does
+     not deny on rounds, deliberately: producer identity is instrument-none
+     at the record, so an owner-authorized round is indistinguishable there
+     from an unauthorized one; authorization is readable only at the session
+     layer, which is where the deny lives. Non-convergence in one round is an
+     ABNORMAL CONDITION — a stop-and-escalate signal, never a spawn trigger.
   4. **Every round leaves its record** — report, correction instruction,
      round count — so the postmortem hand-off can mine rally residue: a
      finding that took two rounds to land is evidence about the map or about
@@ -1417,9 +1429,18 @@ invariant: Gukan guarantees Unit schema, never data schema).
      transition genuinely leaves is the day it would otherwise be typed
      dishonestly.
 
-     **THE ENUMERATION — nine transitions, seeded from kogaki#270's inventory
+     **THE ENUMERATION — ten transitions, seeded from kogaki#270's inventory
      and RE-DERIVED against the artifacts at this sitting rather than copied
      forward.** Four rows moved; the movements are recorded under the table.
+     Row 10 was added 2026-08-08 WITH its observing act, per this clause's own
+     rule that an issue does not discharge a row: kogaki#290 found row 5's act
+     (`rally_cycles()`, firing when the sweep polls) structurally unable to
+     fire on rounds arriving from actors that never spawned through the sweep
+     — PR #287's third round was counted by nothing while the gate enumerated
+     all three heads in its own stale message. Row 5 is UNCHANGED (the
+     counting act is real and counts correctly); the transition it could not
+     observe is now row 10's, typed `act` only because the observer shipped
+     in the same change.
 
      | # | transition of the review record | type |
      |---|---|---|
@@ -1432,6 +1453,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | 7 | a **fix is authored after its own PR merges** | `none: the sweep enumerates OPEN pull requests and the merge check runs on a pull-request event, so a commit pushed to a merged branch produces neither — no CI run, no licence assertion, no review segment, and gh pr view keeps returning the merged head. No carrier is filed.` |
      | 8 | a **review is degraded** (the session was denied tools) | `none: the in-band carrier cannot-determine: exists and the sweep's report-degraded arm does not write one — it posts a SEPARATE comment bound to no segment, so a later segment carries no record that its session was degraded. kogaki#271 parts (a)-(c) are the retained kogaki work; they are named, and naming them does not type this row.` |
      | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
+     | 10 | a **round is admitted to the record past the bound** | **act** — `_rounds_observation()` in `checks/check-review-report.sh`: distinct heads carrying counted segments, printed against clause 3's bound on every terminal state; reported, never gated, unit disclosed as NOT the sweep's cycle count (kogaki#290) |
 
      **THE FOUR ROWS THAT MOVED SINCE FILING, with what moved them.** Recorded
      because a re-typing that silently overwrites its predecessor teaches the
