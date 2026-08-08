@@ -1960,6 +1960,103 @@ invariant: Gukan guarantees Unit schema, never data schema).
      backward-compatibility paragraph was the sharper defect — not the widened
      behaviour, which was chosen deliberately.
 
+## 4.5 The declared design baseline (kogaki#229)
+
+**Kogaki's spec states which existing design it inherits as its default —
+scoped, with every divergence declared at a pin.** An implicit baseline
+cannot be diverged from *on the record*: a departure from an undeclared
+default reads as a fresh choice rather than as a decision. The specimen is
+kogaki#147, filed against a design whose inherited default was never
+declared, so the departure it encoded read as a fresh choice.
+
+The position is served, and it is quoted rather than paraphrased:
+
+> "The consult discipline CANNOT SUBSTITUTE for a consumer knowing where its
+> own design baseline lives … What makes such a ruling reachable is a
+> DECLARED DESIGN-BASELINE CLAUSE in the consumer's own spec: this design is
+> the default, scoped to this subject, divergences declared with pins. The
+> two compose rather than compete — the hub answers *what does portfolio
+> policy say* and the baseline clause answers *what did this component
+> already decide* — and neither can answer the other's question, so a
+> sitting holding only one of them will confidently report the wrong KIND of
+> absence."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:40`
+  request_id: 03d6a38b-c34d-4c9f-8492-bd57db55af82
+  outcome: discriminating
+  query: A consumer's spec must declare which existing design it inherits as its default, scoped, with divergences declared at pins. Is that a ratified position, what is its scope, and does the consult discipline substitute for it?
+
+**Why the consult discipline does not already cover this, stated because it
+is the easy thing to lose.** Consulting the hub answers *what does policy
+say*; it does not answer *what is this repository's starting design, and
+where have we deliberately departed from it*. The ruling that motivated the
+position lived **consumer-side**, so no hub query could have returned it
+however well framed. §4's consultation map and this section are therefore
+two instruments, and neither is the other's fallback — the same
+non-substitution the three-instrument ruling already binds this repo to.
+
+### 4.5.1 Kogaki's baseline is declared PER SUBJECT, and the default is NONE
+
+Three clauses, each binding separately so a partial compliance is visible:
+
+1. **Per-subject declaration.** A design baseline is declared in the spec
+   that owns its subject, naming the inherited design and the scope the
+   inheritance is limited to. `specs/spec-terrain/SPEC.md` §2.4 is the
+   standing form: the baseline named as an addressable artifact, the scope
+   limit stated as part of the clause rather than as a footnote, and the
+   divergences numbered.
+2. **The default where nothing is declared is NO INHERITED BASELINE.**
+   Kogaki does **not** inherit `writing-assistant` generally. §5's port
+   manifest is the scoping instrument — *anything unnamed is dropped by
+   decision* — and §2.4's own scope limit refuses the general reading in
+   terms ("nothing here may be read as a general WA inheritance — not for
+   Draft, not for Brief, not for any other subsystem"). A subject with no
+   declared baseline has a **fresh** design, and a sitting that wishes to
+   inherit one declares it first; the declaration is the act, never a
+   reading recovered afterwards from resemblance.
+3. **Divergences are declared at the diverging clause, with a
+   source-qualified pin, in the amendment that creates the divergence** —
+   and registered in the owning spec, never in a central register here. A
+   central register would restate facts authoritatively held per subject,
+   which is the conformance-copy shape §4's map already refuses; and the
+   three named seam-side instruments fail differently, so merging them
+   hides which half was wrong at the moment that is the only useful
+   question.
+
+### 4.5.2 The index below is a FINDING AID and states no baseline's content
+
+Which subjects have declared a baseline, and where the declaration lives.
+It carries **pointers only** — no restatement of what any baseline is —
+because a copy of the content would acquire the declaring spec's change
+rate while being read as though it were current:
+
+| subject | where its baseline is declared |
+| --- | --- |
+| Terrain design | `specs/spec-terrain/SPEC.md` §2.4, with its numbered divergence register |
+| every other subject | nothing declared — clause 2 applies, the design is fresh |
+
+An entry lands here in the same amendment that declares the baseline.
+
+### 4.5.3 What this section does NOT do
+
+- **It is not kogaki#127's inheritance whitelist.** That whitelist is a
+  **component** whitelist for the draft pipeline; this section is the spec
+  declaring its baseline **generally**, and reading the two as one narrows
+  the clause to a single pipeline.
+- **It does not check entitlement.** §2.5 already records the register's
+  sharpest lesson in this repo's own history — *a divergence register
+  records that you diverged; it does not check whether you were entitled
+  to* — and a declared baseline does not repair that. Entitlement is the
+  consultation map's question, asked at the divergence, and the two compose
+  exactly as the served line above says.
+- **It is an OBLIGATION and gets no mechanical gate.** An undeclared
+  baseline produces no event to hook, so nothing can deny it — the same
+  reasoning §4's fixture-discrimination clause states for its own case. The
+  carrier is this prose plus the review lane's read; presence of prose is
+  not a property worth a gate, and a baseline's *correctness* is judgment.
+  **Reopen trigger:** one shipped divergence whose baseline was declared
+  nowhere and which the review lane did not surface.
+
 ## 5. Port manifest (anything unnamed is dropped by decision)
 
 Admitted from writing-assistant, each with its contract; ported one
