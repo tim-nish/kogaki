@@ -25,6 +25,19 @@ const PIN = "product-lab@stubbedstubbedstubbedstubbedstubbedstub";
 
 // Served-shaped Gloss shard: `## <slug>` heading, body lines, `Source:` closing
 // the entry — the grammar `parseGlossFull`/`parseGlossShard` read.
+//
+// THE BODY IS MULTI-LINE AND KIND-DISTINCT, and both are load-bearing for the
+// kogaki#234 rendering block below (the 2026-08-08 dogfood falsification).
+//   - MULTI-LINE, because §12's property is UNTRUNCATED and the defect it
+//     replaces rendered each member as one bullet row. A single-line stub body
+//     fits a bullet row, so a fixture built on one cannot tell a whole-body
+//     renderer from a flattening one — the body has to be a shape the wrong
+//     answer cannot hold.
+//   - KIND-DISTINCT (`lessons/…` vs `journeys/…` in the text and in the cite),
+//     because the Lesson and Journey shards previously returned IDENTICAL body
+//     text for the same slug. An assertion that the Journey Gloss reached the
+//     rendering would then have passed on the Lesson Gloss alone, which is a
+//     fixture agreeing with itself.
 function shard(tag, slugs) {
   const lines = [];
   let n = 0;
@@ -34,7 +47,8 @@ function shard(tag, slugs) {
   for (const s of slugs) {
     push(`## ${s}`);
     push("");
-    push(`Stub rendering for ${s}. Two sentences, so a headline reader and a whole-body reader disagree observably.`);
+    push(`Stub ${tag} rendering for ${s}. Two sentences, so a headline reader and a whole-body reader disagree observably.`);
+    push(`Second body line for ${s} under ${tag} — a one-line row cannot carry this without flattening or cutting it.`);
     push("");
     push(`Source: ${s}`);
     push("");
