@@ -1151,7 +1151,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `tools/review-sweep.sh`'s embedded fixture pass): with the token's regex
      not widened in lockstep, a declared report segmented to **nothing** and
      was read as *absent*. That regex lives in two files —
-     `checks/check-review-report.sh:188` and `tools/review-sweep.sh:628` — and
+     `checks/check-review-report.sh:245` and `tools/review-sweep.sh:723` — and
      an adjacent line leaves **both untouched**, which is precisely why clauses
      5 and 6 already have this shape. A third declaration on the established
      pattern is the change whose failure mode does not exist.
@@ -1451,7 +1451,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
      | 6 | a **non-gating finding crosses the merge** | **act** — §4 clause 8's `carried:` / `declined:` disposition line, written by the reviewer under `.claude/skills/review-lane/SKILL.md` §`carried:`/`declined:` and read at the sweep's `done` boundary (kogaki#224, reader half kogaki#251) |
      | 7 | a **fix is authored after its own PR merges** | `none: the sweep enumerates OPEN pull requests and the merge check runs on a pull-request event, so a commit pushed to a merged branch produces neither — no CI run, no licence assertion, no review segment, and gh pr view keeps returning the merged head. No carrier is filed.` |
-     | 8 | a **review is degraded** (the session was denied tools) | `none: the in-band carrier cannot-determine: exists and the sweep's report-degraded arm does not write one — it posts a SEPARATE comment bound to no segment, so a later segment carries no record that its session was degraded. kogaki#271 parts (a)-(c) are the retained kogaki work; they are named, and naming them does not type this row.` |
+     | 8 | a **review is degraded** (the session was denied tools) | **act** — clause 10's `review-report-degraded: <head sha>` line class, written by `tools/review-sweep.sh`'s `report-degraded` arm and read by `decide()`, so a head whose only report came from a denied-tools session resolves to a state distinct from `done` (kogaki#271 parts (a)–(c)) |
      | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
      | 10 | a **round is admitted to the record past the bound** | **act** — `_rounds_observation()` in `checks/check-review-report.sh`: distinct heads carrying counted segments, printed against clause 3's bound on every terminal state; reported, never gated, unit disclosed as NOT the sweep's cycle count (kogaki#290) |
 
@@ -1518,11 +1518,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
        landed in the same PR: §2's boundary record has a declared, parseable
        line shape with a typed verdict, parsed and printed by the merge check
        and never gated.
-     - **Row 8 was filed `partially carried` and re-derives as `none`.** The
-       partial-carry reading credits `cannot-determine:` for a record the
-       degraded path does not write. The line class exists and is honest; the
-       arm that would emit it does not use it, and an unwritten record observes
-       nothing.
+     - **Row 8 was filed `partially carried`, re-derived as `none`, and has
+       since moved a SECOND time — to `act` — which is recorded here rather
+       than overwritten.** The original partial-carry reading credited
+       `cannot-determine:` for a record the degraded path does not write: the
+       line class existed and was honest, the arm that would emit it did not
+       use it, and an unwritten record observes nothing. That is why the row
+       typed `none` at this sitting. **Clause 10 then built the observer** —
+       the `review-report-degraded: <head sha>` line class, sweep-written and
+       head-anchored — and the row is typed `act` against it above. The two
+       movements are kept side by side deliberately: the row's history is that
+       an honest `none` named a gap and the gap was then filled, which is the
+       enumeration working, and a table showing only the current type would
+       teach the next sitting that row 8 was always observed.
 
      **THE WIDENING TRIGGER — the different-unit observer, without which this
      enumeration decays into what it replaces.** **Adding a transition to the
@@ -1556,10 +1564,11 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      - **Any transition's own fix.** Row 2 is kogaki#269. Row 6's reader half
        was kogaki#251 and has landed. Row 9 is kogaki#258 and has landed. Row
-       6's substance is kogaki#224, closed and correct. Rows 3, 5's residual
-       waste, 7 and 8 are named above and this clause **does not become their
-       home** — typing them is what surfaces them; each earns its own filing
-       on its own evidence.
+       6's substance is kogaki#224, closed and correct. Row 8 is kogaki#271 and
+       has since landed as clause 10. Rows 3, 5's residual waste and 7 are
+       named above and this clause **does not become their home** — typing
+       them is what surfaces them; each earns its own filing on its own
+       evidence.
      - **kogaki#72's blocking budget.** Ratified economics, untouched, and not
        reopenable through here: an enumeration changes what is *observed*,
        never what *gates*. A sitting that reaches this clause to re-argue the
@@ -1601,6 +1610,189 @@ invariant: Gukan guarantees Unit schema, never data schema).
      The register keeps its observations and this clause asserts nothing about
      its lifecycle; kogaki#246's own pointer append already names this clause
      as where rows 5, 6 and 7 were carried.
+
+     **deferred slots: none.**
+
+  10. **A DEGRADED review carries an IN-BAND record, and the sweep's
+     covered-state read is EXPORTED and THREE-VALUED** (kogaki#271 parts
+     (a)–(c), owner rider 2026-08-08 — cost over detection).
+
+     **THE HALF THIS CLAUSE GOVERNS, stated first because the issue has two.**
+     kogaki#271's orchestrator half — that a dispatcher spawned seven reviewer
+     sessions licensed by no clause of its own contract — is escalated to
+     `tim-nish/claude-toolkit#282` and is **not governed here**. What this
+     clause governs is the half at the last boundary this repository controls:
+     that the sweep computes a per-PR disposition it exports to nobody, and
+     that `done` cannot distinguish a sound report from a degraded one. The
+     split is the served layer rule, re-read live at the current pin rather
+     than carried forward:
+
+     > when the layer where a rule's violation occurs belongs to ANOTHER
+     > SYSTEM, no carrier can be installed there — the carrier goes at the
+     > LAST BOUNDARY YOU CONTROL, and any gate upstream of it is ergonomics
+     > rather than control.
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/archive/knowledge-architecture.md:158`
+
+     **(a) THE LINE CLASS — `review-report-degraded: <head sha>`, minted
+     rather than reused.** The `report-degraded` arm
+     (`tools/review-sweep.sh:4509-4517`) *knows* the reporting session was
+     denied tools and posts `post_stall_comment`, which is prose bound to no
+     segment and carrying no token the state machine reads — deliberately, so
+     it can never satisfy the presence token. The consequence is that a head
+     whose only report came from a denied session reads `done`, because
+     `decide()` has **no degraded input at all**.
+
+     The token is **sweep-written and head-anchored**, on the established
+     pattern of `review-round-unverified:` (`tools/review-sweep.sh:762`): it
+     is anchored WHOLE, takes the same 7–40 hex sha, is read in the **same
+     single pass** over the **same segmenter**, and the **first declaration
+     wins** — a second is malformed, not a correction, on clauses 5 and 6's
+     rule. It rides an adjacent line and widens no existing token, which is
+     why the two report-token regexes at `checks/check-review-report.sh:245`
+     and `tools/review-sweep.sh:723` stay untouched; clause 7 already records what
+     widening a token instead costs.
+
+     **Two reuses were considered and both fail on the same test — whether the
+     existing class can carry a HEAD.** `cannot-determine:` is the near miss
+     and the one clause 9 row 8 credited: it exists
+     (`checks/check-review-report.sh:318`), it is honest, and it is
+     **reviewer-owned and dimension-shaped** (`cannot-determine: <dimension> —
+     <why>`), carrying no sha — so `decide()` cannot bind it to a head, which
+     is the entire requirement. `review-round-unverified:` carries a head and
+     is written by the right party, but it means *a round was paid for and no
+     readable report exists*; a report that **exists and is suspect** is a
+     different fact, and one token for both makes them indistinguishable to
+     `rally_cycles()` and therefore to the budget. The served ground for
+     preferring a mint over the cheaper reuse:
+
+     > reuse is the cheaper-looking option and its cost is invisible until a
+     > survey is run and returns a haystack
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:12`
+
+     **(b) THE EXPORTED READ — three-valued, and `cannot-determine` may NEVER
+     mean `covered`.** `decide()` (`tools/review-sweep.sh:2637`) is already a
+     pure function over one PR at one head, reachable only by running the
+     sweep. It is exported as a **machine-readable form of the existing
+     `--dry-run` path** — never a dedicated mode — so that the exported value
+     and the spawn decision **cannot disagree by construction**. That is this
+     file's own ratified rule at kogaki#227, already fixture-guarded
+     (`tools/review-sweep.sh:3886`), and the general ground is served: *"a dual
+     implementation per call site doubles the surface that must stay correct
+     while its second path runs precisely when nobody is positioned to notice
+     it is wrong"*
+     (`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:65`).
+
+     The value set is `covered` / `needs-a-round` / `cannot-determine`, and a
+     caller may suppress a dispatch **only on `covered`**. This is the whole
+     defence against the fail-open presence check the issue records — a
+     `gh pr view --json comments` grep that silently returned nothing and was
+     caught only because CI's log disagreed:
+
+     > nothing in the output distinguishes computed over nothing from computed
+     > and found nothing … if that matches its normal healthy output, the check
+     > is missing and the failure is invisible by construction
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/testing.md:107`
+
+     **The owner rider and the conservative arm are not in tension, and the
+     reading is stated so a later sitting does not treat them as one.** The
+     rider (2026-08-08) prioritizes **cost over detection**. The saving is
+     `covered`, which suppresses the dispatch entirely and is the common case;
+     `cannot-determine` fails *toward* spending a round and is the residue.
+     Suppressing on the residue is what would make the read fail open, and a
+     read that can be wrong in the cheap direction is worth nothing to the
+     caller that trusts it.
+
+     **WHEN the read is evaluated is part of the contract, and a read at
+     dispatch is NECESSARY BUT NOT SUFFICIENT.** kogaki#271 establishes this
+     across three same-day instances rather than by argument, and the window
+     does not shrink in a way any fixed margin would cover: PR #275, caught at
+     dispatch, the report landing **31 seconds** after the orchestrator's read;
+     PR #277, whose opening read returned zero comments and whose report for
+     that exact head landed **inside the sitting** — a lane trusting its
+     opening read would have double-posted; and PR #282, where a round-1 report
+     named a superseded head, the premise held, and the **pre-post re-read**
+     found a complete round-2 report for the current head landed **70 seconds**
+     earlier, inside the sitting. So the predicate is re-evaluated
+     **immediately before the post**, and the post is abandoned if a report for
+     the current head has appeared. This changes *when* the read is taken and
+     **not its polarity** — suppression stays permitted on `covered` alone.
+
+     **The three parts serve a SINGLE-WRITER conclusion, and this is the clause's
+     reading of its own purpose.** PR #276 already showed the limit of any
+     reviewer-side guard: two spawns whose reads were **both correct at the
+     moment they ran**, and which both posted. No check *inside* a reviewer
+     resolves that, because both reviewers behaved correctly. The sweep decides
+     whether a round is owed and the caller **asks rather than judges** — which
+     is why (a) and (b) sit in the sweep and why a reviewer-side abort check is
+     a mitigation that has now fired three times and will keep firing, never the
+     carrier. The same argument binds the orchestrator half at
+     `tim-nish/claude-toolkit#282`: a read taken before dispatch cannot
+     discharge it either, because the decision has to sit where the act is.
+
+     **(c) THE NOTICE STOPS ASSERTING A RED GATE.** `post_stall_comment`'s
+     fixed sentence — *"the gate stays red, correctly"* — was **false twice on
+     the run that earned this clause**, at the same head as the report it
+     described: PR #249 (report 01:28:00Z → gate green 01:28:30Z → notice
+     01:28:31Z) and PR #254 (report 01:50:49Z → notice 01:51:23Z → gate green
+     01:51:30Z). PR #255 is the honest counter-case — its check never re-ran
+     green, and there the sentence was accurate. The sentence therefore states
+     what the notice **is** (not a review, carrying no presence token) and
+     stops asserting what the **gate** is, which is a fact it does not read.
+     The gate's own state is now carried by (a), where the state machine can
+     see it.
+
+     **A FOURTH instance was observed on the PR that RATIFIED this clause, and
+     it is recorded because a specimen produced by the change's own review is
+     the strongest evidence the clause has.** PR #293's round-1 reviewer was
+     denied `Bash(git fetch origin)` and `Bash(grep -o -E)`, so the
+     `report-degraded` arm fired and posted the notice asserting *"the gate
+     stays red, correctly"*. The registry-driven check for that same head
+     completed **`success` at 10:01:10Z**, turned green by the very report the
+     notice was describing. The clause was falsified live at its own
+     ratification, by the mechanism it exists to repair — and the same run is a
+     specimen for (a) as well: that head's only report came from a denied-tools
+     session, and `decide()` reads it `done`.
+
+     **CLAUSE 9 ROW 8 IS RE-TYPED BY THIS CLAUSE, and the re-typing is the
+     widening trigger firing rather than a courtesy.** Clause 9 states that
+     *adding a transition to the review record, or changing what any existing
+     observer reads, RE-RUNS the typing*; (a) does both. Row 8 moves from
+     `none` to an **act**, and its former text — crediting `cannot-determine:`
+     for a record the degraded path does not write — is superseded by the
+     record the degraded path now does write.
+
+     **WHAT THIS CLAUSE DOES NOT COVER, declared up front so it cannot become
+     a bucket.**
+
+     - **The dispatcher's decision to spawn.** `tim-nish/claude-toolkit#282`.
+       This clause gives a caller a read; it binds no caller, and a repository
+       whose orchestrator ignores the read is outside what any act here can
+       observe.
+     - **kogaki#72's blocking budget and clause 3's two-round cap.** Untouched.
+       A degraded head resolving away from `done` changes what is *observed*
+       about a round, never how many rounds exist.
+     - **Whether a report is SOUND in any sense a machine cannot see.** Stated
+       because the issue states it against itself: PR #256's round 1 carried
+       **no** degradation notice, and its defect was a claim made without
+       reading the pin. No mechanical signal in this clause sees that. The
+       clause bounds waste; it does **not** promise to preserve every good
+       round, and a later sitting must not read it as having done so.
+     - **A soundness signal for the report's CONTENT.** `cannot-determine:`
+       keeps its own reviewer-owned, report-not-gate role (kogaki#100)
+       unchanged; this clause neither widens nor gates it.
+
+     **`instrument:` for the clause's own conformance.** (a) and (b) are
+     exercised by the sweep's embedded fixture pass, which already carries a
+     case for every other `decide()` arm; (c) is a fixed string asserted
+     against the #249 and #254 timings recorded above. What stays **carrier-less
+     and is marked rather than omitted**: nothing asserts that a caller
+     *honours* the three-valued read, because the callers are out-of-repository
+     by construction — the same last-boundary limit this clause opens with.
+     **Reopen trigger:** one observed dispatch made against a head this read
+     reported `covered`.
 
      **deferred slots: none.**
 
