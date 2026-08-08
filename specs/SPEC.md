@@ -394,6 +394,96 @@ invariant: Gukan guarantees Unit schema, never data schema).
   invented; it would be seen by the sitting that next mutates the fixture and
   finds it already green.
 
+  **THE TRIGGER ABOVE HAS FIRED, and the look it licensed produced the
+  derivation constraint below rather than the harness** (kogaki#243, owner
+  selection 2026-08-08 — fork 3 of the four the issue framed). The firing is
+  recorded at the clause rather than only on kogaki#230, because a trigger
+  whose firing is legible only on the issue that declined the machinery is a
+  reopen condition nobody re-reads. **PR #240 carried a compliant mutation
+  table and shipped three form-A fixtures in the same diff** — the evidence
+  form was present and the class shipped anyway. What the look concluded is
+  that the escape was **not** an absence of machinery: a harness executing the
+  author's own mutant list would have run the same blind spot faster. So the
+  harness stays declined, on stronger evidence than before, and the repair
+  lands one step upstream — on **where the mutant set comes from**.
+
+  **THE MUTANT SET IS DERIVED FROM THE DIFF, never authored free-form.** Each
+  **changed default, changed flag, and changed literal in the diff is a
+  mutant**, and the mutation table accounts for every one of them — caught,
+  with the assertion that catches it named; or **uncaught and declared as
+  uncaught**; or equivalent, with the equivalence argued. A mutant is
+  discharged by naming its catching assertion, never by omission, and **an
+  uncaught mutant is a declaration rather than a defect** — dropping it is the
+  defect.
+
+  **The diagnosis this repairs, stated because the clause is otherwise a
+  preference.** The mutation set was authored by the same belief that authored
+  the fixture: the author mutates the hypotheses they hold — for PR #240,
+  "don't write the rendering" and "emit JSON" were both mutated and both
+  caught — and cannot mutate the one they do not hold, so "the flag is absent"
+  never became a mutant, **because the fixture supplied the flag**. Derivation
+  breaks that inheritance without adding machinery, because the diff is not
+  written by the belief under test. The served rule gives the shape:
+
+  > "an **enumerated prohibition can only name yesterday's leak** while a
+  > **construction constraint makes tomorrow's unreachable**"
+
+  `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:53`
+    request_id: b63f89de-d860-4dfb-9988-a7000fe1cee3
+    outcome: discriminating
+    query: enumerated prohibition construction constraint non-member fallback admit constrain generation not post hoc detection
+
+  A freely authored mutant list is exactly the enumerated shape, and its
+  **non-member fallback is ADMIT** — the mutant nobody thought of is silently
+  absent, and the table still reads complete. Deriving the set from the diff
+  replaces that enumeration with a construction rule whose members the author
+  does not choose:
+
+  > "When a ruling is executed as constrain-then-detect, the **detect half
+  > must be derived from the ruling's CLASS**"
+
+  `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:67`
+    request_id: 49e9990d-f8dc-4c4a-a438-63ac78fbfd03
+    outcome: discriminating
+    query: Should a constraint requiring a mutation/mutant set to be DERIVED from the diff rather than authored free-form become a lint or automated check, or stay judgment-class prose with a reopen trigger?
+
+  **POLARITY — an OBLIGATION, per-artifact-decidable, and NOT a lint.** The
+  three-states rule admits a stated policy in exactly three states, and this
+  clause takes the **first**: *per-artifact-decidable — state it, because the
+  artifact is the evidence and a mechanism adds nothing*. Both artifacts are
+  already in the PR record and already in front of the reader — **the diff and
+  the mutation table** — so "does every changed default, flag and literal
+  appear as a mutant" is answerable by reading the two against each other. It
+  is not the distributional shape, which no single occurrence can violate, and
+  it is not the self-report shape, because the mutant list is checkable against
+  the diff rather than against the author's account of their own process.
+
+  **And it does not become a lint.** The repository has ruled at its strongest
+  against mechanizing a rule that merely *looks* deterministic:
+
+  > "**No rule becomes a lint, even where deterministic processing is
+  > possible.**"
+
+  (`specs/spec-draft-pipeline/SPEC.md` §4.6 clause 3.) The looks-mechanizable
+  reading is real and is refused explicitly: a parser can enumerate changed
+  literals, and it cannot decide **which** of them the behavior under test
+  depends on, whether a named assertion actually catches its mutant, or whether
+  an equivalence argument holds. Those are the judgments the clause exists to
+  make someone perform. A lint over the mechanical half would report the shape
+  of a derivation while the derivation's content stayed unexamined — the
+  presence-passes-for-judgment defect this whole issue names, rebuilt inside
+  its own repair. **This clause is judgment-class, and no check is licensed by
+  it.**
+
+  **`instrument: none`** — no standing act in this repository observes a mutant
+  that was never derived, and none is invented, because the condition is an
+  absence from a table no check reads. **The reopen trigger:** a diff whose
+  mutation table omits a changed default, flag or literal that a later sitting
+  finds was the defect the fixture failed to catch. That is the same
+  observation shape that produced this clause, and it would be seen by the
+  sitting that next repairs a fixture and finds the mutant was derivable from
+  the original diff all along.
+
   **Why the clause is timed now rather than after the next instance.** The class
   recurred in four consecutive sittings — kogaki#209's three dead fixtures,
   story 1.38's terminal-line fixture passing against its own mutant, stories
