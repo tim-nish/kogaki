@@ -4,6 +4,10 @@
 //        [--args '<json>' …]             one --args per FRAMING, in order
 //        [--question '<q>' …]            one --question per --args, SAME ORDER
 //        [--receipt --outcome <token>]   emit the consult receipt block
+//        [--disposition <token>]         the gate half, carried onto the block
+//                                        as a second continuation key when the
+//                                        consult was raised at a fork gate;
+//                                        omitted otherwise (kogaki#268)
 //        [--gateway <path-to-dist/index.js>]
 //
 // Contract (client-kit README): on ANY failure to reach or converse with the
@@ -155,6 +159,13 @@ const toolList = opts("tool");
 const questionList = opts("question");
 const receiptMode = flag("receipt");
 const outcome = opt("outcome");
+// THE GATE HALF (kogaki#268). CARRIED, never judged — the same standing the
+// `outcome` token has here: this transport asserts only what it observed, and
+// what the gate did with the answer is not something the wire can see. The
+// value is validated at `consult.mjs`, which is where the discipline lives;
+// admitting it here without judging it is what keeps exactly one receipt
+// composer and exactly one place the vocabulary is enforced.
+const disposition = opt("disposition");
 // One framing per --args; no --args at all is the historical single empty call.
 // `question` is positional against `--args`: framing i's question is
 // `--question` i. Carried ON the framing rather than in a parallel array, so
@@ -455,7 +466,7 @@ function assertAddressEvidenced({ framing, declared, catalogue }, d, i) {
 // Returns the receipt block, or throws with the reason it is not composable.
 // The throw is the point: a receipt the transport cannot stand behind is worse
 // than none, because the marked-exception path exists for exactly that case.
-function composeReceipt(observed, outcomeToken) {
+function composeReceipt(observed, outcomeToken, dispositionToken) {
   const parsed = observed.map(({ text }, i) => {
     let d;
     try {
@@ -525,6 +536,16 @@ function composeReceipt(observed, outcomeToken) {
     lineOne,
     `  request_id: ${requestId}`,
     `  outcome: ${outcomeToken}`,
+    // The second axis, beside the first and ABOVE the variable-length query
+    // tail, so the two readings are read together and the block's shape stays
+    // fixed-then-repeating (kogaki#268). Emitted only when the caller supplied
+    // it: a non-gate consult's block is byte-for-byte what it was before, which
+    // is what makes every receipt already in history and every fixture over
+    // this composer unaffected. `checks/check-consult-receipts.sh` recognises
+    // `disposition` as a continuation key — that is a REQUIREMENT and not a
+    // convenience, because an unrecognised indented key here ends the
+    // continuation scan and silently drops every field below it.
+    ...(dispositionToken === undefined ? [] : [`  disposition: ${dispositionToken}`]),
     ...queries.map((q) => `  query: ${q}`),
   ].join("\n");
 }
@@ -556,9 +577,9 @@ function selfTest() {
     { framing: framing("second framing, another axis"), text: served("id-2", "LESSONS.md:40, topics/x.md:9"),
       declared: LOOKUP },
   ];
-  const compose = (obs, tok) => {
+  const compose = (obs, tok, disp) => {
     try {
-      return composeReceipt(obs, tok);
+      return composeReceipt(obs, tok, disp);
     } catch (e) {
       return `THREW: ${e.message}`;
     }
@@ -584,6 +605,19 @@ function selfTest() {
     // AC 4 — the token is carried, never chosen.
     ["the outcome token is passed through untouched",
      () => compose(one, "covered-after-reframing").includes("  outcome: covered-after-reframing")],
+    // --- kogaki#268: the gate half is CARRIED on its own key, never judged ---
+    ["the disposition sits between the outcome and the query tail",
+     () => compose(one, "discriminating", "auto-resolved-FYI").split("\n").slice(2).join("|") ===
+       "  request_id: id-1|  outcome: discriminating|  disposition: auto-resolved-FYI|" +
+       "  query: first framing"],
+    ["an omitted disposition composes the pre-#268 block byte-for-byte",
+     () => compose(one, "discriminating") === compose(one, "discriminating", undefined) &&
+       !compose(one, "discriminating").includes("disposition")],
+    ["the disposition is carried untouched, exactly as the outcome token is — the transport judges neither",
+     () => compose(two, "uncovered-after-2-framings", "escalated").includes("  disposition: escalated")],
+    ["every query line still follows the disposition — the tail is not truncated by the new key",
+     () => compose(two, "uncovered-after-2-framings", "escalated").split("\n")
+       .filter((l) => l.startsWith("  query: ")).length === 2],
     // Refusals: a receipt the transport cannot stand behind is never emitted.
     ["a non-JSON response refuses rather than composing",
      () => compose([{ framing: framing("q"), text: "not json" }], "discriminating")
@@ -713,7 +747,8 @@ function selfTest() {
     "bound to the call whose request_id is emitted; the ANSWER bound to the " +
     "ADDRESS — an undeclared key and a contradicting served echo both refuse, " +
     "and the hit path's absent echo is left undecided rather than re-derived; " +
-    "ten refusals)");
+    "the gate disposition carried on its own key above the query tail and " +
+    "absent from a non-gate block; ten refusals)");
   process.exit(0);
 }
 
@@ -778,7 +813,7 @@ try {
     let block = null;
     let why = null;
     try {
-      block = composeReceipt(observed, outcome);
+      block = composeReceipt(observed, outcome, disposition);
     } catch (e) {
       why = e.message;
     }
