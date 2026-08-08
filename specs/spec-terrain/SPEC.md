@@ -11,10 +11,15 @@ back door. A neighbor-count cap was **declined on the served surface**: a size
 budget whose eviction set is decided on meaning "has no usable lever … the
 eviction set is a property of the corpus, not a dial"
 (`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:47`).
-**This block also discharges PR #301 round-2 finding 5, and repairs what v13's
-block asserted**: v13 recorded the fork as "Resolved" without qualification and
-named no slot, while §13.3 as amended by v13 made the resolution conditional on
-this very unit. It was conditional; it is now decided, and the header says both.
+**PR #301 round-2 finding 5 is discharged by repairing the v13 block itself,
+in place, rather than by this block asserting the repair from above** — the
+correction finding 5 actually named. A later record says when someone wrote,
+never what an earlier one says
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:209,269`),
+so a v14 block claiming v13 is now qualified would leave every reader of v13
+meeting the unqualified claim unchanged. v13's block below now carries the
+qualification and names the slot it opened; this block records that the slot is
+filled.
 Implementation is licensed by kogaki#300 (stories 1.44/#302, 1.45/#303) and is
 not in this amendment.
 
@@ -24,10 +29,17 @@ was found by PR #298's round-2 review and carried on #289: §13.2 declares the
 Thesis a REQUIRED input while §13.3's three substrates are each computable from
 the candidate set alone, so the mechanical layer as specified returned the same
 neighborhood for every Thesis and §13.2's "empty is an informative outcome" was
-unreachable from anything §13.3 described. Resolved on the served ground that a
-question supplies a **relevance bound, stopping condition and grade** rather
-than a filter: the substrates **enumerate**, the Thesis **bounds the
-expansion**. §13.2 is unchanged — it was right. §13.5 gains the boundary clause
+unreachable from anything §13.3 described. Resolved **conditionally** on the
+served ground that a question supplies a **relevance bound, stopping condition
+and grade** rather than a filter: the substrates **enumerate**, the Thesis
+**bounds the expansion**. *(Repaired in place 2026-08-09 by v14, kogaki#300:
+this block originally read "Resolved" without qualification and named no slot,
+while the §13.3 text it describes made the resolution conditional on
+`deferred-slot: the bound's unit` — **opened by this amendment, filled by
+v14**. The correction is written here rather than asserted from the block
+above, because a reader arriving at this block would otherwise still meet the
+unqualified claim; a later record cannot change what an earlier one says.)*
+§13.2 is unchanged — it was right. §13.5 gains the boundary clause
 keeping that bound distinct from the extend-or-discard judgment it holds behind
 a trigger. Implementation is licensed by kogaki#300 and is not in this
 amendment.
@@ -3226,6 +3238,23 @@ reviewable declaration the run *reads*, not something computed from the Thesis
 at call time: an implementation that derives the substrate set from the Thesis
 per run has moved §13.5's extension inside the mechanical layer through the one
 door this unit leaves open.
+
+**And the declaration's site is named here, not left to the implementation
+(v14, kogaki#300).** The mapping is a **table in this section of this SPEC**,
+amended by the same act that amends any other clause of it. The clause above
+rests its whole admissibility on the mapping being "written down and reviewed
+once", and only a site with a *review act attached* delivers that: a literal in
+`terrain/terrain.mjs` or a JSON file beside it is written down and reviewed by
+nothing in particular, whereas a spec section is reviewed by the act that
+already reviews this file. It also makes §13.5's tell observable rather than
+notional — the mapping's contents change with **a spec amendment**, which is a
+review, and never with the Thesis handed to a run.
+
+The site is named rather than the table being populated: the mapping's *rows*
+are implementation-time content that the first real Thesis kinds will supply,
+and §13.7's blast-radius rule already binds that act. What this amendment fixes
+is where they must land and what reviews them — so that #302 reads a site, and
+does not choose one.
 
 **Why this is a bound and not a filter, stated because the two are one
 refactor apart.** A filter over the rendered set would *narrow* what reaches the
