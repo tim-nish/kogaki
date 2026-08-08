@@ -19,7 +19,8 @@ below so it is not a memory test (`specs/SPEC.md` §4, kogaki#66):
 policy/kit/bin/consult.mjs --consumer <name> \
   --claim '<the claim the decision turns on>' \
   --claim '<the re-framing, along a DIFFERENT axis>' \
-  --outcome discriminating | covered-after-reframing | uncovered-after-N-framings
+  --outcome discriminating | covered-after-reframing | uncovered-after-N-framings \
+  [--disposition auto-resolved-FYI | escalated]   # only a FORK GATE consult
 ```
 
 One bounded claim per `--claim`. Never a whole-surface read, never a
@@ -84,6 +85,7 @@ consult-receipt: tool-emitted
 consulted: <repo>@<sha> <file:line[,line][, file:line…]>
   request_id: <the id the gateway returned>
   outcome: discriminating | covered-after-reframing | uncovered-after-N-framings
+  disposition: auto-resolved-FYI | escalated   ← only a FORK GATE consult; omit otherwise
   query: <framing 1, verbatim>
   query: <framing 2, verbatim>
 ```
@@ -172,8 +174,8 @@ policy/kit/bin/consult.mjs --consumer <name> --tool gloss_index \
   `grep -c '^consult-receipt: hand-composed'` against
   `grep -c '^consult-receipt:'` is the rate. The marker is **unindented and
   sits above line one** — that placement is load-bearing, not style:
-  `checks/check-consult-receipts.sh` recognises only `request_id`, `outcome`
-  and `query` as continuation keys, so an unrecognised *indented* key placed
+  `checks/check-consult-receipts.sh` recognises only `request_id`, `outcome`,
+  `disposition` and `query` as continuation keys, so an unrecognised *indented* key placed
   above them ends the continuation scan and the receipt silently parses as a
   field-less v1 line — and passes.
 - **Line one is unchanged from v1** and carries the pin. Continuation lines
@@ -181,6 +183,21 @@ policy/kit/bin/consult.mjs --consumer <name> --tool gloss_index \
 - **`outcome` is the hub's ratified triple, quoted rather than coined.** A
   bare `miss` is inadmissible: it collapses the distill-bug and query-defect
   causes into one token, in the field meant to tell them apart.
+- **`disposition` is a SECOND axis, not a widening of the first** (kogaki#268).
+  `outcome` answers *did the served surface discriminate the question*;
+  `disposition` answers *what did the fork gate DO with the answer* —
+  `auto-resolved-FYI` (a covered fork demoted to an FYI) or `escalated` (an
+  uncovered fork raised as a gate, **or** an FYI the owner overrode, because the
+  disposition and not the origin is recorded). The two vocabularies are mutually
+  exclusive in one slot, which is why there are two keys. Pass
+  `--disposition <token>` **only when the consult was raised at a fork gate**;
+  omit it otherwise, and most consults here are not gates. The value set is
+  **closed and adopted, never extended locally** — this repository owns the
+  shape of its record and never the values of a field read across the boundary.
+  `consult-miss` and `degraded` are *gate classifications* from another
+  taxonomy and are **not** disposition values: a fork nobody consulted emits no
+  receipt at all, and a degraded consult emits none by design, so neither is
+  substantiable from receipts under any schema.
 - **A re-framed outcome carries *every* framing's query, not only the last.**
   The token says which cause was found; only the queries let a reader check
   that the re-framing varied the axis rather than rephrasing it.
