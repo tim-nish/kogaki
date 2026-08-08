@@ -376,12 +376,24 @@ BOUNDARY = re.compile(
 # blocking finding. The merge was held by hand; nothing in this repository held
 # it.
 #
-# THE IDENTITY IS (SEGMENT SHA, ORDINAL) AND IT IS A FACT RATHER THAN A READING.
-# `<N>` is the 1-based position of the `finding:` line inside the segment naming
-# `<earlier head sha>`. The ordinal is stable because an earlier segment is
-# APPEND-ONLY by a rule this file already rests on — §4 clause 4's every-round-
-# leaves-its-record, restated in `segments()`: "a new round supersedes by
-# writing a new report, not by mutating an old one". A finding id on every
+# THE IDENTITY IS (SHA, ORDINAL) AND THE ORDINAL RUNS OVER THE SHA, NEVER OVER
+# ONE SEGMENT. `<N>` is the 1-based position of the `finding:` line among EVERY
+# `finding:` line under EVERY report naming `<earlier head sha>`, in record
+# order, counted straight across the segment boundary. Numbering per SEGMENT and
+# matching every segment at that sha — the shape this shipped as in round 1 —
+# made one `supersedes:` discharge the same ordinal in each of them, so a
+# reviewer naming one reviewer's finding silently adjudicated another's with
+# grounds that were never about it. TWO SEGMENTS AT ONE HEAD IS THE EXPECTED
+# STATE, not an edge: PRs #276, #278 and #282 each carried two on 2026-08-08,
+# and `tools/review-sweep.sh`'s fixture says "two reviewers on ONE head is ONE
+# round, not a park". Numbering over the sha is a TOTAL ORDER over the findings
+# at that sha, so a pair names exactly one line.
+#
+# IT REMAINS A FACT RATHER THAN A READING because it is still append-only: a
+# later segment naming the same sha appends after what is already numbered, so
+# no existing ordinal moves — §4 clause 4's every-round-leaves-its-record, which
+# `segments()` restates as "a new round supersedes by writing a new report, not
+# by mutating an old one", applied one level up. A finding id on every
 # `finding:` line and a re-declaration rule were the two declined arms; their
 # grounds are recorded in §4 clause 10 rather than here.
 #
@@ -583,14 +595,78 @@ def open_blocking(bodies, head, carried=()):
     return gating, downgraded
 
 
-def superseded_pairs(segs):
-    """(segment index, ordinal) pairs NAMED by a later segment's `supersedes:`.
+def resolve_supersede(segs, i, sha, n):
+    """Resolve `supersedes: <sha> finding <n>`, written in segment `i`, to the
+    ONE finding it names — `(segment index, index within that segment)`, or
+    None when the ordinal runs past the end.
 
-    A naming counts only when it comes from a segment LATER IN THE RECORD than
-    the one it names — comment order is the only ordering this parser has, and
-    a segment cannot supersede itself or its successors. The naming segment must
-    also COUNT (§4 clause 6): a fragment turns nothing green, and discharging an
-    earlier blocking is turning something green.
+    THE ORDINAL RUNS OVER THE SHA, NOT OVER ONE SEGMENT, and that is the whole
+    of this function. An earlier draft numbered findings inside each segment and
+    then matched **every** segment naming the sha, which made
+    `supersedes: <A> finding 1` discharge finding 1 in *each* of them: a
+    reviewer naming one reviewer's finding would silently adjudicate another's,
+    with grounds that were never about it. **TWO SEGMENTS AT ONE HEAD IS NOT A
+    HYPOTHETICAL** — PRs #276, #278 and #282 each carried two report segments at
+    one head on 2026-08-08, and `tools/review-sweep.sh`'s own fixture says so in
+    terms: "two reviewers on ONE head is ONE round, not a park". The state the
+    identity assumed away is the state the sweep is built to expect.
+
+    So `<N>` is the 1-based position of the `finding:` line among **every**
+    `finding:` line under **every** report naming that sha, in record order,
+    counted straight across the segment boundary. That is a total order over the
+    findings at that sha, so a pair names exactly one line — the uniqueness the
+    per-segment numbering did not have.
+
+    IT IS STILL APPEND-ONLY, which is what keeps it a fact rather than a
+    reading. A later segment naming the same sha appends its findings after the
+    ones already numbered, so no existing ordinal moves; clause 4 forbids
+    mutating an earlier round's comment, which is the same premise the
+    per-segment form rested on, applied one level up. Resolution walks
+    `segs[:i]` ONLY — the naming segment can name what existed when it was
+    written and nothing later — which is also what makes the reference
+    backward-only without a second rule.
+
+    NOT COUPLED TO CLAUSE 6. Fragments are numbered like any other segment: an
+    identity that changed when some *other* clause's count-equality verdict
+    changed would not be an identity. Whether a fragment's finding can be the
+    SUBJECT of a denial is a separate question, answered in
+    `unadjudicated_blocking()`.
+
+    The residual exposure is stated rather than left to be found: two DIFFERENT
+    commits sharing a 7-character prefix would be read as one sha here. That is
+    the abbreviation exposure every sha-bearing token in this file already
+    carries (`head_segments()` matches the same way), it is not introduced here,
+    and the remedy is the same one — write more of the sha.
+    """
+    count = 0
+    for j in range(i):
+        if not sha_match(segs[j]['sha'], sha):
+            continue
+        for k in range(len(segs[j]['findings'])):
+            count += 1
+            if count == n:
+                return (j, k)
+    return None
+
+
+def ordinal_of(segs, i, k):
+    """The cross-segment ordinal of finding `k` in segment `i` — the number a
+    `supersedes:` line must carry to name it. The inverse of
+    `resolve_supersede`, and the number printed on the deny so the reviewer
+    never has to derive it."""
+    prior = sum(len(segs[j]['findings']) for j in range(i)
+                if sha_match(segs[j]['sha'], segs[i]['sha']))
+    return prior + k + 1
+
+
+def superseded_findings(segs):
+    """`(segment index, index within segment)` of every finding NAMED by a
+    later segment's `supersedes:` line.
+
+    A naming counts only from a segment LATER IN THE RECORD than the one it
+    names — comment order is the only ordering this parser has. The naming
+    segment must also COUNT (§4 clause 6): a fragment turns nothing green, and
+    discharging an earlier blocking is turning something green.
     """
     named = set()
     for i, seg in enumerate(segs):
@@ -599,9 +675,9 @@ def superseded_pairs(segs):
         for sha, n, _grounds, _raw, fidx in seg['supersedes']:
             if fidx is None:
                 continue
-            for j, earlier in enumerate(segs[:i]):
-                if sha_match(earlier['sha'], sha):
-                    named.add((j, n))
+            hit = resolve_supersede(segs, i, sha, n)
+            if hit is not None:
+                named.add(hit)
     return named
 
 
@@ -621,26 +697,31 @@ def unadjudicated_blocking(bodies, head, carried=()):
       4. it carries its `[policy:|harm:]` justification — an UNJUSTIFIED
          blocking never gated (kogaki#72 fails it toward merge as a `should`),
          so there is no verdict for a later head to overturn silently;
-      5. no LATER counted segment carries a `supersedes:` line naming
-         (its segment's sha, its 1-based ordinal).
+      5. no LATER counted segment carries a `supersedes:` line RESOLVING to it
+         (`resolve_supersede()` — the ordinal runs over the sha, not over one
+         segment, so a pair names exactly one finding even where two reviewers
+         reported at one head).
 
     Only (5) is new. It is the absence of the adjudication carrier on a finding
     that WAS blocking — which is the one thing kogaki#269 permits a deny to
     attach to, and it is not the `should`: nothing about the later severity
     enters this function, and a PR that writes no lower-severity finding at all
     is caught identically.
+
+    Each row carries the ordinal a `supersedes:` line must name, computed here
+    rather than left for the reviewer to derive by counting across segments.
     """
     segs = segments(bodies)
     current = {id(s) for s in head_segments(segs, head, carried)}
-    named = superseded_pairs(segs)
+    named = superseded_findings(segs)
     out = []
     for i, seg in enumerate(segs):
         if id(seg) in current or not counted(seg):
             continue
-        for n, (sev, state, just, line) in enumerate(seg['findings'], 1):
+        for k, (sev, state, just, line) in enumerate(seg['findings']):
             if sev == 'blocking' and state == 'open' and just:
-                if (i, n) not in named:
-                    out.append((seg['sha'], n, line))
+                if (i, k) not in named:
+                    out.append((seg['sha'], ordinal_of(segs, i, k), line))
     return out
 
 
@@ -1646,6 +1727,69 @@ SUPER_FIX = [
      "supersedes: dec255e7 finding 1  repaired\n"
      "supersedes: dec255e7 finding 2  also repaired",
      HEAD, 'unadjudicated', ['resolved'], 1),
+    # --- TWO REVIEWERS AT ONE EARLIER HEAD (round-1 finding 2 on PR #287).
+    # The state the per-segment ordinal assumed away, and the state
+    # tools/review-sweep.sh is built to expect: "two reviewers on ONE head is
+    # ONE round, not a park". PRs #276, #278 and #282 each carried two report
+    # segments at one head on 2026-08-08. Under the per-segment numbering these
+    # three cases were (present, unadjudicated, unadjudicated); the first was
+    # the defect — one `supersedes:` silently adjudicating a finding it was
+    # never about.
+    ("TWO REVIEWERS AT ONE HEAD: naming `finding 1` discharges the FIRST "
+     "reviewer's finding ONLY — it does not reach into the second's segment",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  reviewer A\n"
+     "review-lane report: dec255e7\nfinding: blocking open [harm: b]  reviewer B\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  a fixed\n"
+     "supersedes: dec255e7 finding 1  A's finding repaired",
+     HEAD, 'unadjudicated', ['resolved'], 1),
+    ("THE ORDINAL RUNS OVER THE SHA, NOT THE SEGMENT: `finding 2` names the "
+     "SECOND reviewer's first finding, counted straight across the boundary",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  reviewer A\n"
+     "review-lane report: dec255e7\nfinding: blocking open [harm: b]  reviewer B\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  b fixed\n"
+     "supersedes: dec255e7 finding 2  B's finding repaired",
+     HEAD, 'unadjudicated', ['resolved'], 1),
+    ("both reviewers' findings named by their cross-segment ordinals "
+     "discharges both, and nothing else",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  reviewer A\n"
+     "review-lane report: dec255e7\nfinding: blocking open [harm: b]  reviewer B\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  a fixed\n"
+     "supersedes: dec255e7 finding 1  A's finding repaired\n"
+     "finding: blocking resolved  b fixed\n"
+     "supersedes: dec255e7 finding 2  B's finding repaired",
+     HEAD, 'present', ['resolved', 'resolved'], 0),
+    ("the numbering spans segments with SEVERAL findings each — 2 + 2, so the "
+     "second reviewer's second finding is `finding 4`",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a1]  A one\n"
+     "finding: blocking open [harm: a2]  A two\n"
+     "review-lane report: dec255e7\nfinding: blocking open [harm: b1]  B one\n"
+     "finding: blocking open [harm: b2]  B two\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  b2 fixed\n"
+     "supersedes: dec255e7 finding 4  B's second repaired",
+     HEAD, 'unadjudicated', ['resolved'], 3),
+    ("an ordinal PAST THE END of the sha's findings resolves to nothing and "
+     "discharges nothing — it never falls back to a nearby finding",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  reviewer A\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  fixed\n"
+     "supersedes: dec255e7 finding 9  wrong number",
+     HEAD, 'unadjudicated', ['resolved'], 1),
+    ("segments at DIFFERENT heads are numbered independently — a second head's "
+     "findings do not continue the first head's count",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  at A\n"
+     "review-lane report: 4ba9f974\nfinding: blocking open [harm: b]  at B\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  b fixed\n"
+     "supersedes: 4ba9f974 finding 1  B's own first finding\n"
+     "finding: blocking resolved  a fixed\n"
+     "supersedes: dec255e7 finding 1  A's own first finding",
+     HEAD, 'present', ['resolved', 'resolved'], 0),
+    ("a FRAGMENT at the sha still consumes its ordinals — the identity is "
+     "positional and is not coupled to clause 6's count-equality verdict",
+     "review-lane report: dec255e7\nfinding: blocking open [harm: a]  A\n"
+     "report-complete: 7 findings\n"
+     "review-lane report: dec255e7\nfinding: blocking open [harm: b]  B\n"
+     f"review-lane report: {HEAD}\nfinding: blocking resolved  b fixed\n"
+     "supersedes: dec255e7 finding 2  B's finding, numbered past the fragment",
+     HEAD, 'present', ['resolved'], 0),
     ("a clean two-head history with no earlier blocking at all is untouched — "
      "the overwhelming majority case pays nothing",
      "review-lane report: dec255e7\nfinding: should open  a\n"
@@ -1709,9 +1853,12 @@ print(f"supersedes pass: {len(SUPER_FIX)}/{len(SUPER_FIX)} cross-head "
       "exclusion / fragment both sides / 1-based ordinal / backward-only / "
       "durable across a third head / bind-to-preceding-finding / "
       "use-vs-mention / grounds required / sha and ordinal token classes / "
-      "abbreviated sha / first-wins / the untouched majority), plus the "
-      "clause-7 carry-forward assertion with its control and the kogaki#72 "
-      "severity-blindness assertion")
+      "abbreviated sha / first-wins / the untouched majority / TWO REVIEWERS "
+      "AT ONE HEAD in four shapes, the ordinal running over the sha and not "
+      "the segment / an ordinal past the end / heads numbered independently / "
+      "a fragment consuming its ordinals), plus the clause-7 carry-forward "
+      "assertion with its control and the kogaki#72 severity-blindness "
+      "assertion")
 
 # --- trust assembly fixtures (kogaki#56): author-filtering, both directions.
 OWN = 'repo-owner'
@@ -1962,13 +2109,27 @@ if state == 'unadjudicated':
           "kogaki#269 — PR #255 is the specimen).")
     for sha, n, line in rows:
         print(f"  {sha[:7]} finding {n}: {line}")
+        # THE ORDINAL IS COMPUTED HERE, NEVER LEFT TO BE DERIVED. It runs over
+        # every finding under every report naming that sha, across segment
+        # boundaries, so on a head that two reviewers reported at, counting it
+        # by hand is exactly the error this identity was repaired to remove.
+        # The line below is the one to paste.
+        print(f"    → supersedes: {sha} finding {n}  <grounds>")
     print("  What is denied here is the SILENCE and never the severity: "
           "kogaki#72's budget is untouched, a `should` gates nothing as a "
           "`should`, and an adjudicated downgrade passes exactly as before. "
-          "On the line AFTER the finding that disposes of each one, write "
-          "`supersedes: <earlier head sha> finding <N>  <grounds>` — N is the "
-          "1-based position of the `finding:` line in the segment naming that "
-          "sha. Re-declare it `blocking open` instead if it still stands.")
+          "Put the line above on the line AFTER the finding that disposes of "
+          "each one, with its grounds filled in. Re-declare it `blocking open` "
+          "instead if it still stands.")
+    print("  WHO REPAIRS THIS, stated because nothing routes it automatically "
+          "(§4 clause 10, THE LIVENESS COST; carrier kogaki#288): the line "
+          "must ride a REVIEW SEGMENT, which only a reviewer may author, and "
+          "`tools/review-sweep.sh` will not spawn a review over code nobody "
+          "has changed — so its state machine reaches `done` here while this "
+          "gate stays red. A HUMAN routes it: ask for one more review comment "
+          "at this head carrying the lines above. It costs no round "
+          "(kogaki#190 counts cycles by head) and spends none of the "
+          "two-round bound.")
     sys.exit(1)
 if state == 'present':
     # WHAT THE REPORT ATTESTS TO IS ON THE PASSING LINE (§4 clause 5). Clause

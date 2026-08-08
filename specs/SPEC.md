@@ -1665,12 +1665,59 @@ invariant: Gukan guarantees Unit schema, never data schema).
       supersedes: <earlier head sha> finding <N>  <grounds>
       ```
 
-      - **The identity is (segment sha, ordinal).** `<N>` is the **1-based
-        position of the `finding:` line inside the segment naming that sha**.
-        The ordinal is a fact rather than a reading because an earlier segment
-        is **append-only** under clause 4's every-round-leaves-its-record — "a
-        new round supersedes by writing a new report, not by mutating an old
-        one" — so nothing can renumber it after the fact.
+      - **The identity is (sha, ordinal), and THE ORDINAL RUNS OVER THE SHA
+        RATHER THAN OVER ONE SEGMENT.** `<N>` is the **1-based position of the
+        `finding:` line among every `finding:` line under every report naming
+        that sha, in record order, counted straight across the segment
+        boundary.**
+
+        **This is the corrected form, and the correction is recorded because
+        the first one was FALSE ON ITS FACE.** Numbering per segment and
+        matching every segment at that sha — the shape round 1 of PR #287
+        caught — makes one `supersedes: <A> finding 1` discharge finding 1 in
+        *each* segment naming head A, so **a reviewer naming one reviewer's
+        finding silently adjudicates another's, with grounds that were never
+        about it.** Append-only makes the *ordinal* stable; it never made the
+        *segment* unique for a sha, and the clause asserted a uniqueness it
+        did not have.
+
+        **Two segments at one head is the EXPECTED state, not an edge.** PRs
+        #276, #278 and #282 each carried two report segments at one head on
+        2026-08-08, `tools/review-sweep.sh`'s own fixture states it — *"two
+        reviewers on ONE head is ONE round, not a park"* — kogaki#190 counts
+        cycles by head precisely so that two reviewers at one head cost one
+        round, and this clause's own predicate rests on `head_segments()`
+        returning **every** segment naming the head. The state the first
+        identity assumed away is the state the rest of the design is built to
+        expect.
+
+        Numbering over the sha is a **total order** over the findings at that
+        sha, so a pair names exactly one line. It remains a fact rather than a
+        reading because it is **still append-only**: a later segment naming the
+        same sha appends its findings after the ones already numbered, so no
+        existing ordinal moves — clause 4's every-round-leaves-its-record,
+        which `segments()` restates as "a new round supersedes by writing a new
+        report, not by mutating an old one", applied one level up. Resolution
+        walks only the segments **preceding** the naming one, which is also
+        what makes the reference backward-only without a second rule.
+
+        It is **deliberately not coupled to clause 6**: fragments are numbered
+        like any other segment, because an identity that changed when some
+        *other* clause's count-equality verdict changed would not be an
+        identity. Whether a fragment's finding can be the *subject* of a denial
+        is the separate question the predicate answers.
+
+        **The reviewer never derives the number.** The deny prints the exact
+        line to paste, ordinal included, for every finding it names — counting
+        across two reviewers' segments by hand is the error this identity was
+        repaired to remove, and asking for it back at the repair site would be
+        the same defect one layer out.
+
+        Residual exposure, stated rather than left to be found: two **different
+        commits sharing a 7-character prefix** would be read as one sha. That
+        is the abbreviation exposure every sha-bearing token in this section
+        already carries — `head_segments()` matches the same way — it is not
+        introduced here, and the remedy is the same one: write more of the sha.
       - The sha takes the same **7–40 hex** class the report token and
         `review-base:` take, and **matches abbreviated in either direction**,
         exactly as `head_segments()` already does.
@@ -1804,11 +1851,41 @@ invariant: Gukan guarantees Unit schema, never data schema).
       token ships carry no `supersedes:` line, so an open PR that already holds
       an earlier-head **justified** `blocking open` goes **red** on its next run.
       That is a real cost and it is the correct direction — every such PR is in
-      exactly the state PR #255 was in — and the remedy is **one line in the
-      next report segment**, an act the lane already performs. There is no flag,
-      no configuration and no grandfather clause, because a grandfather clause
-      here would be indistinguishable from not shipping the deny. The window
-      closes when the last such PR merges.
+      exactly the state PR #255 was in — and there is no flag, no configuration
+      and no grandfather clause, because a grandfather clause here would be
+      indistinguishable from not shipping the deny.
+
+      **THE LIVENESS COST, and it is the half an earlier draft of this clause
+      got wrong.** That draft said the remedy is "one line in the next report
+      segment, an act the lane already performs". **The line is one line; the
+      next segment is not produced.** `decide()` in `tools/review-sweep.sh`
+      reads only the **current** head's segments, so with a counted current-head
+      segment carrying no justified `blocking open` it returns **`done`** —
+      whatever any earlier head holds. No round is spawned, `author-owes` is
+      never reached, the author has nothing to push, and **the PR sits red while
+      the sweep reports it finished.** Failing red is the correct direction;
+      being unrepairable without a human is a cost this clause owes out loud.
+
+      **THE ACTOR IS A HUMAN, NAMED RATHER THAN LEFT IMPLICIT.** The line must
+      ride a **review segment**, and two rules meet there: only a reviewer may
+      author one — the isolation obligation forbids the author of the work —
+      and the sweep **will not spawn a review over code nobody has changed**,
+      which is `decide()`'s own stated rule for `author-owes` and not an
+      oversight to be patched away. So the routed act is **a human asking for
+      one more review comment at this head**, carrying the lines the check
+      prints. It costs **no round** — kogaki#190 counts cycles by head, so a
+      second segment at a head already reviewed is the same cycle — and spends
+      none of clause 3's two-round bound.
+
+      **The unroutable red is DECLARED, and it is CARRIED rather than
+      tolerated: kogaki#288.** Giving the sweep sight of this state is a real
+      remedy and it is deliberately **not** taken here: it would put a **second
+      implementation** of this clause's predicate in a second file with its own
+      parser, which is the two-places-that-can-disagree defect kogaki#52 names,
+      and choosing between that and a subprocess call into the merge check is
+      its own decision with its own licence. What this clause owes and now pays
+      is the honest statement plus a carrier. **Until kogaki#288 lands, a `done`
+      from the sweep is not a claim that the merge gate is green.**
 
       **`instrument:`** `checks/check-review-report.sh`, state `unadjudicated`,
       exercised by the 25-case `supersedes` fixture pass plus the clause-7

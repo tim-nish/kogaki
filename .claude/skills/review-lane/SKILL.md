@@ -486,9 +486,19 @@ finding: should open  <the finding, re-graded>
 supersedes: <earlier head sha> finding <N>  <grounds>
 ```
 
-- **`<N>` is the 1-based position of the `finding:` line in the segment naming
-  that sha.** Count the `finding:` lines in that report from the top: the first
-  is `finding 1`. Nothing renumbers them, because clause 4 forbids editing an
+- **DO NOT COUNT IT YOURSELF — the check prints the line.** When the gate denies,
+  it emits a paste-ready `supersedes: <sha> finding <N>  <grounds>` for every
+  finding it names, ordinal already computed. Fill in the grounds and post it.
+- **`<N>` runs over the SHA, not over one segment.** It is the 1-based position
+  of the `finding:` line among **every** `finding:` line under **every** report
+  naming that sha, counted straight across the segment boundary in the order
+  the comments appear. **Two reviewers reporting at one head is normal** — one
+  round, not a park (kogaki#190) — and when it happens, the second reviewer's
+  first finding is `finding <k+1>` where `k` is the first reviewer's finding
+  count, **not** `finding 1`. Numbering per segment would let one
+  `supersedes:` discharge a finding it was never about.
+- Nothing renumbers an existing ordinal: a later report naming the same sha
+  appends after what is already numbered, and clause 4 forbids editing an
   earlier round's comment.
 - **The sha is the earlier report's own head sha**, read as a value from that
   comment's first line — never assembled from a prefix (kogaki#91).
@@ -508,6 +518,13 @@ supersedes: <earlier head sha> finding <N>  <grounds>
 - **It stacks with `carried:` / `declined:`, in either order**, and answers a
   different question: `supersedes:` is *which earlier finding is this*,
   `carried:` / `declined:` is *what happens to this one after the merge*.
+- **If you meet a PR already red on this, YOU are the actor** — post one more
+  review comment at the current head carrying the printed lines. Nothing spawns
+  you: the sweep's `decide()` cannot see this state and returns `done`
+  (kogaki#288), and it will not spawn a review over code nobody changed. The
+  extra comment costs **no round** — kogaki#190 counts cycles by head — and
+  spends none of the two-round bound. **A `done` from the sweep is not a claim
+  that the merge gate is green.**
 
 ### `carried:` / `declined:` — the disposition of a non-gating finding (§4 clause 8, kogaki#224)
 
