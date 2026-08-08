@@ -1342,6 +1342,224 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **deferred slots: none.**
 
+  9. **The review record's STATE TRANSITIONS are enumerated here, and each
+     names its OBSERVING ACT or a typed absence** (kogaki#270, owner selection
+     2026-08-08 — arm 1 of the three candidate homes the issue framed).
+
+     **WHAT THIS CLAUSE IS, stated first because its shape is the whole of
+     it.** It is an **enumeration with a typing rule**, not an implementation.
+     It implements no transition, admits, modifies and retires no check, and
+     **asserts nothing about severity, gating, or the two-round bound** —
+     kogaki#72's blocking budget, the merge layer, and clause 3's cap are all
+     untouched, and a row typed `none` gates nothing and turns nothing red.
+     What changes is that a transition of the review record can no longer
+     enter the design without a named observer or a typed absence: an
+     unobserved transition becomes a **greppable declared state** instead of a
+     discovery made when a merge goes wrong on it.
+
+     **THE PROBLEM IT OBSERVES is different-unit by construction.** Every
+     transition below got its observer only after a merge went wrong on it,
+     and the set was written down nowhere — so a transition nothing observes
+     was invisible until its own specimen arrived. No per-PR review and no
+     per-transition fix can see that, which is the served position exactly:
+
+     > **A DELIBERATELY NARROW instrument owes a NAMED TRIGGER that widens or
+     > escalates it, because per-item judgment structurally cannot observe
+     > recurrence.** … the structural clause is the load-bearing half and is
+     > why the trigger cannot live inside the instrument: per-item judgment
+     > cannot see recurrence by construction … so the escape trigger must be a
+     > DIFFERENT-UNIT observer.
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:85`
+       request_id: f25bb069-6468-4795-a193-ea995e050c69
+       outcome: discriminating
+       query: A governing text adds an enumeration of a record's state transitions, each typed with its observing act or a typed none, and deliberately mints no check and modifies no check, hook or registry. Does declaring an enumeration whose members name existing acts count as admitting a check, and what does the check-suite economics position require of a carrier that observes without gating?
+
+     **THE FORM IS BORROWED, NOT INVENTED** — it is the one already ratified
+     one level down for the check registry's removal signals, and it is quoted
+     rather than paraphrased:
+
+     > "Each removal signal is TYPED AT ADMISSION with its observing act or a
+     > typed `none` carrying its reason … what is asked for is the ACTIVATING
+     > mechanism: per removal condition, a named observer bound to an act that
+     > already happens."
+
+     `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:14`
+     (verified verbatim at the current pin this sitting, per kogaki#266 — a
+     resolving pin is not a correct pin)
+
+     **THE TYPING RULE — exactly three admissible types, and no fourth.**
+
+     - **an observing act** — a named act that ALREADY HAPPENS, with the
+       artifact and the symbol that performs it. Not a plan, not an issue, not
+       an intention: the held-item rule's own standard, that a declaration
+       binds at AUTHORING time and rides an act firing for its own reasons
+       (`product-lab@dec0d568 topics/knowledge-architecture.md:43`).
+     - **`none: <why>`** — no act in this repository observes it, with the
+       reason. **An issue that will one day build the observer does not
+       discharge a row**; a row may NAME such an issue in its reason, and the
+       type stays `none` until the act exists. This is the whole surfacing
+       mechanism, and softening it is how the enumeration decays back into the
+       per-item silence it replaces.
+     - **`cross-repo(<owner>/<repo>#<n>)`** — no act in **this** repository
+       CAN observe it, because the layer where it occurs belongs to another
+       system, and the value names where an observer would have to live.
+
+     **THE THIRD TYPE IS DECLARED AND CURRENTLY UNUSED, and that is recorded
+     rather than left to be noticed.** No row below takes it. Row 8 was the
+     candidate and does not qualify: its orchestrator half was escalated to
+     `tim-nish/claude-toolkit#282`, but the parts kogaki retained are this
+     repository's own files, and the served definition of the value is *"a
+     cross-repo hold means no act IN THIS REPOSITORY CAN observe this"*
+     (`product-lab@dec0d568 topics/knowledge-architecture.md:17`, quoted on
+     kogaki#271's own anomaly note). A type that fits no current member is
+     kept because the enumeration is re-typed on change and the day a
+     transition genuinely leaves is the day it would otherwise be typed
+     dishonestly.
+
+     **THE ENUMERATION — nine transitions, seeded from kogaki#270's inventory
+     and RE-DERIVED against the artifacts at this sitting rather than copied
+     forward.** Four rows moved; the movements are recorded under the table.
+
+     | # | transition of the review record | type |
+     |---|---|---|
+     | 1 | a finding is **raised and typed** | **act** — the `finding: <severity> <state>` line, parsed by `checks/check-review-report.sh`'s `FINDING` regex and by `tools/review-sweep.sh`'s segmenter, both anchored whole |
+     | 2 | a **severity is revised across heads** | `none: nothing joins two segments — the severity field is read per segment and the gate's only unit of identity is the head sha, so a head move for any reason discards every earlier segment's severity. The observer is owed and unbuilt at kogaki#269; naming it does not type this row.` |
+     | 3 | a finding goes **`open` → `resolved`** | `none: the state token is the reviewer's own attestation about its own work and no act re-derives it from the diff. No carrier is filed, and this row is how that is surfaced.` |
+     | 4 | a **report carries forward** to a head that changed no content | **act** — `carry_forward()` in `checks/check-review-report.sh`, which recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it (§4 clause 7) |
+     | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
+     | 6 | a **non-gating finding crosses the merge** | **act** — §4 clause 8's `carried:` / `declined:` disposition line, written by the reviewer under `.claude/skills/review-lane/SKILL.md` §`carried:`/`declined:` and read at the sweep's `done` boundary (kogaki#224, reader half kogaki#251) |
+     | 7 | a **fix is authored after its own PR merges** | `none: the sweep enumerates OPEN pull requests and the merge check runs on a pull-request event, so a commit pushed to a merged branch produces neither — no CI run, no licence assertion, no review segment, and gh pr view keeps returning the merged head. No carrier is filed.` |
+     | 8 | a **review is degraded** (the session was denied tools) | `none: the in-band carrier cannot-determine: exists and the sweep's report-degraded arm does not write one — it posts a SEPARATE comment bound to no segment, so a later segment carries no record that its session was degraded. kogaki#271 parts (a)-(c) are the retained kogaki work; they are named, and naming them does not type this row.` |
+     | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
+
+     **THE FOUR ROWS THAT MOVED SINCE FILING, with what moved them.** Recorded
+     because a re-typing that silently overwrites its predecessor teaches the
+     next sitting to trust a stale table.
+
+     - **Row 5 was filed `carried wrongly` and re-derives as CARRIED**, and
+       this is the sharpest of the four because three separate written records
+       still say otherwise. kogaki#246's append of 2026-08-08T02:34, kogaki#270's
+       own row 5, and the note on PR #276 all state that *"rounds are counted
+       from segments"* and that two segments at one head therefore spend the
+       cap. **Exercised against the shipped script this sitting, that is
+       false:** two performed segments naming one head return `rally_cycles →
+       (['8e23ae7…'], [])` and `rounds_used → 1`, because kogaki#190 moved the
+       count to CYCLES grouped by head at `96b6776`, which landed 2026-08-07,
+       *before* all three records were written. None came back to correct
+       itself. The served rule governs both halves of this: the built half is
+       decided by the built system — *"Say which system decides which half.
+       Being written more recently says when someone wrote, not what they
+       could see"* — and the conflict is reported rather than absorbed —
+       *"when they conflict the later verdict wins and the conflict is
+       reported rather than quietly reconciled … a record that is only updated
+       at a review point must not state facts that change without one"*
+       (`product-lab@dec0d568 gloss/lessons/knowledge-architecture.md:209`,
+       `:269`, both re-read at the current pin this sitting).
+       **What survives of the row's original complaint is NOT the count.** Two
+       independent spawns at one head still cost two reviewer sessions, and
+       that waste is kogaki#271's subject and `tim-nish/claude-toolkit#282`'s,
+       not this row's: the transition *a round is counted* has an observer and
+       it counts correctly.
+     - **Row 6 was filed `carried, not emitted` and re-derives as CARRIED.**
+       Clause 8's grammar reached the file the reviewer actually reads while
+       composing — `.claude/skills/review-lane/SKILL.md` now carries it as a
+       copy with declared precedence and its sub-rules pointed at (kogaki#251,
+       landed in PR #278). The producing site the carrier was missing now
+       exists, which is the fourth rung the served surface names: *"a carrier
+       is not installed until every input it reads has a producing site,
+       checkable by enumeration"* (`product-lab@dec0d568
+       topics/claude-code-ops.md:58`).
+     - **Row 9 was filed `prose` and re-derives as CARRIED.** kogaki#258
+       landed in the same PR: §2's boundary record has a declared, parseable
+       line shape with a typed verdict, parsed and printed by the merge check
+       and never gated.
+     - **Row 8 was filed `partially carried` and re-derives as `none`.** The
+       partial-carry reading credits `cannot-determine:` for a record the
+       degraded path does not write. The line class exists and is honest; the
+       arm that would emit it does not use it, and an unwritten record observes
+       nothing.
+
+     **THE WIDENING TRIGGER — the different-unit observer, without which this
+     enumeration decays into what it replaces.** **Adding a transition to the
+     review record, or changing what any existing observer reads, RE-RUNS the
+     typing.** The trigger names an act that already happens rather than a
+     periodic reader, on the ratified form for exactly this
+     (`product-lab@dec0d568 topics/knowledge-architecture.md:43`): the
+     **review-lane sitting on any diff touching the four artifacts this
+     enumeration is derived from** — this section's declared line classes,
+     `checks/check-review-report.sh`, `tools/review-sweep.sh`, and
+     `.claude/skills/review-lane/SKILL.md`. The lane already reads all four to
+     do its ordinary job, so the trigger converts nothing into a schedule. A
+     re-typing that finds no change costs one sentence in the report; a
+     re-typing skipped is the silence this clause exists to end.
+
+     **`instrument: none` for the re-typing itself, with its reopen trigger.**
+     No registered check asserts that the table above matches the artifacts,
+     and none is licensed here: the property is *did a human re-read four
+     artifacts and re-decide nine judgments*, which rests on the sitting's
+     self-report about its own process — an attestation rather than evidence,
+     and the state the served surface names as needing a mechanism only when
+     compliance can be simulated at the unit of inspection
+     (`product-lab@dec0d568 topics/knowledge-architecture.md:86`). It is
+     marked rather than omitted, which is the admissible third state.
+     **Reopen trigger:** a second sitting finding a row stale in the way row 5
+     was found stale here — the table asserting a mechanism's behaviour that
+     the shipped mechanism contradicts.
+
+     **WHAT THIS CLAUSE DOES NOT COVER, declared up front so it cannot become
+     a bucket.**
+
+     - **Any transition's own fix.** Row 2 is kogaki#269. Row 6's reader half
+       was kogaki#251 and has landed. Row 9 is kogaki#258 and has landed. Row
+       6's substance is kogaki#224, closed and correct. Rows 3, 5's residual
+       waste, 7 and 8 are named above and this clause **does not become their
+       home** — typing them is what surfaces them; each earns its own filing
+       on its own evidence.
+     - **kogaki#72's blocking budget.** Ratified economics, untouched, and not
+       reopenable through here: an enumeration changes what is *observed*,
+       never what *gates*. A sitting that reaches this clause to re-argue the
+       budget is out of its licence.
+     - **The review lane's dimensions.** Widening the lane by a third
+       dimension is kogaki#246's own trigger and stays there. This is the
+       lane's *record*, not its judgment.
+     - **kogaki#243's invariant.** That issue asks whether a verification
+       artifact verifies what it claims; this asks whether a transition is
+       observed at all. A perfectly-bound fixture for a transition nobody
+       enumerated is still the failure here.
+     - **kogaki#268's vocabularies.** Adjacent shape — a record specified over
+       evidence nothing emits — on a **different record**, the consultation
+       digest. Not folded in either direction, and a hand-off proposing to
+       fold a consultation-receipt grammar key into this clause was **refused
+       on this sentence** at the sitting that wrote it, and filed instead as
+       kogaki#280.
+     - **Minting a check.** Whether any given transition's observer is a
+       check, a sweep state, a report line or a typed `none` is a
+       per-transition judgment at that transition's own sitting. Nothing here
+       admits, modifies or retires a check, and the `instrument: none` above
+       is the clause's own conformance to that.
+
+     **THE DECLINED HOMES, recorded with their grounds** rather than dropped,
+     both of which the owner considered and did not select.
+     *A dedicated `spec-review-record/SPEC.md`.* Its merits are real — its own
+     governing text, and §4 stops accreting. Declined on cost of consultation:
+     it mints a file every reader of the review record must learn to consult,
+     and §4 would still owe a pointer at it, so the reader's path grows by one
+     hop while the four artifacts the enumeration is derived from all remain
+     addressed from here. It stays the better arm the day §4's clause list
+     needs splitting for its own reasons, and that is its reopen trigger.
+     *The observation register, kogaki#246.* The cheapest arm by a distance —
+     it already accumulates three of these very transitions as
+     `out-of-dimension:` appends. Declined because **a ledger is not a
+     governing text**: the register holds observations whose value is the
+     count, and kogaki#191 split it from the deliverable record precisely to
+     stop that conflation, which siting a typing rule there would recreate.
+     The register keeps its observations and this clause asserts nothing about
+     its lifecycle; kogaki#246's own pointer append already names this clause
+     as where rows 5, 6 and 7 were carried.
+
+     **deferred slots: none.**
+
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
   distinguishes a thorough review that found nothing from one that looked at
