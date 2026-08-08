@@ -145,7 +145,12 @@ section says nothing about it. An issue about a rendering, a screen, a command's
 closing lines, a report the owner opens, or a relay through an agent session
 **is**, and owes the criterion below.
 
-**Two admissible discharges, and the first is preferred.** *Topology* — remove
+**Two admissible discharges, and neither is ranked above the other.** The
+served formulation quoted above states them as bare alternatives —
+*"either TOPOLOGY … or MEASUREMENT AT THE EXPERIENCE"* — and this section
+carries them the same way; the order below is this text's presentation and
+**not** a preference, because ranking them here would add a normative claim
+the served position does not carry. *Topology* — remove
 the failing component from the serving path, so no live verification remains to
 perform — discharges this section outright and is stated first so the rule does
 not read as a standing dogfood tax. *Measurement at the experience* — a live
@@ -205,9 +210,16 @@ owner-surface is a judgment about what its property is *about*; whether a run
 record measured the experience rather than re-rendering the artifacts is a
 judgment about evidence. Both are the shape a mechanical instrument reads
 wrongly at speed — and the repository has already ruled at its strongest against
-mechanizing a rule that merely *looks* deterministic
-(`specs/spec-draft-pipeline/SPEC.md` §4.6 clause 3: *"No rule becomes a lint or
-automated check — even where deterministic processing is possible"*).
+mechanizing a rule that merely *looks* deterministic. Its clause, in its own
+words: **"No rule becomes a lint, even where deterministic processing is
+possible"** (`specs/spec-draft-pipeline/SPEC.md` §4.6 clause 3). That clause
+rests on a served line, which §4.6 quotes at its pin and which is quoted here
+the same way rather than folded into the clause's voice:
+
+> "… no rule becomes a lint or automated check — **even where deterministic
+> processing is possible**"
+
+`product-lab@dec0d568 topics/articles.md:19`
 
 The portfolio rule makes the decline admissible rather than merely convenient —
 a stated policy is admissible in exactly three states, and **carrier-less by
@@ -298,6 +310,20 @@ reader meeting only the outcome would not know they were considered:
    shape this repository has ratified against: a rule scoped to the members that
    supplied its evidence stops covering the next member silently, and the
    failure presents as nothing happening.
+
+**What the selection's own record does and does not carry, marked rather than
+implied.** The alternatives above and their grounds are on the record; the
+**selection** among the three is carried by the authoring sitting's assertion
+that the owner made it, with **no captured gate payload or recorded answer**
+beside it. That gap is stated here rather than left to be inferred from its
+absence, because this is the same shape §2.6.4's evidence is about — a
+verification bound only by the author's belief — read at the decision record
+instead of at the acceptance criterion. It is not repaired retroactively: a
+gate payload composed after the fact would be the fabrication the marking
+exists to avoid. **The reopen trigger:** a later reading of this section that
+turns on *which* home was chosen rather than on what the section says, at which
+point the choice owes a re-decision with a captured answer rather than a
+reconstruction. (Raised on PR #267 and carried here as `carried: #234`.)
 
 ## 3. The guarantee split
 
