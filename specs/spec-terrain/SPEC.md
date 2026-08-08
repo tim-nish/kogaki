@@ -1,5 +1,19 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v13, amended 2026-08-09 (kogaki#300, owner selection) — **§13.3 says
+where the Thesis binds, which §13.2 required and §13.3 left silent.** The fork
+was found by PR #298's round-2 review and carried on #289: §13.2 declares the
+Thesis a REQUIRED input while §13.3's three substrates are each computable from
+the candidate set alone, so the mechanical layer as specified returned the same
+neighborhood for every Thesis and §13.2's "empty is an informative outcome" was
+unreachable from anything §13.3 described. Resolved on the served ground that a
+question supplies a **relevance bound, stopping condition and grade** rather
+than a filter: the substrates **enumerate**, the Thesis **bounds the
+expansion**. §13.2 is unchanged — it was right. §13.5 gains the boundary clause
+keeping that bound distinct from the extend-or-discard judgment it holds behind
+a trigger. Implementation is licensed by kogaki#300 and is not in this
+amendment.
+
 **Status:** v12, amended 2026-08-08 (kogaki#289, owner selection) — **§13 adds
 the provenance-neighborhood surface: a Thesis-bounded, propose-only widening of
 the candidate set across tag boundaries, disclosing the substrate that reached
@@ -3129,6 +3143,39 @@ The served shape is `{"members": {"journey": [...], "lesson": [...]}}`
 (`gloss/ELEMENTS.jsonl:745`), so the join already carries each batch-mate's
 family; §13.4's no-pooling rule needs no additional lookup and no inference.
 
+**Where the Thesis binds: it bounds the expansion, and never filters the set
+(v13, kogaki#300).** §13.2 declares both inputs required; every substrate above
+is computable from the candidate set alone. Read together those said the
+mechanical layer returns the same neighborhood for every Thesis — which makes
+§13.2's "empty is an informative outcome" unreachable and leaves the required
+second input consumed by nothing. The resolution is that the Thesis is not a
+predicate over the enumerated neighbors but the **question the read is bounded
+by**:
+
+> "A read with no question has no relevance criterion, so its intermediate grows
+> toward corpus size; no grade, since completeness certifies only its own
+> enumeration … A read with one inherits the question's relevance bound,
+> stopping condition and grade — **grounded, refuted and empty are all
+> informative outcomes**."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:89`
+
+So the division is: **the three substrates enumerate, and the Thesis bounds the
+expansion of that enumeration** — how far the traversal runs and where it stops.
+Empty becomes reachable exactly as §13.2 claims, because a Thesis-bounded
+expansion that reaches its stopping condition with nothing surfaced has produced
+a result rather than failed.
+
+**Why this is a bound and not a filter, stated because the two are one
+refactor apart.** A filter over the rendered set would *narrow* what reaches the
+owner, which engages the §2.3 second-proposer boundary that §13.1 declares never
+engages here — the widening classification in the status block above depends on
+it. A bound on expansion narrows nothing: the neighborhood is material offered
+**beside** the candidate set, so a bound decides how much additional material is
+surfaced and removes nothing that would otherwise have reached the owner. An
+implementation that computes the full neighborhood and then drops members
+against the Thesis has built the filter, whatever it is named.
+
 ### 13.4 Disclosure, denominator, and families that are never pooled
 
 Three obligations on the rendering, each inherited:
@@ -3183,11 +3230,27 @@ unchanged). **Discard stays a valid outcome**, and so does "mechanical layer
 sufficient".
 
 The trigger is an observation, never a date: **a recorded run in which the
-owner names a Grain that belonged in the Strand set and that none of §13.2's
+owner names a Grain that belonged in the Strand set and that none of §13.3's
 three substrates reached.** The unresolved-`source_batch` markers of §13.3 are
 deliberately *not* that evidence — an unresolved join is a mechanical defect to
 fix, and counting it as a relevance miss would buy the extension with the
 mechanical layer's own bugs.
+
+**The §13.3 traversal bound is not this gate, and must not become it (v13,
+kogaki#300).** §13.3 gives the Thesis a bound on how far the enumeration
+expands; this section holds *relevance judgment* — whether a surfaced neighbor
+is worth keeping — behind the trigger above, undesigned. The two are adjacent
+enough to collapse silently, so the line is drawn mechanically rather than by
+intent: **the §13.3 bound may decide how much of the enumeration is traversed,
+and may never score, rank, or drop an enumerated neighbor on relevance.** An
+implementation whose bound requires judging a neighbor against the Thesis has
+built this extension without its trigger firing, and the observable tell is
+that removing the Thesis would change *which* neighbors are surfaced rather
+than *how many*.
+
+The `§13.2` in this section's trigger sentence was corrected to `§13.3` in the
+same amendment: the three substrates are enumerated there, and the mis-citation
+pointed at the inputs section instead.
 
 ### 13.6 Placement, and the coupling that is refused
 
