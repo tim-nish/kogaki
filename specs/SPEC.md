@@ -1456,11 +1456,33 @@ invariant: Gukan guarantees Unit schema, never data schema).
        at a review point must not state facts that change without one"*
        (`product-lab@dec0d568 gloss/lessons/knowledge-architecture.md:209`,
        `:269`, both re-read at the current pin this sitting).
+       **A FOURTH stale record was found by this clause's own round-1 review,
+       and it is the worst-sited of the four.**
+       `.claude/skills/review-lane/SKILL.md` — the file a reviewer reads
+       *while composing*, and one of the four artifacts the widening trigger
+       below names — still says *"Rounds are counted from the report segments
+       themselves"*, directly under the state-machine table where a reviewer
+       goes to decide whether a PR is heading for `park`. Its neighbour *"a
+       reviewer that fragments twice parks the PR"* falls with it, and for a
+       reason worth stating so fragments are not read as exempt: fragment-ness
+       is `counted()` and cycle membership is `performed()`, a split
+       `performed()`'s own docstring declares — *"Deliberately NOT folded into
+       `counted()`"* — so two fragments at ONE head are one cycle. Carried at
+       **kogaki#283**; the repair is downstream text this clause does not own,
+       and typing row 5 is what surfaced it.
        **What survives of the row's original complaint is NOT the count.** Two
        independent spawns at one head still cost two reviewer sessions, and
        that waste is kogaki#271's subject and `tim-nish/claude-toolkit#282`'s,
        not this row's: the transition *a round is counted* has an observer and
        it counts correctly.
+       **The count of stale records is itself the row's evidence.** Four
+       records, one falsifying commit, and not one came back to correct
+       itself — which is the served rule's own second half: *"a record that is
+       only updated at a review point must not state facts that change without
+       one … because nothing will ever come back to correct it"*
+       (`product-lab@dec0d568 gloss/lessons/knowledge-architecture.md:269`).
+       It is why this enumeration types rows by their **observing act** and
+       never by a state a row asserts about one.
      - **Row 6 was filed `carried, not emitted` and re-derives as CARRIED.**
        Clause 8's grammar reached the file the reviewer actually reads while
        composing — `.claude/skills/review-lane/SKILL.md` now carries it as a
