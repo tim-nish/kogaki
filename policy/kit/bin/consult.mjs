@@ -6,6 +6,10 @@
 //        --outcome <token> [--restate '<claim>' …] [--tool <tool>]
 //        [--args '<json>' …]   one per --claim, in order; for a prescription
 //                              whose tool is not `policy_lookup`
+//        [--disposition <auto-resolved-FYI | escalated>]
+//                              this consult was raised at a FORK GATE and this
+//                              is what the gate did with it. Omit for every
+//                              consult that was not a gate (kogaki#268)
 //        [--gateway <path-to-dist/index.js>]
 //
 // A SIBLING of gateway-query.mjs, never a rewrite of it. Every consult this
@@ -39,6 +43,41 @@
 // observed facts (the framing count) and against the hub's ratified triple.
 // They refuse a disagreement; they never repair one, because repairing it
 // would be this tool assigning the token by the back door.
+//
+// THE GATE HALF, AND WHY IT IS A SECOND KEY (kogaki#268). `outcome` above
+// answers ONE question — did the served surface discriminate what was asked.
+// A fork gate asks a different one — what did the gate DO with the answer —
+// and its ratified vocabulary (`auto-resolved-FYI | escalated`) is not a member
+// of the triple, so putting it in `outcome` is refused by the clause directly
+// above and by `checks/check-consult-receipts.sh`'s ratified-triple rule. The
+// two vocabularies are mutually exclusive in one slot, which is exactly why the
+// resolution is ONE FIELD PER AXIS rather than a widened field:
+//
+//   "A consumer owns the SHAPE of its own record and NEVER the VALUES of a
+//    field that exists to join across the boundary … a field read by one side
+//    is that side's, a field read by both is the boundary's, and the
+//    boundary's owner is the hub."
+//   `topics/knowledge-architecture.md:31@dec0d568` (verified live 2026-08-08)
+//
+// So `--disposition` fixes the KEY here and ADOPTS the values verbatim from the
+// ratified amendment (spec-policy-fork-consultation §"Amended 2026-07-21
+// (triage, #519)": a closed two-value set, no consumer-local extension).
+//
+// ASKING IS EMITTING, one layer out. The hub's own amendment states the reason:
+// the server-side access log proves a consultation OCCURRED and cannot observe
+// its DISPOSITION, so a demoted fork was mechanically uncountable. The gate
+// produces no event anything can hook, so the act must leave its own record —
+// written AT the gate, by the act, which is primary capture. It is not the
+// forbidden second ledger: nothing here stores a derived count, and the digest
+// is assembled on demand by grepping the receipts (the same amendment: "counts
+// assembled on demand … never a stored second ledger").
+//
+// OPTIONAL, AND NEVER DERIVED. Most consults in this repository are not fork
+// gates, and this tool has no reading of whether one was — the disposition is
+// the caller's assertion on exactly the terms `--outcome` already is (the
+// `consult-outcome-token-assignment` fill). Omitted means "not a gate consult";
+// it never means "a gate whose disposition went unrecorded", and this tool
+// cannot tell those apart, which is stated rather than papered over.
 //
 // WHO PERFORMS THE RE-FRAMING is an OPEN STORY QUESTION and the slot's fill did
 // not settle it. This entry point PROMPTS: it refuses a non-discriminating
@@ -89,6 +128,25 @@ const RATIFIED = new Set(["discriminating", "covered-after-reframing"]);
 // least one ALTERNATIVE axis. Same constant, same value, as the checker's
 // MIN_FRAMINGS — asserted there over emitted text, carried here at the call.
 const MIN_FRAMINGS = 2;
+// The gate half's closed set, ADOPTED rather than coined (kogaki#268) — the
+// same set `checks/check-consult-receipts.sh` admits, and the same set
+// writing-assistant's `scripts/fork-consult.py:89` has enforced since #519.
+const DISPOSITIONS = new Set(["auto-resolved-FYI", "escalated"]);
+// The predictable wrong values, separated from a typo because they route to a
+// different answer rather than to a correction: these are gate CLASSIFICATIONS
+// from the other taxonomy, and two of them name states that emit no receipt at
+// all — so no value in a receipt can ever record them.
+const GATE_CLASSIFICATIONS = {
+  covered:
+    "a coverage state, not a disposition — a covered fork is either demoted " +
+    "(auto-resolved-FYI) or overridden and re-raised (escalated)",
+  "consult-miss":
+    "a fork nobody consulted emits NO receipt at all, so no field in a receipt " +
+    "can record it — it is not substantiable from receipts under any schema",
+  degraded:
+    "a degraded consult emits NO receipt by design (policy_source unavailable:, " +
+    "exit 11), so zero-degraded and zero-consults are indistinguishable",
+};
 // One re-framing, and one only. AC 4's "a fixed bound, never a search loop":
 // widening the read until something comes back is the failure mode the bounded
 // question exists to prevent, and a bound that lives in prose is a bound a
@@ -139,7 +197,7 @@ export function verdictShaped(text) {
 // or the refusal to print. Pure so the fixture pass below can fire every branch
 // without a gateway, a child process, or a temp directory: every property this
 // entry point adds is a property of the invocation, not of the wire.
-export function discipline({ framings, restatements = [], outcome, argsList = [] }) {
+export function discipline({ framings, restatements = [], outcome, disposition, argsList = [] }) {
   const refuse = (code, ...lines) => ({ ok: false, code, message: lines.join("\n") });
 
   if (!framings.length)
@@ -268,7 +326,26 @@ export function discipline({ framings, restatements = [], outcome, argsList = []
         "is yours to assign, so a disagreement is refused rather than repaired.",
     );
 
-  return { ok: true, framings: applied };
+  // THE SECOND AXIS (kogaki#268). Checked last because it is independent of
+  // every clause above: the gate half neither constrains nor is constrained by
+  // the framing count, and a consult that fails the floor has no disposition to
+  // record yet. Absent is the common and correct case.
+  if (disposition !== undefined && !DISPOSITIONS.has(disposition)) {
+    const why = GATE_CLASSIFICATIONS[disposition];
+    return refuse(
+      2,
+      `disposition '${disposition}' is not the ratified gate set ` +
+        "(auto-resolved-FYI | escalated)." +
+        (why ? `\n'${disposition}' is ${why}.` : ""),
+      "The set is CLOSED with no consumer-local extension " +
+        '(spec-policy-fork-consultation §"Amended 2026-07-21 (triage, #519)"): ' +
+        "this repository owns the shape of its own record and never the values " +
+        "of a field read across the boundary. If the consult was not raised at " +
+        "a fork gate, omit --disposition entirely.",
+    );
+  }
+
+  return { ok: true, framings: applied, disposition };
 }
 
 // One `--args` per framing, in order — the transport's own contract, and the
@@ -288,7 +365,7 @@ export function discipline({ framings, restatements = [], outcome, argsList = []
 // absent, the historical `policy_lookup` shape is unchanged. So a `gloss_index`
 // consult states the shard it read AND the question it was reading for, and
 // the receipt records the second.
-export function transportArgv({ consumer, framings, outcome, tool, gateway, argsList = [] }) {
+export function transportArgv({ consumer, framings, outcome, disposition, tool, gateway, argsList = [] }) {
   const argv = ["--consumer", consumer];
   for (const [i, f] of framings.entries()) {
     argv.push("--tool", tool ?? "policy_lookup");
@@ -296,6 +373,10 @@ export function transportArgv({ consumer, framings, outcome, tool, gateway, args
     argv.push("--question", f);
   }
   argv.push("--receipt", "--outcome", outcome);
+  // Forwarded only when the caller supplied it, so a non-gate consult's argv is
+  // byte-for-byte what it was before kogaki#268 and every existing fixture over
+  // this function keeps its exact expected string.
+  if (disposition !== undefined) argv.push("--disposition", disposition);
   if (gateway) argv.push("--gateway", gateway);
   return argv;
 }
@@ -322,6 +403,7 @@ export function degradedStatement(why) {
     "consulted: <repo>@<sha> <file:line[,line][, file:line…]>",
     "  request_id: <the id the tool returned>",
     "  outcome: <discriminating | covered-after-reframing | uncovered-after-N-framings>",
+    "  disposition: <auto-resolved-FYI | escalated>   ← ONLY if this was a fork gate; omit otherwise",
     "  query: <framing 1, verbatim>",
     "  query: <framing 2, verbatim>",
     "```",
@@ -428,6 +510,46 @@ function selfTest() {
      () => degradedStatement("x").split("\n").filter((l) => /^ {2}(request_id|outcome|query):/.test(l)).length === 4],
     ["the degraded example is fenced — quoting the grammar is a mention",
      () => degradedStatement("x").split("\n").filter((l) => l === "```").length === 2],
+    // --- kogaki#268: the gate disposition, a second and OPTIONAL axis --------
+    ["the ratified two-value gate set is accepted and carried back to the caller",
+     () => { const a = run({ framings: ["a claim"], outcome: "discriminating", disposition: "auto-resolved-FYI" });
+             const b = run({ framings: ["a claim"], outcome: "discriminating", disposition: "escalated" });
+             return a.ok === true && a.disposition === "auto-resolved-FYI" &&
+               b.ok === true && b.disposition === "escalated"; }],
+    ["OMITTED is the common case and stays valid — most consults are not fork gates",
+     () => { const r = run({ framings: ["a claim"], outcome: "discriminating" });
+             return r.ok === true && r.disposition === undefined; }],
+    ["a locally coined disposition is refused — the set is CLOSED and adopted, never extended",
+     () => { const r = run({ framings: ["a claim"], outcome: "discriminating", disposition: "overridden" });
+             return r.code === 2 && r.message.includes("no consumer-local extension"); }],
+    // The two states no schema can carry, refused with their REASON rather than
+    // with the set — a caller reaching for them is asking for something the
+    // evidence cannot supply, not mistyping a token.
+    ["`consult-miss` is refused BY REASON: an unconsulted fork emits no receipt at all",
+     () => { const r = run({ framings: ["a claim"], outcome: "discriminating", disposition: "consult-miss" });
+             return r.code === 2 && r.message.includes("emits NO receipt at all"); }],
+    ["`degraded` is refused BY REASON: a degraded consult emits no receipt by design",
+     () => { const r = run({ framings: ["a claim"], outcome: "discriminating", disposition: "degraded" });
+             return r.code === 2 && r.message.includes("indistinguishable"); }],
+    ["`covered` is refused as a coverage state rather than a disposition",
+     () => run({ framings: ["a"], outcome: "discriminating", disposition: "covered" })
+             .message.includes("not a disposition")],
+    ["a query-level token in the disposition slot is refused — one field per axis",
+     () => run({ framings: ["a"], outcome: "discriminating", disposition: "discriminating" }).code === 2],
+    ["a disposition token in the OUTCOME slot still fails the ratified triple",
+     () => run({ framings: ["a"], outcome: "auto-resolved-FYI" }).message.includes("ratified triple")],
+    ["the disposition rides to the transport as its own flag, after --outcome",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating",
+             disposition: "escalated" }).slice(-5).join(" ") ===
+             "--receipt --outcome discriminating --disposition escalated"],
+    ["a non-gate consult's transport argv is byte-for-byte what it was before #268",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating" })
+             .join(" ") === '--consumer k --tool policy_lookup --args {"question":"q"} ' +
+             "--question q --receipt --outcome discriminating"],
+    ["the degraded template carries the disposition line as OPTIONAL, inside the fence",
+     () => { const s = degradedStatement("x");
+             return s.includes("  disposition: <auto-resolved-FYI | escalated>") &&
+               s.includes("ONLY if this was a fork gate"); }],
     ["the degraded statement routes to the MCP tools and says the discipline survives",
      () => { const s = degradedStatement("x");
              return s.includes("mcp__tsurezure__policy_lookup") &&
@@ -444,7 +566,9 @@ function selfTest() {
     "that must still reach the seam; the two-framings floor; the token refused " +
     "rather than derived; the bound; the claim forwarded as the call's own " +
     "--question, including for a non-policy_lookup prescription; the degraded " +
-    "statement's unindented marker)");
+    "statement's unindented marker; the gate disposition adopted as a closed " +
+    "set on its own axis, omittable, with consult-miss and degraded refused by " +
+    "reason rather than by set)");
   process.exit(0);
 }
 
@@ -469,10 +593,12 @@ if (!consumer) {
   process.exit(2);
 }
 const outcome = opt("outcome");
+const disposition = opt("disposition");
 const verdict = discipline({
   framings: opts("claim"),
   restatements: opts("restate"),
   outcome,
+  disposition,
   argsList: opts("args"),
 });
 if (!verdict.ok) {
@@ -485,7 +611,13 @@ if (!verdict.ok) {
 // block, whose grammar SPEC §4 fixes and which this file does not compose. The
 // token beside it is the caller's, restated here so the two are read together.
 console.log(
-  `framings: ${verdict.framings.length} (observed) — outcome: ${outcome} (supplied by the caller)`,
+  `framings: ${verdict.framings.length} (observed) — outcome: ${outcome} (supplied by the caller)` +
+    // Restated on the same line and on the same terms: observed fact, then the
+    // caller's two readings. A non-gate consult says so rather than going
+    // silent, because an unlabelled absence is the ambiguity kogaki#268 names.
+    (disposition === undefined
+      ? " — disposition: none (not a fork-gate consult)"
+      : ` — disposition: ${disposition} (supplied by the caller)`),
 );
 
 // stdio is INHERITED rather than captured: the transport's own output is the
@@ -498,6 +630,7 @@ const child = spawnSync(
     consumer,
     framings: verdict.framings,
     outcome,
+    disposition: verdict.disposition,
     tool: opt("tool"),
     gateway: opt("gateway"),
     argsList: opts("args"),

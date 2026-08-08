@@ -15,10 +15,66 @@
 # (kogaki#28, story 1.10) — a CONFORMANCE defect in what the receipt asserts:
 # an outcome outside the ratified triple, an `uncovered-after-N` whose N
 # disagrees with the query lines or falls below the re-ask floor, a receipt
-# carrying some continuation fields and not the rest, or — kogaki#160 finding 4
-# — a `query:` line holding a serialized tool argument rather than a question.
+# carrying some continuation fields and not the rest, a `query:` line holding a
+# serialized tool argument rather than a question (kogaki#160 finding 4), or —
+# kogaki#268 — a `disposition:` outside the ratified two-value gate set.
 # All of those are claims the receipt makes about itself; none of them is a
 # count of receipts, so the "never gates on the count" contract is untouched.
+#
+# THE SECOND AXIS: `disposition:` (kogaki#268). There are THREE vocabularies in
+# this seam called `outcome`, and two of them are mutually exclusive in one
+# field. `outcome:` above is the HUB's ratified QUERY-LEVEL triple — did the
+# served surface discriminate the question. The GATE DISPOSITION — what the gate
+# did with the answer — is a different axis with its own closed set, and putting
+# it in `outcome:` fails this check's own ratified-triple clause by
+# construction. The resolution is one field per axis rather than one field
+# carrying two: `disposition:` is a second, OPTIONAL continuation key.
+#
+#   * VALUES ARE ADOPTED, NEVER MINTED. `auto-resolved-FYI | escalated`,
+#     verbatim from the ratified amendment (writing-assistant
+#     `specs/spec-policy-fork-consultation/SPEC.md` §"Amended 2026-07-21
+#     (triage, #519)": a covered fork demoted to an FYI, or an uncovered fork
+#     presented as a gate — including an FYI the owner overrode, because "the
+#     disposition, not the origin, is recorded" — declared "a closed two-value
+#     set, no consumer-local extension"). The consumer owns the field's SHAPE
+#     and never its VALUES:
+#
+#       "A consumer owns the SHAPE of its own record and NEVER the VALUES of a
+#        field that exists to join across the boundary, and the test is WHO
+#        MUST AGREE for the field to work: a field read by one side is that
+#        side's, a field read by both is the boundary's, and the boundary's
+#        owner is the hub."
+#       `topics/knowledge-architecture.md:31@dec0d568` (verified live 2026-08-08)
+#
+#     A gate disposition is read by the emitting consumer AND by the hub that
+#     evaluates it (product-lab D7, 2026-07-31), so the value set is the
+#     boundary's. Adding the key is this repository's to do; extending the set
+#     is not, and this check refuses the extension.
+#
+#   * OPTIONAL, and its absence means "this consult was not raised at a fork
+#     gate". Most consults in this repository are issue-authoring and spec
+#     reads, not gates; requiring the field would force a value on them, which
+#     is the fabrication class the whole receipt grammar exists to refuse. So
+#     `disposition:` is deliberately NOT added to presence-implies-completeness'
+#     owed set — a v2 receipt still owes request_id, outcome and one query, and
+#     nothing more.
+#
+#   * WHAT THIS DOES NOT MAKE SUBSTANTIABLE, stated plainly rather than implied.
+#     `consult-miss` and `degraded` are GATE CLASSIFICATIONS from a different
+#     taxonomy, and neither becomes countable from receipts under this or any
+#     schema: an unconsulted fork emits no receipt at all, and a degraded
+#     consult emits no receipt BY DESIGN (`policy_source unavailable:`, exit
+#     11), so zero-degraded and zero-consults are indistinguishable in the
+#     trace. No value in a record can express that record's own absence. They
+#     are therefore refused as `disposition:` values with that reason named,
+#     rather than admitted to look like coverage this key does not provide.
+#
+#   * WHY THE KEY MUST BE RECOGNISED HERE AND NOT ONLY EMITTED. The continuation
+#     scan stops at the first unrecognised indented key, so a receipt carrying
+#     `disposition:` above its `query:` lines parsed on the PRE-#268 scanner as
+#     a field-less v1 line with every later field silently dropped — the exact
+#     hazard `gateway-query.mjs` documents at its unindented exception marker.
+#     The fixture pass carries that case in both directions.
 #
 # BACKWARD COMPATIBILITY of the finding-4 clause, stated rather than assumed.
 # This check scans the BRANCH's own commit range (merge-base..HEAD) plus the PR
@@ -87,7 +143,7 @@ FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,}).*?(?:^[ \t]*\1[ \t]*$|\Z)',
 # belonging to the `consulted:` line above them. Line one is unchanged from
 # v1, which is why every receipt already in git history still parses and why
 # PIN needed no change — the parsing that is new is association, not matching.
-CONT = re.compile(r'^[ \t]+(request_id|outcome|query):[ \t]*(.*)$')
+CONT = re.compile(r'^[ \t]+(request_id|outcome|disposition|query):[ \t]*(.*)$')
 # The hub's ratified triple. A bare `miss` is INADMISSIBLE: it collapses the
 # distill-bug and query-defect causes the 2026-08-02 correction separated, in
 # the one field meant to make them harvestable
@@ -100,6 +156,28 @@ UNCOVERED = re.compile(r'^uncovered-after-(\d+)-framings$')
 # floor is currently also implied by the >=2 query rule below, and an implied
 # invariant is one a later refactor drops without any test noticing.
 MIN_FRAMINGS = 2
+# THE SECOND AXIS (kogaki#268). Adopted verbatim from the ratified amendment,
+# never re-minted here: the boundary's owner is the hub, so this repository
+# fixes the KEY and copies the VALUES. A consumer-local extension of this set
+# is the shape `topics/knowledge-architecture.md:31@dec0d568` names as a defect,
+# and it is refused below rather than admitted.
+DISPOSITIONS = {'auto-resolved-FYI', 'escalated'}
+# The predictable wrong values, told apart from an ordinary typo because they
+# route to a different answer: these are GATE CLASSIFICATIONS from
+# spec-triage-gh's taxonomy, not dispositions, and two of them name states that
+# emit no receipt at all — so the refusal names the reason rather than the set.
+GATE_CLASSIFICATIONS = {
+    'covered': 'a coverage state, not a disposition — a covered fork is either '
+               'demoted (`auto-resolved-FYI`) or overridden and re-raised '
+               '(`escalated`), and the disposition is what is recorded',
+    'consult-miss': 'a fork nobody consulted emits NO receipt at all, so no '
+                    'value in a receipt can record it; it is not substantiable '
+                    'from receipts under any schema',
+    'degraded': 'a degraded consult emits NO receipt by design '
+                '(`policy_source unavailable:`, exit 11), so zero-degraded and '
+                'zero-consults are indistinguishable in the trace; it is not '
+                'substantiable after the fact',
+}
 
 
 def outcome_ok(value):
@@ -228,6 +306,24 @@ def scan(source):
                                    '(discriminating | covered-after-reframing | '
                                    'uncovered-after-N-framings)'))
             continue
+        # THE SECOND AXIS, checked against the set it ADOPTED (kogaki#268).
+        # Optional by construction: `disp is None` is a consult that was not
+        # raised at a fork gate, which is most of them, and it is silent rather
+        # than reported — the alternative would be reporting an absence that
+        # means nothing.
+        disp = fields.get('disposition')
+        if disp is not None and disp not in DISPOSITIONS:
+            why = GATE_CLASSIFICATIONS.get(disp)
+            malformed.append(
+                (pin, f'disposition {disp!r} is not the ratified gate set '
+                      '(auto-resolved-FYI | escalated)'
+                      + (f' — {disp!r} is {why}' if why else '')
+                      + '. The set is a CLOSED two-value set with no '
+                        'consumer-local extension (spec-policy-fork-consultation '
+                        '§"Amended 2026-07-21 (triage, #519)"): this repository '
+                        'owns the shape of its record and never the values of a '
+                        'field read across the boundary'))
+            continue
         # `uncovered-after-N-framings` ASSERTS a number. Validating its shape
         # only lets a receipt claim seven framings while recording two, which
         # is the field the AC exists to make readable saying something the
@@ -292,7 +388,16 @@ def scan(source):
         rid = fields.get('request_id')
         if not rid:
             continue
-        sig = (fields.get('outcome'), tuple(fields['query']))
+        # The disposition joins the SIGNATURE rather than sitting outside it
+        # (kogaki#268). The rule is unchanged in what it already failed and
+        # already passed: an identical block quoted twice carries an identical
+        # disposition and stays an honest duplicate, and a reused id under a
+        # reversed outcome still fails for the outcome. What is added is that
+        # one gateway request cannot have carried two DISPOSITIONS either —
+        # leaving the field out of the signature would have made the newest
+        # field the one place a reused id could disagree without being seen.
+        sig = (fields.get('outcome'), fields.get('disposition'),
+               tuple(fields['query']))
         prev = by_id.get(rid)
         if prev is None:
             by_id[rid] = (pin, sig)
@@ -304,7 +409,9 @@ def scan(source):
         if prev_sig[0] != sig[0]:
             differs.append(f'outcome {prev_sig[0]!r} vs {sig[0]!r}')
         if prev_sig[1] != sig[1]:
-            differs.append(f'{len(prev_sig[1])} query line(s) vs {len(sig[1])}')
+            differs.append(f'disposition {prev_sig[1]!r} vs {sig[1]!r}')
+        if prev_sig[2] != sig[2]:
+            differs.append(f'{len(prev_sig[2])} query line(s) vs {len(sig[2])}')
         malformed.append(
             (pin, f'request_id {rid} is reused with a different reading '
                   f'({"; ".join(differs)}). One gateway request has one '
@@ -382,6 +489,50 @@ V2_BRACES_IN_A_QUESTION = (GOOD + "\n  request_id: r\n"
 V2_JSON_SCALAR_IS_NOT_ARGS = (GOOD + "\n  request_id: r\n"
                               "  outcome: discriminating\n"
                               "  query: {not json at all\n")
+# --- kogaki#268: the gate disposition, a SECOND continuation key --------------
+# THE REGRESSION SPECIMEN, and the case that fails a scanner without the clause.
+# `disposition:` sits between `outcome:` and the `query:` lines, which is where
+# the emitter puts it. On the pre-#268 scanner the continuation regex does not
+# recognise the key, so the scan STOPS there: the receipt parses with
+# request_id and outcome only, no query lines, and presence-implies-completeness
+# reports it malformed for a `query` it was carrying all along.
+V2_DISPOSITION_FYI = (GOOD + "\n  request_id: r\n"
+                      "  outcome: discriminating\n"
+                      "  disposition: auto-resolved-FYI\n"
+                      "  query: does a served line discriminate this fork?\n")
+V2_DISPOSITION_ESCALATED = (GOOD + "\n  request_id: r\n"
+                            "  outcome: uncovered-after-2-framings\n"
+                            "  disposition: escalated\n"
+                            "  query: first framing\n  query: second, another axis\n")
+# The values this repository may NOT mint. Each is a gate CLASSIFICATION from
+# the other taxonomy, and two of them name states that emit no receipt at all.
+V2_DISPOSITION_MISS = (GOOD + "\n  request_id: r\n"
+                       "  outcome: discriminating\n"
+                       "  disposition: consult-miss\n  query: q\n")
+V2_DISPOSITION_DEGRADED = (GOOD + "\n  request_id: r\n"
+                           "  outcome: discriminating\n"
+                           "  disposition: degraded\n  query: q\n")
+V2_DISPOSITION_COINED = (GOOD + "\n  request_id: r\n"
+                         "  outcome: discriminating\n"
+                         "  disposition: overridden\n  query: q\n")
+# The two vocabularies stay in their own fields: a disposition token in the
+# `outcome:` slot is still the ratified-triple failure it was before #268, and
+# a query-level token in the `disposition:` slot is the mirror failure. Both
+# directions, because a scanner that admitted either would have collapsed the
+# axes this key exists to keep apart.
+V2_DISPOSITION_IN_OUTCOME = (GOOD + "\n  request_id: r\n"
+                             "  outcome: auto-resolved-FYI\n  query: q\n")
+V2_TRIPLE_IN_DISPOSITION = (GOOD + "\n  request_id: r\n"
+                            "  outcome: discriminating\n"
+                            "  disposition: discriminating\n  query: q\n")
+# A `disposition:` ALONE is a partial v2 receipt, exactly as a lone `outcome:`
+# is: the new key joins the recognised set and does NOT join the owed set.
+V2_DISPOSITION_ALONE = GOOD + "\n  disposition: escalated\n"
+# The one rule for empty values reaches the new key too: an empty value is
+# ABSENT for every field alike, so this is a non-gate consult and passes.
+V2_DISPOSITION_EMPTY = (GOOD + "\n  request_id: r\n"
+                        "  outcome: discriminating\n"
+                        "  disposition:\n  query: q\n")
 # Each fixture asserts (receipts, malformed, total query lines, outcomes).
 # The last two fields are not decoration: a (count, malformed) assertion alone
 # cannot observe whether the continuation fields were parsed at all, so six of
@@ -487,17 +638,72 @@ FIXTURES = [
      V2_BRACES_IN_A_QUESTION, 1, 0, 1, ('discriminating',)),
     ("a value that opens a brace but is not JSON is not judged an argument",
      V2_JSON_SCALAR_IS_NOT_ARGS, 1, 0, 1, ('discriminating',)),
+    # --- kogaki#268: the gate disposition ------------------------------------
+    # The 7th field asserts the PARSED dispositions, for the reason the 5th and
+    # 6th were added: a case asserting only (count, malformed) cannot observe
+    # whether the new key was parsed at all, and the two positive cases below
+    # would pass a scanner that recognised the key and threw the value away.
+    ("a gate disposition rides beside the outcome and the query lines survive it",
+     V2_DISPOSITION_FYI, 1, 0, 1, ('discriminating',), ('auto-resolved-FYI',)),
+    ("`escalated` on a re-framed consult: both axes recorded, neither collapsed",
+     V2_DISPOSITION_ESCALATED, 1, 0, 2, ('uncovered-after-2-framings',),
+     ('escalated',)),
+    ("`consult-miss` is refused: an unconsulted fork emits no receipt to carry it",
+     V2_DISPOSITION_MISS, 1, 1, 1, ('discriminating',), ('consult-miss',)),
+    ("`degraded` is refused: a degraded consult emits no receipt by design",
+     V2_DISPOSITION_DEGRADED, 1, 1, 1, ('discriminating',), ('degraded',)),
+    ("a locally coined disposition is refused — the set is closed and adopted",
+     V2_DISPOSITION_COINED, 1, 1, 1, ('discriminating',), ('overridden',)),
+    ("a disposition token in the `outcome:` slot still fails the ratified triple",
+     V2_DISPOSITION_IN_OUTCOME, 1, 1, 1, ('auto-resolved-FYI',)),
+    ("a query-level token in the `disposition:` slot fails the mirror clause",
+     V2_TRIPLE_IN_DISPOSITION, 1, 1, 1, ('discriminating',), ('discriminating',)),
+    ("a lone `disposition:` is a partial v2 receipt: the key joins the recognised set, never the owed set",
+     V2_DISPOSITION_ALONE, 1, 1, 0, (), ('escalated',)),
+    ("an empty disposition is ABSENT, not a claim — the one rule for empty values reaches the new key",
+     V2_DISPOSITION_EMPTY, 1, 0, 1, ('discriminating',)),
+    ("a v2 receipt with no disposition is a non-gate consult and stays valid",
+     V2_FULL, 1, 0, 1, ('discriminating',)),
+    # Cross-receipt reuse, extended to the new field and unchanged in the two
+    # verdicts it already held.
+    ("request_id reused with the DISPOSITION reversed — one request, one disposition",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n"
+     "  request_id: eeee5555\n"
+     "  outcome: discriminating\n"
+     "  disposition: auto-resolved-FYI\n"
+     "  query: one question\n"
+     "\n"
+     "consulted: product-lab@f918c515 LESSONS.md:40\n"
+     "  request_id: eeee5555\n"
+     "  outcome: discriminating\n"
+     "  disposition: escalated\n"
+     "  query: one question\n",
+     2, 1, 2, ('discriminating', 'discriminating'),
+     ('auto-resolved-FYI', 'escalated')),
+    ("the same disposition-carrying receipt quoted twice is still an honest duplicate",
+     V2_DISPOSITION_FYI + "\n" + V2_DISPOSITION_FYI, 2, 0, 2,
+     ('discriminating', 'discriminating'),
+     ('auto-resolved-FYI', 'auto-resolved-FYI')),
 ]
 fixture_failures = []
-for name, src, want_count, want_bad, want_q, want_out in FIXTURES:
+# The 7th field (parsed dispositions) is OPTIONAL and defaults to `()`, so the
+# cases predating kogaki#268 keep their exact tuples and are not restated — and
+# the default is an assertion rather than a waiver: every one of them asserts
+# that no disposition was parsed, which is what makes a leak from the new key
+# into an old case visible.
+for row in FIXTURES:
+    name, src, want_count, want_bad, want_q, want_out = row[:6]
+    want_disp = row[6] if len(row) > 6 else ()
     got, bad = scan(src)
     q = sum(len(f['query']) for _, f in got)
     outs = tuple(f['outcome'] for _, f in got if f.get('outcome'))
-    if (len(got), len(bad), q, outs) != (want_count, want_bad, want_q, want_out):
+    disps = tuple(f['disposition'] for _, f in got if f.get('disposition'))
+    if (len(got), len(bad), q, outs, disps) != \
+            (want_count, want_bad, want_q, want_out, want_disp):
         fixture_failures.append(
             f"{name}: got ({len(got)} receipts, {len(bad)} malformed, "
-            f"{q} queries, outcomes={outs}), want "
-            f"({want_count}, {want_bad}, {want_q}, {want_out})")
+            f"{q} queries, outcomes={outs}, dispositions={disps}), want "
+            f"({want_count}, {want_bad}, {want_q}, {want_out}, {want_disp})")
 if fixture_failures:
     print("FAIL fixture pass — the scanner does not discriminate:")
     for f in fixture_failures:
@@ -523,6 +729,13 @@ pins = [f"{m.group(1)}@{m.group(2)[:7]}"
 # branch whose receipts are all v1 is not a failure — it is a measurement.
 v2 = sum(1 for _, f in receipts if f.get('outcome') or f.get('request_id'))
 queries = sum(len(f['query']) for _, f in receipts)
+# THE GATE HALF, reported on the same never-gated terms (kogaki#268). Two
+# counts and no third, because a third would be a claim the evidence cannot
+# carry: `consult-miss` and `degraded` emit no receipt at all, so this line
+# says what it counted and names what nothing here can count.
+gate = [f['disposition'] for _, f in receipts if f.get('disposition')]
+fyi = sum(1 for d in gate if d == 'auto-resolved-FYI')
+esc = sum(1 for d in gate if d == 'escalated')
 
 # The report. Zero is stated, never silent.
 print(f"fixture pass: {len(FIXTURES)}/{len(FIXTURES)} discrimination cases "
@@ -530,9 +743,16 @@ print(f"fixture pass: {len(FIXTURES)}/{len(FIXTURES)} discrimination cases "
       "v2 fields parsed, bare `miss` and an under-recorded re-framing fail; "
       "request_id reuse with a changed reading fails, an identical "
       "duplicate does not; a serialized tool argument in the query field "
-      "fails while a question containing braces does not)")
+      "fails while a question containing braces does not; a `disposition:` "
+      "outside the adopted two-value gate set fails, and a receipt without "
+      "one is a non-gate consult and passes)")
 print(f"v2 receipts: {v2} of {len(receipts)} carry request_id/outcome, "
       f"{queries} query line(s) recorded — reported, never gated")
+print(f"gate dispositions: {len(gate)} of {len(receipts)} receipt(s) were "
+      f"raised at a fork gate — {fyi} auto-resolved-FYI, {esc} escalated. "
+      "consult-miss and degraded are NOT counted here and are not countable "
+      "from receipts: an unconsulted fork emits none, and a degraded consult "
+      "emits none by design")
 distinct = sorted(set(pins))
 print(f"consultations this branch: {len(receipts)} "
       f"(receipt-verified, over {range_desc})")
