@@ -691,9 +691,11 @@ which condition 4 names and bounds rather than claiming away:**
    it.
 4. **Every column-0 non-blank line inside a record is a `<key>:` line, or a
    block-sequence item belonging to an OPEN sequence — the token being `-`
-   followed by a space or end of line, which is what makes a `---` rule or a
-   `***` foreign to a sequence rather than an item of it, and keeps that catch
-   on the rule instead of on the parser.** A sequence opens
+   followed by a space or end of line, which is what makes a `---` rule foreign
+   to a sequence rather than an item of it, and keeps that catch on the rule
+   instead of on the parser. `***` was never at risk — it does not begin with
+   `-` — and is named here only because the first draft of this clause claimed
+   the pin for both.** A sequence opens
    at a column-0 key carrying no value, stays open across its own items and
    their indented continuations, and closes at the next column-0 key — or before
    its first item, if an indented line arrives first, because that line is the
