@@ -690,7 +690,10 @@ which condition 4 names and bounds rather than claiming away:**
    leaves that neighbour with **seven**, and this is the condition that catches
    it.
 4. **Every column-0 non-blank line inside a record is a `<key>:` line, or a
-   block-sequence item (`-`) belonging to an OPEN sequence.** A sequence opens
+   block-sequence item belonging to an OPEN sequence — the token being `-`
+   followed by a space or end of line, which is what makes a `---` rule or a
+   `***` foreign to a sequence rather than an item of it, and keeps that catch
+   on the rule instead of on the parser.** A sequence opens
    at a column-0 key carrying no value, stays open across its own items and
    their indented continuations, and closes at the next column-0 key — or before
    its first item, if an indented line arrives first, because that line is the
@@ -793,8 +796,13 @@ declined: a leading `## heading` sits **before the file's first `id:`**, so it i
 inside no record and **condition 4 cannot see it**. Condition 1 is the only
 instrument that reaches it. Skipping comments there would make a leading heading
 silently discarded again — reintroducing, at line 1, precisely the defect
-condition 4 was added to close. The cost is accepted: a legal inert comment
-above the first record is refused, loudly, with its line named.
+condition 4 was added to close. **The cost is accepted, and it is stated in
+full rather than by its most sympathetic instance:** condition 1 refuses a legal
+inert comment above the first record *and* a leading `%YAML` directive;
+condition 4 refuses a column-0 `#` comment inside a record and inside an open
+sequence. All four are the design working as intended, and all four are refused
+loudly with the line named. Listing only the first would understate what the
+declination buys.
 
 **The boundary is the column-0 `id:`, NOT the blank line, and the difference is
 load-bearing.** This section's first draft said "split on blank lines", which
