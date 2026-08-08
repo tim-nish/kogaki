@@ -232,7 +232,9 @@ A report is a **pull-request comment** whose first line is a fixed token at a
 fixed position, and which **declares its base, its scope and its completeness**
 on three further fixed lines (`specs/SPEC.md` §4 clauses 5, 6 and 7), its
 **boundary-vs-receipt record** on a `boundary:` line per touched entry
-(kogaki#258), and the **disposition** of a non-gating finding it leaves open on
+(kogaki#258), the **identity** of an earlier head's finding it re-grades on a
+`supersedes:` line adjacent to the re-grading finding (§4 clause 10,
+kogaki#269), and the **disposition** of a non-gating finding it leaves open on
 a `carried:` / `declined:` line adjacent to that finding (§4 clause 8):
 
 ```
@@ -242,6 +244,7 @@ review-scope: <full|delta>
 boundary: <entry N> <covered|uncovered|cannot-determine> [receipt: <pin>]  <what in the diff touched it>
 boundary: none  <why no map entry was touched>
 finding: <blocking|should|nit> <open|resolved> [policy: <pin> | harm: <one line>]  <the finding>
+supersedes: <earlier head sha> finding <N>  <grounds>
 carried: #<N> | register
 declined: <reason>
 …
@@ -470,6 +473,42 @@ number of `finding:` lines above it**. The merge check counts your segment
   `review-scope:` or `review-base:` inside a finding's prose declares nothing —
   it is a mention, not a declaration.
 
+### `supersedes:` — which earlier finding this one re-grades (§4 clause 10, kogaki#269)
+
+**This is the one line in this file whose absence turns your report RED.** When
+you write a finding at this head that disposes of a finding declared
+`blocking open` **with its justification** at an **earlier** head — you fixed
+it, or you are re-grading it — name that finding on the line immediately after
+yours. These are the lines you type:
+
+```
+finding: should open  <the finding, re-graded>
+supersedes: <earlier head sha> finding <N>  <grounds>
+```
+
+- **`<N>` is the 1-based position of the `finding:` line in the segment naming
+  that sha.** Count the `finding:` lines in that report from the top: the first
+  is `finding 1`. Nothing renumbers them, because clause 4 forbids editing an
+  earlier round's comment.
+- **The sha is the earlier report's own head sha**, read as a value from that
+  comment's first line — never assembled from a prefix (kogaki#91).
+- **Grounds are required and non-empty**, on every kind of supersede including a
+  fix. One phrase is enough; presence is read and adequacy never is.
+- **Applies to a fix as well as a re-grade.** `finding: blocking resolved` +
+  `supersedes:` is how "resolved by a fix" becomes readable. Nothing here
+  verifies that the fix is real — that is a different transition with no
+  observer — only that your record says which finding it is about.
+- **If the finding still stands, re-declare it `blocking open` at this head**
+  instead. That gates, as it always did.
+- **What is denied is the silence, never the severity.** kogaki#72 is untouched:
+  a `should` gates nothing as a `should`, and an adjudicated downgrade passes
+  exactly as before. The check denies only an earlier justified `blocking open`
+  that **no later segment names** — the state PR #255 merged in, where the gate
+  printed `ok` on an unrepaired blocking finding and a human held the merge.
+- **It stacks with `carried:` / `declined:`, in either order**, and answers a
+  different question: `supersedes:` is *which earlier finding is this*,
+  `carried:` / `declined:` is *what happens to this one after the merge*.
+
 ### `carried:` / `declined:` — the disposition of a non-gating finding (§4 clause 8, kogaki#224)
 
 A `should` or `nit` you leave **open** at `done` carries a stated disposition
@@ -508,6 +547,15 @@ reason, and a disposition on a `resolved` finding being unread — are **at
 divergence between this section and clause 8, clause 8 wins**, and this section
 is repaired.
 
+**The same declaration binds the `supersedes:` section above, on the same
+terms** (§4 clause 10, kogaki#269). Its grammar block is here because it is the
+literal text a reviewer types; its sub-rules — binding to the immediately
+preceding `finding:` line, first-declaration-wins per finding, anchored-whole,
+the required non-empty grounds, the sha's 7–40 hex class and abbreviation
+matching, the counted-segment guard on both sides, and the deny arm's exact
+five-part predicate — live at clause 10 and are not restated. **On any
+divergence between that section and clause 10, clause 10 wins.**
+
 The declaration is not ceremony. A local restatement of a governing record is a
 conformance copy, and the served position states the condition on which one is
 admissible at all:
@@ -528,12 +576,18 @@ admissible at all:
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:91`
 (`a-derived-view-inherits-its-substrates-register`)
 
-**The mismatch check is the half this section does NOT have, and it is marked
-rather than implied.** Nothing mechanically compares this grammar block against
-clause 8's, so the second condition of the served rule is unmet and the
-precedence declaration above is carrying the whole weight. That is stated here
+**The mismatch check is the half these sections do NOT have, and it is marked
+rather than implied.** Nothing mechanically compares either grammar block
+against its clause, so the second condition of the served rule is unmet and the
+precedence declarations above are carrying the whole weight. That is stated here
 so the gap is a known one rather than an assumption; the reopen trigger is one
-divergence between the two blocks reaching a reviewer.
+divergence between a block and its clause reaching a reviewer. **The gap now
+covers TWO copies rather than one** — clause 8's and clause 10's — which is the
+count the served line reads as the tell that a carrier sits at the wrong layer,
+and is why the missing half is **handed off** at kogaki#251's successor rather
+than solved inside this diff: a mismatch checker over the pair is its own unit,
+with its own admission record and removal signal, and minting it here would be
+a check admitted as a side effect of a grammar change.
 
 ## The postmortem hand-off (kogaki#24 shape)
 
