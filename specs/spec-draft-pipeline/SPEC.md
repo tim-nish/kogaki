@@ -615,7 +615,7 @@ owner-authored, deliberately untracked. Measured rather than assumed:
 | property | measured on the specimen |
 | --- | --- |
 | records | 22, each a YAML mapping carrying exactly §4.2's eight keys **in §4.2's order** |
-| separator | **one blank line**, and nothing else — no `---`, no heading, no fence |
+| separator | **one blank line**, and nothing else — no `---`, no heading, no fence (but see the record-boundary rule below: the blank line is not what the grammar binds) |
 | field form | `id` and `status` plain scalars; the other six all `>-` folded block scalars |
 | `status` values | `observed`, uniformly — as §7.6 says they enter |
 | markdown constructs | **zero** — no heading, list, fence, rule or blockquote anywhere in the file |
@@ -629,10 +629,68 @@ available.**
 **1. The input is not markdown, and the grammar must not require it to be.**
 The specimen carries a `.md` extension and contains no markdown at all. A
 normalizer that locates records by heading or by fence finds **nothing** in the
-first file it is ever handed. The bound grammar is therefore: **split the file
-on blank lines, parse each block as a YAML mapping.** Markdown constructs are
-**tolerated and ignored** where present, and never required — the extension is
-the owner's filing convenience, not a promise about the interior.
+first file it is ever handed. The bound grammar is therefore: **a record begins at a
+column-0 `id:` key, and runs to the next one or to end of file; each record is
+parsed as a YAML mapping under the three admission conditions below.** Markdown constructs
+are **not required** — the extension is the owner's filing convenience, not a
+promise about the interior. They are not silently ignored either: a heading,
+list, fence, rule or blockquote is absorbed into the record it sits inside and
+breaks that record's parse **loudly**, which is the acceptable failure and is
+reported as a parse refusal naming the line.
+
+**`id` MUST be the record's first key — an anchor can only see a record that
+starts where it looks, and that precondition is stated rather than assumed.** A
+record written with `status:` above `id:` is not seen as a boundary at all: it
+is absorbed into the record above, which silently acquires the wrong `status`
+while the record below loses its own. That is the same failure correction 3
+refuses by name, and a repair that reintroduced it would be worth nothing.
+
+**Three conditions admit a record, and together they leave no quiet failure:**
+
+1. **Nothing precedes the file's first `id:`.** Any leading text — a stray
+   field, a markdown heading — is refused, naming the line. This is the
+   condition that catches an out-of-order *first* record, which no per-record
+   check can see.
+2. **Duplicate keys within a record are refused rather than resolved.** The
+   whole-file collapse of correction 3 is a record with 22 duplicates of every
+   key; it cannot be quiet under this rule even where the parser would allow it.
+3. **After the strip step, a record carries exactly §4.2's eight keys — no more
+   and no fewer.** This is not a new requirement: §6.9 already binds the
+   proposal to *exactly* the eight-field schema. The ordering matters — the
+   excluded draft fields are stripped **first**, so their presence routes to the
+   strip step rather than to a refusal; what a short or long field set then
+   means is a genuine defect. A record that absorbed its neighbour's `status`
+   leaves that neighbour with **seven**, and this is the condition that catches
+   it.
+
+Exercised on all four shapes: the specimen admits 22 records; a two-record input
+whose first `intent` spans two paragraphs admits 2 with the folded scalar
+intact; a `status:`-before-`id:` input is refused **twice over** (leading text,
+and a seven-key record); a leading markdown heading is refused. §4.2 already
+fixes the field order and the specimen already conforms, so none of this
+constrains anything the owner was doing — it makes a deviation announce itself
+instead of eating a Move.
+
+**The boundary is the column-0 `id:`, NOT the blank line, and the difference is
+load-bearing.** This section's first draft said "split on blank lines", which
+the specimen satisfies — its 22 records split identically under either rule —
+and which **§6.9.1a's own guidance then falsifies**: a field that is genuinely a
+paragraph is written as a `>-` folded scalar, and a folded scalar may contain a
+blank line between its paragraphs. Exercised on a two-record input whose first
+`intent` carries two paragraphs, the blank-line rule yields **three** blocks:
+the first parses as a **partial mapping with the second paragraph silently
+discarded**, the second raises a scanner error, and only the third is a whole
+record. The column-0 rule yields two records with the folded scalar intact.
+
+The specimen could not have caught this — all 22 of its records are
+single-paragraph — and §6.9.0's own record-count instrument catches only the
+loud half, since a partial mapping still counts as a block. **A grammar that the
+authoring guidance in the section next door invalidates is the defect worth
+recording**, and it is recorded rather than quietly replaced.
+
+Indentation is what delimits a block scalar in YAML, so the column-0 anchor is
+reading the record boundary off the same property the parser does, rather than
+off a whitespace convention that happens to coincide with it on one input.
 
 **2. Stripping the excluded draft fields is CONDITIONAL, never a
 precondition.** §6.9 states as fact that the input carries them, because
@@ -641,13 +699,26 @@ the owner stripped them while authoring. The normalizer strips what is present
 and requires nothing to be, and it does **not** treat their absence as evidence
 that it was handed the wrong file.
 
-**3. The blank line is the record separator and it is NOT a YAML separator —
-this is the failure that cannot announce itself, so it is refused by name.**
+**3. A whole-file parse is NOT a record parse — this is the failure that cannot
+announce itself, so it is refused by name.** (The heading of this correction
+formerly read *"the blank line is the record separator"*, which correction 1
+above withdrew forty lines earlier. It is corrected here rather than left as the
+same contradiction-with-the-neighbouring-clause this section exists to record —
+this time §6.9.0 against itself.)
 Measured on the specimen: a whole-file YAML parse **succeeds**. It returns one
 mapping, because 22 records sharing eight key names collide key-for-key and the
-last one wins — **21 Moves are lost and no error is raised**, since the file is
-valid YAML for exactly the wrong reading of it. A parser cannot discover this
-from its own return value: it gets a well-formed Move.
+last one wins — **21 Moves are lost and no error is raised**, and the surviving
+mapping is byte-equal to the *last* record, which is how the mechanism was
+confirmed rather than inferred. A parser cannot discover this from its own
+return value: it gets a well-formed Move.
+
+**The scope of that measurement, stated rather than overclaimed:** duplicate
+keys are an error condition in the YAML specification, and a strict parser is
+entitled to reject the file loudly. What was measured is **PyYAML 6.0.3** doing
+the quiet thing — the parser is named, because "a permissive parser" is not a
+fact anyone can re-measure. The rule above is therefore written to hold under
+**either** parser: it never relies on the silence, and by refusing duplicate
+keys itself it stops depending on the noise.
 
 So, normatively: **the split precedes the parse, and a whole-file parse is
 refused rather than merely discouraged.** The command reports the **record
@@ -900,6 +971,15 @@ structure, and the structure is the whole of the fork:
 > READ rather than guessed.**"
 
 `topics/knowledge-architecture.md:173@dec0d568dd8fc0b2df1185eac10dc1a10600f299`
+
+**The widening across artifact classes is the author's judgment and is
+attributed as such.** That line rules on the hub's own distill gate writing an
+attribution field; it does not mention Moves, `moves/`, or this repository. What
+is carried here is its **structure** — write-at-the-act versus backfill-later
+for a provenance field, and the read-versus-guess test that decides between them
+— applied to a different artifact by this spec's author. A reader who judges the
+structure not to transfer is disagreeing with **this section**, not with the
+served line, and the fork returns to open.
 
 The ingestion run **is** the both-in-hand moment: it holds the accepted Move
 and the served ruling line it resolved that Move against, simultaneously and
