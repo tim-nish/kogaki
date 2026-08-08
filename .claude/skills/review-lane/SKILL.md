@@ -81,7 +81,10 @@ For each entry in `policy/consultation-map.md`, decide from the diff whether
 the branch touched that boundary — the entry's **trigger terms** are the
 read, and the entry routes to a judgment rather than carrying a verdict.
 Report, per touched entry: the entry, what in the diff touched it, and
-whether a receipt covers it.
+whether a receipt covers it — **on the declared `boundary:` line shape**
+below (kogaki#258), never in prose. A record emitted as prose is read once by
+a human and is then gone, and this is the one place in the repository where a
+**per-boundary** touched-and-uncovered judgment exists at all.
 
 **Receipts come from the mechanical half's own report, and from nowhere
 else.** `checks/check-consult-receipts.sh:68-73` already emits
@@ -227,12 +230,16 @@ independence observable.
 
 A report is a **pull-request comment** whose first line is a fixed token at a
 fixed position, and which **declares its base, its scope and its completeness**
-on three further fixed lines (`specs/SPEC.md` §4 clauses 5, 6 and 7):
+on three further fixed lines (`specs/SPEC.md` §4 clauses 5, 6 and 7), its
+**boundary-vs-receipt record** on a `boundary:` line per touched entry
+(kogaki#258):
 
 ```
 review-lane report: <head sha>
 review-base: <base sha>
 review-scope: <full|delta>
+boundary: <entry N> <covered|uncovered|cannot-determine> [receipt: <pin>]  <what in the diff touched it>
+boundary: none  <why no map entry was touched>
 finding: <blocking|should|nit> <open|resolved> [policy: <pin> | harm: <one line>]  <the finding>
 …
 cannot-determine: <dimension> — <why>
@@ -286,7 +293,68 @@ report-complete: <N> findings
   The regex lives in two files; the adjacent form is the one whose failure
   mode does not exist. Same use-vs-mention class kogaki#41 fixed once.
 - The check reads **only** these declared lines. What the findings say is
-  judgment and stays here.
+  judgment and stays here. `boundary:` is parsed and printed by
+  `checks/check-review-report.sh` but never gated.
+
+### `boundary:` — the per-entry boundary-vs-receipt record (kogaki#258)
+
+Dimension 2's three prescribed facts, one line per **touched** map entry, on
+the same adjacent-line pattern clauses 5, 6 and 7 use:
+
+```
+boundary: <entry N> <covered|uncovered|cannot-determine> [receipt: <pin>]  <what in the diff touched it>
+```
+
+- **`<entry N>` is the map's own heading number** — `1`, `2`, `3` — and the
+  prose half **names the entry's title as well**, so a renumbering of
+  `policy/consultation-map.md` is visible in the record instead of silently
+  re-pointing it at a different boundary.
+- **The verdict token is typed and is the whole of the machine-read judgment.**
+  `covered` — a receipt on this branch plausibly answers this boundary.
+  `uncovered` — the boundary was touched and no receipt covers it.
+  `cannot-determine` — you could not decide, which the prose says why.
+- **`[receipt: <pin>]` is REQUIRED for `covered`, and a `covered` without one
+  is read as `cannot-determine`.** A coverage claim naming no receipt is not
+  falsifiable, and the downgrade fails toward the honest side: an unnamed
+  receipt becomes "I could not establish it" rather than "there is one." This
+  is kogaki#72's unjustified-`blocking` downgrade one field over.
+- **Untouched entries produce no line, and a diff that touched none declares
+  `boundary: none`.** The zero is written rather than left to silence, in the
+  same discipline `check-consult-receipts.sh` renders `distinct pins: none`:
+  an **absent** record and a **declared-empty** record are different facts, and
+  only the second says the lane looked. A report carrying neither is
+  **undeclared** — that is what story 1.41's AC1a exists to say out loud.
+- **Every line is kept, not the first.** Several boundaries can be touched, and
+  a first-declaration-wins rule here would silently drop the second and third —
+  the same reasoning `cannot-determine:` already carries.
+- **Anchored whole.** `boundary:` inside a finding's prose is a mention and
+  declares nothing (the use-vs-mention rule kogaki#41 fixed once).
+- **Reported, never gated.** `checks/check-review-report.sh` parses these lines
+  and prints them; it is not a finding, does not count toward
+  `report-complete:`, and never turns the gate red. Whether the *judgment* was
+  right stays here — the parse establishes only that a record exists and what
+  it says.
+
+**Why a declared shape rather than better prose.** The property is an
+obligation, and an obligation is violated by an absence:
+
+> a prohibition needs a mechanical gate at the tool boundary … an obligation
+> cannot be gated at all and **needs its absence made visible**
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:95`
+(`carry-a-rule-at-its-violation-layer`)
+
+A token whose absence is greppable is that visibility; free prose is not, and
+"a consultation reported in whatever phrasing the sitting reaches for is prose
+that sometimes mentions a consultation and is invisible to any audit looking
+for one" is the same class one surface over.
+
+**Who reads it.** The merge check prints it today. **Story 1.41** (kogaki#262)
+mines it: an `uncovered` row naming no existing map entry proposes the
+consultation occasion that was missing — the half the map's miss loop
+structurally cannot see, because a consultation that never happened leaves no
+receipt to harvest. That story's AC1 was unimplementable while this record was
+prose; this shape is its precondition and nothing more of it is built here.
 
 ### `review-base:` — the base you actually diffed against (§4 clause 7, kogaki#96)
 

@@ -316,6 +316,59 @@ BASE = re.compile(r'^\s*review-base:\s*([0-9a-f]{7,40})\s*$', re.MULTILINE)
 # something could not be obtained. The `<dimension> — <why>` split is rendered
 # when the separator is there and the raw payload is shown when it is not.
 CANNOT = re.compile(r'^\s*cannot-determine:\s*(\S.*?)\s*$', re.MULTILINE)
+# THE BOUNDARY-VS-RECEIPT RECORD (kogaki#258). A fifth adjacent declaration on
+# the established pattern, anchored WHOLE, read in the same pass. Dimension 2 of
+# `.claude/skills/review-lane/SKILL.md` has always prescribed three facts per
+# TOUCHED consultation-map entry — the entry, what in the diff touched it, and
+# whether a receipt covers it — and declared no shape for them, so the one
+# per-boundary touched-and-uncovered judgment in this repository was prose a
+# human read once. An obligation cannot be gated and needs its ABSENCE MADE
+# VISIBLE (`carry-a-rule-at-its-violation-layer`), which is what a token whose
+# absence is greppable buys and free phrasing does not.
+#
+#   boundary: <entry N> <covered|uncovered|cannot-determine> [receipt: <pin>]  <what touched it>
+#   boundary: none  <why no entry was touched>
+#
+# REPORTED, NEVER GATED, on the same side of the split as `cannot-determine:`
+# and for a stronger reason: by kogaki#72 an uncovered boundary is not in the
+# blocking budget's three classes, so a deny here would be a registered member
+# minting a fourth. It is not a finding, does not count toward
+# `report-complete:` equality, and cannot fail this check.
+#
+# EVERY LINE IS KEPT rather than the first: several boundaries can be touched
+# and a first-wins rule would silently drop the second and third — the same
+# choice `cannot-determine:` already makes, for the same reason.
+#
+# `none` IS A DECLARED ZERO AND IS NOT THE SAME FACT AS NO LINE AT ALL. A report
+# with no `boundary:` line is UNDECLARED — the state every report already in
+# this repository's history is in, and the state story 1.41's AC1a exists to
+# report rather than read as "no boundary touched". The distinction is the whole
+# value of the token, so it is carried in the grammar and not inferred.
+#
+# AND A `covered` NAMING NO RECEIPT IS READ AS `cannot-determine`. A coverage
+# claim with no pin is not falsifiable; the downgrade fails toward the honest
+# side — "I could not establish it" rather than "there is one" — and is reported
+# by name, which is kogaki#72's unjustified-`blocking` downgrade one field over.
+BOUNDARY = re.compile(
+    r'^\s*boundary:\s*(?:(?P<none>none)\s*$'
+    r'|(?P<none_why>none)\s+(?P<why>\S.*?)\s*$'
+    r'|(?P<entry>\d+)\s+(?P<verdict>covered|uncovered|cannot-determine)\b'
+    r'(?P<receipt>\s*\[receipt:[^\]]+\])?)', re.MULTILINE)
+
+
+def boundary_of(m, line):
+    """One parsed `boundary:` line: (entry, verdict, downgraded, raw).
+
+    `entry` is None for the declared zero, whose verdict is the literal
+    `none`. `downgraded` records the `covered`-with-no-receipt case, which is
+    reported as such rather than silently rewritten.
+    """
+    if m.group('none') or m.group('none_why'):
+        return (None, 'none', False, line.strip())
+    verdict, receipt = m.group('verdict'), bool(m.group('receipt'))
+    if verdict == 'covered' and not receipt:
+        return (m.group('entry'), 'cannot-determine', True, line.strip())
+    return (m.group('entry'), verdict, False, line.strip())
 
 
 def counted(seg):
@@ -385,6 +438,7 @@ def segments(bodies):
         r = REPORT.match(line)
         if r:
             current = {'sha': r.group(1), 'findings': [], 'cannot': [],
+                       'boundaries': [],
                        'scope': None, 'complete': None, 'base': None}
             segs.append(current)
             continue
@@ -405,6 +459,14 @@ def segments(bodies):
             # a rule someone must remember — not a finding, no effect on count
             # equality, never a gate.
             current['cannot'].append(cd.group(1))
+            continue
+        bd = BOUNDARY.match(line)
+        if bd:
+            # Kept in its OWN list for the same three properties `cannot` gets
+            # by construction: not a finding, no effect on count equality,
+            # never a gate. Every line is appended — a touched-boundary record
+            # is a set, not a single-valued declaration.
+            current['boundaries'].append(boundary_of(bd, line))
             continue
         s = SCOPE.match(line)
         if s:
@@ -476,6 +538,21 @@ def head_cannot(bodies, head, carried=()):
     out = []
     for seg in head_segments(segments(bodies), head, carried):
         out.extend(seg['cannot'])
+    return out
+
+
+def head_boundaries(bodies, head, carried=()):
+    """Every `boundary:` record this head's segments declared, in order.
+
+    REPORTED, NEVER GATED (kogaki#258), and SEGMENT-BOUND exactly as findings
+    are: a stale segment's boundary record is that round's record and never
+    this head's state. Read by nothing that decides a state — `find_report`
+    never consults it, `counted()` never counts it, `open_blocking` never sees
+    it — so the parse cannot change this check's verdict in either direction.
+    """
+    out = []
+    for seg in head_segments(segments(bodies), head, carried):
+        out.extend(seg['boundaries'])
     return out
 
 
@@ -1092,6 +1169,116 @@ print(f"blocked-dimension pass: {len(CD)}/{len(CD)} cannot-determine cases "
       "still gates / a fragment is still a fragment), plus the count-equality "
       "invariance assertion")
 
+# --- the boundary-vs-receipt record (kogaki#258) ----------------------------
+# The fifth declaration, asserted on the same two axes every declaration before
+# it was: the record PARSES as declared, and reading it DISTURBS NOTHING — the
+# state this check reaches must be byte-identical with and without the lines,
+# because a reported-never-gated declaration that moved a verdict would be the
+# widened-token failure one field over.
+#
+# Each case is a MUTANT DERIVED FROM THIS DIFF (specs/SPEC.md §4): the token
+# literal, each verdict in the alternation, the `none` arm, the
+# receipt-required-for-`covered` downgrade, the entry's digit class, the
+# every-line-kept choice, the whole-line anchor, and the segment binding. The
+# mutation table in the PR record names which case catches each.
+BOUNDARY_FIX = [
+    ("an uncovered boundary is read: entry, verdict, no downgrade",
+     f"review-lane report: {HEAD}\n"
+     "boundary: 1 uncovered  checks/check-review-report.sh — entry 1, "
+     "Check/CI infrastructure", HEAD, 'present',
+     [('1', 'uncovered', False)]),
+    ("a covered boundary NAMING ITS RECEIPT is read as covered",
+     f"review-lane report: {HEAD}\n"
+     "boundary: 3 covered [receipt: product-lab@dec0d56 LESSONS.md:122]  "
+     "the disposition copy", HEAD, 'present', [('3', 'covered', False)]),
+    ("a `covered` naming NO receipt is DOWNGRADED to cannot-determine and the "
+     "downgrade is recorded, never silent",
+     f"review-lane report: {HEAD}\nboundary: 3 covered  trust me", HEAD,
+     'present', [('3', 'cannot-determine', True)]),
+    ("an explicit cannot-determine verdict is read as itself, undowngraded",
+     f"review-lane report: {HEAD}\nboundary: 2 cannot-determine  no CI run",
+     HEAD, 'present', [('2', 'cannot-determine', False)]),
+    ("the DECLARED ZERO parses, and is not the same record as no line at all",
+     f"review-lane report: {HEAD}\nboundary: none", HEAD, 'present',
+     [(None, 'none', False)]),
+    ("the declared zero carries its reason and still parses",
+     f"review-lane report: {HEAD}\nboundary: none  no trigger term fired",
+     HEAD, 'present', [(None, 'none', False)]),
+    ("an ABSENT record is EMPTY — the undeclared state story 1.41's AC1a "
+     "reports, never inferred as `none`",
+     f"review-lane report: {HEAD}\nfinding: nit open  x", HEAD, 'present', []),
+    ("EVERY line is kept, in order — not the first (several boundaries can be "
+     "touched, and a first-wins rule would drop the rest)",
+     f"review-lane report: {HEAD}\nboundary: 1 uncovered  a\n"
+     "boundary: 2 covered [receipt: p@1 f:1]  b\n"
+     "boundary: 3 uncovered  c", HEAD, 'present',
+     [('1', 'uncovered', False), ('2', 'covered', False),
+      ('3', 'uncovered', False)]),
+    ("MENTIONING boundary: inside a finding's prose declares nothing "
+     "(use-vs-mention, kogaki#41)",
+     f"review-lane report: {HEAD}\n"
+     "finding: nit open  the boundary: 1 uncovered line is missing here",
+     HEAD, 'present', []),
+    ("a non-numeric entry is not a declaration — the entry is the map's own "
+     "heading number",
+     f"review-lane report: {HEAD}\nboundary: entry-one uncovered  x", HEAD,
+     'present', []),
+    ("an unknown verdict token is not a declaration",
+     f"review-lane report: {HEAD}\nboundary: 1 maybe  x", HEAD, 'present', []),
+    ("a boundary line before any report belongs to no segment",
+     f"boundary: 1 uncovered  x\nreview-lane report: {HEAD}", HEAD,
+     'present', []),
+    ("the record is SEGMENT-BOUND: a stale segment's boundaries are that "
+     "round's record and never this head's",
+     "review-lane report: 9999999\nboundary: 1 uncovered  old round\n"
+     f"review-lane report: {HEAD}\nboundary: 2 covered [receipt: p@1 f:1]  new",
+     HEAD, 'present', [('2', 'covered', False)]),
+    ("an uncovered boundary NEVER gates — a clean report stays present",
+     f"review-lane report: {HEAD}\nboundary: 1 uncovered  x\n"
+     "report-complete: 0 findings", HEAD, 'present',
+     [('1', 'uncovered', False)]),
+    ("a boundary line is NOT a finding and does not count toward "
+     "report-complete equality",
+     f"review-lane report: {HEAD}\nboundary: 1 uncovered  x\n"
+     "finding: nit open  y\nreport-complete: 1 findings", HEAD, 'present',
+     [('1', 'uncovered', False)]),
+    ("a real blocking finding still gates with a boundary record present",
+     f"review-lane report: {HEAD}\nboundary: none\n"
+     "finding: blocking open [harm: it breaks the gate]  x", HEAD, 'blocked',
+     [(None, 'none', False)]),
+]
+bound_bad = []
+for name, bodies, head_fx, want_state, want_rows in BOUNDARY_FIX:
+    got_state, _ = find_report(bodies, head_fx)
+    got_rows = [(e, v, d) for e, v, d, _raw in head_boundaries(bodies, head_fx)]
+    if got_state != want_state or got_rows != want_rows:
+        bound_bad.append(f"{name}: got ({got_state!r}, {got_rows}), "
+                         f"want ({want_state!r}, {want_rows})")
+# THE INVARIANCE ASSERTION, and it is the load-bearing half: stripping every
+# `boundary:` line must leave this check's verdict unchanged on every case
+# above. That is what "reported, never gated" MEANS, and asserting it is the
+# only way a later widening of the token cannot quietly acquire a deny.
+for name, bodies, head_fx, want_state, _rows in BOUNDARY_FIX:
+    stripped = "\n".join(l for l in bodies.splitlines()
+                         if not l.lstrip().startswith('boundary:'))
+    got_state, _ = find_report(stripped, head_fx)
+    if got_state != want_state:
+        bound_bad.append(f"invariance[{name}]: stripping the boundary lines "
+                         f"changed the verdict to {got_state!r} from "
+                         f"{want_state!r} — the record is not gate-neutral")
+if bound_bad:
+    print("FAIL fixture pass — the boundary-vs-receipt record does not "
+          "discriminate (kogaki#258):")
+    for f in bound_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print(f"boundary pass: {len(BOUNDARY_FIX)}/{len(BOUNDARY_FIX)} "
+      "boundary-vs-receipt cases (each verdict / receipt-required downgrade / "
+      "declared zero / absent-is-undeclared / several kept / use-vs-mention / "
+      "entry and verdict token classes / before-any-report / segment-bound / "
+      "never gates / not a finding), plus the gate-neutrality invariance "
+      f"assertion re-run over all {len(BOUNDARY_FIX)}")
+
 # --- trust assembly fixtures (kogaki#56): author-filtering, both directions.
 OWN = 'repo-owner'
 TRUST_FIX = [
@@ -1219,6 +1406,45 @@ def _report_blocked_dimensions():
     for dim in head_cannot(bodies, head, carried):
         print(f"NOTE: the reviewer declared a BLOCKED DIMENSION, reported and "
               f"never gated (kogaki#100): cannot-determine: {dim}")
+
+
+def _report_boundary_record():
+    """Print this head's boundary-vs-receipt record. REPORTED, NEVER GATED.
+
+    Called beside `_report_blocked_dimensions` on every terminal branch that
+    has a report, and for the same reason: which boundaries a diff touched and
+    which of them nothing answered is exactly as worth knowing when the report
+    is blocked or a fragment.
+
+    An ABSENT record is printed as absent. Every report already in this
+    repository's history predates the token, so this NOTE is the expected
+    output until the shape is in use — and it is the honest one: "no boundary
+    line" and "no boundary touched" are different facts, told apart by the
+    `boundary: none` declaration and by nothing else.
+    """
+    rows = head_boundaries(bodies, head, carried)
+    if not rows:
+        print("NOTE: this report declares NO boundary-vs-receipt record "
+              "(kogaki#258) — reported, never gated. An absent record is "
+              "UNDECLARED, which is not the same fact as no boundary having "
+              "been touched; the declared zero is `boundary: none`.")
+        return
+    uncovered = 0
+    for entry, verdict, downgraded, raw in rows:
+        if verdict == 'uncovered':
+            uncovered += 1
+        print(f"NOTE: boundary-vs-receipt record, reported and never gated "
+              f"(kogaki#258): {raw}")
+        if downgraded:
+            print(f"  entry {entry}: `covered` naming no receipt is read as "
+                  "cannot-determine — a coverage claim with no `[receipt: "
+                  "<pin>]` is not falsifiable, and the read fails toward the "
+                  "honest side.")
+    if uncovered:
+        print(f"the lane recorded {uncovered} TOUCHED consultation-map "
+              "boundary/boundaries with no covering receipt. This is a "
+              "finding-side judgment and is not gated here (kogaki#72: an "
+              "uncovered boundary is in none of the three blocking classes).")
 if state == 'stale':
     # §4 clause 7: the sha is the instrument, the content is the subject. Only
     # attempted on the stale branch — a report already naming this head needs
@@ -1244,6 +1470,7 @@ if state == 'head-unknown':
     sys.exit(1)
 if state == 'blocked':
     _report_blocked_dimensions()
+    _report_boundary_record()
     blocking, downgraded = open_blocking(bodies, head, carried)
     for d in downgraded:
         print(f"NOTE: unjustified blocking downgraded to should, non-gating "
@@ -1259,6 +1486,7 @@ if state == 'blocked':
     sys.exit(1)
 if state == 'incomplete':
     _report_blocked_dimensions()
+    _report_boundary_record()
     print(f"FAIL: PR #{pr} carries a review-lane report for head {head[:7]}, "
           "but it is a FRAGMENT and a fragment counts as nothing "
           "(specs/SPEC.md §4 clause 6, kogaki#74). A partial report turns "
@@ -1280,6 +1508,7 @@ if state == 'present':
     # enforced: whether a declared `delta` was honest is judgment, and clause 5
     # is carrier-less by design with a named reopen trigger.
     _report_blocked_dimensions()
+    _report_boundary_record()
     scope, declared = head_scope(bodies, head, carried)
     print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}, "
           "no open blocking findings")
