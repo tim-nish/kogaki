@@ -1887,7 +1887,14 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
     // fixture supplied". Here both locations are defaults, so an absolute path
     // on either line is the defect §2.5 clause 3 names.
     for (const line of dout.split("\n")) {
-      if (/^(Full Report|machine record)/.test(line) && /\/(home|tmp|var|Users|root)\//.test(line)) {
+      // The five-directory enumeration this replaced was the same
+      // scoped-to-the-spelling defect one level out from the `.kogaki`
+      // substring above (PR #254 round 2, finding D): blind to /opt, /srv,
+      // /mnt or any directory a future run workspace sits under. Tested as the
+      // property — a token beginning at the root, or at `~/`. POSIX only, and
+      // said so rather than implied.
+      if (/^(Full Report|machine record)/.test(line)
+          && line.split(/\s+/).some((t) => /^~?\//.test(t) && t.length > 1)) {
         fails.push(`an owner-surface line prints an ABSOLUTE path: ${line.trim().slice(0, 120)} — §2.5 clause 3 keeps machine paths off the owner surface outside debugging, and a tmpdir is no better than a home directory`);
       }
     }
@@ -2009,21 +2016,47 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       if (!members.some((m) => String(m.gloss).includes("\n"))) {
         fails.push("no served Gloss body in the record is multi-line — a one-line body fits a bullet row, so this block cannot distinguish a whole-body renderer from the flattening one it replaced");
       }
+      // THE LESSON AND JOURNEY BODIES MUST DIFFER (PR #254 round 2, finding C).
+      // The stub served BYTE-IDENTICAL text for a slug's `lessons/` and
+      // `journeys/` shards, so `body.includes(journey_gloss)` was satisfied by
+      // the Lesson Gloss alone: the Journey assertions passed over a rendering
+      // with no Journey in it. That is this block's own defect class arriving
+      // through the fixture's material rather than through its assertions, and
+      // it is the guard that makes the stub-gateway mutant catchable HERE
+      // rather than only by re-running the production mutation pass.
+      for (const m of withJourney) {
+        if (String(m.gloss) === String(m.journey_gloss)) {
+          fails.push(`${m.id}'s Lesson and Journey Gloss bodies are byte-identical in the record — every Journey assertion below is then satisfied by the Lesson Gloss alone, and a rendering that dropped the Journey entirely would pass`);
+        }
+      }
 
       // THE RENDERED BYTES, ASSERTED AGAINST THE RECORD. `includes` of the
       // WHOLE body is the completeness property stated directly: a truncated,
       // headline-only or ellipsised rendering fails it, and a prefix assertion
       // would not.
+      // THE CITE ASSERTIONS ARE UNCONDITIONAL (PR #254 round 2, finding A).
+      // They previously read `if (m.cite && !body.includes(m.cite))`, and that
+      // `&&` is a PREMISE NOTHING ASSERTED: with a null cite in the record the
+      // assertion did not run, the block still reported PASS, and the state it
+      // waved through — a rendering carrying no served cite at all — is the
+      // exact defect this PR repairs. kogaki#243 form D, a failure absorbed
+      // with the PASS surviving, reading on the guard rather than on a thrown
+      // exception. So an absent cite is now REPORTED as the missing premise it
+      // is, and the record-side and rendering-side conditions are separate
+      // sentences rather than one conjunction that can vanish.
+      const assertCite = (value, body, where, label) => {
+        if (value === null || value === undefined || String(value) === "") {
+          fails.push(`${where}: ${label} is ABSENT FROM THE RECORD — the rendering assertion for it has no premise, and a served surface returning no cite is indistinguishable here from a renderer that dropped it, which is the state this whole block exists to detect`);
+        } else if (!body.includes(String(value))) {
+          fails.push(`${where}: ${label} (\`${value}\`) appears nowhere in the rendered bytes`);
+        }
+      };
       const assertMaterial = (body, where) => {
         for (const m of members) {
           const id = m.id;
           if (!body.includes(`\`${id}\``)) fails.push(`${where}: member ${id} is not named in the rendering`);
-          if (m.cite && !body.includes(m.cite)) {
-            fails.push(`${where}: the member → SERVED-LINE map is missing for ${id} — §12 requires the report to carry it, and \`${m.cite}\` appears nowhere in the rendered bytes`);
-          }
-          if (m.gloss_cite && !body.includes(m.gloss_cite)) {
-            fails.push(`${where}: the Lesson Gloss cite for ${id} (\`${m.gloss_cite}\`) is absent — this is the \`grep -c "gloss/lessons/"\` returning ZERO that the 2026-08-08 run measured`);
-          }
+          assertCite(m.cite, body, where, `the member → SERVED-LINE map for ${id} (§12 requires the report to carry it)`);
+          assertCite(m.gloss_cite, body, where, `the Lesson Gloss cite for ${id} (the \`grep -c "gloss/lessons/"\` returning ZERO that the 2026-08-08 run measured)`);
           if (!body.includes(String(m.gloss))) {
             fails.push(`${where}: the COMPLETE Lesson Gloss for ${id} is not in the rendering — §12 requires the complete Glosses with no truncation anywhere, and the file asserts \`> Untruncated.\` while it holds`);
           }
@@ -2031,9 +2064,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
             if (!body.includes(String(m.journey_gloss))) {
               fails.push(`${where}: the COMPLETE Journey Gloss for ${id} is not in the rendering — the Counted block prints a journey count with nothing behind it`);
             }
-            if (m.journey_cite && !body.includes(m.journey_cite)) {
-              fails.push(`${where}: the Journey Gloss cite for ${id} (\`${m.journey_cite}\`) is absent`);
-            }
+            assertCite(m.journey_cite, body, where, `the Journey Gloss cite for ${id}`);
           }
         }
         // THE COUNTED BLOCK AND THE BODY MUST AGREE. `- journey: 1` over a file
@@ -2091,13 +2122,25 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
         if (/\.kogaki\//.test(out2)) {
           fails.push("the RERUN's owner surface names a machine-local hidden path — §2.5 clause 3 forbids it outside debugging");
         }
-        // THE PROPERTY IS "ABSOLUTE PATH", NOT THE `.kogaki` SPELLING. Every
-        // block here steers storage into a tmpdir, so a `.kogaki` substring
-        // test passes over `/tmp/…` — the third time in this file that a
-        // fixture could not see what the fixture supplied.
+        // THE PROPERTY IS "ABSOLUTE PATH", TESTED AS THE PROPERTY (PR #254
+        // round 2, finding D). The first version enumerated five directory
+        // names — `/(home|tmp|var|Users|root)/` — which is the same defect one
+        // level out from the `.kogaki` substring it replaced: a guard scoped to
+        // the current SPELLINGS rather than to the thing (kogaki#243 form C),
+        // and blind to `/opt`, `/srv`, `/mnt`, `/data` or any directory a
+        // future run workspace sits under. A path is ABSOLUTE if it begins at
+        // the root, so that is what is tested: any whitespace-delimited token
+        // starting with `/` or with `~/`, the ruling's own two spellings for
+        // "not where the owner works".
+        //
+        // DECLARED LIMIT: this is the POSIX rule. A Windows-style `C:\…` is not
+        // detected, and no carrier in this repository produces one — stated
+        // rather than left for the next reader to discover the same way this
+        // finding was discovered.
         for (const line of out2.split("\n")) {
-          if (/\/(home|tmp|var|Users|root)\//.test(line)) {
-            fails.push(`the RERUN prints an ABSOLUTE machine path on the owner surface: ${line.trim().slice(0, 140)}`);
+          const abs = line.split(/\s+/).filter((t) => /^~?\//.test(t) && t.length > 1);
+          if (abs.length) {
+            fails.push(`the RERUN prints an ABSOLUTE path on the owner surface (${abs[0]}): ${line.trim().slice(0, 140)} — §2.5 clause 3 keeps machine paths off the owner surface outside debugging`);
           }
         }
       }
@@ -2123,10 +2166,21 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       // AND THE OPT-OUT STILL OPTS OUT on the rerun path. `--no-render` is
       // §12.2 v11's named opt-out; a rerun that wrote the rendering regardless
       // would be a second default wearing a flag's name.
+      //
+      // THE EXIT IS ASSERTED FIRST, AS ITS OWN SENTENCE (PR #254 round 2,
+      // finding B). The first version read `if (r4.status === 0 && existsSync(md))`,
+      // which reads a non-zero exit as "nothing to check" while every sibling
+      // assertion here reads it as failure — so the opt-out was verified only
+      // on the runs that happened to succeed, and a mutation that broke the
+      // rerun outright would have been recorded as an opt-out that works. The
+      // conjunction is split: the run must succeed, and then the flag must have
+      // opted out.
       rmSync(md, { force: true });
       const r4 = spawnSync(process.execPath, argv.concat(["--no-render"]),
         { encoding: "utf8", env: env3 });
-      if (r4.status === 0 && existsSync(md)) {
+      if (r4.status !== 0) {
+        fails.push(`the \`--no-render\` rerun failed (exit ${r4.status}) — the opt-out was NOT asserted, and a run that did not complete is not evidence that a flag works: ${(String(r4.stdout) + String(r4.stderr)).trim().slice(0, 200)}`);
+      } else if (existsSync(md)) {
         fails.push("`--no-render` wrote the owner rendering anyway on the rerun path — the opt-out is not one");
       }
       rmSync(md, { force: true });
@@ -2170,10 +2224,15 @@ console.log(`kogaki#234 rendered material: ${K234.material}; rerun owner surface
   + "`> Untruncated.` / `- journey: 1` specimen of the 2026-08-08 dogfood run. And on "
   + "the SECOND invocation specifically (proven to have taken the idempotent-rerun "
   + "branch, with the rendering DELETED first so no leftover can satisfy it): the "
-  + "repo-relative READ THIS ONE line present, no `.kogaki` path, NO absolute machine "
-  + "path on any line, the rendering regenerated byte-identical, the KOGAKI_DEBUG "
-  + "direction still printing the record's full path, and `--no-render` still opting "
-  + "out. A block reading CANNOT-DETERMINE asserted NOTHING. NOT COVERED, stated "
+  + "repo-relative READ THIS ONE line present, no `.kogaki` path, NO token beginning at "
+  + "the root or at `~/` on any line (the PROPERTY, not an enumeration of directory "
+  + "names), the rendering regenerated byte-identical, the KOGAKI_DEBUG direction still "
+  + "printing the record's full path, and `--no-render` still opting out on a run whose "
+  + "EXIT was asserted first. Every cite assertion is UNCONDITIONAL: an absent cite is "
+  + "reported as the missing premise it is rather than skipping the assertion, and the "
+  + "record's Lesson and Journey bodies are required to DIFFER, without which every "
+  + "Journey assertion would be satisfied by the Lesson Gloss alone. A block reading "
+  + "CANNOT-DETERMINE asserted NOTHING. NOT COVERED, stated "
   + "rather than left to be inferred: the member block's HEADING DEPTH under a "
   + "composed SubGroup — this fixture's group is judged-empty, so members render at "
   + "the top level and a mutation collapsing depth 4 to 3 survives the whole suite. "
