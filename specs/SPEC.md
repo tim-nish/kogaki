@@ -1139,7 +1139,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `tools/review-sweep.sh`'s embedded fixture pass): with the token's regex
      not widened in lockstep, a declared report segmented to **nothing** and
      was read as *absent*. That regex lives in two files —
-     `checks/check-review-report.sh:188` and `tools/review-sweep.sh:628` — and
+     `checks/check-review-report.sh:245` and `tools/review-sweep.sh:723` — and
      an adjacent line leaves **both untouched**, which is precisely why clauses
      5 and 6 already have this shape. A third declaration on the established
      pattern is the change whose failure mode does not exist.
@@ -1627,8 +1627,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
      single pass** over the **same segmenter**, and the **first declaration
      wins** — a second is malformed, not a correction, on clauses 5 and 6's
      rule. It rides an adjacent line and widens no existing token, which is
-     why the two regexes at `checks/check-review-report.sh:188` and
-     `tools/review-sweep.sh:628` stay untouched; clause 7 already records what
+     why the two report-token regexes at `checks/check-review-report.sh:245`
+     and `tools/review-sweep.sh:723` stay untouched; clause 7 already records what
      widening a token instead costs.
 
      **Two reuses were considered and both fail on the same test — whether the
@@ -1683,6 +1683,33 @@ invariant: Gukan guarantees Unit schema, never data schema).
      read that can be wrong in the cheap direction is worth nothing to the
      caller that trusts it.
 
+     **WHEN the read is evaluated is part of the contract, and a read at
+     dispatch is NECESSARY BUT NOT SUFFICIENT.** kogaki#271 establishes this
+     across three same-day instances rather than by argument, and the window
+     does not shrink in a way any fixed margin would cover: PR #275, caught at
+     dispatch, the report landing **31 seconds** after the orchestrator's read;
+     PR #277, whose opening read returned zero comments and whose report for
+     that exact head landed **inside the sitting** — a lane trusting its
+     opening read would have double-posted; and PR #282, where a round-1 report
+     named a superseded head, the premise held, and the **pre-post re-read**
+     found a complete round-2 report for the current head landed **70 seconds**
+     earlier, inside the sitting. So the predicate is re-evaluated
+     **immediately before the post**, and the post is abandoned if a report for
+     the current head has appeared. This changes *when* the read is taken and
+     **not its polarity** — suppression stays permitted on `covered` alone.
+
+     **The three parts serve a SINGLE-WRITER conclusion, and this is the clause's
+     reading of its own purpose.** PR #276 already showed the limit of any
+     reviewer-side guard: two spawns whose reads were **both correct at the
+     moment they ran**, and which both posted. No check *inside* a reviewer
+     resolves that, because both reviewers behaved correctly. The sweep decides
+     whether a round is owed and the caller **asks rather than judges** — which
+     is why (a) and (b) sit in the sweep and why a reviewer-side abort check is
+     a mitigation that has now fired three times and will keep firing, never the
+     carrier. The same argument binds the orchestrator half at
+     `tim-nish/claude-toolkit#282`: a read taken before dispatch cannot
+     discharge it either, because the decision has to sit where the act is.
+
      **(c) THE NOTICE STOPS ASSERTING A RED GATE.** `post_stall_comment`'s
      fixed sentence — *"the gate stays red, correctly"* — was **false twice on
      the run that earned this clause**, at the same head as the report it
@@ -1694,6 +1721,18 @@ invariant: Gukan guarantees Unit schema, never data schema).
      stops asserting what the **gate** is, which is a fact it does not read.
      The gate's own state is now carried by (a), where the state machine can
      see it.
+
+     **A FOURTH instance was observed on the PR that RATIFIED this clause, and
+     it is recorded because a specimen produced by the change's own review is
+     the strongest evidence the clause has.** PR #293's round-1 reviewer was
+     denied `Bash(git fetch origin)` and `Bash(grep -o -E)`, so the
+     `report-degraded` arm fired and posted the notice asserting *"the gate
+     stays red, correctly"*. The registry-driven check for that same head
+     completed **`success` at 10:01:10Z**, turned green by the very report the
+     notice was describing. The clause was falsified live at its own
+     ratification, by the mechanism it exists to repair — and the same run is a
+     specimen for (a) as well: that head's only report came from a denied-tools
+     session, and `decide()` reads it `done`.
 
      **CLAUSE 9 ROW 8 IS RE-TYPED BY THIS CLAUSE, and the re-typing is the
      widening trigger firing rather than a courtesy.** Clause 9 states that
