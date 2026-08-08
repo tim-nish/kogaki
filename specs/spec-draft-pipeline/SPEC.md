@@ -62,9 +62,9 @@ Brief's structure section and says nothing about its file.
 **The Move architecture is CONSTRUCTED at §§4.3–4.9 (kogaki#220).** Reader
 Path as the artifact plus the five workflow blocks, the Step's grounding and
 the `entailed` flag, the grounds test, path review's judgment-class ruling,
-semantic economy, Journey integrity and the analysis document. Every clause
-there quotes its served line at a pin except §4.8, which names its provenance
-as the issue and says so.
+semantic economy, Journey integrity and the analysis document. **Every clause
+there quotes its served line at a pin**, §4.8 included — its line is
+`topics/articles.md:18@dec0d568`, read at round 2 (receipt at §9.1).
 
 **The whitelist's other two members are owed, not silently covered.** §1's
 inheritance whitelist has four members; items 1 and 2 (the Terrain → Brief
@@ -391,15 +391,36 @@ reintroduce as conveniences:
 
 ### 4.8 Journey integrity
 
-Multi-Step projection of a Journey is allowed; **the temporal or causal arc is
-never reversed or severed**.
+> "Journey integrity binds composition: a Lesson's claims and evidence project
+> freely into multiple Steps, and a Journey may also support multiple Steps and
+> need not stay contiguous — but its temporal and causal relations (initial
+> understanding → turning point → outcome) are never reversed or severed. The
+> Strand's boundaries remain provenance; what must survive rearrangement is the
+> arc's causality, because rearranging a Journey's internal causality changes
+> its meaning."
 
-**Carried by kogaki#220's owner-directed filing (2026-08-07), and this clause
-does NOT claim a served pin**, unlike §§4.3–4.7 above. The consultation at
-`product-lab@dec0d568` returned the Move batch's other eight lines and none
-stating this one. Recorded as the issue's content with its provenance named,
-so the next sitting can pin it or ratify it here rather than inheriting it as
-though it were already served. Judged at **path review**.
+`product-lab@dec0d568 topics/articles.md:18`
+
+Four clauses, and the permissive three are as load-bearing as the constraint:
+
+- **A Lesson's claims and evidence project FREELY into multiple Steps.** No
+  budget, no once-per-Strand rule — this is §4.3's "a Strand may support
+  multiple Steps and is never consumed by first use" reaching the Lesson.
+- **A Journey may also support multiple Steps, and NEED NOT STAY CONTIGUOUS.**
+  A Journey's Steps may be separated by Steps grounded elsewhere; adjacency is
+  not what its integrity is made of.
+- **The Strand's boundaries remain PROVENANCE.** They record where material
+  came from and never dictate where it lands — one section per Strand is the
+  source-shaped block §4.3 exists to dissolve.
+- **The temporal and causal relations — initial understanding → turning point
+  → outcome — are never reversed or severed.** What must survive rearrangement
+  is the arc's causality, because rearranging a Journey's internal causality
+  changes its meaning.
+
+So the constraint is on the **arc**, not on the layout: a Journey scattered
+across four non-adjacent Steps in its own causal order is conformant, and two
+adjacent Steps that put the outcome before the turning point are not. Judged at
+**path review**.
 
 ### 4.9 The analysis document — where observed sequences live
 
@@ -1150,13 +1171,26 @@ sitting:
 
 ### 9.1 Receipts
 
-**kogaki#220 (Move architecture construction), 2026-08-08.** §§4.3–4.7 and §4.9
-are written from these lines and quote them verbatim; §4.8 explicitly does not.
+**kogaki#220 (Move architecture construction), 2026-08-08.** §§4.3–4.9 are
+written from these lines and quote them verbatim.
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:10-11,14,16-17,19-20,22`
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:10-11,14,16-20,22`
   request_id: de0275ba-0d8f-497a-8288-0fd2adc5455d
   outcome: discriminating
   query: Move library eight fields id status intent requires effect constraints failure_modes sources; Reader Path composition, Move binding, Candidate assembly, path review, Candidate selection; grounds test rationale stands with the Move name deleted
+
+**`:18` was read at round 2 and its own read is recorded, not folded into the
+receipt above.** The first sitting cited `16-17,19-20` and stepped over `:18`,
+and §4.8 then declared the position unserved — an absence claim about a line
+the cite list never reached, which no recheck could falsify because a recheck
+verifies the lines a receipt cites and is silent about the ones it does not.
+The line is served, it is quoted verbatim at §4.8, and the read that found it
+is here rather than absorbed:
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:18`
+  request_id: 9e8cc66b-ee67-46cc-8b80-85eb95a876cc
+  outcome: discriminating
+  query: topic_thread("articles") — Journey integrity: is multi-Step projection of a Journey allowed, may a Journey be non-contiguous, and what do the Strand's boundaries remain?
 
 **The same batch was measured ABSENT earlier the same day** at
 `product-lab@98195e0a` — 0 `Move` lines in `topics/articles.md`, newest decision
