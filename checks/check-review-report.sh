@@ -1804,6 +1804,27 @@ for name, bodies, head_fx, want_state, want_kinds, want_n in SUPER_FIX:
     if (got_state, got_kinds, got_n) != (want_state, want_kinds, want_n):
         super_bad.append(f"{name}: got ({got_state!r}, {got_kinds}, {got_n}), "
                          f"want ({want_state!r}, {want_kinds}, {want_n})")
+# THE ROUND TRIP, asserted because the two halves are DIFFERENT FUNCTIONS and
+# nothing above compares them. `ordinal_of()` computes the number the deny
+# PRINTS; `resolve_supersede()` computes what a `supersedes:` line MEANS. A
+# mutant in either alone leaves every state assertion above green while the
+# line the check tells a reviewer to paste names a different finding than the
+# one it just denied — the paste-ready line is the whole liveness remedy, so a
+# wrong number in it is worse than no number. So: for every unadjudicated row,
+# the printed ordinal must resolve back to that same finding line.
+for name, bodies, head_fx, want_state, _k, want_n in SUPER_FIX:
+    if not want_n:
+        continue
+    segs_fx = segments(bodies)
+    for sha_fx, n_fx, line_fx in unadjudicated_blocking(bodies, head_fx):
+        hit = resolve_supersede(segs_fx, len(segs_fx), sha_fx, n_fx)
+        if hit is None or segs_fx[hit[0]]['findings'][hit[1]][3] != line_fx:
+            super_bad.append(
+                f"round-trip[{name}]: the deny printed `supersedes: {sha_fx} "
+                f"finding {n_fx}`, which resolves to "
+                f"{'nothing' if hit is None else segs_fx[hit[0]]['findings'][hit[1]][3]!r} "
+                f"rather than back to {line_fx!r} — the paste-ready line names "
+                "a different finding than the one denied")
 # THE CLAUSE-7 INTERACTION, asserted rather than assumed: a segment PROVEN to
 # have reviewed this head's content is this head's segment "for every purpose"
 # (`head_segments`), and that must include this one — otherwise a carry-forward
