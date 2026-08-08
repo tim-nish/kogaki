@@ -142,15 +142,22 @@ third dimension. Instead:
 1. **Record.** Anything the lane notices that does not type into the two
    dimensions is written as one `out-of-dimension:` line in the findings —
    the observation and the PR it came from — and posted as a comment on
-   **kogaki#13**, this lane's own carrier. That issue is the register; the
-   lane only ever appends to it.
-2. **The reading act is different-unit.** The repo's issue-triage sitting
-   reads kogaki#13's register, because it spans issues while this lane spans
-   one PR. A trigger bound to an artifact still owes the named recurring act
-   that reads it, which is why the reading act is named here rather than
-   left to the artifact's existence.
+   **kogaki#246**, this lane's **register**. The lane only ever appends to
+   it. **The register is a ledger, not a deliverable**: it has no definition
+   of done, it is never completed, and it ends only by supersession or by
+   this lane's retirement.
+2. **The reading act is different-unit, and it binds by name.** The repo's
+   issue-triage sitting reads the register at **kogaki#246**, because it
+   spans issues while this lane spans one PR. A trigger bound to an artifact
+   still owes the named recurring act that reads it, which is why the
+   reading act is named here rather than left to the artifact's existence.
+   **The reader binds by that declared identity and never by enumerating
+   open issues**, and the liveness half is part of the reading act: **a
+   CLOSED register met by the reader is itself a finding, never a skip.**
+   A reader that enumerates open issues loses the ledger exactly when its
+   writers most need it read.
 3. **Widening fires at three of a class.** Three `out-of-dimension:`
-   observations of the same class on kogaki#13 widen the lane by a third
+   observations of the same class on kogaki#246 widen the lane by a third
    dimension — filed as its own story through `story-sync file-issue`, never
    edited into this file during a review sitting. Three is the recurrence
    threshold the served line names ("the class visible only at
@@ -162,6 +169,28 @@ third dimension. Instead:
    **judgment** property improves this file's **inputs**: which served lines
    the lane quotes at its gate. Neither path ever produces a new enumerated
    denial (`specs/SPEC.md:65-71`).
+5. **The register's lifecycle, and where it is enforced.** kogaki#246 is
+   **open while this lane exists**; its being open asserts no pending
+   deliverable. **Closing it REQUIRES a successor pointer in the closing
+   comment** — a close naming no successor is a defect, not a completion —
+   and **an append to a closed register is refused**, redirecting to that
+   successor. Both halves are **declared here and enforced nowhere in this
+   repository**: the typed append act and the cleanup lane's ledger
+   exemption are actor-wide claude-toolkit components, held at
+   `instrument: cross-repo(tim-nish/claude-toolkit#279)`. Until that lands
+   these two clauses are advisory, and this file says so rather than reading
+   as covered — a rule requiring someone to remember it is advisory, and its
+   apparent coverage is an enumeration of the places somebody happened to
+   act.
+
+> **Why the register has its own carrier** (kogaki#191). It used to share
+> kogaki#13 with a finite deliverable — "the judgment half gets its carrier",
+> shipped 2026-08-05. That deliverable's close was CORRECT and applied a
+> deliverable's terminal state to a ledger sharing its carrier: 40 appends
+> were then written to a closed register, and the reader above — which then
+> enumerated open issues — stopped seeing it, producing a 21-unread pile-up
+> with nobody erring. kogaki#13 remains the **deliverable** record and is not
+> this lane's register.
 
 ## Why this lane carries no registry entry
 
@@ -498,18 +527,25 @@ round 2 read a 70 KB transcript in three `cut -c` slices — is **out of scope f
 a per-PR review**. A reviewer that finds itself needing a parser has found a gap
 in the sweep's own instruments, not a task for this turn: kogaki#65 item 3 gave
 the sweep a denial extractor for exactly that reason. **File for the instrument
-on kogaki#13** as an `out-of-dimension:` line and move on. Improvised byte
+on the register, kogaki#246** as an `out-of-dimension:` line and move on.
+Improvised byte
 arithmetic re-derives once per round something that belongs once in the tool.
 
 **A probe of the lane's own sandbox is register work, not per-review work.**
 Round 2 of PR #67 spent ~8 turns establishing what its own grants and sandbox
 permitted. That knowledge is real and worth having — the kogaki#65
 grant-escape finding is the specimen, genuinely valuable — but it is a property
-of the lane, not of the PR under review, so it is **recorded once on kogaki#13
-and never re-probed each round**. A reviewer that wants to know what it may run
-reads this file and `tools/review-sweep.sh`'s grant commentary; a reviewer that
-discovers something new about the grants appends it to the register. Paying for
-the same discovery on every round is the sink.
+of the lane, not of the PR under review, so it is **recorded once on the
+register, kogaki#246, and never re-probed each round**. A reviewer that wants to
+know what it may run reads this file and `tools/review-sweep.sh`'s grant
+commentary; a reviewer that discovers something new about the grants appends it
+to the register. Paying for the same discovery on every round is the sink.
+
+**This clause is a register PRODUCER, and it lives outside rules 1–4** — it is
+the lane's second writing clause and is physically separated from them, which is
+exactly how a re-pointing pass leaves a straggler behind. It binds to kogaki#246
+under the same rule 5 lifecycle as rule 1: appends refuse a dead carrier, and a
+close requires a successor.
 
 **And when neither source yields the result, say so by name.** If CI has no
 completed run for the head and the local run is unavailable or refused, the
