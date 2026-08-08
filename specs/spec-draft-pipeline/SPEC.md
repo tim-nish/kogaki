@@ -690,8 +690,11 @@ which condition 4 names and bounds rather than claiming away:**
    leaves that neighbour with **seven**, and this is the condition that catches
    it.
 4. **Every column-0 non-blank line inside a record is a `<key>:` line, or a
-   block-sequence item (`-`) that IMMEDIATELY FOLLOWS a column-0 key carrying no
-   value at all — no inline value and no indented continuation between them.**
+   block-sequence item (`-`) belonging to an OPEN sequence.** A sequence opens
+   at a column-0 key carrying no value, stays open across its own items and
+   their indented continuations, and closes at the next column-0 key — or before
+   its first item, if an indented line arrives first, because that line is the
+   key's value and no sequence was ever opened.
    Continuation lines are indented, because that is what YAML
    already requires of them, so any *other* unindented line is foreign to the
    record it sits in — a heading, a fence, a rule, a blockquote, a bullet after
@@ -711,17 +714,31 @@ which condition 4 names and bounds rather than claiming away:**
    accepts silently, and the parser catches what is not YAML. Neither is asked
    to do the other's job, and neither is left resting on the other.
 
-   **The adjacency qualifier is part of the exemption and not decoration, and it
-   took two attempts.** Without any qualifier the exemption reaches every `-`
-   line anywhere in a record, including a bullet after a `>-` scalar — which the
-   parser happens to reject today, so the rule would be resting on the parser
-   rather than on itself. The first qualifier said *no inline value*, which
-   tested the wrong thing one position over: a key whose value is an **indented**
-   scalar or mapping carries no *inline* value, so a column-0 bullet after it
-   passed the rule and was again left to the parser. **The test is adjacency, not
-   inline-ness** — a bullet is admissible only where nothing at all separates it
-   from a valueless key, which is the one position where it is genuinely that
-   key's sequence item.
+   **The open-sequence qualifier is part of the exemption and not decoration,
+   and it took THREE attempts. The three failures are kept because they are the
+   same failure, and this section's subject is that failure.**
+
+   - **No qualifier at all.** The exemption reached every `-` line anywhere in a
+     record, including a bullet after a `>-` scalar — which the parser happens
+     to reject today, so the rule rested on the parser rather than on itself.
+   - **`no inline value`.** Tested the wrong property one position over: a key
+     whose value is an **indented** scalar or mapping carries no *inline* value,
+     so a column-0 bullet after it passed the rule and was again left to the
+     parser.
+   - **Adjacency (`immediately follows`).** Over-corrected. Only a sequence's
+     **first** item can immediately follow its key, so every item after the
+     first was refused — rejecting a plain two-item sequence, a sequence of
+     `>-` folded scalars, and a sequence of mappings, all legal YAML. It also
+     made the residue below **unreachable**, so the section's grammar
+     contradicted its own declared bound.
+
+   **The property is sequence membership, and it needs the state the first three
+   tried to infer from one line of context.** A sequence is open or it is not;
+   an item is admissible exactly when one is open. Two of the three failures
+   were under-refusals resting on the parser and one was an over-refusal of
+   valid input — **the same defect from opposite sides**, which is the axis this
+   section keeps rediscovering and now states as the reason each attempt is
+   recorded rather than replaced.
 
    **ONE RESIDUE REMAINS, AND IT IS BOUNDED AND STATED RATHER THAN CLOSED.** A
    markdown note bullet written *among* the items of a legal column-0 sequence
@@ -752,10 +769,11 @@ pass against this one — a case never seen to fail is not evidence:
 | **mid-file `## heading`** | **refused** | **4** (was silently discarded) |
 | **trailing `## heading`** | **refused** | **4** (was silently discarded) |
 | mid-file fence / `---` / `***` / blockquote | refused | 4 (was a parser error, now a rule) |
-| **`- bullet` after a `>-` scalar, inside a record** | **refused** | **4** — via the adjacency qualifier; before it, refused only by the parser, so the rule rested on the parser rather than on itself |
-| **`- bullet` after an INDENTED value or mapping** | **refused** | **4** — the case the first `no inline value` qualifier missed; caught by adjacency, not by inline-ness |
+| **`- bullet` after a `>-` scalar, inside a record** | **refused** | **4** — no sequence is open there; before any qualifier it was refused only by the parser |
+| **`- bullet` after an INDENTED value or mapping** | **refused** | **4** — the indented line is the key's value, so no sequence opened; the case the `no inline value` qualifier missed |
+| **2-item column-0 sequence; a sequence of `>-` scalars; a sequence of mappings; a blank line between key and sequence** | **admitted** | — all four were **refused** by the adjacency qualifier and are admitted by open-sequence; listed because the over-refusal was found only by measuring valid input |
 | mid-file **markdown** list between records | refused | **4** — the qualifier moved this catch to the rule; **before it the catcher was the parser**, not condition 2 (an unqualified exemption swallowed the `-`, and the `ParserError` meant no mapping was built, so condition 2's duplicate-key detection never ran). Re-measured at this head rather than carried forward |
-| **a note bullet among the items of a legal column-0 sequence** | **ADMITTED as data** | **none — the stated residue.** Recorded rather than claimed closed: under a bare key it *is* a sequence item and no grammar separates it from `- one` |
+| **a note bullet among the items of a legal column-0 sequence** | **ADMITTED as data** | **none — the stated residue.** Recorded rather than claimed closed: inside an open sequence it *is* an item and no grammar separates it from `- one`. Re-measured at this head: the adjacency qualifier had made this row **unreachable**, so the grammar contradicted its own declared bound, and open-sequence restores it |
 | leading `## heading` | refused | 1 — and it is listed to record that condition 1 **masks** the parser here, which is why it was the wrong shape to have exercised alone |
 
 **Where the conditions run, since they do not all run at the same stage.**
