@@ -109,6 +109,196 @@ it committed is a declassification act needing its own grounds. A carrier that
 moved a file into the tree and let the default `git add` decide the rest would
 satisfy clause 1 while committing the defect this line names.
 
+## 2.6 An owner-surface issue's acceptance criterion verifies at the EXPERIENCED unit (kogaki#234 remedy (c))
+
+**Repository-wide, carrier kogaki#234**, in the remedy's filed words:
+
+> An owner-surface issue's acceptance criterion must verify at the
+> **experienced unit**, not only the artifact-diff unit — a live dogfood run
+> citing the run record, before "resolved" may be claimed.
+
+### 2.6.1 The class this binds, because an unbounded rule is a tax on every filing
+
+**Only owner-surface issues.** An issue is **owner-surface** when the property
+it repairs is stated about *what a person experiences* rather than about what
+an artifact contains — the served formulation is exact:
+
+> "An owner-facing contract's acceptance criterion must verify at the
+> EXPERIENCED unit, never only the artifact-diff unit — a contract whose
+> subject is what a human experiences cannot be carried by artifacts the
+> failing component reads. … The remedy is either TOPOLOGY (remove the failing
+> component from the serving path so there is nothing left to verify live) or
+> MEASUREMENT AT THE EXPERIENCE (a run record diffed against what was actually
+> served) — never an acceptance criterion pitched at a unit the failing hop
+> does not touch."
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:12-13, LESSONS.md:14, topics/knowledge-architecture.md:86`
+  request_id: c0b4c7ab-2ccf-4f54-87cb-5e7ded799d8b
+  outcome: discriminating
+  query: When a recurring defect survives several resolving issues, should acceptance criteria be sliced by hop rather than by symptom — and must a close verify the property at the unit where it is experienced?
+
+**The test is one question, asked at filing:** *which hop between the producer
+and the owner's eyes does this issue's acceptance criterion touch, and is the
+hop that fails one of them?* An issue whose whole subject is an artifact —
+a schema, a parser, an internal record — is **not** owner-surface and this
+section says nothing about it. An issue about a rendering, a screen, a command's
+closing lines, a report the owner opens, or a relay through an agent session
+**is**, and owes the criterion below.
+
+**Two admissible discharges, and the first is preferred.** *Topology* — remove
+the failing component from the serving path, so no live verification remains to
+perform — discharges this section outright and is stated first so the rule does
+not read as a standing dogfood tax. *Measurement at the experience* — a live
+run, and a **run record** citing what was actually served (paths, sizes,
+hashes, the pin) diffed against what the artifacts claim — is the discharge when
+the hop cannot be removed. An acceptance criterion pitched at neither is what
+this section refuses.
+
+### 2.6.2 POLARITY — a real acceptance obligation, NOT the report-not-gate of §4 clause 8
+
+**Decided deliberately, and stated first so the wrong polarity is not imported
+by reflex.** §4 clause 8's report-not-gate governs **findings** — what a *merge*
+may be blocked on, under kogaki#72's ratified blocking budget. This section
+governs **acceptance criteria** — what a *close* may assert. Different unit,
+different moment, and the two do not touch:
+
+- Clause 8 is **detection-side and after the fact**: a finding already exists,
+  and the question is whether observing it may stop a merge. Ratified answer:
+  no.
+- This section is **generation-side and before the fact**: it constrains how the
+  criterion is *written*, so a close that satisfies it is a close that measured
+  the property. Nothing here reads a finding, blocks a merge, or touches
+  `checks/check-review-report.sh`.
+
+**So kogaki#72's budget is untouched and is not reopened**, and the record is
+disposed of explicitly rather than by silence: the live word on the
+findings-lifecycle question remains kogaki#224, confirmed on the served surface
+and carried there, and this section is a different layer of the same system
+rather than a competing answer to it.
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:10`
+  request_id: 4919fa94-b7bc-4a40-8b02-bcf444054a99
+  outcome: discriminating
+  query: Is the ratified blocking budget making should/nit findings non-gating still the live word, and does a new generation-side acceptance obligation about the verification unit supersede or reopen it, or do they bind at different layers?
+
+**Being a real obligation is exactly why it gets no gate.** The served rule on
+enforcement layer settles the shape:
+
+> "an **obligation** cannot be gated at all and needs its absence made
+> visible … a prohibition needs a mechanical gate at the tool boundary because
+> prose is advisory to a system whose job is to satisfy instructions"
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:95`
+  request_id: 918f8d52-22b9-4faf-8caa-b051520dc900
+  outcome: discriminating
+  query: Does a rule constraining what a close may assert bind as a real obligation on the acceptance criterion, or is it report-only like the non-blocking findings budget — is the blocking-budget report-not-gate polarity the live word for generation-side obligations too?
+
+An absent live verification generates **no event to hook**, so nothing can deny
+it; the carrier is the obligation plus its visible absence at the sittings that
+already read issues and PRs. "Real obligation" and "no gate" are not in tension
+— they are what the violation-layer rule says an obligation looks like.
+
+### 2.6.3 JUDGMENT-CLASS — this does not become a lint, and the decline carries its trigger
+
+**No check is licensed by this section, and none is owed.** Whether an issue is
+owner-surface is a judgment about what its property is *about*; whether a run
+record measured the experience rather than re-rendering the artifacts is a
+judgment about evidence. Both are the shape a mechanical instrument reads
+wrongly at speed — and the repository has already ruled at its strongest against
+mechanizing a rule that merely *looks* deterministic
+(`specs/spec-draft-pipeline/SPEC.md` §4.6 clause 3: *"No rule becomes a lint or
+automated check — even where deterministic processing is possible"*).
+
+The portfolio rule makes the decline admissible rather than merely convenient —
+a stated policy is admissible in exactly three states, and **carrier-less by
+omission** is the defect:
+
+> "a stated policy is admissible in exactly THREE states — per-artifact-decidable
+> (state it), detector designed in (measure it), or deliberately carrier-less
+> (mark it, with a reopen trigger) — and carrier-less BY OMISSION is the defect"
+
+**And the authority to decline is this sitting's, on the served build-governance
+split:** *"whether a work item LICENSES a check is a judgment decided at the
+Issue or spec gate … while whether a PR CONTAINS an unlicensed check is a
+computable fact carried at the merge layer"* — so a spec sitting deciding **not**
+to license one is the ratified shape, not an omission. The three-states rule's
+sharper form binds the choice: *"the unit is derived from how the policy is
+violated, never inherited from the neighbouring gates"* — this policy is
+violated by an acceptance criterion written at the wrong unit, in prose, at
+filing time, and no check in this repository inspects that artifact.
+
+`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:70,86, LESSONS.md:32`
+  request_id: 23a19853-06d3-42b8-b5a2-87a8da663021
+  outcome: discriminating
+  query: Should a new repository-wide acceptance-criterion obligation license a registered check, or stay judgment-class with a declared removal-free carrier-less mark and a reopen trigger?
+
+**This section takes the third state and marks itself.** `instrument: none` —
+no standing act in this repository observes an acceptance criterion that was
+never written at the experienced unit, and none is invented, because the
+condition is an absence in a body of prose no check reads. **The reopen
+trigger:** an owner-surface issue closing `resolved` on artifact-diff evidence
+alone, where the property is afterwards found not to hold. That is the same
+observation shape that produced this section, and it would be seen by the next
+sitting that measures the experience and finds the close was wrong.
+
+### 2.6.4 The evidence, including this issue's own — the reflexive edge, discharged
+
+**The diagnosis that earned the clause.** The Terrain co-tag screen defect
+survived **five prior resolving issues** (kogaki#128 → #147/#148/#149 →
+#162/#163/#164 → #167 → #168). All five were symptom-sliced — each repaired a
+different artifact, none asked which hop had no carrier — and the answer was
+always "none": the failing hop is the LLM session relaying the renderer's output
+in live chat. Every one of those issues bound artifact diffs, checkable at
+merge, at a unit that hop never touches, so each could close "resolved" honestly
+while the property — *the bytes served are what the owner sees* — was never
+measured by any close. The general lesson is minted and served as
+`slice-recurring-defects-by-hop-not-symptom` (`LESSONS.md:14`, receipt in
+§2.6.1).
+
+**The second specimen is this issue's own, and it is why the clause lands
+already obeying itself.** kogaki#234's acceptance items 2 and 5 were verified
+LANDED by artifact inspection at merge — and **falsified hours later by a live
+dogfood run** (kogaki#234, run record comment 2026-08-08). The run found two
+defects no artifact check in this repository catches:
+
+- the Markdown owner rendering dropped four served fields per member that the
+  JSON machine record carried — `grep -c "gloss/lessons/"` over every file in
+  `reports/` returned **0**, while the same file opened `> Untruncated.` and
+  printed `- journey: 1` with no journey in it;
+- the **idempotent-rerun** branch printed a machine-local absolute path on the
+  owner surface, where PR #240 had fixed only the fresh-write branch.
+
+Both were repaired in **PR #254** (`4926043`). Item 2 and item 5 were *true of
+the artifacts and false at the experience*, which is this section's thesis
+demonstrated on the issue that carries it.
+
+**The reflexive edge is stated because it is the trap.** This section makes
+"verify at the experienced unit" mandatory for owner-surface issues, and
+kogaki#234's own acceptance item 6 was exactly that criterion. Landing the rule
+without its own live evidence would have shipped it in violation of itself. It
+is not shipped that way: the run above **is** item 6's live half, it cites its
+run record, and the two defects it found are repaired and merged before this
+clause was written.
+
+### 2.6.5 Homes considered and DECLINED, recorded rather than dropped
+
+The owner selected `specs/SPEC.md` as a general repository-wide clause, beside
+§2.5. Two other homes were live and are recorded with their grounds, because a
+reader meeting only the outcome would not know they were considered:
+
+1. **Fold into kogaki#243's class carrier.** Arguably one instance of *"a
+   verification artifact bound only by the author's belief"*, read at the
+   acceptance-criterion field. **Declined** because it would widen #243, which
+   triage scoped tightly to the inward evidence-discipline class, and #243 is
+   **PARKED at the operator's request** — folding a live remedy into a parked
+   carrier parks the remedy.
+2. **Scope to `specs/spec-terrain/SPEC.md` only.** Narrowest and best-evidenced
+   — every specimen so far is Terrain's. **Declined** because it leaves
+   owner-surface contract N+1 uncovered by default, which is the enumeration
+   shape this repository has ratified against: a rule scoped to the members that
+   supplied its evidence stops covering the next member silently, and the
+   failure presents as nothing happening.
+
 ## 3. The guarantee split
 
 **Kogaki guarantees citation integrity — a quoted claim was quoted, and its
