@@ -633,8 +633,11 @@ first file it is ever handed. The bound grammar is therefore: **a record begins 
 column-0 `id:` key, and runs to the next one or to end of file; each record is
 parsed as a YAML mapping under the four admission conditions below.** Markdown
 constructs are **not required** — the extension is the owner's filing
-convenience, not a promise about the interior — and they are **refused where
-they appear**, by condition 4, which names the offending line.
+convenience, not a promise about the interior — and they are **refused wherever
+a grammar can see them**, by condition 4, which names the offending line. The
+one place it cannot see is stated with condition 4 below rather than left for a
+reader to discover: a bullet among the items of a legal block sequence is
+indistinguishable from data.
 
 **That refusal is stated as a rule rather than as a parser behaviour, and the
 correction is worth recording.** This clause first said markdown was "tolerated
@@ -668,7 +671,8 @@ is absorbed into the record above, which silently acquires the wrong `status`
 while the record below loses its own. That is the same failure correction 3
 refuses by name, and a repair that reintroduced it would be worth nothing.
 
-**Four conditions admit a record, and together they leave no quiet failure:**
+**Four conditions admit a record. Together they leave exactly one quiet failure,
+which condition 4 names and bounds rather than claiming away:**
 
 1. **Nothing precedes the file's first `id:`.** Any leading text — a stray
    field, a markdown heading — is refused, naming the line. This is the
@@ -685,13 +689,76 @@ refuses by name, and a repair that reintroduced it would be worth nothing.
    means is a genuine defect. A record that absorbed its neighbour's `status`
    leaves that neighbour with **seven**, and this is the condition that catches
    it.
-4. **Every column-0 non-blank line inside a record is a `<key>:` line.**
-   Continuation lines are indented, because that is what YAML already requires
-   of them, so any unindented line that is not a key is foreign to the record it
-   sits in — a heading, a list item, a fence, a rule, a blockquote. This is the
-   condition that sees a `#` heading, which conditions 1–3 and the parser all
-   miss. It refuses **by position**, so a construct is caught wherever it
-   appears rather than only where it happens to break something.
+4. **Every column-0 non-blank line inside a record is a `<key>:` line, or a
+   block-sequence item belonging to an OPEN sequence — the token being `-`
+   followed by a space or end of line, which is what makes a `---` rule foreign
+   to a sequence rather than an item of it, and keeps that catch on the rule
+   instead of on the parser. `***` was never at risk — it does not begin with
+   `-` — and is named here only because the first draft of this clause claimed
+   the pin for both.** A sequence opens
+   at a column-0 key carrying no value, stays open across its own items and
+   their indented continuations, and closes at the next column-0 key — or before
+   its first item, if an indented line arrives first, because that line is the
+   key's value and no sequence was ever opened.
+   Continuation lines are indented, because that is what YAML
+   already requires of them, so any *other* unindented line is foreign to the
+   record it sits in — a heading, a fence, a rule, a blockquote, a bullet after
+   a scalar. This is the condition that sees a `#` heading, which conditions 1–3
+   and the parser all miss. It refuses **by position**, so a construct is caught
+   wherever it appears rather than only where it happens to break something.
+
+   **The `-` exemption is not a loophole, and it is here because condition 4's
+   first draft over-refused.** A YAML block sequence may legally sit at column 0
+   under its own key, and a record written that way parses to the identical
+   value as the indented form — so refusing it would reject **valid input on a
+   purely typographic axis**, and would falsify §6.9.1a's promise that a saved
+   file is byte-identical in form to what the owner authored. A *markdown* list
+   after a `>-` scalar is still refused — by **condition 4 itself**, via the
+   qualifier below, rather than by the parser that also happens to reject it.
+   **The division of labour is the point** — condition 4 catches what the parser
+   accepts silently, and the parser catches what is not YAML. Neither is asked
+   to do the other's job, and neither is left resting on the other.
+
+   **The open-sequence qualifier is part of the exemption and not decoration,
+   and it took THREE attempts. The three failures are kept because they are the
+   same failure, and this section's subject is that failure.**
+
+   - **No qualifier at all.** The exemption reached every `-` line anywhere in a
+     record, including a bullet after a `>-` scalar — which the parser happens
+     to reject today, so the rule rested on the parser rather than on itself.
+   - **`no inline value`.** Tested the wrong property one position over: a key
+     whose value is an **indented** scalar or mapping carries no *inline* value,
+     so a column-0 bullet after it passed the rule and was again left to the
+     parser.
+   - **Adjacency (`immediately follows`).** Over-corrected. Only a sequence's
+     **first** item can immediately follow its key, so every item after the
+     first was refused — rejecting a plain two-item sequence, a sequence of
+     `>-` folded scalars, and a sequence of mappings, all legal YAML. It also
+     made the residue below **unreachable**, so the section's grammar
+     contradicted its own declared bound.
+
+   **The property is sequence membership, and it needs the state the first three
+   tried to infer from one line of context.** A sequence is open or it is not;
+   an item is admissible exactly when one is open. Two of the three failures
+   were under-refusals resting on the parser and one was an over-refusal of
+   valid input — **the same defect from opposite sides**, which is the axis this
+   section keeps rediscovering and now states as the reason each attempt is
+   recorded rather than replaced.
+
+   **ONE RESIDUE REMAINS, AND IT IS BOUNDED AND STATED RATHER THAN CLOSED.** A
+   markdown note bullet written *among* the items of a legal column-0 sequence
+   is **indistinguishable from data** — under a bare key, `- note to self` *is* a
+   sequence item, and no grammar can separate it from `- one`. It is admitted,
+   silently, as content. This is the one place §6.9.0 does not deliver "no quiet
+   failure", and it is written down because the alternative — leaving the
+   unqualified claim standing — is the defect class this whole section exists to
+   record. The exposure is small and its shape is exact: **only** inside a block
+   sequence, **only** where the owner chose a sequence for a field §6.9.1a
+   expects to be prose — §4.2 fixes the field *set* and types only `status`, so
+   the prose expectation is §6.9.1a's and is cited there rather than
+   misattributed — and it costs a wrong value rather than a lost Move. The selection
+   screen is where a human sees it, which is the same instrument §6.9 already
+   relies on and not a new one.
 
 **Exercised, with each case's catching condition named.** A case is listed only
 where it was first observed to **fail** against the previous text and then to
@@ -701,15 +768,43 @@ pass against this one — a case never seen to fail is not evidence:
 | --- | --- | --- |
 | the specimen `moves.md` | 22 admitted | — |
 | two records, first `intent` spanning two paragraphs | 2 admitted, scalar intact | — |
-| `status:` before `id:` | refused twice over | 1 and 3 |
+| **a record whose `requires` is a column-0 block sequence** | **admitted** | — (condition 4's first draft refused this; see the `-` exemption above) |
+| `status:` before `id:`, **as the file's first record** | refused twice over | 1 and 3 |
+| `status:` before `id:`, **mid-file** | refused twice over | 2 and 3 — condition 1 never fires here, and the two variants are listed separately because crediting one row to "1 and 3" would misattribute the mid-file case |
 | **mid-file `## heading`** | **refused** | **4** (was silently discarded) |
 | **trailing `## heading`** | **refused** | **4** (was silently discarded) |
-| mid-file list / fence / `---` / `***` / blockquote | refused | 4 (was a parser error, now a rule) |
+| mid-file fence / `---` / `***` / blockquote | refused | 4 (was a parser error, now a rule) |
+| **`- bullet` after a `>-` scalar, inside a record** | **refused** | **4** — no sequence is open there; before any qualifier it was refused only by the parser |
+| **`- bullet` after an INDENTED value or mapping** | **refused** | **4** — the indented line is the key's value, so no sequence opened; the case the `no inline value` qualifier missed |
+| **2-item column-0 sequence; a sequence of `>-` scalars; a sequence of mappings; a blank line between key and sequence** | **admitted** | — all four were **refused** by the adjacency qualifier and are admitted by open-sequence; listed because the over-refusal was found only by measuring valid input |
+| mid-file **markdown** list between records | refused | **4** — the qualifier moved this catch to the rule; **before it the catcher was the parser**, not condition 2 (an unqualified exemption swallowed the `-`, and the `ParserError` meant no mapping was built, so condition 2's duplicate-key detection never ran). Re-measured at this head rather than carried forward |
+| **a note bullet among the items of a legal column-0 sequence** | **ADMITTED as data** | **none — the stated residue.** Recorded rather than claimed closed: inside an open sequence it *is* an item and no grammar separates it from `- one`. Re-measured at this head: the adjacency qualifier had made this row **unreachable**, so the grammar contradicted its own declared bound, and open-sequence restores it |
 | leading `## heading` | refused | 1 — and it is listed to record that condition 1 **masks** the parser here, which is why it was the wrong shape to have exercised alone |
+
+**Where the conditions run, since they do not all run at the same stage.**
+Conditions 1, 2 and 4 are **parse-time** — they are properties of the input
+text. Condition 3 is **post-normalize**, after the excluded draft fields are
+stripped. The section calls all four "the input grammar" for brevity; they span
+two pipeline stages, and the ordering is load-bearing rather than incidental.
 
 §4.2 fixes the field set and §6.9.1a fixes the order; the specimen already
 conforms to both. None of this constrains anything the owner was doing — it
 makes a deviation announce itself instead of eating a Move.
+
+**One nit is DECLINED on measurement, and the reason is recorded because the
+proposed fix would open a hole.** It was suggested that condition 1 skip blank
+and comment lines, so that an inert YAML comment at line 1 is not refused. It is
+declined: a leading `## heading` sits **before the file's first `id:`**, so it is
+inside no record and **condition 4 cannot see it**. Condition 1 is the only
+instrument that reaches it. Skipping comments there would make a leading heading
+silently discarded again — reintroducing, at line 1, precisely the defect
+condition 4 was added to close. **The cost is accepted, and it is stated in
+full rather than by its most sympathetic instance:** condition 1 refuses a legal
+inert comment above the first record *and* a leading `%YAML` directive;
+condition 4 refuses a column-0 `#` comment inside a record and inside an open
+sequence. All four are the design working as intended, and all four are refused
+loudly with the line named. Listing only the first would understate what the
+declination buys.
 
 **The boundary is the column-0 `id:`, NOT the blank line, and the difference is
 load-bearing.** This section's first draft said "split on blank lines", which
