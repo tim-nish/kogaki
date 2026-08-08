@@ -2004,12 +2004,14 @@ invariant: Gukan guarantees Unit schema, never data schema).
   the gateway keeps to serve them.
 
   A receipt carries the gateway's **`request_id`**, an **outcome token**, and
-  **its queries verbatim**, in this shape (kogaki#28):
+  **its queries verbatim** — and, at a fork gate only, its **disposition** — in
+  this shape (kogaki#28; the `disposition:` key kogaki#268/#280):
 
   ```
   consulted: <repo>@<sha> <file:line[,line][, file:line…]>
     request_id: <id>
     outcome: discriminating | covered-after-reframing | uncovered-after-N-framings
+    disposition: auto-resolved-FYI | escalated   ← OPTIONAL; only a FORK GATE consult
     query: <framing 1, verbatim>
     query: <framing 2, verbatim>
   ```
@@ -2062,6 +2064,81 @@ invariant: Gukan guarantees Unit schema, never data schema).
   re-framing actually varied the axis. Both halves are what make
   miss-harvesting a grep rather than an interpretation, feeding the map's
   postmortem field above (kogaki#25, corrected kogaki#32).
+
+  **`disposition:` is a SECOND AXIS and an OPTIONAL key** (kogaki#268, landed
+  in `checks/check-consult-receipts.sh` and `policy/kit/bin/` at PR #279;
+  reconciled into this block at kogaki#280). `outcome:` answers one question —
+  did the served surface **discriminate** what was asked. A fork gate asks a
+  different one — what did the gate **do** with the answer — and its vocabulary
+  is not a member of the ratified triple, so recording it in `outcome:` is
+  refused by the clause directly above and by the checker's ratified-triple
+  rule. The two vocabularies are mutually exclusive in one slot, which is why
+  the resolution is **one field per axis** rather than one widened field. This
+  block is the governing text for the checker's admitted key set, and after
+  this edit the two agree: `request_id`, `outcome`, `disposition`, `query`.
+
+  **The values are ADOPTED, never minted here.** `auto-resolved-FYI |
+  escalated` is copied verbatim from the ratified amendment
+  (writing-assistant `specs/spec-policy-fork-consultation/SPEC.md` §"Amended
+  2026-07-21 (triage, #519)": a covered fork demoted to an FYI, or an uncovered
+  fork raised as a gate — including an FYI the owner overrode, because *the
+  disposition and not the origin is recorded* — declared a closed two-value set
+  with no consumer-local extension). Kogaki owns the field's **shape** and never
+  its **values**, on the served ground:
+
+  > A consumer owns the SHAPE of its own record and NEVER the VALUES of a field
+  > that exists to join across the boundary, and the test is WHO MUST AGREE for
+  > the field to work: a field read by one side is that side's, a field read by
+  > both is the boundary's, and the boundary's owner is the hub.
+
+  `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:31`
+
+  A gate disposition is read by the emitting consumer **and** by the hub that
+  evaluates it, so the set is the boundary's: adding the key is this
+  repository's to do, extending the set is not.
+
+  **The set's STANDING was consulted, not inherited** (kogaki#280). The
+  provenance record — writing-assistant — is archived 2026-08-04 as superseded
+  by Kogaki, and PR #279's receipts established who *owns* the values while none
+  asked whether the amendment is still the live word; that is
+  `policy/consultation-map.md` entry 3's standing half, and a local argument
+  cannot supply it. It was asked, and **the set survives**, on three independent
+  lines read live at `product-lab@dec0d568`: supersession at this hub is
+  recorded **per clause and named, never wholesale**, and writing-assistant's
+  own entry enumerates what its supersession revoked — SPEC-policy-source-seam
+  CAP-2, the fact-class precondition, the ≥1-Fact floor — with the
+  fork-consultation vocabulary **not among them** (`GLOSSARY.md:264`, form
+  confirmed by a second specimen at `topics/knowledge-architecture.md:56`);
+  archival is **preservation** and succession a **transfer** rather than a lapse
+  (`GLOSSARY.md:264`, `GLOSSARY.md:246`); and the standing never depended on
+  that repository's liveness at all, because the values were never its to own
+  (`topics/knowledge-architecture.md:31`, quoted above). writing-assistant is a
+  **witness** to the vocabulary, not its authority, which is why its archival
+  cannot retract it.
+
+  **OPTIONAL is load-bearing, and the key is deliberately NOT in
+  presence-implies-completeness' owed set.** Most consults in this repository
+  are issue-authoring and spec reads rather than fork gates; requiring the field
+  would force a value onto them, which is the fabrication class this whole
+  grammar exists to refuse. A v2 receipt still owes `request_id`, `outcome` and
+  one `query:` line, and nothing more.
+
+  **What this key does NOT make substantiable, stated rather than implied.** Two
+  of the consultation digest's four classes stay uncountable from receipts under
+  this or any schema, and both are refused as `disposition:` values with the
+  reason named:
+
+  - **`consult-miss`** — an unconsulted fork emits **no receipt at all**, and no
+    value in a record can express that record's own absence.
+  - **`degraded`** — a degraded consult emits no receipt **by design**
+    (`policy_source unavailable:`, exit 11), so zero-degraded and zero-consults
+    are indistinguishable in the trace after the fact.
+
+  A third limit belongs to optionality itself and is recorded here rather than
+  left to be re-derived: an **absent** `disposition:` cannot distinguish *this
+  consult was not a fork gate* from *this was a gate whose disposition went
+  unrecorded*. The emitting tool holds no reading of which it was, and neither
+  does this grammar.
 
   **The receipt is EMITTED BY THE TOOL THAT PERFORMED THE CONSULT; a
   hand-composed receipt is a MARKED EXCEPTION** (kogaki#66). Everything above
