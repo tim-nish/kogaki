@@ -2992,6 +2992,22 @@ zero for this corpus. The rider's *content* — propose-only, upstream of
 selection, full population reachable — survives unchanged and is §13.1; only its
 authority moves.
 
+**Which conjunct this section establishes, and which it leaves open.** The
+ground is a conjunction lesson, and its own rider binds the act that invokes it:
+"a fix satisfying one conjunct presents as discharging the whole rule, because
+it cites the rule accurately and the citation lends the untouched conjunct its
+air of completeness — so a fix invoking a conjunction lesson must name which
+conjunct it establishes and name the one it leaves open"
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:54`).
+Stated plainly: **§13 establishes DISCOVERY and does not close ADDRESS.** The
+surface discloses that the neighborhood exists, which is the conjunct the
+co-tag-bounded screen was failing. The address conjunct stays open exactly where
+§13.3 says it does — a `source_batch` that does not resolve by equality for the
+12 legacy batches — and §13.3's unresolved marker is a *disclosure* of that gap,
+never a repair of it. A reader taking §13 as closing reachability for this
+corpus is reading the untouched conjunct's air of completeness rather than this
+section.
+
 **The standing beyond article quality**, carried from the licensing issue and
 not re-derived: the 2026-08-01 contradiction-cost ruling admits thesis-first
 reading *because* "the surprise channel is the terrain listing rather than the
@@ -3205,7 +3221,7 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   expect one.
 - **`.claude/skills/terrain/SKILL.md`** — the flow gains the surface. Its hard
   line "Compose from `compose-input`, never from the whole survey"
-  (`.claude/skills/terrain/SKILL.md:195`) is untouched and, note, is *why* the
+  (`.claude/skills/terrain/SKILL.md:226`) is untouched and, note, is *why* the
   neighborhood cannot be implemented as a wider survey read at composition time.
 - **`checks/check-terrain-composition.sh`** — the conformance home. The three
   mechanically checkable properties are substrate disclosure per suggestion, a
