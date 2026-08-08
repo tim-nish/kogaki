@@ -1,6 +1,11 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v3, amended 2026-08-08 (kogaki#220) — **the ratified Move
+**Status:** v4, amended 2026-08-08 (kogaki#223) — **Move ingestion is
+CONSTRUCTED against its first real input**: §6.9.0 binds the input grammar to
+what the owner actually authored, §6.9.1 gains the file interior, filename and
+derived INDEX row that fork (a) entails, §6.9.4 **FILLS** the named slot
+`move-sources-derivation-vehicle`, and §7.6's pin prohibition meets its own
+release condition. v3, amended 2026-08-08 (kogaki#220) — **the ratified Move
 architecture is CONSTRUCTED**: §§4.3–4.9 add Reader Path as the artifact and
 its five workflow blocks, the Step's grounding propositions and `entailed`
 flag, the grounds test, path review's judgment-class ruling, semantic economy,
@@ -599,6 +604,67 @@ decline / free-form, the owner deciding. Accepted Moves land one file each in
 split or rename, so the reviewed proposal is not the authored file — nothing
 self-admits.
 
+### 6.9.0 The input grammar, measured against the first real input
+
+**The paragraph above describes the input as "a free-form markdown file the
+owner writes". That description was written before any such file existed. One
+now does, it was authored before this sitting, and it is the specimen this
+section binds the grammar to** — repository-root `moves.md`, 512 lines,
+owner-authored, deliberately untracked. Measured rather than assumed:
+
+| property | measured on the specimen |
+| --- | --- |
+| records | 22, each a YAML mapping carrying exactly §4.2's eight keys **in §4.2's order** |
+| separator | **one blank line**, and nothing else — no `---`, no heading, no fence |
+| field form | `id` and `status` plain scalars; the other six all `>-` folded block scalars |
+| `status` values | `observed`, uniformly — as §7.6 says they enter |
+| markdown constructs | **zero** — no heading, list, fence, rule or blockquote anywhere in the file |
+| excluded draft fields | **zero** — `material_roles`, `compatible_previous/next_moves` and `examples` are all already absent |
+| `sources` shape | provenance prose naming a source passage; **zero** occurrences of `path:line@sha` |
+
+**Three corrections to §6.9's stated input follow, and each is a correction
+because the specimen contradicted it, not because a tidier wording was
+available.**
+
+**1. The input is not markdown, and the grammar must not require it to be.**
+The specimen carries a `.md` extension and contains no markdown at all. A
+normalizer that locates records by heading or by fence finds **nothing** in the
+first file it is ever handed. The bound grammar is therefore: **split the file
+on blank lines, parse each block as a YAML mapping.** Markdown constructs are
+**tolerated and ignored** where present, and never required — the extension is
+the owner's filing convenience, not a promise about the interior.
+
+**2. Stripping the excluded draft fields is CONDITIONAL, never a
+precondition.** §6.9 states as fact that the input carries them, because
+`delete-me.md`'s drafts predate the field subset. The specimen carries none —
+the owner stripped them while authoring. The normalizer strips what is present
+and requires nothing to be, and it does **not** treat their absence as evidence
+that it was handed the wrong file.
+
+**3. The blank line is the record separator and it is NOT a YAML separator —
+this is the failure that cannot announce itself, so it is refused by name.**
+Measured on the specimen: a whole-file YAML parse **succeeds**. It returns one
+mapping, because 22 records sharing eight key names collide key-for-key and the
+last one wins — **21 Moves are lost and no error is raised**, since the file is
+valid YAML for exactly the wrong reading of it. A parser cannot discover this
+from its own return value: it gets a well-formed Move.
+
+So, normatively: **the split precedes the parse, and a whole-file parse is
+refused rather than merely discouraged.** The command reports the **record
+count it parsed** to the owner at the selection screen, beside the count of
+blocks it split — because the only instrument that can observe this defect is a
+human seeing `1` where they wrote `22`. This is not a lint and adds no verdict
+machinery: it is an arithmetic fact the command already holds, displayed rather
+than withheld.
+
+**What the specimen settles about fork (a), which is the ground the selection
+rested on.** The owner is *already authoring in §4.2 block form* — unprompted,
+before any command existed to read it. Form (a) is therefore not a shape
+ingestion imposes on the owner's input but **the shape that input is already
+written in**, and the normalize step over this specimen is close to identity.
+That ground was carried into this sitting as an assertion and is recorded here
+as a measurement.
+
 ### 6.9.1 The file interior — the §4.2 block IS the file body
 
 **Owner selection 2026-08-08 (kogaki#223), and it is recorded as an UNCOVERED
@@ -633,6 +699,49 @@ structured body invites the reflex to treat it as machine-authoritative — whic
 is one step from the verdict machinery §7.5 excludes. **Nothing in this section
 makes the block a verdict surface**: the review is judgment, the screen is the
 owner's, and no lint is admitted.
+
+**The selection is carried forward, not re-opened.** The owner selected (a)
+again at this sitting's gate; arm (b) stays declined on the grounds already
+recorded above — composed-rather-than-derived INDEX rows, and a missing field
+being invisible in prose — and those grounds are cited here rather than
+restated.
+
+#### 6.9.1a What (a) entails, constructed
+
+§6.9.1 selected the form and stopped there. The three things that follow
+mechanically from it are written here, because kogaki#220's construction
+consumes this library and cannot consume a shape that was chosen but never
+drawn.
+
+**The file body.** The eight §4.2 fields, in §4.2's order, as a YAML mapping —
+**byte-identical in form to the block the owner authored**, which is what makes
+the normalize step over a conforming input close to identity. No fence, and no
+`---` delimiters: front-matter delimiters imply a document below the metadata,
+and here the block **is** the document. A field whose value is genuinely a
+paragraph is a `>-` folded scalar, as the specimen already writes them.
+
+**The filename.** `moves/<id>.md`, where `<id>` is the `id` field and the whole
+stem — **derived, never composed.** A review that renames a Move renames its
+file, and nothing else has to be updated to agree, because nothing else stores
+the name. Two accepted Moves cannot share an `id`, and the collision surfaces at
+the selection screen as the dedupe judgment §6.9 already assigns to review,
+never as a silent overwrite.
+
+**The INDEX row.** `moves/INDEX.md` carries one row per file, sorted by `id`:
+
+| column | source |
+| --- | --- |
+| `id` | the file's `id` field, which is also its stem |
+| `status` | the file's `status` field |
+| `intent` | the file's `intent` field |
+
+**Every column is read off a file; none is composed.** This is precisely the
+property arm (b) could not have, and it is why the regeneration contract binds
+**freshness only** — INDEX is rewritten whole from the files at each ingestion
+run, and a stale INDEX is a run that did not happen rather than a derivation
+that drifted. Nothing reads INDEX to decide anything: it is a reader's table of
+contents, and §6.9.1's refusal to make the block a verdict surface extends to
+it.
 
 ### 6.9.2 Constraints inherited, not restated
 
@@ -760,6 +869,76 @@ it, and deferral is priced here rather than banned:
 `topics/knowledge-architecture.md:16` is explicit that the rule is
 **DECIDE-OR-NAME, never force-decide**, since forcing it now would decide
 without the information the first run produces.
+
+### 6.9.4 The named slot is FILLED — `move-sources-derivation-vehicle`
+
+    deferred-slot: move-sources-derivation-vehicle
+    status: FILLED (kogaki#223, 2026-08-08)
+
+**THE CHOICE: the first ingestion run writes each accepted Move's derivation
+pointer, in the same act that saves the file.** kogaki#177 is discharged by
+that run rather than following up over the saved files.
+
+**Where the pointer goes, and what it is not.** It goes **inside `sources`**.
+No ninth field is added, and §4.2's subset is untouched — the constraint that
+nothing is added to the eight is not bent to make room for this. §7.6 already
+declares `sources` to hold two things: the passages the Move was observed in,
+**plus the derivation's location**. The derivation's location is currently the
+hub's unserved staging file. The ingestion run **replaces that location with
+the served pin** it resolved while proposing the Move. The prose observation
+half is the owner's and is not rewritten.
+
+**The receipt, and what in it discriminates.** The served line is about the
+hub's own distill gate, a different artifact class — so what transfers is its
+structure, and the structure is the whole of the fork:
+
+> "The distill gate is the sole writer of a decision line and **the one moment
+> where the batch's `source_repo:` and the sitting's subject repos are both in
+> hand**; **attribution is a fact computable by the actor at the moment of the
+> act** … **Backfill is prospective only, with one mechanical exception: where
+> a batch contains a staging file carrying `source_repo:`, the attribution is
+> READ rather than guessed.**"
+
+`topics/knowledge-architecture.md:173@dec0d568dd8fc0b2df1185eac10dc1a10600f299`
+
+The ingestion run **is** the both-in-hand moment: it holds the accepted Move
+and the served ruling line it resolved that Move against, simultaneously and
+only then. A follow-up pass holds a saved file and must go **re-derive** which
+served line it came from — the guess the served line permits only where the
+staging file makes it a read instead. Here nothing in the saved file records
+which line it was derived from, so the follow-up pass would be guessing at
+exactly the point the served position says not to.
+
+The second framing's return names the cost of getting this wrong:
+
+> "A record contract adopted at one unit of work is silently absent at the unit
+> below it, and the absence is invisible from above — from the instrumented
+> unit's perspective everything is instrumented, so the gap is found only by
+> whoever pays the cost the records were meant to carry."
+
+`LESSONS.md:27@dec0d568dd8fc0b2df1185eac10dc1a10600f299`
+
+An ingestion run that saves files and leaves the pointer to a later pass looks
+complete from inside the run. The gap surfaces at the first consumer that needs
+a Move's grounding — kogaki#220's construction — which is the reader who pays.
+
+**The declined arm, with its real cost, not dismissed.** #177 following up over
+the saved files is genuinely cheaper per run: it separates a bulk provenance
+sweep from the per-Move judgment at the selection screen, and it lets a single
+later pass apply one consistent pin across all files rather than whatever pin
+each run happened to resolve at. That second property is a real advantage and
+it is given up here — **files ingested at different runs will carry pointers at
+different pins**, which is accepted because a pointer's job is to be resolvable
+and re-checkable, not to be uniform. The arm loses because its cheapness is
+purchased by discarding information the run already had.
+
+**What is NOT claimed.** Not that every Move in the specimen has a matching
+served line — §6.9.3's own rule forbids that inference, and the specimen's 22
+`sources` fields carry **zero** `path:line@sha` today. A Move whose derivation
+the run cannot resolve at a served line keeps its prose `sources` unchanged and
+is reported as such at the selection screen. **`sources` is provenance-only**
+per the semantic-economy ruling of §4.7, and an unresolvable pointer is
+recorded as absent rather than manufactured.
 
 ## 7. The Move library is ADMITTED — v1's hold REVERSED, and the reversal recorded
 
@@ -1143,6 +1322,45 @@ So, stated exactly:
   it. It remains **owed** — until it lands, a future consult of the served
   surface alone will reproduce v1's misread, which is exactly why §7.0 records
   the cause rather than only the correction.
+
+#### 7.6.1 The prohibition above has MET ITS OWN RELEASE CONDITION (kogaki#223)
+
+**The bullet "what they are not" is written with a release condition attached —
+*"until the hub distils the 2026-08-06 rulings onto it"* — and that condition is
+now satisfied.** §6.9.3 verified the Move batch
+`q_a/2026-08-07-move-architecture-and-composition-language` **served** at
+`product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299`, at the named batch's own
+lines rather than at a same-dated neighbour.
+
+**This is recorded as a disposition act, and the conflict is reported rather
+than quietly reconciled** — the served position on exactly this move:
+
+> "Before claiming anything is implemented, complete, or ready, ask what
+> evidence you are holding; if it is mechanical, you have established existence
+> and said nothing about approval, so read the decision record for verdicts
+> dated after that evidence, and **when they conflict the later verdict wins and
+> the conflict is reported rather than quietly reconciled**."
+
+`gloss/lessons/knowledge-architecture.md:269@dec0d568dd8fc0b2df1185eac10dc1a10600f299`
+
+So, exactly:
+
+- **§7.6's text above is RETAINED unedited**, including the prohibition, because
+  it was true when written and the reader needs to see the condition it carried
+  rather than a text that never carried one.
+- **What changes is its standing, not its accuracy.** The prohibition was
+  conditional and its condition has lapsed; it no longer forbids anything.
+  `sources` **may** now carry `path:line@sha` against the served surface, and
+  §6.9.4 is the act that writes it.
+- **What does not change:** the pins are written by the run that resolves them
+  (§6.9.4), never manufactured for a Move whose derivation cannot be resolved.
+  The specimen's 22 `sources` fields carry zero pins **today**, and that stays
+  a measurement rather than a target.
+- **Standing was checked, not inferred from recency.** Being written later says
+  when someone wrote, not what they could see
+  (`gloss/lessons/knowledge-architecture.md:209@dec0d568dd8fc0b2df1185eac10dc1a10600f299`);
+  what settles this is the batch's own served lines, re-read at the current pin,
+  which is the same instrument §6.9.3 established after the false FIRED.
 
 ## 8. Non-goals
 
