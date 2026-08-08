@@ -631,12 +631,35 @@ The specimen carries a `.md` extension and contains no markdown at all. A
 normalizer that locates records by heading or by fence finds **nothing** in the
 first file it is ever handed. The bound grammar is therefore: **a record begins at a
 column-0 `id:` key, and runs to the next one or to end of file; each record is
-parsed as a YAML mapping under the three admission conditions below.** Markdown constructs
-are **not required** — the extension is the owner's filing convenience, not a
-promise about the interior. They are not silently ignored either: a heading,
-list, fence, rule or blockquote is absorbed into the record it sits inside and
-breaks that record's parse **loudly**, which is the acceptable failure and is
-reported as a parse refusal naming the line.
+parsed as a YAML mapping under the four admission conditions below.** Markdown
+constructs are **not required** — the extension is the owner's filing
+convenience, not a promise about the interior — and they are **refused where
+they appear**, by condition 4, which names the offending line.
+
+**That refusal is stated as a rule rather than as a parser behaviour, and the
+correction is worth recording.** This clause first said markdown was "tolerated
+and ignored"; the repair replaced that with a claim that a heading, list, fence,
+rule or blockquote "breaks the record's parse **loudly**". **Both are false, and
+they are false in opposite directions.** Measured under PyYAML 6.0.3: a mid-file
+list, fence, `---`, `***` or blockquote does break loudly — but `#` is **YAML's
+comment character**, so a markdown heading at column 0 terminates the preceding
+folded scalar and is read as a **comment: silently discarded, no error, no line
+named**. Two records on either side of a `## notes` line are both admitted, and
+the heading vanishes.
+
+**The exercise could not see it, for exactly the reason the specimen could not
+see defect 1.** The only heading shape exercised was a *leading* one — where
+condition 1 fires first and masks what the parser actually does. A mid-file or
+trailing heading was refused by nothing. **This section's own recorded failure
+shape reproduced one turn later: a normative claim about a failure mode,
+exercised only on the axis where a different rule answers.** Recorded rather
+than tidied away, because a normalizer born against a false statement of its own
+failure mode is what kogaki#220 would have consumed.
+
+So the loud-parse claim is **withdrawn entirely** and replaced by condition 4,
+which sees every markdown construct at every position — the comment case
+included — and makes the failure mode uniform and stated rather than inherited
+from whichever parser is in use.
 
 **`id` MUST be the record's first key — an anchor can only see a record that
 starts where it looks, and that precondition is stated rather than assumed.** A
@@ -645,7 +668,7 @@ is absorbed into the record above, which silently acquires the wrong `status`
 while the record below loses its own. That is the same failure correction 3
 refuses by name, and a repair that reintroduced it would be worth nothing.
 
-**Three conditions admit a record, and together they leave no quiet failure:**
+**Four conditions admit a record, and together they leave no quiet failure:**
 
 1. **Nothing precedes the file's first `id:`.** Any leading text — a stray
    field, a markdown heading — is refused, naming the line. This is the
@@ -662,14 +685,31 @@ refuses by name, and a repair that reintroduced it would be worth nothing.
    means is a genuine defect. A record that absorbed its neighbour's `status`
    leaves that neighbour with **seven**, and this is the condition that catches
    it.
+4. **Every column-0 non-blank line inside a record is a `<key>:` line.**
+   Continuation lines are indented, because that is what YAML already requires
+   of them, so any unindented line that is not a key is foreign to the record it
+   sits in — a heading, a list item, a fence, a rule, a blockquote. This is the
+   condition that sees a `#` heading, which conditions 1–3 and the parser all
+   miss. It refuses **by position**, so a construct is caught wherever it
+   appears rather than only where it happens to break something.
 
-Exercised on all four shapes: the specimen admits 22 records; a two-record input
-whose first `intent` spans two paragraphs admits 2 with the folded scalar
-intact; a `status:`-before-`id:` input is refused **twice over** (leading text,
-and a seven-key record); a leading markdown heading is refused. §4.2 already
-fixes the field order and the specimen already conforms, so none of this
-constrains anything the owner was doing — it makes a deviation announce itself
-instead of eating a Move.
+**Exercised, with each case's catching condition named.** A case is listed only
+where it was first observed to **fail** against the previous text and then to
+pass against this one — a case never seen to fail is not evidence:
+
+| input shape | result | caught by |
+| --- | --- | --- |
+| the specimen `moves.md` | 22 admitted | — |
+| two records, first `intent` spanning two paragraphs | 2 admitted, scalar intact | — |
+| `status:` before `id:` | refused twice over | 1 and 3 |
+| **mid-file `## heading`** | **refused** | **4** (was silently discarded) |
+| **trailing `## heading`** | **refused** | **4** (was silently discarded) |
+| mid-file list / fence / `---` / `***` / blockquote | refused | 4 (was a parser error, now a rule) |
+| leading `## heading` | refused | 1 — and it is listed to record that condition 1 **masks** the parser here, which is why it was the wrong shape to have exercised alone |
+
+§4.2 fixes the field set and §6.9.1a fixes the order; the specimen already
+conforms to both. None of this constrains anything the owner was doing — it
+makes a deviation announce itself instead of eating a Move.
 
 **The boundary is the column-0 `id:`, NOT the blank line, and the difference is
 load-bearing.** This section's first draft said "split on blank lines", which
