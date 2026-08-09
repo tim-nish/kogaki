@@ -668,18 +668,29 @@ its owner grant and one of §4 clause 3's two rounds are already spent.
 |---|---|
 | `Read`, `Grep`, `Glob` | `Grep` is the bounded search over repository files |
 | `Write` **and `Edit`** | `Edit` was ungranted until 2026-08-09 and its absence killed PR #313's round 1; it is granted now |
-| **shell `grep`, bare or piped** | measured, not assumed — see below |
+| **shell `grep`, bare or piped** | the allowlist does not deny it — but see the terminal-key caveat below |
 | `gh pr view/diff/checks/list`, `gh issue view`, `gh {pr,issue} comment`, `gh run` | the `:*` forms |
 | `git log`, `git diff`, `git show` | reads only |
 | `bash checks/<file>` | per registered check |
 | the `mcp__tsurezure__*` seam tools | the consultation surface |
 
-**Shell `grep` works, and that was measured rather than assumed.** kogaki#310
-was filed on the premise that shell `grep` is denied because `REVIEW_TOOLS`
-carries no `Bash(grep…)` member. Four headless probes under that exact
-allowlist falsified it: `grep -c …` and `<granted command> | grep …` both ran,
-while `rm -f` and `Edit` were refused — so the probe discriminates and the
-absence of a member is not what denies a shape.
+**The allowlist does not deny shell `grep`, and that was measured rather than
+assumed.** kogaki#310 was filed on the premise that shell `grep` is denied
+because `REVIEW_TOOLS` carries no `Bash(grep…)` member. Four headless probes
+under that exact allowlist falsified it: `grep -c …` and
+`<granted command> | grep …` both ran, while `rm -f` and `Edit` were refused —
+so the probe discriminates and the absence of a member is not what denies a
+shape.
+
+**But that is a claim about the ALLOWLIST, not a promise that your `grep` will
+run.** The sweep installs a `PreToolUse` gate that makes a refused command key
+**terminal** — once any `grep`-keyed refusal is recorded for your session, every
+later `grep` is refused *regardless of the allowlist*. That is the leading
+suspect for the round-2 grep denial kogaki#310 was filed on, and the
+investigation is open there. **If your `grep` is refused, do not retry it in a
+rephrased form** — that is exactly what the terminal-key width absorbs, and the
+round you burn is the one this section exists to save. Use the `Grep` tool, and
+record the refusal as a `cannot-determine:` line.
 
 **What you do NOT have, and must not spend a turn discovering:** removing files
 (`rm`) — including inside your own worktree, which the sweep tears down for you.
