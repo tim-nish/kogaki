@@ -4526,14 +4526,40 @@ _da("BASE", "REV")
 if _seen[0] != ("diff", "--no-color", "--unified=3", "BASE...REV"):
     _agree_fail.append(f"the shared diff FORM has drifted: {_seen[0]!r}")
 
+# THE RECORD IS A SHARED VECTOR TOO (kogaki#323 AC 2, PR #327 round 1). The
+# first form of this fixture asserted REACH plus resolution vectors, and the
+# sweep-side fixture asserted the sweep's own stdout — so the defect #323
+# names, two consumers agreeing on the RESOLUTION and diverging on its
+# DISCLOSURE, was observed by nothing. A resolution vector cannot see it by
+# construction: both consumers compute the same `carried`, and the divergence
+# is in what they SAY. These run in both files, so a consumer that stops
+# reporting an uncomputable comparison fails in its own suite.
+_rec_fail = []
+_c0, _r0 = carry_forward("", "aaaaaaa", None,
+                         lambda *a: None, lambda *a: None, lambda b: [])
+if _c0 or not _r0 or "could not be resolved" not in _r0[0]:
+    _rec_fail.append("an unresolvable base must yield NO carry-forward and a "
+                     "record naming the base — got "
+                     f"carried={_c0!r} record={_r0!r}")
+_c1, _r1 = carry_forward("", "aaaaaaa", "ccccccc",
+                         lambda *a: None, lambda *a: None, lambda b: [])
+if _c1 or not _r1 or "could not be read" not in _r1[0]:
+    _rec_fail.append("an unreadable head diff must yield NO carry-forward and "
+                     f"a record naming the diff — got carried={_c1!r} "
+                     f"record={_r1!r}")
+for _m in _rec_fail:
+    _agree_fail.append(_m)
+
 if _agree_fail:
     for _m in _agree_fail:
         print(f"FAIL head-resolution agreement: {_m}")
     raise SystemExit(1)
 print("head-resolution agreement: the unit is reached by one path from both "
       "consumers, neither redefines it, and it answers identically on "
-      "sha-identity, carried-segment, digest and diff-form vectors "
-      "(§4 clause 7 v2)")
+      "sha-identity, carried-segment, digest, diff-form AND RECORD "
+      "vectors — the last covering an unresolvable base and an "
+      "unreadable diff, so a consumer that stops DISCLOSING an "
+      "uncomputable comparison fails here (§4 clause 7 v2, kogaki#323)")
 
 print(f"fixture pass: {len(FIX)}/{len(FIX)} state-machine cases "
       "(round 1 / round 2 / park / done / author-owes / stale-segment), plus "

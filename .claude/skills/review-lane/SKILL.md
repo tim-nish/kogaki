@@ -719,11 +719,20 @@ refused** — the wider reading (the leading word alone) is the shape that gate
 was explicitly built to refuse, because it would make a granted `git log`
 terminal off a denied `git fetch`.
 
-**If your `grep` is refused, do not retry it in a rephrased form.** Rephrasing
-*after* the first three words is exactly what the key absorbs, so the retry
-costs a turn and cannot succeed. Use the `Grep` tool — which is granted, bounded
-and reliable — and if the search genuinely cannot be expressed there, record a
-`cannot-determine:` line rather than spending the round on it.
+**If your `grep` is refused, do not retry a variant sharing its first three
+words.** That is the retry the terminal key absorbs — and it is the only retry
+this section can tell you cannot succeed. **A differently-keyed retry is not
+covered by that argument**: the table above shows `grep -n '<simple>'` running
+where `grep -nE '<regex>'` was refused, so a reviewer refused the second may
+well be admitted for the first, and this section rules out the terminal key as
+the cause of those refusals anyway. Two grounds, two scopes, kept apart on
+purpose — conflating them is how the previous two versions of this paragraph
+came to over-claim in opposite directions.
+
+**The practical advice is unchanged and does not depend on which ground
+applies:** use the `Grep` tool — granted, bounded and reliable — and if the
+search genuinely cannot be expressed there, record a `cannot-determine:` line
+rather than spending the round hunting a shape the parser will accept.
 
 **What you do NOT have, and must not spend a turn discovering:** removing files
 (`rm`) — including inside your own worktree, which the sweep tears down for you.
