@@ -668,29 +668,62 @@ its owner grant and one of §4 clause 3's two rounds are already spent.
 |---|---|
 | `Read`, `Grep`, `Glob` | `Grep` is the bounded search over repository files |
 | `Write` **and `Edit`** | `Edit` was ungranted until 2026-08-09 and its absence killed PR #313's round 1; it is granted now |
-| **shell `grep`, bare or piped** | the allowlist does not deny it — but see the terminal-key caveat below |
+| **shell `grep`** | **SOMETIMES.** Simple patterns run; a regex carrying an alternation or a quantifier may be refused. Never rely on it — see below |
 | `gh pr view/diff/checks/list`, `gh issue view`, `gh {pr,issue} comment`, `gh run` | the `:*` forms |
 | `git log`, `git diff`, `git show` | reads only |
 | `bash checks/<file>` | per registered check |
 | the `mcp__tsurezure__*` seam tools | the consultation surface |
 
-**The allowlist does not deny shell `grep`, and that was measured rather than
-assumed.** kogaki#310 was filed on the premise that shell `grep` is denied
-because `REVIEW_TOOLS` carries no `Bash(grep…)` member. Four headless probes
-under that exact allowlist falsified it: `grep -c …` and
-`<granted command> | grep …` both ran, while `rm -f` and `Edit` were refused —
-so the probe discriminates and the absence of a member is not what denies a
-shape.
+**Shell `grep` is UNRELIABLE, and that is measured rather than assumed — do
+not plan a turn around it.** Two runs wrote two confident claims here and both
+were falsified; this is the third and it is deliberately weaker, because what
+the measurements support is weaker.
 
-**But that is a claim about the ALLOWLIST, not a promise that your `grep` will
-run.** The sweep installs a `PreToolUse` gate that makes a refused command key
-**terminal** — once any `grep`-keyed refusal is recorded for your session, every
-later `grep` is refused *regardless of the allowlist*. That is the leading
-suspect for the round-2 grep denial kogaki#310 was filed on, and the
-investigation is open there. **If your `grep` is refused, do not retry it in a
-rephrased form** — that is exactly what the terminal-key width absorbs, and the
-round you burn is the one this section exists to save. Use the `Grep` tool, and
-record the refusal as a `cannot-determine:` line.
+| probe (same allowlist, fresh session, no gate installed) | result |
+|---|---|
+| `grep -n 'h2' cm.md` | **ran** |
+| `grep -n '#' cm.md` | **ran** |
+| `grep -c beta sample.txt` | **ran** |
+| `<granted command> \| grep -c .` | **ran** |
+| `grep -nE '^#{1,3} \|text' cm.md` | **REFUSED** |
+| `grep -nE '^t{1,3} \|text' cm.md` | **REFUSED** |
+
+So a leading `grep` with a **simple pattern** is admitted and one carrying an
+**`-E` regex with an alternation and a quantifier** is refused, under an
+identical allowlist. **The `#` is not the discriminator** — the last row
+contains none. A `grep` **downstream of a granted command in a pipe** ran in
+every case observed.
+
+**What is NOT the cause, ruled out rather than assumed:**
+
+- **Not the missing `Bash(grep…)` member.** kogaki#310 was filed on that
+  premise and four probes falsified it — simple `grep` runs without any member.
+- **Not the terminal-key gate.** Its store is **per-spawn**
+  (`log_path + ".denials.json"`), so it starts empty at every round; and the
+  refusals above reproduce in sessions with **no gate installed at all**. A
+  2026-08-09 reviewer ran `grep -n '…'` successfully and was refused
+  `grep -nE '…'` *in the same session*, which no session-scoped terminal state
+  can explain.
+
+**What the cause IS remains `cannot-determine` from inside a review**, and is
+recorded as such rather than guessed: the rule lives in the harness's own
+command parser, which this repository cannot read. kogaki#324 carries it.
+
+**The terminal-key caveat, stated at the width the gate actually implements.**
+The sweep installs a `PreToolUse` gate that makes a refused command key
+terminal, and the key is the command's **first three words**
+(`terminal_key()`): a refused `grep -c beta` is terminal under
+`Bash(grep -c beta)`, so a later `grep -n foo file` keys `Bash(grep -n foo)`
+and is **not** matched. **Only a later `grep` sharing its first three words is
+refused** — the wider reading (the leading word alone) is the shape that gate
+was explicitly built to refuse, because it would make a granted `git log`
+terminal off a denied `git fetch`.
+
+**If your `grep` is refused, do not retry it in a rephrased form.** Rephrasing
+*after* the first three words is exactly what the key absorbs, so the retry
+costs a turn and cannot succeed. Use the `Grep` tool — which is granted, bounded
+and reliable — and if the search genuinely cannot be expressed there, record a
+`cannot-determine:` line rather than spending the round on it.
 
 **What you do NOT have, and must not spend a turn discovering:** removing files
 (`rm`) — including inside your own worktree, which the sweep tears down for you.
