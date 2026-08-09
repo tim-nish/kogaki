@@ -245,8 +245,22 @@ and the served surface admits exactly three states for a stated policy:
 
 So this is the **third** state, declared: **`instrument: none`** until the
 kit step and its invocation both land. **Reopen trigger:** the first spec sitting
-that runs with a stale vendored pin and surfaces no delta — which is the state
-this section describes and nothing currently observes.
+that runs with a stale vendored pin and surfaces no delta.
+
+**Who observes that trigger: nothing does, and the trigger is satisfied by
+construction today.** Nothing regenerates the digest, nothing diffs pins and
+nothing surfaces a delta — so no sitting can tell its vendored pin is stale, and
+the condition holds for *every* sitting rather than discriminating one. Written
+down rather than left implied, because a reopen trigger nobody observes is the
+same defect this section is marking, one level in. The repository's own worked
+precedent says it in the same terms: `policy/consultation-map.md`'s
+`instrument: none` records that "it fires only where someone happens to look, and
+saying so is the point of writing it down."
+
+**Its observer arrives with the act it is waiting for**: once the delta step
+lands, the step itself surfaces a stale pin, and the trigger becomes observable
+by the thing whose absence it was declared for. Until then the honest reading is
+that this hold is norm-carried and nothing will announce it.
 
 The declined alternative is a **CI cron in the consumer repo**, and it is dead
 on two independent mechanical facts rather than on taste: the digest is
@@ -523,6 +537,41 @@ accepts it alone. **A gate satisfies both by carrying `outcome:` and no
 `receipt:`.** Stated here rather than left for the next author to hit, because
 the natural reading — that this section forbids a conformant gate declaration —
 would stall a lane over a conflict that does not exist.
+
+**The hook is NOT in this repository, and this subsection is unfalsifiable from
+inside it without saying so.** `lint-gate-declaration.py` is installed
+**actor-level** at `~/.claude/hooks/`, owned by `claude-toolkit`;
+`.claude/hooks/` here holds only `review-trigger.py`. A reader who greps for it
+finds nothing and stalls one step later than the stall this subsection exists to
+prevent. Declared in this repository's own convention for an off-repo carrier:
+
+    instrument: cross-repo(tim-nish/claude-toolkit — lint-gate-declaration.py,
+    installed actor-level at ~/.claude/hooks/; no act in this repository can
+    observe its contract, and it is not vendored here)
+
+**And what the compatibility claim rests on is stated, because it is the weaker
+kind of evidence.** That the hook accepts `outcome:` alone was established by
+**reading its source** — which is existence evidence, and this is a **disposition**
+question about two live records:
+
+> "A status question has two halves that behave very differently. **Whether
+> something was built** is local, mechanically self-evident, free to check, and
+> looks final … whereas **whether it is still accepted, rejected, or superseded**
+> lives in prose somewhere else and never surfaces unless you deliberately go
+> looking … Before claiming anything is implemented, complete, or ready, ask what
+> evidence you are holding."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/knowledge-architecture.md:287`
+  request_id: ed061de8-7f13-417c-923e-401577c9e712
+  outcome: discriminating
+  query: What does consultation-map entry 3 prescribe be surveyed before adopting one record as the live word on a decision's disposition?
+
+So the claim is scoped to what the evidence supports: **the hook's implementation
+as read at this pin admits `outcome:` alone.** Whether its *owner* intends that
+form to remain admissible is a disposition only `claude-toolkit` can settle, and
+this section does not assert it. If that repository narrows the requirement to
+`receipt:`, the conflict §8.4 dissolves becomes real and this subsection is the
+thing to reopen.
 
 **Not amended here:** the hook, the declaration grammar, and `specs/SPEC.md` §4's
 receipt grammar are all untouched. This section moves nothing out of a PR or
