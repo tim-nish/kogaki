@@ -1005,8 +1005,15 @@ if base_bad or carry_bad:
 #   2. the unit ANSWERS THE SAME WAY on vectors that discriminate — including
 #      the moved-head case the whole clause exists for.
 _agree_fail = []
-_HR_OTHER = "tools/review-sweep.sh" if "check-review-report" in "checks/check-review-report.sh" \
-    else "checks/check-review-report.sh"
+# The OTHER consumer, named as a plain constant — one literal per file. The
+# first form computed it (`"check-review-report" in __file__ ? ... : ...`),
+# which folds at authoring since both operands are literals: it READ as a
+# self-identifying dispatch while being nothing of the kind, and a verbatim
+# copy of this block into the other consumer would fold to the SAME arm and
+# point that consumer at ITSELF — whereupon the redefinition test scans its own
+# source, finds no local definition, and passes unconditionally. That is the
+# orphan guard the anchoring below exists to prevent, one line above it.
+_HR_OTHER = "tools/review-sweep.sh"
 try:
     with open(_HR_OTHER, encoding="utf-8") as _f:
         _other_src = _f.read()

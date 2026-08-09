@@ -2949,8 +2949,23 @@ def decide(bodies, head, resolves=None, base=None,
     # because it is the same answer the caller asked for before.
     carried = []
     if base and diff_at and merge_base:
-        carried, _record = carry_forward(bodies, head, base, diff_at,
-                                         merge_base, segments)
+        carried, record = carry_forward(bodies, head, base, diff_at,
+                                        merge_base, segments)
+        # THE RECORD IS PRINTED, NOT DISCARDED (PR #321 round 1). The first
+        # form of this bound it to `_record` and printed only on the positive
+        # branch — so a carry-forward that could NOT be computed (an
+        # unresolvable base; a `base...head` diff git could not read, which is
+        # the ORDINARY case for a head never fetched into this worktree) and
+        # one computed as `DIFFERS, stale` were both indistinguishable from
+        # "no carry-forward was attempted at all". That is the silent
+        # re-derivation clause 7 forbids at its pin, and the unit's own
+        # docstring names it: "the equality is RECOMPUTED AND RECORDED, never
+        # assumed … a carry-forward that left no record is the silent
+        # re-derivation". The gate has always printed every line; the sweep
+        # printed none of the negative ones, which is the state-absence
+        # discipline this repository applies everywhere else inverted.
+        for _line in record:
+            print(f"  clause-7 {_line}")
         # ANNOUNCED, on this function's established discipline: every other
         # discount and charge above says so before any return. A head that is
         # reviewed only BY CARRY-FORWARD is the more surprising of the two —
@@ -4380,8 +4395,15 @@ if bad:
 #   2. the unit ANSWERS THE SAME WAY on vectors that discriminate — including
 #      the moved-head case the whole clause exists for.
 _agree_fail = []
-_HR_OTHER = "tools/review-sweep.sh" if "check-review-report" in "tools/review-sweep.sh" \
-    else "checks/check-review-report.sh"
+# The OTHER consumer, named as a plain constant — one literal per file. The
+# first form computed it (`"check-review-report" in __file__ ? ... : ...`),
+# which folds at authoring since both operands are literals: it READ as a
+# self-identifying dispatch while being nothing of the kind, and a verbatim
+# copy of this block into the other consumer would fold to the SAME arm and
+# point that consumer at ITSELF — whereupon the redefinition test scans its own
+# source, finds no local definition, and passes unconditionally. That is the
+# orphan guard the anchoring below exists to prevent, one line above it.
+_HR_OTHER = "checks/check-review-report.sh"
 try:
     with open(_HR_OTHER, encoding="utf-8") as _f:
         _other_src = _f.read()
