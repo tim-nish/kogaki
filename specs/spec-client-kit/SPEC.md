@@ -326,6 +326,23 @@ So the carrier is three-part, mirroring the ratified shape at §2: the managed
 cheap to obey; and a **lane read** reports the absence — a sitting that
 produced a durable learning and emitted nothing is *reported*, never blocked.
 
+**THE THIRD PART IS DEFERRED, AND THE DEFERRAL IS NAMED HERE RATHER THAN LEFT
+TO BE DISCOVERED.** Parts one and two ship with story 1.49. The lane read does
+**not**, because its shape is the open question at §7 q2 — one read or per-lane —
+and settling that inside an implementation would be the unnamed-deferral defect
+running backwards: code deciding a fork no gate saw. Filling q2 is therefore its
+own decision act, owed on its own licensing issue with choice, alternatives and
+receipt **before** any reader is written.
+
+**What that costs, stated plainly rather than minimised.** Until q2 is filled,
+this clause is an obligation with a writer and no observer — which is closer to
+the "purely norm-carried" fork this section explicitly corrected the filing away
+from than the finished design is. The correction is real but not yet complete,
+and a reader is entitled to know which. Found by PR #331's round-1 review, whose
+finding was that the acceptance criterion asserting the read's behaviour tested
+an instrument nothing built; that criterion is narrowed to the two parts that
+exist rather than left describing a third that does not.
+
 **No gate, and this forecloses the obvious next proposal.** A pre-commit or
 pre-merge check demanding an emission would be a gate on a judgment ("was this
 sitting's output a durable learning?") that no mechanism can make, and it would
