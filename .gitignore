@@ -10,3 +10,11 @@ __pycache__/
 # their sensitivity — visibility and publication are two decisions and this
 # line is the second one, made explicitly rather than by where the file landed.
 reports/
+
+# The SHAPE READ (specs/spec-client-kit/SPEC.md §3.3, kogaki#325) — the second
+# member of exactly that class, and installed by policy/kit/install.sh step 4d
+# into every kit consumer. Repo-VISIBLE so every session and the owner read it
+# where they work; NOT committed, because it derives from hub owner-realm
+# material and this repository is public — committing it would be a
+# declassification act the spec grants no grounds for.
+policy/shape.md
