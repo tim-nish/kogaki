@@ -66,10 +66,14 @@
 // the ANSWER-field twin of kogaki#160, and it is a DIFFERENT defect at the same
 // seam: `--question` makes the recorded query provably the query that ran, and
 // says nothing about whether the call reached the artifact the arguments named.
-// An unrecognized address FORM is DROPPED rather than refused — the gateway
-// answers the broader call and returns a well-formed response to a query it did
-// not run, so the receipt is honest about every field it holds and its answer
-// is another artifact's. Four such receipts shipped in one session (PR #170's
+// An unrecognized address FORM was DROPPED rather than refused by the gateway
+// UNTIL tsurezure-gateway#88 (merged 2026-08-09) — it answered the broader call
+// and returned a well-formed response to a query it did not run, so the receipt
+// was honest about every field it held and its answer was another artifact's.
+// gw#88 refuses such a key instead; the past tense is deliberate, and the
+// client-side refusal below is what this kit stands behind against EITHER
+// version, since the served catalogue does not carry the gateway's version
+// (kogaki#328). Four such receipts shipped in one session (PR #170's
 // lane): well-formed, citing real lines, their arguments never in effect.
 //
 // MEASURED ON THE WIRE, at product-lab@98195e0a, rather than assumed. Every
@@ -414,8 +418,11 @@ function assertAddressEvidenced({ framing, declared, catalogue }, d, i) {
   const sent = framing.args ?? {};
   const keys = Object.keys(sent);
 
-  // (a) THE FORM. An undeclared key is the whole shipped defect: the gateway
-  // does not refuse it, it drops it and answers the broader call.
+  // (a) THE FORM. An undeclared key is the whole shipped defect. What the
+  // GATEWAY does with one changed at tsurezure-gateway#88 — it dropped the key
+  // and answered the broader call before, and refuses it after — which is
+  // exactly why this refusal is stated on client-side ground and asserts
+  // nothing about the server (kogaki#328).
   // Two DIFFERENT causes reach this refusal and the message names which:
   // the served catalogue was unreadable (the substrate failing), or it was
   // read and does not carry this tool (the framing addressing a tool that is
