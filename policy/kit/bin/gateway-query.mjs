@@ -440,15 +440,25 @@ function assertAddressEvidenced({ framing, declared, catalogue }, d, i) {
         `${undeclared.map((k) => `\`${k}\``).join(", ")}, which the served tool ` +
         "does not declare (it declares " +
         `${[...declared].map((k) => `\`${k}\``).join(", ") || "no arguments"}). ` +
-        "An undeclared key is DROPPED, not refused: the gateway answers the " +
-        "broader call, so this response is well-formed and is not an answer " +
-        "to the query that was asked",
+        "The transport cannot stand behind a key the served tool does not " +
+        "declare, so this framing is refused here rather than sent",
     );
 
-  // (b) THE ECHO. Served only on the miss path today; required to agree when
-  // it is served, and never invented when it is not. The hit path's silence is
-  // the half routed upstream, and it is silent here rather than guessed at.
-  if (d.miss !== true) return;
+  // (b) THE ECHO. Required to agree WHEREVER it is served, and never invented
+  // where it is not. This used to return early on `d.miss !== true`, because
+  // the gateway echoed the address only on the miss path and the hit path's
+  // silence was the half routed upstream (kogaki#181 → tsurezure-gateway#85).
+  // tsurezure-gateway#88 puts `tool` and `request` on EVERY envelope, so the
+  // half that was routed upstream has come back — and the check that was
+  // waiting for it is this one.
+  //
+  // THE VERSION GUARD IS THE PRESENCE TEST, NOT A VERSION READ. The two
+  // conditions below already fire only when their field is present and
+  // well-typed, so against an older gateway — which serves neither field on a
+  // hit — this block does nothing and says nothing, which is the shipped rule:
+  // absent fields stay silent, never guessed at. The served catalogue does not
+  // carry the gateway's version, so a version comparison is not available to
+  // ask for and is not what makes this safe.
   if (typeof d.tool === "string" && d.tool !== framing.tool)
     throw new Error(
       `framing ${i + 1} addressed \`${framing.tool}\` and the served response ` +
@@ -673,15 +683,22 @@ function selfTest() {
     // --- kogaki#181: the ANSWER must evidence the ADDRESS the framing sent ---
     // The regression pin for the four receipts of PR #170's lane. Measured
     // against the served schemas at product-lab@98195e0a: `gloss_index`
-    // declares `tag` and nothing else, so `tags` is DROPPED by the gateway and
-    // the response served is `gloss/INDEX.md` — a well-formed answer to the
-    // unfiltered call. It must now REFUSE rather than compose.
-    ["an UNDECLARED address key REFUSES — the gateway drops it and answers the broader call",
+    // declares `tag` and nothing else, so a framing sending `tags` is refused
+    // HERE, before it is sent, and never composed into a receipt.
+    //
+    // THE REFUSAL IS CLIENT-SIDE AND ALWAYS WAS; only the explanation moved
+    // (kogaki#328). This fixture used to assert the word DROPPED, which named
+    // what the SERVER did with an undeclared key — true until
+    // tsurezure-gateway#88, which refuses it instead. The kit cannot read the
+    // gateway's version from the served catalogue, so it now asserts the
+    // ground the transport can stand behind whatever version answers.
+    ["an UNDECLARED address key REFUSES, on the ground the transport can stand behind",
      () => { const r = compose([{ framing: { raw: '{"tags":"lessons/testing"}',
                args: { tags: "lessons/testing" }, tool: "gloss_index", question: "a question" },
                declared: GLOSS, text: served("r", "gloss/INDEX.md:3-189") }], "discriminating");
              return r.startsWith("THREW: framing 1 addressed `gloss_index` with `tags`") &&
-               r.includes("does not declare") && r.includes("DROPPED"); }],
+               r.includes("does not declare") &&
+               r.includes("cannot stand behind") && !r.includes("DROPPED"); }],
     ["the same address DECLARED composes — the check bounds the form, it does not forbid the tool",
      () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
          tool: "gloss_index", question: "a question" }, declared: GLOSS,
@@ -734,6 +751,32 @@ function selfTest() {
      () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
          tool: "gloss_index", question: "q" }, declared: GLOSS,
        text: served("r", "gloss/INDEX.md:3-189") }], "discriminating").includes("  query: q")],
+    // --- kogaki#328: tsurezure-gateway#88 echoes the address on EVERY envelope,
+    // so the agreement the miss path has always been held to now binds hits.
+    // The case above stays and is the version guard: a gateway that serves no
+    // echo on a hit is still admitted, because the presence tests fire only on
+    // a field that is there. These two are the same property on the other side.
+    ["a HIT echoing the address sent composes — the gw#88 echo agrees",
+     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+         tool: "gloss_index", question: "q" }, declared: GLOSS,
+       text: JSON.stringify({ pin: PIN, request_id: "r", tool: "gloss_index",
+         request: { tag: "lessons/testing" },
+         consulted: `consulted: ${PIN} gloss/lessons/testing.md:1-157`, lines: [] }) }],
+       "discriminating").includes("  query: q")],
+    ["a HIT whose echoed request contradicts the address sent REFUSES",
+     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+         tool: "gloss_index", question: "q" }, declared: GLOSS,
+       text: JSON.stringify({ pin: PIN, request_id: "r", tool: "gloss_index",
+         request: { tag: "lessons/SOMETHING-ELSE" },
+         consulted: `consulted: ${PIN} gloss/lessons/testing.md:1-157`, lines: [] }) }],
+       "discriminating").startsWith("THREW: framing 1 sent `tag`")],
+    ["a HIT echoing a DIFFERENT TOOL REFUSES",
+     () => compose([{ framing: { raw: '{"tag":"lessons/testing"}', args: { tag: "lessons/testing" },
+         tool: "gloss_index", question: "q" }, declared: GLOSS,
+       text: JSON.stringify({ pin: PIN, request_id: "r", tool: "policy_lookup",
+         request: { tag: "lessons/testing" },
+         consulted: `consulted: ${PIN} gloss/lessons/testing.md:1-157`, lines: [] }) }],
+       "discriminating").startsWith("THREW: framing 1 addressed `gloss_index` and the served response answers `policy_lookup`")],
   ];
   const failures = cases.filter(([, f]) => f() !== true).map(([n]) => n);
   if (failures.length) {
@@ -745,8 +788,10 @@ function selfTest() {
     "(line one copied from the server; one query line per framing; pins merged " +
     "under one commit; the outcome token carried, never chosen; the question " +
     "bound to the call whose request_id is emitted; the ANSWER bound to the " +
-    "ADDRESS — an undeclared key and a contradicting served echo both refuse, " +
-    "and the hit path's absent echo is left undecided rather than re-derived; " +
+    "ADDRESS — an undeclared key and a contradicting served echo both refuse " +
+    "ON EITHER PATH since tsurezure-gateway#88 (kogaki#328), while an ABSENT " +
+    "echo is still left undecided rather than re-derived, which is what keeps " +
+    "an older gateway admitted; " +
     "the gate disposition carried on its own key above the query tail and " +
     "absent from a non-gate block; ten refusals)");
   process.exit(0);
