@@ -107,6 +107,37 @@ echo "ok: plain-register note reports without refusing"
 node "$KIT_DIR/bin/emit.mjs" --self-test || fail "emission writer fixtures failed"
 echo "ok: emission writer fixture pass (story 1.49)"
 
+# 2i. THE OWNER-REGISTER RENDERING (kogaki#320, story 1.50 AC1-AC4, AC7;
+#     contract specs/spec-client-kit/SPEC.md §8). The properties are decidable
+#     without a reachable gateway, which is why they are here.
+node "$KIT_DIR/bin/gateway-query.mjs" --self-test | grep -q 'owner-register cases' \
+  || fail "the owner-register fixture pass did not run"
+# SEPARABILITY (AC2) is asserted where transportArgv lives, with the rest of the
+# entry point's argv cases — the module is not import-safe (its top level parses
+# argv and exits), so a `node -e` import cannot reach the function. Sited rather
+# than duplicated, and named here so the coverage is findable from this file.
+node "$KIT_DIR/bin/consult.mjs" --self-test | grep -q 'entry-point cases' \
+  || fail "the entry point's fixture pass (which holds the owner-render separability cases) did not run"
+# The RELAY RULE points at the emission, not at the receipt (AC3, AC4).
+grep -q 'owner-render' "$TMP/repo/.claude/skills/consult-first/SKILL.md" \
+  || fail "the relay rule does not point at the kit's emission"
+grep -q 'compose the Conclusion yourself' "$TMP/repo/.claude/skills/consult-first/SKILL.md" \
+  || fail "the relay rule does not assign the Conclusion to the agent"
+echo "ok: owner register — fixtures, separable from the receipt in the composed argv, relayed by the skill"
+
+# 2j. A DEGRADED consult emits NEITHER register (AC6). A rendering of an answer
+#     that was never served is the same fabrication the no-receipt-on-degrade
+#     rule already forbids, so the owner half owes the same silence.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
+      --owner-render --tool policy_lookup --args '{"question":"q"}' 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "the degraded owner-render run exited $CODE, want 11"
+printf '%s\n' "$OUT" | grep -q '^Question: ' && fail "a degraded consult emitted an owner block over an answer that was never served"
+printf '%s\n' "$OUT" | grep -q '^policy_source unavailable:' || fail "the degrade line is missing: $OUT"
+echo "ok: a degraded consult emits neither register"
+
 # 3. Unreachable-gateway degrade: exactly one line, exit 11.
 set +e
 OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
