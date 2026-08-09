@@ -60,6 +60,53 @@ echo "ok: shape read degrades in one line with exit 11"
 node "$KIT_DIR/bin/shape.mjs" --self-test || fail "shape read fixtures failed"
 echo "ok: shape read fixture pass (story 1.48 AC2)"
 
+# 2e. THE EMISSION DUTY's install-time properties (kogaki#326, story 1.49 AC7;
+#     contract specs/spec-client-kit/SPEC.md §4). The gitignore assertion here is
+#     the INVERSE of 2b's and that is the whole point: the two artifacts answer
+#     the same axis oppositely because the discriminator is SOURCE SENSITIVITY
+#     rather than file kind. Asserting only one of them would leave a later
+#     change free to "make them consistent" and destroy the distinction.
+[[ -f "$TMP/repo/policy/emissions/README.md" ]] || fail "no policy/emissions/ directory"
+if [[ -f "$TMP/repo/.gitignore" ]]; then
+  grep -q 'policy/emissions' "$TMP/repo/.gitignore" && fail "emissions must NOT be gitignored — they are consumer-authored and declassify nothing"
+fi
+grep -q 'policy/kit/bin/emit.mjs' "$TMP/repo/CLAUDE.md" || fail "the managed block does not state the emission duty"
+grep -q 'promotion is untouched' "$TMP/repo/CLAUDE.md" || fail "the managed block omits the emission/promotion boundary (§4.2)"
+echo "ok: emission duty — committed directory, stated in the managed block, promotion boundary carried"
+
+# 2f. The writer produces a CONFORMANT five-field emission, and writes NOTHING
+#     ELSE. The second half is the load-bearing one: this file's entire standing
+#     rests on emission not being promotion, so the test asserts that the act
+#     touches only the consumer's own tree.
+node "$KIT_DIR/bin/emit.mjs" --repo "$TMP/repo" --date 2026-01-01 \
+  --title 'a test finding' --trigger 'the fixture ran' \
+  --learning 'the writer produces the five fields' --grain lesson >"$TMP/emit-out" 2>&1 \
+  || fail "the emission writer exited non-zero"
+EMITTED="$TMP/repo/policy/emissions/2026-01-01-a-test-finding.md"
+[[ -f "$EMITTED" ]] || fail "the emission was not written at its dated, slugged path"
+grep -q "$EMITTED" "$TMP/emit-out" || fail "the writer does not print the path as an in-session receipt"
+for FIELD in 'date: 2026-01-01' 'repo: ' 'grain: lesson' 'the fixture ran' 'the writer produces the five fields'; do
+  grep -q "$FIELD" "$EMITTED" || fail "the emission is missing field: $FIELD"
+done
+grep -q 'sole promotion path' "$EMITTED" || fail "the emission does not state that it is a candidate rather than a promotion"
+node "$KIT_DIR/bin/emit.mjs" --repo "$TMP/repo" --trigger x --learning y --grain nonsense >/dev/null 2>&1 \
+  && fail "an undeclared grain must be refused — the set is closed"
+echo "ok: emission writer — five fields, dated path, in-session receipt, closed grain set, promotion boundary stated"
+
+# 2g. The plain-register note REPORTS and never refuses (§4.4). A channel that
+#     rejects your words is a channel you stop using, so the exit code must stay
+#     0 while the note is printed.
+node "$KIT_DIR/bin/emit.mjs" --repo "$TMP/repo" --date 2026-01-02 --title 'register case' \
+  --trigger 'we reached the distill gate' --learning 'a plain sentence' --grain lesson >"$TMP/reg-out" 2>&1 \
+  || fail "the plain-register note must not fail the write"
+grep -q 'plain-register note' "$TMP/reg-out" || fail "hub-internal vocabulary was not reported"
+grep -q 'Reported, not refused' "$TMP/reg-out" || fail "the note does not state that it is a report"
+echo "ok: plain-register note reports without refusing"
+
+# 2h. The writer's fixture pass, sited with the code it covers.
+node "$KIT_DIR/bin/emit.mjs" --self-test || fail "emission writer fixtures failed"
+echo "ok: emission writer fixture pass (story 1.49)"
+
 # 3. Unreachable-gateway degrade: exactly one line, exit 11.
 set +e
 OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \

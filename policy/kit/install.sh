@@ -146,6 +146,21 @@ else
   say "(the shape read degrades like every other kit tool — the install still completes)"
 fi
 
+# 4e. THE EMISSION DUTY's directory (kogaki#326; specs/spec-client-kit/SPEC.md
+#     §4). Created with its README, and deliberately NOT gitignored — the
+#     opposite answer to 4d on the same axis, because the discriminator is
+#     SOURCE SENSITIVITY rather than file kind: an emission is authored
+#     consumer-side about consumer-side experience, already at this
+#     repository's own sensitivity, so committing it declassifies nothing.
+#     Reading 4d and 4e together is the point; either alone reads as arbitrary.
+mkdir -p "$REPO/policy/emissions"
+if [[ -f "$REPO/policy/emissions/README.md" ]]; then
+  say "policy/emissions/: exists, kept"
+else
+  cp "$KIT_DIR/templates/emissions-README.md" "$REPO/policy/emissions/README.md"
+  say "policy/emissions/: installed (committed — see 4d for why the shape read is not)"
+fi
+
 # 5. MCP registration (machine-local, per-project — never committed).
 if (cd "$REPO" && claude mcp list 2>/dev/null | grep -q 'tsurezure'); then
   say "MCP: tsurezure already registered for this project"

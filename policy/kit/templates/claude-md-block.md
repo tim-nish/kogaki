@@ -20,11 +20,21 @@ never substitution**: it is not a consultation and carries no receipt, so a
 load-bearing headline still owes the boundary consult. It is repo-visible and
 deliberately not committed; a stale pin is reported, never gated on.
 
+**The emission duty.** A sitting that produces a **durable learning** — an
+investigation finding, a reversal, a correction, a design decision — writes ONE
+staging-candidate emission **in the same sitting, unasked**, with
+`policy/kit/bin/emit.mjs`. Producing the learning and emitting its candidate are
+one act, not two. **Emission is the duty; promotion is untouched** — the file is
+a candidate, nothing here writes any recall surface, and the hub's own gate stays
+the sole promotion path. Write it in plain register: the reader does not hold
+hub vocabulary.
+
 The consumer package lives in `policy/`: served tools and degradation
 routing in `policy/CAPABILITIES.md`, consultation occasions in
 `policy/consultation-map.md`, presence toggle in `policy/source.yaml`, the
-shape read at `policy/shape.md`, and the kit itself in `policy/kit/`. The
-discipline loads as a harness skill from `.claude/skills/consult-first/`.
+shape read at `policy/shape.md`, emissions in `policy/emissions/`, and the kit
+itself in `policy/kit/`. The discipline loads as a harness skill from
+`.claude/skills/consult-first/`.
 
 The gateway's location is **machine-local configuration** — `--gateway`,
 `$TSUREZURE_GATEWAY_JS`, or the MCP registration — never a committed path
