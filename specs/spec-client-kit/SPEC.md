@@ -1,0 +1,319 @@
+# SPEC-client-kit — the consumer half of the seam
+
+**Status:** v1, authored 2026-08-09 (kogaki#325 and kogaki#326, decided as one
+coupled group in a `/ship-cycle` spec-lane sitting).
+**Governs:** the tsurezure client kit's **consumer-side** contract — what a kit
+install delivers by default, and what a kit-installed sitting owes.
+
+## 0. Why this spec exists, and the boundary it does not cross
+
+The kit's ratified contract is **hub-side**: `product-lab
+specs/tsurezure-client-kit.md`, ratified 2026-08-04, named as the governing
+spec by this repository's own carrier —
+
+> "The consumer half of the seam, as one install (tsurezure-gateway#78;
+> spec: `product-lab specs/tsurezure-client-kit.md`, RATIFIED 2026-08-04)."
+
+`policy/kit/README.md:3-4`
+
+Kogaki holds the kit on an **interim** basis and **cannot write to the hub**.
+The seam is read-only — "insights are staged as proposals through the hub's own
+intake, never written directly" (`CLAUDE.md`, the managed block) — so a
+consumer-side clause has nowhere hub-side to land, and until this file existed
+it had nowhere kogaki-side either. That absence is the 6a finding both #325 and
+#326 produced independently: the invariant was **implicit**, held in
+`policy/kit/README.md`'s prose and in an install script.
+
+`specs/SPEC.md:3487-3494` (§4.5.1 clause 2) makes the consequence exact — a
+subject with no declared baseline has a **fresh** design — and clause 1 puts
+the declaration "in the spec that owns its subject". This is that spec. Its
+finding-aid row is added to `specs/SPEC.md` §4.5.2 in the same amendment, per
+that section's own rule.
+
+**What this does not do.** It states no clause of the hub's ratified spec and
+amends none. Where the two speak to one subject the hub's line wins; a
+divergence is declared here at the diverging clause with a source-qualified
+pin, per §4.5.1 clause 3. This file is the *consumer's* answer to "what did
+this component already decide", which §4.5 says no hub query can return.
+
+## 1. The declared design baseline for this subject
+
+**Inherited design:** `product-lab specs/tsurezure-client-kit.md` (ratified
+2026-08-04), scoped to the seam's shape — read-only gateway, no write path to
+the hub, enhancer-never-dependency, install idempotence.
+
+**Scope limit, stated as part of the clause rather than as a footnote:**
+nothing here may be read as a general inheritance of hub design. The
+inheritance covers the four properties named above and nothing else. Every
+other clause of this spec is **fresh** under §4.5.1 clause 2.
+
+**Divergence register:** none as of v1.
+
+## 2. The default-carrier rule, which is why layers 2 and 3 exist at all
+
+Both clauses below place their carrier at the layer that loads **by default**,
+and the position is served rather than invented:
+
+> "A rule holds in repositories you have not created yet only if creating one
+> delivers its mechanical carrier by default — a rule requiring someone to
+> remember, install, or supervise for it is advisory, and its apparent
+> coverage is an enumeration of the places somebody happened to act."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:38`
+  request_id: d32055fa-bdc9-4eff-aca9-73262a06157d
+  outcome: discriminating
+  query: Does a rule reproduce only through a default carrier that loads every session, rather than through a skill a sitting must invoke?
+
+and, on where the rule itself is sited:
+
+> "The rule is ambient in the consumer's `CLAUDE.md`; the skill carries the
+> procedure and the lint — skill-as-sole-carrier is REFUSED. … A skill binds
+> only the sittings that invoke it, so siting the rule there reproduces
+> exactly that failure."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/archive/knowledge-architecture.md:40`
+  request_id: d32055fa-bdc9-4eff-aca9-73262a06157d
+  outcome: discriminating
+  query: Does a rule reproduce only through a default carrier that loads every session, rather than through a skill a sitting must invoke?
+
+So the managed `CLAUDE.md` block (`policy/kit/templates/claude-md-block.md`) is
+the carrier of record for every clause in this spec, and
+`.claude/skills/consult-first/` carries procedure only. A clause added to the
+skill alone does not satisfy this spec.
+
+## 3. The shape read (kogaki#325)
+
+### 3.1 What it is
+
+A **pinned, scoped policy digest** of the served surface, vendored into the
+consumer repository by the kit and referenced from the managed `CLAUDE.md`
+block, so that a consumer sitting begins already grounded rather than running
+unglossed until its first registered boundary.
+
+The digest carries, for the declared consumer:
+
+1. tier-1 gloss headlines whose lessons carry that consumer in `projects:`;
+2. glossary state lines for terms in scope;
+3. the consumer's **role-assigned obligations**;
+4. one line per `policy/consultation-map.md` boundary;
+5. its **pin** and the date it was generated.
+
+Item 3 is the load-bearing one and the reason the whole layer is worth its
+cost. An obligation assigned to a role rather than to a named carrier dies
+silently with whoever happened to implement it (kogaki#268 is the specimen: hub
+decision D7's gate obligation, assigned to "the consumer", lost at succession
+because nothing a successor loads at founding carried it). A successor's
+**first shape read serves it**, which is the fix.
+
+### 3.2 Layer 1 is composed KIT-SIDE, and the gateway is unchanged
+
+The digest is assembled by the kit over reads the gateway **already serves** —
+`gloss_index`, `lessons_index`, `glossary_entry`, `surface_names`
+(`policy/CAPABILITIES.md:12-20`) — through the existing transport
+`policy/kit/bin/gateway-query.mjs`. **No gateway tool is added and no gateway
+invariant is touched**; the server stays read-only and stays a server.
+
+The declined alternative is recorded so it is not re-proposed blind: a
+`shape <consumer>` **gateway endpoint**. It is the better shape for N
+consumers, and there is exactly one —
+
+> "The Client Kit's home is KOGAKI on an interim basis, separating into its
+> own repository when a SECOND KIT-INSTALLING CONSUMER exists … The
+> denominator is named at authoring time rather than repaired later … the set
+> is KIT-INSTALLING consumers, of which there is exactly one".
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:75`
+
+— so a server-side assembly built for consumer N+1 is a partition with one
+side, which `encode-the-boundary-that-is-real` refuses. **Reopen trigger:** a
+second kit-installing consumer. The kit-side composer is then the endpoint's
+specification rather than wasted work.
+
+### 3.3 The digest is repo-visible and NOT committed, and the two are separate decisions
+
+`specs/SPEC.md:90-111` (§2.5.2) binds this, and both halves are load-bearing:
+
+- **Repo-visible** (clause 1 of §2.5). The digest is read by the owner and by
+  every session in the working tree; its lifetime is the owner's, not a run's
+  (§2.5.1). It lives at `policy/shape.md`.
+- **Not committed.** The digest is a derived artifact whose sources are
+  **hub, owner-realm** material, and kogaki is a **public** repository.
+  §2.5.2's served constraint is directional: a derived artifact "inherits the
+  highest sensitivity of its sources unless an explicit human-held gate
+  deliberately lowers it", and storage location must never silently decide
+  visibility. Committing it would be a **declassification act**, and this spec
+  grants no such act. `policy/shape.md` is therefore added to `.gitignore`,
+  beside the exactly parallel `reports/` entry that §2.5.2 already earned.
+
+**A consumer whose repository is private may commit it** — that is a different
+explicit decision, made by that consumer and stated in its own tree. This
+clause binds the kit's **default**, which must be the safe one, because a
+default that publishes is the failure that cannot be undone.
+
+### 3.4 Refresh is a kit command run by the sitting, never a schedule
+
+The kit generates the digest at install time and refreshes it as a **mechanical
+pre-step of a spec sitting**: regenerate live, diff the vendored pin against
+the new pin, and present the **policy delta** before the sitting starts. The
+sitting's record carries the shape pin it ran under.
+
+The declined alternative is a **CI cron in the consumer repo**, and it is dead
+on two independent mechanical facts rather than on taste: the digest is
+gitignored (§3.3), so a CI job has nothing to commit; and the gateway's
+location is machine-local configuration by contract — "never a committed path
+and never directory adjacency" (`policy/kit/README.md:21-24`) — so CI cannot
+reach the substrate at all. The general position is served: a trigger binds to
+an act that already happens, never a schedule.
+
+### 3.5 Escalation discipline, and freshness
+
+**The digest is awareness, never substitution.** When a headline becomes
+load-bearing for a decision, the boundary consult fires exactly as today, and
+is receipted exactly as today. A shape read is not a consultation and produces
+no receipt; a sitting that cites the digest where a receipt is owed has
+violated `specs/SPEC.md` §4, not satisfied it.
+
+**Freshness is reported, never gated.** A stale pin is stated at sitting start
+with its delta. It withholds nothing — the enhancer-never-dependency property
+inherited at §1 forbids a kit artifact becoming a precondition for work.
+
+### 3.6 Legibility is a VIEW defect, and the return channel is §4
+
+A headline that cannot ground a consumer conversation in plain register is a
+defect **of the served view**, not of the reader. The emission duty of §4 is
+its return channel: a sitting that finds an illegible headline emits that
+finding like any other durable learning. This is the one place the two clauses
+of this spec are designed to compose rather than merely coexist.
+
+## 4. The emission duty (kogaki#326)
+
+### 4.1 The clause
+
+**Any kit-installed sitting that produces a durable learning — an investigation
+finding, a reversal, a correction, a design decision — writes ONE
+staging-candidate emission in the same sitting, unasked.**
+
+The hub has held the symmetric duty since 2026-07-23, and the consumer half had
+no owner until now:
+
+> "the **ambient experience-shaped trigger** carries the push, self-routing a
+> sitting that PRODUCES a durable experience (investigation finding, reversal,
+> correction, design decision) to staging route (c) unasked, with the same
+> precision-first bias as the policy-shaped trigger."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/archive/knowledge-architecture.md:173`
+  request_id: a9615696-cdbd-4ccc-95a5-d53815fc769a
+  outcome: discriminating
+  query: Consumer-side emission duty: should a sitting that produces a durable learning stage a candidate in the same sitting, unasked?
+
+### 4.2 EMISSION is the duty; PROMOTION is untouched
+
+The boundary is ratified and is quoted rather than re-derived:
+
+> "in a cross-boundary proposal loop the consumer's gate completes by EMITTING
+> the proposal (a durable artifact in its own tree, no clerical residue) and
+> the hub's gate completes by PROMOTING it into the recall surface; 'one
+> command closes the loop' is a correct requirement *within* a side and a
+> contract violation *across* one."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/archive/knowledge-architecture.md:204`
+
+So: nothing auto-promotes, nothing writes the recall surface, and `/qa-mine`'s
+selection screen, its ledger dedupe and the hub's sweep gate are all untouched.
+A kit that closed the loop would breach the seam it exists to serve.
+
+### 4.3 The emission location is a directory the CONSUMER owns, and it IS committed
+
+The served line rules out one location outright:
+
+> "Consumer contribute-back emits into a directory the CONSUMER owns (its run
+> workspace or its own working tree), never the hub's `q_a/staging/`".
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/archive/knowledge-architecture.md:202`
+
+Between the two it permits, §2.5.1's discriminator decides: **lifetime**. An
+emission awaits a hub sweep that may be days away, so its lifetime is the
+owner's and not the run's. It lives in the working tree, at
+`policy/emissions/<YYYY-MM-DD>-<slug>.md`.
+
+**And it is committed** — which is the opposite of §3.3's answer, on the same
+axis, for a stated reason. §3.3's digest derives from **hub** material and
+committing it would declassify. An emission is authored **consumer-side**,
+about consumer-side experience, in plain register; its sources are already at
+the repository's own sensitivity, so committing declassifies nothing. It also
+buys two things a workspace cannot: survival of workspace cleanup, and
+visibility in the PR that carried the work.
+
+**Reading the two clauses together is the point.** They look like one decision
+and are two, and only a spec that states both makes the discriminator —
+source sensitivity, not file kind — visible to the next carrier that faces it.
+
+### 4.4 The format is fixed and minimal, and it is plain-register by contract
+
+Five fields: **date**, **repo**, **trigger** (what happened), **the learning**,
+**proposed grain** (lesson / topic line / glossary delta).
+
+Plain register is part of the format rather than advice. The consumer does not
+hold hub vocabulary, and hub policy drifting into internal terminology is a
+live defect this channel exists to counteract rather than import — the same
+finding §3.6 routes here.
+
+### 4.5 The absence is made VISIBLE; it is never gated
+
+The duty is an **obligation**, and the governing distinction is served:
+
+> "a **prohibition** is violated at the tool boundary and wants a mechanical
+> gate there … an **obligation** is violated by an absence, which produces no
+> event to hook, so it stays behavioral and its carrier is a signal that makes
+> the absence visible".
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:103, topics/archive/knowledge-architecture.md:172`
+
+So the carrier is three-part, mirroring the ratified shape at §2: the managed
+`CLAUDE.md` block states the duty; the kit provides the writer that makes it
+cheap to obey; and a **lane read** reports the absence — a sitting that
+produced a durable learning and emitted nothing is *reported*, never blocked.
+
+**No gate, and this forecloses the obvious next proposal.** A pre-commit or
+pre-merge check demanding an emission would be a gate on a judgment ("was this
+sitting's output a durable learning?") that no mechanism can make, and it would
+convert a channel into a tax — which is how a return channel stops being used
+honestly and starts being satisfied.
+
+### 4.6 Cadence coupling is DECLINED as out of scope
+
+Whether `/qa-mine`'s sweep is nudged by emission count is a **hub-side**
+question about a hub-side command. Kogaki declares it here so the fork is
+recorded as answered-by-scope rather than forgotten: this spec binds emission
+and says nothing about when the hub reads.
+
+## 5. What binds a consumer, and what binds the kit
+
+| clause | binds |
+| --- | --- |
+| §3.1–3.2 digest content and kit-side composition | the **kit** |
+| §3.3 repo-visible, not committed (default) | the **kit's default**; a consumer may decide otherwise explicitly, in its own tree |
+| §3.4 refresh at sitting start | the **kit command**, and the sitting that runs it |
+| §3.5 awareness-never-substitution | every **sitting** |
+| §4.1–4.4 the emission duty and its format | every **sitting** in a kit-installed repo |
+| §4.5 visible absence | the **kit** (writer) and the **lane** (read) |
+
+## 6. Out of scope, by decision
+
+- **A gateway `shape` endpoint** — §3.2, with its reopen trigger.
+- **Hub sweep cadence** — §4.6.
+- **Promotion of any emission** — §4.2; the hub's gate is the sole path.
+- **A gate on either clause** — §3.5 and §4.5; both are obligations, and this
+  spec's carriers are reports.
+
+## 7. Open — carried as questions, never as contract
+
+1. **Digest scoping when a consumer carries no `projects:` membership.** The
+   served surface's `projects:` axis is the scoping key for item 1 of §3.1;
+   what a consumer with zero matching lessons receives — an empty digest, or
+   the unscoped tier-1 index — is undecided. Implementations render the empty
+   case explicitly rather than choosing silently, per this repository's
+   standing zero-rendering discipline.
+2. **Whether the lane read of §4.5 is one read or per-lane.** Stated as a
+   question because a per-lane answer is the enumeration shape this repository
+   refuses elsewhere, and a single read has no obvious home yet.

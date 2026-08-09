@@ -3507,6 +3507,7 @@ rate while being read as though it were current:
 | subject | where its baseline is declared |
 | --- | --- |
 | Terrain design | `specs/spec-terrain/SPEC.md` §2.4, with its numbered divergence register |
+| the tsurezure client kit | `specs/spec-client-kit/SPEC.md` §1, with its divergence register (empty at v1) |
 | every other subject | nothing declared — clause 2 applies, the design is fresh |
 
 An entry lands here in the same amendment that declares the baseline.
