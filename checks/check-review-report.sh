@@ -238,6 +238,16 @@ REVIEW_COMMENTS_JSON="$COMMENTS_JSON" REVIEW_OWNER="$TRUSTED_OWNER" \
 REVIEW_NOTE="$substrate_note" REVIEW_SUBSTRATE="$substrate" python3 <<'EOF'
 import hashlib, json, os, re, subprocess, sys
 
+# THE HEAD-RESOLUTION UNIT IS LOADED, NEVER RESTATED (§4 clause 7 v2,
+# kogaki#308). `same_head`, `head_segments`, `digest` and `carry_forward` used
+# to live here; `tools/review-sweep.sh` answered the same question with a
+# different unit, and the disagreement cost a review round per moved head. The
+# reach is the four-line recipe the unit documents, identical in both
+# consumers; the agreement fixture below is what keeps it that way.
+HEAD_RESOLUTION_PATH = "lib/head_resolution.py"
+with open(HEAD_RESOLUTION_PATH, encoding="utf-8") as _fh:
+    exec(compile(_fh.read(), HEAD_RESOLUTION_PATH, "exec"))
+
 # A report's first line, fixed token and fixed position — the same discipline
 # the consult receipt carries, and for the same reason: a report announced in
 # whatever phrasing the sitting reaches for is invisible to anything looking
@@ -383,21 +393,6 @@ def counted(seg):
 def scope_of(seg):
     """The segment's declared scope, or `full` when it declared none."""
     return seg['scope'] or 'full'
-
-
-def head_segments(segs, head, carried=()):
-    """The segments naming THIS head — abbreviated shas match either way.
-
-    `carried` holds the shas of segments PROVEN to have reviewed this head's
-    content (§4 clause 7): a carried segment is this head's segment for every
-    purpose below — presence, open-blocking, completeness and scope — because
-    the clause admits a second instrument for the same pin, not a second class
-    of report. Default empty, so nothing that does not ask for a carry-forward
-    behaves differently by one line.
-    """
-    return [s for s in segs
-            if (head and (head.startswith(s['sha']) or s['sha'].startswith(head)))
-            or s['sha'] in carried]
 
 
 def segments(bodies):
@@ -554,86 +549,6 @@ def head_boundaries(bodies, head, carried=()):
     for seg in head_segments(segments(bodies), head, carried):
         out.extend(seg['boundaries'])
     return out
-
-
-def carry_forward(bodies, head, base_b, diff_at, merge_base):
-    """§4 clause 7: which segments PROVABLY reviewed this head's content.
-
-    Returns (carried, record) — the shas that carry forward, and the lines that
-    NAME what was compared. The equality is RECOMPUTED AND RECORDED, never
-    assumed: `record` carries each `base..rev` range and its digest for both
-    sides, so a later reader re-runs the comparison instead of trusting it (AC
-    2). A carry-forward that left no record is the silent re-derivation clause 7
-    forbids at its pin.
-
-    Both git reads are INJECTED rather than called here — `diff_at(base, rev)`
-    returning the diff text or None, `merge_base(a, b)` returning a sha or None
-    — so the fixture pass exercises every branch with no repository and no
-    network, on the same ground the rest of this file's fixtures rest on.
-
-    A's base is READ from its `review-base:` line whenever it recorded one
-    (resolution (c)). A base-less report — every report written before the field
-    shipped — falls back to the MERGE-BASE at A (resolution (b)) and never to
-    the PR's current base (resolution (a)): (a) takes both diffs against one
-    base, which makes a base move invisible, and a fallback that fails open on
-    this clause's own counter-example is worse than no carry-forward at all.
-    The fallback is transitional and keyed on the line's absence alone.
-
-    Anything uncomputable — an unresolvable base, an unreadable revision — is
-    NOT a carry-forward (AC 3). It leaves `carried` empty, the caller keeps the
-    existing `stale` state, and the reason is still named in `record`.
-    """
-    record, carried = [], []
-    diff_b = diff_at(base_b, head) if base_b else None
-    if base_b is None:
-        record.append("carry-forward NOT computed: the PR's current base could "
-                      "not be resolved, so there is nothing to compare against "
-                      "— stale, failing toward the reviewed side")
-        return carried, record
-    if diff_b is None:
-        record.append(f"carry-forward NOT computed: the diff "
-                      f"{base_b[:7]}..{head[:7]} could not be read — stale, "
-                      "failing toward the reviewed side")
-        return carried, record
-    record.append(f"carry-forward candidate: this head's diff is "
-                  f"{base_b[:7]}..{head[:7]} [{digest(diff_b)}]")
-    for seg in segments(bodies):
-        a = seg['sha']
-        if head.startswith(a) or a.startswith(head):
-            continue                      # already this head's own segment
-        if seg['base'] is not None:
-            base_a, how = seg['base'], "recorded `review-base:` (resolution c)"
-        else:
-            base_a = merge_base(base_b, a)
-            how = ("merge-base at A — the report records no base, so clause 7's "
-                   "TRANSITIONAL fallback (resolution b)")
-            if base_a is None:
-                record.append(f"  {a[:7]}: no carry-forward — the report records "
-                              "no base and the merge-base could not be resolved")
-                continue
-        diff_a = diff_at(base_a, a)
-        if diff_a is None:
-            record.append(f"  {a[:7]}: no carry-forward — the diff "
-                          f"{base_a[:7]}..{a[:7]} could not be read ({how})")
-            continue
-        same = diff_a == diff_b
-        record.append(f"  {a[:7]}: reviewed {base_a[:7]}..{a[:7]} "
-                      f"[{digest(diff_a)}] via {how} — "
-                      f"{'IDENTICAL, carries forward' if same else 'DIFFERS, stale'}")
-        if same:
-            carried.append(a)
-    return carried, record
-
-
-def digest(text):
-    """A short, re-computable name for a diff — `sha256:<12 hex>`.
-
-    The record names the RANGES and this digest rather than pasting two diffs
-    into a gate's output: the ranges are what a reader re-runs, and the digest
-    is what they compare their own result against. `sha256(git diff output)` is
-    reproducible by anyone holding the repository.
-    """
-    return "sha256:" + hashlib.sha256(text.encode('utf-8')).hexdigest()[:12]
 
 
 def find_report(bodies, head, carried=()):
@@ -1035,7 +950,8 @@ for name, bodies, diffs, mbases, want in CARRY:
     carried_fx, record_fx = [], []
     if state_fx == 'stale':
         carried_fx, record_fx = carry_forward(
-            bodies, B_HEAD, BASE_B, _reader(diffs), _reader(mbases))
+            bodies, B_HEAD, BASE_B, _reader(diffs), _reader(mbases),
+            segments)
         state_fx, _ = find_report(bodies, B_HEAD, carried_fx)
     if state_fx != want:
         carry_bad.append(f"{name}: got {state_fx!r}, want {want!r}")
@@ -1060,7 +976,8 @@ _carry_bodies = (f"review-lane report: {A_HEAD}\nreview-base: {BASE_B}\n"
 _before = len(segments(_carry_bodies))
 _carried, _ = carry_forward(_carry_bodies, B_HEAD, BASE_B,
                             _reader({(BASE_B, B_HEAD): SAME,
-                                     (BASE_B, A_HEAD): SAME}), _reader({}))
+                                     (BASE_B, A_HEAD): SAME}), _reader({}),
+                            segments)
 if not _carried or len(segments(_carry_bodies)) != _before:
     carry_bad.append("a carry-forward changed the segment count a round "
                      "counter reads (AC 5: it is not a round)")
@@ -1071,6 +988,81 @@ if base_bad or carry_bad:
     for f in base_bad + carry_bad:
         print(f"  {f}")
     sys.exit(1)
+
+# --- AC 2: THE AGREEMENT FIXTURE (§4 clause 7 v2, kogaki#308) ---------------
+#
+# Clause 7 v2 mandates "one definition and an agreement fixture". The
+# definition is `lib/head_resolution.py`; this is the fixture, and it runs in
+# BOTH consumers rather than in one, because a check that lives only in the
+# gate cannot observe the sweep drifting and vice versa.
+#
+# It asserts two different things, and the second is the one a shared module
+# does NOT give you for free:
+#   1. the unit is REACHED THE SAME WAY — the other consumer's source carries
+#      the identical path constant. A consumer that copied the functions back
+#      in, or reached a different file, fails here even though its own tests
+#      would all pass.
+#   2. the unit ANSWERS THE SAME WAY on vectors that discriminate — including
+#      the moved-head case the whole clause exists for.
+_agree_fail = []
+_HR_OTHER = "tools/review-sweep.sh" if "check-review-report" in "checks/check-review-report.sh" \
+    else "checks/check-review-report.sh"
+try:
+    with open(_HR_OTHER, encoding="utf-8") as _f:
+        _other_src = _f.read()
+    # Anchored WHOLE for the same reason the duplicate test below is: this
+    # fixture quotes the constant, so an unanchored search finds its own text
+    # in the other file and passes unconditionally — an orphan guard that
+    # cannot fail. Caught by exercising the drift, not by inspection.
+    if not re.search(r'^HEAD_RESOLUTION_PATH = "lib/head_resolution\.py"$',
+                     _other_src, re.M):
+        _agree_fail.append(
+            f"{_HR_OTHER} does not reach the head-resolution unit by the "
+            "shared path constant — one consumer has drifted, and clause 7 "
+            "v2's single definition is single in name only")
+    # Anchored at LINE START — the detector's own literals sit inside a tuple
+    # in this very fixture, which is present in both files, so an unanchored
+    # search reports every consumer as a duplicator including the compliant one.
+    for _dup in ("def same_head(", "def head_segments(", "def carry_forward("):
+        if re.search("^" + re.escape(_dup), _other_src, re.M):
+            _agree_fail.append(
+                f"{_HR_OTHER} redefines `{_dup[4:-1]}` locally — the "
+                "two-instruments shape has reappeared")
+except OSError as _e:
+    _agree_fail.append(f"could not read {_HR_OTHER} to check agreement: {_e}")
+
+# The vectors. `same_head` is symmetric and abbreviation-tolerant; a carried
+# sha is this head's segment; the moved-head/identical-diff case resolves
+# through content rather than through sha identity.
+_A, _B = "abc1234", "abc1234def5678"
+if not (same_head(_A, _B) and same_head(_B, _A) and not same_head(_A, "999")):
+    _agree_fail.append("same_head disagrees with its own contract")
+_segs = [{"sha": "9999999"}, {"sha": "abc1234"}]
+if [x["sha"] for x in head_segments(_segs, "abc1234")] != ["abc1234"]:
+    _agree_fail.append("head_segments does not resolve by sha")
+if [x["sha"] for x in head_segments(_segs, "abc1234", ("9999999",))] != \
+        ["9999999", "abc1234"]:
+    _agree_fail.append("head_segments does not admit a CARRIED segment as "
+                       "this head's — clause 7's second instrument is dead")
+if digest("x") != digest("x") or digest("x") == digest("y"):
+    _agree_fail.append("digest is not a function of its input")
+# The form is part of the resolution: a consumer rendering the diff
+# differently would compare two different strings for identical content.
+_seen = []
+_da, _mb = make_git_readers(lambda *a: _seen.append(a) or "")
+_da("BASE", "REV")
+if _seen[0] != ("diff", "--no-color", "--unified=3", "BASE...REV"):
+    _agree_fail.append(f"the shared diff FORM has drifted: {_seen[0]!r}")
+
+if _agree_fail:
+    for _m in _agree_fail:
+        print(f"FAIL head-resolution agreement: {_m}")
+    raise SystemExit(1)
+print("head-resolution agreement: the unit is reached by one path from both "
+      "consumers, neither redefines it, and it answers identically on "
+      "sha-identity, carried-segment, digest and diff-form vectors "
+      "(§4 clause 7 v2)")
+
 print(f"base pass: {len(BASE_FIX)}/{len(BASE_FIX)} review-base cases "
       "(read / absent-is-None / first-declaration-wins / use-vs-mention / "
       "malformed / before-any-report / per-segment)")
@@ -1504,19 +1496,11 @@ def _git(*args):
     return r.stdout if r.returncode == 0 else None
 
 
-def _diff_at(base, rev):
-    """The diff a review at `rev` proposed against `base` — the three-dot form,
-    which is what a PR diff IS: the changes on rev since it diverged from base,
-    never base's own later commits. `--no-color` and a fixed context are named
-    rather than inherited, because the comparison is BYTE equality and a diff
-    rendered under someone's git config is a different string for the same
-    content."""
-    return _git("diff", "--no-color", "--unified=3", f"{base}...{rev}")
-
-
-def _merge_base(base, rev):
-    out = _git("merge-base", base, rev)
-    return out.strip() if out and out.strip() else None
+# The diff FORM comes from the shared unit (§4 clause 7 v2, kogaki#308); only
+# the RUNNER is this file's. `--no-color` and the fixed context are exactly as
+# load-bearing as they were when they lived here — the comparison is BYTE
+# equality — but they are no longer a fact only this file knows.
+_diff_at, _merge_base = make_git_readers(_git)
 
 
 carried = []
@@ -1595,7 +1579,7 @@ if state == 'stale':
     # change the answer.
     base = os.environ.get("REVIEW_BASE", "").strip()
     carried, record = carry_forward(bodies, head, base or None,
-                                    _diff_at, _merge_base)
+                                    _diff_at, _merge_base, segments)
     for line in record:
         print(f"clause-7 {line}")
     if carried:
