@@ -4,8 +4,13 @@
 //
 // WHY THIS IS A COMPOSER AND NOT A GATEWAY TOOL. §3.2 decides it: the digest is
 // assembled from reads the gateway ALREADY serves — `gloss_index`,
-// `lessons_index`, `glossary_entry`, `surface_names` — so no gateway tool is
-// added, no gateway invariant is touched, and the server stays read-only. The
+// `surface_names`, `glossary_entry` and, for element 3 only, `policy_lookup` —
+// so no gateway tool is added, no gateway invariant is touched, and the server
+// stays read-only. `policy_lookup` is `policy/CAPABILITIES.md`'s default
+// CONSULTATION path, and using it here does NOT make the digest a consultation:
+// §3.5 is what settles that, and §3.2 now records the use rather than leaving a
+// reader to reconcile the tool list with the code. `lessons_index` is NOT called
+// — its content reaches the digest through the tier-1 index already. The
 // declined alternative is a `shape <consumer>` endpoint, recorded there with
 // its reopen trigger (a second kit-installing consumer). This file is that
 // endpoint's specification if the trigger ever fires.
@@ -87,6 +92,11 @@ function served(consumer, tool, args, gateway) {
 function headlines(consumer, gateway) {
   const r = served(consumer, "gloss_index", {}, gateway);
   if (r.fatal) return r;
+  // A SOFT read is not an empty one. Walking `r.data` when it is undefined
+  // yields zero rows, which render()s as "none of 0 lines" — a confident zero
+  // over a read that failed, and the exact confusion this file's own AC2
+  // rationale exists to prevent. Threaded rather than dropped.
+  if (r.soft) return { all: 0, rows: [], unestablished: r.soft };
   const lines = collectLines(r.data);
   const mine = lines.filter((l) => carriesConsumer(l.text, consumer));
   return { pin: r.data?.pin, all: lines.length, rows: mine };
@@ -124,10 +134,16 @@ function collectLines(node, out = []) {
 function glossary(consumer, gateway, repo) {
   const names = served(consumer, "surface_names", { kind: "glossary" }, gateway);
   if (names.fatal) return names;
+  // Same hole one field over, and worse: the old note asserted "the served
+  // glossary enumeration came back empty" over a read that never parsed.
+  if (names.soft) return { rows: [], all: 0, unestablished: names.soft };
   const all = flattenNames(names.data);
   if (!all.length) return { rows: [], all: 0, note: "the served glossary enumeration came back empty" };
   const corpus = repoText(repo);
-  const scoped = all.filter((n) => n.length > 2 && corpus.includes(n));
+  // Word-bounded, like element 1's consumer match — the two scoping tests used
+  // to disagree, and the looser one was a bare substring over four files, so a
+  // short served name was admitted on any word containing it.
+  const scoped = all.filter((n) => n.length > 2 && carriesConsumer(corpus, n));
   const rows = [];
   for (const name of scoped.slice(0, 40)) {
     const e = served(consumer, "glossary_entry", { name }, gateway);
@@ -229,6 +245,13 @@ function render({ consumer, pin, date, h, g, o, b }) {
     for (const r of h.rows) L.push(`- ${oneLine(r.text)}\n  \`${r.cite}\``);
     L.push("");
     L.push(`_${h.rows.length} of ${h.all} served tier-1 lines carry \`${consumer}\`._`);
+  } else if (h.unestablished) {
+    // NOT a zero. The read did not complete, and saying "none carry this
+    // consumer" here would assert a search that never happened.
+    L.push(`**Could not establish.** ${h.unestablished}`);
+    L.push("");
+    L.push("This is **not** a statement that nothing matched — the read did not complete,");
+    L.push("so nothing was searched. The two are rendered differently on purpose.");
   } else {
     L.push(`**None.** No served tier-1 line carries \`${consumer}\` (${h.all} lines read).`);
     L.push("");
@@ -243,8 +266,12 @@ function render({ consumer, pin, date, h, g, o, b }) {
   if (g.rows?.length) {
     for (const r of g.rows) L.push(`- **${r.name}** — ${oneLine(r.text)}\n  \`${r.cite}\``);
     if (g.capped) L.push(`\n_Capped at 40 of ${g.scoped} in-scope terms._`);
+  } else if (g.unestablished) {
+    L.push(`**Could not establish.** ${g.unestablished}`);
+    L.push("");
+    L.push("Not a statement that no term is in scope — the enumeration did not complete.");
   } else {
-    L.push(`**None.** ${g.note ?? `No served glossary term (of ${g.all ?? 0}) is mentioned in this repository's own policy surface.`}`);
+    L.push(`**None.** No served glossary term (of ${g.all ?? 0}) is mentioned in this repository's own policy surface.`);
   }
   L.push("");
 
@@ -322,7 +349,28 @@ function selfTest() {
   if (!names.includes("Gukan")) fail("glossary names must be read from the served {cite,text} records");
   if (names.some((n) => n.includes(":"))) fail("prose must not be admitted as a glossary name");
 
-  console.log("shape self-test: rendering, empty-statement, cite-carrying, word-bound and walk cases pass");
+  // THE SOFT-READ CASES (PR #332 round 1, finding 1). A failed read must never
+  // reach render() as a zero. Asserted on the rendered text, because the defect
+  // was invisible in the data — `{all: 0, rows: []}` is what a genuine miss
+  // looks like too.
+  const soft = render({
+    consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
+    h: { rows: [], all: 0, unestablished: "gloss_index returned a body this composer could not parse" },
+    g: { rows: [], all: 0, unestablished: "surface_names returned a body this composer could not parse" },
+    o: { rows: [] }, b: { rows: [] },
+  });
+  if (!soft.includes("could not parse")) fail("a soft read must render its reason, never a bare zero");
+  if (!soft.includes("Could not establish")) fail("a soft read must be labelled distinctly from a zero");
+  // And the converse, which is the half a one-directional fixture would miss: a
+  // GENUINELY empty read must still render as a zero, not as an unestablished
+  // one. Collapsing the two in either direction defeats the distinction.
+  if (!empty.includes("**None.**")) fail("a genuine zero must still render as a zero");
+  if (empty.includes("Could not establish")) fail("a genuine zero must not be reported as an unestablished read");
+  if (/No served tier-1 line carries `kogaki` \(0 lines read\)/.test(soft)) {
+    fail("a soft read must not render as a successful read that matched nothing");
+  }
+
+  console.log("shape self-test: rendering, empty-statement, soft-read, cite-carrying, word-bound and walk cases pass");
   process.exit(0);
 }
 

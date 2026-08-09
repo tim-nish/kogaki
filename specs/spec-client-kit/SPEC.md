@@ -138,10 +138,30 @@ because nothing a successor loads at founding carried it). A successor's
 ### 3.2 Layer 1 is composed KIT-SIDE, and the gateway is unchanged
 
 The digest is assembled by the kit over reads the gateway **already serves** —
-`gloss_index`, `lessons_index`, `glossary_entry`, `surface_names`
-(`policy/CAPABILITIES.md:12-20`) — through the existing transport
+`gloss_index`, `surface_names`, `glossary_entry`, and for element 3
+`policy_lookup` (`policy/CAPABILITIES.md:12-20`) — through the existing transport
 `policy/kit/bin/gateway-query.mjs`. **No gateway tool is added and no gateway
 invariant is touched**; the server stays read-only and stays a server.
+
+**`policy_lookup` is named here deliberately, because it is the default
+CONSULTATION path and this clause is where a reader would otherwise have to
+reconcile the tool list with the code.** Element 3 — the consumer's
+role-assigned obligations — is the one element no enumeration tool answers: it is
+a question about what the surface *says* concerning a role, not a listing of
+identifiers. Using the consultation path to compose it **does not make the digest
+a consultation**; §3.5 settles that independently of which tool was called, and
+the property that matters is that the digest emits no receipt and substitutes for
+no consult. What would make it a consultation is a *gate leaning on its answer*,
+which §3.5 forbids in terms.
+
+**The consequence is stated rather than left implicit:** every install and every
+refresh calls the consultation path once. That is a read the gateway already
+serves to this consumer and it adds no path inward — but a kit tool calling the
+default consultation path by default, in every consumer, is a fact worth being
+able to find. Surfaced by PR #332's round-1 review, which reported the
+consultation-map's entry-2 boundary as touched and uncovered; whether that use
+needs a consultation occasion of its own is left to the map's own admission act
+and is not decided here.
 
 The declined alternative is recorded so it is not re-proposed blind: a
 `shape <consumer>` **gateway endpoint**. It is the better shape for N
