@@ -139,7 +139,7 @@ because nothing a successor loads at founding carried it). A successor's
 
 The digest is assembled by the kit over reads the gateway **already serves** —
 `gloss_index`, `surface_names`, `glossary_entry`, and for element 3
-`policy_lookup` (`policy/CAPABILITIES.md:12-20`) — through the existing transport
+`policy_lookup` (`policy/CAPABILITIES.md:11-20`) — through the existing transport
 `policy/kit/bin/gateway-query.mjs`. **No gateway tool is added and no gateway
 invariant is touched**; the server stays read-only and stays a server.
 

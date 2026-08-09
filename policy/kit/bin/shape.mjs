@@ -203,7 +203,7 @@ function obligations(consumer, gateway) {
     gateway,
   );
   if (r.fatal) return r;
-  if (r.soft) return { rows: [], note: r.soft };
+  if (r.soft) return { rows: [], unestablished: r.soft };
   const rows = collectLines(r.data).filter((l) => carriesConsumer(l.text, consumer));
   return { rows, pin: r.data?.pin, coverage: r.data?.coverage };
 }
@@ -271,7 +271,11 @@ function render({ consumer, pin, date, h, g, o, b }) {
     L.push("");
     L.push("Not a statement that no term is in scope — the enumeration did not complete.");
   } else {
-    L.push(`**None.** No served glossary term (of ${g.all ?? 0}) is mentioned in this repository's own policy surface.`);
+    // `g.note` carries the parsed-but-empty-extraction case (mutation M7's own
+    // state). The rewrite that split `unestablished` out dropped this read and
+    // left its producer unreachable, so a successful read whose EXTRACTION
+    // yielded nothing claimed something about this repository's scoping.
+    L.push(`**None.** ${g.note ?? `No served glossary term (of ${g.all ?? 0}) is mentioned in this repository's own policy surface.`}`);
   }
   L.push("");
 
@@ -279,6 +283,16 @@ function render({ consumer, pin, date, h, g, o, b }) {
   L.push("");
   if (o.rows?.length) {
     for (const r of o.rows) L.push(`- ${oneLine(r.text)}\n  \`${r.cite}\``);
+  } else if (o.unestablished) {
+    // The element the layer exists for is the LAST place a false "none found"
+    // should survive, and it was the last place it did: the paragraph below
+    // asserts the successor is reading a finding of none, which is exactly
+    // false over a read that never completed.
+    L.push(`**Could not establish.** ${o.unestablished}`);
+    L.push("");
+    L.push("Not a finding that no obligation is assigned — the read did not complete,");
+    L.push("so none was looked for. A successor MUST NOT read this as an empty inventory:");
+    L.push("that is the state this element exists to make impossible.");
   } else {
     L.push(`**None found.** ${o.note ?? "No served line names an obligation assigned to this consumer as a role."}`);
     L.push("");
@@ -361,6 +375,34 @@ function selfTest() {
   });
   if (!soft.includes("could not parse")) fail("a soft read must render its reason, never a bare zero");
   if (!soft.includes("Could not establish")) fail("a soft read must be labelled distinctly from a zero");
+  // ELEMENT 3 in both directions (PR #332 round 2, finding 6). The round-1 fix
+  // repaired elements 1 and 2 and left this one asserting a finding of none over
+  // a read that never completed — in the element the layer exists for. The soft
+  // case above passed `o: {rows: []}` with no marker, so element 3's soft path
+  // was never rendered in any assertion: the fixture's own blind spot is what
+  // let the collapse survive the commit that removed it.
+  const soft3 = render({
+    consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
+    h: { rows: [], all: 5 }, g: { rows: [], all: 5 },
+    o: { rows: [], unestablished: "policy_lookup returned a body this composer could not parse" },
+    b: { rows: [] },
+  });
+  if (!/Could not establish[\s\S]*could not parse/.test(soft3)) fail("element 3 must render an unestablished read as unestablished");
+  if (soft3.includes("nothing was found rather")) fail("element 3 must not assert a finding of none over a read that did not complete");
+  const none3 = render({
+    consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
+    h: { rows: [], all: 5 }, g: { rows: [], all: 5 }, o: { rows: [] }, b: { rows: [] },
+  });
+  if (!none3.includes("**None found.**")) fail("element 3 must still render a genuine zero as a zero");
+  // The parsed-but-empty EXTRACTION case (finding 7): a disclosure whose
+  // producer survives while its reader is deleted is a silent regression.
+  const emptyExtraction = render({
+    consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
+    h: { rows: [], all: 5 },
+    g: { rows: [], all: 0, note: "the served glossary enumeration came back empty" },
+    o: { rows: [] }, b: { rows: [] },
+  });
+  if (!emptyExtraction.includes("came back empty")) fail("a parsed-but-empty enumeration must render its own reason, not a scoping claim");
   // And the converse, which is the half a one-directional fixture would miss: a
   // GENUINELY empty read must still render as a zero, not as an unestablished
   // one. Collapsing the two in either direction defeats the distinction.
