@@ -128,6 +128,15 @@ The digest carries, for the declared consumer:
 4. one line per `policy/consultation-map.md` boundary;
 5. its **pin** and the date it was generated.
 
+**Every element that can render a zero renders its DENOMINATOR beside it
+(kogaki#334).** "None" alone cannot be told from "the read did not complete" or
+"three terms were dropped unread", and the digest's whole claim is that a
+successor can trust what it does not find. This is the per-artifact-decidable
+state of the rule quoted at §3.4: the violation is visible in the single artifact
+the digest already is, so stating it suffices and no mechanism is owed. Concretely
+it binds the **per-term** case §3.2's composer previously dropped in silence — a
+term whose own read could not be parsed is counted and named, never skipped.
+
 Item 3 is the load-bearing one and the reason the whole layer is worth its
 cost. An obligation assigned to a role rather than to a named carrier dies
 silently with whoever happened to implement it (kogaki#268 is the specimen: hub
@@ -208,6 +217,50 @@ The kit generates the digest at install time and refreshes it as a **mechanical
 pre-step of a spec sitting**: regenerate live, diff the vendored pin against
 the new pin, and present the **policy delta** before the sitting starts. The
 sitting's record carries the shape pin it ran under.
+
+**The host is DECIDED, filling §7 q3 (kogaki#334).** The pre-step is a
+**kit-provided step** — `policy/kit/bin/shape.mjs --delta` — which
+`commands/spec-sitting.md` invokes. The kit half is chosen over putting the
+logic in the command for the reason §2 already gives: a command file binds only
+the sittings that read it, and the kit is what every consumer installs by
+default. The command half is what makes the act *happen*, because a step nothing
+invokes is the defect this decision exists to end.
+
+**Its delta renders through the owner-register path of §8**, not as a receipt
+block — the delta is an owner surface, and §8 governs what those may carry.
+
+**§3.4's carrier state, marked rather than left carrier-less by omission.**
+Until that step lands, this section is an **obligation with no observing act**,
+and the served surface admits exactly three states for a stated policy:
+
+> "A stated policy is admissible in exactly THREE states — per-artifact-decidable
+> (state it), detector designed in (measure it), or deliberately carrier-less
+> (mark it, with a reopen trigger) — and **carrier-less BY OMISSION is the
+> defect**."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:105`
+  request_id: 278cf5cf-e748-4c1f-a52f-24d37be37dc8
+  outcome: discriminating
+  query: An obligation whose observing act was never built: is the remedy to make the absence visible at the act, and does a per-item absence owe a denominator beside its zero?
+
+So this is the **third** state, declared: **`instrument: none`** until the
+kit step and its invocation both land. **Reopen trigger:** the first spec sitting
+that runs with a stale vendored pin and surfaces no delta.
+
+**Who observes that trigger: nothing does, and the trigger is satisfied by
+construction today.** Nothing regenerates the digest, nothing diffs pins and
+nothing surfaces a delta — so no sitting can tell its vendored pin is stale, and
+the condition holds for *every* sitting rather than discriminating one. Written
+down rather than left implied, because a reopen trigger nobody observes is the
+same defect this section is marking, one level in. The repository's own worked
+precedent says it in the same terms: `policy/consultation-map.md`'s
+`instrument: none` records that "it fires only where someone happens to look, and
+saying so is the point of writing it down."
+
+**Its observer arrives with the act it is waiting for**: once the delta step
+lands, the step itself surfaces a stale pin, and the trigger becomes observable
+by the thing whose absence it was declared for. Until then the honest reading is
+that this hold is norm-carried and nothing will announce it.
 
 The declined alternative is a **CI cron in the consumer repo**, and it is dead
 on two independent mechanical facts rather than on taste: the digest is
@@ -366,6 +419,9 @@ and says nothing about when the hub reads.
 | §3.5 awareness-never-substitution | every **sitting** |
 | §4.1–4.4 the emission duty and its format | every **sitting** in a kit-installed repo |
 | §4.5 visible absence | the **kit** (writer) and the **lane** (read) |
+| §8.1 Question/Answer/Conclusion, pins off the owner surface | every **sitting** |
+| §8.2 the emission itself | the **kit** (`consult.mjs`); the skill relays, and is never the sole carrier |
+| §8.3 the pin-token deny | the **kit**, as a declared fast path only |
 
 ## 6. Out of scope, by decision
 
@@ -374,6 +430,10 @@ and says nothing about when the hub reads.
 - **Promotion of any emission** — §4.2; the hub's gate is the sole path.
 - **A gate on either clause** — §3.5 and §4.5; both are obligations, and this
   spec's carriers are reports.
+- **A positive admission test at the owner-surface seam** — §7 q4, named and
+  deliberately not built here.
+- **Any change to the receipt grammar or its destinations** — `specs/SPEC.md` §4
+  is untouched by §8, which adds a surface rather than moving one.
 
 ## 7. Open — carried as questions, never as contract
 
@@ -386,15 +446,133 @@ and says nothing about when the hub reads.
 2. **Whether the lane read of §4.5 is one read or per-lane.** Stated as a
    question because a per-lane answer is the enumeration shape this repository
    refuses elsewhere, and a single read has no obvious home yet.
-3. **Where the §3.4 spec-sitting pre-step lives** — in `commands/spec-sitting.md`
-   itself, or in a kit-provided step that command invokes. §3.4 binds the **act**
-   and is deliberately silent on its **host**, so this is a live fork and it is
-   **named here rather than left to the implementation**. The rule is ratified
-   portfolio-wide and an unnamed deferral is the defect it identifies: *"a sitting
-   that leaves a design choice to the implementation either DECIDES the fork
-   there … or emits a NAMED SLOT whose filling is itself a decision act — consult,
-   then record choice, alternatives and receipt on the licensing issue BEFORE code
-   embeds it."*
-   `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:60`
-   This slot was missing from v1 while q1 and q2 were named — the asymmetry was
-   the tell, and it was found by PR #331's review rather than by the sitting.
+3. ~~**Where the §3.4 spec-sitting pre-step lives.**~~ **FILLED 2026-08-10
+   (kogaki#334):** a kit-provided step, `shape.mjs --delta`, invoked by
+   `commands/spec-sitting.md` — decided at §3.4 with its grounds, alternatives and
+   receipt, before any code embedded it, which is what the decide-or-name rule
+   asks of a named slot. Struck rather than deleted so the fill is legible as a
+   decision act; §3.4 carries the content.
+4. **What a positive admission test at the owner-surface seam would be**
+   (§8.3). The served position demotes the lexicon grep to a fast path and puts
+   the load on a positive admission test; §8 ships the grep and the emission and
+   **names this rather than building it**. Filling it is its own decision act with
+   its own consult and receipt. **This is a NAMED SLOT, not an omission** — the
+   distinction §3.4 above now turns on.
+
+## 8. The owner-register rendering of a consultation (kogaki#320)
+
+**Owner ruling 2026-08-09.** A consultation reaches the owner today as a pin
+block — `consulted: <repo>@<sha> <file>:<line>`, `request_id:` — which tells them
+exactly one thing, *that a consultation happened*, and nothing they can act on.
+
+### 8.1 Three parts, and the pin is not one of them
+
+An owner-facing display of a consultation carries **Question**, **Answer** and
+**Conclusion**: the question verbatim, what the served surface answered as
+readable text rather than as an address, and the conclusion drawn from it.
+
+**Presentation:** this does not fit inside a question UI, so it does not go
+there. **Before a question UI appears, ordinary screen output carries Question
+and Answer together, followed by the one Conclusion derived from them.** The
+question itself stays compact.
+
+**The pin is machine-facing.** Pins, `request_id`, and the `consult-receipt:`
+block keep their grammar and their destinations exactly — receipts in PR bodies,
+issue bodies, run records, spec amendments (`specs/SPEC.md` §4, unchanged by this
+section) — and do not render on an owner surface.
+
+### 8.2 The kit EMITS it; the skill relays it; neither alone is the carrier
+
+`policy/kit/bin/consult.mjs` emits the owner-register block **beside** the
+receipt. The consult-first skill's relay rule points at that emission, and the
+agent composes the **Conclusion** line, since only the agent holds the
+conclusion.
+
+**Why the kit and not the skill alone.** §2 refuses skill-as-sole-carrier, and
+this is the case that shows why: the receipt grammar is **the only rendering of
+a consultation the kit has ever produced**, so a skill instructed to relay
+something better had nothing better to relay. The defect is a missing emission,
+not a disobedient reader.
+
+**Recorded because it is this repository's own evidence:** the `/ship-cycle`
+session that authored this section spent its preceding run rendering
+`receipt: <repo>@<sha> <file>:<line>` into every gate it raised, having read the
+governing contract. The tokens were composed deliberately, from the only
+material available. That is the emission argument observed from inside rather
+than reasoned about.
+
+### 8.3 The deny is the FAST PATH, and saying so is the point
+
+Owner surfaces carrying pin-shaped tokens (`consulted:`, `request_id:`,
+`@<sha>`) are a deniable class. **This is not the remedy and must not be
+recorded as one:**
+
+> "grep the known internal vocabulary at the boundary; **but that grep covers
+> only the coined-identifier sub-class**, and the wider class is text internal
+> in REGISTER while made of ordinary words, which no denial list can reach
+> because deletion cannot cross registers — that half needs **a positive
+> admission test at one typed owner-surface seam, with the lexicon grep demoted
+> to a fast path there**."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:63`
+  request_id: ecdbf8bd-a08b-47c5-a68c-086f3ca342c3
+  outcome: discriminating
+  query: Should an owner-facing display of a consultation show the question, the answer text and the conclusion, with machine-facing pins and request ids kept off the owner surface?
+
+`consulted:`, `request_id:` and `@<sha>` are coined identifiers — exactly the
+sub-class the grep reaches — so the deny is correctly placed **as the fast
+path**. What it cannot reach is a rendering that strips every pin and still
+reads as an audit artifact: machine-facing in register, ordinary in words. That
+would pass the deny and fail this section. **The positive admission test is
+§7 q4, named and not built.**
+
+### 8.4 One conflict with the gate-declaration carrier, and its resolution
+
+`lint-gate-declaration.py` requires a `recommendation`-declared question to carry
+a `receipt:` **or** an `outcome:` line **in the question text** — which is an
+owner surface. Read carelessly the two contracts contradict.
+
+They do not: `outcome: discriminating` is a **token**, not a pin, and the hook
+accepts it alone. **A gate satisfies both by carrying `outcome:` and no
+`receipt:`.** Stated here rather than left for the next author to hit, because
+the natural reading — that this section forbids a conformant gate declaration —
+would stall a lane over a conflict that does not exist.
+
+**The hook is NOT in this repository, and this subsection is unfalsifiable from
+inside it without saying so.** `lint-gate-declaration.py` is installed
+**actor-level** at `~/.claude/hooks/`, owned by `claude-toolkit`;
+`.claude/hooks/` here holds only `review-trigger.py`. A reader who greps for it
+finds nothing and stalls one step later than the stall this subsection exists to
+prevent. Declared in this repository's own convention for an off-repo carrier:
+
+    instrument: cross-repo(tim-nish/claude-toolkit — lint-gate-declaration.py,
+    installed actor-level at ~/.claude/hooks/; no act in this repository can
+    observe its contract, and it is not vendored here)
+
+**And what the compatibility claim rests on is stated, because it is the weaker
+kind of evidence.** That the hook accepts `outcome:` alone was established by
+**reading its source** — which is existence evidence, and this is a **disposition**
+question about two live records:
+
+> "A status question has two halves that behave very differently. **Whether
+> something was built** is local, mechanically self-evident, free to check, and
+> looks final … whereas **whether it is still accepted, rejected, or superseded**
+> lives in prose somewhere else and never surfaces unless you deliberately go
+> looking … Before claiming anything is implemented, complete, or ready, ask what
+> evidence you are holding."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/knowledge-architecture.md:287`
+  request_id: ed061de8-7f13-417c-923e-401577c9e712
+  outcome: discriminating
+  query: What does consultation-map entry 3 prescribe be surveyed before adopting one record as the live word on a decision's disposition?
+
+So the claim is scoped to what the evidence supports: **the hook's implementation
+as read at this pin admits `outcome:` alone.** Whether its *owner* intends that
+form to remain admissible is a disposition only `claude-toolkit` can settle, and
+this section does not assert it. If that repository narrows the requirement to
+`receipt:`, the conflict §8.4 dissolves becomes real and this subsection is the
+thing to reopen.
+
+**Not amended here:** the hook, the declaration grammar, and `specs/SPEC.md` §4's
+receipt grammar are all untouched. This section moves nothing out of a PR or
+issue body.
