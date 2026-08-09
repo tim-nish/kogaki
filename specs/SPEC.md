@@ -819,7 +819,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
      defining it — no numeric assignment to `MAX_ROUNDS` survives that file
      after kogaki#305 — which is the whole point of the item: the old literal
      was a copy of this clause, and a second copy in the toolkit would have
-     made three. The declaration site is per-repo because the hook family
+     made three. **`checks/check-review-report.sh` binds it too**, and that
+     is load-bearing rather than tidiness: clause 10's record-side rounds
+     observation is named below as "the backstop that sees a crossed bound
+     whoever produced it", and it carried its own `bound=2` default until
+     kogaki#305 — so raising the declaration would have left the declared
+     backstop still observing at the old number and reporting a crossing on
+     every legal round. Found by the review lane on PR #307, round 1; the
+     fixture pass there pins its own bound and stays hermetic, because what
+     it exercises is the counting's discrimination rather than what this
+     repository declares. The declaration site is per-repo because the hook family
      that reads it is installed **actor-wide**: a literal compiled into a
      user-level hook would impose this repository's clause on every
      repository the actor touches, including those with no reviewer-round

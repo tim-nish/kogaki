@@ -1319,8 +1319,44 @@ print(f"trust pass: {len(TRUST_FIX)}/{len(TRUST_FIX)} author-filter cases "
       "(foreign-report-spoof / trusted / hostage-inverse / allowlist / chatty)")
 
 
-def _rounds_observation(bodies, bound=2):
+def _declared_round_bound():
+    """§4 clause 3's bound, READ from its single declaration (kogaki#305).
+
+    This function used to be the place a second numeric copy of the bound
+    lived — a `bound=2` default, called argument-less by the live pass, in a
+    REGISTERED CHECK, while clause 3 declared the number single-sourced. The
+    clause's own closing sentence names this observation as "the backstop that
+    sees a crossed bound whoever produced it", so a private copy here would
+    have meant raising `review_rounds_max` to 3 leaves the declared backstop
+    still observing at 2 and reporting a crossing on every legal round 3.
+    Found by the review lane on PR #307, round 1.
+
+    Returns None rather than raising when the declaration is absent or
+    unreadable. This is the opposite direction from `tools/review-sweep.sh`'s
+    `_round_bound()`, which exits, and the asymmetry is the report-vs-gate
+    split rather than an inconsistency: the sweep is about to SPEND a round
+    and must not do so unbounded, while this line only OBSERVES and "never
+    gates" — so an unresolvable bound here makes the observation
+    cannot-determine and says so, and never fails a PR for a config read.
+    """
+    try:
+        declared = json.loads(
+            open(".claude/review-lane.json").read())["review_rounds_max"]
+    except (OSError, KeyError, ValueError):
+        return None
+    if not isinstance(declared, int) or isinstance(declared, bool) or declared < 1:
+        return None
+    return declared
+
+
+def _rounds_observation(bodies, bound=None):
     """kogaki#290: the §4 clause 3 bound, OBSERVED at the record. Never gates.
+
+    `bound` defaults to the declared value (kogaki#305). The fixture pass
+    below passes its own explicit bound and stays hermetic — it exercises the
+    counting's DISCRIMINATION, which is not a property of what this repository
+    happens to declare, and a fixture reading repo config would go green or
+    red with an edit to a file it is not testing.
 
     Returns the lines to print (empty when the record is inside the bound), so
     the fixture pass below asserts on them and the live pass prints them.
@@ -1395,7 +1431,7 @@ for name, fx_bodies, want_lines in [
     ("a third head that is only a fragment adds nothing",
      "\n".join([_seg(_R1), _seg(_R2), _frag(_R3)]), 0),
 ]:
-    got = _rounds_observation(fx_bodies)
+    got = _rounds_observation(fx_bodies, bound=2)
     if len(got) != want_lines:
         rounds_bad.append(f"{name}: {len(got)} line(s), want {want_lines}")
     if want_lines and "3 distinct heads" not in got[0]:
@@ -1490,8 +1526,15 @@ state, shas = find_report(bodies, head)
 # state — a crossed bound is exactly as worth seeing on a red PR as on a
 # green one, and the specimen (PR #287) was red for a different reason when
 # its third round landed unobserved.
-for _line in _rounds_observation(bodies):
-    print(_line)
+_declared_bound = _declared_round_bound()
+if _declared_bound is None:
+    print("rounds observation: CANNOT-DETERMINE — §4 clause 3's bound is not "
+          "readable at its declaration (.claude/review-lane.json, "
+          "`review_rounds_max`), so a crossing cannot be observed here. "
+          "Reported, never gated (kogaki#290, kogaki#305).")
+else:
+    for _line in _rounds_observation(bodies, bound=_declared_bound):
+        print(_line)
 
 
 def _report_blocked_dimensions():
