@@ -680,11 +680,32 @@ print(",".join(f"Bash(bash checks/{c['file']}:*)" for c in reg.get("checks", [])
 GRANTS
 )"
 
+# `Edit` IS GRANTED TO THE REVIEW ROLE (kogaki#310, owner selection
+# 2026-08-09), and it is NOT a capability increase. The role already holds
+# `Write`, and anything `Edit` does to a file `Write` does by overwriting it —
+# so the asymmetry against FIX_TOOLS below granted the fixer no capability
+# class the reviewer lacked. It only made the reviewer take a clumsier route,
+# and when it did not, the round DIED: PR #313's round 1 exited 1 with no
+# report, spending one owner grant and one of the two rounds §4 clause 3
+# allows.
+#
+# NO `Bash(grep...)` MEMBER IS ADDED, and that is the more interesting half.
+# kogaki#310 was filed on the premise that shell grep is denied by its absence
+# here. Story 1.47 AC 2 required the shape be EXERCISED HEADLESS before it
+# shipped — the file's own rule (kogaki#74) — and the exercise falsified the
+# premise: under this exact allowlist minus Edit, `grep -c ...` and
+# `<granted> | grep ...` both RAN, while `rm -f` and `Edit` were refused. The
+# probe discriminates in both directions, so it is not merely permissive.
+# Adding the member would have grown the enumeration by an entry with no
+# defect behind it, which is precisely what kogaki#74's warning exists to
+# prevent. The original round-2 grep denial therefore had another cause; the
+# leading suspect is this file's own terminal_key() gate, and it is recorded
+# on the issue rather than guessed at here.
 REVIEW_TOOLS="${KOGAKI_REVIEW_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr list:*),\
 Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr comment:*),Bash(gh run:*),\
 ${CHECK_TOOLS:+$CHECK_TOOLS,}\
-Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,Write,\
+Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,Edit,Write,\
 mcp__tsurezure__policy_lookup,mcp__tsurezure__gloss_index,\
 mcp__tsurezure__glossary_entry,mcp__tsurezure__topic_thread,\
 mcp__tsurezure__element_survey,mcp__tsurezure__surface_names,\
