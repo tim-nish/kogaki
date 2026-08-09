@@ -517,14 +517,14 @@ fi
 # creation) and is a stated no-op, never a failure.
 if [ -n "$TARGET_PR" ]; then
   if ! one="$(gh pr view "$TARGET_PR" \
-              --json number,headRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
+              --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
     echo "FAIL could not establish the substrate: gh pr view $TARGET_PR failed." >&2
     exit 1
   fi
   prs="[$one]"
 elif [ -n "$TARGET_BRANCH" ]; then
   if ! prs="$(gh pr list --state open --head "$TARGET_BRANCH" \
-              --json number,headRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
+              --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
     echo "FAIL could not establish the substrate: the gh lookup failed." >&2
     exit 1
   fi
@@ -533,7 +533,7 @@ elif [ -n "$TARGET_BRANCH" ]; then
     exit 0
   fi
 elif ! prs="$(gh pr list --state open --limit "$LIMIT" \
-            --json number,headRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
+            --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
   echo "FAIL could not establish the substrate: the gh lookup failed." >&2
   exit 1
 fi
@@ -720,6 +720,16 @@ SWEEP_MAX_TURNS_PINNED="$REVIEW_MAX_TURNS_PINNED" \
 python3 <<'PYEOF'
 import fnmatch, json, os, re, shutil, subprocess, sys, tempfile, time
 
+# THE HEAD-RESOLUTION UNIT IS LOADED, NEVER RESTATED (§4 clause 7 v2,
+# kogaki#308). `same_head` and `head_segments` used to be defined here and the
+# merge gate defined its own; the two answered "is this head reviewed?" with
+# different units and the disagreement cost an owner grant and a review round
+# per moved head. `segments()` below stays LOCAL and duplicated on its own
+# ratified grounds — clause 7 v2 shares the RESOLUTION, never the parser.
+HEAD_RESOLUTION_PATH = "lib/head_resolution.py"
+with open(HEAD_RESOLUTION_PATH, encoding="utf-8") as _fh:
+    exec(compile(_fh.read(), HEAD_RESOLUTION_PATH, "exec"))
+
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
     r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b'
@@ -751,6 +761,16 @@ FINDING = re.compile(
 # mentioning `report-complete:` is a mention and never a declaration.
 SCOPE = re.compile(r'^\s*review-scope:\s*(full|delta)\s*$', re.M)
 COMPLETE = re.compile(r'^\s*report-complete:\s*(\d+)\s+findings?\s*$', re.M)
+# §4 clause 7's `review-base:` — READ HERE FOR THE FIRST TIME (v2, kogaki#308).
+# This file contained the string `review-base` exactly once, inside the prompt
+# telling the reviewer to WRITE the line, and never read it. That is why
+# `decide()` could not use the carry-forward the merge gate computes: the unit
+# needs A's declared base and the sweep's segments carried none. Anchored
+# WHOLE, same 7-40 hex sha, same single pass, FIRST DECLARATION WINS — the
+# grammar `checks/check-review-report.sh:310` already fixed, matched here
+# rather than re-decided, or the two parsers become the next pair that
+# disagree.
+BASE = re.compile(r'^\s*review-base:\s*([0-9a-f]{7,40})\s*$', re.M)
 # A SPAWNED ROUND WHOSE OUTCOME COULD NOT BE READ (kogaki#190). Its own token,
 # on the same anchored-whole-line grammar as the three above, and DELIBERATELY
 # NOT the report token: `segments()` never opens a segment for it, so it can
@@ -1300,16 +1320,6 @@ def fix_log_path(pr, rnd):
     means telling who did what, and one interleaved log cannot answer that.
     """
     return os.path.join(LOG_DIR, f"pr-{pr}-fix-{rnd}.log")
-
-
-def same_head(a, b):
-    """Do these two shas name the same head? Abbreviations match either way.
-
-    The same predicate `head_segments()` already applies, lifted out so the
-    cycle count and the presence side cannot drift apart on what "this head"
-    means.
-    """
-    return bool(a) and bool(b) and (a.startswith(b) or b.startswith(a))
 
 
 def unverified_marks(bodies):
@@ -2642,11 +2652,17 @@ def segments(bodies):
         r = REPORT.match(line)
         if r:
             cur = {'sha': r.group(1), 'findings': [],
-                   'scope': None, 'complete': None, 'bad_disp': []}
+                   'scope': None, 'complete': None, 'bad_disp': [],
+                   'base': None}
             segs.append(cur)
             continue
         if cur is None:
             continue        # a declaration before any report belongs to none
+        b = BASE.match(line)
+        if b:
+            if cur['base'] is None:      # first declaration wins
+                cur['base'] = b.group(1)
+            continue
         s = SCOPE.match(line)
         if s:
             if cur['scope'] is None:
@@ -2756,17 +2772,6 @@ def scope_of(seg):
     return seg['scope'] or 'full'
 
 
-def head_segments(segs, head):
-    """The segments naming THIS head — abbreviated shas match either way.
-
-    Shares `same_head()` with the cycle count (kogaki#190) rather than
-    restating the prefix test: "this head" is one question, and the presence
-    side and the budget side answering it differently is precisely the
-    two-instruments-disagree shape this file was already carrying.
-    """
-    return [s for s in segs if same_head(head, s['sha'])]
-
-
 def head_scope(bodies, head):
     """(scope, declared) for this head's counted report, or (None, False).
 
@@ -2862,7 +2867,8 @@ def report_dispositions(current, downgraded):
           "PR #221, #231 and #240")
 
 
-def decide(bodies, head, resolves=None):
+def decide(bodies, head, resolves=None, base=None,
+           diff_at=None, merge_base=None):
     """The sweep's whole state machine, as a pure function.
 
     Returns one of:
@@ -2929,7 +2935,50 @@ def decide(bodies, head, resolves=None):
               "gate stays red; what they establish is only that the round was "
               "paid for. Route logs are named on the PR beside each "
               "`review-round-unverified:` line")
-    current = head_segments(segs, head)
+    # THE CARRY-FORWARD IS CONSUMED HERE (§4 clause 7 v2, kogaki#308). Before
+    # this, `current` was `head_segments(segs, head)` — sha identity alone —
+    # while the merge gate resolved the SAME question by diff hash. A head
+    # that moved without changing content therefore read `not reviewed` here
+    # and `reviewed` there, and the disagreement spent the bounded resource:
+    # with rounds remaining this function returned `spawn-round-N` and the
+    # sweep paid an owner grant and a round to re-read a byte-identical diff.
+    #
+    # The reads are INJECTED and default to None, so every existing fixture
+    # calls this exactly as it did and gets exactly what it got. A caller that
+    # supplies no base gets sha-identity resolution — not a silent downgrade,
+    # because it is the same answer the caller asked for before.
+    carried = []
+    if base and diff_at and merge_base:
+        carried, record = carry_forward(bodies, head, base, diff_at,
+                                        merge_base, segments)
+        # THE RECORD IS PRINTED, NOT DISCARDED (PR #321 round 1). The first
+        # form of this bound it to `_record` and printed only on the positive
+        # branch — so a carry-forward that could NOT be computed (an
+        # unresolvable base; a `base...head` diff git could not read, which is
+        # the ORDINARY case for a head never fetched into this worktree) and
+        # one computed as `DIFFERS, stale` were both indistinguishable from
+        # "no carry-forward was attempted at all". That is the silent
+        # re-derivation clause 7 forbids at its pin, and the unit's own
+        # docstring names it: "the equality is RECOMPUTED AND RECORDED, never
+        # assumed … a carry-forward that left no record is the silent
+        # re-derivation". The gate has always printed every line; the sweep
+        # printed none of the negative ones, which is the state-absence
+        # discipline this repository applies everywhere else inverted.
+        for _line in record:
+            print(f"  clause-7 {_line}")
+        # ANNOUNCED, on this function's established discipline: every other
+        # discount and charge above says so before any return. A head that is
+        # reviewed only BY CARRY-FORWARD is the more surprising of the two —
+        # the PR carries no report naming this sha and the state machine
+        # calls it reviewed anyway — so it is the one that most owes a line.
+        if carried:
+            print(f"NOTE: {len(carried)} report(s) carry forward to {head[:7]} "
+                  "— the diff at this head is BYTE-IDENTICAL to the diff they "
+                  "reviewed (§4 clause 7). This head is reviewed and NO round "
+                  "is spent; a carry-forward is not a round and consumes none "
+                  "of clause 3's bound. Shas: "
+                  + ", ".join(c[:7] for c in carried))
+    current = head_segments(segs, head, carried)
     if any(counted(s) for s in current):
         # Only a JUSTIFIED blocking gates (kogaki#72): an unjustified one
         # fails toward merge as a should — same rule as the presence check.
@@ -3611,6 +3660,70 @@ def _ALL(_sha):
 bad = [f"{n}: got {decide(b, h, _ALL)!r}, want {w!r}"
        for n, b, h, w in FIX if decide(b, h, _ALL) != w]
 
+# --- AC 5: THE MOVED HEAD WHOSE DIFF DID NOT CHANGE (§4 clause 7 v2, #308) --
+#
+# The table above has no such case, and three of its eight cases encode the
+# sha-only reading as CORRECT — `one stale report -> round 2` and `two stale
+# reports -> park` are exactly this shape with the diff-equality question
+# never asked. So the suite certified the shape it was built in, which is why
+# the defect survived every green run.
+#
+# THE RED DEMONSTRATION IS PERMANENT RATHER THAN A ONE-OFF. AC 5 asks that the
+# case fail before the fix; a manual revert-and-rerun proves that once and
+# leaves nothing behind. Instead each case is decided TWICE — once through the
+# resolution this clause installed, once through the sha-identity resolution
+# it replaced — and the fixture asserts they DISAGREE. A future edit that
+# quietly restores sha-only resolution turns this red, which a single-answer
+# assertion could not do.
+_MOVED, _OLD, _MBASE = "aaaaaaa", "bbbbbbb", "ccccccc"
+_SAME_DIFF = "--- a/f\n+++ b/f\n@@ -1 +1 @@\n-x\n+y\n"
+_OTHER_DIFF = _SAME_DIFF + "@@ -9 +9 @@\n-p\n+q\n"
+
+
+def _reads(table):
+    """(diff_at, merge_base) over a dict, through the SHARED form."""
+    return make_git_readers(
+        lambda *a: table.get(a[-1]) if a[0] == "diff" else _MBASE)
+
+
+_carry_body = (f"review-lane report: {_OLD}\nreview-base: {_MBASE}\n"
+               "finding: nit open  y\nreport-complete: 1 findings")
+
+CARRY_FIX = [
+    # The expensive case: rounds remain, so sha-identity SPENDS one.
+    ("a moved head whose diff is IDENTICAL is reviewed, not a new round",
+     _carry_body, {_MBASE + "..." + _MOVED: _SAME_DIFF,
+                   _MBASE + "..." + _OLD: _SAME_DIFF},
+     'done', 'spawn-round-2'),
+    # The cheap case: the bound is spent, so sha-identity PARKS a mergeable PR.
+    ("a moved head whose diff is IDENTICAL does not park a mergeable PR",
+     _carry_body + f"\nreview-lane report: 8888888\nreview-base: {_MBASE}",
+     {_MBASE + "..." + _MOVED: _SAME_DIFF,
+      _MBASE + "..." + _OLD: _SAME_DIFF,
+      _MBASE + "...8888888": _OTHER_DIFF},
+     'done', 'park'),
+    # The discriminating negative: content really changed, so nothing carries.
+    ("a moved head whose diff DIFFERS still spends a round",
+     _carry_body, {_MBASE + "..." + _MOVED: _OTHER_DIFF,
+                   _MBASE + "..." + _OLD: _SAME_DIFF},
+     'spawn-round-2', 'spawn-round-2'),
+]
+
+for _name, _body, _table, _want, _want_old in CARRY_FIX:
+    _d, _m = _reads(_table)
+    _got = decide(_body, _MOVED, _ALL, base=_MBASE, diff_at=_d, merge_base=_m)
+    if _got != _want:
+        bad.append(f"carry-forward [{_name}]: got {_got!r}, want {_want!r}")
+    # The same inputs through the OLD unit — no base, so sha identity alone.
+    _got_old = decide(_body, _MOVED, _ALL)
+    if _got_old != _want_old:
+        bad.append(f"carry-forward [{_name}] pre-fix baseline: got "
+                   f"{_got_old!r}, want {_want_old!r}")
+    if _want != _want_old and _got == _got_old:
+        bad.append(f"carry-forward [{_name}]: the new resolution agrees with "
+                   "the sha-only one on a case that must discriminate — the "
+                   "fix is not in force")
+
 # --- the driver's own decision (kogaki#53) --------------------------------
 # `decide` says WHAT the state is; this says whether a FIX is spawned for it.
 # The cap is the clause worth exercising: with the rounds spent, an
@@ -4265,8 +4378,94 @@ if bad:
     for b in bad:
         print(f"  {b}")
     sys.exit(1)
+
+# --- AC 2: THE AGREEMENT FIXTURE (§4 clause 7 v2, kogaki#308) ---------------
+#
+# Clause 7 v2 mandates "one definition and an agreement fixture". The
+# definition is `lib/head_resolution.py`; this is the fixture, and it runs in
+# BOTH consumers rather than in one, because a check that lives only in the
+# gate cannot observe the sweep drifting and vice versa.
+#
+# It asserts two different things, and the second is the one a shared module
+# does NOT give you for free:
+#   1. the unit is REACHED THE SAME WAY — the other consumer's source carries
+#      the identical path constant. A consumer that copied the functions back
+#      in, or reached a different file, fails here even though its own tests
+#      would all pass.
+#   2. the unit ANSWERS THE SAME WAY on vectors that discriminate — including
+#      the moved-head case the whole clause exists for.
+_agree_fail = []
+# The OTHER consumer, named as a plain constant — one literal per file. The
+# first form computed it (`"check-review-report" in __file__ ? ... : ...`),
+# which folds at authoring since both operands are literals: it READ as a
+# self-identifying dispatch while being nothing of the kind, and a verbatim
+# copy of this block into the other consumer would fold to the SAME arm and
+# point that consumer at ITSELF — whereupon the redefinition test scans its own
+# source, finds no local definition, and passes unconditionally. That is the
+# orphan guard the anchoring below exists to prevent, one line above it.
+_HR_OTHER = "checks/check-review-report.sh"
+try:
+    with open(_HR_OTHER, encoding="utf-8") as _f:
+        _other_src = _f.read()
+    # Anchored WHOLE for the same reason the duplicate test below is: this
+    # fixture quotes the constant, so an unanchored search finds its own text
+    # in the other file and passes unconditionally — an orphan guard that
+    # cannot fail. Caught by exercising the drift, not by inspection.
+    if not re.search(r'^HEAD_RESOLUTION_PATH = "lib/head_resolution\.py"$',
+                     _other_src, re.M):
+        _agree_fail.append(
+            f"{_HR_OTHER} does not reach the head-resolution unit by the "
+            "shared path constant — one consumer has drifted, and clause 7 "
+            "v2's single definition is single in name only")
+    # Anchored at LINE START — the detector's own literals sit inside a tuple
+    # in this very fixture, which is present in both files, so an unanchored
+    # search reports every consumer as a duplicator including the compliant one.
+    for _dup in ("def same_head(", "def head_segments(", "def carry_forward("):
+        if re.search("^" + re.escape(_dup), _other_src, re.M):
+            _agree_fail.append(
+                f"{_HR_OTHER} redefines `{_dup[4:-1]}` locally — the "
+                "two-instruments shape has reappeared")
+except OSError as _e:
+    _agree_fail.append(f"could not read {_HR_OTHER} to check agreement: {_e}")
+
+# The vectors. `same_head` is symmetric and abbreviation-tolerant; a carried
+# sha is this head's segment; the moved-head/identical-diff case resolves
+# through content rather than through sha identity.
+_A, _B = "abc1234", "abc1234def5678"
+if not (same_head(_A, _B) and same_head(_B, _A) and not same_head(_A, "999")):
+    _agree_fail.append("same_head disagrees with its own contract")
+_segs = [{"sha": "9999999"}, {"sha": "abc1234"}]
+if [x["sha"] for x in head_segments(_segs, "abc1234")] != ["abc1234"]:
+    _agree_fail.append("head_segments does not resolve by sha")
+if [x["sha"] for x in head_segments(_segs, "abc1234", ("9999999",))] != \
+        ["9999999", "abc1234"]:
+    _agree_fail.append("head_segments does not admit a CARRIED segment as "
+                       "this head's — clause 7's second instrument is dead")
+if digest("x") != digest("x") or digest("x") == digest("y"):
+    _agree_fail.append("digest is not a function of its input")
+# The form is part of the resolution: a consumer rendering the diff
+# differently would compare two different strings for identical content.
+_seen = []
+_da, _mb = make_git_readers(lambda *a: _seen.append(a) or "")
+_da("BASE", "REV")
+if _seen[0] != ("diff", "--no-color", "--unified=3", "BASE...REV"):
+    _agree_fail.append(f"the shared diff FORM has drifted: {_seen[0]!r}")
+
+if _agree_fail:
+    for _m in _agree_fail:
+        print(f"FAIL head-resolution agreement: {_m}")
+    raise SystemExit(1)
+print("head-resolution agreement: the unit is reached by one path from both "
+      "consumers, neither redefines it, and it answers identically on "
+      "sha-identity, carried-segment, digest and diff-form vectors "
+      "(§4 clause 7 v2)")
+
 print(f"fixture pass: {len(FIX)}/{len(FIX)} state-machine cases "
-      "(round 1 / round 2 / park / done / author-owes / stale-segment)")
+      "(round 1 / round 2 / park / done / author-owes / stale-segment), plus "
+      f"{len(CARRY_FIX)}/{len(CARRY_FIX)} clause-7 v2 moved-head cases each "
+      "decided TWICE — through the shared resolution and through the "
+      "sha-identity one it replaced — with the disagreement asserted "
+      "(kogaki#308 AC 5)")
 print(f"driver pass: {len(DRIVE)}/{len(DRIVE)} fix-spawn cases "
       "(spawn on blocking / no fix without blocking / no fix without a report "
       "/ CAP BINDS with rounds spent / stale blocking summons nothing)")
@@ -4617,7 +4816,13 @@ for pr in prs:
         print(f"  #{n}: FAIL could not read comments — not treated as 'no report'")
         counts['unestablished'] = counts.get('unestablished', 0) + 1
         continue
-    state = decide(bodies, head)
+    # The base rides the SAME `gh pr list` the head sha came from — one more
+    # field on a read already made, never a second request.
+    _base = pr.get("baseRefOid") or None
+    _d_at, _m_base = make_git_readers(
+        lambda *a: (lambda r: r.stdout if r.returncode == 0 else None)(_git(*a)))
+    state = decide(bodies, head, base=_base,
+                   diff_at=_d_at, merge_base=_m_base)
     counts[state.split('-round-')[0]] = counts.get(state.split('-round-')[0], 0) + 1
     # WHAT THE REPORT ATTESTS TO IS PART OF THE LINE (§4 clause 5). The gate
     # reads presence and open-blocking identically whatever the round, so a
