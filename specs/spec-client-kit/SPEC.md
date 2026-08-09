@@ -49,6 +49,36 @@ other clause of this spec is **fresh** under §4.5.1 clause 2.
 
 **Divergence register:** none as of v1.
 
+**The disposition was consulted, and one clause of the inherited document is
+SUPERSEDED.** A ratification date is a fact about a commit; whether that
+ratification is still the *live word* is a fact about neither the commit nor the
+line, and §4 of the founding spec declares adopting a record as the live word to
+be a consultation occasion in its own right. Asked, and discriminating:
+
+> "the ratified spec's home clause is **SUPERSEDED** rather than silently
+> edited … `specs/tsurezure-client-kit.md` §1's 'implementation home is the
+> tsurezure-gateway repository' is superseded by a one-line amendment;
+> **capabilities, invariants, the #113 acceptance target and the Layer-2 held
+> clause are untouched**."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:75`
+  request_id: 27a1f0b3-9aa5-4141-b735-612f93eeaf99
+  outcome: discriminating
+  query: Is the ratified tsurezure-client-kit spec still the live word on the kit's design, or has its disposition been superseded, and can a hub repository spec path's standing be checked through the served surface at all?
+
+So the four properties inherited above are **invariants**, which the served line
+names as untouched, and the inheritance stands. The one superseded clause is the
+*home* clause — which §0 already contradicts in substance, since kogaki holds the
+kit — and it is named here rather than left for a reader to reconcile.
+
+**The inherited document's standing is NOT checkable through the seam, and that
+is a property of this inheritance rather than a gap in it.**
+`specs/tsurezure-client-kit.md` is a hub *repository* path; `surface_names`
+enumerates served surfaces and never returns it, and neither pin currency nor
+content liveness answers a disposition question. So this clause's evidence is the
+disposition consult above and can only ever be that. A future amendment
+re-inheriting from the same document owes a fresh consult, not a fresh pin.
+
 ## 2. The default-carrier rule, which is why layers 2 and 3 exist at all
 
 Both clauses below place their carrier at the layer that loads **by default**,
@@ -142,8 +172,10 @@ specification rather than wasted work.
   highest sensitivity of its sources unless an explicit human-held gate
   deliberately lowers it", and storage location must never silently decide
   visibility. Committing it would be a **declassification act**, and this spec
-  grants no such act. `policy/shape.md` is therefore added to `.gitignore`,
-  beside the exactly parallel `reports/` entry that §2.5.2 already earned.
+  grants no such act. `policy/shape.md` therefore belongs in `.gitignore`,
+  beside the exactly parallel `reports/` entry that §2.5.2 already earned —
+  landed by story 1.48 AC3 and by `policy/kit/install.sh` step 4d, which adds
+  the same entry to every consumer it installs into.
 
 **A consumer whose repository is private may commit it** — that is a different
 explicit decision, made by that consumer and stated in its own tree. This
@@ -317,3 +349,15 @@ and says nothing about when the hub reads.
 2. **Whether the lane read of §4.5 is one read or per-lane.** Stated as a
    question because a per-lane answer is the enumeration shape this repository
    refuses elsewhere, and a single read has no obvious home yet.
+3. **Where the §3.4 spec-sitting pre-step lives** — in `commands/spec-sitting.md`
+   itself, or in a kit-provided step that command invokes. §3.4 binds the **act**
+   and is deliberately silent on its **host**, so this is a live fork and it is
+   **named here rather than left to the implementation**. The rule is ratified
+   portfolio-wide and an unnamed deferral is the defect it identifies: *"a sitting
+   that leaves a design choice to the implementation either DECIDES the fork
+   there … or emits a NAMED SLOT whose filling is itself a decision act — consult,
+   then record choice, alternatives and receipt on the licensing issue BEFORE code
+   embeds it."*
+   `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:60`
+   This slot was missing from v1 while q1 and q2 were named — the asymmetry was
+   the tell, and it was found by PR #331's review rather than by the sitting.

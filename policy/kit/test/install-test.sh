@@ -26,6 +26,40 @@ grep -q 'repo-own note' "$TMP/repo/policy/consultation-map.md" || fail "map was 
 [[ $(grep -c 'tsurezure-client-kit:begin' "$TMP/repo/CLAUDE.md") -eq 1 ]] || fail "duplicate managed block"
 echo "ok: idempotent"
 
+# 2b. THE SHAPE READ's install-time properties (kogaki#325, story 1.48 AC7;
+#     contract specs/spec-client-kit/SPEC.md §3). Four assertions, and the
+#     gitignore one is the load-bearing member: §3.3 makes repo-VISIBLE and
+#     COMMITTED two separate decisions, and the kit's default answers only the
+#     first. A regression that dropped the ignore line would make every consumer
+#     start committing a digest derived from hub owner-realm material — a
+#     declassification the spec grants no grounds for, and one that is
+#     irreversible the moment a public repo is pushed.
+grep -qx 'policy/shape.md' "$TMP/repo/.gitignore" || fail "the shape read is not gitignored — visibility and publication were decided by one act"
+[[ $(grep -cx 'policy/shape.md' "$TMP/repo/.gitignore") -eq 1 ]] || fail "duplicate shape-read gitignore entry across two installs (not idempotent)"
+grep -q 'policy/shape.md' "$TMP/repo/CLAUDE.md" || fail "the managed block does not reference the shape read — a digest nothing loads grounds nothing"
+grep -q 'never substitution' "$TMP/repo/CLAUDE.md" || fail "the managed block omits the awareness-never-substitution clause (§3.5)"
+echo "ok: shape read — gitignored (once, across two installs), referenced from the managed block"
+
+# 2c. The shape read's DEGRADE, on the same contract as every other kit tool:
+#     one line, exit 11. Asserted on the emitted text rather than trusted to the
+#     source, and asserted here because the install above calls it — an install
+#     that hard-failed on an unreachable gateway would break the ratified
+#     "a degraded install is a valid install" promise for every consumer.
+set +e
+OUT=$(node "$KIT_DIR/bin/shape.mjs" --consumer kit-test --repo "$TMP/repo" --gateway /nonexistent/gw.js 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "the degraded shape read exited $CODE, want 11"
+[[ $(printf '%s\n' "$OUT" | grep -c .) -eq 1 ]] || fail "the degraded shape read printed more than one line: $OUT"
+printf '%s\n' "$OUT" | grep -q '^policy_source unavailable:' || fail "the shape read's degrade line is missing: $OUT"
+echo "ok: shape read degrades in one line with exit 11"
+
+# 2d. The rendering fixture pass, sited with the code it covers — the same
+#     arrangement as 4e, 8e and 9i. Pure functions of a served response, so it
+#     runs with NO gateway; the wire is exercised by 2c's degrade path.
+node "$KIT_DIR/bin/shape.mjs" --self-test || fail "shape read fixtures failed"
+echo "ok: shape read fixture pass (story 1.48 AC2)"
+
 # 3. Unreachable-gateway degrade: exactly one line, exit 11.
 set +e
 OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \

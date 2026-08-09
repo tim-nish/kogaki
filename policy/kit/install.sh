@@ -112,6 +112,40 @@ mkdir -p "$REPO/.claude/skills/consult-first"
 cp "$KIT_DIR/skills/consult-first.md" "$REPO/.claude/skills/consult-first/SKILL.md"
 say ".claude/skills/consult-first/SKILL.md: installed (harness-loadable)"
 
+# 4d. The SHAPE READ (kogaki#325; specs/spec-client-kit/SPEC.md §3). Two acts,
+#     and they are separate on purpose:
+#       (i)  the .gitignore entry — the digest derives from hub owner-realm
+#            material, so making it repo-VISIBLE is one decision and making it
+#            COMMITTED is another (§2.5.2). The kit's default answers only the
+#            first; committing would be a declassification act it does not
+#            grant. A consumer whose repo is private may decide otherwise, in
+#            its own tree.
+#       (ii) generating it — best-effort. An unreachable gateway exits 11 with
+#            one line and the install still completes.
+if [[ -f "$REPO/.gitignore" ]] && grep -qx 'policy/shape.md' "$REPO/.gitignore"; then
+  say ".gitignore: policy/shape.md already excluded"
+else
+  { [[ -f "$REPO/.gitignore" ]] && printf '\n'; cat <<'IGEOF'
+# The shape read — a policy digest derived from hub owner-realm material
+# (specs/spec-client-kit/SPEC.md §3.3). Repo-VISIBLE so every session and the
+# owner read it where they work; NOT committed, because it inherits its
+# sources' sensitivity and this repository may be public. Visibility and
+# publication are two decisions; this line is the second one, made explicitly
+# rather than by where the file landed.
+policy/shape.md
+IGEOF
+  } >> "$REPO/.gitignore"
+  say ".gitignore: policy/shape.md excluded (repo-visible, not committed)"
+fi
+
+if OUT=$(node "$KIT_DIR/bin/shape.mjs" --consumer "$CONSUMER" --repo "$REPO" \
+      ${GATEWAY_JS:+--gateway "$GATEWAY_JS"} 2>&1); then
+  say "policy/shape.md: $OUT"
+else
+  say "policy/shape.md: $OUT"
+  say "(the shape read degrades like every other kit tool — the install still completes)"
+fi
+
 # 5. MCP registration (machine-local, per-project — never committed).
 if (cd "$REPO" && claude mcp list 2>/dev/null | grep -q 'tsurezure'); then
   say "MCP: tsurezure already registered for this project"
