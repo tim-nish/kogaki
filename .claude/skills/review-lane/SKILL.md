@@ -658,6 +658,37 @@ log carries the receipt report's own lines this lane is required to quote.
 Reading the summary alone and calling a red suite a red dimension-2 is the
 error this section exists to stop — every other member may be green.
 
+### The tools you actually have (kogaki#310, 2026-08-09)
+
+Stated because a reviewer that guesses wrong here **loses its whole round** —
+the failure is not a warning, it is a session that exits with no report while
+its owner grant and one of §4 clause 3's two rounds are already spent.
+
+| you have | notes |
+|---|---|
+| `Read`, `Grep`, `Glob` | `Grep` is the bounded search over repository files |
+| `Write` **and `Edit`** | `Edit` was ungranted until 2026-08-09 and its absence killed PR #313's round 1; it is granted now |
+| **shell `grep`, bare or piped** | measured, not assumed — see below |
+| `gh pr view/diff/checks/list`, `gh issue view`, `gh {pr,issue} comment`, `gh run` | the `:*` forms |
+| `git log`, `git diff`, `git show` | reads only |
+| `bash checks/<file>` | per registered check |
+| the `mcp__tsurezure__*` seam tools | the consultation surface |
+
+**Shell `grep` works, and that was measured rather than assumed.** kogaki#310
+was filed on the premise that shell `grep` is denied because `REVIEW_TOOLS`
+carries no `Bash(grep…)` member. Four headless probes under that exact
+allowlist falsified it: `grep -c …` and `<granted command> | grep …` both ran,
+while `rm -f` and `Edit` were refused — so the probe discriminates and the
+absence of a member is not what denies a shape.
+
+**What you do NOT have, and must not spend a turn discovering:** removing files
+(`rm`) — including inside your own worktree, which the sweep tears down for you.
+
+**A denial label naming a piped command names its LEADING command**, not the
+member that was refused — `denied_tools()` takes the first three words. Three
+of eight labels harvested that way have named *allowed* shapes. If a pipe is
+refused, the culprit may be any member of it.
+
 **Read tool output through bounded, purpose-shaped commands.** Ask the log the
 question you have: `gh run view <id> --log-failed | grep -E '== |FAIL:'` returns
 the per-member verdict in one turn. Ad-hoc byte slicing of a large transcript —

@@ -70,5 +70,18 @@
       "license": "kogaki#55"
     }
   ],
-  "observed_non_members": []
+  "observed_non_members": [
+    {
+      "capability": "the `Edit` tool inside a spawned REVIEW session (`REVIEW_TOOLS`, tools/review-sweep.sh)",
+      "reason": "Met undeclared on 2026-08-09: PR #313's round-1 reviewer was denied `Edit`, exited 1 and produced NO report — one owner grant and one of the two rounds SPEC.md §4 clause 3 allows, spent for nothing. Confirmed by headless probe under the same allowlist. Cause was a role asymmetry inside one file: the FIX role held `Edit` and the REVIEW role did not, while both already held `Write`. GRANTED under kogaki#310 (owner selection 2026-08-09); recorded here because the fallback records what an act depended on and the enumeration did not declare, whether or not the enumeration is later widened."
+    },
+    {
+      "capability": "removing a file inside the spawned session's OWN worktree (`Bash(rm ...)`) ",
+      "reason": "Met undeclared on 2026-08-09: PR #312's reviewer was denied `rm -f /tmp/kogaki-review-312-.../tree/.review-312-report.md` while cleaning up its own scratch report. Confirmed by headless probe. NOT granted and deliberately so — the sweep removes the worktree itself, so the capability is unnecessary rather than merely ungranted; recorded report-only per SPEC.md §4 so the absence is disclosed rather than silent."
+    },
+    {
+      "capability": "a legible refusal label for a PIPED command (`denied_tools()` reports the LEADING command)",
+      "reason": "Met undeclared on 2026-08-09: PR #312's session recorded a denial labelled `Bash(gh pr view)`, a shape that IS granted — the refused member was elsewhere in a pipe. Not a missing capability but a missing PROPERTY of the denial record, and it belongs here because it is what made the other two observations hard to read. NOT repaired: kogaki#310 AC 6 declines re-cutting terminal_key(), whose three-word width is load-bearing for the PreToolUse gate and was chosen against measured failure in both directions."
+    }
+  ]
 }
