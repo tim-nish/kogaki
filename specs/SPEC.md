@@ -1412,6 +1412,91 @@ invariant: Gukan guarantees Unit schema, never data schema).
      the pin's subject is the content and the content is what was compared.
      What (a) loses is not the refusal but the *visibility*: it cannot tell the
      two cases apart at all.
+
+     **THE RESOLUTION IS ONE UNIT WITH TWO CONSUMERS, AND THE UNIT IS NAMED
+     (v2, kogaki#308).** Everything above describes the resolution as though
+     the gate were its only reader. It is not. `tools/review-sweep.sh`'s
+     `decide()` asks the *same question* — is this head reviewed? — to choose
+     between `done`, `park` and `spawn-round-N`, and it answered by **sha
+     identity alone**, through a `head_segments(segs, head)` that took no
+     `carried` argument at all. Two instruments, one question, two answers,
+     and the one that disagreed with the gate is the one that **spends the
+     bounded resource**.
+
+     So the clause states its unit rather than leaving it to each reader:
+     **"this head is reviewed" resolves through ONE definition — the
+     subject/instrument rule above, sha as instrument and content as
+     subject — consumed by both `checks/check-review-report.sh` and
+     `tools/review-sweep.sh`, with a fixture asserting the two agree.** A
+     second implementation of this resolution is a defect of this clause, not
+     an optimisation of its caller.
+
+     **That the unit is NAMED rather than merely shared is the served
+     requirement, not a stylistic preference:**
+
+     > The DETECTOR'S UNIT must match the PROPERTY'S UNIT, and the unit of
+     > enforcement is derived from the policy's violation, never inherited
+     > from the gate family the policy joins.
+
+     `consulted: product-lab@ce945eb129fd98c5f568256513fc081443eb0a5e topics/knowledge-architecture.md:98`
+
+     The sweep's unit was **inherited** — sha identity, from the segmenter it
+     shares with the round counter — rather than derived from this clause's
+     violation, which is a *content* equality. And the failure mode of two
+     closed answers under one question is itself served:
+
+     > When two or more closed value sets share one field name, every
+     > definition passes its own check and nothing is positioned to observe
+     > that the NAME is overloaded.
+
+     `consulted: product-lab@ce945eb129fd98c5f568256513fc081443eb0a5e LESSONS.md:16`
+
+     **The carrier shape is the one this repository already ratified for this
+     exact defect class**, and it is named here so the next implementer does
+     not re-derive it: `tools/review-sweep.sh`'s `TERMINAL_KEY_SRC` holds one
+     rule as a source string consumed by two processes, on the stated ground
+     that *"two hand-written copies of a rule are two things that can
+     disagree — the defect this file has already found twice, once per call
+     site"*, with a fixture compiling both and asserting agreement. Nothing
+     here mandates that mechanism specifically; what is mandated is **one
+     definition and an agreement fixture**, which that precedent satisfies.
+
+     `deferred-slot: the shared head-resolution unit's CARRIER` — whether it
+     lives as a source string in one file read by the other (the
+     `TERMINAL_KEY_SRC` shape) or in a third carrier both import. Mandating a
+     property rather than a mechanism is deliberate; leaving the mechanism fork
+     unnamed is what would make the fill-time decision record unlocatable, so
+     it is named on the fixed token rather than left to the implementer's
+     discretion unrecorded.
+
+     **`decide()` STAYS PURE, and this is a constraint rather than a
+     consequence.** The resolution needs two git reads, and `decide()` is
+     fixtured with no repository and no network. Both sides are already
+     injection-shaped — `decide(bodies, head, resolves=None)` takes its
+     commit resolver as a callable, and `carry_forward()` takes `diff_at` and
+     `merge_base` for the same reason — so the reads are **injected on the
+     established pattern** and no fixture acquires a repository. An
+     implementation that reaches for git inside `decide()` has broken this
+     clause's testability even where it computes the right answer.
+
+     **The cost this repairs, in the order that matters.** The park case is
+     the cheap one: it misreports a mergeable PR and stops. The expensive
+     case is the one with rounds remaining, where `decide()` returns
+     `spawn-round-N` and the sweep spends **an owner grant, a review round,
+     and the session's cost** re-reading a byte-identical diff — the scarce
+     resource clause 3's bound exists to protect, spent on nothing. The
+     trigger is ordinary rather than exotic: an empty commit, an amend
+     producing an identical tree, a rebase onto an unchanged base. Live
+     specimen: PR #307, head `ae9d85f`, merged 2026-08-09 on a green gate
+     while the sweep reported `PARKED — 2 rounds spent and ae9d85f is still
+     unreviewed`.
+
+     **`decide()`'s own docstring already stated the principle it violated**,
+     which is why this is a clause correction and not a feature: on
+     `author-owes` it says the driver never spawns a review because *"that
+     would re-read code nobody has changed since the report that judged it."*
+     The principle was written down and implemented on exactly one of the two
+     paths where it applies.
   8. **A non-gating finding left OPEN at `done` carries a stated DISPOSITION,
      and the `done` boundary REPORTS the ones that do not** (kogaki#224, owner
      selection 2026-08-08 — arm 1 of the three candidate homes the issue
@@ -1677,7 +1762,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | 1 | a finding is **raised and typed** | **act** — the `finding: <severity> <state>` line, parsed by `checks/check-review-report.sh`'s `FINDING` regex and by `tools/review-sweep.sh`'s segmenter, both anchored whole |
      | 2 | a **severity is revised across heads** | `none: nothing joins two segments — the severity field is read per segment and the gate's only unit of identity is the head sha, so a head move for any reason discards every earlier segment's severity. The observer is owed and unbuilt at kogaki#269; naming it does not type this row.` |
      | 3 | a finding goes **`open` → `resolved`** | `none: the state token is the reviewer's own attestation about its own work and no act re-derives it from the diff. No carrier is filed, and this row is how that is surfaced.` |
-     | 4 | a **report carries forward** to a head that changed no content | **act** — `carry_forward()` in `checks/check-review-report.sh`, which recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it (§4 clause 7) |
+     | 4 | a **report carries forward** to a head that changed no content | **act, HALF-CARRIED** — `carry_forward()` in `checks/check-review-report.sh` recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it (§4 clause 7); that half is carried and always was. Clause 7 v2's requirement that `decide()` in `tools/review-sweep.sh` resolve through the SAME definition is `owed and unbuilt at kogaki#308 / story 1.46` — `tools/review-sweep.sh:2759` is still `head_segments(segs, head)` with no `carried` parameter, so the sweep still answers by sha identity. NAMED here rather than asserted, on rows 2, 3 and 7's established shape: a row asserting an act half of which does not exist is the stale table this section warns about, arriving from the other direction |
      | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
      | 6 | a **non-gating finding crosses the merge** | **act** — §4 clause 8's `carried:` / `declined:` disposition line, written by the reviewer under `.claude/skills/review-lane/SKILL.md` §`carried:`/`declined:` and read at the sweep's `done` boundary (kogaki#224, reader half kogaki#251) |
      | 7 | a **fix is authored after its own PR merges** | `none: the sweep enumerates OPEN pull requests and the merge check runs on a pull-request event, so a commit pushed to a merged branch produces neither — no CI run, no licence assertion, no review segment, and gh pr view keeps returning the merged head. No carrier is filed.` |
@@ -1685,9 +1770,23 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
      | 10 | a **round is admitted to the record past the bound** | **act** — `_rounds_observation()` in `checks/check-review-report.sh`: distinct heads carrying counted segments, printed against clause 3's bound on every terminal state; reported, never gated, unit disclosed as NOT the sweep's cycle count (kogaki#290) |
 
-     **THE FOUR ROWS THAT MOVED SINCE FILING, with what moved them.** Recorded
+     **THE FIVE ROWS THAT MOVED SINCE FILING, with what moved them.** Recorded
      because a re-typing that silently overwrites its predecessor teaches the
-     next sitting to trust a stale table.
+     next sitting to trust a stale table. Four moved at filing; **row 4 moved
+     later**, on 2026-08-09, and is listed first because it is the one that
+     moved after the table was believed settled.
+
+     - **Row 4 RE-TYPED 2026-08-09 (kogaki#308), and the re-typing is this
+       clause's own trigger firing rather than a courtesy.** Clause 9 states
+       that *changing what any existing observer reads* RE-RUNS the typing;
+       clause 7 v2 makes `decide()` a reader of the resolution row 4 names, so
+       the row is re-run and now names both consumers. Its former text named
+       `carry_forward()` alone — correct about the carrier and silent about
+       the second instrument, which is exactly how the sweep came to answer
+       "is this head reviewed?" by sha identity while this table recorded the
+       question as settled. **A row naming one reader of a two-reader
+       resolution is the failure mode this table exists to prevent**, and it
+       occurred in the table itself.
 
      - **Row 5 was filed `carried wrongly` and re-derives as CARRIED**, and
        this is the sharpest of the four because three separate written records
