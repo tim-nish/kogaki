@@ -2969,7 +2969,25 @@ def decide(bodies, head, resolves=None, base=None,
     # supplies no base gets sha-identity resolution — not a silent downgrade,
     # because it is the same answer the caller asked for before.
     carried = []
-    if base and diff_at and merge_base:
+    # THE GUARD IS ON THE READERS, NOT ON THE BASE (kogaki#323). It used to
+    # read `if base and diff_at and merge_base:`, so where the PR's base could
+    # not be resolved — `pr.get("baseRefOid") or None` at the call site — the
+    # unit was never entered and its FIRST record line, written for exactly
+    # that case, was unreachable from this consumer:
+    #
+    #   "carry-forward NOT computed: the PR's current base could not be
+    #    resolved, so there is nothing to compare against — stale, failing
+    #    toward the reviewed side"
+    #
+    # The gate has always called `carry_forward(bodies, head, base or None, …)`
+    # unconditionally and printed that line. So the two consumers agreed on the
+    # RESOLUTION and disagreed on its DISCLOSURE — the residue one layer down
+    # from the defect §4 clause 7 v2 repaired, and the same state-absence
+    # discipline inverted on one branch.
+    #
+    # Fixture purity is untouched: `decide(bodies, head)` still supplies
+    # neither reader, so every pre-existing fixture takes the same path it did.
+    if diff_at and merge_base:
         carried, record = carry_forward(bodies, head, base, diff_at,
                                         merge_base, segments)
         # THE RECORD IS PRINTED, NOT DISCARDED (PR #321 round 1). The first
@@ -3730,6 +3748,42 @@ CARRY_FIX = [
      'spawn-round-2', 'spawn-round-2'),
 ]
 
+# --- kogaki#323: THE UNRESOLVED BASE IS DISCLOSED, NOT SILENT ----------------
+#
+# The guard used to be `if base and …`, so this branch never ran and the unit's
+# own first record line was unreachable from the sweep. Asserted on the OUTPUT
+# rather than on the verdict: the verdict was already correct (no base, no
+# carry-forward, so the head is unreviewed and a round is owed) — what was
+# missing was anybody SAYING SO, which is the whole defect.
+_u_out = _io.StringIO()
+with _ctx.redirect_stdout(_u_out):
+    _u_state = decide(_carry_body, _MOVED, _ALL, base=None,
+                      diff_at=lambda *a: None, merge_base=lambda *a: None)
+_u_text = _u_out.getvalue()
+if "carry-forward NOT computed" not in _u_text:
+    bad.append("carry-forward [unresolved base]: the record line is absent — "
+               "an unresolvable base is indistinguishable from no attempt "
+               "(kogaki#323)")
+if "could not be resolved" not in _u_text:
+    bad.append("carry-forward [unresolved base]: the record does not name the "
+               "base as the thing it could not resolve")
+if _u_state != 'spawn-round-2':
+    bad.append(f"carry-forward [unresolved base]: verdict changed to "
+               f"{_u_state!r} — this clause disclosed, it never re-decided")
+
+# AND THE NO-READER PATH IS UNCHANGED, which is the other half of #323's
+# acceptance: a caller supplying neither reader must take exactly the path it
+# took before this clause existed, printing no clause-7 line at all.
+_n_out = _io.StringIO()
+with _ctx.redirect_stdout(_n_out):
+    _n_state = decide(_carry_body, _MOVED, _ALL)
+if "clause-7" in _n_out.getvalue():
+    bad.append("carry-forward [no readers]: a caller supplying no git reads "
+               "got clause-7 output — the injection default has leaked")
+if _n_state != 'spawn-round-2':
+    bad.append(f"carry-forward [no readers]: got {_n_state!r}, want "
+               "'spawn-round-2' — the pre-clause behaviour changed")
+
 for _name, _body, _table, _want, _want_old in CARRY_FIX:
     _d, _m = _reads(_table)
     _got = decide(_body, _MOVED, _ALL, base=_MBASE, diff_at=_d, merge_base=_m)
@@ -4472,14 +4526,40 @@ _da("BASE", "REV")
 if _seen[0] != ("diff", "--no-color", "--unified=3", "BASE...REV"):
     _agree_fail.append(f"the shared diff FORM has drifted: {_seen[0]!r}")
 
+# THE RECORD IS A SHARED VECTOR TOO (kogaki#323 AC 2, PR #327 round 1). The
+# first form of this fixture asserted REACH plus resolution vectors, and the
+# sweep-side fixture asserted the sweep's own stdout — so the defect #323
+# names, two consumers agreeing on the RESOLUTION and diverging on its
+# DISCLOSURE, was observed by nothing. A resolution vector cannot see it by
+# construction: both consumers compute the same `carried`, and the divergence
+# is in what they SAY. These run in both files, so a consumer that stops
+# reporting an uncomputable comparison fails in its own suite.
+_rec_fail = []
+_c0, _r0 = carry_forward("", "aaaaaaa", None,
+                         lambda *a: None, lambda *a: None, lambda b: [])
+if _c0 or not _r0 or "could not be resolved" not in _r0[0]:
+    _rec_fail.append("an unresolvable base must yield NO carry-forward and a "
+                     "record naming the base — got "
+                     f"carried={_c0!r} record={_r0!r}")
+_c1, _r1 = carry_forward("", "aaaaaaa", "ccccccc",
+                         lambda *a: None, lambda *a: None, lambda b: [])
+if _c1 or not _r1 or "could not be read" not in _r1[0]:
+    _rec_fail.append("an unreadable head diff must yield NO carry-forward and "
+                     f"a record naming the diff — got carried={_c1!r} "
+                     f"record={_r1!r}")
+for _m in _rec_fail:
+    _agree_fail.append(_m)
+
 if _agree_fail:
     for _m in _agree_fail:
         print(f"FAIL head-resolution agreement: {_m}")
     raise SystemExit(1)
 print("head-resolution agreement: the unit is reached by one path from both "
       "consumers, neither redefines it, and it answers identically on "
-      "sha-identity, carried-segment, digest and diff-form vectors "
-      "(§4 clause 7 v2)")
+      "sha-identity, carried-segment, digest, diff-form AND RECORD "
+      "vectors — the last covering an unresolvable base and an "
+      "unreadable diff, so a consumer that stops DISCLOSING an "
+      "uncomputable comparison fails here (§4 clause 7 v2, kogaki#323)")
 
 print(f"fixture pass: {len(FIX)}/{len(FIX)} state-machine cases "
       "(round 1 / round 2 / park / done / author-owes / stale-segment), plus "
