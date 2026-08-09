@@ -43,6 +43,29 @@
 # consequence — clause 7 v2 states it explicitly. `decide()` is fixtured with
 # no repository and no network, so an implementation reaching for git in here
 # would break the caller's testability even where it computes the right answer.
+#
+# THE SERVED POSITIONS THIS DESIGN RESTS ON. That the unit is NAMED rather
+# than merely shared is a requirement rather than a preference:
+#
+#   > The DETECTOR'S UNIT must match the PROPERTY'S UNIT, and the unit of
+#   > enforcement is derived from the policy's violation, never inherited from
+#   > the gate family the policy joins.
+#
+#   consulted: product-lab@ce945eb129fd98c5f568256513fc081443eb0a5e topics/knowledge-architecture.md:98
+#
+# The sweep's unit was INHERITED — sha identity, from the segmenter it shares
+# with the round counter — rather than derived from clause 7's violation,
+# which is a CONTENT equality. And the failure mode of two closed answers
+# under one question is itself served:
+#
+#   > When two or more closed value sets share one field name, every
+#   > definition passes its own check and nothing is positioned to observe
+#   > that the NAME is overloaded.
+#
+#   consulted: product-lab@ce945eb129fd98c5f568256513fc081443eb0a5e LESSONS.md:16
+#
+# Here the overloaded name was "this head", and the two definitions each
+# passed their own file's fixtures for months.
 
 import hashlib
 
