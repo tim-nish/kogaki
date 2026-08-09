@@ -760,6 +760,140 @@ invariant: Gukan guarantees Unit schema, never data schema).
      defence in depth rather than a replacement, and the upstream gate is the
      ergonomics half the served line names.
 
+     **EVERY LAYER ABOVE BINDS THE SPAWN. THE ACT THAT MINTS THE
+     AUTHORIZATION TO SPAWN EVALUATED NO BOUND AT ALL** (kogaki#305, owner
+     selection 2026-08-09). The three-layer split is correct and is not
+     reopened; what was wrong is the tacit premise that bounding every route
+     to the *spawn* bounds the rounds. It does not, because a grant is a
+     second thing that can be brought into being, and its violation layer is
+     the **question**, not the spawn. Read at the carriers, 2026-08-09:
+     `write-review-grant.py:86-87` parses `round=(\d+)` and writes whatever
+     integer appears, with **no** occurrence of any bound;
+     `gate-reviewer-spawn.py` mentions `MAX_ROUNDS` once, at `:14`, in header
+     prose describing prior fixes, and its verification path checks that an
+     approval **names** the round it would spend, never that the round is
+     **legal**. So `M` was an opaque label everywhere upstream of the
+     spawner, and one owner click on a round-3 question would have produced
+     an *authorized* prohibited round — the writer having no ground to
+     refuse, and the gate admitting a spawn backed by a naming approval.
+     The instance: PR #304, rounds 1 and 2 spent, a round-3 question composed
+     and presented, refused by the owner 2026-08-09.
+
+     **So the bound is carried at the GRANT-CREATION PATH, and it is stated
+     as a construction constraint rather than an enumeration of creating
+     acts** (kogaki#151's shape): **no grant record comes into being unless
+     the bound has been resolved and the round is within it.** Resolution is
+     uniform across every creating layer — resolved and `M <= bound`
+     proceeds; resolved and `M > bound` refuses; a declaration present but
+     unparseable **refuses**, because the fail-open reading of a bound is
+     "unlimited rounds", which is the state this clause exists to forbid; a
+     repo resolving to no declaration at all proceeds, logged
+     `bound-undeclared`, since there is no ratified bound there to carry; and
+     an unresolvable repository refuses, the cost being one question not
+     asked, which is recoverable.
+
+     **The spawn path OBSERVES and does not deny on rounds, deliberately.**
+     A beyond-bound grant reaching a spawn means every creation route was
+     bypassed, which places it in the out-of-reach class the session hook
+     already declares. Resolving the bound on the spawn path would put a new
+     *resolution failure* on the hot path of legal round-1 and round-2
+     spawns, in a carrier whose declared direction is deny-on-doubt — a cost
+     paid on every good spawn to catch a case the creation layers own. It
+     logs `grant-round-beyond-bound` on consume instead, and clause 10's
+     record-side rounds observation (kogaki#290) stays exactly as it is.
+     This preserves **this clause's own split** — deny where authorization is
+     readable, observe where it is not — by applying it to the right object:
+     the round's **legality** is readable at creation, not at consumption.
+
+       consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299
+       LESSONS.md:95 — "A rule is enforced only at the layer where it can be
+       broken … when that layer belongs to another system, the carrier goes
+       at the last boundary you control, with any gate upstream of it
+       counting as ergonomics rather than control."
+
+     **THE BOUND HAS ONE DEFINITION, AND THIS CLAUSE NAMES ITS MACHINE
+     FORM:** `.claude/review-lane.json`'s `review_rounds_max`. This clause
+     stays the authority; the declaration is its projection, and this
+     sentence is what stops the two being independently editable in ignorance
+     of each other. `tools/review-sweep.sh` **binds** that value rather than
+     defining it — no numeric assignment to `MAX_ROUNDS` survives that file
+     after kogaki#305 — which is the whole point of the item: the old literal
+     was a copy of this clause, and a second copy in the toolkit would have
+     made three. The declaration site is per-repo because the hook family
+     that reads it is installed **actor-wide**: a literal compiled into a
+     user-level hook would impose this repository's clause on every
+     repository the actor touches, including those with no reviewer-round
+     contract, and no literal can express "this repo ratified no bound".
+
+     **The site is a TRACKED file, and that is load-bearing rather than
+     housekeeping** (owner selection 2026-08-09). kogaki#305's remedy design
+     named `.claude/pipeline.json`, on the stated precedent that a toolkit
+     hook already reads that path for per-repo policy
+     (`lint-pr-merge.py:80,236`). The precedent is real and does not carry:
+     that read is an **optional widening** which degrades to empty, and an
+     absent allowlist meaningfully means "this repo widened nothing", whereas
+     an absent bound would mean "unlimited rounds". Worse, the file is
+     **gitignored** — machine-local, absent from a fresh clone — and the
+     paragraph below withholds an owner override on the express ground that
+     the bound is raised only by a *diffable* act that *leaves a record*. A
+     gitignored declaration produces no diff and leaves no record, so siting
+     the bound there would have destroyed the one property standing in for
+     the withheld override, and would have left no committed artifact in this
+     repository stating the number at all. The name is the **lane** rather
+     than the pipeline because a review-round bound is not a mechanical-gap
+     grant, which is the only thing `.claude/pipeline.json` declares.
+
+       consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299
+       LESSONS.md:53 — "the remedy is to constrain what the pipeline can
+       PRODUCE rather than to improve what it can DETECT — an enumerated
+       prohibition can only name yesterday's leak while a construction
+       constraint makes tomorrow's unreachable."
+
+     **THE REFUSAL'S TERMINAL NEXT ACT IS SUPERSESSION, NOT PARK** (Owner
+     Rule 2026-08-09; carrier kogaki#306, and this clause carries only the
+     naming). A PR blocked at this bound is **terminal**: no third round, no
+     further development on it, no counter reset, and no exception rule of
+     the form "a closed defect issue re-opens two more rounds" — that shape
+     makes the round count a resettable counter on a mutable object and has
+     no mechanical discriminator between *the defect was fixed* and *we want
+     a third round*. So the refusal states: **file the design-level
+     supersession issue; the blocked PR closes as superseded once a successor
+     exists.** The successor's own obligations — its `supersedes:`
+     declaration, its `carried:`/`declined:` disposition of the blocked PR's
+     findings under clause 8's grammar, and a base postdating the corrective
+     merge — are **kogaki#306's** and are deliberately not carried here.
+     The earlier draft of this remedy named *park — an owner decision on the
+     PR*; that act was retired by the rule above before either was written,
+     and kogaki#265 records the park carrier as unreachable from the publish
+     lane in any case, so writing it would have been writing a known-dead
+     pointer.
+
+     **The refusal is a terminal state with a named next act, never a
+     validation error inviting a retry**, and it says so: the bound and where
+     it is declared, that round `M` is beyond it, the supersession lane
+     above, that re-asking is not the remedy, and that non-convergence in two
+     rounds is an abnormal condition. Every refusal is logged
+     (`grant-request-beyond-bound`, with repo, PR and round) so a blocked
+     attempt is a signal the owner sees.
+
+     **There is no owner override, and the omission is the mechanism.** This
+     clause already supplies the remedy for non-convergence, so a
+     mechanism-level override would authorize the one act the clause
+     forecloses, and its existence would make the bound advisory again. The
+     incident this contract came from is precisely *correct refusals
+     repeatedly read as failures and paid to override*, so an override sited
+     at the refusal point would re-install the documented failure mode at the
+     moment of maximum pressure. The bound is raised only by amending this
+     clause and its declaration together — a deliberate, diffable,
+     out-of-band act that leaves a record. An override that is **recorded**
+     rather than **transacted**. The residue is stated rather than hidden: an
+     in-session edit of `.claude/review-lane.json` is a route no carrier here
+     refuses. It lands in a commit diff — which is a property of the site
+     being **tracked**, and is precisely why the site had to be, since the
+     same edit to a machine-local file would leave nothing to review. Clause
+     10's record-side rounds observation remains the backstop that sees a
+     crossed bound whoever produced it.
+
      **This is NOT the cap-at-the-spawner shape returning, and the difference
      is stated because the resemblance is close.** Three prior attempts
      bounded a **count** inside one caller's logic and failed; this binds

@@ -798,7 +798,54 @@ def disposition_ok(kind, val):
 # through the downgrade rather than through this tuple, which is why `decide()`
 # below reads the downgrade set rather than the severity field alone.
 NON_GATING = ('should', 'nit')
-MAX_ROUNDS = 2   # §4 clause 3: two rounds, then a parked owner decision.
+# §4 clause 3's bound, READ rather than defined (kogaki#305). This file used to
+# assign the literal two to the name below — a second copy of a prose clause,
+# and the only place the bound was evaluated at all, which is exactly why a
+# grant naming round 3 could be minted and honoured upstream of it. The comment
+# is worded to avoid spelling that assignment, because the single-source
+# property is checked by grep and a check cannot tell use from mention.
+# The number now has ONE definition, `.claude/review-lane.json`'s
+# `review_rounds_max`, and every layer binds it. Adding a copy here again would
+# make three.
+#
+# WHY A TRACKED FILE OF ITS OWN, and not `.claude/pipeline.json` where the
+# kogaki#305 remedy design first sited it (owner selection 2026-08-09). That
+# file is GITIGNORED — machine-local, absent from a fresh clone — and clause 3
+# withholds an owner override on the express ground that the bound is raised
+# only by "a deliberate, diffable, out-of-band act that leaves a record". A
+# gitignored file produces no diff and leaves no record, so siting the bound
+# there would have removed the very property standing in for the missing
+# override, and would have left NO committed artifact in this repository
+# stating the number at all. The name is the lane rather than the pipeline
+# because a review-round bound is not a mechanical-gap grant, which is the one
+# thing pipeline.json declares.
+#
+# A missing or unreadable declaration is FATAL, deliberately, and this is the
+# opposite of the allowlist read at the eligibility site below. That one
+# degrades to `{owner}` because an absent allowlist is a repo that widened
+# nothing — a meaningful empty. There is no meaningful empty for a bound: the
+# fail-open reading is "unlimited rounds", which is the state clause 3 exists to
+# forbid. The toolkit hook family resolves an absent declaration to
+# `bound-undeclared` and PROCEEDS, because it is actor-wide and runs against
+# repos that ratified no reviewer-round contract; this file is kogaki's own and
+# ships beside its declaration, so absence here is a broken checkout rather than
+# a repo without the rule.
+def _round_bound():
+    try:
+        with open(".claude/review-lane.json") as f:
+            declared = json.load(f)["review_rounds_max"]
+    except (FileNotFoundError, KeyError, json.JSONDecodeError) as exc:
+        sys.exit("review-sweep: §4 clause 3's round bound is not declared in "
+                 f".claude/review-lane.json (`review_rounds_max`): {exc}. The "
+                 "sweep refuses rather than running unbounded.")
+    if not isinstance(declared, int) or isinstance(declared, bool) or declared < 1:
+        sys.exit("review-sweep: `review_rounds_max` in .claude/review-lane.json "
+                 f"is {declared!r}, which is not a positive integer. The sweep "
+                 "refuses rather than guessing §4 clause 3's bound.")
+    return declared
+
+
+MAX_ROUNDS = _round_bound()
 
 # Spawned-session policy, resolved in the shell above and passed in rather than
 # re-defaulted here — two places that both know a default is two places that
