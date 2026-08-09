@@ -1410,6 +1410,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **byte-identical** still carries forward — and that is this clause's
      subject/instrument rule operating correctly rather than a leak, because
      the pin's subject is the content and the content is what was compared.
+     What (a) loses is not the refusal but the *visibility*: it cannot tell the
+     two cases apart at all.
 
      **THE RESOLUTION IS ONE UNIT WITH TWO CONSUMERS, AND THE UNIT IS NAMED
      (v2, kogaki#308).** Everything above describes the resolution as though
@@ -1459,6 +1461,14 @@ invariant: Gukan guarantees Unit schema, never data schema).
      here mandates that mechanism specifically; what is mandated is **one
      definition and an agreement fixture**, which that precedent satisfies.
 
+     `deferred-slot: the shared head-resolution unit's CARRIER` — whether it
+     lives as a source string in one file read by the other (the
+     `TERMINAL_KEY_SRC` shape) or in a third carrier both import. Mandating a
+     property rather than a mechanism is deliberate; leaving the mechanism fork
+     unnamed is what would make the fill-time decision record unlocatable, so
+     it is named on the fixed token rather than left to the implementer's
+     discretion unrecorded.
+
      **`decide()` STAYS PURE, and this is a constraint rather than a
      consequence.** The resolution needs two git reads, and `decide()` is
      fixtured with no repository and no network. Both sides are already
@@ -1487,8 +1497,6 @@ invariant: Gukan guarantees Unit schema, never data schema).
      would re-read code nobody has changed since the report that judged it."*
      The principle was written down and implemented on exactly one of the two
      paths where it applies.
-     What (a) loses is not the refusal but the *visibility*: it cannot tell the
-     two cases apart at all.
   8. **A non-gating finding left OPEN at `done` carries a stated DISPOSITION,
      and the `done` boundary REPORTS the ones that do not** (kogaki#224, owner
      selection 2026-08-08 — arm 1 of the three candidate homes the issue
@@ -1754,7 +1762,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | 1 | a finding is **raised and typed** | **act** — the `finding: <severity> <state>` line, parsed by `checks/check-review-report.sh`'s `FINDING` regex and by `tools/review-sweep.sh`'s segmenter, both anchored whole |
      | 2 | a **severity is revised across heads** | `none: nothing joins two segments — the severity field is read per segment and the gate's only unit of identity is the head sha, so a head move for any reason discards every earlier segment's severity. The observer is owed and unbuilt at kogaki#269; naming it does not type this row.` |
      | 3 | a finding goes **`open` → `resolved`** | `none: the state token is the reviewer's own attestation about its own work and no act re-derives it from the diff. No carrier is filed, and this row is how that is surfaced.` |
-     | 4 | a **report carries forward** to a head that changed no content | **act** — the ONE head-resolution unit clause 7 names (v2, kogaki#308), consumed by BOTH readers: `carry_forward()` in `checks/check-review-report.sh` recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it, and `decide()` in `tools/review-sweep.sh` resolves through the same definition rather than by sha identity, with a fixture asserting the two agree (§4 clause 7) |
+     | 4 | a **report carries forward** to a head that changed no content | **act, HALF-CARRIED** — `carry_forward()` in `checks/check-review-report.sh` recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it (§4 clause 7); that half is carried and always was. Clause 7 v2's requirement that `decide()` in `tools/review-sweep.sh` resolve through the SAME definition is `owed and unbuilt at kogaki#308 / story 1.46` — `tools/review-sweep.sh:2759` is still `head_segments(segs, head)` with no `carried` parameter, so the sweep still answers by sha identity. NAMED here rather than asserted, on rows 2, 3 and 7's established shape: a row asserting an act half of which does not exist is the stale table this section warns about, arriving from the other direction |
      | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
      | 6 | a **non-gating finding crosses the merge** | **act** — §4 clause 8's `carried:` / `declined:` disposition line, written by the reviewer under `.claude/skills/review-lane/SKILL.md` §`carried:`/`declined:` and read at the sweep's `done` boundary (kogaki#224, reader half kogaki#251) |
      | 7 | a **fix is authored after its own PR merges** | `none: the sweep enumerates OPEN pull requests and the merge check runs on a pull-request event, so a commit pushed to a merged branch produces neither — no CI run, no licence assertion, no review segment, and gh pr view keeps returning the merged head. No carrier is filed.` |
