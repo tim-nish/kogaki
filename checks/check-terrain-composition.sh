@@ -2378,6 +2378,17 @@ const cases = [
   { rule: "pin_once_per_file", surface: "full_report",
     text: "# Full Report — g\n*Substrate pin:* `p`\n*Substrate pin:* `p`",
     why: "§12 renders the shared pin ONCE, in the identity" },
+  // The predicate written for finding 1 must be shown FIRING. A rule moved into
+  // `expressible` with nothing evaluating it is what that finding was; a rule
+  // evaluated by code no case exercises is the same thing one layer along.
+  // `group_subgroup_id_grammar` is discharged on cotag_screen BY the allowlist —
+  // a heading with a bad id never classifies as a heading, so the refusal
+  // arrives under that rule's name. Asserted here under the rule that actually
+  // fires rather than under the one the grammar names, because claiming the
+  // latter fired would be the coverage-shaped lie the entry warns about.
+  { rule: "line_class_allowlist", surface: "cotag_screen",
+    text: "testing × architecture — 2 Lessons: L2, L1",
+    why: "the v5 group heading, opening with the co-tag NAME instead of a GroupID — v6 replaced it because a name cannot carry the level through a wrap, and this is where group_subgroup_id_grammar is actually enforced on this surface" },
   { rule: "subgroup_members_sum_to_parent", surface: "cotag_screen",
     text: "G1 — testing × architecture — 4 Lessons\nG1-1 — 1 Lesson: L1 — sg",
     why: "a member placed in no SubGroup is hidden, and the screen cannot show it" },

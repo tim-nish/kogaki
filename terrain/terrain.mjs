@@ -1354,7 +1354,14 @@ function cmdSubdivide(args) {
   console.log(`in common: ${groupClaim}\n`);
   let sgIdx = 0;
   for (const sg of subgroups) {
-    const sgid = `${parent.gid || "G?"}-${sgIdx += 1}`;
+    // No `G?` placeholder fallback (PR #354 round 1 nit). §2.1 names an
+    // abnormality rather than substituting for it, and `G?-1` would match
+    // neither tokens.SubGroupID nor the abnormal-token discipline — it would
+    // simply be a wrong id on an owner surface. `parent` comes from
+    // `cotagGroups`, which mints `gid` for every group, so an absent one is a
+    // caller defect and is refused rather than papered over.
+    if (!parent.gid) fail("subdivide: the parent group carries no GroupID — §6.1 v6 mints one in `cotagGroups` for every composed group, so a group without one did not come from there and its SubGroup ids would be unresolvable");
+    const sgid = `${parent.gid}-${sgIdx += 1}`;
     console.log(`${sgid} — ${strandFigure(sg.by_family)}; ${denominator(sg.members.length, record.candidates.length)} — ${sg.name}`);
     console.log(`in common: ${sg.claim}`);
     console.log(sg.leaf_reason);

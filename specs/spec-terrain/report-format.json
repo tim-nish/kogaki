@@ -183,7 +183,8 @@
       "line_classes": [
         {
           "id": "title",
-          "form": "# Full Report — <GroupID>"
+          "form": "# Full Report — <GroupID> — <co-tag name>",
+          "form_note": "v3 amended for kogaki#317. The GroupID leads and the co-tag name follows, the same order `cotag_screen.group_heading_flat` uses, so an owner moving between the two surfaces of one run meets one convention. AMENDED LATE, by PR #354 round 1 finding 2: the cotag twins were amended in the spec sitting and these were not, so the emitter rendered `# Full Report — G2 — …` against a declared `# Full Report — <GroupID>` and nothing refused it — full_report's allowlist is inert (see reader_notes), so the permissive body classes admitted the line. A divergence surviving on the same inertness this very version documents elsewhere."
         },
         {
           "id": "selected_tag",
@@ -234,7 +235,8 @@
         },
         {
           "id": "h3_subgroup",
-          "form": "### <SubGroupID>"
+          "form": "### <SubGroupID> — <SubGroup name>",
+          "form_note": "v3, kogaki#317 — the report carries the same `G<n>-<m>` the screen showed, which is what lets an owner copy an id from one and find it in the other. Amended with `title` by PR #354 round 1 finding 2."
         },
         {
           "id": "subgroup_claim_body",
@@ -439,10 +441,12 @@
         "id": "group_subgroup_id_grammar",
         "rule": "every Group heading carries a GroupID matching tokens.GroupID, and every SubGroup heading a SubGroupID matching tokens.SubGroupID",
         "surfaces": [
-          "cotag_screen",
-          "full_report"
+          "cotag_screen"
         ],
-        "moved_from_not_expressible": "2026-08-11, kogaki#317 + kogaki#315. THIS ENTRY IS ITS OWN REOPEN TRIGGER DISCHARGED, verbatim: \"the sitting that mints the G/SG ID space adds tokens.GroupID and tokens.SubGroupID here and moves this entry into `expressible`.\" It was previously not expressible because no G/SG identifier existed to give a shape to — a token shape asserted then would have been a rule about artifacts nothing could produce, which reads as coverage. The mint is what changed, not the judgement."
+        "moved_from_not_expressible": "2026-08-11, kogaki#317 + kogaki#315. THIS ENTRY IS ITS OWN REOPEN TRIGGER DISCHARGED, verbatim: \"the sitting that mints the G/SG ID space adds tokens.GroupID and tokens.SubGroupID here and moves this entry into `expressible`.\" It was previously not expressible because no G/SG identifier existed to give a shape to — a token shape asserted then would have been a rule about artifacts nothing could produce, which reads as coverage. The mint is what changed, not the judgement.",
+        "declared_without_a_predicate_at_first": "PR #354 round 1 finding 1: this entry moved out of `not_expressible` and no predicate was written, so it was declared and could never fire — which is the exact condition the entry was in `not_expressible` to avoid, since a rule with no members 'reads as coverage'. The property was in fact tested, by heading regexes in check-terrain-composition.sh, so the guarantee existed and this artifact's claim about WHERE it lives was what was false. Repaired by writing the predicate rather than by pointing at the check, because §14.1 makes this file the carrier of the rendered form and a rule enforced only in a test is a rule the emitters do not carry.",
+        "discharged_by": "`line_class_allowlist` plus the `<GroupID>`/`<SubGroupID>` fragments embedded in the heading forms — a heading opening with anything else is unadmitted, and the surface refuses. NOT a standalone predicate: one was written for PR #354 round 1 finding 1 and deleted by its own test, because keying on a line's CLASSIFICATION is tautological — a bad id means the line never classifies as a heading at all.",
+        "surfaces_narrowed_from_both_to_one": "v3 first declared this over cotag_screen AND full_report. It is carried on cotag_screen only. full_report's allowlist is inert — three body classes are bare placeholders — so `# Full Report — testing × architecture` is admitted by a body class and nothing refuses it; that is precisely how round 1 finding 2's divergence survived review of the sitting that created it. Narrowed rather than left claiming both, because a rule listing a surface it cannot decide is the 'reads as coverage' shape this entry spent its whole life in `not_expressible` avoiding. The full_report half is owed and is NOT filed here: it needs that surface's body classes constrained, which is a decision about the artifact and belongs on its own issue."
       }
     ],
     "not_expressible": [
