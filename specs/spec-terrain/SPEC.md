@@ -927,6 +927,43 @@ its two disjunctive disclosures** put them, and the implementation carries no
 the number as the rule, and a reader holding kogaki#128 must find the
 disposition rather than an absence.
 
+**v7 — THREE GROUPING RULES, and what each one does when it fails**
+(kogaki#316, owner decision 2026-08-09, executed 2026-08-11). §14.2 already
+enumerates the first two as decidable; this section says what failing them
+*means*, which the enumeration does not.
+
+1. **The SubGroup member counts sum to the parent's total.** Every member
+   placed, nothing silently dropped. A screen violating it **does not render**
+   — `subgroup_members_sum_to_parent`, refused at emit time (§14.2).
+2. **The `(fits no composed SubGroup)` remainder is at most 30% of the
+   parent's members.** A judgment whose remainder exceeds it is re-run or
+   recomposed; it does not render — `catch_all_share` (§14.2). The specimens
+   that settle it are kogaki#316's own: 11 of 17, 20 of 28, 29 of 35.
+3. **A split whose only named SubGroup restates the parent's own commonality
+   does not discharge the subdivision obligation** — and *that phrase means the
+   group renders no SubGroups*, not that the screen refuses. This is **the
+   fallback this section already names**, not a new outcome: a group whose leaf
+   condition fails "renders no SubGroups and is fully conformant". So a split
+   that is not `tighter_than_parent` leaves the group rendering flat, with its
+   own claim and member ids, exactly as an unjudged-empty group does.
+   **Why not a refusal like 1 and 2:** those are properties of the *rendered
+   text* and a violation means the emitter produced something incoherent. This
+   one is a *judge's verdict*, and refusing the whole screen over it would
+   contradict this section's own conformance clause one paragraph up. Before
+   v7 the verdict was computed, rendered as `NOT a leaf: … the split bought
+   nothing`, and read by nothing — the obligation was reported rather than
+   discharged.
+
+**THE NO-MEMBER-COUNT-THRESHOLD RULE IS UNTOUCHED BY ALL THREE, and this
+paragraph exists because kogaki#316 asked for it explicitly.** §8's rule — "a
+number appearing in its code as one is a defect against this paragraph" — and
+this section's conformant-failed-leaf clause both **stand unchanged**. The 30%
+cap is a bound on the catch-all's share of a judgment that **did** split; it is
+not a member-count trigger for **whether** to split. kogaki#316's first filing
+proposed such a trigger ("6+ members with no SubGroup is a defect") and the
+owner **withdrew it the same day**. Recorded so the withdrawal is not
+re-proposed as a finding.
+
 **§8.1's ordering is unchanged by this section, and this section makes its
 gate DUE.** Subdivision ships dogfood-first — implemented → dogfooded →
 owner-verdicted → offered — and §8.1's offering gate is **undischarged**.

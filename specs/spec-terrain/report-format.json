@@ -1,7 +1,7 @@
 {
   "note": "SPEC-terrain §14.1 — the single carrier of the RENDERED FORM of kogaki's owner surfaces. Where SPEC.md's prose and this artifact disagree about the rendered form, THIS ARTIFACT WINS (§14.1), from the moment it exists and not before. It governs the rendered form and nothing else: not which members are placed, not what a claim says, not whether a figure is honest, not §2.1's family-naming duty. Those remain SPEC.md's prose.",
-  "version": 3,
-  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover; the v2 amendment left four decidable_rules fields still saying `pending_producer: story 1.53` and the cite case still open — PR #351 round 1 finding 3, repaired on the story-1.54 branch, which is where those fields are READ; v3 by kogaki#317 (hierarchy carrier — indentation replaced by G/SG IDs) coupled with kogaki#315 (the format contract, enumerated), owner decisions 2026-08-11",
+  "version": 4,
+  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover; the v2 amendment left four decidable_rules fields still saying `pending_producer: story 1.53` and the cite case still open — PR #351 round 1 finding 3, repaired on the story-1.54 branch, which is where those fields are READ; v3 by kogaki#317 (hierarchy carrier — indentation replaced by G/SG IDs) coupled with kogaki#315 (the format contract, enumerated), owner decisions 2026-08-11; v4 by kogaki#316 (SubGroup grouping rules) — catch_all_share re-bound to the SubGroup remainder it was always meant to measure, and the unratified co-tag bound removed",
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
   "encoding_choice": {
     "chosen": "a line-class grammar expressed in JSON",
@@ -422,12 +422,15 @@
       },
       {
         "id": "catch_all_share",
-        "rule": "the Lesson count of the group named \"(no second served tag)\" divided by the Cover line's member denominator <= 0.30",
+        "rule": "the Lesson count of a group's `(fits no composed SubGroup)` SubGroup divided by that group's own parent LessonCount <= 0.30",
         "surfaces": [
           "cotag_screen"
         ],
-        "catch_all_group_name": "(no second served tag)",
-        "producer_of_the_name": "terrain/terrain.mjs:504 NO_SECOND_TAG"
+        "producer_of_the_name": "specs/spec-terrain/survey-schema.json subdivision.no_member_hidden_subgroup",
+        "catch_all_subgroup_name": "(fits no composed SubGroup)",
+        "licensed_by": "kogaki#316 decision 2, owner 2026-08-09; enumerated at SPEC.md §14.2 (\"catch-all <= 30%\")",
+        "re_bound_in_v4_because_it_measured_the_wrong_catch_all": "THIS RULE EXISTED SINCE v1 AND CAPPED A DIFFERENT QUANTITY. Story 1.52 read §14.2's \"catch-all <= 30%\" and bound it to `(no second served tag)` — the CO-TAG group, for Lessons carrying the selected tag and no other — over the Cover line's corpus denominator. kogaki#316's decision 2 is about `(fits no composed SubGroup)`, the SUBGROUP remainder, over the parent group's own member count. Different numerator, different denominator, same name and same number. The issue's own specimens are all the second kind — 11 of 17, 20 of 28, 29 of 35 — and nothing in the tree measured it, so decision 2 read as shipped and was not. THE CO-TAG BOUND IS REMOVED RATHER THAN RENAMED (owner decision 2026-08-11): no owner decision ever asked for it, a tagless group over 30% is a fact about the CORPUS rather than a composition defect, and refusing a screen over it would punish the substrate for its own tag distribution. It was also a number in code that nobody ratified, which is the shape §8's standing rule is pointed at.",
+        "surfaces_is_cotag_screen_only_and_that_is_checked": "The share needs a per-SubGroup count and a parent count. `cotag_screen`'s `subgroup_heading` and `group_heading_subdivided` both carry `<LessonCount>`, so it is decidable there. `full_report`'s `h3_subgroup` is `### <SubGroupID> — <SubGroup name>` and carries NO count, so the rule is NOT decidable on that surface and does not claim it. Stated rather than listing both — the sibling entry `group_subgroup_id_grammar` had to be narrowed for exactly this reason in v3, and a rule naming a surface it cannot decide is the 'reads as coverage' shape."
       },
       {
         "id": "line_class_allowlist",
