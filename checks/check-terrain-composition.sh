@@ -83,7 +83,7 @@ node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { cotagGroups, cotagCover, NO_SECOND_TAG, COTAG_SORT, NO_CLAIM }
+import { cotagGroups, cotagCover, NO_SECOND_TAG, COTAG_SORT, NO_CLAIM, subgroupPlacement }
   from "./terrain/terrain.mjs";
 import { spawnSync } from "node:child_process";
 
@@ -307,6 +307,21 @@ writeFileSync(SUBS, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
       members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+    // BOTH members are placed, and that is a CHANGE story 1.57 forced rather
+    // than a tidy-up. This fixture used to place `alpha` and leave `bravo` in
+    // the remainder — 1 of 2, a 50% catch-all — which `catch_all_share` now
+    // refuses (kogaki#316 decision 2). The fixture encoded exactly the
+    // judgment shape the owner decision was filed against.
+    //
+    // THE CAP HAS NO FLOOR AND NONE CAN BE ADDED, which is why the fixture
+    // moved rather than the rule: a minimum-group-size before the cap applies
+    // IS a member-count threshold, and §8 forbids one — the same §8 clause
+    // kogaki#316 explicitly reaffirms. So a 2-member group with one member in
+    // the remainder is 50% and is refused, arithmetically correct and a long
+    // way from the 29-of-35 specimen that settled the number. Recorded here
+    // rather than worked around.
+    { subgroup: "guards exercised by a real run", claim: "a check some run has actually made fail",
+      members: ["lesson:bravo"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
   ] },
 }));
 const withSubs = spawnSync(process.execPath,
@@ -326,9 +341,23 @@ if (!String(withSubs.stdout).includes("in common: a check whose inputs make fail
 if (!/^G[0-9]+-[0-9]+ — 1 Lesson: L2 — guards that cannot fail$/m.test(String(withSubs.stdout))) {
   fails.push("the SubGroup line is not the §6.2 v6 form `G<n>-<m> — N Lessons: ids — <name>` — the SubGroupID must name its parent, which is what lets a wrapped line still say where it belongs");
 }
-if (!String(withSubs.stdout).includes("(fits no composed SubGroup)")
-    || !String(withSubs.stdout).includes("L1")) {
-  fails.push("a member the judge left unplaced was DROPPED rather than named in the explicit SubGroup — subdivision decides WHERE a member appears and hides none (§8)");
+// The unplaced-member-is-NAMED property moved off this end-to-end run and onto
+// `subgroupPlacement` directly, because the fixture can no longer leave a
+// member unplaced without violating the 30% cap (see the note above). Same
+// property, asserted at the unit that owns it rather than through a screen
+// that must now be conformant to render at all.
+{
+  const parent = { name: "p", gid: "G1", members: ["lesson:alpha", "lesson:bravo"] };
+  const placed = subgroupPlacement(parent,
+    [{ subgroup: "only alpha", claim: "c", members: ["lesson:alpha"],
+       composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }],
+    JSON.parse(readFileSync("specs/spec-terrain/survey-schema.json", "utf8")).subdivision);
+  const catchAll = placed.subgroups.find((sg) => sg.name === "(fits no composed SubGroup)");
+  if (!catchAll) {
+    fails.push("a member the judge left unplaced produced NO explicit catch-all SubGroup — subdivision decides WHERE a member appears and hides none (§8)");
+  } else if (!catchAll.members.includes("lesson:bravo")) {
+    fails.push("the unplaced member was DROPPED rather than named in the explicit catch-all SubGroup (§8)");
+  }
 }
 
 // 8. The prohibition §8 states and §6.2 inherits: no member-count threshold.
@@ -406,6 +435,12 @@ const SUBS_DEGEN = join(tmpdir(), `cotags-subs-degen-${process.pid}.json`);
 writeFileSync(SUBS_DEGEN, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "sg", claim: "this claim names alpha outright", members: ["lesson:alpha"],
+      composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+    // Both members placed, for the same reason as the block above: a 1-of-2
+    // remainder is a 50% catch-all and `catch_all_share` refuses the screen,
+    // so a fixture exercising a DISCLOSURE could no longer reach the surface
+    // it discloses on.
+    { subgroup: "sg2", claim: "a second claim that names nobody", members: ["lesson:bravo"],
       composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
   ] },
 }));
@@ -2389,6 +2424,13 @@ const cases = [
   { rule: "line_class_allowlist", surface: "cotag_screen",
     text: "testing × architecture — 2 Lessons: L2, L1",
     why: "the v5 group heading, opening with the co-tag NAME instead of a GroupID — v6 replaced it because a name cannot carry the level through a wrap, and this is where group_subgroup_id_grammar is actually enforced on this surface" },
+  // AC3 — `catch_all_share` has NEVER had a crafted case, which is how it
+  // measured the wrong catch-all through two stories and a review round. The
+  // numbers are kogaki#316's own first specimen: a parent of 17 with 11 in the
+  // remainder (65%).
+  { rule: "catch_all_share", surface: "cotag_screen",
+    text: "G1 — agents × knowledge-architecture — 17 Lessons\nG1-1 — 6 Lessons: L1, L2, L3, L4, L5, L6 — a real split\nG1-2 — 11 Lessons: L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17 — (fits no composed SubGroup)",
+    why: "kogaki#316's own specimen — 11 of 17 swept into the remainder, 65%, over the 30% §14.2 allows" },
   { rule: "subgroup_members_sum_to_parent", surface: "cotag_screen",
     text: "G1 — testing × architecture — 4 Lessons\nG1-1 — 1 Lesson: L1 — sg",
     why: "a member placed in no SubGroup is hidden, and the screen cannot show it" },
@@ -2537,6 +2579,27 @@ try {
   rmSync(dir, { recursive: true, force: true });
 }
 
+// AC2 — THE CO-TAG BOUND IS GONE, asserted as a removal rather than assumed.
+// A screen whose `(no second served tag)` group holds most of the corpus must
+// now pass: no owner decision ever capped it, and a large tagless group is a
+// fact about the corpus rather than a composition defect.
+{
+  const bigTagless = [
+    "testing — the second navigation step. Grouped by co-tag; sort: name.",
+    "",
+    "G1 — testing × (no second served tag) — 9 Lessons: L1, L2, L3, L4, L5, L6, L7, L8, L9",
+    "in common: they carry the selected tag and no other",
+    "G2 — testing × architecture — 1 Lesson: L10",
+    "in common: a claim",
+    "",
+    "Cover: 10 of 10 member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: 10 — 10 lessons + 0 journeys; 10 of 10 Lessons.",
+  ].join("\n");
+  const v = validateSurface("cotag_screen", bigTagless, G);
+  if (v.some((x) => x.rule === "catch_all_share")) {
+    fails.push("AC2: `catch_all_share` fired on the CO-TAG group (9 of 10 tagless). That bound was removed — it was never an owner decision, and a tagless group over 30% is a fact about the corpus, not a composition defect. A renamed survivor is the unratified number kept under a new label");
+  }
+}
+
 if (fails.length) {
   console.log("FAIL emit-time refusal (SPEC-terrain §14.2, story 1.54):");
   for (const f of fails) console.log(`  - ${f}`);
@@ -2549,7 +2612,7 @@ console.log("NOT DECIDABLE ON full_report, stated rather than left to be inferre
   + "on cotag_screen, where the classes are constrained, and it is inert on the report. "
   + "Fixing it means the grammar declaring what a claim body may look like — §14.1 makes "
   + "that artifact authoritative, so it is not narrowed from here (kogaki#346).");
-console.log("emit-time refusal: 5/5 rules fire on crafted nonconformant text; "
+console.log(`emit-time refusal: ${cases.length}/${cases.length} rules fire on crafted nonconformant text; `
   + "AC4's four properties present in the message (surface, rule, offending line, grammar). "
   + `AC2 end-to-end: ${e2eRan ? "RAN — `report` against a tightened grammar exited non-zero having written ZERO artifacts, neither the rendering nor the record, with the refusal on stderr and off the owner surface" : "CANNOT-DETERMINE, seam absent (stated above)"}. `
   + "The claim is written from WHICH BRANCH RAN rather than asserted flat: the first version of "
@@ -2689,4 +2752,93 @@ console.log(`golden specimens: ${Object.keys(SPECIMENS).length}/${Object.keys(SP
   + "output over the committed input. The count is read from the grammar, so covering a third surface fails here until its "
   + "specimen exists, and a file matching no covered surface fails as corpus growth (AC6). On disagreement the SPECIMEN is "
   + "reported stale and the grammar stands (AC5). Hand-authored, not generated — the reason is recorded in the README beside them.");
+JS
+
+# --------------------------------------------------------------------------
+# AC5 / AC6 — A SPLIT THAT BUYS NOTHING RENDERS NO SUBGROUPS, AND THE SCREEN
+# STILL PRINTS (SPEC-terrain §6.2 v7, kogaki#316 decision 3, story 1.57).
+#
+# The two criteria pull against each other on purpose: the group must render
+# WITHOUT SubGroups, and the command must still succeed. A refusal satisfies
+# the first and fails the second — and refusing would contradict §6.2's own
+# clause that a group whose leaf condition fails is FULLY CONFORMANT.
+#
+# Before this story the verdict was computed, printed as `NOT a leaf: … the
+# split bought nothing`, and read by nothing: the obligation was reported
+# rather than discharged.
+node --input-type=module - <<'JS'
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+
+const fails = [];
+const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const TAG = "testing";
+const pin = JSON.parse(readFileSync(FIXTURE, "utf8")).pin;
+
+const claims = join(tmpdir(), `ac5-claims-${process.pid}.json`);
+writeFileSync(claims, JSON.stringify({
+  composition_pin: { tag: TAG, pin, groups: {
+    [`${TAG} × (no second served tag)`]: ["lesson:delta"],
+    [`${TAG} × architecture`]: ["lesson:alpha", "lesson:bravo"],
+    [`${TAG} × cost`]: ["lesson:charlie"],
+  } },
+  claims: { [`${TAG} × architecture`]: "both are guards of some kind" },
+}));
+
+// The only named SubGroup restates the parent: `tighter_than_parent: false`.
+const subs = join(tmpdir(), `ac5-subs-${process.pid}.json`);
+writeFileSync(subs, JSON.stringify({
+  [`${TAG} × architecture`]: { judged: true, subgroups: [
+    { subgroup: "guards of some kind", claim: "both are guards of some kind",
+      members: ["lesson:alpha", "lesson:bravo"],
+      composes_honestly: true, tighter_than_parent: false, legible_at_a_glance: true },
+  ] },
+}));
+
+const r = spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG,
+   "--claims", claims, "--subdivisions", subs, "--judge-model", "m", "--judge-effort", "high"],
+  { encoding: "utf8" });
+const out = String(r.stdout);
+
+// AC6 first: the screen must exist at all. Asserting AC5 on an empty stdout
+// would pass vacuously — every "must not appear" is satisfied by nothing.
+if (r.status !== 0) {
+  fails.push(`AC6: cotags exited ${r.status} on a split that bought nothing — §6.2 v7 makes the group render FLAT and fully conformant; a judge's verdict must not be fatal to the surface. stderr: ${(r.stderr || "").trim().slice(0, 300)}`);
+} else if (out.trim() === "") {
+  fails.push("AC6: cotags exited 0 and printed nothing — every AC5 assertion below would pass vacuously");
+} else {
+  // AC5 — the group renders FLAT: heading carries its member ids, and no
+  // SubGroup line or leaf verdict appears for it.
+  if (!/^G[0-9]+ — testing × architecture — 2 Lessons: L2, L1$/m.test(out)) {
+    fails.push("AC5: the group did not fall back to the FLAT heading form with its member ids — a suppressed split leaves the group rendering exactly as an unjudged-empty one does (§6.2 v7)");
+  }
+  if (/^G[0-9]+-[0-9]+ — /m.test(out)) {
+    fails.push("AC5: a SubGroup line rendered for a split that bought nothing — the split does not discharge the subdivision obligation, so it renders as no split at all");
+  }
+  if (out.includes("NOT a leaf")) {
+    fails.push("AC5: the `NOT a leaf` verdict line still renders — that line IS the reported-rather-than-discharged state kogaki#316 decision 3 replaces");
+  }
+  // The suppression is DISCLOSED, never silent (§2.1). A flat group is
+  // otherwise indistinguishable from one nobody judged.
+  if (!/render flat because their only named SubGroup was not tighter than the parent/.test(out)) {
+    fails.push("AC5: the suppression is SILENT — a judgment ran, produced a split and had it suppressed, and the screen says nothing. §2.1 states an absence rather than leaving it, and the `claimless` aggregate is the shape this follows");
+  }
+  // And the fallback must not have eaten the members.
+  for (const id of ["L2", "L1"]) {
+    if (!out.includes(id)) fails.push(`AC5: member ${id} vanished from the flat fallback — the fallback renders the group, it does not narrow it`);
+  }
+}
+
+if (fails.length) {
+  console.log("FAIL suppressed split (SPEC-terrain §6.2 v7, story 1.57):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("suppressed split: a split whose only named SubGroup is not tighter than its parent renders NO "
+  + "SubGroups, the group falls back to its FLAT heading with member ids intact, no `NOT a leaf` line "
+  + "survives, the suppression is DISCLOSED in aggregate rather than silently, and the command EXITS ZERO — "
+  + "AC6 is asserted before AC5 so the must-not-appear assertions cannot pass on an empty screen.");
 JS

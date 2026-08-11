@@ -772,6 +772,7 @@ function cmdCotags(args) {
 
   say(`${tag} — the second navigation step. Grouped by co-tag; sort: ${COTAG_SORT}.\n`);
   let claimless = 0;
+  let suppressedSplits = 0;
   for (const g of shown) {
     g.by_family = familySplit(g.members, record.candidates);
     // The served form (SPEC.md §6.1, v5): the heading line carries the
@@ -792,12 +793,46 @@ function cmdCotags(args) {
     // screen — the same trap the report's `members` field carried.
     // §14.3 — group members render as display_ids, never as `lesson:<slug>`.
     const gShown = displayIds(g.members, record.candidates);
+    // The claim is read BEFORE the heading now, because `judgeSubgroup` needs
+    // it and the judgement decides which heading form the group gets (§6.2 v7).
+    const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
+
+    // THE SUBDIVISION IS JUDGED BEFORE ANYTHING IS EMITTED (§6.2 v7, kogaki#316
+    // decision 3). A split whose only named SubGroup is not tighter than its
+    // parent "does not discharge the subdivision obligation" — and that means
+    // the group renders NO SubGroups, which is the fallback §6.2 already names
+    // for a failed leaf condition ("renders no SubGroups and is fully
+    // conformant"). It is NOT a refusal: a judge's verdict must not be fatal to
+    // the surface, and refusing here would contradict that conformance clause.
+    //
+    // It has to happen here rather than at the render loop below, because the
+    // heading form itself differs — a group serving SubGroups carries the count
+    // alone, a flat one carries its member ids — so the decision must precede
+    // the heading it changes.
+    let judged = null;
+    if (subForHeading && subForHeading.length) {
+      const { subgroups } = subgroupPlacement(g, subForHeading, SURVEY_SCHEMA.subdivision);
+      for (const sg of subgroups) {
+        sg.by_family = familySplit(sg.members, record.candidates);
+        judgeSubgroup(sg, claim);
+      }
+      // "Only named SubGroup" is the decision's own wording, so the catch-all
+      // is excluded from the count and the literal singular case is what is
+      // implemented. A wider reading — no named SubGroup is tighter — would be
+      // this lane deciding more than kogaki#316 did.
+      const named = subgroups.filter((sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
+      const boughtNothing = named.length === 1 && named[0].verdicts
+        && named[0].verdicts.tighter_than_parent !== true;
+      judged = boughtNothing ? null : subgroups;
+      if (boughtNothing) suppressedSplits++;
+    }
+
     // §6.1 v6 — FLUSH LEFT, and the GroupID is what says this is a Group.
     // The co-tag name follows the id; it is a label, not the carrier.
-    say(subForHeading && subForHeading.length
+    say(judged
       ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
       : `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
-    if (!(subForHeading && subForHeading.length) && gShown.missing) {
+    if (!judged && gShown.missing) {
       say(displayIdAbnormalLine(gShown.missing, g.members.length));
     }
 
@@ -805,7 +840,6 @@ function cmdCotags(args) {
     // member set is PINNED to that set (§7), so the pinning is stated on the
     // screen where the claim is: the owner reading a subset later gets a gate
     // event, and that only means anything if they saw what it was pinned to.
-    const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
     if (claim !== undefined && String(claim).trim() !== "") {
       say(`in common: ${claim}`);
       say(`pinned to ${g.members.length} member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)`);
@@ -828,16 +862,11 @@ function cmdCotags(args) {
     // A judged-empty group renders NO SubGroups. Calling subgroupPlacement on
     // an empty list would sweep every member into `no_member_hidden_subgroup`
     // and manufacture a SubGroup the judgment did not make.
-    const sub = subForHeading && subForHeading.length ? subForHeading : null;
-    if (sub) {
-      const { subgroups } = subgroupPlacement(g, sub, SURVEY_SCHEMA.subdivision);
+    // Placement and judgement already ran above; this loop only renders.
+    if (judged) {
+      const subgroups = judged;
       let sgIdx = 0;
       for (const sg of subgroups) {
-        sg.by_family = familySplit(sg.members, record.candidates);
-        // The screen JUDGES rather than merely rendering (§6.2). Same
-        // implementation `subdivide` runs — the leaf condition is conjunctive
-        // and the two disclosures are disjunctive, and neither gates anything.
-        judgeSubgroup(sg, claim);
         // The served SubGroup form (§6.2, v5): one line — SubGroupID, Lesson
         // count, Lesson IDs — then the SubGroupClaim, then the leaf verdict
         // and any disclosures.
@@ -859,6 +888,15 @@ function cmdCotags(args) {
       say(`\njudged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
       say("");
     }
+  }
+  // A SUPPRESSED SPLIT IS DISCLOSED, never silent (§2.1; the `claimless`
+  // aggregate one block down is the shape this follows). §6.2 v7 makes the
+  // group render flat and fully conformant, but a judgment DID run and DID
+  // produce a split, and it bought nothing — an owner who sees a flat group
+  // cannot otherwise tell that from a group nobody judged. Aggregate rather
+  // than per-group, because a per-group line is what AC5 removes.
+  if (suppressedSplits) {
+    say(`\n${suppressedSplits} of ${shown.length} group(s) render flat because their only named SubGroup was not tighter than the parent — the split bought nothing, so it does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316). The groups are fully conformant; nothing was hidden and no member was dropped.`);
   }
   if (claimless) {
     say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);

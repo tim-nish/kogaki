@@ -319,32 +319,61 @@ function sumRule(surfaceName, lines, classified, rule) {
   return v;
 }
 
-// catch_all_share — the "(no second served tag)" group's share of the Cover
-// line's denominator. A catch-all swallowing most of the corpus is a
-// composition that discriminated nothing.
+// catch_all_share — the `(fits no composed SubGroup)` remainder's share of its
+// PARENT group's members (§14.2; kogaki#316 decision 2, owner 2026-08-09).
+//
+// IT USED TO MEASURE A DIFFERENT CATCH-ALL, and that is why this comment is
+// long. v1 of the grammar read §14.2's "catch-all <= 30%" and bound it to
+// `(no second served tag)` — the CO-TAG group, for Lessons carrying the
+// selected tag and no other — over the Cover line's corpus denominator. The
+// owner decision means the SUBGROUP remainder over the parent's own member
+// count. Same name, same number, different numerator AND different
+// denominator; the specimens that settle it (11 of 17, 20 of 28, 29 of 35)
+// are all the second kind, and nothing measured them.
+//
+// The co-tag bound is GONE rather than renamed (owner decision 2026-08-11):
+// a tagless group over 30% is a fact about the corpus, not a composition
+// defect, and refusing a screen over it would punish the substrate for its own
+// tag distribution.
+//
+// SCOPED PER PARENT, not per screen. Each subdivided group has its own
+// remainder and its own denominator, so a screen with three groups gets three
+// independent judgements — a single screen-wide ratio would let one healthy
+// group mask another's 83%.
 function catchAllRule(surfaceName, lines, classified, rule) {
-  const name = rule.catch_all_group_name;
+  const name = rule.catch_all_subgroup_name;
   const cap = 0.30;
-  let catchAll = null;
-  let coverOf = null;
-  classified.forEach((id, i) => {
-    if ((id === "group_heading_flat" || id === "group_heading_subdivided") && lines[i].includes(name)) {
-      catchAll = countIn(lines[i]);
+  const v = [];
+  let parent = null;
+  let parentLine = null;
+  let parentNo = null;
+  const close = (remainder, remainderLine, remainderNo) => {
+    if (parent === null || remainder === null || !parent) return;
+    const share = remainder / parent;
+    if (share > cap) {
+      v.push(violation(surfaceName, rule.id, remainderLine, remainderNo,
+        `the ${JSON.stringify(name)} SubGroup holds ${remainder} of the parent's ${parent} member Lessons `
+        + `(${(share * 100).toFixed(1)}%), over the ${(cap * 100).toFixed(0)}% §14.2 allows — `
+        + "a judgment that swept most of a group into the remainder discriminated almost nothing. "
+        + `Re-run or recompose the subdivision for ${JSON.stringify(parentLine)}; `
+        + "the bound is on a judgment that DID split and is not a member-count trigger for whether to split (§8)"));
     }
-    if (id === "cover") {
-      const m = /Cover: [0-9]+ of ([0-9]+)/.exec(lines[i]);
-      if (m) coverOf = Number(m[1]);
+  };
+  let remainder = null, remainderLine = null, remainderNo = null;
+  classified.forEach((id, i) => {
+    if (id === "group_heading_subdivided" || id === "group_heading_flat") {
+      // A new parent closes the previous one's accounting.
+      close(remainder, remainderLine, remainderNo);
+      remainder = null; remainderLine = null; remainderNo = null;
+      parent = id === "group_heading_subdivided" ? countIn(lines[i]) : null;
+      parentLine = lines[i]; parentNo = i + 1;
+    } else if (id === "subgroup_heading" && name && lines[i].includes(name)) {
+      remainder = countIn(lines[i]);
+      remainderLine = lines[i]; remainderNo = i + 1;
     }
   });
-  if (catchAll === null || !coverOf) return [];
-  const share = catchAll / coverOf;
-  if (share > cap) {
-    return [violation(surfaceName, rule.id, null, null,
-      `the ${JSON.stringify(name)} group holds ${catchAll} of ${coverOf} member Lessons `
-      + `(${(share * 100).toFixed(1)}%), over the ${(cap * 100).toFixed(0)}% the grammar entry allows — `
-      + "a catch-all this large is a composition that discriminated nothing")];
-  }
-  return [];
+  close(remainder, remainderLine, remainderNo);
+  return v;
 }
 
 // --------------------------------------------------------------------------

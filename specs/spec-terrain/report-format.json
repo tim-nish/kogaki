@@ -127,6 +127,11 @@
           "form": "ABNORMAL: <n> of <m> group(s) on this screen carry no composed GroupClaim. …"
         },
         {
+          "id": "suppressed_split_disclosure",
+          "form": "<n> of <m> group(s) render flat because their only named SubGroup was not tighter than the parent — the split bought nothing, so it does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316). …",
+          "note": "§6.2 v7 / kogaki#316 decision 3. The group renders flat and is fully conformant, so this is a DISCLOSURE and not an abnormality — but a judgment ran, produced a split and had it suppressed, and a flat group is otherwise indistinguishable from one nobody judged. Aggregate rather than per-group: a per-group line is precisely what decision 3 removes."
+        },
+        {
           "id": "abnormal_display_id",
           "form": "ABNORMAL: <n> of <m> member(s) on this surface carry no display_id. … Re-run `terrain survey` to regenerate the record (§12.2 v11).",
           "at": "terrain/terrain.mjs displayIdAbnormalLine",
