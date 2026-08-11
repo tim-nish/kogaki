@@ -1,7 +1,7 @@
 {
   "note": "SPEC-terrain §14.1 — the single carrier of the RENDERED FORM of kogaki's owner surfaces. Where SPEC.md's prose and this artifact disagree about the rendered form, THIS ARTIFACT WINS (§14.1), from the moment it exists and not before. It governs the rendered form and nothing else: not which members are placed, not what a claim says, not whether a figure is honest, not §2.1's family-naming duty. Those remain SPEC.md's prose.",
   "version": 2,
-  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover",
+  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover; the v2 amendment left four decidable_rules fields still saying `pending_producer: story 1.53` and the cite case still open — PR #351 round 1 finding 3, repaired on the story-1.54 branch, which is where those fields are READ",
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
   "encoding_choice": {
     "chosen": "a line-class grammar expressed in JSON",
@@ -384,9 +384,9 @@
           "cotag_screen",
           "full_report"
         ],
-        "pending_producer": "story 1.53",
-        "open_question": "Whether a served CITE string counts as an element name under this rule is not decided here and is not narrowed here. It is kogaki#345's question (story 1.53 SQ2, over memberBlock's `*Served line:*` row at terrain/terrain.mjs:1736) or kogaki#318's.",
-        "narrowing_withdrawn": "Two drafts narrowed this rule — first by asserting in tokens.Cite that a cite is not an element name, then by re-scoping the rule itself to MEMBER-NAMING positions. The second was the first relocated, not removed: either way this artifact decided the reach of a ratified owner duty (§14.3, kogaki#318) in the file §14.1 makes authoritative over the very text it transcribes, with no §14.2 or §14.3 amendment and no record on the licensing issue. The rule is now §14.2's own wording and the residue is a named open question. Story 1.54 implements the wide rule and raises the cite case rather than resolving it."
+        "narrowing_withdrawn": "Two drafts narrowed this rule — first by asserting in tokens.Cite that a cite is not an element name, then by re-scoping the rule itself to MEMBER-NAMING positions. The second was the first relocated, not removed: either way this artifact decided the reach of a ratified owner duty (§14.3, kogaki#318) in the file §14.1 makes authoritative over the very text it transcribes, with no §14.2 or §14.3 amendment and no record on the licensing issue. The rule is now §14.2's own wording and the residue is a named open question. Story 1.54 implements the wide rule. The cite case was resolved where this entry said it would be — on kogaki#345, by the owner — and not here; see open_question_resolved above.",
+        "producer_landed": "story 1.53 (kogaki#345). The token has a producer, so this rule is LIVE rather than pending; story 1.54's refusal enables it.",
+        "open_question_resolved": "ANSWERED 2026-08-11 on kogaki#345 (story 1.53 SQ2), by the owner. A served CITE is an ADDRESS, not an element name, so this rule does not reach it — but the PER-MEMBER `*Served line:*` row was removed anyway, on kogaki#318's 'two name-shaped rows' ground, and the member → served-line map moved to the report's end where §12 line 805 already sited it. The predicate therefore looks for element names only."
       },
       {
         "id": "member_lists_carry_display_ids",
@@ -395,7 +395,7 @@
           "cotag_screen",
           "full_report"
         ],
-        "pending_producer": "story 1.53"
+        "producer_landed": "story 1.53 (kogaki#345)."
       },
       {
         "id": "subgroup_members_sum_to_parent",

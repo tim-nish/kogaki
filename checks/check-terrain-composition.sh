@@ -578,6 +578,15 @@ CODES = {
     "FIGURE_FAMILY_UNNAMED",
     "FIGURE_MISMATCH",
     "NAVIGATION_STATE_NARROWS",
+    # §14.3 (story 1.53). Declared here in the SAME change that taught the
+    # validator to emit them — PR #351 round 1 finding 1 caught them absent,
+    # and the shape of that miss is why this comment exists: `missing = CODES -
+    # covered_codes` computes over the DECLARED set, so an undeclared code is
+    # invisible to the very guard that reports coverage. The check went on
+    # printing `fixture pass: n/14` while the validator could emit sixteen —
+    # kogaki#209's green-line-over-undemonstrated-protection shape exactly.
+    "DISPLAY_ID_MALFORMED",
+    "DISPLAY_ID_DUPLICATE",
 }
 # Declared, not silent.
 CODES_WITHOUT_FIXTURE = {"MALFORMED_JSON": "a fixture would not parse as JSON"}
