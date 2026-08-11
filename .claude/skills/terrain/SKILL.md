@@ -172,20 +172,30 @@ this sentence is here.
      size read against kogaki#168, since SubGroups being REQUIRED would
      multiply those lines across every SubGroup of every group. Do not
      "repair" it — read entry 4 first.
-   - **The same act generates the Full Reports, eagerly** (§11 decided, v5,
-     kogaki#146): immediately after `cotags`, run
-     `report --survey <record> --tag <T> --all-groups --claims <F>
-     --subdivisions <F> --judge-model <M> --judge-effort <E>` — one report
-     per composed group, idempotent per identity. A co-tag view that served
-     the screen and generated no reports is the 2026-08-06 defect specimen.
+   - **THE REPORT IS PULLED ON THE OWNER'S ID ENTRY, NOT GENERATED EAGERLY**
+     (§11 v5, §12 v6/v7 — owner decision kogaki#314, superseding the v5
+     decided-eager reading of kogaki#146). After `cotags`, **stop**. The owner
+     reads the screen and names the Group/SubGroup IDs they want; then run
+     `report --survey <record> --tag <T> --ids <G/SG list> --claims <F>
+     --subdivisions <F> --judge-model <M> --judge-effort <E>` — **ONE** report
+     covering exactly the entered set, idempotent per identity.
+     `--all-groups` and `--group` are **gone and will refuse**: the co-tag
+     count grew to the point where eleven reports nobody asked for stopped
+     serving the reading.
      **`--subdivisions` is not optional here either**: §6.2 requires SubGroups
-     in the Full Reports as well as on the screen, so an all-groups run
-     without it produces the exact artifact the ruling calls a failed run.
+     in the Full Report as well as on the screen, so a run without it produces
+     the exact artifact the ruling calls a failed run.
+     **The ids are valid for the run that printed them** (story 1.56 AC11): a
+     pin advance may renumber, so never reuse a list from an earlier screen —
+     re-read the current one.
    - **ONCE A TAG IS NAMED, EXACTLY TWO ACTS REMAIN** (SPEC.md §6.3;
      kogaki#166, owner ruling 2026-08-07): **(1)** run `cotags` and let its printed
      screen stand as the reply (§14.4 — you deliver it, you do not retype it),
-     **(2)** run `report --all-groups` and `cat` each rendering it names. **Nothing else runs
-     until the owner speaks in chat.** The subdivision judgment is part of act
+     **(2)** accept the owner's ID entry, run `report --ids <list>`, and `cat`
+     the rendering it names. **The stop now sits BETWEEN the two acts**
+     (§6.3 v7): nothing runs after the screen until the owner speaks. ID entry
+     is the owner speaking, not the runtime asking — no prompt, no selector,
+     no question. The subdivision judgment is part of act
      (1) — you judge and render SubGroups inside the screen, never as a third
      step beside it — and **`compose-input` and the claim composition it feeds
      are part of act (1) for the same reason**: they are how act (1)'s

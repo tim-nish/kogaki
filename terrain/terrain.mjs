@@ -1887,9 +1887,15 @@ function announceArtifacts(rendered, recordPath) {
 export function renderReportMarkdown(report, tag) {
   const L = [];
   const i = report.identity;
-  L.push(`# Full Report — ${report.gid ? `${report.gid} — ` : ""}${i.query.group}`);
+  // §12 v7 — the title names the TAG, never an id. A report may span several
+  // entered ids, so no single GroupID identifies it; the entered set rides
+  // `*Selections:*` in the identity block, where §12.1 already puts the
+  // recorded components. Kept short deliberately: five ids in a title wrap, on
+  // the surface kogaki#317 exists to keep readable under wrapping.
+  L.push(`# Full Report — ${tag}`);
   L.push("");
   L.push(`*Selected tag:* \`${tag}\`  `);
+  L.push(`*Selections:* ${(i.query.ids || []).join(", ")}  `);
   L.push(`*Substrate pin:* \`${i.pin}\`  `);
   L.push(`*Judge:* ${i.judge_pin === NO_JUDGE ? "`none`"
     : `\`${i.judge_pin.model_id}/${i.judge_pin.effort_tier}\``}`);
@@ -1899,36 +1905,45 @@ export function renderReportMarkdown(report, tag) {
   L.push("> article material is quoted from served renderings at pins, never");
   L.push("> from a report.");
   L.push("");
-  L.push("## Group claim");
-  L.push("");
-  L.push(report.group_claim === NO_CLAIM ? "*(none composed)*" : report.group_claim);
-  L.push("");
-  if (report.subgroups && report.subgroups.length) {
-    L.push("## SubGroups");
-    for (const sg of report.subgroups) {
+  // The singular `## Group claim` block is GONE (§12 v7): a report may span
+  // several ids, so there is no one group whose claim heads the file. Each
+  // section carries its own claim under its own heading.
+  // §12 v7 — ONE SECTION PER ENTERED ID, keyed by the id. What repeats is the
+  // section; the identity block above and the Counted / Served-lines blocks
+  // below appear once for the file.
+  for (const sec of report.sections || []) {
+    L.push("");
+    L.push(`## ${sec.id} — ${sec.name}`);
+    L.push("");
+    L.push(sec.claim === NO_CLAIM ? "*(none composed)*" : sec.claim);
+    L.push("");
+    if (sec.subgroups && sec.subgroups.length) {
+      for (const sg of sec.subgroups) {
+        L.push(`### ${sg.sgid ? `${sg.sgid} — ` : ""}${sg.name}`);
+        L.push("");
+        L.push(sg.claim === NO_CLAIM ? "*(no SubGroupClaim)*" : sg.claim);
+        L.push("");
+        for (const m of sg.members) L.push(...memberBlock(m, 4));
+      }
+    } else if (sec.subgroups && sec.subgroups.length === 0) {
+      // §12.1 v9's three states, unchanged by the multi-section form: a
+      // judged-empty outcome and a SUPPRESSED split are not the same silence,
+      // and neither is an absent judgment.
+      if (sec.suppressed_split) {
+        L.push("*The judgment produced a split and it was SUPPRESSED: its only named");
+        L.push("SubGroup was not tighter than the parent, so it bought nothing and does");
+        L.push("not discharge the subdivision obligation (SPEC-terrain §6.2 v7). This is");
+        L.push("neither a judged-empty outcome nor an absent judgment. Members are listed");
+        L.push("below, and none was dropped.*");
+      } else {
+        L.push("*The judgment produced NO split — this is a judged-empty outcome,");
+        L.push("not an absent judgment. Members are listed below.*");
+      }
       L.push("");
-      // §6.2 v6 — the report uses the SAME SubGroupID the screen showed, so
-      // an owner copying an id from one finds it in the other (AC4).
-      L.push(`### ${sg.sgid ? `${sg.sgid} — ` : ""}${sg.name}`);
-      L.push("");
-      L.push(sg.claim === NO_CLAIM ? "*(no SubGroupClaim)*" : sg.claim);
-      L.push("");
-      for (const m of sg.members) L.push(...memberBlock(m, 4));
+      for (const m of sec.members || []) L.push(...memberBlock(m, 3));
+    } else {
+      for (const m of sec.members || []) L.push(...memberBlock(m, 3));
     }
-  } else if (report.subgroups && report.subgroups.length === 0) {
-    // JUDGED-EMPTY is not the same silence as unjudged, and the rendering must
-    // not flatten them (§12.1 v9). A reader seeing no SubGroups section could
-    // not tell "the judgment produced no split" from "nobody judged".
-    L.push("## SubGroups");
-    L.push("");
-    L.push("*The judgment produced NO split — this is a judged-empty outcome,");
-    L.push("not an absent judgment. Members are listed below.*");
-    L.push("");
-    for (const m of report.members || []) L.push(...memberBlock(m, 3));
-  } else {
-    L.push("## Members");
-    L.push("");
-    for (const m of report.members || []) L.push(...memberBlock(m, 3));
   }
   L.push("");
   L.push("## Counted");
@@ -1988,8 +2003,21 @@ export function servedLinesBlock(report) {
     seen.add(key);
     rows.push([m.display_id || NO_DISPLAY_ID, bareCite(m.cite) || "⟨no served line recorded — ABNORMAL, never substituted⟩"]);
   };
-  // Both shapes, because a report renders EITHER SubGroups or a flat member
-  // list and the map is owed by both.
+  // MERGED ACROSS SECTIONS AND DEDUPED (§12 v7, kogaki#314). The map is sited
+  // ONCE for the file, so a member entered under both `G5` and `G5-1` appears
+  // in it once — `seen` above is what makes the merge honest rather than
+  // merely shorter. A repeated per-section map is the class kogaki#315 named
+  // unjustified.
+  //
+  // Both section shapes are walked, because a section renders EITHER SubGroups
+  // or a flat member list and the map is owed by both.
+  for (const sec of report.sections || []) {
+    for (const sg of sec.subgroups || []) for (const m of sg.members || []) collect(m);
+    for (const m of sec.members || []) collect(m);
+  }
+  // Pre-v7 records carried the members at the top level. Read them too, so a
+  // record written before this change still renders its map rather than an
+  // empty one — the specimen and any run-workspace record from today.
   for (const sg of report.subgroups || []) for (const m of sg.members || []) collect(m);
   for (const m of report.members || []) collect(m);
 
@@ -2075,10 +2103,14 @@ export function memberBlock(m, level) {
 // present. UNIFORM ARITY: `none` is a value that must be present, never an
 // omitted component, because a key whose shape depends on the report's own
 // content is one a request cannot construct.
-export function reportIdentity(pin, tag, group, judgePin) {
+// §12 v6 (kogaki#314) — the query component is `{ tag, ids }`, the ids
+// CANONICAL. Idempotence is set-based: two typings of the same set in
+// different orders are ONE artifact, which is what makes a re-request return
+// the same report rather than a second one.
+export function reportIdentity(pin, tag, ids, judgePin) {
   return {
     pin,
-    query: { tag, group },
+    query: { tag, ids: canonicalIds(ids) },
     judge_pin: judgePin || NO_JUDGE,
   };
 }
@@ -2088,7 +2120,7 @@ export function reportIdentity(pin, tag, group, judgePin) {
 // of identity, and this hash is not parsed back anywhere.
 function identityDigest(identity) {
   return createHash("sha256")
-    .update(JSON.stringify([identity.pin, identity.query.tag, identity.query.group,
+    .update(JSON.stringify([identity.pin, identity.query.tag, identity.query.ids,
       identity.judge_pin === NO_JUDGE ? NO_JUDGE
         : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`]))
     .digest("hex").slice(0, 16);
@@ -2098,9 +2130,73 @@ export function sameIdentity(a, b) {
   return JSON.stringify(reportIdentityKey(a)) === JSON.stringify(reportIdentityKey(b));
 }
 function reportIdentityKey(i) {
-  return [i.pin, i.query.tag, i.query.group,
+  return [i.pin, i.query.tag, i.query.ids,
     i.judge_pin === NO_JUDGE ? NO_JUDGE
       : `${i.judge_pin.model_id}/${i.judge_pin.effort_tier}`];
+}
+
+// THE ENTERED ID SET, RESOLVED AND CANONICALISED (§12 v6, kogaki#314).
+//
+// The owner reads a screen and types `G10,G5-1,G5-2`. Those ids resolve
+// against THE GROUPS THIS RUN COMPOSES and nothing else — story 1.56 AC11
+// makes an id valid for the run that printed it, because a pin advance may
+// renumber, so a cached numbering would silently resolve to the wrong Strands.
+//
+// THE SORT IS NUMERIC-AWARE, and this is the part a plain reading gets wrong.
+// `G5-1` comes before `G10`: lexicographically `"G10" < "G5-1"`, which would
+// render a screen's tenth group above its fifth. Compare the numeric
+// components, never the raw string.
+//
+// CANONICAL, so identity is SET-BASED (§12 v6): two typings of the same ids in
+// different orders are ONE artifact, which is what makes a re-request return
+// the same report rather than a second one. The cost is stated in the spec —
+// section order is canonical, not entry order.
+export function idSortKey(id) {
+  const m = /^G([0-9]+)(?:-([0-9]+))?$/.exec(id);
+  if (!m) return [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, id];
+  return [Number(m[1]), m[2] === undefined ? -1 : Number(m[2]), ""];
+}
+
+export function canonicalIds(ids) {
+  return [...new Set(ids)].sort((a, b) => {
+    const ka = idSortKey(a), kb = idSortKey(b);
+    return ka[0] - kb[0] || ka[1] - kb[1] || String(ka[2]).localeCompare(String(kb[2]));
+  });
+}
+
+// Resolve each entered id to a Group or a SubGroup of this screen.
+//
+// A SubGroup id brings ITS SubGroup, not its parent (AC7): entering `G5` and
+// `G5-1` together is admissible and renders both, with `G5-1`'s members
+// appearing under each — a COVER, not a duplication (§2.1).
+function resolveEnteredIds(entered, groups, subOf) {
+  const known = [];
+  const byId = new Map();
+  for (const g of groups) {
+    known.push(g.gid);
+    byId.set(g.gid, { kind: "group", gid: g.gid, group: g });
+    // SubGroup ids are derived exactly as the screen derives them: the
+    // parent's gid plus a 1-based index over `subgroupPlacement`'s output.
+    const entry = subOf ? subOf(g) : null;
+    if (entry && entry.subgroups && entry.subgroups.length) {
+      const placed = subgroupPlacement(g, entry.subgroups, SURVEY_SCHEMA.subdivision);
+      placed.subgroups.forEach((sg, i) => {
+        const sgid = `${g.gid}-${i + 1}`;
+        known.push(sgid);
+        byId.set(sgid, { kind: "subgroup", gid: sgid, group: g, sg });
+      });
+    }
+  }
+  const canon = canonicalIds(entered);
+  const missing = canon.filter((id) => !byId.has(id));
+  if (missing.length) {
+    // AC5 — a refusal that does not say what WAS available sends the owner
+    // back to re-read a screen they already read.
+    fail(`report --ids names ${missing.join(", ")}, which resolve to no Group or SubGroup on this screen. `
+      + `The ids that do resolve are: ${canonicalIds(known).join(", ")}. `
+      + "Ids are valid for the run that printed them (story 1.56 AC11): a pin advance may renumber, so re-read the screen rather than reusing an older list.");
+  }
+  return { canonical: canon, targets: canon.map((id) => byId.get(id)) };
 }
 
 function cmdReport(args) {
@@ -2108,21 +2204,27 @@ function cmdReport(args) {
   const dir = reportsDir(args);
   const record = readJson(String(args.survey || fail("report needs --survey <file>")));
   const tag = String(args.tag || fail("report needs --tag <selected tag>"));
-  const all = Boolean(args["all-groups"]);
-  if (all && args.group) fail("report takes --group <co-tag> or --all-groups, never both");
-  const groupArg = all ? null : String(args.group || fail("report needs --group <co-tag> or --all-groups (SPEC.md §11 v5: the co-tag view generates EAGERLY, one report per composed group)"));
+  // §11 v5 / §12 v6 (kogaki#314): the owner enters a G/SG ID SET and ONE report
+  // covers exactly it. `--all-groups` and `--group` are GONE, not deprecated —
+  // leaving the eager flag reachable would leave the over-generation the
+  // decision removes one argument away, on precisely the 11-group screen that
+  // filed the issue.
+  if (args["all-groups"] !== undefined || args.group !== undefined) {
+    fail("report no longer takes --all-groups or --group. SPEC.md §11 v5 (kogaki#314) supersedes eager per-group generation: enter the Group/SubGroup IDs you want, e.g. `report --tag <T> --ids G10,G5-1,G5-2`, and ONE report covers exactly those.");
+  }
+  const idsArg = String(args.ids || fail("report needs --ids <G/SG list>, e.g. --ids G10,G5-1 (SPEC.md §12 v6: one report over the entered ID set)"));
+  const enteredIds = idsArg.split(",").map((x) => x.trim()).filter(Boolean);
+  if (enteredIds.length === 0) {
+    // SQ3, answered: an empty set REFUSES rather than producing an empty
+    // report. "The owner entered nothing" and "the owner wants a report of
+    // nothing" are different, and the second is not a thing §12 can render —
+    // a report with no material has no identity worth colliding on.
+    fail("report --ids was empty. An empty ID set is not a report of nothing: enter at least one Group or SubGroup ID from the screen.");
+  }
 
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
   const groups = cotagGroups(members, tag);
-  // --all-groups is §11's decided EAGER reading (v5, kogaki#146): one report
-  // per composed group, in the same act as the screen. Generation stays
-  // idempotent per §12.1, so the eager pass and a later re-request are the
-  // same artifact.
-  const targets = all ? groups
-    : [groups.find((g) => g.name === groupArg || g.cotag === groupArg)
-        || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`)];
-
   // THE SECOND READER OF THE SAME ARTIFACT (§11 v10, kogaki#212). `cotags` and
   // `report` are handed the same `--claims` file, so migrating one and leaving
   // the other reading the flat map would put two encodings behind one file —
@@ -2136,6 +2238,17 @@ function cmdReport(args) {
   const subOf = (g) => readSubdivisionEntry(
     g.name,
     subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+
+  // Resolution runs against THE GROUPS THIS RUN COMPOSES (AC6). Story 1.56
+  // AC11 makes an id valid for the run that printed it — a pin advance may
+  // renumber — so nothing here caches, persists or reconstructs an earlier
+  // numbering. `cotagGroups` above is the only source, and `subOf` is what
+  // makes SubGroup ids resolvable, which is why this sits after it.
+  const resolved = resolveEnteredIds(enteredIds, groups, subOf);
+  const targets = resolved.targets;
+  // The groups the entered set reaches — used by the judge-pin and
+  // subdivision-completeness gates below, which are per-GROUP checks.
+  const targetGroups = [...new Map(targets.map((t) => [t.group.gid, t.group])).values()];
 
   // THE JUDGE PIN IS REQUIRED UNCONDITIONALLY (§12.1 v9, kogaki#199), not only
   // when a target carries SubGroupClaims. "Required" governs the JUDGMENT, so
@@ -2157,7 +2270,7 @@ function cmdReport(args) {
   // EVERY TARGET MUST BE JUDGED. An absent entry is `not judged`, and the
   // co-tag path refuses it rather than minting `none` for it — the whole of
   // what §12.1 v9 forbids.
-  const unjudged = targets.filter((g) => subOf(g) === null).map((g) => g.name);
+  const unjudged = targetGroups.filter((g) => subOf(g) === null).map((g) => g.name);
   if (unjudged.length) {
     fail(`--subdivisions carries no entry for ${unjudged.join(", ")}. On the co-tag path `
       + `every group is judged (§6.2), so a missing entry cannot be recorded: write `
@@ -2170,23 +2283,135 @@ function cmdReport(args) {
   const fetchBodies = () => {
     if (bodies) return bodies;
     const lessonBodies = fetchGlossBodies("lessons", tag);
-    const journeyBodies = targets.some((g) => g.members.some((id) => (record.candidates.find((c) => c.id === id) || {}).journey))
+    const journeyBodies = targetGroups.some((g) => g.members.some((id) => (record.candidates.find((c) => c.id === id) || {}).journey))
       ? fetchGlossBodies("journeys", tag) : new Map();
     bodies = { lessonBodies, journeyBodies };
     return bodies;
   };
 
-  for (const group of targets) generateReport(group);
+  // ONE report over the whole entered set (§12 v6/v7) — not one per group.
+  generateReport(targets);
 
-  function generateReport(group) {
+  function generateReport(entered) {
+  // §12 v7 — ONE report over the entered set. The identity is the set; each
+  // entered id becomes one SECTION, and the identity block, Counted and
+  // Served lines appear once for the file.
+  const identity = reportIdentity(record.pin, tag, resolved.canonical, suppliedJudge);
+  const sectionsOut = [];
+  let abnormalTotal = 0;
+  const allMemberIds = [];
+
+  function buildSection(t) {
+  const group = t.group;
   const groupClaim = claims[group.name] !== undefined ? claims[group.name] : claims[group.cotag];
   const sub = subOf(group);
   // Unconditional now: `sub` is non-null for every target (refused above), and
   // NO_JUDGE is never minted here. It stays exported and valid in the identity
   // triple — §12.1's uniform arity is untouched and `(pin, query, none)` is
   // still constructible by a requester who does not hold the report.
-  const judgePin = suppliedJudge;
-  const identity = reportIdentity(record.pin, tag, group.name, judgePin);
+  const { lessonBodies, journeyBodies } = fetchBodies();
+
+  let abnormal = 0;
+  const renderMembers = (ids) => ids.map((id) => {
+    const c = record.candidates.find((x) => x.id === id) || {};
+    const lg = lessonBodies.get(c.slug);
+    const jg = c.journey ? journeyBodies.get(c.slug) : null;
+    if (!lg) abnormal++;
+    if (c.journey && !jg) abnormal++;
+    return {
+      id, cite: c.cite || null,
+      // §14.3 — resolved from `record.candidates` AT RENDER TIME. The record
+      // is the map (AC3); this is a projection of it onto the member being
+      // rendered, not a second map written beside it, and nothing reads it
+      // back. `null` when the record predates §14.3, which `memberBlock`
+      // renders as the stated abnormality rather than as the slug (AC7).
+      display_id: c.display_id || null,
+      gloss: lg ? lg.body : NO_GLOSS_BODY,
+      gloss_cite: lg ? lg.cite : null,
+      journey_gloss: c.journey ? (jg ? jg.body : NO_GLOSS_BODY) : null,
+      journey_cite: c.journey && jg ? jg.cite : null,
+    };
+  });
+
+  // JUDGED-EMPTY IS ZERO SubGroupClaims, and the catch-all must NOT fire for it
+  // (§12.1 v9). `subgroupPlacement` places nothing on an empty list and then
+  // sweeps every member into `no_member_hidden_subgroup` — correct when a
+  // judgment produced a split that missed some members, wrong when it produced
+  // no split at all, because it manufactures a SubGroup the judgment did not
+  // make.
+  let subgroups = null;
+  // §6.2 v7 / §12.1 v9's THIRD state. Set where the suppression is decided and
+  // read by the renderer — PR #356 round 1 finding 2 found the read with no
+  // writer, so the branch was unreachable and a suppressed section rendered
+  // "the judgment produced NO split", which is false of it. That is the
+  // carrier-with-no-input shape, and it read as fixed.
+  let suppressedSplitHere = false;
+  if (sub && sub.subgroups.length === 0) {
+    subgroups = [];
+  } else if (sub) {
+    const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
+    // §6.2 v7 RULE 3 BINDS THIS SURFACE TOO, and it did not until PR #355
+    // round 1 finding 1. The rule reads unconditionally — "the group renders no
+    // SubGroups" — and story 1.57 implemented the suppression only in
+    // `cmdCotags`, so one run's two owner surfaces disagreed: the screen showed
+    // the group flat while the report still carried the SubGroups the screen
+    // had suppressed. An owner copying a G-id between them would have found two
+    // different structures under it, which is the divergence kogaki#317 minted
+    // the ids to prevent.
+    //
+    // The judgement runs HERE rather than being read off the screen, because
+    // the two surfaces share the subdivision record and nothing else — reading
+    // the screen's verdict would be a second carrier. Same input, same
+    // `judgeSubgroup`, same conclusion.
+    for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim);
+    const namedSg = placed.subgroups.filter(
+      (sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
+    if (namedSg.length === 1 && namedSg[0].verdicts
+        && namedSg[0].verdicts.tighter_than_parent !== true) {
+      // Rendered as judged-empty in SHAPE, and flagged so the renderer can
+      // tell it from a genuine no-split. `[]` and not `null` — §12.1 v9 keeps
+      // judged-empty distinguishable from unjudged, and this group WAS judged.
+      subgroups = [];
+      suppressedSplitHere = true;
+    } else {
+    // §6.2 v6 — the SubGroupID is derived the same way the screen derives it:
+    // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
+    // output in the same order. That is what makes AC4 hold — an owner copying
+    // `G2-1` off the screen finds `G2-1` in the report — without either surface
+    // reading an id the other stored, which would be the second carrier.
+    subgroups = placed.subgroups.map((sg, i) => ({
+      name: sg.name,
+      sgid: `${group.gid}-${i + 1}`,
+      claim: sg.claim || NO_CLAIM,
+      members: renderMembers(sg.members),
+    }));
+    }
+  }
+
+  const sectionMembers = t.kind === "subgroup" ? t.sg.members : group.members;
+  allMemberIds.push(...sectionMembers);
+  abnormalTotal += abnormal;
+  return {
+    // §12 v7 — one section per entered id, KEYED BY THE ID so an owner can
+    // match a section to what they typed.
+    id: t.gid,
+    name: t.kind === "subgroup" ? t.sg.name : group.name,
+    kind: t.kind,
+    claim: t.kind === "subgroup"
+      ? (t.sg.claim || NO_CLAIM)
+      : (groupClaim !== undefined && String(groupClaim).trim() !== "" ? groupClaim : NO_CLAIM),
+    // A SubGroup section carries ITS members (AC7), never its parent's.
+    subgroups: t.kind === "subgroup" ? null : subgroups,
+    // The field the renderer reads to pick the third-state notice.
+    suppressed_split: t.kind === "subgroup" ? false : suppressedSplitHere,
+    members: t.kind === "subgroup"
+      ? renderMembers(t.sg.members)
+      : (subgroups && subgroups.length ? null : renderMembers(group.members)),
+    counted: familySplit(sectionMembers, record.candidates),
+  };
+  }
+
+  for (const t of entered) sectionsOut.push(buildSection(t));
 
   // §12.1 case 1: same identity, run twice -> ONE report. The rerun is
   // idempotent, not a duplicate, so an existing report with THIS identity is
@@ -2225,108 +2450,30 @@ function cmdReport(args) {
       console.log("Full Report already exists for this identity — the rerun is IDEMPOTENT, "
         + "not a duplicate (SPEC.md §12.1).");
       announceArtifacts(priorRendered, out);
-      console.log(`Identity: pin=${identity.pin} query=(${tag}, ${group.name}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
+      console.log(`Identity: pin=${identity.pin} query=(${tag}, ${identity.query.ids.join(", ")}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
       return;
     }
   }
 
-  const { lessonBodies, journeyBodies } = fetchBodies();
-
-  let abnormal = 0;
-  const renderMembers = (ids) => ids.map((id) => {
-    const c = record.candidates.find((x) => x.id === id) || {};
-    const lg = lessonBodies.get(c.slug);
-    const jg = c.journey ? journeyBodies.get(c.slug) : null;
-    if (!lg) abnormal++;
-    if (c.journey && !jg) abnormal++;
-    return {
-      id, cite: c.cite || null,
-      // §14.3 — resolved from `record.candidates` AT RENDER TIME. The record
-      // is the map (AC3); this is a projection of it onto the member being
-      // rendered, not a second map written beside it, and nothing reads it
-      // back. `null` when the record predates §14.3, which `memberBlock`
-      // renders as the stated abnormality rather than as the slug (AC7).
-      display_id: c.display_id || null,
-      gloss: lg ? lg.body : NO_GLOSS_BODY,
-      gloss_cite: lg ? lg.cite : null,
-      journey_gloss: c.journey ? (jg ? jg.body : NO_GLOSS_BODY) : null,
-      journey_cite: c.journey && jg ? jg.cite : null,
-    };
-  });
-
-  // JUDGED-EMPTY IS ZERO SubGroupClaims, and the catch-all must NOT fire for it
-  // (§12.1 v9). `subgroupPlacement` places nothing on an empty list and then
-  // sweeps every member into `no_member_hidden_subgroup` — correct when a
-  // judgment produced a split that missed some members, wrong when it produced
-  // no split at all, because it manufactures a SubGroup the judgment did not
-  // make.
-  let subgroups = null;
-  if (sub && sub.subgroups.length === 0) {
-    subgroups = [];
-  } else if (sub) {
-    const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
-    // §6.2 v7 RULE 3 BINDS THIS SURFACE TOO, and it did not until PR #355
-    // round 1 finding 1. The rule reads unconditionally — "the group renders no
-    // SubGroups" — and story 1.57 implemented the suppression only in
-    // `cmdCotags`, so one run's two owner surfaces disagreed: the screen showed
-    // the group flat while the report still carried the SubGroups the screen
-    // had suppressed. An owner copying a G-id between them would have found two
-    // different structures under it, which is the divergence kogaki#317 minted
-    // the ids to prevent.
-    //
-    // The judgement runs HERE rather than being read off the screen, because
-    // the two surfaces share the subdivision record and nothing else — reading
-    // the screen's verdict would be a second carrier. Same input, same
-    // `judgeSubgroup`, same conclusion.
-    for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim);
-    const namedSg = placed.subgroups.filter(
-      (sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
-    if (namedSg.length === 1 && namedSg[0].verdicts
-        && namedSg[0].verdicts.tighter_than_parent !== true) {
-      // Rendered as judged-empty: the split did not discharge the obligation,
-      // so this report carries the group's members flat, exactly as the screen
-      // does. `[]` and not `null` — §12.1 v9 keeps judged-empty distinguishable
-      // from unjudged, and this group WAS judged.
-      subgroups = [];
-    } else {
-    // §6.2 v6 — the SubGroupID is derived the same way the screen derives it:
-    // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
-    // output in the same order. That is what makes AC4 hold — an owner copying
-    // `G2-1` off the screen finds `G2-1` in the report — without either surface
-    // reading an id the other stored, which would be the second carrier.
-    subgroups = placed.subgroups.map((sg, i) => ({
-      name: sg.name,
-      sgid: `${group.gid}-${i + 1}`,
-      claim: sg.claim || NO_CLAIM,
-      members: renderMembers(sg.members),
-    }));
-    }
-  }
 
   const report = {
     id: `terrain-full-report-${identityDigest(identity)}`,
     kind: "full-report",
-    // The identity is RECORDED, not implied (§12): §12.2 makes these the only
-    // source of it, so a report that carried none could never be resolved.
     identity,
-    // The GroupID this report is OF (§6.1 v6). `cotagGroups` minted it over the
-    // composed list, so the report and the screen of one run agree by
-    // construction. Absent on a record written before v6, which the renderer
-    // handles by omitting the prefix rather than inventing one.
-    gid: group.gid,
+    // §12 v7 — the entered set, canonical, recorded in the identity block.
+    selections: identity.query.ids,
     classification: "report",
     narrows: false,
     truncated: false,
-    group_claim: groupClaim !== undefined && String(groupClaim).trim() !== "" ? groupClaim : NO_CLAIM,
-    subgroups,
-    // A judged-empty group keeps its MEMBERS: they are not in `subgroups`, so
-    // nulling them here would drop the group's whole membership from the
-    // artifact. Keyed on whether any SubGroupClaim exists, never on whether the
-    // group was judged.
-    members: subgroups && subgroups.length ? null : renderMembers(group.members),
-    counted: familySplit(group.members, record.candidates),
+    // ONE section per entered id; the identity block, Counted and Served
+    // lines are once-per-file and live beside this rather than inside it.
+    sections: sectionsOut,
+    // AGGREGATED over the whole set, deduped by member id — a member entered
+    // under both G5 and G5-1 is one Lesson, not two.
+    counted: familySplit([...new Set(allMemberIds)], record.candidates),
     lessons_served: record.candidates.length,
   };
+  const abnormal = abnormalTotal;
   // THE REFUSAL PRECEDES BOTH WRITES (§14.2, story 1.54 AC2). The record is
   // written BELOW this line, not above it: §12.2 v11 requires the record and
   // its rendering in the same act, so a refusal that had already written the
@@ -2367,8 +2514,8 @@ function cmdReport(args) {
   // which is where the contract now lives so that neither path can drift from
   // the other again.
   announceArtifacts(rendered, out);
-  console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, ${group.name}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
-  console.log(`${sectionFigure(Object.assign({}, group, { by_family: report.counted }), record.candidates.length)}`);
+  console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, [${identity.query.ids.join(", ")}]) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
+  console.log(`${sectionFigure({ name: `${tag} — ${identity.query.ids.length} selection(s)`, members: [...new Set(allMemberIds)], by_family: report.counted }, record.candidates.length)}`);
   if (abnormal) {
     console.log(`ABNORMAL: ${abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9, §12).`);
   }

@@ -1,7 +1,7 @@
 {
   "note": "SPEC-terrain §14.1 — the single carrier of the RENDERED FORM of kogaki's owner surfaces. Where SPEC.md's prose and this artifact disagree about the rendered form, THIS ARTIFACT WINS (§14.1), from the moment it exists and not before. It governs the rendered form and nothing else: not which members are placed, not what a claim says, not whether a figure is honest, not §2.1's family-naming duty. Those remain SPEC.md's prose.",
-  "version": 4,
-  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover; the v2 amendment left four decidable_rules fields still saying `pending_producer: story 1.53` and the cite case still open — PR #351 round 1 finding 3, repaired on the story-1.54 branch, which is where those fields are READ; v3 by kogaki#317 (hierarchy carrier — indentation replaced by G/SG IDs) coupled with kogaki#315 (the format contract, enumerated), owner decisions 2026-08-11; v4 by kogaki#316 (SubGroup grouping rules) — catch_all_share re-bound to the SubGroup remainder it was always meant to measure, and the unratified co-tag bound removed",
+  "version": 5,
+  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover; the v2 amendment left four decidable_rules fields still saying `pending_producer: story 1.53` and the cite case still open — PR #351 round 1 finding 3, repaired on the story-1.54 branch, which is where those fields are READ; v3 by kogaki#317 (hierarchy carrier — indentation replaced by G/SG IDs) coupled with kogaki#315 (the format contract, enumerated), owner decisions 2026-08-11; v4 by kogaki#316 (SubGroup grouping rules) — catch_all_share re-bound to the SubGroup remainder it was always meant to measure, and the unratified co-tag bound removed; v5 by kogaki#314 (the multi-section Full Report — one identity, one Counted, one merged Served-lines map, sections per entered id), owner decision 2026-08-11 at the re-triage the story-1.58 stop earned",
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
   "encoding_choice": {
     "chosen": "a line-class grammar expressed in JSON",
@@ -188,12 +188,21 @@
       "line_classes": [
         {
           "id": "title",
-          "form": "# Full Report — <GroupID> — <co-tag name>",
-          "form_note": "v3 amended for kogaki#317. The GroupID leads and the co-tag name follows, the same order `cotag_screen.group_heading_flat` uses, so an owner moving between the two surfaces of one run meets one convention. AMENDED LATE, by PR #354 round 1 finding 2: the cotag twins were amended in the spec sitting and these were not, so the emitter rendered `# Full Report — G2 — …` against a declared `# Full Report — <GroupID>` and nothing refused it — full_report's allowlist is inert (see reader_notes), so the permissive body classes admitted the line. A divergence surviving on the same inertness this very version documents elsewhere."
+          "form": "# Full Report — <co-tag name>",
+          "form_note": "v5, kogaki#314 — the title names the SELECTED TAG and never an id. A report may span several entered ids, so no single GroupID identifies it; the entered set rides `selections` in the identity block instead. Kept short deliberately: five ids in a title wrap, on the surface whose recent history is entirely about wrapping destroying structure (kogaki#317). Declined: ids in the title, and a count in the title (two different two-id reports would share one)."
         },
         {
           "id": "selected_tag",
           "form": "*Selected tag:* `<tag>`"
+        },
+        {
+          "id": "selections",
+          "form": "*Selections:* <canonical id list, \", \"-joined>",
+          "allowlist": [
+            "GroupID",
+            "SubGroupID"
+          ],
+          "note": "v5, kogaki#314. The entered ID set, canonical (numeric-aware sort, deduped), recorded in the identity block where §12.1 already puts the recorded components. This is the query component §12 v6 made `{ tag, ids }`."
         },
         {
           "id": "substrate_pin",
@@ -217,16 +226,18 @@
           "note": "Declared as its four rendered lines. The earlier form — prose with an ellipsis and a parenthetical — matched none of them, so under REFUSE and §14.1's precedence a literal read rejected every Full Report. That is the same defect judged_empty_notice carried, one entry up, and it survived the fix that named it because that fix cited THIS entry as its precedent."
         },
         {
-          "id": "h2_group_claim",
-          "form": "## Group claim"
+          "id": "h2_section",
+          "form": "## <GroupID> — <co-tag name> | ## <SubGroupID> — <SubGroup name>",
+          "allowlist": [
+            "GroupID",
+            "SubGroupID"
+          ],
+          "note": "v5, kogaki#314 — ONE SECTION PER ENTERED ID, keyed by the id so an owner can match a section to what they typed. Replaces the singular `## Group claim`, which assumed one group per file. Sections REPEAT; the identity block, Counted and Served lines do not."
         },
         {
           "id": "group_claim_body",
-          "form": "<claim text | *(none composed)*>"
-        },
-        {
-          "id": "h2_subgroups",
-          "form": "## SubGroups"
+          "form": "<claim text | *(none composed)*>",
+          "note": "Renders under a section heading now, one per entered id (v5, kogaki#314). Unchanged in form."
         },
         {
           "id": "judged_empty_notice",
@@ -248,10 +259,6 @@
           "form": "<claim text | *(no SubGroupClaim)*>"
         },
         {
-          "id": "h2_members",
-          "form": "## Members"
-        },
-        {
           "id": "member_heading",
           "form": "<LessonDisplayID> as a Markdown heading",
           "allowlist": [
@@ -260,21 +267,14 @@
           "levels": [
             {
               "level": 4,
-              "when": "under ### <SubGroupID>",
-              "at": "terrain/terrain.mjs:1679"
+              "when": "under ### <SubGroupID>, inside a section that carries SubGroups"
             },
             {
               "level": 3,
-              "when": "under ## Members",
-              "at": "terrain/terrain.mjs:1694"
-            },
-            {
-              "level": 3,
-              "when": "under ## SubGroups on the JUDGED-EMPTY path, where no ## Members heading is emitted at all",
-              "at": "terrain/terrain.mjs:1682-1691"
+              "when": "directly under a section heading, on the flat and judged-empty paths"
             }
           ],
-          "levels_note": "Three cases, not two. The judged-empty path is the one an enumeration drops, and §12.1 v9 exists precisely to keep a judged-empty outcome distinguishable from an unjudged one — a refusal built from a two-case reading would reject exactly that report.",
+          "levels_note": "Two cases at v6 (kogaki#314), not three. The pre-v6 third case — 'under ## SubGroups on the JUDGED-EMPTY path' — named a heading that no longer renders: v7 puts members straight under their section heading. Re-cut with the headings it describes, rather than left naming a shape nothing produces.",
           "form_note": "The backticks are GONE (story 1.53, AC5): the heading is the plain display id. `L1` in code font read as a machine token where the whole point of §14.3 is that it is the owner's name for the member."
         },
         {
@@ -301,7 +301,8 @@
         },
         {
           "id": "h2_counted",
-          "form": "## Counted"
+          "form": "## Counted",
+          "note": "ONCE per file, AGGREGATED over the entered set (v5, kogaki#314). The stated cost: a per-section count is not shown. Per-section Counted was declined with per-section Served lines, below."
         },
         {
           "id": "counted_family",
@@ -315,7 +316,7 @@
           "id": "h2_served_lines",
           "form": "## Served lines",
           "at": "terrain/terrain.mjs servedLinesBlock",
-          "note": "§12 (line 805, line 2366) requires the report to carry the member → served-line map, and the WA baseline sites it AT THE REPORT'S END. Until story 1.53 the renderer satisfied §12 with a per-member `*Served line:*` row instead; kogaki#318 called that the second name-shaped row and the owner removed it. The duty did not go away with the row — it moved here."
+          "note": "§12 (line 805, line 2366) requires the report to carry the member → served-line map, and the WA baseline sites it AT THE REPORT'S END. Until story 1.53 the renderer satisfied §12 with a per-member `*Served line:*` row instead; kogaki#318 called that the second name-shaped row and the owner removed it. The duty did not go away with the row — it moved here. v5, kogaki#314: ONCE per file, MERGED across sections and DEDUPED — a member entered under both `G5` and `G5-1` appears once. A repeated map is the class kogaki#315 named unjustified, and the dedupe is what keeps the merge honest rather than merely shorter."
         },
         {
           "id": "served_lines_table_header",
@@ -346,7 +347,8 @@
           "form": "",
           "note": "renderReportMarkdown interleaves L.push(\"\") between every block (terrain/terrain.mjs:1652-1702). Admitted for the same reason as the screen's: under REFUSE, a grammar with no blank-line class rejects every report the emitter writes."
         }
-      ]
+      ],
+      "retired_in_v6": "`h2_subgroups` (`## SubGroups`) and `h2_members` (`## Members`) are RETIRED (kogaki#314). The v7 renderer emits neither: `### <SubGroupID>` goes straight under its section heading, and the flat and judged-empty paths push members with no intervening heading. They are removed rather than kept as dead entries because §14.1 makes this file authoritative over the RENDERED form, so a class nothing produces is a claim about artifacts that do not exist — the shape `not_expressible` spent its life avoiding. FOUND BY REVIEW, NOT BY THE SUITE: `full_report`'s `line_class_allowlist` is inert (three bare body classes admit any line), so a declared-but-unproduced class raises nothing here. Commit c1263b1 warned about that inertness in the other direction — spec ahead of emitter — and this is the same gap with the emitter ahead of the spec."
     }
   },
   "uncovered_surfaces": {
