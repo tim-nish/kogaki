@@ -2021,18 +2021,57 @@ if substrate == 'unestablished':
           "not look' is not evidence that there was nothing to see.")
     sys.exit(1)
 
-# Assemble the trusted bodies (kogaki#56): authored comments filtered to the
-# repo owner + pipeline.json's merge_author_allowlist; the REVIEW_BODIES
-# injection route stays as pre-trusted test input.
-bodies = os.environ.get("REVIEW_BODIES", "")
-raw_json = os.environ.get("REVIEW_COMMENTS_JSON", "")
-if raw_json.strip():
+def _trusted_authors():
+    """WHO IS TRUSTED — repo owner + `merge_author_allowlist`. ONE DEFINITION,
+    read by every consumer in this file (kogaki#360).
+
+    The merge-eligibility rule's SOURCES, copied as sources rather than as a
+    login (the PR #46 lesson).
+
+    IT IS SITED HERE, ABOVE THE MODULE-LEVEL ASSEMBLY, FOR ONE REASON: that
+    assembly runs at exec time, so a `def` below it is not yet bound when it
+    needs one. Position is the only thing that was ever in the way, and a copy
+    is what stood in its place — this file assembled the set twice, once for
+    THIS PR's comments and once for a superseded PR's, and the two agreed only
+    because nobody had changed either yet.
+
+    WHY A SECOND COPY MATTERS HERE MORE THAN ELSEWHERE: a third source, or a
+    rename of `merge_author_allowlist`, updates one copy — and the copy that
+    keeps the old set was the blocked-PR read, which is reported-never-gated
+    and so fails INVISIBLY. That read was author-blind entirely until PR #359
+    round 1 found it.
+
+    THIS IS GUARDED BY BEING ONE FUNCTION AND BY NOTHING ELSE — deliberately
+    (owner decision 2026-08-11, PR #361 round 1). A mechanical assertion
+    counting the trust literals was written here and REMOVED: the served
+    position the licensing verdict cited names "a check suite growing at
+    roughly one member per incident" as the tell for being on the DETECT side,
+    and a counter added because a copy happened once is precisely that member.
+    THE EXTRACTION IS THE CONSTRAINT. Someone who re-copies this set is writing
+    a new second definition rather than slipping past a guard that used to be
+    here — and the file's disposition-unit assertion is NOT precedent for
+    adding one back: that unit spans two files with no single owner, where this
+    one has an owner and is four lines long.
+
+      consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17
+      LESSONS.md:61
+    """
     allowed = {os.environ.get("REVIEW_OWNER", "")} - {""}
     try:
         with open(".claude/pipeline.json") as f:
             allowed.update(json.load(f).get("merge_author_allowlist", []))
     except (FileNotFoundError, json.JSONDecodeError):
         pass
+    return allowed
+
+
+# Assemble the trusted bodies (kogaki#56): authored comments filtered to the
+# repo owner + pipeline.json's merge_author_allowlist; the REVIEW_BODIES
+# injection route stays as pre-trusted test input.
+bodies = os.environ.get("REVIEW_BODIES", "")
+raw_json = os.environ.get("REVIEW_COMMENTS_JSON", "")
+if raw_json.strip():
+    allowed = _trusted_authors()
     try:
         comments = json.loads(raw_json).get("comments", [])
     except json.JSONDecodeError:
@@ -2166,18 +2205,6 @@ def _blocked_pr_record(n):
               f"clause-11 read — spoof-shaped, reported not counted "
               f"(kogaki#56).")
     return trusted
-
-
-def _trusted_authors():
-    """Repo owner + merge_author_allowlist. The merge-eligibility rule's
-    SOURCES, copied as sources rather than as a login (the PR #46 lesson)."""
-    allowed = {os.environ.get("REVIEW_OWNER", "")} - {""}
-    try:
-        with open(".claude/pipeline.json") as f:
-            allowed.update(json.load(f).get("merge_author_allowlist", []))
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
-    return allowed
 
 
 def _blocked_pr_head(n):
