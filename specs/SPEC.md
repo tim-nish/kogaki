@@ -945,6 +945,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
      falsifies the structural diagnosis that justified the block and is
      reported rather than merged quietly.
 
+     **TWO OF THOSE THREE SLOTS ARE NOW FILLED, AND THIS PARAGRAPH IS UPDATED
+     RATHER THAN LEFT STANDING** (kogaki#306, owner selection 2026-08-11).
+     Clause 11 below carries the *successor's declared obligations* — answering
+     the checking-home question as a **split by violation layer** — and the
+     *falsification check*. The *refusal surface* is **folded into kogaki#305**,
+     whose finding is that the bound is absent from the grant-minting path;
+     until that lands there is no minting act for a refusal to attach to, and
+     the `grant-request-beyond-bound` logging this clause promises exists
+     nowhere in `tools/`. The sentence above stays because it records what #306
+     held when this clause was written; this one records what it holds now, and
+     leaving only the first would make this clause describe a state it no
+     longer has.
+
      **This clause governs one thing none of those covers: what the LANE does
      when nobody asks for anything.** #306 answers *what a successor owes once
      it exists* and *what the refusal says when a third round is requested*;
@@ -1731,10 +1744,21 @@ invariant: Gukan guarantees Unit schema, never data schema).
      of that here would absorb a live carrier into the clause that merely lends
      it a grammar, and clause 3 above already refuses that absorption by name.
 
+     **THE POINTER'S TARGET MOVED, AND THE POINTER MOVES WITH IT** (kogaki#306,
+     owner selection 2026-08-11). The obligation is still not written here and
+     the boundary below is unchanged — what changed is where a reader following
+     it arrives. #306's checking-home question is **answered**, in clause 11,
+     as a split by violation layer, and the half that belongs to *this* clause
+     is the obligation half: a successor's **undisposed inherited finding is
+     reported at the `done` boundary** in the `carried:`/`declined:` grammar
+     this clause owns. Clause 11 carries that reading; this clause still lends
+     only the two tokens. The sentence above is kept as the record of what was
+     true when it was written, on the same grounds clause 3's own paragraph is.
+
      So what this clause adds is one pointer and one boundary: **the grammar is
      lent, the obligation is not.** A reader arriving at a superseded close
-     looks to kogaki#306 for what is owed, and to this clause only for what the
-     two tokens mean. The lending is deliberate — a second vocabulary for "what
+     looks to **clause 11** for what is owed — kogaki#306 for why — and to this
+     clause only for what the two tokens mean. The lending is deliberate — a second vocabulary for "what
      happened to a finding" would be a synonym in a join key, which
      `topics/knowledge-architecture.md` names as the same defect as a
      divergence.
@@ -2230,6 +2254,116 @@ invariant: Gukan guarantees Unit schema, never data schema).
      reported `covered`.
 
      **deferred slots: none.**
+
+  11. **A SUCCESSOR TO A SUPERSEDED PR CARRIES THREE DECLARED OBLIGATIONS, AND
+      THEY ARE CHECKED AT THE LAYER EACH CAN BE BROKEN AT — WHICH IS NOT ONE
+      LAYER** (kogaki#306, Owner Rule 2026-08-09, owner selection 2026-08-11).
+
+      Clause 3 names the supersession lane and states that the successor's own
+      obligations are kogaki#306's and are deliberately not carried there.
+      Clause 8 lends that successor its `carried:`/`declined:` grammar and
+      states the same. **This clause is where those obligations land.** The two
+      pointers above are unchanged and are not reopened; what was missing is
+      the object they point at.
+
+      **The three obligations**, verbatim from the Owner Rule and not
+      re-derived. A successor PR:
+
+      - declares **`supersedes: <blocked PR>`**;
+      - **dispositions** every finding left open on the blocked PR, in clause
+        8's `carried:` / `declined:` grammar;
+      - **bases on a commit postdating the corrective merge** — the base
+        contains the fix that the block's diagnosis called for.
+
+      **THE CHECKING HOME IS SPLIT BY VIOLATION LAYER, BECAUSE THE THREE DO NOT
+      HAVE ONE SHAPE.** The served position is quoted whole at its pin, since
+      the whole selection turns on it:
+
+      > A rule is enforced only at the layer where it can be broken — a
+      > prohibition needs a mechanical gate at the tool boundary because prose
+      > is advisory to a system whose job is to satisfy instructions; an
+      > obligation cannot be gated at all and needs its absence made visible; a
+      > pending human verdict needs its carrier at the render layer, because
+      > the human acts on what they see and not on what the authoritative file
+      > contains; and when that layer belongs to another system, the carrier
+      > goes at the last boundary you control, with any gate upstream of it
+      > counting as ergonomics rather than control.
+
+      `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:103`
+      (`carry-a-rule-at-its-violation-layer`)
+
+      Read against the three, that line sorts them into two classes and not
+      one:
+
+      - **`supersedes:` and the findings disposition are OBLIGATIONS.** Their
+        violation is an **absence**, which generates no event to deny, so they
+        cannot be gated at all. They are discharged by being made **visible**:
+        `checks/check-review-report.sh` reports, at the `done` boundary, a
+        successor that declares no `supersedes:` and any inherited finding
+        carrying no disposition line. **Reported, never gated** — the same
+        polarity clause 8 already holds for its own dispositions, and for the
+        same reason.
+      - **The base-postdates-the-corrective-merge half is a PROHIBITION.** It
+        is broken by an **act** — merging a successor whose base predates the
+        fix — and an act is deniable, so its correct carrier is a mechanical
+        gate at the merge boundary.
+
+      **AND THAT GATE'S LAYER IS NOT IN THIS REPOSITORY, WHICH THE SAME SERVED
+      LINE ALREADY GOVERNS.** The merge boundary this pipeline actually passes
+      through is actor-level — `~/.claude/hooks/lint-pr-merge.py`, registered
+      by `story-sync install-hooks`, both of which live in
+      `tim-nish/claude-toolkit` and neither of which this repository can
+      change. The quoted line's final clause is the ruling for exactly that
+      case: **the carrier goes at the last boundary you control.** So kogaki
+      carries the base-postdates property as a **check** alongside the other
+      two, and the gate itself is **escalated cross-repo**, named here and
+      never state-asserted. This is the same move clause 10 makes with
+      kogaki#271's orchestrator half, and it is written down rather than
+      resolved silently because a check standing in for a gate is
+      **ergonomics rather than control** by that line's own words, and a reader
+      who is not told will read this repository's green check as the
+      prohibition being in force.
+
+      **What this clause does NOT carry, read at the carrier rather than
+      inferred.** kogaki#306's **refusal-surface** slot — what the grant path
+      says when someone *asks* for a round beyond the bound — is **folded into
+      kogaki#305** (owner selection 2026-08-11) and is not here. Its validity
+      is conditional on #305's outcome: #305's whole finding is that the bound
+      is **absent from the grant-minting path**, so there is today no minting
+      act for a refusal to attach to, and the `grant-request-beyond-bound`
+      logging clause 3 promises **exists nowhere in `tools/`** — verified, not
+      assumed. `specs/spec-issue-creation/SPEC.md` §"A filing conditional on a
+      sibling is folded, not filed" is the shape; #305 is parked awaiting
+      `tim-nish/claude-toolkit#296`, and saying so is part of the fold.
+
+      **The falsification check is carried here and is the clause's one
+      DETECT-shaped member.** If the successor's rebased diff comes out
+      **unchanged** after the corrective merge, the structural-defect diagnosis
+      that justified the block is **falsified**, and that is **reported as a
+      finding** — never merged quietly. It is detect-shaped on purpose and the
+      admission is narrow: the judgment it evaluates is irreducible, which is
+      the one residue
+      `product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:61`
+      leaves to detection, and it is paired with the constraint above rather
+      than standing alone.
+
+      **Two alternatives were declined, recorded so neither is re-proposed
+      blind.** *One home in `checks/check-review-report.sh` for all three* —
+      declined because it makes the one deniable obligation a report, and a
+      report cannot stop the merge it describes; the successor lands on a stale
+      base and the check says so afterwards. *One home in the sweep's decider*
+      — declined for a sharper form of the same defect: the sweep runs at close
+      and on a schedule, not at the successor's merge, so all three become
+      reports and the prohibition half loses its layer entirely, in the very
+      file that mints the supersession state and would therefore read as
+      authoritative about it.
+
+      **Deferred slot, named rather than left.** The cross-repo gate above has
+      no carrier in this repository and this clause mints none; filing it
+      against `tim-nish/claude-toolkit` is its own act with its own licensing
+      issue. Until it lands, this clause's prohibition half is a check and says
+      so — a reader of this clause knows which half is standing, the same
+      disclosure clause 3 owes for its own unbuilt creation act.
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
