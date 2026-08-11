@@ -8,8 +8,27 @@ trigger. **This is a per-covered-surface count, not a flat number**: the sitting
 that brings a third surface under the grammar adds its specimen here and does
 not have to choose between under-coverage and contradicting a clause.
 
-`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/testing.md:45`
-— *"Give the format one shared example that both sides run against."*
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/testing.md:47`
+
+> When one program publishes text for another to read, adding something new to
+> that text can break the reader … Nobody catches it because **each side has its
+> own tests: the publisher's confirm it wrote the new format, the reader's
+> confirm it still reads the old one, and nothing checks the pair.** Give the
+> format one shared example that both sides run against — or better, publish
+> labelled fields instead of text, so there is nothing left to misread.
+
+**That line is why the specimen is asserted TWICE rather than once**, and the
+pairing below is not belt-and-braces: the grammar is the reader's side and the
+renderer is the publisher's, each already had its own test, and neither checked
+the pair. The specimen IS the shared example.
+
+**Its "or better" clause is residue, named rather than quietly passed over.**
+Publishing labelled fields instead of text would remove the misreading
+altogether — and the Full Report's machine record already does exactly that
+(§12.1), which is why the record was never the surface that broke. The owner
+*rendering* is Markdown because its whole job is to be read (§12.2 v11), so the
+text half cannot be published away here. The shared example is the available
+half of that line, not the whole of it.
 
 ## SQ1 — hand-authored, not generated, and the reason (story 1.55 asks for it here)
 
