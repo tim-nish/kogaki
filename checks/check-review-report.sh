@@ -1868,6 +1868,43 @@ if _live:
 print("AC8 pass: the superseded division comment is gone from "
       "tools/review-sweep.sh — asserted, not claimed")
 
+# THE TRUST SOURCE HAS ONE DEFINITION, AND THAT IS ASSERTED RATHER THAN LEFT TO
+# HOLD (kogaki#360). This file assembled `who is trusted` twice — once for this
+# PR's comments, once for a superseded PR's — and the two agreed only because
+# nobody had changed either. The extraction fixes today; the assertion is what
+# makes the class unproducible, which is the shape the issue's own `remedy:`
+# declared. Counted rather than pattern-matched loosely: the environment read
+# and the allowlist key each appear EXACTLY ONCE, in `_trusted_authors`.
+#
+# Sited beside the disposition-unit assertion deliberately — that one forbids a
+# second copy of a lent GRAMMAR, this one a second copy of a trust SOURCE, and
+# a reader meeting either should find the other.
+# THE NEEDLES ARE SPLIT SO THIS ASSERTION IS NOT ITS OWN SECOND DEFINITION.
+# Written whole, the two literals below appear in the file and the guard counts
+# ITSELF — it failed exactly that way on its first run. Third instance of
+# use-versus-mention in this file today (the `--all-groups` skill line, the AC8
+# comment guard, this), which is why it is named rather than just worked around:
+# a checker that reads its own source has to exclude its own text, and string
+# concatenation is the cheapest exclusion that cannot drift.
+_src = open("checks/check-review-report.sh", encoding="utf-8").read()
+_owner_needle = 'os.environ.get("REVIEW_' + 'OWNER", "")'
+_allow_needle = 'get("merge_author_' + 'allowlist", [])'
+_owner_reads = _src.count(_owner_needle)
+_allow_reads = _src.count(_allow_needle)
+if _owner_reads != 1 or _allow_reads != 1:
+    print(f"FAIL trust-source pass: `who is trusted` is assembled "
+          f"{max(_owner_reads, _allow_reads)} times in this file "
+          f"(REVIEW_OWNER x{_owner_reads}, merge_author_allowlist "
+          f"x{_allow_reads}). ONE definition, in `_trusted_authors()` — a "
+          f"second is the synonym-in-a-join-key defect this file forbids for "
+          f"clause 8's grammar, on a trust boundary where the stale copy "
+          f"fails invisibly (kogaki#360).")
+    sys.exit(1)
+print("trust-source pass: `who is trusted` has ONE definition "
+      "(_trusted_authors), read by both the own-PR assembly and the "
+      "superseded-PR read — asserted by counting the environment read and the "
+      "allowlist key, not by the comment that says so")
+
 print("disposition-unit pass: one definition (lib/disposition.py), both "
       "consumers load it, and neither re-declares the pattern — asserted by "
       "reading both files rather than by the comment that says so")
@@ -2021,18 +2058,45 @@ if substrate == 'unestablished':
           "not look' is not evidence that there was nothing to see.")
     sys.exit(1)
 
-# Assemble the trusted bodies (kogaki#56): authored comments filtered to the
-# repo owner + pipeline.json's merge_author_allowlist; the REVIEW_BODIES
-# injection route stays as pre-trusted test input.
-bodies = os.environ.get("REVIEW_BODIES", "")
-raw_json = os.environ.get("REVIEW_COMMENTS_JSON", "")
-if raw_json.strip():
+def _trusted_authors():
+    """WHO IS TRUSTED — repo owner + `merge_author_allowlist`. ONE DEFINITION,
+    read by every consumer in this file (kogaki#360).
+
+    The merge-eligibility rule's SOURCES, copied as sources rather than as a
+    login (the PR #46 lesson).
+
+    IT IS SITED HERE, ABOVE THE MODULE-LEVEL ASSEMBLY, FOR ONE REASON: that
+    assembly runs at exec time, so a `def` below it is not yet bound when it
+    needs one. Position is the only thing that was ever in the way, and a copy
+    is what stood in its place — this file assembled the set twice, once for
+    THIS PR's comments and once for a superseded PR's, and the two agreed only
+    because nobody had changed either yet.
+
+    A SECOND DEFINITION OF *WHO IS TRUSTED* IS THE DEFECT THIS FILE ALREADY
+    FORBIDS ONE FIELD OVER. It fails the suite if either consumer re-declares
+    clause 8's disposition grammar, "because a second vocabulary for what
+    happened to a finding is a synonym in a join key" — and a trust boundary is
+    the worse place for it: a third source, or a rename of
+    `merge_author_allowlist`, updates one copy, and the copy that keeps the old
+    set was the blocked-PR read, which is reported-never-gated and so fails
+    INVISIBLY. That read was author-blind entirely until PR #359 round 1.
+    """
     allowed = {os.environ.get("REVIEW_OWNER", "")} - {""}
     try:
         with open(".claude/pipeline.json") as f:
             allowed.update(json.load(f).get("merge_author_allowlist", []))
     except (FileNotFoundError, json.JSONDecodeError):
         pass
+    return allowed
+
+
+# Assemble the trusted bodies (kogaki#56): authored comments filtered to the
+# repo owner + pipeline.json's merge_author_allowlist; the REVIEW_BODIES
+# injection route stays as pre-trusted test input.
+bodies = os.environ.get("REVIEW_BODIES", "")
+raw_json = os.environ.get("REVIEW_COMMENTS_JSON", "")
+if raw_json.strip():
+    allowed = _trusted_authors()
     try:
         comments = json.loads(raw_json).get("comments", [])
     except json.JSONDecodeError:
@@ -2166,18 +2230,6 @@ def _blocked_pr_record(n):
               f"clause-11 read — spoof-shaped, reported not counted "
               f"(kogaki#56).")
     return trusted
-
-
-def _trusted_authors():
-    """Repo owner + merge_author_allowlist. The merge-eligibility rule's
-    SOURCES, copied as sources rather than as a login (the PR #46 lesson)."""
-    allowed = {os.environ.get("REVIEW_OWNER", "")} - {""}
-    try:
-        with open(".claude/pipeline.json") as f:
-            allowed.update(json.load(f).get("merge_author_allowlist", []))
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
-    return allowed
 
 
 def _blocked_pr_head(n):
