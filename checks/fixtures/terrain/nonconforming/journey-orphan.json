@@ -11,7 +11,8 @@
         "architecture"
       ],
       "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
-      "journey": null
+      "journey": null,
+      "display_id": "L1"
     }
   ],
   "journeys": [
@@ -46,5 +47,5 @@
     "coverage": "0/1"
   },
   "_expect": "JOURNEY_ORPHAN",
-  "_note": "Falsifier 1 (SPEC.md §5.2): a Journey whose slug matches no Lesson has no row to be marked on and would be silently dropped by the re-projection. Zero at the amendment's pin, so the criterion is verified here rather than by the live corpus."
+  "_note": "Falsifier 1 (SPEC.md \u00a75.2): a Journey whose slug matches no Lesson has no row to be marked on and would be silently dropped by the re-projection. Zero at the amendment's pin, so the criterion is verified here rather than by the live corpus."
 }

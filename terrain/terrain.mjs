@@ -126,6 +126,9 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
   const sections = Array.isArray(record.sections) ? record.sections : [];
   const ids = new Set();
   const lessonSlugs = new Set();
+  const displayIdSeen = new Set();
+  const displayIdPattern = s.candidate_display_id_pattern
+    ? new RegExp(s.candidate_display_id_pattern) : null;
   candidates.forEach((c, i) => {
     for (const f of s.candidate_required) {
       if (c[f] === undefined || c[f] === null || c[f] === "") {
@@ -136,6 +139,19 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
       v.push(`FAMILY_UNKNOWN — candidates[${i}].family=${JSON.stringify(c.family)}; the served families are ${schema.families.join("|")}`);
     } else if (c.family !== undefined && c.family !== schema.candidate_family_must_be) {
       v.push(`CANDIDATE_NOT_A_LESSON — candidates[${i}].family=${JSON.stringify(c.family)}: ${schema.candidate_family_rationale}`);
+    }
+    // §14.3 — the display_id is the rendered token, so its shape and its
+    // uniqueness are record-level invariants rather than rendering-time hopes.
+    // A duplicate is the worse of the two failures: it does not read as a
+    // collision on any surface, it reads as one Strand appearing twice.
+    if (c.display_id !== undefined && c.display_id !== null && c.display_id !== "") {
+      if (displayIdPattern && !displayIdPattern.test(String(c.display_id))) {
+        v.push(`DISPLAY_ID_MALFORMED — candidates[${i}].display_id=${JSON.stringify(c.display_id)} does not match ${s.candidate_display_id_pattern}`);
+      }
+      if (displayIdSeen.has(c.display_id)) {
+        v.push(`DISPLAY_ID_DUPLICATE — ${JSON.stringify(c.display_id)} appears twice; the survey record is the ID→slug map (SPEC.md §14.3) and a duplicate makes that map return the wrong Strand`);
+      }
+      displayIdSeen.add(c.display_id);
     }
     if (c.slug) lessonSlugs.add(c.slug);
     if (c.id) {
@@ -275,6 +291,47 @@ export function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
   return out;
 }
 
+// THE ONE RESOLUTION PATH FROM AN ID TO WHAT AN OWNER READS (§14.3, story 1.53).
+//
+// No owner surface renders an element name. The rendered token is the
+// `display_id` the survey record assigned once, and this function is how every
+// surface gets it — the record's candidate entry is the map, so there is no
+// per-artifact map for `cotags`, `report`, `claim`, `adopt` or `subdivide` to
+// write and no second carrier to drift (AC3).
+//
+// A MEMBER WITH NO `display_id` IS ABNORMAL, MARKED, AND NEVER SUBSTITUTED
+// (AC7). Falling back to the slug would reintroduce exactly the ~40-character
+// name this story removes, and it would do it silently — the reading that looks
+// most helpful is the one that undoes the change. So the abnormality gets the
+// same treatment §9 already gives a missing Gloss rendering
+// (`NO_HEADLINE`): a stated token in place of the value, never the value from
+// somewhere else. A legacy survey record written before this story renders
+// entirely in these tokens, which is the correct reading of it — run
+// `terrain survey` again (§12.2 v11: run-workspace artifacts are uncommitted
+// and regenerable, so regeneration is the remedy, not a migration).
+export const NO_DISPLAY_ID = "⟨no display_id — ABNORMAL, a survey record predating §14.3, never substituted⟩";
+
+export function displayIdOf(id, candidates) {
+  const c = (candidates || []).find((x) => x && x.id === id);
+  return c && c.display_id ? c.display_id : NO_DISPLAY_ID;
+}
+
+// The plural form, plus the count of abnormal members so a surface can state
+// the fault ONCE beneath the rows rather than per row — the shape §9's
+// `missing` counter already uses at the candidate-row surface.
+export function displayIds(ids, candidates) {
+  const rendered = (ids || []).map((id) => displayIdOf(id, candidates));
+  return { rendered, missing: rendered.filter((r) => r === NO_DISPLAY_ID).length };
+}
+
+// The one line every surface prints when `displayIds` reported a shortfall.
+// Stated once so the eight call sites cannot drift into eight wordings.
+export function displayIdAbnormalLine(missing, total) {
+  return `ABNORMAL: ${missing} of ${total} member(s) on this surface carry no display_id. `
+    + "The survey record is the ID→slug map (SPEC.md §14.3) and this one predates it — nothing was substituted for the missing IDs. "
+    + "Re-run `terrain survey` to regenerate the record (§12.2 v11).";
+}
+
 // --------------------------------------------------------------------------
 // survey — read the seam, compose, validate, write.
 // --------------------------------------------------------------------------
@@ -297,7 +354,23 @@ function cmdSurvey(args) {
     if (rec.kind === "lesson") {
       // The id stays family-qualified: a journey shares its lesson's slug, and
       // the qualification is what kept the two apart when both were rows.
-      lessons.push({ id: `lesson:${rec.slug}`, slug: rec.slug, family: "lesson", tags: rec.tags || [], cite: line.cite, journey: null });
+      //
+      // `display_id` is minted HERE and nowhere else (§14.3, story 1.53). The
+      // survey record IS the ID→slug map, so there is no second carrier to
+      // drift from: every owner surface resolves through `displayIdOf` over
+      // these candidates.
+      //
+      // ASSIGNMENT ORDER, and why it is the served corpus's own order (SQ1).
+      // §14.3 makes the ID stable within a pin and explicitly permits a pin
+      // advance to renumber, but "legal to shuffle" is hostile to an owner
+      // holding a printed screen — so the numbering follows the order the
+      // substrate SERVES the records in, which is append-stable for the common
+      // pin advance (a Lesson added to the end of a shard takes the next
+      // number and shuffles nothing). It is not stable against an insertion
+      // earlier in the served order, and no assignment can be without a
+      // persistent map — which AC3 forbids as the second carrier this story
+      // exists to remove. The weaker guarantee is stated rather than implied.
+      lessons.push({ id: `lesson:${rec.slug}`, display_id: `L${lessons.length + 1}`, slug: rec.slug, family: "lesson", tags: rec.tags || [], cite: line.cite, journey: null });
     } else if (rec.kind === "journey") {
       journeys.push({ slug: rec.slug, cite: line.cite });
     }
@@ -466,9 +539,15 @@ function cmdView(args) {
     if (list.some((c) => c.journey)) journeyHeads = fetchHeadlines("journeys", tags);
   }
   let missing = 0;
+  let missingDisplayId = 0;
   for (const c of list) {
     const mark = c.journey ? "" : "  ○ thin (no Journey)";
-    console.log(`  ${c.id}  (${c.tags.join(", ") || "no relation"})  ${c.cite}${mark}`);
+    // §14.3 — the row is named by its display_id. The cite stays: it is an
+    // address rather than an element name, and it is what makes the row
+    // traceable to the served surface.
+    const shown = c.display_id || NO_DISPLAY_ID;
+    if (!c.display_id) missingDisplayId++;
+    console.log(`  ${shown}  (${c.tags.join(", ") || "no relation"})  ${c.cite}${mark}`);
     if (!tags) continue;
     const h = heads.get(c.slug);
     if (h) console.log(`      “${h.headline}”  ${h.cite}`);
@@ -485,6 +564,7 @@ function cmdView(args) {
   } else if (missing) {
     console.log(`ABNORMAL: ${missing} of ${list.length} rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
   }
+  if (missingDisplayId) console.log(displayIdAbnormalLine(missingDisplayId, list.length));
 }
 
 // --------------------------------------------------------------------------
@@ -678,9 +758,14 @@ function cmdCotags(args) {
     // exists: `[]` is truthy, and a judged-empty group that hid its members
     // behind the subdivided heading would drop the whole membership from the
     // screen — the same trap the report's `members` field carried.
+    // §14.3 — group members render as display_ids, never as `lesson:<slug>`.
+    const gShown = displayIds(g.members, record.candidates);
     console.log(subForHeading && subForHeading.length
       ? `  ${g.name} — ${lessonCount(g.members.length)}`
-      : `  ${g.name} — ${lessonCount(g.members.length)}: ${g.members.join(", ")}`);
+      : `  ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
+    if (!(subForHeading && subForHeading.length) && gShown.missing) {
+      console.log(`    ${displayIdAbnormalLine(gShown.missing, g.members.length)}`);
+    }
 
     // The GroupClaim FIRST, then the members (§6.1). A claim composed over a
     // member set is PINNED to that set (§7), so the pinning is stated on the
@@ -716,7 +801,11 @@ function cmdCotags(args) {
         // The served SubGroup form (§6.2, v5): one line — SubGroupID, Lesson
         // count, Lesson IDs — then the SubGroupClaim, then the leaf verdict
         // and any disclosures.
-        console.log(`\n      ${sg.name} (${lessonCount(sg.members.length)}: ${sg.members.join(", ")})`);
+        // §14.3 — SubGroup members render as display_ids, never as
+        // `lesson:<slug>` tokens.
+        const sgShown = displayIds(sg.members, record.candidates);
+        console.log(`\n      ${sg.name} (${lessonCount(sg.members.length)}: ${sgShown.rendered.join(", ")})`);
+        if (sgShown.missing) console.log(`          ${displayIdAbnormalLine(sgShown.missing, sg.members.length)}`);
         console.log(`          in common: ${sg.claim || NO_CLAIM}`);
         console.log(`          ${sg.leaf_reason}`);
         for (const d of sg.disclosures) console.log(`          DISCLOSURE — ${d}`);
@@ -839,7 +928,16 @@ function cmdClaim(args) {
   console.log(sectionFigure(group, record.candidates.length));
   console.log(`  in common: ${text}`);
   console.log(`  pinned to ${members.length} member(s)${isSubset ? ` — a SUBSET of the group's ${group.members.length}` : ""}\n`);
-  for (const p of memberPins(members, record.candidates)) console.log(`    ${p.id}  ${p.cite}`);
+  // §14.3 — the member pins render by display_id. The RECORD written below
+  // keeps `member_pins` as the id/cite pairs unchanged (AC6): the machine
+  // record's identity triple is not narrowed by what the screen shows.
+  let claimMissingIds = 0;
+  for (const p of memberPins(members, record.candidates)) {
+    const shown = displayIdOf(p.id, record.candidates);
+    if (shown === NO_DISPLAY_ID) claimMissingIds++;
+    console.log(`    ${shown}  ${p.cite}`);
+  }
+  if (claimMissingIds) console.log(`    ${displayIdAbnormalLine(claimMissingIds, members.length)}`);
 
   const id = `terrain-claim-${Date.now()}`;
   const claimRec = {
@@ -943,6 +1041,13 @@ function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 function cmdAdopt(args) {
   const dir = runDir(args);
   const claimRec = readJson(String(args.claim || fail("adopt needs --claim <terrain-claim record>")));
+  // §14.3 REQUIRES the survey record here, and the alternative is what makes
+  // it required rather than convenient. `adopt` prints its member set for the
+  // owner, so it must render display_ids — and the only other way to have them
+  // is to copy them into the claim record at `claim` time, which is precisely
+  // the per-artifact map AC3 forbids. One map, read by whoever renders.
+  const surveyRec = readJson(String(args.survey
+    || fail("adopt needs --survey <survey record>: the adopted-claim surface names its members by display_id (SPEC.md §14.3) and the survey record is the ID→slug map — carrying the ids in the claim record instead would be a second carrier")));
   const capture = readJson(String(args.capture || fail("adopt needs --capture <gate-capture file> — adoption happens only at the gate, never as a refresh")));
   const row = [...(capture.rows || [])].reverse().find((r) => r.gate_id === CLAIM_GATE)
     || fail(`no ${CLAIM_GATE} row in the capture — a recomposed claim that was never offered cannot be adopted (SPEC.md §7)`);
@@ -990,7 +1095,9 @@ function cmdAdopt(args) {
   if (source === "original-wording-kept") {
     console.log("The original wording now stands over a CHANGED member set. The record carries that set, so the mismatch is legible rather than forbidden (SPEC.md §7).");
   }
-  console.log(`Members (${strandFigure(adopted.counted)}); ${denominator(adopted.members.length, adopted.lessons_served)} — by id: ${adopted.members.join(", ")}`);
+  const adoptedShown = displayIds(adopted.members, surveyRec.candidates);
+  console.log(`Members (${strandFigure(adopted.counted)}); ${denominator(adopted.members.length, adopted.lessons_served)} — by id: ${adoptedShown.rendered.join(", ")}`);
+  if (adoptedShown.missing) console.log(displayIdAbnormalLine(adoptedShown.missing, adopted.members.length));
 }
 
 // --------------------------------------------------------------------------
@@ -1174,7 +1281,10 @@ function cmdSubdivide(args) {
     for (const d of sg.disclosures) console.log(`    DISCLOSURE — ${d}`);
     const ins = sg.instruments;
     console.log(`    instruments (three quantities, none a threshold, none gating): relative share of placements ${(ins.relative_share_of_placements * 100).toFixed(1)}%; screen budget ${ins.screen_budget_lines.needs} lines needed of ${ins.screen_budget_lines.budget}; legible at a glance: ${ins.legible_at_a_glance}`);
-    for (const id2 of sg.members) console.log(`      ${id2}`);
+    // §14.3 — the SubGroup's member rows are display_ids.
+    const sgShown = displayIds(sg.members, record.candidates);
+    for (const shown of sgShown.rendered) console.log(`      ${shown}`);
+    if (sgShown.missing) console.log(`      ${displayIdAbnormalLine(sgShown.missing, sg.members.length)}`);
     console.log("");
   }
   console.log(`Cover: ${out.cover.placed} of ${out.cover.of} parent members placed in at least one SubGroup — counted AFTER composition, over placements. No member is hidden.`);
@@ -1699,7 +1809,54 @@ export function renderReportMarkdown(report, tag) {
   for (const [fam, n] of Object.entries(report.counted || {})) L.push(`- ${fam}: ${n}`);
   L.push(`- lessons served: ${report.lessons_served}`);
   L.push("");
+  L.push(...servedLinesBlock(report));
   return L.join("\n") + "\n";
+}
+
+// THE MEMBER → SERVED-LINE MAP, SITED ONCE AT THE REPORT'S END (§12, line 805).
+//
+// This is the baseline's own siting — *"the shared pin stated once in the Full
+// Report, with the member → served-line map at the report's end"*
+// (wa#1115/#1116) — and until story 1.53 the renderer satisfied §12 by putting
+// a `*Served line:*` row on every member instead. That per-member form is what
+// kogaki#318 called the second name-shaped row, and the owner's story-1.53 SQ2
+// ruling removed it.
+//
+// So the map MOVES rather than disappearing, and both halves matter: §14.3
+// takes element NAMES off the owner surface, while §12 keeps the ADDRESS the
+// report is accountable to. A cite is an address — it is what lets a reader
+// check the report against the substrate — and dropping it from the rendering
+// entirely would have made the owner rendering uncheckable without opening the
+// machine record, which is a different decision from the one that was made.
+//
+// A member with no display_id or no cite is NAMED here rather than omitted:
+// a map that silently skips its unmappable rows is the shape §2.1 forbids.
+export function servedLinesBlock(report) {
+  const rows = [];
+  const seen = new Set();
+  const collect = (m) => {
+    if (!m || typeof m !== "object") return;
+    const key = m.display_id || m.id || String(rows.length);
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push([m.display_id || NO_DISPLAY_ID, m.cite || "⟨no served line recorded — ABNORMAL, never substituted⟩"]);
+  };
+  // Both shapes, because a report renders EITHER SubGroups or a flat member
+  // list and the map is owed by both.
+  for (const sg of report.subgroups || []) for (const m of sg.members || []) collect(m);
+  for (const m of report.members || []) collect(m);
+
+  const L = ["## Served lines", ""];
+  if (rows.length === 0) {
+    L.push("*No members in this report — the map is empty, stated rather than omitted.*");
+    L.push("");
+    return L;
+  }
+  L.push("| Member | Served line |");
+  L.push("|---|---|");
+  for (const [id, cite] of rows) L.push(`| ${id} | \`${cite}\` |`);
+  L.push("");
+  return L;
 }
 
 // ONE MEMBER, WHOLE (§12). The record carries six served fields per member —
@@ -1730,11 +1887,25 @@ export function renderReportMarkdown(report, tag) {
 // which is how the run above produced a count with no material behind it.
 export function memberBlock(m, level) {
   const h = "#".repeat(Math.max(1, Math.min(6, level || 3)));
-  if (!m || typeof m !== "object") return [`${h} \`${String(m)}\``, ""];
-  const id = m.id || m.slug || "";
-  const L = [`${h} \`${id}\``, ""];
-  L.push(m.cite ? `*Served line:* \`${m.cite}\`` : "*Served line:* **NOT RECORDED** — the survey record carried no cite for this member.");
-  L.push("");
+  // A non-object member is a malformed record, and it renders as that rather
+  // than as its own string value — printing `String(m)` here was the one path
+  // by which a bare `lesson:<slug>` could still reach the owner rendering
+  // (§14.3).
+  if (!m || typeof m !== "object") return [`${h} ${NO_DISPLAY_ID}`, ""];
+  // §14.3 (story 1.53) — the heading is the plain display_id. It is read from
+  // the member, which `reportMembers` fills from the survey record's candidate
+  // entry; a member with none renders the ABNORMAL token and NEVER the slug,
+  // because the slug is exactly what §14.3 removes and a silent fallback would
+  // undo the change while looking like robustness.
+  const L = [`${h} ${m.display_id || NO_DISPLAY_ID}`, ""];
+  // THE `*Served line:*` ROW IS GONE, and this is the owner's answer to story
+  // 1.53 SQ2 rather than an omission. kogaki#318 called the heading and this
+  // row "two name-shaped rows where the owner ruled one plain ID suffices",
+  // and the pair reading is the one that was chosen. Nothing is lost: the cite
+  // stays in the machine record beside the full identity triple (AC6, §12.2
+  // v11), which is where a reader who needs the address goes. The Gloss cite
+  // rows below are a different thing — they address the served GLOSS rendering
+  // rather than naming the element — and they stay.
   L.push(m.gloss_cite ? `**Lesson Gloss** — \`${m.gloss_cite}\`` : "**Lesson Gloss** — *no served cite recorded*");
   L.push("");
   L.push(m.gloss !== undefined && m.gloss !== null ? String(m.gloss)
@@ -1911,6 +2082,12 @@ function cmdReport(args) {
     if (c.journey && !jg) abnormal++;
     return {
       id, cite: c.cite || null,
+      // §14.3 — resolved from `record.candidates` AT RENDER TIME. The record
+      // is the map (AC3); this is a projection of it onto the member being
+      // rendered, not a second map written beside it, and nothing reads it
+      // back. `null` when the record predates §14.3, which `memberBlock`
+      // renders as the stated abnormality rather than as the slug (AC7).
+      display_id: c.display_id || null,
       gloss: lg ? lg.body : NO_GLOSS_BODY,
       gloss_cite: lg ? lg.cite : null,
       journey_gloss: c.journey ? (jg ? jg.body : NO_GLOSS_BODY) : null,

@@ -14,7 +14,8 @@
       "journey": {
         "slug": "strand-a",
         "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
-      }
+      },
+      "display_id": "L1"
     },
     {
       "id": "lesson:strand-b",
@@ -25,7 +26,8 @@
         "cost"
       ],
       "cite": "gloss/ELEMENTS.jsonl:3@16a6dbf6",
-      "journey": null
+      "journey": null,
+      "display_id": "L2"
     },
     {
       "id": "lesson:strand-c",
@@ -33,7 +35,8 @@
       "family": "lesson",
       "tags": [],
       "cite": "gloss/ELEMENTS.jsonl:4@16a6dbf6",
-      "journey": null
+      "journey": null,
+      "display_id": "L3"
     }
   ],
   "journeys": [

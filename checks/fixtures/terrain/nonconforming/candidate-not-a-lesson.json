@@ -11,7 +11,8 @@
         "architecture"
       ],
       "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
-      "journey": null
+      "journey": null,
+      "display_id": "L1"
     },
     {
       "id": "journey:strand-a",
@@ -20,7 +21,8 @@
       "tags": [
         "architecture"
       ],
-      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6",
+      "display_id": "L2"
     }
   ],
   "journeys": [],
@@ -51,5 +53,5 @@
     "coverage": "1/2"
   },
   "_expect": "CANDIDATE_NOT_A_LESSON",
-  "_note": "SPEC.md §5: a candidate row is ONE Lesson and a Journey is a MARK on its row, never a row of its own. A journey-family candidate is the two-family row model arriving back as data — the shape whose bare mixed-family count is kogaki#26's specimen."
+  "_note": "SPEC.md \u00a75: a candidate row is ONE Lesson and a Journey is a MARK on its row, never a row of its own. A journey-family candidate is the two-family row model arriving back as data \u2014 the shape whose bare mixed-family count is kogaki#26's specimen."
 }

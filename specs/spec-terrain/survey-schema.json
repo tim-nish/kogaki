@@ -30,7 +30,9 @@
   "candidate_family_rationale": "a candidate row is ONE Lesson and a Journey is a MARK on its Lesson's row, never a row of its own (SPEC.md §5); a journey-family candidate is the two-family row model arriving back as data",
   "survey": {
     "required": ["id", "generated_by", "pin", "candidates", "journeys", "sections", "no_relation_section", "completeness"],
-    "candidate_required": ["id", "family", "tags", "cite"],
+    "candidate_required": ["id", "family", "tags", "cite", "display_id"],
+    "candidate_display_id_pattern": "^L[0-9]+$",
+    "candidate_display_id_rationale": "SPEC.md §14.3 — no owner surface renders an element name; the rendered token is `display_id`, assigned ONCE here in the survey record, which IS the ID→slug map. It is required rather than optional because an optional identifier has a fallback, and the only fallback available is the ~40-character slug the decision removed — so the field's absence must be an ABNORMAL condition a surface states, never a shape a surface silently accommodates. Uniqueness is checked within the record: two members sharing a display_id makes the join return the wrong Strand, which reads as a rename rather than as a collision",
     "section_required": ["name", "members", "by_family"],
     "narrowing_keys_forbidden": ["selected", "trimmed", "hidden", "excluded", "dropped"],
     "narrowing_rationale": "sections gate nothing and a navigation step carries no selection authority (SPEC.md §2.2); a narrowing key in navigation state is the refused minimal-form bundling arriving as a field",

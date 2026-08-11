@@ -9,7 +9,8 @@
       "tags": [
         "architecture"
       ],
-      "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
+      "display_id": "L1"
     },
     {
       "id": "strand-b",
@@ -18,7 +19,8 @@
         "architecture",
         "cost"
       ],
-      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6",
+      "display_id": "L2"
     },
     {
       "id": "strand-a",
@@ -26,7 +28,8 @@
       "tags": [
         "architecture"
       ],
-      "cite": "gloss/ELEMENTS.jsonl:9@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:9@16a6dbf6",
+      "display_id": "L3"
     }
   ],
   "sections": [

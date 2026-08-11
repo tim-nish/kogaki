@@ -9,7 +9,8 @@
       "tags": [
         "architecture"
       ],
-      "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
+      "display_id": "L1"
     },
     {
       "id": "strand-b",
@@ -18,13 +19,15 @@
         "architecture",
         "cost"
       ],
-      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6",
+      "display_id": "L2"
     },
     {
       "id": "strand-c",
       "family": "lesson",
       "tags": [],
-      "cite": "gloss/ELEMENTS.jsonl:3@16a6dbf6"
+      "cite": "gloss/ELEMENTS.jsonl:3@16a6dbf6",
+      "display_id": "L3"
     }
   ],
   "sections": [
