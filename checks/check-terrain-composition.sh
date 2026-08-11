@@ -2288,3 +2288,153 @@ console.log(`kogaki#234 artifact location — artifact-split: ${K234.split}; `
   + "directory; and reports/ is gitignored — visibility and publication decided "
   + "separately. A block reading CANNOT-DETERMINE asserted NOTHING.");
 JS
+
+# --------------------------------------------------------------------------
+# THE EMIT-TIME REFUSAL, FIRED IN BOTH DIRECTIONS (SPEC-terrain §14.2, story
+# 1.54, kogaki#346).
+#
+# The happy path is already asserted above — every cotags and report block in
+# this file now runs through the guard, so a refusal on conformant output fails
+# the suite loudly (story 1.54 AC6). What that CANNOT show is that the refusal
+# fires at all. A guard exercised only by its happy path is indistinguishable
+# from one that has been switched off, which is the condition this file's own
+# cover-guard block was written after.
+#
+# So: the REFUSING direction, at both altitudes — the predicate over a crafted
+# nonconformant string, and the command end-to-end, where what matters is that
+# NOTHING was written.
+node --input-type=module - <<'JS'
+import { mkdtempSync, existsSync, readdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { loadGrammar, validateSurface, refuseUnlessConformant, FormatRefusal }
+  from "./terrain/format-guard.mjs";
+
+const fails = [];
+const G = loadGrammar("specs/spec-terrain/report-format.json");
+
+// Each case names the RULE it must fire, so a case that starts passing for the
+// wrong reason — some other violation in the same string — is caught.
+const cases = [
+  { rule: "line_class_allowlist", surface: "cotag_screen",
+    text: "testing — the second navigation step. Grouped by co-tag; sort: name.\nan invented line no class admits",
+    why: "a line outside the surface's line_classes; the declared non_member_fallback is REFUSE" },
+  { rule: "no_element_names", surface: "cotag_screen",
+    text: "  architecture — 2 Lessons: lesson:alpha, lesson:bravo",
+    why: "§14.2 verbatim — an element name reached an owner surface" },
+  { rule: "no_element_names", surface: "full_report",
+    text: "# Full Report — g\n*Substrate pin:* `p`\n#### lesson:alpha",
+    why: "the same rule on the other covered surface, because a rule installed on one is not installed" },
+  { rule: "pin_once_per_file", surface: "full_report",
+    text: "# Full Report — g\n*Substrate pin:* `p`\n*Substrate pin:* `p`",
+    why: "§12 renders the shared pin ONCE, in the identity" },
+  { rule: "subgroup_members_sum_to_parent", surface: "cotag_screen",
+    text: "  architecture — 4 Lessons\n      sg (1 Lesson: L1)",
+    why: "a member placed in no SubGroup is hidden, and the screen cannot show it" },
+];
+for (const c of cases) {
+  const v = validateSurface(c.surface, c.text, G);
+  if (!v.some((x) => x.rule === c.rule)) {
+    fails.push(`the refusal did NOT fire for ${c.rule} on ${c.surface} (${c.why}) — got: ${v.map((x) => x.rule).join(", ") || "no violations at all"}`);
+  }
+}
+
+// AC4 — the message is actionable: surface, line class/rule, offending line,
+// and the grammar entry. Asserted as the four PROPERTIES rather than as a
+// string literal, so a reworded message that still carries them passes.
+try {
+  refuseUnlessConformant("cotag_screen", "an invented line no class admits", G);
+  fails.push("refuseUnlessConformant did not throw on a nonconformant surface");
+} catch (e) {
+  if (!(e instanceof FormatRefusal)) fails.push(`threw ${e.name}, not FormatRefusal`);
+  else {
+    const m = e.message;
+    if (!m.includes("cotag_screen")) fails.push("AC4: the refusal does not name the SURFACE");
+    if (!m.includes("line_class_allowlist")) fails.push("AC4: the refusal does not name the RULE/line class");
+    if (!m.includes("an invented line no class admits")) fails.push("AC4: the refusal does not quote the OFFENDING LINE");
+    if (!m.includes("report-format.json")) fails.push("AC4: the refusal does not name the GRAMMAR ENTRY it was decided against");
+  }
+}
+
+// AC2, end to end and at the altitude that matters: NEITHER artifact exists
+// after a refusing `report` run. Asserted by MUTATING THE GRAMMAR rather than
+// the renderer — the renderer is what the rest of this file exercises, and a
+// mutation there would be asserting against code this block also has to trust.
+// §14.1 makes the grammar authoritative, so tightening it is a legitimate way
+// to make a conformant rendering nonconformant.
+const dir = mkdtempSync(join(tmpdir(), "terrain-refuse-"));
+const survey = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const grammarPath = "specs/spec-terrain/report-format.json";
+const original = readFileSync(grammarPath, "utf8");
+try {
+  const g2 = JSON.parse(original);
+  // Remove the `substrate_pin` class, so `pin_once_per_file` counts 0 where it
+  // requires exactly 1.
+  //
+  // THE FIRST ATTEMPT REMOVED `title` INSTEAD, AND IT DID NOT REFUSE — recorded
+  // because the reason is a real property of the grammar rather than a slip in
+  // this block. `full_report` carries three body classes whose whole form is a
+  // bare placeholder (`group_claim_body`, `subgroup_claim_body`,
+  // `member_gloss_body`), each of which matches ANY line; so on that surface
+  // `line_class_allowlist` has no unadmitted line to find and is unenforceable
+  // as written. That is a limit on what §14.2 can decide about the Full Report,
+  // not a defect this story may fix by inventing constraints the grammar does
+  // not state — §14.1 makes the grammar authoritative. Named in the block's own
+  // output below, and on kogaki#346.
+  g2.surfaces.full_report.line_classes =
+    g2.surfaces.full_report.line_classes.filter((e) => e.id !== "substrate_pin");
+  writeFileSync(grammarPath, JSON.stringify(g2, null, 2) + "\n");
+
+  // Every co-tag group is judged (§6.2), so the run needs its subdivisions
+  // entry — without it the command fails for a reason that is NOT the refusal,
+  // and this block would then assert "exited non-zero, wrote nothing" against
+  // a run that never reached the guard. Caught exactly that way while it was
+  // being written, which is why the stderr assertion below is not decoration.
+  const subsPath = join(dir, "subdivisions.json");
+  writeFileSync(subsPath, JSON.stringify({ "testing × architecture": { judged: true, subgroups: [] } }));
+
+  const r = spawnSync("node", ["terrain/terrain.mjs", "report",
+    "--survey", survey, "--tag", "testing", "--group", "testing × architecture",
+    "--judge-model", "m", "--judge-effort", "e", "--subdivisions", subsPath,
+    "--report-dir", dir, "--rendering-dir", dir], { encoding: "utf8" });
+
+  if (r.status === 0) {
+    fails.push("AC2: `report` exited 0 against a grammar its rendering violates — the refusal is not installed on this path");
+  }
+  const written = (existsSync(dir) ? readdirSync(dir) : []).filter((f) => f !== "subdivisions.json");
+  if (written.length !== 0) {
+    fails.push(`AC2: the refusal wrote ${written.length} artifact(s) (${written.join(", ")}) — neither the owner rendering NOR the machine record may exist, because §12.2 v11 requires both in the same act and a record without its rendering is the 2026-08-06 specimen from the other side`);
+  }
+  if (!String(r.stderr).includes("report-format.json")) {
+    fails.push("AC2: the refusal reached stderr without naming the grammar it was decided against");
+  }
+  // AC1's stdout half: the refusal text is NOT a line of the owner surface
+  // (report-format.json `refusal_text_boundary`) — it goes to stderr.
+  if (String(r.stdout).includes("refusing to emit")) {
+    fails.push("the refusal text was printed to STDOUT — refusal_text_boundary: no text raised through fail() is a line of any owner surface");
+  }
+} finally {
+  writeFileSync(grammarPath, original);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+if (fails.length) {
+  console.log("FAIL emit-time refusal (SPEC-terrain §14.2, story 1.54):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("NOT DECIDABLE ON full_report, stated rather than left to be inferred: "
+  + "`line_class_allowlist`. Three of that surface's classes (group_claim_body, "
+  + "subgroup_claim_body, member_gloss_body) have a bare placeholder as their whole "
+  + "form, so each admits ANY line and no line can be unadmitted. The rule is enforced "
+  + "on cotag_screen, where the classes are constrained, and it is inert on the report. "
+  + "Fixing it means the grammar declaring what a claim body may look like — §14.1 makes "
+  + "that artifact authoritative, so it is not narrowed from here (kogaki#346).");
+console.log("emit-time refusal: 5/5 rules fire on crafted nonconformant text; "
+  + "AC4's four properties present in the message (surface, rule, offending line, grammar); "
+  + "and `report` against a tightened grammar exits non-zero having written ZERO artifacts — "
+  + "neither the rendering nor the record — with the refusal on stderr and off the owner surface. "
+  + "The PASSING direction is asserted by every other cotags and report block in this file, "
+  + "which now all run through the guard (AC6: a refusal on conformant output fails the suite).");
+JS

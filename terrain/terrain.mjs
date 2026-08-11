@@ -25,6 +25,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync
 import { basename, dirname, join, resolve } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { loadGrammar, refuseUnlessConformant, FormatRefusal } from "./format-guard.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..");
@@ -32,6 +33,10 @@ const SURVEY_SCHEMA = readJson(join(REPO, "specs/spec-terrain/survey-schema.json
 const RECORD_SCHEMA = readJson(join(REPO, "specs/spec-proposal-contract/record-schema.json"));
 const GATE_SCHEMA = readJson(join(REPO, "specs/spec-gate-carrier/gate-schema.json"));
 const GATES_REGISTRY = readJson(join(REPO, "gates/registry.json"));
+// §14.1's single carrier of the RENDERED FORM. Resolved from this module's own
+// location, like every schema above it — the emit-time refusal must not depend
+// on the cwd a run happens to start in.
+const REPORT_FORMAT = join(REPO, "specs/spec-terrain/report-format.json");
 
 const NO_RELATION_SECTION = "No relation (no served tag)";
 // The selector affordance (AskUserQuestion) holds at most 4 options; one is
@@ -652,6 +657,15 @@ export function cotagCover(members, groups) {
 }
 
 function cmdCotags(args) {
+  // THE SCREEN IS COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES (§14.2, story
+  // 1.54, AC1). The refusal has to be able to emit NOTHING, and a command that
+  // printed its first eight lines and then refused would have put a
+  // nonconformant screen in front of the owner — which is the whole condition
+  // the refusal exists to prevent. `say` is the only writer below; `fail`
+  // still goes to stderr and is not a line of this surface
+  // (report-format.json `refusal_text_boundary`).
+  const screen = [];
+  const say = (s = "") => { for (const line of String(s).split("\n")) screen.push(line); };
   const record = readJson(String(args.survey || fail("cotags needs --survey <file>")));
   const tag = String(args.tag || fail("cotags needs --tag <selected tag>"));
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
@@ -738,7 +752,7 @@ function cmdCotags(args) {
   const shown = selected ? groups.filter((g) => g.name === selected || g.cotag === selected) : groups;
   if (selected && shown.length === 0) fail(`no co-tag group ${JSON.stringify(selected)} in ${tag}`);
 
-  console.log(`${tag} — the second navigation step. Grouped by co-tag; sort: ${COTAG_SORT}.\n`);
+  say(`${tag} — the second navigation step. Grouped by co-tag; sort: ${COTAG_SORT}.\n`);
   let claimless = 0;
   for (const g of shown) {
     g.by_family = familySplit(g.members, record.candidates);
@@ -760,11 +774,11 @@ function cmdCotags(args) {
     // screen — the same trap the report's `members` field carried.
     // §14.3 — group members render as display_ids, never as `lesson:<slug>`.
     const gShown = displayIds(g.members, record.candidates);
-    console.log(subForHeading && subForHeading.length
+    say(subForHeading && subForHeading.length
       ? `  ${g.name} — ${lessonCount(g.members.length)}`
       : `  ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
     if (!(subForHeading && subForHeading.length) && gShown.missing) {
-      console.log(`    ${displayIdAbnormalLine(gShown.missing, g.members.length)}`);
+      say(`    ${displayIdAbnormalLine(gShown.missing, g.members.length)}`);
     }
 
     // The GroupClaim FIRST, then the members (§6.1). A claim composed over a
@@ -773,13 +787,13 @@ function cmdCotags(args) {
     // event, and that only means anything if they saw what it was pinned to.
     const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
     if (claim !== undefined && String(claim).trim() !== "") {
-      console.log(`      in common: ${claim}`);
-      console.log(`      pinned to ${g.members.length} member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)`);
+      say(`      in common: ${claim}`);
+      say(`      pinned to ${g.members.length} member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)`);
     } else {
       claimless++;
-      console.log(`      in common: ${NO_CLAIM}`);
+      say(`      in common: ${NO_CLAIM}`);
     }
-    if (prose[g.name]) console.log(`      ${prose[g.name]}`);
+    if (prose[g.name]) say(`      ${prose[g.name]}`);
 
     // The member Lesson IDs, for EVERY group and WITHOUT --group being named.
     // This is kogaki#128's specific defect: v2 emitted them only under
@@ -804,22 +818,22 @@ function cmdCotags(args) {
         // §14.3 — SubGroup members render as display_ids, never as
         // `lesson:<slug>` tokens.
         const sgShown = displayIds(sg.members, record.candidates);
-        console.log(`\n      ${sg.name} (${lessonCount(sg.members.length)}: ${sgShown.rendered.join(", ")})`);
-        if (sgShown.missing) console.log(`          ${displayIdAbnormalLine(sgShown.missing, sg.members.length)}`);
-        console.log(`          in common: ${sg.claim || NO_CLAIM}`);
-        console.log(`          ${sg.leaf_reason}`);
-        for (const d of sg.disclosures) console.log(`          DISCLOSURE — ${d}`);
+        say(`\n      ${sg.name} (${lessonCount(sg.members.length)}: ${sgShown.rendered.join(", ")})`);
+        if (sgShown.missing) say(`          ${displayIdAbnormalLine(sgShown.missing, sg.members.length)}`);
+        say(`          in common: ${sg.claim || NO_CLAIM}`);
+        say(`          ${sg.leaf_reason}`);
+        for (const d of sg.disclosures) say(`          DISCLOSURE — ${d}`);
       }
-      console.log(`\n      judged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
-      console.log("");
+      say(`\n      judged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
+      say("");
     }
   }
   if (claimless) {
-    console.log(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
+    say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
     // The remedy names the BOUNDED input rather than "go compose something":
     // the fault above is cleared by composing, and the way composing was
     // costing ~19 minutes was per-group reads (kogaki#163 lever 3).
-    console.log(`Compose them from the bounded input — compose-input --survey ${String(args.survey)} --tag ${tag} — and pass the result back as --claims (and --subdivisions, which §8's judgment is composed from the SAME artifact and spends no further read).`);
+    say(`Compose them from the bounded input — compose-input --survey ${String(args.survey)} --tag ${tag} — and pass the result back as --claims (and --subdivisions, which §8's judgment is composed from the SAME artifact and spends no further read).`);
   }
 
   // The cover, counted AFTER composition, over ALL composed groups — never
@@ -834,10 +848,36 @@ function cmdCotags(args) {
     fail(`COTAG_COVER_INVENTED — ${invented.length} id(s) appear in a co-tag group without carrying ${JSON.stringify(tag)}: ${invented.join(", ")}. Composition may group the members and may not add one; a cover counted without checking its numerator's provenance would pass a group list that dropped a member and gained a stranger (SPEC.md §2.1, §6).`);
   }
   const split = familySplit(members.map((c) => c.id), record.candidates);
-  console.log(`\nCover: ${covered.size} of ${members.length} member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: ${strandFigure(split)}; ${denominator(members.length, record.candidates.length)}.`);
-  console.log(`Classification: NAVIGATION (SPEC.md §2.3 — enumerate + sort over tags the members already carry on the served surface). No proposal record is written, and no record of any kind.`);
-  console.log(`Narrows nothing: the survey record is unchanged, the full candidate set stays reachable, and free text still reaches every Strand at the gate.`);
-  if (!selected) console.log(`\nSelect a group (still narrowing nothing): cotags --survey <F> --tag ${tag} --group "<co-tag>"`);
+  say(`\nCover: ${covered.size} of ${members.length} member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: ${strandFigure(split)}; ${denominator(members.length, record.candidates.length)}.`);
+  say(`Classification: NAVIGATION (SPEC.md §2.3 — enumerate + sort over tags the members already carry on the served surface). No proposal record is written, and no record of any kind.`);
+  say(`Narrows nothing: the survey record is unchanged, the full candidate set stays reachable, and free text still reaches every Strand at the gate.`);
+  if (!selected) say(`\nSelect a group (still narrowing nothing): cotags --survey <F> --tag ${tag} --group "<co-tag>"`);
+
+  // THE REFUSAL, over the STRING that is about to be emitted (AC1, AC3). Not
+  // over `groups`, not over `record` — the recorded specimen is a renderer that
+  // dropped four of six member fields while every assertion about the data
+  // structure stayed green.
+  emitOrRefuse("cotag_screen", screen.join("\n"), (text) => console.log(text));
+}
+
+// The one emit path for both covered surfaces. It exists so the two callers
+// cannot drift in WHEN they validate — the defect `announceArtifacts` was
+// written to fix, one layer up: two branches carrying the same contract is one
+// a later fix updates half of.
+//
+// The write is a CALLBACK, and that is load-bearing rather than tidy: it is
+// what makes "validate before the artifact exists" structural instead of a
+// convention a future edit can reorder. There is no path here that emits
+// first.
+function emitOrRefuse(surfaceName, text, write) {
+  try {
+    refuseUnlessConformant(surfaceName, text, loadGrammar(REPORT_FORMAT));
+  } catch (e) {
+    if (e instanceof FormatRefusal) fail(e.message);
+    throw e;
+  }
+  write(text);
+  return text;
 }
 
 // --------------------------------------------------------------------------
@@ -2061,7 +2101,12 @@ function cmdReport(args) {
       let priorRendered = null;
       if (!args["no-render"]) {
         priorRendered = join(renderingsDir(args), `terrain-full-report-${identityDigest(identity)}.md`);
-        writeFileSync(priorRendered, renderReportMarkdown(prior, tag));
+        // §14.2 — the rerun path refuses on exactly the same grammar as the
+        // fresh one. It is the path a SECOND look always takes, and it is the
+        // path that shipped the last two clause-3 defects; a guard installed
+        // on the fresh write alone would be the same half-fix again.
+        emitOrRefuse("full_report", renderReportMarkdown(prior, tag),
+          (text) => writeFileSync(priorRendered, text));
       }
       console.log("Full Report already exists for this identity — the rerun is IDEMPOTENT, "
         + "not a duplicate (SPEC.md §12.1).");
@@ -2132,6 +2177,26 @@ function cmdReport(args) {
     counted: familySplit(group.members, record.candidates),
     lessons_served: record.candidates.length,
   };
+  // THE REFUSAL PRECEDES BOTH WRITES (§14.2, story 1.54 AC2). The record is
+  // written BELOW this line, not above it: §12.2 v11 requires the record and
+  // its rendering in the same act, so a refusal that had already written the
+  // record would leave a machine record with no rendering — the 2026-08-06
+  // defect specimen from the other side.
+  //
+  // AND IT VALIDATES UNDER `--no-render` TOO, where nothing will be written.
+  // The rendering is a pure function of the record, so a record that renders
+  // nonconformantly IS a nonconformant record; skipping the check when the
+  // owner opted out of the file would make `--no-render` a way to mint exactly
+  // the artifact this refuses, which is the escape hatch SQ1 declined arriving
+  // through a flag that already exists.
+  const renderedText = renderReportMarkdown(report, tag);
+  try {
+    refuseUnlessConformant("full_report", renderedText, loadGrammar(REPORT_FORMAT));
+  } catch (e) {
+    if (e instanceof FormatRefusal) fail(e.message);
+    throw e;
+  }
+
   writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
 
   // THE OWNER RENDERING, in the SAME ACT (§12.2 v11, kogaki#234). A run that
@@ -2142,7 +2207,7 @@ function cmdReport(args) {
   if (!args["no-render"]) {
     const rdir = renderingsDir(args);
     rendered = join(rdir, `terrain-full-report-${identityDigest(identity)}.md`);
-    writeFileSync(rendered, renderReportMarkdown(report, tag));
+    writeFileSync(rendered, renderedText);
   }
 
   // §2.5 clause 3 binds BOTH artifact lines (PR #240 review round 1, finding
