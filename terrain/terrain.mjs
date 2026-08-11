@@ -2098,16 +2098,23 @@ function cmdReport(args) {
       // renderer, or never have existed because the first run passed
       // `--no-render`, and none of those are states a second run should leave
       // standing while reporting success.
+      // §14.2 — the rerun path refuses on exactly the same grammar as the fresh
+      // one. It is the path a SECOND look always takes, and it is the path that
+      // shipped the last two clause-3 defects; a guard installed on the fresh
+      // write alone would be the same half-fix again.
+      //
+      // VALIDATED OUTSIDE the `--no-render` branch, symmetrically with the
+      // fresh path (PR #352 round 1). The asymmetry was against this change's
+      // own stated ground: the rendering is a pure function of the record, so a
+      // record that renders nonconformantly IS one, and whether the owner asked
+      // for the file cannot be what decides if it is checked.
+      const priorText = renderReportMarkdown(prior, tag);
       let priorRendered = null;
       if (!args["no-render"]) {
         priorRendered = join(renderingsDir(args), `terrain-full-report-${identityDigest(identity)}.md`);
-        // §14.2 — the rerun path refuses on exactly the same grammar as the
-        // fresh one. It is the path a SECOND look always takes, and it is the
-        // path that shipped the last two clause-3 defects; a guard installed
-        // on the fresh write alone would be the same half-fix again.
-        emitOrRefuse("full_report", renderReportMarkdown(prior, tag),
-          (text) => writeFileSync(priorRendered, text));
       }
+      emitOrRefuse("full_report", priorText,
+        (text) => { if (priorRendered) writeFileSync(priorRendered, text); });
       console.log("Full Report already exists for this identity — the rerun is IDEMPOTENT, "
         + "not a duplicate (SPEC.md §12.1).");
       announceArtifacts(priorRendered, out);
@@ -2189,13 +2196,15 @@ function cmdReport(args) {
   // owner opted out of the file would make `--no-render` a way to mint exactly
   // the artifact this refuses, which is the escape hatch SQ1 declined arriving
   // through a flag that already exists.
+  //
+  // THROUGH `emitOrRefuse` LIKE THE OTHER TWO SITES (PR #352 round 1 nit).
+  // This path's writes are separated by the record write, so the "write" it
+  // hands over is empty and the two real writes follow below — but the WHEN is
+  // the helper's, which is the whole reason the helper exists. Three validation
+  // sites in two shapes, with the odd one out being the one the helper was
+  // written for, is the drift `announceArtifacts` was written to end.
   const renderedText = renderReportMarkdown(report, tag);
-  try {
-    refuseUnlessConformant("full_report", renderedText, loadGrammar(REPORT_FORMAT));
-  } catch (e) {
-    if (e instanceof FormatRefusal) fail(e.message);
-    throw e;
-  }
+  emitOrRefuse("full_report", renderedText, () => {});
 
   writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
 
