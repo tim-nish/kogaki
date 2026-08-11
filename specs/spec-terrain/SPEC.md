@@ -815,7 +815,7 @@ where the reading happens.
 heading form (wa#1115/#1116, wa#1075):
 
 ```text
-G<n> — N Lessons: L<i>, L<j>, …
+G<n> — <co-tag name> — N Lessons: L<i>, L<j>, …
 in common: <GroupClaim>
 ```
 
@@ -1015,7 +1015,7 @@ section header, each SubGroup its own composed claim, hierarchy visible;
 owner format ruling 2026-08-06):
 
 ```text
-G<n>-<m> — N Lessons: L<i>, L<j>, …
+G<n>-<m> — N Lessons: L<i>, L<j>, … — <SubGroup name>
 in common: <SubGroupClaim>
 ```
 

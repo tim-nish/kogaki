@@ -1,14 +1,14 @@
 testing — the second navigation step. Grouped by co-tag; sort: co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering).
 
-  testing × (no second served tag) — 1 Lesson: L4
-      in common: carries the selected tag and no other
-      pinned to 1 member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)
-  testing × architecture — 2 Lessons: L2, L1
-      in common: both hold that a guard is real only once something exercised it
-      pinned to 2 member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)
-  testing × cost — 1 Lesson: L3
-      in common: both price a check by where in the loop it runs
-      pinned to 1 member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)
+G1 — testing × (no second served tag) — 1 Lesson: L4
+in common: carries the selected tag and no other
+pinned to 1 member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)
+G2 — testing × architecture — 2 Lessons: L2, L1
+in common: both hold that a guard is real only once something exercised it
+pinned to 2 member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)
+G3 — testing × cost — 1 Lesson: L3
+in common: both price a check by where in the loop it runs
+pinned to 1 member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)
 
 Cover: 4 of 4 member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: 5 — 4 lessons + 1 journey; 4 of 5 Lessons.
 Classification: NAVIGATION (SPEC.md §2.3 — enumerate + sort over tags the members already carry on the served surface). No proposal record is written, and no record of any kind.

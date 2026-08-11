@@ -609,9 +609,27 @@ export function cotagGroups(members, selectedTag) {
       byCotag.get(k).push(c.id);
     }
   }
-  return [...byCotag.keys()].sort().map((k) => ({
+  // THE GroupID IS MINTED HERE, at the one place groups are composed
+  // (§6.1 v6, story 1.56, kogaki#317). `G<n>` over the sorted group list, so
+  // the id and `COTAG_SORT` agree by construction rather than by two call
+  // sites happening to order the same way.
+  //
+  // IT CARRIES THE HIERARCHY, which is why it exists. Through v5 the level was
+  // carried by indentation, and a claim line that wrapped at the terminal edge
+  // resumed at column 0 — so the hierarchy vanished exactly where the text was
+  // longest. An id is content: it survives wrapping.
+  //
+  // SCOPE, stated rather than implied (AC11, owner decision 2026-08-11 on
+  // kogaki#317): the id is assigned in sort order and A PIN ADVANCE MAY
+  // RENUMBER IT. One new co-tag shifts every group after it. The screen and
+  // the report of a single run agree, which is what an owner-entered id set
+  // (kogaki#314) consumes; an id copied from a screen printed under an earlier
+  // pin does not, and the screen says so. No persistent map is written —
+  // that would be the second carrier §14.3's ID→slug rule already refuses.
+  return [...byCotag.keys()].sort().map((k, i) => ({
     name: `${selectedTag} × ${k}`,
     cotag: k,
+    gid: `G${i + 1}`,
     members: byCotag.get(k).sort(),
   }));
 }
@@ -774,11 +792,13 @@ function cmdCotags(args) {
     // screen — the same trap the report's `members` field carried.
     // §14.3 — group members render as display_ids, never as `lesson:<slug>`.
     const gShown = displayIds(g.members, record.candidates);
+    // §6.1 v6 — FLUSH LEFT, and the GroupID is what says this is a Group.
+    // The co-tag name follows the id; it is a label, not the carrier.
     say(subForHeading && subForHeading.length
-      ? `  ${g.name} — ${lessonCount(g.members.length)}`
-      : `  ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
+      ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
+      : `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
     if (!(subForHeading && subForHeading.length) && gShown.missing) {
-      say(`    ${displayIdAbnormalLine(gShown.missing, g.members.length)}`);
+      say(displayIdAbnormalLine(gShown.missing, g.members.length));
     }
 
     // The GroupClaim FIRST, then the members (§6.1). A claim composed over a
@@ -787,13 +807,18 @@ function cmdCotags(args) {
     // event, and that only means anything if they saw what it was pinned to.
     const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
     if (claim !== undefined && String(claim).trim() !== "") {
-      say(`      in common: ${claim}`);
-      say(`      pinned to ${g.members.length} member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)`);
+      say(`in common: ${claim}`);
+      say(`pinned to ${g.members.length} member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)`);
     } else {
       claimless++;
-      say(`      in common: ${NO_CLAIM}`);
+      say(`in common: ${NO_CLAIM}`);
     }
-    if (prose[g.name]) say(`      ${prose[g.name]}`);
+    // The `> ` marker is what keeps composer prose DECIDABLE (§6.1 v6, AC9).
+    // Flush left, `<composer prose>` would match every line and take
+    // `line_class_allowlist` inert on this surface — which is exactly what the
+    // first cut of this change did. The marker carries no level, so it does
+    // not re-introduce the defect the flush-left move removed.
+    if (prose[g.name]) say(`> ${prose[g.name]}`);
 
     // The member Lesson IDs, for EVERY group and WITHOUT --group being named.
     // This is kogaki#128's specific defect: v2 emitted them only under
@@ -806,6 +831,7 @@ function cmdCotags(args) {
     const sub = subForHeading && subForHeading.length ? subForHeading : null;
     if (sub) {
       const { subgroups } = subgroupPlacement(g, sub, SURVEY_SCHEMA.subdivision);
+      let sgIdx = 0;
       for (const sg of subgroups) {
         sg.by_family = familySplit(sg.members, record.candidates);
         // The screen JUDGES rather than merely rendering (§6.2). Same
@@ -818,13 +844,19 @@ function cmdCotags(args) {
         // §14.3 — SubGroup members render as display_ids, never as
         // `lesson:<slug>` tokens.
         const sgShown = displayIds(sg.members, record.candidates);
-        say(`\n      ${sg.name} (${lessonCount(sg.members.length)}: ${sgShown.rendered.join(", ")})`);
-        if (sgShown.missing) say(`          ${displayIdAbnormalLine(sgShown.missing, sg.members.length)}`);
-        say(`          in common: ${sg.claim || NO_CLAIM}`);
-        say(`          ${sg.leaf_reason}`);
-        for (const d of sg.disclosures) say(`          DISCLOSURE — ${d}`);
+        // §6.2 v6 — `G<n>-<m>` NAMES ITS PARENT, so a SubGroup line met on its
+        // own (wrapped, or scrolled away from its group) still says where it
+        // belongs. Flush left; the parenthesised count form is gone with the
+        // indentation, since two punctuations for one shape meant nothing once
+        // the level moved into the id.
+        sg.sgid = `${g.gid}-${sgIdx += 1}`;
+        say(`\n${sg.sgid} — ${lessonCount(sg.members.length)}: ${sgShown.rendered.join(", ")} — ${sg.name}`);
+        if (sgShown.missing) say(displayIdAbnormalLine(sgShown.missing, sg.members.length));
+        say(`in common: ${sg.claim || NO_CLAIM}`);
+        say(sg.leaf_reason);
+        for (const d of sg.disclosures) say(`DISCLOSURE — ${d}`);
       }
-      say(`\n      judged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
+      say(`\njudged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
       say("");
     }
   }
@@ -1312,19 +1344,27 @@ function cmdSubdivide(args) {
 
   // Rendering: GroupClaim FIRST, then the SubGroups each with its own composed
   // claim, then the Lessons per SubGroup.
+  // SQ3, answered: `subdivide` is an owner surface but the grammar covers only
+  // `cotag_screen` and `full_report` (§14.1's `uncovered_surfaces`). Bringing it
+  // under the grammar is that section's own reopen trigger and is NOT this
+  // story's work. Rendering it CONSISTENTLY by hand is — an owner reading two
+  // surfaces of the same run should not meet two hierarchy conventions — so the
+  // ids and the flush-left form are applied here without registering a class.
   console.log(sectionFigure(parent, record.candidates.length));
-  console.log(`  in common: ${groupClaim}\n`);
+  console.log(`in common: ${groupClaim}\n`);
+  let sgIdx = 0;
   for (const sg of subgroups) {
-    console.log(`  ${sg.name} (${strandFigure(sg.by_family)}); ${denominator(sg.members.length, record.candidates.length)}`);
-    console.log(`    in common: ${sg.claim}`);
-    console.log(`    ${sg.leaf_reason}`);
-    for (const d of sg.disclosures) console.log(`    DISCLOSURE — ${d}`);
+    const sgid = `${parent.gid || "G?"}-${sgIdx += 1}`;
+    console.log(`${sgid} — ${strandFigure(sg.by_family)}; ${denominator(sg.members.length, record.candidates.length)} — ${sg.name}`);
+    console.log(`in common: ${sg.claim}`);
+    console.log(sg.leaf_reason);
+    for (const d of sg.disclosures) console.log(`DISCLOSURE — ${d}`);
     const ins = sg.instruments;
-    console.log(`    instruments (three quantities, none a threshold, none gating): relative share of placements ${(ins.relative_share_of_placements * 100).toFixed(1)}%; screen budget ${ins.screen_budget_lines.needs} lines needed of ${ins.screen_budget_lines.budget}; legible at a glance: ${ins.legible_at_a_glance}`);
+    console.log(`instruments (three quantities, none a threshold, none gating): relative share of placements ${(ins.relative_share_of_placements * 100).toFixed(1)}%; screen budget ${ins.screen_budget_lines.needs} lines needed of ${ins.screen_budget_lines.budget}; legible at a glance: ${ins.legible_at_a_glance}`);
     // §14.3 — the SubGroup's member rows are display_ids.
     const sgShown = displayIds(sg.members, record.candidates);
-    for (const shown of sgShown.rendered) console.log(`      ${shown}`);
-    if (sgShown.missing) console.log(`      ${displayIdAbnormalLine(sgShown.missing, sg.members.length)}`);
+    for (const shown of sgShown.rendered) console.log(shown);
+    if (sgShown.missing) console.log(displayIdAbnormalLine(sgShown.missing, sg.members.length));
     console.log("");
   }
   console.log(`Cover: ${out.cover.placed} of ${out.cover.of} parent members placed in at least one SubGroup — counted AFTER composition, over placements. No member is hidden.`);
@@ -1802,7 +1842,7 @@ function announceArtifacts(rendered, recordPath) {
 export function renderReportMarkdown(report, tag) {
   const L = [];
   const i = report.identity;
-  L.push(`# Full Report — ${i.query.group}`);
+  L.push(`# Full Report — ${report.gid ? `${report.gid} — ` : ""}${i.query.group}`);
   L.push("");
   L.push(`*Selected tag:* \`${tag}\`  `);
   L.push(`*Substrate pin:* \`${i.pin}\`  `);
@@ -1822,7 +1862,9 @@ export function renderReportMarkdown(report, tag) {
     L.push("## SubGroups");
     for (const sg of report.subgroups) {
       L.push("");
-      L.push(`### ${sg.name}`);
+      // §6.2 v6 — the report uses the SAME SubGroupID the screen showed, so
+      // an owner copying an id from one finds it in the other (AC4).
+      L.push(`### ${sg.sgid ? `${sg.sgid} — ` : ""}${sg.name}`);
       L.push("");
       L.push(sg.claim === NO_CLAIM ? "*(no SubGroupClaim)*" : sg.claim);
       L.push("");
@@ -1871,6 +1913,26 @@ export function renderReportMarkdown(report, tag) {
 //
 // A member with no display_id or no cite is NAMED here rather than omitted:
 // a map that silently skips its unmappable rows is the shape §2.1 forbids.
+// THE PIN IS STATED ONCE, IN THE IDENTITY — so every other cite renders BARE
+// (§12 v12, kogaki#315, story 1.56 AC5/AC6).
+//
+// A served cite arrives as `<file>:<line>@<pin>`; the `@<pin>` half is the
+// substrate pin repeated. On a two-member report that was six pin-bearing
+// lines where §12 registers one, and story 1.53 did not fix it — it moved the
+// per-member `*Served line:*` row into a trailing map and carried the pin
+// along, same count, different siting.
+//
+// `pin_once_per_file` could not see any of it: that rule counts occurrences of
+// the `substrate_pin` LINE CLASS, so it read 1 and passed. The repair is here,
+// at the emitters, rather than in a widened rule — which is why story 1.56
+// AC5 asserts pin-once by COUNTING OCCURRENCES over the rendered bytes.
+export function bareCite(cite) {
+  if (cite === null || cite === undefined) return cite;
+  const s = String(cite);
+  const at = s.lastIndexOf("@");
+  return at === -1 ? s : s.slice(0, at);
+}
+
 export function servedLinesBlock(report) {
   const rows = [];
   const seen = new Set();
@@ -1879,7 +1941,7 @@ export function servedLinesBlock(report) {
     const key = m.display_id || m.id || String(rows.length);
     if (seen.has(key)) return;
     seen.add(key);
-    rows.push([m.display_id || NO_DISPLAY_ID, m.cite || "⟨no served line recorded — ABNORMAL, never substituted⟩"]);
+    rows.push([m.display_id || NO_DISPLAY_ID, bareCite(m.cite) || "⟨no served line recorded — ABNORMAL, never substituted⟩"]);
   };
   // Both shapes, because a report renders EITHER SubGroups or a flat member
   // list and the map is owed by both.
@@ -1946,7 +2008,7 @@ export function memberBlock(m, level) {
   // v11), which is where a reader who needs the address goes. The Gloss cite
   // rows below are a different thing — they address the served GLOSS rendering
   // rather than naming the element — and they stay.
-  L.push(m.gloss_cite ? `**Lesson Gloss** — \`${m.gloss_cite}\`` : "**Lesson Gloss** — *no served cite recorded*");
+  L.push(m.gloss_cite ? `**Lesson Gloss** — \`${bareCite(m.gloss_cite)}\`` : "**Lesson Gloss** — *no served cite recorded*");
   L.push("");
   L.push(m.gloss !== undefined && m.gloss !== null ? String(m.gloss)
     : (m.claim !== undefined && m.claim !== null ? String(m.claim) : NO_GLOSS_BODY));
@@ -1955,7 +2017,7 @@ export function memberBlock(m, level) {
     L.push("**Journey Gloss** — *this member carries no Journey.*");
     L.push("");
   } else {
-    L.push(m.journey_cite ? `**Journey Gloss** — \`${m.journey_cite}\`` : "**Journey Gloss** — *no served cite recorded*");
+    L.push(m.journey_cite ? `**Journey Gloss** — \`${bareCite(m.journey_cite)}\`` : "**Journey Gloss** — *no served cite recorded*");
     L.push("");
     L.push(String(m.journey_gloss));
     L.push("");
@@ -2158,8 +2220,14 @@ function cmdReport(args) {
     subgroups = [];
   } else if (sub) {
     const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
-    subgroups = placed.subgroups.map((sg) => ({
+    // §6.2 v6 — the SubGroupID is derived the same way the screen derives it:
+    // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
+    // output in the same order. That is what makes AC4 hold — an owner copying
+    // `G2-1` off the screen finds `G2-1` in the report — without either surface
+    // reading an id the other stored, which would be the second carrier.
+    subgroups = placed.subgroups.map((sg, i) => ({
       name: sg.name,
+      sgid: `${group.gid}-${i + 1}`,
       claim: sg.claim || NO_CLAIM,
       members: renderMembers(sg.members),
     }));
@@ -2171,6 +2239,11 @@ function cmdReport(args) {
     // The identity is RECORDED, not implied (§12): §12.2 makes these the only
     // source of it, so a report that carried none could never be resolved.
     identity,
+    // The GroupID this report is OF (§6.1 v6). `cotagGroups` minted it over the
+    // composed list, so the report and the screen of one run agree by
+    // construction. Absent on a record written before v6, which the renderer
+    // handles by omitting the prefix rather than inventing one.
+    gid: group.gid,
     classification: "report",
     narrows: false,
     truncated: false,

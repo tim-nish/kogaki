@@ -1,4 +1,4 @@
-# Full Report — testing × architecture
+# Full Report — G2 — testing × architecture
 
 *Selected tag:* `testing`  
 *Substrate pin:* `product-lab@16a6dbf64b5e5471c196c48bf7f2d53c2ea8fd57`  
@@ -20,19 +20,19 @@ not an absent judgment. Members are listed below.*
 
 ### L2
 
-**Lesson Gloss** — `gloss/lessons/testing.md:5@stubbed`
+**Lesson Gloss** — `gloss/lessons/testing.md:5`
 
 Stub lessons/testing rendering for alpha. Two sentences, so a headline reader and a whole-body reader disagree observably.
 Second body line for alpha under lessons/testing — a one-line row cannot carry this without flattening or cutting it.
 
-**Journey Gloss** — `gloss/journeys/testing.md:5@stubbed`
+**Journey Gloss** — `gloss/journeys/testing.md:5`
 
 Stub journeys/testing rendering for alpha. Two sentences, so a headline reader and a whole-body reader disagree observably.
 Second body line for alpha under journeys/testing — a one-line row cannot carry this without flattening or cutting it.
 
 ### L1
 
-**Lesson Gloss** — `gloss/lessons/testing.md:12@stubbed`
+**Lesson Gloss** — `gloss/lessons/testing.md:12`
 
 Stub lessons/testing rendering for bravo. Two sentences, so a headline reader and a whole-body reader disagree observably.
 Second body line for bravo under lessons/testing — a one-line row cannot carry this without flattening or cutting it.
@@ -50,6 +50,6 @@ Second body line for bravo under lessons/testing — a one-line row cannot carry
 
 | Member | Served line |
 |---|---|
-| L2 | `gloss/ELEMENTS.jsonl:1@16a6dbf6` |
-| L1 | `gloss/ELEMENTS.jsonl:2@16a6dbf6` |
+| L2 | `gloss/ELEMENTS.jsonl:1` |
+| L1 | `gloss/ELEMENTS.jsonl:2` |
 

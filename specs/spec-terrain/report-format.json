@@ -66,7 +66,7 @@
         },
         {
           "id": "group_heading_subdivided",
-          "form": "<GroupID> — <LessonCount>",
+          "form": "<GroupID> — <co-tag name> — <LessonCount>",
           "allowlist": [
             "GroupID",
             "LessonCount"
@@ -74,12 +74,13 @@
         },
         {
           "id": "group_heading_flat",
-          "form": "<GroupID> — <LessonCount>: <LessonDisplayID list, \", \"-joined>",
+          "form": "<GroupID> — <co-tag name> — <LessonCount>: <LessonDisplayID list, \", \"-joined>",
           "allowlist": [
             "GroupID",
             "LessonCount",
             "LessonDisplayID list"
-          ]
+          ],
+          "the_name_stays_and_here_is_why": "Through v5 `<GroupID>` RENDERED AS the co-tag name, because no id space existed — the heading was `testing × architecture — 2 Lessons: …`. v6 mints a real id, and the name stays BESIDE it rather than being replaced by it: kogaki#317 rules the change 'presentation only … content is untouched', and the co-tag name is content that was already on the screen. A heading reading `G1 — 2 Lessons: L2, L1` would leave the owner unable to tell what G1 is about, on the surface whose whole job is showing which co-tag groups exist. Order is id, then meaning, then counts and members: the id leads because it is the carrier, and the member ids sit last at a predictable position because they are what gets copied."
         },
         {
           "id": "group_claim",
@@ -96,7 +97,7 @@
         },
         {
           "id": "subgroup_heading",
-          "form": "\\n<SubGroupID> — <LessonCount>: <LessonDisplayID list>",
+          "form": "\\n<SubGroupID> — <LessonCount>: <LessonDisplayID list> — <SubGroup name>",
           "allowlist": [
             "SubGroupID",
             "LessonCount",
@@ -110,7 +111,8 @@
         },
         {
           "id": "subgroup_leaf_reason",
-          "form": "<leaf reason>"
+          "form": "leaf: <reason> | NOT a leaf: <reason>",
+          "form_note": "Declared as its two literal openings rather than as `<leaf reason>`, and this is the SECOND class the flush-left change caught out. `judgeSubgroup` emits exactly two shapes — `leaf: …` and `NOT a leaf: …` (terrain/terrain.mjs) — so the bare placeholder was never describing the class, it was describing nothing; through v2 the ten-space indent hid that by constraining it anyway. Same lesson as `group_prose`'s marker one entry up: a layout convention was doing a discriminator's job, and removing it exposed which classes had no description of their own. This one needed no owner decision because the RENDERED TEXT does not change — the grammar is only saying what the emitter already emits."
         },
         {
           "id": "subgroup_disclosure",

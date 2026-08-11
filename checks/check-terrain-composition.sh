@@ -192,7 +192,9 @@ const withClaim = spawnSync(process.execPath,
 if (withClaim.status !== 0) fails.push(`cotags --claims exited ${withClaim.status}: ${(withClaim.stderr || "").trim()}`);
 const claimLines = String(withClaim.stdout).split("\n");
 const claimAt = claimLines.findIndex((l) => l.includes("in common: both hold that a guard"));
-const groupAt = claimLines.findIndex((l) => l.includes(`${TAG} × architecture — `));
+// §6.1 v6 — the heading is found by its GroupID, flush left, not by the co-tag
+// name and not by indentation. The name now trails the counts as a label.
+const groupAt = claimLines.findIndex((l) => /^G[0-9]+ — /.test(l) && l.includes(`${TAG} × architecture`));
 if (claimAt < 0 || groupAt < 0 || claimAt !== groupAt + 1) {
   fails.push("the GroupClaim is not served immediately under its group heading — §6.1 v5's order (heading line, then the claim)");
 }
@@ -203,8 +205,10 @@ const heading = claimLines[groupAt] || "";
 // The two ids render in the declared member sort (id ascending: alpha, bravo),
 // which is L2 then L1 in this fixture — display_id is minted in served-corpus
 // order and the sort is by id, so the two orders are deliberately independent.
-if (!/2 Lessons: L2, L1/.test(heading)) {
-  fails.push("the group heading does not carry its Lesson count and member IDs on the heading line (§6.1 v5: `<GroupID> — N Lessons: ids`)");
+// v6: `G<n> — N Lessons: ids — <co-tag name>`, flush left. The two ids render
+// in the declared member sort (id ascending: alpha, bravo) = L2 then L1.
+if (!/^G[0-9]+ — .+ — 2 Lessons: L2, L1$/.test(heading)) {
+  fails.push(`the group heading is not the §6.1 v6 flush-left form \`G<n> — <co-tag name> — N Lessons: ids\` — got ${JSON.stringify(heading)}`);
 }
 if (!String(withClaim.stdout).includes("pinned to 2 member(s)")) {
   fails.push("a screen-composed claim does not state the member set it is pinned to — §7's pinning is what makes a later subset selection a gate event rather than a refresh");
@@ -317,8 +321,10 @@ if (!String(withSubs.stdout).includes("in common: a check whose inputs make fail
   fails.push("the SubGroupClaim does not render beneath its SubGroup line (§6.2 v5)");
 }
 // §6.2 v5's line form: `<SubGroupID> (N Lessons: ids)`, claim on the next line.
-if (!/guards that cannot fail \(1 Lesson: L2\)/.test(String(withSubs.stdout))) {
-  fails.push("the SubGroup line does not carry its Lesson count and IDs (§6.2 v5: `<SubGroupID> (N Lessons: ids)`)");
+// §6.2 v6 — `G<n>-<m> — N Lessons: ids — <name>`; the parenthesised count form
+// went with the indentation, since the level is in the id now.
+if (!/^G[0-9]+-[0-9]+ — 1 Lesson: L2 — guards that cannot fail$/m.test(String(withSubs.stdout))) {
+  fails.push("the SubGroup line is not the §6.2 v6 form `G<n>-<m> — N Lessons: ids — <name>` — the SubGroupID must name its parent, which is what lets a wrapped line still say where it belongs");
 }
 if (!String(withSubs.stdout).includes("(fits no composed SubGroup)")
     || !String(withSubs.stdout).includes("L1")) {
@@ -2097,11 +2103,24 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       // exception. So an absent cite is now REPORTED as the missing premise it
       // is, and the record-side and rendering-side conditions are separate
       // sentences rather than one conjunction that can vanish.
+      // §12 v12 (story 1.56) — the RECORD keeps the full `file:line@pin` cite;
+      // the RENDERING carries it BARE, because the substrate pin is stated once
+      // in the identity. So the assertion still requires the cite to reach the
+      // owner, and requires it in the form the contract now specifies. Reading
+      // the record for the full value and the rendering for the bare one is the
+      // point: it catches a renderer that drops the cite AND a renderer that
+      // re-attaches the pin.
+      const bare = (v) => {
+        const t = String(v); const at = t.lastIndexOf("@");
+        return at === -1 ? t : t.slice(0, at);
+      };
       const assertCite = (value, body, where, label) => {
         if (value === null || value === undefined || String(value) === "") {
           fails.push(`${where}: ${label} is ABSENT FROM THE RECORD — the rendering assertion for it has no premise, and a served surface returning no cite is indistinguishable here from a renderer that dropped it, which is the state this whole block exists to detect`);
-        } else if (!body.includes(String(value))) {
-          fails.push(`${where}: ${label} (\`${value}\`) appears nowhere in the rendered bytes`);
+        } else if (!body.includes(bare(value))) {
+          fails.push(`${where}: ${label} (bare: \`${bare(value)}\`) appears nowhere in the rendered bytes`);
+        } else if (String(value) !== bare(value) && body.includes(String(value))) {
+          fails.push(`${where}: ${label} rendered WITH its \`@<pin>\` (\`${value}\`) — §12 v12 states the pin exactly once per file, in the identity, and every other cite bare (kogaki#315)`);
         }
       };
       const assertMaterial = (body, where) => {
@@ -2342,11 +2361,16 @@ const G = loadGrammar("specs/spec-terrain/report-format.json");
 // Each case names the RULE it must fire, so a case that starts passing for the
 // wrong reason — some other violation in the same string — is caught.
 const cases = [
+  // v3 forms: flush left, ids carry the level, composer prose marked `> `.
+  // These strings were v2-shaped (indented) until story 1.56 and the suite went
+  // red on the spec diff alone — a fixture encoding the shape it was authored
+  // beside, which is why AC10 made re-authoring them a criterion rather than
+  // a chore discovered at implementation time.
   { rule: "line_class_allowlist", surface: "cotag_screen",
     text: "testing — the second navigation step. Grouped by co-tag; sort: name.\nan invented line no class admits",
-    why: "a line outside the surface's line_classes; the declared non_member_fallback is REFUSE" },
+    why: "a line outside the surface's line_classes; the declared non_member_fallback is REFUSE. THIS CASE IS AC9: it was passing vacuously the moment `group_prose` went flush-left and began admitting every line, and the `> ` marker is what makes it able to fail again" },
   { rule: "no_element_names", surface: "cotag_screen",
-    text: "  architecture — 2 Lessons: lesson:alpha, lesson:bravo",
+    text: "G1 — testing × architecture — 2 Lessons: lesson:alpha, lesson:bravo",
     why: "§14.2 verbatim — an element name reached an owner surface" },
   { rule: "no_element_names", surface: "full_report",
     text: "# Full Report — g\n*Substrate pin:* `p`\n#### lesson:alpha",
@@ -2355,9 +2379,25 @@ const cases = [
     text: "# Full Report — g\n*Substrate pin:* `p`\n*Substrate pin:* `p`",
     why: "§12 renders the shared pin ONCE, in the identity" },
   { rule: "subgroup_members_sum_to_parent", surface: "cotag_screen",
-    text: "  architecture — 4 Lessons\n      sg (1 Lesson: L1)",
+    text: "G1 — testing × architecture — 4 Lessons\nG1-1 — 1 Lesson: L1 — sg",
     why: "a member placed in no SubGroup is hidden, and the screen cannot show it" },
 ];
+// AC9's own negative: composer prose WITHOUT its marker must be refused, and
+// WITH it must be admitted. Asserted as a pair, because either half alone is
+// satisfiable by a grammar that got it wrong in the other direction — an
+// unmarked line admitted means the allowlist is inert again, and a marked line
+// refused means the class does not render at all.
+{
+  const marked = validateSurface("cotag_screen", "> some composed connective prose", G);
+  if (marked.length) {
+    fails.push(`AC9: a MARKED composer-prose line was refused — ${marked.map(String).join("; ")}`);
+  }
+  const unmarked = validateSurface("cotag_screen", "some composed connective prose", G);
+  if (!unmarked.some((x) => x.rule === "line_class_allowlist")) {
+    fails.push("AC9: an UNMARKED free-text line was ADMITTED — `line_class_allowlist` is inert on cotag_screen again. The `> ` marker is the only thing constraining `group_prose` now that indentation is gone; without it that class matches every line and this rule can never fire (report-format.json cotag_screen.line_class_allowlist_went_inert_here_in_v3)");
+  }
+}
+
 for (const c of cases) {
   const v = validateSurface(c.surface, c.text, G);
   if (!v.some((x) => x.rule === c.rule)) {
