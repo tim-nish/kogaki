@@ -70,10 +70,15 @@
         { "id": "classification", "form": "Classification: NAVIGATION (SPEC.md §2.3 — …)" },
         { "id": "narrows_nothing", "form": "Narrows nothing: …" },
         { "id": "select_hint", "form": "Select a group (still narrowing nothing): cotags --survey <F> --tag <T> --group \"<co-tag>\"" },
-        { "id": "blank", "form": "", "note": "The emitters separate blocks with empty lines — a trailing \\n on the header (:661), the post-judge-pin blank (:725), and the \\n-prefixed subgroup and cover lines. A grammar that admitted no blank line would, under REFUSE, reject every screen the emitter produces." },
-        { "id": "cover_refusal", "form": "COTAG_COVER_INCOMPLETE — <n> member(s) of <tag> appear in no co-tag group: <ids>. …", "at": "terrain/terrain.mjs:747", "note": "A refusal message is owner-facing text on this surface and is admitted as its own class. It is not a defect being tolerated: it is §2.1's cover invariant announcing itself." },
-        { "id": "cover_refusal_invented", "form": "COTAG_COVER_INVENTED — <n> id(s) appear in a co-tag group without carrying \"<tag>\": <ids>. …", "at": "terrain/terrain.mjs:750" }
-      ]
+        { "id": "blank", "form": "", "note": "The emitters separate blocks with empty lines — a trailing \\n on the header (:661), the post-judge-pin blank (:725), and the \\n-prefixed subgroup and cover lines. A grammar that admitted no blank line would, under REFUSE, reject every screen the emitter produces." }
+      ],
+      "stream": "stdout",
+      "not_on_this_surface": {
+        "class": "every text raised through fail() (terrain/terrain.mjs:45-48)",
+        "why": "fail() writes to STDERR and exits. This surface grammars the screen cmdCotags prints on stdout, so a refusal text is never a line of it. A first draft admitted COTAG_COVER_INCOMPLETE (:747) and COTAG_COVER_INVENTED (:750) as line classes; both were describing text the grammar never sees, and the same draft omitted the other fail() texts on the identical path — nine of them by count at this pin. Story 1.54 would have had to pick a reading, and the artifact stated both.",
+        "stated_by_mechanism_not_enumeration": "The boundary is named as `raised through fail()` rather than as a list of messages, deliberately. An enumeration here goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against. A construction-level statement covers every message the function can carry.",
+        "reopen_trigger": "the first owner-facing refusal text written to STDOUT rather than raised through fail(), which would put it on this surface and owe it a line class"
+      }
     },
 
     "full_report": {
@@ -90,7 +95,7 @@
         { "id": "h2_group_claim", "form": "## Group claim" },
         { "id": "group_claim_body", "form": "<claim text | *(none composed)*>" },
         { "id": "h2_subgroups", "form": "## SubGroups" },
-        { "id": "judged_empty_notice", "form": "*The judgment produced NO split — this is a judged-empty outcome, not an absent judgment. Members are listed below.*" },
+        { "id": "judged_empty_notice", "form": "a two-line wrapped italic notice", "lines": ["*The judgment produced NO split — this is a judged-empty outcome,", "not an absent judgment. Members are listed below.*"], "at": "terrain/terrain.mjs:1687-1688", "note": "Declared as the TWO lines the emitter pushes, the way `preamble` declares its four. A first draft declared it as one joined line, which no rendered line matches — so under REFUSE and §14.1's precedence a literal read rejected every judged-empty report, which is exactly the report §12.1 v9 exists to keep distinguishable from an unjudged one." },
         { "id": "h3_subgroup", "form": "### <SubGroupID>" },
         { "id": "subgroup_claim_body", "form": "<claim text | *(no SubGroupClaim)*>" },
         { "id": "h2_members", "form": "## Members" },
@@ -136,7 +141,7 @@
     "note": "SPEC-terrain §14.2's enumeration. Each is decidable on the rendered text alone, which is what makes the emit-time refusal possible. A rule that is not mechanically decidable does not enter this artifact and stays prose.",
     "expressible": [
       { "id": "pin_once_per_file", "rule": "occurrences of line class `substrate_pin` == 1", "surfaces": ["full_report"] },
-      { "id": "no_element_names", "rule": "zero occurrences of the literal `lesson:`, and zero element-name tokens in a MEMBER-NAMING position — the member lists on `group_heading_flat` and `subgroup_heading`, and `member_heading` on the report", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53", "scope_note": "Scoped to member-naming positions rather than 'anywhere on the surface'. The wider form and tokens.Cite gave story 1.54 two readings it could not both implement: a served cite string is not a member name, and whether it may render at all is undecided (tokens.Cite.status_under_14_3). The narrow rule is the part this artifact can decide; the residue is carried, not silently resolved." },
+      { "id": "no_element_names", "rule": "zero `lesson:` tokens and zero element names on an owner surface", "transcribed_from": "specs/spec-terrain/SPEC.md §14.2, verbatim", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53", "open_question": "Whether a served CITE string counts as an element name under this rule is not decided here and is not narrowed here. It is kogaki#345's question (story 1.53 SQ2, over memberBlock's `*Served line:*` row at terrain/terrain.mjs:1736) or kogaki#318's.", "narrowing_withdrawn": "Two drafts narrowed this rule — first by asserting in tokens.Cite that a cite is not an element name, then by re-scoping the rule itself to MEMBER-NAMING positions. The second was the first relocated, not removed: either way this artifact decided the reach of a ratified owner duty (§14.3, kogaki#318) in the file §14.1 makes authoritative over the very text it transcribes, with no §14.2 or §14.3 amendment and no record on the licensing issue. The rule is now §14.2's own wording and the residue is a named open question. Story 1.54 implements the wide rule and raises the cite case rather than resolving it." },
       { "id": "member_lists_carry_display_ids", "rule": "every token in a member-list position matches tokens.LessonDisplayID", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53" },
       { "id": "subgroup_members_sum_to_parent", "rule": "sum of LessonCount over a group's `subgroup_heading` lines == the LessonCount on its `group_heading_subdivided` line", "surfaces": ["cotag_screen"] },
       { "id": "catch_all_share", "rule": "the Lesson count of the group named \"(no second served tag)\" divided by the Cover line's member denominator <= 0.30", "surfaces": ["cotag_screen"], "catch_all_group_name": "(no second served tag)", "producer_of_the_name": "terrain/terrain.mjs:504 NO_SECOND_TAG" },
