@@ -2340,6 +2340,12 @@ function cmdReport(args) {
   // no split at all, because it manufactures a SubGroup the judgment did not
   // make.
   let subgroups = null;
+  // §6.2 v7 / §12.1 v9's THIRD state. Set where the suppression is decided and
+  // read by the renderer — PR #356 round 1 finding 2 found the read with no
+  // writer, so the branch was unreachable and a suppressed section rendered
+  // "the judgment produced NO split", which is false of it. That is the
+  // carrier-with-no-input shape, and it read as fixed.
+  let suppressedSplitHere = false;
   if (sub && sub.subgroups.length === 0) {
     subgroups = [];
   } else if (sub) {
@@ -2362,11 +2368,11 @@ function cmdReport(args) {
       (sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
     if (namedSg.length === 1 && namedSg[0].verdicts
         && namedSg[0].verdicts.tighter_than_parent !== true) {
-      // Rendered as judged-empty: the split did not discharge the obligation,
-      // so this report carries the group's members flat, exactly as the screen
-      // does. `[]` and not `null` — §12.1 v9 keeps judged-empty distinguishable
-      // from unjudged, and this group WAS judged.
+      // Rendered as judged-empty in SHAPE, and flagged so the renderer can
+      // tell it from a genuine no-split. `[]` and not `null` — §12.1 v9 keeps
+      // judged-empty distinguishable from unjudged, and this group WAS judged.
       subgroups = [];
+      suppressedSplitHere = true;
     } else {
     // §6.2 v6 — the SubGroupID is derived the same way the screen derives it:
     // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
@@ -2396,6 +2402,8 @@ function cmdReport(args) {
       : (groupClaim !== undefined && String(groupClaim).trim() !== "" ? groupClaim : NO_CLAIM),
     // A SubGroup section carries ITS members (AC7), never its parent's.
     subgroups: t.kind === "subgroup" ? null : subgroups,
+    // The field the renderer reads to pick the third-state notice.
+    suppressed_split: t.kind === "subgroup" ? false : suppressedSplitHere,
     members: t.kind === "subgroup"
       ? renderMembers(t.sg.members)
       : (subgroups && subgroups.length ? null : renderMembers(group.members)),

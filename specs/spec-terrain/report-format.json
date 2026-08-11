@@ -240,10 +240,6 @@
           "note": "Renders under a section heading now, one per entered id (v5, kogaki#314). Unchanged in form."
         },
         {
-          "id": "h2_subgroups",
-          "form": "## SubGroups"
-        },
-        {
           "id": "judged_empty_notice",
           "form": "a two-line wrapped italic notice",
           "lines": [
@@ -263,10 +259,6 @@
           "form": "<claim text | *(no SubGroupClaim)*>"
         },
         {
-          "id": "h2_members",
-          "form": "## Members"
-        },
-        {
           "id": "member_heading",
           "form": "<LessonDisplayID> as a Markdown heading",
           "allowlist": [
@@ -275,21 +267,14 @@
           "levels": [
             {
               "level": 4,
-              "when": "under ### <SubGroupID>",
-              "at": "terrain/terrain.mjs:1679"
+              "when": "under ### <SubGroupID>, inside a section that carries SubGroups"
             },
             {
               "level": 3,
-              "when": "under ## Members",
-              "at": "terrain/terrain.mjs:1694"
-            },
-            {
-              "level": 3,
-              "when": "under ## SubGroups on the JUDGED-EMPTY path, where no ## Members heading is emitted at all",
-              "at": "terrain/terrain.mjs:1682-1691"
+              "when": "directly under a section heading, on the flat and judged-empty paths"
             }
           ],
-          "levels_note": "Three cases, not two. The judged-empty path is the one an enumeration drops, and §12.1 v9 exists precisely to keep a judged-empty outcome distinguishable from an unjudged one — a refusal built from a two-case reading would reject exactly that report.",
+          "levels_note": "Two cases at v6 (kogaki#314), not three. The pre-v6 third case — 'under ## SubGroups on the JUDGED-EMPTY path' — named a heading that no longer renders: v7 puts members straight under their section heading. Re-cut with the headings it describes, rather than left naming a shape nothing produces.",
           "form_note": "The backticks are GONE (story 1.53, AC5): the heading is the plain display id. `L1` in code font read as a machine token where the whole point of §14.3 is that it is the owner's name for the member."
         },
         {
@@ -362,7 +347,8 @@
           "form": "",
           "note": "renderReportMarkdown interleaves L.push(\"\") between every block (terrain/terrain.mjs:1652-1702). Admitted for the same reason as the screen's: under REFUSE, a grammar with no blank-line class rejects every report the emitter writes."
         }
-      ]
+      ],
+      "retired_in_v6": "`h2_subgroups` (`## SubGroups`) and `h2_members` (`## Members`) are RETIRED (kogaki#314). The v7 renderer emits neither: `### <SubGroupID>` goes straight under its section heading, and the flat and judged-empty paths push members with no intervening heading. They are removed rather than kept as dead entries because §14.1 makes this file authoritative over the RENDERED form, so a class nothing produces is a claim about artifacts that do not exist — the shape `not_expressible` spent its life avoiding. FOUND BY REVIEW, NOT BY THE SUITE: `full_report`'s `line_class_allowlist` is inert (three bare body classes admit any line), so a declared-but-unproduced class raises nothing here. Commit c1263b1 warned about that inertness in the other direction — spec ahead of emitter — and this is the same gap with the emitter ahead of the spec."
     }
   },
   "uncovered_surfaces": {

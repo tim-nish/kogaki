@@ -468,8 +468,23 @@ if (!/cotags --survey/.test(SKILL)) {
 // Reports in the same act. The 2026-08-06 defect was a flow that served the
 // screen and generated nothing, so the flow naming the eager act is the
 // carrier at the layer where it was broken.
-if (!/--all-groups/.test(SKILL)) {
-  fails.push("the skill's co-tag step does not name eager report generation (`report … --all-groups`) — §11's decided EAGER reading (v5), and its absence is the 2026-08-06 no-report defect");
+// §11 v5 / §12 v6 (kogaki#314) SUPERSEDES the eager reading this once pinned.
+// The old assertion required the skill to name `--all-groups`, a flag that now
+// REFUSES — a check pinning the superseded contract, the same shape story 1.55
+// found in this file's `SERVED VERBATIM` guard. The superseded spelling is
+// deliberately not accepted in its place.
+if (!/--ids/.test(SKILL)) {
+  fails.push("the skill's co-tag step does not name the pull form (`report … --ids <G/SG list>`) — §12 v6 makes the report an owner-entered ID set, and a skill still teaching eager generation teaches a command that refuses");
+}
+// The flag may be NAMED — a reader grepping for why their command broke should
+// find the answer here — but never TAUGHT. So the test is per line: every line
+// mentioning it must also say it is gone. A blunt "does not appear" assertion
+// fired on the removal note itself, which is a true positive for the letter and
+// a false one for the intent.
+const teaches = SKILL.split("\n").filter((l) =>
+  l.includes("--all-groups") && !/gone|refuse|removed|supersed/i.test(l));
+if (teaches.length) {
+  fails.push(`the skill TEACHES \`--all-groups\` on ${teaches.length} line(s) — §11 v5 removed it and the runtime refuses, so teaching it teaches a command that errors. Naming it in a removal note is fine and is what the rest of the test allows: ${JSON.stringify(teaches[0].trim().slice(0, 80))}`);
 }
 // The serve-verbatim rule (§2.4's flow rule, kogaki#150): the sitting that
 // re-rendered the runtime's output is the layer where three merged contracts
@@ -614,7 +629,7 @@ console.log("cotags fixture: PASS — cases exercised (lone-tag group; declared 
   + "judged-empty form, and a judged-EMPTY group runs END TO END with a real judge "
   + "pin, ZERO SubGroupClaims and its members intact (seam-aware: CANNOT-DETERMINE "
   + "where no gateway is configured) — plus the withdrawn bare array refused BY NAME; "
-  + "the skill names the co-tag step, eager --all-groups reports, and the "
+  + "the skill names the co-tag step, the pull-on-entered-ids report form, and the "
   + "serve-verbatim rule; no member-count threshold across cmdCotags, "
   + "subgroupPlacement and judgeSubgroup)");
 JS
@@ -2891,7 +2906,20 @@ if (r.status !== 0) {
       fails.push(`rule 3 on the Full Report: expected one rendering, found ${md.length}`);
     } else if (/^### G[0-9]+-[0-9]+ — /m.test(body)) {
       fails.push("rule 3 on the Full Report: the report STILL carries the SubGroups the screen suppressed — §6.2 v7 rule 3 reads unconditionally, so one run's two owner surfaces must not disagree about whether a group has a split");
-    } else if (!body.includes("judged-empty outcome")) {
+    } else if (!body.includes("it was SUPPRESSED")) {
+      // §12.1 v9 HAS THREE STATES and this is the third. The suppressed case
+      // must carry its OWN notice: routed into the judged-empty shape it
+      // inherits "the judgment produced NO split", which is FALSE of it — a
+      // split WAS produced and suppressed.
+      //
+      // PR #355 round 2 found this and its repair was reverted at the
+      // two-round bound; PR #356 round 1 then found the read with NO WRITER in
+      // the sectioned renderer. Asserted here so the third state cannot go
+      // unreachable a third time.
+      fails.push("rule 3 on the Full Report: the suppressed section did not carry its OWN notice — it inherits the judged-empty sentence, which asserts \"the judgment produced NO split\" about a section whose judgment produced one (§12.1 v9's three states)");
+    } else if (body.includes("The judgment produced NO split")) {
+      fails.push("rule 3 on the Full Report: the report asserts \"the judgment produced NO split\" about a SUPPRESSED split — false in its own terms");
+    } else if (false) {
       fails.push("rule 3 on the Full Report: the suppressed group did not render as JUDGED-EMPTY — §12.1 v9 keeps judged-empty distinguishable from unjudged, and this group WAS judged");
     }
   }
@@ -2917,6 +2945,9 @@ JS
 # one case that renders is seam-gated where it appears above.
 node --input-type=module - <<'JS'
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { canonicalIds, idSortKey } from "./terrain/terrain.mjs";
 
 const fails = [];
@@ -2989,6 +3020,63 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
 {
   const r = report(["--ids", ""]);
   if (r.status === 0) fails.push("SQ3: an empty --ids was accepted — a report of nothing has no identity worth colliding on");
+}
+
+// AC7 + the third state — SEAM-GATED, because these render. PR #356 round 1
+// found that NO case entered a `G<n>-<m>` at all: the SubGroup section shape,
+// the G5+G5-1 cover case and `resolveEnteredIds`' SubGroupID derivation were
+// all unexercised, and the suppressed-split notice had a reader with no writer.
+{
+  const dir = mkdtempSync(join(tmpdir(), "ac7-"));
+  const pin = JSON.parse(readFileSync(FIXTURE, "utf8")).pin;
+  const claims = join(dir, "c.json");
+  writeFileSync(claims, JSON.stringify({
+    composition_pin: { tag: "testing", pin, groups: {
+      "testing × (no second served tag)": ["lesson:delta"],
+      "testing × architecture": ["lesson:alpha", "lesson:bravo"],
+      "testing × cost": ["lesson:charlie"] } },
+    claims: { "testing × architecture": "both are guards of some kind" },
+  }));
+  // A real split, so G2 has a G2-1.
+  const subs = join(dir, "s.json");
+  writeFileSync(subs, JSON.stringify({
+    "testing × architecture": { judged: true, subgroups: [
+      { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
+        members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+      { subgroup: "guards exercised by a real run", claim: "a check some run has made fail",
+        members: ["lesson:bravo"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+    ] },
+  }));
+  const out = join(dir, "o");
+  const r = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
+     "--ids", "G2,G2-1", "--claims", claims, "--subdivisions", subs,
+     "--judge-model", "m", "--judge-effort", "high", "--report-dir", out, "--rendering-dir", out],
+    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: "checks/fixtures/terrain/compose-input/stub-gateway.mjs" } });
+  const seamAbsent = r.status === 11
+    || (r.status !== 0 && /policy_source unavailable|gateway/i.test(String(r.stderr) + String(r.stdout)));
+  if (seamAbsent) {
+    console.log("AC7: CANNOT-DETERMINE — the served seam is unavailable and `report` reads through it. "
+      + "The seam-free canonicaliser and refusal cases above RAN.");
+  } else if (r.status !== 0) {
+    fails.push(`AC7: entering a SubGroup id exited ${r.status}: ${(r.stderr || "").trim().slice(0, 200)}`);
+  } else {
+    const md = readdirSync(out).filter((f) => f.endsWith(".md"));
+    const body = md.length === 1 ? readFileSync(join(out, md[0]), "utf8") : "";
+    if (!/^## G2-1 — /m.test(body)) {
+      fails.push("AC7: entering `G2-1` produced no `## G2-1` section — a SubGroup id is a section of its own, not a pointer at its parent");
+    }
+    if (!/^## G2 — /m.test(body)) {
+      fails.push("AC7: `G2` and `G2-1` entered together did not both render — the entered set is the unit, and a member under both is a COVER, not a duplication (§2.1)");
+    }
+    // AC4c — the map is merged and DEDUPED across sections, so alpha appears
+    // once despite being in both G2 and G2-1.
+    const rows = (body.match(/^\| L[0-9]+ \|/gm) || []);
+    if (new Set(rows).size !== rows.length) {
+      fails.push(`AC4c: the served-lines map repeats a member across sections — ${JSON.stringify(rows)}. Merged and DEDUPED is what keeps it honest rather than merely shorter`);
+    }
+  }
+  rmSync(dir, { recursive: true, force: true });
 }
 
 if (fails.length) {
