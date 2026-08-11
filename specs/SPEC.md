@@ -877,6 +877,74 @@ invariant: Gukan guarantees Unit schema, never data schema).
      lane in any case, so writing it would have been writing a known-dead
      pointer.
 
+     **SUPERSESSION IS THE LANE'S ORDINARY CONTINUATION, NOT ONLY ITS
+     REFUSAL TEXT** (kogaki#338, owner selection 2026-08-11). The paragraph
+     above is correct and is not reopened; what was wrong is that it named
+     supersession only where somebody *asks for a third round* — an abnormal
+     path — and left the **ordinary** path, where round 2 lands open blocking
+     findings and nobody asks for anything, terminating in a state with no
+     next act at all. Read at the carrier: `tools/review-sweep.sh` refuses to
+     spawn a fix once the rounds are spent, on the sound ground that a fix
+     landing then could never be reviewed. Sound, and it leaves the author
+     holding findings, a bound that forbids the fix in place, and no lane that
+     produces a reviewable head. **The lane stops producing heads**, which is
+     the defect: the bound was meant to end a rally, not to end the work.
+
+     **So at that state the fixes are BORN AS THE SUCCESSOR CHANGE.** When
+     round 2's report for the current head carries open blocking findings and
+     the bound is spent, the lane's next act is to bring the **successor** into
+     being — a new change on a base postdating the corrective merge — and the
+     blocked PR **closes as superseded at that moment**, not at some later
+     human tidy-up. The successor is a **new object with its own bound**, and
+     that is exactly why it is not the counter reset the paragraph above
+     forbids: the prohibition is on re-opening rounds *on a mutable object*,
+     and the discriminator is object identity rather than intent. A reset asks
+     the same PR to be judged twice; a successor asks a different PR to be
+     judged once.
+
+     **The trigger is the park-producing state and nothing wider.** Rounds
+     spent **and** open blocking findings on the current head — the one state
+     that today has no next act. A round-2 report whose findings are all
+     non-gating still reaches `done` and still merges under clause 8's
+     `carried:`/`declined:` grammar; it does not summon a successor, because
+     there is nothing for the successor to carry. This is deliberately the
+     narrowest replacement that removes the dead end: it takes over precisely
+     the state the Owner Rule already calls terminal and changes no other
+     transition.
+
+     **The spent-bound owner gate NARROWS to abnormal paths.** It stops being
+     the ordinary terminus and becomes what it was always meant to be — the
+     surface for the cases the lane cannot continue by itself: an unresolvable
+     bound, a successor that cannot be based, a repository where the act is
+     refused. The owner is not asked to authorize the ordinary continuation,
+     because asking a human to approve the only available next act is a gate
+     that measures nothing.
+
+     **What this clause does NOT absorb, read at the carrier rather than
+     inferred.** kogaki#306 stays its own carrier and is not folded in. It
+     holds **three** named slots — the *refusal surface* that names the
+     supersession lane where the grant path today names park; the *successor's
+     declared obligations* (`supersedes:`, the `carried:`/`declined:`
+     disposition of the blocked PR's findings under clause 8, and a base
+     postdating the corrective merge) together with their checking home, which
+     #306 leaves as its own implementation's first design question; and the
+     *falsification check*, where a rebased diff that comes out unchanged
+     falsifies the structural diagnosis that justified the block and is
+     reported rather than merged quietly.
+
+     **This clause governs one thing none of those covers: what the LANE does
+     when nobody asks for anything.** #306 answers *what a successor owes once
+     it exists* and *what the refusal says when a third round is requested*;
+     the state above is the one where no request is made and no successor
+     exists yet, and until now nothing produced one. The two meet at the same
+     terminal state from opposite sides, and keeping them apart is what stops
+     the refusal text, the successor's obligations, and the lane's behavior
+     from being edited in ignorance of each other.
+
+     The grant path is **unchanged**: a successor's first round is round 1 of a
+     new PR and needs its own grant, minted through the ordinary path, never
+     inherited from the PR it supersedes.
+
      **The refusal is a terminal state with a named next act, never a
      validation error inviting a retry**, and it says so: the bound and where
      it is declared, that round `M` is beyond it, the supersession lane
@@ -1632,6 +1700,31 @@ invariant: Gukan guarantees Unit schema, never data schema).
      accretion machine the check-suite economics exist to prevent, and the same
      served line that admits the register warns that "registering everything
      kills the cadence".
+
+     **THIS CLAUSE'S DISPOSITION POINT IS THE `done` BOUNDARY, AND A
+     SUPERSEDED CLOSE IS A SECOND EXIT IT DOES NOT GOVERN** (kogaki#338, owner
+     selection 2026-08-11). Every disposition above is written when a PR
+     reaches `done` and merges. Clause 3's successor lane creates an exit that
+     never passes through `done`: the blocked PR **closes with open blocking
+     findings on it**, which is the one way a `blocking` finding reaches a
+     closed PR without being answered here.
+
+     **The obligation that exit carries is kogaki#306's, and is deliberately
+     not written here.** #306 already names it — the successor declares
+     `supersedes: <blocked PR>`, dispositions the blocked PR's open findings in
+     *this* clause's `carried:`/`declined:` grammar, and bases on a commit
+     postdating the corrective merge — and it explicitly leaves the checking
+     carrier as its own implementation's first design question. Restating any
+     of that here would absorb a live carrier into the clause that merely lends
+     it a grammar, and clause 3 above already refuses that absorption by name.
+
+     So what this clause adds is one pointer and one boundary: **the grammar is
+     lent, the obligation is not.** A reader arriving at a superseded close
+     looks to kogaki#306 for what is owed, and to this clause only for what the
+     two tokens mean. The lending is deliberate — a second vocabulary for "what
+     happened to a finding" would be a synonym in a join key, which
+     `topics/knowledge-architecture.md` names as the same defect as a
+     divergence.
 
      **WHAT `done` PRINTS.** When the state machine reaches `done`, it lists
      every **open non-gating** finding on the current head that carries no
