@@ -3334,6 +3334,16 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   real corpus member, so the check has a live specimen rather than a synthetic
   one.
 
+- **The display ID has no assignor for a suggestion** — added by v14, and it is
+  the one item here that comes from outside §13. §14.3 assigns a `display_id`
+  **once, in the survey record**; a neighborhood suggestion is by construction
+  **not** in that record, so nothing assigns it one and the owner surface has no
+  token to render. §14.6 carries the slot
+  (`terrain-display-id-for-neighborhood-suggestions`) with its three candidate
+  shapes. **It comes due here**, in the sitting that implements §13, and before
+  code embeds an answer — which is why it is written into this enumeration
+  rather than left in §14 for that sitting to happen upon.
+
 **None of this section is implemented.** It is the design kogaki#289 scoped, and
 the implementation is a separate licensed act.
 
@@ -3351,13 +3361,42 @@ root cause. A ninth prose site would be the tenth round.
 
 **One machine-readable grammar is the single carrier of the rendered form** —
 the line classes admissible on each owner surface, the token shape of each
-field, and the per-surface allowlist. It covers **both** owner surfaces: the
-co-tag screen (`cmdCotags`) and the Full Report owner rendering (§12.2 v11).
+field, and the per-surface allowlist.
+
+**An OWNER SURFACE is any text this runtime prints or writes for the owner to
+read.** Defined once, here, and used with this meaning everywhere in §14. The
+enumeration as it stands is **six**: `cmdView` (`terrain/terrain.mjs:447`),
+`cmdCotags` (`:574`), `cmdClaim` (`:819`), `cmdAdopt` (`:943`), `cmdSubdivide`
+(`:1099`), and the Full Report owner rendering emitted by `cmdReport` (`:1788`,
+§12.2 v11). The machine record is not one; it is machine-facing by §12.2 v11's
+split.
+
+**The grammar's coverage is TWO of those six today, and that is a stated
+partial rather than the definition.** `cotag_screen` and `full_report` are the
+two surfaces §14.2's refusal reaches at v14, chosen because they are the two
+kogaki#319 enumerated and the two whose defect specimens exist. **§14.3's
+duty — no element name on an owner surface — binds all six**, because
+kogaki#318's decision is about what the owner reads and not about which
+emitter happens to have a grammar entry. So four surfaces carry the duty with
+no mechanical carrier, and this paragraph is what makes that legible.
+**Reopen trigger:** the first format defect observed on any of the four, or the
+first grammar edit that could have covered one and did not. An enumeration of
+two presented as the whole is the shape that leaves surface N+1 uncovered by
+default; naming six and covering two is a different claim, and it is the one
+being made.
 
 **Precedence is declared, not left to the reader.** Where this file's prose and
 the grammar disagree about the **rendered form**, **the grammar wins.** A
 format decision lands as a grammar edit; the prose sections describe intent and
 stop being the contract.
+
+**Precedence binds from the moment the artifact exists, and not before.** The
+grammar is created by a separate licensed act (story 1.52), so between this
+amendment landing and that story landing there is an interval in which the
+prose is the only carrier there is. In that interval the prose sections remain
+the contract, unchanged — precedence over an absent artifact would demote every
+format rule to nothing. Stated here rather than four subsections away in §14.6,
+because this is the clause a reader in that interval will stop at.
 
 This is the one clause that makes the move safe, and it is taken on served
 ground rather than on preference:
@@ -3369,6 +3408,22 @@ ground rather than on preference:
 > an automated check that makes divergence fail loudly instead of passing
 > silently."
 > `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/architecture.md:243`
+
+**That served line has two limbs and this section lands one of them.** The
+first — write down which side wins — is §14.1's precedence declaration. The
+second — *"add an automated check that makes divergence fail loudly instead of
+passing silently"* — is **not built**. The eight prose sites are left in place
+and governed, and **nothing compares them against the grammar**: §14.2's
+refusal validates the emitters' *rendered text*, which is a different pair
+entirely. So the eight sites are a conformance copy with declared precedence
+and no divergence check, which is exactly the half the line warns about.
+**Marked, not assumed.** A prose site can drift from the grammar and every gate
+stays green. **Reopen trigger:** the first observed disagreement between a §14
+prose site and `report-format.json`, or the first grammar edit made without a
+corresponding read of the eight. The form of this disclosure is the repository's
+own — `.claude/skills/review-lane/SKILL.md` marks its grammar block as "the half
+this section does NOT have … stated here so the gap is a known one rather than
+an assumption" — reused rather than re-invented.
 
 **What precedence does NOT reach.** The grammar governs the **rendered form**
 and nothing else. It does not govern which members are placed, what a claim
@@ -3506,9 +3561,16 @@ nothing new is prohibited, so nothing new has to be policed.
 
 ### 14.5 A golden fixture, and what it is for
 
-One checked-in conformant specimen under `checks/fixtures/`, exercised by
-`checks/check-terrain-composition.sh`. A renderer edit that changes the shape
+**One checked-in conformant specimen per surface the grammar covers**, under
+`checks/fixtures/`, exercised by `checks/check-terrain-composition.sh` — so
+**two** at v14, one for the co-tag screen and one for the Full Report owner
+rendering, per §14.1's stated coverage. A renderer edit that changes the shape
 fails in the PR rather than in the owner's next hands-on round.
+
+The count is stated **per covered surface** rather than as a flat number
+because a flat number cannot stay true across §14.1's reopen trigger: the
+sitting that brings a third surface under the grammar would otherwise have to
+choose between an under-covered suite and a clause it contradicts.
 
 The fixture is **not** a second carrier and never wins against the grammar —
 §14.1's precedence is one-way. Its job is the pair:
