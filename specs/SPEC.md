@@ -895,7 +895,20 @@ invariant: Gukan guarantees Unit schema, never data schema).
      the bound is spent, the lane's next act is to bring the **successor** into
      being — a new change on a base postdating the corrective merge — and the
      blocked PR **closes as superseded at that moment**, not at some later
-     human tidy-up. The successor is a **new object with its own bound**, and
+     human tidy-up.
+
+     **WHAT IS INSTALLED SO FAR IS THE STATE AND ITS ANNOUNCEMENT; THE
+     CREATION ACT IS A NAMED SLOT.** `tools/review-sweep.sh` reaches this
+     state and announces it on the PR, naming every finding the successor owes
+     a disposition for. It does **not** yet open the successor or close the
+     blocked PR. Written into the clause rather than left to the implementing
+     PR's record, because until that act lands the dead end is **renamed and
+     not removed**, and a clause asserting an act nothing performs is the
+     precise defect this whole section exists to end — the lane that named a
+     next act and never took it. The slot is discharged when the creation act
+     ships; until then a reader of this clause knows which half is standing.
+
+     The successor is a **new object with its own bound**, and
      that is exactly why it is not the counter reset the paragraph above
      forbids: the prohibition is on re-opening rounds *on a mutable object*,
      and the discriminator is object identity rather than intent. A reset asks

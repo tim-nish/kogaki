@@ -287,10 +287,17 @@
 # change. The bound was meant to end a rally, not to end the work.
 #
 # So at that state the fixes are BORN AS THE SUCCESSOR CHANGE. `decide()`
-# returns `supersede`, and the driver opens the successor PR itself before
-# spawning the fixer to fill it (owner selection: the LANE's own driver makes
-# the GitHub mutation, which is the convention every other lane act here
-# follows). The blocked PR closes as superseded at that moment. The successor
+# returns `supersede` and the driver announces it on the PR, naming every
+# finding the successor owes a disposition for.
+#
+# WHAT IS SHIPPED HERE IS THE STATE AND ITS NOTICE, NOT THE CREATION ACT.
+# The owner selected the LANE's own driver as the actor that opens the
+# successor PR and closes the blocked one; that act is a NAMED SLOT and is not
+# built at this head — the branch performs no `gh pr create`, no `pr close` and
+# spawns no fixer. Stated here rather than only in the PR record, because at
+# this head the dead end is RENAMED and not yet removed, and a reader meeting
+# only this file would otherwise read the act as done (PR #341 review round 1,
+# should). The successor
 # is a NEW OBJECT WITH ITS OWN BOUND — not the counter reset §4 clause 3
 # forbids, because that prohibition is on re-opening rounds on a MUTABLE
 # object and the discriminator is object identity, not intent.
@@ -2930,9 +2937,11 @@ def decide(bodies, head, resolves=None, base=None,
                        code nobody has changed since the report that judged it
       supersede      — the same open blocking findings with the bound SPENT
                        (kogaki#338). The fix cannot land here — no round could
-                       read it — so it is born as the successor change: the
-                       driver opens the successor PR, the fixer fills it, and
-                       this PR closes as superseded. Formerly this fell to
+                       read it — so it is owed as the successor change. NOTE
+                       what this state does TODAY: the driver announces the
+                       supersession and names the findings the successor owes.
+                       Opening the successor and closing this PR are a named
+                       slot, not shipped behaviour. Formerly this fell to
                        `author-owes` and then to a driver that refused the fix
                        and printed PARKED, which is a dead end rather than a
                        state. §4 clause 3 governs
@@ -3891,6 +3900,25 @@ bad += [f"{n}: drives_fix -> {drives_fix(b, h, _ALL)}, want {w}"
 # contract: superseding is what happens INSTEAD of a fix on the blocked
 # branch, so a change that made both true would produce the unreviewable head
 # the cap exists to forbid, and neither assertion alone would notice.
+#
+# MUTATIONS RUN, AND WHICH CASE CAUGHT EACH (kogaki#209; PR #341 review round
+# 1, nit). A fixture not shown to discriminate is a coverage claim rather than
+# coverage, and ABSENCE of the code under test is the one mutation that proves
+# almost nothing here — every case asserting a state OTHER than `supersede`
+# passes trivially when the new branch is gone.
+#
+#   narrowing  `return 'supersede'` unreachable   -> case 1 fails
+#              (spent+blocking no longer supersedes)
+#   widening   the `>= MAX_ROUNDS` guard dropped  -> case 2 fails
+#              (rounds remaining wrongly supersedes)
+#   widening   the `just` filter relaxed          -> the clause-8 fixture
+#              above fails FIRST and exits, so this suite never runs
+#
+# The third row is recorded rather than tidied away, because it is a fact about
+# the SUITE and not about these cases: an earlier `sys.exit(1)` masks every
+# later fixture's evidence, so "the run went red" is not by itself evidence
+# that the assertion under test discriminated. Verified by re-running that
+# mutation with the earlier exit suppressed, where case 2 fails as designed.
 _SPENT = f"review-lane report: 9999999\nreview-lane report: {H}\n"
 _sfail = 0
 for _label, _bodies, _head, _want in [
@@ -5133,10 +5161,29 @@ for pr in prs:
               "fixes are born as the successor change; this PR closes as "
               "superseded. Not an owner decision and not a third round.")
         # The open blocking findings the successor owes a disposition for
-        # (§4 clause 8's supersession grammar). Named here rather than left to
-        # the fixer to re-derive: this function already holds the finding set,
-        # and a second derivation is the two-call-sites defect again.
-        _carry = [d for s in head_segments(segments(bodies), head)
+        # (§4 clause 8's supersession grammar).
+        #
+        # THE CARRY-FORWARD IS RESOLVED HERE TOO, and the first draft of this
+        # block is exactly why the sentence is worth writing (PR #341 review
+        # round 1, should). It read `head_segments(segments(bodies), head)` —
+        # the same call `decide()` makes, minus its third argument — so on a
+        # head reviewed only BY CARRY-FORWARD (a base that moved with a
+        # byte-identical diff) `decide()` returned `supersede` off the carried
+        # segment while this list came back EMPTY. The PR would have been told
+        # "superseded-by-lane: 2/2 rounds spent with 0 blocking finding(s)
+        # still open", followed by "disposes of each finding above" naming
+        # none — clause 8's evaporation reached through the record rather than
+        # through forgetting.
+        #
+        # The comment on the first draft called a second derivation "the
+        # two-call-sites defect again" and then was one. Repaired by resolving
+        # through the same unit rather than by copying `decide()`'s argument
+        # list: the readers are already in hand at this call site.
+        _carried_here = []
+        if _d_at and _m_base:
+            _carried_here, _ = carry_forward(bodies, head, _base, _d_at,
+                                             _m_base, segments)
+        _carry = [d for s in head_segments(segments(bodies), head, _carried_here)
                   for sev, st, just, d in s['findings']
                   if sev == 'blocking' and st == 'open' and just]
         for _f in _carry:
@@ -5161,10 +5208,14 @@ for pr in prs:
                       "— the state stands but its record did not reach the PR; "
                       "posting it by hand is owed.")
                 spawn_failures += 1
-            counts['superseded'] = counts.get('superseded', 0) + 1
         else:
             print(f"  #{n}: would post supersession notice (--dry-run): {_body}")
-            counts['superseded'] = counts.get('superseded', 0) + 1
+        # NO COUNT KEY OF ITS OWN (PR #341 review round 1, nit). `supersede` is
+        # already tallied for every PR at the `counts[state...]` line above, so
+        # incrementing `superseded` here printed one PR under two spellings of
+        # one state. The `park` branch below adds none either; the old
+        # spent-bound arm's `counts['park']` was a deliberate RE-CLASSIFICATION
+        # of an `author-owes`, which a state of its own no longer needs.
     elif state == 'park':
         print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent and {head[:7]} is "
               "still unreviewed. §4 clause 3: this is an owner decision, "
