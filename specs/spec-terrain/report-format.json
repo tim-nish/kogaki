@@ -46,6 +46,13 @@
     }
   },
 
+  "refusal_text_boundary": {
+    "fact": "No text raised through fail() (terrain/terrain.mjs:45-48) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
+    "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
+    "stated_by_mechanism_not_enumeration": "The boundary names the FUNCTION, not a list of messages. A list goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against.",
+    "reopen_trigger": "the first owner-facing refusal text written to stdout, or into the report file, rather than raised through fail() — that one is on a surface and owes a line class"
+  },
+
   "surfaces": {
     "cotag_screen": {
       "emitter": "terrain/terrain.mjs:574 cmdCotags",
@@ -74,8 +81,9 @@
       ],
       "stream": "stdout",
       "not_on_this_surface": {
+        "see": "refusal_text_boundary — the fact is global; this entry is its application to this surface",
         "class": "every text raised through fail() (terrain/terrain.mjs:45-48)",
-        "why": "fail() writes to STDERR and exits. This surface grammars the screen cmdCotags prints on stdout, so a refusal text is never a line of it. A first draft admitted COTAG_COVER_INCOMPLETE (:747) and COTAG_COVER_INVENTED (:750) as line classes; both were describing text the grammar never sees, and the same draft omitted the other fail() texts on the identical path — nine of them by count at this pin. Story 1.54 would have had to pick a reading, and the artifact stated both.",
+        "why": "fail() writes to STDERR and exits. This surface grammars the screen cmdCotags prints on stdout, so a refusal text is never a line of it. A first draft admitted COTAG_COVER_INCOMPLETE (terrain/terrain.mjs:742) and COTAG_COVER_INVENTED (:745) as line classes; both were describing text the grammar never sees, and the same draft omitted the other fail() texts on the identical path — nine of them by count at this pin. Story 1.54 would have had to pick a reading, and the artifact stated both.",
         "stated_by_mechanism_not_enumeration": "The boundary is named as `raised through fail()` rather than as a list of messages, deliberately. An enumeration here goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against. A construction-level statement covers every message the function can carry.",
         "reopen_trigger": "the first owner-facing refusal text written to STDOUT rather than raised through fail(), which would put it on this surface and owe it a line class"
       }
@@ -84,6 +92,8 @@
     "full_report": {
       "emitter": "terrain/terrain.mjs:1652 renderReportMarkdown, written by cmdReport (:1788)",
       "medium": "Markdown, the owner rendering of §12.2 v11",
+      "stream": "a written file under reports/ in the working tree (§12.2 v11), never stdout",
+      "not_on_this_surface": { "see": "refusal_text_boundary", "class": "every text raised through fail() (terrain/terrain.mjs:45-48)", "why": "fail() writes to stderr and exits; this surface is a file. The boundary is stated on both surfaces rather than on one, so a story-1.54 predicate reading them uniformly finds it declared in both places instead of declared once and silent once." },
       "governing_prose": "specs/spec-terrain/SPEC.md §12, §12.1, §12.2 (v11)",
       "non_member_fallback": "REFUSE",
       "line_classes": [
@@ -91,11 +101,11 @@
         { "id": "selected_tag", "form": "*Selected tag:* `<tag>`" },
         { "id": "substrate_pin", "form": "*Substrate pin:* `<SubstratePin>`", "occurrences_per_file": 1 },
         { "id": "judge", "form": "*Judge:* <JudgePin>" },
-        { "id": "preamble", "form": "> Untruncated. … (four blockquote lines, §2.3 and §12)" },
+        { "id": "preamble", "form": "a four-line blockquote", "lines": ["> Untruncated. This report ranks nothing, narrows nothing and hides", "> nothing (SPEC-terrain §2.3, §12). It is a RENDERING, not an address:", "> article material is quoted from served renderings at pins, never", "> from a report."], "at": "terrain/terrain.mjs:1662-1665", "note": "Declared as its four rendered lines. The earlier form — prose with an ellipsis and a parenthetical — matched none of them, so under REFUSE and §14.1's precedence a literal read rejected every Full Report. That is the same defect judged_empty_notice carried, one entry up, and it survived the fix that named it because that fix cited THIS entry as its precedent." },
         { "id": "h2_group_claim", "form": "## Group claim" },
         { "id": "group_claim_body", "form": "<claim text | *(none composed)*>" },
         { "id": "h2_subgroups", "form": "## SubGroups" },
-        { "id": "judged_empty_notice", "form": "a two-line wrapped italic notice", "lines": ["*The judgment produced NO split — this is a judged-empty outcome,", "not an absent judgment. Members are listed below.*"], "at": "terrain/terrain.mjs:1687-1688", "note": "Declared as the TWO lines the emitter pushes, the way `preamble` declares its four. A first draft declared it as one joined line, which no rendered line matches — so under REFUSE and §14.1's precedence a literal read rejected every judged-empty report, which is exactly the report §12.1 v9 exists to keep distinguishable from an unjudged one." },
+        { "id": "judged_empty_notice", "form": "a two-line wrapped italic notice", "lines": ["*The judgment produced NO split — this is a judged-empty outcome,", "not an absent judgment. Members are listed below.*"], "at": "terrain/terrain.mjs:1687-1688", "note": "Declared as the TWO lines the emitter pushes. A first draft declared it as one joined line, which no rendered line matches — so under REFUSE and §14.1's precedence a literal read rejected every judged-empty report, which is exactly the report §12.1 v9 exists to keep distinguishable from an unjudged one." },
         { "id": "h3_subgroup", "form": "### <SubGroupID>" },
         { "id": "subgroup_claim_body", "form": "<claim text | *(no SubGroupClaim)*>" },
         { "id": "h2_members", "form": "## Members" },
@@ -160,7 +170,7 @@
 
   "reader_notes": {
     "ac2_surface_mismatch": "Story 1.52 AC2 asks that `the grammar's cotag_screen tag-row entry` match SPEC.md §9's allowlist. The co-tag screen renders NO tag rows: §9's allowlist governs SCREEN 1's tag rows, produced by tagRow() at terrain/terrain.mjs:407 and printed by the survey/view path — which §14.1 lists as `cmdView`, an UNCOVERED surface. The allowlist is therefore transcribed against cmdView above, where it actually binds, rather than attached to a surface that has no such line class. Transcribing it onto `cotag_screen` would have satisfied the AC's letter by reinterpreting the rule, which is the one thing AC2 forbids. Reported on kogaki#344.",
-    "completeness_of_the_line_classes": "The classes were read off the emitters, and the round-1 review of kogaki#349 found the first draft admitted no blank line and neither COTAG_COVER refusal — which, with non_member_fallback REFUSE and §14.1's precedence, is a grammar that rejects every render the code produces. Both are now classes. The general hazard stands and is stated rather than claimed away: this enumeration is only as complete as the read that produced it, and a class discovered missing is found by story 1.54's refusal rejecting a valid render. Story 1.55's golden fixture is what converts that from a live-run discovery into a CI one.",
+    "completeness_of_the_line_classes": "The classes were read off the emitters, and three reviews have found the same defect class three times: a declared form that no rendered line matches, which under REFUSE and §14.1's precedence rejects every artifact the emitter produces. Round 1 of kogaki#349 found no blank-line class; round 2 found judged_empty_notice declared as one line where two are pushed, and found the two COTAG_COVER classes describing stderr text this surface never sees; round 1 of kogaki#350 found preamble carrying the same one-line-for-four defect — in the entry the previous fix had cited as its own precedent. `blank` is a class on both surfaces; the refusal classes are removed and replaced by refusal_text_boundary; preamble and judged_empty_notice now declare their literal lines. The general hazard stands and is stated rather than claimed away: this enumeration is only as complete as the read that produced it, and a class discovered missing is found by story 1.54's refusal rejecting a valid render. Story 1.55's golden fixture is what converts that from a live-run discovery into a CI one.",
     "what_this_artifact_is_not": "Not a second carrier beside the golden fixture (§14.5) — the fixture never wins against this file; precedence is one-way. Not an enforcement mechanism — story 1.54 installs the emit-time refusal that reads this. Not a description of §13's provenance neighborhood, which is unimplemented and whose display-id question is a named deferred slot (§14.6, kogaki#300)."
   }
 }
