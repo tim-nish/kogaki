@@ -2662,8 +2662,48 @@ invariant: Gukan guarantees Unit schema, never data schema).
     outcome: discriminating | covered-after-reframing | uncovered-after-N-framings
     disposition: auto-resolved-FYI | escalated   ← OPTIONAL; only a FORK GATE consult
     query: <framing 1, verbatim>
+      axis: <axis>                               ← OPTIONAL; PER-QUERY, binds upward
     query: <framing 2, verbatim>
+      axis: <axis>
   ```
+
+  **`axis:` is the third key, and it is the first one that binds PER QUERY**
+  (kogaki#336, owner selection 2026-08-11). `request_id:`, `outcome:` and
+  `disposition:` are all facts about the *receipt*; an axis is a fact about a
+  *framing*, because the property this key exists to install is that **a
+  grounding block owes one query per axis** — and a receipt-level key cannot
+  express which query grounded which axis. So it **binds upward to the nearest
+  preceding `query:`**, first declaration wins, and an `axis:` appearing before
+  any query is **orphaned and reported** rather than bound to a later one.
+
+  Two costs, stated rather than discovered. This is the grammar's **first
+  position-dependent key**, so a malformed receipt now has an ambiguous parse
+  where before it had a missing field; and a second `axis:` under one query is
+  a **respelling**, never a second axis, because one field per axis is what was
+  chosen over one field carrying two.
+
+  **THE VALUE SET IS NOT THIS REPOSITORY'S AND IS DELIBERATELY NOT MINTED
+  HERE.** `subject | conduct` is the hub's to ratify under the boundary-field
+  rule, so this repository fixes the **key** and copies no values:
+
+  > A consumer owns the SHAPE of its own record and NEVER the VALUES of a
+  > field that exists to join across the boundary, and the test is WHO MUST
+  > AGREE for the field to work: a field read by one side is that side's, a
+  > field read by both is the boundary's, and the boundary's owner is the hub.
+
+  `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:50`
+
+  So `checks/check-consult-receipts.sh` validates **shape only** — position and
+  a non-empty token — and any value passes. Unknown values are **reported and
+  denied nowhere**, and the report **names** them rather than only counting
+  them, because the window before ratification is exactly when somebody needs
+  to see what is being written. The cost is that a typo'd axis is
+  indistinguishable from a real one until the hub serves the set; that is the
+  price of not minting, and **the reopen trigger is the hub ratifying it**.
+
+  **deferred slot: the `subject | conduct` value set.** Named here rather than
+  filled — filling it is a decision act owed on its own licensing issue, and
+  the one thing this clause must not do is mint it by accident.
 
   **What the hub ratifies here is the property, not this format.** The served
   requirement is a receipt at the point of use with a **fixed token and a

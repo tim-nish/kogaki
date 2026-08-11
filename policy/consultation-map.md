@@ -680,3 +680,58 @@ a human wrote — and the map's own choice is the one that line prescribes:
     thing, an unswept staging file says another. May the disagreement be
     resolved silently by ratification status, or must the conflict be surfaced
     as a finding before either side is adopted?"
+
+## The conduct axis — a facet of every entry, not a fourth entry (kogaki#336)
+
+**Owner selection 2026-08-11, alternative A, all three pieces.** The entries
+above are *act-scoped*: each names a class of act and the survey owed before
+performing it. That scoping answers **what the act is about** — its subject —
+and answers nothing about **how the act is conducted**, which is a second and
+independent question. The #332 specimen is the shape: a consult that read the
+served surface for the subject, found it, and never asked whether the *manner*
+of the act was itself governed — so the gate presented with no visible
+mismatch, because nothing had asked the question that would have produced one.
+
+**The boundary is bound at a STRUCTURAL TRIGGER, deliberately not at an
+enumeration of acts.** The trigger is:
+
+> **composing a gate for the human.**
+
+Every act that reaches that point owes the conduct facet, whatever entry its
+subject falls under and whether or not any entry above names it. An
+enumeration of conduct-bearing acts was declined for the reason this file
+already gives against enumerations elsewhere: act N+1 is uncovered by default,
+and the acts that most need the facet are the ones nobody thought to list.
+
+**The obligation: a grounding block owes ONE QUERY PER AXIS.** A gate composed
+with a single query has grounded its subject and left its conduct ungrounded,
+and the two are not substitutable. Where the axes are recorded on the receipt,
+each query carries its own `axis:` continuation line, binding upward — the
+grammar is `specs/SPEC.md` §4 "Consult evidence is sided", and its per-query
+binding is what makes this obligation **expressible** in a record at all.
+
+**Expressible is not yet instrumented, and the difference is stated here rather
+than left to a reader to discover** (PR #342 review round 1, should). An
+earlier form of this paragraph said the binding exists "so this obligation is
+checkable rather than aspirational". It is not checkable today: **no emitter
+writes an `axis:` line** — neither `policy/kit/bin/consult.mjs` nor
+`policy/kit/bin/gateway-query.mjs` produces one — so the key is **hand-written**
+and the per-axis obligation is carried by this prescription, not by an
+instrument. `checks/check-consult-receipts.sh` reads and reports axes where an
+author wrote them; nothing requires that an author did. The claim was written
+into the durable carrier while the acknowledgement lived only in a PR body,
+which is the split that makes an aspirational rule read as an enforced one.
+
+**deferred slot: the emitter.** Kit-side emission of `axis:` needs the
+transport to carry a per-framing axis, and that is its own act.
+
+**What this does NOT do.** It adds no entry, changes no entry's read
+prescription, and denies nothing. The facet is a second question asked at an
+existing trigger, so an act already consulting an entry above consults it once
+more along the other axis rather than twice from the start. And the **value
+set** naming the axes is the hub's to ratify, not this file's — the same
+boundary-field rule the grammar cites, and the reason nothing here enumerates
+the axes it requires one query for.
+
+**deferred slot: the `subject | conduct` value set**, and with it whether the
+axes are exactly two. Named, never filled here.
