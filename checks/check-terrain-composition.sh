@@ -578,6 +578,15 @@ CODES = {
     "FIGURE_FAMILY_UNNAMED",
     "FIGURE_MISMATCH",
     "NAVIGATION_STATE_NARROWS",
+    # §14.3 (story 1.53). Declared here in the SAME change that taught the
+    # validator to emit them — PR #351 round 1 finding 1 caught them absent,
+    # and the shape of that miss is why this comment exists: `missing = CODES -
+    # covered_codes` computes over the DECLARED set, so an undeclared code is
+    # invisible to the very guard that reports coverage. The check went on
+    # printing `fixture pass: n/14` while the validator could emit sixteen —
+    # kogaki#209's green-line-over-undemonstrated-protection shape exactly.
+    "DISPLAY_ID_MALFORMED",
+    "DISPLAY_ID_DUPLICATE",
 }
 # Declared, not silent.
 CODES_WITHOUT_FIXTURE = {"MALFORMED_JSON": "a fixture would not parse as JSON"}
@@ -2287,4 +2296,198 @@ console.log(`kogaki#234 artifact location — artifact-split: ${K234.split}; `
   + "machine-local hidden path; reportsDir's own default no longer names the retired "
   + "directory; and reports/ is gitignored — visibility and publication decided "
   + "separately. A block reading CANNOT-DETERMINE asserted NOTHING.");
+JS
+
+# --------------------------------------------------------------------------
+# THE EMIT-TIME REFUSAL, FIRED IN BOTH DIRECTIONS (SPEC-terrain §14.2, story
+# 1.54, kogaki#346).
+#
+# The happy path is already asserted above — every cotags and report block in
+# this file now runs through the guard, so a refusal on conformant output fails
+# the suite loudly (story 1.54 AC6). What that CANNOT show is that the refusal
+# fires at all. A guard exercised only by its happy path is indistinguishable
+# from one that has been switched off, which is the condition this file's own
+# cover-guard block was written after.
+#
+# So: the REFUSING direction, at both altitudes — the predicate over a crafted
+# nonconformant string, and the command end-to-end, where what matters is that
+# NOTHING was written.
+node --input-type=module - <<'JS'
+import { mkdtempSync, existsSync, readdirSync, readFileSync, writeFileSync, rmSync, cpSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { loadGrammar, validateSurface, refuseUnlessConformant, FormatRefusal }
+  from "./terrain/format-guard.mjs";
+
+const fails = [];
+const G = loadGrammar("specs/spec-terrain/report-format.json");
+
+// Each case names the RULE it must fire, so a case that starts passing for the
+// wrong reason — some other violation in the same string — is caught.
+const cases = [
+  { rule: "line_class_allowlist", surface: "cotag_screen",
+    text: "testing — the second navigation step. Grouped by co-tag; sort: name.\nan invented line no class admits",
+    why: "a line outside the surface's line_classes; the declared non_member_fallback is REFUSE" },
+  { rule: "no_element_names", surface: "cotag_screen",
+    text: "  architecture — 2 Lessons: lesson:alpha, lesson:bravo",
+    why: "§14.2 verbatim — an element name reached an owner surface" },
+  { rule: "no_element_names", surface: "full_report",
+    text: "# Full Report — g\n*Substrate pin:* `p`\n#### lesson:alpha",
+    why: "the same rule on the other covered surface, because a rule installed on one is not installed" },
+  { rule: "pin_once_per_file", surface: "full_report",
+    text: "# Full Report — g\n*Substrate pin:* `p`\n*Substrate pin:* `p`",
+    why: "§12 renders the shared pin ONCE, in the identity" },
+  { rule: "subgroup_members_sum_to_parent", surface: "cotag_screen",
+    text: "  architecture — 4 Lessons\n      sg (1 Lesson: L1)",
+    why: "a member placed in no SubGroup is hidden, and the screen cannot show it" },
+];
+for (const c of cases) {
+  const v = validateSurface(c.surface, c.text, G);
+  if (!v.some((x) => x.rule === c.rule)) {
+    fails.push(`the refusal did NOT fire for ${c.rule} on ${c.surface} (${c.why}) — got: ${v.map((x) => x.rule).join(", ") || "no violations at all"}`);
+  }
+}
+
+// AC4 — the message is actionable: surface, line class/rule, offending line,
+// and the grammar entry. Asserted as the four PROPERTIES rather than as a
+// string literal, so a reworded message that still carries them passes.
+try {
+  refuseUnlessConformant("cotag_screen", "an invented line no class admits", G);
+  fails.push("refuseUnlessConformant did not throw on a nonconformant surface");
+} catch (e) {
+  if (!(e instanceof FormatRefusal)) fails.push(`threw ${e.name}, not FormatRefusal`);
+  else {
+    const m = e.message;
+    if (!m.includes("cotag_screen")) fails.push("AC4: the refusal does not name the SURFACE");
+    if (!m.includes("line_class_allowlist")) fails.push("AC4: the refusal does not name the RULE/line class");
+    if (!m.includes("an invented line no class admits")) fails.push("AC4: the refusal does not quote the OFFENDING LINE");
+    if (!m.includes("report-format.json")) fails.push("AC4: the refusal does not name the GRAMMAR ENTRY it was decided against");
+  }
+}
+
+// AC2, end to end and at the altitude that matters: NEITHER artifact exists
+// after a refusing `report` run.
+//
+// TWO THINGS THIS BLOCK GOT WRONG ON ITS FIRST PUSH, both found by PR #352
+// round 1, and both worth stating because the shapes recur.
+//
+// (1) IT WAS NOT SEAM-AWARE, AND THAT MADE IT PASS VACUOUSLY IN CI. `report`
+// reads served Gloss renderings through the seam, which CI does not have, so
+// the run exited non-zero BEFORE reaching the guard — and `r.status !== 0`
+// plus "zero artifacts written" were then both satisfied by a run that never
+// tested anything. Only the stderr assertion reported the miss, which is the
+// second time in this block's short life that assertion has been what caught
+// it. Eleven other blocks in this file already print CANNOT-DETERMINE where
+// the seam is absent; this one now does too. The seam-FREE cases above —
+// `validateSurface` over crafted text, and AC4's message properties — stay
+// UNCONDITIONAL, because a check that skips what it can still run is reporting
+// less than it knows.
+//
+// (2) IT MUTATED THE TRACKED, §14.1-AUTHORITATIVE GRAMMAR IN THE WORKING TREE
+// and relied on `finally` to restore it. A SIGKILL, a runner timeout, or a
+// concurrent reader would have seen — or left behind — a deliberately broken
+// copy of the repository's own authoritative artifact. It now mutates a COPY:
+// `terrain.mjs` resolves every schema from its own location (`REPO = resolve(
+// HERE, "..")`), so a temp tree holding `terrain/`, `specs/` and `gates/` gives
+// a real end-to-end run with nothing tracked touched. No override flag was
+// added to the runtime for this; a test needing one is not a reason to open a
+// second path to the grammar.
+let e2eRan = false;
+const dir = mkdtempSync(join(tmpdir(), "terrain-refuse-"));
+const survey = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+try {
+  const tree = join(dir, "tree");
+  // `policy` is in this list because leaving it out FAKED A SEAM ABSENCE.
+  // terrain.mjs resolves the gateway-query script from REPO too, so a tree
+  // without it fails with "Cannot find module …/policy/kit/bin/gateway-query.mjs"
+  // — which the seam test below reads as "no gateway here" and reports
+  // CANNOT-DETERMINE. That is the same vacuous pass this block was just
+  // repaired for, one level up: the guard added to stop a run being counted
+  // when it never reached the refusal would itself have stopped it being
+  // counted when the copy was simply incomplete. An incomplete fixture tree
+  // reports as an absent environment, and the two are indistinguishable from
+  // the exit code alone.
+  for (const d of ["terrain", "specs", "gates", "policy"]) {
+    cpSync(d, join(tree, d), { recursive: true });
+  }
+  const grammarPath = join(tree, "specs/spec-terrain/report-format.json");
+  const g2 = JSON.parse(readFileSync(grammarPath, "utf8"));
+  // Remove the `substrate_pin` class, so `pin_once_per_file` counts 0 where it
+  // requires exactly 1.
+  //
+  // THE FIRST ATTEMPT REMOVED `title` INSTEAD, AND IT DID NOT REFUSE — recorded
+  // because the reason is a real property of the grammar rather than a slip in
+  // this block. `full_report` carries three body classes whose whole form is a
+  // bare placeholder (`group_claim_body`, `subgroup_claim_body`,
+  // `member_gloss_body`), each of which matches ANY line; so on that surface
+  // `line_class_allowlist` has no unadmitted line to find and is unenforceable
+  // as written. That is a limit on what §14.2 can decide about the Full Report,
+  // not a defect this story may fix by inventing constraints the grammar does
+  // not state — §14.1 makes the grammar authoritative. Named in the block's own
+  // output below, and on kogaki#346.
+  g2.surfaces.full_report.line_classes =
+    g2.surfaces.full_report.line_classes.filter((e) => e.id !== "substrate_pin");
+  writeFileSync(grammarPath, JSON.stringify(g2, null, 2) + "\n");
+
+  const subsPath = join(dir, "subdivisions.json");
+  writeFileSync(subsPath, JSON.stringify({ "testing \u00d7 architecture": { judged: true, subgroups: [] } }));
+
+  const out = join(dir, "out");
+  const r = spawnSync(process.execPath, [join(tree, "terrain/terrain.mjs"), "report",
+    "--survey", survey, "--tag", "testing", "--group", "testing \u00d7 architecture",
+    "--judge-model", "m", "--judge-effort", "e", "--subdivisions", subsPath,
+    "--report-dir", out, "--rendering-dir", out], { encoding: "utf8" });
+
+  // The seam test, in the same shape the eleven other blocks use.
+  const seamAbsent = r.status === 11
+    || (r.status !== 0
+        && /policy_source unavailable|gateway/i.test(String(r.stderr) + String(r.stdout)));
+
+  if (seamAbsent) {
+    console.log("AC2 end-to-end: CANNOT-DETERMINE — the served seam is unavailable here and "
+      + "`report` reads served Gloss renderings through it, so a non-zero exit and an empty "
+      + "output directory would both be satisfied by a run that never reached the refusal. "
+      + "Reported rather than counted: this is the vacuous pass PR #352 round 1 found. The "
+      + "seam-FREE cases above (5 rules over crafted text, AC4's four message properties) RAN.");
+  } else {
+    e2eRan = true;
+    if (r.status === 0) {
+      fails.push("AC2: `report` exited 0 against a grammar its rendering violates — the refusal is not installed on this path");
+    }
+    const written = existsSync(out) ? readdirSync(out) : [];
+    if (written.length !== 0) {
+      fails.push(`AC2: the refusal wrote ${written.length} artifact(s) (${written.join(", ")}) — neither the owner rendering NOR the machine record may exist, because \u00a712.2 v11 requires both in the same act and a record without its rendering is the 2026-08-06 specimen from the other side`);
+    }
+    if (!String(r.stderr).includes("report-format.json")) {
+      fails.push("AC2: the refusal reached stderr without naming the grammar it was decided against");
+    }
+    if (String(r.stdout).includes("refusing to emit")) {
+      fails.push("the refusal text was printed to STDOUT \u2014 refusal_text_boundary: no text raised through fail() is a line of any owner surface");
+    }
+  }
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}
+
+if (fails.length) {
+  console.log("FAIL emit-time refusal (SPEC-terrain §14.2, story 1.54):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("NOT DECIDABLE ON full_report, stated rather than left to be inferred: "
+  + "`line_class_allowlist`. Three of that surface's classes (group_claim_body, "
+  + "subgroup_claim_body, member_gloss_body) have a bare placeholder as their whole "
+  + "form, so each admits ANY line and no line can be unadmitted. The rule is enforced "
+  + "on cotag_screen, where the classes are constrained, and it is inert on the report. "
+  + "Fixing it means the grammar declaring what a claim body may look like — §14.1 makes "
+  + "that artifact authoritative, so it is not narrowed from here (kogaki#346).");
+console.log("emit-time refusal: 5/5 rules fire on crafted nonconformant text; "
+  + "AC4's four properties present in the message (surface, rule, offending line, grammar). "
+  + `AC2 end-to-end: ${e2eRan ? "RAN — `report` against a tightened grammar exited non-zero having written ZERO artifacts, neither the rendering nor the record, with the refusal on stderr and off the owner surface" : "CANNOT-DETERMINE, seam absent (stated above)"}. `
+  + "The claim is written from WHICH BRANCH RAN rather than asserted flat: the first version of "
+  + "this line described the end-to-end case unconditionally, which would have reported a run "
+  + "that never happened. The PASSING direction is asserted by every other cotags and report "
+  + "block in this file, which now all run through the guard (AC6: a refusal on conformant "
+  + "output fails the suite).");
 JS
