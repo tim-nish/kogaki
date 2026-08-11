@@ -57,7 +57,7 @@
 //    field that exists to join across the boundary … a field read by one side
 //    is that side's, a field read by both is the boundary's, and the
 //    boundary's owner is the hub."
-//   `topics/knowledge-architecture.md:31@dec0d568` (verified live 2026-08-08)
+//   `topics/knowledge-architecture.md:50@4cc496b` (re-verified live 2026-08-11; the rule moved from :31, where different text now sits — kogaki#336)
 //
 // So `--disposition` fixes the KEY here and ADOPTS the values verbatim from the
 // ratified amendment (spec-policy-fork-consultation §"Amended 2026-07-21

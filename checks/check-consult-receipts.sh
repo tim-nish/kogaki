@@ -44,7 +44,7 @@
 #        MUST AGREE for the field to work: a field read by one side is that
 #        side's, a field read by both is the boundary's, and the boundary's
 #        owner is the hub."
-#       `topics/knowledge-architecture.md:31@dec0d568` (verified live 2026-08-08)
+#       `topics/knowledge-architecture.md:50@4cc496b` (re-verified live 2026-08-11; the rule moved from :31, where different text now sits — kogaki#336)
 #
 #     A gate disposition is read by the emitting consumer AND by the hub that
 #     evaluates it (product-lab D7, 2026-07-31), so the value set is the
@@ -143,7 +143,28 @@ FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,}).*?(?:^[ \t]*\1[ \t]*$|\Z)',
 # belonging to the `consulted:` line above them. Line one is unchanged from
 # v1, which is why every receipt already in git history still parses and why
 # PIN needed no change — the parsing that is new is association, not matching.
-CONT = re.compile(r'^[ \t]+(request_id|outcome|disposition|query):[ \t]*(.*)$')
+CONT = re.compile(r'^[ \t]+(request_id|outcome|disposition|query|axis):[ \t]*(.*)$')
+# THE THIRD AXIS: `axis:` (kogaki#336). Unlike every other continuation key,
+# this one is PER-QUERY and binds UPWARD to the nearest preceding `query:`
+# (owner selection 2026-08-11). That makes it this grammar's first
+# POSITION-DEPENDENT key, which is a real cost and is taken deliberately: the
+# per-axis grounding obligation is the property the issue exists to install,
+# and a receipt-level key cannot express WHICH query grounded WHICH axis.
+#
+# THE VALUE SET IS NOT OURS AND IS NOT MINTED HERE. `subject | conduct` is the
+# hub's to ratify under the boundary-field rule — "a consumer owns the SHAPE of
+# its own record and NEVER the VALUES of a field that exists to join across the
+# boundary" (product-lab@4cc496b topics/knowledge-architecture.md:50). So this
+# check validates SHAPE ONLY: position, and a non-empty token. Any non-empty
+# value passes and unknown values are REPORTED, never denied (owner selection
+# 2026-08-11). There is deliberately no AXES set beside DISPOSITIONS below —
+# writing one would mint the boundary values this repository does not own,
+# which is the exact defect that pin names.
+#
+# The cost is stated rather than discovered: until the hub serves a value set,
+# a typo'd axis is indistinguishable from a real one. That window is the price
+# of not minting, and the reopen trigger is the hub ratifying the set.
+AXIS_KEY = 'axis'
 # The hub's ratified triple. A bare `miss` is INADMISSIBLE: it collapses the
 # distill-bug and query-defect causes the 2026-08-02 correction separated, in
 # the one field meant to make them harvestable
@@ -159,7 +180,7 @@ MIN_FRAMINGS = 2
 # THE SECOND AXIS (kogaki#268). Adopted verbatim from the ratified amendment,
 # never re-minted here: the boundary's owner is the hub, so this repository
 # fixes the KEY and copies the VALUES. A consumer-local extension of this set
-# is the shape `topics/knowledge-architecture.md:31@dec0d568` names as a defect,
+# is the shape `topics/knowledge-architecture.md:50@4cc496b` names as a defect,
 # and it is refused below rather than admitted.
 DISPOSITIONS = {'auto-resolved-FYI', 'escalated'}
 # The predictable wrong values, told apart from an ordinary typo because they
@@ -235,7 +256,7 @@ def scan(source):
             i += 1
             continue
         pin = m.group(1).strip()
-        fields = {'query': []}
+        fields = {'query': [], 'axes': []}
         # ONE RULE FOR EMPTY VALUES, applied in the parse rather than inferred
         # later from truthiness. `saw_cont` records that a continuation line
         # was PRESENT — which is a fact about the text, not about what the
@@ -257,8 +278,34 @@ def scan(source):
             saw_cont = True
             key, value = c.group(1), c.group(2).strip()
             if value:
-                fields['query'].append(value) if key == 'query' else \
-                    fields.__setitem__(key, value)
+                if key == 'query':
+                    fields['query'].append(value)
+                    # A query opens a slot for its own axis. Appended in step
+                    # with `query` so the two lists are index-aligned by
+                    # construction rather than by a later zip that could drift.
+                    fields['axes'].append(None)
+                elif key == AXIS_KEY:
+                    # BINDS UPWARD to the nearest preceding `query:`. An
+                    # `axis:` before any query has nothing to bind to and is
+                    # recorded as orphaned rather than silently dropped — the
+                    # same discipline `before-any-report` already gets
+                    # elsewhere in this file, because a key that binds to
+                    # nothing and vanishes is indistinguishable from one that
+                    # was never written.
+                    if fields['axes']:
+                        # FIRST DECLARATION WINS, matching every other key in
+                        # this grammar. A second `axis:` under one query is a
+                        # respelling, not a second axis; two axes for one query
+                        # would be the one-field-carrying-two shape the owner
+                        # selection rejected by choosing one field per axis.
+                        if fields['axes'][-1] is None:
+                            fields['axes'][-1] = value
+                        else:
+                            fields['axis_dup'] = fields.get('axis_dup', 0) + 1
+                    else:
+                        fields['axis_orphan'] = fields.get('axis_orphan', 0) + 1
+                else:
+                    fields[key] = value
             i += 1
         receipts.append((pin, fields))
         if not PIN.match(pin):
@@ -710,6 +757,65 @@ if fixture_failures:
         print(f"  {f}")
     sys.exit(1)
 
+# --- the third axis binds PER QUERY (kogaki#336) ---------------------------
+# Its own block rather than a widened FIXTURES tuple, because what it asserts
+# is ASSOCIATION — which query got which axis — and the 6-tuple above records
+# only counts and receipt-level values. Widening it to carry a per-query
+# structure would restate every one of the 40 cases above to say nothing new.
+#
+# BOTH DIRECTIONS, and the second is the load-bearing one: an OPTIONAL key
+# tested only where it is present cannot tell "absent and fine" from "silently
+# dropped", which is the whole failure mode of a key that binds by position.
+_AXBASE = "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n  outcome: discriminating\n"
+_axfail = []
+for _label, _src, _want_axes, _want_orphan, _want_dup in [
+    ("one query, one axis -> bound to it",
+     _AXBASE + "  query: q1\n  axis: subject\n", ['subject'], 0, 0),
+    ("two queries, one axis each -> bound in order, not swapped",
+     _AXBASE + "  query: q1\n  axis: subject\n  query: q2\n  axis: conduct\n",
+     ['subject', 'conduct'], 0, 0),
+    ("an axis-less query keeps its slot -> None, never a shift onto its neighbour",
+     _AXBASE + "  query: q1\n  query: q2\n  axis: conduct\n",
+     [None, 'conduct'], 0, 0),
+    ("NO axis at all -> the key is optional and nothing is invented",
+     _AXBASE + "  query: q1\n  query: q2\n", [None, None], 0, 0),
+    ("an axis BEFORE any query is orphaned, not bound to a later one",
+     _AXBASE + "  axis: subject\n  query: q1\n", [None], 1, 0),
+    ("a SECOND axis under one query -> first wins, the respelling is counted",
+     _AXBASE + "  query: q1\n  axis: subject\n  axis: conduct\n",
+     ['subject'], 0, 1),
+    ("an UNKNOWN token is bound exactly like a known one — shape only, and "
+     "this is the case that proves no value set is enforced here",
+     _AXBASE + "  query: q1\n  axis: zzz-not-ratified\n",
+     ['zzz-not-ratified'], 0, 0),
+    ("an EMPTY axis value is absent, matching this grammar's one empty rule",
+     _AXBASE + "  query: q1\n  axis:\n", [None], 0, 0),
+]:
+    _g, _ = scan(_src)
+    _axes_got = _g[0][1].get('axes') if _g else None
+    _orph = sum(f.get('axis_orphan', 0) for _, f in _g)
+    _dp = sum(f.get('axis_dup', 0) for _, f in _g)
+    if (_axes_got, _orph, _dp) != (_want_axes, _want_orphan, _want_dup):
+        _axfail.append(f"{_label}: got ({_axes_got}, orphan={_orph}, dup={_dp}), "
+                       f"want ({_want_axes}, orphan={_want_orphan}, dup={_want_dup})")
+# The key must not gate. Asserted rather than assumed: the whole owner
+# selection is "shape only, any non-empty token passes", and a check that
+# quietly started denying unknown axes would mint the boundary values this
+# repository does not own — visible only here.
+_g_unknown, _bad_unknown = scan(_AXBASE + "  query: q1\n  axis: zzz-not-ratified\n")
+if _bad_unknown:
+    _axfail.append("an unknown axis was reported MALFORMED — the value set is "
+                   "the hub's and this check owns shape only (kogaki#336)")
+if _axfail:
+    print("FAIL axis fixture — the per-query binding does not discriminate:")
+    for f in _axfail:
+        print(f"  {f}")
+    sys.exit(1)
+print("axis pass: 8/8 per-query binding cases (bound / two in order / a "
+      "gap keeps its slot / absent invents nothing / orphaned before any "
+      "query / first-declaration-wins / an unknown token binds like a known "
+      "one / empty is absent), plus the never-gates assertion")
+
 # ---------------------------------------------------------------------------
 # The real scan.
 # ---------------------------------------------------------------------------
@@ -753,6 +859,37 @@ print(f"gate dispositions: {len(gate)} of {len(receipts)} receipt(s) were "
       "consult-miss and degraded are NOT counted here and are not countable "
       "from receipts: an unconsulted fork emits none, and a degraded consult "
       "emits none by design")
+# THE THIRD AXIS, reported on the same never-gated terms (kogaki#336). Shape
+# only: this counts axis-bearing queries and NAMES the distinct values without
+# judging them, because the `subject | conduct` value set is the hub's to
+# ratify and this repository owns the field's SHAPE alone. Naming the values
+# rather than only counting them is what makes an unratified set observable
+# while it is unratified — a count alone would hide a typo'd axis exactly as
+# well as it hides a real one, and the window before ratification is precisely
+# when somebody needs to see what is being written.
+_axes = [a for _, f in receipts for a in f.get('axes', []) if a]
+_grounded = sum(1 for _, f in receipts
+                if f.get('axes') and all(a for a in f['axes']))
+_orphan = sum(f.get('axis_orphan', 0) for _, f in receipts)
+_dup = sum(f.get('axis_dup', 0) for _, f in receipts)
+if _axes or _orphan or _dup:
+    print(f"axes: {len(_axes)} of {queries} query line(s) declare one "
+          f"({', '.join(sorted(set(_axes))) or 'none'}) — SHAPE ONLY, never "
+          "gated: the value set is the hub's to ratify (boundary-field rule, "
+          "product-lab topics/knowledge-architecture.md:50), so an unknown "
+          "token is reported here and denied nowhere")
+    if _orphan:
+        print(f"  {_orphan} `axis:` line(s) bound to NO query — an axis binds "
+              "upward to the nearest preceding `query:`, and one before any "
+              "query is orphaned. Reported, not dropped silently")
+    if _dup:
+        print(f"  {_dup} query line(s) carry a SECOND `axis:` — first "
+              "declaration wins, matching every other key in this grammar; a "
+              "second axis under one query is a respelling, and one field per "
+              "axis is what the grammar chose")
+else:
+    print(f"axes: 0 of {queries} query line(s) declare one — the key is "
+          "OPTIONAL and its absence is not a finding (kogaki#336)")
 distinct = sorted(set(pins))
 print(f"consultations this branch: {len(receipts)} "
       f"(receipt-verified, over {range_desc})")

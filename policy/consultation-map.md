@@ -680,3 +680,44 @@ a human wrote — and the map's own choice is the one that line prescribes:
     thing, an unswept staging file says another. May the disagreement be
     resolved silently by ratification status, or must the conflict be surfaced
     as a finding before either side is adopted?"
+
+## The conduct axis — a facet of every entry, not a fourth entry (kogaki#336)
+
+**Owner selection 2026-08-11, alternative A, all three pieces.** The entries
+above are *act-scoped*: each names a class of act and the survey owed before
+performing it. That scoping answers **what the act is about** — its subject —
+and answers nothing about **how the act is conducted**, which is a second and
+independent question. The #332 specimen is the shape: a consult that read the
+served surface for the subject, found it, and never asked whether the *manner*
+of the act was itself governed — so the gate presented with no visible
+mismatch, because nothing had asked the question that would have produced one.
+
+**The boundary is bound at a STRUCTURAL TRIGGER, deliberately not at an
+enumeration of acts.** The trigger is:
+
+> **composing a gate for the human.**
+
+Every act that reaches that point owes the conduct facet, whatever entry its
+subject falls under and whether or not any entry above names it. An
+enumeration of conduct-bearing acts was declined for the reason this file
+already gives against enumerations elsewhere: act N+1 is uncovered by default,
+and the acts that most need the facet are the ones nobody thought to list.
+
+**The obligation: a grounding block owes ONE QUERY PER AXIS.** A gate composed
+with a single query has grounded its subject and left its conduct ungrounded,
+and the two are not substitutable. Where the axes are recorded on the receipt,
+each query carries its own `axis:` continuation line, binding upward — the
+grammar is `specs/SPEC.md` §4 "Consult evidence is sided", and its per-query
+binding exists precisely so this obligation is checkable rather than
+aspirational.
+
+**What this does NOT do.** It adds no entry, changes no entry's read
+prescription, and denies nothing. The facet is a second question asked at an
+existing trigger, so an act already consulting an entry above consults it once
+more along the other axis rather than twice from the start. And the **value
+set** naming the axes is the hub's to ratify, not this file's — the same
+boundary-field rule the grammar cites, and the reason nothing here enumerates
+the axes it requires one query for.
+
+**deferred slot: the `subject | conduct` value set**, and with it whether the
+axes are exactly two. Named, never filled here.
