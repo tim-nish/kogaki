@@ -892,8 +892,16 @@ NON_GATING = ('should', 'nit')
 # assign the literal two to the name below — a second copy of a prose clause,
 # and the only place the bound was evaluated at all, which is exactly why a
 # grant naming round 3 could be minted and honoured upstream of it. The comment
-# is worded to avoid spelling that assignment, because the single-source
-# property is checked by grep and a check cannot tell use from mention.
+# is worded to avoid spelling that assignment as a DISCIPLINE, not because
+# anything catches it: THE SINGLE-SOURCE PROPERTY IS NOT CHECKED. kogaki#305's
+# acceptance plan asked for a grep-shaped check that no numeric bound literal
+# survives here or in the hook family, and no such member is in
+# `checks/registry.json` — this comment previously asserted one existed, which
+# is a claim about coverage that nothing backs. Correcting the claim rather
+# than adding the member is an owner decision (2026-08-12): a suite growing one
+# member per incident is the tell for being on the detect side, and #364's
+# detector was removed on that same ground. The residue is stated plainly — a
+# fourth copy of the number could return here and nothing would fail.
 # The number now has ONE definition, `.claude/review-lane.json`'s
 # `review_rounds_max`, and every layer binds it. Adding a copy here again would
 # make three.

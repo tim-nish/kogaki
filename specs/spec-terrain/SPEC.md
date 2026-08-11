@@ -3498,8 +3498,13 @@ family; §13.4's no-pooling rule needs no additional lookup and no inference.
 paragraphs that follow are v13's and are kept in full — **with v15's
 corrections interleaved as their own marked paragraphs, and one lead sentence
 replaced**, which is stated here so the phrase does not license more trust than
-it should. What is verbatim is marked verbatim; what is v15's is marked as
-v15's. They are kept because the *shape* they established survives and only the
+it should. **The region runs to the end of the `Read under v15.` paragraph
+below**, and inside it everything not marked as v15's is v13's — including
+passages carrying no verbatim label of their own. Said that way rather than
+"what is verbatim is marked verbatim", which reads as *every* verbatim passage
+carrying a marker and is false of this same region.
+
+They are kept because the *shape* they established survives and only the
 *thing that supplied the bound* is withdrawn. Read them under this correction:
 
 - **Survives:** the division itself — enumeration and bounding are different
@@ -3513,8 +3518,7 @@ v15's. They are kept because the *shape* they established survives and only the
   expansion*, there is now **nothing setting the bound's values** until the
   slot's setting half is filled — the unit those values would be expressed in
   is settled. That is the finding, not a wording problem: v13 could treat the
-  unit
-  as a refinement because a bound already existed; v15 cannot.
+  unit as a refinement because a bound already existed; v15 cannot.
 - **Consequently** v13's own reasoning below — that a mechanical layer returning
   the same neighborhood for every Thesis leaves a required input consumed by
   nothing — is now the *argument for the correction* rather than a defect to be
@@ -3582,7 +3586,8 @@ prevent, one level down.
 **Read under v15.** That paragraph is v13's and is kept whole; two of its
 clauses have moved on. Its opening — *"reachable only once that slot is
 filled"* — and its closing warning about *"an implementation that picks a
-UNIT in code"* both treat the unit as the open half. Under v15 the unit is
+unit in code"* — emphasis mine, and outside the quotation — both treat the
+unit as the open half. Under v15 the unit is
 **settled**: kogaki#300's 2026-08-09 owner selection answers it as traversal,
 substrates × depth, and only the **values** it takes are open. So read the
 paragraph's own fork as already taken — it names *"a unit operating on which

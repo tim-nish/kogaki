@@ -1906,7 +1906,12 @@ def _declared_round_bound():
 def _rounds_observation(bodies, bound=None):
     """kogaki#290: the §4 clause 3 bound, OBSERVED at the record. Never gates.
 
-    `bound` defaults to the declared value (kogaki#305). The fixture pass
+    `bound` is SUPPLIED BY THE CALLER and defaults to `None` — the live pass
+    reads the declared value and passes it in, and this function never resolves
+    it (kogaki#305). Said that way because the docstring used to claim the
+    default WAS the declared value, which the signature has never done: a
+    reader trusting it would expect an argument-less call to bind the bound,
+    and an argument-less call binds nothing. The fixture pass
     below passes its own explicit bound and stays hermetic — it exercises the
     counting's DISCRIMINATION, which is not a property of what this repository
     happens to declare, and a fixture reading repo config would go green or
