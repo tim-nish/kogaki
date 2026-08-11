@@ -1,0 +1,155 @@
+{
+  "note": "SPEC-terrain §14.1 — the single carrier of the RENDERED FORM of kogaki's owner surfaces. Where SPEC.md's prose and this artifact disagree about the rendered form, THIS ARTIFACT WINS (§14.1), from the moment it exists and not before. It governs the rendered form and nothing else: not which members are placed, not what a claim says, not whether a figure is honest, not §2.1's family-naming duty. Those remain SPEC.md's prose.",
+  "version": 1,
+  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318",
+  "governing_text": "specs/spec-terrain/SPEC.md §14.1",
+
+  "encoding_choice": {
+    "chosen": "a line-class grammar expressed in JSON",
+    "why": "Every rule §14.2 makes decidable is a statement about a LINE — its class, its token shapes, and whether its class is admitted on the surface at all. A JSON Schema describes a data structure; the artifact these emitters produce is text, and the thing being constrained is the text. Expressing line classes directly means an emitter validates what it is about to print rather than a model of it, which is the distinction §14.2's own AC3 rests on.",
+    "declined": "JSON Schema — checkable by tooling already present in this repository (checks/check-terrain-composition.sh validates survey records against survey-schema.json), but it would require modelling rendered Markdown and terminal text as a document tree first, and that model would itself be an unchecked restatement of the format.",
+    "recorded_here_because": "SPEC.md §14.1 names this file and its duties and deliberately does not decide the encoding (story 1.52 SQ1). A choice made in implementation and left unwritten is one the next editor re-derives."
+  },
+
+  "tokens": {
+    "LessonDisplayID": {
+      "shape": "^L[0-9]+$",
+      "means": "a member's owner-facing display id, assigned once in the survey record (§14.3)",
+      "pending_producer": "story 1.53",
+      "pending_producer_note": "The emitters render `lesson:<slug>` at v14 (terrain/terrain.mjs:471, :719, :842, :993, :1177, memberBlock :1731). This grammar is therefore STRICTER THAN THE CODE until story 1.53 lands, and story 1.54's emit-time refusal must not be enabled against this token before then. Declared here rather than discovered at 1.54's first run."
+    },
+    "GroupID": {
+      "shape": "NOT YET MINTED — see not_expressible.group_subgroup_id_grammar",
+      "renders_today": "the co-tag name itself, an arbitrary served tag string (terrain/terrain.mjs:658, `g.name`/`g.cotag`)"
+    },
+    "SubGroupID": {
+      "shape": "NOT YET MINTED — see not_expressible.group_subgroup_id_grammar",
+      "renders_today": "the judge-composed SubGroup name (`sg.name`)"
+    },
+    "LessonCount": {
+      "shape": "^[0-9]+ Lessons?$",
+      "producer": "terrain/terrain.mjs:398 lessonCount()",
+      "means": "a count of Lessons, family-named per §9"
+    },
+    "Cite": {
+      "shape": "a served-surface citation string, rendered inside backticks",
+      "means": "provenance, not an element name — a cite is NOT subject to §14.3's no-names rule"
+    },
+    "SubstratePin": {
+      "shape": "a substrate pin string, rendered inside backticks",
+      "occurrences_per_file": 1
+    },
+    "JudgePin": {
+      "shape": "^`[^/`]+/[^/`]+`$ | ^`none`$",
+      "means": "model_id/effort_tier, or the typed literal `none` (§12.1 uniform arity)"
+    }
+  },
+
+  "surfaces": {
+    "cotag_screen": {
+      "emitter": "terrain/terrain.mjs:574 cmdCotags",
+      "medium": "terminal text",
+      "governing_prose": "specs/spec-terrain/SPEC.md §6.1, §6.2",
+      "non_member_fallback": "REFUSE — a line whose class is not in line_classes is not rendered and the emitter refuses to print (§14.2). The fallback is refuse and never admit, because an enumerated prohibition's non-member fallback is admit and that is the shape §9 chose against.",
+      "line_classes": [
+        { "id": "header", "form": "<tag> — the second navigation step. Grouped by co-tag; sort: <COTAG_SORT>." },
+        { "id": "group_heading_subdivided", "form": "  <GroupID> — <LessonCount>", "allowlist": ["GroupID", "LessonCount"] },
+        { "id": "group_heading_flat", "form": "  <GroupID> — <LessonCount>: <LessonDisplayID list, \", \"-joined>", "allowlist": ["GroupID", "LessonCount", "LessonDisplayID list"] },
+        { "id": "group_claim", "form": "      in common: <claim text | NO_CLAIM>" },
+        { "id": "group_claim_pinning", "form": "      pinned to <n> member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)" },
+        { "id": "group_prose", "form": "      <composer prose>" },
+        { "id": "subgroup_heading", "form": "\\n      <SubGroupID> (<LessonCount>: <LessonDisplayID list>)", "allowlist": ["SubGroupID", "LessonCount", "LessonDisplayID list"] },
+        { "id": "subgroup_claim", "form": "          in common: <claim text | NO_CLAIM>" },
+        { "id": "subgroup_leaf_reason", "form": "          <leaf reason>" },
+        { "id": "subgroup_disclosure", "form": "          DISCLOSURE — <text>" },
+        { "id": "judge_pin", "form": "      judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)" },
+        { "id": "abnormal_claimless", "form": "ABNORMAL: <n> of <m> group(s) on this screen carry no composed GroupClaim. …" },
+        { "id": "compose_remedy", "form": "Compose them from the bounded input — compose-input --survey <F> --tag <T> — …" },
+        { "id": "cover", "form": "Cover: <n> of <m> member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: <strandFigure>; <denominator>." },
+        { "id": "classification", "form": "Classification: NAVIGATION (SPEC.md §2.3 — …)" },
+        { "id": "narrows_nothing", "form": "Narrows nothing: …" },
+        { "id": "select_hint", "form": "Select a group (still narrowing nothing): cotags --survey <F> --tag <T> --group \"<co-tag>\"" }
+      ]
+    },
+
+    "full_report": {
+      "emitter": "terrain/terrain.mjs:1652 renderReportMarkdown, written by cmdReport (:1788)",
+      "medium": "Markdown, the owner rendering of §12.2 v11",
+      "governing_prose": "specs/spec-terrain/SPEC.md §12, §12.1, §12.2 (v11)",
+      "non_member_fallback": "REFUSE",
+      "line_classes": [
+        { "id": "title", "form": "# Full Report — <GroupID>" },
+        { "id": "selected_tag", "form": "*Selected tag:* `<tag>`" },
+        { "id": "substrate_pin", "form": "*Substrate pin:* `<SubstratePin>`", "occurrences_per_file": 1 },
+        { "id": "judge", "form": "*Judge:* <JudgePin>" },
+        { "id": "preamble", "form": "> Untruncated. … (four blockquote lines, §2.3 and §12)" },
+        { "id": "h2_group_claim", "form": "## Group claim" },
+        { "id": "group_claim_body", "form": "<claim text | *(none composed)*>" },
+        { "id": "h2_subgroups", "form": "## SubGroups" },
+        { "id": "judged_empty_notice", "form": "*The judgment produced NO split — this is a judged-empty outcome, not an absent judgment. Members are listed below.*" },
+        { "id": "h3_subgroup", "form": "### <SubGroupID>" },
+        { "id": "subgroup_claim_body", "form": "<claim text | *(no SubGroupClaim)*>" },
+        { "id": "h2_members", "form": "## Members" },
+        { "id": "member_heading", "form": "#### `<LessonDisplayID>`  (level 3 under ## Members, level 4 under ### SubGroup)", "allowlist": ["LessonDisplayID"] },
+        { "id": "member_served_line", "form": "*Served line:* `<Cite>` | *Served line:* **NOT RECORDED** — …" },
+        { "id": "member_gloss_cite", "form": "**Lesson Gloss** — `<Cite>` | **Lesson Gloss** — *no served cite recorded*" },
+        { "id": "member_gloss_body", "form": "<served Gloss prose, untruncated>" },
+        { "id": "member_journey_absent", "form": "**Journey Gloss** — *this member carries no Journey.*" },
+        { "id": "member_journey_cite", "form": "**Journey Gloss** — `<Cite>` | **Journey Gloss** — *no served cite recorded*" },
+        { "id": "member_journey_body", "form": "<served Journey Gloss prose, untruncated>" },
+        { "id": "h2_counted", "form": "## Counted" },
+        { "id": "counted_family", "form": "- <family>: <n>" },
+        { "id": "counted_served", "form": "- lessons served: <n>" }
+      ]
+    }
+  },
+
+  "uncovered_surfaces": {
+    "note": "SPEC-terrain §14.1 defines an OWNER SURFACE as any text this runtime prints or writes for the owner to read, and enumerates six. This grammar covers two. The four below carry §14.3's duty — no element name on an owner surface — with NO MECHANICAL CARRIER. Named here so a reader can tell 'not covered' from 'not thought about' (story 1.52 AC1b).",
+    "reopen_trigger": "the first format defect observed on any of the four, or the first grammar edit that could have covered one and did not (§14.1)",
+    "members": [
+      {
+        "surface": "cmdView",
+        "at": "terrain/terrain.mjs:447",
+        "renders": "screen 1 — the survey listing: tag rows, candidate rows, Gloss headlines",
+        "declared_allowlist_not_enforced_here": {
+          "line_class": "tag row",
+          "producer": "terrain/terrain.mjs:407 tagRow()",
+          "permits": ["the tag name", "the tag's Lesson count"],
+          "and_nothing_else": true,
+          "source": "specs/spec-terrain/SPEC.md §9 (v5, kogaki#147), transcribed verbatim in meaning and not reinterpreted",
+          "note": "§9's allowlist is the one already stated in prose, and it governs SCREEN 1's tag rows — which cmdView renders, not cmdCotags. It is recorded against its true surface rather than moved to a covered one; see reader_notes.ac2_surface_mismatch."
+        }
+      },
+      { "surface": "cmdClaim", "at": "terrain/terrain.mjs:819", "renders": "the composed claim and its member pins (:842)" },
+      { "surface": "cmdAdopt", "at": "terrain/terrain.mjs:943", "renders": "the adopted claim and its member list (:993)" },
+      { "surface": "cmdSubdivide", "at": "terrain/terrain.mjs:1099", "renders": "the subdivision specimen, including per-SubGroup member ids (:1177)" }
+    ]
+  },
+
+  "decidable_rules": {
+    "note": "SPEC-terrain §14.2's enumeration. Each is decidable on the rendered text alone, which is what makes the emit-time refusal possible. A rule that is not mechanically decidable does not enter this artifact and stays prose.",
+    "expressible": [
+      { "id": "pin_once_per_file", "rule": "occurrences of line class `substrate_pin` == 1", "surfaces": ["full_report"] },
+      { "id": "no_element_names", "rule": "zero occurrences of the literal `lesson:` and zero element-name tokens anywhere on the surface", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53" },
+      { "id": "member_lists_carry_display_ids", "rule": "every token in a member-list position matches tokens.LessonDisplayID", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53" },
+      { "id": "subgroup_members_sum_to_parent", "rule": "sum of LessonCount over a group's `subgroup_heading` lines == the LessonCount on its `group_heading_subdivided` line", "surfaces": ["cotag_screen"] },
+      { "id": "catch_all_share", "rule": "the Lesson count of the group named \"(no second served tag)\" divided by the Cover line's member denominator <= 0.30", "surfaces": ["cotag_screen"], "catch_all_group_name": "(no second served tag)", "producer_of_the_name": "terrain/terrain.mjs:504 NO_SECOND_TAG" },
+      { "id": "line_class_allowlist", "rule": "a line whose class is not in the surface's line_classes ⇒ REFUSE", "surfaces": ["cotag_screen", "full_report"] }
+    ],
+    "not_expressible": [
+      {
+        "id": "group_subgroup_id_grammar",
+        "rule_as_stated_in_spec": "\"G/SG ID grammar present\" (SPEC-terrain §14.2)",
+        "why": "There is no G/SG identifier to give a shape to. Group names are the co-tag strings themselves and SubGroup names are judge-composed prose (terrain/terrain.mjs:658, :1087); no `G<n>`/`SG<n>` space is minted anywhere in this repository. A token shape asserted here would be a rule about artifacts nothing can produce — a conformance category with no members, which reads as coverage.",
+        "carrier_of_the_missing_half": "kogaki#317 (indentation-encoded hierarchy replaced by Group/SubGroup IDs) and kogaki#314-#316, all open",
+        "reopen_trigger": "the sitting that mints the G/SG ID space adds tokens.GroupID and tokens.SubGroupID here and moves this entry into `expressible`"
+      }
+    ]
+  },
+
+  "reader_notes": {
+    "ac2_surface_mismatch": "Story 1.52 AC2 asks that `the grammar's cotag_screen tag-row entry` match SPEC.md §9's allowlist. The co-tag screen renders NO tag rows: §9's allowlist governs SCREEN 1's tag rows, produced by tagRow() at terrain/terrain.mjs:407 and printed by the survey/view path — which §14.1 lists as `cmdView`, an UNCOVERED surface. The allowlist is therefore transcribed against cmdView above, where it actually binds, rather than attached to a surface that has no such line class. Transcribing it onto `cotag_screen` would have satisfied the AC's letter by reinterpreting the rule, which is the one thing AC2 forbids. Reported on kogaki#344.",
+    "what_this_artifact_is_not": "Not a second carrier beside the golden fixture (§14.5) — the fixture never wins against this file; precedence is one-way. Not an enforcement mechanism — story 1.54 installs the emit-time refusal that reads this. Not a description of §13's provenance neighborhood, which is unimplemented and whose display-id question is a named deferred slot (§14.6, kogaki#300)."
+  }
+}
