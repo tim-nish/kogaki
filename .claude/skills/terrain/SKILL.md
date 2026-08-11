@@ -10,25 +10,49 @@ cannot yet name a story. Governing spec: `specs/spec-terrain/SPEC.md`;
 runtime: `terrain/terrain.mjs`. Everything below is that spec's three
 contracts driven through the harness — none of it is discretion.
 
-**The screens and the Full Report are the runtime's renderings, SERVED
-VERBATIM** (SPEC.md §2.4's flow rule; kogaki#150, kogaki#164). You compose the
-runtime's *inputs* — the claims, the subdivisions — and relay its *output*
-as-is. The rule has two limbs and **both** bind:
+**DELIVER THE ARTIFACT THE RUNTIME WROTE, NEVER A QUOTATION OF IT**
+(SPEC.md §14.4; kogaki#319, kogaki#347). There is exactly ONE producer of
+owner-facing text, and it is `terrain/terrain.mjs`. You compose the runtime's
+*inputs* — the claims, the subdivisions — and you **hand over its output**. You
+never re-type it.
 
-- **Never** re-render, summarize, reformat, tabulate, or paraphrase what the
-  runtime printed. The 2026-08-06 dogfood run re-rendered the screen as prose
-  and three merged contracts (member IDs, SubGroup verdicts, ABNORMAL markers)
-  silently vanished at once.
-- **Always** relay the rendering **in full, in the user-visible reply, as the
-  FIRST act after the command returns** — before any gate, any question, any
-  other tool call. **A runtime refusal's stderr is relayed the same way and is
-  never swallowed.** The 2026-08-07 run produced the whole `architecture`
-  co-tag screen and never showed it: the flow moved straight into a question
-  UI, and the owner saw nothing. Relaying nothing satisfies the first limb's
-  letter, which is why the second exists.
+- **The Full Report: `cat` the file.** The runtime names it for you —
+  `announceArtifacts` prints `Full Report — READ THIS ONE (owner rendering,
+  SPEC.md §12.2): <path>`. Run `cat <that path>` and let the tool output be
+  what the owner reads. Do not open the file, read it, and write its contents
+  into your reply; that is retyping with extra steps.
+- **The screens: the command's own output IS the reply.** `cotags` and the tag
+  screen print to stdout. That printed text is the rendering; leave it as the
+  thing the owner reads and add nothing between them and it.
+- **A runtime refusal is delivered the same way and is never swallowed.**
+  `fail()` writes to stderr and exits non-zero. Relay that stream as it stands.
+- **Retyping, summarizing, re-formatting, tabulating or paraphrasing runtime
+  output into your reply is PROHIBITED.** So is "quoting it accurately" —
+  accuracy is not the property; not being a second producer is.
 
-A blank reply is impossible whether the runtime printed a screen or an error.
-The rule binds here because this is the layer where it can be broken.
+**WHY THERE IS NOTHING HERE TO POLICE.** This is a REMOVAL, not a new duty
+(§14.4: *"nothing new is prohibited, so nothing new has to be policed"*). The
+relay stops being a **producer** of owner-facing text, so the class of defect
+where a retyped screen diverges from the screen cannot occur — rather than
+being caught after it occurs. Do not add, and do not ask for, a lint over model
+output: that is the detect-side answer this decision declined, and it would
+re-create the producer it removes in order to have something to check.
+
+**THE SPECIMEN THIS REPLACES.** The 2026-08-09 hands-on transcript carried two
+lines fused **mid-token** — a SubGroup header claiming `(6 Lessons: …)` spliced
+into the catch-all's 19-member list, and a claim line splicing into a different
+group's claim. A runtime cannot fuse two lines mid-word. A model retyping a
+screen can, and the 2026-08-06 run lost three merged contracts (member IDs,
+SubGroup verdicts, ABNORMAL markers) the same way. The earlier form of this
+rule asked the relay to retype *faithfully*, which is advisory at exactly the
+layer where it breaks.
+
+**Delivering nothing is still a failure.** The artifact reaches the owner as
+the FIRST act after the command returns — before any gate, any question, any
+other tool call. The 2026-08-07 run produced the whole `architecture` co-tag
+screen and never showed it: the flow moved straight into a question UI and the
+owner saw nothing. Silence satisfies "do not retype" perfectly, which is why
+this sentence is here.
 
 ## The flow
 
@@ -158,8 +182,9 @@ The rule binds here because this is the layer where it can be broken.
      in the Full Reports as well as on the screen, so an all-groups run
      without it produces the exact artifact the ruling calls a failed run.
    - **ONCE A TAG IS NAMED, EXACTLY TWO ACTS REMAIN** (SPEC.md §6.3;
-     kogaki#166, owner ruling 2026-08-07): **(1)** run `cotags` and relay its
-     screen verbatim, **(2)** run `report --all-groups`. **Nothing else runs
+     kogaki#166, owner ruling 2026-08-07): **(1)** run `cotags` and let its printed
+     screen stand as the reply (§14.4 — you deliver it, you do not retype it),
+     **(2)** run `report --all-groups` and `cat` each rendering it names. **Nothing else runs
      until the owner speaks in chat.** The subdivision judgment is part of act
      (1) — you judge and render SubGroups inside the screen, never as a third
      step beside it — and **`compose-input` and the claim composition it feeds
