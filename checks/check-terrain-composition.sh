@@ -528,8 +528,24 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
   rmSync(RDJE, { recursive: true, force: true });
 }
 
-if (!/SERVED\s+VERBATIM|served verbatim/i.test(SKILL)) {
-  fails.push("the skill does not carry the serve-the-renderer-verbatim rule — re-rendering is how member IDs, SubGroup verdicts and ABNORMAL markers vanished on 2026-08-06 (kogaki#150)");
+// §14.4 (story 1.55, kogaki#347) SUPERSEDES the verbatim-relay wording this
+// once matched. The rule is no longer "retype it faithfully" — it is that the
+// relay is not a producer at all: deliver the artifact the runtime wrote. So
+// the assertion moves to the PROPERTY the new form carries, and the old
+// spelling is deliberately no longer accepted: a check that admitted both
+// would pass a skill that kept the advisory form §14.4 replaced.
+//
+// Asserted as three parts rather than one phrase, because the failure this
+// guards is a partial edit — a file that prohibits retyping and never says
+// what to do instead sends the relay guessing, which is where it was.
+if (!/never a quotation of it/i.test(SKILL)) {
+  fails.push("the skill does not carry §14.4's one-producer rule — 'deliver the artifact the runtime wrote, NEVER a quotation of it'. The superseded verbatim-relay wording is not accepted in its place: retyping faithfully is advisory at exactly the layer where it breaks (kogaki#319, kogaki#347; the 2026-08-09 mid-token line fusion)");
+}
+if (!/cat <that path>|`cat`/i.test(SKILL) || !/announceArtifacts/.test(SKILL)) {
+  fails.push("the skill prohibits retyping without naming the DELIVERY act — it must point at the artifact `announceArtifacts` names and say to `cat` it, or the relay is left with a prohibition and no way to comply");
+}
+if (!/nothing new has to be policed|is a REMOVAL/i.test(SKILL)) {
+  fails.push("the skill states §14.4 as a policing duty rather than as a REMOVAL — 'nothing new is prohibited, so nothing new has to be policed'. A lint over model output is the detect-side answer this decision declined (story 1.55 AC2)");
 }
 
 if (fails.length) {
@@ -2490,4 +2506,136 @@ console.log("emit-time refusal: 5/5 rules fire on crafted nonconformant text; "
   + "that never happened. The PASSING direction is asserted by every other cotags and report "
   + "block in this file, which now all run through the guard (AC6: a refusal on conformant "
   + "output fails the suite).");
+JS
+
+# --------------------------------------------------------------------------
+# THE GOLDEN SPECIMENS (SPEC-terrain §14.5, story 1.55, kogaki#347).
+#
+# One specimen per surface the grammar covers — two at v14. The point is to
+# catch a renderer edit that changes the rendered shape IN THE PR, between the
+# hands-on rounds rather than during them, which is when the 2026-08-09
+# transcript's fused lines were found.
+#
+# TWO ASSERTIONS PER SPECIMEN, and the pair is the design rather than belt and
+# braces. (1) The specimen is CONFORMANT against the grammar, by the same
+# predicate the emitters refuse with. (2) The renderer's output over the
+# committed input EQUALS the specimen. (1) alone would let the renderer drift
+# anywhere the grammar still admits; (2) alone would bless whatever the renderer
+# emitted, which is the "fixture supplies the value under test" form the
+# specimens are hand-authored to avoid — see the README beside them.
+#
+# AC5 — the fixture NEVER wins. On disagreement the grammar is authoritative and
+# the SPECIMEN is what is reported stale, in those words.
+node --input-type=module - <<'JS'
+import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { loadGrammar, validateSurface } from "./terrain/format-guard.mjs";
+
+const fails = [];
+const G = loadGrammar("specs/spec-terrain/report-format.json");
+const DIR = "checks/fixtures/terrain/format";
+const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const STUB = "checks/fixtures/terrain/compose-input/stub-gateway.mjs";
+const TAG = "testing";
+const GROUP = "testing × architecture";
+
+// AC3's count is PER COVERED SURFACE, read from the grammar rather than
+// written here as a number — so a sitting that covers a third surface gets a
+// failure telling it a specimen is owed, instead of a suite that quietly still
+// says two.
+const covered = Object.keys(G.surfaces || {});
+const SPECIMENS = { cotag_screen: "cotag-screen.txt", full_report: "full-report.md" };
+for (const s of covered) {
+  if (!SPECIMENS[s]) {
+    fails.push(`the grammar covers ${s} and ${DIR} holds no specimen for it — §14.5's count is ONE PER COVERED SURFACE, so covering a surface owes a specimen in the same sitting`);
+  }
+}
+const present = new Set(readdirSync(DIR).filter((f) => f !== "README.md"));
+for (const f of present) {
+  if (!Object.values(SPECIMENS).includes(f)) {
+    fails.push(`${DIR}/${f} is a specimen for no covered surface — AC6: a specimen, not a corpus. A format incident earns a grammar edit and a REGENERATED specimen, never an additional fixture`);
+  }
+}
+
+const dir = mkdtempSync(join(tmpdir(), "terrain-golden-"));
+try {
+  const pin = JSON.parse(readFileSync(SURVEY, "utf8")).pin;
+  const claims = join(dir, "claims.json");
+  writeFileSync(claims, JSON.stringify({
+    composition_pin: { tag: TAG, pin, groups: {
+      "testing × (no second served tag)": ["lesson:delta"],
+      "testing × architecture": ["lesson:alpha", "lesson:bravo"],
+      "testing × cost": ["lesson:charlie"],
+    } },
+    claims: {
+      "testing × architecture": "both hold that a guard is real only once something exercised it",
+      "testing × cost": "both price a check by where in the loop it runs",
+      "testing × (no second served tag)": "carries the selected tag and no other",
+    },
+  }));
+  const subs = join(dir, "subs.json");
+  writeFileSync(subs, JSON.stringify({ "testing × architecture": { judged: true, subgroups: [] } }));
+
+  // The two actual renderings, over the COMMITTED input.
+  const screen = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "cotags", "--survey", SURVEY, "--tag", TAG, "--claims", claims],
+    { encoding: "utf8" });
+  if (screen.status !== 0) fails.push(`cotags exited ${screen.status}: ${(screen.stderr || "").trim()}`);
+
+  const rdir = join(dir, "r"); const gdir = join(dir, "g");
+  const rep = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", TAG, "--group", GROUP,
+     "--claims", claims, "--subdivisions", subs,
+     "--judge-model", "claude-opus-5", "--judge-effort", "high",
+     "--report-dir", rdir, "--rendering-dir", gdir],
+    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
+  if (rep.status !== 0) fails.push(`report exited ${rep.status}: ${(rep.stderr || "").trim()}`);
+  const md = readdirSync(gdir).filter((f) => f.endsWith(".md"));
+  const actual = {
+    cotag_screen: String(screen.stdout),
+    full_report: md.length === 1 ? readFileSync(join(gdir, md[0]), "utf8") : null,
+  };
+  if (md.length !== 1) fails.push(`expected exactly one rendered report, found ${md.length}`);
+
+  for (const [surface, file] of Object.entries(SPECIMENS)) {
+    const path = join(DIR, file);
+    const specimen = readFileSync(path, "utf8");
+
+    // (1) CONFORMANT — and a failure here names the SPECIMEN as stale, never
+    // the grammar. §14.1's precedence is one-way (AC5).
+    const v = validateSurface(surface, specimen, G);
+    if (v.length) {
+      fails.push(`THE SPECIMEN IS STALE — ${path} does not conform to specs/spec-terrain/report-format.json, which is authoritative (§14.1, §14.5). Regenerate the specimen; do NOT amend the grammar to admit it:\n      ` + v.map(String).join("\n      "));
+    }
+
+    // (2) EQUAL to what the renderer produces. This is the assertion that
+    // fails a renderer edit in the PR (AC4), and it names the divergence
+    // rather than only reporting inequality.
+    const got = actual[surface];
+    if (got === null || got === undefined) continue;
+    if (got !== specimen) {
+      const a = specimen.split("\n"), b = got.split("\n");
+      const at = a.findIndex((l, i) => l !== b[i]);
+      const detail = at < 0
+        ? `the specimen has ${a.length} lines and the rendering ${b.length}`
+        : `first divergence at line ${at + 1}:\n        specimen:  ${JSON.stringify(a[at])}\n        rendering: ${JSON.stringify(b[at] === undefined ? null : b[at])}`;
+      fails.push(`THE RENDERED SHAPE MOVED — ${surface} no longer matches ${path}.\n      ${detail}\n      If the new shape is correct, amend specs/spec-terrain/report-format.json on its own licensing issue FIRST and regenerate the specimen; the grammar decides, never the fixture (§14.1, §14.5, AC5).`);
+    }
+  }
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}
+
+if (fails.length) {
+  console.log("FAIL golden specimens (SPEC-terrain §14.5, story 1.55):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log(`golden specimens: ${Object.keys(SPECIMENS).length}/${Object.keys(SPECIMENS).length} covered surfaces carry one, `
+  + "each asserted TWICE — conformant against the grammar (by the emitters' own predicate), and byte-equal to the renderer's "
+  + "output over the committed input. The count is read from the grammar, so covering a third surface fails here until its "
+  + "specimen exists, and a file matching no covered surface fails as corpus growth (AC6). On disagreement the SPECIMEN is "
+  + "reported stale and the grammar stands (AC5). Hand-authored, not generated — the reason is recorded in the README beside them.");
 JS
