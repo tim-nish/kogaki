@@ -12,20 +12,30 @@ Fixed rather than keyed on the decision-lifetime ground — a declared setting i
 an onboarding-lifetime fact that REMOVES a decision from the expansion loop,
 where both live alternatives put one back in
 (`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:138`).
-Declined with grounds, at §13.3: keying on the settled set's size (admissible in
-principle, but the variation is anticipated rather than measured and nobody has
-run the expansion once), and the owner naming the reach per run (a per-run
-choice
-inside every expansion, re-opening what settling the set just answered). The
-2026-08-09 fill's own two declines — a neighbour-count cap and a surfacing
-threshold — are recorded there too and are not re-proposed.
+Declined with grounds, at §13.3: keying on the settled set's size (admissible
+in principle, but the variation is anticipated rather than measured and nobody
+has run the expansion once), and the owner naming the reach per run (a per-run
+choice inside every expansion, re-opening what settling the set just
+answered). The 2026-08-09 fill's own two declines — a neighbour-count cap and
+a surfacing threshold — are recorded there too and are not re-proposed.
 
 **This supersedes v15's re-weighting of the slot**, which said it carried the
 whole remaining bound with a unit and no values. That was true when written and
 is not now; the v15 block below is kept as the record of what it decided, and
 its own four-way table is a snapshot of the state v16 resolves.
 
-**deferred slots: none.** §13.3 held the last one.
+**deferred slots minted by this amendment: none.** §13.3's is discharged above.
+
+**STILL OPEN IN THIS FILE, and it comes due in THIS issue's implementing
+sitting:** `deferred-slot: terrain-display-id-for-neighborhood-suggestions`
+(§14.6, with its three candidate shapes; §13.7 states the timing). It is named
+here because the previous draft of this line read *"deferred slots: none — §13.3
+held the last one"*, which was a **file-wide** claim appended to a
+**per-amendment** declaration, and false: a reader arriving at the head of the
+file to learn whether a decision is owed was told none was. The two other tokens
+in the file — `terrain-family-split-carrier` and
+`terrain-subdivision-offering-verdict` — are filled, checked at their sites
+rather than assumed.
 
 **Reopen trigger, named rather than left to judgment:** a real run in which a
 large settled set produces a neighborhood the owner reads as drowning, or a
@@ -3768,11 +3778,11 @@ mechanical layer's own bugs.
 
 **The §13.3 traversal bound is not this gate, and must not become it (v13,
 kogaki#300; re-cut v15).** §13.3 bounds how far the enumeration
-expands — under v16 by the declared traversal values in §13.3, the Thesis having
-been withdrawn; this section holds *relevance judgment* — whether a surfaced
-neighbor
-is worth keeping — behind the trigger above, undesigned. The two are adjacent
-enough to collapse silently, so the line is drawn mechanically rather than by
+expands — under v16 by the declared traversal values in §13.3, the Thesis
+having been withdrawn; this section holds *relevance judgment* — whether a
+surfaced neighbor is worth keeping — behind the trigger above, undesigned. The
+two are adjacent enough to collapse silently, so the line is drawn
+mechanically rather than by
 intent: **the §13.3 bound may decide how much of the enumeration is traversed,
 and may never score, rank, or drop an enumerated neighbor on relevance.** An
 implementation whose bound requires judging a neighbor against **the settled
