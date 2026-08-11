@@ -247,6 +247,44 @@ So this is the **third** state, declared: **`instrument: none`** until the
 kit step and its invocation both land. **Reopen trigger:** the first spec sitting
 that runs with a stale vendored pin and surfaces no delta.
 
+**Amended 2026-08-11 (kogaki#334, story 1.51) — the KIT HALF has landed and the
+COMMAND HALF is CROSS-REPO. This marks a carrier state; it decides nothing.**
+`policy/kit/bin/shape.mjs --delta` exists: it regenerates live, compares the
+vendored pin against the served one, presents the delta in §8's register, and
+reports in every state rather than gating in any. So the two halves this
+section made one `instrument: none` declaration over have separated, and each
+now owes its own:
+
+- **The kit half — `instrument: act`.** The step observes its own trigger: a
+  sitting that runs it against a stale vendored pin gets the delta the trigger
+  was declared for. The observer this section said "arrives with the act it is
+  waiting for" has arrived.
+- **The command half — `instrument: cross-repo`.** `commands/spec-sitting.md`
+  is **not a file in this repository**. It is owned by `tim-nish/claude-toolkit`
+  and installed actor-level at `~/.claude/commands/`; nothing in this tree can
+  add the invocation, and nothing in this tree can observe it appearing. Declared
+  in this repository's own convention for an off-repo carrier, the same form §8.4
+  uses for `lint-gate-declaration.py`:
+
+      instrument: cross-repo(tim-nish/claude-toolkit — commands/spec-sitting.md,
+      installed actor-level at ~/.claude/commands/; no act in this repository can
+      observe the pre-step being invoked, and the command is not vendored here)
+
+**This does not reopen §7 q3, and saying so is the point.** The fill decided
+*where the step lives* — a kit step, invoked by the sitting command — and that
+decision is unchanged and now half-built. What the fill did not record, because
+nobody checked, is that its named invoker is another repository's artifact. A
+reader who greps this tree for `commands/spec-sitting.md` finds only citations,
+which is the stall §8.4 was written to prevent, one section up.
+
+**What the split costs, stated rather than minimised.** Until the invocation
+lands, the step is available and unrun by default — which is precisely the
+"advisory, and its apparent coverage is an enumeration of the places somebody
+happened to act" shape §2 quotes at its pin. A sitting that invokes
+`shape.mjs --delta` by hand gets the whole of §3.4's benefit; a sitting that
+does not gets none of it and is told nothing. That is a weaker position than
+"§3.4 is satisfied", and a reader is entitled to know which one they are in.
+
 **Who observes that trigger: nothing does, and the trigger is satisfied by
 construction today.** Nothing regenerates the digest, nothing diffs pins and
 nothing surfaces a delta — so no sitting can tell its vendored pin is stale, and

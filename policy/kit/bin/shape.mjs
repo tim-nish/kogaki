@@ -38,6 +38,33 @@
 // `policy_source unavailable: <reason>` line and exits 11, matching
 // policy/kit/README.md's degradation contract. The install that contains it
 // still completes — a degraded install is a valid install.
+//
+// THE DELTA STEP (`--delta`, kogaki#334; contract §3.4). §3.4 decides the host:
+// the pre-step is THIS kit command, and `commands/spec-sitting.md` invokes it.
+// It regenerates live, compares the VENDORED pin against the SERVED one, and
+// presents the policy delta before the sitting's first act. Two properties are
+// load-bearing and are asserted rather than described:
+//
+//   * IT REPORTS AND NEVER GATES. A stale pin, a vendored digest that records no
+//     pin, and no vendored digest at all are three states, each rendered as
+//     itself, all exiting 0. Only the seam being unreachable exits non-zero, and
+//     that is the ratified one-line exit-11 degrade every kit tool owes — the
+//     HOST treats it as non-gating, which is what §3.5's
+//     enhancer-never-dependency property requires.
+//   * IT RENDERS ON THE OWNER SURFACE, so §8 governs it: no `consulted:`, no
+//     `request_id:`, no `@<sha>`. The delta therefore says THAT the surface
+//     moved and never prints the pin it moved between. That is not a nicety —
+//     §8.1 puts pins on the machine-facing side, and a delta is the one shape
+//     read output an owner reads directly. It is guaranteed BY CONSTRUCTION
+//     (the composer never interpolates a pin) and asserted in both the fixture
+//     pass below and `policy/kit/test/install-test.sh` case 2i, over live text.
+//
+// ITS GRANULARITY IS NOT DECIDED HERE. §3.4 binds "present the policy delta"
+// and fixes no resolution; story 1.51 carries that as an open question rather
+// than a criterion. So this renders the MINIMAL reading of what the criterion
+// binds — whether the served pin moved, plus which of the digest's own sections
+// changed text — and nothing finer. A per-headline diff would be a fork this
+// file is not licensed to close.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -136,23 +163,32 @@ function glossary(consumer, gateway, repo) {
   if (names.fatal) return names;
   // Same hole one field over, and worse: the old note asserted "the served
   // glossary enumeration came back empty" over a read that never parsed.
-  if (names.soft) return { rows: [], all: 0, unestablished: names.soft };
+  if (names.soft) return { rows: [], all: 0, read: 0, dropped: [], unestablished: names.soft };
   const all = flattenNames(names.data);
-  if (!all.length) return { rows: [], all: 0, note: "the served glossary enumeration came back empty" };
+  if (!all.length) return { rows: [], all: 0, read: 0, dropped: [], note: "the served glossary enumeration came back empty" };
   const corpus = repoText(repo);
   // Word-bounded, like element 1's consumer match — the two scoping tests used
   // to disagree, and the looser one was a bare substring over four files, so a
   // short served name was admitted on any word containing it.
   const scoped = all.filter((n) => n.length > 2 && carriesConsumer(corpus, n));
   const rows = [];
-  for (const name of scoped.slice(0, 40)) {
+  // THE PER-TERM DROP, counted and named (kogaki#334; §3.1's denominator clause
+  // binds this case in terms). `if (e.soft) continue;` made a term whose own
+  // `glossary_entry` read could not be parsed INDISTINGUISHABLE from one that
+  // carries no state line: both vanished, and the section rendered the survivors
+  // as if they were the whole in-scope set. That is the element-level defect
+  // PR #335 fixed, surviving one level down at the per-term grain — which is why
+  // §3.1 names the per-term case rather than restating the general rule.
+  const dropped = [];
+  const considered = scoped.slice(0, 40);
+  for (const name of considered) {
     const e = served(consumer, "glossary_entry", { name }, gateway);
     if (e.fatal) return e;
-    if (e.soft) continue;
+    if (e.soft) { dropped.push(name); continue; }
     const state = collectLines(e.data).find((l) => isStateLine(l.text));
     if (state) rows.push({ name, cite: state.cite, text: state.text });
   }
-  return { rows, all: all.length, scoped: scoped.length, capped: scoped.length > 40 };
+  return { rows, dropped, read: considered.length, all: all.length, scoped: scoped.length, capped: scoped.length > 40 };
 }
 
 // `surface_names` returns its identifiers as ordinary `{cite, text}` records —
@@ -203,9 +239,13 @@ function obligations(consumer, gateway) {
     gateway,
   );
   if (r.fatal) return r;
-  if (r.soft) return { rows: [], unestablished: r.soft };
-  const rows = collectLines(r.data).filter((l) => carriesConsumer(l.text, consumer));
-  return { rows, pin: r.data?.pin, coverage: r.data?.coverage };
+  if (r.soft) return { rows: [], all: 0, unestablished: r.soft };
+  const lines = collectLines(r.data);
+  const rows = lines.filter((l) => carriesConsumer(l.text, consumer));
+  // The denominator this element's zero is counted against (§3.1): how many
+  // served lines the lookup returned, so "none found" can be told from "the
+  // lookup returned nothing to search".
+  return { rows, all: lines.length, pin: r.data?.pin, coverage: r.data?.coverage };
 }
 
 // ---------------------------------------------------------------- element 4
@@ -213,14 +253,18 @@ function obligations(consumer, gateway) {
 // consumer-authored by contract, so the seam is not the place to ask for it.
 function boundaries(repo) {
   const p = join(repo, "policy/consultation-map.md");
-  if (!existsSync(p)) return { rows: [], note: "no policy/consultation-map.md in this repository" };
+  if (!existsSync(p)) return { rows: [], lines: 0, note: "no policy/consultation-map.md in this repository" };
   const rows = [];
   let inEntries = false;
-  for (const line of readFileSync(p, "utf8").split("\n")) {
+  const all = readFileSync(p, "utf8").split("\n");
+  for (const line of all) {
     if (/^##\s+Entries\s*$/.test(line)) { inEntries = true; continue; }
     if (inEntries && /^###\s+\d+\.\s/.test(line)) rows.push(line.replace(/^###\s+/, "").trim());
   }
-  return { rows };
+  // The denominator for this element's zero (§3.1). A local read still owes it:
+  // "declares no entries" over a file that was never opened and over a file that
+  // was read in full are the same sentence and different facts.
+  return { rows, lines: all.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -265,6 +309,8 @@ function render({ consumer, pin, date, h, g, o, b }) {
   L.push("");
   if (g.rows?.length) {
     for (const r of g.rows) L.push(`- **${r.name}** — ${oneLine(r.text)}\n  \`${r.cite}\``);
+    L.push("");
+    L.push(`_${g.rows.length} of ${g.read ?? g.rows.length} in-scope term(s) read carry a served state line (of ${g.all ?? 0} served glossary names)._`);
     if (g.capped) L.push(`\n_Capped at 40 of ${g.scoped} in-scope terms._`);
   } else if (g.unestablished) {
     L.push(`**Could not establish.** ${g.unestablished}`);
@@ -275,7 +321,23 @@ function render({ consumer, pin, date, h, g, o, b }) {
     // state). The rewrite that split `unestablished` out dropped this read and
     // left its producer unreachable, so a successful read whose EXTRACTION
     // yielded nothing claimed something about this repository's scoping.
-    L.push(`**None.** ${g.note ?? `No served glossary term (of ${g.all ?? 0}) is mentioned in this repository's own policy surface.`}`);
+    L.push(`**None.** ${g.note ?? `No served glossary term (of ${g.all ?? 0} read) is mentioned in this repository's own policy surface.`}`);
+  }
+  // THE PER-TERM DENOMINATOR, rendered in the POPULATED case as well as the
+  // empty one (§3.1, kogaki#334). It belongs here rather than inside either
+  // branch because a populated section is exactly where a dropped term hides
+  // best: rows are present, the section looks answered, and the terms whose
+  // reads failed are the ones a reader would never think to miss.
+  if (g.dropped?.length) {
+    L.push("");
+    L.push(
+      `**${g.dropped.length} of ${g.read ?? g.dropped.length} term(s) read could not be established** — ` +
+        "the served entry came back in a body this composer could not parse, so their state is " +
+        `unknown rather than absent: ${g.dropped.map((n) => `\`${n}\``).join(", ")}.`,
+    );
+  } else if (g.read) {
+    L.push("");
+    L.push(`_All ${g.read} in-scope term(s) read were established; no term was dropped unread._`);
   }
   L.push("");
 
@@ -294,7 +356,7 @@ function render({ consumer, pin, date, h, g, o, b }) {
     L.push("so none was looked for. A successor MUST NOT read this as an empty inventory:");
     L.push("that is the state this element exists to make impossible.");
   } else {
-    L.push(`**None found.** ${o.note ?? "No served line names an obligation assigned to this consumer as a role."}`);
+    L.push(`**None found.** ${o.note ?? `No served line (of ${o.all ?? 0} read) names an obligation assigned to this consumer as a role.`}`);
     L.push("");
     L.push("Stated rather than omitted, because this is the element the layer exists for:");
     L.push("an obligation assigned to a role dies with whoever implemented it, and a");
@@ -306,11 +368,110 @@ function render({ consumer, pin, date, h, g, o, b }) {
   L.push("## 4. Consultation-map boundaries");
   L.push("");
   if (b.rows.length) for (const r of b.rows) L.push(`- ${r}`);
-  else L.push(`**None declared.** ${b.note ?? "policy/consultation-map.md declares no entries."}`);
+  else L.push(`**None declared.** ${b.note ?? `policy/consultation-map.md was read (${b.lines ?? 0} lines) and declares no entries under its \`## Entries\` heading.`}`);
   L.push("");
   L.push("Consult before acting at any of these. The map triggers consultation and");
   L.push("carries no verdicts — the answer stays in the substrate.");
   L.push("");
+  return L.join("\n");
+}
+
+// ---------------------------------------------------------------- the delta
+// §3.4's act, and §8's register. Everything below is a pure function of two
+// digest bodies, so the fixture pass can assert what an owner actually reads.
+
+const pinOf = (body) => (/^pin:\s*(\S+)\s*$/m.exec(String(body ?? "")) ?? [])[1];
+const generatedOf = (body) => (/^generated:\s*(\S+)\s*$/m.exec(String(body ?? "")) ?? [])[1];
+
+// The digest's own numbered sections, keyed by number. Split on the rendered
+// headings rather than on line offsets so a section growing by a line does not
+// report every later section as changed.
+function sectionsOf(body) {
+  const out = new Map();
+  let cur = null;
+  let buf = [];
+  for (const line of String(body ?? "").split("\n")) {
+    const m = /^##\s+(\d+)\.\s+(.*)$/.exec(line);
+    if (m) {
+      if (cur) out.set(cur.n, { title: cur.title, text: buf.join("\n").trim() });
+      buf = [];
+      cur = { n: m[1], title: m[2].trim() };
+      continue;
+    }
+    if (cur) buf.push(line);
+  }
+  if (cur) out.set(cur.n, { title: cur.title, text: buf.join("\n").trim() });
+  return out;
+}
+
+// THE OWNER-REGISTER RENDERING (§8, via AC2). No pin, no `request_id:`, no
+// `consulted:` — not by filtering afterwards, which would be a deny that a
+// re-worded line walks past, but because no pin value is ever interpolated into
+// this text at all. What moved is stated; what it moved between stays on the
+// machine-facing side where §8.1 puts it.
+//
+// It is deliberately NOT rendered as §8.1's Question/Answer/Conclusion. That
+// shape is the owner-facing rendering of a CONSULTATION, and §3.5 says in terms
+// that a shape read is not one; dressing a digest refresh in a consultation's
+// clothes would assert exactly the thing the section forbids.
+function renderDelta({ consumer, vendoredPath, vendored, live, date }) {
+  const L = [];
+  L.push(`Shape read — policy delta for ${consumer} (${date})`);
+  L.push("");
+
+  if (!vendored.found) {
+    L.push(`No vendored digest was found at ${vendoredPath}, so there is nothing to compare against.`);
+    L.push("One has been generated now. This is stated rather than passed over in silence: an");
+    L.push("absent digest and an unchanged one are the same quiet and different facts.");
+  } else if (!vendored.pin) {
+    L.push(`The vendored digest at ${vendoredPath} records no generation pin, so whether the served`);
+    L.push("surface has moved since it was written CANNOT BE ESTABLISHED. That is not a finding");
+    L.push("that nothing changed — nothing was comparable.");
+  } else if (!live.pin) {
+    L.push("The regenerated digest carries no pin of its own, so the comparison could not be made.");
+    L.push("Reported rather than resolved either way.");
+  } else if (vendored.pin !== live.pin) {
+    L.push(`**The served policy surface HAS MOVED** since the vendored digest was generated${
+      vendored.generated ? ` on ${vendored.generated}` : ""
+    }.`);
+  } else {
+    L.push(`The served policy surface has NOT moved since the vendored digest was generated${
+      vendored.generated ? ` on ${vendored.generated}` : ""
+    }.`);
+  }
+  L.push("");
+
+  const before = sectionsOf(vendored.body);
+  const after = sectionsOf(live.body);
+  const keys = [...new Set([...before.keys(), ...after.keys()])].sort();
+  L.push("What changed in the digest, section by section:");
+  if (!keys.length) {
+    L.push("  (no numbered section on either side — nothing to compare)");
+  }
+  let changedCount = 0;
+  for (const k of keys) {
+    const b = before.get(k);
+    const a = after.get(k);
+    const title = (a ?? b).title;
+    let state;
+    if (!b) state = "new";
+    else if (!a) state = "no longer rendered";
+    else if (a.text === b.text) state = "unchanged";
+    else state = "changed";
+    if (state !== "unchanged") changedCount += 1;
+    L.push(`  ${k}. ${title} — ${state}`);
+  }
+  L.push("");
+  L.push(
+    changedCount
+      ? `${changedCount} of ${keys.length} section(s) differ from the vendored digest. Read those before relying on them.`
+      : `0 of ${keys.length} section(s) differ from the vendored digest.`,
+  );
+  L.push("");
+  L.push("This is awareness, not a consultation. Nothing above is a receipt, and a headline that");
+  L.push("becomes load-bearing for a decision still owes its boundary consult, receipted as normal.");
+  L.push("Nothing is withheld: this step reports and never gates. A stale digest, an unreachable");
+  L.push("seam, or no digest at all each leave the sitting free to proceed.");
   return L.join("\n");
 }
 
@@ -412,7 +573,119 @@ function selfTest() {
     fail("a soft read must not render as a successful read that matched nothing");
   }
 
-  console.log("shape self-test: rendering, empty-statement, soft-read, cite-carrying, word-bound and walk cases pass");
+  // THE PER-TERM DENOMINATOR, BOTH DIRECTIONS (story 1.51 AC5/AC6; §3.1). One
+  // direction alone passes while the collapse runs the other way — the fixture
+  // blind spot PR #332 round 2 was earned by, applied to the case that blind
+  // spot's own fix left open. So: a dropped term must be COUNTED AND NAMED, and
+  // a genuinely complete read must NOT be reported as if terms were dropped.
+  const droppedTerm = render({
+    consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
+    h: { rows: [], all: 5 },
+    g: {
+      rows: [{ name: "Kept", cite: "GLOSSARY.md:1@abc1234", text: "state: adopted" }],
+      dropped: ["Zarvox"], read: 2, all: 9, scoped: 2,
+    },
+    o: { rows: [] }, b: { rows: [] },
+  });
+  if (!droppedTerm.includes("Zarvox")) fail("a term whose own read could not be parsed must be NAMED, never skipped");
+  if (!/1 of 2 term\(s\) read could not be established/.test(droppedTerm)) {
+    fail("a dropped term must be counted against the terms actually read");
+  }
+  if (droppedTerm.includes("no term was dropped unread")) {
+    fail("a section that dropped a term must not claim a complete read");
+  }
+  const wholeRead = render({
+    consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
+    h: { rows: [], all: 5 },
+    g: { rows: [{ name: "Kept", cite: "GLOSSARY.md:1@abc1234", text: "state: adopted" }], dropped: [], read: 1, all: 9, scoped: 1 },
+    o: { rows: [] }, b: { rows: [] },
+  });
+  if (!wholeRead.includes("no term was dropped unread")) {
+    fail("a complete per-term read must say so — the zero is rendered, not omitted");
+  }
+  if (wholeRead.includes("could not be established")) {
+    fail("a genuinely complete read must not be reported as a dropped one");
+  }
+  // The GENUINELY-EMPTY direction at the section grain: zero in-scope terms is a
+  // finding, and must not read as a failed set of reads.
+  const emptyScope = render({
+    consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
+    h: { rows: [], all: 5 }, g: { rows: [], dropped: [], read: 0, all: 9 },
+    o: { rows: [] }, b: { rows: [] },
+  });
+  if (!/No served glossary term \(of 9 read\)/.test(emptyScope)) fail("an empty element 2 must carry its denominator");
+  if (emptyScope.includes("could not be established")) fail("an empty scope must not be reported as a dropped read");
+
+  // EVERY ZERO CARRIES ITS DENOMINATOR (AC5), across elements and not only in
+  // element 2 — the criterion says per element AND per term.
+  const zeros = render({
+    consumer: "kogaki", pin: "hub@abc1234", date: "2026-01-01",
+    h: { rows: [], all: 7 }, g: { rows: [], dropped: [], read: 0, all: 9 },
+    o: { rows: [], all: 4 }, b: { rows: [], lines: 120 },
+  });
+  if (!/\(7 lines read\)/.test(zeros)) fail("element 1's zero must carry its denominator");
+  if (!/No served line \(of 4 read\)/.test(zeros)) fail("element 3's zero must carry its denominator");
+  if (!/was read \(120 lines\)/.test(zeros)) fail("element 4's zero must say what it was counted against");
+
+  // ---- the delta step (story 1.51 AC1/AC2/AC4) ----------------------------
+  const vendoredBodyFx = render({
+    consumer: "kogaki", pin: "hub@aaaaaaa", date: "2026-01-01",
+    h: { rows: [{ cite: "LESSONS.md:1@aaaaaaa", text: "old headline" }], all: 3 },
+    g: { rows: [], dropped: [], read: 0, all: 2 }, o: { rows: [], all: 0 }, b: { rows: [] },
+  });
+  const liveBodyFx = render({
+    consumer: "kogaki", pin: "hub@bbbbbbb", date: "2026-01-02",
+    h: { rows: [{ cite: "LESSONS.md:1@bbbbbbb", text: "new headline" }], all: 3 },
+    g: { rows: [], dropped: [], read: 0, all: 2 }, o: { rows: [], all: 0 }, b: { rows: [] },
+  });
+  const moved = renderDelta({
+    consumer: "kogaki", vendoredPath: "policy/shape.md", date: "2026-01-02",
+    vendored: { found: true, pin: "hub@aaaaaaa", generated: "2026-01-01", body: vendoredBodyFx },
+    live: { pin: "hub@bbbbbbb", body: liveBodyFx },
+  });
+  if (!/HAS MOVED/.test(moved)) fail("a moved pin must be reported as moved");
+  if (!/1\. Tier-1 headlines carrying this consumer — changed/.test(moved)) fail("a changed section must be named as changed");
+  if (!/4\. Consultation-map boundaries — unchanged/.test(moved)) fail("an unchanged section must be named as unchanged");
+
+  const still = renderDelta({
+    consumer: "kogaki", vendoredPath: "policy/shape.md", date: "2026-01-02",
+    vendored: { found: true, pin: "hub@aaaaaaa", generated: "2026-01-01", body: vendoredBodyFx },
+    live: { pin: "hub@aaaaaaa", body: vendoredBodyFx },
+  });
+  if (!/has NOT moved/.test(still)) fail("an unmoved pin must be reported as unmoved");
+  if (/HAS MOVED/.test(still)) fail("an unmoved pin must not be reported as moved");
+  if (!/0 of 4 section\(s\) differ/.test(still)) fail("an unchanged digest must render its zero with a denominator");
+
+  const absent = renderDelta({
+    consumer: "kogaki", vendoredPath: "policy/shape.md", date: "2026-01-02",
+    vendored: { found: false, pin: undefined, generated: undefined, body: "" },
+    live: { pin: "hub@bbbbbbb", body: liveBodyFx },
+  });
+  if (!/No vendored digest was found/.test(absent)) fail("an absent vendored digest must be stated, never passed over");
+  if (/HAS MOVED|has NOT moved/.test(absent)) fail("an absent digest must not be reported as a comparison");
+
+  const pinless = renderDelta({
+    consumer: "kogaki", vendoredPath: "policy/shape.md", date: "2026-01-02",
+    vendored: { found: true, pin: undefined, generated: "2026-01-01", body: liveBodyFx },
+    live: { pin: "hub@bbbbbbb", body: liveBodyFx },
+  });
+  if (!/CANNOT BE ESTABLISHED/.test(pinless)) fail("a vendored digest with no pin must render as unestablished, not as unchanged");
+
+  // AC2 — the delta is an OWNER surface (§8): no pin-shaped token, in ANY state.
+  // Asserted over all four, because the state that leaks is the state nobody
+  // wrote an assertion for.
+  for (const [name, textOut] of [["moved", moved], ["unmoved", still], ["absent", absent], ["pinless", pinless]]) {
+    if (/consulted:/.test(textOut)) fail(`the ${name} delta rendered a \`consulted:\` token on an owner surface`);
+    if (/request_id:/.test(textOut)) fail(`the ${name} delta rendered a \`request_id:\` token on an owner surface`);
+    if (/@[0-9a-f]{7,}/.test(textOut)) fail(`the ${name} delta rendered a pin on an owner surface`);
+    if (!/reports and never gates/.test(textOut)) fail(`the ${name} delta does not state that it never gates`);
+  }
+  // And the converse, so the assertion above is evidence rather than decoration:
+  // the DIGEST still carries its pin and its cites. Stripping them everywhere
+  // would pass every deny above and destroy the digest.
+  if (!/@abc1234/.test(zeros)) fail("the digest itself must keep its cites — the deny is scoped to the owner surface");
+
+  console.log("shape self-test: rendering, empty-statement, soft-read, per-term denominator (both directions), delta (four states, pin-free), cite-carrying, word-bound and walk cases pass");
   process.exit(0);
 }
 
@@ -420,12 +693,16 @@ if (flag("self-test")) selfTest();
 
 const consumer = opt("consumer");
 if (!consumer) {
-  console.error("usage: shape.mjs --consumer <name> [--repo <path>] [--out <path>] [--gateway <js>] [--stdout]");
+  console.error("usage: shape.mjs --consumer <name> [--repo <path>] [--out <path>] [--gateway <js>] [--stdout] [--delta]");
   process.exit(2);
 }
 const repo = resolve(opt("repo", process.cwd()));
 const gateway = opt("gateway");
 const out = opt("out", join(repo, "policy/shape.md"));
+
+// Read the vendored digest BEFORE regenerating: the refresh overwrites it, and
+// the delta is the only thing that ever needed the old body.
+const vendoredBody = existsSync(out) ? readFileSync(out, "utf8") : null;
 
 const h = headlines(consumer, gateway);
 if (h.fatal) unavailable(h.fatal);
@@ -437,12 +714,39 @@ const b = boundaries(repo);
 
 // The date is read once, here, and passed in — render() stays pure so the
 // fixture above can assert what it produces.
+const today = new Date().toISOString().slice(0, 10);
 const text = render({
   consumer,
   pin: h.pin ?? o.pin,
-  date: new Date().toISOString().slice(0, 10),
+  date: today,
   h, g, o, b,
 });
+
+// THE DELTA STEP (§3.4). Refresh, then present the delta — in that order,
+// because the sitting is entitled to the CURRENT digest whatever the comparison
+// says. Exit 0 in every state below: the only non-zero exit on this path is the
+// ratified degrade, taken above by `unavailable()` before anything is rendered.
+if (flag("delta")) {
+  const deltaText = renderDelta({
+    consumer,
+    vendoredPath: out,
+    vendored: {
+      found: vendoredBody !== null,
+      pin: pinOf(vendoredBody),
+      generated: generatedOf(vendoredBody),
+      body: vendoredBody ?? "",
+    },
+    live: { pin: h.pin ?? o.pin, body: text },
+    date: today,
+  });
+  // The refresh half of §3.4. `--stdout` keeps its meaning — do not touch the
+  // tree — so a sitting that wants the delta without the write can have it.
+  if (!flag("stdout")) writeFileSync(out, `${text}\n`);
+  // Note what is NOT printed here: the `shape: wrote <path> at pin <pin>` line
+  // the ordinary run ends with. It carries a pin, and this is an owner surface.
+  process.stdout.write(`${deltaText}\n`);
+  process.exit(0);
+}
 
 if (flag("stdout")) {
   process.stdout.write(`${text}\n`);

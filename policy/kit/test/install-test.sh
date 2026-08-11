@@ -138,6 +138,116 @@ printf '%s\n' "$OUT" | grep -q '^Question: ' && fail "a degraded consult emitted
 printf '%s\n' "$OUT" | grep -q '^policy_source unavailable:' || fail "the degrade line is missing: $OUT"
 echo "ok: a degraded consult emits neither register"
 
+# 2k. THE DELTA STEP (kogaki#334, story 1.51 AC1/AC2/AC4/AC5/AC7; contract
+#     specs/spec-client-kit/SPEC.md §3.4). Four properties, and every one of
+#     them is asserted on EMITTED TEXT rather than on the source: what an owner
+#     reads is the artifact this criterion is about.
+#
+#     A STUB GATEWAY is stood up here, which no earlier case needed. Cases 2c/2d
+#     could establish the shape read's properties from a degrade and a pure
+#     fixture pass, because they are properties of the RENDERING. The delta's are
+#     properties of a COMPARISON against a live regeneration — a vendored pin
+#     that differs from a served one — and there is no state in which an
+#     unreachable gateway produces that. The stub speaks the same stdio JSON-RPC
+#     the transport speaks and serves fixed payloads; it is a test double for the
+#     WIRE, and it asserts nothing about the real gateway's content.
+cat > "$TMP/stub-gw.js" <<'STUB'
+const PIN = process.env.STUB_PIN || "product-lab@1111111111111111111111111111111111111111";
+const SHA = PIN.split("@")[1];
+const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+const payload = (name) => {
+  if (name === "gloss_index")
+    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `LESSONS.md:1@${SHA}`, text: "projects: kit-test — a served headline" }] });
+  if (name === "surface_names")
+    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `GLOSSARY.md:1@${SHA}`, text: "Zarvox" }] });
+  // A body the composer cannot parse — the per-term drop, on the wire. This is
+  // the case §3.1's denominator clause binds and the one `if (e.soft) continue;`
+  // used to erase.
+  if (name === "glossary_entry") return "<html>not a served body</html>";
+  if (name === "policy_lookup")
+    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `topics/x.md:1@${SHA}`, text: "kit-test owes a role-assigned obligation" }] });
+  return JSON.stringify({ pin: PIN, lines: [] });
+};
+let buf = "";
+process.stdin.on("data", (d) => {
+  buf += d;
+  let i;
+  while ((i = buf.indexOf("\n")) >= 0) {
+    const line = buf.slice(0, i); buf = buf.slice(i + 1);
+    if (!line.trim()) continue;
+    let m; try { m = JSON.parse(line); } catch { continue; }
+    if (m.method === "initialize") send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
+    else if (m.method === "tools/call") send({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: payload(m.params && m.params.name) }] } });
+    else if (m.id !== undefined) send({ jsonrpc: "2.0", id: m.id, result: {} });
+  }
+});
+STUB
+# The dropped term has to be IN SCOPE, or the composer never reads it: scoping is
+# "the consumer's own tree mentions it" (§3.2's bounding).
+printf 'Zarvox\n' >> "$TMP/repo/policy/consultation-map.md"
+# A vendored digest whose pin the stub will not match — the stale-pin state.
+{ echo '# Policy shape — kit-test'; echo; \
+  echo 'pin: product-lab@0000000000000000000000000000000000000000'; \
+  echo 'generated: 2026-01-01'; echo; \
+  echo '## 1. Tier-1 headlines carrying this consumer'; echo; echo '**None.** stale'; echo; \
+  echo '## 2. Glossary state lines for terms in scope'; echo; echo '**None.** stale'; echo; \
+  echo '## 3. Role-assigned obligations'; echo; echo '**None found.** stale'; echo; \
+  echo '## 4. Consultation-map boundaries'; echo; echo '**None declared.** stale'; } \
+  > "$TMP/repo/policy/shape.md"
+
+set +e
+OUT=$(node "$KIT_DIR/bin/shape.mjs" --delta --consumer kit-test --repo "$TMP/repo" --gateway "$TMP/stub-gw.js" 2>&1)
+CODE=$?
+set -e
+# AC4 — a stale pin REPORTS and never gates. A non-zero exit here is the
+# enhancer becoming a dependency, which §3.5 forbids in terms.
+[[ $CODE -eq 0 ]] || fail "the delta pre-step gated the sitting on a stale pin: exited $CODE, want 0. $OUT"
+# AC1 — the comparison actually happened and found the move.
+printf '%s\n' "$OUT" | grep -q 'HAS MOVED' || fail "a stale vendored pin was not reported as moved: $OUT"
+printf '%s\n' "$OUT" | grep -q 'section(s) differ' || fail "the delta reported no per-section result: $OUT"
+# AC2 — the delta renders through the OWNER-REGISTER path (§8): no receipt
+# grammar and no pin. Asserted on the live text, not only in the fixture pass,
+# because the fixture composes its own inputs and this one carries a real pin
+# through the whole composer.
+if printf '%s\n' "$OUT" | grep -q 'consulted:'; then fail "the delta emitted a receipt token on an owner surface: $OUT"; fi
+if printf '%s\n' "$OUT" | grep -q 'request_id:'; then fail "the delta emitted a request_id on an owner surface: $OUT"; fi
+if printf '%s\n' "$OUT" | grep -Eq '@[0-9a-f]{7,}'; then fail "the delta emitted a pin on an owner surface: $OUT"; fi
+# AC1 — the refresh half: the vendored digest is regenerated, not merely read.
+grep -q 'product-lab@1111111111111111111111111111111111111111' "$TMP/repo/policy/shape.md" \
+  || fail "the delta step did not refresh the vendored digest"
+# AC5 — the PER-TERM denominator, end to end. `Zarvox`'s own read came back
+# unparseable; it must be counted and NAMED, never skipped.
+grep -q 'Zarvox' "$TMP/repo/policy/shape.md" \
+  || fail "a term whose own read could not be parsed was dropped in silence (§3.1's per-term case)"
+grep -q 'could not be established' "$TMP/repo/policy/shape.md" \
+  || fail "the dropped term is not rendered as unestablished"
+echo "ok: delta step — reports a stale pin without gating, pin-free on the owner surface, refreshes the digest, names the dropped term"
+
+# AC4 — NO VENDORED DIGEST AT ALL is the third state, and it must not gate
+# either. Distinct from the stale case: there is nothing to compare, which is a
+# different sentence from "nothing changed".
+rm -f "$TMP/repo/policy/shape.md"
+set +e
+OUT=$(node "$KIT_DIR/bin/shape.mjs" --delta --consumer kit-test --repo "$TMP/repo" --gateway "$TMP/stub-gw.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "the delta pre-step gated the sitting with no vendored digest: exited $CODE, want 0. $OUT"
+printf '%s\n' "$OUT" | grep -q 'No vendored digest was found' || fail "an absent vendored digest was not stated: $OUT"
+if printf '%s\n' "$OUT" | grep -Eq '@[0-9a-f]{7,}'; then fail "the absent-digest delta emitted a pin: $OUT"; fi
+echo "ok: delta step — an absent vendored digest is stated, and does not gate"
+
+# AC7 — and the delta owes the SAME one-line exit-11 degrade every other kit
+# tool owes. The host reads 11 as non-gating; what the tool owes is that the
+# failure is legible in one line rather than a stack trace.
+set +e
+OUT=$(node "$KIT_DIR/bin/shape.mjs" --delta --consumer kit-test --repo "$TMP/repo" --gateway /nonexistent/gw.js 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "the degraded delta step exited $CODE, want 11"
+[[ $(printf '%s\n' "$OUT" | grep -c .) -eq 1 ]] || fail "the degraded delta step printed more than one line: $OUT"
+printf '%s\n' "$OUT" | grep -q '^policy_source unavailable:' || fail "the delta step's degrade line is missing: $OUT"
+echo "ok: delta step degrades in one line with exit 11"
+
 # 3. Unreachable-gateway degrade: exactly one line, exit 11.
 set +e
 OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --gateway /nonexistent/gw.js \
