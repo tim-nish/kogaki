@@ -8,40 +8,58 @@
       "id": "lesson:bravo",
       "slug": "bravo",
       "family": "lesson",
-      "tags": ["testing", "architecture"],
-      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6"
+      "tags": [
+        "testing",
+        "architecture"
+      ],
+      "cite": "gloss/ELEMENTS.jsonl:2@16a6dbf6",
+      "display_id": "L1"
     },
     {
       "id": "lesson:alpha",
       "slug": "alpha",
       "family": "lesson",
-      "tags": ["testing", "architecture"],
+      "tags": [
+        "testing",
+        "architecture"
+      ],
       "cite": "gloss/ELEMENTS.jsonl:1@16a6dbf6",
       "journey": {
         "slug": "alpha",
         "cite": "gloss/ELEMENTS.jsonl:5@16a6dbf6"
-      }
+      },
+      "display_id": "L2"
     },
     {
       "id": "lesson:charlie",
       "slug": "charlie",
       "family": "lesson",
-      "tags": ["testing", "cost"],
-      "cite": "gloss/ELEMENTS.jsonl:3@16a6dbf6"
+      "tags": [
+        "testing",
+        "cost"
+      ],
+      "cite": "gloss/ELEMENTS.jsonl:3@16a6dbf6",
+      "display_id": "L3"
     },
     {
       "id": "lesson:delta",
       "slug": "delta",
       "family": "lesson",
-      "tags": ["testing"],
-      "cite": "gloss/ELEMENTS.jsonl:4@16a6dbf6"
+      "tags": [
+        "testing"
+      ],
+      "cite": "gloss/ELEMENTS.jsonl:4@16a6dbf6",
+      "display_id": "L4"
     },
     {
       "id": "lesson:echo",
       "slug": "echo",
       "family": "lesson",
-      "tags": ["cost"],
-      "cite": "gloss/ELEMENTS.jsonl:6@16a6dbf6"
+      "tags": [
+        "cost"
+      ],
+      "cite": "gloss/ELEMENTS.jsonl:6@16a6dbf6",
+      "display_id": "L5"
     }
   ],
   "journeys": [
@@ -53,18 +71,38 @@
   "sections": [
     {
       "name": "testing",
-      "members": ["lesson:alpha", "lesson:bravo", "lesson:charlie", "lesson:delta"],
-      "by_family": { "lesson": 4, "journey": 1 }
+      "members": [
+        "lesson:alpha",
+        "lesson:bravo",
+        "lesson:charlie",
+        "lesson:delta"
+      ],
+      "by_family": {
+        "lesson": 4,
+        "journey": 1
+      }
     },
     {
       "name": "architecture",
-      "members": ["lesson:alpha", "lesson:bravo"],
-      "by_family": { "lesson": 2, "journey": 1 }
+      "members": [
+        "lesson:alpha",
+        "lesson:bravo"
+      ],
+      "by_family": {
+        "lesson": 2,
+        "journey": 1
+      }
     },
     {
       "name": "cost",
-      "members": ["lesson:charlie", "lesson:echo"],
-      "by_family": { "lesson": 2, "journey": 0 }
+      "members": [
+        "lesson:charlie",
+        "lesson:echo"
+      ],
+      "by_family": {
+        "lesson": 2,
+        "journey": 0
+      }
     }
   ],
   "no_relation_section": "(no served tag)",
@@ -73,7 +111,10 @@
     "of": 5,
     "counted_over": "placements",
     "family": "lesson",
-    "by_family": { "lesson": 5, "journey": 1 },
+    "by_family": {
+      "lesson": 5,
+      "journey": 1
+    },
     "thin_lessons": 4
   }
 }

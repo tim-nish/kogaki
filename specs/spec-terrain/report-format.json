@@ -1,22 +1,20 @@
 {
   "note": "SPEC-terrain §14.1 — the single carrier of the RENDERED FORM of kogaki's owner surfaces. Where SPEC.md's prose and this artifact disagree about the rendered form, THIS ARTIFACT WINS (§14.1), from the moment it exists and not before. It governs the rendered form and nothing else: not which members are placed, not what a claim says, not whether a figure is honest, not §2.1's family-naming duty. Those remain SPEC.md's prose.",
-  "version": 1,
-  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318",
+  "version": 2,
+  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover",
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
-
   "encoding_choice": {
     "chosen": "a line-class grammar expressed in JSON",
     "why": "Every rule §14.2 makes decidable is a statement about a LINE — its class, its token shapes, and whether its class is admitted on the surface at all. A JSON Schema describes a data structure; the artifact these emitters produce is text, and the thing being constrained is the text. Expressing line classes directly means an emitter validates what it is about to print rather than a model of it, which is the distinction §14.2's own AC3 rests on.",
     "declined": "JSON Schema — checkable by tooling already present in this repository (checks/check-terrain-composition.sh validates survey records against survey-schema.json), but it would require modelling rendered Markdown and terminal text as a document tree first, and that model would itself be an unchecked restatement of the format.",
     "recorded_here_because": "SPEC.md §14.1 names this file and its duties and deliberately does not decide the encoding (story 1.52 SQ1). A choice made in implementation and left unwritten is one the next editor re-derives."
   },
-
   "tokens": {
     "LessonDisplayID": {
       "shape": "^L[0-9]+$",
       "means": "a member's owner-facing display id, assigned once in the survey record (§14.3)",
-      "pending_producer": "story 1.53",
-      "pending_producer_note": "The emitters render `lesson:<slug>` at v14 (terrain/terrain.mjs:471, :719, :842, :993, :1177, memberBlock :1731). This grammar is therefore STRICTER THAN THE CODE until story 1.53 lands, and story 1.54's emit-time refusal must not be enabled against this token before then. Declared here rather than discovered at 1.54's first run."
+      "producer": "terrain/terrain.mjs cmdSurvey — minted ONCE per candidate in the survey record (§14.3), resolved at render time by displayIdOf(); story 1.53, kogaki#345",
+      "absence_is_abnormal": "A member whose survey record predates §14.3 carries no display_id. The surfaces render NO_DISPLAY_ID and state the abnormality; they NEVER substitute the slug, because the slug is what §14.3 removes and a silent fallback would undo the decision while looking like robustness. So an owner surface may carry the NO_DISPLAY_ID token in a LessonDisplayID position, and a refusal built to admit only ^L[0-9]+$ there would reject exactly the legacy record the abnormality exists to make visible."
     },
     "GroupID": {
       "shape": "NOT YET MINTED — see not_expressible.group_subgroup_id_grammar",
@@ -34,7 +32,7 @@
     "Cite": {
       "shape": "a served-surface citation string, rendered inside backticks",
       "means": "provenance — the address a served rendering was quoted at",
-      "status_under_14_3": "UNDECIDED HERE, deliberately. A first draft of this artifact asserted that a cite is not an element name and so falls outside §14.3's no-names duty. That was a narrowing of a ratified owner duty (§14.3, kogaki#318 — the duty binds all six surfaces) made in a file that wins on divergence, with no §14.3 warrant and no record on the licensing issue. Withdrawn. This artifact takes no position: whether a served cite string may render on an owner surface is kogaki#345's question (story 1.53 SQ2 already carries it, over memberBlock's `*Served line:*` row at terrain/terrain.mjs:1736), and it is answered there or on kogaki#318, never here."
+      "status_under_14_3": "ANSWERED 2026-08-11 on kogaki#345 (story 1.53 SQ2), by the owner, where the prior draft correctly said it would be. THE RULING: a cite is an ADDRESS rather than an element name, so §14.3 does not remove it — but the PER-MEMBER `*Served line:*` row is removed, because kogaki#318's objection was to the two name-shaped rows on a member block. The map is not lost: it MOVES to the report's end as the served_lines_table, which is the siting §12 line 805 and the WA baseline (wa#1115/#1116) already named. §14.3 takes the NAME off the owner surface; §12 keeps the ADDRESS the report is accountable to."
     },
     "SubstratePin": {
       "shape": "a substrate pin string, rendered inside backticks",
@@ -45,14 +43,12 @@
       "means": "model_id/effort_tier, or the typed literal `none` (§12.1 uniform arity)"
     }
   },
-
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (terrain/terrain.mjs:45-48) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
     "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
     "stated_by_mechanism_not_enumeration": "The boundary names the FUNCTION, not a list of messages. A list goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against.",
     "reopen_trigger": "the first owner-facing refusal text written to stdout, or into the report file, rather than raised through fail() — that one is on a surface and owes a line class"
   },
-
   "surfaces": {
     "cotag_screen": {
       "emitter": "terrain/terrain.mjs:574 cmdCotags",
@@ -60,24 +56,99 @@
       "governing_prose": "specs/spec-terrain/SPEC.md §6.1, §6.2",
       "non_member_fallback": "REFUSE — a line whose class is not in line_classes is not rendered and the emitter refuses to print (§14.2). The fallback is refuse and never admit, because an enumerated prohibition's non-member fallback is admit and that is the shape §9 chose against.",
       "line_classes": [
-        { "id": "header", "form": "<tag> — the second navigation step. Grouped by co-tag; sort: <COTAG_SORT>." },
-        { "id": "group_heading_subdivided", "form": "  <GroupID> — <LessonCount>", "allowlist": ["GroupID", "LessonCount"] },
-        { "id": "group_heading_flat", "form": "  <GroupID> — <LessonCount>: <LessonDisplayID list, \", \"-joined>", "allowlist": ["GroupID", "LessonCount", "LessonDisplayID list"] },
-        { "id": "group_claim", "form": "      in common: <claim text | NO_CLAIM>" },
-        { "id": "group_claim_pinning", "form": "      pinned to <n> member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)" },
-        { "id": "group_prose", "form": "      <composer prose>" },
-        { "id": "subgroup_heading", "form": "\\n      <SubGroupID> (<LessonCount>: <LessonDisplayID list>)", "allowlist": ["SubGroupID", "LessonCount", "LessonDisplayID list"] },
-        { "id": "subgroup_claim", "form": "          in common: <claim text | NO_CLAIM>" },
-        { "id": "subgroup_leaf_reason", "form": "          <leaf reason>" },
-        { "id": "subgroup_disclosure", "form": "          DISCLOSURE — <text>" },
-        { "id": "judge_pin", "form": "      judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)" },
-        { "id": "abnormal_claimless", "form": "ABNORMAL: <n> of <m> group(s) on this screen carry no composed GroupClaim. …" },
-        { "id": "compose_remedy", "form": "Compose them from the bounded input — compose-input --survey <F> --tag <T> — …" },
-        { "id": "cover", "form": "Cover: <n> of <m> member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: <strandFigure>; <denominator>." },
-        { "id": "classification", "form": "Classification: NAVIGATION (SPEC.md §2.3 — …)" },
-        { "id": "narrows_nothing", "form": "Narrows nothing: …" },
-        { "id": "select_hint", "form": "Select a group (still narrowing nothing): cotags --survey <F> --tag <T> --group \"<co-tag>\"" },
-        { "id": "blank", "form": "", "note": "The emitters separate blocks with empty lines — a trailing \\n on the header (:661), the post-judge-pin blank (:725), and the \\n-prefixed subgroup and cover lines. A grammar that admitted no blank line would, under REFUSE, reject every screen the emitter produces." }
+        {
+          "id": "header",
+          "form": "<tag> — the second navigation step. Grouped by co-tag; sort: <COTAG_SORT>."
+        },
+        {
+          "id": "group_heading_subdivided",
+          "form": "  <GroupID> — <LessonCount>",
+          "allowlist": [
+            "GroupID",
+            "LessonCount"
+          ]
+        },
+        {
+          "id": "group_heading_flat",
+          "form": "  <GroupID> — <LessonCount>: <LessonDisplayID list, \", \"-joined>",
+          "allowlist": [
+            "GroupID",
+            "LessonCount",
+            "LessonDisplayID list"
+          ]
+        },
+        {
+          "id": "group_claim",
+          "form": "      in common: <claim text | NO_CLAIM>"
+        },
+        {
+          "id": "group_claim_pinning",
+          "form": "      pinned to <n> member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)"
+        },
+        {
+          "id": "group_prose",
+          "form": "      <composer prose>"
+        },
+        {
+          "id": "subgroup_heading",
+          "form": "\\n      <SubGroupID> (<LessonCount>: <LessonDisplayID list>)",
+          "allowlist": [
+            "SubGroupID",
+            "LessonCount",
+            "LessonDisplayID list"
+          ]
+        },
+        {
+          "id": "subgroup_claim",
+          "form": "          in common: <claim text | NO_CLAIM>"
+        },
+        {
+          "id": "subgroup_leaf_reason",
+          "form": "          <leaf reason>"
+        },
+        {
+          "id": "subgroup_disclosure",
+          "form": "          DISCLOSURE — <text>"
+        },
+        {
+          "id": "judge_pin",
+          "form": "      judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)"
+        },
+        {
+          "id": "abnormal_claimless",
+          "form": "ABNORMAL: <n> of <m> group(s) on this screen carry no composed GroupClaim. …"
+        },
+        {
+          "id": "abnormal_display_id",
+          "form": "ABNORMAL: <n> of <m> member(s) on this surface carry no display_id. … Re-run `terrain survey` to regenerate the record (§12.2 v11).",
+          "at": "terrain/terrain.mjs displayIdAbnormalLine",
+          "note": "Emitted at whatever indent its surface uses, so the class is matched on the ABNORMAL: prefix and its text rather than on leading whitespace. Declared because §14.3's absence case reaches the owner surface: a refusal that admitted only ^L[0-9]+$ in a LessonDisplayID position would reject exactly the legacy record this line exists to make visible."
+        },
+        {
+          "id": "compose_remedy",
+          "form": "Compose them from the bounded input — compose-input --survey <F> --tag <T> — …"
+        },
+        {
+          "id": "cover",
+          "form": "Cover: <n> of <m> member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: <strandFigure>; <denominator>."
+        },
+        {
+          "id": "classification",
+          "form": "Classification: NAVIGATION (SPEC.md §2.3 — …)"
+        },
+        {
+          "id": "narrows_nothing",
+          "form": "Narrows nothing: …"
+        },
+        {
+          "id": "select_hint",
+          "form": "Select a group (still narrowing nothing): cotags --survey <F> --tag <T> --group \"<co-tag>\""
+        },
+        {
+          "id": "blank",
+          "form": "",
+          "note": "The emitters separate blocks with empty lines — a trailing \\n on the header (:661), the post-judge-pin blank (:725), and the \\n-prefixed subgroup and cover lines. A grammar that admitted no blank line would, under REFUSE, reject every screen the emitter produces."
+        }
       ],
       "stream": "stdout",
       "not_on_this_surface": {
@@ -88,42 +159,176 @@
         "reopen_trigger": "the first owner-facing refusal text written to STDOUT rather than raised through fail(), which would put it on this surface and owe it a line class"
       }
     },
-
     "full_report": {
       "emitter": "terrain/terrain.mjs:1652 renderReportMarkdown, written by cmdReport (:1788)",
       "medium": "Markdown, the owner rendering of §12.2 v11",
       "stream": "a written file under reports/ in the working tree (§12.2 v11), never stdout",
-      "not_on_this_surface": { "see": "refusal_text_boundary", "class": "every text raised through fail() (terrain/terrain.mjs:45-48)", "why": "fail() writes to stderr and exits; this surface is a file. The boundary is stated on both surfaces rather than on one, so a story-1.54 predicate reading them uniformly finds it declared in both places instead of declared once and silent once." },
+      "not_on_this_surface": {
+        "see": "refusal_text_boundary",
+        "class": "every text raised through fail() (terrain/terrain.mjs:45-48)",
+        "why": "fail() writes to stderr and exits; this surface is a file. The boundary is stated on both surfaces rather than on one, so a story-1.54 predicate reading them uniformly finds it declared in both places instead of declared once and silent once."
+      },
       "governing_prose": "specs/spec-terrain/SPEC.md §12, §12.1, §12.2 (v11)",
       "non_member_fallback": "REFUSE",
       "line_classes": [
-        { "id": "title", "form": "# Full Report — <GroupID>" },
-        { "id": "selected_tag", "form": "*Selected tag:* `<tag>`" },
-        { "id": "substrate_pin", "form": "*Substrate pin:* `<SubstratePin>`", "occurrences_per_file": 1 },
-        { "id": "judge", "form": "*Judge:* <JudgePin>" },
-        { "id": "preamble", "form": "a four-line blockquote", "lines": ["> Untruncated. This report ranks nothing, narrows nothing and hides", "> nothing (SPEC-terrain §2.3, §12). It is a RENDERING, not an address:", "> article material is quoted from served renderings at pins, never", "> from a report."], "at": "terrain/terrain.mjs:1662-1665", "note": "Declared as its four rendered lines. The earlier form — prose with an ellipsis and a parenthetical — matched none of them, so under REFUSE and §14.1's precedence a literal read rejected every Full Report. That is the same defect judged_empty_notice carried, one entry up, and it survived the fix that named it because that fix cited THIS entry as its precedent." },
-        { "id": "h2_group_claim", "form": "## Group claim" },
-        { "id": "group_claim_body", "form": "<claim text | *(none composed)*>" },
-        { "id": "h2_subgroups", "form": "## SubGroups" },
-        { "id": "judged_empty_notice", "form": "a two-line wrapped italic notice", "lines": ["*The judgment produced NO split — this is a judged-empty outcome,", "not an absent judgment. Members are listed below.*"], "at": "terrain/terrain.mjs:1687-1688", "note": "Declared as the TWO lines the emitter pushes. A first draft declared it as one joined line, which no rendered line matches — so under REFUSE and §14.1's precedence a literal read rejected every judged-empty report, which is exactly the report §12.1 v9 exists to keep distinguishable from an unjudged one." },
-        { "id": "h3_subgroup", "form": "### <SubGroupID>" },
-        { "id": "subgroup_claim_body", "form": "<claim text | *(no SubGroupClaim)*>" },
-        { "id": "h2_members", "form": "## Members" },
-        { "id": "member_heading", "form": "`<LessonDisplayID>` as a Markdown heading", "allowlist": ["LessonDisplayID"], "levels": [{ "level": 4, "when": "under ### <SubGroupID>", "at": "terrain/terrain.mjs:1679" }, { "level": 3, "when": "under ## Members", "at": "terrain/terrain.mjs:1694" }, { "level": 3, "when": "under ## SubGroups on the JUDGED-EMPTY path, where no ## Members heading is emitted at all", "at": "terrain/terrain.mjs:1682-1691" }], "levels_note": "Three cases, not two. The judged-empty path is the one an enumeration drops, and §12.1 v9 exists precisely to keep a judged-empty outcome distinguishable from an unjudged one — a refusal built from a two-case reading would reject exactly that report." },
-        { "id": "member_served_line", "form": "*Served line:* `<Cite>` | *Served line:* **NOT RECORDED** — …" },
-        { "id": "member_gloss_cite", "form": "**Lesson Gloss** — `<Cite>` | **Lesson Gloss** — *no served cite recorded*" },
-        { "id": "member_gloss_body", "form": "<served Gloss prose, untruncated>" },
-        { "id": "member_journey_absent", "form": "**Journey Gloss** — *this member carries no Journey.*" },
-        { "id": "member_journey_cite", "form": "**Journey Gloss** — `<Cite>` | **Journey Gloss** — *no served cite recorded*" },
-        { "id": "member_journey_body", "form": "<served Journey Gloss prose, untruncated>" },
-        { "id": "h2_counted", "form": "## Counted" },
-        { "id": "counted_family", "form": "- <family>: <n>" },
-        { "id": "counted_served", "form": "- lessons served: <n>" },
-        { "id": "blank", "form": "", "note": "renderReportMarkdown interleaves L.push(\"\") between every block (terrain/terrain.mjs:1652-1702). Admitted for the same reason as the screen's: under REFUSE, a grammar with no blank-line class rejects every report the emitter writes." }
+        {
+          "id": "title",
+          "form": "# Full Report — <GroupID>"
+        },
+        {
+          "id": "selected_tag",
+          "form": "*Selected tag:* `<tag>`"
+        },
+        {
+          "id": "substrate_pin",
+          "form": "*Substrate pin:* `<SubstratePin>`",
+          "occurrences_per_file": 1
+        },
+        {
+          "id": "judge",
+          "form": "*Judge:* <JudgePin>"
+        },
+        {
+          "id": "preamble",
+          "form": "a four-line blockquote",
+          "lines": [
+            "> Untruncated. This report ranks nothing, narrows nothing and hides",
+            "> nothing (SPEC-terrain §2.3, §12). It is a RENDERING, not an address:",
+            "> article material is quoted from served renderings at pins, never",
+            "> from a report."
+          ],
+          "at": "terrain/terrain.mjs:1662-1665",
+          "note": "Declared as its four rendered lines. The earlier form — prose with an ellipsis and a parenthetical — matched none of them, so under REFUSE and §14.1's precedence a literal read rejected every Full Report. That is the same defect judged_empty_notice carried, one entry up, and it survived the fix that named it because that fix cited THIS entry as its precedent."
+        },
+        {
+          "id": "h2_group_claim",
+          "form": "## Group claim"
+        },
+        {
+          "id": "group_claim_body",
+          "form": "<claim text | *(none composed)*>"
+        },
+        {
+          "id": "h2_subgroups",
+          "form": "## SubGroups"
+        },
+        {
+          "id": "judged_empty_notice",
+          "form": "a two-line wrapped italic notice",
+          "lines": [
+            "*The judgment produced NO split — this is a judged-empty outcome,",
+            "not an absent judgment. Members are listed below.*"
+          ],
+          "at": "terrain/terrain.mjs:1687-1688",
+          "note": "Declared as the TWO lines the emitter pushes. A first draft declared it as one joined line, which no rendered line matches — so under REFUSE and §14.1's precedence a literal read rejected every judged-empty report, which is exactly the report §12.1 v9 exists to keep distinguishable from an unjudged one."
+        },
+        {
+          "id": "h3_subgroup",
+          "form": "### <SubGroupID>"
+        },
+        {
+          "id": "subgroup_claim_body",
+          "form": "<claim text | *(no SubGroupClaim)*>"
+        },
+        {
+          "id": "h2_members",
+          "form": "## Members"
+        },
+        {
+          "id": "member_heading",
+          "form": "<LessonDisplayID> as a Markdown heading",
+          "allowlist": [
+            "LessonDisplayID"
+          ],
+          "levels": [
+            {
+              "level": 4,
+              "when": "under ### <SubGroupID>",
+              "at": "terrain/terrain.mjs:1679"
+            },
+            {
+              "level": 3,
+              "when": "under ## Members",
+              "at": "terrain/terrain.mjs:1694"
+            },
+            {
+              "level": 3,
+              "when": "under ## SubGroups on the JUDGED-EMPTY path, where no ## Members heading is emitted at all",
+              "at": "terrain/terrain.mjs:1682-1691"
+            }
+          ],
+          "levels_note": "Three cases, not two. The judged-empty path is the one an enumeration drops, and §12.1 v9 exists precisely to keep a judged-empty outcome distinguishable from an unjudged one — a refusal built from a two-case reading would reject exactly that report.",
+          "form_note": "The backticks are GONE (story 1.53, AC5): the heading is the plain display id. `L1` in code font read as a machine token where the whole point of §14.3 is that it is the owner's name for the member."
+        },
+        {
+          "id": "member_gloss_cite",
+          "form": "**Lesson Gloss** — `<Cite>` | **Lesson Gloss** — *no served cite recorded*"
+        },
+        {
+          "id": "member_gloss_body",
+          "form": "<served Gloss prose, untruncated>"
+        },
+        {
+          "id": "member_journey_absent",
+          "form": "**Journey Gloss** — *this member carries no Journey.*"
+        },
+        {
+          "id": "member_journey_cite",
+          "form": "**Journey Gloss** — `<Cite>` | **Journey Gloss** — *no served cite recorded*"
+        },
+        {
+          "id": "member_journey_body",
+          "form": "<served Journey Gloss prose, untruncated>"
+        },
+        {
+          "id": "h2_counted",
+          "form": "## Counted"
+        },
+        {
+          "id": "counted_family",
+          "form": "- <family>: <n>"
+        },
+        {
+          "id": "counted_served",
+          "form": "- lessons served: <n>"
+        },
+        {
+          "id": "h2_served_lines",
+          "form": "## Served lines",
+          "at": "terrain/terrain.mjs servedLinesBlock",
+          "note": "§12 (line 805, line 2366) requires the report to carry the member → served-line map, and the WA baseline sites it AT THE REPORT'S END. Until story 1.53 the renderer satisfied §12 with a per-member `*Served line:*` row instead; kogaki#318 called that the second name-shaped row and the owner removed it. The duty did not go away with the row — it moved here."
+        },
+        {
+          "id": "served_lines_table_header",
+          "form": "a two-line Markdown table header",
+          "lines": [
+            "| Member | Served line |",
+            "|---|---|"
+          ],
+          "note": "Declared as its two rendered lines rather than as prose, per the defect preamble and judged_empty_notice both carried: a class declared as a description matches no rendered line, and under REFUSE that rejects every conformant file."
+        },
+        {
+          "id": "served_lines_row",
+          "form": "| <LessonDisplayID> | `<Cite>` |",
+          "allowlist": [
+            "LessonDisplayID",
+            "Cite"
+          ],
+          "note": "A member with no display_id or no cite is NAMED here with its abnormal token rather than omitted — a map that silently skips its unmappable rows is the shape §2.1 forbids."
+        },
+        {
+          "id": "served_lines_empty",
+          "form": "*No members in this report — the map is empty, stated rather than omitted.*",
+          "note": "The empty case renders. An omitted section and an empty one are the same silence to a reader and different ones to a grep."
+        },
+        {
+          "id": "blank",
+          "form": "",
+          "note": "renderReportMarkdown interleaves L.push(\"\") between every block (terrain/terrain.mjs:1652-1702). Admitted for the same reason as the screen's: under REFUSE, a grammar with no blank-line class rejects every report the emitter writes."
+        }
       ]
     }
   },
-
   "uncovered_surfaces": {
     "note": "SPEC-terrain §14.1 defines an OWNER SURFACE as any text this runtime prints or writes for the owner to read, and enumerates six. This grammar covers two. The four below carry §14.3's duty — no element name on an owner surface — with NO MECHANICAL CARRIER. Named here so a reader can tell 'not covered' from 'not thought about' (story 1.52 AC1b).",
     "reopen_trigger": "the first format defect observed on any of the four, or the first grammar edit that could have covered one and did not (§14.1)",
@@ -135,27 +340,87 @@
         "declared_allowlist_not_enforced_here": {
           "line_class": "tag row",
           "producer": "terrain/terrain.mjs:407 tagRow()",
-          "permits": ["the tag name", "the tag's Lesson count"],
+          "permits": [
+            "the tag name",
+            "the tag's Lesson count"
+          ],
           "and_nothing_else": true,
           "source": "specs/spec-terrain/SPEC.md §9 (v5, kogaki#147), transcribed verbatim in meaning and not reinterpreted",
           "note": "§9's allowlist is the one already stated in prose, and it governs SCREEN 1's tag rows — which cmdView renders, not cmdCotags. It is recorded against its true surface rather than moved to a covered one; see reader_notes.ac2_surface_mismatch."
         }
       },
-      { "surface": "cmdClaim", "at": "terrain/terrain.mjs:819", "renders": "the composed claim and its member pins (:842)" },
-      { "surface": "cmdAdopt", "at": "terrain/terrain.mjs:943", "renders": "the adopted claim and its member list (:993)" },
-      { "surface": "cmdSubdivide", "at": "terrain/terrain.mjs:1099", "renders": "the subdivision specimen, including per-SubGroup member ids (:1177)" }
+      {
+        "surface": "cmdClaim",
+        "at": "terrain/terrain.mjs:819",
+        "renders": "the composed claim and its member pins (:842)"
+      },
+      {
+        "surface": "cmdAdopt",
+        "at": "terrain/terrain.mjs:943",
+        "renders": "the adopted claim and its member list (:993)"
+      },
+      {
+        "surface": "cmdSubdivide",
+        "at": "terrain/terrain.mjs:1099",
+        "renders": "the subdivision specimen, including per-SubGroup member ids (:1177)"
+      }
     ]
   },
-
   "decidable_rules": {
     "note": "SPEC-terrain §14.2's enumeration. Each is decidable on the rendered text alone, which is what makes the emit-time refusal possible. A rule that is not mechanically decidable does not enter this artifact and stays prose.",
     "expressible": [
-      { "id": "pin_once_per_file", "rule": "occurrences of line class `substrate_pin` == 1", "surfaces": ["full_report"] },
-      { "id": "no_element_names", "rule": "zero `lesson:` tokens and zero element names on an owner surface", "transcribed_from": "specs/spec-terrain/SPEC.md §14.2, verbatim", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53", "open_question": "Whether a served CITE string counts as an element name under this rule is not decided here and is not narrowed here. It is kogaki#345's question (story 1.53 SQ2, over memberBlock's `*Served line:*` row at terrain/terrain.mjs:1736) or kogaki#318's.", "narrowing_withdrawn": "Two drafts narrowed this rule — first by asserting in tokens.Cite that a cite is not an element name, then by re-scoping the rule itself to MEMBER-NAMING positions. The second was the first relocated, not removed: either way this artifact decided the reach of a ratified owner duty (§14.3, kogaki#318) in the file §14.1 makes authoritative over the very text it transcribes, with no §14.2 or §14.3 amendment and no record on the licensing issue. The rule is now §14.2's own wording and the residue is a named open question. Story 1.54 implements the wide rule and raises the cite case rather than resolving it." },
-      { "id": "member_lists_carry_display_ids", "rule": "every token in a member-list position matches tokens.LessonDisplayID", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53" },
-      { "id": "subgroup_members_sum_to_parent", "rule": "sum of LessonCount over a group's `subgroup_heading` lines == the LessonCount on its `group_heading_subdivided` line", "surfaces": ["cotag_screen"] },
-      { "id": "catch_all_share", "rule": "the Lesson count of the group named \"(no second served tag)\" divided by the Cover line's member denominator <= 0.30", "surfaces": ["cotag_screen"], "catch_all_group_name": "(no second served tag)", "producer_of_the_name": "terrain/terrain.mjs:504 NO_SECOND_TAG" },
-      { "id": "line_class_allowlist", "rule": "a line whose class is not in the surface's line_classes ⇒ REFUSE", "surfaces": ["cotag_screen", "full_report"] }
+      {
+        "id": "pin_once_per_file",
+        "rule": "occurrences of line class `substrate_pin` == 1",
+        "surfaces": [
+          "full_report"
+        ]
+      },
+      {
+        "id": "no_element_names",
+        "rule": "zero `lesson:` tokens and zero element names on an owner surface",
+        "transcribed_from": "specs/spec-terrain/SPEC.md §14.2, verbatim",
+        "surfaces": [
+          "cotag_screen",
+          "full_report"
+        ],
+        "pending_producer": "story 1.53",
+        "open_question": "Whether a served CITE string counts as an element name under this rule is not decided here and is not narrowed here. It is kogaki#345's question (story 1.53 SQ2, over memberBlock's `*Served line:*` row at terrain/terrain.mjs:1736) or kogaki#318's.",
+        "narrowing_withdrawn": "Two drafts narrowed this rule — first by asserting in tokens.Cite that a cite is not an element name, then by re-scoping the rule itself to MEMBER-NAMING positions. The second was the first relocated, not removed: either way this artifact decided the reach of a ratified owner duty (§14.3, kogaki#318) in the file §14.1 makes authoritative over the very text it transcribes, with no §14.2 or §14.3 amendment and no record on the licensing issue. The rule is now §14.2's own wording and the residue is a named open question. Story 1.54 implements the wide rule and raises the cite case rather than resolving it."
+      },
+      {
+        "id": "member_lists_carry_display_ids",
+        "rule": "every token in a member-list position matches tokens.LessonDisplayID",
+        "surfaces": [
+          "cotag_screen",
+          "full_report"
+        ],
+        "pending_producer": "story 1.53"
+      },
+      {
+        "id": "subgroup_members_sum_to_parent",
+        "rule": "sum of LessonCount over a group's `subgroup_heading` lines == the LessonCount on its `group_heading_subdivided` line",
+        "surfaces": [
+          "cotag_screen"
+        ]
+      },
+      {
+        "id": "catch_all_share",
+        "rule": "the Lesson count of the group named \"(no second served tag)\" divided by the Cover line's member denominator <= 0.30",
+        "surfaces": [
+          "cotag_screen"
+        ],
+        "catch_all_group_name": "(no second served tag)",
+        "producer_of_the_name": "terrain/terrain.mjs:504 NO_SECOND_TAG"
+      },
+      {
+        "id": "line_class_allowlist",
+        "rule": "a line whose class is not in the surface's line_classes ⇒ REFUSE",
+        "surfaces": [
+          "cotag_screen",
+          "full_report"
+        ]
+      }
     ],
     "not_expressible": [
       {
@@ -167,7 +432,6 @@
       }
     ]
   },
-
   "reader_notes": {
     "ac2_surface_mismatch": "Story 1.52 AC2 asks that `the grammar's cotag_screen tag-row entry` match SPEC.md §9's allowlist. The co-tag screen renders NO tag rows: §9's allowlist governs SCREEN 1's tag rows, produced by tagRow() at terrain/terrain.mjs:407 and printed by the survey/view path — which §14.1 lists as `cmdView`, an UNCOVERED surface. The allowlist is therefore transcribed against cmdView above, where it actually binds, rather than attached to a surface that has no such line class. Transcribing it onto `cotag_screen` would have satisfied the AC's letter by reinterpreting the rule, which is the one thing AC2 forbids. Reported on kogaki#344.",
     "completeness_of_the_line_classes": "The classes were read off the emitters, and three reviews have found the same defect class three times: a declared form that no rendered line matches, which under REFUSE and §14.1's precedence rejects every artifact the emitter produces. Round 1 of kogaki#349 found no blank-line class; round 2 found judged_empty_notice declared as one line where two are pushed, and found the two COTAG_COVER classes describing stderr text this surface never sees; round 1 of kogaki#350 found preamble carrying the same one-line-for-four defect — in the entry the previous fix had cited as its own precedent. `blank` is a class on both surfaces; the refusal classes are removed and replaced by refusal_text_boundary; preamble and judged_empty_notice now declare their literal lines. The general hazard stands and is stated rather than claimed away: this enumeration is only as complete as the read that produced it, and a class discovered missing is found by story 1.54's refusal rejecting a valid render. Story 1.55's golden fixture is what converts that from a live-run discovery into a CI one.",

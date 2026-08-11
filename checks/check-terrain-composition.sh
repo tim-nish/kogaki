@@ -149,7 +149,13 @@ for (const want of [NO_SECOND_TAG, `Cover: ${members.length} of ${members.length
 //    Each assertion below is written against the DEFECT it discriminates, not
 //    against the feature: the v2 screen emitted member ids only under --group,
 //    composed no claim at all, and had no way to say a claim was missing.
-const idsWithoutGroup = members.every((m) => String(run.stdout).includes(m.id));
+// §14.3 (story 1.53) — the screen names members by display_id, never by
+// `lesson:<slug>`. The defect this discriminates is unchanged (v2 emitted no
+// member ids at all without --group); only the token it looks for moved.
+const idsWithoutGroup = members.every((m) => String(run.stdout).includes(m.display_id));
+if (/lesson:[a-z]/.test(String(run.stdout))) {
+  fails.push("an element name (`lesson:<slug>`) reached the co-tag screen — SPEC.md §14.3: no owner surface renders an element name, the rendered token is the display_id");
+}
 if (!idsWithoutGroup) {
   fails.push("member Lesson IDs do not all appear WITHOUT --group — this is kogaki#128's specific defect, and a screen with no visible ids fails Terrain's purpose regardless of what else it shows (§6.1)");
 }
@@ -194,7 +200,10 @@ if (claimAt < 0 || groupAt < 0 || claimAt !== groupAt + 1) {
 // member IDs — `<GroupID> — N Lessons: ids` — with the claim beneath. The v3
 // members-after-claim order is superseded by the WA baseline's heading form.
 const heading = claimLines[groupAt] || "";
-if (!/2 Lessons: lesson:alpha, lesson:bravo/.test(heading)) {
+// The two ids render in the declared member sort (id ascending: alpha, bravo),
+// which is L2 then L1 in this fixture — display_id is minted in served-corpus
+// order and the sort is by id, so the two orders are deliberately independent.
+if (!/2 Lessons: L2, L1/.test(heading)) {
   fails.push("the group heading does not carry its Lesson count and member IDs on the heading line (§6.1 v5: `<GroupID> — N Lessons: ids`)");
 }
 if (!String(withClaim.stdout).includes("pinned to 2 member(s)")) {
@@ -308,11 +317,11 @@ if (!String(withSubs.stdout).includes("in common: a check whose inputs make fail
   fails.push("the SubGroupClaim does not render beneath its SubGroup line (§6.2 v5)");
 }
 // §6.2 v5's line form: `<SubGroupID> (N Lessons: ids)`, claim on the next line.
-if (!/guards that cannot fail \(1 Lesson: lesson:alpha\)/.test(String(withSubs.stdout))) {
+if (!/guards that cannot fail \(1 Lesson: L2\)/.test(String(withSubs.stdout))) {
   fails.push("the SubGroup line does not carry its Lesson count and IDs (§6.2 v5: `<SubGroupID> (N Lessons: ids)`)");
 }
 if (!String(withSubs.stdout).includes("(fits no composed SubGroup)")
-    || !String(withSubs.stdout).includes("lesson:bravo")) {
+    || !String(withSubs.stdout).includes("L1")) {
   fails.push("a member the judge left unplaced was DROPPED rather than named in the explicit SubGroup — subdivision decides WHERE a member appears and hides none (§8)");
 }
 
@@ -546,7 +555,7 @@ console.log("cotags fixture: PASS — cases exercised (lone-tag group; declared 
 JS
 
 python3 - <<'EOF'
-import json, pathlib, sys
+import json, pathlib, re, sys
 from collections import Counter
 
 root = pathlib.Path(".")
@@ -626,6 +635,13 @@ def validate_survey(record):
 
     ids = set()
     lesson_slugs = set()
+    # SPEC.md §14.3 — the display_id is the token every owner surface renders,
+    # so its shape and uniqueness are record-level invariants. Mirrors
+    # terrain.mjs's own validation rather than replacing it: the refusal is at
+    # generation, this is the fast path beneath it.
+    display_id_seen = set()
+    display_id_pattern = s.get("candidate_display_id_pattern")
+    display_id_re = re.compile(display_id_pattern) if display_id_pattern else None
     for i, c in enumerate(candidates):
         for f in s["candidate_required"]:
             if f not in c or (empty(c[f]) and f != "tags"):
@@ -639,6 +655,18 @@ def validate_survey(record):
             v.append(("CANDIDATE_NOT_A_LESSON",
                       f"candidates[{i}].family={fam!r}: "
                       + schema["candidate_family_rationale"]))
+        did = c.get("display_id")
+        if did is not None and not empty(did):
+            if display_id_re and not display_id_re.match(str(did)):
+                v.append(("DISPLAY_ID_MALFORMED",
+                          f"candidates[{i}].display_id={did!r} does not match "
+                          + str(display_id_pattern)))
+            if did in display_id_seen:
+                v.append(("DISPLAY_ID_DUPLICATE",
+                          f"{did!r} appears twice; the survey record is the "
+                          "ID→slug map (SPEC.md §14.3) and a duplicate makes "
+                          "that map return the wrong Strand"))
+            display_id_seen.add(did)
         if c.get("slug"):
             lesson_slugs.add(c["slug"])
         if c.get("id"):
@@ -2052,9 +2080,23 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
         }
       };
       const assertMaterial = (body, where) => {
+        // §14.3 — stated once over the whole rendering rather than once per
+        // member, so a leak reports as one finding instead of N.
+        if (/lesson:[a-z]/.test(body)) {
+          fails.push(`${where}: an element name (\`lesson:<slug>\`) reached the owner rendering — SPEC.md §14.3: no owner surface renders an element name, the rendered token is the display_id`);
+        }
         for (const m of members) {
           const id = m.id;
-          if (!body.includes(`\`${id}\``)) fails.push(`${where}: member ${id} is not named in the rendering`);
+          // §14.3 (story 1.53) — the rendering names the member by its
+          // display_id. The `id` stays the key everything else here is keyed
+          // on, because it is what the RECORD carries; only what reaches the
+          // owner moved.
+          const shown = m.display_id;
+          if (!shown) {
+            fails.push(`${where}: member ${id} carries no display_id in the record — SPEC.md §14.3 assigns one once, in the survey record, and the rendering has nothing to name it by`);
+          } else if (!body.includes(shown)) {
+            fails.push(`${where}: member ${id} is not named by its display_id (${shown}) in the rendering`);
+          }
           assertCite(m.cite, body, where, `the member → SERVED-LINE map for ${id} (§12 requires the report to carry it)`);
           assertCite(m.gloss_cite, body, where, `the Lesson Gloss cite for ${id} (the \`grep -c "gloss/lessons/"\` returning ZERO that the 2026-08-08 run measured)`);
           if (!body.includes(String(m.gloss))) {
