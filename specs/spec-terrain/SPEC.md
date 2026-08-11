@@ -25,7 +25,7 @@ the bounding half and leaves the enumerating half intact. Where that lands is
 
 | where | says |
 |---|---|
-| **this file, on master** | the slot is OPEN — §13.3 names it and fixes no unit |
+| **this file, at v14 — before this amendment** | the slot is OPEN — §13.3 named it and fixed no unit. Dated deliberately: this row was written from the pre-merge file and would otherwise read as a claim about master, which it stopped being the moment v15 landed |
 | **kogaki#300 and #302** | the slot is FILLED — *"the bound's unit is TRAVERSAL — substrates × depth"*, owner selection 2026-08-09 |
 | **the fill's own text** | Thesis-keyed: *"The Thesis answers which provenance links are worth following, and how far — `source_batch` one hop, `cross_links` two, shared-carrier off"* |
 | **where the fill lives** | branch `spec/300-bound-unit` only — **PR #304, open and PARKED at the two-round bound**, never merged |
@@ -3495,17 +3495,25 @@ The served shape is `{"members": {"journey": [...], "lesson": [...]}}`
 family; §13.4's no-pooling rule needs no additional lookup and no inference.
 
 **WHERE THE BOUND LIVES — v13's resolution, half of which v15 removes.** The
-paragraphs that follow are v13's and are kept in full, because the *shape* they
-established survives and only the *thing that supplied the bound* is withdrawn.
-Read them under this correction:
+paragraphs that follow are v13's and are kept in full — **with v15's
+corrections interleaved as their own marked paragraphs, and one lead sentence
+replaced**, which is stated here so the phrase does not license more trust than
+it should. What is verbatim is marked verbatim; what is v15's is marked as
+v15's. They are kept because the *shape* they established survives and only the
+*thing that supplied the bound* is withdrawn. Read them under this correction:
 
 - **Survives:** the division itself — enumeration and bounding are different
   jobs; a bound may never be a relevance predicate over neighbors; a filter over
-  the rendered set is refused; `deferred-slot: the bound's unit` is unfilled.
+  the rendered set is refused; and `deferred-slot: the bound's unit` is
+  **unfilled in its SETTING half** — its unit half is answered (traversal,
+  substrates × depth; kogaki#300, 2026-08-09), and only *which substrates and
+  how deep* is open.
 - **Withdrawn:** the Thesis as the thing that bounds. v15's §13.2 makes the
   settled Strand set the sole input, so wherever v13 says *the Thesis bounds the
-  expansion*, there is now **nothing in the bounding role** until the slot is
-  filled. That is the finding, not a wording problem: v13 could treat the unit
+  expansion*, there is now **nothing setting the bound's values** until the
+  slot's setting half is filled — the unit those values would be expressed in
+  is settled. That is the finding, not a wording problem: v13 could treat the
+  unit
   as a refinement because a bound already existed; v15 cannot.
 - **Consequently** v13's own reasoning below — that a mechanical layer returning
   the same neighborhood for every Thesis leaves a required input consumed by
@@ -3541,12 +3549,19 @@ fill lives only on the parked PR #304 and is keyed to the withdrawn Thesis for
 *which substrates and how deep*. So under v15 this slot carries the whole
 remaining bound, with a unit and no values.
 
-v13's own statement of the slot follows, and it now reads one clause too
-broadly: this section fixes *that* a stopping condition exists and that it may
-never be a relevance predicate, and it does not fix what the condition is
-measured in — **though the measuring unit itself is no longer open**, only the
-values it takes. The slot is named here rather than only on the story because a
-reader of §13.3 alone would otherwise meet text that reads as complete.
+v13's own statement of the slot follows, verbatim:
+
+> This section fixes *that* a stopping condition exists and that it may never be
+> a relevance predicate; it does not fix what the condition is measured in
+> (traversal depth, member count, substrate exhaustion, or another unit).
+
+**Read under v15:** that sentence's last clause is now one clause too broad. The
+measuring **unit** is no longer open — kogaki#300's 2026-08-09 owner selection
+answers it as traversal, substrates × depth — and what remains open is only the
+**values** that unit takes. Everything else in the sentence stands.
+
+The slot is named here rather than only on the story because a reader of §13.3
+alone would otherwise meet text that reads as complete.
 
 **And §13.2's "empty is an informative outcome" is reachable only once that
 slot is filled — stated rather than asserted.** Under a bound that may change
@@ -3563,6 +3578,20 @@ cannot. Filling the slot is a decision act owed on kogaki#300 with its own
 alternatives and receipt, and an implementation that picks a unit in code has
 settled it silently — which is the defect this whole amendment exists to
 prevent, one level down.
+
+**Read under v15.** That paragraph is v13's and is kept whole; two of its
+clauses have moved on. Its opening — *"reachable only once that slot is
+filled"* — and its closing warning about *"an implementation that picks a
+UNIT in code"* both treat the unit as the open half. Under v15 the unit is
+**settled**: kogaki#300's 2026-08-09 owner selection answers it as traversal,
+substrates × depth, and only the **values** it takes are open. So read the
+paragraph's own fork as already taken — it names *"a unit operating on which
+substrates and how deep the traversal runs"* as the branch that can reach empty
+without judging a neighbor, and that is the branch v15 stands on. What an
+implementation must not settle in code is therefore the **values**, not the
+unit, exactly as §13.2 above now states it. This is a correction stated beside
+v13's text rather than spliced into it: editing the paragraph would be the
+misattribution defect this PR exists to repair, committed a second time.
 
 **Why this is a bound and not a filter, stated because the two are one
 refactor apart.** A filter over the rendered set would *narrow* what reaches the
