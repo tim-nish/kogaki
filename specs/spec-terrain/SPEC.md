@@ -17,19 +17,47 @@ measurable-miss condition deliberately gates. A Thesis is what **Brief**
 determines from candidates, so naming one here imports a downstream stage's
 output into an upstream surface.
 
-**The consequence v13 leaves behind, stated because nothing else states it.**
-v13 resolved its fork by dividing the work — *the substrates enumerate, the
-Thesis bounds the expansion* — and withdrawing the Thesis removes the bounding
-half while leaving the enumerating half intact. So
-`deferred-slot: the bound's unit` (§13.3, owed on kogaki#300's story 1.44) is
-no longer a refinement of a bound that already exists: **it is now the only
-thing that bounds expansion at all**, and until it is filled §13 specifies an
-enumeration with no stopping condition. The correction's own answer to noise —
-that it is a property of **trigger timing** rather than of the substrate — is
-about *when* the expansion fires, not *how far* it runs, and the two are
-different questions. Naming this rather than letting the slot keep its old
-weight, because a reader of v13's division would otherwise take the bound as
-settled.
+**The consequence v13 leaves behind, and the FOUR-WAY state of the slot it
+lands on.** v13 resolved its fork by dividing the work — *the substrates
+enumerate, the Thesis bounds the expansion* — so withdrawing the Thesis removes
+the bounding half and leaves the enumerating half intact. Where that lands is
+`deferred-slot: the bound's unit` (§13.3), and its state is not one thing:
+
+| where | says |
+|---|---|
+| **this file, on master** | the slot is OPEN — §13.3 names it and fixes no unit |
+| **kogaki#300 and #302** | the slot is FILLED — *"the bound's unit is TRAVERSAL — substrates × depth"*, owner selection 2026-08-09 |
+| **the fill's own text** | Thesis-keyed: *"The Thesis answers which provenance links are worth following, and how far — `source_batch` one hop, `cross_links` two, shared-carrier off"* |
+| **where the fill lives** | branch `spec/300-bound-unit` only — **PR #304, open and PARKED at the two-round bound**, never merged |
+
+**So a third record is superseded here and it is the least obvious one.** The
+2026-08-09 fill is a ratified owner selection, and this amendment withdraws the
+input it is keyed to. Reported rather than reconciled, on the same standard the
+v12/v13 supersession above is reported on.
+
+**What survives the fill and what does not, because the two halves separate
+cleanly.** Its **unit** — traversal, expressed in substrates × depth and never
+in the neighbours it yields — is claim-free and survives; so does its declined
+alternative, the neighbour-count cap, refused on the served ground that a size
+budget evicting members chosen by meaning has no usable lever. What is withdrawn
+is what **sets** that unit: the Thesis answered *which substrates and how deep*,
+and nothing answers it now. The fill's further claim — that it discharged
+§13.2's "empty is an informative outcome" **in the strong form** — goes with it,
+since that argument ran through a Thesis whose declared substrates yield no
+members.
+
+**The residual gap, stated plainly:** the correction's answer to noise is that
+it is a property of **trigger timing** rather than of the substrate, which
+decides *when* the expansion fires and nothing about *how far* it runs. Until
+the setting half is re-answered on a claim-free ground, §13 has a trigger, a
+unit, and no values for it.
+
+**A version-token collision in the record, not in this file.** That fill was
+executed as "SPEC-terrain **v14**" on a branch that never merged, while the
+**v14** on master is the kogaki#319+#318 §14-grammar block. The record therefore
+already carries two different v14s. This file's own Status list is single-valued
+and was checked — but it was checked over the file, which is why the collision
+was found in review rather than here.
 
 **deferred slots: `the bound's unit` (unchanged in name, changed in weight).**
 
@@ -3400,10 +3428,13 @@ would fan out across a large number of Lessons — so noise is a property of
 **What that answer does NOT cover, stated because the gap is the live one.**
 Trigger timing decides *when* the expansion fires; it decides nothing about *how
 far* it runs. v13 located the stopping condition in the Thesis, and this version
-removes it, so the only remaining bound is `deferred-slot: the bound's unit`
-(§13.3, owed on kogaki#300's story 1.44). Until that slot is filled, **this
-section specifies an enumeration with a trigger and no stopping condition**, and
-an implementation that picks a unit in code has settled it silently.
+removes it, so the whole remaining bound is `deferred-slot: the bound's unit`
+(§13.3). That slot's **unit** is answered — traversal, substrates × depth, by
+kogaki#300's 2026-08-09 owner selection — but the selection is keyed to the
+withdrawn Thesis for *which substrates and how deep*, and lives only on the
+parked PR #304. So **this section specifies an enumeration with a trigger, a
+unit, and no values for it**, and an implementation that picks values in code
+has settled a spec question silently.
 
 **Still not a third sibling entry point.** It takes a settled set, so it sits
 downstream of whichever entry produced one (Lessons co-tag today, Decisions
@@ -3503,14 +3534,19 @@ by**:
 So the division is: **the three substrates enumerate, and the Thesis bounds the
 expansion of that enumeration** — how far the traversal runs and where it stops.
 
-**`deferred-slot: the bound's unit` — decided by kogaki#300's story 1.44, not
-here. UNDER v15 THIS SLOT IS THE ONLY BOUND THERE IS**, rather than the unit of
-a bound the Thesis already supplied; its name is unchanged and its weight is
-not. This section fixes *that* a stopping condition exists and that it may
-never be a relevance predicate; it does not fix what the condition is measured
-in (traversal depth, member count, substrate exhaustion, or another unit). The
-slot is named here rather than only on the story because a reader of §13.3
-alone would otherwise meet text that reads as complete.
+**`deferred-slot: the bound's unit` — its UNIT half is answered and its SETTING
+half is not (v15).** kogaki#300's 2026-08-09 owner selection fills the unit —
+traversal, substrates × depth — and that half is claim-free and stands; but the
+fill lives only on the parked PR #304 and is keyed to the withdrawn Thesis for
+*which substrates and how deep*. So under v15 this slot carries the whole
+remaining bound, with a unit and no values.
+
+v13's own statement of the slot follows, and it now reads one clause too
+broadly: this section fixes *that* a stopping condition exists and that it may
+never be a relevance predicate, and it does not fix what the condition is
+measured in — **though the measuring unit itself is no longer open**, only the
+values it takes. The slot is named here rather than only on the story because a
+reader of §13.3 alone would otherwise meet text that reads as complete.
 
 **And §13.2's "empty is an informative outcome" is reachable only once that
 slot is filled — stated rather than asserted.** Under a bound that may change
@@ -3627,7 +3663,8 @@ mid-composition gap discovery keeps its ratified remedies, and re-opening a
 closed set routes back through Terrain as an **owner** act.
 
 **No Move coupling, and it is a prohibition rather than a scope note.**
-Expansion runs from the settled Strand set (v15). Suggesting Grains *because they would make a Move
+Expansion runs from the settled Strand set (v15).
+Suggesting Grains *because they would make a Move
 applicable* is the declined adjacency/Recipe shape, whose named observable
 defect is Move-first composition — the article's shape choosing its material.
 A neighborhood that consulted the Move set would invert the dependency this
