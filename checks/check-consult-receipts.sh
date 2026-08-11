@@ -868,8 +868,6 @@ print(f"gate dispositions: {len(gate)} of {len(receipts)} receipt(s) were "
 # well as it hides a real one, and the window before ratification is precisely
 # when somebody needs to see what is being written.
 _axes = [a for _, f in receipts for a in f.get('axes', []) if a]
-_grounded = sum(1 for _, f in receipts
-                if f.get('axes') and all(a for a in f['axes']))
 _orphan = sum(f.get('axis_orphan', 0) for _, f in receipts)
 _dup = sum(f.get('axis_dup', 0) for _, f in receipts)
 if _axes or _orphan or _dup:

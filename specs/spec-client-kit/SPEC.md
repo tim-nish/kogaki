@@ -460,6 +460,8 @@ and says nothing about when the hub reads.
 | §8.1 Question/Answer/Conclusion, pins off the owner surface | every **sitting** |
 | §8.2 the emission itself | the **kit** (`consult.mjs`); the skill relays, and is never the sole carrier |
 | §8.3 the pin-token deny | the **kit**, as a declared fast path only |
+| §9.1 the conduct-axis facet in the map template | the **kit** (seed); the consumer's own map thereafter |
+| §9.2 the `axis:` key's SHAPE | the consuming repo's `specs/SPEC.md` §4; the **hub** owns its values |
 
 ## 6. Out of scope, by decision
 
@@ -471,7 +473,16 @@ and says nothing about when the hub reads.
 - **A positive admission test at the owner-surface seam** — §7 q4, named and
   deliberately not built here.
 - **Any change to the receipt grammar or its destinations** — `specs/SPEC.md` §4
-  is untouched by §8, which adds a surface rather than moving one.
+  is untouched by §8, which adds a surface rather than moving one. **§9 is the
+  stated exception and the reason this line now names its scope**: the conduct
+  axis DOES amend that grammar, and it amends it *there* — in the consuming
+  repository's §4, where the grammar lives — rather than here. The rule this
+  line carries was never "the grammar is frozen"; it is "the kit does not own
+  the grammar", and §9 obeys it by putting the key in §4 and keeping only the
+  delivery half in this spec.
+- **An emitter for `axis:`** — §9.3, named and deliberately not built here.
+- **The `subject | conduct` value set** — §9.2; the hub ratifies it, and no
+  consumer and no kit may mint it.
 
 ## 7. Open — carried as questions, never as contract
 
@@ -614,3 +625,59 @@ thing to reopen.
 **Not amended here:** the hook, the declaration grammar, and `specs/SPEC.md` §4's
 receipt grammar are all untouched. This section moves nothing out of a PR or
 issue body.
+
+## 9. The conduct axis, kit-delivery half (kogaki#336)
+
+The consultation map's entries are **act-scoped**: each names a class of act and
+the survey owed before it. That answers what an act is *about* — its subject —
+and nothing about **how it is conducted**. The observed shape is a consult that
+read the served surface for its subject, found it, and never asked whether the
+*manner* of the act was governed, so the gate presented with no visible
+mismatch because nothing had asked the question that would produce one.
+
+The change splits across two specs, and this section is the half that lands
+here. **The grammar half is not here and must not be moved here** — see §6.
+
+### 9.1 The kit SEEDS the facet; it never owns a consumer's map
+
+`policy/kit/templates/consultation-map.md` carries the conduct-axis facet, so a
+repository installing the kit receives it with its first map. The installer's
+existing rule is unchanged and is what makes this a seed rather than a
+mandate: an existing `policy/consultation-map.md` is **kept, never
+overwritten** (`policy/kit/install.sh`), because a grown map is the repo's own
+state.
+
+**Why the template and not only the consumer's copy** (PR #342 review round 1,
+should). Shipping the grammar key and the check widening without seeding the
+facet gives a second consumer the *mechanism* with nothing obliging anyone to
+use it — the default-carrier arm §2 exists for, missed. A rule reproduces only
+through a default carrier; the template is that carrier here.
+
+**The cost, stated:** an already-installed consumer does **not** receive the
+facet, by the same rule that protects its map. Adoption there is a read of this
+section, not an install.
+
+### 9.2 The kit fixes the KEY's shape and never its VALUES
+
+The `axis:` key is an OPTIONAL per-query continuation line binding upward to
+the nearest preceding `query:`. Its shape is the consuming repository's §4; its
+**value set is the hub's to ratify** under the boundary-field rule — a consumer
+owns the shape of its own record and never the values of a field that exists to
+join across the boundary. So neither this kit nor any consumer enumerates the
+axes, and a check may validate position and non-emptiness only.
+
+### 9.3 There is no emitter, and the absence is declared rather than implied
+
+No kit binary writes an `axis:` line — not `consult.mjs`, not
+`gateway-query.mjs`. The key is **hand-written** today, so the per-axis
+grounding obligation is carried by the map's prescription and by review, never
+by an instrument. Emission needs the transport to carry a per-framing axis,
+which is its own act on its own licensing issue.
+
+Declared here on §4.5's own discipline — the absence is made **visible** and is
+never gated — and because the alternative is the failure this section was
+partly written to repair: an obligation described in a durable carrier as
+though instrumented, with the acknowledgement living only in a PR body.
+
+**deferred slots:** the emitter (§9.3); the `subject | conduct` value set
+(§9.2).

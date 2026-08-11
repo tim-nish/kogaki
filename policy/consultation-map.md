@@ -708,8 +708,22 @@ with a single query has grounded its subject and left its conduct ungrounded,
 and the two are not substitutable. Where the axes are recorded on the receipt,
 each query carries its own `axis:` continuation line, binding upward — the
 grammar is `specs/SPEC.md` §4 "Consult evidence is sided", and its per-query
-binding exists precisely so this obligation is checkable rather than
-aspirational.
+binding is what makes this obligation **expressible** in a record at all.
+
+**Expressible is not yet instrumented, and the difference is stated here rather
+than left to a reader to discover** (PR #342 review round 1, should). An
+earlier form of this paragraph said the binding exists "so this obligation is
+checkable rather than aspirational". It is not checkable today: **no emitter
+writes an `axis:` line** — neither `policy/kit/bin/consult.mjs` nor
+`policy/kit/bin/gateway-query.mjs` produces one — so the key is **hand-written**
+and the per-axis obligation is carried by this prescription, not by an
+instrument. `checks/check-consult-receipts.sh` reads and reports axes where an
+author wrote them; nothing requires that an author did. The claim was written
+into the durable carrier while the acknowledgement lived only in a PR body,
+which is the split that makes an aspirational rule read as an enforced one.
+
+**deferred slot: the emitter.** Kit-side emission of `axis:` needs the
+transport to carry a per-framing axis, and that is its own act.
 
 **What this does NOT do.** It adds no entry, changes no entry's read
 prescription, and denies nothing. The facet is a second question asked at an

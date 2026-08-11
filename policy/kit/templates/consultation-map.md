@@ -23,3 +23,41 @@ Contract (spec: `product-lab specs/tsurezure-client-kit.md` §3):
 - **Origin miss:** a consumer suite reached 170+ members with no admission
   economics (writing-assistant, retired 2026-08-04); the seed entry exists
   so the recurrence is caught at the first act that should have consulted.
+
+## The conduct axis — a facet of every entry, not a fourth entry
+
+**Seeded with the kit (kogaki#336).** The entries above are *act-scoped*: each
+names a class of act and the survey owed before performing it. That scoping
+answers **what the act is about** — its subject — and answers nothing about
+**how the act is conducted**, which is a second and independent question. The
+observed shape is a consult that read the served surface for its subject, found
+it, and never asked whether the *manner* of the act was itself governed — so
+the gate presented with no visible mismatch, because nothing had asked the
+question that would produce one.
+
+**The boundary is bound at a STRUCTURAL TRIGGER, deliberately not at an
+enumeration of acts:**
+
+> **composing a gate for the human.**
+
+Every act reaching that point owes the conduct facet, whatever entry its
+subject falls under and whether or not any entry above names it. An enumeration
+of conduct-bearing acts is declined for the reason this file gives against
+enumerations elsewhere: act N+1 is uncovered by default, and the acts that most
+need the facet are the ones nobody thought to list.
+
+**The obligation: a grounding block owes ONE QUERY PER AXIS.** A gate composed
+with a single query has grounded its subject and left its conduct ungrounded,
+and the two are not substitutable.
+
+**Recording it.** Where the axes are written on a receipt, each query carries
+its own `axis:` continuation line, binding upward to the nearest preceding
+`query:`. The grammar is the consuming repository's §4 receipt block. **The key
+is hand-written today** — no kit binary emits it — so the obligation above is
+carried by this prescription and not yet by an instrument.
+
+**The value set naming the axes is the hub's to ratify, never this file's.**
+Nothing here enumerates the axes it requires one query for.
+
+**deferred slot: the axis value set**, and with it whether the axes are exactly
+two. Named, never filled here.
