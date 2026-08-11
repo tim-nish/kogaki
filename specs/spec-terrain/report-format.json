@@ -1,7 +1,7 @@
 {
   "note": "SPEC-terrain §14.1 — the single carrier of the RENDERED FORM of kogaki's owner surfaces. Where SPEC.md's prose and this artifact disagree about the rendered form, THIS ARTIFACT WINS (§14.1), from the moment it exists and not before. It governs the rendered form and nothing else: not which members are placed, not what a claim says, not whether a figure is honest, not §2.1's family-naming duty. Those remain SPEC.md's prose.",
-  "version": 2,
-  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover; the v2 amendment left four decidable_rules fields still saying `pending_producer: story 1.53` and the cite case still open — PR #351 round 1 finding 3, repaired on the story-1.54 branch, which is where those fields are READ",
+  "version": 3,
+  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover; the v2 amendment left four decidable_rules fields still saying `pending_producer: story 1.53` and the cite case still open — PR #351 round 1 finding 3, repaired on the story-1.54 branch, which is where those fields are READ; v3 by kogaki#317 (hierarchy carrier — indentation replaced by G/SG IDs) coupled with kogaki#315 (the format contract, enumerated), owner decisions 2026-08-11",
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
   "encoding_choice": {
     "chosen": "a line-class grammar expressed in JSON",
@@ -17,12 +17,16 @@
       "absence_is_abnormal": "A member whose survey record predates §14.3 carries no display_id. The surfaces render NO_DISPLAY_ID and state the abnormality; they NEVER substitute the slug, because the slug is what §14.3 removes and a silent fallback would undo the decision while looking like robustness. So an owner surface may carry the NO_DISPLAY_ID token in a LessonDisplayID position, and a refusal built to admit only ^L[0-9]+$ there would reject exactly the legacy record the abnormality exists to make visible."
     },
     "GroupID": {
-      "shape": "NOT YET MINTED — see not_expressible.group_subgroup_id_grammar",
-      "renders_today": "the co-tag name itself, an arbitrary served tag string (terrain/terrain.mjs:658, `g.name`/`g.cotag`)"
+      "shape": "^G[0-9]+$",
+      "means": "a Group's owner-facing display id, assigned once per composed screen in co-tag sort order (§6.1)",
+      "producer": "terrain/terrain.mjs cmdCotags — minted over the composed group list; kogaki#317 (story 1.56)",
+      "carries_the_hierarchy": "THE LEVEL IS IN THE TOKEN. This is the whole point of the mint: `G1` is a Group and `G1-1` is one of its SubGroups, so a line that WRAPS still says which it is. Indentation could not do that — a wrapped continuation starts at column 0 and the hierarchy vanishes exactly where the claim text is longest, which is the 2026-08-09 hands-on finding this replaces."
     },
     "SubGroupID": {
-      "shape": "NOT YET MINTED — see not_expressible.group_subgroup_id_grammar",
-      "renders_today": "the judge-composed SubGroup name (`sg.name`)"
+      "shape": "^G[0-9]+-[0-9]+$",
+      "means": "a SubGroup's display id, prefixed by its parent GroupID (§6.2)",
+      "producer": "terrain/terrain.mjs cmdCotags / cmdSubdivide; kogaki#317 (story 1.56)",
+      "parent_is_readable_from_the_id": "`G1-2` names its parent without a lookup, which is what lets a SubGroup line stand alone after a wrap."
     },
     "LessonCount": {
       "shape": "^[0-9]+ Lessons?$",
@@ -62,7 +66,7 @@
         },
         {
           "id": "group_heading_subdivided",
-          "form": "  <GroupID> — <LessonCount>",
+          "form": "<GroupID> — <LessonCount>",
           "allowlist": [
             "GroupID",
             "LessonCount"
@@ -70,7 +74,7 @@
         },
         {
           "id": "group_heading_flat",
-          "form": "  <GroupID> — <LessonCount>: <LessonDisplayID list, \", \"-joined>",
+          "form": "<GroupID> — <LessonCount>: <LessonDisplayID list, \", \"-joined>",
           "allowlist": [
             "GroupID",
             "LessonCount",
@@ -79,40 +83,42 @@
         },
         {
           "id": "group_claim",
-          "form": "      in common: <claim text | NO_CLAIM>"
+          "form": "in common: <claim text | NO_CLAIM>"
         },
         {
           "id": "group_claim_pinning",
-          "form": "      pinned to <n> member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)"
+          "form": "pinned to <n> member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)"
         },
         {
           "id": "group_prose",
-          "form": "      <composer prose>"
+          "form": "> <composer prose>",
+          "marker_is_what_makes_this_class_decidable": "The `> ` prefix is not decoration. Through v2 this class was `      <composer prose>` and the six-space indent was the only thing distinguishing it; v3's flush-left change removed the indent and the class silently began matching EVERY line, which took `line_class_allowlist` inert on this surface. The marker restores the distinction without restoring the layout — it carries no level, so it does not re-introduce the defect kogaki#317 fixed. Owner decision 2026-08-11 on kogaki#317, chosen over declaring the rule inapplicable here (which full_report already has to do) and over dropping the class, which would have been a content decision wearing a format fix's clothes since §6 admits machine-composed connective prose."
         },
         {
           "id": "subgroup_heading",
-          "form": "\\n      <SubGroupID> (<LessonCount>: <LessonDisplayID list>)",
+          "form": "\\n<SubGroupID> — <LessonCount>: <LessonDisplayID list>",
           "allowlist": [
             "SubGroupID",
             "LessonCount",
             "LessonDisplayID list"
-          ]
+          ],
+          "form_note": "The SubGroup form changed from `(N Lessons: …)` in parentheses to the same `— N Lessons: …` dash form the Group heading uses. Parentheses were carrying part of the level distinction; with the level now in the SubGroupID, two different punctuations for one shape is a difference that means nothing."
         },
         {
           "id": "subgroup_claim",
-          "form": "          in common: <claim text | NO_CLAIM>"
+          "form": "in common: <claim text | NO_CLAIM>"
         },
         {
           "id": "subgroup_leaf_reason",
-          "form": "          <leaf reason>"
+          "form": "<leaf reason>"
         },
         {
           "id": "subgroup_disclosure",
-          "form": "          DISCLOSURE — <text>"
+          "form": "DISCLOSURE — <text>"
         },
         {
           "id": "judge_pin",
-          "form": "      judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)"
+          "form": "judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)"
         },
         {
           "id": "abnormal_claimless",
@@ -157,7 +163,9 @@
         "why": "fail() writes to STDERR and exits. This surface grammars the screen cmdCotags prints on stdout, so a refusal text is never a line of it. A first draft admitted COTAG_COVER_INCOMPLETE (terrain/terrain.mjs:742) and COTAG_COVER_INVENTED (:745) as line classes; both were describing text the grammar never sees, and the same draft omitted the other fail() texts on the identical path — nine of them by count at this pin. Story 1.54 would have had to pick a reading, and the artifact stated both.",
         "stated_by_mechanism_not_enumeration": "The boundary is named as `raised through fail()` rather than as a list of messages, deliberately. An enumeration here goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against. A construction-level statement covers every message the function can carry.",
         "reopen_trigger": "the first owner-facing refusal text written to STDOUT rather than raised through fail(), which would put it on this surface and owe it a line class"
-      }
+      },
+      "indentation_is_not_a_carrier": "v3, kogaki#317. NO LINE CLASS ON THIS SURFACE ENCODES LEADING WHITESPACE, and that is a contract rather than a formatting preference. Indentation was the sole carrier of subordination through v2, and the 2026-08-09 hands-on round found it unreadable for the reason it cannot fix: claim lines are long prose, they wrap at the terminal edge, and a wrapped continuation begins at column 0 — so the hierarchy disappears exactly where the text is longest. The level now rides tokens.GroupID and tokens.SubGroupID, which survive wrapping because they are content. A future edit re-introducing leading spaces to signal level is re-introducing the defect.",
+      "line_class_allowlist_went_inert_here_in_v3": "RESOLVED in the same v3, and kept as a record rather than deleted. The flush-left change removed the six-space indent that was `group_prose`'s only constraint, so the class began admitting every line and `decidable_rules.expressible.line_class_allowlist` — LIVE on this surface through v2 — had no unadmitted line left to find. It was found by the suite going red on the spec diff alone, not by review of the change, and the alternative preview shown at the deciding gate described the new appearance without naming this cost. The repair is `group_prose`'s `> ` marker above (owner decision 2026-08-11). The general shape is worth keeping: a layout convention is often ALSO a discriminator some rule leans on, and removing it changes the appearance on purpose while disarming the rule by accident — the rule keeps running and stops finding anything, which reads as a clean result. full_report's own inertness (reader_notes) is the same class arriving by a different route and is NOT repaired by this."
     },
     "full_report": {
       "emitter": "terrain/terrain.mjs:1652 renderReportMarkdown, written by cmdReport (:1788)",
@@ -262,7 +270,8 @@
         },
         {
           "id": "member_gloss_cite",
-          "form": "**Lesson Gloss** — `<Cite>` | **Lesson Gloss** — *no served cite recorded*"
+          "form": "**Lesson Gloss** — `<Cite>` | **Lesson Gloss** — *no served cite recorded*",
+          "pin_is_not_repeated_here": "v3, kogaki#315 — the Gloss cite renders bare. Three pin-bearing Gloss rows per member is what made `pin_once_per_file` pass while the pin appeared six times in a two-member report: the registered rule counts occurrences of the `substrate_pin` LINE CLASS, so it reads 1 and is silent about pins embedded in other classes."
         },
         {
           "id": "member_gloss_body",
@@ -274,7 +283,8 @@
         },
         {
           "id": "member_journey_cite",
-          "form": "**Journey Gloss** — `<Cite>` | **Journey Gloss** — *no served cite recorded*"
+          "form": "**Journey Gloss** — `<Cite>` | **Journey Gloss** — *no served cite recorded*",
+          "pin_is_not_repeated_here": "v3, kogaki#315 — the Gloss cite renders bare. Three pin-bearing Gloss rows per member is what made `pin_once_per_file` pass while the pin appeared six times in a two-member report: the registered rule counts occurrences of the `substrate_pin` LINE CLASS, so it reads 1 and is silent about pins embedded in other classes."
         },
         {
           "id": "member_journey_body",
@@ -309,12 +319,13 @@
         },
         {
           "id": "served_lines_row",
-          "form": "| <LessonDisplayID> | `<Cite>` |",
+          "form": "| <LessonDisplayID> | `<file>:<line>` |",
           "allowlist": [
             "LessonDisplayID",
             "Cite"
           ],
-          "note": "A member with no display_id or no cite is NAMED here with its abnormal token rather than omitted — a map that silently skips its unmappable rows is the shape §2.1 forbids."
+          "note": "A member with no display_id or no cite is NAMED here with its abnormal token rather than omitted — a map that silently skips its unmappable rows is the shape §2.1 forbids.",
+          "pin_is_not_repeated_here": "v3, kogaki#315. The cite renders BARE — `file:line`, no `@<pin>` — because the substrate pin is stated ONCE, in the identity block (§12; #315's own phrasing: 'pin once in the identity and a bare file:line map, sited once'). The v2 form repeated the pin per row, which is the same clause violated in a new place: story 1.53 removed the per-member `*Served line:*` row and re-sited the map here, carrying the pin with it. Same count, different siting — recorded because a relocation reads as a fix and is not one."
         },
         {
           "id": "served_lines_empty",
@@ -374,7 +385,8 @@
         "rule": "occurrences of line class `substrate_pin` == 1",
         "surfaces": [
           "full_report"
-        ]
+        ],
+        "rule_counts_a_line_class_not_occurrences": "STATED LIMITATION, v3, kogaki#315. This rule counts lines of class `substrate_pin` and nothing else, so it cannot see a pin embedded in a Gloss cite or a map row. It read 1 and passed on a specimen carrying six. v3 removes the other five by making those classes render bare, so the rule and the contract now agree ON THIS SURFACE — but they agree because the emitters were changed, not because the rule was widened. A future class that embeds a pin re-opens the gap silently."
       },
       {
         "id": "no_element_names",
@@ -420,15 +432,21 @@
           "cotag_screen",
           "full_report"
         ]
+      },
+      {
+        "id": "group_subgroup_id_grammar",
+        "rule": "every Group heading carries a GroupID matching tokens.GroupID, and every SubGroup heading a SubGroupID matching tokens.SubGroupID",
+        "surfaces": [
+          "cotag_screen",
+          "full_report"
+        ],
+        "moved_from_not_expressible": "2026-08-11, kogaki#317 + kogaki#315. THIS ENTRY IS ITS OWN REOPEN TRIGGER DISCHARGED, verbatim: \"the sitting that mints the G/SG ID space adds tokens.GroupID and tokens.SubGroupID here and moves this entry into `expressible`.\" It was previously not expressible because no G/SG identifier existed to give a shape to — a token shape asserted then would have been a rule about artifacts nothing could produce, which reads as coverage. The mint is what changed, not the judgement."
       }
     ],
     "not_expressible": [
       {
-        "id": "group_subgroup_id_grammar",
-        "rule_as_stated_in_spec": "\"G/SG ID grammar present\" (SPEC-terrain §14.2)",
-        "why": "There is no G/SG identifier to give a shape to. Group names are the co-tag strings themselves and SubGroup names are judge-composed prose (terrain/terrain.mjs:658, :1087); no `G<n>`/`SG<n>` space is minted anywhere in this repository. A token shape asserted here would be a rule about artifacts nothing can produce — a conformance category with no members, which reads as coverage.",
-        "carrier_of_the_missing_half": "kogaki#317 (indentation-encoded hierarchy replaced by Group/SubGroup IDs) and kogaki#314-#316, all open",
-        "reopen_trigger": "the sitting that mints the G/SG ID space adds tokens.GroupID and tokens.SubGroupID here and moves this entry into `expressible`"
+        "id": "none",
+        "note": "EMPTY, and stated as empty rather than removed. Every rule §14.2 enumerates is now expressible. A future rule that is not belongs here with its reason; an omitted key would read as \"nobody looked\"."
       }
     ]
   },
