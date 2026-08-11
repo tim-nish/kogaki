@@ -1,5 +1,25 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v14, amended 2026-08-11 (kogaki#319 + kogaki#318, coupled, owner
+selection) — **§14 moves the rendered format contract out of this prose and
+into a machine-readable grammar the emitters refuse to violate, and mints the
+owner-surface display ID that grammar admits.** The two issues are decided as
+one because #319 decides *where a format decision lands* and #318 *is* a format
+decision: settling #318 alone would have landed it as the amendment-layered
+prose #319 exists to retire. The defect #319 names is this file's own — the
+format truth is spread across §6.1, §6.2, §9, §12, §12.1, §12.2, a struck
+section and a divergence register, so every fixing session re-derives it and
+drifts on a different clause. §14 therefore does **not** add a ninth prose
+site: it declares a **carrier with precedence**, and the eight existing sites
+are left where they are, governed rather than rewritten. The display ID is
+assigned **once, in the survey record** — not minted per artifact — because it
+is a join key across screen, report and Brief, and a per-surface mint is the
+failure that returns nothing rather than a conflict. #318's `L1, L2, L3` named
+"the Brief input unit" as though it existed; it did not exist anywhere in this
+repository, so this amendment mints the space rather than adopting one.
+Implementation is licensed by kogaki#319 and kogaki#318 and is not in this
+amendment.
+
 **Status:** v13, amended 2026-08-09 (kogaki#300, owner selection) — **§13.3 says
 where the Thesis binds, which §13.2 required and §13.3 left silent.** The fork
 was found by PR #298's round-2 review and carried on #289: §13.2 declares the
@@ -3314,5 +3334,282 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   real corpus member, so the check has a live specimen rather than a synthetic
   one.
 
+- **The display ID has no assignor for a suggestion** — added by v14, and it is
+  the one item here that comes from outside §13. §14.3 assigns a `display_id`
+  **once, in the survey record**; a neighborhood suggestion is by construction
+  **not** in that record, so nothing assigns it one and the owner surface has no
+  token to render. §14.6 carries the slot
+  (`terrain-display-id-for-neighborhood-suggestions`) with its three candidate
+  shapes. **It comes due here**, in the sitting that implements §13, and before
+  code embeds an answer — which is why it is written into this enumeration
+  rather than left in §14 for that sitting to happen upon.
+
 **None of this section is implemented.** It is the design kogaki#289 scoped, and
 the implementation is a separate licensed act.
+
+## 14. The rendered format's carrier, and the owner-surface display ID
+
+**This section adds no format rule to this file. It moves the rules out of
+it.** kogaki#319's finding is that the format contract's only carrier is
+amendment-layered prose spread across §6.1, §6.2, §9, §12, §12.1, §12.2, the
+struck section and the divergence register — so each fixing session re-derives
+"the format" and drifts on a different clause than the last one. Five classes
+regressed across roughly ten filed-and-closed rounds, three of which reported a
+root cause. A ninth prose site would be the tenth round.
+
+### 14.1 The carrier is `specs/spec-terrain/report-format.json`, and it wins
+
+**One machine-readable grammar is the single carrier of the rendered form** —
+the line classes admissible on each owner surface, the token shape of each
+field, and the per-surface allowlist.
+
+**An OWNER SURFACE is any text this runtime prints or writes for the owner to
+read.** Defined once, here, and used with this meaning everywhere in §14. The
+enumeration as it stands is **six**: `cmdView` (`terrain/terrain.mjs:447`),
+`cmdCotags` (`:574`), `cmdClaim` (`:819`), `cmdAdopt` (`:943`), `cmdSubdivide`
+(`:1099`), and the Full Report owner rendering emitted by `cmdReport` (`:1788`,
+§12.2 v11). The machine record is not one; it is machine-facing by §12.2 v11's
+split.
+
+**The grammar's coverage is TWO of those six today, and that is a stated
+partial rather than the definition.** `cotag_screen` and `full_report` are the
+two surfaces §14.2's refusal reaches at v14, chosen because they are the two
+kogaki#319 enumerated and the two whose defect specimens exist. **§14.3's
+duty — no element name on an owner surface — binds all six**, because
+kogaki#318's decision is about what the owner reads and not about which
+emitter happens to have a grammar entry. So four surfaces carry the duty with
+no mechanical carrier, and this paragraph is what makes that legible.
+**Reopen trigger:** the first format defect observed on any of the four, or the
+first grammar edit that could have covered one and did not. An enumeration of
+two presented as the whole is the shape that leaves surface N+1 uncovered by
+default; naming six and covering two is a different claim, and it is the one
+being made.
+
+**Precedence is declared, not left to the reader.** Where this file's prose and
+the grammar disagree about the **rendered form**, **the grammar wins.** A
+format decision lands as a grammar edit; the prose sections describe intent and
+stop being the contract.
+
+**Precedence binds from the moment the artifact exists, and not before.** The
+grammar is created by a separate licensed act (story 1.52), so between this
+amendment landing and that story landing there is an interval in which the
+prose is the only carrier there is. In that interval the prose sections remain
+the contract, unchanged — precedence over an absent artifact would demote every
+format rule to nothing. Stated here rather than four subsections away in §14.6,
+because this is the clause a reader in that interval will stop at.
+
+This is the one clause that makes the move safe, and it is taken on served
+ground rather than on preference:
+
+> "Duplication is not the sin; unowned duplication is, because owning a fact
+> means your version wins on disagreement and you may change it, so a safe copy
+> has to be deliberately stripped of both powers. Write down which side wins
+> when the two disagree, in a place both sets of maintainers will read, and add
+> an automated check that makes divergence fail loudly instead of passing
+> silently."
+> `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/architecture.md:243`
+
+**That served line has two limbs and this section lands one of them.** The
+first — write down which side wins — is §14.1's precedence declaration. The
+second — *"add an automated check that makes divergence fail loudly instead of
+passing silently"* — is **not built**. The eight prose sites are left in place
+and governed, and **nothing compares them against the grammar**: §14.2's
+refusal validates the emitters' *rendered text*, which is a different pair
+entirely. So the eight sites are a conformance copy with declared precedence
+and no divergence check, which is exactly the half the line warns about.
+**Marked, not assumed.** A prose site can drift from the grammar and every gate
+stays green. **Reopen trigger:** the first observed disagreement between a §14
+prose site and `report-format.json`, or the first grammar edit made without a
+corresponding read of the eight. The form of this disclosure is the repository's
+own — `.claude/skills/review-lane/SKILL.md` marks its grammar block as "the half
+this section does NOT have … stated here so the gap is a known one rather than
+an assumption" — reused rather than re-invented.
+
+**What precedence does NOT reach.** The grammar governs the **rendered form**
+and nothing else. It does not govern which members are placed, what a claim
+says, whether a figure is honest, or any §2.1 family-naming duty — those are
+decisions this prose still owns, and a grammar that silently acquired them
+would be the same conflation one level down. §9's allowlist for screen 1's tag
+rows is *transcribed into* the grammar and keeps its meaning; §2.1's "a bare
+count is a defect" stays prose, because it is a rule about **what the figure
+means**, not about the shape of the line carrying it.
+
+**Why precedence rather than eight amendments.** Rewriting the eight sites is
+the move this file has made nine times, and §12.1 v4.3 already names its
+failure mode from the inside — *"a table contradicted by a later paragraph is a
+rule that is wrong as written for every reader who stops at it"*. Eight
+coordinated edits produce eight new opportunities for exactly that. A declared
+precedence produces one, and it is the sentence a reader reaches for when
+asking which side to believe.
+
+### 14.2 The emitters refuse; they do not report
+
+`cmdCotags` (`terrain/terrain.mjs:574`) and `cmdReport`
+(`terrain/terrain.mjs:1788`) **validate their own rendered text against the
+grammar and refuse to write or print on failure.** A nonconformant artifact
+becomes **unmintable** rather than detectable.
+
+> "The alternative is to restrict what the system can produce in the first
+> place, by assembling output from material that was already approved, which
+> removes the possibility instead of catching it. … A practical warning sign
+> that you are on the wrong side of this: the collection of checks keeps
+> growing at roughly one per incident."
+> `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/architecture.md:249`
+
+kogaki#319's fourth finding is that this repository's check suite **is** growing
+at roughly one member per incident — `checks/` holds eleven members — which is
+that warning sign firing. The refusal is the constrain-side answer; the check
+suite is demoted to the fast path beneath it.
+
+**The refusal is generation-time, which is where §9 already puts it.** §9's
+`FIGURE_MISMATCH` path (`terrain/terrain.mjs:206-209,278,292`) refuses to write
+a record whose stored figure disagrees with its recomputation, and states the
+rule as *"the refusal stays generation-time: constrain generation, then detect
+what generation cannot promise."* §14.2 is that same rule applied to the
+rendered artifact, which is the half §9 left uncovered: the survey **record**
+has had a schema and a check since the beginning, and the Markdown rendering
+and the screen text have had neither.
+
+**The decidable set, enumerated because it is what the grammar must express.**
+Pin occurrences per file == 1; zero `lesson:` tokens and zero element names on
+an owner surface (§14.3); the G/SG ID grammar present; member lists carry
+display IDs; sum(SubGroup members) == parent count; catch-all ≤ 30%; a line
+class outside the surface's allowlist ⇒ refuse. Every one is mechanically
+decidable on the rendered text alone, which is why the refusal is possible at
+all — and a decision that is *not* mechanically decidable does not enter the
+grammar and stays prose.
+
+### 14.3 No owner surface renders an element NAME — the display ID does
+
+**Owner decision, kogaki#318, 2026-08-09: screen output and Full Report alike
+display element IDs, never element names.** This covers Lesson names
+(`lesson:a-carrier-binds-the-occasions-it-is-installed-on`), Journey names and
+Decision names. The owner's stated principle: the system displays only
+information that can be explicitly justified, and these names are information
+the machine wants to display, not information the owner wants to read.
+
+**The rendered token is the `display_id`, assigned ONCE in the survey record.**
+`specs/spec-terrain/survey-schema.json` gains a per-candidate `display_id`
+matching `^L[0-9]+$`, assigned at survey time (`terrain/terrain.mjs:300`,
+beside `id` / `slug` / `family` / `tags` / `cite`). **The survey record is the
+ID→slug map**; there is no second carrier and no per-artifact mint.
+
+**Why once rather than per artifact — the fork this amendment actually
+decided.** The display ID is a **join key**: the co-tag screen, the Full Report
+generated from it, and a Brief launched from either all name the same member.
+Numbering each artifact from 1 gives shorter lists and makes `L3` on the screen
+a different member from `L3` in the report.
+
+> "The vocabulary is the hub's and is not re-minted per surface: a synonym in a
+> join key is the same defect as a divergence."
+> `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:42`
+>
+> "two vocabularies do not merely disagree, they make the join return NOTHING,
+> which reads as no data rather than as a conflict"
+> `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:50`
+
+The failure is silent by construction — a wrong-member resolution returns a
+well-formed answer, so both ends log success. Assigning once removes the
+possibility; detecting the collision would be the instrument that is always one
+incident behind.
+
+**The accepted cost, stated rather than discovered.** A survey-wide space
+numbers candidates the owner never sees on a given screen, so a co-tag screen
+reads `L4, L17, L58` rather than `L1, L2, L3`. That is denser than the ordinal
+form kogaki#318's text literally proposed, and it is the price of the ID
+meaning the same thing on every surface. The ID is stable **within a pin**,
+which is coherent with §12.1's pin-keyed identity triple; a pin advance may
+renumber, exactly as it already produces a second report.
+
+**`L1, L2, L3` was named as "the Brief input unit" and was not one.** No
+`L<n>` identifier existed in this repository at the time of this amendment —
+not in this file, not in `specs/spec-draft-pipeline/SPEC.md`, not in
+`terrain/terrain.mjs`. Throughout §6.1, §6.2 and §9 the phrase "Lesson ID"
+means the slug-shaped `lesson:<slug>`. **This amendment mints the space**; it
+does not adopt one. Recorded because the issue's own text reads as though the
+carrier existed, and a reader who trusts it will look for a map that is not
+there.
+
+**Consequence for §§6–9 and §12, governed rather than rewritten.** Wherever
+those sections say a member's **Lesson ID** is rendered on an owner surface —
+§6.1's grouped member IDs, §6.2's SubGroup member lists, §9's rows, §12.2's
+member headings — the token rendered is the `display_id`. §14.1's precedence is
+what carries this; those sections are not amended, and the grammar is where the
+token shape is checked. The **machine record keeps the slug, the cite and the
+map**, which is §12.2 v11's existing split doing its job: the record is
+machine-facing, the rendering is the owner's.
+
+### 14.4 Exactly one producer for owner-facing text
+
+**The skill layer never retypes runtime output.** `.claude/skills/terrain/SKILL.md`
+delivers the screen and the report as the files or streams the runtime wrote —
+the owner reads the artifact, not a quotation of it.
+
+This closes a corruption channel no check on the runtime side can reach. The
+2026-08-09 hands-on test transcript carried two lines **fused mid-token**: a
+SubGroup header claiming `(6 Lessons: …)` spliced into the catch-all's
+19-member list, and a claim line splicing into a different group's claim. A
+runtime cannot fuse two lines mid-word; a model retyping a screen can. §2.4's
+verbatim-relay rule (kogaki#164) is advisory prose sitting at exactly the layer
+where it breaks — and a rule is in force only at the layer where it can
+actually be broken. §14.2's refusal guarantees nothing about the owner's eyes
+while a second producer stands between the two, so this clause is what makes
+that guarantee reach them.
+
+**This is a removal, not a rule.** The relay stops being a producer at all;
+nothing new is prohibited, so nothing new has to be policed.
+
+### 14.5 A golden fixture, and what it is for
+
+**One checked-in conformant specimen per surface the grammar covers**, under
+`checks/fixtures/`, exercised by `checks/check-terrain-composition.sh` — so
+**two** at v14, one for the co-tag screen and one for the Full Report owner
+rendering, per §14.1's stated coverage. A renderer edit that changes the shape
+fails in the PR rather than in the owner's next hands-on round.
+
+The count is stated **per covered surface** rather than as a flat number
+because a flat number cannot stay true across §14.1's reopen trigger: the
+sitting that brings a third surface under the grammar would otherwise have to
+choose between an under-covered suite and a clause it contradicts.
+
+The fixture is **not** a second carrier and never wins against the grammar —
+§14.1's precedence is one-way. Its job is the pair:
+
+> "Nobody catches it because each side has its own tests: the publisher's
+> confirm it wrote the new format, the reader's confirm it still reads the old
+> one, and nothing checks the pair. Give the format one shared example that both
+> sides run against."
+> `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/testing.md:45`
+
+This is the one member the check suite gains, and it is added while §14.2
+removes the class of incident that was adding one per round — the demotion
+§14.2 names, made concrete.
+
+### 14.6 How A–E compose, and the one slot left open
+
+The grammar (§14.1) is what the emitters validate against (§14.2); the display
+ID (§14.3) is the token that grammar admits where a name used to render; the
+single producer (§14.4) is what makes §14.2's guarantee reach the owner's eyes;
+the fixture (§14.5) catches drift between hands-on rounds. Remove any one and
+the remainder still reports the defect it can no longer prevent.
+
+`deferred-slot: terrain-display-id-for-neighborhood-suggestions`
+
+**The slot, named rather than filled.** §13's provenance neighborhood widens
+the candidate set across tag boundaries and is **unimplemented**. A suggestion
+it surfaces is, by construction, **not** in the survey record — so it has no
+`display_id`, and §14.3's "assigned once in the survey record" does not reach
+it. Three shapes are visible and none is decided here: the neighborhood record
+mints its own space with a declared disjointness from `L<n>`; a taken
+suggestion enters the candidate path and is assigned an `L<n>` on the way in;
+or §14.3 is widened and the survey record becomes the assignor for suggestions
+too. Filling this is a decision act owed on its own licensing issue — §13's
+implementation issue (kogaki#300) is where it comes due, **before** code embeds
+an answer. It is named here because §13.7 already enumerates what its
+implementation binds, and a reader arriving there from §14 would otherwise find
+the question unasked rather than deferred.
+
+**Not implemented by this amendment.** §14 is the contract; the grammar
+artifact, the `display_id` field, the refusal, the single producer and the
+fixture are each a separate licensed act, decomposed on kogaki#319 and
+kogaki#318.
