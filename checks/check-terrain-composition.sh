@@ -3191,6 +3191,63 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     }
   }
 
+  // A BATCH MEMBER THE SERVED SET DOES NOT CARRY IS MARKED. The batch itself
+  // resolves, so the source_batch arm reports nothing and the member simply
+  // vanishes — §13.0's silent exclusion one layer in from the case AC4 names.
+  // Round-1 finding on PR #367; the cross_links arm already had this.
+  {
+    const records = [
+      rec("seed", "q_a/b"),
+      batch("q_a/b", ["seed", "vanished"]),
+    ];
+    const r = neighborhoodOf(records, ["seed"]);
+    if (!r.unresolved.some((u) => u.value === "vanished")) {
+      fails.push("§13/1.44 AC4: a batch member no served record carries was DROPPED rather than marked — the batch resolved, so nothing else reports it and the neighborhood is quietly smaller");
+    }
+  }
+
+  // UNRESOLVED IS A COUNT THE SCREEN PRINTS, so a reference reachable by two
+  // paths must not be counted twice. BOTH seeds link to `z`, so `z` enters the
+  // depth-2 frontier twice without an expanded-set, is walked twice, and the
+  // dangling `gone` it names lands twice. (A single seed cannot show this: one
+  // path puts `z` in the frontier once, which is why the first version of this
+  // case survived its own mutation.)
+  {
+    const records = [
+      rec("s1", "q_a/b", ["z"]),
+      rec("s2", "q_a/b", ["z"]),
+      rec("z", "q_a/b", ["gone"]),
+      batch("q_a/b", ["s1", "s2"]),
+    ];
+    const r = neighborhoodOf(records, ["s1", "s2"]);
+    const gone = r.unresolved.filter((u) => u.value === "gone");
+    if (gone.length !== 1) {
+      fails.push(`§13/1.44 AC4: the dangling reference "gone" was counted ${gone.length} time(s) — the traversal re-expands an already-expanded slug, so the screen's unresolved COUNT exceeds the number of distinct unresolved references`);
+    }
+  }
+
+  // AC8 — DISJOINTNESS ASSERTED AGAINST AN `L` SPACE THAT IS ACTUALLY PRESENT.
+  // The first version of this case tested the `nid` shape over output holding
+  // only `N` tokens, so the intersection it asserted was with the empty set and
+  // it could not fail on the defect kogaki#300's fill names. Here the survey's
+  // own display ids are in hand and the assertion is a real intersection.
+  {
+    const surveyDisplayIds = new Set(["L1", "L2", "L3"]);
+    const records = [
+      rec("seed", "q_a/b"),
+      batch("q_a/b", ["seed", "n-one", "n-two"]),
+      rec("n-one", "q_a/b"), rec("n-two", "q_a/b"),
+    ];
+    const nids = neighborhoodOf(records, ["seed"]).suggestions.map((x) => x.nid);
+    if (nids.length < 2) {
+      fails.push("§13/1.44 AC8: the disjointness case needs at least two suggestions to be worth asserting over");
+    }
+    const collide = nids.filter((n) => surveyDisplayIds.has(n));
+    if (collide.length) {
+      fails.push(`§13/1.44 AC8: suggestion id(s) ${collide.join(", ")} collide with the survey's OWN display ids — §14.6's fill declares the two spaces disjoint, and an owner surface rendering both would name two different elements with one token`);
+    }
+  }
+
   // AC4 — unresolved is MARKED, never empty. Two shapes: a record with no
   // source_batch at all, and a cross_link naming a slug nothing serves.
   {

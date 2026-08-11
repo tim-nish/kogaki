@@ -2760,7 +2760,19 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
       }
       // Family-keyed, so every family's list is walked rather than one.
       for (const family of Object.keys(batch.members || {})) {
-        for (const m of batch.members[family] || []) note(m, "source_batch");
+        for (const m of batch.members[family] || []) {
+          // A LISTED MEMBER THE SERVED SET DOES NOT CARRY IS MARKED, not
+          // dropped — the same arm `cross_links` already has below. Dropping
+          // it yields a quieter neighborhood with no disclosure, which is
+          // §13.0's silent exclusion one layer further in: the batch resolved,
+          // so nothing upstream reports anything.
+          if (!bySlug.has(m)) {
+            unresolved.push({ slug: s, value: m,
+              why: `batch ${JSON.stringify(k)} lists a member no served record carries (family ${JSON.stringify(family)})` });
+            continue;
+          }
+          note(m, "source_batch");
+        }
       }
     }
   }
@@ -2770,6 +2782,13 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // slug is a dangling reference and is marked, never silently skipped.
   if (bound.cross_links > 0) {
     let frontier = seeds;
+    // EXPANDED-SET, not a reached-set. Without it `next.push` is unconditional,
+    // so a slug already expanded — including a seed reached by a back-link — is
+    // walked again at the next depth. `reached` is a Map and survives that, but
+    // `unresolved` is an ARRAY: a dangling link reachable by two paths lands
+    // twice and the screen's "N unresolved reference(s)" overcounts. On a
+    // cyclic [[slug]] graph at depth 2 that is the ordinary case.
+    const expanded = new Set(seeds);
     for (let depth = 1; depth <= bound.cross_links; depth++) {
       const next = [];
       for (const s of frontier) {
@@ -2780,6 +2799,8 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
             continue;
           }
           note(link, "cross_links");
+          if (expanded.has(link)) continue;
+          expanded.add(link);
           next.push(link);
         }
       }
