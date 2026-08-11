@@ -785,6 +785,17 @@ HEAD_RESOLUTION_PATH = "lib/head_resolution.py"
 with open(HEAD_RESOLUTION_PATH, encoding="utf-8") as _fh:
     exec(compile(_fh.read(), HEAD_RESOLUTION_PATH, "exec"))
 
+# THE DISPOSITION GRAMMAR MOVED OUT AND IS LOADED (§4 clause 11, kogaki#357).
+# `DISPOSITION`, `CARRIER` and `disposition_ok` were defined here and are now
+# `lib/disposition.py`, because clause 11 gives `checks/check-review-report.sh` a
+# second, independent reason to read the same grammar — and clause 8 names a
+# second vocabulary for "what happened to a finding" as a synonym in a join key.
+# Nothing about the values moved: the pattern and the predicate are byte-identical
+# to what stood here, so every reader below is unchanged.
+DISPOSITION_PATH = "lib/disposition.py"
+with open(DISPOSITION_PATH, encoding="utf-8") as _fh:
+    exec(compile(_fh.read(), DISPOSITION_PATH, "exec"))
+
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
     r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b'
@@ -857,14 +868,9 @@ UNVERIFIED = re.compile(r'^\s*review-round-unverified:\s*([0-9a-f]{7,40})\s*$',
 # evaporation with a word in front of it. A malformed one is REPORTED rather
 # than silently read as absent, because the two are indistinguishable at the
 # boundary otherwise and this file has shipped that shape three times.
-DISPOSITION = re.compile(r'^\s*(?P<kind>carried|declined):\s*(?P<val>.*?)\s*$',
-                         re.M)
-CARRIER = re.compile(r'^(?:#\d+|register)$')
-
-
-def disposition_ok(kind, val):
-    """Is this a WELL-FORMED disposition? §4 clause 8's grammar, one reader."""
-    return bool(CARRIER.match(val)) if kind == 'carried' else bool(val)
+# The pattern, the carrier set and the predicate are `lib/disposition.py`,
+# loaded above. Kept as a pointer rather than deleted silently: a reader
+# arriving at this comment block for the grammar needs to be sent somewhere.
 
 
 # The severities §4 clause 8 governs. `blocking` is absent by construction: a
