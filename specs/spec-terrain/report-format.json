@@ -33,7 +33,8 @@
     },
     "Cite": {
       "shape": "a served-surface citation string, rendered inside backticks",
-      "means": "provenance, not an element name — a cite is NOT subject to §14.3's no-names rule"
+      "means": "provenance — the address a served rendering was quoted at",
+      "status_under_14_3": "UNDECIDED HERE, deliberately. A first draft of this artifact asserted that a cite is not an element name and so falls outside §14.3's no-names duty. That was a narrowing of a ratified owner duty (§14.3, kogaki#318 — the duty binds all six surfaces) made in a file that wins on divergence, with no §14.3 warrant and no record on the licensing issue. Withdrawn. This artifact takes no position: whether a served cite string may render on an owner surface is kogaki#345's question (story 1.53 SQ2 already carries it, over memberBlock's `*Served line:*` row at terrain/terrain.mjs:1736), and it is answered there or on kogaki#318, never here."
     },
     "SubstratePin": {
       "shape": "a substrate pin string, rendered inside backticks",
@@ -68,7 +69,10 @@
         { "id": "cover", "form": "Cover: <n> of <m> member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: <strandFigure>; <denominator>." },
         { "id": "classification", "form": "Classification: NAVIGATION (SPEC.md §2.3 — …)" },
         { "id": "narrows_nothing", "form": "Narrows nothing: …" },
-        { "id": "select_hint", "form": "Select a group (still narrowing nothing): cotags --survey <F> --tag <T> --group \"<co-tag>\"" }
+        { "id": "select_hint", "form": "Select a group (still narrowing nothing): cotags --survey <F> --tag <T> --group \"<co-tag>\"" },
+        { "id": "blank", "form": "", "note": "The emitters separate blocks with empty lines — a trailing \\n on the header (:661), the post-judge-pin blank (:725), and the \\n-prefixed subgroup and cover lines. A grammar that admitted no blank line would, under REFUSE, reject every screen the emitter produces." },
+        { "id": "cover_refusal", "form": "COTAG_COVER_INCOMPLETE — <n> member(s) of <tag> appear in no co-tag group: <ids>. …", "at": "terrain/terrain.mjs:747", "note": "A refusal message is owner-facing text on this surface and is admitted as its own class. It is not a defect being tolerated: it is §2.1's cover invariant announcing itself." },
+        { "id": "cover_refusal_invented", "form": "COTAG_COVER_INVENTED — <n> id(s) appear in a co-tag group without carrying \"<tag>\": <ids>. …", "at": "terrain/terrain.mjs:750" }
       ]
     },
 
@@ -90,7 +94,7 @@
         { "id": "h3_subgroup", "form": "### <SubGroupID>" },
         { "id": "subgroup_claim_body", "form": "<claim text | *(no SubGroupClaim)*>" },
         { "id": "h2_members", "form": "## Members" },
-        { "id": "member_heading", "form": "#### `<LessonDisplayID>`  (level 3 under ## Members, level 4 under ### SubGroup)", "allowlist": ["LessonDisplayID"] },
+        { "id": "member_heading", "form": "`<LessonDisplayID>` as a Markdown heading", "allowlist": ["LessonDisplayID"], "levels": [{ "level": 4, "when": "under ### <SubGroupID>", "at": "terrain/terrain.mjs:1679" }, { "level": 3, "when": "under ## Members", "at": "terrain/terrain.mjs:1694" }, { "level": 3, "when": "under ## SubGroups on the JUDGED-EMPTY path, where no ## Members heading is emitted at all", "at": "terrain/terrain.mjs:1682-1691" }], "levels_note": "Three cases, not two. The judged-empty path is the one an enumeration drops, and §12.1 v9 exists precisely to keep a judged-empty outcome distinguishable from an unjudged one — a refusal built from a two-case reading would reject exactly that report." },
         { "id": "member_served_line", "form": "*Served line:* `<Cite>` | *Served line:* **NOT RECORDED** — …" },
         { "id": "member_gloss_cite", "form": "**Lesson Gloss** — `<Cite>` | **Lesson Gloss** — *no served cite recorded*" },
         { "id": "member_gloss_body", "form": "<served Gloss prose, untruncated>" },
@@ -99,7 +103,8 @@
         { "id": "member_journey_body", "form": "<served Journey Gloss prose, untruncated>" },
         { "id": "h2_counted", "form": "## Counted" },
         { "id": "counted_family", "form": "- <family>: <n>" },
-        { "id": "counted_served", "form": "- lessons served: <n>" }
+        { "id": "counted_served", "form": "- lessons served: <n>" },
+        { "id": "blank", "form": "", "note": "renderReportMarkdown interleaves L.push(\"\") between every block (terrain/terrain.mjs:1652-1702). Admitted for the same reason as the screen's: under REFUSE, a grammar with no blank-line class rejects every report the emitter writes." }
       ]
     }
   },
@@ -131,7 +136,7 @@
     "note": "SPEC-terrain §14.2's enumeration. Each is decidable on the rendered text alone, which is what makes the emit-time refusal possible. A rule that is not mechanically decidable does not enter this artifact and stays prose.",
     "expressible": [
       { "id": "pin_once_per_file", "rule": "occurrences of line class `substrate_pin` == 1", "surfaces": ["full_report"] },
-      { "id": "no_element_names", "rule": "zero occurrences of the literal `lesson:` and zero element-name tokens anywhere on the surface", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53" },
+      { "id": "no_element_names", "rule": "zero occurrences of the literal `lesson:`, and zero element-name tokens in a MEMBER-NAMING position — the member lists on `group_heading_flat` and `subgroup_heading`, and `member_heading` on the report", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53", "scope_note": "Scoped to member-naming positions rather than 'anywhere on the surface'. The wider form and tokens.Cite gave story 1.54 two readings it could not both implement: a served cite string is not a member name, and whether it may render at all is undecided (tokens.Cite.status_under_14_3). The narrow rule is the part this artifact can decide; the residue is carried, not silently resolved." },
       { "id": "member_lists_carry_display_ids", "rule": "every token in a member-list position matches tokens.LessonDisplayID", "surfaces": ["cotag_screen", "full_report"], "pending_producer": "story 1.53" },
       { "id": "subgroup_members_sum_to_parent", "rule": "sum of LessonCount over a group's `subgroup_heading` lines == the LessonCount on its `group_heading_subdivided` line", "surfaces": ["cotag_screen"] },
       { "id": "catch_all_share", "rule": "the Lesson count of the group named \"(no second served tag)\" divided by the Cover line's member denominator <= 0.30", "surfaces": ["cotag_screen"], "catch_all_group_name": "(no second served tag)", "producer_of_the_name": "terrain/terrain.mjs:504 NO_SECOND_TAG" },
@@ -150,6 +155,7 @@
 
   "reader_notes": {
     "ac2_surface_mismatch": "Story 1.52 AC2 asks that `the grammar's cotag_screen tag-row entry` match SPEC.md §9's allowlist. The co-tag screen renders NO tag rows: §9's allowlist governs SCREEN 1's tag rows, produced by tagRow() at terrain/terrain.mjs:407 and printed by the survey/view path — which §14.1 lists as `cmdView`, an UNCOVERED surface. The allowlist is therefore transcribed against cmdView above, where it actually binds, rather than attached to a surface that has no such line class. Transcribing it onto `cotag_screen` would have satisfied the AC's letter by reinterpreting the rule, which is the one thing AC2 forbids. Reported on kogaki#344.",
+    "completeness_of_the_line_classes": "The classes were read off the emitters, and the round-1 review of kogaki#349 found the first draft admitted no blank line and neither COTAG_COVER refusal — which, with non_member_fallback REFUSE and §14.1's precedence, is a grammar that rejects every render the code produces. Both are now classes. The general hazard stands and is stated rather than claimed away: this enumeration is only as complete as the read that produced it, and a class discovered missing is found by story 1.54's refusal rejecting a valid render. Story 1.55's golden fixture is what converts that from a live-run discovery into a CI one.",
     "what_this_artifact_is_not": "Not a second carrier beside the golden fixture (§14.5) — the fixture never wins against this file; precedence is one-way. Not an enforcement mechanism — story 1.54 installs the emit-time refusal that reads this. Not a description of §13's provenance neighborhood, which is unimplemented and whose display-id question is a named deferred slot (§14.6, kogaki#300)."
   }
 }
