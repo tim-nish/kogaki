@@ -3498,14 +3498,20 @@ family; §13.4's no-pooling rule needs no additional lookup and no inference.
 paragraphs that follow are v13's and are kept in full — **with v15's
 corrections interleaved as their own marked paragraphs, and one lead sentence
 replaced**, which is stated here so the phrase does not license more trust than
-it should. **The region runs to the end of the `Read under v15.` paragraph
-below**, and inside it everything not marked as v15's is v13's — including
-passages carrying no verbatim label of their own. Said that way rather than
-"what is verbatim is marked verbatim", which reads as *every* verbatim passage
-carrying a marker and is false of this same region.
+it should. They are kept because the *shape* they established survives and only
+the *thing that supplied the bound* is withdrawn.
 
-They are kept because the *shape* they established survives and only the
-*thing that supplied the bound* is withdrawn. Read them under this correction:
+**The region runs to the end of §13.3** — through the *"Why this is a bound and
+not a filter"* paragraph, which is v13's and still names the withdrawn input.
+**Inside it, the QUOTED and BULLETED material is v13's unless a paragraph is
+headed as v15's** (`Read under v15.`, `Survives:`, `Withdrawn:`,
+`Consequently`, and this marker). Scoped that way rather than as "everything
+not marked as v15's is v13's", which the marker's own connective prose
+falsifies: that reading made this very sentence, and the line introducing v13's
+blockquote below, into v13's. Two attempts at this clause have now been wider
+than what backs them, so it is scoped to the material it is actually about.
+
+Read them under this correction:
 
 - **Survives:** the division itself — enumeration and bounding are different
   jobs; a bound may never be a relevance predicate over neighbors; a filter over
@@ -3586,8 +3592,7 @@ prevent, one level down.
 **Read under v15.** That paragraph is v13's and is kept whole; two of its
 clauses have moved on. Its opening — *"reachable only once that slot is
 filled"* — and its closing warning about *"an implementation that picks a
-unit in code"* — emphasis mine, and outside the quotation — both treat the
-unit as the open half. Under v15 the unit is
+unit in code"* — both treat the unit as the open half. Under v15 the unit is
 **settled**: kogaki#300's 2026-08-09 owner selection answers it as traversal,
 substrates × depth, and only the **values** it takes are open. So read the
 paragraph's own fork as already taken — it names *"a unit operating on which
@@ -3607,6 +3612,14 @@ it. A bound on expansion narrows nothing: the neighborhood is material offered
 surfaced and removes nothing that would otherwise have reached the owner. An
 implementation that computes the full neighborhood and then drops members
 against the Thesis has built the filter, whatever it is named.
+
+**Read under v15.** That paragraph is v13's and its argument survives whole —
+a bound narrows nothing because the neighborhood is offered *beside* the
+settled set, so §13.1's widening classification is untouched. Only its last
+clause names a withdrawn input: with no Thesis, the filter tell is an
+implementation that computes the full neighborhood and then drops members
+against **anything claim-shaped**, which v15 makes doubly refused — it builds
+the filter *and* reintroduces the dead input.
 
 ### 13.4 Disclosure, denominator, and families that are never pooled
 

@@ -904,7 +904,9 @@ NON_GATING = ('should', 'nit')
 # fourth copy of the number could return here and nothing would fail.
 # The number now has ONE definition, `.claude/review-lane.json`'s
 # `review_rounds_max`, and every layer binds it. Adding a copy here again would
-# make three.
+# make TWO — one definition and one copy. The sentence used to say "three",
+# which counted nothing this file can point at; an unbacked number inside the
+# comment being repaired for an unbacked claim is the same defect twice.
 #
 # WHY A TRACKED FILE OF ITS OWN, and not `.claude/pipeline.json` where the
 # kogaki#305 remedy design first sited it (owner selection 2026-08-09). That
