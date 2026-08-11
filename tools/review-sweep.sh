@@ -310,9 +310,18 @@
 #
 # THE GRANT PATH IS UNCHANGED. The successor's first round is round 1 of a new
 # PR and needs its own grant through the ordinary path, never inherited from
-# the PR it supersedes. And kogaki#306 stays its own carrier: it owns the
-# REFUSAL surface (what the grant path says when someone ASKS for a round
-# beyond the bound); this owns what the lane does when nobody asks.
+# the PR it supersedes.
+#
+# THE DIVISION THAT SENTENCE DESCRIBED HAS MOVED (2026-08-11, kogaki#357). It
+# used to read "kogaki#306 stays its own carrier: it owns the REFUSAL surface";
+# kogaki#306 held three slots and now holds one. The REFUSAL surface — what the
+# grant path says when someone ASKS for a round beyond the bound — is folded
+# into **kogaki#305**, where its code path is and where its precondition lives:
+# #305's own finding is that the bound is absent from the grant-minting path, so
+# there is no minting act for a refusal to attach to. The successor's DECLARED
+# OBLIGATIONS and the FALSIFICATION CHECK are `specs/SPEC.md` §4 **clause 11**,
+# carried at `checks/check-review-report.sh`. This file still owns what the lane
+# does when nobody asks, which is the one thing none of those cover.
 #
 # THE ROUTE IS CAPTURED, NOT ONLY THE VERDICT. Each spawn streams to its own
 # per-round file (`pr-<n>-round-<r>.log`), so a reviewer that goes sideways
