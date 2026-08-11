@@ -2489,6 +2489,56 @@ it enters the identity**, so re-entering the same IDs in a different order is
 re-request of the same material return the same report rather than a second
 one. The rendering follows the same canonical order.
 
+**THE MULTI-SECTION FORM — what appears ONCE and what repeats** (v7, owner
+decision 2026-08-11, the fork the v6 sitting left open). v6 granted that a
+report may span several Groups and/or SubGroups and did not say what that
+looks like; the `full_report` line classes were all singular, so the
+implementation reached the point of having to invent one and stopped instead
+(story 1.58, altitude discipline). This clause is what it was waiting for.
+
+```text
+# Full Report — <tag>                      ← title: the TAG, not an id
+*Selected tag:* `<tag>`
+*Selections:* <canonical id list>          ← the entered set, in the identity
+*Substrate pin:* `<pin>`                   ← ONCE (§12 v12)
+*Judge:* <judge pin>
+> preamble
+
+## <id> — <name>                           ← ONE SECTION PER ENTERED ID
+in common: <claim>
+  … its SubGroups and/or members …
+
+## <id> — <name>
+  …
+
+## Counted                                 ← ONCE, aggregated over the set
+## Served lines                            ← ONCE, merged and DEDUPED
+```
+
+**Once, and why each:**
+- **The identity block**, including the pin. §12 v12 states the pin exactly
+  once per file, and a per-section identity would multiply it by the set size —
+  reintroducing the defect kogaki#315 filed and this section repaired twice.
+- **`## Counted`**, aggregated over the whole set. The cost is stated: a
+  per-section count is not shown.
+- **`## Served lines`**, merged and **deduped**. A member entered under both
+  `G5` and `G5-1` appears in the map once. A repeated map is the class
+  kogaki#315 named unjustified, and deduping is what keeps the merge honest
+  rather than merely shorter.
+
+**Repeating: the sections, one per entered id, keyed by the id.** A section's
+heading carries its id and its name, which is what lets an owner match a
+section to what they typed.
+
+**The title names the TAG, never the ids.** `# Full Report — agents`, with the
+entered set on its own `*Selections:*` line in the identity block. Two grounds:
+the title stays short and stable however many ids are entered, on a surface
+whose recent history is entirely about wrapping destroying structure
+(kogaki#317); and the ids belong in the identity block, which is where §12.1
+already says the recorded components live. *Declined:* ids in the title (five
+ids wrap), and a count in the title (two different two-id reports would share
+a title, the collision the ids were minted to prevent).
+
 **THE SORT IS NUMERIC-AWARE, and this is stated because plain string order
 gets it wrong.** `G5-1` sorts before `G10`, not after: lexicographically
 `"G10" < "G5-1"`, which would render a screen's tenth group above its fifth.
