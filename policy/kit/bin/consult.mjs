@@ -365,7 +365,7 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
 // absent, the historical `policy_lookup` shape is unchanged. So a `gloss_index`
 // consult states the shard it read AND the question it was reading for, and
 // the receipt records the second.
-export function transportArgv({ consumer, framings, outcome, disposition, tool, gateway, argsList = [] }) {
+export function transportArgv({ consumer, framings, outcome, disposition, tool, gateway, argsList = [], ownerRender = false }) {
   const argv = ["--consumer", consumer];
   for (const [i, f] of framings.entries()) {
     argv.push("--tool", tool ?? "policy_lookup");
@@ -377,6 +377,11 @@ export function transportArgv({ consumer, framings, outcome, disposition, tool, 
   // byte-for-byte what it was before kogaki#268 and every existing fixture over
   // this function keeps its exact expected string.
   if (disposition !== undefined) argv.push("--disposition", disposition);
+  // §8.2 (kogaki#320). Forwarded only when asked, on the same principle as
+  // `--disposition` above: every existing fixture over this function keeps its
+  // exact expected string, and a consult that does not want the owner register
+  // produces the argv it always produced.
+  if (ownerRender) argv.push("--owner-render");
   if (gateway) argv.push("--gateway", gateway);
   return argv;
 }
@@ -455,6 +460,20 @@ function selfTest() {
     ["no --outcome fails rather than guessing, and names the operator",
      () => { const r = run({ framings: ["a claim"] });
              return r.code === 2 && r.message.includes("OPERATOR") && r.message.includes("fails rather than guessing"); }],
+    // §8.2 SEPARABILITY (kogaki#320, story 1.50 AC2). The two registers must be
+    // independently selectable, or §8's whole split — audit register apart from
+    // owner register — collapses back into the one register it was filed about.
+    // Both directions, because a forwarder that always forwarded would satisfy
+    // the first assertion alone.
+    ["--owner-render is forwarded when asked",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating", ownerRender: true })
+             .includes("--owner-render")],
+    ["--owner-render does NOT leak into a consult that did not ask for it",
+     () => !transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating" })
+             .includes("--owner-render")],
+    ["the receipt is still requested independently of the owner register",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating" }).includes("--receipt")
+        && transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating", ownerRender: true }).includes("--receipt")],
     ["a non-discriminating outcome with one framing prompts for exactly one re-framing",
      () => { const r = run({ framings: ["a claim"], outcome: "covered-after-reframing" });
              return r.code === 4 && r.message.includes("DIFFERENT AXIS"); }],
@@ -579,6 +598,9 @@ function opt(name) {
   const i = argv.indexOf(`--${name}`);
   return i >= 0 ? argv[i + 1] : undefined;
 }
+function flagPresent(name) {
+  return process.argv.slice(2).includes(`--${name}`);
+}
 function opts(name) {
   const out = [];
   for (let i = 0; i < argv.length; i++) if (argv[i] === `--${name}`) out.push(argv[i + 1]);
@@ -634,6 +656,7 @@ const child = spawnSync(
     tool: opt("tool"),
     gateway: opt("gateway"),
     argsList: opts("args"),
+    ownerRender: flagPresent("owner-render"),
   })],
   { stdio: "inherit" },
 );

@@ -162,6 +162,12 @@ const rawArgsList = opts("args");
 const toolList = opts("tool");
 const questionList = opts("question");
 const receiptMode = flag("receipt");
+// THE OWNER-REGISTER RENDERING (kogaki#320; specs/spec-client-kit/SPEC.md §8).
+// Independent of `--receipt` on purpose: §8 keeps the audit register and the
+// owner register separate, and a flag that implied the other would re-merge the
+// two registers this section exists to split. Opt-in, so every existing caller
+// is byte-identical without it.
+const ownerRenderMode = flag("owner-render");
 const outcome = opt("outcome");
 // THE GATE HALF (kogaki#268). CARRIED, never judged — the same standing the
 // `outcome` token has here: this transport asserts only what it observed, and
@@ -483,6 +489,60 @@ function assertAddressEvidenced({ framing, declared, catalogue }, d, i) {
 // Returns the receipt block, or throws with the reason it is not composable.
 // The throw is the point: a receipt the transport cannot stand behind is worse
 // than none, because the marked-exception path exists for exactly that case.
+// The OWNER register: Question and Answer, readable, and NO address.
+//
+// §8.1 fixes the three parts and assigns exactly two of them here — the
+// Conclusion is the agent's, because only the agent holds it, so this composer
+// deliberately stops short rather than inventing one. §8.3's pin-token rule
+// binds this function's own output: no `consulted:`, no `request_id:`, no
+// `@<sha>`. The address is not withheld from the owner out of tidiness; it is
+// carried by the RECEIPT, whose destinations §8 leaves untouched.
+//
+// Bounded rather than complete. A served answer can run to tens of thousands of
+// characters, and an owner rendering nobody finishes reading grounds nothing —
+// so this takes the first few lines and says how many it did not show. The
+// count is the denominator discipline §3.1 already binds the digest to, applied
+// to this surface: a truncated answer that does not say it was truncated is the
+// same silence one register over.
+export function composeOwnerRender(observed, { maxLines = 3, maxChars = 400 } = {}) {
+  const out = [];
+  for (const [i, o] of observed.entries()) {
+    let d;
+    try {
+      d = JSON.parse(o.text);
+    } catch {
+      // No answer was readable, and saying so beats rendering nothing: an
+      // absent section and an unreadable one are different facts.
+      out.push(`Question: ${framingText(o.framing, i)}`, "Answer: (the served response could not be read)", "");
+      continue;
+    }
+    const lines = [];
+    const walk = (n) => {
+      if (Array.isArray(n)) return n.forEach(walk);
+      if (n && typeof n === "object") {
+        if (typeof n.text === "string" && typeof n.cite === "string") lines.push(n.text);
+        Object.values(n).forEach(walk);
+      }
+    };
+    walk(d);
+    out.push(`Question: ${framingText(o.framing, i)}`);
+    if (!lines.length) {
+      out.push(`Answer: nothing matched — the surface was read and returned no line (miss: ${d.miss === true}).`);
+    } else {
+      for (const raw of lines.slice(0, maxLines)) {
+        const one = String(raw).replace(/\s+/g, " ").trim().replace(/^-\s+/, "");
+        out.push(`Answer: ${one.length > maxChars ? `${one.slice(0, maxChars)}…` : one}`);
+      }
+      if (lines.length > maxLines) {
+        out.push(`        (${lines.length - maxLines} further line(s) not shown of ${lines.length}; the receipt carries the addresses)`);
+      }
+    }
+    out.push("");
+  }
+  out.push("Conclusion: <the reading this session draws from the above — composed by the agent, never by the kit>");
+  return out.join("\n");
+}
+
 function composeReceipt(observed, outcomeToken, dispositionToken) {
   const parsed = observed.map(({ text }, i) => {
     let d;
@@ -801,6 +861,62 @@ function selfTest() {
     "an older gateway admitted; " +
     "the gate disposition carried on its own key above the query tail and " +
     "absent from a non-gate block; ten refusals)");
+
+  // THE OWNER REGISTER (kogaki#320, story 1.50). Sited with the composer it
+  // covers, and gateway-free like every case above: the properties are pure
+  // functions of a served response. `check-owner-surface-pins.sh` invokes this
+  // pass rather than re-asserting them, the same arrangement
+  // `check-client-kit-install.sh` uses for the kit's own test.
+  const ownerObserved = [{
+    framing: { question: "a question the owner asked", args: {} },
+    text: JSON.stringify({
+      miss: false,
+      pin: "hub@abc1234",
+      request_id: "11111111-2222-3333-4444-555555555555",
+      consulted: "consulted: hub@abc1234 FILE.md:1",
+      lines: [
+        { cite: "FILE.md:1@abc1234", text: "- a served line, wrapped\n  across two" },
+        { cite: "FILE.md:2@abc1234", text: "a second served line" },
+        { cite: "FILE.md:3@abc1234", text: "a third" },
+        { cite: "FILE.md:4@abc1234", text: "a fourth, beyond the bound" },
+      ],
+    }),
+  }];
+  const owner = composeOwnerRender(ownerObserved);
+  const ownerFail = [];
+  // §8.1 — the pin is machine-facing. Asserted on the EMITTED TEXT, because
+  // the whole claim of this register is about what reaches a screen.
+  for (const tok of ["consulted:", "request_id:", "@abc1234", "hub@"]) {
+    if (owner.includes(tok)) ownerFail.push(`owner render emitted the pin-shaped token ${tok}`);
+  }
+  // …and the converse, so it cannot pass by rendering nothing: an empty block
+  // satisfies every deny above and serves the owner less than the pin block it
+  // replaced. One direction alone is the fixture blind spot PR #332 round 2
+  // was earned by.
+  if (!owner.includes("Question: a question the owner asked")) ownerFail.push("no Question line");
+  if (!owner.includes("Answer: a served line, wrapped across two")) ownerFail.push("a wrapped served line was not flattened into a readable Answer");
+  if (!/^Conclusion: /m.test(owner)) ownerFail.push("no Conclusion slot for the agent");
+  if (/^Conclusion: \S.*[a-z]{4}/m.test(owner) && !owner.includes("composed by the agent")) {
+    ownerFail.push("the kit composed a Conclusion, which §8.1 assigns to the agent");
+  }
+  // Bounded, and the truncation announces itself — the denominator discipline
+  // §3.1 binds the digest to, applied to this surface.
+  if (!owner.includes("(1 further line(s) not shown of 4")) ownerFail.push("a truncated answer did not state what it withheld");
+  // A response that cannot be read renders as that, never as an empty answer.
+  const unreadable = composeOwnerRender([{ framing: { question: "q", args: {} }, text: "not json" }]);
+  if (!unreadable.includes("could not be read")) ownerFail.push("an unreadable response did not say so");
+  // A genuine miss is a miss, not an unreadable one — both directions again.
+  const missed = composeOwnerRender([{ framing: { question: "q", args: {} }, text: JSON.stringify({ miss: true, lines: [] }) }]);
+  if (!missed.includes("nothing matched")) ownerFail.push("a genuine miss did not render as a miss");
+  if (missed.includes("could not be read")) ownerFail.push("a genuine miss rendered as an unreadable response");
+  if (ownerFail.length) {
+    console.log("FAIL owner-register fixtures:");
+    for (const f of ownerFail) console.log(`  ${f}`);
+    process.exit(1);
+  }
+  console.log("fixture pass: 10/10 owner-register cases (no pin token on the owner surface; " +
+    "Question present; a wrapped served line flattened readable; the Conclusion left to the agent; " +
+    "truncation states its denominator; unreadable and genuine-miss render DIFFERENTLY, both directions)");
   process.exit(0);
 }
 
@@ -859,8 +975,12 @@ try {
   // writeThenExit RETURNS (it defers the exit until stdout drains), so every
   // branch below is exclusive rather than a fallthrough guarded by an early
   // return that does not exist.
+  // §8.2: the kit EMITS the owner register. Appended after the results like the
+  // receipt, so no existing parser moves; independent of receiptMode, so either
+  // register can be taken without the other (story 1.50 AC2).
+  const ownerBlock = ownerRenderMode ? `\n\n${composeOwnerRender(observed)}` : "";
   if (!receiptMode) {
-    writeThenExit(results, 0);
+    writeThenExit(`${results}${ownerBlock}`, 0);
   } else {
     let block = null;
     let why = null;
@@ -872,9 +992,9 @@ try {
     if (block === null) {
       // The consult HAPPENED — its results are the caller's — but the wire did
       // not carry what a receipt asserts. Print the results, refuse the block.
-      writeThenExit(`${results}\nreceipt not composable: ${why}`, 12);
+      writeThenExit(`${results}${ownerBlock}\nreceipt not composable: ${why}`, 12);
     } else {
-      writeThenExit(`${results}\n\n${block}`, 0);
+      writeThenExit(`${results}${ownerBlock}\n\n${block}`, 0);
     }
   }
 } catch (e) {

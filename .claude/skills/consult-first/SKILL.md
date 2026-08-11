@@ -76,6 +76,34 @@ author's judgment and is attributed as such.
 `policy/consultation-map.md` — trigger terms, the served quote at its pin,
 and the miss that earned the entry. That is the only way the map grows.
 
+**What the OWNER sees — and it is not the receipt** (`specs/spec-client-kit/SPEC.md`
+§8, kogaki#320). A pin block tells the owner exactly one thing, *that a
+consultation happened*, and nothing they can act on. So run the consult with
+`--owner-render` and relay the block the kit emits:
+
+```
+Question: <the question, verbatim>
+Answer:   <what the surface answered, readable>
+Conclusion: <what you therefore conclude>
+```
+
+**Two rules, and they are the whole of this.** Put Question and Answer on the
+screen **before** any question UI appears — a gate stays compact and this does
+not fit in one. And **compose the Conclusion yourself**: the kit emits the first
+two parts and leaves the third as a slot, because only the session that asked
+holds the conclusion. A relayed block whose Conclusion is still the kit's
+placeholder has not been relayed.
+
+**Pins do not go here.** `consulted:`, `request_id:` and `@<sha>` are
+machine-facing and belong in the receipt, whose destinations are unchanged —
+PR bodies, issue bodies, run records, spec amendments. One exception is not an
+exception: a gate declaration may carry an `outcome:` line, which is a token and
+not a pin (§8.4).
+
+**This skill is not the carrier.** The kit emits the block whether or not this
+file is read; §2 of that spec refuses skill-as-sole-carrier, and this section
+tells you how to use an emission that exists without it.
+
 **The receipt — how a consultation leaves its record.** The act produces no
 artifact anyone can see, so the record *is* the act: a fixed token at a fixed
 position, whose absence is greppable. Shape (`specs/SPEC.md` §4, kogaki#28):
