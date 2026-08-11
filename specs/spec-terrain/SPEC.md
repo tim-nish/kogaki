@@ -1085,9 +1085,28 @@ kogaki#162's fork half.** Once the owner has named a tag, the flow contains
 1. **The served screen.** `cotags` runs and its rendering is relayed under
    §2.4's flow rule — in full, in the user-visible reply, as the first act
    after the command returns.
-2. **The eager Full Reports.** `report --all-groups`, per §11's decided-eager
-   contract (v5, kogaki#146) — one report per composed group, idempotent per
-   identity.
+2. **The one Full Report, over the IDs the owner entered.** `report --tag <T>
+   --ids <G/SG list>` — one report covering exactly the entered set,
+   idempotent per identity (§12.1).
+
+**THE STOP MOVES BETWEEN THE ACTS** — v7, owner decision kogaki#314,
+2026-08-11. Through v6 both acts ran back to back and the window closed after
+act 2. Act 2 now needs the owner's ID entry, so:
+
+```
+act 1: cotags  → the screen, relayed in full
+       [ nothing runs — the owner speaks ]
+act 2: report --ids …  → one report
+       [ nothing else runs ]
+```
+
+**Still exactly two acts, and still no question UI.** ID entry is the owner
+*speaking*, not the runtime *asking*: nothing prompts, nothing offers options,
+nothing renders a selector. The runtime finishes act 1 and stops. What changed
+is only where "nothing else runs until the owner speaks" sits — between the
+acts rather than after them — and that is a change of position, not of
+authority: the window still bounds what runs unattended, and it now bounds
+strictly more, because act 2 no longer runs unattended at all.
 
 **Nothing else runs until the owner speaks in chat.**
 
@@ -2346,8 +2365,28 @@ call was made.
   unasked question inside another issue's sitting is how a decision escapes
   the gate that should have carried it. Reopen at the next Terrain sitting, or
   when a dogfood run reports the ordering as a defect.
-- **Whether a Full Report is generated EAGERLY per co-tag view or PULLED on
-  demand** (v3, kogaki#129). kogaki#129 licenses "every co-tag view" producing
+- **DISCHARGED — v5, owner decision kogaki#314, 2026-08-09, executed
+  2026-08-11. PULL wins, and the unit is an ENTERED ID SET.** The owner selects
+  a co-tag, reads the screen, and enters a set of Group and/or SubGroup IDs;
+  **one** Full Report is generated covering exactly those. Eager
+  one-report-per-composed-group is superseded.
+
+  **The reopen trigger below never fired, and closing the fork anyway is
+  legitimate rather than a shortcut.** The trigger — "the first Terrain run
+  that generates two or more Full Reports in one sitting" — names the act on
+  which the two readings first diverge *observably*. An owner ruling is a
+  different and stronger discharge than an observation: the trigger existed to
+  produce evidence for a decision, and the decision arrived without it. The
+  2026-08-09 hands-on round (11 groups on one screen) is in fact exactly the
+  state the trigger anticipated, so the evidence and the ruling agree; what did
+  not happen is the mechanical firing. Recorded so a reader holding the trigger
+  finds the disposition rather than an absence — the same duty the bullet was
+  written to discharge in the other direction.
+
+  **What the divergence-carrying text below said, kept as provenance:**
+
+- ~~**Whether a Full Report is generated EAGERLY per co-tag view or PULLED on
+  demand**~~ (v3, kogaki#129). kogaki#129 licenses "every co-tag view" producing
   one; the served line §12 leans on describes "the owner **pulling** a Full
   Report per named group"
   (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/articles.md:80`).
@@ -2437,8 +2476,37 @@ and SubGroupClaim in full, and the complete Lesson and Journey Glosses, with
 **no truncation anywhere**. It is what the owner reads to think a Thesis
 through, where §6.1's screen is what they navigate.
 
-**When it is generated: at the co-tag view, eagerly, one per composed
-group** — v5, kogaki#146, §11's decided bullet. Generation is idempotent
+**When it is generated: on the owner's ID entry, one report per entered set**
+— v6, owner decision kogaki#314, executed 2026-08-11. This supersedes the v5
+eager-per-composed-group form below; a report may now span several Groups
+and/or SubGroups, and "one per composed group" no longer holds.
+
+**THE IDENTITY'S QUERY COMPONENT BECOMES `{ tag, ids }`, AND THE ID LIST IS
+CANONICAL.** §12.1's uniform arity is unchanged; what changes is the second
+component, from a named group to the entered set. The set is **sorted before
+it enters the identity**, so re-entering the same IDs in a different order is
+**one artifact, not two** — idempotence is set-based, which is what makes a
+re-request of the same material return the same report rather than a second
+one. The rendering follows the same canonical order.
+
+**THE SORT IS NUMERIC-AWARE, and this is stated because plain string order
+gets it wrong.** `G5-1` sorts before `G10`, not after: lexicographically
+`"G10" < "G5-1"`, which would render a screen's tenth group above its fifth.
+Compare on the numeric components (`G<n>` then `-<m>`), never on the raw
+string.
+
+**What the owner gives up, stated rather than discovered:** section order is
+the canonical order and not the entry order. An owner who wants a particular
+reading order cannot get it by typing the IDs in that order. The alternative —
+order-carrying identity — was declined because it makes two typings of the same
+set two artifacts; and recording order separately while keying identity on the
+set was declined outright, because it breaks §12.1: two runs would share an
+identity and produce different bytes.
+
+**The superseded v5 form, kept as provenance:**
+
+~~**When it is generated: at the co-tag view, eagerly, one per composed
+group**~~ — v5, kogaki#146, §11's decided bullet. Generation is idempotent
 per §12.1's identity, so the eager pass and a later re-request are the same
 artifact. The report renders the shared substrate pin **once**, in its
 identity, and carries the member → served-line map in its member records —
