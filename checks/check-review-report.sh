@@ -1868,43 +1868,6 @@ if _live:
 print("AC8 pass: the superseded division comment is gone from "
       "tools/review-sweep.sh — asserted, not claimed")
 
-# THE TRUST SOURCE HAS ONE DEFINITION, AND THAT IS ASSERTED RATHER THAN LEFT TO
-# HOLD (kogaki#360). This file assembled `who is trusted` twice — once for this
-# PR's comments, once for a superseded PR's — and the two agreed only because
-# nobody had changed either. The extraction fixes today; the assertion is what
-# makes the class unproducible, which is the shape the issue's own `remedy:`
-# declared. Counted rather than pattern-matched loosely: the environment read
-# and the allowlist key each appear EXACTLY ONCE, in `_trusted_authors`.
-#
-# Sited beside the disposition-unit assertion deliberately — that one forbids a
-# second copy of a lent GRAMMAR, this one a second copy of a trust SOURCE, and
-# a reader meeting either should find the other.
-# THE NEEDLES ARE SPLIT SO THIS ASSERTION IS NOT ITS OWN SECOND DEFINITION.
-# Written whole, the two literals below appear in the file and the guard counts
-# ITSELF — it failed exactly that way on its first run. Third instance of
-# use-versus-mention in this file today (the `--all-groups` skill line, the AC8
-# comment guard, this), which is why it is named rather than just worked around:
-# a checker that reads its own source has to exclude its own text, and string
-# concatenation is the cheapest exclusion that cannot drift.
-_src = open("checks/check-review-report.sh", encoding="utf-8").read()
-_owner_needle = 'os.environ.get("REVIEW_' + 'OWNER", "")'
-_allow_needle = 'get("merge_author_' + 'allowlist", [])'
-_owner_reads = _src.count(_owner_needle)
-_allow_reads = _src.count(_allow_needle)
-if _owner_reads != 1 or _allow_reads != 1:
-    print(f"FAIL trust-source pass: `who is trusted` is assembled "
-          f"{max(_owner_reads, _allow_reads)} times in this file "
-          f"(REVIEW_OWNER x{_owner_reads}, merge_author_allowlist "
-          f"x{_allow_reads}). ONE definition, in `_trusted_authors()` — a "
-          f"second is the synonym-in-a-join-key defect this file forbids for "
-          f"clause 8's grammar, on a trust boundary where the stale copy "
-          f"fails invisibly (kogaki#360).")
-    sys.exit(1)
-print("trust-source pass: `who is trusted` has ONE definition "
-      "(_trusted_authors), read by both the own-PR assembly and the "
-      "superseded-PR read — asserted by counting the environment read and the "
-      "allowlist key, not by the comment that says so")
-
 print("disposition-unit pass: one definition (lib/disposition.py), both "
       "consumers load it, and neither re-declares the pattern — asserted by "
       "reading both files rather than by the comment that says so")
@@ -2072,14 +2035,26 @@ def _trusted_authors():
     THIS PR's comments and once for a superseded PR's, and the two agreed only
     because nobody had changed either yet.
 
-    A SECOND DEFINITION OF *WHO IS TRUSTED* IS THE DEFECT THIS FILE ALREADY
-    FORBIDS ONE FIELD OVER. It fails the suite if either consumer re-declares
-    clause 8's disposition grammar, "because a second vocabulary for what
-    happened to a finding is a synonym in a join key" — and a trust boundary is
-    the worse place for it: a third source, or a rename of
-    `merge_author_allowlist`, updates one copy, and the copy that keeps the old
-    set was the blocked-PR read, which is reported-never-gated and so fails
-    INVISIBLY. That read was author-blind entirely until PR #359 round 1.
+    WHY A SECOND COPY MATTERS HERE MORE THAN ELSEWHERE: a third source, or a
+    rename of `merge_author_allowlist`, updates one copy — and the copy that
+    keeps the old set was the blocked-PR read, which is reported-never-gated
+    and so fails INVISIBLY. That read was author-blind entirely until PR #359
+    round 1 found it.
+
+    THIS IS GUARDED BY BEING ONE FUNCTION AND BY NOTHING ELSE — deliberately
+    (owner decision 2026-08-11, PR #361 round 1). A mechanical assertion
+    counting the trust literals was written here and REMOVED: the served
+    position the licensing verdict cited names "a check suite growing at
+    roughly one member per incident" as the tell for being on the DETECT side,
+    and a counter added because a copy happened once is precisely that member.
+    THE EXTRACTION IS THE CONSTRAINT. Someone who re-copies this set is writing
+    a new second definition rather than slipping past a guard that used to be
+    here — and the file's disposition-unit assertion is NOT precedent for
+    adding one back: that unit spans two files with no single owner, where this
+    one has an owner and is four lines long.
+
+      consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17
+      LESSONS.md:61
     """
     allowed = {os.environ.get("REVIEW_OWNER", "")} - {""}
     try:
