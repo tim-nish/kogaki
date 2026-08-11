@@ -815,8 +815,8 @@ where the reading happens.
 heading form (wa#1115/#1116, wa#1075):
 
 ```text
-<GroupID> — N Lessons: <lesson-id>, <lesson-id>, …
-    in common: <GroupClaim>
+G<n> — <co-tag name> — N Lessons: L<i>, L<j>, …
+in common: <GroupClaim>
 ```
 
 - The **heading line** carries the GroupID, the Lesson count, and the member
@@ -827,6 +827,37 @@ heading form (wa#1115/#1116, wa#1075):
 - Where §8's conditions put SubGroups on the group, the members render as
   SubGroups per §6.2's form instead of on the heading line, and the heading
   carries the count alone.
+
+**v6 — INDENTATION IS WITHDRAWN AS THE HIERARCHY CARRIER; THE GroupID CARRIES
+IT** (kogaki#317, owner decision 2026-08-09, executed 2026-08-11 coupled with
+kogaki#315). The v5 form above indented the `in common:` line four spaces
+beneath its heading, and indentation was the *only* thing marking the claim as
+subordinate to that group. The 2026-08-09 hands-on round found this unreadable,
+for the reason indentation cannot fix: **claim lines are long prose, they wrap
+at the terminal edge, and a wrapped continuation begins at column 0** — so the
+hierarchy disappears exactly where the text is longest, which is exactly where
+a reader needs it.
+
+So the level moves out of whitespace and into **content**: `G<n>` is a Group,
+`G<n>-<m>` is one of its SubGroups (§6.2), and every line renders **flush
+left**. A wrapped line still says what it belongs to, because the ID is in the
+text rather than in the margin. The withdrawal is recorded rather than edited
+away, so a reader holding v5 finds the disposition.
+
+**The ID space is minted here and its grammar is registered**, not left
+implicit: `tokens.GroupID` (`^G[0-9]+$`) and `tokens.SubGroupID`
+(`^G[0-9]+-[0-9]+$`) in `specs/spec-terrain/report-format.json` v3, which also
+moves `group_subgroup_id_grammar` from `not_expressible` into `expressible` —
+that entry's own stated reopen trigger, discharged verbatim. This is the half
+kogaki#315 records as "held by the owner as contract and registered NOWHERE".
+
+**What did NOT change, stated because a presentation ruling is easy to
+over-read:** the content served is identical — same IDs, same counts, same
+claims, same member Lesson IDs, same ordering under `COTAG_SORT`. Nothing that
+reaches the owner is smaller than before. What kogaki#317 called
+"presentation only" is true of the *rendered shape*; the ID space it required
+is content, which is why the decision was executed only once kogaki#315 —
+which asks for those IDs by name — was coupled into the same sitting.
 
 This amends the v3 ordering sentence above ("the GroupID, the GroupClaim …
 and the member Lesson IDs") to the baseline's heading form; the *content*
@@ -984,12 +1015,22 @@ section header, each SubGroup its own composed claim, hierarchy visible;
 owner format ruling 2026-08-06):
 
 ```text
-<SubGroupID> (N Lessons: <lesson-id>, <lesson-id>, …)
-    in common: <SubGroupClaim>
+G<n>-<m> — N Lessons: L<i>, L<j>, … — <SubGroup name>
+in common: <SubGroupClaim>
 ```
 
 One line — SubGroupID, Lesson count, Lesson IDs; the SubGroupClaim on the
-next. The leaf verdict and any disclosures follow the claim, per this
+next.
+
+**v6 — flush left, and the parenthesis is gone** (kogaki#317, 2026-08-11).
+The v5 form indented the SubGroup block six spaces and wrapped its count in
+parentheses, both of which were carrying part of the level distinction; §6.1's
+v6 note above records why whitespace cannot carry it. `G<n>-<m>` **names its
+own parent**, so a SubGroup line that wraps — or that a reader meets on its
+own, scrolled away from its group — still says where it belongs. With the
+level in the ID, two different punctuations for one shape is a difference that
+means nothing, so the SubGroup heading takes the same `— N Lessons: …` form as
+the Group heading. The leaf verdict and any disclosures follow the claim, per this
 section's judging requirements, and the judge pin renders once for the
 screen. The 2026-08-06 dogfood specimen — a 27-member group served as a
 single GroupClaim-shaped paragraph with no IDs and no SubGroups — is the
@@ -2365,6 +2406,42 @@ per §12.1's identity, so the eager pass and a later re-request are the same
 artifact. The report renders the shared substrate pin **once**, in its
 identity, and carries the member → served-line map in its member records —
 the pin-once siting §6.1's v5 withdrawal moved here (wa#1115/#1116).
+
+**v12 — THE MAP IS SITED ONCE AT THE REPORT'S END AND ITS ROWS ARE BARE**
+(kogaki#315, owner decision recorded 2026-08-09, executed 2026-08-11 coupled
+with kogaki#317). Two clauses of this section were in genuine conflict, and
+the resolution keeps both rather than choosing between them.
+
+*The conflict.* This section **requires** the report to carry the map, and
+line 805's baseline sites it "at the report's end". kogaki#315's owner ruling
+states the pin appears **exactly once per file** and names "Served Lines
+(`gloss/ELEMENTS.jsonl:86@<pin>`) beside a plain LessonID" as **exactly the
+unjustified class**. A map whose every row carries `@<pin>` satisfies the
+first and violates the second.
+
+*The resolution.* The map **stays** — it is what lets a reader check the
+rendering against the substrate without opening the machine record, which is
+why this section requires it, and that requirement is the explicit
+justification kogaki#315's justification obligation demands. Its rows render
+**bare `file:line`**, and the Gloss cite rows do too. The pin is stated once,
+in the identity, which is kogaki#315's own phrasing: *"pin once in the
+identity and a bare `file:line` map, sited once."*
+
+*Recorded because a relocation reads as a fix and is not one.* Story 1.53
+(2026-08-11) removed the per-member `*Served line:*` row and re-sited the map
+at the report's end **carrying the pin with it**. Counted on the committed
+specimen, a two-member report held six pin-bearing lines before that change
+and six after: one identity line, three Gloss cites, two rows. Same count,
+different siting. The defect kogaki#315 filed on 2026-08-09 was never
+addressed by that work, and this clause is where it is.
+
+*And the registered rule cannot see it, which is stated rather than widened.*
+`pin_once_per_file` in `report-format.json` counts occurrences of the
+`substrate_pin` **line class**, so it read 1 and passed against all six. v3
+removes the other five by making those classes render bare, so rule and
+contract now agree **on this surface** — they agree because the emitters
+changed, not because the rule was widened, and a future line class that
+embeds a pin re-opens the gap silently.
 
 **A report RECORDS its own identity, and this is a requirement rather than an
 implication** — v4.1, kogaki#131. Every Full Report carries, in its own

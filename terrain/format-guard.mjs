@@ -258,6 +258,30 @@ export function validateSurface(surfaceName, text, grammar) {
   return v;
 }
 
+
+// NO PREDICATE FOR `group_subgroup_id_grammar`, AND THE ENTRY SAYS SO.
+//
+// One was written and deleted in the same round (PR #354 round 1 finding 1,
+// then its own test). It keyed on the CLASSIFICATION of a line — inspect every
+// line classified as a heading and check its first token against the id shape —
+// and that is tautological: the heading forms already embed `<GroupID>`, whose
+// fragment IS the token shape, so a line with a bad id never classifies as a
+// heading in the first place. It falls to `line_class_allowlist` instead. The
+// predicate could not fail, which is the same defect the finding reported, one
+// layer along; it was caught only because the repair was made to demonstrate
+// itself firing.
+//
+// Where the guarantee actually lives, per surface:
+//   cotag_screen — CARRIED, by `line_class_allowlist` plus the `<GroupID>` /
+//     `<SubGroupID>` fragments inside the heading forms. A heading opening with
+//     anything else is unadmitted and the emitter refuses. Verified: the
+//     v5-shaped `testing × architecture — 2 Lessons: L2, L1` is refused.
+//   full_report — NOT CARRIED. That surface's allowlist is inert (three body
+//     classes are bare placeholders), so `# Full Report — testing × architecture`
+//     is admitted by a body class and nothing refuses it. This is exactly how
+//     round 1 finding 2's divergence survived, and it is the same gap
+//     `reader_notes.line_class_allowlist_is_inert_on_full_report` already names.
+//
 const countIn = (s) => {
   const m = /([0-9]+) Lessons?/.exec(s);
   return m ? Number(m[1]) : null;
