@@ -3495,9 +3495,12 @@ The served shape is `{"members": {"journey": [...], "lesson": [...]}}`
 family; §13.4's no-pooling rule needs no additional lookup and no inference.
 
 **WHERE THE BOUND LIVES — v13's resolution, half of which v15 removes.** The
-paragraphs that follow are v13's and are kept in full, because the *shape* they
-established survives and only the *thing that supplied the bound* is withdrawn.
-Read them under this correction:
+paragraphs that follow are v13's and are kept in full — **with v15's
+corrections interleaved as their own marked paragraphs, and one lead sentence
+replaced**, which is stated here so the phrase does not license more trust than
+it should. What is verbatim is marked verbatim; what is v15's is marked as
+v15's. They are kept because the *shape* they established survives and only the
+*thing that supplied the bound* is withdrawn. Read them under this correction:
 
 - **Survives:** the division itself — enumeration and bounding are different
   jobs; a bound may never be a relevance predicate over neighbors; a filter over
@@ -3509,7 +3512,8 @@ Read them under this correction:
   settled Strand set the sole input, so wherever v13 says *the Thesis bounds the
   expansion*, there is now **nothing setting the bound's values** until the
   slot's setting half is filled — the unit those values would be expressed in
-  is settled. That is the finding, not a wording problem: v13 could treat the unit
+  is settled. That is the finding, not a wording problem: v13 could treat the
+  unit
   as a refinement because a bound already existed; v15 cannot.
 - **Consequently** v13's own reasoning below — that a mechanical layer returning
   the same neighborhood for every Thesis leaves a required input consumed by
@@ -3574,6 +3578,20 @@ cannot. Filling the slot is a decision act owed on kogaki#300 with its own
 alternatives and receipt, and an implementation that picks a unit in code has
 settled it silently — which is the defect this whole amendment exists to
 prevent, one level down.
+
+**Read under v15.** That paragraph is v13's and is kept whole; two of its
+clauses have moved on. Its opening — *"reachable only once that slot is
+filled"* — and its closing warning about *"an implementation that picks a
+UNIT in code"* both treat the unit as the open half. Under v15 the unit is
+**settled**: kogaki#300's 2026-08-09 owner selection answers it as traversal,
+substrates × depth, and only the **values** it takes are open. So read the
+paragraph's own fork as already taken — it names *"a unit operating on which
+substrates and how deep the traversal runs"* as the branch that can reach empty
+without judging a neighbor, and that is the branch v15 stands on. What an
+implementation must not settle in code is therefore the **values**, not the
+unit, exactly as §13.2 above now states it. This is a correction stated beside
+v13's text rather than spliced into it: editing the paragraph would be the
+misattribution defect this PR exists to repair, committed a second time.
 
 **Why this is a bound and not a filter, stated because the two are one
 refactor apart.** A filter over the rendered set would *narrow* what reaches the
