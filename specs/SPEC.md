@@ -712,8 +712,24 @@ invariant: Gukan guarantees Unit schema, never data schema).
      instructions; the author applies them. A reviewer that authors a fix
      stops being a control arm, and round two would have no isolated reviewer
      left.
-  3. **Two rounds, then a parked owner decision.** Never a third. The bound
-     is carried at two layers, split by where its inputs are readable
+  3. **Two rounds, then a parked owner decision.** Never a third.
+
+     **WHAT THE OWNER DECIDES IS *HOW TO SUPERSEDE*, NEVER *WHETHER TO MERGE*
+     — the phrase above admits a reading the rule forbids, and this sentence
+     closes it** (kogaki#306, owner comment 2026-08-09; carried into the clause
+     2026-08-11). "A parked owner decision" is ambiguous across exactly the fork
+     the supersession lane rules on: reading A, *the owner decides whether to
+     merge the blocked PR*; reading B, *the owner decides how to supersede it,
+     and merging it is not among the options*. **Reading B is the rule.**
+     Reading A is the locally attractive one, because it is the only reading
+     under which a stalled run makes progress — and on 2026-08-09 a session that
+     had cited this clause correctly and repeatedly put reading A to the owner
+     as its **recommended** option, through a gate that passed every form check
+     the repository issues. So the ambiguity is load-bearing rather than
+     pedantic: left standing, the carrier built for this rule would contradict
+     the clause it sits under.
+
+     The bound is carried at two layers, split by where its inputs are readable
      (kogaki#290, owner ruling 2026-08-08): it is **enforced at the session
      boundary** — creating a reviewer session requires a single-use owner
      approval naming the PR and round, denied fail-closed by the PreToolUse
@@ -1758,7 +1774,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
      So what this clause adds is one pointer and one boundary: **the grammar is
      lent, the obligation is not.** A reader arriving at a superseded close
      looks to **clause 11** for what is owed — kogaki#306 for why — and to this
-     clause only for what the two tokens mean. The lending is deliberate — a second vocabulary for "what
+     clause only for what the two tokens mean. The lending is deliberate — a
+     second vocabulary for "what
      happened to a finding" would be a synonym in a join key, which
      `topics/knowledge-architecture.md` names as the same defect as a
      divergence.
@@ -2303,6 +2320,18 @@ invariant: Gukan guarantees Unit schema, never data schema).
         carrying no disposition line. **Reported, never gated** — the same
         polarity clause 8 already holds for its own dispositions, and for the
         same reason.
+
+        **A DISPOSITION POINTING AT AN ISSUE THE SAME MERGE CLOSES DOES NOT
+        SATISFY THIS, AND THE NATURAL CHECK DOES NOT CATCH IT.** A `carried:
+        #<N>` naming an issue that the successor's own merge closes is a
+        disposition that **evaporates at the moment it is read as satisfied** —
+        present at the `done` boundary, absent immediately after. The obligation
+        is that the carrier **outlives the merge**, so the check reads the named
+        issue's fate under this merge and not merely the presence of the line.
+        Recorded on kogaki#306 by the owner at the rule's only real application:
+        kogaki#335's findings were `carried: #325` while #325 closed on the
+        successor's merge, and a new carrier had to be **filed first** for the
+        disposition to mean anything.
       - **The base-postdates-the-corrective-merge half is a PROHIBITION.** It
         is broken by an **act** — merging a successor whose base predates the
         fix — and an act is deniable, so its correct carrier is a mechanical
@@ -2347,6 +2376,17 @@ invariant: Gukan guarantees Unit schema, never data schema).
       leaves to detection, and it is paired with the constraint above rather
       than standing alone.
 
+      **AND IT APPLIES ONLY TO A BLOCK JUSTIFIED BY A STRUCTURAL CLAIM.** A
+      block can be **procedural** — the bound was spent and the head moved —
+      and a procedural block diagnoses nothing, so there is no diagnosis for an
+      unchanged diff to falsify. Without this narrowing every procedural block
+      reports a **spurious falsification**, which is the failure mode the rule's
+      only real application already exhibited: kogaki#335's rebased diff came
+      out identical to `d36b15a` under a block that was procedural, and a check
+      written to the sentence above would have fired on it. Recorded on
+      kogaki#306 by the owner at that application and carried here rather than
+      left in the comment.
+
       **Two alternatives were declined, recorded so neither is re-proposed
       blind.** *One home in `checks/check-review-report.sh` for all three* —
       declined because it makes the one deniable obligation a report, and a
@@ -2364,6 +2404,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
       issue. Until it lands, this clause's prohibition half is a check and says
       so — a reader of this clause knows which half is standing, the same
       disclosure clause 3 owes for its own unbuilt creation act.
+
+      `deferred-slot: cross-repo-merge-gate` — the mechanical deny that refuses
+      merging a successor whose base predates the corrective merge. Its layer is
+      `tim-nish/claude-toolkit`'s actor-level hook set; **the choice this slot
+      defers is not whether to build it but where it attaches** — the existing
+      `lint-pr-merge.py` deny, or a sibling registered beside it. Filled by an
+      act on that repository, recording choice, alternatives and receipt on its
+      own licensing issue.
+
+      **deferred slots: `cross-repo-merge-gate`.**
 
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
