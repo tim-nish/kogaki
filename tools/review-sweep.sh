@@ -310,9 +310,18 @@
 #
 # THE GRANT PATH IS UNCHANGED. The successor's first round is round 1 of a new
 # PR and needs its own grant through the ordinary path, never inherited from
-# the PR it supersedes. And kogaki#306 stays its own carrier: it owns the
-# REFUSAL surface (what the grant path says when someone ASKS for a round
-# beyond the bound); this owns what the lane does when nobody asks.
+# the PR it supersedes.
+#
+# THE DIVISION THAT SENTENCE DESCRIBED HAS MOVED (2026-08-11, kogaki#357). It
+# used to read "kogaki#306 stays its own carrier: it owns the REFUSAL surface";
+# kogaki#306 held three slots and now holds one. The REFUSAL surface — what the
+# grant path says when someone ASKS for a round beyond the bound — is folded
+# into **kogaki#305**, where its code path is and where its precondition lives:
+# #305's own finding is that the bound is absent from the grant-minting path, so
+# there is no minting act for a refusal to attach to. The successor's DECLARED
+# OBLIGATIONS and the FALSIFICATION CHECK are `specs/SPEC.md` §4 **clause 11**,
+# carried at `checks/check-review-report.sh`. This file still owns what the lane
+# does when nobody asks, which is the one thing none of those cover.
 #
 # THE ROUTE IS CAPTURED, NOT ONLY THE VERDICT. Each spawn streams to its own
 # per-round file (`pr-<n>-round-<r>.log`), so a reviewer that goes sideways
@@ -785,6 +794,17 @@ HEAD_RESOLUTION_PATH = "lib/head_resolution.py"
 with open(HEAD_RESOLUTION_PATH, encoding="utf-8") as _fh:
     exec(compile(_fh.read(), HEAD_RESOLUTION_PATH, "exec"))
 
+# THE DISPOSITION GRAMMAR MOVED OUT AND IS LOADED (§4 clause 11, kogaki#357).
+# `DISPOSITION`, `CARRIER` and `disposition_ok` were defined here and are now
+# `lib/disposition.py`, because clause 11 gives `checks/check-review-report.sh` a
+# second, independent reason to read the same grammar — and clause 8 names a
+# second vocabulary for "what happened to a finding" as a synonym in a join key.
+# Nothing about the values moved: the pattern and the predicate are byte-identical
+# to what stood here, so every reader below is unchanged.
+DISPOSITION_PATH = "lib/disposition.py"
+with open(DISPOSITION_PATH, encoding="utf-8") as _fh:
+    exec(compile(_fh.read(), DISPOSITION_PATH, "exec"))
+
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
     r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b'
@@ -857,14 +877,9 @@ UNVERIFIED = re.compile(r'^\s*review-round-unverified:\s*([0-9a-f]{7,40})\s*$',
 # evaporation with a word in front of it. A malformed one is REPORTED rather
 # than silently read as absent, because the two are indistinguishable at the
 # boundary otherwise and this file has shipped that shape three times.
-DISPOSITION = re.compile(r'^\s*(?P<kind>carried|declined):\s*(?P<val>.*?)\s*$',
-                         re.M)
-CARRIER = re.compile(r'^(?:#\d+|register)$')
-
-
-def disposition_ok(kind, val):
-    """Is this a WELL-FORMED disposition? §4 clause 8's grammar, one reader."""
-    return bool(CARRIER.match(val)) if kind == 'carried' else bool(val)
+# The pattern, the carrier set and the predicate are `lib/disposition.py`,
+# loaded above. Kept as a pointer rather than deleted silently: a reader
+# arriving at this comment block for the grammar needs to be sent somewhere.
 
 
 # The severities §4 clause 8 governs. `blocking` is absent by construction: a

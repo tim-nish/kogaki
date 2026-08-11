@@ -232,8 +232,22 @@ if [ "$substrate" = "ok" ] && [ -n "$PR_NUMBER" ]; then
   fi
 fi
 
+# §4 clause 11 (kogaki#357): a successor's obligations are declared by its
+# AUTHOR, so they are read from the DECLARATION TEXT — the PR body plus the
+# branch's commit messages — and never from the review record, which is the
+# reviewer's artifact. Both sources are gathered here so the reader below stays
+# seam-free; either may be empty and the reader says cannot-determine.
+DECL_TEXT=""
+if [ "$substrate" = "ok" ] && [ -n "$PR_NUMBER" ] && command -v gh >/dev/null 2>&1; then
+  DECL_TEXT="$(gh pr view "$PR_NUMBER" --json body -q .body 2>/dev/null || true)"
+fi
+if [ -n "$BASE_SHA" ]; then
+  DECL_TEXT="$DECL_TEXT
+$(git log "$BASE_SHA..HEAD" --format=%B 2>/dev/null || true)"
+fi
+
 REVIEW_PR="$PR_NUMBER" REVIEW_HEAD="$HEAD_SHA" REVIEW_BODIES="$COMMENTS" \
-REVIEW_BASE="$BASE_SHA" \
+REVIEW_BASE="$BASE_SHA" REVIEW_DECL="$DECL_TEXT" \
 REVIEW_COMMENTS_JSON="$COMMENTS_JSON" REVIEW_OWNER="$TRUSTED_OWNER" \
 REVIEW_NOTE="$substrate_note" REVIEW_SUBSTRATE="$substrate" python3 <<'EOF'
 import hashlib, json, os, re, subprocess, sys
@@ -247,6 +261,17 @@ import hashlib, json, os, re, subprocess, sys
 HEAD_RESOLUTION_PATH = "lib/head_resolution.py"
 with open(HEAD_RESOLUTION_PATH, encoding="utf-8") as _fh:
     exec(compile(_fh.read(), HEAD_RESOLUTION_PATH, "exec"))
+
+# CLAUSE 8'S DISPOSITION GRAMMAR IS LOADED, NEVER RESTATED (§4 clause 11,
+# kogaki#306). Clause 11 LENDS this file clause 8's `carried:`/`declined:`
+# vocabulary for a successor's inherited findings, and says so in those words —
+# a second vocabulary for "what happened to a finding" is a synonym in a join
+# key. Until kogaki#357 the grammar lived only in `tools/review-sweep.sh`; the
+# module is the same third-carrier move `lib/head_resolution.py` makes, for the
+# same two consumers.
+DISPOSITION_PATH = "lib/disposition.py"
+with open(DISPOSITION_PATH, encoding="utf-8") as _fh:
+    exec(compile(_fh.read(), DISPOSITION_PATH, "exec"))
 
 # A report's first line, fixed token and fixed position — the same discipline
 # the consult receipt carries, and for the same reason: a report announced in
@@ -364,6 +389,264 @@ BOUNDARY = re.compile(
     r'|(?P<none_why>none)\s+(?P<why>\S.*?)\s*$'
     r'|(?P<entry>\d+)\s+(?P<verdict>covered|uncovered|cannot-determine)\b'
     r'(?P<receipt>\s*\[receipt:[^\]]+\])?)', re.MULTILINE)
+
+
+# ── §4 clause 11 — a successor's DECLARED OBLIGATIONS (kogaki#306, kogaki#357)
+#
+# Clause 11 sorts a successor's three obligations by the layer each can be
+# BROKEN at, and this file carries the two that are OBLIGATIONS — a `supersedes:`
+# declaration and a disposition for every finding inherited from the blocked PR.
+# Their violation is an ABSENCE, which generates no event to deny, so they are
+# discharged by being made VISIBLE here and are REPORTED, NEVER GATED — the same
+# polarity `cannot-determine:` and the boundary record already hold, and the same
+# polarity clause 8 holds for its own dispositions.
+#
+# THE THIRD OBLIGATION IS A PROHIBITION AND THIS IS NOT ITS LAYER. A successor
+# based on a commit that predates the corrective merge is broken by an ACT, and
+# an act is deniable — so clause 11 wants a mechanical gate at the merge
+# boundary. That boundary is ACTOR-LEVEL (`~/.claude/hooks/lint-pr-merge.py`,
+# registered by `story-sync install-hooks`, both in tim-nish/claude-toolkit) and
+# is unreachable from this repository. Clause 11 rules the case under the served
+# line's own last clause — the carrier goes at the last boundary you control —
+# so what stands here is a CHECK STANDING IN FOR A GATE, and every line it
+# prints says so. A green run of this file is not the prohibition being in
+# force. `deferred-slot: cross-repo-merge-gate`.
+#
+#   consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17
+#   LESSONS.md:103 — "A rule is enforced only at the layer where it can be
+#   broken … an obligation cannot be gated at all and needs its absence made
+#   visible … and when that layer belongs to another system, the carrier goes at
+#   the last boundary you control, with any gate upstream of it counting as
+#   ergonomics rather than control."
+SUPERSEDES = re.compile(r'^\s*supersedes:\s*#(\d+)\s*$', re.M)
+# GitHub's own close vocabulary, which is what actually decides whether a merge
+# closes an issue. Read from the successor's declaration text for ONE reason:
+# AC2a, below — a `carried:` naming an issue THIS merge closes is a disposition
+# that evaporates at the moment it reads as satisfied.
+CLOSES = re.compile(
+    r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b', re.I)
+
+
+def supersedes_of(text):
+    """The blocked PR this text declares itself the successor to, or None.
+
+    FIRST declaration wins, on the same a-later-line-never-revises rule every
+    other declaration in this file follows. Read from the successor's
+    DECLARATION TEXT — its commit messages and PR body — rather than from its
+    review record, because the obligation is the author's and the record is the
+    reviewer's, and because kogaki#335 (the rule's only real application before
+    a carrier existed) put it in both, with the commit-message copy explicitly
+    noted as the one a merge-layer reader reaches without the API.
+    """
+    m = SUPERSEDES.search(text or '')
+    return int(m.group(1)) if m else None
+
+
+def closes_of(text):
+    """Every issue number this text's close keywords would close, as a set."""
+    return {int(n) for n in CLOSES.findall(text or '')}
+
+
+def declared_dispositions(text):
+    """(good, bad) dispositions in a successor's declaration text.
+
+    `good` is a list of (kind, val); `bad` holds the malformed ones verbatim.
+    Malformed is collected rather than dropped for the reason clause 8 already
+    gives: absent and malformed are indistinguishable at the boundary otherwise,
+    and this repository has shipped that confusion three times.
+
+    UNLIKE clause 8's own parse this does NOT bind to a preceding `finding:`
+    line. These are the AUTHOR's dispositions of findings that live on a
+    DIFFERENT, closed pull request, so there is no finding line here to bind to
+    — the inherited findings are counted from the blocked PR's own record.
+    """
+    good, bad = [], []
+    for line in (text or '').splitlines():
+        d = DISPOSITION.match(line)
+        if not d:
+            continue
+        kind, val = d.group('kind'), d.group('val')
+        if disposition_ok(kind, val):
+            good.append((kind, val))
+        else:
+            bad.append(f"{kind}: {val}".rstrip(': '))
+    return good, bad
+
+
+def inherited_open(blocked_bodies, blocked_head):
+    """Findings left OPEN on the blocked PR's final head, as raw lines.
+
+    Every severity, not only the non-gating ones: the state clause 11 governs is
+    reached with OPEN BLOCKING findings on the blocked PR — that is the whole
+    trigger — so restricting this to `should`/`nit` would drop exactly the
+    findings the successor most owes a disposition for.
+    """
+    return [line
+            for seg in head_segments(segments(blocked_bodies), blocked_head)
+            if counted(seg)
+            for sev, state, just, line in seg['findings']
+            if state == 'open']
+
+
+def structural_block(blocked_bodies, blocked_head):
+    """Did the block make a STRUCTURAL claim? True / False / None.
+
+    True when the blocked head's counted report carries an open BLOCKING
+    finding — a diagnosis was made. False when it carries none: the block was
+    PROCEDURAL (the bound was spent and the head moved), and a procedural block
+    diagnoses nothing. None when no counted report names that head at all, so
+    the question cannot be answered here.
+
+    This is AC4a's discriminator and it exists because without it every
+    procedural block reports a spurious falsification. kogaki#335 is the
+    specimen: its rebased diff came out identical to `d36b15a` under a block
+    that was procedural, and a check written to clause 11's sentence alone would
+    have fired on it.
+    """
+    seen = False
+    for seg in head_segments(segments(blocked_bodies), blocked_head):
+        if not counted(seg):
+            continue
+        seen = True
+        for sev, state, just, line in seg['findings']:
+            if sev == 'blocking' and state == 'open':
+                return True
+    return False if seen else None
+
+
+def blocked_record_from(comments, allowed):
+    """(trusted bodies, spoof-shaped logins) for a superseded PR's comments.
+
+    The PURE half of `_blocked_pr_record`, split out so the trust filter has a
+    fixture rather than only a call site. It is `trusted_bodies` (kogaki#56)
+    reached by a second consumer, not a second filter: the whole point is that
+    the blocked PR's record is filtered by the SAME rule this file already
+    applies to its own PR's comments.
+    """
+    return trusted_bodies(comments, allowed)
+
+
+def successor_obligations(decl_text, blocked_bodies, blocked_head,
+                          bases=None, ancestor=None, diffs=None):
+    """Clause 11's obligations for one successor. Returns a list of rows
+    (property, verdict, detail); verdict is 'ok' | 'unmet' | 'cannot-determine'.
+
+    Every input that would touch the world is INJECTED, so every fixture below
+    runs with no seam: `bases` maps a PR number to its base sha, `ancestor(a,b)`
+    answers 'is a an ancestor of b' (True/False/None), and `diffs` maps a PR
+    number to its diff digest.
+
+    Returns [] when `decl_text` declares no `supersedes:` — a PR that is not a
+    successor owes none of this, which is AC7's narrowness and is true by
+    construction here rather than by a rule someone must remember.
+    """
+    blocked = supersedes_of(decl_text)
+    if blocked is None:
+        return []
+    rows = [('supersedes', 'ok', f"declares `supersedes: #{blocked}`")]
+
+    # ── the disposition half, and AC2a's evaporating carrier
+    inherited = inherited_open(blocked_bodies, blocked_head)
+    good, bad = declared_dispositions(decl_text)
+    closing = closes_of(decl_text)
+    evaporating = [f"{k}: {v}" for k, v in good
+                   if carried_issue(k, v) in closing and carried_issue(k, v)]
+    live = len(good) - len(evaporating)
+    # The SAME cannot-determine the falsification row below already computes.
+    # Keying this row on `blocked_bodies is None` alone read a record that was
+    # fetchable but carried no COUNTED segment for that head — a fragment, or a
+    # head that moved — as "zero findings inherited", so the obligation came out
+    # satisfied because nothing was legible. That inverts this file's own stated
+    # polarity one row above its correct twin.
+    if blocked_bodies is None or structural_block(blocked_bodies,
+                                                  blocked_head) is None:
+        rows.append(('disposition', 'cannot-determine',
+                     f"no counted report names #{blocked}'s final head, so the "
+                     f"count of findings it left open is unknown; "
+                     f"{len(good)} disposition(s) are declared here"))
+    elif live < len(inherited):
+        rows.append(('disposition', 'unmet',
+                     f"#{blocked} left {len(inherited)} finding(s) open and "
+                     f"{live} live disposition(s) are declared"))
+    else:
+        rows.append(('disposition', 'ok',
+                     f"{live} live disposition(s) for {len(inherited)} "
+                     f"inherited open finding(s)"))
+    for e in evaporating:
+        rows.append(('disposition-evaporates', 'unmet',
+                     f"`{e}` names an issue THIS merge closes — the carrier "
+                     f"does not outlive the merge, so the finding is "
+                     f"undisposed the moment the disposition reads as "
+                     f"satisfied (kogaki#335: `carried: #325` while #325 "
+                     f"closed on the successor's merge)"))
+    for b in bad:
+        rows.append(('disposition-malformed', 'unmet',
+                     f"`{b}` is not a well-formed disposition (§4 clause 8)"))
+
+    # ── the base half: a CHECK standing in for a gate this repo cannot install
+    bases = bases or {}
+    b_base, s_base = bases.get(blocked), bases.get('successor')
+    if not b_base or not s_base:
+        rows.append(('base-advanced', 'cannot-determine',
+                     "one of the two base shas did not resolve"))
+    elif b_base == s_base:
+        # ITS OWN KEY, not a `base-advanced` failure. "the successor branched
+        # from the same tip" and "the base went backwards" are different facts
+        # and kogaki#306 records only the first, with the reading that matters:
+        # such an application DOES NOT EXERCISE the clause. Collapsing them
+        # renders one as the other, and the fixture that only read the verdict
+        # could not tell them apart — found by mutation, not by reading.
+        rows.append(('base-unmoved', 'unmet',
+                     f"the successor branched from the same base as #{blocked} "
+                     f"({b_base[:7]}) — the base did not move, so this "
+                     f"application does not exercise the clause (kogaki#306)"))
+    else:
+        anc = ancestor(b_base, s_base) if ancestor else None
+        if anc is None:
+            rows.append(('base-advanced', 'cannot-determine',
+                         "ancestry between the two bases was not readable"))
+        elif anc:
+            rows.append(('base-advanced', 'ok',
+                         f"the successor's base {s_base[:7]} strictly descends "
+                         f"#{blocked}'s base {b_base[:7]}. THIS DOES NOT "
+                         f"ESTABLISH that it contains the corrective merge: "
+                         f"nothing in this repository NAMES that commit, so "
+                         f"the containment half is cannot-determine by "
+                         f"construction and is not asserted here"))
+        else:
+            rows.append(('base-advanced', 'unmet',
+                         f"the successor's base {s_base[:7]} does not descend "
+                         f"#{blocked}'s base {b_base[:7]}"))
+
+    # ── the falsification member, narrowed to blocks that made a claim
+    diffs = diffs or {}
+    b_diff, s_diff = diffs.get(blocked), diffs.get('successor')
+    structural = structural_block(blocked_bodies, blocked_head)
+    if b_diff is None or s_diff is None:
+        rows.append(('falsification', 'cannot-determine',
+                     "one of the two diffs was not computable"))
+    elif b_diff != s_diff:
+        rows.append(('falsification', 'ok',
+                     "the successor's diff differs from the blocked PR's"))
+    elif structural is None:
+        rows.append(('falsification', 'cannot-determine',
+                     f"the diffs are identical, but no counted report names "
+                     f"#{blocked}'s final head, so whether the block made a "
+                     f"structural claim cannot be read"))
+    elif not structural:
+        rows.append(('falsification', 'ok',
+                     f"the diffs are identical AND #{blocked}'s block was "
+                     f"PROCEDURAL — it carried no open blocking finding, so it "
+                     f"diagnosed nothing and there is no claim to falsify. "
+                     f"Reporting one here would be the spurious falsification "
+                     f"kogaki#306 recorded against this member"))
+    else:
+        rows.append(('falsification', 'unmet',
+                     f"the successor's rebased diff is UNCHANGED from "
+                     f"#{blocked}'s, and that block made a STRUCTURAL claim — "
+                     f"the diagnosis that justified it is FALSIFIED. Reported "
+                     f"as a finding rather than merged quietly"))
+    return rows
 
 
 def boundary_of(m, line):
@@ -1344,6 +1627,252 @@ print(f"trust pass: {len(TRUST_FIX)}/{len(TRUST_FIX)} author-filter cases "
       "(foreign-report-spoof / trusted / hostage-inverse / allowlist / chatty)")
 
 
+# ── §4 clause 11's fixtures (kogaki#357, story 1.59 AC5)
+#
+# SIX properties, each with a case that FIRES. A property whose check has no
+# firing case is how `catch_all_share` measured the wrong quantity through two
+# stories and a review round, and two of these six — the evaporating carrier and
+# the procedural block — are stated as NEGATIVE or OUTLIVING properties, which
+# is exactly the shape a check written from the positive criterion passes
+# without implementing. Each of those two therefore gets BOTH directions.
+_BH = "b" * 40          # the blocked PR's final head
+_OLD, _NEW = "1" * 40, "2" * 40
+
+
+def _anc(a, b):
+    """Ancestry for the fixtures: _OLD precedes _NEW and nothing else relates."""
+    return True if (a, b) == (_OLD, _NEW) else False
+
+
+def _blocked(*findings):
+    return ("review-lane report: " + _BH + "\n" + "\n".join(findings)
+            + f"\nreport-complete: {len(findings)} findings")
+
+
+_STRUCT = _blocked("finding: blocking open [harm: the split is wrong]  x")
+_PROC = _blocked("finding: should resolved  x")
+
+CLAUSE11 = [
+    # AC7 — a non-successor is untouched. First, because it is the property that
+    # keeps every other row off every ordinary PR.
+    ("AC7 a PR declaring no `supersedes:` owes NOTHING and returns no rows",
+     "an ordinary PR body\ncarried: #1 in prose, not a declaration",
+     _STRUCT, {}, {}, []),
+    # AC1
+    ("AC1 a successor's `supersedes:` is read from its declaration text",
+     "supersedes: #99\ncarried: #500", _STRUCT,
+     {99: _OLD, 'successor': _NEW}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'ok'),
+      ('base-advanced', 'ok'), ('falsification', 'ok')]),
+    # AC2 — the count, both directions
+    ("AC2 FIRES: two inherited open findings, one disposition declared",
+     "supersedes: #99\ncarried: #500",
+     _blocked("finding: blocking open [harm: a]  x",
+              "finding: should open  y"),
+     {99: _OLD, 'successor': _NEW}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'unmet'),
+      ('base-advanced', 'ok'), ('falsification', 'ok')]),
+    ("AC2 passes when every inherited open finding has one",
+     "supersedes: #99\ncarried: #500\ndeclined: superseded by the re-cut",
+     _blocked("finding: blocking open [harm: a]  x",
+              "finding: should open  y"),
+     {99: _OLD, 'successor': _NEW}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'ok'),
+      ('base-advanced', 'ok'), ('falsification', 'ok')]),
+    # AC2a — THE criterion the natural check misses. A disposition is present,
+    # well-formed, and counts — and the merge that reads it closes its carrier.
+    ("AC2a FIRES: `carried: #500` while THIS merge closes #500",
+     "supersedes: #99\ncarried: #500\nCloses #500", _STRUCT,
+     {99: _OLD, 'successor': _NEW}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'unmet'),
+      ('disposition-evaporates', 'unmet'),
+      ('base-advanced', 'ok'), ('falsification', 'ok')]),
+    ("AC2a does NOT fire when the carrier outlives the merge",
+     "supersedes: #99\ncarried: #500\nCloses #357", _STRUCT,
+     {99: _OLD, 'successor': _NEW}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'ok'),
+      ('base-advanced', 'ok'), ('falsification', 'ok')]),
+    ("a malformed disposition is REPORTED, never read as absent",
+     "supersedes: #99\ncarried: soon", _STRUCT,
+     {99: _OLD, 'successor': _NEW}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'unmet'),
+      ('disposition-malformed', 'unmet'),
+      ('base-advanced', 'ok'), ('falsification', 'ok')]),
+    # AC3 — the unmoved base, which is kogaki#335's own shape
+    ("AC3 FIRES: the successor branched from the blocked PR's own base",
+     "supersedes: #99\ncarried: #500", _STRUCT,
+     {99: _OLD, 'successor': _OLD}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'ok'),
+      ('base-unmoved', 'unmet'), ('falsification', 'ok')]),
+    ("a base that does NOT descend is a different row from an unmoved one",
+     "supersedes: #99\ncarried: #500", _STRUCT,
+     {99: _NEW, 'successor': _OLD}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'ok'),
+      ('base-advanced', 'unmet'), ('falsification', 'ok')]),
+    ("AC3 cannot-determines rather than guessing when a base does not resolve",
+     "supersedes: #99\ncarried: #500", _STRUCT,
+     {'successor': _NEW}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'ok'),
+      ('base-advanced', 'cannot-determine'), ('falsification', 'ok')]),
+    # AC4 / AC4a — the falsification member and its narrowing
+    ("AC4 FIRES: identical diff under a STRUCTURAL block",
+     "supersedes: #99\ncarried: #500", _STRUCT,
+     {99: _OLD, 'successor': _NEW}, {99: "same", 'successor': "same"},
+     [('supersedes', 'ok'), ('disposition', 'ok'),
+      ('base-advanced', 'ok'), ('falsification', 'unmet')]),
+    ("AC4a does NOT fire: identical diff under a PROCEDURAL block — the "
+     "kogaki#335 shape, and the spurious falsification this narrowing exists "
+     "to prevent",
+     "supersedes: #99\ncarried: #500", _PROC,
+     {99: _OLD, 'successor': _NEW}, {99: "same", 'successor': "same"},
+     [('supersedes', 'ok'), ('disposition', 'ok'),
+      ('base-advanced', 'ok'), ('falsification', 'ok')]),
+    ("an identical diff with an UNREADABLE record is cannot-determine on both "
+     "rows, never a falsification",
+     "supersedes: #99\ncarried: #500", None,
+     {99: _OLD, 'successor': _NEW}, {99: "same", 'successor': "same"},
+     [('supersedes', 'ok'), ('disposition', 'cannot-determine'),
+      ('base-advanced', 'ok'), ('falsification', 'cannot-determine')]),
+    # A record that IS readable and carries no COUNTED segment for the blocked
+    # head — a FRAGMENT. Distinct from the unreadable case above and reached by
+    # a different branch: the earlier fixture coerced its empty string to None
+    # and so only ever exercised the unreadable path, which is exactly why the
+    # disposition row could report `ok` here while its twin below said
+    # cannot-determine. "I could not look" is not "there was nothing to see".
+    ("a READABLE record with no counted segment for the blocked head is "
+     "cannot-determine on the disposition row too, not `0 of 0`",
+     "supersedes: #99\ncarried: #500",
+     "review-lane report: " + _BH + "\nfinding: blocking open [harm: a]  x"
+     "\nreport-complete: 5 findings",
+     {99: _OLD, 'successor': _NEW}, {99: "d1", 'successor': "d2"},
+     [('supersedes', 'ok'), ('disposition', 'cannot-determine'),
+      ('base-advanced', 'ok'), ('falsification', 'ok')]),
+]
+# The trust filter on the SUPERSEDED PR's record has its own fixture, because a
+# call site is not a test — PR #359 round 1 found the filter missing entirely,
+# and the mutation that "proved" the repair turned out to have been killed by a
+# syntax error in the mutation itself rather than by any assertion.
+#
+# THE DIRECTION IS INFLATION, NOT SUPPRESSION, and that is worth stating because
+# round 1's finding named the other one. A stranger's empty report CANNOT empty
+# `inherited_open` or silence `structural_block`: segments UNION, so the owner's
+# real report still counts and both readers still see it. What a stranger CAN do
+# is ADD — a foreign `finding: blocking open` on the superseded PR inflates the
+# inherited count, so a successor that dispositioned everything it actually owed
+# reads `unmet`, and it makes `structural_block` true, so an unchanged diff
+# reports a FALSIFICATION of a diagnosis no reviewer made. That is the same
+# hostage vector this file already names for its own PR (kogaki#56), reached
+# through the one record that was not filtered.
+_SPOOF = [
+    {"author": {"login": "owner"},
+     "body": _blocked("finding: should resolved  x")},
+    {"author": {"login": "drive-by"},
+     "body": _blocked("finding: blocking open [harm: injected]  x")},
+]
+_trust_bad = []
+_kept, _spoofed = blocked_record_from(_SPOOF, {"owner"})
+if _spoofed != ["drive-by"]:
+    _trust_bad.append(f"the spoof-shaped untrusted comment was not reported: "
+                      f"{_spoofed}")
+
+
+def _c11_rows(record):
+    return [(p_, v) for p_, v, _ in successor_obligations(
+        "supersedes: #99", record, _BH,
+        {99: _OLD, 'successor': _NEW}, _anc, {99: "same", 'successor': "same"})]
+
+
+_filtered = _c11_rows(_kept)
+_blind = _c11_rows("\n".join(c["body"] for c in _SPOOF))
+# FILTERED: the owner's only finding is `resolved`, so nothing is inherited, the
+# block was PROCEDURAL, and an identical diff falsifies nothing. BLIND: the
+# stranger's injected `blocking open` is inherited AND makes the block read
+# structural, so a successor owing nothing is told it owes a disposition and the
+# identical diff reports a falsification. Both rows flip.
+if ('disposition', 'ok') not in _filtered or \
+        ('falsification', 'ok') not in _filtered:
+    _trust_bad.append(f"filtered read is not clean: {_filtered}")
+if ('disposition', 'unmet') not in _blind or \
+        ('falsification', 'unmet') not in _blind:
+    _trust_bad.append(f"author-blind read did not inflate as expected — the "
+                      f"fixture no longer demonstrates the exposure: {_blind}")
+if _trust_bad:
+    print("FAIL clause-11 pass — the superseded PR's record is not "
+          "author-filtered (kogaki#56):")
+    for f in _trust_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print("clause-11 trust pass: the superseded PR's record is filtered by the "
+      "SAME kogaki#56 rule this file applies to its own — asserted by showing "
+      "an author-blind read of the same comments FLIPS both the disposition "
+      "and the falsification row, not by the call site's presence")
+
+c11_bad = []
+for name, decl, bb, bases, diffs, want in CLAUSE11:
+    # `bb` is passed THROUGH, never coerced: a readable-but-illegible record and
+    # an unreadable one are different inputs reaching different branches, and
+    # the coercion that used to stand here collapsed them (PR #359 round 1).
+    got = [(p, v) for p, v, _ in successor_obligations(
+        decl, bb, _BH, bases, _anc, diffs)]
+    if got != want:
+        c11_bad.append(f"{name}:\n      got  {got}\n      want {want}")
+if c11_bad:
+    print("FAIL clause-11 pass — the successor-obligation reader does not "
+          "discriminate:")
+    for f in c11_bad:
+        print(f"  {f}")
+    sys.exit(1)
+print(f"clause-11 pass: {len(CLAUSE11)}/{len(CLAUSE11)} successor-obligation "
+      "cases — AC7's non-successor returns NO rows, and the two criteria a "
+      "natural implementation misses are asserted in BOTH directions: the "
+      "evaporating carrier (`carried: #N` while the merge closes #N) fires and "
+      "its outliving twin does not, and the falsification fires on a STRUCTURAL "
+      "block and stays silent on a PROCEDURAL one (the kogaki#335 shape). The "
+      "grammar is clause 8's, loaded from lib/disposition.py and not restated")
+
+# The lend is asserted MECHANICALLY, not by the comment above it. A consumer
+# that loads the unit and then re-derives the same answer its own way has the
+# divergence back — which is the whole failure lib/head_resolution.py was
+# created for, and its own agreement fixture makes the same assertion.
+for _src in ("checks/check-review-report.sh", "tools/review-sweep.sh"):
+    _t = open(_src, encoding="utf-8").read()
+    if not re.search(r'^DISPOSITION_PATH = "lib/disposition\.py"$', _t, re.M):
+        print(f"FAIL clause-11 pass: {_src} does not LOAD the disposition unit")
+        sys.exit(1)
+    if re.search(r'^DISPOSITION = re\.compile', _t, re.M):
+        print(f"FAIL clause-11 pass: {_src} re-declares the disposition "
+              "grammar instead of loading it — §4 clause 8's vocabulary is "
+              "LENT, and a second copy is the synonym-in-a-join-key defect "
+              "clause 11 names by name")
+        sys.exit(1)
+# AC8's comment repair gets a GUARD, because round 1 found it UNBUILT while the
+# commit message and the PR table both said it was built. A prose repair with no
+# check is a claim, and the claim is what failed — so the stale sentence is
+# asserted absent rather than assumed edited. One regex, and it is the cheapest
+# possible answer to "the record says it was repaired".
+# USE VERSUS MENTION, and the guard needs it because the REPAIR ITSELF QUOTES
+# THE SENTENCE IT RETIRES — recording what the file used to say is the right
+# move and a blunt substring match calls it a regression. Same shape story 1.58
+# met with `--all-groups`: discriminate the live claim from the note that it is
+# gone. A line carrying the sentence passes only when it is marked historical.
+_stale = "kogaki#306 stays its own carrier: it owns the"
+_live = [l for l in open("tools/review-sweep.sh",
+                         encoding="utf-8").read().splitlines()
+         if _stale in l and "used to read" not in l]
+if _live:
+    print("FAIL clause-11 pass: tools/review-sweep.sh still states the "
+          "kogaki#306 division that moved on 2026-08-11 — the REFUSAL surface "
+          "folded into kogaki#305 and the successor's obligations became §4 "
+          "clause 11. Story 1.59 AC8.")
+    sys.exit(1)
+print("AC8 pass: the superseded division comment is gone from "
+      "tools/review-sweep.sh — asserted, not claimed")
+
+print("disposition-unit pass: one definition (lib/disposition.py), both "
+      "consumers load it, and neither re-declares the pattern — asserted by "
+      "reading both files rather than by the comment that says so")
+
+
 def _declared_round_bound():
     """§4 clause 3's bound, READ from its single declaration (kogaki#305).
 
@@ -1568,6 +2097,122 @@ def _report_blocked_dimensions():
               f"never gated (kogaki#100): cannot-determine: {dim}")
 
 
+def _report_successor_obligations():
+    """Print this PR's §4 clause 11 obligations. REPORTED, NEVER GATED.
+
+    Called beside `_report_blocked_dimensions` and `_report_boundary_record` on
+    every terminal branch that has a report, and for the same reason: what a
+    successor owes the PR it supersedes is exactly as worth knowing on a blocked
+    or fragment run as on a passing one.
+
+    A PR that declares no `supersedes:` prints NOTHING — clause 11's trigger is
+    the supersession state and nothing wider, and the reader returns no rows for
+    it by construction.
+    """
+    decl = os.environ.get("REVIEW_DECL", "")
+    blocked = supersedes_of(decl)
+    if blocked is None:
+        return
+    # Each `gh` fact is fetched ONCE and threaded. The previous shape called
+    # `_pr_base` and `_blocked_pr_head` directly and then again inside
+    # `_pr_diff`: five round trips where three do, on the check whose own
+    # runtime note names the `gh` lookup as its dominant cost.
+    bodies_b = _blocked_pr_record(blocked)
+    head_b = _blocked_pr_head(blocked)
+    base_b = _pr_base(blocked)
+    base_s = os.environ.get("REVIEW_BASE") or None
+    rows = successor_obligations(
+        decl, bodies_b, head_b,
+        {blocked: base_b, 'successor': base_s},
+        _is_ancestor,
+        {blocked: _diff_at(base_b, head_b) if base_b and head_b else None,
+         'successor': _diff_at(base_s or "", head)})
+    print(f"successor obligations (§4 clause 11, kogaki#306) for a PR "
+          f"declaring `supersedes: #{blocked}` — REPORTED, NEVER GATED:")
+    for prop, verdict, detail in rows:
+        print(f"  clause-11 {prop}: {verdict.upper()} — {detail}")
+    if any(v == 'unmet' for _, v, _ in rows):
+        print("  the base-postdates property above is A CHECK STANDING IN FOR "
+              "A GATE. Clause 11 rules it a PROHIBITION whose layer is "
+              "actor-level (~/.claude/hooks/lint-pr-merge.py, "
+              "tim-nish/claude-toolkit) and unreachable from this repository, "
+              "so a green run of this file is NOT the prohibition being in "
+              "force — `deferred-slot: cross-repo-merge-gate`.")
+
+
+def _blocked_pr_record(n):
+    """The blocked PR's TRUSTED comment bodies, or None if not readable.
+
+    FILTERED BY AUTHOR, exactly as this file filters its own PR's comments
+    (kogaki#56). An author-blind read here would be the same spoof this file
+    already refuses one function over, aimed at a softer target: any commenter
+    on the blocked PR could post a report-shaped comment naming its head with
+    `report-complete: 0 findings`, which empties `inherited_open` — so the
+    disposition row reads OK — and makes `structural_block` return False — so
+    the falsification row stays silent. Those are the two clause-11 rows a
+    successor most owes, and nothing would have turned red.
+    """
+    out = _gh("pr", "view", str(n), "--json", "comments")
+    if out is None:
+        return None
+    try:
+        comments = json.loads(out).get("comments", [])
+    except (ValueError, AttributeError):
+        return None
+    trusted, spoof_shaped = blocked_record_from(comments, _trusted_authors())
+    for login in spoof_shaped:
+        print(f"NOTE: a report/finding-shaped comment from untrusted author "
+              f"{login!r} on superseded PR #{n} was excluded from the "
+              f"clause-11 read — spoof-shaped, reported not counted "
+              f"(kogaki#56).")
+    return trusted
+
+
+def _trusted_authors():
+    """Repo owner + merge_author_allowlist. The merge-eligibility rule's
+    SOURCES, copied as sources rather than as a login (the PR #46 lesson)."""
+    allowed = {os.environ.get("REVIEW_OWNER", "")} - {""}
+    try:
+        with open(".claude/pipeline.json") as f:
+            allowed.update(json.load(f).get("merge_author_allowlist", []))
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    return allowed
+
+
+def _blocked_pr_head(n):
+    return (_gh("pr", "view", str(n), "--json", "headRefOid",
+                "-q", ".headRefOid") or "").strip() or None
+
+
+def _pr_base(n):
+    return (_gh("pr", "view", str(n), "--json", "baseRefOid",
+                "-q", ".baseRefOid") or "").strip() or None
+
+
+def _is_ancestor(a, b):
+    """Is a an ancestor of b? True / False / None when git cannot answer."""
+    if not a or not b:
+        return None
+    try:
+        r = subprocess.run(["git", "merge-base", "--is-ancestor", a, b],
+                           stdin=subprocess.DEVNULL, capture_output=True,
+                           check=False)
+    except OSError:
+        return None
+    return True if r.returncode == 0 else (False if r.returncode == 1 else None)
+
+
+def _gh(*args):
+    """A gh read, or None. Never raises — every failure is cannot-determine."""
+    try:
+        r = subprocess.run(["gh", *args], stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, check=False)
+    except OSError:
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
 def _report_boundary_record():
     """Print this head's boundary-vs-receipt record. REPORTED, NEVER GATED.
 
@@ -1631,6 +2276,7 @@ if state == 'head-unknown':
 if state == 'blocked':
     _report_blocked_dimensions()
     _report_boundary_record()
+    _report_successor_obligations()
     blocking, downgraded = open_blocking(bodies, head, carried)
     for d in downgraded:
         print(f"NOTE: unjustified blocking downgraded to should, non-gating "
@@ -1651,6 +2297,7 @@ if state == 'blocked':
 if state == 'incomplete':
     _report_blocked_dimensions()
     _report_boundary_record()
+    _report_successor_obligations()
     print(f"FAIL: PR #{pr} carries a review-lane report for head {head[:7]}, "
           "but it is a FRAGMENT and a fragment counts as nothing "
           "(specs/SPEC.md §4 clause 6, kogaki#74). A partial report turns "
@@ -1673,6 +2320,7 @@ if state == 'present':
     # is carrier-less by design with a named reopen trigger.
     _report_blocked_dimensions()
     _report_boundary_record()
+    _report_successor_obligations()
     scope, declared = head_scope(bodies, head, carried)
     print(f"ok: review-lane report present on PR #{pr} for head {head[:7]}, "
           "no open blocking findings")
