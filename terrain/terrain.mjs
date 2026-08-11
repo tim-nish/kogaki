@@ -2265,6 +2265,30 @@ function cmdReport(args) {
     subgroups = [];
   } else if (sub) {
     const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
+    // §6.2 v7 RULE 3 BINDS THIS SURFACE TOO, and it did not until PR #355
+    // round 1 finding 1. The rule reads unconditionally — "the group renders no
+    // SubGroups" — and story 1.57 implemented the suppression only in
+    // `cmdCotags`, so one run's two owner surfaces disagreed: the screen showed
+    // the group flat while the report still carried the SubGroups the screen
+    // had suppressed. An owner copying a G-id between them would have found two
+    // different structures under it, which is the divergence kogaki#317 minted
+    // the ids to prevent.
+    //
+    // The judgement runs HERE rather than being read off the screen, because
+    // the two surfaces share the subdivision record and nothing else — reading
+    // the screen's verdict would be a second carrier. Same input, same
+    // `judgeSubgroup`, same conclusion.
+    for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim);
+    const namedSg = placed.subgroups.filter(
+      (sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
+    if (namedSg.length === 1 && namedSg[0].verdicts
+        && namedSg[0].verdicts.tighter_than_parent !== true) {
+      // Rendered as judged-empty: the split did not discharge the obligation,
+      // so this report carries the group's members flat, exactly as the screen
+      // does. `[]` and not `null` — §12.1 v9 keeps judged-empty distinguishable
+      // from unjudged, and this group WAS judged.
+      subgroups = [];
+    } else {
     // §6.2 v6 — the SubGroupID is derived the same way the screen derives it:
     // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
     // output in the same order. That is what makes AC4 hold — an owner copying
@@ -2276,6 +2300,7 @@ function cmdReport(args) {
       claim: sg.claim || NO_CLAIM,
       members: renderMembers(sg.members),
     }));
+    }
   }
 
   const report = {

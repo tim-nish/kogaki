@@ -2767,7 +2767,7 @@ JS
 # split bought nothing`, and read by nothing: the obligation was reported
 # rather than discharged.
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -2830,6 +2830,40 @@ if (r.status !== 0) {
   for (const id of ["L2", "L1"]) {
     if (!out.includes(id)) fails.push(`AC5: member ${id} vanished from the flat fallback — the fallback renders the group, it does not narrow it`);
   }
+}
+
+// PR #355 round 1 finding 1 — RULE 3 BINDS THE FULL REPORT TOO. The screen
+// suppressing while the report still carried the SubGroups is one run showing
+// two structures for one group, which is exactly what kogaki#317's ids were
+// minted to prevent. Asserted on the REPORT's own bytes, seam-gated because
+// `report` reads served Gloss renderings.
+{
+  const dir = mkdtempSync(join(tmpdir(), "ac5-report-"));
+  const r2 = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+     "--group", `${TAG} × architecture`, "--claims", claims, "--subdivisions", subs,
+     "--judge-model", "m", "--judge-effort", "high",
+     "--report-dir", dir, "--rendering-dir", dir],
+    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: "checks/fixtures/terrain/compose-input/stub-gateway.mjs" } });
+  const seamAbsent = r2.status === 11
+    || (r2.status !== 0 && /policy_source unavailable|gateway/i.test(String(r2.stderr) + String(r2.stdout)));
+  if (seamAbsent) {
+    console.log("rule 3 on the Full Report: CANNOT-DETERMINE — the served seam is unavailable here and "
+      + "`report` reads served Gloss renderings through it. The screen half above RAN.");
+  } else if (r2.status !== 0) {
+    fails.push(`rule 3 on the Full Report: report exited ${r2.status}: ${(r2.stderr || "").trim().slice(0, 200)}`);
+  } else {
+    const md = readdirSync(dir).filter((f) => f.endsWith(".md"));
+    const body = md.length === 1 ? readFileSync(join(dir, md[0]), "utf8") : "";
+    if (md.length !== 1) {
+      fails.push(`rule 3 on the Full Report: expected one rendering, found ${md.length}`);
+    } else if (/^### G[0-9]+-[0-9]+ — /m.test(body)) {
+      fails.push("rule 3 on the Full Report: the report STILL carries the SubGroups the screen suppressed — §6.2 v7 rule 3 reads unconditionally, so one run's two owner surfaces must not disagree about whether a group has a split");
+    } else if (!body.includes("judged-empty outcome")) {
+      fails.push("rule 3 on the Full Report: the suppressed group did not render as JUDGED-EMPTY — §12.1 v9 keeps judged-empty distinguishable from unjudged, and this group WAS judged");
+    }
+  }
+  rmSync(dir, { recursive: true, force: true });
 }
 
 if (fails.length) {
