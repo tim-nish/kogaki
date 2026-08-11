@@ -1,5 +1,40 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v16, amended 2026-08-12 (kogaki#300, owner selection) — **§13.3's
+`deferred-slot: the bound's unit` is DISCHARGED in both halves: the unit is
+traversal (substrates × depth) and its values are FIXED AND DECLARED —
+`source_batch` one hop, `cross_links` two, shared-carrier off.** These are the
+2026-08-09 fill's own numbers with their Thesis keying removed; v15 withdrew the
+key, and v16 keeps the values rather than inventing new ones, because the
+numbers were never the part that read a claim.
+
+Fixed rather than keyed on the decision-lifetime ground — a declared setting is
+an onboarding-lifetime fact that REMOVES a decision from the expansion loop,
+where both live alternatives put one back in
+(`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:138`).
+Declined with grounds, at §13.3: keying on the settled set's size (admissible in
+principle, but the variation is anticipated rather than measured and nobody has
+run the expansion once), and the owner naming the reach per run (a per-run
+choice
+inside every expansion, re-opening what settling the set just answered). The
+2026-08-09 fill's own two declines — a neighbour-count cap and a surfacing
+threshold — are recorded there too and are not re-proposed.
+
+**This supersedes v15's re-weighting of the slot**, which said it carried the
+whole remaining bound with a unit and no values. That was true when written and
+is not now; the v15 block below is kept as the record of what it decided, and
+its own four-way table is a snapshot of the state v16 resolves.
+
+**deferred slots: none.** §13.3 held the last one.
+
+**Reopen trigger, named rather than left to judgment:** a real run in which a
+large settled set produces a neighborhood the owner reads as drowning, or a
+small one that reaches nothing. The values are unmeasured — inherited from a
+fill that never ran — and what this amendment buys is that they are declared,
+reviewed once and diffable, so a correction is an amendment rather than a code
+change. That measurement is a better trigger than the anticipation a keyed
+table would have been built on.
+
 **Status:** v15, amended 2026-08-11 (kogaki#303 sitting; hub ruling
 2026-08-09, `q_a/2026-08-09-terrain-boundary-correction` D1–D4) — **"Thesis" is
 WITHDRAWN from Terrain's vocabulary and §13's input is the SETTLED STRAND SET
@@ -50,7 +85,9 @@ members.
 it is a property of **trigger timing** rather than of the substrate, which
 decides *when* the expansion fires and nothing about *how far* it runs. Until
 the setting half is re-answered on a claim-free ground, §13 has a trigger, a
-unit, and no values for it.
+unit, and no values for it. **(Superseded by v16, 2026-08-12: the setting half
+IS re-answered on a claim-free ground — fixed declared values — and §13.3's slot
+is discharged. Kept as the record of what v15 decided.)**
 
 **A version-token collision in the record, not in this file.** That fill was
 executed as "SPEC-terrain **v14**" on a branch that never merged, while the
@@ -60,6 +97,7 @@ and was checked — but it was checked over the file, which is why the collision
 was found in review rather than here.
 
 **deferred slots: `the bound's unit` (unchanged in name, changed in weight).**
+**(v16 discharges it; this line records v15's state.)**
 
 **Residue, named rather than swept.** This amendment corrects §13, which is the
 section the ruling is about and the one kogaki#300/#302/#303 implement. It does
@@ -3425,16 +3463,15 @@ early** — on the co-tag GroupClaim screen right after the first tag selection 
 would fan out across a large number of Lessons — so noise is a property of
 **trigger timing**, not of the substrate.
 
-**What that answer does NOT cover, stated because the gap is the live one.**
-Trigger timing decides *when* the expansion fires; it decides nothing about *how
-far* it runs. v13 located the stopping condition in the Thesis, and this version
-removes it, so the whole remaining bound is `deferred-slot: the bound's unit`
-(§13.3). That slot's **unit** is answered — traversal, substrates × depth, by
-kogaki#300's 2026-08-09 owner selection — but the selection is keyed to the
-withdrawn Thesis for *which substrates and how deep*, and lives only on the
-parked PR #304. So **this section specifies an enumeration with a trigger, a
-unit, and no values for it**, and an implementation that picks values in code
-has settled a spec question silently.
+**What trigger timing does NOT cover, and where the rest of the bound now
+lives.** Trigger timing decides *when* the expansion fires and nothing about
+*how far* it runs. v13 located the stopping condition in the Thesis and v15
+removes it, so the whole remaining bound is §13.3's traversal bound — **now
+fully specified there** (v16): the unit is traversal, substrates × depth, and
+its values are FIXED AND DECLARED rather than keyed to anything. An
+implementation that picks different values in code has settled a spec question
+silently; an implementation that derives them from the settled set's content
+has reintroduced the input v15 withdrew.
 
 **Still not a third sibling entry point.** It takes a settled set, so it sits
 downstream of whichever entry produced one (Lessons co-tag today, Decisions
@@ -3515,15 +3552,14 @@ Read them under this correction:
 
 - **Survives:** the division itself — enumeration and bounding are different
   jobs; a bound may never be a relevance predicate over neighbors; a filter over
-  the rendered set is refused; and `deferred-slot: the bound's unit` is
-  **unfilled in its SETTING half** — its unit half is answered (traversal,
-  substrates × depth; kogaki#300, 2026-08-09), and only *which substrates and
-  how deep* is open.
+  the rendered set is refused; and `deferred-slot: the bound's unit`, which v15
+  recorded as unfilled in its setting half, is **DISCHARGED by v16** — unit and
+  values both declared below.
 - **Withdrawn:** the Thesis as the thing that bounds. v15's §13.2 makes the
   settled Strand set the sole input, so wherever v13 says *the Thesis bounds the
   expansion*, there is now **nothing setting the bound's values** until the
-  slot's setting half is filled — the unit those values would be expressed in
-  is settled. That is the finding, not a wording problem: v13 could treat the
+  slot's setting half is filled — which v16 does, with fixed declared values.
+  That is the finding, not a wording problem: v13 could treat the
   unit as a refinement because a bound already existed; v15 cannot.
 - **Consequently** v13's own reasoning below — that a mechanical layer returning
   the same neighborhood for every Thesis leaves a required input consumed by
@@ -3552,12 +3588,61 @@ by**:
 So the division is: **the three substrates enumerate, and the Thesis bounds the
 expansion of that enumeration** — how far the traversal runs and where it stops.
 
-**`deferred-slot: the bound's unit` — its UNIT half is answered and its SETTING
-half is not (v15).** kogaki#300's 2026-08-09 owner selection fills the unit —
-traversal, substrates × depth — and that half is claim-free and stands; but the
-fill lives only on the parked PR #304 and is keyed to the withdrawn Thesis for
-*which substrates and how deep*. So under v15 this slot carries the whole
-remaining bound, with a unit and no values.
+**THE BOUND, FILLED IN BOTH HALVES (v16, kogaki#300, owner selection
+2026-08-12). `deferred-slot: the bound's unit` is DISCHARGED.**
+
+The **unit** is traversal — substrates × depth — from kogaki#300's 2026-08-09
+selection, which is claim-free and stands. The **values** are fixed and
+declared here, identical on every run:
+
+| substrate | depth |
+|---|---|
+| `source_batch` (same-sitting batch-mates) | one hop |
+| `cross_links` (`[[slug]]`) | two hops |
+| shared carrier issue | off |
+
+**These are the 2026-08-09 fill's own numbers with their key removed.** That
+fill set them *per Thesis*; v15 withdrew the Thesis, and v16 keeps the values
+and drops the keying rather than inventing new ones — the numbers were never
+the part that read a claim.
+
+**Why fixed rather than keyed to anything, including anything claim-free.** The
+discriminator is decision lifetime:
+
+> Separate configuration by decision lifetime — per-repo facts set at
+> onboarding vs per-artifact choices asked at artifact time; conflating
+> lifetimes freezes editorial decisions as infrastructure.
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:138`
+(`[[config-by-lifetime]]`)
+
+A fixed declared setting is an **onboarding-lifetime fact**: it REMOVES a
+decision from the expansion loop, which is the same ground that carried the
+visual identity, the one style contract and the audience field. Both live
+alternatives put a decision back in:
+
+- **Keyed on the settled set's size** — declined. The table would be
+  onboarding-lifetime and the key claim-free, so it is admissible in principle;
+  it is declined because nobody has run the expansion once, so the variation it
+  buys is anticipated rather than observed, and the bands become their own
+  argument. If a real run shows a large set drowning in a fixed reach, that
+  measurement is the trigger to reopen this — and it is a better trigger than
+  the anticipation would have been.
+- **Owner names the reach at the settling act** — declined on the served line
+  directly: a per-run choice inside every expansion, and it re-opens what the
+  owner just answered by settling the set.
+
+**Two alternatives were already declined at the 2026-08-09 fill and are NOT
+re-proposed here**, recorded so neither returns blind: a **neighbour-count cap**
+(a size budget evicting members chosen by meaning has no usable lever) and a
+**surfacing threshold** (it ranks, which this section forbids the bound from
+doing).
+
+**What is still not settled, so the discharge is not read wider than it is.**
+Whether these values are *right* is unmeasured — they are inherited from a fill
+that never ran. What the discharge buys is that they are **declared, reviewed
+once, and diffable**, so an implementation cannot pick them silently and a later
+correction is an amendment rather than a code change.
 
 v13's own statement of the slot follows, verbatim:
 
@@ -3683,9 +3768,9 @@ mechanical layer's own bugs.
 
 **The §13.3 traversal bound is not this gate, and must not become it (v13,
 kogaki#300; re-cut v15).** §13.3 bounds how far the enumeration
-expands — under v15 by whatever `deferred-slot: the bound's unit` comes to
-carry, the Thesis having been withdrawn; this section holds *relevance
-judgment* — whether a surfaced neighbor
+expands — under v16 by the declared traversal values in §13.3, the Thesis having
+been withdrawn; this section holds *relevance judgment* — whether a surfaced
+neighbor
 is worth keeping — behind the trigger above, undesigned. The two are adjacent
 enough to collapse silently, so the line is drawn mechanically rather than by
 intent: **the §13.3 bound may decide how much of the enumeration is traversed,
