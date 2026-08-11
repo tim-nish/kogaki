@@ -500,7 +500,7 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
   }));
   const je = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
-     "--report-dir", RDJE, "--group", "architecture", "--subdivisions", SJE,
+     "--report-dir", RDJE, "--ids", "G2", "--subdivisions", SJE,
      "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
   // SEAM-AWARE, exactly as every other report-running block in this file
   // (`:874-878`, `:965-969`, `:1175-1178`). `report` reads served Gloss
@@ -531,12 +531,20 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
     if (rec.identity.judge_pin === "none") {
       fails.push("a judged-empty group minted a judge pin of `none` — the conformant case recorded as the violation (§12.1 v9)");
     }
-    if (!Array.isArray(rec.subgroups) || rec.subgroups.length !== 0) {
-      fails.push(`a judged-empty group carries ${JSON.stringify(rec.subgroups)} rather than ZERO SubGroupClaims `
-        + "— the no_member_hidden_subgroup catch-all manufactured a SubGroup the judgment did not make");
-    }
-    if (!Array.isArray(rec.members) || rec.members.length !== 2) {
-      fails.push("a judged-empty group lost its MEMBERS — they are not in `subgroups`, so nulling them drops the whole membership from the artifact");
+    // §12 v7 (kogaki#314): the record carries SECTIONS, one per entered id, and
+    // the per-group fields moved inside them. Same two properties, read where
+    // they now live.
+    const sec = (rec.sections || [])[0];
+    if (!sec) {
+      fails.push("the record carries no sections — §12 v7 makes a report one section per entered id");
+    } else {
+      if (!Array.isArray(sec.subgroups) || sec.subgroups.length !== 0) {
+        fails.push(`a judged-empty section carries ${JSON.stringify(sec.subgroups)} rather than ZERO SubGroupClaims `
+          + "— the no_member_hidden_subgroup catch-all manufactured a SubGroup the judgment did not make");
+      }
+      if (!Array.isArray(sec.members) || sec.members.length !== 2) {
+        fails.push("a judged-empty section lost its MEMBERS — they are not in `subgroups`, so nulling them drops the whole membership from the artifact");
+      }
     }
     // AC4: distinguishable from a never-judged artifact, which carries `none`.
     if (rec.identity.judge_pin === "none" || typeof rec.identity.judge_pin !== "object") {
@@ -551,7 +559,7 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
   writeFileSync(SLEGACY, JSON.stringify({ [`${TAG} × architecture`]: [] }));
   const legacy = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
-     "--report-dir", RDJE, "--group", "architecture", "--subdivisions", SLEGACY,
+     "--report-dir", RDJE, "--ids", "G2", "--subdivisions", SLEGACY,
      "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
   // SEAM-FREE BY CONSTRUCTION, and that is why it stays a hard assertion:
   // `readSubdivisionEntry` refuses while validating the input, BEFORE any shard
@@ -1078,7 +1086,7 @@ const count = () => readdirSync(RD).filter((f) => f.startsWith("terrain-full-rep
 // vanishing — `absence-verification-counts-exercised-trials`, and the
 // three-result discipline `check-external-deps.sh` already applies to its own
 // reads.
-const r1 = run(["--group", "architecture"]);
+const r1 = run(["--ids", "G2"]);
 const seamAbsent = r1.status === 11
   || (r1.status !== 0
       && /policy_source unavailable|gateway/i.test(String(r1.stderr) + String(r1.stdout)));
@@ -1092,9 +1100,9 @@ if (seamAbsent) {
 } else {
 if (r1.status !== 0) fails.push(`report exited ${r1.status}: ${(r1.stderr || "").trim()}`);
 eq("case 1a — one run, one report", count(), 1);
-run(["--group", "architecture"]);
+run(["--ids", "G2"]);
 eq("case 1b — SAME identity run twice is ONE report (idempotent, not a duplicate)", count(), 1);
-run(["--group", "cost"]);
+run(["--ids", "G3"]);
 eq("case 3 — same pin, DIFFERENT query is two reports", count(), 2);
 
 const SUBS = join(RD, "subs.json");
@@ -1105,7 +1113,7 @@ writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: { judged: true,
 // injects — otherwise this case would assert a refusal it had just prevented.
 const noPin = spawnSync(process.execPath,
   ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
-   "--report-dir", RD, "--group", "architecture", "--subdivisions", SUBS],
+   "--report-dir", RD, "--ids", "G2", "--subdivisions", SUBS],
   { encoding: "utf8" });
 if (noPin.status === 0) {
   fails.push("a report was written with NO judge pin — v9 requires it for EVERY report invocation, and a co-tag run may never mint `none`");
@@ -1119,7 +1127,7 @@ eq("the refusal wrote nothing", count(), 2);
 // conformant case a violation.
 const noEntry = spawnSync(process.execPath,
   ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
-   "--report-dir", RD, "--group", "architecture",
+   "--report-dir", RD, "--ids", "G2",
    "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
 if (noEntry.status === 0) {
   fails.push("a report was written for a group with NO subdivision entry — an absent entry is `not judged`, and the co-tag path must refuse rather than mint `none` (§12.1 v9)");
@@ -1140,12 +1148,12 @@ eq("the unjudged refusal wrote nothing either", count(), 2);
 // rather than a second report — row 1 of §12.1's table, reached by a path that
 // did not exist before.
 const before4 = count();
-run(["--group", "architecture", "--subdivisions", SUBS, "--judge-model", "m", "--judge-effort", "high"]);
+run(["--ids", "G2", "--subdivisions", SUBS, "--judge-model", "m", "--judge-effort", "high"]);
 eq("case 4a — a subdivided run at the SAME judge as an earlier judged-empty one is IDEMPOTENT",
    count(), before4);
 // 4b — the same query judged by a DIFFERENT judge is the pair the required
 // path produces routinely, and it is what row 4 now describes.
-run(["--group", "architecture", "--subdivisions", SUBS, "--judge-model", "m2", "--judge-effort", "high"]);
+run(["--ids", "G2", "--subdivisions", SUBS, "--judge-model", "m2", "--judge-effort", "high"]);
 eq("case 4b — same pin and query, TWO DIFFERENT judge pins, COEXIST as two reports",
    count(), before4 + 1);
 }
@@ -1156,7 +1164,10 @@ eq("case 4b — same pin and query, TWO DIFFERENT judge pins, COEXIST as two rep
 for (const f of readdirSync(RD).filter((x) => x.startsWith("terrain-full-report-"))) {
   const rec = JSON.parse(readFileSync(join(RD, f), "utf8"));
   const id = rec.identity || {};
-  if (!id.pin || !id.query || !id.query.tag || !id.query.group || id.judge_pin === undefined) {
+  // §12 v6 (kogaki#314): the query component is `{ tag, ids }`, the ids being
+  // the canonical entered set. `group` is the pre-v6 spelling.
+  if (!id.pin || !id.query || !id.query.tag
+      || !(Array.isArray(id.query.ids) && id.query.ids.length) || id.judge_pin === undefined) {
     fails.push(`${f} does not record all three identity components — §12.2 forbids recovering them from the filename, so this report cannot be resolved at all`);
   }
   if (rec.classification !== "report" || rec.narrows !== false) {
@@ -1379,21 +1390,35 @@ const run = (extra) => spawnSync(process.execPath,
    ...extra], { encoding: "utf8" });
 const reports = () => readdirSync(RD).filter((f) => f.startsWith("terrain-full-report-")).length;
 
-const probe = run(["--all-groups"]);
+const probe = run(["--ids", "G1,G2,G3"]);
 const seamAbsent = probe.status === 11
   || (probe.status !== 0 && /policy_source unavailable|gateway/i.test(String(probe.stderr) + String(probe.stdout)));
 if (seamAbsent) {
-  console.log("v5 residuals: CANNOT-DETERMINE for the 4 --all-groups cases — the served "
+  console.log("v5 residuals: CANNOT-DETERMINE for the 4 --ids cases — the served "
     + "seam is unavailable here and `report` reads through it. The tagRow allowlist cases "
     + "above are seam-free and RAN.");
 } else {
-  if (probe.status !== 0) fails.push(`report --all-groups exited ${probe.status}: ${(probe.stderr || "").trim()}`);
-  // ONE REPORT PER COMPOSED GROUP. The fixture's `testing` tag composes three
-  // co-tag groups, so the eager pass writes three.
-  if (reports() !== 3) fails.push(`--all-groups wrote ${reports()} report(s) over 3 composed groups — the eager reading is one report per group (SPEC.md §11 v5)`);
-  // IDEMPOTENT across the eager pass, per group, exactly as the single form is.
-  run(["--all-groups"]);
-  if (reports() !== 3) fails.push(`a second --all-groups pass wrote ${reports()} report(s) — the eager pass is idempotent per identity, not a duplicate per invocation`);
+  if (probe.status !== 0) fails.push(`report --ids exited ${probe.status}: ${(probe.stderr || "").trim()}`);
+  // ONE REPORT OVER THE ENTERED SET — the pre-#314 assertion here was "three
+  // reports over three composed groups", which is the eager reading §11 v5
+  // supersedes. Entering all three ids now writes ONE file with three
+  // sections, and asserting the old count would be asserting the superseded
+  // contract.
+  if (reports() !== 1) fails.push(`--ids G1,G2,G3 wrote ${reports()} report(s) — §12 v6 makes it ONE report over the entered set, not one per group`);
+  {
+    const only = readdirSync(RD).filter((f) => f.startsWith("terrain-full-report-"))[0];
+    const rec = JSON.parse(readFileSync(join(RD, only), "utf8"));
+    if ((rec.sections || []).length !== 3) {
+      fails.push(`the one report carries ${(rec.sections || []).length} section(s) over 3 entered ids — §12 v7 is one section per entered id`);
+    }
+    if (JSON.stringify(rec.identity.query.ids) !== JSON.stringify(["G1", "G2", "G3"])) {
+      fails.push(`the identity's ids are ${JSON.stringify(rec.identity.query.ids)} — §12 v6 records the CANONICAL entered set`);
+    }
+  }
+  // IDEMPOTENT ON THE SET, and re-entering in a DIFFERENT ORDER must collide
+  // with the first — that is what set-based identity buys (§12 v6, AC2).
+  run(["--ids", "G3,G1,G2"]);
+  if (reports() !== 1) fails.push(`re-entering the same ids in a different order wrote ${reports()} report(s) — identity is set-based, so two typings of one set are ONE artifact (§12 v6)`);
   // The judge-pin validation is PRE-WRITE. A refusal that had already written
   // some of its targets would be a partial pass presenting as one, which is
   // the whole reason the validation is sited before the fan-out.
@@ -1404,9 +1429,9 @@ if (seamAbsent) {
       composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }] }}));
   const partial = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
-     "--report-dir", RD2, "--all-groups", "--subdivisions", SUBS], { encoding: "utf8" });
+     "--report-dir", RD2, "--ids", "G1,G2,G3", "--subdivisions", SUBS], { encoding: "utf8" });
   if (partial.status === 0) {
-    fails.push("--all-groups with SubGroupClaims and no judge pin was ACCEPTED — the pin is §12.1's third identity component");
+    fails.push("--ids with SubGroupClaims and no judge pin was ACCEPTED — the pin is §12.1's third identity component");
   }
   if (readdirSync(RD2).filter((f) => f.startsWith("terrain-full-report-")).length !== 0) {
     fails.push("the judge-pin refusal had already written some of its targets — a partial pass presenting as one, which is what siting the validation BEFORE the fan-out exists to prevent");
@@ -1867,7 +1892,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
   }));
   const r = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
-     "--group", "architecture", "--subdivisions", subs,
+     "--ids", "G2", "--subdivisions", subs,
      "--report-dir", run, "--rendering-dir", join(tree, "reports"),
      "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
   const out = String(r.stdout) + String(r.stderr);
@@ -1949,7 +1974,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
   //   product-lab@dec0d568 gloss/lessons/testing.md:155
   const d = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
-     "--group", "architecture", "--subdivisions", subs2,
+     "--ids", "G2", "--subdivisions", subs2,
      "--judge-model", "m", "--judge-effort", "high"],
     { encoding: "utf8", env: Object.assign({}, process.env, { KOGAKI_RUN_DIR: run2 }) });
   const dout = String(d.stdout) + String(d.stderr);
@@ -2052,7 +2077,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
     "testing × architecture": { judged: true, subgroups: [] },
   }));
   const argv = ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
-    "--group", "architecture", "--subdivisions", subs3,
+    "--ids", "G2", "--subdivisions", subs3,
     "--judge-model", "m", "--judge-effort", "high"];
   // NEITHER RENDERING LOCATION IS OVERRIDDEN. `--rendering-dir` would supply
   // the value under test, which is the class PR #240 round 1 finding 3 already
@@ -2091,8 +2116,15 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       fails.push("the fresh run produced no record/rendering pair at the DEFAULT rendering location — every assertion below reads those two artifacts against each other and can report nothing without both");
     } else {
       const rec = JSON.parse(readFileSync(join(run3, recName), "utf8"));
-      const members = (rec.members && rec.members.length ? rec.members
-        : (rec.subgroups || []).flatMap((sg) => sg.members || []));
+      // §12 v7 (kogaki#314) — members live inside SECTIONS now. Read every
+      // section's, flat or subdivided, and fall back to the pre-v7 top-level
+      // shape so a record written before this change still reads.
+      const members = (rec.sections && rec.sections.length
+        ? rec.sections.flatMap((sec) => (sec.members && sec.members.length
+            ? sec.members
+            : (sec.subgroups || []).flatMap((sg) => sg.members || [])))
+        : (rec.members && rec.members.length ? rec.members
+            : (rec.subgroups || []).flatMap((sg) => sg.members || [])));
       const withJourney = members.filter((m) => m.journey_gloss !== null && m.journey_gloss !== undefined);
 
       // THE FIXTURE MUST BE ABLE TO FAIL. Each of these guards a way the block
@@ -2544,7 +2576,7 @@ try {
 
   const out = join(dir, "out");
   const r = spawnSync(process.execPath, [join(tree, "terrain/terrain.mjs"), "report",
-    "--survey", survey, "--tag", "testing", "--group", "testing \u00d7 architecture",
+    "--survey", survey, "--tag", "testing", "--ids", "G2",
     "--judge-model", "m", "--judge-effort", "e", "--subdivisions", subsPath,
     "--report-dir", out, "--rendering-dir", out], { encoding: "utf8" });
 
@@ -2700,7 +2732,7 @@ try {
 
   const rdir = join(dir, "r"); const gdir = join(dir, "g");
   const rep = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", TAG, "--group", GROUP,
+    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", TAG, "--ids", "G2",
      "--claims", claims, "--subdivisions", subs,
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", rdir, "--rendering-dir", gdir],
@@ -2841,7 +2873,7 @@ if (r.status !== 0) {
   const dir = mkdtempSync(join(tmpdir(), "ac5-report-"));
   const r2 = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
-     "--group", `${TAG} × architecture`, "--claims", claims, "--subdivisions", subs,
+     "--ids", "G2", "--claims", claims, "--subdivisions", subs,
      "--judge-model", "m", "--judge-effort", "high",
      "--report-dir", dir, "--rendering-dir", dir],
     { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: "checks/fixtures/terrain/compose-input/stub-gateway.mjs" } });
@@ -2875,4 +2907,98 @@ console.log("suppressed split: a split whose only named SubGroup is not tighter 
   + "SubGroups, the group falls back to its FLAT heading with member ids intact, no `NOT a leaf` line "
   + "survives, the suppression is DISCLOSED in aggregate rather than silently, and the command EXITS ZERO — "
   + "AC6 is asserted before AC5 so the must-not-appear assertions cannot pass on an empty screen.");
+JS
+
+# --------------------------------------------------------------------------
+# THE ENTERED ID SET (SPEC-terrain §11 v5, §12 v6/v7; kogaki#314, story 1.58).
+#
+# Seam-free by construction: every case below is either a unit call on the
+# canonicaliser or a `report` run that REFUSES before reaching the seam. The
+# one case that renders is seam-gated where it appears above.
+node --input-type=module - <<'JS'
+import { spawnSync } from "node:child_process";
+import { canonicalIds, idSortKey } from "./terrain/terrain.mjs";
+
+const fails = [];
+const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+
+// AC3 — NUMERIC-AWARE. The plain reading of "sorted" is lexicographic and it
+// is wrong: "G10" < "G5-1" as strings, which renders a screen's tenth group
+// above its fifth. This case is the whole reason AC3 is a criterion.
+{
+  const got = canonicalIds(["G10", "G5-1", "G5-2"]);
+  const want = ["G5-1", "G5-2", "G10"];
+  if (JSON.stringify(got) !== JSON.stringify(want)) {
+    fails.push(`AC3: canonicalIds gave ${JSON.stringify(got)}, want ${JSON.stringify(want)} — the sort must compare NUMERIC components, never the raw string`);
+  }
+  if (JSON.stringify(["G10", "G5-1", "G5-2"].sort()) === JSON.stringify(want)) {
+    fails.push("AC3: this case cannot discriminate — plain string sort already gives the wanted order, so it proves nothing about numeric-awareness");
+  }
+  // A parent sorts before its own SubGroups.
+  const nested = canonicalIds(["G2-1", "G2", "G10", "G2-10", "G2-2"]);
+  if (JSON.stringify(nested) !== JSON.stringify(["G2", "G2-1", "G2-2", "G2-10", "G10"])) {
+    fails.push(`AC3: nested order ${JSON.stringify(nested)} — a parent precedes its SubGroups and -10 follows -2`);
+  }
+}
+
+// AC2 — CANONICAL means deduped as well as ordered: identity is set-based, so
+// a repeated id cannot make two artifacts out of one set.
+{
+  const got = canonicalIds(["G2", "G1", "G2"]);
+  if (JSON.stringify(got) !== JSON.stringify(["G1", "G2"])) {
+    fails.push(`AC2: canonicalIds did not dedupe — got ${JSON.stringify(got)}`);
+  }
+}
+// An unparseable id sorts last rather than throwing: it is refused by
+// resolution (AC5), and the canonicaliser is not where that refusal lives.
+if (idSortKey("nonsense")[0] !== Number.MAX_SAFE_INTEGER) {
+  fails.push("idSortKey did not sort an unparseable id last — resolution owns the refusal, not the sort");
+}
+
+const report = (extra) => spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
+   "--judge-model", "m", "--judge-effort", "high", ...extra], { encoding: "utf8" });
+
+// AC1 — the superseded flags are GONE, and the refusal SAYS WHAT TO DO. A
+// removal that leaves the caller guessing is a worse removal.
+for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
+  const r = report(flag);
+  if (r.status === 0) {
+    fails.push(`AC1: report still accepted ${flag[0]} — §11 v5 supersedes the eager path, and leaving the flag reachable leaves the over-generation one argument away`);
+  } else if (!/--ids/.test(String(r.stderr))) {
+    fails.push(`AC1: the ${flag[0]} refusal does not name the replacement (--ids) — a removal that does not say what to write instead sends the caller guessing`);
+  }
+}
+
+// AC5 — an unresolvable id refuses AND lists what does resolve.
+{
+  const r = report(["--ids", "G99"]);
+  if (r.status === 0) {
+    fails.push("AC5: an unresolvable id was ACCEPTED");
+  } else {
+    if (!/G1|G2|G3/.test(String(r.stderr))) {
+      fails.push("AC5: the refusal does not list the ids that DO resolve — it sends the owner back to re-read a screen they already read");
+    }
+    if (!/renumber|printed them/.test(String(r.stderr))) {
+      fails.push("AC5: the refusal does not say ids are valid for the run that printed them — story 1.56 AC11 is why a stale list fails, and the message is where an owner learns it");
+    }
+  }
+}
+
+// SQ3, answered — an empty set REFUSES rather than rendering nothing.
+{
+  const r = report(["--ids", ""]);
+  if (r.status === 0) fails.push("SQ3: an empty --ids was accepted — a report of nothing has no identity worth colliding on");
+}
+
+if (fails.length) {
+  console.log("FAIL entered ID set (SPEC-terrain §12 v6/v7, story 1.58):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("entered ID set: canonicalIds is NUMERIC-AWARE (G5-1 before G10, and the case asserts plain "
+  + "string sort would NOT give that order, so it cannot pass vacuously), dedupes, and sorts a parent "
+  + "before its SubGroups; both superseded flags refuse AND name --ids; an unresolvable id refuses listing "
+  + "what resolves and why a stale list fails; an empty set refuses. Seam-free — every case is a unit call "
+  + "or a refusal that precedes the seam.");
 JS

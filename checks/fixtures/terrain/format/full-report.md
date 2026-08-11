@@ -1,6 +1,7 @@
-# Full Report — G2 — testing × architecture
+# Full Report — testing
 
 *Selected tag:* `testing`  
+*Selections:* G2  
 *Substrate pin:* `product-lab@16a6dbf64b5e5471c196c48bf7f2d53c2ea8fd57`  
 *Judge:* `claude-opus-5/high`
 
@@ -9,11 +10,10 @@
 > article material is quoted from served renderings at pins, never
 > from a report.
 
-## Group claim
+
+## G2 — testing × architecture
 
 both hold that a guard is real only once something exercised it
-
-## SubGroups
 
 *The judgment produced NO split — this is a judged-empty outcome,
 not an absent judgment. Members are listed below.*
