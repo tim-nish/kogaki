@@ -1,5 +1,75 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v15, amended 2026-08-11 (kogaki#303 sitting; hub ruling
+2026-08-09, `q_a/2026-08-09-terrain-boundary-correction` D1–D4) — **"Thesis" is
+WITHDRAWN from Terrain's vocabulary and §13's input is the SETTLED STRAND SET
+ALONE.** This **supersedes** v12's and v13's naming of the Thesis as an input
+and as the expansion's bound, and the conflict is surfaced rather than
+reconciled: the later-dated owner ruling wins, and the two earlier Status blocks
+below are kept as the record of what they decided rather than rewritten.
+
+The ground is that **any claim-shaped input is dead input**: the neighborhood
+computes over member metadata — batch-mates, `[[slug]]` cross-links, shared
+carrier issues — and cannot read a claim, so a required Thesis was an input the
+substrate could never consume. Specifying one anyway invites an implementation
+to invent a consumer for it and quietly licenses the judged layer §13.5's
+measurable-miss condition deliberately gates. A Thesis is what **Brief**
+determines from candidates, so naming one here imports a downstream stage's
+output into an upstream surface.
+
+**The consequence v13 leaves behind, and the FOUR-WAY state of the slot it
+lands on.** v13 resolved its fork by dividing the work — *the substrates
+enumerate, the Thesis bounds the expansion* — so withdrawing the Thesis removes
+the bounding half and leaves the enumerating half intact. Where that lands is
+`deferred-slot: the bound's unit` (§13.3), and its state is not one thing:
+
+| where | says |
+|---|---|
+| **this file, on master** | the slot is OPEN — §13.3 names it and fixes no unit |
+| **kogaki#300 and #302** | the slot is FILLED — *"the bound's unit is TRAVERSAL — substrates × depth"*, owner selection 2026-08-09 |
+| **the fill's own text** | Thesis-keyed: *"The Thesis answers which provenance links are worth following, and how far — `source_batch` one hop, `cross_links` two, shared-carrier off"* |
+| **where the fill lives** | branch `spec/300-bound-unit` only — **PR #304, open and PARKED at the two-round bound**, never merged |
+
+**So a third record is superseded here and it is the least obvious one.** The
+2026-08-09 fill is a ratified owner selection, and this amendment withdraws the
+input it is keyed to. Reported rather than reconciled, on the same standard the
+v12/v13 supersession above is reported on.
+
+**What survives the fill and what does not, because the two halves separate
+cleanly.** Its **unit** — traversal, expressed in substrates × depth and never
+in the neighbours it yields — is claim-free and survives; so does its declined
+alternative, the neighbour-count cap, refused on the served ground that a size
+budget evicting members chosen by meaning has no usable lever. What is withdrawn
+is what **sets** that unit: the Thesis answered *which substrates and how deep*,
+and nothing answers it now. The fill's further claim — that it discharged
+§13.2's "empty is an informative outcome" **in the strong form** — goes with it,
+since that argument ran through a Thesis whose declared substrates yield no
+members.
+
+**The residual gap, stated plainly:** the correction's answer to noise is that
+it is a property of **trigger timing** rather than of the substrate, which
+decides *when* the expansion fires and nothing about *how far* it runs. Until
+the setting half is re-answered on a claim-free ground, §13 has a trigger, a
+unit, and no values for it.
+
+**A version-token collision in the record, not in this file.** That fill was
+executed as "SPEC-terrain **v14**" on a branch that never merged, while the
+**v14** on master is the kogaki#319+#318 §14-grammar block. The record therefore
+already carries two different v14s. This file's own Status list is single-valued
+and was checked — but it was checked over the file, which is why the collision
+was found in review rather than here.
+
+**deferred slots: `the bound's unit` (unchanged in name, changed in weight).**
+
+**Residue, named rather than swept.** This amendment corrects §13, which is the
+section the ruling is about and the one kogaki#300/#302/#303 implement. It does
+**not** touch §5's vocabulary line or the four "what the owner reads to think a
+Thesis through" purpose clauses elsewhere in this spec (§6, §9, §12): those name
+a downstream stage's output in an upstream surface too, which is the same defect
+one degree milder, and re-cutting them is its own act on its own carrier. A
+reader who finds "Thesis" outside §13 has found this residue and not a surviving
+input.
+
 **Status:** v14, amended 2026-08-11 (kogaki#319 + kogaki#318, coupled, owner
 selection) — **§14 moves the rendered format contract out of this prose and
 into a machine-readable grammar the emitters refuse to violate, and mints the
@@ -3213,7 +3283,7 @@ at pins (`specs/SPEC.md` §2), never from a report. What has changed is
 clause above is untouched, and moving a file into the tree does not make it
 evidence.
 
-## 13. The provenance neighborhood — a Thesis-bounded widening of the candidate set
+## 13. The provenance neighborhood — a widening of the settled Strand set
 
 **This section folds kogaki#289** (owner-adopted direction 2026-08-08; hub
 assessment `product-lab:q_a/staging/2026-08-08-terrain-cross-tag-expansion-for-candidate-strands.md`).
@@ -3322,27 +3392,56 @@ Nothing here is smaller. So:
   proposal-rendering affordance of its own and that §1's refused alternative was
   built.
 
-### 13.2 Input is the candidate set AND the tentative Thesis
+### 13.2 Input is the SETTLED STRAND SET ALONE (v15)
 
-The surface takes **two** inputs: the candidate Strand set, and the tentative
-Thesis or story hypothesis. Both are required. Strand-set-only similarity is
-**declined**, and the decline is mechanical rather than aesthetic:
+The surface takes **one** input: the Strand set the owner has settled. The
+GroupClaim is visible at selection as an aid to *choosing* that set and is **not
+an input to the expansion**.
 
-> "Whether a falsifiable question exists at the time of a read decides whether
-> that read has a relevance criterion, a stopping condition and a grade — so
-> prepare pointers in advance and never answers; a pre-computed answer has no
-> denominator, and no instrument can tell a good one from a bad one."
+**This reverses v12/v13, which required a second input, and the reversal is
+recorded rather than smoothed.** Those versions declined Strand-set-only
+similarity and named the tentative Thesis a required input; the 2026-08-09 owner
+ruling adopts exactly what they declined. Their argument is preserved in the
+Status block and in §13.3 below rather than deleted, because it was sound about
+the thing it was reasoning over and wrong about what this substrate can consume.
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 LESSONS.md:33`
-(`[[a-read-without-a-question-cannot-be-bounded-or-graded]]`)
+**The ground: a claim-shaped input is DEAD INPUT here.** §13.3's three
+substrates are batch-mates, `[[slug]]` cross-links and shared carrier issues —
+member metadata, every one of them. None can read a claim. A required Thesis was
+therefore an input nothing consumed, which v13 had already measured from the
+other side when it found the mechanical layer returning the same neighborhood
+for every Thesis. Specifying an unreadable input does not sit inert: it reads as
+design, invites an implementation to invent a consumer for it, and quietly
+licenses the judged layer §13.5 gates.
 
-The Thesis is that question. Without it the neighborhood has no relevance
-bound, so it grows toward corpus size and has no grade — a suggestion list
-nobody can call wrong. With it, **empty is an informative outcome**, and a
-neighborhood that returns nothing is a result rather than a failure. That is
-also why this surface is **not** a third sibling *entry point*: it takes a
-candidate set plus a Thesis, so it sits downstream of whichever entry produced
-them (Lessons co-tag today, Decisions later).
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:15`
+(`[[an-input-the-substrate-cannot-read-is-dead]]`)
+
+**THE TRIGGER IS AN EXPLICIT OWNER ACT SETTLING THE SET**, and it carries the
+concern the Thesis was reached for. Expansion must not fire until the Strands
+and GroupClaim are settled and the owner has explicitly named the set. The
+ruling's own reading: a purely mechanical expansion is **just as noisy fired too
+early** — on the co-tag GroupClaim screen right after the first tag selection it
+would fan out across a large number of Lessons — so noise is a property of
+**trigger timing**, not of the substrate.
+
+**What that answer does NOT cover, stated because the gap is the live one.**
+Trigger timing decides *when* the expansion fires; it decides nothing about *how
+far* it runs. v13 located the stopping condition in the Thesis, and this version
+removes it, so the whole remaining bound is `deferred-slot: the bound's unit`
+(§13.3). That slot's **unit** is answered — traversal, substrates × depth, by
+kogaki#300's 2026-08-09 owner selection — but the selection is keyed to the
+withdrawn Thesis for *which substrates and how deep*, and lives only on the
+parked PR #304. So **this section specifies an enumeration with a trigger, a
+unit, and no values for it**, and an implementation that picks values in code
+has settled a spec question silently.
+
+**Still not a third sibling entry point.** It takes a settled set, so it sits
+downstream of whichever entry produced one (Lessons co-tag today, Decisions
+later) — the siting survives the correction untouched, as do the closed-set
+invariant and the never-a-Brief-fetch rule. **And Terrain ENDS here:** the shape
+is *selection → Strand exploration → end of Terrain*. A session may offer to
+start Brief afterward; this spec neither mentions nor guarantees that.
 
 ### 13.3 The three substrates, and the join that does not hold by equality
 
@@ -3395,8 +3494,28 @@ The served shape is `{"members": {"journey": [...], "lesson": [...]}}`
 (`gloss/ELEMENTS.jsonl:745`), so the join already carries each batch-mate's
 family; §13.4's no-pooling rule needs no additional lookup and no inference.
 
+**WHERE THE BOUND LIVES — v13's resolution, half of which v15 removes.** The
+paragraphs that follow are v13's and are kept in full, because the *shape* they
+established survives and only the *thing that supplied the bound* is withdrawn.
+Read them under this correction:
+
+- **Survives:** the division itself — enumeration and bounding are different
+  jobs; a bound may never be a relevance predicate over neighbors; a filter over
+  the rendered set is refused; `deferred-slot: the bound's unit` is unfilled.
+- **Withdrawn:** the Thesis as the thing that bounds. v15's §13.2 makes the
+  settled Strand set the sole input, so wherever v13 says *the Thesis bounds the
+  expansion*, there is now **nothing in the bounding role** until the slot is
+  filled. That is the finding, not a wording problem: v13 could treat the unit
+  as a refinement because a bound already existed; v15 cannot.
+- **Consequently** v13's own reasoning below — that a mechanical layer returning
+  the same neighborhood for every Thesis leaves a required input consumed by
+  nothing — is now the *argument for the correction* rather than a defect to be
+  resolved by giving the Thesis a job. It measured the right thing and drew the
+  narrower conclusion.
+
 **Where the Thesis binds: it bounds the expansion, and never filters the set
-(v13, kogaki#300).** §13.2 declares both inputs required; every substrate above
+(v13, kogaki#300 — SUPERSEDED IN ITS BOUNDING HALF by v15, kept as record).**
+§13.2 declares both inputs required; every substrate above
 is computable from the candidate set alone. Read together those said the
 mechanical layer returns the same neighborhood for every Thesis — which makes
 §13.2's "empty is an informative outcome" unreachable and leaves the required
@@ -3415,12 +3534,19 @@ by**:
 So the division is: **the three substrates enumerate, and the Thesis bounds the
 expansion of that enumeration** — how far the traversal runs and where it stops.
 
-**`deferred-slot: the bound's unit` — decided by kogaki#300's story 1.44, not
-here.** This section fixes *that* a stopping condition exists and that it may
-never be a relevance predicate; it does not fix what the condition is measured
-in (traversal depth, member count, substrate exhaustion, or another unit). The
-slot is named here rather than only on the story because a reader of §13.3
-alone would otherwise meet text that reads as complete.
+**`deferred-slot: the bound's unit` — its UNIT half is answered and its SETTING
+half is not (v15).** kogaki#300's 2026-08-09 owner selection fills the unit —
+traversal, substrates × depth — and that half is claim-free and stands; but the
+fill lives only on the parked PR #304 and is keyed to the withdrawn Thesis for
+*which substrates and how deep*. So under v15 this slot carries the whole
+remaining bound, with a unit and no values.
+
+v13's own statement of the slot follows, and it now reads one clause too
+broadly: this section fixes *that* a stopping condition exists and that it may
+never be a relevance predicate, and it does not fix what the condition is
+measured in — **though the measuring unit itself is no longer open**, only the
+values it takes. The slot is named here rather than only on the story because a
+reader of §13.3 alone would otherwise meet text that reads as complete.
 
 **And §13.2's "empty is an informative outcome" is reachable only once that
 slot is filled — stated rather than asserted.** Under a bound that may change
@@ -3465,7 +3591,7 @@ Three obligations on the rendering, each inherited:
    party the claim is made to — so where scope must come from the human, the
    human supplies a REGION and the phase does the enumerating"
    (`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:61`).
-   Here the owner supplies the region — candidate set plus Thesis — and the
+   Here the owner supplies the region — the settled Strand set (v15) — and the
    surface enumerates and **reports what it looked for and did not find**,
    including the unresolved-`source_batch` markers of §13.3.
 3. **Populations are never pooled.** A batch-mate may be a Journey, a Decision,
@@ -3509,16 +3635,22 @@ fix, and counting it as a relevance miss would buy the extension with the
 mechanical layer's own bugs.
 
 **The §13.3 traversal bound is not this gate, and must not become it (v13,
-kogaki#300).** §13.3 gives the Thesis a bound on how far the enumeration
-expands; this section holds *relevance judgment* — whether a surfaced neighbor
+kogaki#300; re-cut v15).** §13.3 bounds how far the enumeration
+expands — under v15 by whatever `deferred-slot: the bound's unit` comes to
+carry, the Thesis having been withdrawn; this section holds *relevance
+judgment* — whether a surfaced neighbor
 is worth keeping — behind the trigger above, undesigned. The two are adjacent
 enough to collapse silently, so the line is drawn mechanically rather than by
 intent: **the §13.3 bound may decide how much of the enumeration is traversed,
 and may never score, rank, or drop an enumerated neighbor on relevance.** An
-implementation whose bound requires judging a neighbor against the Thesis has
-built this extension without its trigger firing, and the observable tell is
-that removing the Thesis would change *which* neighbors are surfaced rather
-than *how many*.
+implementation whose bound requires judging a neighbor against **the settled
+set's content** has built this extension without its trigger firing, and the
+observable tell is unchanged in shape: a bound whose removal would change
+*which* neighbors are surfaced rather than *how many* is a relevance predicate
+whatever it is named. **v15 sharpens this rather than weakening it** — with no
+claim-shaped input in the section at all, any implementation found scoring
+neighbors against a claim has both built the gated extension *and* reintroduced
+the dead input the correction withdrew.
 
 The `§13.2` in this section's trigger sentence was corrected to `§13.3` in the
 same amendment: the three substrates are enumerated there, and the mis-citation
@@ -3531,7 +3663,8 @@ mid-composition gap discovery keeps its ratified remedies, and re-opening a
 closed set routes back through Terrain as an **owner** act.
 
 **No Move coupling, and it is a prohibition rather than a scope note.**
-Expansion is Thesis-driven. Suggesting Grains *because they would make a Move
+Expansion runs from the settled Strand set (v15).
+Suggesting Grains *because they would make a Move
 applicable* is the declined adjacency/Recipe shape, whose named observable
 defect is Move-first composition — the article's shape choosing its material.
 A neighborhood that consulted the Move set would invert the dependency this
@@ -3546,7 +3679,7 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   (`terrain/terrain.mjs:574`), not a change to it: `cotags` composes within one
   tag and its `--claims` refusal is keyed to `compose-input`'s composition pin
   (§11), which a widening view must not perturb. The neighborhood reads the
-  survey record and the Thesis and emits its own artifact.
+  survey record and the settled Strand set (v15) and emits its own artifact.
 - **`compose-input`'s bounded read is unchanged** (`terrain/terrain.mjs:1496`).
   §11's subset refusal is what guarantees claims are composed only from served
   members; a neighborhood suggestion the owner **took** enters through the
