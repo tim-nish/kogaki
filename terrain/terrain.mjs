@@ -2654,6 +2654,304 @@ function cmdCapture(args) {
   console.log(`Captured ${row.stop_id} (gate ${decl.id}) → ${out} — machine-local run state, never committed.`);
 }
 
+// --------------------------------------------------------------------------
+// neighborhood — SPEC-terrain §13, the provenance neighborhood (story 1.44,
+// kogaki#302, umbrella kogaki#300).
+//
+// A WIDENING OF THE SETTLED STRAND SET, offered BESIDE it. §13.1: a report,
+// never a proposal — it narrows nothing, so the §2.3 second-proposer boundary
+// does not engage, and the full population stays reachable.
+//
+// INPUT IS THE SETTLED STRAND SET ALONE (§13.2 v15). There is no Thesis
+// argument and a run must not refuse for want of one: the 2026-08-09 owner
+// correction withdrew "Thesis" from Terrain's vocabulary on the ground that a
+// claim-shaped input is DEAD INPUT here — the substrates below compute over
+// member metadata and cannot read a claim, so a required Thesis was an input
+// nothing consumed.
+//
+// THE BOUND IS DECLARED, NOT CHOSEN (§13.3 v16, owner selection 2026-08-12).
+// The unit is traversal — substrates x depth — and the values are fixed:
+// `source_batch` one hop, `cross_links` two, shared carrier OFF. They are read
+// from the spec here rather than picked: an implementation choosing different
+// values settles a spec question silently, and one deriving them from the
+// settled set's CONTENT reintroduces the withdrawn input.
+//
+// SHARED-CARRIER IS OFF AS A VALUE, NOT AS AN ABSENCE. The substrate is
+// implemented and its depth is zero, so it enumerates nothing at the declared
+// setting and needs no code change if a later amendment turns it on. Writing it
+// out is what keeps §13.3's three substrates three.
+const NEIGHBORHOOD_BOUND = Object.freeze({
+  source_batch: 1,
+  cross_links: 2,
+  shared_carrier: 0,
+});
+
+// §14.6's slot, FILLED 2026-08-12 (owner selection, recorded on kogaki#300
+// before this code was written, which is what §13.7 requires). A suggestion is
+// by construction NOT in the survey record, so §14.3's assignor does not reach
+// it. The neighborhood mints its own space, `N<n>`, DECLARED DISJOINT from
+// `L<n>` — §14.3 is untouched, and a taken suggestion is assigned an `L<n>` by
+// §14.3's existing assignor on the way in, without its `N<n>` following it.
+const NEIGHBOR_ID = (n) => `N${n}`;
+
+// The batch join does NOT hold by equality (§13.3). Twelve legacy batches carry
+// `source_batch: "q_a/3/answer.md"` while the batch id is `"q_a/3"`, so an
+// equality join returns NO batch-mates for every Grain in them and presents
+// that as "this Grain has no same-sitting siblings" — indistinguishable on
+// screen from a Grain that genuinely has none. That is this surface
+// reproducing the silent exclusion §13.0 exists to remove, one layer down.
+function batchKey(sourceBatch) {
+  if (!sourceBatch) return null;
+  const s = String(sourceBatch);
+  const m = /^(.*?)\/answer\.md$/.exec(s);
+  return m ? m[1] : s;
+}
+
+// Enumerate the neighborhood over the served records. Pure over its inputs so
+// every fixture runs with no seam: `records` is the served element set and
+// `seedSlugs` the settled set's members.
+//
+// Returns { suggestions, unresolved, counts } — `suggestions` carry the
+// substrate that REACHED them (§13.4's disclosure), never a score.
+export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
+  // Batch records carry `id` rather than `slug` and are the JOIN TABLE, never
+  // suggestions themselves — indexing them here would surface a batch as a
+  // neighbor, which is not an element the owner can take.
+  const bySlug = new Map(records.filter((r) => r.slug).map((r) => [r.slug, r]));
+  const seeds = seedSlugs.filter((s) => bySlug.has(s));
+  const seedSet = new Set(seeds);
+  const reached = new Map();   // slug -> Set of substrate names
+  const unresolved = [];
+
+  const note = (slug, substrate) => {
+    if (seedSet.has(slug) || !bySlug.has(slug)) return;
+    if (!reached.has(slug)) reached.set(slug, new Set());
+    reached.get(slug).add(substrate);
+  };
+
+  // ---- source_batch, one hop. THE JOIN GOES THROUGH THE BATCH RECORD'S
+  // `members` (§13.3), not by equality and not by grouping the element set:
+  // `members` is family-keyed, which is what makes §13.4's per-family
+  // denominator mechanical rather than inferred, and a batch's membership is
+  // the batch's own statement rather than something re-derived from elsewhere.
+  //
+  // Finding the record still needs the key normalisation above, because the
+  // twelve legacy batches carry `source_batch: "q_a/3/answer.md"` against a
+  // batch id of `"q_a/3"`.
+  if (bound.source_batch > 0) {
+    const byBatchId = new Map(
+      records.filter((r) => r.kind === "batch" && r.id).map((r) => [r.id, r]));
+    for (const s of seeds) {
+      const raw = bySlug.get(s).source_batch;
+      const k = batchKey(raw);
+      if (!k) {
+        unresolved.push({ slug: s, value: raw === undefined ? null : raw,
+          why: "the record carries no source_batch" });
+        continue;
+      }
+      const batch = byBatchId.get(k);
+      if (!batch) {
+        // AC4's real case: the value is present and names a batch nothing
+        // serves. An empty result here presented as "no same-sitting siblings"
+        // is the silent exclusion §13.0 removes.
+        unresolved.push({ slug: s, value: raw,
+          why: `source_batch names a batch no served record carries (resolved to ${JSON.stringify(k)})` });
+        continue;
+      }
+      // Family-keyed, so every family's list is walked rather than one.
+      for (const family of Object.keys(batch.members || {})) {
+        for (const m of batch.members[family] || []) {
+          // A LISTED MEMBER THE SERVED SET DOES NOT CARRY IS MARKED, not
+          // dropped — the same arm `cross_links` already has below. Dropping
+          // it yields a quieter neighborhood with no disclosure, which is
+          // §13.0's silent exclusion one layer further in: the batch resolved,
+          // so nothing upstream reports anything.
+          if (!bySlug.has(m)) {
+            unresolved.push({ slug: s, value: m,
+              why: `batch ${JSON.stringify(k)} lists a member no served record carries (family ${JSON.stringify(family)})` });
+            continue;
+          }
+          note(m, "source_batch");
+        }
+      }
+    }
+  }
+
+  // ---- cross_links, two hops. Breadth-first to the declared depth. The
+  // frontier carries only slugs the records know; a link naming an unknown
+  // slug is a dangling reference and is marked, never silently skipped.
+  if (bound.cross_links > 0) {
+    let frontier = seeds;
+    // EXPANDED-SET, not a reached-set. Without it `next.push` is unconditional,
+    // so a slug already expanded — including a seed reached by a back-link — is
+    // walked again at the next depth. `reached` is a Map and survives that, but
+    // `unresolved` is an ARRAY: a dangling link reachable by two paths lands
+    // twice and the screen's "N unresolved reference(s)" overcounts. On a
+    // cyclic [[slug]] graph at depth 2 that is the ordinary case.
+    const expanded = new Set(seeds);
+    for (let depth = 1; depth <= bound.cross_links; depth++) {
+      const next = [];
+      for (const s of frontier) {
+        for (const link of bySlug.get(s)?.cross_links || []) {
+          if (!bySlug.has(link)) {
+            unresolved.push({ slug: s, value: link,
+              why: `cross_links names a slug no served record carries (depth ${depth})` });
+            continue;
+          }
+          note(link, "cross_links");
+          if (expanded.has(link)) continue;
+          expanded.add(link);
+          next.push(link);
+        }
+      }
+      frontier = next;
+    }
+  }
+
+  // ---- shared carrier: OFF at the declared setting. The branch is written so
+  // the substrate exists at depth zero rather than being absent from the code.
+  if (bound.shared_carrier > 0) {
+    for (const s of seeds) {
+      const mine = new Set(bySlug.get(s).projects || []);
+      for (const r of records) {
+        if (r.slug === s) continue;
+        if ((r.projects || []).some((p) => mine.has(p))) note(r.slug, "shared_carrier");
+      }
+    }
+  }
+
+  // ORDER IS THE SORT, NEVER A RANK (§13.3). The bound may change HOW MANY
+  // neighbors surface and may never change WHICH by scoring them — so the
+  // output is sorted by slug, which carries no judgment, and `N<n>` is minted
+  // over that order.
+  const suggestions = [...reached.keys()].sort().map((slug, i) => ({
+    nid: NEIGHBOR_ID(i + 1),
+    slug,
+    substrates: [...reached.get(slug)].sort(),
+  }));
+
+  return {
+    suggestions,
+    unresolved,
+    counts: { seeds: seeds.length, suggested: suggestions.length,
+      unresolved: unresolved.length },
+  };
+}
+
+// Candidate `id` -> served `slug`. Separate and exported because the two key
+// spaces are easy to conflate and the conflation FAILS QUIETLY: every lookup
+// misses, the neighborhood is empty, and an empty is a legitimate outcome
+// here (§13.2), so nothing downstream can tell the two apart. An id naming no
+// candidate is returned, never dropped.
+export function settledSlugs(candidates, memberIds) {
+  const byId = new Map((candidates || []).map((c) => [c.id, c]));
+  const slugs = [];
+  const unmapped = [];
+  for (const id of memberIds) {
+    const c = byId.get(id);
+    if (c && c.slug) slugs.push(c.slug);
+    else unmapped.push(id);
+  }
+  return { slugs: [...new Set(slugs)], unmapped };
+}
+
+function cmdNeighborhood(args) {
+  const record = readJson(String(args.survey || fail("neighborhood needs --survey <file>")));
+  const tag = String(args.tag || fail("neighborhood needs --tag <selected tag>"));
+  const entered = String(args.ids || fail(
+    "neighborhood needs --ids <G5,G5-1,...> naming the SETTLED Strand set. "
+    + "§13.2 v15: expansion fires on an EXPLICIT OWNER ACT settling that set and "
+    + "not before — a run over an unsettled screen fans out across a large number "
+    + "of Lessons, and noise is a property of trigger timing rather than of the "
+    + "substrate.")).split(",").map((s) => s.trim()).filter(Boolean);
+
+  const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
+  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
+  const groups = cotagGroups(members, tag);
+  // The subdivision reader is `cmdReport`'s, reused rather than re-derived —
+  // SubGroup ids must resolve here exactly as they do on the screen that
+  // printed them, and a second derivation is how the two would drift.
+  const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
+  const subOf = (g) => readSubdivisionEntry(
+    g.name,
+    subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+  const resolved = resolveEnteredIds(entered, groups, subOf);
+
+  // The settled set is the MEMBERS the entered ids reach. A SubGroup id brings
+  // its SubGroup, a Group id brings the group — story 1.58's rule, reused.
+  const memberIds = [...new Set(resolved.targets.flatMap((t) =>
+    (t.kind === "subgroup" ? t.sg.members : t.group.members)))];
+  // TWO KEY SPACES MEET HERE. A group's members are candidate `id`s
+  // (`lesson:<slug>`, minted at :378); the served records the neighborhood
+  // traverses are keyed by `slug`. Handing ids straight to the composer
+  // matches nothing and yields a clean zero — which is AC4's defect one layer
+  // out: an empty standing in for "nothing found". Found by running the
+  // command, not by a fixture, which is why the mapping is its own exported
+  // step with its own case.
+  const { slugs: seedSlugs, unmapped } = settledSlugs(record.candidates, memberIds);
+
+  // THE SEAM CALL TAKES NO KIND FILTER, DELIBERATELY, and this is not the
+  // shape `cmdSurvey` uses. `element_survey`'s declared arguments are `kind`
+  // (singular) and `tag`; an UNDECLARED key returns the miss shape, so
+  // `{ kinds: [...] }` yields zero lines. The neighborhood needs `batch`
+  // records as well as the two survey families — §13.3's join reads a batch's
+  // own `members` — so it asks for everything and splits by kind here.
+  // `cmdSurvey`'s call is the broken one and is NOT repaired from this story:
+  // filed separately, because a fix there changes what every Terrain surface
+  // composes and is not story 1.44's licence.
+  const resp = gatewayQuery("element_survey", {});
+  const records = [];
+  for (const line of resp.lines || []) {
+    try { records.push(JSON.parse(line.text)); }
+    catch { fail(`unparseable served record at ${line.cite} — surfaced, not skipped`); }
+  }
+  if (records.length === 0) {
+    fail("the seam returned no records — the neighborhood has no material, and an empty result here would be indistinguishable from a settled set with no provenance neighbors");
+  }
+
+  const { suggestions, unresolved, counts } = neighborhoodOf(records, seedSlugs);
+
+  // THE SCREEN IS NOT VALIDATED AGAINST report-format.json, and that is
+  // deliberate rather than an omission. §14.1's grammar covers `cotag_screen`
+  // and `full_report` only; a third rendered owner surface is §14.1's OWN
+  // REOPEN TRIGGER, named on kogaki#300 and explicitly not story 1.44's work.
+  // Running this text through `emitOrRefuse` would validate it against a
+  // grammar that does not describe it, which fails toward a refusal on
+  // conformant output.
+  const out = [];
+  const say = (s = "") => out.push(s);
+  say(`Provenance neighborhood — ${tag} — settled set ${resolved.targets.map((t) => t.gid).join(", ")}`);
+  say(`${counts.seeds} settled member(s); ${counts.suggested} suggestion(s) beside them`);
+  say("A REPORT, never a proposal (§13.1): nothing here narrows what reaches you, and the full population stays reachable.");
+  say(`Bound: source_batch ${NEIGHBORHOOD_BOUND.source_batch} hop, cross_links ${NEIGHBORHOOD_BOUND.cross_links} hops, shared carrier off — declared at §13.3 and read here, never chosen.`);
+  say();
+  if (suggestions.length === 0) {
+    // §13.2's "empty is an informative outcome", in the form v16 leaves it.
+    // The STRONG form — empty as a result about the corpus — was discharged by
+    // an argument running through the Thesis and went with it, so this states
+    // what it can establish and no more (AC6a).
+    say("No suggestion. The enumeration itself came back empty at the declared bound — which is a result about this settled set's provenance, not a failure.");
+    say("Not asserted: that an empty neighborhood is informative in the STRONG sense. That claim rested on a Thesis and was withdrawn with it (§13.2, v15).");
+  }
+  for (const s of suggestions) {
+    say(`${s.nid} — ${s.slug} — reached by: ${s.substrates.join(", ")}`);
+  }
+  if (unmapped.length) {
+    say();
+    say(`${unmapped.length} settled id(s) NAMED NO CANDIDATE in this survey — reported rather than counted as "no neighbors": ${unmapped.join(", ")}`);
+  }
+  if (unresolved.length) {
+    say();
+    say(`${unresolved.length} unresolved reference(s) — NAMED rather than dropped (§13.3). An empty result presented as "no siblings" is the silent exclusion §13.0 removes.`);
+    for (const u of unresolved) {
+      say(`  ${u.slug}: ${JSON.stringify(u.value)} — ${u.why}`);
+    }
+  }
+  say();
+  say("Suggestion ids are `N<n>` and are DISJOINT from the survey's `L<n>` (§14.6, filled kogaki#300 2026-08-12): a suggestion is not in the survey record, so §14.3's assignor does not reach it. Taking one assigns it an `L<n>` on the way in.");
+  console.log(out.join("\n"));
+}
+
 // The CLI dispatch runs only when this file IS the entry point. Without the
 // guard, importing the module to exercise one of its exported composers runs
 // the dispatch with no command, which prints the usage banner and calls
@@ -2669,6 +2967,7 @@ switch (cmd) {
   case "survey": cmdSurvey(args); break;
   case "view": cmdView(args); break;
   case "cotags": cmdCotags(args); break;
+  case "neighborhood": cmdNeighborhood(args); break;
   case "compose-input": cmdComposeInput(args); break;
   case "claim": cmdClaim(args); break;
   case "adopt": cmdAdopt(args); break;

@@ -2948,7 +2948,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey } from "./terrain/terrain.mjs";
+import { canonicalIds, idSortKey, neighborhoodOf, settledSlugs } from "./terrain/terrain.mjs";
 
 const fails = [];
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -3078,6 +3078,308 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
   }
   rmSync(dir, { recursive: true, force: true });
 }
+
+// ---------------------------------------------------------------------------
+// §13 the provenance neighborhood — story 1.44 (kogaki#302, umbrella #300).
+//
+// Every case calls the exported composer with an injected record set, so the
+// block is SEAM-FREE: `neighborhoodOf` takes the served records as an argument
+// and reaches nothing. AC7 asks each property for a case that FAILS without the
+// implementation, so each assertion below states what it would miss.
+{
+  const rec = (slug, batch, links = [], projects = []) =>
+    ({ slug, kind: "lesson", source_batch: batch, cross_links: links, projects });
+  // §13.3's join reads a BATCH RECORD's own family-keyed `members`, so the
+  // fixtures supply them rather than letting the composer re-derive membership
+  // from the element set — re-deriving is the mechanism AC3 does NOT name.
+  const batch = (id, lessons) => ({ id, kind: "batch", members: { lesson: lessons } });
+
+  // AC2 — the substrates enumerate AND each suggestion records which reached
+  // it. A run that surfaced the right members with no substrate would satisfy
+  // "enumerate" and fail §13.4's disclosure, so the substrate field is asserted
+  // and not only the membership.
+  {
+    const records = [
+      rec("seed", "q_a/2026-08-01-x", ["linked"]),
+      rec("mate", "q_a/2026-08-01-x"),
+      rec("linked", "q_a/other"),
+      rec("far", "q_a/unrelated"),
+      batch("q_a/2026-08-01-x", ["seed", "mate"]),
+      batch("q_a/other", ["linked"]), batch("q_a/unrelated", ["far"]),
+    ];
+    const { suggestions } = neighborhoodOf(records, ["seed"]);
+    const bySlug = Object.fromEntries(suggestions.map((s) => [s.slug, s]));
+    if (!bySlug.mate || !bySlug.mate.substrates.includes("source_batch")) {
+      fails.push("§13/1.44 AC2: a same-batch member was not reached, or was reached without naming source_batch as the substrate that reached it");
+    }
+    if (!bySlug.linked || !bySlug.linked.substrates.includes("cross_links")) {
+      fails.push("§13/1.44 AC2: a cross-linked member was not reached, or did not name cross_links");
+    }
+    if (bySlug.far) fails.push("§13/1.44 AC2: an unrelated member was surfaced — the enumeration is not bounded by the substrates");
+    if (bySlug.seed) fails.push("§13/1.44 AC2: the seed itself was surfaced as its own neighbor");
+  }
+
+  // AC3 — THE JOIN DOES NOT HOLD BY EQUALITY. This is the case that fails
+  // against a naive implementation: both records are the same sitting, and
+  // their raw `source_batch` strings DIFFER, so `===` returns no batch-mate and
+  // presents "no same-sitting siblings" for a Grain that has one.
+  {
+    const records = [
+      rec("legacy-seed", "q_a/3/answer.md"),
+      rec("legacy-mate", "q_a/3"),
+      batch("q_a/3", ["legacy-seed", "legacy-mate"]),
+    ];
+    const { suggestions } = neighborhoodOf(records, ["legacy-seed"]);
+    if (!suggestions.some((s) => s.slug === "legacy-mate")) {
+      fails.push("§13/1.44 AC3: `q_a/3/answer.md` did not join `q_a/3` — an equality join returns no batch-mates for every Grain in the 12 legacy numbered batches and presents that as having none");
+    }
+    // And the inverse direction, so the normalisation is not one-way.
+    const back = neighborhoodOf(records, ["legacy-mate"]).suggestions;
+    if (!back.some((s) => s.slug === "legacy-seed")) {
+      fails.push("§13/1.44 AC3: the batch join is not symmetric — `q_a/3` did not reach `q_a/3/answer.md`");
+    }
+  }
+
+  // AC3 — THE MECHANISM, not just the effect. A batch record's `members` is
+  // the batch's OWN statement of who was in the sitting, and it is what §13.3
+  // names. An implementation that instead re-derives membership by grouping
+  // elements on their own `source_batch` gets the same answer whenever the two
+  // agree — so this case makes them DISAGREE: `adopted` is listed in the batch
+  // and its own record points somewhere else. Only the declared mechanism
+  // reaches it.
+  {
+    const records = [
+      rec("anchor", "q_a/2026-05-05-s"),
+      rec("adopted", "q_a/somewhere-else"),
+      batch("q_a/2026-05-05-s", ["anchor", "adopted"]),
+      batch("q_a/somewhere-else", ["adopted"]),
+    ];
+    const got = neighborhoodOf(records, ["anchor"]).suggestions.map((x) => x.slug);
+    if (!got.includes("adopted")) {
+      fails.push("§13/1.44 AC3: a member the BATCH RECORD lists was not reached — the join is re-deriving membership from each element's own source_batch instead of reading the batch's `members`, which is the mechanism §13.3 names and the one that survives an element disagreeing with its batch");
+    }
+  }
+
+  // A BATCH IS NEVER A SUGGESTION. Batch records are the join table; they carry
+  // `id` rather than `slug` and are not elements an owner can take. The case
+  // makes one reachable — a cross_link naming a batch id — so an implementation
+  // that indexes batches alongside elements surfaces it and fails here.
+  {
+    const records = [
+      rec("s", "q_a/b1", ["q_a/b2"]),
+      batch("q_a/b1", ["s"]), batch("q_a/b2", ["other"]), rec("other", "q_a/b2"),
+    ];
+    const got = neighborhoodOf(records, ["s"]).suggestions.map((x) => x.slug);
+    if (got.includes("q_a/b2")) {
+      fails.push("§13/1.44 AC2: a BATCH surfaced as a suggestion — batch records are the join table, not elements, and an owner cannot take one");
+    }
+  }
+
+  // THE TWO KEY SPACES. A group's members are candidate ids; the served corpus
+  // is keyed by slug. This case exists because the conflation is INVISIBLE at
+  // the composer's boundary — it returns a perfectly well-formed empty — and
+  // was found only by running the command against the real seam.
+  {
+    const cands = [{ id: "lesson:a", slug: "a" }, { id: "lesson:b", slug: "b" }];
+    const r = settledSlugs(cands, ["lesson:a", "lesson:b"]);
+    if (r.slugs.join(",") !== "a,b") {
+      fails.push(`§13/1.44 AC1: candidate ids did not map to served slugs (got ${JSON.stringify(r.slugs)}) — the settled set would reach nothing and the run would report an informative empty it has not earned`);
+    }
+    const u = settledSlugs(cands, ["lesson:a", "lesson:gone"]);
+    if (!u.unmapped.includes("lesson:gone")) {
+      fails.push("§13/1.44 AC4: a settled id naming no candidate was DROPPED rather than named — the same silent-empty defect the unresolved marker exists to prevent");
+    }
+  }
+
+  // A BATCH MEMBER THE SERVED SET DOES NOT CARRY IS MARKED. The batch itself
+  // resolves, so the source_batch arm reports nothing and the member simply
+  // vanishes — §13.0's silent exclusion one layer in from the case AC4 names.
+  // Round-1 finding on PR #367; the cross_links arm already had this.
+  {
+    const records = [
+      rec("seed", "q_a/b"),
+      batch("q_a/b", ["seed", "vanished"]),
+    ];
+    const r = neighborhoodOf(records, ["seed"]);
+    if (!r.unresolved.some((u) => u.value === "vanished")) {
+      fails.push("§13/1.44 AC4: a batch member no served record carries was DROPPED rather than marked — the batch resolved, so nothing else reports it and the neighborhood is quietly smaller");
+    }
+  }
+
+  // UNRESOLVED IS A COUNT THE SCREEN PRINTS, so a reference reachable by two
+  // paths must not be counted twice. BOTH seeds link to `z`, so `z` enters the
+  // depth-2 frontier twice without an expanded-set, is walked twice, and the
+  // dangling `gone` it names lands twice. (A single seed cannot show this: one
+  // path puts `z` in the frontier once, which is why the first version of this
+  // case survived its own mutation.)
+  {
+    const records = [
+      rec("s1", "q_a/b", ["z"]),
+      rec("s2", "q_a/b", ["z"]),
+      rec("z", "q_a/b", ["gone"]),
+      batch("q_a/b", ["s1", "s2"]),
+    ];
+    const r = neighborhoodOf(records, ["s1", "s2"]);
+    const gone = r.unresolved.filter((u) => u.value === "gone");
+    if (gone.length !== 1) {
+      fails.push(`§13/1.44 AC4: the dangling reference "gone" was counted ${gone.length} time(s) — the traversal re-expands an already-expanded slug, so the screen's unresolved COUNT exceeds the number of distinct unresolved references`);
+    }
+  }
+
+  // AC8 — DISJOINTNESS ASSERTED AGAINST AN `L` SPACE THAT IS ACTUALLY PRESENT.
+  // The first version of this case tested the `nid` shape over output holding
+  // only `N` tokens, so the intersection it asserted was with the empty set and
+  // it could not fail on the defect kogaki#300's fill names. Here the survey's
+  // own display ids are in hand and the assertion is a real intersection.
+  {
+    const surveyDisplayIds = new Set(["L1", "L2", "L3"]);
+    const records = [
+      rec("seed", "q_a/b"),
+      batch("q_a/b", ["seed", "n-one", "n-two"]),
+      rec("n-one", "q_a/b"), rec("n-two", "q_a/b"),
+    ];
+    const nids = neighborhoodOf(records, ["seed"]).suggestions.map((x) => x.nid);
+    if (nids.length < 2) {
+      fails.push("§13/1.44 AC8: the disjointness case needs at least two suggestions to be worth asserting over");
+    }
+    const collide = nids.filter((n) => surveyDisplayIds.has(n));
+    if (collide.length) {
+      fails.push(`§13/1.44 AC8: suggestion id(s) ${collide.join(", ")} collide with the survey's OWN display ids — §14.6's fill declares the two spaces disjoint, and an owner surface rendering both would name two different elements with one token`);
+    }
+  }
+
+  // AC4 — unresolved is MARKED, never empty. Two shapes: a record with no
+  // source_batch at all, and a cross_link naming a slug nothing serves.
+  {
+    const records = [rec("no-batch", undefined, ["ghost"]), rec("orphan", "q_a/nonesuch")];
+    const { unresolved } = neighborhoodOf(records, ["no-batch", "orphan"]);
+    if (!unresolved.some((u) => u.why.includes("no source_batch"))) {
+      fails.push("§13/1.44 AC4: a record with no source_batch produced no unresolved marker — an empty result was presented as 'no siblings'");
+    }
+    if (!unresolved.some((u) => u.why.includes("names a batch no served record carries"))) {
+      fails.push("§13/1.44 AC4: a source_batch naming a batch nothing serves produced no marker — this is the case an element-side grouping cannot see, because it has no batch record to miss");
+    }
+    if (!unresolved.some((u) => u.value === "ghost")) {
+      fails.push("§13/1.44 AC4: a cross_link naming an unserved slug was dropped silently rather than marked with its value");
+    }
+    // The marker NAMES THE VALUE — a bare count would satisfy "marked" and
+    // leave the reader unable to act, which is the disclosure AC4 asks for.
+    for (const u of unresolved) {
+      if (!("value" in u)) fails.push("§13/1.44 AC4: an unresolved marker does not carry the value it could not resolve");
+    }
+  }
+
+  // AC4 negative — resolvable but genuinely alone is NOT unresolved. Without
+  // this the marker fires on every solitary Grain and stops discriminating.
+  {
+    const { unresolved } = neighborhoodOf(
+      [rec("alone", "q_a/solo"), batch("q_a/solo", ["alone"])], ["alone"]);
+    if (unresolved.length !== 0) {
+      fails.push("§13/1.44 AC4: a Grain whose batch resolves and has no siblings was marked unresolved — the marker must separate 'could not look' from 'nothing to see'");
+    }
+  }
+
+  // AC5 — THE DECLARED BOUND, read from the spec. cross_links is TWO hops, so
+  // a chain seed -> a -> b surfaces both and seed -> ... -> c at depth three
+  // does not. A one-hop implementation passes AC2 and fails here.
+  {
+    const records = [
+      rec("s", "q_a/z", ["a"]), rec("a", "q_a/z2", ["b"]),
+      rec("b", "q_a/z3", ["c"]), rec("c", "q_a/z4"),
+      batch("q_a/z", ["s"]), batch("q_a/z2", ["a"]),
+      batch("q_a/z3", ["b"]), batch("q_a/z4", ["c"]),
+    ];
+    const got = neighborhoodOf(records, ["s"]).suggestions.map((x) => x.slug).sort();
+    if (!(got.includes("a") && got.includes("b"))) {
+      fails.push(`§13/1.44 AC5: cross_links did not reach two hops — got ${JSON.stringify(got)}, and §13.3 v16 declares two`);
+    }
+    if (got.includes("c")) {
+      fails.push("§13/1.44 AC5: cross_links reached THREE hops — the declared bound is two, and an implementation that runs further has settled a spec question silently");
+    }
+  }
+
+  // AC5 — shared carrier is OFF as a VALUE. Two records sharing a project and
+  // nothing else must not surface at the declared setting; flipping the depth
+  // to 1 must surface them, which proves the substrate EXISTS rather than
+  // having been omitted from the code.
+  {
+    const records = [rec("p1", "q_a/a", [], ["kogaki"]), rec("p2", "q_a/b", [], ["kogaki"]),
+      batch("q_a/a", ["p1"]), batch("q_a/b", ["p2"])];
+    const off = neighborhoodOf(records, ["p1"]).suggestions;
+    if (off.length !== 0) {
+      fails.push("§13/1.44 AC5: shared carrier surfaced a member at the declared setting, where §13.3 v16 declares it OFF");
+    }
+    const on = neighborhoodOf(records, ["p1"], { source_batch: 1, cross_links: 2, shared_carrier: 1 }).suggestions;
+    if (!on.some((x) => x.slug === "p2" && x.substrates.includes("shared_carrier"))) {
+      fails.push("§13/1.44 AC5: shared carrier is ABSENT from the code rather than off — turning its depth on surfaced nothing, so 'off' is not a value");
+    }
+  }
+
+  // AC5a — the bound changes HOW MANY, never WHICH. Widening cross_links must
+  // only ADD; an implementation that scores or drops would change membership
+  // rather than extend it, and the subset assertion is what catches that.
+  {
+    const records = [
+      rec("s", "q_a/z", ["a"]), rec("a", "q_a/z2", ["b"]),
+      rec("b", "q_a/z3", ["c"]), rec("c", "q_a/z4"),
+      batch("q_a/z", ["s"]), batch("q_a/z2", ["a"]),
+      batch("q_a/z3", ["b"]), batch("q_a/z4", ["c"]),
+    ];
+    const narrow = neighborhoodOf(records, ["s"], { source_batch: 1, cross_links: 1, shared_carrier: 0 })
+      .suggestions.map((x) => x.slug);
+    const wide = new Set(neighborhoodOf(records, ["s"], { source_batch: 1, cross_links: 3, shared_carrier: 0 })
+      .suggestions.map((x) => x.slug));
+    for (const slug of narrow) {
+      if (!wide.has(slug)) {
+        fails.push(`§13/1.44 AC5a: widening the bound REMOVED ${slug} — a bound may change how many neighbors surface and never which, so a member lost under a wider bound means the implementation ranks or drops`);
+      }
+    }
+  }
+
+  // AC8 — the display-id space. `N<n>` minted over the sorted output, and
+  // DISJOINT from `L<n>` (§14.6, filled kogaki#300 2026-08-12).
+  {
+    const records = [rec("s", "q_a/z", ["a", "b"]), rec("a", "q_a/z2"), rec("b", "q_a/z3"),
+      batch("q_a/z", ["s"]), batch("q_a/z2", ["a"]), batch("q_a/z3", ["b"])];
+    const { suggestions } = neighborhoodOf(records, ["s"]);
+    if (!suggestions.every((x) => /^N[0-9]+$/.test(x.nid))) {
+      fails.push("§13/1.44 AC8: a suggestion carries no `N<n>` id, or one that does not match the declared shape");
+    }
+    if (suggestions.some((x) => /^L[0-9]+$/.test(x.nid))) {
+      fails.push("§13/1.44 AC8: a suggestion was assigned an `L<n>` — the spaces are DECLARED DISJOINT and §14.3 remains the sole assignor of `L<n>`, for survey members only");
+    }
+    // MINTED OVER THE SORT, and the case has to discriminate that from
+    // discovery order — two calls on one input share a discovery order, so
+    // comparing them proves nothing. The seed links z-late BEFORE a-early, so
+    // discovery order and sorted order disagree and only one puts N1 on
+    // a-early.
+    const ordered = neighborhoodOf(
+      [rec("root", "q_a/o", ["z-late", "a-early"]), rec("z-late", "q_a/o2"), rec("a-early", "q_a/o3"),
+       batch("q_a/o", ["root"]), batch("q_a/o2", ["z-late"]), batch("q_a/o3", ["a-early"])],
+      ["root"]).suggestions;
+    const n1 = ordered.find((x) => x.nid === "N1");
+    if (!n1 || n1.slug !== "a-early") {
+      fails.push(`§13/1.44 AC8: N1 went to ${n1 ? n1.slug : "nothing"} — ids are minted over DISCOVERY order, not the sort, so they are unstable under any change to link order`);
+    }
+  }
+
+  // AC6 — empty is a result. The enumeration itself is empty here, which is
+  // the only form v16 leaves (AC6a): the STRONG form rested on a Thesis and
+  // was withdrawn with it, so nothing asserts it.
+  {
+    const { suggestions, counts } = neighborhoodOf(
+      [rec("lonely", "q_a/only"), batch("q_a/only", ["lonely"])], ["lonely"]);
+    if (suggestions.length !== 0) fails.push("§13/1.44 AC6: a seed with no provenance neighbors surfaced something");
+    if (counts.seeds !== 1) fails.push("§13/1.44 AC6: the seed count is not reported, so an empty result cannot be read as a result");
+  }
+}
+console.log("provenance neighborhood (§13, story 1.44): the three substrates enumerate and each suggestion "
+  + "NAMES the substrate that reached it; the batch join holds through the batch key and is symmetric, so the "
+  + "12 legacy `q_a/N/answer.md` batches resolve where an equality join returns nothing; unresolved references "
+  + "are marked WITH THEIR VALUE and a resolvable-but-solitary Grain is NOT marked, which is what keeps the two "
+  + "apart; the declared bound is asserted in both directions (two hops reached, three refused) and shared "
+  + "carrier is proven OFF-as-a-value by turning it on; widening only ADDS, so a ranking implementation fails; "
+  + "and `N<n>` is disjoint from `L<n>` and stable across calls. Seam-free — every case injects its records.");
 
 if (fails.length) {
   console.log("FAIL entered ID set (SPEC-terrain §12 v6/v7, story 1.58):");
