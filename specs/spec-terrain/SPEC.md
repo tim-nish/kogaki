@@ -3777,22 +3777,21 @@ fix, and counting it as a relevance miss would buy the extension with the
 mechanical layer's own bugs.
 
 **The §13.3 traversal bound is not this gate, and must not become it (v13,
-kogaki#300; re-cut v15).** §13.3 bounds how far the enumeration
-expands — under v16 by the declared traversal values in §13.3, the Thesis
-having been withdrawn; this section holds *relevance judgment* — whether a
-surfaced neighbor is worth keeping — behind the trigger above, undesigned. The
-two are adjacent enough to collapse silently, so the line is drawn
-mechanically rather than by
-intent: **the §13.3 bound may decide how much of the enumeration is traversed,
-and may never score, rank, or drop an enumerated neighbor on relevance.** An
-implementation whose bound requires judging a neighbor against **the settled
-set's content** has built this extension without its trigger firing, and the
-observable tell is unchanged in shape: a bound whose removal would change
-*which* neighbors are surfaced rather than *how many* is a relevance predicate
-whatever it is named. **v15 sharpens this rather than weakening it** — with no
-claim-shaped input in the section at all, any implementation found scoring
-neighbors against a claim has both built the gated extension *and* reintroduced
-the dead input the correction withdrew.
+kogaki#300; re-cut v15).** §13.3 bounds how far the enumeration expands —
+under v16 by the declared traversal values in §13.3, the Thesis having been
+withdrawn; this section holds *relevance judgment* — whether a surfaced
+neighbor is worth keeping — behind the trigger above, undesigned. The two are
+adjacent enough to collapse silently, so the line is drawn mechanically rather
+than by intent: **the §13.3 bound may decide how much of the enumeration is
+traversed, and may never score, rank, or drop an enumerated neighbor on
+relevance.** An implementation whose bound requires judging a neighbor against
+**the settled set's content** has built this extension without its trigger
+firing, and the observable tell is unchanged in shape: a bound whose removal
+would change *which* neighbors are surfaced rather than *how many* is a
+relevance predicate whatever it is named. **v15 sharpens this rather than
+weakening it** — with no claim-shaped input in the section at all, any
+implementation found scoring neighbors against a claim has both built the
+gated extension *and* reintroduced the dead input the correction withdrew.
 
 The `§13.2` in this section's trigger sentence was corrected to `§13.3` in the
 same amendment: the three substrates are enumerated there, and the mis-citation
