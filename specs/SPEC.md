@@ -1768,7 +1768,11 @@ invariant: Gukan guarantees Unit schema, never data schema).
      claim countable and one step from a lint, which §2.6.3 refuses — "No rule
      becomes a lint, even where deterministic processing is possible."
 
-     **EXACTLY ONE CELL MOVES**, stated so the rest is not re-litigated:
+     **EXACTLY ONE CELL MOVES**, stated so the rest is not re-litigated.
+     **EVERY ROW BELOW READS NON-GATING** — the qualifier the scope sentence
+     above carries, restated on the table because the table is the compressed
+     statement and so the thing that travels. A finding still gating at the
+     merge layer is outside this table entirely, per the paragraph under it.
 
      | | inside the bound | at a spent bound |
      |---|---|---|
@@ -1796,8 +1800,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **The specimen is kogaki#373, and it is not retroactive.** Under this
      floor those three findings are three register rows rather than an issue;
-     they stay as dispositioned, because their fix PR is licensed and in
-     flight. The floor binds the next spent bound.
+     they stay as dispositioned, because a settled disposition is not reopened
+     by a floor that changes where a finding waits. The ground is the
+     disposition's own settledness and not any PR's flight status — kogaki#373
+     is closed and its fix chain landed at `f8ffaa8`, so a ground phrased on
+     flight would have expired before this clause was read. The floor binds the
+     next spent bound.
 
      **WHAT THIS DOES NOT CLAIM.** A latent finding is not a wrong finding, and
      the register is not a bin. All three of kogaki#373's were real, and one
