@@ -2100,7 +2100,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **`instrument: none` for the re-typing itself, with its reopen trigger.**
      No registered check asserts that the table above matches the artifacts,
      and none is licensed here: the property is *did a human re-read four
-     artifacts and re-decide nine judgments*, which rests on the sitting's
+     artifacts and re-decide ten judgments*, which rests on the sitting's
      self-report about its own process — an attestation rather than evidence,
      and the state the served surface names as needing a mechanism only when
      compliance can be simulated at the unit of inspection
