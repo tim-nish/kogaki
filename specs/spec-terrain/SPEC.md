@@ -26,16 +26,47 @@ its own four-way table is a snapshot of the state v16 resolves.
 
 **deferred slots minted by this amendment: none.** §13.3's is discharged above.
 
-**STILL OPEN IN THIS FILE, and it comes due in THIS issue's implementing
-sitting:** `deferred-slot: terrain-display-id-for-neighborhood-suggestions`
-(§14.6, with its three candidate shapes; §13.7 states the timing). It is named
-here because the previous draft of this line read *"deferred slots: none — §13.3
-held the last one"*, which was a **file-wide** claim appended to a
-**per-amendment** declaration, and false: a reader arriving at the head of the
-file to learn whether a decision is owed was told none was. The two other tokens
-in the file — `terrain-family-split-carrier` and
+**NO DEFERRED SLOT IS OPEN IN THIS FILE.**
+`deferred-slot: terrain-display-id-for-neighborhood-suggestions` (§14.6) was
+**FILLED by owner selection on kogaki#300, 2026-08-12** — the neighborhood
+record mints its **own `N<n>` space, declared disjoint from `L<n>`**, and
+**§14.3 is not amended**. Widening §14.3 was declined by name, on the ground
+that it would make the survey record hold entries for things that are not in
+the survey — the premise §14.3 rests on. Assigning an `L<n>` only when a
+suggestion is *taken* was declined too: the owner needs a token *while
+choosing*, and choosing among several is exactly when one is needed. The answer
+is implemented and merged: the space is declared at `NEIGHBOR_ID`
+(`terrain/terrain.mjs:2728`), minted over the sorted output at `:2915`, and
+rendered with its disjointness statement at `:3152` (kogaki#367).
+The two other tokens in the file — `terrain-family-split-carrier` and
 `terrain-subdivision-offering-verdict` — are filled, checked at their sites
 rather than assumed.
+
+**This line was FALSE from the moment it was written, and that is recorded
+rather than quietly corrected** (kogaki#384). Its bolded lead-in read, verbatim
+and including its terminal colon,
+
+> `**STILL OPEN IN THIS FILE, and it comes due in THIS issue's implementing sitting:**`
+
+while the slot was decided and its answer was shipping in `terrain.mjs`. The text was not inert: on 2026-08-12
+a run read §14.6 as the live word, composed a three-way fork from it, and
+proposed the very shape the owner had declined — caught before commit by the
+carrier read, and retracted. A spec section that states a settled question as
+open does not merely lag; it actively re-opens the question for the next reader.
+
+**The shape that produced it, stated at the size the evidence supports.** Both
+this line and the *deferred slots minted by this amendment* declaration beside
+it were introduced by the **same commit** — `145d90a`, v16 — so this is the
+first revision after it and no earlier amendment carried either. What recurred
+is not a count of revisions but the **juxtaposition**, and it recurred **twice
+inside kogaki#366's own review rounds**: a per-amendment declaration standing
+next to a **file-wide** claim, where the per-amendment half is true and does
+nothing to keep the file-wide half honest. The first attempt read
+
+> `**deferred slots: none.** §13.3 held the last one.`
+
+— two sentences, a file-wide claim appended to a per-amendment declaration, and
+false in the same way for the same reason.
 
 **Reopen trigger, named rather than left to judgment:** a real run in which a
 large settled set produces a neighborhood the owner reads as drowning, or a
@@ -3844,14 +3875,23 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   the one item here that comes from outside §13. §14.3 assigns a `display_id`
   **once, in the survey record**; a neighborhood suggestion is by construction
   **not** in that record, so nothing assigns it one and the owner surface has no
-  token to render. §14.6 carries the slot
+  token to render. §14.6 carried the slot
   (`terrain-display-id-for-neighborhood-suggestions`) with its three candidate
-  shapes. **It comes due here**, in the sitting that implements §13, and before
-  code embeds an answer — which is why it is written into this enumeration
+  shapes. **It came due here**, in the sitting that implements §13, and before
+  code embedded an answer — which is why it was written into this enumeration
   rather than left in §14 for that sitting to happen upon.
+  **DISCHARGED: filled by owner selection on kogaki#300, 2026-08-12** — the
+  neighborhood mints its own `N<n>` space, disjoint from `L<n>`, with §14.3
+  unamended (§14.6 carries the fill and both declines). **The timing clause did
+  its work and is worth reading as evidence rather than as history:** the
+  decision was recorded on the licensing carrier *before* the implementing code
+  was written, which is exactly what it existed to secure.
 
-**None of this section is implemented.** It is the design kogaki#289 scoped, and
-the implementation is a separate licensed act.
+**§13 IS IMPLEMENTED as of 2026-08-12**, and this line is corrected rather than
+left: the subcommand landed at kogaki#302 (PR #367), and the flow step with
+§13.4's three conformance properties at kogaki#303 (PR #383). What kogaki#289
+scoped is built; what remains open is §13.3's declared bound, whose reopen
+trigger fired on the first real run and is carried at kogaki#385.
 
 ## 14. The rendered format's carrier, and the owner-surface display ID
 
@@ -4101,19 +4141,43 @@ the remainder still reports the defect it can no longer prevent.
 
 `deferred-slot: terrain-display-id-for-neighborhood-suggestions`
 
-**The slot, named rather than filled.** §13's provenance neighborhood widens
-the candidate set across tag boundaries and is **unimplemented**. A suggestion
-it surfaces is, by construction, **not** in the survey record — so it has no
+**FILLED — owner selection on kogaki#300, 2026-08-12.** §13's provenance
+neighborhood widens the candidate set across tag boundaries. A suggestion it
+surfaces is, by construction, **not** in the survey record — so it has no
 `display_id`, and §14.3's "assigned once in the survey record" does not reach
-it. Three shapes are visible and none is decided here: the neighborhood record
-mints its own space with a declared disjointness from `L<n>`; a taken
-suggestion enters the candidate path and is assigned an `L<n>` on the way in;
-or §14.3 is widened and the survey record becomes the assignor for suggestions
-too. Filling this is a decision act owed on its own licensing issue — §13's
-implementation issue (kogaki#300) is where it comes due, **before** code embeds
-an answer. It is named here because §13.7 already enumerates what its
-implementation binds, and a reader arriving there from §14 would otherwise find
-the question unasked rather than deferred.
+it. **The neighborhood record mints its own space, `N<n>`, declared disjoint
+from `L<n>`, and §14.3 is NOT amended.** A taken suggestion is assigned an
+`L<n>` by §14.3's existing assignor on the way in, and its `N<n>` does not
+follow it.
+
+**The other two shapes are declined, with their grounds, so neither is
+re-proposed blind.**
+
+- **Widen §14.3 so the survey record assigns for suggestions too** — declined:
+  it would make the survey record hold entries for things that are **not in the
+  survey**, which is the premise §14.3 rests on. §14.3 was itself a repair
+  (story 1.53) and amended again the week before; widening it reaches every
+  surveyed element, where a second space reaches only suggestions.
+- **Assign an `L<n>` only when a suggestion is TAKEN** — declined, and it was
+  the genuinely attractive one: one space, no disjointness rule, §14.3
+  untouched, and it fits the grain of a propose-only surface upstream of
+  selection. It fails because the owner cannot refer to a suggestion by id
+  *while choosing*, and choosing among several is exactly when a token is
+  needed. Reachable-but-unnameable is a weaker form of the defect §13.0
+  removes.
+
+**What the fill binds.** Suggestions carry `N<n>`, minted over the
+neighborhood's own ordered output; the disjointness is declared and
+mechanically checkable, and no owner surface renders both spaces for one
+element. **The cost, stated:** two id spaces exist where there was one, and an
+owner copying an id has to know which space it came from. That is the price of
+leaving §14.3 alone, and it is the cheaper price.
+
+**Implemented and merged**: the `N<n>` space is declared at `NEIGHBOR_ID`
+(`terrain/terrain.mjs:2728`), minted over the sorted output at `:2915`, and
+rendered with its disjointness statement at `:3152`
+(kogaki#367), with the flow step at `.claude/skills/terrain/SKILL.md` step 7
+(kogaki#383).
 
 **Not implemented by this amendment.** §14 is the contract; the grammar
 artifact, the `display_id` field, the refusal, the single producer and the
