@@ -842,17 +842,27 @@ convenient one.
 | `park` | two rounds spent, head still unreviewed | **an owner decision, never a third round** (§4 clause 3) |
 | `done` | current-head report, nothing blocking open | — |
 
-Rounds are counted from the report segments themselves, so **every round
-leaves its record** without a separate ledger (§4 clause 4).
+Rounds are counted in **cycles grouped by head** — `rally_cycles()` in
+`tools/review-sweep.sh` is the one place the count is computed, and this file
+points at it rather than restating it. What that means for you: a head is ONE
+round however many reviewers report against it, unattested
+`review-round-unverified:` marks count separately and are subsumed by a
+performed report at the same head, and **every round still leaves its record**
+without a separate ledger (§4 clause 4).
 
 **A fragment is not a report for any of these states** (§4 clause 6). A segment
 whose `report-complete:` count does not match its own finding lines produces
 neither `done` nor `author-owes`: the head is simply unreviewed, and the sweep
 says so by name rather than reporting "no report" for a report that plainly
 arrived. The round it spent is still counted as spent — the cost was paid
-whether or not the artifact arrived whole — so a reviewer that fragments twice
-parks the PR. Its own open blocking findings still gate, because a fragment
-turns nothing *green* and incompleteness must never be a way to hide one.
+whether or not the artifact arrived whole — so a reviewer that fragments at
+**two heads** parks the PR. Twice at ONE head is one round, not two:
+fragment-ness is `counted()` while cycle membership is `performed()`, and
+`performed()`'s own docstring declares the split ("Deliberately NOT folded into
+`counted()`"), so a fragment is a performed segment and two of them at one head
+collapse into a single cycle. Its own open blocking findings still gate,
+because a fragment turns nothing *green* and incompleteness must never be a way
+to hide one.
 
 **Two honest limits, stated rather than discovered:**
 
