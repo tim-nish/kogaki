@@ -655,6 +655,11 @@ process.stdin.on("data", (d) => {
     else if (m.method === "tools/list")
       send({ jsonrpc: "2.0", id: m.id, result: { tools: [
         { name: "element_survey", inputSchema: { properties: { kind: {}, tag: {} } } },
+        // The FOURTH cause's two neighbours (kogaki#373): a schema that does
+        // not enumerate its arguments (MCP permits this shape), and one that
+        // enumerates ZERO — the pair the `?? {}` collapsed into one.
+        { name: "bare_schema", inputSchema: { type: "object" } },
+        { name: "no_args", inputSchema: { properties: {} } },
       ] } });
     else if (m.method === "tools/call")
       // A payload a RECEIPT can be composed from: request_id, a served
@@ -724,7 +729,7 @@ CODE=$?
 set -e
 [[ $CODE -eq 0 ]] || fail "a catalogue-less gateway made the query path exit $CODE, want 0 — the transport has become a dependency. $OUT"
 printf '%s
-' "$OUT" | grep -q 'address form unchecked:'   || fail "the unchecked branch did not announce itself, so the residue is silent: $OUT"
+' "$OUT" | grep -q 'address form unchecked: the gateway served no readable tool catalogue'   || fail "the unchecked announcement does not name the no-catalogue cause — a fixed body here pointed the erroring-tools/list operator at the wrong repair (kogaki#373): $OUT"
 echo "ok: no served catalogue leaves the form unchecked, announced and not refused (kogaki#368)"
 
 # 10d. THE RECEIPT PATH'S REFUSAL SHAPE, asserted. Round-1 finding on PR #372:
@@ -798,7 +803,47 @@ CODE=$?
 set -e
 [[ $CODE -eq 0 ]] || fail "an erroring tools/list made the query path exit $CODE, want 0 — a call that used to work has stopped. $OUT"
 printf '%s
-' "$OUT" | grep -q 'address form unchecked:'   || fail "the erroring-catalogue path did not announce that the form went unchecked: $OUT"
-echo "ok: an erroring tools/list leaves the query path serving, form unchecked and announced (kogaki#368)"
+' "$OUT" | grep -q 'address form unchecked: `tools/list` returned an rpc error'   || fail "the erroring-catalogue announcement does not name ITS cause — collapsed into the no-catalogue wording, it points the operator at the wrong repair (kogaki#373): $OUT"
+echo "ok: an erroring tools/list leaves the query path serving, form unchecked and announced with its own cause (kogaki#368, kogaki#373)"
+
+# 10h. A SERVED TOOL WHOSE SCHEMA DOES NOT ENUMERATE its arguments is the
+#      FOURTH cause (kogaki#373): the `?? {}` it replaces made this an empty
+#      declared set, refusing every argued call with "it declares no
+#      arguments" — a declaration the server never made. Decided: the query
+#      path proceeds UNCHECKED and says so, per the enhancer-never-a-dependency
+#      polarity of the no-catalogue branch, one tool narrower.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool bare_schema   --args '{"anything":"goes"}' --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "a served tool with a non-enumerable schema exited $CODE on the query path, want 0 — the fourth cause is refusing calls that went out untouched before the widening. $OUT"
+printf '%s
+' "$OUT" | grep -q 'address form unchecked: `bare_schema` is served but its schema does not enumerate'   || fail "the fourth cause did not announce itself by name, so it is indistinguishable from a checked pass: $OUT"
+echo "ok: a non-enumerable served schema passes unchecked on the query path, announced with its own cause (kogaki#373)"
+
+# 10i. THE SAME TOOL ON THE RECEIPT PATH DEGRADES. A receipt asserts the
+#      address form, and nothing here can establish it — the no-catalogue
+#      receipt discipline, one tool narrower. Exit 11, never 13: this is
+#      substrate poverty, not a client defect.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool bare_schema   --args '{"anything":"goes"}' --receipt --question "q" --outcome discriminating   --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 11 ]] || fail "a non-enumerable schema on the RECEIPT path exited $CODE, want the exit-11 degrade. $OUT"
+printf '%s
+' "$OUT" | grep -q 'policy_source unavailable:'   || fail "the receipt-path degrade is missing its marker: $OUT"
+echo "ok: a non-enumerable served schema degrades the receipt path at exit 11 (kogaki#373)"
+
+# 10j. AN EXPLICIT EMPTY `properties` IS THE OPPOSITE CASE and still REFUSES:
+#      it enumerates zero arguments, the declared set is authoritative, and
+#      "it declares no arguments" is now said only where the server said it.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool no_args   --args '{"anything":"goes"}' --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 13 ]] || fail "an argued call to a tool that ENUMERATES zero arguments exited $CODE, want 13 — the fourth cause's fix has swallowed the true zero-argument refusal. $OUT"
+printf '%s
+' "$OUT" | grep -q 'it declares no arguments'   || fail "the zero-argument refusal does not say the declared set is empty: $OUT"
+echo "ok: an explicitly empty declared set still refuses an argued call, truthfully (kogaki#373)"
 
 echo "ALL PASS"
