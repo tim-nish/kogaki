@@ -3265,6 +3265,30 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     }
   }
 
+  // THE SUBJECT FIELD IS PINNED, because it is now HETEROGENEOUS. `unresolved`
+  // carries four kinds of entry and `slug` holds a served record's slug for
+  // three of them and a BATCH ID for the fourth — the screen renders it as
+  // `${u.slug}: ${u.value} — ${u.why}`, so a wrong subject misattributes the
+  // fact to a record that did not state it. No case read this field before
+  // (both batch cases filter on `value`), so a mutation writing any subject
+  // at all passed the whole mutation pass. Round-1 finding on PR #370.
+  {
+    const records = [
+      rec("s1", "q_a/shared"), rec("s2", "q_a/shared"),
+      rec("orphan", undefined),
+      batch("q_a/shared", ["s1", "s2", "vanished"]),
+    ];
+    const r = neighborhoodOf(records, ["s1", "s2", "orphan"]);
+    const member = r.unresolved.find((u) => u.value === "vanished");
+    if (member && member.slug !== "q_a/shared") {
+      fails.push(`§13/1.44 AC4: the dangling-member entry names ${JSON.stringify(member.slug)} as its subject — the fact is the BATCH's, so the subject is the batch key, and any other value misattributes it on the screen line that renders it`);
+    }
+    const seedScoped = r.unresolved.find((u) => u.why === "the record carries no source_batch");
+    if (seedScoped && seedScoped.slug !== "orphan") {
+      fails.push(`§13/1.44 AC4: a SEED-scoped unresolved entry names ${JSON.stringify(seedScoped.slug)} as its subject rather than the seed — the two kinds share one field and only the subject distinguishes them`);
+    }
+  }
+
   // AC4 — unresolved is MARKED, never empty. Two shapes: a record with no
   // source_batch at all, and a cross_link naming a slug nothing serves.
   {
