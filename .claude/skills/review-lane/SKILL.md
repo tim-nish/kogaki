@@ -478,6 +478,61 @@ number of `finding:` lines above it**. The merge check counts your segment
   `review-scope:` or `review-base:` inside a finding's prose declares nothing —
   it is a mention, not a declaration.
 
+### `adjudicates:` — revising a severity you declared at an EARLIER head (§4 clause 12, kogaki#269)
+
+**THE ACT THAT READS THIS LINE IS NOT BUILT YET** (kogaki#269). §4 clause 12
+lands the grammar and the polarity; the merge-layer denial is owed on its own
+carrier. Everything below is stated in the present tense because it is the
+ratified contract — and today writing the line is correct and **unenforced**.
+That is the honest state, and it is why §4 clause 9 row 2 still types this
+transition's observer as `none:`.
+
+If a finding you are writing **lowers, resolves or re-declares a `blocking`
+finding from an earlier head**, say which one. Without it the merge layer
+cannot tell an adjudicated downgrade from a silent re-grading, and the gate
+denies the silence:
+
+```
+finding: should open  <the finding, at this head>
+adjudicates: <earlier head sha> finding <N>  <grounds>
+```
+
+- **`<N>` is the 1-based ordinal of the finding within that earlier segment**,
+  counted from its `finding:` lines in order. Identity is (segment sha,
+  ordinal), and its stability is a **convention** rather than a mechanism: a PR
+  comment is editable, and what holds an earlier segment still is the practice
+  that a new round writes a new report rather than mutating an old one. Clause
+  12 carries the correction and the reopen trigger.
+- **It binds to the `finding:` line immediately above it**, exactly as
+  `carried:` / `declined:` do. First declaration per finding wins.
+- **Grounds are required and non-empty**, and there is no branch on the new
+  severity: adjudicating *up* or to `resolved` carries grounds too.
+- **A malformed line declares nothing** and the gate stays red. That is the
+  fail-safe side: an unparseable adjudication must never read as an
+  adjudication.
+
+**This is a DIFFERENT AXIS from `carried:` / `declined:`, and they stack on one
+finding in either order.** `adjudicates:` says *which earlier finding this is*
+— identity across heads, gated at the merge layer. `carried:` / `declined:`
+says *what happens to this one after the merge* — disposition, reported and
+never gated.
+
+**On any divergence between this section and §4 clause 12, CLAUSE 12 WINS.**
+This section is a conformance copy of a contract held elsewhere, and a copy
+without declared subordination is *"a second authority growing in the dark"*
+(`product-lab@dec0d568 LESSONS.md:122`, `conformance-copy-needs-declared-precedence`)
+— the same declaration the `carried:` / `declined:` section below makes for
+clause 8, for the same reason. **No check asserts the two agree**, and that is
+marked here rather than left to be assumed: the mechanical mismatch check over
+this file's grammar copies is owed and unbuilt, and now covers two copies.
+
+**Do not confuse it with `supersedes:`, which is a different line at a
+different level.** §4 clause 11's `supersedes: <blocked PR>` is declared by a
+successor **pull request** about a blocked one. `adjudicates:` is declared by a
+**finding** about an earlier finding. The two were nearly given one token; they
+were separated deliberately, because two closed value sets under one field name
+leave the first reader who meets both writing a cross-product.
+
 ### `carried:` / `declined:` — the disposition of a non-gating finding (§4 clause 8, kogaki#224)
 
 A `should` or `nit` you leave **open** at `done` carries a stated disposition
