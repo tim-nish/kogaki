@@ -1743,6 +1743,56 @@ invariant: Gukan guarantees Unit schema, never data schema).
      served line that admits the register warns that "registering everything
      kills the cadence".
 
+     **AT A SPENT BOUND, A LATENT IN-DIFF FINDING DEFAULTS TO THE REGISTER —
+     THE REACHABILITY FLOOR** (kogaki#374, owner approval 2026-08-12). The rule
+     above says an in-diff defect is resolved in the review. **At a spent bound
+     that instruction is unsatisfiable by construction**: there is no round left
+     to review the resolution in, so every in-diff finding exits through the
+     only doors left — clause 3's successor lane, or a fresh issue — and each
+     exit costs at least two further review rounds. Three distinct exits were
+     taken from a spent bound in the five days to 2026-08-12 (kogaki#332 →
+     kogaki#335 and kogaki#337; kogaki#373's carry), so the lane could not
+     terminate a fix chain on its ordinary path however good each fix was.
+
+     So: **a non-gating in-diff finding at a spent bound that is LATENT —
+     not reachable against currently served state — defaults to
+     `carried: register`.** Minting an issue or a successor for such a finding
+     requires either **stated reachability** (the inputs or served state under
+     which it fires) or an **explicit owner promotion**, recorded at the
+     disposition itself rather than in a comment beside it.
+
+     **Reachability is a CLAIM, written in the disposition's own reason, and
+     nothing gates on it.** It is prose a reader can argue with, in the shape
+     "presence is read, adequacy never is" already established above. A typed
+     line was the named alternative and is **declined**: it would make the
+     claim countable and one step from a lint, which §2.6.3 refuses — "No rule
+     becomes a lint, even where deterministic processing is possible."
+
+     **EXACTLY ONE CELL MOVES**, stated so the rest is not re-litigated:
+
+     | | inside the bound | at a spent bound |
+     |---|---|---|
+     | **reachable** in-diff finding | resolved in the review | clause 3's successor lane |
+     | **latent** in-diff finding | resolved in the review | **`carried: register`** |
+
+     Severity stays out of carrier choice everywhere else — location still
+     selects. **Gating findings are untouched** and so is the two-round bound:
+     nothing here lets a `blocking` finding reach the register. The register's
+     scope widens by this one cell, and kogaki#246's ledger discipline and its
+     close-requires-a-successor rule are untouched.
+
+     **The specimen is kogaki#373, and it is not retroactive.** Under this
+     floor those three findings are three register rows rather than an issue;
+     they stay as dispositioned, because their fix PR is licensed and in
+     flight. The floor binds the next spent bound.
+
+     **WHAT THIS DOES NOT CLAIM.** A latent finding is not a wrong finding, and
+     the register is not a bin. All three of kogaki#373's were real, and one
+     had a twin the issue never named that its fix PR found anyway. The floor
+     changes **where an unreachable defect waits**, never whether it is
+     recorded — which is the whole difference between this and the evaporation
+     the clause exists to prevent.
+
      **THIS CLAUSE'S DISPOSITION POINT IS THE `done` BOUNDARY, AND A
      SUPERSEDED CLOSE IS A SECOND EXIT IT DOES NOT GOVERN** (kogaki#338, owner
      selection 2026-08-11). Every disposition above is written when a PR

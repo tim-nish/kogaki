@@ -491,6 +491,20 @@ declined: <reason>                  — an explicit decline, reason required
 - **Which carrier a disposition names is decided by where the defect lives**,
   never by severity: in the diff's own text → resolve it in the review;
   downstream work the diff merely licenses → its own carrier.
+- **At a spent bound, a LATENT in-diff finding defaults to `carried: register`**
+  (kogaki#374, owner approval 2026-08-12; SPEC §4 clause 8 carries the rule and
+  this line cites it). With no round left, "resolve it in the review" cannot be
+  done — so an in-diff finding nothing can currently reach lands in the register
+  rather than minting an issue or a successor, each of which costs at least two
+  further review rounds. Minting one anyway needs **stated reachability** — the
+  inputs or served state under which the finding fires — or an explicit owner
+  promotion, written into the disposition's reason. It is a claim you make and a
+  reader can argue with; nothing checks it.
+  **One cell moves.** A *reachable* finding at a spent bound still takes the
+  successor lane; an in-diff finding *inside* the bound is still resolved in the
+  review; gating findings and the two-round bound are untouched. And a latent
+  finding is not a wrong finding — the floor changes where an unreachable defect
+  waits, never whether it is recorded.
 - **Presence is read, adequacy never is.** `declined: not worth it` satisfies
   the clause. It is a record somebody can argue with, which is what five
   findings living only in a comment nobody re-reads were not.
