@@ -352,12 +352,38 @@ merely *mentions* a receipt in inline code being read as emitting one. Measured
 here, gateway-independently: **ten** standalone `consulted:` lines unwrapped,
 and the tool's parse denominator moves **10 → 16**.
 
-**Five backticked `consulted:` occurrences are LEFT WRAPPED ON PURPOSE, and
-that is the same use-vs-mention judgment rather than an incomplete sweep.**
-Two are mid-sentence parentheticals and three are prose *about* `consulted:`
-lines — none is a standalone emission, and unwrapping a mention into one is
-precisely the confusion arm 1 was declined for. So the denominator is stated
-rather than implied: 16 parseable cites, 5 deliberate non-members named here.
+**Five backticked `consulted:` occurrences PRE-DATING this edit are LEFT
+WRAPPED ON PURPOSE, and that is the same use-vs-mention judgment rather than an
+incomplete sweep.** Two are mid-sentence parentheticals and three are prose
+*about* `consulted:` lines — none is a standalone emission, and unwrapping a
+mention into one is precisely the confusion arm 1 was declined for.
+
+**The count is stated as OF THE PRE-EDIT FILE, because this edit's own
+paragraphs add more of exactly the same kind.** Grepping the file as it now
+stands returns MORE than five, and the surplus is every prose mention added by
+this section and by anything written after it. A reader checking the claim the
+only way it can be checked would otherwise find a larger number and conclude the
+figure was wrong — so the POPULATION is named rather than a bare count.
+
+**No number is given for the post-edit file, deliberately.** The first draft of
+this paragraph named one, and it was falsified by the very paragraph that named
+it — a count over a set that this text is itself a member of goes stale as the
+text grows. The five are the five that pre-dated the edit; anything above that
+is prose about `consulted:` lines, which is what this whole passage is.
+
+**Two denominators appear in this section and they COUNT DIFFERENT THINGS,
+which is stated rather than left to arithmetic.** 24 is kogaki#266's hand count
+of served cites in the file; 16 is `parseCites`' own de-duplicated key set
+across BOTH cite shapes. The two sets are neither nested nor disjoint, so
+16 + 5 does not reconcile to 24 and was never meant to. Saying so is the whole
+point of the acceptance criterion this paragraph exists to satisfy: a coverage
+claim states its denominator, and two denominators side by side owe the reader
+the sentence that tells them apart.
+
+**Why 10 unwrapped lines move the parse count by 6 rather than 10.**
+`parseCites` de-duplicates on `file:spec`, and four of the ten keys were already
+in the set through the other cite shape. The figure is therefore self-checking
+rather than inviting the 10 + 10 a reader would otherwise attempt.
 
 **What is still NOT measured, stated rather than left as a silence.** Whether
 those 16 now *hash* is a question about the served surface, and it was not
@@ -365,7 +391,7 @@ answered in the sitting that made this edit: that shell had no gateway
 configured (`TSUREZURE_GATEWAY_JS` unset, no `--gateway` passed), so
 `--emit-pin-quotes` degraded with every content trial reporting a miss. The
 coverage figure therefore stands where kogaki#266 left it until a
-gateway-capable run re-measures it. Of the nine it did see, one more was declined
+gateway-capable run re-measures it. Of the nine cites that 9-of-24 run did see, one more was declined
 (`topics/archive/…` has no `servedAddress` form, though `policy_lookup` serves
 it), and this file's one range cite routes to `cannot-tell` by contract.
 
@@ -380,18 +406,22 @@ lesson exactly — and it would be quieter than today's silence, because today a
 least nothing claims coverage. So the partial mechanism is **declined on the
 ground rather than deferred for capacity.**
 
-**What the mechanism costs, named rather than left as "future work."** It needs
-a decision this sitting may not take alone: widening `parseCites` to see a
-backticked `consulted:` line widens what counts as an **emission** for every
-issue body the kit parses, which is the use-vs-mention boundary kogaki#41 drew
-and kogaki#209 hardened. That is a fork, and per DECIDE-OR-NAME —
+**What the mechanism cost, and the fork that is now DECIDED.** Widening
+`parseCites` to see a backticked `consulted:` line would widen what counts as an
+**emission** for every issue body the kit parses, which is the use-vs-mention
+boundary kogaki#41 drew and kogaki#209 hardened. That was a fork, and per
+DECIDE-OR-NAME —
 *"a sitting that leaves a design choice to the implementation either DECIDES the
 fork there, consulting the substrate on it, or emits a NAMED SLOT whose filling
 is itself a decision act"* (`topics/knowledge-architecture.md:41@dec0d568`) —
-it is emitted as a named carrier and not improvised.
+it was emitted as a named carrier rather than improvised. **It was filled on
+2026-08-12 by owner selection (kogaki#274): arm 2 above, with arm 1 declined on
+the blast-radius ground.** What remains of the mechanism — the registered check
+of acceptance item 4 — therefore needs no parser decision; it has one.
 
-- `carried: #274` — the mechanization: the parser fork above, where this file's
-  `pin-quote:` block lives, and the registered check that reads it. **Kogaki's
+- `carried: #274` — the mechanization: where this file's `pin-quote:` block
+  lives, and the registered check that reads it. **The parser fork is no longer
+  part of this: it was decided 2026-08-12 (arm 2).** **Kogaki's
   own, no handoff owed**; the shipped template
   (`policy/kit/templates/consultation-map.md`) carries none of these cites, so
   no consumer inherits the drift.
