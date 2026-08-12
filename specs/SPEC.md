@@ -1769,15 +1769,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
      becomes a lint, even where deterministic processing is possible."
 
      **EXACTLY ONE CELL MOVES**, stated so the rest is not re-litigated.
-     **EVERY ROW BELOW READS NON-GATING** — the qualifier the scope sentence
+     **THE MOVED CELL READS NON-GATING** — the qualifier the scope sentence
      above carries, restated on the table because the table is the compressed
-     statement and so the thing that travels. A finding still gating at the
-     merge layer is outside this table entirely, per the paragraph under it.
+     statement and so the thing that travels. The qualifier is scoped to that
+     one cell and not to the table, because the other three are unchanged and
+     bind gating and non-gating findings alike: an in-diff defect inside the
+     bound is resolved in the review either way, and at a spent bound a
+     reachable one takes clause 3's successor lane, which is exactly where a
+     gating finding exits.
 
      | | inside the bound | at a spent bound |
      |---|---|---|
      | **reachable** in-diff finding | resolved in the review | clause 3's successor lane |
-     | **latent** in-diff finding | resolved in the review | **`carried: register`** |
+     | **latent** in-diff finding | resolved in the review | **`carried: register`** (non-gating) |
 
      Severity stays out of carrier choice everywhere else — location still
      selects. **A finding STILL GATING AT THE MERGE LAYER is untouched** and so
