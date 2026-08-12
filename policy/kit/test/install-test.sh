@@ -630,4 +630,175 @@ echo "ok: the degraded path is stated, with a correctly shaped marked receipt (A
 node "$ENTRY" --self-test || fail "consult entry-point fixtures failed"
 echo "ok: consult entry-point fixture pass (AC 1–5)"
 
+# ---------------------------------------------------------------------------
+# 10. The ADDRESS FORM is checked on the QUERY path, not only when a receipt is
+#     composed (kogaki#368). The guard existed and was wired into
+#     `composeReceipt`, so `terrain survey` sent an undeclared `kinds` key,
+#     received the miss shape, and wrote a survey with zero candidates at exit
+#     zero. Both branches are exercised here, on the CLI, because the defect
+#     was not that the check was wrong — it was that the check was somewhere
+#     else, and only a run on this path can tell those apart.
+# ---------------------------------------------------------------------------
+cat > "$TMP/stub-catalogue.js" <<'STUB'
+// A stub that DOES serve tools/list, so the form check has a catalogue.
+const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+let buf = "";
+process.stdin.on("data", (d) => {
+  buf += d;
+  let i;
+  while ((i = buf.indexOf("\n")) >= 0) {
+    const line = buf.slice(0, i); buf = buf.slice(i + 1);
+    if (!line.trim()) continue;
+    let m; try { m = JSON.parse(line); } catch { continue; }
+    if (m.method === "initialize")
+      send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
+    else if (m.method === "tools/list")
+      send({ jsonrpc: "2.0", id: m.id, result: { tools: [
+        { name: "element_survey", inputSchema: { properties: { kind: {}, tag: {} } } },
+      ] } });
+    else if (m.method === "tools/call")
+      // A payload a RECEIPT can be composed from: request_id, a served
+      // `consulted:` line, a pin, and the echoed address gw#88 puts on every
+      // envelope. Without these the receipt cases below would fail on the
+      // stub's poverty rather than on the behaviour they test.
+      send({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: JSON.stringify({
+        pin: "product-lab@0000000000000000000000000000000000000000",
+        request_id: "stub-req",
+        consulted: "consulted: product-lab@0000000000000000000000000000000000000000 LESSONS.md:1",
+        tool: m.params && m.params.name,
+        request: (m.params && m.params.arguments) || {},
+        lines: [{ cite: "LESSONS.md:1@0000000000000000000000000000000000000000", text: "a served line" }],
+      }) }] } });
+    else if (m.id !== undefined) send({ jsonrpc: "2.0", id: m.id, result: {} });
+  }
+});
+STUB
+
+# 10a. THE REFUSAL. An undeclared key, no --receipt: refused before it is sent.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kinds":["lesson"]}' --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 13 ]] || fail "an undeclared key on the QUERY path exited $CODE, want 13 — this is the shipped defect: it used to exit 0 with a miss shape. $OUT"
+printf '%s
+' "$OUT" | grep -q 'address refused:' || fail "the query-path refusal is missing its marker: $OUT"
+printf '%s
+' "$OUT" | grep -q '`kinds`' || fail "the refusal does not name the offending key: $OUT"
+printf '%s
+' "$OUT" | grep -q 'it declares `kind`, `tag`' || fail "the refusal does not name the declared set: $OUT"
+echo "ok: an undeclared argument key is refused on the query path, naming the key and the declared set (kogaki#368 AC1)"
+
+# 10a-ii. THE REFUSAL IS ON STDERR, AND STDOUT IS EMPTY. The streams are
+#         separated here deliberately: 10a captures `2>&1` and so cannot tell
+#         them apart, which left the routing untested. It is not cosmetic —
+#         Kogaki's `gatewayQuery` captures stdout to a temp file it reads only
+#         on success and unlinks otherwise, so a refusal on stdout is deleted
+#         unread and the operator sees an empty diagnostic (round-1 finding on
+#         PR #372).
+set +e
+ERR=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kinds":["lesson"]}' --gateway "$TMP/stub-catalogue.js" 2>&1 >/dev/null)
+OUTONLY=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kinds":["lesson"]}' --gateway "$TMP/stub-catalogue.js" 2>/dev/null)
+set -e
+printf '%s
+' "$ERR" | grep -q 'address refused:'   || fail "the refusal is not on stderr, so a caller capturing stdout separately loses it: $ERR"
+[[ -z "$(printf '%s' "$OUTONLY" | tr -d '[:space:]')" ]]   || fail "the refusal was written to stdout, which is the TOOL RESULT stream a caller parses: $OUTONLY"
+echo "ok: the refusal is a diagnostic on stderr and stdout stays empty (kogaki#368)"
+
+# 10b. THE DECLARED CALL IS UNTOUCHED. The guard must not cost a working call.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kind":"lesson"}' --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "a DECLARED key on the query path exited $CODE, want 0 — the guard is refusing a conforming call. $OUT"
+echo "ok: a declared argument key still serves at exit 0 (kogaki#368 AC1)"
+
+# 10c. NO CATALOGUE -> UNCHECKED AND SAID SO, never a refusal and never a
+#      degrade. The kit is an enhancer, never a dependency: a gateway serving
+#      no `tools/list` answered every non-receipt call before this change, and
+#      breaking those to enforce a check that cannot run would be a worse
+#      defect than the one being fixed. The residue is announced rather than
+#      silent, and on stderr rather than in the tool result.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kinds":["lesson"]}' --gateway "$TMP/stub-gw.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "a catalogue-less gateway made the query path exit $CODE, want 0 — the transport has become a dependency. $OUT"
+printf '%s
+' "$OUT" | grep -q 'address form unchecked:'   || fail "the unchecked branch did not announce itself, so the residue is silent: $OUT"
+echo "ok: no served catalogue leaves the form unchecked, announced and not refused (kogaki#368)"
+
+# 10d. THE RECEIPT PATH'S REFUSAL SHAPE, asserted. Round-1 finding on PR #372:
+#      AC2a declared a behaviour change on this path and offered "the 48-case
+#      self-test passes unmodified" as evidence — which evidences nothing,
+#      because no case ever exercised the receipt path's refusal for an
+#      undeclared key. A coverage claim attached to a path with no
+#      discriminating case is the kogaki#230 shape one surface over.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kinds":["lesson"]}' --receipt --question "q" --outcome discriminating   --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 13 ]] || fail "an undeclared key on the RECEIPT path exited $CODE, want 13. $OUT"
+printf '%s
+' "$OUT" | grep -q 'address refused:' || fail "the receipt path's refusal is not the pre-send one: $OUT"
+printf '%s
+' "$OUT" | grep -q 'receipt not composable:'   && fail "the receipt path still refuses AFTER sending — the pre-send check did not reach it: $OUT"
+echo "ok: the receipt path refuses an undeclared key BEFORE sending, at exit 13 (kogaki#368 AC2a, stated change)"
+
+# 10e. A VALID RECEIPT STILL COMPOSES. The other half of AC2a, and the half
+#      that must not have moved at all.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kind":"lesson"}' --receipt --question "q" --outcome discriminating   --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "a DECLARED key on the receipt path exited $CODE, want 0 — the guard is refusing a conforming receipt. $OUT"
+printf '%s
+' "$OUT" | grep -q '^consulted: ' || fail "the receipt block is missing on a conforming call: $OUT"
+echo "ok: a conforming receipt still composes at exit 0 (kogaki#368 AC2a, the half that must not move)"
+
+# 10f. A TOOL ABSENT FROM A CATALOGUE THAT WAS READ is the THIRD cause, and it
+#      REFUSES. Round-1 finding on PR #372: the first split named two causes
+#      and this lands in neither. MCP requires a server to list what it serves,
+#      so a tool missing from a read catalogue is one this gateway does not
+#      serve and the call was never going to reach it.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool gloss_index   --args '{"tag":"lessons/testing"}' --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 13 ]] || fail "a tool absent from a READ catalogue exited $CODE, want 13. $OUT"
+printf '%s
+' "$OUT" | grep -q 'does not carry `gloss_index`'   || fail "the refusal does not name the unserved tool, so it reads as an undeclared-key refusal: $OUT"
+echo "ok: a tool absent from a served catalogue is refused, naming which cause (kogaki#368)"
+
+# 10g. AN ERRORING `tools/list` LEAVES THE QUERY PATH WORKING. Round-1 finding
+#      on PR #372: before this change the query path never asked, so turning
+#      that error into a degrade would stop calls that used to work.
+cat > "$TMP/stub-listerr.js" <<'STUB'
+const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+let buf = "";
+process.stdin.on("data", (d) => {
+  buf += d;
+  let i;
+  while ((i = buf.indexOf("\n")) >= 0) {
+    const line = buf.slice(0, i); buf = buf.slice(i + 1);
+    if (!line.trim()) continue;
+    let m; try { m = JSON.parse(line); } catch { continue; }
+    if (m.method === "initialize")
+      send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
+    else if (m.method === "tools/list")
+      send({ jsonrpc: "2.0", id: m.id, error: { code: -32601, message: "no such method" } });
+    else if (m.method === "tools/call")
+      send({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: JSON.stringify({ pin: "p@0", request_id: "stub", lines: [] }) }] } });
+    else if (m.id !== undefined) send({ jsonrpc: "2.0", id: m.id, result: {} });
+  }
+});
+STUB
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kind":"lesson"}' --gateway "$TMP/stub-listerr.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "an erroring tools/list made the query path exit $CODE, want 0 — a call that used to work has stopped. $OUT"
+printf '%s
+' "$OUT" | grep -q 'address form unchecked:'   || fail "the erroring-catalogue path did not announce that the form went unchecked: $OUT"
+echo "ok: an erroring tools/list leaves the query path serving, form unchecked and announced (kogaki#368)"
+
 echo "ALL PASS"

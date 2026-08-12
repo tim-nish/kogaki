@@ -2948,7 +2948,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey, neighborhoodOf, settledSlugs } from "./terrain/terrain.mjs";
+import { canonicalIds, idSortKey, neighborhoodOf, settledSlugs, surveyEmptinessNote } from "./terrain/terrain.mjs";
 
 const fails = [];
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -3279,13 +3279,49 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
       batch("q_a/shared", ["s1", "s2", "vanished"]),
     ];
     const r = neighborhoodOf(records, ["s1", "s2", "orphan"]);
+    // BOTH ASSERTIONS ASSERT PRESENCE FIRST. Locating an entry and then
+    // guarding the check on having found it is FAIL-OPEN: the locator misses,
+    // the assertion is skipped, and nothing reports that the case stopped
+    // testing anything — in the case whose whole purpose is to stop a field
+    // going unasserted. Round-2 finding on PR #370.
     const member = r.unresolved.find((u) => u.value === "vanished");
+    if (!member) {
+      fails.push("§13/1.44 AC4: no unresolved entry for the unserved batch member — the subject assertion below would have been SKIPPED rather than failed, so the case must fail here instead");
+    }
     if (member && member.slug !== "q_a/shared") {
       fails.push(`§13/1.44 AC4: the dangling-member entry names ${JSON.stringify(member.slug)} as its subject — the fact is the BATCH's, so the subject is the batch key, and any other value misattributes it on the screen line that renders it`);
     }
-    const seedScoped = r.unresolved.find((u) => u.why === "the record carries no source_batch");
+    // The locator is a SUBSTRING of the production prose, not an equality on
+    // it: an exact match reads a sentence `terrain.mjs` owns, so rewording it
+    // there would silently disarm this case. The looser form is what the
+    // neighbouring pre-existing assertion in this file already uses.
+    const seedScoped = r.unresolved.find((u) => (u.why || "").includes("no source_batch"));
+    if (!seedScoped) {
+      fails.push("§13/1.44 AC4: no SEED-scoped unresolved entry was found for the record carrying no source_batch — the subject assertion below would have been skipped rather than failed");
+    }
     if (seedScoped && seedScoped.slug !== "orphan") {
       fails.push(`§13/1.44 AC4: a SEED-scoped unresolved entry names ${JSON.stringify(seedScoped.slug)} as its subject rather than the seed — the two kinds share one field and only the subject distinguishes them`);
+    }
+  }
+
+  // §13/1.60 AC5 — A ZERO-CANDIDATE SURVEY STATES WHICH IT IS. The two causes
+  // were indistinguishable, which is how kogaki#368 survived: an empty survey
+  // validated and exited zero whether the corpus had no Lessons or the call
+  // never reached one.
+  {
+    if (surveyEmptinessNote(0, 5) !== null) {
+      fails.push("§13/1.60 AC5: a survey WITH candidates emitted an emptiness note");
+    }
+    const nothing = surveyEmptinessNote(0, 0) || "";
+    const someNonLessons = surveyEmptinessNote(814, 0) || "";
+    if (!/about the call/.test(nothing)) {
+      fails.push(`§13/1.60 AC5: 0 served records did not read as a statement about the CALL: ${JSON.stringify(nothing)}`);
+    }
+    if (!/about the corpus/.test(someNonLessons) || !/814/.test(someNonLessons)) {
+      fails.push(`§13/1.60 AC5: served-but-no-Lessons did not read as a statement about the CORPUS naming its denominator: ${JSON.stringify(someNonLessons)}`);
+    }
+    if (nothing === someNonLessons) {
+      fails.push("§13/1.60 AC5: the two empty causes render IDENTICALLY — which is the ambiguity the criterion exists to remove");
     }
   }
 

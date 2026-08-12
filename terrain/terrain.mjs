@@ -110,7 +110,14 @@ function gatewayQuery(tool, toolArgs) {
     process.stderr.write("policy_source unavailable: Terrain has no material without the seam — no survey composed\n");
     process.exit(11);
   }
-  if (res.status !== 0) fail(`gateway-query failed (${res.status}): ${res.stderr}`);
+  if (res.status !== 0) {
+    // BOTH STREAMS. The transport's address refusal (exit 13) is a diagnostic
+    // on stderr, but stdout is captured to a file here and would otherwise be
+    // discarded — so a failure whose whole content sat in one stream printed
+    // an empty tail. Report what both carried (round-1 finding on PR #372).
+    const detail = [res.stderr, res.stdout].map((x) => (x || "").trim()).filter(Boolean).join(" | ");
+    fail(`gateway-query failed (${res.status}): ${detail || "(no diagnostic on either stream)"}`);
+  }
   return JSON.parse(res.stdout);
 }
 
@@ -337,12 +344,36 @@ export function displayIdAbnormalLine(missing, total) {
     + "Re-run `terrain survey` to regenerate the record (§12.2 v11).";
 }
 
+// A SURVEY WITH NO CANDIDATES IS AMBIGUOUS, and the ambiguity is what let
+// kogaki#368 live: an empty survey validated, exited zero, and could mean the
+// corpus has no Lessons or that the call never reached one. The transport now
+// refuses an undeclared key before sending, which removes the cause — but the
+// surface still owes the distinction, because the cause is not the only way to
+// arrive here. Pure, so it can be fixtured; the caller prints what it returns.
+export function surveyEmptinessNote(servedLines, lessonCount) {
+  if (lessonCount > 0) return null;
+  if (servedLines === 0) {
+    return "0 candidates, and THE SEAM SERVED NOTHING AT ALL — this is a "
+      + "statement about the call, not about the corpus. A served surface with "
+      + "no records is not a corpus with no Lessons.";
+  }
+  return `0 candidates, from ${servedLines} served record(s) — the seam `
+    + "answered and NONE of what it served was a Lesson. This is a statement "
+    + "about the corpus.";
+}
+
 // --------------------------------------------------------------------------
 // survey — read the seam, compose, validate, write.
 // --------------------------------------------------------------------------
 function cmdSurvey(args) {
   const dir = runDir(args);
-  const resp = gatewayQuery("element_survey", { kinds: SURVEY_SCHEMA.families });
+  // `{}`, NOT a kind filter. `element_survey` declares `kind` (SINGULAR) and
+  // `tag`; this sent `kinds` and the gateway dropped the undeclared key and
+  // returned the miss shape, so the survey composed with ZERO candidates at
+  // exit zero and validated (kogaki#368). The families are filtered below
+  // anyway, on `rec.kind`, so the server-side filter was never load-bearing.
+  // The transport now refuses an undeclared key before sending it.
+  const resp = gatewayQuery("element_survey", {});
   // The candidate row is ONE LESSON (SPEC.md §5). Journeys are read into their
   // own list and become a MARK on their Lesson's row; the list stays in the
   // record so count-in remains computable against count-out (§5.2) and so
@@ -380,6 +411,8 @@ function cmdSurvey(args) {
       journeys.push({ slug: rec.slug, cite: line.cite });
     }
   }
+  const emptiness = surveyEmptinessNote((resp.lines || []).length, lessons.length);
+  if (emptiness) console.log(emptiness);
   // The mark reads by ABSENCE: a Lesson with no Journey is decorated, a Lesson
   // with one is not.
   const journeyBySlug = new Map(journeys.map((j) => [j.slug, j]));
@@ -2919,9 +2952,9 @@ function cmdNeighborhood(args) {
   // `{ kinds: [...] }` yields zero lines. The neighborhood needs `batch`
   // records as well as the two survey families — §13.3's join reads a batch's
   // own `members` — so it asks for everything and splits by kind here.
-  // `cmdSurvey`'s call is the broken one and is NOT repaired from this story:
-  // filed separately, because a fix there changes what every Terrain surface
-  // composes and is not story 1.44's licence.
+  // `cmdSurvey` sent the same shape and was the defect kogaki#368 was filed
+  // for; it is repaired, and the transport now refuses an undeclared key
+  // before sending it rather than answering a call it did not run.
   const resp = gatewayQuery("element_survey", {});
   const records = [];
   for (const line of resp.lines || []) {
