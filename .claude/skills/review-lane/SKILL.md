@@ -240,8 +240,12 @@ A report is a **pull-request comment** whose first line is a fixed token at a
 fixed position, and which **declares its base, its scope and its completeness**
 on three further fixed lines (`specs/SPEC.md` §4 clauses 5, 6 and 7), its
 **boundary-vs-receipt record** on a `boundary:` line per touched entry
-(kogaki#258), and the **disposition** of a non-gating finding it leaves open on
-a `carried:` / `declined:` line adjacent to that finding (§4 clause 8):
+(kogaki#258), the **disposition** of a non-gating finding it leaves open on a
+`carried:` / `declined:` line adjacent to that finding (§4 clause 8), and —
+where a finding revises a `blocking` severity declared at an EARLIER head —
+the **adjudication** naming which finding it revises, on an `adjudicates:` line
+adjacent to that finding (§4 clause 12; the act that reads it is not built
+yet).
 
 ```
 review-lane report: <head sha>
@@ -252,6 +256,7 @@ boundary: none  <why no map entry was touched>
 finding: <blocking|should|nit> <open|resolved> [policy: <pin> | harm: <one line>]  <the finding>
 carried: #<N> | register
 declined: <reason>
+adjudicates: <earlier head sha> finding <N>  <grounds>
 …
 cannot-determine: <dimension> — <why>
 report-complete: <N> findings
