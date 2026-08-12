@@ -2755,6 +2755,12 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   const seedSet = new Set(seeds);
   const reached = new Map();   // slug -> Set of substrate names
   const unresolved = [];
+  // §13.4's DENOMINATOR POPULATION, family-keyed and read from the batch
+  // records' own `members` rather than re-derived from the element set (story
+  // 1.45, AC3). Kept as a Set per family so a slug listed by two batches counts
+  // once — a population that double-counts is a denominator that flatters the
+  // ratio it sits under.
+  const population = new Map(); // family -> Set of slugs
 
   const note = (slug, substrate) => {
     if (seedSet.has(slug) || !bySlug.has(slug)) return;
@@ -2816,6 +2822,16 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
       // Family-keyed, so every family's list is walked rather than one.
       for (const family of Object.keys(batch.members || {})) {
         for (const m of batch.members[family] || []) {
+          // POPULATION IS COUNTED BEFORE THE SERVED-SET GUARD BELOW, and the
+          // ordering is the decision rather than an accident. `members` is the
+          // batch's own statement of what it holds; a member the served set
+          // does not carry is still IN the batch, and dropping it from the
+          // denominator would make the ratio climb as the corpus loses
+          // records — the same silent-flattery shape §13.0 removes, arriving
+          // as arithmetic. It is marked as unresolved below either way, so the
+          // absence is disclosed rather than absorbed.
+          if (!population.has(family)) population.set(family, new Set());
+          population.get(family).add(m);
           // A LISTED MEMBER THE SERVED SET DOES NOT CARRY IS MARKED, not
           // dropped — the same arm `cross_links` already has below. Dropping
           // it yields a quieter neighborhood with no disclosure, which is
@@ -2883,14 +2899,49 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   const suggestions = [...reached.keys()].sort().map((slug, i) => ({
     nid: NEIGHBOR_ID(i + 1),
     slug,
+    // The FAMILY a suggestion belongs to, carried on the suggestion itself so
+    // the screen never has to re-look-up the record to state a per-family
+    // figure. A record with no `kind` yields null rather than a guess: an
+    // unknown family folded into a known one is the pooling AC3 forbids,
+    // arriving one record at a time.
+    family: bySlug.get(slug)?.kind ?? null,
     substrates: [...reached.get(slug)].sort(),
   }));
+
+  // §13.4's PER-FAMILY FIGURES (story 1.45, AC3). Every family that appears
+  // either in a walked batch's `members` or among the suggestions gets a row;
+  // the union is what stops a family with suggestions and no batch population
+  // from vanishing, and a family with population and no suggestions from being
+  // dropped as uninteresting — a zero numerator is a reading.
+  //
+  // `population: null` IS NOT ZERO, and the distinction is load-bearing. A
+  // family reached only through `cross_links` has no `members` list behind it,
+  // so no denominator is READABLE for it; printing 0 there would assert a
+  // population that was never counted, and printing `n of 0` is arithmetic
+  // nonsense that reads as a bug in the numerator. Null renders as an explicit
+  // "no denominator readable" on the screen.
+  const families = new Set([
+    ...population.keys(),
+    ...suggestions.map((s) => s.family).filter((f) => f !== null),
+  ]);
+  const by_family = {};
+  for (const fam of [...families].sort()) {
+    by_family[fam] = {
+      suggested: suggestions.filter((s) => s.family === fam).length,
+      population: population.has(fam) ? population.get(fam).size : null,
+    };
+  }
 
   return {
     suggestions,
     unresolved,
+    // `suggested` and `seeds` stay, and they are NOT the denominator AC3
+    // governs — they are totals over the run. What AC3 forbids is stating a
+    // POOLED denominator where a family-keyed one is readable, which is what
+    // `by_family` now carries; the screen prints the per-family rows and never
+    // a pooled `n of m`.
     counts: { seeds: seeds.length, suggested: suggestions.length,
-      unresolved: unresolved.length },
+      unresolved: unresolved.length, by_family },
   };
 }
 
@@ -2974,12 +3025,54 @@ function cmdNeighborhood(args) {
   // Running this text through `emitOrRefuse` would validate it against a
   // grammar that does not describe it, which fails toward a refusal on
   // conformant output.
+  const out = neighborhoodScreen({
+    tag,
+    gids: resolved.targets.map((t) => t.gid),
+    suggestions, unresolved, counts, unmapped,
+  });
+  console.log(out.join("\n"));
+}
+
+// THE NEIGHBORHOOD SCREEN, composed apart from the command (story 1.45).
+//
+// Exported and pure over its inputs for the same reason `neighborhoodOf` is:
+// §13.4's obligations are properties of what RENDERS, not of what enumerates,
+// so a fixture that can only call the enumerator cannot exercise them. Before
+// this split the disclosure lines lived inside `cmdNeighborhood`, which reads
+// a survey file and calls the seam — so the only way to assert them was a
+// subprocess with a live seam, and a property whose failing path is never
+// exercised is not covered (AC5).
+//
+// Returns the lines; the caller prints. Nothing here narrows, sorts by rank, or
+// drops a member — §13.1 is a property of this function's output.
+export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts, unmapped = [] }) {
   const out = [];
   const say = (s = "") => out.push(s);
-  say(`Provenance neighborhood — ${tag} — settled set ${resolved.targets.map((t) => t.gid).join(", ")}`);
+  say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
   say(`${counts.seeds} settled member(s); ${counts.suggested} suggestion(s) beside them`);
   say("A REPORT, never a proposal (§13.1): nothing here narrows what reaches you, and the full population stays reachable.");
   say(`Bound: source_batch ${NEIGHBORHOOD_BOUND.source_batch} hop, cross_links ${NEIGHBORHOOD_BOUND.cross_links} hops, shared carrier off — declared at §13.3 and read here, never chosen.`);
+
+  // §13.4's DENOMINATOR, STATED PER FAMILY AND NEVER POOLED (AC3). The counts
+  // line above carries totals; a total is not a denominator, and the moment a
+  // ratio is stated it is stated family by family. `members` being family-keyed
+  // is what makes this mechanical — the figures are read from the batch
+  // records' own statement of what they hold, never inferred from the element
+  // set.
+  const fams = Object.keys(counts.by_family || {});
+  if (fams.length) {
+    say();
+    say("Suggestions by family (§13.4 — per family, never pooled):");
+    for (const fam of fams) {
+      const { suggested, population } = counts.by_family[fam];
+      say(population === null
+        // Not "of 0": a family reached only through cross_links has no
+        // `members` list behind it, so no denominator was READ. Printing zero
+        // would assert a population nobody counted.
+        ? `  ${fam}: ${suggested} suggestion(s) — no denominator readable (no walked batch lists this family)`
+        : `  ${fam}: ${suggested} of ${population} in the walked batches' members`);
+    }
+  }
   say();
   if (suggestions.length === 0) {
     // §13.2's "empty is an informative outcome", in the form v16 leaves it.
@@ -2990,7 +3083,15 @@ function cmdNeighborhood(args) {
     say("Not asserted: that an empty neighborhood is informative in the STRONG sense. That claim rested on a Thesis and was withdrawn with it (§13.2, v15).");
   }
   for (const s of suggestions) {
-    say(`${s.nid} — ${s.slug} — reached by: ${s.substrates.join(", ")}`);
+    // §13.4's SUBSTRATE DISCLOSURE, per suggestion (AC2). A suggestion whose
+    // substrate set is empty is rendered as an explicit unknown rather than as
+    // a bare row: `reached by: ` with nothing after it is the disclosure
+    // failing open, and it reads on screen as a formatting slip rather than as
+    // the missing provenance it is.
+    const disclosed = (s.substrates || []).length
+      ? s.substrates.join(", ")
+      : "UNDISCLOSED — no substrate recorded; this row must not ship";
+    say(`${s.nid} — ${s.slug} [${s.family ?? "family unknown"}] — reached by: ${disclosed}`);
   }
   if (unmapped.length) {
     say();
@@ -3005,7 +3106,7 @@ function cmdNeighborhood(args) {
   }
   say();
   say("Suggestion ids are `N<n>` and are DISJOINT from the survey's `L<n>` (§14.6, filled kogaki#300 2026-08-12): a suggestion is not in the survey record, so §14.3's assignor does not reach it. Taking one assigns it an `L<n>` on the way in.");
-  console.log(out.join("\n"));
+  return out;
 }
 
 // The CLI dispatch runs only when this file IS the entry point. Without the
