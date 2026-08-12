@@ -2772,6 +2772,17 @@ export function compareGroups(a, b) {
   return 0;
 }
 
+// HOW MANY ROWS ONE SUGGESTION RENDERS AS — ONE DEFINITION, used by the
+// enumerator's total and by both of the screen's counts (PR #392 round 1). A
+// suggestion with no substrate instance still renders, under an explicit
+// undisclosed heading, so it is ONE rendering and not zero: the alternative
+// reading made the family section and the headline disagree on the check's own
+// AC3/AC5 input, which is the two-definitions defect `groupKeyOf` warns about
+// one field over.
+export function renderingsOf(s) {
+  return (s.reached_by || []).length || 1;
+}
+
 function substrateInstances(bySubstrate) {
   const out = [];
   for (const [substrate, instances] of bySubstrate) {
@@ -3048,7 +3059,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // exists to refuse — stated here at the source rather than left for the
     // screen to infer from a structure it would have to re-walk.
     counts: { seeds: seeds.length, suggested: suggestions.length,
-      rendered: suggestions.reduce((n, s) => n + s.reached_by.length, 0),
+      rendered: suggestions.reduce((n, s) => n + renderingsOf(s), 0),
       unresolved: unresolved.length, by_family },
   };
 }
@@ -3163,8 +3174,15 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
   // refuses — so the rendering total is stated even where it equals the
   // suggestion total, since a reader cannot tell a coincidence from a
   // conflation by looking at one number.
-  const rendered = counts.rendered ?? suggestions.reduce(
-    (n, s) => n + (s.reached_by || []).length, 0);
+  // COMPUTED FROM WHAT THIS FUNCTION RENDERS, never taken from the caller —
+  // even though `neighborhoodOf` supplies `counts.rendered` and the two agree
+  // on every structure it produces. The screen is the only thing that knows how
+  // many rows it emitted, so a figure it accepts on trust is a figure it can
+  // state falsely: round 1 of PR #392 found exactly that, a headline reading
+  // `rendering as 0 row(s)` above a section and a heading both counting 1.
+  // Recomputing makes the disagreement unrepresentable rather than detectable,
+  // which is the constrain-generation move rather than a second assertion.
+  const rendered = suggestions.reduce((n, s) => n + renderingsOf(s), 0);
   say(`${counts.seeds} settled member(s); ${counts.suggested} suggestion(s) beside them, `
     + `rendering as ${rendered} row(s) — a suggestion reached by two substrates renders under each (§13.4 obligation 4)`);
   say("A REPORT, never a proposal (§13.1): nothing here narrows what reaches you, and the full population stays reachable.");
@@ -3253,8 +3271,7 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
     say("Suggestions, grouped by family then by the batch or substrate that reached them (§13.4 obligation 4 — a rendering of the same complete enumeration, never a selection over it):");
     for (const fam of famOrder) {
       const ofFamily = suggestions.filter((s) => famKey(s) === fam);
-      const famRendered = ofFamily.reduce(
-        (n, s) => n + ((s.reached_by || []).length || 1), 0);
+      const famRendered = ofFamily.reduce((n, s) => n + renderingsOf(s), 0);
       say();
       // The family section states BOTH units for the same reason the headline
       // does — this is the per-family site AC2a binds.

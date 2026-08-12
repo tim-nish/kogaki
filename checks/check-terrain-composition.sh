@@ -3876,8 +3876,15 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
     // cannot discriminate (kogaki#390).
     {
       const { lines } = mixed();
+      // Same fallback discipline as the AC3 arm below: a MISSING headline is an
+      // instrument state and is said to be one. Without the guard,
+      // `/re/.test(undefined)` coerces to the string "undefined", returns
+      // false, and this check accuses the screen of stating one figure when in
+      // fact no headline was found at all.
       const headline = lines.find((l) => /settled member\(s\)/.test(l));
-      if (!/[0-9]+ suggestion\(s\)/.test(headline) || !/[0-9]+ row\(s\)/.test(headline)) {
+      if (!headline) {
+        fails.push("§13.4/1.61 AC2a: CANNOT-DETERMINE — no headline line on the screen, so the two totals were not evaluated. A fault in this check's anchor, reported as one rather than as a conflation finding");
+      } else if (!/[0-9]+ suggestion\(s\)/.test(headline) || !/[0-9]+ row\(s\)/.test(headline)) {
         fails.push(`§13.4/1.61 AC2a: the headline states one figure where the suggestion and rendering counts differ — ${JSON.stringify(headline)}. A single total that silently means one of the two is the conflation this criterion refuses`);
       }
       for (const l of lines.filter((l) => /^ {2}[a-z]+: [0-9]+ /.test(l))) {
@@ -3944,6 +3951,32 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
       if (!ungrouped.some((l) => /N1 — nogroup/.test(l))) {
         fails.push("§13.4/1.61 AC3/AC5: a suggestion carrying no substrate instance was DROPPED by the grouping — it must render under an explicit undisclosed heading. A row that groups under nothing and is therefore not printed is the silent exclusion §13.0 removes, arriving as layout");
       }
+      // ONE DEFINITION OF "A RENDERING", asserted on the input that separates
+      // the candidates (PR #392 round 1, finding 1). This case passes
+      // `rendered: 0` beside a suggestion the screen renders one row for — a
+      // figure a wrong enumerator would supply — so a screen that states the
+      // caller's number contradicts its own section and heading here while
+      // every other assertion in the block passes. The headline is asserted
+      // against the group counts rather than against a literal, because what
+      // is owed is agreement, not a particular total.
+      //
+      // THE FALLBACK IS REPORTED AS A FALLBACK, never as the finding. An
+      // absent headline or an unparseable one is an INSTRUMENT state, and
+      // phrasing it as "the headline states NaN rendered row(s)" would convert
+      // this check's own internal miss into a false accusation against the
+      // screen — `topics/claude-code-ops.md:60@4cc496b`, "guard the crash,
+      // report a crash AS a crash".
+      const uHead = ungrouped.find((l) => /settled member\(s\)/.test(l));
+      const uRows = ungrouped.filter((l) => /^ {4}N[0-9]+ — /.test(l)).length;
+      const uMatch = uHead && uHead.match(/rendering as ([0-9]+) row\(s\)/);
+      if (!uHead) {
+        fails.push("§13.4/1.61 AC2a: CANNOT-DETERMINE — no headline line on the screen, so the rendering-count agreement below was not evaluated. This is a fault in this check's own anchor, not a finding about the screen");
+      } else if (!uMatch) {
+        fails.push(`§13.4/1.61 AC2a: CANNOT-DETERMINE — the headline carries no parseable rendering count, so agreement was not evaluated: ${JSON.stringify(uHead)}. Reported as an unread state rather than as a disagreement`);
+      } else if (Number(uMatch[1]) !== uRows) {
+        const uStated = Number(uMatch[1]);
+        fails.push(`§13.4/1.61 AC2a/AC5: the headline states ${uStated} rendered row(s) while the screen printed ${uRows} — the screen took a rendering count on trust instead of counting what it rendered, so the headline, the family section and the group heading can disagree about one input`);
+      }
     }
 
     // ---- ORDERING CARRIES NO JUDGMENT --------------------------------------
@@ -3951,8 +3984,18 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
     // name — never by size. A size ordering is the ranking §13.1 refuses,
     // arriving as layout rather than as a score, and it is invisible on any
     // fixture where the mechanical order and the size order agree. So the
-    // fixture is built where they DISAGREE: `q_a/z` sorts last and holds the
-    // most members.
+    // fixture is built where they DISAGREE.
+    //
+    // WHICH TWO GROUPS ACTUALLY RENDER, stated correctly (PR #392 round 1
+    // found this account naming a group that never appears): only the SEEDS'
+    // own batches are walked, so `q_a/z` is never a heading — the headings are
+    // `source_batch q_a/a` (1 rendering) and `cross_links` (3, the three
+    // cross-linked slugs). `cross_links` is a bare substrate, so the declared
+    // order puts it LAST while it holds the MOST — which is the disagreement
+    // this fixture needs, reached by a different route than the comment
+    // claimed. The property was always discriminating; only the account was
+    // false, in a block that expressly asks the next reader to re-judge it
+    // rather than take it.
     {
       const { lines } = screenOf([
         rec("o-seed", "q_a/a", ["o-x", "o-y", "o-z"]),
