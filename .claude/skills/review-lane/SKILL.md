@@ -533,12 +533,6 @@ successor **pull request** about a blocked one. `adjudicates:` is declared by a
 were separated deliberately, because two closed value sets under one field name
 leave the first reader who meets both writing a cross-product.
 
-**The act that reads this line is NOT BUILT YET** (kogaki#269). §4 clause 12
-lands the grammar and the polarity; the merge-layer denial is owed on its own
-carrier. Writing the line today is therefore correct and currently unenforced —
-which is the honest state, and is why §4 clause 9 row 2 still types this
-transition's observer as `none:`.
-
 ### `carried:` / `declined:` — the disposition of a non-gating finding (§4 clause 8, kogaki#224)
 
 A `should` or `nit` you leave **open** at `done` carries a stated disposition

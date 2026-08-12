@@ -2517,8 +2517,18 @@ invariant: Gukan guarantees Unit schema, never data schema).
       adjudicates: <earlier head sha> finding <N>  <grounds>
       ```
 
-      Identity is **(segment sha, 1-based ordinal)** — a fact rather than a
-      reading, because clause 4 makes an earlier segment append-only. It binds
+      Identity is **(segment sha, 1-based ordinal)**. **The stability that rests
+      on is a CONVENTION rather than a mechanism, and saying so corrects this
+      clause's own ratified record.** The 2026-08-08 sitting wrote "a fact
+      rather than a reading, because clause 4 makes an earlier segment
+      append-only" — and clause 4 carries no such rule: it is *every round
+      leaves its record*, about postmortem rally residue, and no §4 clause
+      states append-only anywhere. What actually holds an earlier segment still
+      is a practice recorded in a comment in `checks/check-review-report.sh`
+      ("a new round supersedes by writing a new report, never by mutating an
+      old one"), and a PR comment is editable, so an ordinal is exactly as
+      stable as that practice and no more. **Reopen trigger:** an edited earlier
+      segment observed to move an ordinal. It binds
       to the immediately preceding `finding:` line; first declaration per
       finding wins; anchored whole; grounds required and non-empty, with no
       branch on the superseding severity; a malformed line declares nothing and
