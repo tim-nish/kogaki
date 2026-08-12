@@ -447,13 +447,24 @@ function assertAddressForm({ framing, declared, catalogue }, i) {
   // A THIRD SHAPE NEVER ARRIVES HERE, stated as an invariant rather than
   // defended against with a branch. A tool served with a schema that does not
   // enumerate its arguments carries `declared === null` (never an empty Set —
-  // kogaki#373 finding 1), and BOTH call sites settle it before this function
-  // is reached: the pre-send loop passes it unchecked on the query path and
-  // degrades the receipt path, and nothing else calls in. An arm for it here
-  // would be unreachable code carrying a comment about when it runs — which
-  // is the defect this whole chain is about, one turn further in (PR #375
-  // round 1). If that interception is ever removed, this message owes a third
-  // branch and the caller owes the decision that branch would encode. A
+  // kogaki#373 finding 1). This function has EXACTLY TWO CALLERS, and the
+  // invariant holds at each for a different reason — both are named, because
+  // the only way to verify it is to find every caller and an incomplete list
+  // reads as a stale comment:
+  //
+  //   * the pre-send loop, which tests for null itself and never calls in
+  //     with one: it passes that framing unchecked on the query path and
+  //     degrades the receipt path;
+  //   * `assertAddressEvidenced`, reachable only from `composeReceipt` and so
+  //     only in receipt mode — where the pre-send loop has ALREADY exited 11
+  //     on a null, so composition is never reached with one.
+  //
+  // An arm for it here would be unreachable code carrying a comment about
+  // when it runs — the defect this whole chain is about, one turn further in
+  // (PR #375 rounds 1 and 2; round 2 caught this very comment naming one
+  // caller and asserting there were no others). If either interception is
+  // removed, this message owes a third branch and that caller owes the
+  // decision the branch would encode. A
   // `tools/list` that returns an rpc error never reaches here at all: it is
   // routed to the exit-11 degrade at the wire, like every other rpc error.
   if (!(declared instanceof Set))
