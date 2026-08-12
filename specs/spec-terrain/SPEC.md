@@ -35,14 +35,16 @@ that it would make the survey record hold entries for things that are not in
 the survey — the premise §14.3 rests on. Assigning an `L<n>` only when a
 suggestion is *taken* was declined too: the owner needs a token *while
 choosing*, and choosing among several is exactly when one is needed. The answer
-is implemented and merged (`terrain/terrain.mjs:2725-2727`, `:3007`; kogaki#367).
+is implemented and merged: the space is declared at `NEIGHBOR_ID`
+(`terrain/terrain.mjs:2728`), minted over the sorted output at `:2915`, and
+rendered with its disjointness statement at `:3152` (kogaki#367).
 The two other tokens in the file — `terrain-family-split-carrier` and
 `terrain-subdivision-offering-verdict` — are filled, checked at their sites
 rather than assumed.
 
-**This line was FALSE for three revisions, and that is recorded rather than
-quietly corrected** (kogaki#384). Its bolded lead-in read, verbatim and
-including its terminal colon,
+**This line was FALSE from the moment it was written, and that is recorded
+rather than quietly corrected** (kogaki#384). Its bolded lead-in read, verbatim
+and including its terminal colon,
 
 > `**STILL OPEN IN THIS FILE, and it comes due in THIS issue's implementing sitting:**`
 
@@ -52,13 +54,14 @@ proposed the very shape the owner had declined — caught before commit by the
 carrier read, and retracted. A spec section that states a settled question as
 open does not merely lag; it actively re-opens the question for the next reader.
 
-**Why it survived three amendments.** v15, v16 and the intervening nit passes
-each declared *deferred slots minted by this amendment*, which is a
-**per-amendment** claim, while this paragraph made a **file-wide** one. An
-amendment correctly declaring that it mints none leaves a file-wide "still
-open" line untouched and reads as consistent with it. That is the same defect
-this paragraph was originally written to fix, one revision later: the previous
-draft of the line read
+**The shape that produced it, stated at the size the evidence supports.** Both
+this line and the *deferred slots minted by this amendment* declaration beside
+it were introduced by the **same commit** — `145d90a`, v16 — so this is the
+first revision after it and no earlier amendment carried either. What recurred
+is not a count of revisions but the **juxtaposition**, and it recurred **twice
+inside kogaki#366's own review rounds**: a per-amendment declaration standing
+next to a **file-wide** claim, where the per-amendment half is true and does
+nothing to keep the file-wide half honest. The first attempt read
 
 > `**deferred slots: none.** §13.3 held the last one.`
 
@@ -4171,7 +4174,9 @@ element. **The cost, stated:** two id spaces exist where there was one, and an
 owner copying an id has to know which space it came from. That is the price of
 leaving §14.3 alone, and it is the cheaper price.
 
-**Implemented and merged**: `terrain/terrain.mjs:2725-2727`, `:2881`, `:3007`
+**Implemented and merged**: the `N<n>` space is declared at `NEIGHBOR_ID`
+(`terrain/terrain.mjs:2728`), minted over the sorted output at `:2915`, and
+rendered with its disjointness statement at `:3152`
 (kogaki#367), with the flow step at `.claude/skills/terrain/SKILL.md` step 7
 (kogaki#383).
 
