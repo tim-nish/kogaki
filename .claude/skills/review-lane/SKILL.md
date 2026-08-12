@@ -485,12 +485,18 @@ number of `finding:` lines above it**. The merge check counts your segment
 
 ### `adjudicates:` — revising a severity you declared at an EARLIER head (§4 clause 12, kogaki#269)
 
-**THE ACT THAT READS THIS LINE IS NOT BUILT YET** (kogaki#269). §4 clause 12
-lands the grammar and the polarity; the merge-layer denial is owed on its own
-carrier. Everything below is stated in the present tense because it is the
-ratified contract — and today writing the line is correct and **unenforced**.
-That is the honest state, and it is why §4 clause 9 row 2 still types this
-transition's observer as `none:`.
+**THE ACT THAT READS THIS LINE IS BUILT AND ENFORCING** (kogaki#269, landed
+2026-08-13). `unadjudicated_blocking()` in `checks/check-review-report.sh`
+denies at the merge layer, and §4 clause 9 row 2 is typed `act`. From
+2026-08-12 to 2026-08-13 this paragraph read *"NOT BUILT YET"* and writing the
+line was correct and unenforced; that is no longer the honest state, and
+omitting the line now **holds the gate red**.
+
+**GROUNDS ARE REQUIRED AND NON-EMPTY.** A line that stops at the ordinal
+declares **nothing** — it does not join, it does not discharge, and the gate
+stays red exactly as if you had written no line at all. Clause 12 exists so a
+revision carries WHY, so the grammar refuses the half that keeps the identity
+and drops the reason.
 
 If a finding you are writing **lowers, resolves or re-declares a `blocking`
 finding from an earlier head**, say which one. Without it the merge layer

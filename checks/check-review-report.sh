@@ -317,8 +317,27 @@ FINDING = re.compile(
 # may adjudicate several earlier findings, and a first-wins rule here would
 # silently drop the second and third — which is the shape of the defect this
 # clause exists to end, one layer over.
+#
+# GROUNDS ARE REQUIRED AND NON-EMPTY, and the pattern is where that is
+# enforced: clause 12's grammar is `adjudicates: <sha> finding <N>  <grounds>`
+# and the clause states "grounds required and non-empty, with no branch on the
+# superseding severity; a malformed line declares nothing and the gate stays
+# red". A groundless line is therefore not a weaker declaration — it is NO
+# declaration, so the earlier blocking stays unadjudicated and the gate stays
+# red, which is the safe direction and the one the clause names.
+#
+# WHY THE REQUIREMENT LIVES IN THE PATTERN rather than in a check after it: the
+# first form of this block stopped at the ordinal, and the consequences ran
+# past a missing validation into a taught one. `unadjudicated_blocking()`
+# PRINTED the groundless form as its paste-ready remedy, all 18 fixture rows
+# wrote it and expected it to clear, and the round-trip assertion made "pasting
+# the gate's own groundless suggestion clears the gate" a fixture-ENFORCED
+# property. The gate would have taught the malformed form to every reviewer who
+# read its output. Clause 12 exists so that a revision carries WHY; a grammar
+# that gates the identity and discards the reason keeps the machinery and loses
+# the point of it.
 ADJUDICATES = re.compile(
-    r'^\s*adjudicates:\s*([0-9a-f]{7,40})\s+finding\s+([0-9]+)\b',
+    r'^\s*adjudicates:\s*([0-9a-f]{7,40})\s+finding\s+([0-9]+)\s+(\S.*?)\s*$',
     re.MULTILINE)
 # THE REPORT DECLARES ITS SCOPE AND ITS COMPLETENESS (specs/SPEC.md §4 clauses
 # 5 and 6; kogaki#70, kogaki#74). One grammar over one segmenter, read in the
@@ -738,7 +757,7 @@ def segments(bodies):
         r = REPORT.match(line)
         if r:
             current = {'sha': r.group(1), 'findings': [], 'cannot': [],
-                       'boundaries': [], 'adjudicates': [],
+                       'boundaries': [], 'adjudicates': {},
                        'scope': None, 'complete': None, 'base': None}
             segs.append(current)
             continue
@@ -770,13 +789,29 @@ def segments(bodies):
             continue
         aj = ADJUDICATES.match(line)
         if aj:
-            # Its own list, every line kept — see the ADJUDICATES comment. The
-            # ordinal is stored as an int so a `finding 03` and a `finding 3`
-            # name the same finding: the writer of an adjudication line is
-            # copying an ordinal out of a gate's output, and a join that
-            # disagreed with itself on leading zeros would fail in the one
-            # direction nobody would think to test.
-            current['adjudicates'].append((aj.group(1), int(aj.group(2))))
+            # IT BINDS TO THE IMMEDIATELY PRECEDING `finding:` LINE, and FIRST
+            # DECLARATION PER FINDING WINS — clause 12's own two rules, and the
+            # reason the record is per-finding rather than per-segment: which
+            # finding carries the adjudication is what makes the three-way
+            # distinction (resolved / adjudicated-down / re-declared) readable
+            # at all. A segment-level list discharges the earlier finding and
+            # cannot say what answered it.
+            #
+            # A line before any `finding:` in its segment BINDS TO NOTHING and
+            # declares nothing — the same shape `segments()` already gives a
+            # declaration written before any report line. It is not an error
+            # and invalidates nothing; there is simply no finding for it to
+            # revise.
+            if current['findings']:
+                idx = len(current['findings']) - 1
+                if idx not in current['adjudicates']:
+                    # The ordinal is an int so `finding 03` and `finding 3`
+                    # name the same finding: the writer is copying an ordinal
+                    # out of a gate's own output, and a join disagreeing with
+                    # itself on leading zeros would fail in the one direction
+                    # nobody would think to test.
+                    current['adjudicates'][idx] = (
+                        aj.group(1), int(aj.group(2)), aj.group(3))
             continue
         s = SCOPE.match(line)
         if s:
@@ -865,7 +900,7 @@ def unadjudicated_blocking(bodies, head, carried=()):
         for later in segs[i + 1:]:
             if not counted(later):
                 continue
-            for sha, n in later['adjudicates']:
+            for _i, (sha, n, _grounds) in later['adjudicates'].items():
                 if same_head(sha, seg['sha']):
                     answered.add(n)
         for ordinal, (sev, state, just, line) in enumerate(seg['findings'], 1):
@@ -873,8 +908,53 @@ def unadjudicated_blocking(bodies, head, carried=()):
                 continue                                # parts 3 and 4
             if ordinal in answered:
                 continue                                # part 5
+            # THE SUGGESTION CARRIES THE GROUNDS SLOT, and carries it as an
+            # unmistakable placeholder rather than as empty space. A remedy
+            # printed without it is a remedy the predicate refuses, and the
+            # earlier form of this line printed exactly that — the gate would
+            # have taught a malformed line to every reviewer who pasted its
+            # output.
             out.append((seg['sha'], ordinal, line,
-                        f"adjudicates: {seg['sha']} finding {ordinal}"))
+                        f"adjudicates: {seg['sha']} finding {ordinal}  "
+                        f"<why this severity is being revised>"))
+    return out
+
+
+def adjudication_states(bodies, head, carried=()):
+    """The THREE-WAY DISTINCTION clause 12 requires to be renderable, read off
+    the record rather than inferred: for every earlier-head finding that a
+    later counted segment adjudicates, which of the three states answered it.
+
+    Returns a list of (sha, ordinal, state, grounds) where state is:
+
+      `resolved`         the adjudicating finding is `blocking resolved`
+      `adjudicated-down` it is `should` or `nit`
+      `re-declared`      it is still `blocking open`
+
+    The fourth state — SILENTLY RE-GRADED — is the absence of all three, and
+    is exactly what `unadjudicated_blocking()` denies on. It is not a value
+    here because it is not a thing the record says; it is the record saying
+    nothing.
+
+    THIS READS THE ADJUDICATING FINDING'S SEVERITY AND THE DENY DOES NOT, and
+    the split is the whole of kogaki#72's safety here: the gate decides on
+    identity alone, so no `should` ever gates as a `should`, while the human
+    reading the gate's output still gets told which of the three happened.
+    """
+    segs = segments(bodies)
+    out = []
+    for seg in segs:
+        if not counted(seg):
+            continue
+        for idx, (sha, n, grounds) in sorted(seg['adjudicates'].items()):
+            sev, state, _just, _line = seg['findings'][idx]
+            if sev == 'blocking' and state == 'resolved':
+                what = 'resolved'
+            elif sev == 'blocking':
+                what = 're-declared'
+            else:
+                what = 'adjudicated-down'
+            out.append((sha, n, what, grounds))
     return out
 
 
@@ -1413,22 +1493,22 @@ ADJ = [
      0),
     ("RESOLVED — the adjudicating finding is `blocking resolved`",
      _seg(_OLD, f"finding: blocking open {_J}  x")
-     + "\n" + _seg(_NEW, f"adjudicates: {_OLD} finding 1",
-                   "finding: blocking resolved  fixed in this push"),
+     + "\n" + _seg(_NEW, "finding: blocking resolved  fixed in this push",
+                   f"adjudicates: {_OLD} finding 1  the fix landed in this push"),
      0),
     ("ADJUDICATED-DOWN — the same line at `should`, which passes for the same "
      "reason: the predicate reads WHICH finding is answered, never how it was "
      "graded (kogaki#72 untouched)",
      _seg(_OLD, f"finding: blocking open {_J}  x")
-     + "\n" + _seg(_NEW, f"adjudicates: {_OLD} finding 1",
-                   "finding: should open  re-graded, grounds beside it"),
+     + "\n" + _seg(_NEW, "finding: should open  re-graded",
+                   f"adjudicates: {_OLD} finding 1  measured, and the harm is smaller than declared"),
      0),
     ("RE-DECLARED — still `blocking open` at the new head; the adjudication "
      "discharges the EARLIER finding and this one gates on its own through "
      "open_blocking(), which is a different state and a different message",
      _seg(_OLD, f"finding: blocking open {_J}  x")
-     + "\n" + _seg(_NEW, f"adjudicates: {_OLD} finding 1",
-                   f"finding: blocking open {_J}  still broken"),
+     + "\n" + _seg(_NEW, f"finding: blocking open {_J}  still broken",
+                   f"adjudicates: {_OLD} finding 1  re-declared at the same severity"),
      0),
     ("AN UNJUSTIFIED earlier blocking is NOT held here — it already failed "
      "toward merge as a `should` at its own head (kogaki#72), and admitting "
@@ -1444,41 +1524,76 @@ ADJ = [
     ("An adjudication in a FRAGMENT discharges nothing — the segment that "
      "answers must count, or a report could clear the gate by not finishing",
      _seg(_OLD, f"finding: blocking open {_J}  x")
-     + "\n" + _seg(_NEW, f"adjudicates: {_OLD} finding 1",
-                   "finding: should open  downgraded", complete=9),
+     + "\n" + _seg(_NEW, "finding: should open  downgraded",
+                   f"adjudicates: {_OLD} finding 1  measured false", complete=9),
      1),
     ("THE ORDINAL IS PART OF THE JOIN — adjudicating finding 1 leaves finding "
      "2 unanswered, and the gate names the one still open",
      _seg(_OLD, f"finding: blocking open {_J}  first",
           f"finding: blocking open {_J}  second")
-     + "\n" + _seg(_NEW, f"adjudicates: {_OLD} finding 1",
-                   "finding: should open  the first, downgraded"),
+     + "\n" + _seg(_NEW, "finding: should open  the first, downgraded",
+                   f"adjudicates: {_OLD} finding 1  measured false"),
      1),
-    ("BOTH ordinals adjudicated by ONE segment — every line is kept, so a "
-     "first-wins rule here would silently drop the second",
+    ("TWO ordinals adjudicated by one segment, ONE FINDING EACH — the line "
+     "binds to the finding above it, so answering two earlier findings takes "
+     "two findings here. The earlier form of this row stacked both lines "
+     "under one finding and expected both to bind, which the per-finding "
+     "first-wins rule correctly refuses.",
      _seg(_OLD, f"finding: blocking open {_J}  first",
           f"finding: blocking open {_J}  second")
-     + "\n" + _seg(_NEW, f"adjudicates: {_OLD} finding 1",
-                   f"adjudicates: {_OLD} finding 2",
-                   "finding: should open  both downgraded"),
+     + "\n" + _seg(_NEW,
+                   "finding: should open  the first, downgraded",
+                   f"adjudicates: {_OLD} finding 1  measured false",
+                   "finding: nit open  the second, downgraded",
+                   f"adjudicates: {_OLD} finding 2  cosmetic after the fix"),
      0),
+    ("TWO adjudication lines under ONE finding — FIRST DECLARATION WINS, so "
+     "the second binds to nothing and the finding it named stays open",
+     _seg(_OLD, f"finding: blocking open {_J}  first",
+          f"finding: blocking open {_J}  second")
+     + "\n" + _seg(_NEW, "finding: should open  downgraded",
+                   f"adjudicates: {_OLD} finding 1  measured false",
+                   f"adjudicates: {_OLD} finding 2  also measured false"),
+     1),
+    ("GROUNDS ARE REQUIRED — a groundless line declares NOTHING and the gate "
+     "stays red (clause 12: 'grounds required and non-empty ... a malformed "
+     "line declares nothing'). This is the round-1 blocking finding on PR "
+     "#405: the first form of this act parsed the groundless line, joined on "
+     "it, AND PRINTED IT as the paste-ready remedy.",
+     _seg(_OLD, f"finding: blocking open {_J}  x")
+     + "\n" + _seg(_NEW, "finding: should open  downgraded",
+                   f"adjudicates: {_OLD} finding 1"),
+     1),
+    ("GROUNDS OF WHITESPACE ONLY are the same as none — `non-empty` is about "
+     "content, and a line padded to look complete is the case a bare "
+     "presence test admits",
+     _seg(_OLD, f"finding: blocking open {_J}  x")
+     + "\n" + _seg(_NEW, "finding: should open  downgraded",
+                   f"adjudicates: {_OLD} finding 1   "),
+     1),
+    ("A line BEFORE ANY FINDING in its segment binds to nothing — the same "
+     "shape a declaration written before any report line already has",
+     _seg(_OLD, f"finding: blocking open {_J}  x")
+     + "\n" + _seg(_NEW, f"adjudicates: {_OLD} finding 1  measured false",
+                   "finding: should open  downgraded"),
+     1),
     ("THE SHA IS PART OF THE JOIN — an adjudication naming a DIFFERENT "
      "segment answers nothing",
      _seg(_OLD, f"finding: blocking open {_J}  x")
-     + "\n" + _seg(_NEW, "adjudicates: 9999999 finding 1",
-                   "finding: should open  downgraded"),
+     + "\n" + _seg(_NEW, "finding: should open  downgraded",
+                   "adjudicates: 9999999 finding 1  measured false"),
      1),
     ("ABBREVIATED shas join — the writer copies the ordinal out of the gate's "
      "own output, which prints seven characters",
      _seg(_OLD, f"finding: blocking open {_J}  x")
-     + "\n" + _seg(_NEW, f"adjudicates: {_OLD[:7]} finding 1",
-                   "finding: should open  downgraded"),
+     + "\n" + _seg(_NEW, "finding: should open  downgraded",
+                   f"adjudicates: {_OLD[:7]} finding 1  measured false"),
      0),
     ("A LEADING-ZERO ordinal names the same finding — the int conversion is "
      "the join, not the digits",
      _seg(_OLD, f"finding: blocking open {_J}  x")
-     + "\n" + _seg(_NEW, f"adjudicates: {_OLD} finding 01",
-                   "finding: should open  downgraded"),
+     + "\n" + _seg(_NEW, "finding: should open  downgraded",
+                   f"adjudicates: {_OLD} finding 01  measured false"),
      0),
     ("DIRECTION — an EARLIER segment cannot adjudicate a LATER one's finding, "
      "or round 1 could discharge round 2's blocking before it was written. "
@@ -1487,7 +1602,8 @@ ADJ = [
      "ALL segments still answers correctly, because the adjudication names a "
      "sha that is not its own segment's. The earlier form of this row did "
      "exactly that and the direction mutant survived it.",
-     _seg(_MID_A, f"adjudicates: {_MID_B} finding 1")
+     _seg(_MID_A, "finding: nit open  something else entirely",
+          f"adjudicates: {_MID_B} finding 1  measured false")
      + "\n" + _seg(_MID_B, f"finding: blocking open {_J}  x")
      + "\n" + _seg(_NEW, "finding: should open  downgraded"),
      1),
@@ -1528,17 +1644,20 @@ _sug = unadjudicated_blocking(
     _seg(_OLD, f"finding: blocking open {_J}  first",
          f"finding: blocking open {_J}  second")
     + "\n" + _seg(_NEW, "finding: should open  downgraded"), _NEW)
-if [s for _, _, _, s in _sug] != [f"adjudicates: {_OLD} finding 1",
-                                  f"adjudicates: {_OLD} finding 2"]:
+_want_sug = [f"adjudicates: {_OLD} finding 1  <why this severity is being revised>",
+             f"adjudicates: {_OLD} finding 2  <why this severity is being revised>"]
+if [s for _, _, _, s in _sug] != _want_sug:
     adj_bad.append("the paste-ready discharge lines do not name each "
-                   "finding's own sha and ordinal")
+                   "finding's own sha and ordinal WITH a grounds slot")
 # AND THE SUGGESTION ROUND-TRIPS: pasting what the gate printed must clear the
 # gate. A remedy the tool prints and its own predicate does not accept is the
 # unbound-claim shape one level up (kogaki#243), and nothing else here catches
 # it — every row above writes its adjudication line BY HAND.
+_rt_lines = []
+for _s in [s for _, _, _, s in _sug]:
+    _rt_lines += ["finding: should open  downgraded", _s]
 _rt = _seg(_OLD, f"finding: blocking open {_J}  first",
-           f"finding: blocking open {_J}  second") + "\n" + _seg(
-    _NEW, *[s for _, _, _, s in _sug], "finding: should open  downgraded")
+           f"finding: blocking open {_J}  second") + "\n" + _seg(_NEW, *_rt_lines)
 if unadjudicated_blocking(_rt, _NEW):
     adj_bad.append("pasting the gate's OWN suggested lines does not clear the "
                    "gate — the remedy it prints is not one it accepts")
@@ -1579,14 +1698,53 @@ if adj_bad:
     for f in adj_bad:
         print(f"  {f}")
     sys.exit(1)
+# THE THREE-WAY DISTINCTION IS ASSERTED, not merely computable. Clause 12
+# requires it to be RENDERABLE from the record, and a renderer nothing
+# exercises is the shape this file's own registry record now carries a
+# paragraph about: `unadjudicated_blocking()` was correct and unreachable until
+# its call site was asserted, and `adjudication_states()` would have shipped
+# in exactly that state. The served line is the screen this block was written
+# against — "ask of each plan step what defect it would catch, and rewrite any
+# step whose honest answer is only total absence of the output"
+# (`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0
+# gloss/lessons/testing.md:113`).
+_states = adjudication_states(
+    _seg(_OLD, f"finding: blocking open {_J}  a",
+         f"finding: blocking open {_J}  b",
+         f"finding: blocking open {_J}  c")
+    + "\n" + _seg(_NEW,
+                  "finding: blocking resolved  fixed",
+                  f"adjudicates: {_OLD} finding 1  the fix landed",
+                  "finding: should open  smaller than declared",
+                  f"adjudicates: {_OLD} finding 2  measured, harm is smaller",
+                  f"finding: blocking open {_J}  still broken",
+                  f"adjudicates: {_OLD} finding 3  unchanged at this head"),
+    _NEW)
+_want_states = [(_OLD, 1, 'resolved', 'the fix landed'),
+                (_OLD, 2, 'adjudicated-down', 'measured, harm is smaller'),
+                (_OLD, 3, 're-declared', 'unchanged at this head')]
+if _states != _want_states:
+    adj_bad.append(f"the three-way distinction does not render from the "
+                   f"record: got {_states}, want {_want_states}")
+# The FOURTH state is the absence of all three and is NOT a value here — it is
+# the record saying nothing, which is what the deny names. Asserted so the
+# renderer cannot start inventing it.
+if adjudication_states(
+        _seg(_OLD, f"finding: blocking open {_J}  a")
+        + "\n" + _seg(_NEW, "finding: should open  silently re-graded"), _NEW):
+    adj_bad.append("the renderer invented a state for a silently re-graded "
+                   "finding — the fourth state is an ABSENCE, not a value")
 print(f"adjudication pass: {len(ADJ)}/{len(ADJ)} clause-12 cases (THE #269 "
       "SPECIMEN and its same-head control, which is what makes the rest "
-      "evidence; all three of the renderable states — resolved / "
-      "adjudicated-down / re-declared — passing while differing ONLY in the "
-      "severity the predicate must not read; unjustified and fragment "
-      "exclusions; sha, ordinal and DIRECTION each asserted as part of the "
-      "join; use-vs-mention), plus the paste-ready discharge lines asserted "
-      "and ROUND-TRIPPED through the predicate that prints them")
+      "evidence; GROUNDS required and non-empty, whitespace-only refused, a "
+      "groundless line declaring NOTHING; the line BINDING to the finding "
+      "above it, first-declaration-per-finding winning, and a line before any "
+      "finding binding to nothing; all three renderable states passing while "
+      "differing ONLY in the severity the predicate must not read; unjustified "
+      "and fragment exclusions; sha, ordinal and DIRECTION each asserted as "
+      "part of the join; use-vs-mention), plus the three-way distinction "
+      "asserted through adjudication_states() and the paste-ready discharge "
+      "lines ROUND-TRIPPED through the predicate that prints them")
 
 # --- AC 2: THE AGREEMENT FIXTURE (§4 clause 7 v2, kogaki#308) ---------------
 #
