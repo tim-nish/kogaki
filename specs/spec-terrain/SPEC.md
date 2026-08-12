@@ -73,9 +73,10 @@ The two other tokens in the file — `terrain-family-split-carrier` and
 `terrain-subdivision-offering-verdict` — are filled, checked at their sites
 rather than assumed.
 
-**This line was false within seventeen minutes of being written, and false
-through every subsequent read — and that is recorded rather than quietly
-corrected** (kogaki#384, its interval corrected kogaki#390). Its bolded lead-in
+**This line was false from 01:50:30 on 2026-08-12, seventeen minutes after it
+was written — and that is recorded rather than quietly corrected** (kogaki#384,
+its interval corrected kogaki#390). Whether any read fell inside those
+seventeen minutes is not measured and is therefore not claimed. Its bolded lead-in
 read, verbatim and including its terminal colon,
 
 > `**STILL OPEN IN THIS FILE, and it comes due in THIS issue's implementing sitting:**`
@@ -3830,10 +3831,12 @@ the measurement §13.3's own reopen trigger produced:
    (v17, kogaki#385, owner selection 2026-08-12). Batch-mates render under
    their **batch**, with that batch's count **within the family**;
    cross-linked suggestions render under `cross_links` with theirs. Every
-   suggestion still appears,
-   still carries its `N<n>` and its substrate, and the per-family figures of
-   obligation 2 are unchanged — **the grouping is a rendering of the same
-   complete enumeration, never a selection over it.**
+   suggestion still appears, still carries its `N<n>` and its substrate, and
+   the per-family **suggestion** figures of obligation 2 are unchanged — **the
+   grouping is a rendering of the same complete enumeration, never a selection
+   over it.** The per-family *rendering* count is not unchanged and is not
+   claimed to be: a suggestion reached by two substrates renders twice inside
+   its own family section, which is the paragraph below.
 
    **HOW 3 AND 4 COMPOSE: FAMILY IS OUTERMOST, ALWAYS.** The two are
    orthogonal groupings over one set, and a mixed-family batch is the ordinary
