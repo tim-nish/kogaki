@@ -1982,7 +1982,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | # | transition of the review record | type |
      |---|---|---|
      | 1 | a finding is **raised and typed** | **act** — the `finding: <severity> <state>` line, parsed by `checks/check-review-report.sh`'s `FINDING` regex and by `tools/review-sweep.sh`'s segmenter, both anchored whole |
-     | 2 | a **severity is revised across heads** | `none: nothing joins two segments — the severity field is read per segment and the gate's only unit of identity is the head sha, so a head move for any reason discards every earlier segment's severity. The GRAMMAR half landed 2026-08-12 as clause 12 (kogaki#269, PR #400): a finding revising an earlier head's blocking severity declares adjudicates: <earlier head sha> finding <N>, and the merge layer's polarity is ratified. The OBSERVING ACT is still unbuilt — unadjudicated_blocking() in checks/check-review-report.sh does not exist — so this row stays none: rather than moving to act, which clause 12 states in its own text: a row typed act naming an observing act that does not exist is a false record. Owed at kogaki#269; naming a clause does not type this row, and neither does ratifying its grammar.` |
+     | 2 | a **severity is revised across heads** | **act** — clause 12's `unadjudicated_blocking()` in `checks/check-review-report.sh`, which denies when a justified `blocking open` at an earlier counted segment is named by no `adjudicates: <earlier head sha> finding <N>` line in any later counted segment (kogaki#269). The row was typed `none:` from 2026-08-12, when clause 12 landed the GRAMMAR alone, until 2026-08-13, when the act landed with 18 fixture cases and 16 killed mutations — and the interval is recorded rather than smoothed over, because the reason the row could not move earlier is the rule this table exists to state: a row typed `act` naming an observing act that does not exist is a false record, and naming a clause does not type a row. The polarity is unchanged from clause 12's ratification: it gates the SILENCE, never the SEVERITY, so kogaki#72 stays untouched. |
      | 3 | a finding goes **`open` → `resolved`** | `none: the state token is the reviewer's own attestation about its own work and no act re-derives it from the diff. No carrier is filed, and this row is how that is surfaced.` |
      | 4 | a **report carries forward** to a head that changed no content | **act, CARRIED BY BOTH READERS** (v3, kogaki#308) — the ONE head-resolution unit `lib/head_resolution.py`, loaded by `checks/check-review-report.sh` and by `tools/review-sweep.sh` and defined in neither. `carry_forward()` recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it; `decide()` consumes that record rather than resolving by sha identity, and an agreement fixture IN BOTH consumers asserts they reach the same unit and answer alike. **The v2 typing of this row read `HALF-CARRIED`, naming the sweep half `owed and unbuilt`; PR #321 built it and this row is re-typed in the same change that discharged it** — a row left asserting its own half unbuilt after the build is the stale table this section warns about, arriving from the third direction |
      | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
@@ -2595,17 +2595,29 @@ invariant: Gukan guarantees Unit schema, never data schema).
       and no grandfather clause, because a grandfather clause here is
       indistinguishable from not shipping the deny.
 
-      **THE ACT IS NOT BUILT, AND CLAUSE 9 ROW 2 IS DELIBERATELY NOT RE-TYPED.**
-      This clause lands the grammar and the polarity; `unadjudicated_blocking()`
-      in `checks/check-review-report.sh`, its fixtures and its mutation
-      evidence are owed on kogaki#269 and follow on their own carrier. The
-      2026-08-08 plan re-typed clause 9 row 2 from `none:` to **act** in the
-      same change — correct for a sitting landing both halves, and a **false
-      record** for one landing only this half, since a row typed `act` names an
-      observing act that does not exist. Row 2 therefore still reads `none:`
-      and still names kogaki#269 as where the observer is owed. **A reader who
-      finds row 2 typed `act` before `unadjudicated_blocking()` exists has
-      found a defect, not a tidy-up.**
+      **THE ACT LANDED 2026-08-13, AND CLAUSE 9 ROW 2 IS NOW TYPED `act`.**
+      `unadjudicated_blocking()` is in `checks/check-review-report.sh`, its
+      call site is the `present` branch's last read — the clause's "after every
+      existing state is clean" — and it carries 18 fixture cases and 16 killed
+      mutations (kogaki#269).
+
+      **The one-day interval between the halves is recorded, not smoothed
+      over**, because the reason this paragraph existed is the rule it states.
+      From 2026-08-12 this clause read *"THE ACT IS NOT BUILT"* and row 2 read
+      `none:` naming kogaki#269 — deliberately, against a 2026-08-08 plan that
+      would have re-typed the row in the grammar's own change. That plan was
+      correct for a sitting landing both halves and a **false record** for one
+      landing only the first, since a row typed `act` names an observing act
+      that does not exist. The row moved when the act did and not before, which
+      is the whole of what the discipline asks.
+
+      **What a reader should check, restated for the state that now holds:**
+      the row and the act move together in **both** directions. A reader who
+      finds row 2 typed `act` while `grep -c unadjudicated_blocking
+      checks/check-review-report.sh` returns 0 has found a defect, not a
+      tidy-up — and so has one who finds it typed `none:` while the function is
+      there, because an observing act nothing points at is an act no consumer
+      can be routed to.
 
       **Why this clause landed alone.** Its ratified predecessor rode PR #287
       as one `spec+fix` unit, which the owner closed unmerged on 2026-08-08 as
