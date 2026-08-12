@@ -250,6 +250,42 @@ this sentence is here.
    is contract, not discretion. Then
    `capture --declaration <file> --tool-use-id <the AskUserQuestion tool
    use id> --option <id> | --free-text <answer>`.
+7. **Explore the provenance neighborhood — a REPORT beside the settled set**
+   (SPEC-terrain §13) —
+   `neighborhood --survey <record> --tag <T> --ids <the settled ids>
+   [--subdivisions <F>]`.
+   **This is where Terrain ends.** The 2026-08-09 owner correction puts Strand
+   exploration at the boundary: Brief is outside it, and this skill neither
+   mentions nor guarantees a Brief launch. A session may offer one afterward in
+   plain prose; the flow stops here.
+   **It fires only after step 6, and that ordering is the contract rather than
+   convenience** (§13.2 v15). The trigger is an **explicit owner act settling
+   the Strand set**, which is what step 6's gate is — run on the co-tag screen
+   right after the first tag selection, a purely mechanical expansion fans out
+   across a large number of Lessons. Noise here is a property of trigger
+   timing, not of the substrate, so the runtime **refuses without `--ids`**
+   rather than defaulting to the whole screen.
+   **The input is the settled Strand set ALONE.** There is no Thesis argument
+   and the command must not be given one — a claim-shaped input is dead input
+   here, since the substrates read member metadata and cannot read a claim.
+   **A report, never a proposal** (§13.1). It **widens** and never narrows: the
+   full population stays reachable, nothing it renders removes anything from
+   what reaches the owner, and the §2.3 second-proposer boundary therefore does
+   not engage. Suggestions are offered **upstream of any selection** — taking
+   one is a further owner act, not something this step performs. Relay the
+   runtime's output before doing anything else, and do not launch a question UI
+   afterward; the post-selection window's hard line below governs here too.
+   **What the screen owes the owner, and what a bare list would hide** (§13.4):
+   every suggestion **names the substrate that reached it** — batch-mate,
+   cross-link, or shared carrier — and figures are stated **per family, never
+   pooled**, because `members` is family-keyed and a pooled ratio hides which
+   family the neighborhood actually reached into. Unresolved references are
+   **named with their value** rather than dropped: an empty result presented as
+   "no siblings" is exactly the silent exclusion §13 exists to remove.
+   **Suggestion ids are `N<n>` and are disjoint from the survey's `L<n>`**
+   (§14.6). A suggestion is not in the survey record, so §14.3's assignor does
+   not reach it; taking one assigns it an `L<n>` on the way in, and its `N<n>`
+   does not follow it.
 
 ## Hard lines
 
