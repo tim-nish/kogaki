@@ -1949,8 +1949,11 @@ def _rounds_observation(bodies, bound=None):
       is a spent round to the sweep — a session spawned and paid for that left
       no readable artifact — and it writes no segment, so it is invisible
       here. And a FRAGMENT is charged a round by the sweep while counting as
-      nothing here: `rally_cycles()`'s own comment says so in as many words —
-      "a fragment is performed, so it is charged a round (deliberately)".
+      nothing here. `park_class()` in tools/review-sweep.sh says so twice, in
+      as many words: "a fragment is performed, so it is charged a round
+      (deliberately, see `decide()`)", and, in the scope-boundary paragraph
+      that keeps the point from being over-read, "`rally_cycles()`'s charging
+      is UNTOUCHED. A fragment spent a round and is still counted as one."
 
     So a reader who finds this line silent has NOT established that the bound
     is intact, and a reader who finds it printing has not established that it
