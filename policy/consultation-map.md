@@ -32,7 +32,7 @@ served position is quoted whole at its pin:
 > q_a/2026-08-07-baseline-dissolution-and-consult-discipline D5.
 > (q_a/2026-08-05-consultation-seam-vocabulary-and-allocation §4 R2)"
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:26`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:26
 
 The same distinction is restated on the served surface at its own pin, in the
 seeding batch's line, with the reason it is restated there — an excerpt from a
@@ -42,7 +42,7 @@ longer line, marked, never spliced with another:
 > freely from existing decision content while each member still needs its own
 > `[x]`."
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:15`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:15
 
 **What this permits.** A **proposal** — a candidate entry offered to the
 admission act — may be produced by any means, including a machine, and needs no
@@ -67,7 +67,7 @@ Invariant 2, an excerpt quoted at its own pin:
 > dark, sited next to the code where it carries more apparent weight than the
 > surface it copied."
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:69`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:69
 
 A proposer that admitted its own findings would be precisely that second
 authority. So the split is not bureaucratic symmetry: **proposal is a
@@ -110,7 +110,7 @@ requirement and not a courtesy — an excerpt quoted at its pin:
 > filling is itself a decision act — consult, then record choice, alternatives
 > and receipt on the licensing issue BEFORE code embeds it."
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:41`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:41
 
 **What discriminates it.** **One** served line does the work, and it is quoted
 here under the grounds rather than under an alternative — the correction PR #256
@@ -122,7 +122,7 @@ this record's reading of them:
 > similar subject matter. … When in doubt, keep them separate and connect them
 > with pointers"
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:311`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:311
 (`repo-boundaries-follow-publication-boundaries`)
 
 Run over these two proposers it yields the split **directly**, with no extension
@@ -148,7 +148,7 @@ hidden.* Served:
 > (their own misses) and the baseline is hub-served because the owner authors
 > its content …"
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:47`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:47
 
 On its own terms the rule keys on **who authors the sited file's own content**,
 and both of its worked examples are of that form. Kogaki authors **both**
@@ -167,7 +167,7 @@ story 1.40 AC2 quotes for the token set:
 > the field to work: a field read by one side is that side's, a field read by
 > both is the boundary's, and the boundary's owner is the hub."
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:31`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:31
 
 What it settles is **which side each proposer's input belongs to** — the
 `outcome` token is read by both sides and is the boundary's; the review lane's
@@ -275,7 +275,7 @@ surface's own kind-qualification rule, quoted at its pin:
 > **Shard kinds** (`specs/gloss.md` §5.1 — a shard is addressed by
 > `<kind>/<tag>`, never by `<tag>` alone):
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/INDEX.md:12-17`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/INDEX.md:12-17
 
 The kinds are `lessons/<tag>`, `journeys/<tag>`, and `decisions/<topic>` —
 the last sharded by topic rather than by tag. A prescription names that
@@ -302,7 +302,7 @@ clause is the operative reading of a ratified position, not a new one:
 > the map a conformance copy with no declared precedence, and on any divergence
 > the served surface wins and the entry is repaired."
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:69`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:69
 
 Both of that invariant's limbs entail the clause. A pin into a hub repository
 path quotes no *served* line, so such an entry fails the first limb outright;
@@ -335,13 +335,37 @@ deferred.** `policy/kit/bin/issue-pins.mjs --recheck` compares stored
 `pin-quote:` hashes against re-fetched text — real content verification, and it
 is kogaki's own file, since `policy/kit/install.sh` never copies `bin/`. So the
 first question is whether this file's cites can simply carry those hashes.
-**They cannot today, and the reason was established by running the tool over
-this file rather than by reading it:** `--emit-pin-quotes` hashed **9 of this
-file's 24 cites**. `parseCites` recognises a `consulted:` line only when it is
-unindented and unwrapped, and this file wraps every one of them in inline
+**They could not, and the reason was established by running the tool over this
+file rather than by reading it:** `--emit-pin-quotes` hashed **9 of this file's
+24 cites**. `parseCites` recognises a `consulted:` line only when it is
+unindented and unwrapped, and this file wrapped every one of them in inline
 backticks as prose formatting, so fifteen cites — including the
 `topics/knowledge-architecture.md:44` instance above, the very worst of the six
-— are invisible to the parser. Of the nine it did see, one more was declined
+— were invisible to the parser.
+
+**THE PARSE HALF IS REPAIRED (kogaki#274, owner selection 2026-08-12): ARM 2,
+unwrap this file's lines, leaving the shared grammar untouched.** Arm 1 —
+widening `parseCites` so a backticked `consulted:` line parses as an emission —
+was **declined**, because it changes what counts as an emission for every issue
+body the kit parses and risks re-opening what kogaki#209 closed: a body that
+merely *mentions* a receipt in inline code being read as emitting one. Measured
+here, gateway-independently: **ten** standalone `consulted:` lines unwrapped,
+and the tool's parse denominator moves **10 → 16**.
+
+**Five backticked `consulted:` occurrences are LEFT WRAPPED ON PURPOSE, and
+that is the same use-vs-mention judgment rather than an incomplete sweep.**
+Two are mid-sentence parentheticals and three are prose *about* `consulted:`
+lines — none is a standalone emission, and unwrapping a mention into one is
+precisely the confusion arm 1 was declined for. So the denominator is stated
+rather than implied: 16 parseable cites, 5 deliberate non-members named here.
+
+**What is still NOT measured, stated rather than left as a silence.** Whether
+those 16 now *hash* is a question about the served surface, and it was not
+answered in the sitting that made this edit: that shell had no gateway
+configured (`TSUREZURE_GATEWAY_JS` unset, no `--gateway` passed), so
+`--emit-pin-quotes` degraded with every content trial reporting a miss. The
+coverage figure therefore stands where kogaki#266 left it until a
+gateway-capable run re-measures it. Of the nine it did see, one more was declined
 (`topics/archive/…` has no `servedAddress` form, though `policy_lookup` serves
 it), and this file's one range cite routes to `cannot-tell` by contract.
 
@@ -504,7 +528,7 @@ about this file — an excerpt quoted at its own pin:
 > truth is relative to the set it was derived from, so the derivation carries
 > that set and a change to the set is a GATE EVENT rather than a refresh."
 
-`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:88`
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:88
 
 A proposal is a derived expression and its source set is the record it was
 harvested from. Carrying that record is what keeps a machine-composed
