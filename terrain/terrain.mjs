@@ -2746,6 +2746,40 @@ function batchKey(sourceBatch) {
 //
 // Returns { suggestions, unresolved, counts } — `suggestions` carry the
 // substrate that REACHED them (§13.4's disclosure), never a score.
+// §13.4 obligation 4's GROUP IDENTITY, defined once (story 1.61). The
+// enumerator mints these pairs and the screen orders, labels and counts by
+// them; two definitions of "same group" is how a batch would render under one
+// heading and be counted under another.
+export function groupKeyOf({ substrate, instance }) {
+  return instance === null ? `substrate ${substrate}` : `instance ${substrate} ${instance}`;
+}
+
+export function groupLabelOf({ substrate, instance }) {
+  return instance === null ? substrate : `${substrate} ${instance}`;
+}
+
+// ORDER IS DECLARED AND MECHANICAL: instance-bearing groups first, by substrate
+// then by instance id, then the bare substrates by name. NEVER by size — a
+// screen that puts the biggest group first has ranked its groups, which is the
+// judgment §13.1 refuses, arriving as layout rather than as a score.
+export function compareGroups(a, b) {
+  const ka = [a.instance === null ? 1 : 0, a.substrate, a.instance ?? ""];
+  const kb = [b.instance === null ? 1 : 0, b.substrate, b.instance ?? ""];
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] < kb[i]) return -1;
+    if (ka[i] > kb[i]) return 1;
+  }
+  return 0;
+}
+
+function substrateInstances(bySubstrate) {
+  const out = [];
+  for (const [substrate, instances] of bySubstrate) {
+    for (const instance of instances) out.push({ substrate, instance });
+  }
+  return out.sort(compareGroups);
+}
+
 export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // Batch records carry `id` rather than `slug` and are the JOIN TABLE, never
   // suggestions themselves — indexing them here would surface a batch as a
@@ -2753,7 +2787,15 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   const bySlug = new Map(records.filter((r) => r.slug).map((r) => [r.slug, r]));
   const seeds = seedSlugs.filter((s) => bySlug.has(s));
   const seedSet = new Set(seeds);
-  const reached = new Map();   // slug -> Set of substrate names
+  // slug -> Map of substrate name -> Set of INSTANCE ids (null for a substrate
+  // that has no instances). The instance is what story 1.61 needs and the
+  // substrate NAME alone cannot supply: §13.4 obligation 4 groups by substrate
+  // INSTANCE, so a screen told only "source_batch" knows the row belongs under
+  // some batch heading and not under WHICH — and the screen cannot recover it,
+  // because the batch join lives here and nowhere else. Widening the returned
+  // shape is the alternative story 1.61's Review Focus names, taken because the
+  // other one is unavailable rather than because it is tidier.
+  const reached = new Map();
   const unresolved = [];
   // §13.4's DENOMINATOR POPULATION, family-keyed and read from the batch
   // records' own `members` rather than re-derived from the element set (story
@@ -2762,10 +2804,17 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // ratio it sits under.
   const population = new Map(); // family -> Set of slugs
 
-  const note = (slug, substrate) => {
+  // `instance` is the substrate's own identifying value where it has one — the
+  // batch id for `source_batch` — and null where the substrate IS the instance
+  // (`cross_links`, `shared_carrier` reach a slug as themselves, with nothing
+  // finer to name). A null instance is a stated absence, never a missing key:
+  // the screen groups it under the substrate's own heading.
+  const note = (slug, substrate, instance = null) => {
     if (seedSet.has(slug) || !bySlug.has(slug)) return;
-    if (!reached.has(slug)) reached.set(slug, new Set());
-    reached.get(slug).add(substrate);
+    if (!reached.has(slug)) reached.set(slug, new Map());
+    const bySubstrate = reached.get(slug);
+    if (!bySubstrate.has(substrate)) bySubstrate.set(substrate, new Set());
+    bySubstrate.get(substrate).add(instance);
   };
 
   // ---- source_batch, one hop. THE JOIN GOES THROUGH THE BATCH RECORD'S
@@ -2858,7 +2907,12 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
               why: `the batch lists a member no served record carries (family ${JSON.stringify(family)})` });
             continue;
           }
-          note(m, "source_batch");
+          // The BATCH KEY, not the raw `source_batch` value: `k` is what the
+          // batch record is indexed by, so a heading built from it names the
+          // same batch the join walked. The twelve legacy records whose
+          // `source_batch` is `"q_a/3/answer.md"` against an id of `"q_a/3"`
+          // would otherwise split one batch across two headings.
+          note(m, "source_batch", k);
         }
       }
     }
@@ -2920,7 +2974,16 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // unknown family folded into a known one is the pooling AC3 forbids,
     // arriving one record at a time.
     family: bySlug.get(slug)?.kind ?? null,
-    substrates: [...reached.get(slug)].sort(),
+    // UNCHANGED IN SHAPE AND MEANING: the substrate NAMES, sorted. Story 1.45's
+    // AC2 disclosure asserts over this field, so 1.61 adds beside it rather
+    // than re-cutting it — a suggestion's disclosure line is the same sentence
+    // it was before the grouping existed.
+    substrates: [...reached.get(slug).keys()].sort(),
+    // §13.4 obligation 4's grouping key, one entry per (substrate, instance)
+    // pair that reached this slug. A suggestion reached by two substrates
+    // carries two entries and RENDERS UNDER EACH — which is why rendering count
+    // and suggestion count differ by construction, and why both are stated.
+    reached_by: substrateInstances(reached.get(slug)),
   }));
 
   // §13.4's PER-FAMILY FIGURES (story 1.45, AC3). Every family that appears
@@ -2978,7 +3041,14 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // POOLED denominator where a family-keyed one is readable, which is what
     // `by_family` now carries; the screen prints the per-family rows and never
     // a pooled `n of m`.
+    // `suggested` COUNTS SUGGESTIONS and `rendered` COUNTS RENDERINGS, and the
+    // two are carried separately because they differ by construction (§13.4
+    // obligation 4): a suggestion reached by two substrates renders under each.
+    // A single figure standing in for both is the conflation story 1.61's AC2a
+    // exists to refuse — stated here at the source rather than left for the
+    // screen to infer from a structure it would have to re-walk.
     counts: { seeds: seeds.length, suggested: suggestions.length,
+      rendered: suggestions.reduce((n, s) => n + s.reached_by.length, 0),
       unresolved: unresolved.length, by_family },
   };
 }
@@ -3087,7 +3157,16 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
   const out = [];
   const say = (s = "") => out.push(s);
   say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
-  say(`${counts.seeds} settled member(s); ${counts.suggested} suggestion(s) beside them`);
+  // BOTH TOTALS, ALWAYS, AND EACH NAMES ITS UNIT (story 1.61, AC2a). They
+  // differ whenever a suggestion was reached by two substrates, and a screen
+  // stating one figure that silently means the other is the defect this line
+  // refuses — so the rendering total is stated even where it equals the
+  // suggestion total, since a reader cannot tell a coincidence from a
+  // conflation by looking at one number.
+  const rendered = counts.rendered ?? suggestions.reduce(
+    (n, s) => n + (s.reached_by || []).length, 0);
+  say(`${counts.seeds} settled member(s); ${counts.suggested} suggestion(s) beside them, `
+    + `rendering as ${rendered} row(s) — a suggestion reached by two substrates renders under each (§13.4 obligation 4)`);
   say("A REPORT, never a proposal (§13.1): nothing here narrows what reaches you, and the full population stays reachable.");
   say(`Bound: source_batch ${NEIGHBORHOOD_BOUND.source_batch} hop, cross_links ${NEIGHBORHOOD_BOUND.cross_links} hops, shared carrier off — declared at §13.3 and read here, never chosen.`);
 
@@ -3109,12 +3188,19 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
       // family reached by another substrate, which has no batch-membership
       // denominator to sit over.
       const extra = outside ? `, plus ${outside} reached from outside those members (no denominator)` : "";
+      // THE UNIT IS NAMED ON THE PER-FAMILY FIGURE TOO (story 1.61, AC2a).
+      // `suggested` counts SUGGESTIONS — the same figure it always was — and
+      // the per-family rendering count differs from it under the grouping,
+      // so a bare number here would be exactly the total-level conflation one
+      // level in. AC4's `suggested <= population` does not discriminate it:
+      // 5 suggestions rendering 8 times against a population of 40 satisfies
+      // the invariant while stating a false figure.
       say(population === null
         // Not "of 0": a family reached only through cross_links has no
         // `members` list behind it, so no denominator was READ. Printing zero
         // would assert a population nobody counted.
         ? `  ${fam}: ${outside} suggestion(s) — no denominator readable (no walked batch lists this family)`
-        : `  ${fam}: ${suggested} of ${population} in the walked batches' members${extra}`);
+        : `  ${fam}: ${suggested} suggestion(s) of ${population} in the walked batches' members${extra}`);
     }
   }
   say();
@@ -3126,16 +3212,76 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
     say("No suggestion. The enumeration itself came back empty at the declared bound — which is a result about this settled set's provenance, not a failure.");
     say("Not asserted: that an empty neighborhood is informative in the STRONG sense. That claim rested on a Thesis and was withdrawn with it (§13.2, v15).");
   }
-  for (const s of suggestions) {
-    // §13.4's SUBSTRATE DISCLOSURE, per suggestion (AC2). A suggestion whose
-    // substrate set is empty is rendered as an explicit unknown rather than as
-    // a bare row: `reached by: ` with nothing after it is the disclosure
-    // failing open, and it reads on screen as a formatting slip rather than as
-    // the missing provenance it is.
+  // §13.4's SUBSTRATE DISCLOSURE, per suggestion (AC2), unchanged by the
+  // grouping: a suggestion whose substrate set is empty renders as an explicit
+  // unknown rather than as a bare row, because `reached by: ` with nothing
+  // after it is the disclosure failing open and reads on screen as a
+  // formatting slip rather than as the missing provenance it is.
+  const row = (s) => {
     const disclosed = (s.substrates || []).length
       ? s.substrates.join(", ")
       : "UNDISCLOSED — no substrate recorded; this row must not ship";
-    say(`${s.nid} — ${s.slug} [${s.family ?? "family unknown"}] — reached by: ${disclosed}`);
+    return `${s.nid} — ${s.slug} [${s.family ?? "family unknown"}] — reached by: ${disclosed}`;
+  };
+
+  if (suggestions.length) {
+    // §13.4 OBLIGATION 4: GROUPED BY SUBSTRATE INSTANCE, FAMILY OUTERMOST
+    // (story 1.61). Obligation 3 is an invariant and obligation 4 a readability
+    // aid, and an aid never weakens an invariant — so family sections come
+    // first and the batch/substrate headings sit INSIDE them. Batch-outermost
+    // would place a Journey and a Lesson adjacent under one heading, which is
+    // the pooling obligation 3 forbids, reintroduced by the layout rather than
+    // by the list.
+    //
+    // NOTHING IS SELECTED HERE. Every suggestion handed in reaches a heading,
+    // and one reached by two substrates reaches two — the grouping renders the
+    // same complete enumeration, never a selection over it. A suggestion whose
+    // `reached_by` is empty is not dropped: it renders under an explicit
+    // undisclosed group, for the same reason a substrate-less row does not
+    // render bare.
+    const UNDISCLOSED = { substrate: "UNDISCLOSED — no substrate recorded", instance: null };
+    // Family key `null` sorts LAST and keeps its own section — an unknown
+    // family folded into a known one is the pooling obligation 3 forbids,
+    // arriving one record at a time.
+    const famKey = (s) => s.family ?? null;
+    const famOrder = [...new Set(suggestions.map(famKey))].sort((a, b) => {
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+
+    say("Suggestions, grouped by family then by the batch or substrate that reached them (§13.4 obligation 4 — a rendering of the same complete enumeration, never a selection over it):");
+    for (const fam of famOrder) {
+      const ofFamily = suggestions.filter((s) => famKey(s) === fam);
+      const famRendered = ofFamily.reduce(
+        (n, s) => n + ((s.reached_by || []).length || 1), 0);
+      say();
+      // The family section states BOTH units for the same reason the headline
+      // does — this is the per-family site AC2a binds.
+      say(`${fam ?? "family unknown"} — ${ofFamily.length} suggestion(s), ${famRendered} rendering(s)`);
+
+      // One entry per (suggestion, group) pair within this family. A batch of
+      // mixed family therefore renders its heading once under EACH family,
+      // counting only that family's members: the pairs are built inside the
+      // family loop, so a heading can never reach across one.
+      const groups = new Map();
+      for (const s of ofFamily) {
+        const reachedBy = (s.reached_by || []).length ? s.reached_by : [UNDISCLOSED];
+        for (const g of reachedBy) {
+          const k = groupKeyOf(g);
+          if (!groups.has(k)) groups.set(k, { g, rows: [] });
+          groups.get(k).rows.push(s);
+        }
+      }
+      const ordered = [...groups.values()].sort((a, b) => compareGroups(a.g, b.g));
+      for (const { g, rows } of ordered) {
+        // EVERY HEADING STATES ITS OWN COUNT, OVER RENDERINGS (AC2): the sum of
+        // the group counts equals this family's rendering total, never its
+        // suggestion total.
+        say(`  ${groupLabelOf(g)} — ${rows.length} rendering(s)`);
+        for (const s of rows) say(`    ${row(s)}`);
+      }
+    }
   }
   if (unmapped.length) {
     say();
