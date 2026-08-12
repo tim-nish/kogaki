@@ -1,5 +1,35 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v17, amended 2026-08-12 (kogaki#385, owner selection) — **§13.4
+gains a fourth rendering obligation: the neighborhood screen GROUPS BY
+SUBSTRATE INSTANCE and never lists a flat run.** Batch-mates render under their
+batch with that batch's count; cross-linked suggestions under `cross_links`.
+Every suggestion still appears with its `N<n>` and its substrate — the grouping
+renders the same complete enumeration and selects nothing from it.
+
+**§13.3's bound is UNCHANGED, and that is the decision rather than an
+omission.** Its reopen trigger fired on kogaki#367's measurement over the whole
+served corpus — suggestions at a median of 27 and a maximum of 217, 38 of 126
+co-tag groups over 50, `source_batch` supplying 5068 against `cross_links`' 330.
+The trigger is **spent by this answer, not re-armed**: `source_batch` at one hop
+is the smallest non-zero value that substrate has, so reducing inside the
+declared unit can only turn off the substrate supplying 94% of what the
+neighborhood finds. The bound has no setting between flooding and off, which is
+a fact about the unit and not about the values.
+
+The served line discriminating it — "the remedy is a different method applied to
+the group, never a finer threshold on the original"
+(`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:51`)
+— is quoted whole at §13.4, with both declined alternatives and their grounds: a
+per-batch traversal predicate (the refused finer threshold, and it drops whole
+batches), and a surfacing threshold (declined again, now on the narrower ground
+that grouping buys the same readability without introducing a rank at all).
+
+**deferred slots minted by this amendment: none**, and none remain open in this
+file.
+
+---
+
 **Status:** v16, amended 2026-08-12 (kogaki#300, owner selection) — **§13.3's
 `deferred-slot: the bound's unit` is DISCHARGED in both halves: the unit is
 traversal (substrates × depth) and its values are FIXED AND DECLARED —
@@ -3749,7 +3779,8 @@ the filter *and* reintroduces the dead input.
 
 ### 13.4 Disclosure, denominator, and families that are never pooled
 
-Three obligations on the rendering, each inherited:
+Four obligations on the rendering — three inherited, and one added at v17 by
+the measurement §13.3's own reopen trigger produced:
 
 1. **Every suggestion discloses the substrate that reached it** — batch-mate,
    cross-link, or shared carrier — and names it. This is §2.3's residual clause
@@ -3786,11 +3817,94 @@ Three obligations on the rendering, each inherited:
    family is the one boundary it must not cross. §13.3's family-keyed `members`
    is what makes compliance mechanical.
 
+4. **The screen GROUPS BY SUBSTRATE INSTANCE; it never lists a flat run**
+   (v17, kogaki#385, owner selection 2026-08-12). Batch-mates render under
+   their **batch**, with that batch's own count; cross-linked suggestions
+   render under `cross_links` with theirs. Every suggestion still appears,
+   still carries its `N<n>` and its substrate, and the per-family figures of
+   obligation 2 are unchanged — **the grouping is a rendering of the same
+   complete enumeration, never a selection over it.**
+
+   **HOW 3 AND 4 COMPOSE: FAMILY IS OUTERMOST, ALWAYS.** The two are
+   orthogonal groupings over one set, and a mixed-family batch is the ordinary
+   case rather than an edge one, so the nesting is stated here rather than left
+   to the implementation to settle silently. **Obligation 3 is an invariant and
+   obligation 4 is a readability aid, and an aid never weakens an invariant** —
+   so the family sections come first and the batch headings sit *inside* them.
+   A batch holding three Lessons and a Journey therefore renders its batch
+   heading twice, once under each family, with each heading counting only its
+   own family's members. Batch-outermost was rejected for the reason obligation
+   3 exists: it places a Journey and a Lesson adjacent under one heading, which
+   is the pooling that obligation forbids, reintroduced by the layout rather
+   than by the list.
+
+   **A suggestion reached by two substrates renders under EACH**, which is what
+   keeps the disclosure of obligation 1 complete — a row appearing only under
+   the first substrate would silently drop the second reason it was reached. So
+   **rendering count and suggestion count differ by construction**, and any
+   figure over the screen states which of the two it is counting.
+
+**Why the remedy is here and NOT in §13.3's bound.** §13.3's reopen trigger
+fired on the first real run (kogaki#367's measurement over the whole served
+corpus): suggestions ran to a **median of 27 and a maximum of 217**, with **38
+of 126 co-tag groups over 50**, and `source_batch` supplying **5068** against
+`cross_links`' **330** — roughly 15:1. The starve arm never fired (6 of 126
+reached nothing).
+
+**The bound has no setting between flooding and off**, and that is a fact about
+the unit rather than about the values. `source_batch` at **one hop** is the
+smallest non-zero value that substrate has, so reducing inside the declared unit
+— substrates × depth — can only turn it **off**, removing the substrate that
+supplies 94% of what the neighborhood finds. Batch size is a property of how the
+corpus was written, not of the traversal.
+
+The served surface discriminates the fork, and is quoted whole at its pin:
+
+> "A grouping method concentrates the dimension it measures, so inside any group
+> its members are alike in exactly the way that method can see — and refining
+> the same method cannot separate them further; whatever distinguishes them sits
+> on an axis the method is blind to by construction, so the remedy is a
+> different method applied to the group, never a finer threshold on the
+> original."
+
+`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:51`
+
+`source_batch` concentrates by co-sitting; every member of a 43-member batch is
+alike in exactly that way, so no finer traversal separates them. What the reader
+needs is a **different method applied to the group** — and grouping the run
+under its batch is that method, applied at the layer where the difficulty
+actually is. The complete artifact stays beside the surface, which carries only
+what the artifact lacks
+(`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:50`).
+
+**Two alternatives declined, recorded so neither is re-proposed blind.**
+
+- **A per-batch traversal predicate** — "do not traverse into a batch above N
+  members". It looks like it stays inside the declared unit, and it is exactly
+  the finer threshold on the original method the served line refuses. Worse, it
+  **drops whole batches**, so a Grain in a large sitting silently gets no
+  batch-mates at all — the exclusion §13.0 exists to remove, reintroduced as a
+  configuration value.
+- **A surfacing threshold with full reachability.** Declined at kogaki#300 on
+  the ground that it **ranks**, which §13.5 forbids the bound from doing; that
+  decline noted adopting it "would have meant amending that clause rather than
+  filling this slot, which is a different act". This amendment **is** that act
+  and still declines it, on the narrower ground now available: grouping achieves
+  the same readability **without introducing a rank at all**, so re-cutting
+  §13.5's "may never score, rank, or drop an enumerated neighbor on relevance"
+  buys nothing and spends the clause that keeps the judged extension gated.
+
+**§13.3's values are UNCHANGED and its trigger is SPENT, not re-armed.** The
+measurement is what fired it, and this is the answer; a future run that finds
+grouping insufficient re-opens the bound with new evidence rather than this one.
+
 **Completeness is unaffected, and the reason is §2.1's own.** The count runs
 after composition over the **placements** of the set the owner adopted; a
 widening view upstream of adoption changes what *may* be adopted and not what
 was placed. A neighborhood suggestion the owner does not take is not a dropped
-Strand — it was never in the composed set.
+Strand — it was never in the composed set. **Grouping does not touch this
+either**: obligation 4 changes the order and the headings of what renders, and
+never the membership.
 
 ### 13.5 The extend-or-discard gate
 
