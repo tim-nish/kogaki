@@ -478,6 +478,49 @@ number of `finding:` lines above it**. The merge check counts your segment
   `review-scope:` or `review-base:` inside a finding's prose declares nothing —
   it is a mention, not a declaration.
 
+### `adjudicates:` — revising a severity you declared at an EARLIER head (§4 clause 12, kogaki#269)
+
+If a finding you are writing **lowers, resolves or re-declares a `blocking`
+finding from an earlier head**, say which one. Without it the merge layer
+cannot tell an adjudicated downgrade from a silent re-grading, and the gate
+denies the silence:
+
+```
+finding: should open  <the finding, at this head>
+adjudicates: <earlier head sha> finding <N>  <grounds>
+```
+
+- **`<N>` is the 1-based ordinal of the finding within that earlier segment**,
+  counted from its `finding:` lines in order. Identity is (segment sha,
+  ordinal) — a fact, not a reading, because §4 clause 4 makes an earlier
+  segment append-only.
+- **It binds to the `finding:` line immediately above it**, exactly as
+  `carried:` / `declined:` do. First declaration per finding wins.
+- **Grounds are required and non-empty**, and there is no branch on the new
+  severity: adjudicating *up* or to `resolved` carries grounds too.
+- **A malformed line declares nothing** and the gate stays red. That is the
+  fail-safe side: an unparseable adjudication must never read as an
+  adjudication.
+
+**This is a DIFFERENT AXIS from `carried:` / `declined:`, and they stack on one
+finding in either order.** `adjudicates:` says *which earlier finding this is*
+— identity across heads, gated at the merge layer. `carried:` / `declined:`
+says *what happens to this one after the merge* — disposition, reported and
+never gated.
+
+**Do not confuse it with `supersedes:`, which is a different line at a
+different level.** §4 clause 11's `supersedes: <blocked PR>` is declared by a
+successor **pull request** about a blocked one. `adjudicates:` is declared by a
+**finding** about an earlier finding. The two were nearly given one token; they
+were separated deliberately, because two closed value sets under one field name
+leave the first reader who meets both writing a cross-product.
+
+**The act that reads this line is NOT BUILT YET** (kogaki#269). §4 clause 12
+lands the grammar and the polarity; the merge-layer denial is owed on its own
+carrier. Writing the line today is therefore correct and currently unenforced —
+which is the honest state, and is why §4 clause 9 row 2 still types this
+transition's observer as `none:`.
+
 ### `carried:` / `declined:` — the disposition of a non-gating finding (§4 clause 8, kogaki#224)
 
 A `should` or `nit` you leave **open** at `done` carries a stated disposition

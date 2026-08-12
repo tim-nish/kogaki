@@ -2490,6 +2490,117 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
       **deferred slots: `cross-repo-merge-gate`.**
 
+  12. **A SEVERITY REVISED ACROSS HEADS CARRIES AN ADJUDICATION LINE, AND THE
+      MERGE LAYER DENIES THE SILENCE** (kogaki#269, spec sitting 2026-08-08,
+      re-authored 2026-08-12).
+
+      A finding declared `blocking` at an earlier head can be restated at a
+      later head with a lower severity and no adjudication, and the gate reads
+      clean — the severity field is read per segment and the gate's only unit
+      of identity is the head sha, so a head move for any reason discards every
+      earlier segment's severity. PR #255 is the specimen: the downgrade was
+      reported, in the reviewer's own words, at the moment it happened, and the
+      merge proceeded.
+
+      **THE JOINING IDENTITY — an explicit adjudication line**, a seventh
+      adjacent declaration on clauses 5–8's shape:
+
+      ```
+      finding: <severity> <state>  <the finding>
+      adjudicates: <earlier head sha> finding <N>  <grounds>
+      ```
+
+      Identity is **(segment sha, 1-based ordinal)** — a fact rather than a
+      reading, because clause 4 makes an earlier segment append-only. It binds
+      to the immediately preceding `finding:` line; first declaration per
+      finding wins; anchored whole; grounds required and non-empty, with no
+      branch on the superseding severity; a malformed line declares nothing and
+      the gate stays red.
+
+      **THE TOKEN IS `adjudicates:` AND THE 2026-08-08 RATIFICATION SAID
+      `supersedes:` — a one-token divergence, decided at a gate rather than
+      improvised.** Clause 11 landed on 2026-08-11, three days after that
+      sitting, and declares `supersedes: <blocked PR>` at **PR level**. Two
+      closed value sets under one field name is the defect
+      `a-shared-field-name-over-two-taxonomies-has-no-refuser` names — every
+      definition passes its own check and nothing is positioned to observe the
+      overload, so the first reader meeting both writes a cross-product that
+      reads as a reconciliation. The rename keeps clause 11's token untouched
+      and says what this line does: it **adjudicates** an earlier severity
+      rather than superseding a pull request. Owner selection, 2026-08-12.
+
+      *Declined with grounds, carried from the ratified sitting:* **a finding
+      id on every `finding:` line** — the strongest join, but it taxes every
+      finding on every report to solve a rare transition and needs an id
+      generator with its own uniqueness questions; its reopen trigger is a
+      finding needing a **forward** or cross-PR join. **A re-declaration rule**
+      — no new field, but identity becomes **textual**, which is the
+      reading-not-fact this clause exists to escape.
+
+      **THE MERGE LAYER'S POLARITY — deny on the missing adjudication.** After
+      every existing state is clean, an `unadjudicated` denial fires when a
+      `finding:` line satisfies all five: (1) its segment does not name the
+      current head and is not carried onto it; (2) its segment **counts**
+      (clause 6); (3) it is `blocking` and still `open`; (4) it carries its
+      `[policy:|harm:]` justification; (5) **no later counted segment carries
+      an `adjudicates:` line naming its sha and ordinal.** Only (5) is new.
+
+      **This gates the SILENCE and never the SEVERITY.** kogaki#72 is untouched
+      and not reopened: `should` and `nit` appear nowhere in the predicate, no
+      `should` gates *as a `should`*, an adjudicated downgrade passes exactly
+      as before, and a PR writing no lower-severity finding at all is caught
+      identically. The served ground is that a check denies on a block's
+      ABSENCE and never judges its CONTENT
+      (`consulted: product-lab@dec0d568 topics/claude-code-ops.md:19`).
+
+      *Declined with grounds:* **report only, never deny** — consistent with
+      clauses 5, 8 and 9's polarity, and refused because PR #255 is the proof
+      that a non-gating signal at a merge boundary evaporates. **No
+      merge-layer change** — leaves the defect live.
+
+      **THE THREE-WAY DISTINCTION IS RENDERABLE** on every terminal branch that
+      has a report: `resolved` (the adjudicating finding is `blocking
+      resolved`), `adjudicated-down` (`should`/`nit`), `re-declared` (still
+      `blocking open`). The fourth state — **silently re-graded** — is the
+      absence of all three, and is exactly what the deny names.
+
+      **COMPOSITION WITH CLAUSE 8, stated rather than left to be conflated:** a
+      **different axis**. `adjudicates:` says which earlier finding this is
+      (identity across heads, **gated**, merge layer); `carried:` / `declined:`
+      says what happens to this one after the merge (disposition, **reported
+      never gated**, the sweep's `done`). They stack on one finding in either
+      order.
+
+      **THE COST IS DECLARED.** An open PR already holding an earlier-head
+      **justified** `blocking open` goes red on its next run once the act
+      exists. That is the correct direction — every such PR is in PR #255's
+      state — and the remedy is one line in the next report segment. No flag
+      and no grandfather clause, because a grandfather clause here is
+      indistinguishable from not shipping the deny.
+
+      **THE ACT IS NOT BUILT, AND CLAUSE 9 ROW 2 IS DELIBERATELY NOT RE-TYPED.**
+      This clause lands the grammar and the polarity; `unadjudicated_blocking()`
+      in `checks/check-review-report.sh`, its fixtures and its mutation
+      evidence are owed on kogaki#269 and follow on their own carrier. The
+      2026-08-08 plan re-typed clause 9 row 2 from `none:` to **act** in the
+      same change — correct for a sitting landing both halves, and a **false
+      record** for one landing only this half, since a row typed `act` names an
+      observing act that does not exist. Row 2 therefore still reads `none:`
+      and still names kogaki#269 as where the observer is owed. **A reader who
+      finds row 2 typed `act` before `unadjudicated_blocking()` exists has
+      found a defect, not a tidy-up.**
+
+      **Why this clause landed alone.** Its ratified predecessor rode PR #287
+      as one `spec+fix` unit, which the owner closed unmerged on 2026-08-08 as
+      the runaway-review incident's artifact, with none of its content carried
+      forward and the branch retained as the forensic record. The design
+      survived on kogaki#269's own thread — both forks, both declined
+      alternatives, the predicate, the receipt — which is why re-authoring
+      clean was possible at all, and is the reason a lane's durable record
+      belongs on the issue rather than only in a diff.
+
+      **deferred slots: none.**
+
   **The "no open blocking findings" half is CARRIER-LESS, and is marked
   rather than omitted.** An empty findings record satisfies it, and nothing
   distinguishes a thorough review that found nothing from one that looked at
