@@ -2830,8 +2830,23 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
           // records — the same silent-flattery shape §13.0 removes, arriving
           // as arithmetic. It is marked as unresolved below either way, so the
           // absence is disclosed rather than absorbed.
-          if (!population.has(family)) population.set(family, new Set());
-          population.get(family).add(m);
+          //
+          // SEEDS ARE EXCLUDED, and this is what makes the ratio well-formed
+          // rather than merely per-family. `note()` returns early on a seed, so
+          // a seed can NEVER become a suggestion; leaving seeds in the
+          // denominator counts candidates the numerator is structurally unable
+          // to reach. Round 1 of PR #383 found the first version doing exactly
+          // that — rendering `lesson: 2 of 2` where one of the two members WAS
+          // the seed — so the denominator is the batch's members MINUS the
+          // settled set: what this substrate could actually have surfaced.
+          // Guarded rather than `continue`d: a seed must still fall through to
+          // the served-set check and `note()` below, and skipping the whole
+          // iteration would make that correctness depend on seeds always being
+          // served — true today, and not a fact this loop should rest on.
+          if (!seedSet.has(m)) {
+            if (!population.has(family)) population.set(family, new Set());
+            population.get(family).add(m);
+          }
           // A LISTED MEMBER THE SERVED SET DOES NOT CARRY IS MARKED, not
           // dropped — the same arm `cross_links` already has below. Dropping
           // it yields a quieter neighborhood with no disclosure, which is
@@ -2920,15 +2935,38 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // population that was never counted, and printing `n of 0` is arithmetic
   // nonsense that reads as a bug in the numerator. Null renders as an explicit
   // "no denominator readable" on the screen.
+  // THE TWO SIDES OF THE RATIO RANGE OVER ONE SET, and getting that wrong is
+  // what round 1 of PR #383 caught. The denominator is the walked batches'
+  // members of this family, minus the seeds; so the numerator must be the
+  // suggestions DRAWN FROM THAT SET, never every suggestion of the family. A
+  // cross-link two hops out is a real suggestion and is in no walked batch's
+  // `members` — counting it against a batch-membership denominator produced
+  // `2 of 2` where one of the two was not among those members, and `3 of 2` as
+  // soon as a second cross-link appeared. An impossible ratio is worse than a
+  // pooled one: a reader can see that pooling hides something, and cannot see
+  // that a well-formed-looking fraction is measuring two different populations.
+  //
+  // So suggestions reached from OUTSIDE the walked membership are reported as
+  // their own count with NO denominator rather than folded in. They are not
+  // lost — §13.1 widens, so every suggestion still renders as its own row with
+  // its substrate; this figure is about what the batch substrate could reach.
   const families = new Set([
     ...population.keys(),
     ...suggestions.map((s) => s.family).filter((f) => f !== null),
   ]);
   const by_family = {};
   for (const fam of [...families].sort()) {
+    const pop = population.has(fam) ? population.get(fam) : null;
+    const ofFamily = suggestions.filter((s) => s.family === fam);
+    const fromPopulation = pop ? ofFamily.filter((s) => pop.has(s.slug)) : [];
     by_family[fam] = {
-      suggested: suggestions.filter((s) => s.family === fam).length,
-      population: population.has(fam) ? population.get(fam).size : null,
+      // `suggested` is the numerator OF THE STATED RATIO — a subset of
+      // `population` by construction, so `suggested <= population` always.
+      suggested: fromPopulation.length,
+      population: pop ? pop.size : null,
+      // Suggestions of this family the batch membership never contained.
+      // Counted and rendered, never silently added to the numerator.
+      outside_population: ofFamily.length - fromPopulation.length,
     };
   }
 
@@ -3064,13 +3102,19 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
     say();
     say("Suggestions by family (§13.4 — per family, never pooled):");
     for (const fam of fams) {
-      const { suggested, population } = counts.by_family[fam];
+      const { suggested, population, outside_population: outside } = counts.by_family[fam];
+      // The ratio and the outside count are stated SEPARATELY and never summed.
+      // The ratio's two sides range over one set — the walked batches' members
+      // of this family, minus the seeds — and the outside count is what this
+      // family reached by another substrate, which has no batch-membership
+      // denominator to sit over.
+      const extra = outside ? `, plus ${outside} reached from outside those members (no denominator)` : "";
       say(population === null
         // Not "of 0": a family reached only through cross_links has no
         // `members` list behind it, so no denominator was READ. Printing zero
         // would assert a population nobody counted.
-        ? `  ${fam}: ${suggested} suggestion(s) — no denominator readable (no walked batch lists this family)`
-        : `  ${fam}: ${suggested} of ${population} in the walked batches' members`);
+        ? `  ${fam}: ${outside} suggestion(s) — no denominator readable (no walked batch lists this family)`
+        : `  ${fam}: ${suggested} of ${population} in the walked batches' members${extra}`);
     }
   }
   say();

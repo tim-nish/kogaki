@@ -3537,8 +3537,13 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
       batch("q_a/p2", { lesson: ["seed", "mate", "extra"], journey: ["jour"] }),
     ];
     const { lines, r } = screenOf(records, ["seed"]);
-    if (r.counts.by_family.lesson.population !== 3) {
-      fails.push(`§13.4/1.45 AC3: the lesson denominator is ${r.counts.by_family.lesson.population}, not the 3 the batch's own family-keyed members list — the population is being re-derived from the served element set instead of read from \`members\`, which under-counts by exactly the records the corpus has lost`);
+    // TWO of the batch's three lesson members, because the seed is excluded:
+    // `members` lists seed, mate and extra, and a seed can never be suggested.
+    // `extra` is served by no record and is still counted — a member the
+    // corpus has lost is still in the batch, and dropping it would make the
+    // ratio climb as records disappear.
+    if (r.counts.by_family.lesson.population !== 2) {
+      fails.push(`§13.4/1.45 AC3: the lesson denominator is ${r.counts.by_family.lesson.population}, not the 2 the batch's family-keyed members list carries once the seed is excluded — either the population is re-derived from the served element set (which under-counts by exactly the records the corpus has lost) or the settled set is still counted in a population it can never be suggested from`);
     }
     if (r.counts.by_family.journey.population !== 1) {
       fails.push("§13.4/1.45 AC3: the journey family got no denominator of its own — a family present in `members` was folded away");
@@ -3547,8 +3552,52 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
     if (famLines.length !== 2) {
       fails.push(`§13.4/1.45 AC3: the screen states ${famLines.length} per-family row(s) for two families present in \`members\``);
     }
-    if (!famLines.some((l) => /^ {2}lesson: 1 of 3 /.test(l))) {
+    if (!famLines.some((l) => /^ {2}lesson: 1 of 2 /.test(l))) {
       fails.push(`§13.4/1.45 AC3: the lesson row does not state its own ratio — got ${JSON.stringify(famLines)}`);
+    }
+
+    // THE TWO SIDES RANGE OVER ONE SET (PR #383 round 1, finding 1). The
+    // shape assertions above all pass against a ratio whose numerator and
+    // denominator count DIFFERENT populations, which is what the first version
+    // shipped: `population` was the batch's members INCLUDING the seeds (which
+    // `note()` makes structurally unreachable as suggestions), while the
+    // numerator counted every suggestion of the family INCLUDING cross-link
+    // ones in no walked batch. It rendered `2 of 2` where one of the two
+    // members was the seed and one of the two suggestions was not among them.
+    //
+    // This is the reviewer's own worked case, and it is built to FAIL the old
+    // arithmetic: one seed, one batch-mate, and TWO cross-links out of an
+    // unwalked batch. Under the old code it renders `3 of 2` — an impossible
+    // fraction. An impossible ratio is worse than a pooled one: a reader can
+    // see that pooling hides something and cannot see that a well-formed
+    // fraction is measuring two populations.
+    {
+      const recs = [
+        rec("cseed", "q_a/p2b", ["x1", "x2"]), rec("cmate", "q_a/p2b"),
+        rec("x1", "q_a/elsewhere"), rec("x2", "q_a/elsewhere"),
+        batch("q_a/p2b", { lesson: ["cseed", "cmate"] }),
+      ];
+      const { lines, r } = screenOf(recs, ["cseed"]);
+      const f = r.counts.by_family.lesson;
+      if (f.population !== 1) {
+        fails.push(`§13.4/1.45 AC3: the denominator is ${f.population}, not 1 — the settled set is still being counted in the population it can never be suggested from`);
+      }
+      if (f.suggested !== 1) {
+        fails.push(`§13.4/1.45 AC3: the numerator is ${f.suggested}, not 1 — it is counting suggestions the denominator's set does not contain`);
+      }
+      if (f.outside_population !== 2) {
+        fails.push(`§13.4/1.45 AC3: the two cross-link suggestions are not reported as outside the walked membership (got ${f.outside_population}) — folded into the numerator, they make the fraction impossible`);
+      }
+      if (!lines.some((l) => /^ {2}lesson: 1 of 1 .*plus 2 reached from outside those members/.test(l))) {
+        fails.push(`§13.4/1.45 AC3: the row does not separate the ratio from the outside count — got ${JSON.stringify(lines.filter((l) => /^ {2}lesson:/.test(l)))}`);
+      }
+      // The invariant itself, asserted over EVERY family rather than this one
+      // case, so a future substrate cannot reintroduce the defect elsewhere.
+      for (const [fam, v] of Object.entries(r.counts.by_family)) {
+        if (v.population !== null && v.suggested > v.population) {
+          fails.push(`§13.4/1.45 AC3: family ${fam} states ${v.suggested} of ${v.population} — a numerator exceeding its denominator, so the two sides are counting different sets`);
+        }
+      }
     }
     // AC5 — THE VIOLATING CASE, and it is the one a naive implementation
     // actually writes: a single pooled ratio over every family at once. The
@@ -3563,7 +3612,11 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
     // `n of 0` reads as a numerator bug.
     const crossOnly = neighborhoodScreen({
       tag: "T", gids: ["G1"], unmapped: [], suggestions: [], unresolved: [],
-      counts: { seeds: 1, suggested: 1, unresolved: 0, by_family: { decision: { suggested: 1, population: null } } },
+      counts: { seeds: 1, suggested: 1, unresolved: 0,
+        // No walked batch lists this family, so there is no ratio to state and
+        // the one suggestion is by construction outside any counted
+        // population — which is what the null-denominator row renders.
+        by_family: { decision: { suggested: 0, population: null, outside_population: 1 } } },
     });
     if (!crossOnly.some((l) => /^ {2}decision: 1 suggestion\(s\) — no denominator readable/.test(l))) {
       fails.push("§13.4/1.45 AC3/AC5: a family with no `members` list behind it did not render an explicit no-denominator note — printing `of 0` there asserts a population that was never counted");
@@ -3622,16 +3675,26 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
     if (!legacy.lines.some((l) => /^N1 — legacy-mate/.test(l))) {
       fails.push("§13.4/1.45 AC4: the legacy batch-mate did not reach the screen");
     }
-    // AC5 — THE VIOLATING CASE. An unresolved entry rendered without its value
-    // must fail. Handed to the screen directly, since the enumerator always
-    // carries the value.
-    const valueless = neighborhoodScreen({
+    // AC5 — THE SECTION-EXISTS ARM, labelled for what it actually asserts.
+    // PR #383 round 1 found this case carrying a comment that claimed to
+    // discriminate a value dropped from the render while its only assertion
+    // was that the section header exists — which passes whether the value is
+    // rendered or not. Nothing was unprotected (the `orphanMember` arm above
+    // is what covers the value, and it is built so `why` cannot supply it),
+    // but a case whose comment claims a discrimination its assertion does not
+    // have is the kogaki#209 class inside a block written to refuse it. So the
+    // label now matches the assertion: this is the arm that fails when the
+    // unresolved SECTION is dropped entirely.
+    const sectionDropped = neighborhoodScreen({
       tag: "T", gids: ["G1"], unmapped: [], suggestions: [],
-      unresolved: [{ slug: "s", value: null, why: "unreadable" }],
+      unresolved: [{ slug: "s", value: "v", why: "unreadable" }],
       counts: { seeds: 1, suggested: 0, unresolved: 1, by_family: {} },
     });
-    if (!valueless.some((l) => /unresolved reference\(s\)/.test(l))) {
+    if (!sectionDropped.some((l) => /unresolved reference\(s\)/.test(l))) {
       fails.push("§13.4/1.45 AC4/AC5: an unresolved entry produced no unresolved section — an empty result standing in for a marked one is the silent exclusion §13.0 removes");
+    }
+    if (!sectionDropped.some((l) => /^ {2}s: "v" /.test(l))) {
+      fails.push("§13.4/1.45 AC4/AC5: the unresolved section rendered without the entry's value — asserted here too, so this arm cannot pass on a header alone");
     }
   }
 
