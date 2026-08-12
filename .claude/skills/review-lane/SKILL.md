@@ -145,7 +145,15 @@ third dimension. Instead:
 1. **Record.** Anything the lane notices that does not type into the two
    dimensions is written as one `out-of-dimension:` line in the findings —
    the observation and the PR it came from — and posted as a comment on
-   **kogaki#246**, this lane's **register**. The lane only ever appends to
+   **kogaki#246**, this lane's **register**.
+   **The register has a SECOND producer, and its rows read differently**
+   (kogaki#374). A spent-bound latent non-gating in-diff carry lands there too,
+   and it is **instance-class**: its value is the defect it names, not a count.
+   An `out-of-dimension:` line is the opposite — accretion-class, valuable as a
+   count. Both live in one ledger, so **say which a row is when appending**:
+   rule 3's three-of-a-class trigger reads over `out-of-dimension:` lines only,
+   and a spent-bound carry must not be counted toward a widening it says
+   nothing about. The lane only ever appends to
    it. **The register is a ledger, not a deliverable**: it has no definition
    of done, it is never completed, and it ends only by supersession or by
    this lane's retirement.
@@ -160,8 +168,8 @@ third dimension. Instead:
    A reader that enumerates open issues loses the ledger exactly when its
    writers most need it read.
 3. **Widening fires at three of a class.** Three `out-of-dimension:`
-   observations of the same class on kogaki#246 widen the lane by a third
-   dimension — filed as its own story through `story-sync file-issue`, never
+   observations of the same class on kogaki#246 — **that row kind only, never a
+   spent-bound carry** (rule 1) — widen the lane by a third dimension — filed as its own story through `story-sync file-issue`, never
    edited into this file during a review sitting. Three is the recurrence
    threshold the served line names ("the class visible only at
    three-in-a-row"), and one is chosen rather than left implicit so the
@@ -491,9 +499,9 @@ declined: <reason>                  — an explicit decline, reason required
 - **Which carrier a disposition names is decided by where the defect lives**,
   never by severity: in the diff's own text → resolve it in the review;
   downstream work the diff merely licenses → its own carrier.
-- **At a spent bound, a LATENT in-diff finding defaults to `carried: register`**
-  (kogaki#374, owner approval 2026-08-12; SPEC §4 clause 8 carries the rule and
-  this line cites it). With no round left, "resolve it in the review" cannot be
+- **At a spent bound, a LATENT NON-GATING in-diff finding defaults to
+  `carried: register`** (kogaki#374, owner approval 2026-08-12; SPEC §4
+  clause 8 carries the rule and this line cites it). With no round left, "resolve it in the review" cannot be
   done — so an in-diff finding nothing can currently reach lands in the register
   rather than minting an issue or a successor, each of which costs at least two
   further review rounds. Minting one anyway needs **stated reachability** — the
@@ -502,9 +510,12 @@ declined: <reason>                  — an explicit decline, reason required
   reader can argue with; nothing checks it.
   **One cell moves.** A *reachable* finding at a spent bound still takes the
   successor lane; an in-diff finding *inside* the bound is still resolved in the
-  review; gating findings and the two-round bound are untouched. And a latent
-  finding is not a wrong finding — the floor changes where an unreachable defect
-  waits, never whether it is recorded.
+  review; a finding still **gating at the merge layer**, and the two-round
+  bound, are untouched. Read "gating" at the merge layer rather than off the
+  token: a `blocking open` downgraded to `should` for want of a justification is
+  non-gating by clause 8's own membership rule, so a latent in-diff one *is* in
+  scope. And a latent finding is not a wrong finding — the floor changes where
+  an unreachable defect waits, never whether it is recorded.
 - **Presence is read, adequacy never is.** `declined: not worth it` satisfies
   the clause. It is a record somebody can argue with, which is what five
   findings living only in a comment nobody re-reads were not.

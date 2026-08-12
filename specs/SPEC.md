@@ -1776,10 +1776,23 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | **latent** in-diff finding | resolved in the review | **`carried: register`** |
 
      Severity stays out of carrier choice everywhere else — location still
-     selects. **Gating findings are untouched** and so is the two-round bound:
-     nothing here lets a `blocking` finding reach the register. The register's
-     scope widens by this one cell, and kogaki#246's ledger discipline and its
-     close-requires-a-successor rule are untouched.
+     selects. **A finding STILL GATING AT THE MERGE LAYER is untouched** and so
+     is the two-round bound: nothing here lets a gating finding reach the
+     register. The register's scope widens by this one cell, and kogaki#246's
+     ledger discipline and its close-requires-a-successor rule are untouched.
+
+     **"Gating" is read at the merge layer, not off the severity token, and
+     this is stated because the earlier wording said `blocking` and was
+     ambiguous.** A `blocking open` the merge layer has **downgraded to
+     `should` for want of a justification** is a **non-gating** finding by this
+     clause's own membership rule below — it "is in the class precisely because
+     it fails toward merge" — so a latent in-diff one at a spent bound **is** in
+     the floor's scope and does default to the register. That is the intended
+     reading and not an escape: the downgrade has already decided the merge
+     question, and what is left is a finding nothing can currently reach, which
+     is the cell this floor exists for. An assurance phrased on the token
+     `blocking` would have denied it in the register's own vocabulary while the
+     clause fifty lines down admitted it.
 
      **The specimen is kogaki#373, and it is not retroactive.** Under this
      floor those three findings are three register rows rather than an issue;
