@@ -1931,6 +1931,37 @@ def _rounds_observation(bodies, bound=None):
     as it does everywhere else (§4 clause 6); a carry-forward writes no
     segment and so adds no head.
 
+    WHICH WAY THE DISAGREEMENT RUNS — BOTH WAYS (kogaki#292, carried from PR
+    #291 round 1). Stating that the unit differs is not enough for a reader
+    who is being told to stop and escalate: a bare "not the sweep's count"
+    leaves them unable to tell whether this line is the cautious side or the
+    permissive one, and it is BOTH, depending on what happened.
+
+    · It OVER-counts. No sha resolution happens here, so a segment citing a
+      fabricated head is a head to this function. `performed()` in
+      tools/review-sweep.sh excludes exactly that (kogaki#91, the PR #67
+      specimen: a real prefix with an invented tail), so a record this line
+      calls a crossing may be one the sweep never charged.
+
+    · It UNDER-counts, by two separate mechanisms rather than one.
+      `rounds_used()` is `len(heads) + len(unattested)`, so a
+      `review-round-unverified:` mark whose head carries no performed report
+      is a spent round to the sweep — a session spawned and paid for that left
+      no readable artifact — and it writes no segment, so it is invisible
+      here. And a FRAGMENT is charged a round by the sweep while counting as
+      nothing here. `park_class()` in tools/review-sweep.sh says so twice, in
+      as many words: "a fragment is performed, so it is charged a round
+      (deliberately, see `decide()`)", and, in the scope-boundary paragraph
+      that keeps the point from being over-read, "`rally_cycles()`'s charging
+      is UNTOUCHED. A fragment spent a round and is still counted as one."
+
+    So a reader who finds this line silent has NOT established that the bound
+    is intact, and a reader who finds it printing has not established that it
+    was crossed. What the line establishes is that the RECORD shows N distinct
+    reviewed heads, which is worth printing precisely because it is the half
+    no session hook can reach — and is worth bounding, in the reader's head,
+    by the two directions above.
+
     REPORT, NOT DENY, decided rather than defaulted (kogaki#290 acceptance):
     producer identity is instrument-none at this record — an owner-authorized
     third round (claude-toolkit#283's approval flow) is indistinguishable
@@ -1976,6 +2007,37 @@ def _rounds_observation(bodies, bound=None):
 # performed segments at three distinct heads must not read the same as one
 # carrying two), stay silent inside the bound, merge abbreviated spellings,
 # and give fragments no weight.
+#
+# MUTATION TABLE (kogaki#230; carried from PR #291 round 1 as kogaki#292).
+# The four cases below shipped with their discrimination asserted by a
+# reviewer's presence read and never demonstrated. Demonstrated now: each
+# mutation was applied to `_rounds_observation` above, the check run, and the
+# file restored — every one killed, and each by a DIFFERENT case, which is what
+# makes the four cases four rather than one case written four ways.
+#
+#   mutation applied to `_rounds_observation`      case that killed it
+#   ------------------------------------------     -------------------
+#   prefix match -> equality (`h == sha`)          an abbreviated respelling
+#                                                  is one head, not two
+#   drop the completeness filter (`if False:`)     a third head that is only
+#                                                  a fragment adds nothing
+#   `len(heads) <= bound` -> `< bound`             two heads stay silent
+#                                                  (also the other two silent
+#                                                  cases — an off-by-one on the
+#                                                  bound is caught three ways)
+#   drop `{len(heads)}` from the printed line      three heads are named
+#
+# ONE NEAR-MISS IS RECORDED BECAUSE IT ALMOST BECAME A FALSE ROW. The
+# completeness mutation was first applied by string replacement, which hit the
+# FIRST `if not counted(seg):` in this file — at the top of the module, in a
+# different function — and left `_rounds_observation` untouched. The check
+# passed, which reads exactly like a surviving mutation and would have been
+# recorded as an uncovered case. It was caught by grepping for the pattern
+# rather than trusting the edit. The transferable half: a mutation asserted at
+# a STRING is applied wherever that string first occurs, so in a file that
+# reuses a guard idiom, target the LINE and assert what you are replacing —
+# and a mutation that appears to survive is a claim about the harness before
+# it is a claim about the coverage.
 _R1, _R2, _R3 = 'ccccccc', 'ddddddd', 'eeeeeee'
 _seg = lambda sha: (f"review-lane report: {sha}\nfinding: should open  x\n"
                     "report-complete: 1 findings")
