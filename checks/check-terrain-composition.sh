@@ -3248,6 +3248,23 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     }
   }
 
+  // THE COMPOSITION OF THE TWO PROPERTIES (kogaki#369). Two seeds share one
+  // batch, and that batch lists one member the served set does not carry. Each
+  // property already had a case and neither caught this: the batch-marker case
+  // has ONE seed, and the double-count case has TWO seeds and NO dangling
+  // member. A per-seed walk restates the batch's fact once per seed.
+  {
+    const records = [
+      rec("s1", "q_a/shared"), rec("s2", "q_a/shared"),
+      batch("q_a/shared", ["s1", "s2", "vanished"]),
+    ];
+    const r = neighborhoodOf(records, ["s1", "s2"]);
+    const hits = r.unresolved.filter((u) => u.value === "vanished");
+    if (hits.length !== 1) {
+      fails.push(`§13/1.44 AC4: one unserved member of a batch shared by 2 seed(s) produced ${hits.length} unresolved reference(s) — the member list is a fact about the BATCH and is being restated once per seed, so the screen's count scales with the settled set instead of with the missing records`);
+    }
+  }
+
   // AC4 — unresolved is MARKED, never empty. Two shapes: a record with no
   // source_batch at all, and a cross_link naming a slug nothing serves.
   {

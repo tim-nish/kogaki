@@ -2741,6 +2741,9 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   if (bound.source_batch > 0) {
     const byBatchId = new Map(
       records.filter((r) => r.kind === "batch" && r.id).map((r) => [r.id, r]));
+    // Seeds resolve to the DISTINCT batches they name; the member walk below
+    // then visits each batch exactly once.
+    const distinctBatches = new Map();
     for (const s of seeds) {
       const raw = bySlug.get(s).source_batch;
       const k = batchKey(raw);
@@ -2758,6 +2761,25 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
           why: `source_batch names a batch no served record carries (resolved to ${JSON.stringify(k)})` });
         continue;
       }
+      distinctBatches.set(k, batch);
+    }
+
+    // THE WALK IS PER BATCH, NOT PER SEED (kogaki#369). The two markers above
+    // state facts about a SEED — this record carries no source_batch, this
+    // record's source_batch names nothing served — so they belong in the seed
+    // loop. What a batch's `members` lists is a fact about the BATCH, and
+    // walking it once per seed restated that fact once per seed: with a
+    // co-tag group's members commonly drawn from one sitting, a single
+    // unserved member yielded one identical line per seed, up to the whole
+    // size of the settled set.
+    //
+    // The fix is the loop, not a guard on the push. A de-duplicating set over
+    // `<batch>|<member>` would suppress the symptom and leave the per-seed
+    // walk in place — and this is already the SECOND defect of its class in
+    // this function, the first having been fixed with exactly such a guard
+    // (`expanded`, below), which did not stop the second being written in the
+    // same commit.
+    for (const [k, batch] of distinctBatches) {
       // Family-keyed, so every family's list is walked rather than one.
       for (const family of Object.keys(batch.members || {})) {
         for (const m of batch.members[family] || []) {
@@ -2767,8 +2789,9 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
           // §13.0's silent exclusion one layer further in: the batch resolved,
           // so nothing upstream reports anything.
           if (!bySlug.has(m)) {
-            unresolved.push({ slug: s, value: m,
-              why: `batch ${JSON.stringify(k)} lists a member no served record carries (family ${JSON.stringify(family)})` });
+            // The SUBJECT is the batch, which is why this is not a seed slug.
+            unresolved.push({ slug: k, value: m,
+              why: `the batch lists a member no served record carries (family ${JSON.stringify(family)})` });
             continue;
           }
           note(m, "source_batch");
