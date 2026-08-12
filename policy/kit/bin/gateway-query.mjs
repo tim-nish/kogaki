@@ -438,11 +438,22 @@ function assertAddressForm({ framing, declared, catalogue }, i) {
   // and answered the broader call before, and refuses it after — which is
   // exactly why this refusal is stated on client-side ground and asserts
   // nothing about the server (kogaki#328).
-  // Two DIFFERENT causes reach this refusal and the message names which:
+  // TWO different causes reach this refusal and the message names which:
   // the served catalogue was unreadable (the substrate failing), or it was
   // read and does not carry this tool (the framing addressing a tool that is
-  // not served). Both are refusals — the transport cannot stand behind either
-  // — but they route to different repairs, so they are not collapsed. A
+  // not served). Both are refusals — the transport cannot stand behind
+  // either — but they route to different repairs, so they are not collapsed.
+  //
+  // A THIRD SHAPE NEVER ARRIVES HERE, stated as an invariant rather than
+  // defended against with a branch. A tool served with a schema that does not
+  // enumerate its arguments carries `declared === null` (never an empty Set —
+  // kogaki#373 finding 1), and BOTH call sites settle it before this function
+  // is reached: the pre-send loop passes it unchecked on the query path and
+  // degrades the receipt path, and nothing else calls in. An arm for it here
+  // would be unreachable code carrying a comment about when it runs — which
+  // is the defect this whole chain is about, one turn further in (PR #375
+  // round 1). If that interception is ever removed, this message owes a third
+  // branch and the caller owes the decision that branch would encode. A
   // `tools/list` that returns an rpc error never reaches here at all: it is
   // routed to the exit-11 degrade at the wire, like every other rpc error.
   if (!(declared instanceof Set))
@@ -967,6 +978,12 @@ try {
   // COST, stated because the earlier scoping was partly a cost decision: one
   // extra `tools/list` round trip per invocation on the non-receipt path.
   let declaredByTool = null;
+  // WHICH absence, carried to the announcement. Both a no-catalogue gateway
+  // and an errored `tools/list` leave `declaredByTool` null, and one fixed
+  // announcement pointed an operator debugging the second at the first's
+  // repair (kogaki#373 finding 3). The cause is recorded where it is known
+  // and spoken where it is announced.
+  let uncheckedCause = "the gateway served no readable tool catalogue";
   {
     timer.refresh();
     const listed = await rpc(2, "tools/list", {});
@@ -981,13 +998,22 @@ try {
     // a degrade: a receipt cannot be stood behind without the catalogue.
     if (listed.error) {
       if (receiptMode) unavailable(`rpc error: ${listed.error.message ?? "unknown"}`);
+      uncheckedCause = `\`tools/list\` returned an rpc error (${listed.error.message ?? "unknown"})`;
     } else
     if (Array.isArray(listed.result?.tools))
       declaredByTool = new Map(
-        listed.result.tools.map((t) => [
-          t.name,
-          new Set(Object.keys(t.inputSchema?.properties ?? {})),
-        ]),
+        listed.result.tools.map((t) => {
+          // `null`, NEVER an empty Set, where the schema does not enumerate.
+          // The `?? {}` this replaces turned an absent `properties` into an
+          // empty declared set — a fourth cause the enumeration below never
+          // named, refusing every argued call with "it declares no arguments"
+          // for a tool whose server never declared that (kogaki#373 finding 1).
+          const props = t.inputSchema?.properties;
+          return [
+            t.name,
+            props && typeof props === "object" ? new Set(Object.keys(props)) : null,
+          ];
+        }),
       );
   }
   // THE FORM IS CHECKED BEFORE ANYTHING IS SENT (kogaki#368). The refusal
@@ -1012,8 +1038,20 @@ try {
   //     and the call was never going to reach it. Named explicitly because the
   //     first version of this comment split two ways and this is a third case
   //     that lands in neither (round-1 finding on PR #372).
+  //   * catalogue READ, tool SERVED, schema NOT ENUMERABLE
+  //                                        -> proceed UNCHECKED on the query
+  //     path, saying so; DEGRADE the receipt path. The FOURTH cause, decided
+  //     at kogaki#373 rather than left as a consequence of a `?? {}`: an
+  //     absent `properties` is not a declaration that the tool takes no
+  //     arguments — MCP permits a bare `{"type":"object"}` and a schema
+  //     expressed by `$ref` — so refusing every argued call would assert a
+  //     declaration the server never made. It is the no-catalogue poverty one
+  //     tool narrower, and it takes that branch's polarity exactly. An
+  //     EXPLICIT `properties: {}` is the opposite case: it enumerates (zero
+  //     arguments), the declared set is authoritative, and an argued call is
+  //     refused truthfully.
   //   * NO catalogue served, or `tools/list` ERRORED
-  //                                        -> proceed UNCHECKED, saying so.
+  //                                        -> proceed UNCHECKED, saying WHICH.
   //
   // The second is not softness. This kit is an ENHANCER, NEVER A DEPENDENCY,
   // and a gateway that serves no `tools/list` answered every non-receipt call
@@ -1033,16 +1071,36 @@ try {
   for (const [i, framing] of framings.entries()) {
     if (!(declaredByTool instanceof Map)) {
       process.stderr.write(
-        "address form unchecked: the gateway served no readable tool catalogue, " +
+        `address form unchecked: ${uncheckedCause}, ` +
           "so an undeclared argument key cannot be detected on this call\n",
       );
       break;
     }
-    try {
-      assertAddressForm(
-        { framing, declared: declaredByTool.get(framing.tool), catalogue: declaredByTool },
-        i,
+    // The FOURTH cause (kogaki#373 finding 1): served, but not enumerable.
+    // Same polarity as the no-catalogue branch, one tool narrower — the query
+    // path proceeds unchecked and says so; the receipt path degrades, because
+    // a receipt asserts an address form nothing here can establish. The child
+    // is killed first, as in the refusal arm below and for the same reason.
+    const declared = declaredByTool.get(framing.tool);
+    if (declared === null) {
+      if (receiptMode) {
+        proc.kill();
+        clearTimeout(timer);
+        unavailable(
+          `\`${framing.tool}\` is served but its schema does not enumerate ` +
+            "its arguments, and a receipt cannot stand behind an address " +
+            "form that cannot be established",
+        );
+      }
+      process.stderr.write(
+        `address form unchecked: \`${framing.tool}\` is served but its ` +
+          "schema does not enumerate its arguments, so an undeclared " +
+          "argument key cannot be detected on this call\n",
       );
+      continue;
+    }
+    try {
+      assertAddressForm({ framing, declared, catalogue: declaredByTool }, i);
     } catch (e) {
       // Synchronous exit, following `unavailable` rather than `writeThenExit`,
       // and for the reason stated there: this writes ONE SHORT LINE, so the
