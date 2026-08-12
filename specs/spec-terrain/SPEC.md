@@ -3,7 +3,8 @@
 **Status:** v17, amended 2026-08-12 (kogaki#385, owner selection) — **§13.4
 gains a fourth rendering obligation: the neighborhood screen GROUPS BY
 SUBSTRATE INSTANCE and never lists a flat run.** Batch-mates render under their
-batch with that batch's count; cross-linked suggestions under `cross_links`.
+batch with that batch's count **within the family**; cross-linked suggestions
+under `cross_links`.
 Every suggestion still appears with its `N<n>` and its substrate — the grouping
 renders the same complete enumeration and selects nothing from it.
 
@@ -72,13 +73,21 @@ The two other tokens in the file — `terrain-family-split-carrier` and
 `terrain-subdivision-offering-verdict` — are filled, checked at their sites
 rather than assumed.
 
-**This line was FALSE from the moment it was written, and that is recorded
-rather than quietly corrected** (kogaki#384). Its bolded lead-in read, verbatim
-and including its terminal colon,
+**This line was false within seventeen minutes of being written, and false
+through every subsequent read — and that is recorded rather than quietly
+corrected** (kogaki#384, its interval corrected kogaki#390). Its bolded lead-in
+read, verbatim and including its terminal colon,
 
 > `**STILL OPEN IN THIS FILE, and it comes due in THIS issue's implementing sitting:**`
 
-while the slot was decided and its answer was shipping in `terrain.mjs`. The text was not inert: on 2026-08-12
+**The interval is stated because it was measured** — all three times 2026-08-12
++0900: `145d90a` wrote the line at **01:33:22**, kogaki#300's owner selection
+filled the slot at **01:50:30**, and `180c014` landed the answer in
+`terrain.mjs` at **10:02:01**. So the line was accurate for seventeen minutes,
+and nothing was shipping in `terrain.mjs` for another eight and a half hours.
+That makes it a sharper specimen of this paragraph's own thesis than a line
+born wrong would be: what failed is the record moving without the file, which
+is the whole subject. The text was not inert: on 2026-08-12
 a run read §14.6 as the live word, composed a three-way fork from it, and
 proposed the very shape the owner had declined — caught before commit by the
 carrier read, and retracted. A spec section that states a settled question as
@@ -3819,8 +3828,9 @@ the measurement §13.3's own reopen trigger produced:
 
 4. **The screen GROUPS BY SUBSTRATE INSTANCE; it never lists a flat run**
    (v17, kogaki#385, owner selection 2026-08-12). Batch-mates render under
-   their **batch**, with that batch's own count; cross-linked suggestions
-   render under `cross_links` with theirs. Every suggestion still appears,
+   their **batch**, with that batch's count **within the family**;
+   cross-linked suggestions render under `cross_links` with theirs. Every
+   suggestion still appears,
    still carries its `N<n>` and its substrate, and the per-family figures of
    obligation 2 are unchanged — **the grouping is a rendering of the same
    complete enumeration, never a selection over it.**
