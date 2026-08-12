@@ -4,6 +4,14 @@
 __pycache__/
 *.pyc
 
+# HARNESS MACHINERY, never commit material (kogaki#299). Agent worktrees are
+# created and removed by the harness, and each one is a checkout of some other
+# session's branch — a run that swept them into a commit would be committing
+# another session's working tree. This is the same class as the block above
+# rather than the repo-visible one below: nobody reads these where they work,
+# they are simply state the tree should never have been offered.
+.claude/worktrees/
+
 # The Full Report's OWNER RENDERING (SPEC.md §2.5.2, SPEC-terrain §12.2 v11,
 # kogaki#234). Repo-VISIBLE so the owner reads it where they work; NOT
 # committed, because it derives from uncommitted survey records and inherits
@@ -18,3 +26,16 @@ reports/
 # material and this repository is public — committing it would be a
 # declassification act the spec grants no grounds for.
 policy/shape.md
+
+# The MOVE-INGESTION SPECIMEN (specs/spec-draft-pipeline/SPEC.md §6.9.0,
+# kogaki#223; dispositioned kogaki#299) — the THIRD member of that class, and
+# the only one an owner writes by hand. §6.9.0 binds the input grammar to this
+# file as its measured specimen and records it as "owner-authored, deliberately
+# untracked"; this line is that clause's declaration in the carrier that
+# enforces it. Repo-VISIBLE because the owner authors it where they work; NOT
+# committed, because an admitted Move lands one file in `moves/` through the
+# ingestion command's own review screen, and §6.9's "ADMISSION IS THE OWNER'S
+# ACT AT THAT SCREEN, never the command's" is exactly what committing the input
+# would route around — it would admit by location what the spec reserves for a
+# gate.
+moves.md
