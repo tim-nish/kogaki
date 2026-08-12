@@ -3825,6 +3825,25 @@ the measurement §13.3's own reopen trigger produced:
    obligation 2 are unchanged — **the grouping is a rendering of the same
    complete enumeration, never a selection over it.**
 
+   **HOW 3 AND 4 COMPOSE: FAMILY IS OUTERMOST, ALWAYS.** The two are
+   orthogonal groupings over one set, and a mixed-family batch is the ordinary
+   case rather than an edge one, so the nesting is stated here rather than left
+   to the implementation to settle silently. **Obligation 3 is an invariant and
+   obligation 4 is a readability aid, and an aid never weakens an invariant** —
+   so the family sections come first and the batch headings sit *inside* them.
+   A batch holding three Lessons and a Journey therefore renders its batch
+   heading twice, once under each family, with each heading counting only its
+   own family's members. Batch-outermost was rejected for the reason obligation
+   3 exists: it places a Journey and a Lesson adjacent under one heading, which
+   is the pooling that obligation forbids, reintroduced by the layout rather
+   than by the list.
+
+   **A suggestion reached by two substrates renders under EACH**, which is what
+   keeps the disclosure of obligation 1 complete — a row appearing only under
+   the first substrate would silently drop the second reason it was reached. So
+   **rendering count and suggestion count differ by construction**, and any
+   figure over the screen states which of the two it is counting.
+
 **Why the remedy is here and NOT in §13.3's bound.** §13.3's reopen trigger
 fired on the first real run (kogaki#367's measurement over the whole served
 corpus): suggestions ran to a **median of 27 and a maximum of 217**, with **38
