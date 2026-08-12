@@ -2948,7 +2948,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey, neighborhoodOf, settledSlugs } from "./terrain/terrain.mjs";
+import { canonicalIds, idSortKey, neighborhoodOf, settledSlugs, surveyEmptinessNote } from "./terrain/terrain.mjs";
 
 const fails = [];
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -3286,6 +3286,27 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     const seedScoped = r.unresolved.find((u) => u.why === "the record carries no source_batch");
     if (seedScoped && seedScoped.slug !== "orphan") {
       fails.push(`§13/1.44 AC4: a SEED-scoped unresolved entry names ${JSON.stringify(seedScoped.slug)} as its subject rather than the seed — the two kinds share one field and only the subject distinguishes them`);
+    }
+  }
+
+  // §13/1.60 AC5 — A ZERO-CANDIDATE SURVEY STATES WHICH IT IS. The two causes
+  // were indistinguishable, which is how kogaki#368 survived: an empty survey
+  // validated and exited zero whether the corpus had no Lessons or the call
+  // never reached one.
+  {
+    if (surveyEmptinessNote(0, 5) !== null) {
+      fails.push("§13/1.60 AC5: a survey WITH candidates emitted an emptiness note");
+    }
+    const nothing = surveyEmptinessNote(0, 0) || "";
+    const someNonLessons = surveyEmptinessNote(814, 0) || "";
+    if (!/about the call/.test(nothing)) {
+      fails.push(`§13/1.60 AC5: 0 served records did not read as a statement about the CALL: ${JSON.stringify(nothing)}`);
+    }
+    if (!/about the corpus/.test(someNonLessons) || !/814/.test(someNonLessons)) {
+      fails.push(`§13/1.60 AC5: served-but-no-Lessons did not read as a statement about the CORPUS naming its denominator: ${JSON.stringify(someNonLessons)}`);
+    }
+    if (nothing === someNonLessons) {
+      fails.push("§13/1.60 AC5: the two empty causes render IDENTICALLY — which is the ambiguity the criterion exists to remove");
     }
   }
 

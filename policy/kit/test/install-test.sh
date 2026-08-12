@@ -630,4 +630,74 @@ echo "ok: the degraded path is stated, with a correctly shaped marked receipt (A
 node "$ENTRY" --self-test || fail "consult entry-point fixtures failed"
 echo "ok: consult entry-point fixture pass (AC 1–5)"
 
+# ---------------------------------------------------------------------------
+# 10. The ADDRESS FORM is checked on the QUERY path, not only when a receipt is
+#     composed (kogaki#368). The guard existed and was wired into
+#     `composeReceipt`, so `terrain survey` sent an undeclared `kinds` key,
+#     received the miss shape, and wrote a survey with zero candidates at exit
+#     zero. Both branches are exercised here, on the CLI, because the defect
+#     was not that the check was wrong — it was that the check was somewhere
+#     else, and only a run on this path can tell those apart.
+# ---------------------------------------------------------------------------
+cat > "$TMP/stub-catalogue.js" <<'STUB'
+// A stub that DOES serve tools/list, so the form check has a catalogue.
+const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+let buf = "";
+process.stdin.on("data", (d) => {
+  buf += d;
+  let i;
+  while ((i = buf.indexOf("\n")) >= 0) {
+    const line = buf.slice(0, i); buf = buf.slice(i + 1);
+    if (!line.trim()) continue;
+    let m; try { m = JSON.parse(line); } catch { continue; }
+    if (m.method === "initialize")
+      send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2024-11-05", capabilities: {}, serverInfo: { name: "stub", version: "0" } } });
+    else if (m.method === "tools/list")
+      send({ jsonrpc: "2.0", id: m.id, result: { tools: [
+        { name: "element_survey", inputSchema: { properties: { kind: {}, tag: {} } } },
+      ] } });
+    else if (m.method === "tools/call")
+      send({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: JSON.stringify({ pin: "p@0", request_id: "stub", lines: [] }) }] } });
+    else if (m.id !== undefined) send({ jsonrpc: "2.0", id: m.id, result: {} });
+  }
+});
+STUB
+
+# 10a. THE REFUSAL. An undeclared key, no --receipt: refused before it is sent.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kinds":["lesson"]}' --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 13 ]] || fail "an undeclared key on the QUERY path exited $CODE, want 13 — this is the shipped defect: it used to exit 0 with a miss shape. $OUT"
+printf '%s
+' "$OUT" | grep -q 'address refused:' || fail "the query-path refusal is missing its marker: $OUT"
+printf '%s
+' "$OUT" | grep -q '`kinds`' || fail "the refusal does not name the offending key: $OUT"
+printf '%s
+' "$OUT" | grep -q 'it declares `kind`, `tag`' || fail "the refusal does not name the declared set: $OUT"
+echo "ok: an undeclared argument key is refused on the query path, naming the key and the declared set (kogaki#368 AC1)"
+
+# 10b. THE DECLARED CALL IS UNTOUCHED. The guard must not cost a working call.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kind":"lesson"}' --gateway "$TMP/stub-catalogue.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "a DECLARED key on the query path exited $CODE, want 0 — the guard is refusing a conforming call. $OUT"
+echo "ok: a declared argument key still serves at exit 0 (kogaki#368 AC1)"
+
+# 10c. NO CATALOGUE -> UNCHECKED AND SAID SO, never a refusal and never a
+#      degrade. The kit is an enhancer, never a dependency: a gateway serving
+#      no `tools/list` answered every non-receipt call before this change, and
+#      breaking those to enforce a check that cannot run would be a worse
+#      defect than the one being fixed. The residue is announced rather than
+#      silent, and on stderr rather than in the tool result.
+set +e
+OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer kit-test --tool element_survey   --args '{"kinds":["lesson"]}' --gateway "$TMP/stub-gw.js" 2>&1)
+CODE=$?
+set -e
+[[ $CODE -eq 0 ]] || fail "a catalogue-less gateway made the query path exit $CODE, want 0 — the transport has become a dependency. $OUT"
+printf '%s
+' "$OUT" | grep -q 'address form unchecked:'   || fail "the unchecked branch did not announce itself, so the residue is silent: $OUT"
+echo "ok: no served catalogue leaves the form unchecked, announced and not refused (kogaki#368)"
+
 echo "ALL PASS"

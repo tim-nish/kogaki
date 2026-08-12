@@ -420,11 +420,20 @@ function mergeTails(tails) {
 // `tools/list` properties for THIS framing's tool, observed on this same wire
 // and carried on the framing's own record, so a schema and a call cannot drift
 // apart any more than a question and a call can.
-function assertAddressEvidenced({ framing, declared, catalogue }, d, i) {
+// (a) THE FORM, alone. Split out of `assertAddressEvidenced` at kogaki#368 so
+// that the check can run BEFORE the calls go out and on EVERY path, not only
+// where a receipt is composed. It is one function with two call sites, never
+// two implementations: a second copy of this rule is the very defect the rule
+// catches, one level up.
+//
+// It needs no response, which is what makes the earlier call site possible —
+// the form of an address is decidable from the address and the served
+// catalogue alone.
+function assertAddressForm({ framing, declared, catalogue }, i) {
   const sent = framing.args ?? {};
   const keys = Object.keys(sent);
 
-  // (a) THE FORM. An undeclared key is the whole shipped defect. What the
+  // An undeclared key is the whole shipped defect. An undeclared key is the whole shipped defect. What the
   // GATEWAY does with one changed at tsurezure-gateway#88 — it dropped the key
   // and answered the broader call before, and refuses it after — which is
   // exactly why this refusal is stated on client-side ground and asserts
@@ -456,6 +465,16 @@ function assertAddressEvidenced({ framing, declared, catalogue }, d, i) {
         "The transport cannot stand behind a key the served tool does not " +
         "declare, so this framing is refused here rather than sent",
     );
+}
+
+// THE ANSWER EVIDENCES THE ADDRESS THE FRAMING SENT. Limb (a) is
+// `assertAddressForm` above, called here so the receipt path's own refusals
+// and messages are exactly what they were; limb (b) needs the response and so
+// stays here.
+function assertAddressEvidenced({ framing, declared, catalogue }, d, i) {
+  const sent = framing.args ?? {};
+  const keys = Object.keys(sent);
+  assertAddressForm({ framing, declared, catalogue }, i);
 
   // (b) THE ECHO. Required to agree WHEREVER it is served, and never invented
   // where it is not. This used to return early on `d.miss !== true`, because
@@ -931,14 +950,24 @@ try {
   // still prints exactly one `policy_source unavailable:` line and nothing
   // else — the one-line contract is over the whole invocation, not per call.
   // THE SERVED ADDRESS FORMS, read off the SAME wire as the calls (kogaki#181).
-  // Requested only in receipt mode: the check it feeds exists to bound what a
-  // receipt may assert, and a non-receipt run asserts nothing, so the ratified
-  // degrade and the pre-receipt invocation keep their exact shapes and spend no
-  // extra round trip. A gateway that lists no tools leaves `declared`
-  // undefined, and `assertAddressEvidenced` refuses on that rather than
-  // assuming the address landed.
+  //
+  // REQUESTED ON EVERY PATH (kogaki#368). This was scoped to receipt mode on
+  // the ground that "a non-receipt run asserts nothing", and that ground was
+  // false in a way nothing could see: a non-receipt run asserts nothing about
+  // a RECEIPT, while its caller composes artifacts from what it returns.
+  // `terrain survey` sent `{kinds: [...]}` against a tool declaring `kind`,
+  // received the miss shape, and wrote a survey with zero candidates at exit
+  // zero — schema-conformant, and indistinguishable from a corpus that has
+  // nothing. The guard that catches exactly this existed and was installed on
+  // the one path that did not need it most.
+  //
+  // A gateway that lists no tools leaves `declared` undefined, and the form
+  // check refuses on that rather than assuming the address landed.
+  //
+  // COST, stated because the earlier scoping was partly a cost decision: one
+  // extra `tools/list` round trip per invocation on the non-receipt path.
   let declaredByTool = null;
-  if (receiptMode) {
+  {
     timer.refresh();
     const listed = await rpc(2, "tools/list", {});
     // Routed exactly as the tools/call loop below routes its own rpc errors:
@@ -953,6 +982,67 @@ try {
         ]),
       );
   }
+  // THE FORM IS CHECKED BEFORE ANYTHING IS SENT (kogaki#368). The refusal
+  // message always said "refused here rather than sent" and, running inside
+  // `composeReceipt`, that was not so — the calls had already gone out. It is
+  // true now, and it is true on both paths.
+  //
+  // Its own exit code, because this is a CLIENT defect and not a substrate
+  // failure. Exit 11 is the degrade a caller absorbs and proceeds through, and
+  // absorbing this one is how the shipped defect stayed invisible; exit 13
+  // makes it a hard error the caller cannot mistake for an empty corpus.
+  //
+  // THE TWO CAUSES SPLIT HERE, and only one of them is a refusal. The check
+  // needs a catalogue; `assertAddressForm` already distinguishes "no catalogue
+  // was served" from "the catalogue was read and does not declare this key",
+  // and the transport must too:
+  //
+  //   * catalogue READ, key undeclared  -> REFUSE. A client defect, decidable.
+  //   * NO catalogue served             -> proceed UNCHECKED, saying so once.
+  //
+  // The second is not softness. This kit is an ENHANCER, NEVER A DEPENDENCY,
+  // and a gateway that serves no `tools/list` answered every non-receipt call
+  // perfectly well before this change — refusing them, or degrading them,
+  // would make a transport that used to work stop working, to enforce a check
+  // it cannot perform. MCP requires `tools/list` of any server advertising
+  // tools, so against a real gateway the unchecked branch is unreachable; it
+  // exists for a minimal or older one.
+  //
+  // RESIDUE, stated rather than left to be discovered: on that branch an
+  // undeclared key is still dropped and the broader artifact still served —
+  // #368's defect, in the one place this repair cannot reach. It is announced
+  // on stderr rather than silently, so it is observable rather than assumed;
+  // it is NOT on stdout, which is the tool result the caller parses.
+  // The RECEIPT path keeps refusing on both causes, unchanged: a receipt
+  // asserts something and cannot be stood behind without the catalogue.
+  for (const [i, framing] of framings.entries()) {
+    if (!(declaredByTool instanceof Map)) {
+      process.stderr.write(
+        "address form unchecked: the gateway served no readable tool catalogue, " +
+          "so an undeclared argument key cannot be detected on this call\n",
+      );
+      break;
+    }
+    try {
+      assertAddressForm(
+        { framing, declared: declaredByTool.get(framing.tool), catalogue: declaredByTool },
+        i,
+      );
+    } catch (e) {
+      // Synchronous exit, following `unavailable` rather than `writeThenExit`,
+      // and for the reason stated there: this writes ONE SHORT LINE, so the
+      // truncation class the deferred writer exists for does not reach it —
+      // while a deferred exit here WOULD fall through into the call loop and
+      // send the very framing just refused. The child is killed first: it is
+      // already spawned at this point, where `unavailable`'s early callers are
+      // not.
+      proc.kill();
+      clearTimeout(timer);
+      console.log(`address refused: ${e.message}`);
+      process.exit(13);
+    }
+  }
+
   const observed = [];
   for (const [i, framing] of framings.entries()) {
     timer.refresh();
