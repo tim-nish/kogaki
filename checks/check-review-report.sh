@@ -1692,12 +1692,41 @@ else:
                            "`ok:` line — a deny that prints and returns 0 is "
                            "a report, and clause 12 declined report-only with "
                            "grounds")
-if adj_bad:
-    print("FAIL fixture pass — the adjudication join does not behave as §4 "
-          "clause 12 states:")
-    for f in adj_bad:
-        print(f"  {f}")
-    sys.exit(1)
+def _drain_adj():
+    """Report and exit on anything in `adj_bad`. A FUNCTION rather than a
+    repeated block, because the defect this exists to prevent was a repeat
+    that did not happen: two assertion blocks were appended AFTER the only
+    drain, so a renderer that collapsed two states or invented one for a
+    silently re-graded finding appended to a list nobody read, the check
+    exited 0, and the pass line still announced the distinction as asserted.
+    Found at PR #405 round 2. Every future block appended below calls this."""
+    if adj_bad:
+        print("FAIL fixture pass — the adjudication join does not behave as "
+              "§4 clause 12 states:")
+        for f in adj_bad:
+            print(f"  {f}")
+        sys.exit(1)
+
+
+_drain_adj()
+# FIRST-WINS IS ASSERTED BY IDENTITY, NEVER BY COUNT. The ADJ row above pins
+# the number of unadjudicated findings, and under a last-wins rule that number
+# is UNCHANGED — the second line binds instead of the first, so a different
+# finding is left open and exactly one still is. The mutant survived the whole
+# table until this block existed, which is the same shape as the DIRECTION row
+# needing three segments: a case that plainly involves the rule, and a wrong
+# predicate that agrees with the right one on the property being read.
+_fw = unadjudicated_blocking(
+    _seg(_OLD, f"finding: blocking open {_J}  first",
+         f"finding: blocking open {_J}  second")
+    + "\n" + _seg(_NEW, "finding: should open  downgraded",
+                  f"adjudicates: {_OLD} finding 1  measured false",
+                  f"adjudicates: {_OLD} finding 2  also measured false"), _NEW)
+if [ordinal for _sha, ordinal, _l, _s in _fw] != [2]:
+    adj_bad.append("first-declaration-per-finding does not hold: the surviving "
+                   f"finding is {[o for _s2, o, _l2, _s3 in _fw]}, want [2] — "
+                   "the FIRST line bound and the second declared nothing")
+_drain_adj()
 # THE THREE-WAY DISTINCTION IS ASSERTED, not merely computable. Clause 12
 # requires it to be RENDERABLE from the record, and a renderer nothing
 # exercises is the shape this file's own registry record now carries a
@@ -1734,6 +1763,7 @@ if adjudication_states(
         + "\n" + _seg(_NEW, "finding: should open  silently re-graded"), _NEW):
     adj_bad.append("the renderer invented a state for a silently re-graded "
                    "finding — the fourth state is an ABSENCE, not a value")
+_drain_adj()
 print(f"adjudication pass: {len(ADJ)}/{len(ADJ)} clause-12 cases (THE #269 "
       "SPECIMEN and its same-head control, which is what makes the rest "
       "evidence; GROUNDS required and non-empty, whitespace-only refused, a "
