@@ -842,9 +842,10 @@ convenient one.
 | `park` | two rounds spent, head still unreviewed | **an owner decision, never a third round** (§4 clause 3) |
 | `done` | current-head report, nothing blocking open | — |
 
-Rounds are counted in **cycles grouped by head** — `rally_cycles()` in
-`tools/review-sweep.sh` is the one place the count is computed, and this file
-points at it rather than restating it. What that means for you: a head is ONE
+Rounds are counted in **cycles grouped by head** — `rounds_used()` in
+`tools/review-sweep.sh` is the one place the count is computed, over the
+grouping `rally_cycles()` supplies, and this file points at them rather than
+restating them. What that means for you: a head is ONE
 round however many reviewers report against it, unattested
 `review-round-unverified:` marks count separately and are subsumed by a
 performed report at the same head, and **every round still leaves its record**
