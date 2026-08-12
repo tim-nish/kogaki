@@ -110,7 +110,14 @@ function gatewayQuery(tool, toolArgs) {
     process.stderr.write("policy_source unavailable: Terrain has no material without the seam — no survey composed\n");
     process.exit(11);
   }
-  if (res.status !== 0) fail(`gateway-query failed (${res.status}): ${res.stderr}`);
+  if (res.status !== 0) {
+    // BOTH STREAMS. The transport's address refusal (exit 13) is a diagnostic
+    // on stderr, but stdout is captured to a file here and would otherwise be
+    // discarded — so a failure whose whole content sat in one stream printed
+    // an empty tail. Report what both carried (round-1 finding on PR #372).
+    const detail = [res.stderr, res.stdout].map((x) => (x || "").trim()).filter(Boolean).join(" | ");
+    fail(`gateway-query failed (${res.status}): ${detail || "(no diagnostic on either stream)"}`);
+  }
   return JSON.parse(res.stdout);
 }
 

@@ -433,7 +433,7 @@ function assertAddressForm({ framing, declared, catalogue }, i) {
   const sent = framing.args ?? {};
   const keys = Object.keys(sent);
 
-  // An undeclared key is the whole shipped defect. An undeclared key is the whole shipped defect. What the
+  // An undeclared key is the whole shipped defect. What the
   // GATEWAY does with one changed at tsurezure-gateway#88 — it dropped the key
   // and answered the broader call before, and refuses it after — which is
   // exactly why this refusal is stated on client-side ground and asserts
@@ -973,7 +973,15 @@ try {
     // Routed exactly as the tools/call loop below routes its own rpc errors:
     // a gateway that cannot be conversed with is a DEGRADE (exit 11), never a
     // receipt refusal. Only a well-formed catalogue reaches the composer.
-    if (listed.error) unavailable(`rpc error: ${listed.error.message ?? "unknown"}`);
+    // AN ERRORING `tools/list` DEGRADES ONLY THE RECEIPT PATH. Before this
+    // change the query path never asked, so turning its error into an exit-11
+    // degrade would stop calls that used to work — the same
+    // enhancer-becomes-dependency polarity the no-catalogue branch below is
+    // shaped to avoid, reached one step earlier. On the receipt path it stays
+    // a degrade: a receipt cannot be stood behind without the catalogue.
+    if (listed.error) {
+      if (receiptMode) unavailable(`rpc error: ${listed.error.message ?? "unknown"}`);
+    } else
     if (Array.isArray(listed.result?.tools))
       declaredByTool = new Map(
         listed.result.tools.map((t) => [
@@ -997,8 +1005,15 @@ try {
   // was served" from "the catalogue was read and does not declare this key",
   // and the transport must too:
   //
-  //   * catalogue READ, key undeclared  -> REFUSE. A client defect, decidable.
-  //   * NO catalogue served             -> proceed UNCHECKED, saying so once.
+  //   * catalogue READ, key undeclared      -> REFUSE. A client defect.
+  //   * catalogue READ, TOOL NOT IN IT      -> REFUSE. Also a client defect:
+  //     MCP requires a server to list the tools it serves, so a tool absent
+  //     from a catalogue that was read is a tool this gateway does not serve,
+  //     and the call was never going to reach it. Named explicitly because the
+  //     first version of this comment split two ways and this is a third case
+  //     that lands in neither (round-1 finding on PR #372).
+  //   * NO catalogue served, or `tools/list` ERRORED
+  //                                        -> proceed UNCHECKED, saying so.
   //
   // The second is not softness. This kit is an ENHANCER, NEVER A DEPENDENCY,
   // and a gateway that serves no `tools/list` answered every non-receipt call
@@ -1038,7 +1053,13 @@ try {
       // not.
       proc.kill();
       clearTimeout(timer);
-      console.log(`address refused: ${e.message}`);
+      // STDERR, not stdout. stdout is the TOOL RESULT the caller parses, and
+      // Kogaki's own `gatewayQuery` redirects it to a temp file it reads only
+      // on success and unlinks otherwise — so a refusal written there was
+      // deleted unread and the operator saw `gateway-query failed (13):` with
+      // an empty tail. The one surface that suffered the shipped defect could
+      // not read its repair (round-1 finding on PR #372).
+      process.stderr.write(`address refused: ${e.message}\n`);
       process.exit(13);
     }
   }
