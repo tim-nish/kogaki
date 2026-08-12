@@ -2498,9 +2498,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
       later head with a lower severity and no adjudication, and the gate reads
       clean — the severity field is read per segment and the gate's only unit
       of identity is the head sha, so a head move for any reason discards every
-      earlier segment's severity. PR #255 is the specimen: the downgrade was
-      reported, in the reviewer's own words, at the moment it happened, and the
-      merge proceeded.
+      earlier segment's severity. PR #255 is the specimen, and it is SHARPER than
+      "the merge proceeded" would suggest: the downgrade was reported in the
+      reviewer's own words at the moment it happened, the gate read CLEAN, and
+      the defect did not cross the merge only because a human held it.
+      Measured rather than asserted: #255 merged at `2026-08-08T02:12:28Z` and
+      its repair `72d0b9b` landed at `02:00:30Z`, twelve minutes EARLIER.
+      kogaki#269's own record says why — "that repair happened because the
+      merge was held **manually**. Nothing in the repository held it." A later
+      sitting auditing the specimen finds a clean merge, so the overclaiming
+      version would have read as the clause overstating its own evidence.
 
       **THE JOINING IDENTITY — an explicit adjudication line**, a seventh
       adjacent declaration on clauses 5–8's shape:
