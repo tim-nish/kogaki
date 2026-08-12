@@ -438,15 +438,22 @@ function assertAddressForm({ framing, declared, catalogue }, i) {
   // and answered the broader call before, and refuses it after — which is
   // exactly why this refusal is stated on client-side ground and asserts
   // nothing about the server (kogaki#328).
-  // THREE different causes reach this refusal and the message names which:
-  // the served catalogue was unreadable (the substrate failing), it was
+  // TWO different causes reach this refusal and the message names which:
+  // the served catalogue was unreadable (the substrate failing), or it was
   // read and does not carry this tool (the framing addressing a tool that is
-  // not served), or it carries the tool with a schema that does not enumerate
-  // its arguments (`declared` is null, never an empty Set — kogaki#373
-  // finding 1; the caller's query path intercepts that case as an unchecked
-  // pass-through before this function, so here it is the receipt discipline:
-  // what cannot be established cannot be stood behind). All are refusals —
-  // but they route to different repairs, so they are not collapsed. A
+  // not served). Both are refusals — the transport cannot stand behind
+  // either — but they route to different repairs, so they are not collapsed.
+  //
+  // A THIRD SHAPE NEVER ARRIVES HERE, stated as an invariant rather than
+  // defended against with a branch. A tool served with a schema that does not
+  // enumerate its arguments carries `declared === null` (never an empty Set —
+  // kogaki#373 finding 1), and BOTH call sites settle it before this function
+  // is reached: the pre-send loop passes it unchecked on the query path and
+  // degrades the receipt path, and nothing else calls in. An arm for it here
+  // would be unreachable code carrying a comment about when it runs — which
+  // is the defect this whole chain is about, one turn further in (PR #375
+  // round 1). If that interception is ever removed, this message owes a third
+  // branch and the caller owes the decision that branch would encode. A
   // `tools/list` that returns an rpc error never reaches here at all: it is
   // routed to the exit-11 degrade at the wire, like every other rpc error.
   if (!(declared instanceof Set))
@@ -454,13 +461,10 @@ function assertAddressForm({ framing, declared, catalogue }, i) {
       `framing ${i + 1} was not checked against \`${framing.tool}\`'s served ` +
         "argument schema, so the transport cannot establish that this " +
         "response answers the address it sent — " +
-        (declared === null
-          ? `the catalogue carries \`${framing.tool}\` but its schema does ` +
-            "not enumerate its arguments (no `properties`)"
-          : catalogue instanceof Map
-            ? `the gateway's served catalogue does not carry \`${framing.tool}\` ` +
-              `(it serves ${[...catalogue.keys()].map((k) => `\`${k}\``).join(", ") || "nothing"})`
-            : "the gateway served no readable tool catalogue"),
+        (catalogue instanceof Map
+          ? `the gateway's served catalogue does not carry \`${framing.tool}\` ` +
+            `(it serves ${[...catalogue.keys()].map((k) => `\`${k}\``).join(", ") || "nothing"})`
+          : "the gateway served no readable tool catalogue"),
     );
   const undeclared = keys.filter((k) => !declared.has(k));
   if (undeclared.length)
