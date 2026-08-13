@@ -707,12 +707,16 @@ TIER_ORDINARY_MAX_TURNS="${KOGAKI_REVIEW_TIER_ORDINARY_MAX_TURNS:-24}"
 # deferral (`topics/knowledge-architecture.md:60`):
 #
 #   deferred-slot: review-tier-size-threshold
+#   carrier: kogaki#432 — a LIVE issue, deliberately not kogaki#414, which
+#               PR #431 closes. A slot whose fill-time record is owed on a
+#               licensing issue cannot name a closed one as its home (PR #431
+#               round 1, finding 2).
 #   fills when: this trigger reaches 2 — a second measured stall on a path
 #               this table does not name
-#   owed at fill: choice, alternatives and receipt on the licensing issue
-#               BEFORE any number is embedded, including the unit the number
-#               would be honest in (added lines? changed files? neither is
-#               obviously the right proxy for reviewing effort)
+#   owed at fill: choice, alternatives and receipt on kogaki#432 BEFORE any
+#               number is embedded, including the unit the number would be
+#               honest in (added lines? changed files? neither is obviously
+#               the right proxy for reviewing effort)
 #
 # AND THE AUTOMATIC ESCALATION IS REFUSED HERE, not merely unbuilt. Re-spawning
 # the stalled round at the careful tier would spawn a reviewer without a fresh
@@ -2731,11 +2735,33 @@ def stall_lines(pr, head, cap, subtype):
         f"  #{pr}: the session hit its turn cap ({cap}) and posted no report — "
         f"terminal `{STALL_SUBTYPE}`. This is NOT a refusal and NOT a tool "
         f"denial.",
-        f"  #{pr}: escalate this head at the careful tier — "
+        # THE HEAD IS PRINTED, not merely accepted (PR #431 round 1 nit). The
+        # first form took `head` and never read it while the sentence said
+        # "escalate this head" — handing over a `--pr N` command whose meaning
+        # turns on a sha the message declined to name, in a repository where a
+        # report against the wrong head is read as stale.
+        f"  #{pr}: escalate this head ({head[:7]}) at the careful tier — "
         f"KOGAKI_REVIEW_MODEL=opus KOGAKI_REVIEW_MAX_TURNS=60 "
         f"tools/review-sweep.sh --pr {pr} --spawn "
         f"(needs a fresh grant: the stalled round is spent).",
     ]
+
+
+def non_stall_phrase(subtype):
+    """How a NON-stall terminal state is named (PR #431 round 1, finding 1).
+
+    Split out of the call site so the `""` / None distinction is assertable.
+    It was inline and tested `not subtype`, which printed "not recorded in the
+    route log" for a record that carried no `subtype` field — collapsing the
+    pair `terminal_subtype` is written to keep apart. The reader was pinned by
+    a fixture and the printed line was pinned by nothing, so the distinction
+    survived one layer and died at the next.
+    """
+    if subtype is None:
+        return "not recorded in the route log"
+    if subtype == "":
+        return "recorded with no subtype"
+    return f"`{subtype}`"
 
 
 def report_present(pr, head, allowed):
@@ -3883,11 +3909,15 @@ for _label, _measured, _events, _must, _also in _recon:
 # THE TERMINAL-STATE READ (kogaki#414).
 #
 # Admission (consultation-map entry 1 — modifying a check surface; the
-# prescribed survey was run this sitting and its receipt is on the branch):
+# prescribed survey was run this sitting — see the shard note below):
 #   loop position   this file's inline fixture pass, run on every invocation
 #                   of the sweep, `--dry-run` included.
-#   budget          one `mkdtemp` and six small file writes; no network, no
-#                   subprocess, no `gh` call.
+#   budget          one `mkdtemp` and six small file writes, REMOVED at the end
+#                   of the block; no network, no subprocess, no `gh` call. The
+#                   first form stated this budget and leaked the directory on
+#                   every invocation, `--dry-run` included — a budget declared
+#                   as spent-and-returned while in fact accumulating (PR #431
+#                   round 1 nit).
 #   removal signal  the size axis landing (the named slot above). If the
 #                   resolver ever refuses the unfinishable pairing UP FRONT,
 #                   a stall becomes unreachable rather than merely legible,
@@ -3896,6 +3926,19 @@ for _label, _measured, _events, _must, _also in _recon:
 #   "each check enters with three things fixed: which stage of the workflow it
 #    runs at, what its budget there is, and what evidence would justify
 #    removing it later" (gloss/lessons/claude-code-ops.md:65@8906f20)
+#
+# WHICH SHARD IS EVIDENCED BY WHAT, stated because entry 1 prescribes TWO and
+# prose is not a receipt (PR #431 round 1 nit). `lessons/claude-code-ops` is
+# receipted on this branch, with its query line. `lessons/testing` was read in
+# the same sitting — it is where the fixture design came from
+# (`gloss/lessons/testing.md:173@8906f20`, "A safety check only proves itself
+# on the code paths that actually reached it", quoted verbatim in kogaki#419's
+# commit, now on master) — but its call EXCEEDED THE TOOL-RESULT CAP and was
+# read by byte-slicing the spilled result, so no `request_id` is recoverable
+# for it and no receipt line on this branch names it. Half the prescription is
+# therefore evidenced by a cite rather than by a receipt, which is a weaker
+# thing, and saying so is the point: the earlier wording asserted both were
+# receipted here and that was not true.
 #
 # Asserted on the THREE outcomes the
 # announcement has to keep apart, plus the two non-answers, because the whole
@@ -3945,12 +3988,28 @@ for _label, _sub, _want_lines in [
     if len(stall_lines(411, "abc1234", 24, _sub)) != _want_lines:
         print(f"FAIL stall fixture [{_label}]")
         _dfail = 1
-_sl = stall_lines(411, "abc1234", 24, STALL_SUBTYPE)
+_sl = stall_lines(411, "abc1234def", 24, STALL_SUBTYPE)
 for _needle in ("turn cap (24)", "NOT a refusal", "KOGAKI_REVIEW_MAX_TURNS=60",
-                "--pr 411 --spawn", "fresh grant"):
+                "--pr 411 --spawn", "fresh grant", "(abc1234)"):
     if not any(_needle in _l for _l in _sl):
         print(f"FAIL stall fixture [the announcement omits {_needle!r}]")
         _dfail = 1
+# THE NON-STALL LINE IS PINNED TOO (PR #431 round 1, finding 1). The four cases
+# above assert only how MANY lines come back, which is why the `""`/None
+# collapse survived them: it lived in the phrase, and nothing asserted a
+# phrase. Three states, three distinct strings, asserted pairwise-distinct
+# rather than by content alone — equality to a literal would pass for a
+# function that returned the same literal for all three.
+_phr = [non_stall_phrase(None), non_stall_phrase(""), non_stall_phrase("success")]
+if len(set(_phr)) != 3:
+    print(f"FAIL stall fixture [the three non-stall states are not kept "
+          f"apart in the printed phrase]: {_phr}")
+    _dfail = 1
+if "no subtype" not in _phr[1] or "not recorded" not in _phr[0]:
+    print(f"FAIL stall fixture [a recorded-but-subtype-less state reads as "
+          f"unrecorded]: {_phr}")
+    _dfail = 1
+shutil.rmtree(_stall_dir, ignore_errors=True)
 
 # THE GENERATED GATE IS EXERCISED, not merely written. A hook that never ran is
 # a carrier whose inputs have no writer: it would look installed and refuse
@@ -5908,9 +5967,14 @@ for pr in prs:
                 for _line in _stall:
                     print(_line)
                 if not _stall:
+                    # `_sub is None`, NOT `not _sub` (PR #431 round 1). An
+                    # empty string is a terminal record that carries no
+                    # subtype, and a falsy test printed "not recorded in the
+                    # route log" about a record that IS recorded — re-merging,
+                    # one layer down, the exact pair `terminal_subtype` exists
+                    # to keep apart, in the commit that separated it.
                     print(f"  #{n}: terminal state "
-                          + (f"`{_sub}`" if _sub else
-                             "not recorded in the route log")
+                          + non_stall_phrase(_sub)
                           + f" — not a turn-cap stall. The cap in force was "
                             f"{r_turns}.")
                 print(f"  #{n}: the PR is deliberately left report-less — the "
