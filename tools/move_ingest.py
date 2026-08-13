@@ -1040,6 +1040,29 @@ def self_test():
         failure unrecoverable rather than merely untidy: the collision set is
         seeded from `os.listdir`, so a partial write made the corrected batch
         collide with itself (kogaki#419).
+
+        Admission (consultation-map entry 1, receipt in the commit):
+
+        - *loop position:* this module's embedded `--self-test`, run on
+          invocation. `move_ingest` is not a `checks/registry.json` member, so
+          this adds no member to the registered family and no CI cost.
+        - *budget:* one `TemporaryDirectory` and four `save_accepted` calls,
+          inside a suite that runs in well under a second.
+        - *removal signal:* repair 2 landing — `save_accepted` writing to a
+          temp directory and moving into place after the loop. That
+          construction makes the partial-write state unreachable rather than
+          merely refused, at which point this case is a review candidate,
+          **never an auto-deletion**. It is NOT removable merely for never
+          having fired: the ablation below is what shows it can.
+
+        The served rule this discharges, verbatim: "A safety check only proves
+        itself on the code paths that actually reached it. … In one real case
+        two different checks in the same command each turned out to cover only
+        the path the other one missed."
+        (`gloss/lessons/testing.md:173@8906f20`) — measured here rather than
+        assumed: under the single-pass ablation the two pre-existing collision
+        cases both PASS, because each asserts the raise and neither asserts the
+        directory. This case is the write path they left uncovered.
         """
         with tempfile.TemporaryDirectory() as tmp:
             moves = os.path.join(tmp, "moves")
