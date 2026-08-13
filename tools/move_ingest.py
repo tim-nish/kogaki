@@ -499,6 +499,14 @@ def save_accepted(moves_dir, accepted, provenance=None):
     collision at the selection screen as review's dedupe judgment, "never as a
     silent overwrite", so reaching this function with two of them is a bug in
     the caller and is raised rather than absorbed.
+
+    The walk is TWO passes, and the split is the contract: every id clears the
+    collision set before ANY file is created, so a refused batch leaves
+    `moves/` and its INDEX exactly as it found them. One pass wrote proposals
+    one and two and then refused on the third, leaving a stale INDEX beside
+    files it did not list — and, because the collision set is seeded from
+    `os.listdir`, poisoning the retry, since the corrected batch then collided
+    with its own partial write (kogaki#419).
     """
     if not os.path.isdir(moves_dir):
         os.makedirs(moves_dir)
@@ -509,14 +517,16 @@ def save_accepted(moves_dir, accepted, provenance=None):
     # live run is kogaki#177's backfill over ~20 already-admitted Moves, which
     # is precisely that path. `write_index` would then regenerate an INDEX
     # showing nothing lost.
-    seen = set()
-    if os.path.isdir(moves_dir):
-        seen = {
-            name[:-3]
-            for name in os.listdir(moves_dir)
-            if name.endswith(".md") and name != "INDEX.md"
-        }
-    written = []
+    # `makedirs` above guarantees the directory exists, so this read needs no
+    # isdir guard and no empty-set fallback for a branch that cannot be taken.
+    seen = {
+        name[:-3]
+        for name in os.listdir(moves_dir)
+        if name.endswith(".md") and name != "INDEX.md"
+    }
+
+    # Pass 1 — validate the whole batch. Nothing is written until every id has
+    # cleared, which is what makes a refusal leave no residue.
     for proposal in accepted:
         move_id = proposal.id
         if move_id in seen:
@@ -527,9 +537,13 @@ def save_accepted(moves_dir, accepted, provenance=None):
                 "at the selection screen as review's dedupe judgment, never here" % move_id,
             )
         seen.add(move_id)
+
+    # Pass 2 — write.
+    written = []
+    for proposal in accepted:
         mapping = dict(proposal.mapping)
         attach_derivation_pointer(mapping, provenance)
-        path = move_path(moves_dir, move_id)
+        path = move_path(moves_dir, proposal.id)
         with open(path, "w") as handle:
             handle.write(render_move(mapping))
         written.append(path)
@@ -1013,6 +1027,79 @@ def self_test():
             raise AssertionError("an id collision silently overwrote")
 
     check("AC7 id collision refuses, never silently overwrites", id_collision_refuses_rather_than_overwrites)
+
+    def a_refused_batch_writes_nothing():
+        """A collision in a LATER batch position leaves `moves/` untouched.
+
+        Asserted on the DIRECTORY, never on the exception. The single-pass
+        version raised the identical `Refusal` — after writing proposals one
+        and two — so a case that only caught the raise passes against the
+        defect. What discriminates is what is on disk afterwards.
+
+        The retry is asserted too, because it is the half that made the
+        failure unrecoverable rather than merely untidy: the collision set is
+        seeded from `os.listdir`, so a partial write made the corrected batch
+        collide with itself (kogaki#419).
+
+        Admission (consultation-map entry 1, receipt in the commit):
+
+        - *loop position:* this module's embedded `--self-test`, run on
+          invocation. `move_ingest` is not a `checks/registry.json` member, so
+          this adds no member to the registered family and no CI cost.
+        - *budget:* one `TemporaryDirectory` and four `save_accepted` calls,
+          inside a suite that runs in well under a second.
+        - *removal signal:* repair 2 landing — `save_accepted` writing to a
+          temp directory and moving into place after the loop. That
+          construction makes the partial-write state unreachable rather than
+          merely refused, at which point this case is a review candidate,
+          **never an auto-deletion**. It is NOT removable merely for never
+          having fired: the ablation below is what shows it can.
+
+        The served rule this discharges, verbatim: "A safety check only proves
+        itself on the code paths that actually reached it. … In one real case
+        two different checks in the same command each turned out to cover only
+        the path the other one missed."
+        (`gloss/lessons/testing.md:173@8906f20`) — measured here rather than
+        assumed: under the single-pass ablation the two pre-existing collision
+        cases both PASS, because each asserts the raise and neither asserts the
+        directory. This case is the write path they left uncovered.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            moves = os.path.join(tmp, "moves")
+            save_accepted(moves, [read_proposals(_record("taken"))[0]])
+            before = sorted(os.listdir(moves))
+            index_before = open(os.path.join(moves, "INDEX.md")).read()
+
+            # The collider is LAST, so a single-pass walk writes the two ahead
+            # of it before refusing.
+            batch = [
+                read_proposals(_record("fresh-one"))[0],
+                read_proposals(_record("fresh-two"))[0],
+                read_proposals(_record("taken"))[0],
+            ]
+            try:
+                save_accepted(moves, batch)
+            except Refusal:
+                pass
+            else:
+                raise AssertionError("a collision in a later batch position did not refuse")
+
+            after = sorted(os.listdir(moves))
+            assert after == before, "a refused batch left files behind: %s" % (
+                sorted(set(after) - set(before)),
+            )
+            assert open(os.path.join(moves, "INDEX.md")).read() == index_before, (
+                "a refused batch rewrote INDEX"
+            )
+
+            # And the corrected batch re-runs cleanly — the property the
+            # partial write destroyed.
+            save_accepted(moves, batch[:2])
+            index = open(os.path.join(moves, "INDEX.md")).read()
+            for move_id in ("taken", "fresh-one", "fresh-two"):
+                assert "| %s |" % move_id in index, "INDEX does not list %s" % move_id
+
+    check("AC7 a refused batch writes nothing, and the retry runs clean", a_refused_batch_writes_nothing)
 
     # ---- AC8: the derivation pointer, prose, no ninth field --------------
     def pointer_written_in_the_saving_act():
