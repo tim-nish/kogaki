@@ -1685,10 +1685,23 @@ So, exactly:
   act in this repository re-reads a merged clause when a later decision lands
   on the same subject, so both this sentence and #177's discharge stayed false
   from 2026-08-13 until a sitting happened to look. Marked rather than solved.
-- **What does not change:** the pins are written by the run that resolves them
-  (§6.9.4), never manufactured for a Move whose derivation cannot be resolved.
-  The specimen's 22 `sources` fields carry zero pins **today**, and that stays
-  a measurement rather than a target.
+- **What does not change is the NEVER-MANUFACTURED rule:** nothing is written
+  into a `sources` field for a Move whose derivation cannot be resolved. That
+  rule survives D1 untouched, because it constrains *fabrication* and says
+  nothing about form.
+  **The attribution this bullet used to carry — "the pins are written by the
+  run that resolves them (§6.9.4)" — is superseded by the paragraph above and
+  is dropped rather than left standing.** It restated the same false claim one
+  bullet later, under a heading asserting it did not change, so a reader
+  arriving at §7.6.1 from kogaki#177's discharge met the correction and then
+  met the thing it corrects. Recorded rather than silently re-cut: the first
+  version of this correction fixed the sentence it was looking at and not the
+  claim, which is the more useful half of the mistake.
+  **And the "today" reading is re-read against D1.** The specimen's 22
+  `sources` fields carrying zero pins was written as a transient measurement
+  awaiting a target. Under D1 it is neither: **zero pins is what the ingestion
+  act now produces**, so the figure is the design's steady state rather than a
+  gap to close.
 - **Standing was checked, not inferred from recency.** Being written later says
   when someone wrote, not what they could see
   (`gloss/lessons/knowledge-architecture.md:209@dec0d568dd8fc0b2df1185eac10dc1a10600f299`);
