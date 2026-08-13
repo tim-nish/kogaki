@@ -273,6 +273,18 @@ DISPOSITION_PATH = "lib/disposition.py"
 with open(DISPOSITION_PATH, encoding="utf-8") as _fh:
     exec(compile(_fh.read(), DISPOSITION_PATH, "exec"))
 
+# CLAUSE 12'S ADJUDICATION GRAMMAR AND ITS JOIN ARE LOADED, NEVER RESTATED
+# (§4 clause 12, kogaki#269; moved out by kogaki#288). This file was the only
+# reader until `tools/review-sweep.sh`'s `decide()` needed the same predicate
+# to stop reporting `done` on a PR this gate was refusing — the second
+# independent reader that clause 11's own reasoning says makes a grammar a
+# module rather than a copy. `ADJUDICATES`, `bind_adjudication`,
+# `unadjudicated_blocking` and `adjudication_states` are defined THERE and
+# nowhere here; the fixture below asserts this file defines none of them.
+ADJUDICATION_PATH = "lib/adjudication.py"
+with open(ADJUDICATION_PATH, encoding="utf-8") as _fh:
+    exec(compile(_fh.read(), ADJUDICATION_PATH, "exec"))
+
 # A report's first line, fixed token and fixed position — the same discipline
 # the consult receipt carries, and for the same reason: a report announced in
 # whatever phrasing the sitting reaches for is invisible to anything looking
@@ -336,9 +348,6 @@ FINDING = re.compile(
 # read its output. Clause 12 exists so that a revision carries WHY; a grammar
 # that gates the identity and discards the reason keeps the machinery and loses
 # the point of it.
-ADJUDICATES = re.compile(
-    r'^\s*adjudicates:\s*([0-9a-f]{7,40})\s+finding\s+([0-9]+)\s+(\S.*?)\s*$',
-    re.MULTILINE)
 # THE REPORT DECLARES ITS SCOPE AND ITS COMPLETENESS (specs/SPEC.md §4 clauses
 # 5 and 6; kogaki#70, kogaki#74). One grammar over one segmenter, read in the
 # same single pass as the findings — two sequential passes over this parser is
@@ -787,31 +796,12 @@ def segments(bodies):
             # is a set, not a single-valued declaration.
             current['boundaries'].append(boundary_of(bd, line))
             continue
-        aj = ADJUDICATES.match(line)
-        if aj:
-            # IT BINDS TO THE IMMEDIATELY PRECEDING `finding:` LINE, and FIRST
-            # DECLARATION PER FINDING WINS — clause 12's own two rules, and the
-            # reason the record is per-finding rather than per-segment: which
-            # finding carries the adjudication is what makes the three-way
-            # distinction (resolved / adjudicated-down / re-declared) readable
-            # at all. A segment-level list discharges the earlier finding and
-            # cannot say what answered it.
-            #
-            # A line before any `finding:` in its segment BINDS TO NOTHING and
-            # declares nothing — the same shape `segments()` already gives a
-            # declaration written before any report line. It is not an error
-            # and invalidates nothing; there is simply no finding for it to
-            # revise.
-            if current['findings']:
-                idx = len(current['findings']) - 1
-                if idx not in current['adjudicates']:
-                    # The ordinal is an int so `finding 03` and `finding 3`
-                    # name the same finding: the writer is copying an ordinal
-                    # out of a gate's own output, and a join disagreeing with
-                    # itself on leading zeros would fail in the one direction
-                    # nobody would think to test.
-                    current['adjudicates'][idx] = (
-                        aj.group(1), int(aj.group(2)), aj.group(3))
+        # CLAUSE 12'S ADJUDICATION LINE, bound by the SHARED grammar
+        # (`lib/adjudication.py`, kogaki#288). Both binding rules — it binds to
+        # the immediately preceding `finding:` line, and the first declaration
+        # per finding wins — live there, so this loop and the sweep's read the
+        # same record from the same text.
+        if bind_adjudication(current, line):
             continue
         s = SCOPE.match(line)
         if s:
@@ -844,118 +834,6 @@ def open_blocking(bodies, head, carried=()):
             if sev == 'blocking' and state == 'open':
                 (gating if just else downgraded).append(line)
     return gating, downgraded
-
-
-def unadjudicated_blocking(bodies, head, carried=()):
-    """§4 clause 12 (kogaki#269): EARLIER-head justified `blocking open`
-    findings that no later counted segment adjudicates.
-
-    Returns a list of (sha, ordinal, line, suggestion) — the suggestion being
-    the `adjudicates:` line that would discharge it, PASTE-READY, because the
-    remedy is one line and a gate that names a defect without naming its
-    repair spends the reader's time computing an ordinal the gate already has.
-
-    THE FIVE-PART PREDICATE, in the clause's own order. A finding is
-    unadjudicated when ALL of:
-
-      1. its segment does not name the current head and is not carried onto it
-         — `head_segments()` decides both, so this and the presence side
-         cannot drift apart on what "this head" means;
-      2. its segment COUNTS (clause 6) — a fragment counts as nothing here
-         exactly as it does everywhere else, so a half-posted round-1 report
-         cannot hold a later head red;
-      3. it is `blocking` and still `open`;
-      4. it carries its `[policy:|harm:]` justification — kogaki#72's budget
-         is untouched, and an UNJUSTIFIED blocking already fails toward merge
-         as a `should`, so admitting one here would let it gate by the back
-         door after failing to gate at its own head;
-      5. no LATER counted segment carries an `adjudicates:` line naming its
-         sha and ordinal. Only this part is new.
-
-    THIS GATES THE SILENCE AND NEVER THE SEVERITY. `should` and `nit` appear
-    nowhere above: the predicate never reads the later finding's severity, so
-    no `should` gates as a `should`, an adjudicated downgrade passes exactly
-    as before, and a PR that writes no lower-severity finding at all is caught
-    identically — the case has nothing to do with downgrading and everything
-    to do with an earlier blocking that no later segment ever answered. The
-    served ground is that a check denies on a block's ABSENCE and never judges
-    its CONTENT (`consulted: product-lab@dec0d568
-    topics/claude-code-ops.md:19`).
-
-    LATER IS DOCUMENT ORDER, and that is the whole ordering available: comment
-    bodies arrive concatenated in the order the PR holds them, and a segment
-    cannot adjudicate a finding written after it. Reading the adjudications of
-    EVERY counted segment instead — earlier ones included — would let a
-    round-1 segment discharge a round-2 blocking, which is the direction the
-    clause exists to refuse.
-    """
-    segs = segments(bodies)
-    this_head = {id(s) for s in head_segments(segs, head, carried)}
-    out = []
-    for i, seg in enumerate(segs):
-        if id(seg) in this_head or not counted(seg):
-            continue                                    # parts 1 and 2
-        # Part 5's evidence, gathered over the segments AFTER this one only.
-        answered = set()
-        for later in segs[i + 1:]:
-            if not counted(later):
-                continue
-            for _i, (sha, n, _grounds) in later['adjudicates'].items():
-                if same_head(sha, seg['sha']):
-                    answered.add(n)
-        for ordinal, (sev, state, just, line) in enumerate(seg['findings'], 1):
-            if sev != 'blocking' or state != 'open' or not just:
-                continue                                # parts 3 and 4
-            if ordinal in answered:
-                continue                                # part 5
-            # THE SUGGESTION CARRIES THE GROUNDS SLOT, and carries it as an
-            # unmistakable placeholder rather than as empty space. A remedy
-            # printed without it is a remedy the predicate refuses, and the
-            # earlier form of this line printed exactly that — the gate would
-            # have taught a malformed line to every reviewer who pasted its
-            # output.
-            out.append((seg['sha'], ordinal, line,
-                        f"adjudicates: {seg['sha']} finding {ordinal}  "
-                        f"<why this severity is being revised>"))
-    return out
-
-
-def adjudication_states(bodies, head, carried=()):
-    """The THREE-WAY DISTINCTION clause 12 requires to be renderable, read off
-    the record rather than inferred: for every earlier-head finding that a
-    later counted segment adjudicates, which of the three states answered it.
-
-    Returns a list of (sha, ordinal, state, grounds) where state is:
-
-      `resolved`         the adjudicating finding is `blocking resolved`
-      `adjudicated-down` it is `should` or `nit`
-      `re-declared`      it is still `blocking open`
-
-    The fourth state — SILENTLY RE-GRADED — is the absence of all three, and
-    is exactly what `unadjudicated_blocking()` denies on. It is not a value
-    here because it is not a thing the record says; it is the record saying
-    nothing.
-
-    THIS READS THE ADJUDICATING FINDING'S SEVERITY AND THE DENY DOES NOT, and
-    the split is the whole of kogaki#72's safety here: the gate decides on
-    identity alone, so no `should` ever gates as a `should`, while the human
-    reading the gate's output still gets told which of the three happened.
-    """
-    segs = segments(bodies)
-    out = []
-    for seg in segs:
-        if not counted(seg):
-            continue
-        for idx, (sha, n, grounds) in sorted(seg['adjudicates'].items()):
-            sev, state, _just, _line = seg['findings'][idx]
-            if sev == 'blocking' and state == 'resolved':
-                what = 'resolved'
-            elif sev == 'blocking':
-                what = 're-declared'
-            else:
-                what = 'adjudicated-down'
-            out.append((sha, n, what, grounds))
-    return out
 
 
 def fragments(bodies, head, carried=()):
@@ -1801,6 +1679,22 @@ _agree_fail = []
 # source, finds no local definition, and passes unconditionally. That is the
 # orphan guard the anchoring below exists to prevent, one line above it.
 _HR_OTHER = "tools/review-sweep.sh"
+# THIS FILE'S OWN SOURCE, for the redefinition half of the adjudication guard
+# below. Read here beside the sibling's so both halves of "neither consumer
+# drifted" are answered from text rather than from the comment that says so.
+# AN UNREADABLE SELF IS AN AGREEMENT FAILURE, never an empty string. The first
+# form set `_self_src_hr = ""` on OSError, and an empty source matches none of
+# the redefinition patterns — so the SELF half of the guard passed
+# unconditionally in exactly the case it could not read itself, which is the
+# orphan-guard shape this block's header warns about, one read over
+# (PR #409 round 2).
+_self_read_err = None
+try:
+    with open("checks/check-review-report.sh", encoding="utf-8") as _f_self:
+        _self_src_hr = _f_self.read()
+except OSError as _e_self:
+    _self_src_hr = ""
+    _self_read_err = _e_self
 try:
     with open(_HR_OTHER, encoding="utf-8") as _f:
         _other_src = _f.read()
@@ -1822,6 +1716,44 @@ try:
             _agree_fail.append(
                 f"{_HR_OTHER} redefines `{_dup[4:-1]}` locally — the "
                 "two-instruments shape has reappeared")
+    # THE ADJUDICATION UNIT IS ASSERTED FROM THIS SIDE TOO (§4 clause 12,
+    # kogaki#288; PR #409 round 1). The sibling above runs in BOTH consumers
+    # for the reason this file already states one screen up — a check living
+    # only in the gate cannot observe the sweep drifting and vice versa — and
+    # the adjudication guard shipped in the sweep alone.
+    #
+    # IT BITES HARDER HERE THAN THE SIBLING'S CASE DID, which is why it is a
+    # correction rather than symmetry for its own sake: `tools/review-sweep.sh`
+    # is NOT a registered check and appears in no workflow, so its fixture pass
+    # never runs in CI. A guard that lives only there is a guard nothing
+    # exercises at the merge boundary, and the drift it exists to catch would
+    # land green.
+    if _self_read_err is not None:
+        _agree_fail.append(
+            "could not read this file to check the SELF half of the "
+            f"adjudication guard: {_self_read_err} — an unreadable self is a "
+            "guard that cannot fail, not a guard that passed")
+    if not re.search(r'^ADJUDICATION_PATH = "lib/adjudication\.py"$',
+                     _other_src, re.M):
+        _agree_fail.append(
+            f"{_HR_OTHER} does not reach the adjudication unit by the shared "
+            "path constant — one consumer has drifted, and clause 12's single "
+            "definition is single in name only")
+    for _dup in ("def unadjudicated_blocking(", "def adjudication_states(",
+                 "def bind_adjudication(", "ADJUDICATES = re.compile("):
+        _nm = _dup.split('(')[0].split()[-1]
+        if re.search("^" + re.escape(_dup), _other_src, re.M):
+            _agree_fail.append(
+                f"{_HR_OTHER} redefines `{_nm}` locally — the "
+                "two-vocabularies shape has reappeared, and a divergent JOIN "
+                "returns nothing rather than disagreeing")
+        # AND THIS FILE MUST NOT REDEFINE THEM EITHER. A fixture that only ever
+        # inspects its sibling is the orphan guard this block's own header
+        # warns about: it passes unconditionally in the consumer that drifted.
+        if re.search("^" + re.escape(_dup), _self_src_hr, re.M):
+            _agree_fail.append(
+                f"checks/check-review-report.sh redefines `{_nm}` locally — "
+                "this consumer is the one that drifted")
 except OSError as _e:
     _agree_fail.append(f"could not read {_HR_OTHER} to check agreement: {_e}")
 
@@ -1876,6 +1808,11 @@ if _agree_fail:
     for _m in _agree_fail:
         print(f"FAIL head-resolution agreement: {_m}")
     raise SystemExit(1)
+print("adjudication agreement: clause 12's unit is reached by one path from "
+      "both consumers and NEITHER redefines it — asserted from THIS side "
+      "because `tools/review-sweep.sh` is not a registered check and its own "
+      "fixture pass never runs in CI, so a guard living only there would let "
+      "the drift land green (§4 clause 12, kogaki#288)")
 print("head-resolution agreement: the unit is reached by one path from both "
       "consumers, neither redefines it, and it answers identically on "
       "sha-identity, carried-segment, digest, diff-form AND RECORD "
@@ -2932,8 +2869,12 @@ if state == 'present':
               "head move discards no severity: an earlier declaration is "
               "superseded by an ACT, never by ceasing to be read "
               "(specs/SPEC.md §4 clause 12).")
-        for sha, ordinal, line, suggestion in _unadj:
-            print(f"  {sha[:7]} finding {ordinal}: {line}")
+        for sha, ordinal, finding, suggestion in _unadj:
+            # THIS FILE'S OWN FOURTH FIELD. The shared predicate hands the
+            # finding tuple back unread past its first three, because the two
+            # consumers disagree on slot 4 — prose here, a clause-8 disposition
+            # in the sweep (kogaki#288). Rendering it is the consumer's job.
+            print(f"  {sha[:7]} finding {ordinal}: {finding[3]}")
             print(f"    discharge with: {suggestion}")
         print("  Add the line(s) above to a finding in a counted segment at "
               "this head. THIS GATES THE SILENCE, NEVER THE SEVERITY "
