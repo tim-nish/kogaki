@@ -679,6 +679,15 @@ TIER_ORDINARY_MAX_TURNS="${KOGAKI_REVIEW_TIER_ORDINARY_MAX_TURNS:-24}"
 # #411's stall, on `tools/mine-receipt-absence.sh`, is the FIRST on a path this
 # table does not name. The trigger has not fired.
 #
+# THAT THE TRIGGER STILL STANDS WAS CHECKED, not read off this file. The text
+# above is merged code, and merged code evidences EXISTENCE, never STANDING
+# (`consulted: product-lab@8906f20 gloss/lessons/knowledge-architecture.md:287`)
+# — a clause can be superseded after its code lands with nothing in the code
+# pointing at the verdict. So it was checked at the standing carrier: kogaki#99
+# closed 2026-08-06 as discharged, no later commit amends this clause, and no
+# issue other than kogaki#414 mentions the reflexive tier at all. This file is
+# the existence half; the closed-as-discharged record is the standing half.
+#
 # SO THE SIZE AXIS IS NOT BUILT, AND THAT IS THE DECISION kogaki#414 ASKED FOR
 # (owner selection 2026-08-13). #414 proposed giving the resolver a size input
 # and a declared threshold. Declined FOR NOW on this file's own ground, two
