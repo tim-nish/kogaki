@@ -672,6 +672,48 @@ TIER_ORDINARY_MAX_TURNS="${KOGAKI_REVIEW_TIER_ORDINARY_MAX_TURNS:-24}"
 # the resolved CLASS is the field the log does not carry today. That is a
 # carrier PROPOSAL, not a decision, and building it is not licensed here.
 #
+# THAT TRIGGER STANDS AT 1 OF 2, counted rather than asserted (kogaki#414).
+# The two stalls measured on PR #98 were on `tools/review-sweep.sh` and
+# `.claude/skills/review-lane/SKILL.md` — both REFLEXIVE members since
+# kogaki#99, so both are covered and neither counts toward this trigger. PR
+# #411's stall, on `tools/mine-receipt-absence.sh`, is the FIRST on a path this
+# table does not name. The trigger has not fired.
+#
+# SO THE SIZE AXIS IS NOT BUILT, AND THAT IS THE DECISION kogaki#414 ASKED FOR
+# (owner selection 2026-08-13). #414 proposed giving the resolver a size input
+# and a declared threshold. Declined FOR NOW on this file's own ground, two
+# paragraphs up: "inventing one would be a number with no evidence under it" —
+# a threshold picked from one measured stall is exactly that, and it fails in
+# the expensive direction silently, since every ordinary diff just over it pays
+# opus/60 forever and nothing reports the number was wrong. The served
+# discriminator is `does this end a class or extend a list?`
+# (`consulted: product-lab@8906f20 topics/knowledge-architecture.md:79`): a
+# threshold at n=1 predicts nothing falsifiable, so no observation can ever
+# show it wrong.
+#
+# WHAT WAS BUILT INSTEAD is the detect half — the stall is now READ from the
+# terminal record and announced distinctly (`terminal_subtype`, `stall_lines`),
+# where before a hedge printed "if the turn cap was reached" on every no-report
+# failure alike. This is the DECIDE-OR-NAME shape rather than a silent
+# deferral (`topics/knowledge-architecture.md:60`):
+#
+#   deferred-slot: review-tier-size-threshold
+#   fills when: this trigger reaches 2 — a second measured stall on a path
+#               this table does not name
+#   owed at fill: choice, alternatives and receipt on the licensing issue
+#               BEFORE any number is embedded, including the unit the number
+#               would be honest in (added lines? changed files? neither is
+#               obviously the right proxy for reviewing effort)
+#
+# AND THE AUTOMATIC ESCALATION IS REFUSED HERE, not merely unbuilt. Re-spawning
+# the stalled round at the careful tier would spawn a reviewer without a fresh
+# owner click, which `claude-toolkit#291` forbids with no exception clause —
+# and that rule is not this repository's to amend. `stall_lines` therefore
+# hands the operator the runnable escalation instead, built from the
+# `KOGAKI_REVIEW_MODEL` / `KOGAKI_REVIEW_MAX_TURNS` pins that already win over
+# the resolved tier. The escalation path existed; nothing named it at the
+# moment of failure.
+#
 # `checks/check-review-report.sh` is a KNOWN OPEN QUESTION and is NOT a member:
 # it is already careful via `checks/**`, so membership carries no behavioural
 # delta today — only a different reported class — and that is not decided here.
@@ -2614,6 +2656,79 @@ def denied_tools(log_path):
     return labels
 
 
+def terminal_subtype(log_path):
+    """The session's terminal `subtype`, read from its own route log (kogaki#414).
+
+    Primary capture, parsed rather than inferred — the sibling of
+    `denied_tools` on the other axis: that one answers *what was refused*, this
+    one answers *how the session ended*. Returns the subtype string, `""` when
+    the log carries a terminal `result` record with no subtype, and None when
+    no terminal record is there at all (a killed session, or a log that cannot
+    be read).
+
+    WHY IT IS READ RATHER THAN GUESSED. Before this, a round that died on the
+    turn cap was announced by a HEDGE — "if the turn cap was reached" — printed
+    unconditionally on every no-report failure, so it read the same whether the
+    cap was hit or not. Three terminal states share one visible outcome (no
+    report): a refusal, a tool denial, and a stall. The denial has been named
+    distinctly since kogaki#65; the stall was told apart only by opening the
+    session log and grepping for `error_max_turns` (kogaki#414, PR #411).
+
+    None and "" ARE KEPT APART, and neither is a stall. A missing terminal
+    record means the reader cannot say how the session ended, which is a
+    different fact from knowing it ended some other way — the cannot-determine
+    discipline `report_present` already holds one function up.
+
+    IT READS THROUGH `result_record` RATHER THAN PARSING THE LOG AGAIN. The
+    first version of this function scanned the raw text with its own regex,
+    which was a SECOND reader of the same record — and the weaker of the two,
+    since `result_record` JSON-parses and already scans from the end for the
+    reason this function needs ("a log that was appended to across rounds must
+    yield the run that just finished"). Two readers of one record drift; the
+    cost line and the stall line must never disagree about which run ended.
+    """
+    rec = result_record(log_path)
+    if rec is None:
+        return None
+    sub = rec.get("subtype")
+    return "" if sub is None else sub
+
+
+STALL_SUBTYPE = "error_max_turns"
+
+
+def stall_lines(pr, head, cap, subtype):
+    """The distinct announcement for a round that died on its turn cap.
+
+    Returns [] when the terminal state is not a stall, so the caller's other
+    arms are untouched — this names ONE state and says nothing about the two
+    it sits beside.
+
+    IT HANDS THE OPERATOR A RUNNABLE ACT, and the act uses carriers that
+    already exist: `KOGAKI_REVIEW_MODEL` and `KOGAKI_REVIEW_MAX_TURNS` are
+    OPERATOR PINS that already win over the resolved tier (see the tier table
+    above). The escalation path was built; nothing named it at the moment of
+    failure, which is why the operator's next move was indistinguishable from
+    the grant-gap case.
+
+    IT DOES NOT RE-SPAWN, and that is a decision rather than an omission
+    (kogaki#414, owner selection 2026-08-13). An automatic escalation would
+    spawn a reviewer without a fresh click, which `claude-toolkit#291` forbids
+    without exception — and that rule is not this repository's to amend.
+    """
+    if subtype != STALL_SUBTYPE:
+        return []
+    return [
+        f"  #{pr}: the session hit its turn cap ({cap}) and posted no report — "
+        f"terminal `{STALL_SUBTYPE}`. This is NOT a refusal and NOT a tool "
+        f"denial.",
+        f"  #{pr}: escalate this head at the careful tier — "
+        f"KOGAKI_REVIEW_MODEL=opus KOGAKI_REVIEW_MAX_TURNS=60 "
+        f"tools/review-sweep.sh --pr {pr} --spawn "
+        f"(needs a fresh grant: the stalled round is spent).",
+    ]
+
+
 def report_present(pr, head, allowed):
     """Did a trusted author leave a report for THIS head? The artifact test.
 
@@ -3754,6 +3869,61 @@ for _label, _measured, _events, _must, _also in _recon:
     if _measured and not _events and "no denials" in _text.lower():
         print(f"FAIL denial fixture [{_label}]: an absent event path reported "
               "as 'no denials' — the measured-absence defect itself")
+        _dfail = 1
+
+# THE TERMINAL-STATE READ (kogaki#414). Asserted on the THREE outcomes the
+# announcement has to keep apart, plus the two non-answers, because the whole
+# defect was one hedge standing in for all of them. The stall case is the only
+# one that may produce lines; a fixture that only checked the stall would pass
+# against a `stall_lines` that returned its lines unconditionally, which is the
+# hedge again in a function.
+_stall_dir = tempfile.mkdtemp(prefix="kogaki-stall-")
+
+
+def _stall_log(name, body):
+    p = os.path.join(_stall_dir, name)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(body)
+    return p
+
+
+_RESULT_STALL = '{"type":"result","subtype":"error_max_turns","num_turns":25}'
+_RESULT_OK = '{"type":"result","subtype":"success","num_turns":19}'
+for _label, _body, _want in [
+    ("a stalled session reads error_max_turns", _RESULT_STALL, "error_max_turns"),
+    ("a clean session reads its own subtype", _RESULT_OK, "success"),
+    ("a result record with no subtype reads empty, never a stall",
+     '{"type":"result","num_turns":3}', ""),
+    ("a log with no terminal record is CANNOT-DETERMINE, not a stall",
+     _ASSIST, None),
+    # The LAST result wins: a log appended across a retry carries two, and the
+    # terminal state is the final one. A `re.search` for the first would report
+    # the stall that was already recovered from.
+    ("the LAST result record is the terminal one",
+     _RESULT_STALL + "\n" + _RESULT_OK, "success"),
+]:
+    _got = terminal_subtype(_stall_log(_label[:20].replace(" ", "_") + ".log", _body))
+    if _got != _want:
+        print(f"FAIL stall fixture [{_label}]: got {_got!r}, want {_want!r}")
+        _dfail = 1
+if terminal_subtype(os.path.join(_stall_dir, "nope.log")) is not None:
+    print("FAIL stall fixture [an unreadable log is cannot-determine]")
+    _dfail = 1
+# And the announcement fires on exactly one of them.
+for _label, _sub, _want_lines in [
+    ("the stall is announced", STALL_SUBTYPE, 2),
+    ("a clean exit is NOT announced as a stall", "success", 0),
+    ("a cannot-determine is NOT announced as a stall", None, 0),
+    ("an empty subtype is NOT announced as a stall", "", 0),
+]:
+    if len(stall_lines(411, "abc1234", 24, _sub)) != _want_lines:
+        print(f"FAIL stall fixture [{_label}]")
+        _dfail = 1
+_sl = stall_lines(411, "abc1234", 24, STALL_SUBTYPE)
+for _needle in ("turn cap (24)", "NOT a refusal", "KOGAKI_REVIEW_MAX_TURNS=60",
+                "--pr 411 --spawn", "fresh grant"):
+    if not any(_needle in _l for _l in _sl):
+        print(f"FAIL stall fixture [the announcement omits {_needle!r}]")
         _dfail = 1
 
 # THE GENERATED GATE IS EXERCISED, not merely written. A hook that never ran is
@@ -5700,10 +5870,26 @@ for pr in prs:
                 else:
                     print(f"  #{n}: could NOT post the reason to the PR; it "
                           "survives only in the route log")
-                print(f"  #{n}: if the turn cap ({r_turns}) was reached, the "
-                      "PR is deliberately left report-less — the presence gate "
-                      "is the loud backstop, and a partial report is never "
-                      "fabricated to make this quiet.")
+                # THE TERMINAL STATE IS READ, NOT HEDGED (kogaki#414). This
+                # line used to say "if the turn cap was reached" on EVERY
+                # no-report failure, so it read identically whether the cap was
+                # hit or not — and the three states that share this outcome (a
+                # refusal, a tool denial, a stall) were told apart only by
+                # opening the session log. The denial is named above; the stall
+                # is named here, from the log's own terminal record.
+                _sub = terminal_subtype(log_path)
+                _stall = stall_lines(n, head, r_turns, _sub)
+                for _line in _stall:
+                    print(_line)
+                if not _stall:
+                    print(f"  #{n}: terminal state "
+                          + (f"`{_sub}`" if _sub else
+                             "not recorded in the route log")
+                          + f" — not a turn-cap stall. The cap in force was "
+                            f"{r_turns}.")
+                print(f"  #{n}: the PR is deliberately left report-less — the "
+                      "presence gate is the loud backstop, and a partial "
+                      "report is never fabricated to make this quiet.")
                 spawn_failures += 1
                 counts['spawn-failed'] = counts.get('spawn-failed', 0) + 1
             elif landed is None:
