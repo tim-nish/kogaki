@@ -64,6 +64,11 @@ is countable rather than assumed:
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
 | plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 |
 
+**Only row 4 was re-assessed at v5. Rows 1–3 carry their v1 judgments
+unchanged and were not re-checked at this head** — the column is named `state`
+rather than `v1` because one row no longer holds a v1 value, and that rename
+asserts currency for the other three that nothing here established.
+
 **Row 4 changed at v5, and what it said at v1 is kept rather than edited
 away (kogaki#426).** At v1 it read:
 
