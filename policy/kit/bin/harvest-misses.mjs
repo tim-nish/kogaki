@@ -42,6 +42,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
 // THE RECEIPT GRAMMAR, read at the shape `checks/check-consult-receipts.sh`
@@ -49,6 +50,16 @@ import { fileURLToPath } from "node:url";
 // continuation keys belonging to it.
 const RECEIPT = /^[ \t]*consulted:[ \t]*(.+)$/;
 const CONT = /^[ \t]+(request_id|outcome|disposition|query|axis):[ \t]*(.*)$/;
+
+// USE VS MENTION (kogaki#41) — a fenced block is DOCUMENTATION, never a
+// receipt. `checks/check-consult-receipts.sh` strips fences before parsing
+// (`emitted = FENCE.sub('', source)`) and carries a fixture asserting a doc
+// block quoting the grammar yields ZERO receipts. This file had no fence rule
+// at all, so a commit message or PR body DOCUMENTING the grammar harvested as
+// a real miss and produced a spurious candidate map entry — a proposal for an
+// occasion that never happened, offered to the admission gate as if it had
+// (PR #415 round 1).
+const FENCE = /^[ \t]*(`{3,}|~{3,})[\s\S]*?(?:^[ \t]*\1[ \t]*$|$(?![\s\S]))/gm;
 
 // THE HUB'S RATIFIED TRIPLE, AND THE CONSUMER MINTS NO FOURTH TOKEN (AC2).
 // A consumer owns the SHAPE of its own record and NEVER the VALUES of a field
@@ -85,7 +96,8 @@ export function isRatified(outcome) {
 export function receipts(text) {
   const out = [];
   let cur = null;
-  for (const line of (text || "").split("\n")) {
+  // Fences stripped BEFORE parsing, exactly as the check does it.
+  for (const line of (text || "").replace(FENCE, "").split("\n")) {
     const r = line.match(RECEIPT);
     if (r) {
       cur = { pin: r[1].trim(), requestId: null, outcome: null,
@@ -96,17 +108,30 @@ export function receipts(text) {
     if (!cur) continue;        // a continuation before any receipt belongs to none
     const c = line.match(CONT);
     if (!c) {
-      // A non-indented, non-continuation line ends the block. Receipts are
-      // adjacent-line records exactly as every other declaration in this
-      // portfolio is, so a blank line or prose closes them.
-      if (line.trim() !== "") cur = null;
+      // ANY non-continuation line closes the block, A BLANK LINE INCLUDED. The
+      // check breaks its continuation loop on the first non-`CONT` line
+      // whatever it is; this file skipped blanks and left the receipt open, so
+      // `consulted:` + a blank line + an indented `outcome:` bound an unrelated
+      // token to that receipt here and to nothing there. The comment that stood
+      // here already said a blank line closes them — the comment was right and
+      // the code was wrong (PR #415 round 1).
+      cur = null;
       continue;
     }
-    const [, key, value] = c;
-    if (key === "query") cur.queries.push(value.trim());
-    else if (key === "axis") cur.axes.push(value.trim());
+    const [, key, rawValue] = c;
+    // AN EMPTY CONTINUATION VALUE IS ABSENT, for every field alike — the
+    // check's one rule (`if value:`), carried here rather than re-decided. A
+    // trailing bare `query:` otherwise becomes the LAST framing and wins AC4's
+    // last-framing pairing over the real question above it, so the candidate
+    // announces "quoted as issued" and quotes nothing. AC4 exists to stop a
+    // recorded question being replaced, and an empty one replaces it as
+    // completely as an invented one would.
+    const value = rawValue.trim();
+    if (!value) continue;
+    if (key === "query") cur.queries.push(value);
+    else if (key === "axis") cur.axes.push(value);
     else if (cur[key === "request_id" ? "requestId" : key] === null)
-      cur[key === "request_id" ? "requestId" : key] = value.trim();
+      cur[key === "request_id" ? "requestId" : key] = value;
   }
   return out;
 }
@@ -273,8 +298,18 @@ const rcpt = (outcome, ...extra) =>
   [`consulted: ${P}`, `  request_id: rq-1`, `  outcome: ${outcome}`, ...extra]
     .join("\n");
 
+// RUN ONLY WHEN THIS FILE IS THE ENTRY POINT. The pass used to execute at
+// module load, so importing any of the five exported functions ran every
+// fixture, wrote to stdout and could call `process.exit(1)` in the importer's
+// process — an export nobody can consume without side effects is a declared
+// affordance that does not work (PR #415 round 1). The CLI path is unchanged:
+// a proposer that cannot pass its own fixtures still does not propose, because
+// every invocation below is an entry-point invocation.
+const IS_MAIN = process.argv[1]
+  && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+
 const FX = [];
-const fx = (name, ok) => FX.push([ok, name]);
+const fx = (name, ok) => { if (IS_MAIN) FX.push([ok, name]); };
 
 // AC1 — each MISS state produces a proposal.
 fx("AC1: covered-after-reframing proposes",
@@ -325,8 +360,31 @@ fx("prose closes a receipt block",
    harvest(`consulted: ${P}\nsome prose\n  outcome: covered-after-reframing`)
      .proposals.length === 0);
 
+// THE THREE DRIFTS PR #415 ROUND 1 FOUND, one fixture each. Every one changed
+// what gets PROPOSED, so none of them is cosmetic: the first manufactured a
+// candidate from documentation, and the other two silently rebound a field.
+// Each is written against the behaviour `checks/check-consult-receipts.sh`
+// already has, not against a fresh reading of the grammar.
+fx("USE VS MENTION: a fenced doc block quoting the grammar yields NO receipt",
+   harvest("Docs quoting the grammar:\n```\n" + rcpt("covered-after-reframing")
+           + "\n```\n").proposals.length === 0);
+fx("its control: the SAME receipt unfenced still proposes",
+   harvest(rcpt("covered-after-reframing")).proposals.length === 1);
+fx("a BLANK LINE closes a receipt block",
+   harvest(`consulted: ${P}\n\n  outcome: covered-after-reframing`)
+     .proposals.length === 0);
+fx("an EMPTY continuation value is absent — a bare `query:` does not become "
+   + "the last framing",
+   candidate(harvest(rcpt("covered-after-reframing",
+                          "  query: the real question",
+                          "  query:")).proposals[0])
+     .includes("the real question"));
+fx("an empty `outcome:` declares no outcome at all",
+   harvest(`consulted: ${P}\n  outcome:`).proposals.length === 0
+   && harvest(`consulted: ${P}\n  outcome:`).unratified.length === 0);
+
 const bad = FX.filter(([ok]) => !ok);
-if (bad.length) {
+if (IS_MAIN && bad.length) {
   console.log("FAIL fixture pass — the harvester does not discriminate as story "
               + "1.40 states:");
   for (const [, name] of bad) console.log(`  ${name}`);
@@ -338,7 +396,7 @@ if (bad.length) {
 // pass every fixture above.
 const SELF = fileURLToPath(import.meta.url);
 let selfSrc = "";
-try { selfSrc = readFileSync(SELF, "utf8"); }
+try { selfSrc = IS_MAIN ? readFileSync(SELF, "utf8") : ""; }
 catch (e) {
   console.log(`FAIL fixture pass — could not read this file to assert AC3/AC5: ${e.message}`);
   process.exit(1);
@@ -356,23 +414,30 @@ if (/^\s*[a-zA-Z]+\([^)]*consultation-map/m.test(selfSrc))
   srcBad.push("this file passes `consultation-map.md` to a call — AC3 makes it "
               + "unwritable, and reading it is not this proposer's input either");
 // AC5's structural half: no emitted field may be named for an answer.
-if (/(verdict|answer|conclusion|ruling)\s*:/i.test(
-      selfSrc.split("export function candidate")[1] ?? ""))
+// BOUNDED TO THE COMPOSER, not to two-thirds of the file. The first form split
+// on `export function candidate` and ran to the split call's OWN occurrence of
+// that literal — so it scanned `triggerTerms`, `render` and the whole fixture
+// block, and any unrelated `answer:` text added to those would have tripped it
+// (PR #415 round 1). It still fails toward the safe side; it is simply now
+// scanning what its name says.
+const composer = (selfSrc.split("\nexport function candidate")[1] ?? "")
+  .split("\nexport function")[0];
+if (/(verdict|answer|conclusion|ruling)\s*:/i.test(composer))
   srcBad.push("the candidate composer emits a field named for an ANSWER — a "
               + "proposal that carries a verdict is what Invariant 2 refuses");
 // And the live path must actually compose and print what the units compute.
-if (!/\nconsole\.log\(render\(source\.text, source\.desc\)\);\n/.test(selfSrc))
+if (!/^\s*console\.log\(render\(source\.text, source\.desc\)\);$/m.test(selfSrc))
   srcBad.push("the live path does not compose `render(...)` and print it — the "
               + "proposer would read its range, compute every proposal and emit "
               + "nothing");
-if (srcBad.length) {
+if (IS_MAIN && srcBad.length) {
   console.log("FAIL fixture pass — this file's own source contradicts its "
               + "acceptance criteria:");
   for (const m of srcBad) console.log(`  ${m}`);
   process.exit(1);
 }
 
-console.log(`fixture pass: ${FX.length}/${FX.length} discrimination cases (both `
+if (IS_MAIN) console.log(`fixture pass: ${FX.length}/${FX.length} discrimination cases (both `
   + `MISS states propose; the DISCRIMINATING control does not, differing only in `
   + `the token; a bare \`miss\` and a non-numeric N are unratified rather than `
   + `read as misses; the LAST framing's query is quoted in the RECORDED case and `
@@ -382,22 +447,29 @@ console.log(`fixture pass: ${FX.length}/${FX.length} discrimination cases (both 
   + `composing and printing what the units compute`);
 
 // ---------------------------------------------------------------------------
-const argv = process.argv.slice(2);
-const arg = (name) => {
-  const i = argv.indexOf(name);
-  return i === -1 ? null : argv[i + 1];
-};
-if (argv.includes("--self-test")) process.exit(0);
+// THE CLI, GUARDED. On the import path nothing below runs — not the argument
+// read, not the scan, and above all not `process.exit`. The first repair of
+// this nit left a bare `process.exit(0)` on the non-main path, which made an
+// import terminate the importer's process: worse than the side effect it
+// replaced, and caught by running the import rather than by reading it.
+if (IS_MAIN) {
+  const argv = process.argv.slice(2);
+  const arg = (name) => {
+    const i = argv.indexOf(name);
+    return i === -1 ? null : argv[i + 1];
+  };
+  if (!argv.includes("--self-test")) {
+    const sourceFile = arg("--source-file");
+    const source = sourceFile
+      ? { text: readFileSync(sourceFile, "utf8"), desc: `--source-file ${sourceFile}` }
+      : scanRange(arg("--base"), arg("--head"));
 
-const sourceFile = arg("--source-file");
-const source = sourceFile
-  ? { text: readFileSync(sourceFile, "utf8"), desc: `--source-file ${sourceFile}` }
-  : scanRange(arg("--base"), arg("--head"));
+    // The PR body, when CI provides it — receipts often ride there rather than
+    // in a commit message. Same env the receipt check reads.
+    const prBody = process.env.CONSULT_PR_BODY || "";
+    if (prBody) source.text += "\n" + prBody;
 
-// The PR body, when CI provides it — receipts often ride there rather than in a
-// commit message. Same env the receipt check reads.
-const prBody = process.env.CONSULT_PR_BODY || "";
-if (prBody) source.text += "\n" + prBody;
-
-console.log("");
-console.log(render(source.text, source.desc));
+    console.log("");
+    console.log(render(source.text, source.desc));
+  }
+}
