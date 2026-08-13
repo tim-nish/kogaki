@@ -88,9 +88,16 @@ is nothing to compare against, and a human reading `22` is the whole mechanism.
    file where every record was admitted by the grammar. Write nothing to
    `moves/` before the selection.
 
-   An id collision between two accepted Moves surfaces **here**, as review's
-   dedupe judgment. `save_accepted()` refuses one rather than overwriting, so a
-   collision reaching it is a bug in this step.
+   An id collision surfaces **here**, as review's dedupe judgment — both
+   between two Moves accepted in the same batch **and** against an id already
+   saved by an earlier run. `save_accepted()` refuses rather than overwriting in
+   either case, seeding its collision set from `moves/` on disk, so a collision
+   reaching it is a bug in this step.
+
+   **The second-run case is not hypothetical**: the first live run of this skill
+   is kogaki#177's backfill over the ~20 already-admitted Moves, which is exactly
+   an ingestion into a non-empty `moves/`. Dedupe there is the whole job, not an
+   edge case.
 
 4. **Save, and write the derivation pointer in the same act.** Call
    `save_accepted(moves_dir, accepted, provenance=<prose>)`.

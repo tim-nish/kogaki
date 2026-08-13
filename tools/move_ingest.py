@@ -408,7 +408,21 @@ def render_move(mapping):
         if isinstance(value, list):
             out.append("%s:" % field)
             for item in value:
-                out.append("  - %s" % item)
+                # COLUMN 0, not indented. The indented form was written first and
+                # the parser could not read it back: `SEQUENCE_ITEM` matches an
+                # item at column 0 only, so `  - one` fell through to the scalar
+                # buffer and a list-valued field came back as the string
+                # "- one\n- two". `write_index` reads every file through that
+                # same path, so the breakage reached the INDEX row too.
+                #
+                # Column 0 is also the form §6.9.0's `-` exemption exists FOR:
+                # a YAML block sequence may legally sit there under its own key,
+                # and refusing it "would reject valid input on a purely
+                # typographic axis, and would falsify §6.9.1a's promise that a
+                # saved file is byte-identical in form to what the owner
+                # authored". Rendering at column 0 is what makes that promise
+                # true rather than merely asserted.
+                out.append("- %s" % item)
             continue
         if field in PLAIN_FIELDS:
             out.append("%s: %s" % (field, value))
@@ -489,15 +503,28 @@ def save_accepted(moves_dir, accepted, provenance=None):
     if not os.path.isdir(moves_dir):
         os.makedirs(moves_dir)
 
+    # The collision set is seeded from what is ALREADY on disk, not only from
+    # this batch. A per-call `seen` catches two accepted twins in one run and
+    # silently overwrites an id saved by an EARLIER run — and the very first
+    # live run is kogaki#177's backfill over ~20 already-admitted Moves, which
+    # is precisely that path. `write_index` would then regenerate an INDEX
+    # showing nothing lost.
     seen = set()
+    if os.path.isdir(moves_dir):
+        seen = {
+            name[:-3]
+            for name in os.listdir(moves_dir)
+            if name.endswith(".md") and name != "INDEX.md"
+        }
     written = []
     for proposal in accepted:
         move_id = proposal.id
         if move_id in seen:
             raise Refusal(
                 "1a",
-                "two accepted Moves share the id `%s` — the collision belongs at "
-                "the selection screen as review's dedupe judgment, never here" % move_id,
+                "the id `%s` is already taken — by another Move accepted in this "
+                "batch, or by one saved in an earlier run. The collision belongs "
+                "at the selection screen as review's dedupe judgment, never here" % move_id,
             )
         seen.add(move_id)
         mapping = dict(proposal.mapping)
@@ -652,8 +679,19 @@ def self_test():
     import tempfile
 
     failures = []
+    ran = []
 
     def check(label, fn):
+        # The total is DERIVED from what ran, never a literal. The first version
+        # printed a hard-coded `total = 26` while the function made 30 calls, so
+        # the self-report drifted the moment a case was added and moved only when
+        # someone edited the number.
+        #
+        # That is the very class this module is built around: §6.9.0's whole
+        # argument is that a displayed count is the only instrument that catches
+        # `1` where the owner wrote `22`. A count nothing derives is the defect
+        # wearing the instrument's clothes.
+        ran.append(label)
         try:
             fn()
         except AssertionError as exc:
@@ -864,6 +902,66 @@ def self_test():
 
     check("AC7 a `>-` folded scalar folds, and round-trips", folded_scalar_folds)
 
+    def sequence_survives_the_round_trip():
+        """A list-valued field must survive save → read as a LIST.
+
+        It did not. The renderer wrote `  - item` indented while the parser
+        matches an item at column 0 only, so a saved sequence came back as the
+        scalar string "- one\\n- two" — and `write_index` reads every file back
+        through that same path, so a list-valued `intent` would have landed in
+        the INDEX row as embedded newlines. The parser refused to read the file
+        its own renderer wrote.
+
+        The `-` exemption was exercised at the PARSE and the round trip only for
+        a `>-` folded scalar; nothing crossed the two.
+        """
+        text = _record("seq").replace(
+            "constraints: >-\n  not always\n",
+            "constraints:\n- one\n- two\n",
+        )
+        proposal = read_proposals(text)[0]
+        assert proposal.mapping["constraints"] == ["one", "two"], proposal.mapping["constraints"]
+
+        body = render_move(proposal.mapping)
+        for item_line in ("- one", "- two"):
+            assert "\n%s\n" % item_line in body, (
+                "sequence items must render at column 0 — the form §6.9.0's `-` "
+                "exemption exists for; got:\n%s" % body
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            moves = os.path.join(tmp, "moves")
+            save_accepted(moves, [proposal])
+            back = read_saved(move_path(moves, "seq"))
+            assert back["constraints"] == ["one", "two"], (
+                "a sequence did not survive the round trip: %r" % (back["constraints"],)
+            )
+            # And the saved file is re-admissible by the grammar that wrote it.
+            reread = read_proposals(open(move_path(moves, "seq")).read())
+            assert reread[0].admitted, (
+                "the renderer produced a file its own parser refuses: %s" % reread[0].refusal
+            )
+
+    check("AC7 a sequence survives the round trip and re-admits", sequence_survives_the_round_trip)
+
+    def collision_spans_earlier_runs():
+        """The collision guard covers what is ALREADY on disk, not just the batch.
+
+        A per-call `seen` catches two twins in one run and silently overwrites an
+        id saved by an EARLIER one — and the first live run is kogaki#177's
+        backfill over ~20 already-admitted Moves, which is exactly that path.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            moves = os.path.join(tmp, "moves")
+            save_accepted(moves, [read_proposals(_record("dup"))[0]])
+            try:
+                save_accepted(moves, [read_proposals(_record("dup"))[0]])
+            except Refusal:
+                return
+            raise AssertionError("a second run silently overwrote an existing Move")
+
+    check("AC7 an id saved by an earlier run is not overwritten", collision_spans_earlier_runs)
+
     def filename_is_the_id_as_whole_stem():
         assert move_path("moves", "some-move") == os.path.join("moves", "some-move.md")
 
@@ -934,15 +1032,31 @@ def self_test():
 
     check("AC8 pointer written inside `sources`, no ninth field", pointer_written_in_the_saving_act)
 
-    def pointer_is_prose_not_a_pin():
-        mapping = attach_derivation_pointer(
-            {"sources": "a passage"}, "the 2026-08-07 ruling on Move admission"
-        )
-        assert "@" not in mapping["sources"] or ".md:" not in mapping["sources"], (
-            "a path:line@sha pin was written where D1 selected prose: %s" % mapping["sources"]
-        )
+    # AC8's pointer FORM has no assertion here, and the absence is deliberate.
+    #
+    # One was written and REMOVED as vacuous: it passed a prose string into
+    # `attach_derivation_pointer`, which only concatenates its argument, then
+    # asserted the result was not a pin. No implementation of that function
+    # could fail it — a pin appears in `sources` only if the caller passes one,
+    # and the caller was the test. The fixture supplied the value under test,
+    # which is kogaki#243's class, standing one check below the AC5 guard where
+    # this file records catching it twice already. The mutation table having no
+    # mutant for AC8's form was the corroborating tell.
+    #
+    # The real property — that nothing ever COMPOSES a `path:line@sha` — is not
+    # this function's to hold. It lives in the caller, and the caller is
+    # `.claude/skills/move-ingest/SKILL.md` step 4, which is prose. What IS
+    # mechanical here is that the pointer is appended verbatim and nothing is
+    # synthesized, and that is asserted below.
+    def pointer_is_appended_verbatim_and_nothing_synthesized():
+        mapping = attach_derivation_pointer({"sources": "a passage"}, "PROVENANCE")
+        assert mapping["sources"] == "a passage PROVENANCE", repr(mapping["sources"])
+        assert set(mapping) == {"sources"}, "a field was synthesized: %s" % sorted(mapping)
 
-    check("AC8 pointer form is prose provenance", pointer_is_prose_not_a_pin)
+    check(
+        "AC8 the pointer is appended verbatim, nothing synthesized",
+        pointer_is_appended_verbatim_and_nothing_synthesized,
+    )
 
     def pointer_is_idempotent():
         mapping = {"sources": "a passage"}
@@ -1027,8 +1141,7 @@ def self_test():
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)
-    total = 26
-    print("move_ingest self-test: %d checks, %d failed" % (total, len(failures)))
+    print("move_ingest self-test: %d checks, %d failed" % (len(ran), len(failures)))
     return 1 if failures else 0
 
 
