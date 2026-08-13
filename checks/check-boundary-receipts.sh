@@ -175,6 +175,27 @@
 # obvious mechanical answer, so it is escalated to a spec sitting on kogaki#187
 # rather than decided by the run that measured it.
 #
+# A THIRD INSTANCE, AND ITS SPURIOUSNESS IS CONTESTABLE RATHER THAN OUT OF
+# SCOPE. The commit that wrote the paragraph above itself matched entry 3 —
+# `#3 Record disposition ... (matched on 'declined' in changed text)` — on its
+# own prose, "are each declined twice on the record". That is commit prose and
+# not the PR body, so the second limb's wording DOES reach it.
+#
+# It is recorded here separately rather than folded into the count, and the
+# ground is NOT that the limb misses it. The ground is that the match may not
+# be spurious at all: entry 3's act class is "adopting one record as the live
+# word on what a decision decided", and that commit does adopt a reading of
+# what the two prior declines decided and of what the park's limb decided.
+# Whether that is a use or a mention is precisely the ambiguity kogaki#187
+# exists to name, so this instance cannot be counted without deciding the
+# question the count is evidence FOR.
+#
+# The earlier framing — that the limb was "about commit-prose versus PR body
+# and this is a separate observation" — was wrong on its own terms and is
+# withdrawn. Recorded because an instance of this very class surviving only in
+# a PR body, while the durable comment block omits it, would be the defect
+# this block exists to prevent.
+#
 # THE SOURCE SET IS DECLARED, AND SO IS WHAT IT COULD NOT READ. Trigger terms
 # match against diff paths, changed text (commit messages and the PR body), and
 # the linked issue body. Where a source is unavailable the check SAYS SO rather
