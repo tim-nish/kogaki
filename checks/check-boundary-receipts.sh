@@ -196,8 +196,10 @@
 # a PR body, while the durable comment block omits it, would be the defect
 # this block exists to prevent.
 #
-# THE REMEDY QUESTION IS ANSWERED, AND THE ANSWER IS NO — kogaki#187 CLOSED
-# 2026-08-13 by owner selection, on measurement rather than on argument. Three
+# THE REMEDY QUESTION IS ANSWERED, AND THE ANSWER IS NO — kogaki#187 ANSWERED
+# 2026-08-13 by owner selection at the `/ship-cycle 187` gate, on measurement
+# rather than on argument. The close is left to the act that performs it; this
+# block records the answer, never the issue's state. Three
 # candidate narrowings were put to the specimens; all three failed, and the
 # measurements are recorded here so the next sitting inherits them rather than
 # re-deriving them.
@@ -215,9 +217,19 @@
 #
 #   CANDIDATE 3 — narrow the commit half of `changed text` from `%B` to `%s`,
 #     so only the subject line is matched. This one WORKS on the specimens:
-#     both false positives vanish, and the fixtures below pass 10/10 with the
-#     one-word change applied. IT IS REJECTED ANYWAY, and the reason is the
-#     finding.
+#     both false positives vanish over `59a04ce..7667ba8`. THAT specimen run is
+#     the whole of the evidence for it.
+#
+#     The fixtures below also pass 10/10 with the one-word change applied, and
+#     that figure is INSENSITIVE rather than confirming: `%B` is read only on
+#     the live pass (:532, :536), while the ten cases hand `ftext` straight to
+#     `match_boundaries` and never invoke `git log`, so they pass under the
+#     change BY CONSTRUCTION. Recorded because the first draft of this block
+#     offered the 10/10 as evidence the candidate works — a pass whose only
+#     demonstrated failure mode is unrelated to the change discriminates
+#     nothing, which is this file's own subject arriving in its own argument.
+#
+#     IT IS REJECTED ANYWAY, and the reason is the finding.
 #
 #     Entry 3 matched `declined` in a commit BODY on PR #421, and that match
 #     was a TRUE POSITIVE — the round-1 review judged §4.9.1 to be adopting
@@ -230,8 +242,11 @@
 #
 #     So candidate 3 buys a false positive priced at ONE CONSULTATION by
 #     selling a false negative, and a missed consultation is the more
-#     expensive half — the three-instruments split says so in as many words:
-#     "a stale map costs a missed consultation".
+#     expensive half. The three-instruments split says so in as many words —
+#     "a stale map costs a missed consultation, a missing receipt costs an
+#     unverifiable claim that one happened, and an absent baseline costs an
+#     undetectable gap" —
+#     `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:68`
 #
 # WHAT THE ANSWER RESTS ON, so it is not re-opened as a preference. The
 # accretion polarity's own survival condition was TESTED here rather than
@@ -248,8 +263,15 @@
 # and what it bought was this answer rather than a fix — which is the honest
 # outcome of a trigger doing its job. A future sitting that wants to reopen
 # needs the OTHER limb: a spurious match whose discharge actually costs a
-# consultation, which is the condition the conjunct names and which none of
-# the five recorded instances has met.
+# consultation, which is the condition the conjunct names.
+#
+# THE DENOMINATOR, enumerated rather than asserted. FOUR spurious instances are
+# recorded in this block: PR #182 (entry 1, PR-body prose, the origin), PR #159
+# (entry 1, commit prose, ablation-confirmed), PR #421's `lint` (entry 1,
+# commit prose, ablation-confirmed), and the entry-3 self-match recorded above.
+# None cost a consultation. PR #421's `declined` body match is NOT a member —
+# this block calls it a TRUE POSITIVE — so it is counted in neither figure, and
+# the two counts are named apart here rather than left to a reader to separate.
 #
 # THE SOURCE SET IS DECLARED, AND SO IS WHAT IT COULD NOT READ. Trigger terms
 # match against diff paths, changed text (commit messages and the PR body), and
