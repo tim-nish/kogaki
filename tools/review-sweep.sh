@@ -723,6 +723,45 @@ print(",".join(f"Bash(bash checks/{c['file']}:*)" for c in reg.get("checks", [])
 GRANTS
 )"
 
+# REPOSITORY-OWNED EXECUTABLES UNDER `tools/` ARE GRANTED BY DERIVATION, not by
+# name (kogaki#412). `CHECK_TOOLS` above covers every REGISTERED CHECK and
+# nothing else, so a PR adding a runnable artifact that is not a check left the
+# reviewer able to read its source and unable to execute it.
+#
+# THE OBSERVED DEATH: PR #411 added `tools/mine-receipt-absence.sh`, a proposer
+# — deliberately not a registered check, since a proposer gates nothing and
+# admitting one would need an admission record naming a defect it catches.
+# Round 1 was granted, spawned, and exited 1 with no report, denied
+# `Bash(bash tools/mine-receipt-absence.sh --self-test)`. That self-test was
+# the PR's ENTIRE evidence — 9 discrimination cases and 9 killed mutations —
+# so an owner grant and one of clause 3's two rounds were spent for nothing.
+#
+# DERIVED RATHER THAN LISTED, which is the whole of the fix. Adding
+# `Bash(bash tools/mine-receipt-absence.sh:*)` here would be the enumeration
+# one level down: artifact N+2 uncovered again, and nothing saying so. The
+# served ground: "a rule that requires someone to remember, install, or
+# supervise for it is advisory, and its apparent coverage is an enumeration of
+# the places somebody happened to act"
+# (`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0
+# LESSONS.md:38`).
+#
+# THE SPAWNER IS EXCLUDED BY NAME, with its reason stated — and a named
+# exclusion carrying a ground is not the enumeration this fix objects to.
+# `tools/review-sweep.sh` is what SPAWNS review rounds; granting a round the
+# ability to run it would let a round spawn rounds, which is exactly the
+# capability §4 clause 3's two-round cap exists to bound. The exclusion is
+# therefore not tidiness: it is the cap's own boundary.
+TOOL_TOOLS="$(python3 - <<'TOOLGRANTS' 2>/dev/null || true
+import os
+try:
+    names = sorted(n for n in os.listdir("tools")
+                   if n.endswith(".sh") and n != "review-sweep.sh")
+except OSError:
+    raise SystemExit(0)
+print(",".join(f"Bash(bash tools/{n}:*)" for n in names))
+TOOLGRANTS
+)"
+
 # `Edit` IS GRANTED TO THE REVIEW ROLE (kogaki#310, owner selection
 # 2026-08-09), and it is NOT a capability increase. The role already holds
 # `Write`, and anything `Edit` does to a file `Write` does by overwriting it —
@@ -747,7 +786,7 @@ GRANTS
 REVIEW_TOOLS="${KOGAKI_REVIEW_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr list:*),\
 Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr comment:*),Bash(gh run:*),\
-${CHECK_TOOLS:+$CHECK_TOOLS,}\
+${CHECK_TOOLS:+$CHECK_TOOLS,}${TOOL_TOOLS:+$TOOL_TOOLS,}\
 Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,Edit,Write,\
 mcp__tsurezure__policy_lookup,mcp__tsurezure__gloss_index,\
 mcp__tsurezure__glossary_entry,mcp__tsurezure__topic_thread,\
@@ -765,7 +804,7 @@ mcp__tsurezure__lessons_index}"
 FIX_TOOLS="${KOGAKI_FIX_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(git add:*),Bash(git commit:*),\
 Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),\
-${CHECK_TOOLS:+$CHECK_TOOLS,}\
+${CHECK_TOOLS:+$CHECK_TOOLS,}${TOOL_TOOLS:+$TOOL_TOOLS,}\
 Read,Grep,Glob,Edit,Write}"
 
 SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
@@ -4752,6 +4791,87 @@ if _agree_fail:
     for _m in _agree_fail:
         print(f"FAIL head-resolution agreement: {_m}")
     raise SystemExit(1)
+# --- the tool grant is DERIVED, not enumerated (kogaki#412) -----------------
+# ASSERTED FROM THE BUILT GRANT STRING AND FROM THIS FILE'S SOURCE, never from
+# the comment that describes it. The defect this replaces was invisible for
+# exactly that reason: the grant looked complete, and the artifact it did not
+# cover was the one the PR under review had just added.
+_grant_fail = []
+import os as _os
+# THIS FILE'S OWN SOURCE, read here rather than borrowed from a later block —
+# the adjudication fixture's `_grant_src` is defined below this point, and a
+# fixture that depends on a name it does not own breaks on reordering.
+try:
+    with open("tools/review-sweep.sh", encoding="utf-8") as _fg:
+        _grant_src = _fg.read()
+except OSError as _e:
+    _grant_src = ""
+    _grant_fail.append(
+        f"could not read this file to assert the derivation: {_e} — an "
+        "unreadable self is a guard that cannot fail, not one that passed")
+try:
+    _tools_here = sorted(n for n in _os.listdir("tools")
+                         if n.endswith(".sh") and n != "review-sweep.sh")
+except OSError as _e:
+    _tools_here = []
+    _grant_fail.append(f"could not list tools/ to check the derivation: {_e}")
+
+# 1. THE DERIVATION ITSELF, read from source — and this half is what makes the
+#    fixture non-vacuous. `tools/` may legitimately hold NO other executable,
+#    and then every assertion over the live listing below is a no-op that
+#    passes. A guard whose condition never arises leaves no trace of having
+#    been missing, so the mechanism is asserted whether or not it has input
+#    today. Anchored on the derivation's own line shapes.
+if not re.search(r"\nTOOL_TOOLS=\"\$\(python3 - <<'TOOLGRANTS'", _grant_src):
+    _grant_fail.append(
+        "the tools/ grant is not DERIVED — no TOOL_TOOLS derivation block, so "
+        "any coverage here is an enumeration and artifact N+1 is uncovered")
+if not re.search(r'n\.endswith\("\.sh"\) and n != "review-sweep\.sh"', _grant_src):
+    _grant_fail.append(
+        "the derivation does not exclude the SPAWNER by name — a round able to "
+        "run tools/review-sweep.sh can spawn rounds, and §4 clause 3's "
+        "two-round cap stops bounding anything")
+for _role in ("REVIEW_TOOLS", "FIX_TOOLS"):
+    if f"${{TOOL_TOOLS:+$TOOL_TOOLS,}}" not in _grant_src.split(f"{_role}=")[1][:400]:
+        _grant_fail.append(
+            f"{_role} does not interpolate the derived tools/ grant — PR #67 "
+            "round 2 found exactly this, a grant fix that reached one of the "
+            "two roles and left the other with the dead pattern")
+
+# 2. AND OVER THE LIVE LISTING, when there is one. Both roles, because the
+#    fixer that cannot run what it changed is the worse half of the two.
+for _t in _tools_here:
+    _want = f"Bash(bash tools/{_t}:*)"
+    if _want not in REVIEW_TOOLS:
+        _grant_fail.append(
+            f"the review role cannot execute tools/{_t} — a PR adding it would "
+            "have its own evidence unrunnable by the round reviewing it")
+    if _want not in FIX_TOOLS:
+        _grant_fail.append(
+            f"the fix role cannot execute tools/{_t} — the fixer would edit, "
+            "commit and push while unable to run what it changed")
+
+# 3. THE SPAWNER IS EXCLUDED FROM THE BUILT STRINGS, not only from the source
+#    that builds them.
+for _role, _val in (("review", REVIEW_TOOLS), ("fix", FIX_TOOLS)):
+    if "Bash(bash tools/review-sweep.sh:*)" in _val:
+        _grant_fail.append(
+            f"the {_role} role can execute the SPAWNER — a round able to run "
+            "tools/review-sweep.sh can spawn rounds")
+
+if _grant_fail:
+    for _m in _grant_fail:
+        print(f"FAIL tool-grant derivation: {_m}")
+    raise SystemExit(1)
+_live = (f"{len(_tools_here)} live tool(s) granted"
+         if _tools_here else
+         "NO other executable under tools/ today, so the live half of this "
+         "pass is vacuous and says so rather than reading as coverage")
+print(f"tool-grant pass: the tools/ grant is DERIVED from the filesystem and "
+      f"reaches BOTH roles, with the SPAWNER excluded by name so a round "
+      f"cannot spawn rounds — asserted from this file's source AND from the "
+      f"built grant strings ({_live}) (kogaki#412)")
+
 # --- the adjudication unit, and the state it decides (§4 clause 12, #288) ---
 # THE FIXTURE THE ISSUE ASKED FOR, in its own words: "a counted clean
 # current-head segment plus an unadjudicated earlier-head justified blocking
