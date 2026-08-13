@@ -196,6 +196,83 @@
 # a PR body, while the durable comment block omits it, would be the defect
 # this block exists to prevent.
 #
+# THE REMEDY QUESTION IS ANSWERED, AND THE ANSWER IS NO — kogaki#187 ANSWERED
+# 2026-08-13 by owner selection at the `/ship-cycle 187` gate, on measurement
+# rather than on argument. The close is left to the act that performs it; this
+# block records the answer, never the issue's state. Three
+# candidate narrowings were put to the specimens; all three failed, and the
+# measurements are recorded here so the next sitting inherits them rather than
+# re-deriving them.
+#
+#   CANDIDATE 1 — exclude a bare path/filename mention inside prose.
+#     This is the remedy kogaki#187 itself offered. FALSIFIED by the specimen
+#     that fired its own trigger: the surviving term was `lint`, carried by
+#     "§4.6 and §6.9.2 both exclude lint" — neither a path nor a filename.
+#
+#   CANDIDATE 2 — strip fenced blocks and inline code spans before matching,
+#     mirroring `count_receipts()` below, which is the precedent kogaki#187
+#     cites in its own body. MEASURED AND REJECTED: over `59a04ce..7667ba8`
+#     the strip changes nothing, because `lint` and `declined` both sit in
+#     plain prose. The precedent is real and does not reach this class.
+#
+#   CANDIDATE 3 — narrow the commit half of `changed text` from `%B` to `%s`,
+#     so only the subject line is matched. This one WORKS on the specimens:
+#     both false positives vanish over `59a04ce..7667ba8`. THAT specimen run is
+#     the whole of the evidence for it.
+#
+#     The fixtures below also pass 10/10 with the one-word change applied, and
+#     that figure is INSENSITIVE rather than confirming: `%B` is read only on
+#     the live pass (:532, :536), while the ten cases hand `ftext` straight to
+#     `match_boundaries` and never invoke `git log`, so they pass under the
+#     change BY CONSTRUCTION. Recorded because the first draft of this block
+#     offered the 10/10 as evidence the candidate works — a pass whose only
+#     demonstrated failure mode is unrelated to the change discriminates
+#     nothing, which is this file's own subject arriving in its own argument.
+#
+#     IT IS REJECTED ANYWAY, and the reason is the finding.
+#
+#     Entry 3 matched `declined` in a commit BODY on PR #421, and that match
+#     was a TRUE POSITIVE — the round-1 review judged §4.9.1 to be adopting
+#     four dispositions into a spec, which is entry 3's act class exactly, and
+#     the consultation it forced found a real defect (the clause restated four
+#     records it does not own and declared precedence for none). Under
+#     candidate 3 that match returns EMPTY. Entry 1 would have survived on
+#     `diff paths`; entry 3 has no path-shaped backstop and would simply have
+#     gone dark.
+#
+#     So candidate 3 buys a false positive priced at ONE CONSULTATION by
+#     selling a false negative, and a missed consultation is the more
+#     expensive half. The three-instruments split says so in as many words —
+#     "a stale map costs a missed consultation, a missing receipt costs an
+#     unverifiable claim that one happened, and an absent baseline costs an
+#     undetectable gap" —
+#     `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:68`
+#
+# WHAT THE ANSWER RESTS ON, so it is not re-opened as a preference. The
+# accretion polarity's own survival condition was TESTED here rather than
+# re-derived, which is what the served line demands of any sitting that quotes
+# it: "the discharging act must be CHEAP and AVAILABLE TO THE PARTY THE GATE
+# BLOCKS ... THE CONJUNCT, NEVER THE POLARITY, is what that sitting must test".
+# Three fresh specimens — PR #418 round 1, PR #421 rounds 1 and 2 — were each
+# discharged by the reviewer's own judgment in a disclosure paragraph, with
+# ZERO consultations performed, no owner ruling and no third-party verdict.
+# The conjunct holds, so the polarity carries and the pricing stands.
+# `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:47`
+#
+# THE COUNT LIMB STAYS SPENT AND IS NOT RE-ARMED. It fired, it was measured,
+# and what it bought was this answer rather than a fix — which is the honest
+# outcome of a trigger doing its job. A future sitting that wants to reopen
+# needs the OTHER limb: a spurious match whose discharge actually costs a
+# consultation, which is the condition the conjunct names.
+#
+# THE DENOMINATOR, enumerated rather than asserted. FOUR spurious instances are
+# recorded in this block: PR #182 (entry 1, PR-body prose, the origin), PR #159
+# (entry 1, commit prose, ablation-confirmed), PR #421's `lint` (entry 1,
+# commit prose, ablation-confirmed), and the entry-3 self-match recorded above.
+# None cost a consultation. PR #421's `declined` body match is NOT a member —
+# this block calls it a TRUE POSITIVE — so it is counted in neither figure, and
+# the two counts are named apart here rather than left to a reader to separate.
+#
 # THE SOURCE SET IS DECLARED, AND SO IS WHAT IT COULD NOT READ. Trigger terms
 # match against diff paths, changed text (commit messages and the PR body), and
 # the linked issue body. Where a source is unavailable the check SAYS SO rather
