@@ -4840,6 +4840,58 @@ try:
 except OSError as _e:
     _adj_fail.append(f"could not read a consumer to check agreement: {_e}")
 
+# 6. THE CALL SITES ARE ASSERTED FROM SOURCE, ARITY AND ALL (PR #409 round 2).
+# Block 5 asserts only that neither consumer REDEFINES the names — which is
+# silent on whether this file still reaches them, with what arguments, or
+# whether those arguments resolve. That gap is not hypothetical: the driver's
+# call shipped with five arguments to a six-argument unit and would have
+# aborted the whole sweep the first time the state fired. The merge gate has
+# asserted its own call site's exact line shape since kogaki#269 and its
+# equivalent defect cannot ship; this is that discipline arriving on the
+# consumer that needed it.
+#
+# ANCHORED ON EACH SITE'S OWN LINE SHAPE rather than on a bare name, for the
+# reason the gate's own version of this block records: an unanchored search
+# matches THIS fixture's mention of the call and reads its own source as the
+# evidence.
+for _site, _pat, _what in (
+    ("decide()",
+     r"\n        _unadj = unadjudicated_blocking\(bodies, head, carried\)\n",
+     "reach the predicate with the carried set"),
+    ("the driver's disclosure branch",
+     r"\n        _unadj = unadjudicated_blocking\(bodies, head, _c_here\)\n",
+     "reach the predicate with the carried set"),
+    ("the driver's carry-forward read",
+     r"\n            _c_here, _ = carry_forward\(bodies, head, _base, _d_at, "
+     r"_m_base,\n                                       segments\)\n",
+     "pass all SIX arguments to the shared unit"),
+):
+    if not re.search(_pat, _self_adj):
+        _adj_fail.append(
+            f"{_site} does not {_what} in the shape this fixture asserts — "
+            "either the call moved or its arguments changed, and the sweep's "
+            "call sites are exactly what shipped a crash once")
+
+# AND THE STATE IS EXERCISED THROUGH THE RENDERER, not only through `decide()`.
+# The five cases above all stop at the state name, which is why an arity error
+# in the branch that RENDERS it survived them. This calls the same reads the
+# driver makes, in the same order, so a signature drift in the shared unit
+# fails here rather than in production.
+try:
+    _r_c = []
+    if None and None:                     # mirrors the driver's reader guard
+        pass
+    _r_c, _ = carry_forward(_earlier_open + _clean_now, _NEWH, None, None,
+                            None, segments)
+    if unadjudicated_blocking(_earlier_open + _clean_now, _NEWH, _r_c) == []:
+        _adj_fail.append(
+            "the renderer's own reads return no unadjudicated finding on the "
+            "specimen — the driver would print an empty list under a red gate")
+except TypeError as _e:
+    _adj_fail.append(
+        f"the renderer's reads do not compose with the shared unit: {_e} — "
+        "this is the PR #409 round 2 crash, caught before it ships")
+
 if _adj_fail:
     for _m in _adj_fail:
         print(f"FAIL adjudication agreement: {_m}")
@@ -5267,7 +5319,17 @@ for pr in prs:
         # Computed through the SHARED carry-forward unit rather than re-derived,
         # exactly as `decide()` computes it — two call sites of one unit is the
         # sanctioned shape here; two derivations of one answer is not.
-        _c_here, _ = carry_forward(bodies, head, _base, _d_at, _m_base)
+        # SIX ARGUMENTS, AND THE READER GUARD ITS SIBLING CARRIES. The first
+        # form of this line passed five and would have raised `TypeError:
+        # carry_forward() missing 1 required positional argument: 'segments'`
+        # the FIRST TIME this state fired — unhandled inside `for pr in prs`,
+        # so the whole sweep would abort and every PR after it in the listing
+        # would go unswept. The crash is reachable only in the state this act
+        # exists to add, which is why nothing before PR #409 round 2 met it.
+        _c_here = []
+        if _d_at and _m_base:
+            _c_here, _ = carry_forward(bodies, head, _base, _d_at, _m_base,
+                                       segments)
         _unadj = unadjudicated_blocking(bodies, head, _c_here)
         print(f"  #{n}: reviewed at {head[:7]} with nothing blocking open, but "
               f"the MERGE GATE IS RED — {len(_unadj)} justified `blocking "

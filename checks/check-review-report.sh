@@ -1682,11 +1682,19 @@ _HR_OTHER = "tools/review-sweep.sh"
 # THIS FILE'S OWN SOURCE, for the redefinition half of the adjudication guard
 # below. Read here beside the sibling's so both halves of "neither consumer
 # drifted" are answered from text rather than from the comment that says so.
+# AN UNREADABLE SELF IS AN AGREEMENT FAILURE, never an empty string. The first
+# form set `_self_src_hr = ""` on OSError, and an empty source matches none of
+# the redefinition patterns — so the SELF half of the guard passed
+# unconditionally in exactly the case it could not read itself, which is the
+# orphan-guard shape this block's header warns about, one read over
+# (PR #409 round 2).
+_self_read_err = None
 try:
     with open("checks/check-review-report.sh", encoding="utf-8") as _f_self:
         _self_src_hr = _f_self.read()
-except OSError:
+except OSError as _e_self:
     _self_src_hr = ""
+    _self_read_err = _e_self
 try:
     with open(_HR_OTHER, encoding="utf-8") as _f:
         _other_src = _f.read()
@@ -1720,6 +1728,11 @@ try:
     # never runs in CI. A guard that lives only there is a guard nothing
     # exercises at the merge boundary, and the drift it exists to catch would
     # land green.
+    if _self_read_err is not None:
+        _agree_fail.append(
+            "could not read this file to check the SELF half of the "
+            f"adjudication guard: {_self_read_err} — an unreadable self is a "
+            "guard that cannot fail, not a guard that passed")
     if not re.search(r'^ADJUDICATION_PATH = "lib/adjudication\.py"$',
                      _other_src, re.M):
         _agree_fail.append(
