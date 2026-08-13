@@ -1,6 +1,10 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v4, amended 2026-08-08 (kogaki#223) — **Move ingestion is
+**Status:** v5, amended 2026-08-13 (kogaki#426) — §2's item-2 gate table row 4
+(plain register with round-trip concessions) moves from **not bound** to
+**bound**: manifest item 6's carrier landed as
+`specs/spec-style-contract/SPEC.md` (v1), and the row's v1 reading is kept
+beside the table rather than edited away. v4, amended 2026-08-08 (kogaki#223) — **Move ingestion is
 CONSTRUCTED against its first real input**: §6.9.0 binds the input grammar to
 what the owner actually authored, §6.9.1 gains the file interior, filename and
 derived INDEX row that fork (a) entails, §6.9.4 **FILLS** the named slot
@@ -53,12 +57,28 @@ admission.
 v1 binds the **structure half** of item 2. Stated per gate so the remainder
 is countable rather than assumed:
 
-| Item 2 gate | v1 |
+| Item 2 gate | state |
 | --- | --- |
 | thesis | **bound** as design — §3 |
 | journey incorporation | **partial** — Journeys are admissible step materials (§4) and §4.8 binds arc integrity; the incorporation gate itself is owed |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
-| plain register with round-trip concessions | **not bound** — it consumes manifest item 6 (the style contract), whose re-homing kogaki#127 excludes from this sitting by name ("No new style artifact") |
+| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 |
+
+**Row 4 changed at v5, and what it said at v1 is kept rather than edited
+away (kogaki#426).** At v1 it read:
+
+> "**not bound** — it consumes manifest item 6 (the style contract), whose
+> re-homing kogaki#127 excludes from this sitting by name ("No new style
+> artifact")"
+
+That reading was correct for its own sitting: the row was blocked on an
+absent carrier, and it named which one. kogaki#426 supplied the carrier —
+`specs/spec-style-contract/SPEC.md` (v1) — so the row's stated precondition
+is discharged and nothing about v1's judgment is retracted. #127's "No new
+style artifact" is a prohibition on **proliferation**, never on the one
+contract existing; the new spec ships **no authored style clause and no
+second style artifact**, which is what keeps that prohibition intact rather
+than overridden.
 
 The Brief's **durable home** — where the document lives, checkpoints and
 resume — is manifest item 5's and is not decided here. v1 describes the
