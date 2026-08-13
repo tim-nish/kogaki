@@ -146,6 +146,35 @@
 # The compound-source reading is not falsified by this instance; it is not
 # confirmed by it either, and the count now stands at one.
 #
+# THE COUNT NOW STANDS AT TWO — PR #421, measured 2026-08-13 by running the
+# ablation act above rather than by reading prose (kogaki#187). Over
+# `59a04ce..7667ba8`:
+#
+#   with CONSULT_PR_BODY   #1 matched on 'check' in changed text
+#   with CONSULT_PR_BODY=  #1 matched on 'lint'  in changed text   <- SURVIVED
+#
+# The match survived the ablation, so the matching text is the COMMIT prose and
+# the second limb's own wording — "a second instance whose matching text is the
+# COMMIT prose rather than the PR body" — is now MET IN FULL. kogaki#187 is
+# unparked on this measurement.
+#
+# AND THE INSTANCE FALSIFIES THE ONE REMEDY STILL ON THE TABLE, which is the
+# part worth carrying forward. kogaki#187 offered a mechanical, judgment-free
+# narrowing: exclude a term occurrence that is a bare path/filename mention
+# inside prose. The surviving term is `lint`, and the prose carrying it is
+# `7667ba8`'s commit message declaring that NO lint exists — "§4.6 and §6.9.2
+# both exclude lint", "nothing here detects a violation". That is not a path
+# and not a filename, so the offered narrowing would not have caught the
+# specimen that fired the trigger.
+#
+# The mention-vs-use gap is therefore SHARPER than the filing framed it:
+# **prose declaring a boundary's ABSENCE matches the trigger term for crossing
+# it**, and the two other candidate remedies (weighting the sources;
+# per-term source scoping) are each declined twice on the record above and are
+# NOT reopened here. Choosing among what remains is a design act with no
+# obvious mechanical answer, so it is escalated to a spec sitting on kogaki#187
+# rather than decided by the run that measured it.
+#
 # THE SOURCE SET IS DECLARED, AND SO IS WHAT IT COULD NOT READ. Trigger terms
 # match against diff paths, changed text (commit messages and the PR body), and
 # the linked issue body. Where a source is unavailable the check SAYS SO rather
