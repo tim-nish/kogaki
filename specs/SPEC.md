@@ -4210,7 +4210,12 @@ subsystem per PR through the gate above:
 5. **Run-record/workspace machinery** (checkpoints, resume, block mode as
    opt-in dev control, durable Brief home).
 6. **The style contract and plain-register commitment**, consumed at
-   generation.
+   generation. Carrier: `specs/spec-style-contract/SPEC.md` (v1, kogaki#426),
+   which binds the **protocol** — the carrier sort, the syntax profile's
+   deliberate absence of an instrument, plain register's operational
+   definition and round-trip test, exemplar slots declared and empty — and
+   binds **no authored style clause**: the contract instance is
+   owner-authored and nothing here creates it.
 7. **Review** — findings-only, one dimension: conformance to the named
    contract, citing the clause; plus the citation resolve check.
 
