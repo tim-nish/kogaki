@@ -5254,7 +5254,21 @@ for pr in prs:
         # an absence generates no event to hook — so the remedy is to make the
         # missing thing observable, which is exactly what the false `done` this
         # state replaces was preventing.
-        _unadj = unadjudicated_blocking(bodies, head)
+        # THE CARRIED SET IS PASSED, and it is not optional (PR #409 round 1).
+        # Dropping it makes part 1 of the predicate read a segment that CARRIED
+        # FORWARD onto this head as an EARLIER one, so this printed list would
+        # be computed over a different segment partition from the state that
+        # produced it — a disclosure disagreeing with its own verdict, which is
+        # the one thing this branch exists to end. It cannot diverge today only
+        # because a carried segment holding a justified `blocking open` is
+        # caught by `author-owes` upstream; an argument masked by an invariant
+        # elsewhere is still the wrong argument.
+        #
+        # Computed through the SHARED carry-forward unit rather than re-derived,
+        # exactly as `decide()` computes it — two call sites of one unit is the
+        # sanctioned shape here; two derivations of one answer is not.
+        _c_here, _ = carry_forward(bodies, head, _base, _d_at, _m_base)
+        _unadj = unadjudicated_blocking(bodies, head, _c_here)
         print(f"  #{n}: reviewed at {head[:7]} with nothing blocking open, but "
               f"the MERGE GATE IS RED — {len(_unadj)} justified `blocking "
               "open` finding(s) at an EARLIER head are adjudicated by nothing "

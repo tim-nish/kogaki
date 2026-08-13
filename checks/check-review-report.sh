@@ -1679,6 +1679,14 @@ _agree_fail = []
 # source, finds no local definition, and passes unconditionally. That is the
 # orphan guard the anchoring below exists to prevent, one line above it.
 _HR_OTHER = "tools/review-sweep.sh"
+# THIS FILE'S OWN SOURCE, for the redefinition half of the adjudication guard
+# below. Read here beside the sibling's so both halves of "neither consumer
+# drifted" are answered from text rather than from the comment that says so.
+try:
+    with open("checks/check-review-report.sh", encoding="utf-8") as _f_self:
+        _self_src_hr = _f_self.read()
+except OSError:
+    _self_src_hr = ""
 try:
     with open(_HR_OTHER, encoding="utf-8") as _f:
         _other_src = _f.read()
@@ -1700,6 +1708,39 @@ try:
             _agree_fail.append(
                 f"{_HR_OTHER} redefines `{_dup[4:-1]}` locally — the "
                 "two-instruments shape has reappeared")
+    # THE ADJUDICATION UNIT IS ASSERTED FROM THIS SIDE TOO (§4 clause 12,
+    # kogaki#288; PR #409 round 1). The sibling above runs in BOTH consumers
+    # for the reason this file already states one screen up — a check living
+    # only in the gate cannot observe the sweep drifting and vice versa — and
+    # the adjudication guard shipped in the sweep alone.
+    #
+    # IT BITES HARDER HERE THAN THE SIBLING'S CASE DID, which is why it is a
+    # correction rather than symmetry for its own sake: `tools/review-sweep.sh`
+    # is NOT a registered check and appears in no workflow, so its fixture pass
+    # never runs in CI. A guard that lives only there is a guard nothing
+    # exercises at the merge boundary, and the drift it exists to catch would
+    # land green.
+    if not re.search(r'^ADJUDICATION_PATH = "lib/adjudication\.py"$',
+                     _other_src, re.M):
+        _agree_fail.append(
+            f"{_HR_OTHER} does not reach the adjudication unit by the shared "
+            "path constant — one consumer has drifted, and clause 12's single "
+            "definition is single in name only")
+    for _dup in ("def unadjudicated_blocking(", "def adjudication_states(",
+                 "def bind_adjudication(", "ADJUDICATES = re.compile("):
+        _nm = _dup.split('(')[0].split()[-1]
+        if re.search("^" + re.escape(_dup), _other_src, re.M):
+            _agree_fail.append(
+                f"{_HR_OTHER} redefines `{_nm}` locally — the "
+                "two-vocabularies shape has reappeared, and a divergent JOIN "
+                "returns nothing rather than disagreeing")
+        # AND THIS FILE MUST NOT REDEFINE THEM EITHER. A fixture that only ever
+        # inspects its sibling is the orphan guard this block's own header
+        # warns about: it passes unconditionally in the consumer that drifted.
+        if re.search("^" + re.escape(_dup), _self_src_hr, re.M):
+            _agree_fail.append(
+                f"checks/check-review-report.sh redefines `{_nm}` locally — "
+                "this consumer is the one that drifted")
 except OSError as _e:
     _agree_fail.append(f"could not read {_HR_OTHER} to check agreement: {_e}")
 
@@ -1754,6 +1795,11 @@ if _agree_fail:
     for _m in _agree_fail:
         print(f"FAIL head-resolution agreement: {_m}")
     raise SystemExit(1)
+print("adjudication agreement: clause 12's unit is reached by one path from "
+      "both consumers and NEITHER redefines it — asserted from THIS side "
+      "because `tools/review-sweep.sh` is not a registered check and its own "
+      "fixture pass never runs in CI, so a guard living only there would let "
+      "the drift land green (§4 clause 12, kogaki#288)")
 print("head-resolution agreement: the unit is reached by one path from both "
       "consumers, neither redefines it, and it answers identically on "
       "sha-identity, carried-segment, digest, diff-form AND RECORD "
