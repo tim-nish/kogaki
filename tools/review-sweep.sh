@@ -3871,7 +3871,24 @@ for _label, _measured, _events, _must, _also in _recon:
               "as 'no denials' — the measured-absence defect itself")
         _dfail = 1
 
-# THE TERMINAL-STATE READ (kogaki#414). Asserted on the THREE outcomes the
+# THE TERMINAL-STATE READ (kogaki#414).
+#
+# Admission (consultation-map entry 1 — modifying a check surface; the
+# prescribed survey was run this sitting and its receipt is on the branch):
+#   loop position   this file's inline fixture pass, run on every invocation
+#                   of the sweep, `--dry-run` included.
+#   budget          one `mkdtemp` and six small file writes; no network, no
+#                   subprocess, no `gh` call.
+#   removal signal  the size axis landing (the named slot above). If the
+#                   resolver ever refuses the unfinishable pairing UP FRONT,
+#                   a stall becomes unreachable rather than merely legible,
+#                   and these cases become review candidates — NEVER
+#                   auto-deletions, and never removable for not having fired.
+#   "each check enters with three things fixed: which stage of the workflow it
+#    runs at, what its budget there is, and what evidence would justify
+#    removing it later" (gloss/lessons/claude-code-ops.md:65@8906f20)
+#
+# Asserted on the THREE outcomes the
 # announcement has to keep apart, plus the two non-answers, because the whole
 # defect was one hedge standing in for all of them. The stall case is the only
 # one that may produce lines; a fixture that only checked the stall would pass
