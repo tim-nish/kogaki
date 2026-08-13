@@ -446,6 +446,71 @@ may *point* at it. **Structurally unable to migrate into the schema**: there is
 no field for a sequence, so the adjacency lists §4.7 excludes cannot return
 through this door.
 
+#### 4.9.1 What §4.9 entails, constructed (kogaki#420)
+
+**§4.9 ratified where sequences live and fixed nothing else about the place,
+so for as long as that stood it was a rule with nowhere to obey it.** A sitting
+that observed a real multi-Move sequence had no ratified destination, and the
+two paths of least resistance were the two §4.9 names as forbidden: widen
+`sources`, or reintroduce library structure. **A prohibition whose positive
+destination does not exist is a prohibition waiting to be worked around**, and
+that is what this subsection removes — by construction, not by a check. §4.6
+and §6.9.2 both exclude lint, so nothing here detects a violation; what changes
+is that obeying the rule is now possible.
+
+Owner selection 2026-08-13 at the `/ship-cycle 220` gate.
+
+**The location.** `analysis/<source-slug>.md` — one file per source passage,
+the slug the whole stem. This deliberately **mirrors `moves/<id>.md`**: two
+libraries that read alike, sit side by side, and index each other not at all.
+
+**The interior is prose, and the prose is the point.** Headed sections of
+source-specific precedent, with no schema, no field set, and no required
+ordering. The temptation is a table — sequences look tabular — and a table is
+the adjacency data §4.7 excludes wearing a different hat. **There is no field
+for a sequence anywhere in this design, and that includes here**: what makes
+§4.9's "structurally unable to migrate into the schema" true is that the
+destination has no schema to migrate *from*.
+
+**No INDEX, and no regeneration contract.** `moves/INDEX.md` is regenerated
+whole from `moves/` because every one of its columns is *read off a file*
+(§6.9.1a) — a property prose cannot have. An `analysis/INDEX.md` would compose
+its rows rather than derive them, which §6.9.1 already declined for the Move
+file interior and declines again here for the same reason. A reader finds these
+files by name and by the `sources` pointers into them.
+
+**The pointer form is `sources`' own, unchanged.** A Move's `sources` may point
+at an analysis document **in prose, naming the passage** — the form kogaki#417
+D1 selected for `sources` generally, and this subsection introduces no second
+convention beside it. Concretely, `tools/move_ingest.py` is **untouched**: the
+pointer is a string in a field it already writes, so nothing in the mechanical
+half learns a new type and `attach_derivation_pointer` needs no case. That is
+the test this shape had to pass — a location that required a code change would
+have been a second schema arriving as a convenience.
+
+**Two shapes declined, recorded so neither is re-proposed blind.**
+
+- **An appendix section inside each Move file.** Fewer artifacts, and it fails
+  on §4.9's own words: it puts sequence content inside the schema file, and
+  §6.9.0 condition 3 admits **exactly** §4.2's eight keys, so the section would
+  either be a ninth key or prose smuggled below a record boundary the grammar
+  binds. Declined on the section's own stated ground rather than on taste.
+- **A single repository-wide `analysis.md`.** Simplest to find and to read
+  whole, and it requires §4.9's word *per-passage* to be **overridden rather
+  than implemented** — a supersession this sitting has no license for, since
+  #220 carried construction only and its design was ratified. It also grows
+  without bound with no natural split, and the split it would eventually need
+  is the per-passage one already ratified.
+
+**Stated residue.** Nothing binds a source passage to its slug, so two sittings
+analysing the same passage may choose different slugs and produce two files
+where the design intends one. This is the same class as §6.9.1a's id collision
+and gets the same answer — it surfaces to a human, here at the moment of
+writing the file rather than at a selection screen — but it is **weaker**,
+because no act computes it: `moves/<id>.md` collides mechanically on a derived
+stem, while a passage has no id to derive from. Recorded rather than solved; a
+naming rule is owed only once a second passage exists to disagree about.
+
 ## 5. The Brief's centre, and the obligations ledger inside it
 
 ### 5.1 The settled structure section
