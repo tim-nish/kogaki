@@ -1652,8 +1652,39 @@ So, exactly:
   rather than a text that never carried one.
 - **What changes is its standing, not its accuracy.** The prohibition was
   conditional and its condition has lapsed; it no longer forbids anything.
-  `sources` **may** now carry `path:line@sha` against the served surface, and
-  §6.9.4 is the act that writes it.
+  `sources` **may** now carry `path:line@sha` against the served surface.
+
+  **The second half of this bullet — "and §6.9.4 is the act that writes it" —
+  is SUPERSEDED, and the supersession is reported here rather than quietly
+  reconciled, which is what the served line quoted above demands of exactly
+  this move (kogaki#177, 2026-08-13).** §6.9.4's act was implemented at
+  kogaki#418, and the owner decided its FORM at kogaki#417 D1: the derivation
+  pointer written into `sources` is **prose provenance naming the passage, and
+  never a `path:line@sha` pin**. So the permission this bullet records still
+  stands — nothing forbids a pin in `sources` — while the sentence naming
+  §6.9.4 as the act that exercises it is false: that act writes prose.
+
+  **The grounds are not re-argued here, only pointed at.** D1 rests on the
+  corpus's own survival measurement — 148 unpinned `file:line` citations broke
+  repeatedly against 1,127 issue anchors of which every one survived every
+  relocation — plus the measurement that the specimen's 22 records already
+  write `sources` as prose, so normalize stays close to identity.
+  `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:69`
+
+  **What this costs kogaki#177, stated because that issue is the one that
+  breaks.** #177's body names its own discharge as *"backfill each admitted
+  Move's `sources` with its served pin"*. Under D1 that discharge is **not the
+  act to perform** — the backfill writes prose, in the ingestion run that saves
+  each Move — and an implementer following #177's text literally would write
+  the one form D1 declined. The correction is recorded on #177 itself; this
+  bullet is the spec-side half.
+
+  **Nothing observed either drift, and that is the reusable half.** The rule
+  quoted above — *the later verdict wins and the conflict is reported rather
+  than quietly reconciled* — is a discipline with no instrument behind it: no
+  act in this repository re-reads a merged clause when a later decision lands
+  on the same subject, so both this sentence and #177's discharge stayed false
+  from 2026-08-13 until a sitting happened to look. Marked rather than solved.
 - **What does not change:** the pins are written by the run that resolves them
   (§6.9.4), never manufactured for a Move whose derivation cannot be resolved.
   The specimen's 22 `sources` fields carry zero pins **today**, and that stays
