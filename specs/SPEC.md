@@ -570,14 +570,77 @@ invariant: Gukan guarantees Unit schema, never data schema).
   harness stays declined, on stronger evidence than before, and the repair
   lands one step upstream — on **where the mutant set comes from**.
 
-  **THE MUTANT SET IS DERIVED FROM THE DIFF, never authored free-form.** Each
-  **changed default, changed flag, and changed literal in the diff is a
-  mutant**, and the mutation table accounts for every one of them — caught,
-  with the assertion that catches it named; or **uncaught and declared as
-  uncaught**; or equivalent, with the equivalence argued. A mutant is
-  discharged by naming its catching assertion, never by omission, and **an
-  uncaught mutant is a declaration rather than a defect** — dropping it is the
-  defect.
+  **A RATIFIED VERDICT OF THE OTHER SIDE EXISTS, and is named rather than
+  quietly reconciled (kogaki#243 D2).** The hub's 2026-08-08 ratification
+  recorded **mutation evidence as a FAILED remedy** — *"a candidate remedy that
+  routes through the same judgment that failed is not a binding"* — so a clause
+  strengthening a mutation obligation owes that verdict an answer. The answer
+  is the distinction this clause turns on and D2 could not yet have: **mutation
+  as a compliant TABLE** routes through the failed judgment exactly as D2 says,
+  because the author writes the mutants; **mutation whose SET IS DERIVED FROM
+  THE DIFF** does not, because the diff is not written by the belief under
+  test. The 2026-08-13 owner selection of fork 3 is the later record and wins.
+  It is written here as a **supersession rather than a silent edit**, carrying
+  its observation as evidence rather than asserting owner demand:
+
+  > "the ratified spec's home clause is **SUPERSEDED rather than silently
+  > edited**"
+
+  `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:75`
+    request_id: 1b94375f-7a8c-41b7-9204-3b134ebec8dd
+    outcome: discriminating
+    query: When a later owner selection strengthens a remedy that an earlier ratified decision recorded as failed, which record is the live word on the disposition, and must the conflict be reported rather than reconciled silently?
+
+  **THE MUTANT SET IS DERIVED FROM THE DIFF, never authored free-form.**
+  **Every behaviour the diff changes is a mutant** — reverting that change is
+  the mutant, whatever kind of thing was changed — and the mutation table
+  accounts for every one of them: caught, with the assertion that catches it
+  named; or **uncaught and declared as uncaught**; or equivalent, with the
+  equivalence argued. A mutant is discharged by naming its catching assertion,
+  never by omission, and **an uncaught mutant is a declaration rather than a
+  defect** — dropping it is the defect.
+
+  **THE RULE IS A CONSTRUCTION OVER WHAT CHANGED, NOT A CATALOGUE OF CHANGE
+  KINDS (v2, kogaki#243, 2026-08-13).** Until this amendment the clause read
+  *"each changed default, changed flag, and changed literal in the diff is a
+  mutant"* — a **three-member enumeration**, and therefore the very shape this
+  clause quotes the served rule against two paragraphs down: *"an enumerated
+  prohibition can only name yesterday's leak while a construction constraint
+  makes tomorrow's unreachable."* Its non-member fallback was **ADMIT**: a
+  mutant of a kind the list did not name was silently absent and the table
+  still read complete, which is verbatim the defect the clause exists to
+  remove. It replaced the *author's* enumeration with the *spec's* — narrower,
+  and no longer chosen by the author, but an enumeration all the same.
+
+  **The evidence is one sitting, and it is one-sided.** 2026-08-13, seven
+  mutants that each killed a real defect, none of them a default, a flag or a
+  literal: a **deleted call** to a newly extracted unit, which killed two
+  survivors of a whole table; a **deleted `print`** on the live path, which
+  killed a defect twelve passing cases had not; a **dropped argument** and an
+  **argument-count mismatch**, the second an unconditional crash on the exact
+  state its own change added; two **reverted conditions**, which killed three
+  parser drifts; and a **removed call** to a fence stripper, which killed
+  documentation being harvested as a real finding. Calls, arguments and
+  conditions — the three kinds a mutation table most often needs and the
+  enumeration never named.
+
+  **What the wording buys, and the cost it accepts.** *Every behaviour the
+  diff changes* is not decidable by counting tokens, which is the point: the
+  reader asks what this diff makes the code do differently and reverts each
+  such thing, rather than scanning for members of a list. That is more work
+  and it is the work the clause was always asking for. The cost is that
+  "behaviour" admits argument at the margin — a rename, a comment, a
+  reordering — and the answer is the same one the clause already gives for
+  equivalent mutants: **argue it in the table**, where the argument is visible,
+  rather than resolving it by an omission nobody sees.
+
+  **THE REOPEN TRIGGER IS WIDENED WITH IT, and that is a second finding rather
+  than housekeeping.** Stated once, at the trigger itself below — this line is
+  a pointer and not a second copy. The earlier form of this paragraph made the
+  whole argument here as well, which would have left two full statements with
+  no declared relationship and an edit to either leaving the other stale: the
+  fix-reached-one-of-two-sites class, rebuilt inside the repair that names it
+  (PR #416 round 1).
 
   **The diagnosis this repairs, stated because the clause is otherwise a
   preference.** The mutation set was authored by the same belief that authored
@@ -615,8 +678,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
   clause takes the **first**: *per-artifact-decidable — state it, because the
   artifact is the evidence and a mechanism adds nothing*. Both artifacts are
   already in the PR record and already in front of the reader — **the diff and
-  the mutation table** — so "does every changed default, flag and literal
-  appear as a mutant" is answerable by reading the two against each other. It
+  the mutation table** — so "does every behaviour this diff changed appear as a
+  mutant" is answerable by reading the two against each other. **That question
+  is v2's and its predecessor asked a narrower one** (*"every changed default,
+  flag and literal"*); the per-artifact-decidable argument is unaffected by the
+  widening, because both forms are answered from the same two artifacts and
+  neither needs a mechanism. Updated here rather than left, since a polarity
+  argument quoting the superseded test would have kept the narrow question in
+  front of the one reader the clause relies on — the
+  fix-reached-one-of-two-sites shape this section's own siblings keep finding.
+  It
   is not the distributional shape, which no single occurrence can violate, and
   it is not the self-report shape, because the mutant list is checkable against
   the diff rather than against the author's account of their own process.
@@ -640,12 +711,22 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
   **`instrument: none`** — no standing act in this repository observes a mutant
   that was never derived, and none is invented, because the condition is an
-  absence from a table no check reads. **The reopen trigger:** a diff whose
-  mutation table omits a changed default, flag or literal that a later sitting
-  finds was the defect the fixture failed to catch. That is the same
-  observation shape that produced this clause, and it would be seen by the
+  absence from a table no check reads. **The reopen trigger (v2, kogaki#243):**
+  a diff whose mutation table omits **any behaviour that diff changed**, which
+  a later sitting finds was the defect the fixture failed to catch. That is the
+  same observation shape that produced this clause, and it would be seen by the
   sitting that next repairs a fixture and finds the mutant was derivable from
   the original diff all along.
+
+  **The trigger is stated over CHANGED BEHAVIOUR and not over a list of kinds,
+  for the reason its own v1 demonstrated.** v1 read *"omits a changed default,
+  flag or literal"* — an omission test scoped to the three members the rule
+  then enumerated — so the 2026-08-13 evidence, seven killing mutants that were
+  calls, arguments and conditions, **could not have fired it**: those mutants
+  were never members, and a sitting reading v1 would not have been looking for
+  them. A trigger that inherits its rule's enumeration cannot observe that
+  enumeration being too narrow, which is the one failure a reopen trigger over
+  an enumerated rule most needs to catch.
 
   **Why the clause is timed now rather than after the next instance.** The class
   recurred in four consecutive sittings — kogaki#209's three dead fixtures,
