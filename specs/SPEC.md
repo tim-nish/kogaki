@@ -1982,7 +1982,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | # | transition of the review record | type |
      |---|---|---|
      | 1 | a finding is **raised and typed** | **act** — the `finding: <severity> <state>` line, parsed by `checks/check-review-report.sh`'s `FINDING` regex and by `tools/review-sweep.sh`'s segmenter, both anchored whole |
-     | 2 | a **severity is revised across heads** | **act** — clause 12's `unadjudicated_blocking()` in `checks/check-review-report.sh`, which denies when a justified `blocking open` at an earlier counted segment is named by no `adjudicates: <earlier head sha> finding <N>` line in any later counted segment (kogaki#269). The row was typed `none:` from 2026-08-12, when clause 12 landed the GRAMMAR alone, until 2026-08-13, when the act landed with 22 fixture cases and 26 killed mutations — and the interval is recorded rather than smoothed over, because the reason the row could not move earlier is the rule this table exists to state: a row typed `act` naming an observing act that does not exist is a false record, and naming a clause does not type a row. The polarity is unchanged from clause 12's ratification: it gates the SILENCE, never the SEVERITY, so kogaki#72 stays untouched. |
+     | 2 | a **severity is revised across heads** | **act** — clause 12's `unadjudicated_blocking()`, defined in `lib/adjudication.py` and loaded by `checks/check-review-report.sh`, which denies when a justified `blocking open` at an earlier counted segment is named by no `adjudicates: <earlier head sha> finding <N>` line in any later counted segment (kogaki#269). The row was typed `none:` from 2026-08-12, when clause 12 landed the GRAMMAR alone, until 2026-08-13, when the act landed with 22 fixture cases and 26 killed mutations — and the interval is recorded rather than smoothed over, because the reason the row could not move earlier is the rule this table exists to state: a row typed `act` naming an observing act that does not exist is a false record, and naming a clause does not type a row. The polarity is unchanged from clause 12's ratification: it gates the SILENCE, never the SEVERITY, so kogaki#72 stays untouched. |
      | 3 | a finding goes **`open` → `resolved`** | `none: the state token is the reviewer's own attestation about its own work and no act re-derives it from the diff. No carrier is filed, and this row is how that is surfaced.` |
      | 4 | a **report carries forward** to a head that changed no content | **act, CARRIED BY BOTH READERS** (v3, kogaki#308) — the ONE head-resolution unit `lib/head_resolution.py`, loaded by `checks/check-review-report.sh` and by `tools/review-sweep.sh` and defined in neither. `carry_forward()` recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it; `decide()` consumes that record rather than resolving by sha identity, and an agreement fixture IN BOTH consumers asserts they reach the same unit and answer alike. **The v2 typing of this row read `HALF-CARRIED`, naming the sweep half `owed and unbuilt`; PR #321 built it and this row is re-typed in the same change that discharged it** — a row left asserting its own half unbuilt after the build is the stale table this section warns about, arriving from the third direction |
      | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
@@ -2596,10 +2596,43 @@ invariant: Gukan guarantees Unit schema, never data schema).
       indistinguishable from not shipping the deny.
 
       **THE ACT LANDED 2026-08-13, AND CLAUSE 9 ROW 2 IS NOW TYPED `act`.**
-      `unadjudicated_blocking()` is in `checks/check-review-report.sh`, its
-      call site is the `present` branch's last read — the clause's "after every
-      existing state is clean" — and it carries 22 fixture cases and 26 killed
-      mutations (kogaki#269).
+      `unadjudicated_blocking()` is defined in `lib/adjudication.py` and
+      loaded by `checks/check-review-report.sh`, whose call site is the
+      `present` branch's last read — the clause's "after every existing state
+      is clean" — and it carries 22 fixture cases and 26 killed mutations
+      (kogaki#269).
+
+      **THE PREDICATE HAS A SECOND READER, AND THE UNIT MOVED SO THAT IT COULD
+      (kogaki#288).** `tools/review-sweep.sh`'s `decide()` reads only the
+      CURRENT head's segments, so it returned `done` — a terminal state — on a
+      PR this clause was holding red: no round spawned, no `author-owes`,
+      nothing for the author to push, and the sweep's own output contradicting
+      the merge layer. The predicate and its grammar therefore live in
+      `lib/adjudication.py`, the third member of the pattern
+      `lib/head_resolution.py` (clause 7 v2) and `lib/disposition.py` (clause
+      11) already establish, and BOTH consumers load it by a shared path
+      constant with each asserting the other neither drifts nor redefines.
+      Re-deriving the predicate in the sweep was the declined arm: a divergent
+      join does not disagree, it returns NOTHING, which is the same false
+      `done` wearing a fix's clothes.
+
+      **THE OBSERVER DID NOT MOVE, SO ROW 2 IS NOT RE-TYPED.** The deny is
+      still this clause's act at the merge layer; the sweep is a second
+      READER of the same unit, and its new `unadjudicated` state **reports and
+      spawns nothing** — decided against `decide()`'s own
+      never-re-review-unchanged-code rule rather than by default, because
+      nothing about the diff has changed. Row 2's naming is updated only where
+      it would otherwise be false: the function is no longer defined in the
+      file that calls it.
+
+      **THE LIVENESS COST, and what now observes it.** The remedy for a PR in
+      this state is one `adjudicates:` line in a review comment at the current
+      head — it costs no round, since kogaki#190 counts cycles by head, and
+      spends none of clause 3's bound. Until kogaki#288 nothing but a human
+      reading the red gate could notice that state; the sweep now names it,
+      prints the paste-ready discharge lines the predicate already computes,
+      and still spawns nothing, because an obligation cannot be gated and the
+      remedy is to make the missing thing observable.
 
       **The one-day interval between the halves is recorded, not smoothed
       over**, because the reason this paragraph existed is the rule it states.

@@ -805,6 +805,19 @@ DISPOSITION_PATH = "lib/disposition.py"
 with open(DISPOSITION_PATH, encoding="utf-8") as _fh:
     exec(compile(_fh.read(), DISPOSITION_PATH, "exec"))
 
+# CLAUSE 12'S ADJUDICATION GRAMMAR AND ITS JOIN ARE LOADED, NEVER RESTATED
+# (§4 clause 12, kogaki#269; this consumer added by kogaki#288). `decide()`
+# read only the CURRENT head's segments, so it returned `done` on a PR the
+# merge gate was refusing on an unadjudicated EARLIER-head blocking: no round
+# spawned, no `author-owes`, nothing for the author to push, and this tool's
+# own output announcing a terminal state the merge layer contradicted.
+# Re-deriving the predicate here was the declined arm — a divergent join does
+# not disagree, it returns NOTHING, which is the same false `done` wearing a
+# fix's clothes.
+ADJUDICATION_PATH = "lib/adjudication.py"
+with open(ADJUDICATION_PATH, encoding="utf-8") as _fh:
+    exec(compile(_fh.read(), ADJUDICATION_PATH, "exec"))
+
 REPORT = re.compile(r'^\s*review-lane report:\s*([0-9a-f]{7,40})\s*$', re.M)
 FINDING = re.compile(
     r'^\s*finding:\s*(blocking|should|nit)\s+(open|resolved)\b'
@@ -2733,11 +2746,20 @@ def segments(bodies):
         if r:
             cur = {'sha': r.group(1), 'findings': [],
                    'scope': None, 'complete': None, 'bad_disp': [],
-                   'base': None}
+                   'base': None, 'adjudicates': {}}
             segs.append(cur)
             continue
         if cur is None:
             continue        # a declaration before any report belongs to none
+        # CLAUSE 12'S ADJUDICATION LINE, bound by the SHARED grammar
+        # (`lib/adjudication.py`, kogaki#288). Both binding rules — it binds to
+        # the immediately preceding `finding:` line, and the first declaration
+        # per finding wins — live there, so this loop and the merge gate's read
+        # the same record from the same text. Read in the SAME single pass as
+        # the findings, like every other declaration here: two sequential
+        # passes over one parser is how the use-vs-mention defect got in.
+        if bind_adjudication(cur, line):
+            continue
         b = BASE.match(line)
         if b:
             if cur['base'] is None:      # first declaration wins
@@ -2970,6 +2992,19 @@ def decide(bodies, head, resolves=None, base=None,
                        `author-owes` and then to a driver that refused the fix
                        and printed PARKED, which is a dead end rather than a
                        state. §4 clause 3 governs
+      unadjudicated  — a report for this head with nothing blocking open,
+                       while an EARLIER counted segment holds a justified
+                       `blocking open` that no later segment adjudicates
+                       (§4 clause 12, kogaki#288). The merge gate is red and
+                       this used to return `done`, which is a terminal state
+                       asserted over a PR the merge layer was refusing. IT
+                       SPAWNS NOTHING, decided rather than defaulted: nothing
+                       about the diff has changed, so the never-re-review rule
+                       above binds, and the repair is one `adjudicates:` line
+                       in a comment at this head — no round, none of clause 3's
+                       bound. Asked through `lib/adjudication.py`, the same
+                       predicate the merge gate denies on, so the two cannot
+                       answer differently
       done           — a report for this head with nothing blocking open.
                        Since kogaki#224 this transition also REPORTS every open
                        non-gating finding carrying no disposition (§4 clause 8)
@@ -3121,6 +3156,16 @@ def decide(bodies, head, resolves=None, base=None,
             if rounds_used(bodies, resolves) >= MAX_ROUNDS:
                 return 'supersede'
             return 'author-owes'
+        # THE MERGE GATE'S OTHER RED (§4 clause 12; kogaki#288). Everything
+        # above reads the CURRENT head only, which is correct for every state
+        # it decides and is exactly why `done` was reachable while the merge
+        # layer refused: an EARLIER counted segment can hold a justified
+        # `blocking open` that no later segment adjudicates, and nothing here
+        # looked. Asked through the SHARED predicate both consumers load, so
+        # this cannot answer differently from the gate it is reporting on.
+        _unadj = unadjudicated_blocking(bodies, head, carried)
+        if _unadj:
+            return 'unadjudicated'
         report_dispositions(current, downgraded)
         return 'done'
     # THE FRAGMENT IS ANNOUNCED, never silently absent (§4 clause 6). A report
@@ -4707,6 +4752,107 @@ if _agree_fail:
     for _m in _agree_fail:
         print(f"FAIL head-resolution agreement: {_m}")
     raise SystemExit(1)
+# --- the adjudication unit, and the state it decides (§4 clause 12, #288) ---
+# THE FIXTURE THE ISSUE ASKED FOR, in its own words: "a counted clean
+# current-head segment plus an unadjudicated earlier-head justified blocking
+# must not return `done`". It is the discriminating case because EVERY field of
+# the current-head segment says finished — counted, complete, nothing blocking
+# open — which is exactly why `decide()` returned a terminal state over a PR
+# the merge gate was refusing.
+_adj_fail = []
+_OLDH, _NEWH = "aaaaaaa1111111", "bbbbbbb2222222"
+_clean_now = (f"review-lane report: {_NEWH}\n"
+              "finding: should open  cosmetic\n"
+              "carried: register\n"
+              "report-complete: 1 findings")
+_earlier_open = (f"review-lane report: {_OLDH}\n"
+                 "finding: blocking open [harm: x]  the defect\n"
+                 "report-complete: 1 findings\n")
+
+# 1. THE SPECIMEN. Unadjudicated earlier blocking under a clean current head.
+if decide(_earlier_open + _clean_now, _NEWH) != 'unadjudicated':
+    _adj_fail.append(
+        "a clean counted current-head segment over an UNADJUDICATED earlier "
+        "justified blocking does not return `unadjudicated` — this is the "
+        "kogaki#288 specimen and the state machine is reporting a terminal "
+        "state on a PR the merge gate is refusing")
+
+# 2. THE CONTROL. The same shapes with the adjudication PRESENT must be `done`,
+# or the state would be firing on the earlier head rather than on the silence,
+# and every green PR in this repository would go red.
+_adjudicated = (f"review-lane report: {_NEWH}\n"
+                "finding: should open  cosmetic\n"
+                f"adjudicates: {_OLDH} finding 1  measured false at this head\n"
+                "report-complete: 1 findings")
+if decide(_earlier_open + _adjudicated, _NEWH) != 'done':
+    _adj_fail.append(
+        "an ADJUDICATED earlier blocking does not return `done` — the state "
+        "is firing on the earlier finding rather than on the absence of an "
+        "adjudication, which gates the SEVERITY and reopens kogaki#72")
+
+# 3. THE STATE SPAWNS NOTHING. Asserted through the driver's own predicate
+# rather than by reading the branch: `drives_fix` is what decides whether a fix
+# session is born, and a state that quietly became fix-driving would spend a
+# session re-reading code nobody changed.
+if drives_fix(_earlier_open + _clean_now, _NEWH):
+    _adj_fail.append(
+        "the `unadjudicated` state drives a FIX — it must spawn nothing, "
+        "because nothing about the diff has changed and the repair is one "
+        "`adjudicates:` line in a comment (kogaki#288)")
+
+# 4. THE ORDER MATTERS. `author-owes` must still win when the CURRENT head
+# carries its own justified blocking — the new state is the clean-current-head
+# case only, and swapping the two checks would mask a live blocking behind an
+# earlier one.
+if decide(_earlier_open + f"review-lane report: {_NEWH}\n"
+          "finding: blocking open [harm: y]  live\n"
+          "report-complete: 1 findings", _NEWH) != 'author-owes':
+    _adj_fail.append(
+        "a justified blocking at the CURRENT head no longer returns "
+        "`author-owes` — the clause-12 read is masking a live finding")
+
+# 5. THE UNIT IS REACHED BY ONE PATH FROM BOTH CONSUMERS, mirroring the
+# head-resolution fixture above. Loading is not agreement: a consumer that
+# loaded this and then re-derived the predicate its own way would have the
+# divergence back, and a divergent join returns NOTHING rather than disagreeing.
+try:
+    if not re.search(r'^ADJUDICATION_PATH = "lib/adjudication\.py"$',
+                     _other_src, re.M):
+        _adj_fail.append(
+            f"{_HR_OTHER} does not reach the adjudication unit by the shared "
+            "path constant — one consumer has drifted")
+    for _dup in ("def unadjudicated_blocking(", "def adjudication_states(",
+                 "def bind_adjudication(", "ADJUDICATES = re.compile("):
+        if re.search("^" + re.escape(_dup), _other_src, re.M):
+            _adj_fail.append(
+                f"{_HR_OTHER} redefines `{_dup.split('(')[0].split()[-1]}` "
+                "locally — the two-vocabularies shape has reappeared")
+    # And THIS file must not redefine them either. The other consumer runs the
+    # mirror of this test, but a fixture that only ever inspects its sibling is
+    # the orphan guard shape the block above already paid for once.
+    _self_adj = open("tools/review-sweep.sh", encoding="utf-8").read()
+    for _dup in ("def unadjudicated_blocking(", "def bind_adjudication(",
+                 "ADJUDICATES = re.compile("):
+        if re.search("^" + re.escape(_dup), _self_adj, re.M):
+            _adj_fail.append(
+                f"tools/review-sweep.sh redefines `{_dup.split('(')[0].split()[-1]}` "
+                "locally — this consumer is the one that drifted")
+except OSError as _e:
+    _adj_fail.append(f"could not read a consumer to check agreement: {_e}")
+
+if _adj_fail:
+    for _m in _adj_fail:
+        print(f"FAIL adjudication agreement: {_m}")
+    raise SystemExit(1)
+print("adjudication pass: 5/5 clause-12 state cases (THE #288 SPECIMEN — a "
+      "clean counted current head over an unadjudicated earlier blocking is "
+      "NOT `done`; its adjudicated control still is, so the state fires on the "
+      "SILENCE and never on the severity; the state drives no fix, asserted "
+      "through `drives_fix` rather than by reading the branch; a live "
+      "current-head blocking still wins as `author-owes`), and the unit is "
+      "reached by one path from both consumers with neither redefining it "
+      "(§4 clause 12, kogaki#288)")
+
 print("head-resolution agreement: the unit is reached by one path from both "
       "consumers, neither redefines it, and it answers identically on "
       "sha-identity, carried-segment, digest, diff-form AND RECORD "
@@ -5092,6 +5238,34 @@ for pr in prs:
                                      "the compatibility default)"))
     if state == 'done':
         print(f"  #{n}: reviewed at {head[:7]}, nothing blocking open")
+    elif state == 'unadjudicated':
+        # THE ONE STATE IN THIS DRIVER THAT ACTS ON NOTHING, and the exception
+        # is decided rather than defaulted (kogaki#288). Every other red state
+        # here spawns something; this one must not, because `decide()`'s own
+        # never-re-review-unchanged-code rule applies with full force — NOTHING
+        # ABOUT THE DIFF HAS CHANGED. The repair is not a code change at all:
+        # it is one `adjudicates:` line in a review comment at this head, which
+        # costs no round (kogaki#190 counts cycles by head) and spends none of
+        # clause 3's bound.
+        #
+        # So what this branch owes is DISCLOSURE, and it pays it in full: the
+        # findings by sha and ordinal, and the paste-ready discharge lines the
+        # shared predicate already computed. An obligation cannot be gated —
+        # an absence generates no event to hook — so the remedy is to make the
+        # missing thing observable, which is exactly what the false `done` this
+        # state replaces was preventing.
+        _unadj = unadjudicated_blocking(bodies, head)
+        print(f"  #{n}: reviewed at {head[:7]} with nothing blocking open, but "
+              f"the MERGE GATE IS RED — {len(_unadj)} justified `blocking "
+              "open` finding(s) at an EARLIER head are adjudicated by nothing "
+              "(§4 clause 12). No round is spawned and none is owed: this is "
+              "not a code change.")
+        for _sha, _ordinal, _finding, _suggestion in _unadj:
+            print(f"       {_sha[:7]} finding {_ordinal}: {_finding[0]} "
+                  f"{_finding[1]}")
+            print(f"         discharge with: {_suggestion}")
+        print("       Post the line(s) above in a review comment at this head. "
+              "Costs no round (kogaki#190 counts cycles by head).")
     elif state == 'author-owes':
         # THE RALLY DRIVES ITSELF FROM HERE (kogaki#53). Everything either side
         # of this point was already event-driven; the fix act alone waited for
