@@ -293,7 +293,7 @@ follows is what each clause earned.
 
 The Brief's **durable home** — where the document lives, checkpoints and
 resume — is manifest item 5's and is untouched here
-(`specs/spec-draft-pipeline/SPEC.md:83`). §4.5's design-baseline declaration
+(`specs/spec-draft-pipeline/SPEC.md:88`). §4.5's design-baseline declaration
 is untouched: this adds a manifest item's carrier and re-declares no baseline.
 Also out: any authored style clause, and any instrument for any section.
 
@@ -350,7 +350,12 @@ this repository's merged artifacts. The **standing** half — that #127 is
 discharged and what its exclusion still forbids — is *not* read from those
 artifacts, exactly as `:287` warns; it is read from the owner's own selection
 at the `/ship-cycle 127` carrier-vitality gate on 2026-08-13, recorded in
-prose on kogaki#426. So the adopted reading rests on the prose carrier the
+prose on **kogaki#127**, whose thread carries it verbatim: "Closed as
+discharged-with-successors under the carrier-vitality arbitration (owner
+selection 2026-08-13, `/ship-cycle 127`)." kogaki#426 restates it secondhand
+and is **not** the carrier; naming the restatement here would have been a
+smaller version of the substitution this section exists to refuse. So the
+adopted reading rests on the prose carrier the
 served line says it must, and not on the merged code that would have looked
 final while answering the wrong question.
 
