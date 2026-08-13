@@ -9,7 +9,8 @@ record:
 > "6. **The style contract and plain-register commitment**, consumed at
 > generation."
 
-`specs/SPEC.md:4212-4213`
+`specs/SPEC.md:4212-4218` — the item's opening sentence, quoted; the
+remainder of the range is the carrier pointer this spec's landing added.
 
 Authored consumer-side, in the same shape as
 `specs/spec-gate-carrier/SPEC.md` and `specs/spec-proposal-contract/SPEC.md`.
@@ -292,7 +293,7 @@ follows is what each clause earned.
 
 The Brief's **durable home** — where the document lives, checkpoints and
 resume — is manifest item 5's and is untouched here
-(`specs/spec-draft-pipeline/SPEC.md:64`). §4.5's design-baseline declaration
+(`specs/spec-draft-pipeline/SPEC.md:88`). §4.5's design-baseline declaration
 is untouched: this adds a manifest item's carrier and re-declares no baseline.
 Also out: any authored style clause, and any instrument for any section.
 
@@ -315,6 +316,60 @@ and explanatory principles that survive evidence merge into it … A second
 constitution-like artifact is the two-carriers drift shape". It is the reason
 §1 refuses to ship an instance beside this spec, and the reason a Move
 carrying style rules is not a Move.
+
+### 10.2 The disposition half, consulted separately (PR #427 round 1)
+
+**Round 1's dimension-2 read found boundary 3 (record disposition) uncovered,
+and this is its discharge.** §1 and the amendment note at
+`specs/spec-draft-pipeline/SPEC.md` adopt a reading of kogaki#127's
+disposition as the live word — that "No new style artifact" is a prohibition
+on *proliferation*, never on the one contract existing — and flip a v1 gate
+row on the strength of it. The receipt above pins the **subject** position
+(what a style contract is, and that a second constitution-like artifact is
+barred); it does not pin the **disposition** survey the map's entry 3
+prescribes. Two halves, two reads:
+
+> "A status question has two halves that behave very differently. Whether
+> something was built is local, mechanically self-evident, free to check, and
+> looks final — a merge commit, a file on disk, a green log — whereas whether
+> it is still accepted, rejected, or superseded lives in prose somewhere else
+> and never surfaces unless you deliberately go looking."
+
+`gloss/lessons/knowledge-architecture.md:287@8906f20`
+
+> "If you write one rule for resolving disagreements, such as 'trust the more
+> recent record', you hand one system the final word on facts it has no way to
+> observe. **Say which system decides which half.** Being written more
+> recently says when someone wrote, not what they could see."
+
+`gloss/lessons/knowledge-architecture.md:227@8906f20`
+
+**Which system decides which half, said rather than assumed.** The
+**existence** half — that #127's architecture landed, and where — is read from
+this repository's merged artifacts. The **standing** half — that #127 is
+discharged and what its exclusion still forbids — is *not* read from those
+artifacts, exactly as `:287` warns; it is read from the owner's own selection
+at the `/ship-cycle 127` carrier-vitality gate on 2026-08-13, recorded in
+prose on **kogaki#127**, whose thread carries it verbatim: "Closed as
+discharged-with-successors under the carrier-vitality arbitration (owner
+selection 2026-08-13, `/ship-cycle 127`)." kogaki#426 restates it secondhand
+and is **not** the carrier; naming the restatement here would have been a
+smaller version of the substitution this section exists to refuse. So the
+adopted reading rests on the prose carrier the
+served line says it must, and not on the merged code that would have looked
+final while answering the wrong question.
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:227,287`
+  request_id: 1786628797120
+  outcome: discriminating
+  query: gloss_index("lessons/knowledge-architecture") — when a prior decision's exclusion is adopted as the live word, which carrier establishes that it still stands, and may merged artifacts evidence it?
+
+**The served result exceeded the tool-result cap** (132,108 characters on one
+line) and was read by byte-slicing the spilled file. Round 1 recorded the same
+instrument property as `cannot-determine` because the review lane is denied
+that instrument by design; it is recorded here as a **read that succeeded by a
+route the lane does not have**, so the two records are not mistaken for
+disagreement.
 
 **The source document was read at
 `writing-assistant/skills/draft-article/style-contract.md` (76 lines,
