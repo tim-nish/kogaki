@@ -479,14 +479,36 @@ its rows rather than derive them, which §6.9.1 already declined for the Move
 file interior and declines again here for the same reason. A reader finds these
 files by name and by the `sources` pointers into them.
 
-**The pointer form is `sources`' own, unchanged.** A Move's `sources` may point
-at an analysis document **in prose, naming the passage** — the form kogaki#417
-D1 selected for `sources` generally, and this subsection introduces no second
-convention beside it. Concretely, `tools/move_ingest.py` is **untouched**: the
-pointer is a string in a field it already writes, so nothing in the mechanical
-half learns a new type and `attach_derivation_pointer` needs no case. That is
-the test this shape had to pass — a location that required a code change would
-have been a second schema arriving as a convenience.
+**The pointer form is `sources`' own, unchanged — and it NAMES THE DOCUMENT'S
+PATH.** A Move's `sources` may point at an analysis document in prose, and that
+prose **contains the literal path `analysis/<source-slug>.md`**. The form is
+still `sources`' own — a string in a field that already holds provenance prose,
+per kogaki#417 D1 — and this subsection introduces no second convention beside
+it. Concretely, `tools/move_ingest.py` is **untouched**: nothing in the
+mechanical half learns a new type and `attach_derivation_pointer` needs no case.
+
+**The path requirement is not decoration, and this clause's first draft omitted
+it.** §6.9.0 measured the specimen's `sources` as *"provenance prose naming a
+source passage"* for all 22 records — so under a pointer form that is only
+"prose naming the passage", a Move that points at an analysis document is
+**byte-identical to one that does not**. §4.9's ratified allowance would have
+been nominally implemented and **not discriminable**, and kogaki#420's own
+completion instrument — `git grep -l analysis/ moves/` — presupposes a trace
+that form leaves none of. The acceptance test above was passed *because* the
+pointer carried no signal, which is the wrong reason to pass it. Requiring the
+path restores the signal and costs the acceptance test nothing: a literal path
+inside prose is still prose.
+
+**Precedence, declared rather than assumed.** This subsection restates four
+dispositions it does not own — §4.9's *per-passage*, kogaki#220's
+construction-only scope, §6.9.0 condition 3's exactly-eight-keys, and §6.9.1's
+decline of a composed interior. **On any divergence the cited section wins and
+this subsection is repaired**; §4.9.1 may not amend any of them, and a reader
+finding a conflict repairs here rather than there.
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:215`
+— *"Duplication is not the sin; unowned duplication is, because owning a fact
+means your version wins on disagreement and you may change it, so a safe copy
+has to be deliberately stripped of both powers."*
 
 **Two shapes declined, recorded so neither is re-proposed blind.**
 
