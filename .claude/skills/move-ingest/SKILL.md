@@ -116,6 +116,20 @@ is nothing to compare against, and a human reading `22` is the whole mechanism.
    `file:line` citations broke repeatedly against 1,127 issue anchors of which
    every one survived every relocation. Do not re-litigate it per run.
 
+   **A `sources` value may point at an analysis document, and that is the only
+   legal home for an observed sequence** (SPEC §4.9, §4.9.1). If review or the
+   owner notices that several Moves recur together in the source, that
+   observation goes to `analysis/<source-slug>.md` as prose — **never** into a
+   `sources` field as a sequence, and **never** into `moves/` as structure.
+
+   **The pointer prose must contain the literal path** `analysis/<source-slug>.md`
+   (§4.9.1). Prose that merely names the passage is indistinguishable from the
+   provenance prose every `sources` value already carries, so a pointer written
+   that way leaves no trace and nothing can tell a Move that points at an
+   analysis document from one that does not. Still prose, still `sources`' own
+   form — nothing in `tools/move_ingest.py` knows the analysis document exists,
+   and nothing needs to.
+
 5. **Report** what was accepted, declined, and refused, and name the INDEX
    regeneration. State the record count again beside the saved count — if they
    differ, say why in one line.
