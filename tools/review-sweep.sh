@@ -798,15 +798,17 @@ SPAWN_INFLIGHT_TTL="${KOGAKI_SPAWN_INFLIGHT_TTL:-1800}"
 # hold the whole body in one shell argument. It is a TOOL rather than a shell
 # prefix, so it is bounded by construction — it cannot become a general
 # interpreter the way `Bash(bash:*)` or `Bash(gh api:*)` can.
-CHECK_TOOLS="$(python3 - <<'GRANTS' 2>/dev/null || true
-import json
-try:
-    reg = json.load(open("checks/registry.json"))
-except Exception:
-    raise SystemExit(0)
-print(",".join(f"Bash(bash checks/{c['file']}:*)" for c in reg.get("checks", [])))
-GRANTS
-)"
+# THE checks/ DERIVATION MOVED OUT OF THIS PROLOGUE (kogaki#442), for exactly
+# the reason the tools/ one did (kogaki#412): a value computed here runs in THE
+# SWEEP'S OWN CHECKOUT and is frozen into `SWEEP_REVIEW_TOOLS` once per sweep,
+# while every round runs in a worktree at ITS PR's HEAD. So a PR adding
+# `checks/check-<new>.sh` handed the round reviewing it a grant that did not
+# contain it, and that check's own evidence was unrunnable by its reviewer.
+#
+# It now lives in `check_grants()`, called from `with_tool_grants()` beside its
+# `tools/` sibling over that spawn's own ref. Nothing is interpolated into the
+# two role lists below: a value here could only be the wrong tree again, and a
+# vestigial one would let a reader believe the grant is settled at this point.
 
 # REPOSITORY-OWNED EXECUTABLES UNDER `tools/` ARE GRANTED BY DERIVATION, not by
 # name (kogaki#412). `CHECK_TOOLS` above covers every REGISTERED CHECK and
@@ -880,7 +882,6 @@ GRANTS
 REVIEW_TOOLS="${KOGAKI_REVIEW_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr list:*),\
 Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr comment:*),Bash(gh run:*),\
-${CHECK_TOOLS:+$CHECK_TOOLS,}\
 Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob,Edit,Write,\
 mcp__tsurezure__policy_lookup,mcp__tsurezure__gloss_index,\
 mcp__tsurezure__glossary_entry,mcp__tsurezure__topic_thread,\
@@ -898,7 +899,6 @@ mcp__tsurezure__lessons_index}"
 FIX_TOOLS="${KOGAKI_FIX_TOOLS:-\
 Bash(gh pr view:*),Bash(gh pr diff:*),Bash(git add:*),Bash(git commit:*),\
 Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),\
-${CHECK_TOOLS:+$CHECK_TOOLS,}\
 Read,Grep,Glob,Edit,Write}"
 
 SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_GRANT_REF="${GRANT_REF-}" \
@@ -987,6 +987,10 @@ SPAWNER_FLOOR = frozenset({"review-sweep.sh"})
 # ref; `spawn()` never consults it and is unchanged (PR #441 round 1).
 _TOOL_GRANTS_REF_FAILED = False
 
+# Its sibling for the `checks/` half (kogaki#442). Same contract: set when
+# a GIVEN ref could not be read, consulted only by the reporting path.
+_CHECK_GRANTS_REF_FAILED = False
+
 
 def tool_grants(ref=None, root=".", _reader=None):
     """Build the `tools/` half of a role's grant over the tree at `ref`.
@@ -1064,6 +1068,54 @@ def _subprocess_run(argv, cwd=None, allow_fail=False):
     return p.stdout
 
 
+def check_grants(ref=None, root="."):
+    """Build the `checks/` half of a role's grant over the tree at `ref`.
+
+    THE SAME RULE AS `tool_grants`, APPLIED TO THE OTHER HALF (kogaki#442).
+    §4 clause 4 states its rule over "a spawned round's executable grant" — not
+    over `tools/` alone — and the `checks/` half was left deriving from the
+    SWEEP'S OWN CHECKOUT when the `tools/` half moved. So a PR adding
+    `checks/check-<new>.sh` handed the round reviewing it a grant computed in a
+    different tree, and that check's own evidence was unrunnable by its
+    reviewer: kogaki#411's death one directory over, against the same clause,
+    after the clause written to prevent it had merged.
+
+    THE REGISTRY IS READ AT THE REF TOO, and that is the fork kogaki#442 named
+    rather than left to be discovered. It is not an optional half: the registry
+    IS an input to the grant computation, so reading it from the checkout while
+    reading the files from the ref would derive the round's grant from two
+    trees at once — a PR that both adds a check and registers it would have the
+    file at its head and the entry nowhere. The clause's own words settle it:
+    the grant is derived from the tree the round runs in, and every input to
+    that derivation is part of it.
+
+    NO SPAWNER RULE APPLIES HERE, deliberately. `SPAWNER_MARK` and
+    `SPAWNER_FLOOR` bound the ability to spawn rounds, which is a property of
+    `tools/review-sweep.sh`; a registered check is admitted through the
+    registry's own gate, and re-applying a spawner test to it would be a second
+    authority over a set that already has one. A check that could spawn rounds
+    is a registry-admission defect, not a grant defect.
+    """
+    try:
+        if ref:
+            raw = _subprocess_run(
+                ["git", "show", f"{ref}:checks/registry.json"], cwd=root)
+        else:
+            with open(os.path.join(root, "checks", "registry.json"),
+                      encoding="utf-8") as fh:
+                raw = fh.read()
+        reg = json.loads(raw)
+    except Exception:
+        # A registry that cannot be read yields NO check grants at all, which
+        # fails toward the narrow side — the same posture the prologue took
+        # and the same one `tool_grants` takes on an unreadable ref.
+        global _CHECK_GRANTS_REF_FAILED
+        _CHECK_GRANTS_REF_FAILED = True
+        return ""
+    names = sorted({c["file"] for c in reg.get("checks", []) if c.get("file")})
+    return ",".join(f"Bash(bash checks/{n}:*)" for n in names)
+
+
 def with_tool_grants(tools, ref):
     """Return `tools` with the tree-derived `tools/` grant appended.
 
@@ -1073,11 +1125,11 @@ def with_tool_grants(tools, ref):
     list; it does not silently remove the PR's own tools from the round that
     has to verify them.
     """
-    derived = tool_grants(ref)
-    if not derived:
+    parts = [p for p in (tool_grants(ref), check_grants(ref)) if p]
+    if not parts:
         return tools
     have = set(tools.split(","))
-    add = [m for m in derived.split(",") if m not in have]
+    add = [m for p in parts for m in p.split(",") if m not in have]
     return tools + ("," + ",".join(add) if add else "")
 
 
@@ -1088,14 +1140,14 @@ def with_tool_grants(tools, ref):
 # grant, which is what lets it run inside a check at all.
 if os.environ.get("SWEEP_MODE") == "print-grant":
     _ref = os.environ.get("SWEEP_GRANT_REF") or None
-    _out = tool_grants(_ref)
+    _out = ",".join(p for p in (tool_grants(_ref), check_grants(_ref)) if p)
     print(_out)
     # AN EMPTY TREE AND AN UNREADABLE REF ARE DIFFERENT ANSWERS, and printing
     # the same empty line for both let a registered check read a resolution
     # failure as a pass (PR #441 round 1, finding 1). Exit 0 stays the honest
     # code for "this tree holds no grantable tool"; a ref that was GIVEN and
     # could not be read exits 2 and says so on stderr.
-    if _ref and _TOOL_GRANTS_REF_FAILED:
+    if _ref and (_TOOL_GRANTS_REF_FAILED or _CHECK_GRANTS_REF_FAILED):
         sys.stderr.write(
             f"print-grant: ref {_ref!r} could not be read — this is NOT an "
             f"empty grant, and a consumer that treats it as one is reporting "
@@ -5432,6 +5484,17 @@ try:
         subprocess.run(_c, cwd=_role_ref, capture_output=True)
     with open(_os.path.join(_role_ref, "tools", "role-probe.sh"), "w") as _f:
         _f.write("#!/bin/sh\n")
+    # AND THE checks/ HALF ON THE SAME PATH (kogaki#442). `--print-grant` calls
+    # `check_grants()` directly, so dropping the checks/ half from
+    # `with_tool_grants()` — the path spawn() actually uses — was invisible to
+    # the registered check: mutation P3, which SURVIVED until this was added.
+    # That is kogaki#443's defect reappearing for the other half, and it is
+    # caught here rather than shipped.
+    _os.makedirs(_os.path.join(_role_ref, "checks"))
+    with open(_os.path.join(_role_ref, "checks", "check-role-probe.sh"), "w") as _f:
+        _f.write("#!/bin/sh\nexit 0\n")
+    with open(_os.path.join(_role_ref, "checks", "registry.json"), "w") as _f:
+        _f.write('{"note":[],"checks":[{"id":"rp","file":"check-role-probe.sh"}]}\n')
     subprocess.run(["git", "add", "-A"], cwd=_role_ref, capture_output=True)
     subprocess.run(["git", "commit", "-qm", "r"], cwd=_role_ref,
                    capture_output=True)
@@ -5443,16 +5506,23 @@ try:
     # answer and a mutation swapping the ref for None SURVIVES. Caught by
     # mutating exactly that while writing this case.
     _os.remove(_os.path.join(_role_ref, "tools", "role-probe.sh"))
+    _os.remove(_os.path.join(_role_ref, "checks", "check-role-probe.sh"))
+    with open(_os.path.join(_role_ref, "checks", "registry.json"), "w") as _f:
+        _f.write('{"note":[],"checks":[]}\n')
     _cwd0 = _os.getcwd()
     try:
         _os.chdir(_role_ref)
         for _role, _base in (("review", REVIEW_TOOLS), ("fix", FIX_TOOLS)):
-            if "Bash(bash tools/role-probe.sh:*)" not in with_tool_grants(
-                    _base, _rref):
-                _grant_fail.append(
-                    f"the {_role} role does not receive a tool present at the "
-                    "REF — the review path of with_tool_grants() is not "
-                    "delivering the derived grant to this role")
+            _got = with_tool_grants(_base, _rref)
+            for _half, _want in (
+                    ("tools/", "Bash(bash tools/role-probe.sh:*)"),
+                    ("checks/", "Bash(bash checks/check-role-probe.sh:*)")):
+                if _want not in _got:
+                    _grant_fail.append(
+                        f"the {_role} role does not receive a {_half} member "
+                        "present at the REF — the review path of "
+                        "with_tool_grants() is not delivering that half of the "
+                        "derived grant to this role")
     finally:
         _os.chdir(_cwd0)
 finally:

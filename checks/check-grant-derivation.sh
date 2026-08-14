@@ -131,6 +131,58 @@ case "$bogus" in
   the diagnosis is what makes the exit code actionable (got: ${bogus:-<empty>})" ;;
 esac
 
+# --- 2c. THE checks/ HALF FOLLOWS THE REF TOO (kogaki#442) -------------------
+# The acceptance criterion of kogaki#442, asserted the same way its tools/
+# sibling is: a check present AT THE HEAD UNDER REVIEW and absent from the
+# reviewing checkout must be granted, or the round reviewing a PR that adds a
+# registered check cannot run that check's own evidence.
+#
+# THE REGISTRY IS READ AT THE REF, and this case is what holds that: the
+# scratch head registers the new check, and the reviewing checkout's registry
+# never mentions it. A derivation reading the registry from the checkout finds
+# no entry and grants nothing, so this case fails — which is the fork kogaki#442
+# named being decided by an assertion rather than by a comment.
+c442="$(mktemp -d)"
+trap 'rm -rf "$scratch" "$scratch2" "$c442"' EXIT
+mkdir -p "$c442/tools" "$c442/checks"
+cp "$SWEEP" "$c442/tools/review-sweep.sh"
+chmod +x "$c442/tools/review-sweep.sh"
+(
+  cd "$c442" || exit 1
+  git init -q . && git config user.email f@x && git config user.name f
+  printf '#!/bin/sh\nexit 0\n' > checks/check-added-by-the-pr.sh
+  printf '{"note":[],"checks":[{"id":"added","file":"check-added-by-the-pr.sh"}]}\n' > checks/registry.json
+  git add -A && git commit -qm head
+) >/dev/null 2>&1
+c442_head="$(git -C "$c442" rev-parse HEAD 2>/dev/null)"
+# A SECOND COMMIT REMOVES IT, so the scratch's HEAD differs from the ref under
+# review. Without this, HEAD and the ref name the same tree and a derivation
+# reading `HEAD:checks/registry.json` instead of `<ref>:...` passes — the
+# mutation survived exactly that in the case's first version.
+(
+  cd "$c442" || exit 1
+  rm -f checks/check-added-by-the-pr.sh
+  printf '{"note":[],"checks":[]}\n' > checks/registry.json
+  git add -A && git commit -qm "remove it"
+) >/dev/null 2>&1
+if [ -z "$c442_head" ]; then
+  bad "could not build the checks/ scratch repository, so kogaki#442's
+  acceptance case never ran — an unbuildable fixture is not a passing one"
+else
+  at_ref442="$(cd "$c442" && ./tools/review-sweep.sh --print-grant "$c442_head" 2>/dev/null)"
+  at_tree442="$(cd "$c442" && ./tools/review-sweep.sh --print-grant 2>/dev/null)"
+  case "$at_ref442" in
+    *"Bash(bash checks/check-added-by-the-pr.sh:*)"*) : ;;
+    *) bad "a registered check present AT THE HEAD under review is not granted,
+  so the round reviewing a PR that adds a check cannot run that check's own
+  evidence — kogaki#411's failure one directory over (got: ${at_ref442:-<empty>})" ;;
+  esac
+  case "$at_tree442" in
+    *added-by-the-pr*) bad "the checks/ control is broken: the reviewing
+  checkout was supposed to register no check" ;;
+  esac
+fi
+
 # --- 3. every member is the GRANTED SHAPE ------------------------------------
 # `bash ` is not decoration: a member emitted without it names a different,
 # ungranted command, and the round dies on a denial that reads as a missing
@@ -154,10 +206,16 @@ if [ -n "$live" ]; then
   set -f
   IFS=','
   for m in $live; do
+    # BOTH HALVES, since kogaki#442 moved the `checks/` derivation onto the
+    # round's own tree too. The shape is the same in both — the `bash ` prefix
+    # is what makes the member name a granted command — and accepting only
+    # `tools/` here would have made this check reject the very widening §4
+    # clause 4 asks for.
     case "$m" in
       "Bash(bash tools/"*":*)") : ;;
+      "Bash(bash checks/"*":*)") : ;;
       *) bad "grant member is not the granted shape: '$m' — expected
-  Bash(bash tools/<name>:*)" ;;
+  Bash(bash tools/<name>:*) or Bash(bash checks/<name>:*)" ;;
     esac
   done
   unset IFS
@@ -175,14 +233,15 @@ fi
 # state that misleads.
 if [ "$fail" -eq 0 ]; then
   echo "ok: the reviewer's executable grant is DERIVED OVER THE TREE THE ROUND"
-  echo "  RUNS IN, asked of tools/review-sweep.sh --print-grant rather than"
+  echo "  RUNS IN — BOTH HALVES, tools/ and checks/ (kogaki#412, kogaki#442) —"
+  echo "  asked of tools/review-sweep.sh --print-grant rather than"
   echo "  re-implemented here; the spawner is excluded BY CAPABILITY so a"
   echo "  renamed one is excluded too; every member carries the granted"
-  echo "  Bash(bash tools/<name>:*) shape."
+  echo "  Bash(bash <tools|checks>/<name>:*) shape."
   note "scope: this asserts the DERIVATION over constructed trees. It does not"
   note "  assert that spawn() passes the result to --allowedTools — that is the"
   note "  sweep's own fixture, which runs on every invocation and not in CI."
-  note "live at HEAD: ${granted_n} tool(s) granted$([ "$granted_n" -eq 0 ] && echo ' — vacuous today, and says so rather than reading as coverage')"
+  note "live at HEAD: ${granted_n} member(s) granted across both halves$([ "$granted_n" -eq 0 ] && echo ' — vacuous today, and says so rather than reading as coverage')"
   exit 0
 fi
 exit 1
