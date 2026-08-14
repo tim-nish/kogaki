@@ -48,6 +48,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# §12.2 v12 — the tree holds ONE owner rendering (reports/FullReport.md,
+# overwritten per pull). Every fixture run below that is not explicitly
+# exercising the DEFAULT rendering location renders into this throwaway
+# directory instead, so a check run can never replace the owner's report with
+# fixture material. The two defaults-under-test blocks delete this variable
+# from their spawn env and save/restore the real file around their runs.
+KOGAKI_REPORTS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/terrain-check-renderings.XXXXXX")"
+export KOGAKI_REPORTS_DIR
+trap 'rm -rf "$KOGAKI_REPORTS_DIR"' EXIT
+
 # NOTE ON CASE COUNTS (kogaki#145). These blocks used to close with a hand-
 # written "N/N cases" fraction. The number was compared to nothing, so it
 # attested to nothing and drifted every time a case was added — the last count
@@ -1987,11 +1997,20 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
   //   "Write down each path and which passing run covers it; a path with no
   //   named run is untested no matter how healthy the overall suite looks."
   //   product-lab@dec0d568 gloss/lessons/testing.md:155
+  // §12.2 v12 — this block exercises the DEFAULT rendering location, so the
+  // harness-level KOGAKI_REPORTS_DIR shield is removed from its env; and
+  // because the default IS the owner's real reports/FullReport.md, the
+  // pre-existing file is saved first and restored below, so the check never
+  // leaves fixture material standing as the owner's report.
+  const env2 = Object.assign({}, process.env, { KOGAKI_RUN_DIR: run2 });
+  delete env2.KOGAKI_REPORTS_DIR;
+  const OWNER_MD2 = "reports/FullReport.md";
+  const priorOwnerMd2 = existsSync(OWNER_MD2) ? readFileSync(OWNER_MD2) : null;
   const d = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
      "--ids", "G2", "--subdivisions", subs2,
      "--judge-model", "m", "--judge-effort", "high"],
-    { encoding: "utf8", env: Object.assign({}, process.env, { KOGAKI_RUN_DIR: run2 }) });
+    { encoding: "utf8", env: env2 });
   const dout = String(d.stdout) + String(d.stderr);
   const dSeamAbsent = d.status === 11
     || (d.status !== 0 && /policy_source unavailable|gateway/i.test(dout));
@@ -2046,6 +2065,10 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       fails.push("the machine record still DEFAULTS to ~/.kogaki/reports — acceptance 4 retires that directory, and with no KOGAKI_RUN_DIR a real run would write it");
     }
   }
+  // Restore the owner's real report (or its absence) regardless of which
+  // branch above ran — fixture material must not survive as FullReport.md.
+  if (priorOwnerMd2 !== null) writeFileSync(OWNER_MD2, priorOwnerMd2);
+  else rmSync(OWNER_MD2, { force: true });
   rmSync(run2, { recursive: true, force: true });
 }
 
@@ -2109,6 +2132,12 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
     || (r.status !== 0 && /policy_source unavailable|gateway/i.test(seamOut(r)));
   const count = (hay, needle) => hay.split(needle).length - 1;
 
+  // §12.2 v12 — the DEFAULT rendering location is under test here, and it is
+  // the owner's real reports/FullReport.md. Save the pre-existing file so the
+  // block's runs (which overwrite it with fixture material) can restore it.
+  const priorOwnerMd3 = existsSync("reports/FullReport.md")
+    ? readFileSync("reports/FullReport.md") : null;
+
   const r1 = spawnSync(process.execPath, argv, { encoding: "utf8", env: env3 });
   if (seamAbsent3(r1)) {
     K234.material = "CANNOT-DETERMINE (seam unavailable)";
@@ -2124,7 +2153,9 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
     fails.push(`the fresh report run failed (exit ${r1.status}): ${seamOut(r1).trim().slice(0, 200)}`);
   } else {
     const recName = readdirSync(run3).find((f) => f.startsWith("terrain-full-report-") && f.endsWith(".json"));
-    const md = recName ? join("reports", recName.replace(/\.json$/, ".md")) : null;
+    // §12.2 v12 — the rendering is the ONE fixed-name owner file; the record
+    // alone carries identity, so the rendering's name derives from nothing.
+    const md = join("reports", "FullReport.md");
     if (!recName || !existsSync(md)) {
       K234.material = "FAILED";
       K234.rerun = "FAILED";
@@ -2354,6 +2385,10 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       rmSync(md, { force: true });
     }
   }
+  // Restore the owner's real report (or its absence) regardless of which
+  // branch above ran — fixture material must not survive as FullReport.md.
+  if (priorOwnerMd3 !== null) writeFileSync("reports/FullReport.md", priorOwnerMd3);
+  else rmSync("reports/FullReport.md", { force: true });
   rmSync(run3, { recursive: true, force: true });
 }
 
