@@ -995,6 +995,15 @@ _TOOL_GRANTS_REF_FAILED = False
 # a GIVEN ref could not be read, consulted only by the reporting path.
 _CHECK_GRANTS_REF_FAILED = False
 
+# The PARSE failure is its own flag, not a second meaning for the one above
+# (kogaki#448 round 1, finding 2). Both exit 2, but they are different faults
+# and the operator's next act differs: one is a ref that will not resolve,
+# the other is a syntax error in `checks/registry.json` at that head. Routing
+# both through one message reinstated exactly the consumer-facing inaccuracy
+# kogaki#446 finding 2 objected to — a resolved ref described as unreadable —
+# one condition over.
+_CHECK_GRANTS_PARSE_FAILED = False
+
 
 def tool_grants(ref=None, root=".", _reader=None):
     """Build the `tools/` half of a role's grant over the tree at `ref`.
@@ -1156,8 +1165,9 @@ def check_grants(ref=None, root="."):
     try:
         reg = json.loads(raw)
     except Exception:
-        # READ, AND WOULD NOT PARSE: an error, and it says so.
-        _CHECK_GRANTS_REF_FAILED = True
+        # READ, AND WOULD NOT PARSE: an error, and it says so IN ITS OWN WORDS.
+        global _CHECK_GRANTS_PARSE_FAILED
+        _CHECK_GRANTS_PARSE_FAILED = True
         return ""
     names = sorted({c["file"] for c in reg.get("checks", []) if c.get("file")})
     return ",".join(f"Bash(bash checks/{n}:*)" for n in names)
@@ -1194,6 +1204,17 @@ if os.environ.get("SWEEP_MODE") == "print-grant":
     # failure as a pass (PR #441 round 1, finding 1). Exit 0 stays the honest
     # code for "this tree holds no grantable tool"; a ref that was GIVEN and
     # could not be read exits 2 and says so on stderr.
+    if _ref and _CHECK_GRANTS_PARSE_FAILED:
+        # The ref resolved and the blob was read; the fault is the JSON.
+        # Naming it is what points the operator at the repair (kogaki#448
+        # round 1, finding 2): the previous single message sent them to check
+        # ref resolution when `checks/registry.json` needs a syntax fix.
+        sys.stderr.write(
+            f"print-grant: checks/registry.json at {_ref!r} was READ and would "
+            f"not parse — this is NOT an empty checks/ half. That head "
+            f"registers an unknown number of checks, and treating the empty "
+            f"result as coverage denies the round every checks/ member.\n")
+        raise SystemExit(2)
     if _ref and (_TOOL_GRANTS_REF_FAILED or _CHECK_GRANTS_REF_FAILED):
         sys.stderr.write(
             f"print-grant: ref {_ref!r} could not be read — this is NOT an "
@@ -6651,7 +6672,7 @@ for pr in prs:
                 continue
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
                   f"[model {r_model}, max-turns {r_turns}, "
-                  f"{len(with_tool_grants(REVIEW_TOOLS, head_ref).split(','))} granted tools, worktree "
+                  f"{len(with_tool_grants(REVIEW_TOOLS, head).split(','))} granted tools, worktree "
                   f"{os.path.join(WORKTREE_ROOT, f'kogaki-review-{n}-XXXX', 'tree')} "
                   f"detached at {head[:7]}] -> "
                   f"{spawn_log_path(n, rnd)} (--dry-run; pass --spawn to act)")

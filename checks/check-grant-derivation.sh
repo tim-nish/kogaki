@@ -44,8 +44,14 @@ fi
 # doing the reviewing instead of the head under review — and asserts refusal.
 # A scratch repository is used rather than this one so the two trees can be
 # made to disagree on purpose.
+# BOUND BEFORE ANY TRAP REFERENCES IT (kogaki#448 round 1, finding 5). The
+# traps below name `$at_ref_err` unconditionally under `set -u`, while it
+# used to be bound inside an `else` branch — so on the scratch-unbuildable
+# path the trap body expanded an unset name and cleaned up NOTHING, on
+# precisely the run that had already failed.
+at_ref_err=""
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch"' EXIT
+trap 'rm -rf "$scratch" "$at_ref_err"' EXIT
 mkdir -p "$scratch/tools"
 cp "$SWEEP" "$scratch/tools/review-sweep.sh"
 chmod +x "$scratch/tools/review-sweep.sh"
@@ -69,6 +75,15 @@ else
   # so it is exactly the shape that made an honest empty checks/ half report
   # itself as a resolution failure. Discarding the exit code is what hid it:
   # the case passed on a derivation whose exit code was lying.
+  # UNBOUND BY ANY MUTANT TODAY, AND THAT IS STATED RATHER THAN LEFT (kogaki
+  # #448 round 1, finding 4). Refolding these streams is a mutation that
+  # SURVIVES: every `sys.stderr.write` in the sweep sits on an exit-2 path, so
+  # no zero-exit run produces stderr for the `*review-sweep*` arm below to
+  # match, and the condition the separation defends against cannot be
+  # constructed from outside. It is defensive against a future zero-exit
+  # stderr writer. REOPEN when one appears — at that moment this becomes
+  # bindable and owes its mutant.
+  #
   # STDOUT AND STDERR ARE CAPTURED SEPARATELY (kogaki#446, finding 3). Folding
   # them gave the exit-code arm its diagnosis but left `at_ref` — which is
   # afterwards content-matched against *review-sweep* — able to satisfy that
@@ -233,8 +248,15 @@ else
     bad "an UNPARSEABLE registry at a resolvable ref exited 0 — a head whose
   registry is present and broken registers an unknown number of checks, not
   zero, so reporting it as an empty half denies the round every checks/ member
-  with nothing on stderr and nothing in the exit code"
+  with nothing on stderr and nothing in the exit code. It said: $(cat "$q_err")"
   fi
+  # AND THE DIAGNOSIS NAMES THE PARSE, not ref resolution (finding 2's repair).
+  case "$(cat "$q_err")" in
+    *"would not parse"*) : ;;
+    *) bad "the unparseable-registry diagnosis does not name the parse — an
+  operator meeting this red is pointed at ref resolution when the repair is a
+  JSON fix: $(cat "$q_err")" ;;
+  esac
   rm -f "$q_err"
 fi
 
