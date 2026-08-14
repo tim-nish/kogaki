@@ -1847,7 +1847,34 @@ function renderingsDir(args) {
   const dir = args["rendering-dir"] || process.env.KOGAKI_REPORTS_DIR
     || join(repoRoot(), "reports");
   mkdirSync(dir, { recursive: true });
+  retireIdentityNamedRenderings(dir);
   return dir;
+}
+
+// §12.2 v12 (owner ruling 2026-08-14): the tree holds EXACTLY ONE owner
+// rendering — `FullReport.md`, overwritten on every pull. An identity-named
+// `terrain-full-report-<digest>.md` in the tree is the machine register's
+// naming reaching the owner surface — the defect §2.5 clause 3 states by
+// LOCATION, arriving by NAME — so any file so named is retired on sight, with
+// one line saying so (the same disposal discipline as `retireLegacyReportsDir`:
+// never silently). Nothing is lost: the rendering is a pure function of the
+// machine record (§12.1), which keeps identity and coexistence in the run
+// workspace, so a rerun regenerates any of them.
+// EXPORTED so the retirement can be asserted SEAM-FREE (PR #436 round 1,
+// finding 4). Reached only through `renderingsDir`, this ran exclusively on the
+// `report` path, which reads served Gloss — so on a machine with no gateway
+// every case covering it degraded to CANNOT-DETERMINE and the whole behaviour
+// could be deleted with the suite still green. Exporting it costs nothing the
+// module did not already expose (`relFromRepo` is exported for the same reason)
+// and buys a case that runs everywhere.
+export function retireIdentityNamedRenderings(dir) {
+  const stale = readdirSync(dir)
+    .filter((f) => f.startsWith("terrain-full-report-") && f.endsWith(".md"));
+  if (!stale.length) return;
+  for (const f of stale) rmSync(join(dir, f), { force: true });
+  console.log(`retired ${stale.length} identity-named rendering(s) (SPEC-terrain §12.2 v12): `
+    + "the tree holds ONE owner rendering, FullReport.md — identity lives in the machine "
+    + "record, and reports are idempotently regenerable (§12.1).");
 }
 
 // The owner surface prints a REPO-RELATIVE path (§2.5 clause 3): no owner-facing
@@ -1902,6 +1929,8 @@ function repoRoot() {
 function announceArtifacts(rendered, recordPath) {
   if (rendered) {
     console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md §12.2): ${relFromRepo(rendered)}`);
+    console.log("ONE rendering file, overwritten per pull (SPEC-terrain §12.2 v12) — identity "
+      + "and coexistence live in the machine record, never in the tree.");
   }
   // The record is machine-facing, so the owner surface names its FILENAME and
   // says where the class of thing lives; the full path is debugging output and
@@ -2476,7 +2505,9 @@ function cmdReport(args) {
       const priorText = renderReportMarkdown(prior, tag);
       let priorRendered = null;
       if (!args["no-render"]) {
-        priorRendered = join(renderingsDir(args), `terrain-full-report-${identityDigest(identity)}.md`);
+        // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
+        // pull. Identity stays in the record alone; the filename carries none.
+        priorRendered = join(renderingsDir(args), "FullReport.md");
       }
       emitOrRefuse("full_report", priorText,
         (text) => { if (priorRendered) writeFileSync(priorRendered, text); });
@@ -2538,7 +2569,9 @@ function cmdReport(args) {
   let rendered = null;
   if (!args["no-render"]) {
     const rdir = renderingsDir(args);
-    rendered = join(rdir, `terrain-full-report-${identityDigest(identity)}.md`);
+    // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
+    // pull. Identity stays in the record alone; the filename carries none.
+    rendered = join(rdir, "FullReport.md");
     writeFileSync(rendered, renderedText);
   }
 
@@ -3377,8 +3410,10 @@ switch (cmd) {
                                             Glosses, identified by the TRIPLE (substrate pin,
                                             co-tag query, judge pin). TWO ARTIFACTS (§12.2 v11):
                                             the machine RECORD in the run workspace, and the
-                                            owner RENDERING in reports/ in the working tree —
-                                            repo-visible and still never committed. Both are
+                                            owner RENDERING — exactly ONE file,
+                                            reports/FullReport.md, overwritten per pull
+                                            (§12.2 v12) — repo-visible and still never
+                                            committed. Both are
                                             written in the same act; --no-render opts out of the
                                             rendering. A rerun under the same identity is
                                             idempotent, not a duplicate. --all-groups is §11's

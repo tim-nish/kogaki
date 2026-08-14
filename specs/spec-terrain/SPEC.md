@@ -3402,6 +3402,69 @@ at pins (`specs/SPEC.md` §2), never from a report. What has changed is
 clause above is untouched, and moving a file into the tree does not make it
 evidence.
 
+### 12.2 (v12) ONE owner rendering in the tree — the machine name never reaches the owner surface
+
+**Owner ruling 2026-08-14.** The working tree holds **exactly one** owner
+rendering: **`reports/FullReport.md`**, a fixed human name, **overwritten on
+every pull**. This amends two v11 clauses by name:
+
+- **"Naming is unchanged" is superseded for the rendering.** The rendering's
+  filename is now normative, not implementer-owned. The measured defect: v11's
+  implementer-owned name was the identity digest
+  (`terrain-full-report-<hash>.md`), and 25 such files had accumulated in
+  `reports/` by 2026-08-14 — a machine register's naming standing on the owner
+  surface. §2.5 clause 3 already rules that a machine-local hidden *directory*
+  declares a file machine-facing; **a machine-oriented *name* makes the same
+  declaration**, and a tree full of them tells the owner none of these files
+  are for reading, which is the opposite of what the ruling that put the
+  rendering in the tree decided. The record's filename stays implementer-owned;
+  no owner reads it where it lives.
+- **Accumulation is superseded.** Identity, idempotence, and the coexistence
+  of reports under different identities (§12.1's four cases) are carried by
+  the **machine record alone**, in the run workspace, exactly as v11 already
+  assigned them. The rendering is a pure function of the record, so holding
+  one rendering per identity in the tree cached nothing the record cannot
+  regenerate at zero marginal read; a rerun overwrites the record under the
+  same identity, so storage does not grow with reruns.
+
+**The refusal/repair.** An identity-named rendering
+(`terrain-full-report-*.md`) found where renderings are written is **retired
+on sight** by the runtime, announced in one line, never silently
+(`retireLegacyReportsDir`'s discipline). A run that leaves **two or more**
+owner-rendering files in the tree, or writes an identity-named file anywhere
+the owner works, is a **contract violation** and a failed run — the same
+standing §6.2 gives a run that skipped the subdivision judgment.
+
+**Which half of that is carried, stated rather than left to read as covered.**
+The §6.2 comparison holds for the standing this clause declares and **not** for
+the enforcement, and the difference is written here so the clause is not read
+as having a carrier it lacks. §6.2's standing is a **refusal** — a run without
+a judge pin exits non-zero and writes nothing. This clause's is a **silent
+repair**: `retireIdentityNamedRenderings` deletes an identity-named rendering
+on the next write and returns, so a violating run is corrected rather than
+failed.
+
+- **Enforced by construction:** the write path cannot mint a second name.
+  Both report paths join the renderings directory with the literal
+  `FullReport.md`, so no identity digest can reach a rendering filename — the
+  defect this clause was written against is unwritable rather than detected.
+- **Currently unobserved:** a rendering file arriving in the tree under any
+  *other* name — hand-copied, left by a third-party tool, or written by a
+  future code path that does not go through `renderingsDir()`. Nothing counts
+  the rendering files, and nothing exits non-zero on finding two.
+
+Closing the second half means an assertion that the tree holds exactly one
+rendering, sited where a run can act on it. It is separable work and is not
+done here; what is not separable is the clause being honest about which half
+it has, since a declared contract with no carrier and no note that it has none
+reads exactly like an enforced one.
+
+**What this does not touch.** The record's home, shape, naming, and every
+§12.1 identity clause; `--no-render`; §2.5.2 (still gitignored — visibility
+and publication remain two decisions); and the rendering-not-an-address
+clause. A checker asserting rendering *coexistence* per identity now asserts
+it over records, never over tree files.
+
 ## 13. The provenance neighborhood — a widening of the settled Strand set
 
 **This section folds kogaki#289** (owner-adopted direction 2026-08-08; hub
