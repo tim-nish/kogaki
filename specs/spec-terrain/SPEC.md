@@ -669,19 +669,35 @@ the skill states it operationally. It has two limbs and only one shipped:
   question, and any other tool call. **A runtime refusal's stderr is delivered
   the same way and is never swallowed.**
 
-  **THE OBJECT OF THAT FIRST ACT WAS REPLACED BY §14.4.1 (v19, kogaki#462).**
-  As shipped at v7 this limb read *"relayed in full, in the user-visible
-  reply"*, and that is now **superseded**: §14.4.1 (v18) rules that an
-  owner-facing screen is delivered as the **artifact the runtime writes**, and
-  relaying a rendering in full in the reply is precisely the retyping §14.4
-  prohibits. So the first act is **naming the artifact to the owner**, and the
-  clause is amended here rather than left to be read as compatible.
+  **THE OBJECT OF THAT FIRST ACT IS AN ARTIFACT, PER ARTIFACT CLASS (v19,
+  kogaki#462).** As shipped at v7 this limb read *"relayed in full, in the
+  user-visible reply"*, and that is now **superseded for both renderings this
+  limb spans** — the negative limb above says *"the screens **and the Full
+  Report**"*, so a replacement scoped to one of them would leave the other
+  reading the superseded thing here, which is the defect this amendment exists
+  to close. Each class keeps its own artifact authority:
+
+  - **the screens** — `reports/Screen.md`, ruled by **§14.4.1** (v18)
+  - **the Full Report** — `reports/FullReport.md`, ruled by **§12.2**
+    (v11/v12), which sited it as a durable owner rendering and fixed its name
+
+  Neither authority is restated here and neither is extended: §14.4.1 governs
+  the screen and §12.2 governs the report, exactly as §12.2's own forward
+  pointer declares. What this limb says is the part common to both — **the
+  first act is naming the artifact to the owner**, never relaying a rendering
+  in full in the reply, which is precisely the retyping §14.4 prohibits.
 
   **What survives unchanged is the ORDERING and the OBLIGATION**, which were
   the whole of what v7 added: it is still the first act, still before any gate
   or question or other tool call, and relaying nothing is still a breach. Only
   *what is handed over* moved. **The form of the hand-over is non-normative**
   per §14.4.1 and no form may be read into this limb.
+
+  **The Full Report's hand-over already worked this way and is not changed by
+  this amendment** — `announceArtifacts` names the rendering and the skill
+  points at it, which is why only the screen half needed a ruling. It is
+  written here because a limb spanning both artifacts that mentions only the
+  one that changed reads as though the other were unaddressed.
 
   **Why this is amended AT THIS SITE rather than only at §14.4.1.** A reader
   asking *what does the flow do first* arrives here and at §6.3, not at a
