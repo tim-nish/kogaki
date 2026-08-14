@@ -69,12 +69,18 @@ else
   # so it is exactly the shape that made an honest empty checks/ half report
   # itself as a resolution failure. Discarding the exit code is what hid it:
   # the case passed on a derivation whose exit code was lying.
-  at_ref="$(cd "$scratch" && ./tools/review-sweep.sh --print-grant "$head_sha" 2>&1)"; at_ref_rc=$?
+  # STDOUT AND STDERR ARE CAPTURED SEPARATELY (kogaki#446, finding 3). Folding
+  # them gave the exit-code arm its diagnosis but left `at_ref` — which is
+  # afterwards content-matched against *review-sweep* — able to satisfy that
+  # pattern from any stderr text naming the script it just invoked. A false
+  # red, never a false green, and the diagnosis would have been wrong.
+  at_ref_err="$(mktemp)"
+  at_ref="$(cd "$scratch" && ./tools/review-sweep.sh --print-grant "$head_sha" 2>"$at_ref_err")"; at_ref_rc=$?
   if [ "$at_ref_rc" -ne 0 ]; then
     bad "a RESOLVABLE ref with no checks/ exited $at_ref_rc — an absent path in
   a tree that resolves is an empty half, not a resolution failure, and
   reporting it as one inverts the distinction --print-grant exists to draw:
-  $at_ref"
+  $(cat "$at_ref_err")"
   fi
   at_tree="$(cd "$scratch" && ./tools/review-sweep.sh --print-grant 2>/dev/null)"
   case "$at_ref" in
@@ -154,7 +160,7 @@ esac
 # no entry and grants nothing, so this case fails — which is the fork kogaki#442
 # named being decided by an assertion rather than by a comment.
 c442="$(mktemp -d)"
-trap 'rm -rf "$scratch" "$scratch2" "$c442"' EXIT
+trap 'rm -rf "$scratch" "$scratch2" "$c442" "$at_ref_err"' EXIT
 mkdir -p "$c442/tools" "$c442/checks"
 cp "$SWEEP" "$c442/tools/review-sweep.sh"
 chmod +x "$c442/tools/review-sweep.sh"
@@ -191,6 +197,75 @@ else
   case "$at_tree442" in
     *added-by-the-pr*) bad "the checks/ control is broken: the reviewing
   checkout was supposed to register no check" ;;
+  esac
+fi
+
+# --- 2d. THREE OUTCOMES STAY THREE (kogaki#446, findings 1 and 2) ------------
+# Every repair in this chain collapsed one pair of conditions and rebuilt the
+# collapse in the other direction, so both survivors are asserted here rather
+# than left to the next round to find:
+#
+#   registry UNPARSEABLE at a resolvable ref -> non-zero, and says so
+#   a TREE-ISH ref                           -> derives, same as tool_grants
+#
+# Written because the fix for each SURVIVED its own mutation until this case
+# existed: behaviour changed, nothing bound it.
+q446="$(mktemp -d)"
+trap 'rm -rf "$scratch" "$scratch2" "$c442" "$at_ref_err" "$q446"' EXIT
+mkdir -p "$q446/tools" "$q446/checks"
+cp "$SWEEP" "$q446/tools/review-sweep.sh"
+chmod +x "$q446/tools/review-sweep.sh"
+(
+  cd "$q446" || exit 1
+  git init -q . && git config user.email f@x && git config user.name f
+  printf '#!/bin/sh\n' > tools/ordinary.sh
+  printf '{"note":[],"checks":[' > checks/registry.json     # deliberately truncated
+  git add -A && git commit -qm broken
+) >/dev/null 2>&1
+q446_head="$(git -C "$q446" rev-parse HEAD 2>/dev/null)"
+if [ -z "$q446_head" ]; then
+  bad "could not build the unparseable-registry scratch, so kogaki#446's cases
+  never ran"
+else
+  q_err="$(mktemp)"
+  (cd "$q446" && ./tools/review-sweep.sh --print-grant "$q446_head" >/dev/null 2>"$q_err"); q_rc=$?
+  if [ "$q_rc" -eq 0 ]; then
+    bad "an UNPARSEABLE registry at a resolvable ref exited 0 — a head whose
+  registry is present and broken registers an unknown number of checks, not
+  zero, so reporting it as an empty half denies the round every checks/ member
+  with nothing on stderr and nothing in the exit code"
+  fi
+  rm -f "$q_err"
+fi
+
+# A TREE-ISH REF derives THE checks/ HALF, and the half matters: `tool_grants`
+# never passes through that gate, so asserting a `tools/` member here would
+# pass with the gate at its narrowest. The first version of this case did
+# exactly that and the mutation SURVIVED. A separate scratch is used because
+# the one above deliberately holds a broken registry.
+q446b="$(mktemp -d)"
+trap 'rm -rf "$scratch" "$scratch2" "$c442" "$at_ref_err" "$q446" "$q446b"' EXIT
+mkdir -p "$q446b/tools" "$q446b/checks"
+cp "$SWEEP" "$q446b/tools/review-sweep.sh"
+chmod +x "$q446b/tools/review-sweep.sh"
+(
+  cd "$q446b" || exit 1
+  git init -q . && git config user.email f@x && git config user.name f
+  printf '#!/bin/sh\nexit 0\n' > checks/check-treeish.sh
+  printf '{"note":[],"checks":[{"id":"t","file":"check-treeish.sh"}]}\n' > checks/registry.json
+  git add -A && git commit -qm valid
+) >/dev/null 2>&1
+q446b_tree="$(git -C "$q446b" rev-parse "HEAD^{tree}" 2>/dev/null)"
+if [ -z "$q446b_tree" ]; then
+  bad "could not build the tree-ish scratch, so the ref-gate case never ran"
+else
+  qb_out="$(cd "$q446b" && ./tools/review-sweep.sh --print-grant "$q446b_tree" 2>/dev/null)"; qb_rc=$?
+  case "$qb_out" in
+    *"Bash(bash checks/check-treeish.sh:*)"*) : ;;
+    *) bad "a TREE-ISH ref did not derive the checks/ half (exit $qb_rc) — the
+  ref gate is narrower than the derivation it guards, so the two halves
+  disagree about whether one ref is readable, and a consumer is told a ref
+  that resolved 'could not be read' (got: ${qb_out:-<empty>})" ;;
   esac
 fi
 

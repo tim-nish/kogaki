@@ -1112,12 +1112,36 @@ def check_grants(ref=None, root="."):
         # very distinction PR #441 round 1 finding 1 established one function
         # over. Its `tools/` sibling never had this: `git ls-tree` exits 0 with
         # empty output on a tree with no `tools/`.
+        # THE GATE ACCEPTS WHAT THE DERIVATION ACCEPTS (kogaki#446, finding 2).
+        # It verified `{ref}^{{commit}}`, so a tree-ish that is not a commit —
+        # a tree sha, a tag pointing at a tree — failed here while
+        # `tool_grants`' `git ls-tree <ref>` accepted the same ref and derived
+        # a correct `tools/` half from it. A derivation and its own guard
+        # disagreeing about whether one ref is readable is the defect; the
+        # commit-only reading was never declared anywhere, and the text a
+        # consumer saw said a resolved ref "could not be read".
         try:
             _subprocess_run(["git", "rev-parse", "--verify", "--quiet",
-                             f"{ref}^{{commit}}"], cwd=root)
+                             f"{ref}^{{tree}}"], cwd=root)
         except Exception:
             _CHECK_GRANTS_REF_FAILED = True
             return ""
+    # THREE OUTCOMES, NOT TWO PAIRS (kogaki#446, finding 1). Every previous
+    # repair in this chain collapsed one pair and rebuilt the collapse in the
+    # other direction, so the cases are separated explicitly here rather than
+    # by which `except` happens to catch first:
+    #
+    #   ref unresolvable ....... flag + ""   (handled above)
+    #   registry ABSENT ........ no flag + ""   an honest empty half
+    #   registry UNPARSEABLE ... flag + ""   read, and would not parse
+    #
+    # The third is the one PR #445 round 2 found collapsed into the second: a
+    # head whose registry is present and broken registers an UNKNOWN number of
+    # checks, not zero, and reporting that as an empty half denies the round
+    # every `checks/` member with nothing on stderr and nothing in the exit
+    # code. The two errors are loud in opposite directions and only the quiet
+    # one is dangerous, which is why absent stays silent and unparseable does
+    # not.
     try:
         if ref:
             raw = _subprocess_run(
@@ -1126,13 +1150,14 @@ def check_grants(ref=None, root="."):
             with open(os.path.join(root, "checks", "registry.json"),
                       encoding="utf-8") as fh:
                 raw = fh.read()
+    except Exception:
+        # ABSENT at a ref that resolves: an empty `checks/` half is an answer.
+        return ""
+    try:
         reg = json.loads(raw)
     except Exception:
-        # The ref resolved (or none was given) and the registry is absent or
-        # unparseable. NO check grants, failing toward the narrow side exactly
-        # as before — but NO failure flag, because nothing failed to resolve.
-        # A repository with no registry has an empty `checks/` half, and that
-        # is an answer rather than an error.
+        # READ, AND WOULD NOT PARSE: an error, and it says so.
+        _CHECK_GRANTS_REF_FAILED = True
         return ""
     names = sorted({c["file"] for c in reg.get("checks", []) if c.get("file")})
     return ",".join(f"Bash(bash checks/{n}:*)" for n in names)
@@ -6341,7 +6366,7 @@ for pr in prs:
                 continue
             print(f"  #{n}: would spawn FIX for round {used}'s findings "
                   f"[model {FIX_MODEL}, max-turns {MAX_TURNS}, "
-                  f"{len(FIX_TOOLS.split(','))} granted tools, worktree "
+                  f"{len(with_tool_grants(FIX_TOOLS, head_ref).split(','))} granted tools, worktree "
                   f"{os.path.join(WORKTREE_ROOT, f'kogaki-fix-{n}-XXXX', 'tree')} "
                   f"on branch {head_ref or '(unknown)'}] -> "
                   f"{fix_log_path(n, used)} (--dry-run; pass --spawn to act)")
@@ -6626,7 +6651,7 @@ for pr in prs:
                 continue
             print(f"  #{n}: would spawn review round {rnd} for {head[:7]} "
                   f"[model {r_model}, max-turns {r_turns}, "
-                  f"{len(REVIEW_TOOLS.split(','))} granted tools, worktree "
+                  f"{len(with_tool_grants(REVIEW_TOOLS, head_ref).split(','))} granted tools, worktree "
                   f"{os.path.join(WORKTREE_ROOT, f'kogaki-review-{n}-XXXX', 'tree')} "
                   f"detached at {head[:7]}] -> "
                   f"{spawn_log_path(n, rnd)} (--dry-run; pass --spawn to act)")
