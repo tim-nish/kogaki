@@ -989,11 +989,11 @@ SPAWNER_FLOOR = frozenset({"review-sweep.sh"})
 # Set by `tool_grants()` when a GIVEN ref could not be read. Read only by
 # `--print-grant`, whose consumer must tell an empty tree from an unreadable
 # ref; `spawn()` never consults it and is unchanged (PR #441 round 1).
-_TOOL_GRANTS_REF_FAILED = False
+_GRANT_FAULT_TOOL_REF = False
 
 # Its sibling for the `checks/` half (kogaki#442). Same contract: set when
 # a GIVEN ref could not be read, consulted only by the reporting path.
-_CHECK_GRANTS_REF_FAILED = False
+_GRANT_FAULT_CHECK_REF = False
 
 # The PARSE failure is its own flag, not a second meaning for the one above
 # (kogaki#448 round 1, finding 2). Both exit 2, but they are different faults
@@ -1002,7 +1002,7 @@ _CHECK_GRANTS_REF_FAILED = False
 # both through one message reinstated exactly the consumer-facing inaccuracy
 # kogaki#446 finding 2 objected to — a resolved ref described as unreadable —
 # one condition over.
-_CHECK_GRANTS_PARSE_FAILED = False
+_GRANT_FAULT_CHECK_PARSE = False
 
 
 def tool_grants(ref=None, root=".", _reader=None):
@@ -1018,8 +1018,8 @@ def tool_grants(ref=None, root=".", _reader=None):
     mutation kogaki#412's `assertion` finding says the old fixture could not
     catch because it read this file's SOURCE instead of this function's OUTPUT.
     """
-    global _TOOL_GRANTS_REF_FAILED
-    _TOOL_GRANTS_REF_FAILED = False   # per call, for the reason above
+    global _GRANT_FAULT_TOOL_REF
+    _GRANT_FAULT_TOOL_REF = False   # per call, for the reason above
     names, contents = [], {}
     if ref:
         try:
@@ -1054,7 +1054,7 @@ def tool_grants(ref=None, root=".", _reader=None):
             # flag the REPORTING path can read, so the spawn path's behaviour
             # is unchanged and only the consumer that needs the distinction
             # gets it.
-            _TOOL_GRANTS_REF_FAILED = True   # declared global at function top
+            _GRANT_FAULT_TOOL_REF = True   # declared global at function top
             return ""
     else:
         try:
@@ -1110,15 +1110,15 @@ def check_grants(ref=None, root="."):
     authority over a set that already has one. A check that could spawn rounds
     is a registry-admission defect, not a grant defect.
     """
-    global _CHECK_GRANTS_REF_FAILED, _CHECK_GRANTS_PARSE_FAILED
+    global _GRANT_FAULT_CHECK_REF, _GRANT_FAULT_CHECK_PARSE
     # RESET PER CALL (PR #449 round 1, finding 2). These were module-level and
     # never cleared, which was harmless while `--print-grant` made one call and
     # exited — but this diff put `with_tool_grants()` inside `for pr in prs:`,
     # so a flag set by one PR would have stayed set for every later PR in the
     # same dry run. "Not reachable today" is the phrasing that preceded three
     # defects in this chain; the distance here was one loop.
-    _CHECK_GRANTS_REF_FAILED = False
-    _CHECK_GRANTS_PARSE_FAILED = False
+    _GRANT_FAULT_CHECK_REF = False
+    _GRANT_FAULT_CHECK_PARSE = False
     if ref:
         # THE REF IS RESOLVED SEPARATELY FROM THE PATH BEING PRESENT, and that
         # separation is the whole of PR #445 round 1 finding 1. A bare
@@ -1142,7 +1142,7 @@ def check_grants(ref=None, root="."):
             _subprocess_run(["git", "rev-parse", "--verify", "--quiet",
                              f"{ref}^{{tree}}"], cwd=root)
         except Exception:
-            _CHECK_GRANTS_REF_FAILED = True
+            _GRANT_FAULT_CHECK_REF = True
             return ""
     # THREE OUTCOMES, NOT TWO PAIRS (kogaki#446, finding 1). Every previous
     # repair in this chain collapsed one pair and rebuilt the collapse in the
@@ -1175,7 +1175,7 @@ def check_grants(ref=None, root="."):
         reg = json.loads(raw)
     except Exception:
         # READ, AND WOULD NOT PARSE: an error, and it says so IN ITS OWN WORDS.
-        _CHECK_GRANTS_PARSE_FAILED = True   # declared global at function top
+        _GRANT_FAULT_CHECK_PARSE = True   # declared global at function top
         return ""
     names = sorted({c["file"] for c in reg.get("checks", []) if c.get("file")})
     return ",".join(f"Bash(bash checks/{n}:*)" for n in names)
@@ -1223,7 +1223,7 @@ if os.environ.get("SWEEP_MODE") == "print-grant":
     # working tree with a broken registry exited 0 with the checks/ half
     # silently empty. REACHABLE, not latent: that mode is what
     # checks/check-grant-derivation.sh uses as its own control at three sites.
-    if _CHECK_GRANTS_PARSE_FAILED:
+    if _GRANT_FAULT_CHECK_PARSE:
         # The ref resolved and the blob was read; the fault is the JSON.
         # Naming it is what points the operator at the repair (kogaki#448
         # round 1, finding 2): the previous single message sent them to check
@@ -1241,7 +1241,7 @@ if os.environ.get("SWEEP_MODE") == "print-grant":
             f"registers an unknown number of checks, and treating the empty "
             f"result as coverage denies the round every checks/ member.\n")
         raise SystemExit(2)
-    if _ref and (_TOOL_GRANTS_REF_FAILED or _CHECK_GRANTS_REF_FAILED):
+    if _ref and (_GRANT_FAULT_TOOL_REF or _GRANT_FAULT_CHECK_REF):
         sys.stderr.write(
             f"print-grant: ref {_ref!r} could not be read — this is NOT an "
             f"empty grant, and a consumer that treats it as one is reporting "
@@ -5556,37 +5556,69 @@ try:
 finally:
     shutil.rmtree(_empt, ignore_errors=True)
 
-# 3e. THE FAILURE FLAGS RESET PER CALL (PR #449 round 1, finding 2). Bindable
-#     ONLY here: each `--print-grant` invocation is its own process, so the
-#     registered check cannot observe state carried between two calls. This
-#     block runs in-process, which is exactly what makes the property testable
-#     — and the property matters because this diff put `with_tool_grants()`
-#     inside `for pr in prs:`, so a flag set by one PR would otherwise stay set
-#     for every later PR in the same dry run.
-_ = tool_grants(ref="refs/kogaki/definitely-no-such-ref")      # sets the flag
-if not _TOOL_GRANTS_REF_FAILED:
-    _grant_fail.append(
-        "the control for the reset case did not set the flag, so the assertion "
-        "below proves nothing — a fixture that cannot fail")
-_ = tool_grants(ref=None, root=".")                            # must clear it
-if _TOOL_GRANTS_REF_FAILED:
-    _grant_fail.append(
-        "tool_grants() did not reset its failure flag, so one PR's unreadable "
-        "ref marks every later PR in the same run as failed")
+# 3e. EVERY MEMBER OF THE FAILURE-FLAG FAMILY RESETS PER CALL (kogaki#450).
+#     Bindable ONLY here: each `--print-grant` invocation is its own process,
+#     so no external consumer can observe state carried between two calls.
+#
+#     THE FAMILY IS DISCOVERED, NOT LISTED, and that is the whole of kogaki#450.
+#     PR #449 bound this property member by member and covered two of three —
+#     deleting the third's reset left every fixture green. Adding the missing
+#     pair would have repaired the member the review named and left the count
+#     unchanged, which is the defect restated as its own fix:
+#
+#       "a per-reader fix repairs one reader and leaves the count unchanged ...
+#        where the readers share a projection the obligation belongs in the
+#        projection"
+#       consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:57
+#
+#     So the members are read out of the module namespace by naming convention,
+#     and the TRIGGER TABLE below is asserted to COVER what was discovered. A
+#     fourth `*_FAILED` flag added without a trigger fails this block — it
+#     cannot be silently unbound, which a list of three could not promise.
+# THE PREFIX IS THE DECLARATION. A suffix convention (`*_FAILED`) over-matched
+    # on the first run of this block — it swept up `ISOLATION_FAILED`, a public
+    # sentinel that is not a per-call fault flag at all. Discovery is only as
+    # good as the property the name encodes, so the family carries a prefix
+    # nothing else uses and joining it is an explicit act.
+_flag_names = sorted(n for n in list(globals()) if n.startswith("_GRANT_FAULT_"))
 _bad_reg = _tf.mkdtemp(prefix="kogaki-reset-")
 try:
     _os.makedirs(_os.path.join(_bad_reg, "checks"))
     with open(_os.path.join(_bad_reg, "checks", "registry.json"), "w") as _f:
         _f.write("{")
-    _ = check_grants(ref=None, root=_bad_reg)                  # sets parse flag
-    if not _CHECK_GRANTS_PARSE_FAILED:
+    # trigger -> the call that SETS the flag, and the call that must CLEAR it.
+    _triggers = {
+        "_GRANT_FAULT_TOOL_REF": (
+            lambda: tool_grants(ref="refs/kogaki/definitely-no-such-ref"),
+            lambda: tool_grants(ref=None, root=".")),
+        "_GRANT_FAULT_CHECK_REF": (
+            lambda: check_grants(ref="refs/kogaki/definitely-no-such-ref"),
+            lambda: check_grants(ref=None, root=".")),
+        "_GRANT_FAULT_CHECK_PARSE": (
+            lambda: check_grants(ref=None, root=_bad_reg),
+            lambda: check_grants(ref=None, root=".")),
+    }
+    _uncovered = [n for n in _flag_names if n not in _triggers]
+    if _uncovered:
         _grant_fail.append(
-            "the control for the parse-reset case did not set the flag")
-    _ = check_grants(ref=None, root=".")                       # must clear it
-    if _CHECK_GRANTS_PARSE_FAILED:
-        _grant_fail.append(
-            "check_grants() did not reset its parse flag, so one PR's broken "
-            "registry marks every later PR in the same run as broken")
+            f"failure-flag member(s) {_uncovered} have no trigger in this "
+            "block, so nothing asserts they reset — a new member must not be "
+            "born outside the coverage, which is kogaki#450 exactly")
+    for _n in _flag_names:
+        if _n not in _triggers:
+            continue
+        _set, _clear = _triggers[_n]
+        _set()
+        if not globals()[_n]:
+            _grant_fail.append(
+                f"the control for {_n} did not SET it, so the clear assertion "
+                "below proves nothing — a fixture that cannot fail")
+            continue
+        _clear()
+        if globals()[_n]:
+            _grant_fail.append(
+                f"{_n} did not reset per call, so one PR's fault marks every "
+                "later PR in the same run as faulted")
 finally:
     shutil.rmtree(_bad_reg, ignore_errors=True)
 
