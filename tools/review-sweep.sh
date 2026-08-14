@@ -5588,7 +5588,70 @@ finally:
 #     later author reads the promise, names a fourth member `SOMETHING_FAILED`,
 #     and is born invisible to the discovery — kogaki#450's own failure mode,
 #     reintroduced through this block's instructions.
-_flag_names = sorted(n for n in list(globals()) if n.startswith("_GRANT_FAULT_"))
+# THE FAMILY IS DISCOVERED FROM THE MODULE-LEVEL SOURCE, NOT FROM `globals()`
+# (kogaki#453). `globals()` answers "what has been assigned BY NOW", and that
+# depends on which earlier blocks happened to run: a member assigned only
+# inside its function under `global` is ABSENT from `globals()` until something
+# calls that function, so a fourth member added that way would be invisible to
+# this discovery and born unbound — silently, with the coverage assertion below
+# passing. Reading the definitions from the file's own text makes the answer
+# independent of execution order BY CONSTRUCTION, which is the difference
+# between removing the state and documenting that nobody should enter it.
+#
+# The self-read is the same instrument §6 below already uses, hoisted here
+# because this block now needs it first; its unreadable-self arm is unchanged
+# and still the reason an unreadable file fails rather than passes quietly.
+try:
+    with open("tools/review-sweep.sh", encoding="utf-8") as _fg:
+        _grant_src = _fg.read()
+except OSError as _e:
+    _grant_src = ""
+    _grant_fail.append(
+        f"could not read this file to assert the derivation: {_e} — an "
+        "unreadable self is a guard that cannot fail, not one that passed")
+# COMMENT LINES ARE EXCLUDED BEFORE EITHER SCAN, and that is a correctness
+# requirement rather than tidiness (PR #456 round 1, finding 2). This block's
+# own comment convention NAMES HYPOTHETICAL MEMBERS — the paragraph below
+# discusses a fourth member called `SOMETHING_FAILED`, which stayed harmless by
+# being off-prefix rather than by rule — so a mention scan over prose would let
+# one sentence about a hypothetical `_GRANT_FAULT_X` turn every sweep red,
+# accusing a comment of being born unbound. It also means a commented-out
+# definition stops counting as a definition, which is the same rule read the
+# other way and is what you would want.
+_grant_code = "\n".join(
+    _l for _l in _grant_src.split("\n") if not _l.lstrip().startswith("#"))
+_flag_names = sorted(set(
+    re.findall(r"^(_GRANT_FAULT_[A-Z0-9_]+)\s*=", _grant_code, re.M)))
+# EVERY NAME THE FILE MENTIONS OWES A MODULE-LEVEL DEFINITION, and this is the
+# arm that makes the sentence mechanical instead of documentary. Comparing the
+# module-level set against `globals()` alone would NOT catch the case that
+# matters: a member with no module-level definition whose function no earlier
+# block calls is missing from BOTH sets, so the divergence is invisible exactly
+# when the member is. Scanning every mention catches it whether or not anything
+# has called it — which is the whole of what kogaki#453 asked to be impossible.
+_mentioned = set(re.findall(r"_GRANT_FAULT_[A-Z0-9_]+", _grant_code))
+_undefined = sorted(_mentioned - set(_flag_names))
+if _undefined:
+    _grant_fail.append(
+        f"failure-flag name(s) {_undefined} are mentioned with no MODULE-LEVEL "
+        "definition, so they exist only once something assigns them — "
+        "discoverable by execution order rather than by declaration, which is "
+        "how a member is born unbound (kogaki#453)")
+if not _flag_names and _grant_src:
+    _grant_fail.append(
+        "the module-level discovery found NO family members in a file that was "
+        "read — the pattern has drifted from the definitions, and an empty "
+        "family silently asserts nothing about every member there is")
+# AN UNREADABLE FILE MUST NOT MAKE THE REST OF THIS BLOCK SPEAK (PR #456 round
+# 1, finding 1). With `_grant_src` empty, `_flag_names` is empty too, and every
+# assertion below that reads it changes meaning rather than falling silent: the
+# per-member reset loop iterates ZERO times, so kogaki#450's whole property
+# goes unasserted, and `_stale` becomes every trigger and reports a DELETION
+# THAT DID NOT HAPPEN. Before this diff the discovery came from `globals()` and
+# was independent of the read, so those assertions ran regardless — the
+# regression is this diff's own, and the guard is what keeps the shared read
+# from turning one cause into a second, false message.
+_family_readable = bool(_grant_src)
 _bad_reg = _tf.mkdtemp(prefix="kogaki-reset-")
 try:
     _os.makedirs(_os.path.join(_bad_reg, "checks"))
@@ -5606,7 +5669,8 @@ try:
             lambda: check_grants(ref=None, root=_bad_reg),
             lambda: check_grants(ref=None, root=".")),
     }
-    _uncovered = [n for n in _flag_names if n not in _triggers]
+    _uncovered = [n for n in _flag_names if n not in _triggers] \
+        if _family_readable else []
     if _uncovered:
         _grant_fail.append(
             f"failure-flag member(s) {_uncovered} have no trigger in this "
@@ -5617,23 +5681,47 @@ try:
     # same under-binding one direction over, which is how this block's own
     # subject keeps recurring.
     #
-    # UNREACHABLE IN THIS FILE'S CURRENT SHAPE, and that is declared rather
-    # than left to be assumed covered. Every member is assigned under a
-    # `global` statement inside its function, and `global X; X = False`
-    # RECREATES the name — so deleting a member's module-level definition does
-    # not remove it from `globals()`, and the arm below cannot fire. Measured
-    # by deleting one and watching nothing trip. It fires only for a trigger
-    # naming a flag NO function assigns, which is the state a rename passes
-    # through and the `_uncovered` arm above already catches. Kept as the
-    # symmetric half; REOPEN if a member ever loses its `global` assignment,
-    # at which point this becomes bindable and owes its mutant.
-    _stale = sorted(set(_triggers) - set(_flag_names))
+    # THIS ARM WAS DECLARED UNREACHABLE AND IS NOW BINDABLE — the reopen
+    # condition written here fired, and it was the discovery change above that
+    # fired it (kogaki#453). The old declaration ran: every member is assigned
+    # under a `global` statement, and `global X; X = False` RECREATES the name,
+    # so deleting a member's module-level definition did not remove it from
+    # `globals()` and this arm could not fire. That was true OF `globals()`,
+    # and it stopped being the question the moment `_flag_names` came from the
+    # module-level source instead: deleting a definition now removes the name
+    # from the set, so a trigger left behind IS a trigger naming no live flag.
+    #
+    # Kept as the symmetric half and now LIVE rather than declared-dead. Its
+    # mutant was run in the sitting that landed this — deleting
+    # `_GRANT_FAULT_CHECK_PARSE`'s module-level definition fires this arm and
+    # the undefined-name arm above, both naming that member. What this comment
+    # deliberately does NOT claim is a registered case: no check re-runs that
+    # mutation, because the fixture section needs the substrate the registered
+    # checks run without, and asserting a carrier here that does not exist is
+    # the form this whole change is about. Worth stating plainly because the
+    # reopen condition was written as a hypothetical about some future author:
+    # the same mechanism that hid a member from discovery was what made the
+    # deletion invisible here, one mechanism with two consequences, and the
+    # commit that landed it named only the convenient one.
+    _stale = sorted(set(_triggers) - set(_flag_names)) if _family_readable else []
     if _stale:
         _grant_fail.append(
             f"trigger(s) {_stale} name no live flag — a deleted member leaves "
             "an assertion that exercises nothing, silently")
-    for _n in _flag_names:
+    # THE RESET LOOP KEEPS RUNNING WHEN THE FILE IS UNREADABLE, which is more
+    # than round 1's finding asked for and is the point. Guarding this loop on
+    # the read too would trade a FALSE message for a SILENT one: kogaki#450's
+    # property — every member resets per call — has nothing to do with the
+    # file's text, and the triggers are named right here, so an unreadable self
+    # is no reason to stop asserting it. It falls back to the trigger table,
+    # whose keys are exactly the members this loop can exercise.
+    for _n in (_flag_names if _family_readable else sorted(_triggers)):
         if _n not in _triggers:
+            continue
+        if _n not in globals():
+            _grant_fail.append(
+                f"trigger {_n} names a flag that does not exist at all — the "
+                "reset assertion below would raise rather than report")
             continue
         _set, _clear = _triggers[_n]
         _set()
@@ -5734,14 +5822,9 @@ for _role, _base in (("review", REVIEW_TOOLS), ("fix", FIX_TOOLS)):
 # 6. THE PROLOGUE NO LONGER DERIVES FROM THE SWEEP'S OWN CHECKOUT. Asserted
 #    from source deliberately — this one IS a claim about the file's text, that
 #    a frozen wrong-tree value is absent, and no output could show it.
-try:
-    with open("tools/review-sweep.sh", encoding="utf-8") as _fg:
-        _grant_src = _fg.read()
-except OSError as _e:
-    _grant_src = ""
-    _grant_fail.append(
-        f"could not read this file to assert the derivation: {_e} — an "
-        "unreadable self is a guard that cannot fail, not one that passed")
+#    `_grant_src` and its unreadable-self arm are read in block 3e above, which
+#    needs them first; the read is shared rather than repeated, so an unreadable
+#    file reports once instead of twice for one cause.
 if re.search(r"\nTOOL_TOOLS=\"\$\(python3", _grant_src):
     _grant_fail.append(
         "the prologue still derives a tools/ grant — that value is computed in "
