@@ -1204,7 +1204,18 @@ if os.environ.get("SWEEP_MODE") == "print-grant":
     # failure as a pass (PR #441 round 1, finding 1). Exit 0 stays the honest
     # code for "this tree holds no grantable tool"; a ref that was GIVEN and
     # could not be read exits 2 and says so on stderr.
-    if _ref and _CHECK_GRANTS_PARSE_FAILED:
+    # NO `_ref` CONJUNCT, and its absence is the whole finding (PR #448 round 2).
+    # The arm BELOW guards a ref-RESOLUTION failure, where `_ref and` is
+    # correct because with no ref there is nothing that could have failed to
+    # resolve. Carrying that conjunct onto the PARSE arm made ref-ness a
+    # condition of reporting a fault where it is irrelevant: a registry blob
+    # that was read and would not parse is exactly as much an error whether it
+    # came from a ref or from the working tree. The result was kogaki#446
+    # finding 1 verbatim, one branch over — `--print-grant` with no ref on a
+    # working tree with a broken registry exited 0 with the checks/ half
+    # silently empty. REACHABLE, not latent: that mode is what
+    # checks/check-grant-derivation.sh uses as its own control at three sites.
+    if _CHECK_GRANTS_PARSE_FAILED:
         # The ref resolved and the blob was read; the fault is the JSON.
         # Naming it is what points the operator at the repair (kogaki#448
         # round 1, finding 2): the previous single message sent them to check

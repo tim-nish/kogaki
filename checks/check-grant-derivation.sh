@@ -44,14 +44,25 @@ fi
 # doing the reviewing instead of the head under review — and asserts refusal.
 # A scratch repository is used rather than this one so the two trees can be
 # made to disagree on purpose.
-# BOUND BEFORE ANY TRAP REFERENCES IT (kogaki#448 round 1, finding 5). The
-# traps below name `$at_ref_err` unconditionally under `set -u`, while it
-# used to be bound inside an `else` branch — so on the scratch-unbuildable
-# path the trap body expanded an unset name and cleaned up NOTHING, on
-# precisely the run that had already failed.
-at_ref_err=""
-scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch" "$at_ref_err"' EXIT
+# ONE CLEANUP ROOT, ONE TRAP — the site list stops existing (kogaki#446
+# successor). This file had FIVE `trap ... EXIT` registrations, each naming the
+# temporaries bound so far, and `trap` replaces the handler wholesale — so a
+# new temporary owed an edit at every later site and an omission at any one of
+# them leaked. Round 1 named one omission, round 2 named the next, and a
+# property check written while fixing THAT found a third. Repairing them one at
+# a time leaves the count unchanged:
+#
+#   "a per-reader fix repairs one reader and leaves the count unchanged ... where
+#    the readers share a projection the obligation belongs in the projection"
+#   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:57
+#
+# Every scratch is now a child of one root, cleaned by one handler registered
+# before anything is created. A future case adds a directory and owes no trap
+# edit, so the omission this repairs is not merely fixed but unreachable.
+TMPROOT="$(mktemp -d)"
+trap 'rm -rf "$TMPROOT"' EXIT
+mk() { d="$TMPROOT/$1"; mkdir -p "$d"; printf '%s' "$d"; }
+scratch="$(mk one)"
 mkdir -p "$scratch/tools"
 cp "$SWEEP" "$scratch/tools/review-sweep.sh"
 chmod +x "$scratch/tools/review-sweep.sh"
@@ -89,7 +100,7 @@ else
   # afterwards content-matched against *review-sweep* — able to satisfy that
   # pattern from any stderr text naming the script it just invoked. A false
   # red, never a false green, and the diagnosis would have been wrong.
-  at_ref_err="$(mktemp)"
+  at_ref_err="$TMPROOT/at_ref.err"
   at_ref="$(cd "$scratch" && ./tools/review-sweep.sh --print-grant "$head_sha" 2>"$at_ref_err")"; at_ref_rc=$?
   if [ "$at_ref_rc" -ne 0 ]; then
     bad "a RESOLVABLE ref with no checks/ exited $at_ref_rc — an absent path in
@@ -119,8 +130,12 @@ else
 fi
 
 # --- 2. the exclusion is by capability, so a RENAMED spawner is excluded -----
-scratch2="$(mktemp -d)"
-trap 'rm -rf "$scratch" "$scratch2"' EXIT
+scratch2="$(mk two)"
+# `$at_ref_err` STAYS IN EVERY TRAP, because `trap` replaces the handler
+# wholesale (PR #448 round 2). Dropping it here left the temp file outside the
+# cleanup set for the span down to the next re-registration — the round-1
+# repair NARROWED that window rather than closing it, which is the per-form
+# shape landing on the site list of a single repair.
 mkdir -p "$scratch2/tools"
 cp "$SWEEP" "$scratch2/tools/review-sweep.sh"
 chmod +x "$scratch2/tools/review-sweep.sh"
@@ -174,8 +189,7 @@ esac
 # never mentions it. A derivation reading the registry from the checkout finds
 # no entry and grants nothing, so this case fails — which is the fork kogaki#442
 # named being decided by an assertion rather than by a comment.
-c442="$(mktemp -d)"
-trap 'rm -rf "$scratch" "$scratch2" "$c442" "$at_ref_err"' EXIT
+c442="$(mk c442)"
 mkdir -p "$c442/tools" "$c442/checks"
 cp "$SWEEP" "$c442/tools/review-sweep.sh"
 chmod +x "$c442/tools/review-sweep.sh"
@@ -225,8 +239,7 @@ fi
 #
 # Written because the fix for each SURVIVED its own mutation until this case
 # existed: behaviour changed, nothing bound it.
-q446="$(mktemp -d)"
-trap 'rm -rf "$scratch" "$scratch2" "$c442" "$at_ref_err" "$q446"' EXIT
+q446="$(mk q446)"
 mkdir -p "$q446/tools" "$q446/checks"
 cp "$SWEEP" "$q446/tools/review-sweep.sh"
 chmod +x "$q446/tools/review-sweep.sh"
@@ -242,7 +255,7 @@ if [ -z "$q446_head" ]; then
   bad "could not build the unparseable-registry scratch, so kogaki#446's cases
   never ran"
 else
-  q_err="$(mktemp)"
+  q_err="$TMPROOT/q.err"
   (cd "$q446" && ./tools/review-sweep.sh --print-grant "$q446_head" >/dev/null 2>"$q_err"); q_rc=$?
   if [ "$q_rc" -eq 0 ]; then
     bad "an UNPARSEABLE registry at a resolvable ref exited 0 — a head whose
@@ -257,7 +270,16 @@ else
   operator meeting this red is pointed at ref resolution when the repair is a
   JSON fix: $(cat "$q_err")" ;;
   esac
-  rm -f "$q_err"
+  # AND THE SAME FAULT IN THE REF-LESS MODE (PR #448 round 2). The parse arm
+  # used to be guarded by `_ref`, so this exact break was silent on the path
+  # this very file uses as its control at three sites. Asserted here because
+  # the fix without it is the unbound repair this chain keeps producing.
+  (cd "$q446" && ./tools/review-sweep.sh --print-grant >/dev/null 2>&1); q_nr=$?
+  if [ "$q_nr" -eq 0 ]; then
+    bad "an UNPARSEABLE registry in the WORKING TREE exited 0 — the ref-less
+  mode is what this file uses as its own control, so a broken registry there
+  makes every control silently tools/-only while reporting success"
+  fi
 fi
 
 # A TREE-ISH REF derives THE checks/ HALF, and the half matters: `tool_grants`
@@ -265,8 +287,7 @@ fi
 # pass with the gate at its narrowest. The first version of this case did
 # exactly that and the mutation SURVIVED. A separate scratch is used because
 # the one above deliberately holds a broken registry.
-q446b="$(mktemp -d)"
-trap 'rm -rf "$scratch" "$scratch2" "$c442" "$at_ref_err" "$q446" "$q446b"' EXIT
+q446b="$(mk q446b)"
 mkdir -p "$q446b/tools" "$q446b/checks"
 cp "$SWEEP" "$q446b/tools/review-sweep.sh"
 chmod +x "$q446b/tools/review-sweep.sh"
