@@ -280,11 +280,19 @@ else
   # Its ref-ful sibling asserts its text; this one checked only the exit code,
   # so it passed while the message said "at None" — naming a ref on the one
   # path that has none, in the arm added to make that path reachable.
-  case "$(cat "$q_nr_err")" in
+  # EXHAUSTIVE, matching its sibling (kogaki#450). The known-regression arm
+  # alone let an EMPTY or reworded diagnosis fall through silently — the arm
+  # two blocks above has always had a `*)` and this one did not, so the
+  # asymmetry ran along the axis the bug was on.
+  # CAPTURED FIRST, THEN DEFAULTED (PR #451 round 1, finding 3). `cat` on an
+  # empty file exits 0 and prints nothing, so an `|| echo` fallback is inert on
+  # exactly the empty-diagnosis case this arm was widened for.
+  q_nr_msg="$(cat "$q_nr_err" 2>/dev/null)"
+  case "$q_nr_msg" in
     *"in the working tree"*) : ;;
-    *"was READ and would not parse"*) bad "the ref-less parse diagnosis does not
-  name the working tree — it reports a ref on the path that has none:
-  $(cat "$q_nr_err")" ;;
+    *) bad "the ref-less parse diagnosis does not name the working tree — it
+  reports a ref on the path that has none, or says nothing at all:
+  ${q_nr_msg:-<empty>}" ;;
   esac
   if [ "$q_nr" -eq 0 ]; then
     bad "an UNPARSEABLE registry in the WORKING TREE exited 0 — the ref-less
