@@ -5573,13 +5573,21 @@ finally:
 #
 #     So the members are read out of the module namespace by naming convention,
 #     and the TRIGGER TABLE below is asserted to COVER what was discovered. A
-#     fourth `*_FAILED` flag added without a trigger fails this block — it
-#     cannot be silently unbound, which a list of three could not promise.
-# THE PREFIX IS THE DECLARATION. A suffix convention (`*_FAILED`) over-matched
-    # on the first run of this block — it swept up `ISOLATION_FAILED`, a public
-    # sentinel that is not a per-call fault flag at all. Discovery is only as
-    # good as the property the name encodes, so the family carries a prefix
-    # nothing else uses and joining it is an explicit act.
+#     fourth `_GRANT_FAULT_*` flag added without a trigger fails this block —
+#     it cannot be silently unbound, which a list of three could not promise.
+#
+#     THE PREFIX IS THE DECLARATION, and this sentence used to name the wrong
+#     one. A suffix convention (`*_FAILED`) was tried first and over-matched on
+#     the block's first run — it swept up `ISOLATION_FAILED`, a public sentinel
+#     that is not a per-call fault flag at all. Discovery is only as good as
+#     the property the name encodes, so the family carries a prefix nothing
+#     else uses and joining it is an explicit act.
+#
+#     The comment kept promising the ABANDONED convention for one commit
+#     (PR #451 round 1, finding 1), which is worse than a stale comment: a
+#     later author reads the promise, names a fourth member `SOMETHING_FAILED`,
+#     and is born invisible to the discovery — kogaki#450's own failure mode,
+#     reintroduced through this block's instructions.
 _flag_names = sorted(n for n in list(globals()) if n.startswith("_GRANT_FAULT_"))
 _bad_reg = _tf.mkdtemp(prefix="kogaki-reset-")
 try:
@@ -5604,6 +5612,26 @@ try:
             f"failure-flag member(s) {_uncovered} have no trigger in this "
             "block, so nothing asserts they reset — a new member must not be "
             "born outside the coverage, which is kogaki#450 exactly")
+    # AND THE OTHER DIRECTION (PR #451 round 1, finding 4). A trigger naming a
+    # flag that no longer exists asserts nothing and says so to nobody — the
+    # same under-binding one direction over, which is how this block's own
+    # subject keeps recurring.
+    #
+    # UNREACHABLE IN THIS FILE'S CURRENT SHAPE, and that is declared rather
+    # than left to be assumed covered. Every member is assigned under a
+    # `global` statement inside its function, and `global X; X = False`
+    # RECREATES the name — so deleting a member's module-level definition does
+    # not remove it from `globals()`, and the arm below cannot fire. Measured
+    # by deleting one and watching nothing trip. It fires only for a trigger
+    # naming a flag NO function assigns, which is the state a rename passes
+    # through and the `_uncovered` arm above already catches. Kept as the
+    # symmetric half; REOPEN if a member ever loses its `global` assignment,
+    # at which point this becomes bindable and owes its mutant.
+    _stale = sorted(set(_triggers) - set(_flag_names))
+    if _stale:
+        _grant_fail.append(
+            f"trigger(s) {_stale} name no live flag — a deleted member leaves "
+            "an assertion that exercises nothing, silently")
     for _n in _flag_names:
         if _n not in _triggers:
             continue
