@@ -8,6 +8,12 @@ an artifact is not retyping it. The delivery mechanism — pointer,
 `!`-command, file-send — is deliberately **non-normative**, because binding the
 contract to a harness behaviour is the shape that produced the defect.
 
+**deferred slots minted by this amendment: none.** The non-normative delivery
+mechanism is a **decision, not an unnamed deferral** — §14.4.1 states why no
+mechanism may be fixed, so there is no slot for a later sitting to fill. §12.2
+(v12)'s owner-rendering count is **amended by name** below, not left to be read
+as compatible.
+
 **v17, amended 2026-08-12 (kogaki#385, owner selection)** — **§13.4
 gains a fourth rendering obligation: the neighborhood screen GROUPS BY
 SUBSTRATE INSTANCE and never lists a flat run.** Batch-mates render under their
@@ -4372,22 +4378,76 @@ stands, and only now has a satisfiable discharge.
 | information instructed to be output DOES appear | the artifact holds the runtime's own bytes |
 | information whose display is prohibited does NOT | nothing is retyped, so nothing can diverge |
 
+**A hand-over must occur; its FORM is what is free.** Writing the artifact is
+not delivery. A run that writes `reports/Screen.md` and tells the owner nothing
+has produced exactly the owner-visible state kogaki#434 was filed against, so
+§14.4's *"Delivering nothing is still a failure"* binds to the **hand-over**
+and never to the write. The relay names the artifact to the owner as the FIRST
+act after the command returns — before any gate, any question, any other tool
+call, which is §14.4's existing ordering and is unchanged. **Which form that
+naming takes is unconstrained** and that is the whole of the freedom this
+clause grants: a pointer, an `!`-command and a file-send are interchangeable
+here, and a spec that fixed one would be back to binding a contract to a
+harness. What is NOT free is skipping it.
+
+Whether the owner then *reads* it is outside every carrier here and always was
+— but that is a statement about the owner, not a discharge for the run.
+
+**§12.2 (v12)'s owner-rendering count is AMENDED, not merely cited.** That
+clause rules the tree holds **exactly one** owner rendering and that a run
+leaving **two or more** is a contract violation and a failed run. This clause
+adds a second owner-facing file to the same directory, so the two must be
+reconciled here rather than left to a reader:
+
+- **§12.2 (v12)'s count is scoped to FULL REPORT renderings.** It governs the
+  file named `FullReport.md`: exactly one, overwritten per pull, and an
+  identity-named rendering beside it is retired on sight. That rule is
+  unchanged in every respect for the artifact it was written about.
+- **The screen is a SECOND owner rendering class, with its own count of
+  exactly one.** `reports/Screen.md`, overwritten per render. The invariant
+  §12.2 (v12) actually protects — *no accumulation, no machine-register naming
+  on the owner surface* — holds for both, which is why this is a scoping and
+  not a repeal.
+- **On disagreement, this clause wins for the screen and §12.2 (v12) wins for
+  the report.** Written down because a copy that does not say which side wins
+  is the defect
+  (`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:215`,
+  `conformance-copy-needs-declared-precedence`: *"Write down which side wins
+  when the two disagree, in a place both sets of maintainers will read."*)
+
+Stating this was owed rather than optional: the first draft of this clause
+**restated §12.2's cardinality claim as precedent in the same breath as adding
+a file to the directory it counts** — which is the over-constrained-contract
+shape this very clause exists to remove, one clause over, and a latent
+contradiction only because §12.2's own *"Currently unobserved"* paragraph says
+nothing counts the rendering files.
+
 **Siting costs nothing new, and this is checked rather than assumed.**
-`reports/` is already the renderings directory, already gitignored, and already
-holds exactly one overwritten owner rendering under §12.2 (v12). `Screen.md`
+`reports/` is already the renderings directory and already gitignored, and
+§12.2 (v12) already sites one overwritten owner rendering there. `Screen.md`
 takes the identical lifetime in the identical directory, so §2.5.1's lifetime
 discriminator needs no new clause — the one the Full Report earned already
 covers it. kogaki#434 priced this arm as needing its own siting clause; it does
 not.
 
-**What is NOT carried, stated rather than left to read as covered.** Nothing
-counts the rendering files, and nothing exits non-zero on finding a screen
-delivered by a mechanism this clause left non-normative — because the mechanism
-is deliberately unconstrained, there is nothing there to check. The enforceable
-half is the **write**: the runtime joins the renderings directory with the
-literal `Screen.md`, so a second screen name is unwritable rather than
-detected, exactly as v12 makes a second report name unwritable. Whether the
-owner in fact read it is outside every carrier here and always was.
+**What is NOT carried, stated rather than left to read as covered.** Three
+things, and the third is the one a reader would otherwise assume:
+
+- **The write is enforced by construction.** The runtime joins the renderings
+  directory with the literal `Screen.md`, so a second screen name is
+  unwritable rather than detected, exactly as §12.2 (v12) makes a second
+  report name unwritable.
+- **The mechanism is unchecked because it is unconstrained.** Nothing exits
+  non-zero on a screen delivered by one form rather than another; there is
+  nothing there to check, by design.
+- **The hand-over floor above has NO mechanical carrier.** That a run named
+  the artifact to the owner at all is a property of the relay's behaviour, and
+  nothing in this repository observes it — the same standing §14.4's own
+  prohibitions have, and for the same reason: the relay is a model, not a code
+  path this suite can run. The floor is stated so a run that skips it is
+  **wrong** rather than merely disappointing, and stated here as uncarried so
+  the clause is not read as having an enforcement it lacks. Nothing counts the
+  rendering files either.
 
 ### 14.5 A golden fixture, and what it is for
 
