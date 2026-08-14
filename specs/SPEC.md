@@ -1346,6 +1346,71 @@ invariant: Gukan guarantees Unit schema, never data schema).
      neither call — §4's grammar above is singular, and the collision check
      keys on that field.
 
+     **THE GRANT CLASS SAYS WHAT A SPAWN MAY DO; THIS SAYS WHAT ITS TOOL SET
+     IS COMPUTED OVER — a spawned round's executable grant is DERIVED FROM
+     THE TREE THE ROUND RUNS IN, never from the sweep's own checkout**
+     (kogaki#412). The clause above makes the *class* a required argument and
+     refuses an undeclared one; it is silent on how the class's tool set is
+     built, and that silence is where the defect lived. It is added here
+     rather than as a new numbered clause deliberately: a new number would
+     renumber clauses 5 onward and invalidate every `clause N` citation in
+     this file, including the ones this very clause makes.
+
+     **The observed death, and note that the rule was already written down
+     when it happened.** PR #411 added `tools/mine-receipt-absence.sh`, a
+     proposer — not a registered check, since a proposer gates nothing.
+     Round 1 was granted, spawned, and exited 1 with no report, denied
+     `Bash(bash tools/mine-receipt-absence.sh --self-test)`; that self-test
+     was the PR's entire evidence. kogaki#413 repaired it by deriving the
+     grant from the filesystem instead of enumerating it — the right shape —
+     and derived it from **the wrong tree**: `os.listdir("tools")` runs in
+     the sweep's own checkout and is frozen into `SWEEP_REVIEW_TOOLS` at
+     startup, while `make_worktree()` gives the round a fresh worktree at the
+     PR's **head** sha and `spawn()` passes `cwd=tree`. The grant's source
+     tree and the round's working directory were two different trees, so a
+     sweep invoked from `master` grants nothing the PR adds and the
+     motivating case died exactly as before. The repair reached the
+     enumeration and not the binding.
+
+     **The generalisation, which is why this is a clause and not a bug fix.**
+
+     > "A verification artifact must be bound to the behavior it claims to
+     > verify by something other than its author's belief that it is — and
+     > because that binding can break at the input, the assertion, its scope,
+     > the control flow reaching it, or the description beside it, repairing
+     > any one form never touches the next, so per-form repair is itself an
+     > instance of the class."
+
+     `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:19`
+       outcome: discriminating
+       query: is a fix that adds one name to an allowlist an enumeration defect, and should coverage be derived rather than enumerated so artifact N+1 is covered by default
+
+     kogaki#412's four undischarged findings are four of that line's five
+     named forms over one binding — **input** (the tree the derivation reads),
+     **assertion** (the fixture asserts the derivation's source text, never
+     the grant string it builds), **control flow** (the guard is sited only in
+     the sweep, which is not a registered check and never runs in CI), and
+     **scope** (the spawner exclusion bars a *filename* when the capability it
+     bounds is `--spawn`). Repairing them one at a time is the class
+     reproducing itself, which is the ground for binding all four to one
+     clause.
+
+     **Two consequences bind implementations rather than being left to be
+     rediscovered.** The exclusion of the spawner is stated by **capability**
+     — a round may not run the act that spawns rounds, which is clause 3's
+     cap — and never by filename, because a second spawner under another name
+     would be granted and nothing would say so. And a fixture over this
+     property asserts the **built grant string**, never the source that builds
+     it: an assertion over source text passes a mutation that emits
+     `Bash(tools/{n}:*)` without `bash `, which is the vacuity this clause
+     exists to remove surviving one level in.
+
+     **What is NOT reopened.** The per-file enumeration itself stays, and it
+     is forced rather than chosen: `Bash(bash checks/:*)` is a **measured dead
+     grant** (`tools/review-sweep.sh:175`, round 1's) and `Bash(bash:*)` is a
+     general shell refused by a shipped fixture. So the question this clause
+     answers is *from which tree*, never *whether to enumerate*.
+
      **deferred slots: none.**
   5. **A report DECLARES ITS SCOPE — `full` or `delta`** (kogaki#70). A
      round-2 review is a delta review by default: its subject is round 1's
