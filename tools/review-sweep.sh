@@ -5609,8 +5609,19 @@ except OSError as _e:
     _grant_fail.append(
         f"could not read this file to assert the derivation: {_e} — an "
         "unreadable self is a guard that cannot fail, not one that passed")
+# COMMENT LINES ARE EXCLUDED BEFORE EITHER SCAN, and that is a correctness
+# requirement rather than tidiness (PR #456 round 1, finding 2). This block's
+# own comment convention NAMES HYPOTHETICAL MEMBERS — the paragraph below
+# discusses a fourth member called `SOMETHING_FAILED`, which stayed harmless by
+# being off-prefix rather than by rule — so a mention scan over prose would let
+# one sentence about a hypothetical `_GRANT_FAULT_X` turn every sweep red,
+# accusing a comment of being born unbound. It also means a commented-out
+# definition stops counting as a definition, which is the same rule read the
+# other way and is what you would want.
+_grant_code = "\n".join(
+    _l for _l in _grant_src.split("\n") if not _l.lstrip().startswith("#"))
 _flag_names = sorted(set(
-    re.findall(r"^(_GRANT_FAULT_[A-Z0-9_]+)\s*=", _grant_src, re.M)))
+    re.findall(r"^(_GRANT_FAULT_[A-Z0-9_]+)\s*=", _grant_code, re.M)))
 # EVERY NAME THE FILE MENTIONS OWES A MODULE-LEVEL DEFINITION, and this is the
 # arm that makes the sentence mechanical instead of documentary. Comparing the
 # module-level set against `globals()` alone would NOT catch the case that
@@ -5618,7 +5629,7 @@ _flag_names = sorted(set(
 # block calls is missing from BOTH sets, so the divergence is invisible exactly
 # when the member is. Scanning every mention catches it whether or not anything
 # has called it — which is the whole of what kogaki#453 asked to be impossible.
-_mentioned = set(re.findall(r"_GRANT_FAULT_[A-Z0-9_]+", _grant_src))
+_mentioned = set(re.findall(r"_GRANT_FAULT_[A-Z0-9_]+", _grant_code))
 _undefined = sorted(_mentioned - set(_flag_names))
 if _undefined:
     _grant_fail.append(
@@ -5631,6 +5642,16 @@ if not _flag_names and _grant_src:
         "the module-level discovery found NO family members in a file that was "
         "read — the pattern has drifted from the definitions, and an empty "
         "family silently asserts nothing about every member there is")
+# AN UNREADABLE FILE MUST NOT MAKE THE REST OF THIS BLOCK SPEAK (PR #456 round
+# 1, finding 1). With `_grant_src` empty, `_flag_names` is empty too, and every
+# assertion below that reads it changes meaning rather than falling silent: the
+# per-member reset loop iterates ZERO times, so kogaki#450's whole property
+# goes unasserted, and `_stale` becomes every trigger and reports a DELETION
+# THAT DID NOT HAPPEN. Before this diff the discovery came from `globals()` and
+# was independent of the read, so those assertions ran regardless — the
+# regression is this diff's own, and the guard is what keeps the shared read
+# from turning one cause into a second, false message.
+_family_readable = bool(_grant_src)
 _bad_reg = _tf.mkdtemp(prefix="kogaki-reset-")
 try:
     _os.makedirs(_os.path.join(_bad_reg, "checks"))
@@ -5648,7 +5669,8 @@ try:
             lambda: check_grants(ref=None, root=_bad_reg),
             lambda: check_grants(ref=None, root=".")),
     }
-    _uncovered = [n for n in _flag_names if n not in _triggers]
+    _uncovered = [n for n in _flag_names if n not in _triggers] \
+        if _family_readable else []
     if _uncovered:
         _grant_fail.append(
             f"failure-flag member(s) {_uncovered} have no trigger in this "
@@ -5681,13 +5703,25 @@ try:
     # the same mechanism that hid a member from discovery was what made the
     # deletion invisible here, one mechanism with two consequences, and the
     # commit that landed it named only the convenient one.
-    _stale = sorted(set(_triggers) - set(_flag_names))
+    _stale = sorted(set(_triggers) - set(_flag_names)) if _family_readable else []
     if _stale:
         _grant_fail.append(
             f"trigger(s) {_stale} name no live flag — a deleted member leaves "
             "an assertion that exercises nothing, silently")
-    for _n in _flag_names:
+    # THE RESET LOOP KEEPS RUNNING WHEN THE FILE IS UNREADABLE, which is more
+    # than round 1's finding asked for and is the point. Guarding this loop on
+    # the read too would trade a FALSE message for a SILENT one: kogaki#450's
+    # property — every member resets per call — has nothing to do with the
+    # file's text, and the triggers are named right here, so an unreadable self
+    # is no reason to stop asserting it. It falls back to the trigger table,
+    # whose keys are exactly the members this loop can exercise.
+    for _n in (_flag_names if _family_readable else sorted(_triggers)):
         if _n not in _triggers:
+            continue
+        if _n not in globals():
+            _grant_fail.append(
+                f"trigger {_n} names a flag that does not exist at all — the "
+                "reset assertion below would raise rather than report")
             continue
         _set, _clear = _triggers[_n]
         _set()
