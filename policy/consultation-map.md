@@ -735,6 +735,79 @@ a human wrote — and the map's own choice is the one that line prescribes:
     resolved silently by ratification status, or must the conflict be surfaced
     as a finding before either side is adopted?"
 
+### 4. Spent-bound exit — composing options or a recommendation at a gate whose subject is exiting a PR at a spent review bound
+
+- **Trigger terms:** spent bound, two-round bound, third round, round 3,
+  terminal, supersede, supersession, park, moved head, post-bound
+- **Read prescription:**
+  - *act class:* composing the options or the recommendation at a gate whose
+    subject is how a pull request LEAVES a spent review bound — merge, a
+    further round, park, or supersession.
+  - *survey before acting:* the `claude-code-ops` decision lines on the
+    terminal bound and the successor lane, and `specs/SPEC.md` §4's
+    successor-obligation clause — headline-first, **before the options are
+    composed**, because an option is hard to withdraw once it is on the screen
+    beside its peers.
+- **Served line (pinned):** quoted whole at its pin rather than paraphrased —
+
+  > "**OWNER RULE, standing: a PR blocked at the two-round bound is TERMINAL,
+  > and the work continues by SUPERSESSION rather than by reviving the review
+  > state.** The bound binds a *submission* — one PR, one review record — so
+  > there is no third round, no further development on the blocked PR, and no
+  > counter reset"
+  > (`topics/claude-code-ops.md:20@4cc496b`)
+
+- **Origin miss — TWO occurrences at the same act, which is what admitted it:**
+  - **PR #332's gate (2026-08-09)** offered *"Grant a third round"* and
+    recommended *"Merge on your judgment"*. Five consult receipts, all querying
+    the change's SUBJECT; none querying the act being performed.
+  - **PR #399's gate (2026-08-13)** offered *"Authorize round 3"* framed as
+    *"the bound is an owner decision, not a hard cap"* — contradicting the same
+    served line — and declared `outcome: uncovered-after-1-framings` while the
+    line sat served and unchanged at the pin above.
+- **Postmortem:**
+  - *violating artifact:* the two gate screens above.
+  - *triggering terms:* third round, spent bound, merge on your judgment.
+  - *the question, verbatim, that would have found the line:* "A PR is at its
+    two-round bound with findings outstanding — what does the standing owner
+    rule say about a third round, merging, or parking, versus supersession?"
+  - *the query defect, named:* **subject-shaped retrieval at an act-shaped
+    fork**, the same defect both times. Under the standing two-cause
+    discriminator this is a query defect and not a distill gap — the surface
+    held the answer and the query did not approach it.
+
+**THIS ENTRY DOES NOT FIRE MECHANICALLY, and saying so is part of admitting
+it** (owner selection 2026-08-15). `checks/check-boundary-receipts.sh` matches
+over **diff paths and changed text**; composing a gate produces neither, so no
+act in this repository observes the occasion this entry names. Its trigger
+terms are read by a sitting following the consult-first pass, exactly as the
+conduct axis's structural trigger is — the entry is a **finding aid**, not a
+gate. Admitting it changes what a sitting is pointed at and changes nothing a
+check can refuse.
+
+**Why it is admitted anyway, rather than folded into the conduct axis.** The
+axis was ratified 2026-08-11 and the #399 miss is dated 2026-08-13: the
+structural trigger was **in force and did not reach the act**, so folding this
+in would adopt a shape already measured as insufficient on this very specimen.
+And the map's own founding line makes the accretion safe here where an
+enumerated denial would not be —
+
+> "Its accretion polarity is what makes it safe where an enumerated denial list
+> is not: **each entry routes to a judgment rather than encoding one**, so a
+> member that turns out not to apply costs a consultation rather than a false
+> verdict."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:88`
+
+**Two further occurrences, recorded because they are the honest denominator.**
+The 2026-08-15 `/ship-cycle` sitting reached this act twice more — PR #452 and
+PR #455, both at a spent bound with findings open — and both times the findings
+were carried to a successor carrier rather than pushed to the branch, which is
+what the served rule requires. **Nothing fired.** The sitting had read the rule
+in its own context minutes earlier, which is precisely the guarantee that does
+not reproduce. Four occurrences in six days, two wrong and two right for a
+reason no carrier holds, is the measurement this entry is admitted against.
+
 ## The conduct axis — a facet of every entry, not a fourth entry (kogaki#336)
 
 **Owner selection 2026-08-11, alternative A, all three pieces.** The entries
