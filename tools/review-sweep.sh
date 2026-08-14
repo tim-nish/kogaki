@@ -5491,9 +5491,81 @@ if re.search(r"\nTOOL_TOOLS=\"\$\(python3", _grant_src):
         "tree kogaki#412 was reopened over")
 if not re.search(r"\n    granted_tools = with_tool_grants\(", _grant_src):
     _grant_fail.append(
-        "spawn() does not derive the grant over its own ref — the round would "
-        "run in a worktree at the PR head while its grant described another "
-        "tree")
+        "spawn() no longer calls with_tool_grants at all — the derivation is "
+        "gone, not merely misargued")
+# THE LABEL ABOVE IS NARROWED, NOT WIDENED (kogaki#443, acceptance 3). It used
+# to read "spawn() does not derive the grant over its own ref", which is a
+# claim about the ARGUMENT this regex cannot see: `with_tool_grants(base, None)`
+# matches it exactly as `(base, ref)` does. What it really covers is the call's
+# PRESENCE — the removal case — so it now says that and nothing more. The
+# argument binding is §7's, and it is asserted from behaviour rather than text.
+
+# 7. THE REF spawn() ACTUALLY PASSES, OBSERVED (kogaki#443). §5 proves
+#    with_tool_grants honours a ref it is handed; §6 proves the call exists.
+#    Neither reaches the one binding §4 clause 4 is about — that the ref
+#    spawn() derives over is ITS OWN spawn's ref — so the ref-swap mutation
+#    `with_tool_grants(tools or REVIEW_TOOLS, ref)` -> `(..., None)` restored
+#    kogaki#413's shipped defect with every fixture and the registered check
+#    still green (verified by running it, 2026-08-14).
+#
+#    None is not an inert placeholder: it is the working-tree path, which
+#    tool_grants' own docstring calls "the fixture path and the fallback, never
+#    the review path". So the mutation is silent by construction — a grant is
+#    still produced, over the sweep's checkout instead of the head under review.
+#
+#    A SPY, NOT A LOG READ. The grant string does reach the log, but only after
+#    make_worktree() checks the ref out and the session launches; a fixture that
+#    got that far would spawn a real reviewer. Rebinding the global aborts at
+#    the call itself, before any worktree, any subprocess and any outward act.
+#    `grant_class="fixture"` is why this consumes no owner grant — the reviewer
+#    class is the one that spends one, and it is deliberately not used here.
+_spy_ref = {}
+_real_wtg = with_tool_grants
+
+
+class _GrantProbe(Exception):
+    """Raised by the spy to stop spawn() at the derivation, before any effect."""
+
+
+def _spy_wtg(tools, ref):
+    _spy_ref["ref"] = ref
+    raise _GrantProbe()
+
+
+_spy_dir = _tf.mkdtemp(prefix="kogaki-grant-spy-")
+# A ref no tree resolves, so nothing downstream could succeed even if the abort
+# failed — and distinctive enough that an assertion passing on it cannot be
+# passing on some ambient value.
+_SENTINEL_REF = "5eeded5eeded5eeded5eeded5eeded5eeded5eed"
+try:
+    with_tool_grants = _spy_wtg
+    try:
+        spawn("probe", _os.path.join(_spy_dir, "pr-0-round-1.log"),
+              ref=_SENTINEL_REF, grant_class="fixture", tag="fixture")
+    except _GrantProbe:
+        pass
+    except Exception as _e:                       # noqa: BLE001 - reported, not raised
+        _grant_fail.append(
+            f"spawn() raised {type(_e).__name__}: {_e} before reaching the "
+            "grant derivation — this case asserts nothing about the ref, and "
+            "an unreached probe is not a pass")
+finally:
+    with_tool_grants = _real_wtg
+    shutil.rmtree(_spy_dir, ignore_errors=True)
+
+if "ref" not in _spy_ref:
+    _grant_fail.append(
+        "spawn() never called with_tool_grants — the derivation was not "
+        "reached, so the ref it passes is unobserved rather than correct")
+elif _spy_ref["ref"] != _SENTINEL_REF:
+    _grant_fail.append(
+        f"spawn() derived its grant over {_spy_ref['ref']!r}, not over its own "
+        f"ref {_SENTINEL_REF!r} — "
+        + ("None is the WORKING-TREE path, so the round's grant describes the "
+           "sweep's checkout instead of the head under review (kogaki#413's "
+           "shipped defect)" if _spy_ref["ref"] is None else
+           "the round would run in a worktree at the PR head while its grant "
+           "described another tree"))
 
 if _grant_fail:
     for _m in _grant_fail:
