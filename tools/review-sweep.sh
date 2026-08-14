@@ -515,6 +515,16 @@ while [ $# -gt 0 ]; do
     # reconciliation pass searches for a name, not for the absence of flags —
     # and naming it is deliberately NOT claiming new coverage.
     --recent) MODE="spawn"; RECENT=1 ;;
+    # --print-grant exposes the ONE derivation to its second consumer
+    # (kogaki#438, story 1.64). `checks/check-grant-derivation.sh` asserts the
+    # grant a round actually receives, and the only honest way to do that from
+    # outside this file is to ask this file — a check that re-implemented
+    # `tool_grants()` would be a second definition of the property, which is
+    # the divergence `lib/disposition.py` exists to prevent one axis over
+    # ("one definition, both consumers load it, and neither re-declares it").
+    # It prints and exits; it spawns nothing and consumes no grant, which is
+    # what makes it safe to run inside a pre-push check.
+    --print-grant) MODE="print-grant"; GRANT_REF="${2-}"; [ $# -gt 1 ] && shift ;;
     --pr) TARGET_PR="${2:?--pr needs a number}"; shift ;;
     --branch) TARGET_BRANCH="${2:?--branch needs a name}"; shift ;;
     --help|-h)
@@ -555,6 +565,16 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
+# --print-grant RESOLVES NO SUBSTRATE, and that is a requirement rather than an
+# optimisation (kogaki#438, story 1.64). Its consumer is a pre-push check, so
+# it must make NO NETWORK CALL — a check that reached GitHub would fail offline
+# and make every push depend on gh being authenticated. Skipping the listing
+# here rather than later is what delivers that: the reads below are the only
+# network in this file's prologue.
+if [ "$MODE" = "print-grant" ]; then
+  prs="[]"
+else
+
 # Single-target mode (the hook's path): one PR by number, or resolved from
 # a head branch. A branch with no open PR yet is normal (a push precedes
 # creation) and is a stated no-op, never a failure.
@@ -580,13 +600,19 @@ elif ! prs="$(gh pr list --state open --limit "$LIMIT" \
   echo "FAIL could not establish the substrate: the gh lookup failed." >&2
   exit 1
 fi
+fi   # end of the --print-grant substrate skip
 
 # The repository owner is resolved at run time, never hardcoded: the
 # eligibility rule is owned by the merge-eligibility contract (repository
 # owner, plus pipeline.json's optional merge_author_allowlist), and a copied
 # login is a conformance copy with no declared precedence — on any other
 # repo it silently classifies every PR external (PR #46 review, round 1).
-if ! OWNER="$(gh repo view --json owner -q .owner.login 2>/dev/null)" \
+if [ "$MODE" = "print-grant" ]; then
+  # No eligibility is computed on this path — nothing is spawned, so no PR is
+  # classified — and resolving the owner would be the second network call a
+  # pre-push consumer must not make. Set to a value that cannot match a login.
+  OWNER=""
+elif ! OWNER="$(gh repo view --json owner -q .owner.login 2>/dev/null)" \
    || [ -z "$OWNER" ]; then
   echo "FAIL could not establish the substrate: the repository owner could" >&2
   echo "  not be resolved, and eligibility is computed against it." >&2
@@ -871,7 +897,8 @@ Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),\
 ${CHECK_TOOLS:+$CHECK_TOOLS,}\
 Read,Grep,Glob,Edit,Write}"
 
-SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
+SWEEP_PRS="$prs" SWEEP_MODE="$MODE" SWEEP_GRANT_REF="${GRANT_REF-}" \
+SWEEP_OWNER="$OWNER" SWEEP_LIMIT="$LIMIT" \
 SWEEP_MODEL="$REVIEW_MODEL" SWEEP_MAX_TURNS="$REVIEW_MAX_TURNS" \
 SWEEP_FIX_MODEL="$FIX_MODEL" \
 SWEEP_REVIEW_TOOLS="$REVIEW_TOOLS" SWEEP_FIX_TOOLS="$FIX_TOOLS" \
@@ -886,6 +913,160 @@ SWEEP_MODEL_PINNED="$REVIEW_MODEL_PINNED" \
 SWEEP_MAX_TURNS_PINNED="$REVIEW_MAX_TURNS_PINNED" \
 python3 <<'PYEOF'
 import fnmatch, json, os, re, shutil, subprocess, sys, tempfile, time
+
+# --- the tools/ grant, derived from THE TREE THE ROUND RUNS IN (kogaki#412) --
+#
+# §4 clause 4's grant-derivation paragraph is the contract this implements: the
+# grant CLASS says what a spawn may do; this says WHAT THE SET IS COMPUTED
+# OVER. kogaki#413 derived it from the filesystem — the right shape — and read
+# the SWEEP'S OWN CHECKOUT, while `make_worktree()` gives the round a tree at
+# the PR's HEAD and `spawn()` passes `cwd=tree`. Two different trees, so a
+# sweep invoked from `master` granted nothing the PR under review adds and
+# PR #411's `tools/mine-receipt-absence.sh` stayed unrunnable by the round
+# reviewing it.
+#
+# READ FROM THE REF, NOT FROM A WORKTREE, and that is a deliberate choice
+# rather than a shortcut. `git ls-tree` answers "what is in the tree at this
+# ref" without depending on the worktree existing yet — which keeps this
+# independent of spawn()'s internal ordering, where the command line is
+# assembled and logged BEFORE `make_worktree()` runs and that order is itself
+# load-bearing (`attempt_pid` scopes to the text after the last `=== spawn:`).
+# A derivation that needed the worktree would have forced that ordering to
+# change to fix a grant.
+#
+# THE SPAWNER IS EXCLUDED BY CAPABILITY, NEVER BY FILENAME (§4 clause 4,
+# kogaki#412 AC4). The old rule was `n != "review-sweep.sh"`, which grants any
+# renamed or copied spawner and says nothing about it. What is actually being
+# bounded is the ability to SPAWN ROUNDS — clause 3's two-round cap — so the
+# capability declares itself in the file and the derivation reads the
+# declaration. A second spawner under any name carries the marker and is
+# excluded — which is the property the filename rule could not deliver.
+#
+# THE MATCH IS A SUBSTRING TEST, AND ITS ERROR DIRECTION IS STATED rather than
+# hidden: a file that merely QUOTES the marker — a doc, a fixture, a future
+# tool describing this mechanism — is also excluded. That is a false NEGATIVE
+# on the grant (a tool the round cannot run) and never a false positive (a
+# spawner the round can), which is the same fail-toward-narrow the registry
+# read above takes: "a registry that cannot be read yields no check grants at
+# all". An anchored form was considered and declined for now — it buys
+# precision against a cost this repository has not paid, and the cheap
+# observation when it does is a tool that is silently ungranted, which the
+# round reports through the denial comment.
+#
+# This file itself carries the marker in `SPAWNER_MARK`'s own assignment, so it
+# excludes itself. That is not a trick: the file that defines what a spawner is
+# IS one, and both readings point at the same true fact.
+SPAWNER_MARK = "kogaki-grant: spawns-rounds"
+
+# THE FILENAME FLOOR, and why it is NOT the enumeration kogaki#412 objects to.
+# The capability rule can only see a marker that is IN THE TREE BEING READ, and
+# this derivation reads the PR's head — so every head authored before the
+# marker landed carries a spawner with no marker and would be GRANTED. Found by
+# testing the capability rule against a real ref rather than against the
+# fixture's constructed ones, which is exactly the gap the constructed trees
+# cannot show.
+#
+# The floor is a FLOOR, not the rule: the capability marker is what excludes a
+# renamed or copied spawner, which is the property #412 asked for and a name
+# list can never deliver. This adds a second, weaker reason to exclude one
+# known name, and its whole job is history. A name here is not "the coverage" —
+# a spawner named anything else is still excluded by the marker, so artifact
+# N+1 is covered, which is the test #412 states.
+#
+# Its removal trigger is stated so it does not become permanent by default:
+# drop it when no reviewable head predates the marker — in practice, when the
+# oldest open PR's base is past this commit.
+SPAWNER_FLOOR = frozenset({"review-sweep.sh"})
+
+
+def tool_grants(ref=None, root=".", _reader=None):
+    """Build the `tools/` half of a role's grant over the tree at `ref`.
+
+    Returns a comma-joined grant string, `""` when the tree holds no grantable
+    tool. `ref=None` reads the working tree at `root` — the fixture path and
+    the fallback, never the review path.
+
+    THE RETURN VALUE IS THE THING TO ASSERT. Its members are built as
+    `Bash(bash tools/<name>:*)`, and the `bash ` prefix is not decoration: a
+    grant emitted without it names a different, ungranted shape, which is the
+    mutation kogaki#412's `assertion` finding says the old fixture could not
+    catch because it read this file's SOURCE instead of this function's OUTPUT.
+    """
+    names, contents = [], {}
+    if ref:
+        try:
+            out = _subprocess_run(
+                ["git", "ls-tree", "--name-only", ref, "tools/"], cwd=root)
+            names = sorted(
+                os.path.basename(p) for p in out.splitlines()
+                if p.endswith(".sh"))
+            for n in names:
+                # FAIL-NARROW ON AN UNREADABLE BLOB, matching the working-tree
+                # path below and the direction this comment claims (PR #439
+                # round 1, finding 5). `allow_fail=True` returns "" when
+                # `git show` refuses, and an empty body carries no marker — so
+                # an entry `ls-tree` names and `show` cannot read would have
+                # been GRANTED, which is the opposite of the stated direction.
+                body = _subprocess_run(
+                    ["git", "show", f"{ref}:tools/{n}"], cwd=root,
+                    allow_fail=True)
+                contents[n] = body if body else SPAWNER_MARK
+        except Exception:
+            # A ref that cannot be read yields NO grant rather than a wider one
+            # — the same fail-toward-narrow the registry read above takes.
+            return ""
+    else:
+        try:
+            names = sorted(n for n in os.listdir(os.path.join(root, "tools"))
+                           if n.endswith(".sh"))
+        except OSError:
+            return ""
+        for n in names:
+            try:
+                with open(os.path.join(root, "tools", n), encoding="utf-8",
+                          errors="replace") as fh:
+                    contents[n] = fh.read()
+            except OSError:
+                contents[n] = SPAWNER_MARK   # unreadable ⇒ treat as spawner
+    granted = [n for n in names
+               if SPAWNER_MARK not in contents.get(n, "")
+               and n not in SPAWNER_FLOOR]
+    return ",".join(f"Bash(bash tools/{n}:*)" for n in granted)
+
+
+def _subprocess_run(argv, cwd=None, allow_fail=False):
+    p = subprocess.run(argv, capture_output=True, text=True, cwd=cwd)
+    if p.returncode != 0 and not allow_fail:
+        raise RuntimeError(f"{' '.join(argv)} exited {p.returncode}")
+    return p.stdout
+
+
+def with_tool_grants(tools, ref):
+    """Return `tools` with the tree-derived `tools/` grant appended.
+
+    Appending rather than substituting: the base list is the role's own
+    vocabulary and this adds exactly the repository-owned executables the round
+    may run. An operator's `KOGAKI_REVIEW_TOOLS` pin still wins over the base
+    list; it does not silently remove the PR's own tools from the round that
+    has to verify them.
+    """
+    derived = tool_grants(ref)
+    if not derived:
+        return tools
+    have = set(tools.split(","))
+    add = [m for m in derived.split(",") if m not in have]
+    return tools + ("," + ",".join(add) if add else "")
+
+
+# --print-grant: the second consumer's reach into the ONE derivation (#438).
+# Handled HERE — immediately after the definition and long before the fixture
+# blocks below — so a pre-push check pays a process start and nothing else.
+# Exits without touching GitHub, without spawning, and without consuming a
+# grant, which is what lets it run inside a check at all.
+if os.environ.get("SWEEP_MODE") == "print-grant":
+    _ref = os.environ.get("SWEEP_GRANT_REF") or None
+    print(tool_grants(_ref))
+    raise SystemExit(0)
 
 # THE HEAD-RESOLUTION UNIT IS LOADED, NEVER RESTATED (§4 clause 7 v2,
 # kogaki#308). `same_head` and `head_segments` used to be defined here and the
@@ -2300,148 +2481,6 @@ def decline_line(state, log_path, age, ttl):
 
 GRANT_CLASSES = ("reviewer", "fix", "fixture")
 
-# --- the tools/ grant, derived from THE TREE THE ROUND RUNS IN (kogaki#412) --
-#
-# §4 clause 4's grant-derivation paragraph is the contract this implements: the
-# grant CLASS says what a spawn may do; this says WHAT THE SET IS COMPUTED
-# OVER. kogaki#413 derived it from the filesystem — the right shape — and read
-# the SWEEP'S OWN CHECKOUT, while `make_worktree()` gives the round a tree at
-# the PR's HEAD and `spawn()` passes `cwd=tree`. Two different trees, so a
-# sweep invoked from `master` granted nothing the PR under review adds and
-# PR #411's `tools/mine-receipt-absence.sh` stayed unrunnable by the round
-# reviewing it.
-#
-# READ FROM THE REF, NOT FROM A WORKTREE, and that is a deliberate choice
-# rather than a shortcut. `git ls-tree` answers "what is in the tree at this
-# ref" without depending on the worktree existing yet — which keeps this
-# independent of spawn()'s internal ordering, where the command line is
-# assembled and logged BEFORE `make_worktree()` runs and that order is itself
-# load-bearing (`attempt_pid` scopes to the text after the last `=== spawn:`).
-# A derivation that needed the worktree would have forced that ordering to
-# change to fix a grant.
-#
-# THE SPAWNER IS EXCLUDED BY CAPABILITY, NEVER BY FILENAME (§4 clause 4,
-# kogaki#412 AC4). The old rule was `n != "review-sweep.sh"`, which grants any
-# renamed or copied spawner and says nothing about it. What is actually being
-# bounded is the ability to SPAWN ROUNDS — clause 3's two-round cap — so the
-# capability declares itself in the file and the derivation reads the
-# declaration. A second spawner under any name carries the marker and is
-# excluded — which is the property the filename rule could not deliver.
-#
-# THE MATCH IS A SUBSTRING TEST, AND ITS ERROR DIRECTION IS STATED rather than
-# hidden: a file that merely QUOTES the marker — a doc, a fixture, a future
-# tool describing this mechanism — is also excluded. That is a false NEGATIVE
-# on the grant (a tool the round cannot run) and never a false positive (a
-# spawner the round can), which is the same fail-toward-narrow the registry
-# read above takes: "a registry that cannot be read yields no check grants at
-# all". An anchored form was considered and declined for now — it buys
-# precision against a cost this repository has not paid, and the cheap
-# observation when it does is a tool that is silently ungranted, which the
-# round reports through the denial comment.
-#
-# This file itself carries the marker in `SPAWNER_MARK`'s own assignment, so it
-# excludes itself. That is not a trick: the file that defines what a spawner is
-# IS one, and both readings point at the same true fact.
-SPAWNER_MARK = "kogaki-grant: spawns-rounds"
-
-# THE FILENAME FLOOR, and why it is NOT the enumeration kogaki#412 objects to.
-# The capability rule can only see a marker that is IN THE TREE BEING READ, and
-# this derivation reads the PR's head — so every head authored before the
-# marker landed carries a spawner with no marker and would be GRANTED. Found by
-# testing the capability rule against a real ref rather than against the
-# fixture's constructed ones, which is exactly the gap the constructed trees
-# cannot show.
-#
-# The floor is a FLOOR, not the rule: the capability marker is what excludes a
-# renamed or copied spawner, which is the property #412 asked for and a name
-# list can never deliver. This adds a second, weaker reason to exclude one
-# known name, and its whole job is history. A name here is not "the coverage" —
-# a spawner named anything else is still excluded by the marker, so artifact
-# N+1 is covered, which is the test #412 states.
-#
-# Its removal trigger is stated so it does not become permanent by default:
-# drop it when no reviewable head predates the marker — in practice, when the
-# oldest open PR's base is past this commit.
-SPAWNER_FLOOR = frozenset({"review-sweep.sh"})
-
-
-def tool_grants(ref=None, root=".", _reader=None):
-    """Build the `tools/` half of a role's grant over the tree at `ref`.
-
-    Returns a comma-joined grant string, `""` when the tree holds no grantable
-    tool. `ref=None` reads the working tree at `root` — the fixture path and
-    the fallback, never the review path.
-
-    THE RETURN VALUE IS THE THING TO ASSERT. Its members are built as
-    `Bash(bash tools/<name>:*)`, and the `bash ` prefix is not decoration: a
-    grant emitted without it names a different, ungranted shape, which is the
-    mutation kogaki#412's `assertion` finding says the old fixture could not
-    catch because it read this file's SOURCE instead of this function's OUTPUT.
-    """
-    names, contents = [], {}
-    if ref:
-        try:
-            out = _subprocess_run(
-                ["git", "ls-tree", "--name-only", ref, "tools/"], cwd=root)
-            names = sorted(
-                os.path.basename(p) for p in out.splitlines()
-                if p.endswith(".sh"))
-            for n in names:
-                # FAIL-NARROW ON AN UNREADABLE BLOB, matching the working-tree
-                # path below and the direction this comment claims (PR #439
-                # round 1, finding 5). `allow_fail=True` returns "" when
-                # `git show` refuses, and an empty body carries no marker — so
-                # an entry `ls-tree` names and `show` cannot read would have
-                # been GRANTED, which is the opposite of the stated direction.
-                body = _subprocess_run(
-                    ["git", "show", f"{ref}:tools/{n}"], cwd=root,
-                    allow_fail=True)
-                contents[n] = body if body else SPAWNER_MARK
-        except Exception:
-            # A ref that cannot be read yields NO grant rather than a wider one
-            # — the same fail-toward-narrow the registry read above takes.
-            return ""
-    else:
-        try:
-            names = sorted(n for n in os.listdir(os.path.join(root, "tools"))
-                           if n.endswith(".sh"))
-        except OSError:
-            return ""
-        for n in names:
-            try:
-                with open(os.path.join(root, "tools", n), encoding="utf-8",
-                          errors="replace") as fh:
-                    contents[n] = fh.read()
-            except OSError:
-                contents[n] = SPAWNER_MARK   # unreadable ⇒ treat as spawner
-    granted = [n for n in names
-               if SPAWNER_MARK not in contents.get(n, "")
-               and n not in SPAWNER_FLOOR]
-    return ",".join(f"Bash(bash tools/{n}:*)" for n in granted)
-
-
-def _subprocess_run(argv, cwd=None, allow_fail=False):
-    p = subprocess.run(argv, capture_output=True, text=True, cwd=cwd)
-    if p.returncode != 0 and not allow_fail:
-        raise RuntimeError(f"{' '.join(argv)} exited {p.returncode}")
-    return p.stdout
-
-
-def with_tool_grants(tools, ref):
-    """Return `tools` with the tree-derived `tools/` grant appended.
-
-    Appending rather than substituting: the base list is the role's own
-    vocabulary and this adds exactly the repository-owned executables the round
-    may run. An operator's `KOGAKI_REVIEW_TOOLS` pin still wins over the base
-    list; it does not silently remove the PR's own tools from the round that
-    has to verify them.
-    """
-    derived = tool_grants(ref)
-    if not derived:
-        return tools
-    have = set(tools.split(","))
-    add = [m for m in derived.split(",") if m not in have]
-    return tools + ("," + ",".join(add) if add else "")
 
 
 def _approvals_dir():
