@@ -1944,6 +1944,18 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
     if (mds.length === 0) {
       fails.push("no owner RENDERING was written to the tree — the run produced a machine record and left the owner exactly where kogaki#234's ruling found them");
     }
+    // §12.2 v12 (kogaki#440): EXACTLY ONE, under the FIXED NAME. Asserting
+    // only `!== 0` above passes on the 25-file accumulation the ruling was
+    // written against, so the count and the name are asserted here and not
+    // left to the by-construction argument — a future path that writes a
+    // rendering without going through `renderingsDir()` is invisible to that
+    // argument and visible to this.
+    if (mds.length > 1) {
+      fails.push(`the tree holds ${mds.length} owner renderings (${mds.join(", ")}) — §12.2 v12 allows exactly one, and a run leaving two or more is a failed run`);
+    }
+    if (mds.length && !mds.includes("FullReport.md")) {
+      fails.push(`the owner rendering is named ${mds[0]} — §12.2 v12 makes the name normative (reports/FullReport.md); a machine-oriented name declares the file machine-facing exactly as a hidden directory does`);
+    }
     if (readdirSync(run).filter((f) => f.endsWith(".json") && f.startsWith("terrain-full-report-")).length === 0) {
       fails.push("no machine RECORD was written to the run workspace — the split is two artifacts, and dropping the record trades one violation for another");
     }
@@ -4080,4 +4092,93 @@ console.log("entered ID set: canonicalIds is NUMERIC-AWARE (G5-1 before G10, and
   + "before its SubGroups; both superseded flags refuse AND name --ids; an unresolvable id refuses listing "
   + "what resolves and why a stale list fails; an empty set refuses. Seam-free — every case is a unit call "
   + "or a refusal that precedes the seam.");
+JS
+
+# §12.2 v12's RETIREMENT, ASSERTED SEAM-FREE (PR #436 round 1, finding 4).
+# Every case that reached `retireIdentityNamedRenderings` before this one ran
+# through `report`, which reads served Gloss — so on a machine with no gateway
+# they all degraded to CANNOT-DETERMINE and DELETING THE WHOLE RETIREMENT LEFT
+# THE SUITE GREEN. That is the PR #225 signature this file warns about
+# elsewhere, arriving in the block written to prove the newest clause. The unit
+# call below runs everywhere, and the announcement is asserted as well as the
+# deletion: v12 says "retired on sight, announced in one line, NEVER silently",
+# so a mutation that removes the `console.log` and keeps the `rmSync` must fail
+# here, and it does.
+node --input-type=module - <<'JS'
+import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { retireIdentityNamedRenderings } from "./terrain/terrain.mjs";
+
+const fails = [];
+const dir = mkdtempSync(join(tmpdir(), "kogaki-v12-retire-"));
+
+// Two identity-named renderings, the fixed name, and a bystander. The
+// bystander is not decoration: a retirement that simply emptied the directory
+// would satisfy a delete-only assertion, and the owner's own notes sitting
+// beside their report is exactly what that would destroy.
+writeFileSync(join(dir, "terrain-full-report-aaaa1111.md"), "stale one\n");
+writeFileSync(join(dir, "terrain-full-report-bbbb2222.md"), "stale two\n");
+writeFileSync(join(dir, "FullReport.md"), "# Full Report\n\n## Group\n");
+writeFileSync(join(dir, "notes.md"), "the owner's own file\n");
+
+const said = [];
+const realLog = console.log;
+console.log = (...a) => said.push(a.join(" "));
+try {
+  retireIdentityNamedRenderings(dir);
+} finally {
+  console.log = realLog;
+}
+
+const left = readdirSync(dir).sort();
+
+// THE DELETION.
+const stragglers = left.filter((f) => f.startsWith("terrain-full-report-"));
+if (stragglers.length) {
+  fails.push(`identity-named rendering(s) survived retirement: ${stragglers.join(", ")} — §12.2 v12 retires them ON SIGHT, and one left standing is the accumulation the ruling was written against`);
+}
+
+// THE SURVIVORS. Scope is the identity-named form, never "everything here".
+if (!left.includes("FullReport.md")) {
+  fails.push("the retirement deleted FullReport.md — it retires the MACHINE-NAMED form, and taking the owner's one rendering with it inverts the clause");
+}
+if (!left.includes("notes.md")) {
+  fails.push("the retirement deleted an unrelated file (notes.md) — its scope is `terrain-full-report-*.md`, not the rendering directory's contents");
+}
+
+// THE ANNOUNCEMENT. "never silently" is half the clause, and it is the half a
+// delete-only assertion cannot see.
+const announced = said.join("\n");
+if (!announced.trim()) {
+  fails.push("the retirement said NOTHING — §12.2 v12 requires one line announcing it, and a silent disposal is what `retireLegacyReportsDir`'s discipline exists to refuse");
+} else if (!/retired/i.test(announced) || !/2/.test(announced)) {
+  fails.push(`the announcement does not say what was retired or how many: ${JSON.stringify(announced.slice(0, 200))}`);
+}
+
+// THE NO-OP DIRECTION. Called on a clean directory it must stay silent —
+// otherwise every ordinary run prints a disposal notice for nothing, which
+// trains the reader to skip the line that matters.
+const said2 = [];
+const realLog2 = console.log;
+console.log = (...a) => said2.push(a.join(" "));
+try {
+  retireIdentityNamedRenderings(dir);
+} finally {
+  console.log = realLog2;
+}
+if (said2.length) {
+  fails.push(`the retirement announced itself with nothing to retire: ${JSON.stringify(said2.join(" ").slice(0, 200))} — an announcement on every run is not an announcement`);
+}
+
+if (fails.length) {
+  console.log("FAIL §12.2 v12 retirement (kogaki#440):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("§12.2 v12 retirement: SEAM-FREE and RAN — both identity-named renderings deleted, "
+  + "FullReport.md and an unrelated bystander left standing (so a directory-emptying implementation "
+  + "fails), the disposal ANNOUNCED with its count (so a silent `rmSync` fails), and the no-op "
+  + "direction asserted silent (so an announcement on every run fails). This is the case whose "
+  + "absence let the whole retirement be deleted with the suite green on any machine without a seam.");
 JS

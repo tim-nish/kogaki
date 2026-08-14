@@ -1860,7 +1860,14 @@ function renderingsDir(args) {
 // never silently). Nothing is lost: the rendering is a pure function of the
 // machine record (§12.1), which keeps identity and coexistence in the run
 // workspace, so a rerun regenerates any of them.
-function retireIdentityNamedRenderings(dir) {
+// EXPORTED so the retirement can be asserted SEAM-FREE (PR #436 round 1,
+// finding 4). Reached only through `renderingsDir`, this ran exclusively on the
+// `report` path, which reads served Gloss — so on a machine with no gateway
+// every case covering it degraded to CANNOT-DETERMINE and the whole behaviour
+// could be deleted with the suite still green. Exporting it costs nothing the
+// module did not already expose (`relFromRepo` is exported for the same reason)
+// and buys a case that runs everywhere.
+export function retireIdentityNamedRenderings(dir) {
   const stale = readdirSync(dir)
     .filter((f) => f.startsWith("terrain-full-report-") && f.endsWith(".md"));
   if (!stale.length) return;

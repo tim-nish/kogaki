@@ -3435,6 +3435,30 @@ owner-rendering files in the tree, or writes an identity-named file anywhere
 the owner works, is a **contract violation** and a failed run — the same
 standing §6.2 gives a run that skipped the subdivision judgment.
 
+**Which half of that is carried, stated rather than left to read as covered.**
+The §6.2 comparison holds for the standing this clause declares and **not** for
+the enforcement, and the difference is written here so the clause is not read
+as having a carrier it lacks. §6.2's standing is a **refusal** — a run without
+a judge pin exits non-zero and writes nothing. This clause's is a **silent
+repair**: `retireIdentityNamedRenderings` deletes an identity-named rendering
+on the next write and returns, so a violating run is corrected rather than
+failed.
+
+- **Enforced by construction:** the write path cannot mint a second name.
+  Both report paths join the renderings directory with the literal
+  `FullReport.md`, so no identity digest can reach a rendering filename — the
+  defect this clause was written against is unwritable rather than detected.
+- **Currently unobserved:** a rendering file arriving in the tree under any
+  *other* name — hand-copied, left by a third-party tool, or written by a
+  future code path that does not go through `renderingsDir()`. Nothing counts
+  the rendering files, and nothing exits non-zero on finding two.
+
+Closing the second half means an assertion that the tree holds exactly one
+rendering, sited where a run can act on it. It is separable work and is not
+done here; what is not separable is the clause being honest about which half
+it has, since a declared contract with no carrier and no note that it has none
+reads exactly like an enforced one.
+
 **What this does not touch.** The record's home, shape, naming, and every
 §12.1 identity clause; `--no-render`; §2.5.2 (still gitignored — visibility
 and publication remain two decisions); and the rendering-not-an-address
