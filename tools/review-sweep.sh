@@ -2012,6 +2012,45 @@ def park_class(bodies, resolves=None):
     return "class: unreviewed-head (a push landed after the final round)"
 
 
+def post_bound_head_move(bodies, head, resolves=None):
+    """Did THIS head arrive after the bound was already spent? (kogaki#401)
+
+    §4 clause 3's rule is that round-2 fixes are born as the successor change
+    rather than as commits on the reviewed PR. Three heads broke it in four
+    days — PR #332 and #337 (2026-08-10), PR #399 (2026-08-13) — and every
+    carrier for it sat AFTER the breaking act, so the state machine could not
+    tell this from a spent bound nobody pushed to: both returned `park`.
+
+    THE PREDICATE IS `performed()`, NOT `counted()`, and the difference is the
+    whole discrimination. A fragment is performed and not counted (clause 6),
+    so it IS charged a round and it DOES sit at its head. Reading `counted()`
+    here would call a fragmented round-2 report a post-bound head move — the
+    author would be told to open a successor for a report the reviewer merely
+    split, while clause 6 already names the fragment case by name. So:
+
+      the head moved past the bound  iff  this head carries NO performed
+      segment at all, AND some head does.
+
+    The second conjunct is what keeps a PR nobody ever reviewed — no report,
+    no readable spawn — in plain `park`: nothing was reviewed, so nothing was
+    pushed past.
+
+    RELATION TO `park_class()`, stated rather than left to be inferred. That
+    selector's residual class is `unreviewed-head (a push landed after the
+    final round)`, and this predicate is STRICTLY NARROWER than it: where an
+    earlier head was reviewed and the CURRENT head carries a fragment,
+    `park_class` still says a push landed — truthfully, a push did land — while
+    this returns False, because the bound was spent AT this head rather than
+    before it. The two answer different questions and are kept apart on
+    purpose; the fixture below asserts the implication in the one direction it
+    holds, so a later edit that collapses them fails.
+    """
+    segs = segments(bodies)
+    if any(performed(s, resolves) for s in head_segments(segs, head)):
+        return False
+    return any(performed(s, resolves) for s in segs)
+
+
 def rounds_used(bodies, resolves=None):
     """How many review rounds this PR has already spent.
 
@@ -3758,6 +3797,16 @@ def decide(bodies, head, resolves=None, base=None,
     # look at it.
     rounds_done = rounds_used(bodies, resolves)
     if rounds_done >= MAX_ROUNDS:
+        # THE SPENT BOUND SPLITS IN TWO (kogaki#401, story 1.65). Both arms
+        # below were `park` until now, and that is the defect: a head that
+        # ARRIVED past the bound — the act §4 clause 3 forbids — was
+        # indistinguishable from a bound nobody pushed to, so the driver
+        # routed the breaking act to an owner decision the lane itself had
+        # manufactured. Asked through `post_bound_head_move()` rather than
+        # re-derived here, so this and the postmortem's class selector cannot
+        # answer differently.
+        if post_bound_head_move(bodies, head, resolves):
+            return 'post-bound-head-move'
         return 'park'
     return f'spawn-round-{rounds_done + 1}'
 
@@ -4475,8 +4524,13 @@ FIX = [
     ("one stale report -> round 2",
      "review-lane report: 9999999\nfinding: blocking open  x", H,
      'spawn-round-2'),
-    ("two stale reports -> park, never a third round",
-     "review-lane report: 9999999\nreview-lane report: 8888888", H, 'park'),
+    # `-> park` until kogaki#401: both rounds landed elsewhere and `H` carries
+    # none, which is a head that arrived past the bound. "Never a third round"
+    # is what this case is really about and is unchanged — the new state spawns
+    # nothing either.
+    ("two stale reports -> the head arrived past the bound, never a third round",
+     "review-lane report: 9999999\nreview-lane report: 8888888", H,
+     'post-bound-head-move'),
     ("current report, nothing blocking -> done",
      f"review-lane report: {H}\nfinding: should open  x", H, 'done'),
     ("current report with open blocking -> the author owes, not a respawn",
@@ -4537,13 +4591,19 @@ CARRY_FIX = [
      _carry_body, {_MBASE + "..." + _MOVED: _SAME_DIFF,
                    _MBASE + "..." + _OLD: _SAME_DIFF},
      'done', 'spawn-round-2'),
-    # The cheap case: the bound is spent, so sha-identity PARKS a mergeable PR.
+    # The cheap case: the bound is spent, so sha-identity strands a mergeable
+    # PR. Its pre-fix baseline was `park` until kogaki#401 and is now
+    # `post-bound-head-move` — the sha-only unit sees a head carrying no report
+    # with the bound gone, which is that state by construction. What this case
+    # asserts is unchanged and is the `_want != _want_old` discrimination
+    # below: the carry-forward unit reaches `done` and the sha-only one does
+    # not.
     ("a moved head whose diff is IDENTICAL does not park a mergeable PR",
      _carry_body + f"\nreview-lane report: 8888888\nreview-base: {_MBASE}",
      {_MBASE + "..." + _MOVED: _SAME_DIFF,
       _MBASE + "..." + _OLD: _SAME_DIFF,
       _MBASE + "...8888888": _OTHER_DIFF},
-     'done', 'park'),
+     'done', 'post-bound-head-move'),
     # The discriminating negative: content really changed, so nothing carries.
     ("a moved head whose diff DIFFERS still spends a round",
      _carry_body, {_MBASE + "..." + _MOVED: _OTHER_DIFF,
@@ -4676,8 +4736,18 @@ for _label, _bodies, _head, _want in [
     ("rounds spent and an UNJUSTIFIED blocking -> done (kogaki#72 downgrade "
      "survives: a successor is not summoned by a finding that does not gate)",
      _SPENT + "finding: blocking open  x", H, 'done'),
-    ("rounds spent and NO report for this head -> park, unchanged",
-     f"review-lane report: 9999999\nreview-lane report: 8888888", H, 'park'),
+    # EXPECTATION MOVED 2026-08-15 (kogaki#401, story 1.65), and the move is
+    # the point rather than a repair. This case read `park, unchanged` and
+    # asserted exactly the conflation #401 was filed about: two rounds spent at
+    # two other heads, nothing at this one, which is a head that ARRIVED past
+    # the bound. `park` was the token for that and for a bound nobody pushed
+    # to, so the fixture was pinning the defect in place. The successor lane is
+    # untouched — every case above still holds — and what changed is only that
+    # this row now names the state the lane routes to supersession.
+    ("rounds spent and no report for this head, both spent ELSEWHERE -> the "
+     "head arrived past the bound (was `park` until kogaki#401)",
+     f"review-lane report: 9999999\nreview-lane report: 8888888", H,
+     'post-bound-head-move'),
 ]:
     _got = decide(_bodies, _head, _ALL)
     if _got != _want:
@@ -4699,8 +4769,95 @@ if _sfail:
 else:
     print("successor pass: 5/5 successor-lane cases (spent+blocking supersedes; "
           "rounds remaining does not; non-gating does not; an unjustified "
-          "blocking does not; an unreviewed head still parks), plus the "
+          "blocking does not; a head that arrived PAST the bound is its own "
+          "state since kogaki#401, not a park), plus the "
           "no-fix-on-the-blocked-branch invariant")
+
+# --- the post-bound head move (kogaki#401, story 1.65) ---------------------
+# A HEAD THAT ARRIVED PAST THE BOUND IS ITS OWN STATE. Three heads broke §4
+# clause 3 in four days and every existing carrier sat after the breaking act,
+# so `decide()` returned `park` for both "the bound is spent and a fix landed
+# anyway" and "the bound is spent and nobody pushed" — and the driver routed
+# the first to an owner decision the lane itself manufactured.
+#
+# THE DISCRIMINATOR IS `performed()`, AND THE FIXTURE ASSERTS THAT DIRECTLY.
+# The draft criterion read `counted()`, which calls a fragmented round-2 report
+# a post-bound head move; the mutation case below is that draft, and it must
+# fail. Two heads, two fragments, zero counted reports is the path §4 clause 6
+# documents by name, and it spends the bound — so the earlier-head half reads
+# `performed()` too, or a push to a third head falls back into plain `park`.
+_pbfail = []
+_PB_A, _PB_B, _PB_C = "aaa1111", "bbb2222", "ccc3333"
+# `_ALL` is the resolves STUB defined above — a callable, not a set.
+# Reused rather than re-declared: a second stub is a second answer to
+# a question one unit already answers.
+
+
+def _whole(sha, findings="finding: should open  x", n=1):
+    return (f"review-lane report: {sha}\n{findings}\n"
+            f"report-complete: {n} findings\n")
+
+
+def _fragment(sha):
+    # Performed and NOT counted: the declared count disagrees with the lines.
+    return (f"review-lane report: {sha}\nfinding: should open  x\n"
+            "report-complete: 4 findings\n")
+
+
+for _label, _bodies, _head, _want in [
+    # AC1 — two whole rounds at two heads, then a push to a third.
+    ("a head arriving past a spent bound is its own state",
+     _whole(_PB_A) + _whole(_PB_B), _PB_C, 'post-bound-head-move'),
+    # AC2 — nothing was ever reviewed and nothing readable ever spawned.
+    ("a spent bound nobody reported to is still park",
+     f"review-round-unverified: {_PB_A}\n"
+     f"review-round-unverified: {_PB_B}\n", _PB_C, 'park'),
+    # AC2b — the round-2 report at the CURRENT head is a fragment. The head
+    # moved INSIDE the bound; clause 6 already names this case.
+    ("a fragment at the current head is not a post-bound move",
+     _whole(_PB_A) + _fragment(_PB_B), _PB_B, 'park'),
+    # The two-fragment path that spends the bound with ZERO counted reports —
+    # the case that made the earlier-head half read `performed()`.
+    ("two fragments at two heads, then a push, is still a post-bound move",
+     _fragment(_PB_A) + _fragment(_PB_B), _PB_C, 'post-bound-head-move'),
+]:
+    _got = decide(_bodies, _head, _ALL)
+    if _got != _want:
+        _pbfail.append(f"{_label}: got {_got!r}, want {_want!r}")
+
+# AC4 — it spawns nothing. Asserted through `drives_fix()`, the predicate the
+# driver actually consults, rather than by reading the branch.
+if drives_fix(_whole(_PB_A) + _whole(_PB_B), _PB_C, _ALL):
+    _pbfail.append("a post-bound head move drives a FIX — the bound is spent "
+                   "and this state does not re-open it")
+
+# THE RELATION TO `park_class()`, asserted in the ONE direction it holds.
+# The predicate is strictly narrower than that selector's residual class: where
+# the current head carries a fragment, `park_class` still truthfully says a
+# push landed, while this returns False because the bound was spent AT this
+# head. A later edit that collapses the two fails here.
+if not post_bound_head_move(_whole(_PB_A) + _whole(_PB_B), _PB_C, _ALL):
+    _pbfail.append("the predicate is False on its own defining case")
+if post_bound_head_move(_whole(_PB_A) + _fragment(_PB_B), _PB_B, _ALL):
+    _pbfail.append("the predicate fired where the CURRENT head carries a "
+                   "fragment — that is a bound spent AT this head, and "
+                   "collapsing it into `park_class`'s residual is the "
+                   "`counted`/`performed` slip one field over")
+if "unreviewed-head" not in park_class(_whole(_PB_A) + _whole(_PB_B), _ALL):
+    _pbfail.append("park_class no longer names the push case its residual "
+                   "class covers — the implication this asserts is vacuous")
+
+if _pbfail:
+    for _m in _pbfail:
+        print(f"FAIL post-bound head move: {_m}")
+    sys.exit(1)
+print("post-bound head move: 4/4 state cases (a push past the bound is its own "
+      "state; a bound nobody reported to still parks; a FRAGMENT at the current "
+      "head does NOT fire, because the head moved inside the bound; two "
+      "fragments at two heads spend the bound and a later push still fires — "
+      "the case that makes BOTH halves read `performed()` rather than "
+      "`counted()`), plus AC4 asserted through drives_fix() and the "
+      "park_class relation asserted in the one direction it holds")
 
 # --- a fabricated sha is not a round (kogaki#91) --------------------------
 # THE PR #67 SPECIMEN, replayed. A reviewer took the real 12-char prefix
@@ -4739,10 +4896,16 @@ for _label, _bodies, _head, _res, _want_state, _want_rounds in [
      "never history",
      f"review-lane report: 9999999\nreview-lane report: {_TRUE}",
      _TRUE, _ALL, 'done', 2),
+    # STATE MOVED 2026-08-15 (kogaki#401), COUNT UNCHANGED — and the count is
+    # this case's subject. Both rounds were spent at other heads and `_TRUE`
+    # carries none, so it is a head that arrived past the bound; `park` was the
+    # token that case shared with a bound nobody pushed to. The assertion that
+    # matters here is still `rounds=2`: an unreadable store must not invent
+    # free rounds, and it does not.
     ("cannot-determine counts the round: an unreadable store must not be able "
      "to invent free rounds",
      f"review-lane report: 9999999\nreview-lane report: 8888888",
-     _TRUE, lambda _s: None, 'park', 2),
+     _TRUE, lambda _s: None, 'post-bound-head-move', 2),
     ("a phantom's open blocking does not summon a fix for this head",
      f"review-lane report: {_FAKE}\nfinding: blocking open [harm: x]  x",
      _TRUE, _ONLY(_TRUE), 'spawn-round-1', 0),
@@ -4817,9 +4980,12 @@ for _label, _bodies, _head, _res, _want_state, _want_rounds in [
      _CH, _ALL, 'done', 1),
     # UNDER — distinct heads are still distinct rounds. The fix must not
     # collapse a real rally into one cycle.
-    ("two DISTINCT heads are still two rounds, and still park",
+    # `and still park` -> the state moved with kogaki#401; the COUNT, which is
+    # what this case is about, is unchanged at 2. Both rounds landed at heads
+    # other than `_CH`, so `_CH` arrived past the bound.
+    ("two DISTINCT heads are still two rounds",
      "review-lane report: 9999999\nreview-lane report: 8888888",
-     _CH, _ALL, 'park', 2),
+     _CH, _ALL, 'post-bound-head-move', 2),
     # UNDER — the unverified arm. Free before this story.
     ("a spawn nobody could read COSTS a round (it was paid for)",
      "review-round-unverified: 9999999",
@@ -4829,7 +4995,7 @@ for _label, _bodies, _head, _res, _want_state, _want_rounds in [
      _CH, _ALL, 'park', 2),
     ("a mark and a report on different heads are two rounds",
      "review-lane report: 9999999\nreview-round-unverified: 8888888",
-     _CH, _ALL, 'park', 2),
+     _CH, _ALL, 'post-bound-head-move', 2),
     # OVER — and the mark must not double-charge the round it records. This is
     # the PR #174 specimen: the report HAD landed and the read failed.
     ("a report SUBSUMES a mark at its own head — one round, never two",
@@ -6579,6 +6745,46 @@ for pr in prs:
         # one state. The `park` branch below adds none either; the old
         # spent-bound arm's `counts['park']` was a deliberate RE-CLASSIFICATION
         # of an `author-owes`, which a state of its own no longer needs.
+    elif state == 'post-bound-head-move':
+        # ROUTED TO SUPERSESSION, NOT TO THE OWNER (kogaki#401, story 1.65).
+        # This arm exists because the owner was being asked to arbitrate a
+        # state the lane manufactured: the fix landed where no round could
+        # read it, which is the successor lane's ordinary case and not a
+        # judgment. It SPAWNS NOTHING — the bound is spent and this state does
+        # not re-open it — and it says which act broke the rule rather than
+        # reporting the head as merely unreviewed.
+        #
+        # `used` is bound HERE rather than before the chain, matching the
+        # supersede arm: it is arm-local there, so reading it without binding
+        # it is a NameError on this path only — caught by the fixture pass.
+        used = rounds_used(bodies)
+        print(f"  #{n}: POST-BOUND HEAD MOVE — {MAX_ROUNDS} rounds spent and "
+              f"{head[:7]} arrived after the last of them. §4 clause 3 "
+              "(kogaki#338): the fixes are born as the successor change, not "
+              "as commits here. Routed to supersession; no owner decision is "
+              "owed and no third round exists.")
+        _pb_body = (
+            f"post-bound-head-move: {used}/{MAX_ROUNDS} rounds spent, and "
+            f"{head[:7]} carries no report from any of them — it landed after "
+            "the bound was gone. §4 clause 3 and kogaki#338: a round-2 fix is "
+            "born as the SUCCESSOR change, because no round remains that could "
+            "read one pushed here. The successor declares `supersedes: "
+            f"#{n}` and disposes of this PR's open findings under clause 8's "
+            "`carried:`/`declined:` grammar. This is the lane's ordinary "
+            "continuation — not a park, and not an owner decision.")
+        if mode == 'spawn':
+            # Same dry-run guard as both branches above, repeated for the same
+            # stated reason: an outward act is gated where it is performed.
+            r = subprocess.run(["gh", "pr", "comment", str(n), "--body", _pb_body],
+                               check=False)
+            if r.returncode != 0:
+                print(f"  #{n}: FAIL post-bound notice exited {r.returncode} "
+                      "— the state stands but its record did not reach the PR; "
+                      "posting it by hand is owed.")
+                spawn_failures += 1
+        else:
+            print(f"  #{n}: would post post-bound-head-move notice "
+                  f"(--dry-run): {_pb_body}")
     elif state == 'park':
         print(f"  #{n}: PARKED — {MAX_ROUNDS} rounds spent and {head[:7]} is "
               "still unreviewed. §4 clause 3: this is an owner decision, "
