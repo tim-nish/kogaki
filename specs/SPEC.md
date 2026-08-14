@@ -2144,9 +2144,10 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | 8 | a **review is degraded** (the session was denied tools) | **act** — clause 10's `review-report-degraded: <head sha>` line class, written by `tools/review-sweep.sh`'s `report-degraded` arm and read by `decide()`, so a head whose only report came from a denied-tools session resolves to a state distinct from `done` (kogaki#271 parts (a)–(c)) |
      | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
      | 10 | a **round is admitted to the record past the bound** | **act** — `_rounds_observation()` in `checks/check-review-report.sh`: distinct heads carrying counted segments, printed against clause 3's bound on every terminal state; reported, never gated, unit disclosed as NOT the sweep's cycle count (kogaki#290) |
-     | 11 | a **head moves past a spent bound** — a fix commit lands on the reviewed PR's branch after clause 3's rounds are gone | `none: OWED AND UNBUILT, carrier kogaki#401 via story 1.65. Row 10 covers a ROUND arriving past the bound; this is a HEAD arriving past it, and no observer distinguishes it. decide() returns park at tools/review-sweep.sh:3760-3761 whenever the rounds are spent and the current head carries no counted report — the same token as a spent bound nobody pushed to — while supersede at :3725-3726 is reachable only when the current head HAS a counted report with open blocking findings, which a just-moved head does not. So the breaking act is invisible in the vocabulary, and this row is typed none: rather than act because the observing act does not exist yet.` |
+     | 11 | a **head moves past a spent bound** — a fix commit lands on the reviewed PR's branch after clause 3's rounds are gone | **act** — `post_bound_head_move()` in `tools/review-sweep.sh`, read by `decide()` at its spent-bound branch and returning the state `post-bound-head-move`, which the driver routes to the SUPERSESSION lane rather than to the owner arbitration a generic `park` produced. The predicate is `performed()` on both halves and not `counted()`: a fragment is performed and not counted (clause 6), so it is charged a round and sits at its head — reading `counted()` would call a fragmented round-2 report a post-bound move at the current head, and would let two fragments at two heads spend the bound and then miss the push that follows. Strictly NARROWER than `park_class()`'s residual `unreviewed-head` class, which still truthfully reports a push where the bound was spent AT this head; the implication is asserted in the one direction it holds. Typed `none: OWED AND UNBUILT` from 2026-08-15, when the arm was decided and the observer was not built, until story 1.65 landed it — the interval is recorded rather than smoothed over, per row 2's precedent (kogaki#401) |
 
-     **ROW 11 ADDED 2026-08-15 (kogaki#401), typed `none:` ON PURPOSE.** Three
+     **ROW 11 ADDED 2026-08-15 (kogaki#401), typed `none:` and RE-TYPED `act`
+     the same day when story 1.65 landed its observer.** Three
      heads moved past a spent bound in four days — PR #332 and PR #337 on
      2026-08-10, PR #399 on 2026-08-13 — each stopped by nothing but prose. The
      rule those runs broke is written in three places (the hub's terminal-bound
@@ -2175,14 +2176,27 @@ invariant: Gukan guarantees Unit schema, never data schema).
      (`topics/archive/claude-code-ops.md:48@8906f20752e27d1935c62f24c8ba41ea1d55dba0`),
      and the sweep alone leaves the breaking act itself unattended.
 
-     **Why the row is `none:` and not `act` today.** This clause's own rule —
-     *"a row typed `act` naming an observing act that does not exist is a false
-     record, and naming a clause does not type a row"* — binds the sitting that
-     writes the row exactly as it binds any other. The decision is made and the
-     observer is not built, so the row names its carrier and its unbuilt state,
-     following row 4's `HALF-CARRIED` precedent. **Re-typing trigger:** the
-     change that lands the sweep state re-types row 11 to `act` in the same
-     change that discharges it, per clause 9.
+     **Why the row was `none:` before it was `act`, and why the interval is
+     recorded rather than smoothed over.** This clause's own rule — *"a row
+     typed `act` naming an observing act that does not exist is a false record,
+     and naming a clause does not type a row"* — binds the sitting that writes
+     the row exactly as it binds any other, so the row was typed `none:` while
+     the arm was decided and the observer unbuilt, following row 4's
+     `HALF-CARRIED` precedent. Story 1.65 then landed `post_bound_head_move()`
+     and re-typed it in the same change, which is clause 9's re-typing trigger
+     discharged rather than deferred. **The dated `none:` clause survives inside
+     the `act` typing on purpose** — row 2 records its own 2026-08-12-to-13
+     interval the same way, and a re-typing that erased its predecessor is the
+     stale-table failure this section names three paragraphs down.
+
+     **What the observer does NOT cover, stated so the row is not over-read.**
+     `post_bound_head_move()` is strictly narrower than `park_class()`'s
+     residual `unreviewed-head` class: where an earlier head was reviewed and
+     the CURRENT head carries a fragment, that selector still truthfully reports
+     a push, while this predicate returns False because the bound was spent AT
+     this head rather than before it. The two answer different questions and are
+     kept apart deliberately; a fixture asserts the implication in the one
+     direction it holds, so a later edit collapsing them fails.
 
      **THE FIVE ROWS THAT MOVED SINCE FILING, with what moved them.** Recorded
      because a re-typing that silently overwrites its predecessor teaches the
