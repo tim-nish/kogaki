@@ -1,6 +1,25 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v18, amended 2026-08-15 (kogaki#434, owner selection) — **§14.4.1:
+**Status:** v19, amended 2026-08-15 (kogaki#462, owner selection) — **v18's
+ruling is propagated to the clauses it silently invalidated.** §14.4.1 replaced
+the object of the flow's first act and named the wrong clause as its source,
+asserting an ordering was unchanged when that ordering belonged to **§2.4's
+positive limb** and had just had its object replaced. **§2.4's positive limb
+and §6.3 act 1 are amended by name**: the first act is naming the artifact, no
+longer relaying the rendering in full in the reply. §12.2 (v12) gains a
+**forward pointer** to §14.4.1's scoping of its owner-rendering count, written
+at the site a reader arrives at rather than only at the clause that knew.
+
+**No ruling is reopened and no new one is made** — v18's decision stands
+exactly as taken, and this amendment only makes the clauses it changed say so.
+**Historical Status blocks are NOT edited**, per this file's convention: a
+superseded entry is kept as the record of what it decided, and the
+supersession is recorded here. kogaki#462's acceptance item 3 named a Status
+block as an edit site and is **corrected** rather than half-met.
+
+**deferred slots minted by this amendment: none.**
+
+**v18, amended 2026-08-15 (kogaki#434, owner selection)** — **§14.4.1:
 delivery of an owner-facing screen binds to an ARTIFACT the runtime writes
 (`reports/Screen.md`, fixed name, overwritten per render), never to a display
 channel.** §14.4's one-producer removal is narrowed, not repealed: handing over
@@ -645,10 +664,32 @@ the skill states it operationally. It has two limbs and only one shipped:
   the runtime's *inputs* — the claims, the subdivisions — and relays its
   *output* as-is, and **never re-renders, summarizes, reformats, tabulates or
   paraphrases** what the runtime printed.
-- **The POSITIVE limb, added here.** The runtime's rendering is relayed **in
-  full, in the user-visible reply, as the FIRST act after the command
-  returns** — before any gate, any question, and any other tool call. **A
-  runtime refusal's stderr is relayed the same way and is never swallowed.**
+- **The POSITIVE limb, added here.** The runtime's rendering **reaches the
+  owner as the FIRST act after the command returns** — before any gate, any
+  question, and any other tool call. **A runtime refusal's stderr is delivered
+  the same way and is never swallowed.**
+
+  **THE OBJECT OF THAT FIRST ACT WAS REPLACED BY §14.4.1 (v19, kogaki#462).**
+  As shipped at v7 this limb read *"relayed in full, in the user-visible
+  reply"*, and that is now **superseded**: §14.4.1 (v18) rules that an
+  owner-facing screen is delivered as the **artifact the runtime writes**, and
+  relaying a rendering in full in the reply is precisely the retyping §14.4
+  prohibits. So the first act is **naming the artifact to the owner**, and the
+  clause is amended here rather than left to be read as compatible.
+
+  **What survives unchanged is the ORDERING and the OBLIGATION**, which were
+  the whole of what v7 added: it is still the first act, still before any gate
+  or question or other tool call, and relaying nothing is still a breach. Only
+  *what is handed over* moved. **The form of the hand-over is non-normative**
+  per §14.4.1 and no form may be read into this limb.
+
+  **Why this is amended AT THIS SITE rather than only at §14.4.1.** A reader
+  asking *what does the flow do first* arrives here and at §6.3, not at a
+  clause nine hundred lines away — and v18 changed this limb's object while
+  naming §14.4 as its source and asserting the ordering was unchanged, both
+  wrong. `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0
+  gloss/lessons/knowledge-architecture.md:215` — *"Write down which side wins
+  when the two disagree, **in a place both sets of maintainers will read**."*
 
 **Why the positive limb is a repair and not a restatement.** The negative limb
 binds a list of *transformations*, so **relaying nothing satisfies its letter**
@@ -1285,9 +1326,14 @@ kogaki#164's relay limb (§2.4), kogaki#161's tag-selection limb, and
 kogaki#162's fork half.** Once the owner has named a tag, the flow contains
 **exactly two acts**, in this order:
 
-1. **The served screen.** `cotags` runs and its rendering is relayed under
-   §2.4's flow rule — in full, in the user-visible reply, as the first act
-   after the command returns.
+1. **The served screen.** `cotags` runs, writes its rendering to
+   `reports/Screen.md` (§14.4.1), and that artifact is **named to the owner as
+   the first act after the command returns**, under §2.4's flow rule.
+   **v19, kogaki#462:** through v18 this act read *"relayed in full, in the
+   user-visible reply"*. §14.4.1 replaced the object — the artifact is handed
+   over, never the rendering retyped into the reply — and left this site
+   saying the superseded thing. The ordering is unchanged; only what is handed
+   over moved, and its **form is non-normative**.
 2. **The one Full Report, over the IDs the owner entered.** `report --tag <T>
    --ids <G/SG list>` — one report covering exactly the entered set,
    idempotent per identity (§12.1).
@@ -3418,6 +3464,16 @@ evidence.
 
 ### 12.2 (v12) ONE owner rendering in the tree — the machine name never reaches the owner surface
 
+**SCOPED BY §14.4.1 (v18) — read that clause before applying this count.**
+Since v18 the tree holds a **second** owner-rendering class, `reports/Screen.md`,
+also exactly one and also overwritten. This section's count governs **Full
+Report renderings**; §14.4.1's governs the screen, and on disagreement each
+wins for its own artifact. The pointer is written **here**, at the site a
+reader asking *how many renderings may the tree hold* actually arrives at,
+rather than only at the clause that knew (v19, kogaki#462) —
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:215`.
+Everything below is unchanged for the artifact it was written about.
+
 **Owner ruling 2026-08-14.** The working tree holds **exactly one** owner
 rendering: **`reports/FullReport.md`**, a fixed human name, **overwritten on
 every pull**. This amends two v11 clauses by name:
@@ -4384,7 +4440,12 @@ has produced exactly the owner-visible state kogaki#434 was filed against, so
 §14.4's *"Delivering nothing is still a failure"* binds to the **hand-over**
 and never to the write. The relay names the artifact to the owner as the FIRST
 act after the command returns — before any gate, any question, any other tool
-call, which is §14.4's existing ordering and is unchanged. **Which form that
+call. **That ordering is §2.4's positive limb, not §14.4's** (§14.4 is a
+removal and carries no sequencing rule), **and this clause CHANGED it** — it
+replaced that limb's object, from the rendering relayed in full in the reply
+to the artifact named. §2.4 and §6.3 act 1 are amended by name at v19
+(kogaki#462); the ordering and the obligation survive, only the object moved.
+**Which form that
 naming takes is unconstrained** and that is the whole of the freedom this
 clause grants: a pointer, an `!`-command and a file-send are interchangeable
 here, and a spec that fixed one would be back to binding a contract to a
@@ -4430,7 +4491,7 @@ discriminator needs no new clause — the one the Full Report earned already
 covers it. kogaki#434 priced this arm as needing its own siting clause; it does
 not.
 
-**What is NOT carried, stated rather than left to read as covered.** Three
+**What is NOT carried, stated rather than left to read as covered.** Four
 things, and the third is the one a reader would otherwise assume:
 
 - **The write is enforced by construction.** The runtime joins the renderings
@@ -4446,8 +4507,15 @@ things, and the third is the one a reader would otherwise assume:
   prohibitions have, and for the same reason: the relay is a model, not a code
   path this suite can run. The floor is stated so a run that skips it is
   **wrong** rather than merely disappointing, and stated here as uncarried so
-  the clause is not read as having an enforcement it lacks. Nothing counts the
-  rendering files either.
+  the clause is not read as having an enforcement it lacks.
+- **Nothing counts the rendering files.** §12.2 (v12) already declares this of
+  the Full Report and it is equally true of the screen: a rendering arriving
+  under some other name — hand-copied, or written by a future path that does
+  not go through the renderings directory — is unobserved. Listed as its own
+  item at v19 (kogaki#462): it rode inside the hand-over bullet, which is
+  about the relay and not about the count, in an enumeration whose whole
+  argument is that a stated obligation must not read as carrying an
+  enforcement it lacks.
 
 ### 14.5 A golden fixture, and what it is for
 
