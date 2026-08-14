@@ -2112,9 +2112,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
      transition genuinely leaves is the day it would otherwise be typed
      dishonestly.
 
-     **THE ENUMERATION — ten transitions, seeded from kogaki#270's inventory
+     **THE ENUMERATION — eleven transitions, seeded from kogaki#270's inventory
      and RE-DERIVED against the artifacts at this sitting rather than copied
      forward.** Four rows moved; the movements are recorded under the table.
+     The count read `ten` until 2026-08-15, when row 11 landed and the header
+     was corrected in the same change — a header asserting ten over eleven rows
+     is the false record clause 9 forbids one field over. **Adjacent and NOT
+     repaired here:** the `Four rows moved` above already disagrees with the
+     post-table heading `THE FIVE ROWS THAT MOVED SINCE FILING`, and it
+     disagreed before this change — named so a repair sitting sees both rather
+     than fixing one and inheriting the other.
      Row 10 was added 2026-08-08 WITH its observing act, per this clause's own
      rule that an issue does not discharge a row: kogaki#290 found row 5's act
      (`rally_cycles()`, firing when the sweep polls) structurally unable to
@@ -2137,7 +2144,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | 8 | a **review is degraded** (the session was denied tools) | **act** — clause 10's `review-report-degraded: <head sha>` line class, written by `tools/review-sweep.sh`'s `report-degraded` arm and read by `decide()`, so a head whose only report came from a denied-tools session resolves to a state distinct from `done` (kogaki#271 parts (a)–(c)) |
      | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
      | 10 | a **round is admitted to the record past the bound** | **act** — `_rounds_observation()` in `checks/check-review-report.sh`: distinct heads carrying counted segments, printed against clause 3's bound on every terminal state; reported, never gated, unit disclosed as NOT the sweep's cycle count (kogaki#290) |
-     | 11 | a **head moves past a spent bound** — a fix commit lands on the reviewed PR's branch after clause 3's rounds are gone | `none: OWED AND UNBUILT, carrier kogaki#401 via story 1.65. Row 10 covers a ROUND arriving past the bound; this is a HEAD arriving past it, and no observer distinguishes it. `decide()` returns `park` at `tools/review-sweep.sh:3760-3761` whenever the rounds are spent and the current head carries no report — the same token as a spent bound nobody pushed to — while `supersede` at `:3725-3726` is reachable only when the current head HAS a report with open blocking findings, which a just-moved head does not. So the breaking act is invisible in the vocabulary, and this row is typed `none:` rather than `act` because the observing act does not exist yet.` |
+     | 11 | a **head moves past a spent bound** — a fix commit lands on the reviewed PR's branch after clause 3's rounds are gone | `none: OWED AND UNBUILT, carrier kogaki#401 via story 1.65. Row 10 covers a ROUND arriving past the bound; this is a HEAD arriving past it, and no observer distinguishes it. decide() returns park at tools/review-sweep.sh:3760-3761 whenever the rounds are spent and the current head carries no counted report — the same token as a spent bound nobody pushed to — while supersede at :3725-3726 is reachable only when the current head HAS a counted report with open blocking findings, which a just-moved head does not. So the breaking act is invisible in the vocabulary, and this row is typed none: rather than act because the observing act does not exist yet.` |
 
      **ROW 11 ADDED 2026-08-15 (kogaki#401), typed `none:` ON PURPOSE.** Three
      heads moved past a spent bound in four days — PR #332 and PR #337 on
