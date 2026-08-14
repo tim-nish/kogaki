@@ -2387,9 +2387,16 @@ def tool_grants(ref=None, root=".", _reader=None):
                 os.path.basename(p) for p in out.splitlines()
                 if p.endswith(".sh"))
             for n in names:
-                contents[n] = _subprocess_run(
+                # FAIL-NARROW ON AN UNREADABLE BLOB, matching the working-tree
+                # path below and the direction this comment claims (PR #439
+                # round 1, finding 5). `allow_fail=True` returns "" when
+                # `git show` refuses, and an empty body carries no marker — so
+                # an entry `ls-tree` names and `show` cannot read would have
+                # been GRANTED, which is the opposite of the stated direction.
+                body = _subprocess_run(
                     ["git", "show", f"{ref}:tools/{n}"], cwd=root,
                     allow_fail=True)
+                contents[n] = body if body else SPAWNER_MARK
         except Exception:
             # A ref that cannot be read yields NO grant rather than a wider one
             # — the same fail-toward-narrow the registry read above takes.
@@ -5304,6 +5311,31 @@ try:
 finally:
     shutil.rmtree(_ac1, ignore_errors=True)
 
+# 3d. AN UNREADABLE-OR-EMPTY BLOB FAILS NARROW (PR #439 round 1, finding 5).
+#     The ref path reads each entry's body to look for the marker; a body it
+#     cannot read carries no marker and would be GRANTED unless the absence is
+#     treated as a spawner. An empty committed file reaches that same branch
+#     and is constructible, where a genuinely unreadable blob is not.
+_empt = _tf.mkdtemp(prefix="kogaki-empty-")
+try:
+    _os.makedirs(_os.path.join(_empt, "tools"))
+    for _c in (["git", "init", "-q"], ["git", "config", "user.email", "f@x"],
+               ["git", "config", "user.name", "f"]):
+        subprocess.run(_c, cwd=_empt, capture_output=True)
+    open(_os.path.join(_empt, "tools", "truncated.sh"), "w").close()
+    subprocess.run(["git", "add", "-A"], cwd=_empt, capture_output=True)
+    subprocess.run(["git", "commit", "-qm", "e"], cwd=_empt,
+                   capture_output=True)
+    _esha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=_empt,
+                           capture_output=True, text=True).stdout.strip()
+    if "truncated" in tool_grants(ref=_esha, root=_empt):
+        _grant_fail.append(
+            "a tool whose body could not be read was GRANTED — the ref path "
+            "must treat an unreadable or empty body as a spawner, matching the "
+            "working-tree path and the direction the comment claims")
+finally:
+    shutil.rmtree(_empt, ignore_errors=True)
+
 # 4. AN UNREADABLE REF YIELDS NO GRANT, never a wider one.
 if tool_grants(ref="refs/kogaki/definitely-no-such-ref") != "":
     _grant_fail.append(
@@ -5313,6 +5345,45 @@ if tool_grants(ref="refs/kogaki/definitely-no-such-ref") != "":
 # 5. BOTH ROLES, at the point the grant is actually appended. PR #67 round 2
 #    found a grant fix that reached REVIEW_TOOLS and left FIX_TOOLS dead, so
 #    each role is asserted separately rather than by one shared expression.
+# EXERCISED OVER A REAL REF, not over the working-tree fallback (PR #439
+# round 1, finding 3). `with_tool_grants(base, None)` takes the path the
+# docstring itself calls "the fixture path and the fallback, never the review
+# path", so asserting only that left the REVIEW path — the one a round runs
+# through — unexercised at its call site.
+_role_ref = _tf.mkdtemp(prefix="kogaki-role-")
+try:
+    _os.makedirs(_os.path.join(_role_ref, "tools"))
+    for _c in (["git", "init", "-q"], ["git", "config", "user.email", "f@x"],
+               ["git", "config", "user.name", "f"]):
+        subprocess.run(_c, cwd=_role_ref, capture_output=True)
+    with open(_os.path.join(_role_ref, "tools", "role-probe.sh"), "w") as _f:
+        _f.write("#!/bin/sh\n")
+    subprocess.run(["git", "add", "-A"], cwd=_role_ref, capture_output=True)
+    subprocess.run(["git", "commit", "-qm", "r"], cwd=_role_ref,
+                   capture_output=True)
+    _rref = subprocess.run(["git", "rev-parse", "HEAD"], cwd=_role_ref,
+                           capture_output=True, text=True).stdout.strip()
+    # THE TWO PATHS MUST DISAGREE, or this case cannot discriminate. Removing
+    # the file from the working tree is what makes `ref` the only source that
+    # still holds it — without this, `tool_grants(None)` returns the same
+    # answer and a mutation swapping the ref for None SURVIVES. Caught by
+    # mutating exactly that while writing this case.
+    _os.remove(_os.path.join(_role_ref, "tools", "role-probe.sh"))
+    _cwd0 = _os.getcwd()
+    try:
+        _os.chdir(_role_ref)
+        for _role, _base in (("review", REVIEW_TOOLS), ("fix", FIX_TOOLS)):
+            if "Bash(bash tools/role-probe.sh:*)" not in with_tool_grants(
+                    _base, _rref):
+                _grant_fail.append(
+                    f"the {_role} role does not receive a tool present at the "
+                    "REF — the review path of with_tool_grants() is not "
+                    "delivering the derived grant to this role")
+    finally:
+        _os.chdir(_cwd0)
+finally:
+    shutil.rmtree(_role_ref, ignore_errors=True)
+
 for _role, _base in (("review", REVIEW_TOOLS), ("fix", FIX_TOOLS)):
     _probe = with_tool_grants(_base, None)
     for _t in tool_grants(ref=None, root=".").split(",") if tool_grants(
