@@ -2012,7 +2012,8 @@ def park_class(bodies, resolves=None):
     return "class: unreviewed-head (a push landed after the final round)"
 
 
-def post_bound_head_move(bodies, head, resolves=None):
+def post_bound_head_move(bodies, head, resolves=None, carried=None,
+                         segs=None):
     """Did THIS head arrive after the bound was already spent? (kogaki#401)
 
     §4 clause 3's rule is that round-2 fixes are born as the successor change
@@ -2035,6 +2036,16 @@ def post_bound_head_move(bodies, head, resolves=None):
     no readable spawn — in plain `park`: nothing was reviewed, so nothing was
     pushed past.
 
+    A CARRIED SEGMENT IS THIS HEAD'S SEGMENT (§4 clause 7), so `carried` is a
+    parameter rather than something re-derived here. PR #455 round 1 finding 1:
+    the first draft called `head_segments(segs, head)` without it — the identical
+    slip the `supersede` arm's own comment records ("the same call `decide()`
+    makes, minus its third argument"), reappearing at the call site added in the
+    same change. It is not cosmetic: a FRAGMENT at head A that carries forward to
+    head B is B's segment, so dropping the list makes this return True for a head
+    whose only report is a split one — AC2b inverted, and the successor is
+    summoned for a report the reviewer merely split.
+
     RELATION TO `park_class()`, stated rather than left to be inferred. That
     selector's residual class is `unreviewed-head (a push landed after the
     final round)`, and this predicate is STRICTLY NARROWER than it: where an
@@ -2045,8 +2056,9 @@ def post_bound_head_move(bodies, head, resolves=None):
     purpose; the fixture below asserts the implication in the one direction it
     holds, so a later edit that collapses them fails.
     """
-    segs = segments(bodies)
-    if any(performed(s, resolves) for s in head_segments(segs, head)):
+    segs = segments(bodies) if segs is None else segs
+    if any(performed(s, resolves)
+           for s in head_segments(segs, head, carried or [])):
         return False
     return any(performed(s, resolves) for s in segs)
 
@@ -3613,6 +3625,13 @@ def decide(bodies, head, resolves=None, base=None,
                        bound. Asked through `lib/adjudication.py`, the same
                        predicate the merge gate denies on, so the two cannot
                        answer differently
+      post-bound-head-move
+                     — the rounds are spent and this head carries NO performed
+                       segment while some head does: the head ARRIVED after the
+                       bound, which is the act §4 clause 3 forbids. Routed to
+                       the supersession lane rather than to the owner, and it
+                       spawns nothing. Distinct from `park`, which is the same
+                       spent bound with nothing ever reviewed (kogaki#401)
       done           — a report for this head with nothing blocking open.
                        Since kogaki#224 this transition also REPORTS every open
                        non-gating finding carrying no disposition (§4 clause 8)
@@ -3805,7 +3824,7 @@ def decide(bodies, head, resolves=None, base=None,
         # manufactured. Asked through `post_bound_head_move()` rather than
         # re-derived here, so this and the postmortem's class selector cannot
         # answer differently.
-        if post_bound_head_move(bodies, head, resolves):
+        if post_bound_head_move(bodies, head, resolves, carried, segs):
             return 'post-bound-head-move'
         return 'park'
     return f'spawn-round-{rounds_done + 1}'
@@ -4847,6 +4866,46 @@ if "unreviewed-head" not in park_class(_whole(_PB_A) + _whole(_PB_B), _ALL):
     _pbfail.append("park_class no longer names the push case its residual "
                    "class covers — the implication this asserts is vacuous")
 
+# THE CARRY-FORWARD PATH, which no case above reaches (PR #455 round 1,
+# finding 1). Every case here calls `decide(bodies, head, _ALL)` with no git
+# readers, so `carried` is always empty and the third argument to
+# `head_segments` is never exercised. The defect that hid there: a FRAGMENT at
+# an old head whose diff is byte-identical carries forward and IS this head's
+# segment (§4 clause 7), so a predicate that recomputes segments without the
+# carried list sees nothing at this head and calls it a post-bound move — AC2b
+# inverted, with the successor summoned for a report the reviewer merely split.
+_PB_OLD, _PB_NEW, _PB_BASE = "ddd4444", "eee5555", "fff6666"
+# The bound is spent by the fragment at _PB_OLD plus the whole report at _PB_A.
+_pb_frag_body = (f"review-lane report: {_PB_OLD}\nreview-base: {_PB_BASE}\n"
+                 "finding: should open  x\nreport-complete: 4 findings\n"
+                 f"review-lane report: {_PB_A}\n"
+                 "finding: should open  z\nreport-complete: 1 findings\n")
+# TABLE-DRIVEN, and the first draft was not — which made this case assert
+# NOTHING. A reader returning one diff for every range carries EVERY report
+# forward, including the whole one at _PB_A, so the head read as reviewed and
+# `decide()` returned `done` before the spent-bound branch was reached. The
+# mutation that drops `carried` then changed nothing and the case passed either
+# way. Only _PB_OLD's range matches this head's; _PB_A's differs, so exactly one
+# segment carries and the head's only report is the split one.
+_PB_SAME, _PB_OTHER = "SAME-DIFF", "OTHER-DIFF"
+_pb_table = {
+    f"{_PB_BASE}...{_PB_NEW}": _PB_SAME,
+    f"{_PB_BASE}...{_PB_OLD}": _PB_SAME,
+    f"{_PB_BASE}...{_PB_A}": _PB_OTHER,
+}
+_pb_d, _pb_m = make_git_readers(
+    lambda *a: (_pb_table.get(a[-1]) if a[0] == "diff" else _PB_BASE))
+_pb_state = decide(_pb_frag_body, _PB_NEW, _ALL, base=_PB_BASE,
+                   diff_at=_pb_d, merge_base=_pb_m)
+if _pb_state != 'park':
+    _pbfail.append(
+        f"a FRAGMENT carried forward to this head gave {_pb_state!r}, want "
+        "'park' — a carried segment IS this head's segment (§4 clause 7), so "
+        "the head's only report is a split one and no successor is owed. "
+        "'post-bound-head-move' here is AC2b inverted (PR #455 round 1 "
+        "finding 1); 'done' means this case reached no spent-bound branch and "
+        "asserts nothing")
+
 if _pbfail:
     for _m in _pbfail:
         print(f"FAIL post-bound head move: {_m}")
@@ -4857,7 +4916,9 @@ print("post-bound head move: 4/4 state cases (a push past the bound is its own "
       "fragments at two heads spend the bound and a later push still fires — "
       "the case that makes BOTH halves read `performed()` rather than "
       "`counted()`), plus AC4 asserted through drives_fix() and the "
-      "park_class relation asserted in the one direction it holds")
+      "park_class relation asserted in the one direction it holds, plus the "
+      "CARRY-FORWARD path — a fragment carried to this head is this head's "
+      "segment, and no other case here exercises `carried` at all")
 
 # --- a fabricated sha is not a round (kogaki#91) --------------------------
 # THE PR #67 SPECIMEN, replayed. A reviewer took the real 12-char prefix
@@ -6763,15 +6824,39 @@ for pr in prs:
               "(kogaki#338): the fixes are born as the successor change, not "
               "as commits here. Routed to supersession; no owner decision is "
               "owed and no third round exists.")
+        # THE FINDINGS ARE NAMED, NOT GESTURED AT (AC3, PR #455 round 1
+        # finding 2). The first draft said "disposes of this PR's open
+        # findings" and named none, pointing the successor author at a set they
+        # then had to go find — clause 8's evaporation reached through the
+        # record rather than through forgetting, which is the sentence the
+        # `supersede` arm's own comment uses about ITS first draft.
+        #
+        # The set is NOT empty by construction: this head carries no report,
+        # and that is precisely why the findings live at the EARLIER reviewed
+        # heads. So they are collected across every head rather than at this
+        # one, which is where this arm differs from `supersede` — that state
+        # has a report at the current head and reads it there.
+        _pb_carry = [d for _s in segments(bodies)
+                     for sev, st, just, d in _s['findings']
+                     if sev == 'blocking' and st == 'open' and just]
+        for _f in _pb_carry:
+            print(f"      owes disposition: {_f}")
         _pb_body = (
             f"post-bound-head-move: {used}/{MAX_ROUNDS} rounds spent, and "
             f"{head[:7]} carries no report from any of them — it landed after "
             "the bound was gone. §4 clause 3 and kogaki#338: a round-2 fix is "
             "born as the SUCCESSOR change, because no round remains that could "
             "read one pushed here. The successor declares `supersedes: "
-            f"#{n}` and disposes of this PR's open findings under clause 8's "
-            "`carried:`/`declined:` grammar. This is the lane's ordinary "
-            "continuation — not a park, and not an owner decision.")
+            f"#{n}` and disposes of the {len(_pb_carry)} blocking finding(s) "
+            "below under clause 8's `carried:`/`declined:` grammar. This is "
+            "the lane's ordinary continuation — not a park, and not an owner "
+            "decision."
+            + ("".join(f"\n- owes disposition: {_f}" for _f in _pb_carry)
+               if _pb_carry else
+               "\n\nNo justified blocking finding is open at any reviewed "
+               "head — the successor owes a disposition for none, and this "
+               "line says so rather than leaving an empty list to be read as "
+               "an unwritten one."))
         if mode == 'spawn':
             # Same dry-run guard as both branches above, repeated for the same
             # stated reason: an outward act is gated where it is performed.
