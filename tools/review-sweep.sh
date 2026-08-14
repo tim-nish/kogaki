@@ -557,7 +557,11 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-if ! command -v gh >/dev/null 2>&1; then
+# `--print-grant` READS NO SUBSTRATE, so it must not require the instrument for
+# reading one (PR #441 round 1, finding 2). Being offline was already fine —
+# no call is made — but being gh-LESS was not, and this mode's consumer is a
+# pre-push check that has no business needing a GitHub client.
+if [ "$MODE" != "print-grant" ] && ! command -v gh >/dev/null 2>&1; then
   echo "FAIL could not establish the substrate: gh is not available." >&2
   echo "  Reported as a failure rather than as nothing-to-do: a sweep that" >&2
   echo "  exits quietly when its instrument is missing is indistinguishable" >&2
@@ -978,6 +982,11 @@ SPAWNER_MARK = "kogaki-grant: spawns-rounds"
 # oldest open PR's base is past this commit.
 SPAWNER_FLOOR = frozenset({"review-sweep.sh"})
 
+# Set by `tool_grants()` when a GIVEN ref could not be read. Read only by
+# `--print-grant`, whose consumer must tell an empty tree from an unreadable
+# ref; `spawn()` never consults it and is unchanged (PR #441 round 1).
+_TOOL_GRANTS_REF_FAILED = False
+
 
 def tool_grants(ref=None, root=".", _reader=None):
     """Build the `tools/` half of a role's grant over the tree at `ref`.
@@ -1014,6 +1023,20 @@ def tool_grants(ref=None, root=".", _reader=None):
         except Exception:
             # A ref that cannot be read yields NO grant rather than a wider one
             # — the same fail-toward-narrow the registry read above takes.
+            #
+            # THE SPAWN PATH AND THE REPORTING PATH WANT DIFFERENT THINGS HERE
+            # (PR #441 round 1, finding 1). For `spawn()` an empty grant is the
+            # correct conservative answer and the round proceeds narrowed. For
+            # `--print-grant`'s consumer it is indistinguishable from "this
+            # tree holds no grantable tool", so a registered check reading the
+            # empty string PASSED on a ref it could not resolve — a guard that
+            # skips rather than fails, which is the class this whole lane was
+            # written to end. The value stays "" for both; what is added is a
+            # flag the REPORTING path can read, so the spawn path's behaviour
+            # is unchanged and only the consumer that needs the distinction
+            # gets it.
+            global _TOOL_GRANTS_REF_FAILED
+            _TOOL_GRANTS_REF_FAILED = True
             return ""
     else:
         try:
@@ -1065,7 +1088,19 @@ def with_tool_grants(tools, ref):
 # grant, which is what lets it run inside a check at all.
 if os.environ.get("SWEEP_MODE") == "print-grant":
     _ref = os.environ.get("SWEEP_GRANT_REF") or None
-    print(tool_grants(_ref))
+    _out = tool_grants(_ref)
+    print(_out)
+    # AN EMPTY TREE AND AN UNREADABLE REF ARE DIFFERENT ANSWERS, and printing
+    # the same empty line for both let a registered check read a resolution
+    # failure as a pass (PR #441 round 1, finding 1). Exit 0 stays the honest
+    # code for "this tree holds no grantable tool"; a ref that was GIVEN and
+    # could not be read exits 2 and says so on stderr.
+    if _ref and _TOOL_GRANTS_REF_FAILED:
+        sys.stderr.write(
+            f"print-grant: ref {_ref!r} could not be read — this is NOT an "
+            f"empty grant, and a consumer that treats it as one is reporting "
+            f"a resolution failure as coverage\n")
+        raise SystemExit(2)
     raise SystemExit(0)
 
 # THE HEAD-RESOLUTION UNIT IS LOADED, NEVER RESTATED (§4 clause 7 v2,

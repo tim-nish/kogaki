@@ -114,12 +114,44 @@ else
   esac
 fi
 
+# --- 2b. AN UNRESOLVABLE REF IS AN ERROR, NOT AN EMPTY GRANT -----------------
+# CONSTRUCTED rather than waited for (PR #441 round 1, finding 1). In an
+# ordinary run `HEAD` resolves, so the failure branch never fires and a
+# regression in it leaves no trace — the same "guard whose condition never
+# arises" shape this file exists to refuse. So the condition is built here.
+bogus="$(./tools/review-sweep.sh --print-grant refs/kogaki/no-such-ref 2>&1)"; bogus_rc=$?
+if [ "$bogus_rc" -eq 0 ]; then
+  bad "an unresolvable ref printed an empty grant and exited 0, so a consumer
+  cannot tell it from a tree holding no grantable tool — a resolution failure
+  reported as coverage, which is how a check passes on nothing"
+fi
+case "$bogus" in
+  *"could not be read"*) : ;;
+  *) bad "an unresolvable ref exited non-zero but said nothing about why;
+  the diagnosis is what makes the exit code actionable (got: ${bogus:-<empty>})" ;;
+esac
+
 # --- 3. every member is the GRANTED SHAPE ------------------------------------
 # `bash ` is not decoration: a member emitted without it names a different,
 # ungranted command, and the round dies on a denial that reads as a missing
 # tool rather than as a malformed grant.
-live="$(./tools/review-sweep.sh --print-grant HEAD 2>/dev/null)"
+# THE LIVE ARM MUST BE ABLE TO FAIL (PR #441 round 1, finding 1). It used to
+# swallow stderr and read an empty result as "vacuous today" — so a ref that
+# would not resolve was reported as coverage. `--print-grant` now exits 2 in
+# that case, and this arm FAILS on it rather than announcing vacuity.
+live="$(./tools/review-sweep.sh --print-grant HEAD 2>&1)"; live_rc=$?
+if [ "$live_rc" -ne 0 ]; then
+  bad "the live arm could not resolve HEAD, so it asserted nothing — and
+  before PR #441 round 1 this passed as 'vacuous today', reporting a
+  resolution failure as coverage: $live"
+  live=""
+fi
 if [ -n "$live" ]; then
+  # `set -f` because every member contains a literal `*` and word-splitting
+  # would otherwise let pathname expansion rewrite them (finding 4). Nothing
+  # in this tree matches such a word today; this makes that independent of
+  # what lands in the root later.
+  set -f
   IFS=','
   for m in $live; do
     case "$m" in
@@ -129,6 +161,7 @@ if [ -n "$live" ]; then
     esac
   done
   unset IFS
+  set +f
   granted_n="$(printf '%s' "$live" | tr ',' '\n' | grep -c .)"
 else
   granted_n=0
