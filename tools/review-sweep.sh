@@ -811,9 +811,13 @@ SPAWN_INFLIGHT_TTL="${KOGAKI_SPAWN_INFLIGHT_TTL:-1800}"
 # vestigial one would let a reader believe the grant is settled at this point.
 
 # REPOSITORY-OWNED EXECUTABLES UNDER `tools/` ARE GRANTED BY DERIVATION, not by
-# name (kogaki#412). `CHECK_TOOLS` above covers every REGISTERED CHECK and
-# nothing else, so a PR adding a runnable artifact that is not a check left the
-# reviewer able to read its source and unable to execute it.
+# name (kogaki#412). The registry-driven grant covered every REGISTERED CHECK
+# and nothing else, so a PR adding a runnable artifact that is not a check left
+# the reviewer able to read its source and unable to execute it. (Both halves
+# now derive in `check_grants()` / `tool_grants()` below; no `CHECK_TOOLS` value
+# exists at this point in the file — PR #445 round 1, finding 3, where this
+# sentence still pointed a grepping reader "above" at an identifier the
+# removal three lines up had already deleted.)
 #
 # THE OBSERVED DEATH: PR #411 added `tools/mine-receipt-absence.sh`, a proposer
 # — deliberately not a registered check, since a proposer gates nothing and
@@ -1096,6 +1100,24 @@ def check_grants(ref=None, root="."):
     authority over a set that already has one. A check that could spawn rounds
     is a registry-admission defect, not a grant defect.
     """
+    global _CHECK_GRANTS_REF_FAILED
+    if ref:
+        # THE REF IS RESOLVED SEPARATELY FROM THE PATH BEING PRESENT, and that
+        # separation is the whole of PR #445 round 1 finding 1. A bare
+        # `except` around `git show <ref>:checks/registry.json` cannot tell
+        # them apart: `git show` exits 128 both when the ref does not resolve
+        # AND when the ref is fine but that path is simply not in its tree. So
+        # a tree with no `checks/` — an HONEST EMPTY HALF — was reported to
+        # `--print-grant`'s consumer as a resolution failure, which inverts the
+        # very distinction PR #441 round 1 finding 1 established one function
+        # over. Its `tools/` sibling never had this: `git ls-tree` exits 0 with
+        # empty output on a tree with no `tools/`.
+        try:
+            _subprocess_run(["git", "rev-parse", "--verify", "--quiet",
+                             f"{ref}^{{commit}}"], cwd=root)
+        except Exception:
+            _CHECK_GRANTS_REF_FAILED = True
+            return ""
     try:
         if ref:
             raw = _subprocess_run(
@@ -1106,11 +1128,11 @@ def check_grants(ref=None, root="."):
                 raw = fh.read()
         reg = json.loads(raw)
     except Exception:
-        # A registry that cannot be read yields NO check grants at all, which
-        # fails toward the narrow side — the same posture the prologue took
-        # and the same one `tool_grants` takes on an unreadable ref.
-        global _CHECK_GRANTS_REF_FAILED
-        _CHECK_GRANTS_REF_FAILED = True
+        # The ref resolved (or none was given) and the registry is absent or
+        # unparseable. NO check grants, failing toward the narrow side exactly
+        # as before — but NO failure flag, because nothing failed to resolve.
+        # A repository with no registry has an empty `checks/` half, and that
+        # is an answer rather than an error.
         return ""
     names = sorted({c["file"] for c in reg.get("checks", []) if c.get("file")})
     return ",".join(f"Bash(bash checks/{n}:*)" for n in names)

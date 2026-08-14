@@ -64,7 +64,18 @@ if [ -z "$head_sha" ]; then
   bad "could not build the scratch repository, so the counterfactual never
   ran — an unbuildable fixture is not a passing one"
 else
-  at_ref="$(cd "$scratch" && ./tools/review-sweep.sh --print-grant "$head_sha" 2>/dev/null)"
+  # THE EXIT CODE IS CHECKED HERE TOO, matching case 2b and the live arm
+  # (PR #445 round 1, finding 1). This scratch has `tools/` and NO `checks/`,
+  # so it is exactly the shape that made an honest empty checks/ half report
+  # itself as a resolution failure. Discarding the exit code is what hid it:
+  # the case passed on a derivation whose exit code was lying.
+  at_ref="$(cd "$scratch" && ./tools/review-sweep.sh --print-grant "$head_sha" 2>&1)"; at_ref_rc=$?
+  if [ "$at_ref_rc" -ne 0 ]; then
+    bad "a RESOLVABLE ref with no checks/ exited $at_ref_rc — an absent path in
+  a tree that resolves is an empty half, not a resolution failure, and
+  reporting it as one inverts the distinction --print-grant exists to draw:
+  $at_ref"
+  fi
   at_tree="$(cd "$scratch" && ./tools/review-sweep.sh --print-grant 2>/dev/null)"
   case "$at_ref" in
     *"Bash(bash tools/only-at-the-head.sh:*)"*) : ;;
