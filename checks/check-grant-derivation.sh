@@ -131,11 +131,11 @@ fi
 
 # --- 2. the exclusion is by capability, so a RENAMED spawner is excluded -----
 scratch2="$(mk two)"
-# `$at_ref_err` STAYS IN EVERY TRAP, because `trap` replaces the handler
-# wholesale (PR #448 round 2). Dropping it here left the temp file outside the
-# cleanup set for the span down to the next re-registration — the round-1
-# repair NARROWED that window rather than closing it, which is the per-form
-# shape landing on the site list of a single repair.
+# (This site once re-registered the EXIT trap and had to restate the whole
+# temporary list. It no longer does: the single root at :63 owns cleanup, so
+# there is no site list to maintain here — PR #449 round 1, finding 3, where
+# this comment still instructed a later editor to maintain the list the same
+# commit had abolished.)
 mkdir -p "$scratch2/tools"
 cp "$SWEEP" "$scratch2/tools/review-sweep.sh"
 chmod +x "$scratch2/tools/review-sweep.sh"
@@ -274,7 +274,18 @@ else
   # used to be guarded by `_ref`, so this exact break was silent on the path
   # this very file uses as its control at three sites. Asserted here because
   # the fix without it is the unbound repair this chain keeps producing.
-  (cd "$q446" && ./tools/review-sweep.sh --print-grant >/dev/null 2>&1); q_nr=$?
+  q_nr_err="$TMPROOT/q_nr.err"
+  (cd "$q446" && ./tools/review-sweep.sh --print-grant >/dev/null 2>"$q_nr_err"); q_nr=$?
+  # THE DIAGNOSIS IS ASSERTED ON THIS ARM TOO (PR #449 round 1, finding 1).
+  # Its ref-ful sibling asserts its text; this one checked only the exit code,
+  # so it passed while the message said "at None" — naming a ref on the one
+  # path that has none, in the arm added to make that path reachable.
+  case "$(cat "$q_nr_err")" in
+    *"in the working tree"*) : ;;
+    *"was READ and would not parse"*) bad "the ref-less parse diagnosis does not
+  name the working tree — it reports a ref on the path that has none:
+  $(cat "$q_nr_err")" ;;
+  esac
   if [ "$q_nr" -eq 0 ]; then
     bad "an UNPARSEABLE registry in the WORKING TREE exited 0 — the ref-less
   mode is what this file uses as its own control, so a broken registry there
