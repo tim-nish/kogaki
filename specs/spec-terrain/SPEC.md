@@ -1,6 +1,14 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v17, amended 2026-08-12 (kogaki#385, owner selection) — **§13.4
+**Status:** v18, amended 2026-08-15 (kogaki#434, owner selection) — **§14.4.1:
+delivery of an owner-facing screen binds to an ARTIFACT the runtime writes
+(`reports/Screen.md`, fixed name, overwritten per render), never to a display
+channel.** §14.4's one-producer removal is narrowed, not repealed: handing over
+an artifact is not retyping it. The delivery mechanism — pointer,
+`!`-command, file-send — is deliberately **non-normative**, because binding the
+contract to a harness behaviour is the shape that produced the defect.
+
+**v17, amended 2026-08-12 (kogaki#385, owner selection)** — **§13.4
 gains a fourth rendering obligation: the neighborhood screen GROUPS BY
 SUBSTRATE INSTANCE and never lists a flat run.** Batch-mates render under their
 batch with that batch's count **within the family**; cross-linked suggestions
@@ -4294,6 +4302,92 @@ that guarantee reach them.
 
 **This is a removal, not a rule.** The relay stops being a producer at all;
 nothing new is prohibited, so nothing new has to be policed.
+
+### 14.4.1 (v18) Delivery binds to an ARTIFACT, never to a display channel
+
+**Owner ruling 2026-08-15 (kogaki#434).** §14.4's removal is right and is not
+reopened. What was false is the layer its delivery instructions bound to.
+
+**The defect, stated as the contract's own arithmetic.** §14.4 above says *"the
+command's own output IS the reply"* and *"run `cat <path>` and let the tool
+output be what the owner reads"*. Both name a tool call's **stdout** — and in
+the harness this repository is operated through, **a tool call's stdout is
+displayed to the model, not reliably to the owner**; it collapses to a
+one-line summary. That is not inference from a transcript, it is the harness's
+own stated contract. With that channel unavailable, three ratified clauses
+close every alternative:
+
+1. §14.4 prohibits retyping into the reply — the one channel the harness does
+   render.
+2. §6.3 prohibits any question UI after tag selection.
+3. §14.4's one-producer rationale refuses model-side re-emission machinery.
+
+So **every conformant run rendered nothing**, and *"Delivering nothing is still
+a failure"* then named the only remaining conformant behaviour a violation. The
+2026-08-14 transcript shows what an over-constrained contract actually
+produces: the reply claimed *"The agents co-tag screen is above"* over a
+collapsed tool line, and the owner saw no screen. **A contract with no
+satisfiable member does not yield silence; it yields a false claim of
+success**, which is the worse failure because it reads as delivery.
+
+**The ruling.** Each screen is written by the runtime to **`reports/Screen.md`**
+— a fixed human name, **overwritten on every render** — exactly as §12.2 (v12)
+already rules for `reports/FullReport.md`. Delivery is then the act of the
+owner reading that artifact.
+
+**And the delivery MECHANISM is explicitly non-normative.** A pointer in the
+reply, an owner-executed `!`-prefixed command, a harness file-send — any of
+these may hand the artifact over, and **this spec names none of them as
+required**. That is the whole content of the amendment and the reason it is
+sited here rather than as a fourth delivery instruction:
+
+> the previous three fixes each repaired the artifact that had most recently
+> been wrong, and each closed honestly. The hop with no carrier at all is
+> **producer → owner**, and it is the hop that gets the carrier.
+>
+> `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:22`
+
+**Why an artifact and not a channel — the discriminator, kept because both
+declined arms are otherwise reasonable.** A verbatim fenced relay and an
+owner-executed command **both work today**. Each binds the contract to a fact
+about the surrounding harness: that the reply renders, or that `!` output
+renders. Those are the same shape as the assumption that produced this defect,
+so adopting either would make the contract true until the harness moved and
+give no signal when it did. A file the runtime wrote has no such premise. The
+fenced relay carries a second, independent cost §14.4 already measured: it
+restores the producer whose removal that clause exists for, and the specimen is
+two lines **fused mid-token**, a corruption a runtime cannot produce.
+
+**§14.4 is narrowed, not repealed, and the surviving clause is named.** The
+relay is still not a producer: handing over an artifact is not retyping it, and
+the prohibition on retyping, summarizing, re-formatting, tabulating and
+paraphrasing stands unchanged. *"Delivering nothing is still a failure"* also
+stands, and only now has a satisfiable discharge.
+
+**Against the owner's enforcement frame (ruled 2026-08-14):**
+
+| rule | how this satisfies it |
+|---|---|
+| nothing appears whose reason cannot be explained | one artifact per render, at one fixed name |
+| information instructed to be output DOES appear | the artifact holds the runtime's own bytes |
+| information whose display is prohibited does NOT | nothing is retyped, so nothing can diverge |
+
+**Siting costs nothing new, and this is checked rather than assumed.**
+`reports/` is already the renderings directory, already gitignored, and already
+holds exactly one overwritten owner rendering under §12.2 (v12). `Screen.md`
+takes the identical lifetime in the identical directory, so §2.5.1's lifetime
+discriminator needs no new clause — the one the Full Report earned already
+covers it. kogaki#434 priced this arm as needing its own siting clause; it does
+not.
+
+**What is NOT carried, stated rather than left to read as covered.** Nothing
+counts the rendering files, and nothing exits non-zero on finding a screen
+delivered by a mechanism this clause left non-normative — because the mechanism
+is deliberately unconstrained, there is nothing there to check. The enforceable
+half is the **write**: the runtime joins the renderings directory with the
+literal `Screen.md`, so a second screen name is unwritable rather than
+detected, exactly as v12 makes a second report name unwritable. Whether the
+owner in fact read it is outside every carrier here and always was.
 
 ### 14.5 A golden fixture, and what it is for
 
