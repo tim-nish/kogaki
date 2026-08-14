@@ -738,7 +738,8 @@ a human wrote — and the map's own choice is the one that line prescribes:
 ### 4. Spent-bound exit — composing options or a recommendation at a gate whose subject is exiting a PR at a spent review bound
 
 - **Trigger terms:** spent bound, two-round bound, third round, round 3,
-  terminal, supersede, supersession, park, moved head, post-bound
+  terminal, supersede, supersession, park, moved head, post-bound,
+  merge on your judgment
 - **Read prescription:**
   - *act class:* composing the options or the recommendation at a gate whose
     subject is how a pull request LEAVES a spent review bound — merge, a
@@ -750,12 +751,27 @@ a human wrote — and the map's own choice is the one that line prescribes:
     beside its peers.
 - **Served line (pinned):** quoted whole at its pin rather than paraphrased —
 
-  > "**OWNER RULE, standing: a PR blocked at the two-round bound is TERMINAL,
+  > "… **OWNER RULE, standing: a PR blocked at the two-round bound is TERMINAL,
   > and the work continues by SUPERSESSION rather than by reviving the review
   > state.** The bound binds a *submission* — one PR, one review record — so
   > there is no third round, no further development on the blocked PR, and no
-  > counter reset"
-  > (`topics/claude-code-ops.md:20@4cc496b`)
+  > counter reset; the abnormality terminates in an issue and a corrective
+  > change, and the successor is a NEW submission receiving the standard two
+  > rounds by construction. The successor owes three declared things:
+  > `supersedes: <blocked PR>`, a disposition of the blocked PR's open findings
+  > in the `carried:`/`declined:` grammar, and a base postdating the corrective
+  > merge — with the blocked PR closing as *superseded by N* only once the
+  > successor exists. …"
+  > (`topics/claude-code-ops.md:20@8906f20`)
+
+  **The excerpt is marked at both ends and carries the successor obligations
+  deliberately.** The first cut of this quote stopped at *"no counter reset"*,
+  which leaves a reader the PROHIBITION and not the three things the successor
+  owes — and those three are exactly what this entry's read prescription points
+  at. An excerpt takes part of one line and marks the part it left; the leading
+  and trailing `…` are that mark, per this file's own convention. What is still
+  cut is the refused narrow exception and its three grounds, which bear on
+  whether the rule admits a carve-out rather than on what to do at the gate.
 
 - **Origin miss — TWO occurrences at the same act, which is what admitted it:**
   - **PR #332's gate (2026-08-09)** offered *"Grant a third round"* and
@@ -768,9 +784,17 @@ a human wrote — and the map's own choice is the one that line prescribes:
 - **Postmortem:**
   - *violating artifact:* the two gate screens above.
   - *triggering terms:* third round, spent bound, merge on your judgment.
-  - *the question, verbatim, that would have found the line:* "A PR is at its
-    two-round bound with findings outstanding — what does the standing owner
-    rule say about a third round, merging, or parking, versus supersession?"
+  - *the question, verbatim:* **reconstructed at this filing, not run** — no
+    query was issued at either gate; both sittings queried the change's subject
+    instead. Composed here, and then **issued against the served surface at this
+    filing, where it discriminated**, returning the pinned line above as its
+    first hit:
+    "A PR is at its two-round bound with findings outstanding — what does the
+    standing owner rule say about a third round, merging, or parking, versus
+    supersession?"
+    (`request_id caa74a28-b161-40d1-9767-1a96d9fd369a`, outcome
+    `discriminating`) — so the field records a question known to reach the line,
+    rather than one asserted to.
   - *the query defect, named:* **subject-shaped retrieval at an act-shaped
     fork**, the same defect both times. Under the standing two-cause
     discriminator this is a query defect and not a distill gap — the surface
