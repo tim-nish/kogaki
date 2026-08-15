@@ -2063,6 +2063,62 @@ def post_bound_head_move(bodies, head, resolves=None, carried=None,
     return any(performed(s, resolves) for s in segs)
 
 
+def owed_disposition_line(sha, ordinal, finding):
+    """One owed-disposition line, naming something the successor can act on.
+
+    SLOT 4 IS THE CLAUSE-8 DISPOSITION IN THIS CONSUMER, NOT THE FINDING TEXT.
+    Both arms below used to render it directly — `owes disposition: {d}` — and
+    a `blocking open` finding essentially never carries a clause-8 disposition,
+    because that clause governs NON-GATING findings. So the ordinary case
+    printed the literal `None`, once per finding, on the PR (kogaki#457).
+
+    `lib/adjudication.py` states this hazard in advance: the two consumers'
+    segmenters "agree on `(severity, state, justification)` and DISAGREE on the
+    fourth slot: the merge gate stores the finding's line text there, the sweep
+    stores its clause-8 disposition … close enough to unpack without error and
+    different enough to be wrong."
+    `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:18`
+    — the overloaded value set with no refuser, arriving as a positional slot
+    rather than a name.
+
+    THE LINE TEXT IS NOT AVAILABLE AND IS NOT MADE AVAILABLE. `segments()`
+    keeps `(severity, state, justification, disposition)` and never retains the
+    finding's prose, so naming it would mean widening the parser BOTH consumers
+    read — which is the move the same docstring warns against. kogaki#457's
+    acceptance offers "the finding's line text, OR severity/state plus the
+    segment sha it came from"; this is the second branch, taken because the
+    first is unreachable without the change the hazard note refuses.
+
+    The sha and ordinal are the successor's addressing pair — the same
+    `<sha> finding <N>` shape clause 12's `adjudicates:` line uses — so the
+    author can find the finding in the thread rather than being handed a count.
+    """
+    sev, state, just = finding[0], finding[1], finding[2]
+    return (f"{sha} finding {ordinal} — {sev} {state}"
+            + (" [justified]" if just else ""))
+
+
+def owed_disposition_tail(carry, where):
+    """The posted body's tail naming the owed findings, or its typed absence.
+
+    ONE FUNCTION FOR BOTH ARMS, and that is the repair rather than tidiness.
+    PR #468 round 1 finding 1: the first fix reached the `supersede` arm's
+    stdout `print` and left its POSTED body saying "disposes of each finding
+    above" while naming none — defect 1's own harm surviving in the half a
+    reader on the PR actually sees, while the sibling arm's body already
+    listed them. Two bodies carrying the same contract is what let a repair
+    land on one; now there is one carrier and no second place to miss.
+
+    The empty case is a stated absence, never a bare count: an empty list on a
+    PR reads as an unwritten one.
+    """
+    if carry:
+        return "".join(f"\n- owes disposition: {c}" for c in carry)
+    return ("\n\nNo justified blocking finding is open at " + where + " — the "
+            "successor owes a disposition for none, and this line says so "
+            "rather than leaving an empty list to be read as an unwritten one.")
+
+
 def rounds_used(bodies, resolves=None):
     """How many review rounds this PR has already spent.
 
@@ -4906,11 +4962,154 @@ if _pb_state != 'park':
         "finding 1); 'done' means this case reached no spent-bound branch and "
         "asserts nothing")
 
+# ── kogaki#457: the notice NAMES its findings, and names only what is owed ──
+#
+# AC4. Two properties, and both were false in the arm as PR #455 shipped it:
+# the rendered line said `owes disposition: None`, and the collection listed
+# findings the successor does not owe.
+#
+# SEAM-FREE and UNIT-LEVEL: `owed_disposition_line` is called directly and
+# `unadjudicated_blocking` is fed crafted bodies, so no git reader, no `gh` and
+# no network is involved.
+_J = "[policy: product-lab@0000000 LESSONS.md:1]"
+
+# 1. THE RENDERED LINE IS NON-`None` FOR A JUSTIFIED BLOCKING FINDING.
+#    The tuple handed in is the SWEEP's own shape — slot 4 is the clause-8
+#    disposition, and for a `blocking open` it is `None`, which is exactly the
+#    ordinary case that used to be printed.
+_line = owed_disposition_line(_PB_A, 2, ('blocking', 'open', True, None))
+if 'None' in _line:
+    _pbfail.append(f"the owed-disposition line still renders the clause-8 "
+                   f"disposition slot: {_line!r} — slot 4 is `None` for a "
+                   f"blocking finding by construction, so this is the "
+                   f"kogaki#457 defect unrepaired")
+for _want in (_PB_A, 'finding 2', 'blocking', 'open'):
+    if _want not in _line:
+        _pbfail.append(f"the owed-disposition line does not name {_want!r}: "
+                       f"{_line!r} — the successor is handed a count again")
+
+# 2. AN ADJUDICATED FINDING IS ABSENT FROM THE COLLECTION.
+#    Head A holds a justified blocking; a LATER counted segment answers it with
+#    an `adjudicates:` line naming its sha and ordinal. The successor owes
+#    nothing for it.
+_adj_bodies = (f"review-lane report: {_PB_A}\n"
+               f"finding: blocking open {_J}  x\n"
+               "report-complete: 1 findings\n"
+               f"review-lane report: {_PB_B}\n"
+               f"finding: blocking resolved {_J}  x\n"
+               f"adjudicates: {_PB_A} finding 1  fixed in this round\n"
+               "report-complete: 1 findings\n")
+_adj_owed = unadjudicated_blocking(_adj_bodies, _PB_C, [])
+if _adj_owed:
+    _pbfail.append(f"an ADJUDICATED blocking finding is still collected as "
+                   f"owed: {_adj_owed!r} — the notice tells the successor it "
+                   f"owes a disposition for a finding already discharged")
+
+# 3. AND THE UNADJUDICATED ONE IS STILL COLLECTED, so case 2 cannot pass by
+#    collecting nothing at all — the direction that would make it vacuous.
+_unadj_bodies = (f"review-lane report: {_PB_A}\n"
+                 f"finding: blocking open {_J}  x\n"
+                 "report-complete: 1 findings\n"
+                 f"review-lane report: {_PB_B}\n"
+                 "finding: should open  y\n"
+                 "report-complete: 1 findings\n")
+_unadj_owed = unadjudicated_blocking(_unadj_bodies, _PB_C, [])
+if len(_unadj_owed) != 1:
+    _pbfail.append(f"the unadjudicated blocking finding is not collected "
+                   f"({len(_unadj_owed)} found) — case 2 would pass on an "
+                   f"empty collection rather than on the adjudication read")
+
+# 4. A FINDING INSIDE A FRAGMENT IS NOT COLLECTED (§4 clause 6).
+_frag_bodies = (f"review-lane report: {_PB_A}\n"
+                f"finding: blocking open {_J}  x\n"
+                "report-complete: 4 findings\n"
+                f"review-lane report: {_PB_B}\n"
+                "finding: should open  y\n"
+                "report-complete: 1 findings\n")
+if unadjudicated_blocking(_frag_bodies, _PB_C, []):
+    _pbfail.append("a finding inside a FRAGMENT is collected as owed — a "
+                   "fragment counts as nothing everywhere else in this file")
+
+# 4b. THE POSTED BODY NAMES THEM, not only the stdout line (PR #468 round 1,
+#     finding 1). Both arms build their comment through ONE tail, so a repair
+#     cannot reach one body and miss the other — which is exactly what
+#     happened before this case existed.
+_tail_named = owed_disposition_tail([_line], "this head")
+if 'owes disposition' not in _tail_named or _PB_A not in _tail_named:
+    _pbfail.append(f"the posted body's tail does not name the finding: "
+                   f"{_tail_named!r} — the successor gets a count and goes "
+                   f"looking, which is defect 1's harm in the half a reader "
+                   f"on the PR actually sees")
+_tail_empty = owed_disposition_tail([], "any reviewed head")
+if 'owes disposition' in _tail_empty or 'none' not in _tail_empty.lower():
+    _pbfail.append(f"the empty tail is not a stated absence: {_tail_empty!r} "
+                   f"— an empty list on a PR reads as an unwritten one")
+if 'any reviewed head' not in _tail_empty:
+    _pbfail.append("the empty tail does not carry its caller's scope word, so "
+                   "the two arms would render the same sentence about "
+                   "different sets")
+
+# 4c. BOTH ARMS ROUTE THROUGH IT — asserted over this file's own source.
+#     Case 4b tests the helper and says nothing about whether either body
+#     CALLS it, so deleting a call site left the suite green: the unit was
+#     correct and the flow did not reach it. That is the same class the
+#     helper exists to close, one layer up, so the call sites are named here.
+_self_pb = open("tools/review-sweep.sh", encoding="utf-8").read()
+for _who, _pat in (
+        ("the supersede arm's posted body",
+         r'owed_disposition_tail\(_carry, "this head"\)'),
+        ("the post-bound arm's posted body",
+         r'owed_disposition_tail\(_pb_carry, "any reviewed head"\)')):
+    if not re.search(_pat, _self_pb):
+        _pbfail.append(f"{_who} no longer builds its tail through "
+                       f"owed_disposition_tail() — the shared carrier is "
+                       f"correct and unreached, which is how the asymmetry "
+                       f"PR #468 round 1 found got in")
+if _self_pb.count("owed_disposition_tail(") < 3:
+    _pbfail.append("fewer than three references to owed_disposition_tail() "
+                   "(its def plus two call sites) — one arm has stopped using "
+                   "the shared tail")
+
+# 5. THE MUTATION. Restore the shipped-before collection — every segment, no
+#    `counted()` filter, no adjudication read — and confirm cases 2 and 4 fail
+#    under it. Asserted to have RUN before any absence is read.
+try:
+    _mut_adj = [d for _s in segments(_adj_bodies)
+                for sev, st, just, d in _s['findings']
+                if sev == 'blocking' and st == 'open' and just]
+    _mut_frag = [d for _s in segments(_frag_bodies)
+                 for sev, st, just, d in _s['findings']
+                 if sev == 'blocking' and st == 'open' and just]
+except Exception as _e:                                        # noqa: BLE001
+    _pbfail.append(f"the pre-repair collection mutant did not RUN ({_e!r}) — "
+                   f"an absent difference from a crashed mutant asserts "
+                   f"nothing about the filters that were added")
+else:
+    if not _mut_adj:
+        _pbfail.append("the pre-repair collection does not list the "
+                       "ADJUDICATED finding — case 2 is not bound to the "
+                       "adjudication read it names")
+    if not _mut_frag:
+        _pbfail.append("the pre-repair collection does not list the FRAGMENT "
+                       "finding — case 4 is not bound to the `counted()` "
+                       "filter it names")
+    if _mut_adj and _mut_adj[0] is not None:
+        _pbfail.append(f"the pre-repair collection's slot 4 is not None "
+                       f"({_mut_adj[0]!r}) — case 1's premise, that the old "
+                       f"rendering printed the literal `None`, is not "
+                       f"reproduced by this fixture")
+
 if _pbfail:
     for _m in _pbfail:
         print(f"FAIL post-bound head move: {_m}")
     sys.exit(1)
-print("post-bound head move: 4/4 state cases (a push past the bound is its own "
+print("post-bound head move: 4/4 state cases + 7 notice cases (kogaki#457, and PR #468 round 1 finding 1: the\n"
+      "      owed line names <sha> finding <N> and its severity rather than the\n"
+      "      clause-8 slot, which is `None` for a blocking finding by construction;\n"
+      "      an ADJUDICATED finding is absent and an unadjudicated one present, so\n"
+      "      the case cannot pass on an empty collection; a FRAGMENT finding is\n"
+      "      absent; and the pre-repair collection is RESTORED as a mutant and\n"
+      "      confirmed to list both, and to yield None in slot 4) (a push past the bound is its own "
       "state; a bound nobody reported to still parks; a FRAGMENT at the current "
       "head does NOT fire, because the head moved inside the bound; two "
       "fragments at two heads spend the bound and a later push still fires — "
@@ -6856,19 +7055,39 @@ for pr in prs:
         if _d_at and _m_base:
             _carried_here, _ = carry_forward(bodies, head, _base, _d_at,
                                              _m_base, segments)
-        _carry = [d for s in head_segments(segments(bodies), head, _carried_here)
-                  for sev, st, just, d in s['findings']
-                  if sev == 'blocking' and st == 'open' and just]
+        # THE SIBLING SLIP IS REPAIRED HERE TOO (kogaki#457 acceptance 3).
+        # This arm reads the CURRENT head only, so defect 2 cannot reach it —
+        # but slot 4 is the clause-8 disposition on this path exactly as on the
+        # other, so it printed `owes disposition: None` for the same reason.
+        # Fixing one arm and leaving its twin is the shape this file names
+        # about itself, and the issue asked for the repair or an explicit
+        # decline; this is the repair.
+        _carry = [owed_disposition_line(s['sha'], _ord, f)
+                  for s in head_segments(segments(bodies), head, _carried_here)
+                  for _ord, f in enumerate(s['findings'], 1)
+                  if f[0] == 'blocking' and f[1] == 'open' and f[2]]
         for _f in _carry:
             print(f"      owes disposition: {_f}")
+        # THE POSTED COMMENT NAMES THEM TOO, not only the stdout line
+        # (PR #468 round 1, finding 1). The first repair reached the `print`
+        # above and left this body saying "disposes of each finding above"
+        # while naming none — which is defect 1's own harm, surviving in the
+        # half a reader on the PR actually sees. The sibling arm below already
+        # appended its list, so the asymmetry arrived with the repair rather
+        # than predating it.
+        #
+        # "above" is now true of this body rather than of the terminal it was
+        # printed to: the lines follow, in the same shape the post-bound arm
+        # uses, and the empty case says so rather than leaving a bare count.
         _body = (f"superseded-by-lane: {used}/{MAX_ROUNDS} rounds spent with "
                  f"{len(_carry)} blocking finding(s) still open at {head[:7]}. "
                  "§4 clause 3 (kogaki#338): the fixes are born as the successor "
                  "change rather than pushed here, because no round remains that "
                  "could read them. The successor declares `supersedes: "
-                 f"#{n}` and disposes of each finding above under clause 8's "
+                 f"#{n}` and disposes of the finding(s) below under clause 8's "
                  "`carried:`/`declined:` grammar. This is the lane's ordinary "
-                 "continuation, not a park and not an owner decision.")
+                 "continuation, not a park and not an owner decision."
+                 + owed_disposition_tail(_carry, "this head"))
         if mode == 'spawn':
             # DRY RUN MUTATES NOTHING — the same guard both park posts carry,
             # and the reason it is repeated rather than hoisted is that every
@@ -6919,9 +7138,29 @@ for pr in prs:
         # heads. So they are collected across every head rather than at this
         # one, which is where this arm differs from `supersede` — that state
         # has a report at the current head and reads it there.
-        _pb_carry = [d for _s in segments(bodies)
-                     for sev, st, just, d in _s['findings']
-                     if sev == 'blocking' and st == 'open' and just]
+        # COLLECTED THROUGH THE SHARED UNIT, not re-derived (kogaki#457
+        # defect 2). The hand-rolled comprehension that stood here read every
+        # segment with no `counted()` filter and no adjudication read, so it
+        # listed findings the successor does NOT owe: one already answered by a
+        # later `adjudicates:` line, and one sitting inside a FRAGMENT, which
+        # §4 clause 6 makes count as nothing everywhere else in this file.
+        # `unadjudicated_blocking()` applies both filters and is already called
+        # forty lines up in this same function — its docstring names the two
+        # this collection was missing.
+        #
+        # ITS `adjudicates:` SUGGESTION IS DELIBERATELY NOT RENDERED. At a
+        # post-bound head move the successor owes a clause-8
+        # `carried:`/`declined:` disposition, not a clause-12 `adjudicates:`
+        # line; printing the predicate's own paste-ready remedy would teach the
+        # wrong repair — the failure that docstring records about its earlier
+        # form, arriving one consumer over.
+        _pb_carried, _ = ([], None)
+        if _d_at and _m_base:
+            _pb_carried, _ = carry_forward(bodies, head, _base, _d_at,
+                                           _m_base, segments)
+        _pb_carry = [owed_disposition_line(_sha, _ord, _f)
+                     for _sha, _ord, _f, _sugg
+                     in unadjudicated_blocking(bodies, head, _pb_carried)]
         for _f in _pb_carry:
             print(f"      owes disposition: {_f}")
         _pb_body = (
@@ -6934,12 +7173,7 @@ for pr in prs:
             "below under clause 8's `carried:`/`declined:` grammar. This is "
             "the lane's ordinary continuation — not a park, and not an owner "
             "decision."
-            + ("".join(f"\n- owes disposition: {_f}" for _f in _pb_carry)
-               if _pb_carry else
-               "\n\nNo justified blocking finding is open at any reviewed "
-               "head — the successor owes a disposition for none, and this "
-               "line says so rather than leaving an empty list to be read as "
-               "an unwritten one."))
+            + owed_disposition_tail(_pb_carry, "any reviewed head"))
         if mode == 'spawn':
             # Same dry-run guard as both branches above, repeated for the same
             # stated reason: an outward act is gated where it is performed.
