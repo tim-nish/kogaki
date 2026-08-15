@@ -3699,6 +3699,23 @@ def report_dispositions(current, downgraded, unreachable=None):
               + " — read as NO disposition (§4 clause 8, kogaki#224). "
                 "`carried:` takes `#<N>` or `register`; `declined:` requires a "
                 "reason")
+    # NEITHER NOTE BELOW IS THE REMEDY, AND A LATER READER MUST NOT MISTAKE IT
+    # FOR ONE (kogaki#433). The served line the decision rested on rules out
+    # improving what the pipeline can DETECT — an enumerated prohibition can
+    # only name yesterday's leak — and these two lines are detection: they
+    # disclose, at the boundary, a fact about a PR already past the point where
+    # the disposition was written. THE CONSTRAINT IS ELSEWHERE. It is the
+    # vocabulary in SPEC §4 clause 8 and in `.claude/skills/review-lane/`,
+    # which removes "resolved in the review" from what a reviewer may write
+    # where no cycle is reachable, and which acts BEFORE the disposition
+    # exists. That is arm 2, the one selected; these NOTEs are arm 3, admitted
+    # only as disclosure riding beside it. So the test of this file is never
+    # "does the NOTE name the case" — a fifth specimen the NOTE fails to name
+    # is a defect in a disclosure, not a hole in the floor, and the repair for
+    # it is at the vocabulary, not another enumerated line here. The NOTEs
+    # carry no constraint, gate nothing, and are safe to reword or drop
+    # without touching the rule.
+    #
     # THE REACHABILITY LINE COMES FIRST AND IS PRINTED EVEN WHEN EVERY FINDING
     # IS DISCHARGED (kogaki#433). It is the fact that changes how BOTH lines
     # below are read, and it is the fact the four specimens lacked — so it is
