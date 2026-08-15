@@ -582,6 +582,10 @@ declined: <reason>                  — an explicit decline, reason required
   vocabulary. It removes nothing else: the finding is still non-gating, the
   merge is still governed by `blocking` alone, and arming auto-merge is not an
   error you report.
+  **Read the arming, do not infer it.** `gh pr view <n> --json autoMergeRequest`
+  answers it — `null` means unarmed, an object means armed — and that read is
+  inside the `gh pr view` grant this lane already holds. Presence is the whole
+  of it: who armed it and when are not read, here or anywhere.
 - **At a spent bound, a LATENT NON-GATING in-diff finding defaults to
   `carried: register`** (kogaki#374, owner approval 2026-08-12; SPEC §4
   clause 8 carries the rule and this line cites it). With no round left, "resolve it in the review" cannot be
