@@ -4224,7 +4224,7 @@ JS
 # each must fail.
 node --input-type=module - <<'JS'
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, symlinkSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, symlinkSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -4244,7 +4244,13 @@ const mds = (dir) => readdirSync(dir).filter((f) => f.endsWith(".md"));
 // twice would pass on an implementation that wrote once and never overwrote,
 // which is half of what AC2 asserts — "overwritten, never accumulated" has two
 // failure directions and identical inputs can only see one.
-const dir = mkdtempSync(join(tmpdir(), "kogaki-screen-artifact-"));
+// Every temp dir this block makes is registered for removal, as the block at
+// :2770 it is modelled on already does. Five leaked per run — two holding a
+// full copy of `terrain.mjs` — on every CI run and every local invocation
+// (PR #465 round 1, finding 3).
+const TEMPS = [];
+const temp = (p) => { const d = mkdtempSync(join(tmpdir(), p)); TEMPS.push(d); return d; };
+const dir = temp("kogaki-screen-artifact-");
 const r1 = render("terrain/terrain.mjs", dir, A);
 if (r1.status !== 0) fails.push(`the first screen render failed (exit ${r1.status}): ${(r1.stderr || "").trim().slice(0, 200)}`);
 const after1 = mds(dir);
@@ -4278,7 +4284,7 @@ if (!/Screen — READ THIS ONE/.test(r1.stdout || "")) {
 // which is itself a property worth having (a mutant needing the whole tree is
 // a mutant nobody runs).
 function mutant(name, edit) {
-  const md = mkdtempSync(join(tmpdir(), `kogaki-screen-mutant-${name}-`));
+  const md = temp(`kogaki-screen-mutant-${name}-`);
   mkdirSync(join(md, "terrain"), { recursive: true });
   copyFileSync("terrain/format-guard.mjs", join(md, "terrain", "format-guard.mjs"));
   // `terrain.mjs` resolves its schemas from ITS OWN location (`REPO =
@@ -4294,7 +4300,7 @@ function mutant(name, edit) {
   const out = edit(src);
   if (out === src) return { skipped: true };
   writeFileSync(join(md, "terrain", "terrain.mjs"), out);
-  const rdir = mkdtempSync(join(tmpdir(), `kogaki-screen-mutant-${name}-out-`));
+  const rdir = temp(`kogaki-screen-mutant-${name}-out-`);
   const r = render(join(md, "terrain", "terrain.mjs"), rdir, A);
   // THE MUTANT MUST HAVE RUN. Every assertion below reads an ABSENCE, and an
   // absence produced by a crash is indistinguishable from one produced by the
@@ -4302,9 +4308,15 @@ function mutant(name, edit) {
   // what it says.
   if (r.status !== 0) {
     fails.push(`the ${name} mutant did not RUN (exit ${r.status}): ${(r.stderr || "").trim().split("\n")[0].slice(0, 200)} — an absent artifact from a crashed mutant asserts nothing about the behaviour that was removed`);
-    return { skipped: true };
+    // `r` IS RETURNED so the caller can tell a crash from a no-match. Returning
+    // a bare `{ skipped: true }` here made both skip causes identical at the
+    // call site, so a crashed mutant emitted its honest "did not RUN" failure
+    // AND the false "could not be constructed" one — a block asserting a
+    // discrimination its own return shape does not make (PR #465 round 1,
+    // finding 1).
+    return { r, skipped: true };
   }
-  return { r, rdir, skipped: false };
+  return { r, rdir, runtime: join(md, "terrain", "terrain.mjs"), skipped: false };
 }
 
 // Mutant 1 — the write path is broken. The AC1/AC2 assertions above must fail.
@@ -4334,15 +4346,49 @@ if (m2.skipped) {
   }
 }
 
+// Mutant 3 — WRITE-ONCE. The write survives and stops overwriting, which is
+// AC2's own failure direction and the half this case exists for: mutant 1
+// removes the write entirely, so an `existsSync` guard passes its absence check
+// untouched and is caught only by the second-render-material read at :4270 —
+// an assertion nothing had shown to fire (PR #465 round 1, finding 2). Left
+// unmutated it was a coverage CLAIM rather than demonstrated coverage.
+const m3 = mutant("writeonce", (s) => s.replace(
+  '  writeFileSync(path, text.endsWith("\\n") ? text : text + "\\n");\n',
+  '  if (!existsSync(path)) writeFileSync(path, text.endsWith("\\n") ? text : text + "\\n");\n'));
+if (m3.skipped) {
+  if (m3.r === undefined) fails.push("the write-once mutant could not be constructed — `writeScreen`'s write no longer matches the text this case mutates");
+} else {
+  const r3b = render(m3.runtime, m3.rdir, B);
+  if (r3b.status !== 0) {
+    fails.push(`the write-once mutant's second render did not RUN (exit ${r3b.status}) — the mutation asserts nothing if the run it depends on never happened`);
+  } else {
+    const f3 = mds(m3.rdir);
+    if (!f3.includes("Screen.md")) {
+      fails.push("the write-once mutant wrote no artifact at all — it is not isolating the OVERWRITE from the write, so it duplicates mutant 1 instead of covering AC2's second direction");
+    } else if (readFileSync(join(m3.rdir, "Screen.md"), "utf8").includes("no relation")) {
+      fails.push("the write-once mutant still produced the SECOND render's material — the overwrite assertion is not bound to the write it claims to verify, and a write-once implementation would ship green");
+    }
+  }
+}
+
 if (fails.length) {
   console.log("FAIL §14.4.1 screen-as-artifact (kogaki#464, story 1.66):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
+for (const d of TEMPS) rmSync(d, { recursive: true, force: true });
+
+// WHAT IS MUTATED AND WHAT IS NOT, separated. The first version of this line
+// claimed four discriminations over two mutants, which is the coverage CLAIM
+// this file refuses everywhere else (PR #465 round 1, finding 2).
 console.log("§14.4.1 screen delivery: SEAM-FREE and RAN — the screen is written to reports/Screen.md, "
-  + "ONE file after two renders of DIFFERENT surveys (so an accumulating name fails), carrying the "
-  + "SECOND render's material (so a write-once implementation fails), and NAMED on stdout (so a silent "
-  + "write fails). Both mutants confirmed: removing the write kills the artifact assertions, and "
-  + "removing the hand-over line while keeping the write kills the floor assertion — the shape §14.4.1 "
-  + "names as satisfying the clause while producing the failure it is about.");
+  + "ONE file after two renders of DIFFERENT surveys, carrying the SECOND render's material, and NAMED "
+  + "on stdout. THREE MUTANTS CONFIRMED, each asserted to have RUN before its absence is read: removing "
+  + "the write kills the artifact assertion; guarding the write with `existsSync` kills the OVERWRITE "
+  + "assertion (AC2's own direction, which removing the write entirely cannot reach); and removing the "
+  + "hand-over line while keeping the write kills the floor assertion — the shape §14.4.1 names as "
+  + "satisfying the clause while producing the failure it is about. NOT MUTATED, stated rather than "
+  + "claimed: the fixed NAME holds by construction (the literal is joined inside `writeScreen`, so a "
+  + "second screen name is unwritable), and a mutation would have to invent a second write path rather "
+  + "than alter this one.");
 JS
