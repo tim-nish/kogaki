@@ -4223,6 +4223,65 @@ print("disposition pass: 14/14 grammar cases + first-declaration-wins and "
 #
 # AND THE VERDICT IS ASSERTED IN EVERY CASE. Nothing about reachability may
 # change what merges; `done` stays `done` under all four.
+#
+# MUTATION TABLE (kogaki#230; PR #469 round 1, finding 3). The ten cases below
+# shipped with a count and a green run, which is presence rather than truth.
+# Demonstrated now: each mutation was applied to the SHIPPED code by a
+# LINE-ANCHORED replacement — the line number AND its exact text asserted
+# before the edit, on the near-miss recorded at
+# checks/check-review-report.sh:2779 — the whole file re-run through
+# `./tools/review-sweep.sh --dry-run`, and the file restored byte-identical.
+# Every mutation was KILLED. The killer named is the case that fails FIRST and
+# alone where one does; where a mutation trips several, all are listed, because
+# a table that names one killer for a mutation three cases catch is telling
+# half a fact.
+#
+#   mutation applied to the shipped code            case that killed it
+#   ---------------------------------------------   -------------------
+#   M1  `cycle_reachable`: `if armed:` -> `if        inside the bound, ARMED
+#       False:` — the counter-only reading, which    (also the dispositioned
+#       is the defect this issue names               ARMED case)
+#   M2  `unreachable_cause`: `" and ".join(causes)`  BOTH causes at once
+#       -> `causes[0]` — half a fact
+#   M3  `unreachable_cause`: drop the spent-bound    at a spent bound,
+#       cause (`if rounds_used(...) >= MAX_ROUNDS:`  unarmed (also BOTH)
+#       -> `if False:`)
+#   M4  `auto_merge_armed`: `.get("autoMerge         a record with no such
+#       Request")` -> `.get(..., {})` — an absent    key (also no record at
+#       key defaults to an object                    all)
+#   M5  `auto_merge_armed`: `(pr or {})` -> `(pr     and so is no record at
+#       or {"autoMergeRequest": {}})`                all
+#   M6  `auto_merge_armed`: value read -> key        `autoMergeRequest:
+#       presence (`"autoMergeRequest" in (pr or      null` is unarmed
+#       {})`)
+#   M7  `auto_merge_armed`: `return False`           an autoMergeRequest
+#                                                    OBJECT is armed
+#   M8  `report_dispositions`: the reachability      inside the bound,
+#       NOTE loses its `unreachable` guard           UNARMED
+#   M9  `report_dispositions`: the dispositioned     the dispositioned
+#       population inverts (`d is not None` ->       ARMED case
+#       `d is None`)
+#   M10 `report_dispositions`: the dispositioned     and inside the bound it
+#       line loses its `unreachable` guard           is not
+#   M11 `report_dispositions`: the undischarged      the clause-8 pass ABOVE
+#       count loses its `d is None` filter           (three of its cases) —
+#                                                    see the note at the
+#                                                    leak guard below
+#   M12 `decide`: stops passing `armed` to           inside the bound, ARMED
+#       `unreachable_cause`, i.e. the call site      (also BOTH, also the
+#       stops carrying the new input                 dispositioned ARMED)
+#
+# TWO GAPS ARE STATED RATHER THAN PAPERED OVER.
+#   - M11 is killed, but NOT by the case written for it: the clause-8 pass
+#     above exits non-zero first, so the leak guard added here never runs. Its
+#     discrimination was shown by re-running M11 with that pass's `sys.exit(1)`
+#     ablated, at which point the guard fails by name. Recorded at the guard.
+#   - THE THREE `--json` FIELD ADDITIONS AND THE LIVE CALL SITE
+#     (`_armed = auto_merge_armed(pr)`) ARE NOT COVERED BY ANY FIXTURE HERE.
+#     They live in the shell half and on the network path; no fixture in this
+#     file can watch them, and no mutation of them is claimed. What the table
+#     covers is the read, the column selector, the report and the `decide()`
+#     call site.
 _rfail = 0
 _R_OLD = '9999999'
 
@@ -4305,6 +4364,16 @@ for _label, _armed, _want in [
         _rfail = 1
 # And the undischarged count is UNCHANGED by any of this — the dispositioned
 # line is a second population, never a re-count of the first.
+#
+# THIS ONE IS A REDUNDANCY GUARD AND IS MASKED IN NORMAL OPERATION, said here
+# rather than left for the next reader to discover. The filter it watches
+# (`d is None`, at the undischarged comprehension) is already asserted three
+# ways by the clause-8 pass ABOVE, and that pass exits non-zero before this
+# line is reached — so mutation M11 in the table below is killed there, and
+# this guard never speaks. Its own discrimination was demonstrated separately,
+# by re-running M11 with the clause-8 pass's `sys.exit(1)` ablated: this line
+# then fails by name. It is kept because it is the only assertion sited at the
+# kogaki#433 population, and it costs one comparison.
 if 'NO stated disposition' in _disp(_DISPOSED)[1]:
     print("FAIL reachability fixture [a dispositioned finding leaked into the "
           "undischarged count]")
