@@ -477,6 +477,86 @@ CLOSES = re.compile(
     r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b', re.I)
 
 
+# §4 clause 13 (kogaki#461) — AN ISSUE DISCHARGED BY A SIBLING'S MERGE.
+#
+# An issue split out of a parent to carry "the remainder" can be discharged by
+# that parent's OWN successor PR, and no read in this pipeline noticed. #403
+# carried the fix half of #269; PR #406 merged licensed by #269 and implemented
+# #403's entire scope; #403 then sat open for two days asserting an absence that
+# was false. `git log --grep='#403'` returns 0 — the work exists and is not
+# addressed to that issue.
+#
+# THE DIRECTION IS PARENT -> CHILD. The token is written in the CLOSING COMMENT
+# OF THE ISSUE BEING CLOSED and names the child that now carries the remainder.
+# Reading it the other way round — an open issue declaring which parent it
+# succeeds — puts the token where nothing writes it, and the clause's own first
+# draft did exactly that.
+#
+# ANCHORED, and deliberately not a scrape. A prose-scraping reader for this
+# relation already exists in claude-toolkit's `story-sync`
+# (`_successor_from_closing_comment`) and, run against #269, returns #269: it
+# matches a sentence DISCUSSING succession before reaching the line DECLARING
+# it. That is a measured wrong answer on this rule's own specimen, which is why
+# the declaration is anchored whole here and why a sharper heuristic was
+# declined (tim-nish/claude-toolkit#386).
+#
+# SCOPE TEXT REQUIRED. `successor: #403` alone declares NOTHING. A relation with
+# no scope names a number and says nothing about what that issue now carries,
+# which is the half a reader of the report actually needs; and requiring it is
+# what stops an incidental `successor: #12` inside prose from declaring.
+SUCCESSOR_DECL = re.compile(r'^\s*successor:\s*#(\d+)\s+(\S.*?)\s*$', re.M)
+
+
+def successor_decls(text):
+    """(issue, scope) pairs a closing comment declares, in order.
+
+    Malformed lines declare NOTHING rather than declaring a relation with an
+    empty scope — the same a-malformed-line-declares-nothing rule clause 10's
+    `supersedes:` grammar already follows, cited rather than re-derived.
+    """
+    if not text:
+        return []
+    return [(int(m.group(1)), m.group(2).strip())
+            for m in SUCCESSOR_DECL.finditer(text)]
+
+
+def discharged_survivors(closed_issues, closing_comments, issue_state):
+    """Rows for §4 clause 13: successors still open after the merge closes their parent.
+
+    REPORTED, NEVER GATED — the defect is an ABSENCE (an open issue silently
+    becoming false), and an absence generates no event to deny. Every row this
+    returns is informational and none of them may reach the exit status.
+    Seam-free by construction: `closing_comments` maps an issue number to its
+    closing comment text and `issue_state` maps an issue number to 'open' or
+    'closed', so every case can inject both.
+    """
+    rows = []
+    seen = 0
+    for parent in sorted(closed_issues):
+        for child, scope in successor_decls(closing_comments.get(parent)):
+            seen += 1
+            if issue_state.get(child) == 'open':
+                rows.append(('discharged-survivor', 'report',
+                             f"#{child} is open and #{parent}'s close declares "
+                             f"it the successor carrying: {scope}. This merge "
+                             f"closes #{parent}, so #{child} may already be "
+                             f"discharged by it — verify its scope against the "
+                             f"default branch before acting on it (§4 clause 13)"))
+    if not rows:
+        # AN EMPTY READING RENDERS. Silence is indistinguishable from a read
+        # that never ran, and the two are different news — which is why the
+        # zero states WHICH zero it is.
+        rows.append(('discharged-survivor', 'report',
+                     f"no open successor is declared by the {len(closed_issues)} "
+                     f"issue(s) this merge closes"
+                     + ("" if seen else
+                        " — and no `successor:` declaration was found at all, "
+                        "which is the token's absence rather than a clean "
+                        "sweep: §4 clause 13 is PROSPECTIVE and an issue closed "
+                        "before the token existed declares nothing")))
+    return rows
+
+
 def supersedes_of(text):
     """The blocked PR this text declares itself the successor to, or None.
 
@@ -2243,6 +2323,148 @@ if _trust_bad:
     for f in _trust_bad:
         print(f"  {f}")
     sys.exit(1)
+# ── §4 clause 13 (kogaki#461): the discharged-survivor read ──────────────────
+#
+# SEAM-FREE. Every case injects its closed set, its closing comments and its
+# issue states, so this runs on a machine with no gateway and no `gh` — the
+# property the §12.2 retirement case in the terrain suite had to be rewritten to
+# obtain (PR #436 round 1, finding 4).
+#
+# AND IT CARRIES ITS OWN MUTATIONS, each asserted to have RUN before any absence
+# is read. Story 1.66's round 1 produced the counter-specimen for this: a mutant
+# that dies before reaching the behaviour it mutates writes nothing FOR THE
+# WRONG REASON and reads as killed while asserting nothing.
+_c13_bad = []
+_C13_PARENT_COMMENT = (
+    "Closed as discharged-with-successors under the carrier-vitality "
+    "arbitration.\n\n"
+    "Why reopen rather than file a successor. The spec names this issue as the "
+    "owed carrier in its own text, on kogaki#269.\n\n"
+    "successor: #403  the unadjudicated deny in check-review-report.sh, "
+    "fixtures, mutation evidence\n"
+)
+
+# 1. THE SPECIMEN. #269's real closing comment shape — the declaration BELOW a
+#    sentence that merely discusses succession. This is the exact input on which
+#    claude-toolkit's prose scraper returns #269 instead of #403, so a build
+#    that reached for a scrape fails here rather than in production.
+# #269 IS DECLARED OPEN IN THIS FIXTURE ON PURPOSE, and it is the whole reason
+# the case discriminates. With only #403 in the state map, a loose read that
+# resolves BOTH the discussion sentence (-> #269) and the declaration (-> #403)
+# still reports #403 and passes, because #269 is simply absent from the map and
+# drops out. Making #269 open means a false match becomes a VISIBLE wrong row,
+# so the assertion below binds the property (only the declared successor is
+# resolved) rather than the proxy (the right one is among those resolved).
+_c13_rows = discharged_survivors({269}, {269: _C13_PARENT_COMMENT},
+                                 {403: 'open', 269: 'open'})
+_c13_kinds = [(k, v) for k, v, _ in _c13_rows]
+if ('discharged-survivor', 'report') not in _c13_kinds:
+    _c13_bad.append(f"the specimen was not reported: {_c13_rows}")
+_c13_text = " ".join(t for _, _, t in _c13_rows)
+if "#403" not in _c13_text:
+    _c13_bad.append("the report names no successor — the read matched the "
+                    "discussion sentence rather than the declaration, which is "
+                    "the claude-toolkit defect arriving here")
+if "#269 is open" in _c13_text:
+    _c13_bad.append("the read resolved #269 as its own successor — it matched "
+                    "the sentence DISCUSSING succession before the line "
+                    "DECLARING it, which is claude-toolkit#386's exact defect "
+                    "arriving in this repository")
+if "unadjudicated deny" not in _c13_text:
+    _c13_bad.append("the declared scope is not carried into the report — a "
+                    "number without its scope is the half a reader cannot act on")
+
+# 2. THE CHILD IS CLOSED. Same declaration, nothing owed.
+_c13_closed = discharged_survivors({269}, {269: _C13_PARENT_COMMENT},
+                                   {403: 'closed'})
+if "#403 is open" in " ".join(t for _, _, t in _c13_closed):
+    _c13_bad.append("a closed successor was reported as open")
+
+# 3. MALFORMED — a bare `successor: #403` with NO scope declares NOTHING.
+_c13_bare = discharged_survivors({269}, {269: "successor: #403\n"},
+                                 {403: 'open'})
+if "#403 is open" in " ".join(t for _, _, t in _c13_bare):
+    _c13_bad.append("a scope-less declaration declared a relation — a number "
+                    "with no scope is what an incidental mention looks like")
+
+# 4. AN UNRELATED PARENT. The declaration exists but its parent is not in this
+#    merge's closed set, so nothing fires.
+_c13_other = discharged_survivors({999}, {269: _C13_PARENT_COMMENT},
+                                  {403: 'open'})
+if "#403 is open" in " ".join(t for _, _, t in _c13_other):
+    _c13_bad.append("a declaration on an issue THIS merge does not close was "
+                    "reported — the read is not scoped to the closed set")
+
+# 5. THE EMPTY READING RENDERS, and says WHICH zero it is.
+_c13_empty = " ".join(t for _, _, t in discharged_survivors({7}, {7: "nothing here"}, {}))
+if "no open successor" not in _c13_empty:
+    _c13_bad.append("the empty reading rendered nothing — silence is "
+                    "indistinguishable from a read that never ran")
+if "PROSPECTIVE" not in _c13_empty:
+    _c13_bad.append("the empty reading does not say which zero it is — a merge "
+                    "over issues carrying no token at all is the token's "
+                    "absence, not a clean sweep")
+
+# 6. POLARITY. Every row is `report`; none may be `unmet`, which is what the
+#    exit status is computed from. A build that gates has implemented a
+#    different clause (AC3).
+for _r in (_c13_rows + _c13_bare + _c13_other):
+    if _r[1] != 'report':
+        _c13_bad.append(f"a clause 13 row is `{_r[1]}`, not `report` — §4 "
+                        f"clause 13 REPORTS and never gates")
+
+# 7. THE MUTATIONS. Each asserts the mutant RAN before reading its absence.
+def _c13_mutant(name, fn):
+    try:
+        out = fn()
+    except Exception as e:                      # noqa: BLE001
+        _c13_bad.append(f"the {name} mutant did not RUN ({e!r}) — an absent "
+                        f"report from a crashed mutant asserts nothing about "
+                        f"the behaviour that was removed")
+        return None
+    return " ".join(t for _, _, t in out)
+
+# 7a. Unanchor the declaration — the scrape claude-toolkit ships. On the
+#     specimen it must now match the DISCUSSION sentence and report #269.
+_loose = re.compile(r'successor:?\s*[^#\n]*#(\d+)\s*(.*)')
+def _loose_decls(text):
+    m = _loose.search(text or "")
+    return [(int(m.group(1)), (m.group(2) or "x").strip() or "x")] if m else []
+_m1 = _c13_mutant("unanchored-scrape", lambda: [
+    ('discharged-survivor', 'report', f"#{c} is open and #269's close declares it")
+    for c, _sc in _loose_decls(_C13_PARENT_COMMENT) if {403: 'open'}.get(c) == 'open'])
+if _m1 is not None and "#403" in _m1:
+    _c13_bad.append("the unanchored mutant still resolved #403 — this suite "
+                    "does not discriminate the anchored read from the scrape, "
+                    "so it is not evidence for the clause's own ruling")
+
+# 7b. Drop the scope requirement — case 3 must stop failing the way it does.
+_nosc = re.compile(r'^\s*successor:\s*#(\d+)\s*(.*?)\s*$', re.M)
+_m2 = _c13_mutant("scope-optional", lambda: [
+    ('discharged-survivor', 'report', f"#{int(m.group(1))} is open")
+    for m in _nosc.finditer("successor: #403\n")
+    if {403: 'open'}.get(int(m.group(1))) == 'open'])
+if _m2 is not None and "#403 is open" not in _m2:
+    _c13_bad.append("the scope-optional mutant reported nothing — case 3 is "
+                    "not bound to the scope requirement it claims to verify")
+
+if _c13_bad:
+    print("FAIL §4 clause 13 — the discharged-survivor read (kogaki#461):")
+    for f in _c13_bad:
+        print(f"  - {f}")
+    sys.exit(1)
+print("clause-13 pass: 6/6 discharged-survivor cases (the #269/#403 specimen "
+      "reported WITH its declared scope; a closed successor not reported; a "
+      "scope-less declaration declaring nothing; a declaration outside this "
+      "merge's closed set not reported; the empty reading rendered AND typed as "
+      "the token's absence rather than a clean sweep; every row `report`, so "
+      "the clause cannot gate). Seam-free — each case injects its closed set, "
+      "closing comments and issue states. TWO MUTANTS, each asserted to have "
+      "RUN: unanchoring the declaration resolves #269 instead of #403 on the "
+      "specimen (the claude-toolkit#386 defect, reproduced here so this file "
+      "discriminates the anchored read from the scrape), and making the scope "
+      "optional lets a bare `successor: #403` declare.")
+
 print("clause-11 trust pass: the superseded PR's record is filtered by the "
       "SAME kogaki#56 rule this file applies to its own — asserted by showing "
       "an author-blind read of the same comments FLIPS both the disposition "
