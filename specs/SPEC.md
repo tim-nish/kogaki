@@ -3252,9 +3252,56 @@ invariant: Gukan guarantees Unit schema, never data schema).
       the set of issues **this merge closes**, and already cross-references
       declaration lines against that set — the evaporating-carrier rule at
       `:474-475` and `:598-626`. This clause adds one reading over the same
-      set: **any OPEN issue whose `successor:` declaration names an issue this
-      merge closes is reported**, with its number and its declared scope. No new
-      act, no new schedule, and no periodic reader —
+      set: **for each issue this merge closes, its own closing comment's
+      `successor:` declarations are read, and every named issue still OPEN is
+      reported**, with its number and its declared scope.
+
+      **THE DIRECTION IS PARENT→CHILD AND IS STATED BECAUSE THE FIRST DRAFT OF
+      THIS CLAUSE HAD IT BACKWARDS.** The token is written in the **closing
+      comment of the issue being closed** — the parent — and names the child
+      that now carries the remainder. A read phrased as *"an open issue whose
+      declaration names an issue this merge closes"* puts the token on the
+      child, where nothing writes it, and would therefore never fire. Recorded
+      rather than silently corrected: the draft was self-consistent and
+      unreachable, which is the shape a reader cannot distinguish from a working
+      clause.
+
+      **AND THE READ IS PROVEN AGAINST THE SPECIMEN RATHER THAN ASSUMED TO
+      REACH IT.** PR #406's body carries `Closes #269`, so #269 is in that
+      merge's closed set even though #269 had already been closed by hand
+      eleven hours earlier — the declaration, not the issue's state at merge
+      time, is what puts it in scope. Had the token existed, #269's closing
+      comment would have yielded #403, open, reported. A clause whose read
+      cannot reach its own specimen is the defect this repository keeps finding;
+      this one was measured before it was written.
+
+      **WHAT IS REUSED AND WHAT IS NEW, priced rather than implied.** The
+      earlier wording of this paragraph said the closed set is "already
+      computed at the `done` boundary", and that was **imprecise**: `closes_of`
+      at `:598-626` sits inside `successor_obligations()`, which returns
+      immediately for any PR declaring no `supersedes:`, so on the general path
+      no closed set exists to inherit. What is genuinely reused is the
+      **reader** — `closes_of()` — applied to the declaration text the gate
+      already holds. What is **new** is the issue reads: one `gh issue view`
+      per issue this merge closes, plus one per **declared** successor, and
+      **zero on the overwhelming majority of PRs**, whose closed issues carry
+      no declaration at all. The reads are lazy for that reason: a closed issue
+      with no token costs one read and stops. Loop position is unchanged — this
+      runs inside the report gate that already runs per PR — and the removal
+      signal is stated at the reader: if these rows report nothing across a
+      period in which a sibling-discharged issue was found by hand, the token is
+      not being written and the reader is measuring its own absence.
+      `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/claude-code-ops.md:65`
+      — a check enters declaring its loop position, its budget and its removal
+      signal. Corrected at PR #466 round 1, finding 4, which is recorded rather
+      than silently fixed because a clause that reads as if wiring were free is
+      how the wiring goes unbuilt.
+
+      **AND AN UNREADABLE ISSUE IS `cannot-determine`, never folded into the
+      zero.** A `gh` that could not answer and a merge with no survivors are
+      different facts; the reading names the unreadable set beside its result.
+
+      No new act, no new schedule, and no periodic reader —
       `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:62`,
       a held item "names an act that ALREADY HAPPENS and observes the quantity
       its trigger fires on".
