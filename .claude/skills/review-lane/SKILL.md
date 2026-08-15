@@ -565,6 +565,23 @@ declined: <reason>                  — an explicit decline, reason required
 - **Which carrier a disposition names is decided by where the defect lives**,
   never by severity: in the diff's own text → resolve it in the review;
   downstream work the diff merely licenses → its own carrier.
+- **"Resolved in the cycle" is UNAVAILABLE where no further cycle is
+  reachable** (kogaki#433, owner selection 2026-08-15; SPEC §4 clause 8 carries
+  the rule and this line cites it). Before you write a disposition that
+  presumes a later round will read the fix, ask whether a later round can run
+  at all. **Two causes, and the round counter sees only the first**: the bound
+  is spent, or **auto-merge is armed on this PR** — in which case the counter
+  still shows a round remaining while the change lands the moment checks go
+  green, and nothing you route to that round will ever be read there. Four
+  findings evaporated this way (PRs #221, #231, #240 and #413).
+  **Write this instead.** For a **latent** in-diff finding — one not reachable
+  against currently served state — write the floor's `carried: register`. For
+  a **reachable** one, take clause 3's successor lane. Do not write "resolved
+  in the review", "a round remains", or any disposition whose premise is a
+  cycle that cannot occur; that is the one thing this rule removes from the
+  vocabulary. It removes nothing else: the finding is still non-gating, the
+  merge is still governed by `blocking` alone, and arming auto-merge is not an
+  error you report.
 - **At a spent bound, a LATENT NON-GATING in-diff finding defaults to
   `carried: register`** (kogaki#374, owner approval 2026-08-12; SPEC §4
   clause 8 carries the rule and this line cites it). With no round left, "resolve it in the review" cannot be
