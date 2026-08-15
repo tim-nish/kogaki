@@ -830,19 +830,34 @@ were carried to a successor carrier rather than pushed to the branch, which is
 what the served rule requires. **Nothing fired.** The sitting had read the rule
 in its own context minutes earlier, which is precisely the guarantee that does
 not reproduce. Four occurrences in six days, two wrong and two right for a
-reason no carrier holds, is the measurement this entry is admitted against.
+reason no carrier holds, is the measurement this entry is admitted against —
+**a denominator the paragraph below re-scopes rather than extends** (kogaki#459,
+PR #467 round 1, finding 2); read the two together and this sentence's count
+alone is superseded.
 
-**SIX occurrences, and the two added on 2026-08-15 move the reading rather than
-extend it.** The `/ship-cycle` sittings on kogaki#464 and kogaki#461 each
-reached a spent bound — PR #465 round 2 and PR #466 round 2 — and **composed no
-gate at either**. The correct disposition there needs no owner question: the
-non-gating findings took `carried: register`, the register was appended before
-the merge, and the run merged. So the population this entry's act class covers
-is not *every* spent-bound exit but the subset where **a gate is composed at
-all**, and the two right-for-no-carrier occurrences above are joined by two
-where the question was never posed. Two wrong, four right, six total.
+**FOUR occurrences of the act class, out of six spent-bound exits — the two
+added on 2026-08-15 NARROW the population rather than joining it.** The
+`/ship-cycle` sittings on kogaki#464 and kogaki#461 each reached a spent bound —
+PR #465 round 2 and PR #466 round 2 — and **composed no gate at either**. The
+correct disposition there needs no owner question: the non-gating findings took
+`carried: register`, the register was appended before the merge, and the run
+merged. So this entry's act class is not *every* spent-bound exit but the subset
+where **a gate is composed at all**, and by that definition #465 and #466 are
+**not members**: they are evidence that the class is narrower than the exits
+that reach it.
 
-**THE COMPOSITION HALF NOW HAS A CARRIER, and it is not in this repository**
+**The arithmetic, stated so it cannot be read two ways.** Six spent-bound exits;
+**four** compose a gate and are the act class (#332 and #399 wrong, #452 and
+#455 right for a reason no carrier holds); two compose none. The standing
+denominator this entry is admitted against is therefore **four**, and the two
+non-members are what make the chosen carrier cheap rather than what make it
+urgent. The first draft of this paragraph counted all six as occurrences of a
+class it had just defined as excluding two of them — corrected at PR #467
+round 1, finding 2, and recorded rather than silently repaired because the
+denominator is the evidence arm (c) would have rested on.
+
+**THE COMPOSITION HALF NOW HAS A NAMED CARRIER — FILED AND UNBUILT — and it is
+not in this repository**
 (kogaki#459, owner selection 2026-08-15, filling that issue's named deferred
 slot). kogaki#402's remedy declared two halves; the `detects:` half is this
 entry, and the `constrains:` half — *"a gate composed for a spent-bound exit
@@ -876,6 +891,18 @@ receipt passes unchanged.
 **The carrier is `tim-nish/claude-toolkit`'s `lint-gate-declaration.py`**, not
 kogaki's — this entry records the rule and names the carrier, and **never
 asserts its state**, per this file's own convention. Escalated at the selection.
+
+**PRECEDENCE ON MISMATCH, declared rather than left to a reader** (PR #467
+round 1, finding 3). The rule above and the hook's implemented shape are two
+copies of one normative claim, and a copy that does not say which side wins is
+the defect —
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:215`,
+`conformance-copy-needs-declared-precedence`. **This entry is the ruling; the
+hook conforms to it.** A hook that lands narrower or wider than the quoted rule
+is a defect in the hook, reported against claude-toolkit#389 and not a
+re-reading of this text. Nothing here observes that conformance — this is a
+precedence declaration, not a mismatch check, and no act in this repository
+compares the two.
 
 **A FOURTH CARRIER EXISTS AND THIS ENTRY'S ADMISSION TEXT OMITTED IT** — stated
 because the omission shaped kogaki#459's own premise. `tools/review-sweep.sh`'s
