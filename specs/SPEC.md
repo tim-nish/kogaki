@@ -1889,8 +1889,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
      served line that admits the register warns that "registering everything
      kills the cadence".
 
-     **AT A SPENT BOUND, A LATENT IN-DIFF FINDING DEFAULTS TO THE REGISTER —
-     THE REACHABILITY FLOOR** (kogaki#374, owner approval 2026-08-12). The rule
+     **WHERE NO FURTHER CYCLE IS REACHABLE, A LATENT IN-DIFF FINDING DEFAULTS
+     TO THE REGISTER — THE REACHABILITY FLOOR** (kogaki#374, owner approval
+     2026-08-12; the heading generalised from *at a spent bound* by kogaki#433,
+     owner selection 2026-08-15, argued at the table below — a reader arriving
+     at this heading must not get the narrow reading the amendment replaced).
+     The rule
      above says an in-diff defect is resolved in the review. **At a spent bound
      that instruction is unsatisfiable by construction**: there is no round left
      to review the resolution in, so every in-diff finding exits through the
@@ -1924,10 +1928,111 @@ invariant: Gukan guarantees Unit schema, never data schema).
      reachable one takes clause 3's successor lane, which is exactly where a
      gating finding exits.
 
-     | | inside the bound | at a spent bound |
+     | | a further cycle is reachable | no further cycle is reachable |
      |---|---|---|
      | **reachable** in-diff finding | resolved in the review | clause 3's successor lane |
      | **latent** in-diff finding | resolved in the review | **`carried: register`** (non-gating) |
+
+     **THE COLUMN IS KEYED ON CYCLE REACHABILITY, AND THE SPENT BOUND IS ONE
+     CAUSE OF IT RATHER THAN THE DEFINITION** (kogaki#433, owner selection
+     2026-08-15). The heading above read *at a spent bound* until this
+     amendment, and that wording is kept here as the record of what kogaki#374
+     ratified. **What moved is the key, not a cell.** Every cell holds exactly
+     what it held; the four routings, the non-gating qualifier on the one cell
+     that moved in 2026-08-12, and the two-round bound are all untouched. What
+     changes is which column a reader is in.
+
+     **THE COUNTER WAS ONLY EVER A PROXY.** The question the floor is really
+     asking is *can a further cycle actually run against this change* — because
+     the instruction it displaces, "an in-diff defect is resolved in the
+     review", is satisfiable exactly when some later round can read the
+     resolution. A spent bound makes that false. **It is not the only thing
+     that does.** Auto-merge armed ahead of the round makes it false too: the
+     counter still shows a round remaining, and the change lands the moment
+     checks go green, so an item dispositioned as resolved in the cycle
+     evaporates against a round the merge configuration had already foreclosed.
+     Reading the counter and calling the answer *reachability* was a correct
+     implementation of one cause mistaken for the condition.
+
+     **THE SPECIMENS ARE FOUR, AND THEY ARE NOT ONE SERIES.** PRs #221, #231
+     and #240 evaporated **undispositioned** — the population the `done` report
+     already counts. PR #413 evaporated **dispositioned onto a route that did
+     not exist**: its round-1 finding carried `declined: in-diff at round 1 …
+     a round remains, so it is resolved in the review`, which was correct given
+     its premise and false given the arming, and the issue it should have
+     reached was reopened by hand 94 seconds after the merge closed it.
+
+     **TWO SOURCE FINDINGS ARE RECORDED HERE BECAUSE THEY DISCRIMINATED THE
+     REMEDY**, and both are facts about this repository's own instruments
+     rather than arguments.
+
+     - **The `done` report was structurally blind to the fourth specimen.**
+       `tools/review-sweep.sh`'s disclosure NOTE counts findings where the
+       disposition is `d is None` — *no stated disposition* — so #413's
+       finding was never in the set it counts, and the NOTE's own text names
+       only #221, #231 and #240. That NOTE is the report-at-the-boundary remedy
+       already shipped, and it could not see the case that earned this
+       amendment. This is the strongest available argument against shipping a
+       second one.
+     - **This issue's originally declared empty-query matched nothing at
+       authoring time.** `grep -n 'in-diff at round 1' tools/review-sweep.sh`
+       returned no lines: that vocabulary is reviewer-authored prose in a
+       report body and was never a token in the sweep's source, so the query as
+       first written could not have discriminated a fix — it returned empty
+       before and after. It was re-declared at the decision as
+       `grep -n 'NON_GATING' tools/review-sweep.sh`, which returns the severity
+       set the disposition rule is written over. A floor left standing false is
+       worse than no floor, because it reads as measurement.
+
+     **THE REMEDY'S SHAPE WAS DECIDED BY THE SERVED SURFACE, not only its
+     existence.** Three arms were live — constrain the arming, constrain the
+     vocabulary, or report at the boundary — and the served line rules out the
+     third by name:
+
+     > Where a defect class recurs against enumerated post-hoc repairs, the
+     > remedy is to constrain what the pipeline can PRODUCE rather than to
+     > improve what it can DETECT — an enumerated prohibition can only name
+     > yesterday's leak while a construction constraint makes tomorrow's
+     > unreachable.
+
+     `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:61`
+
+     A fifth PR added to that NOTE is the enumeration one level down. **The
+     first arm was declined on carrier location rather than on merit**: no
+     arming site exists in this repository — `gh pr merge --auto` appears in no
+     file here — so constraining the arming would have to live in an
+     actor-level hook family in another repository, which is an escalation
+     rather than a fill, and it slows the merge path the sweep's own
+     auto-merge exists to unblock. The second arm is the only one whose entire
+     carrier is this repository's own `tools/review-sweep.sh` and this clause.
+
+     **THIS EXTENDS THE FLOOR AND MINTS NOTHING BESIDE IT.** A second rule
+     keyed on arming, sitting next to a rule keyed on the counter, would be two
+     derivations of one condition — and two derivations do not disagree loudly,
+     they disagree in the one branch nobody reads. The floor already existed and
+     already named the right consequence; what it lacked was the general key.
+
+     **WHAT THIS DOES NOT CLAIM AND WHAT IS NOT REOPENED**, stated so neither
+     is re-litigated from this paragraph. **kogaki#72's blocking budget is
+     untouched**: `should` and `nit` still never gate, no denial is added
+     anywhere, and a PR whose every non-gating finding is dispositioned onto an
+     unreachable route merges exactly as it did yesterday. **kogaki#401 is
+     untouched**: that clause governs a head arriving **past** a spent bound,
+     which is the opposite end of the same axis — a bound already gone rather
+     than a bound that can never be reached — and its `post-bound-head-move`
+     state, its predicate and its routing are unchanged and are not consulted
+     here. **Nothing about arming is forbidden, discouraged, or reported as an
+     error.** Arming auto-merge is a legitimate act; what this clause does is
+     stop the disposition vocabulary from asserting a future the arming has
+     already closed. And **presence is read, adequacy never is** — nothing
+     added here reads a disposition's reason or decides whether the route it
+     names was the right one, on the split this clause has held since
+     kogaki#224.
+
+     **THE REACHABILITY READ COSTS NO NEW REQUEST**, checked rather than
+     assumed at the decision: the sweep already issues `gh pr view <n> --json`
+     reads for the head sha, the base and the comments, so the arming state
+     arrives as one added field on a read already made.
 
      Severity stays out of carrier choice everywhere else — location still
      selects. **A finding STILL GATING AT THE MERGE LAYER is untouched** and so

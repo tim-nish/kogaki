@@ -579,19 +579,31 @@ if [ "$MODE" = "print-grant" ]; then
   prs="[]"
 else
 
+# `autoMergeRequest` RIDES THE READS ALREADY MADE (kogaki#433). It is the
+# second cause of "no further cycle is reachable" — an armed auto-merge lands
+# the change the moment checks go green, so a round the counter still shows is
+# a round no fix can ever be read in. It is `null` when nothing is armed and an
+# object when something is, which is the whole of what is read: presence, never
+# who armed it or when. The field is added to all THREE listing sites rather
+# than to the one this issue's specimens came through, because a hook-path
+# single-target read and a full sweep must not disagree about a PR's
+# reachability — one derivation, three call sites, is the shape this file
+# already keeps; three derivations of one answer is the shape it has paid for.
+# No second request is made: this is one more field on a read already issued.
+#
 # Single-target mode (the hook's path): one PR by number, or resolved from
 # a head branch. A branch with no open PR yet is normal (a push precedes
 # creation) and is a stated no-op, never a failure.
 if [ -n "$TARGET_PR" ]; then
   if ! one="$(gh pr view "$TARGET_PR" \
-              --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
+              --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository,autoMergeRequest 2>/dev/null)"; then
     echo "FAIL could not establish the substrate: gh pr view $TARGET_PR failed." >&2
     exit 1
   fi
   prs="[$one]"
 elif [ -n "$TARGET_BRANCH" ]; then
   if ! prs="$(gh pr list --state open --head "$TARGET_BRANCH" \
-              --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
+              --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository,autoMergeRequest 2>/dev/null)"; then
     echo "FAIL could not establish the substrate: the gh lookup failed." >&2
     exit 1
   fi
@@ -600,7 +612,7 @@ elif [ -n "$TARGET_BRANCH" ]; then
     exit 0
   fi
 elif ! prs="$(gh pr list --state open --limit "$LIMIT" \
-            --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository 2>/dev/null)"; then
+            --json number,headRefOid,baseRefOid,headRefName,author,isCrossRepository,autoMergeRequest 2>/dev/null)"; then
   echo "FAIL could not establish the substrate: the gh lookup failed." >&2
   exit 1
 fi
@@ -2135,6 +2147,91 @@ def rounds_used(bodies, resolves=None):
     return len(heads) + len(unattested)
 
 
+def auto_merge_armed(pr):
+    """Is auto-merge armed on this PR? (kogaki#433, owner selection 2026-08-15)
+
+    PRESENCE, NEVER CONTENT. `gh`'s `autoMergeRequest` is `null` when nothing
+    is armed and an object when something is; nothing here reads who armed it,
+    with what method, or when. That is deliberate and is the same trade every
+    other read in this file makes — whether the PR will merge without a further
+    round is a fact over a served record; whether arming it was WISE is a
+    judgment no code here is allowed to reach for.
+
+    A PR record that carries no such key at all answers False. That is the
+    fail-safe side and it is chosen rather than defaulted: the reachable
+    reading leaves the floor exactly where it was before this issue, so a
+    caller with an older listing loses the new disclosure and gains no false
+    one. An armed auto-merge asserted from a missing field would be the
+    opposite — a NOTE naming a foreclosure nobody made.
+    """
+    return (pr or {}).get("autoMergeRequest") is not None
+
+
+def cycle_reachable(bodies, resolves=None, armed=False):
+    """Can a further review cycle actually run against this change?
+    (kogaki#433, owner selection 2026-08-15)
+
+    §4 clause 8's floor has two columns, and WHICH ONE APPLIES was decided by
+    the round counter alone. The counter is a PROXY: what the floor is really
+    keyed on is whether a further cycle can run, and a spent bound is one cause
+    of "no" rather than the definition of it. THE SECOND CAUSE IS AN ARMED
+    AUTO-MERGE — the counter says a round remains, the change lands the moment
+    checks go green, and a finding dispositioned "resolved in the review"
+    evaporates against a round that was foreclosed before it was claimed. Four
+    specimens: PRs #221, #231 and #240 (undispositioned, which the `done`
+    NOTE below already counts) and PR #413 (dispositioned onto a route that did
+    not exist, which nothing counted — see that NOTE's own `d is None` filter).
+
+    TWO CAUSES, ONE CONDITION, ONE UNIT. The alternative was a second predicate
+    beside the spent-bound one, and it is declined for the reason this file has
+    already paid for twice: two derivations of one answer do not disagree
+    loudly, they disagree in one branch nobody reads. `post_bound_head_move()`
+    stays its own question and is untouched — that one asks where a HEAD
+    arrived, this one asks whether a CYCLE can run.
+
+    THIS CHANGES NO VERDICT AND GATES NOTHING. `decide()` does not consult it
+    when choosing a state: an armed auto-merge does not make a PR `park`, does
+    not make it `supersede`, and does not stop a fix being spawned. kogaki#72's
+    blocking budget is untouched, the merge layer is untouched, and what this
+    buys is that the report at `done` stops asserting a route the merge
+    configuration has already closed. Report, never gate — the polarity clause
+    8 has held since kogaki#224.
+
+    AND IT IS NOT ANNOUNCED ON EVERY PATH, which is a departure from this
+    function's disclosure discipline and is therefore argued rather than
+    assumed. An armed auto-merge waits for the checks, and a justified
+    `blocking open` holds the review-report gate red — so arming forecloses
+    NOTHING for a gating finding, and a NOTE emitted from `author-owes` or
+    `supersede` would be announcing a foreclosure that has not happened. What
+    it forecloses is exactly the population that never gates: clause 8's. So
+    the read is sited at clause 8's report and nowhere else, which is also the
+    site the licensing decision named.
+    """
+    if armed:
+        return False
+    return rounds_used(bodies, resolves) < MAX_ROUNDS
+
+
+def unreachable_cause(bodies, resolves=None, armed=False):
+    """Why no further cycle can run, in words, or None when one can.
+
+    Both causes are named when both hold, rather than the first one found. A
+    reader who repairs the arming and finds the floor unmoved because the bound
+    was ALSO spent has been told half a fact, which is the disclosure shape
+    kogaki#76 was filed over.
+    """
+    if cycle_reachable(bodies, resolves, armed):
+        return None
+    causes = []
+    if rounds_used(bodies, resolves) >= MAX_ROUNDS:
+        causes.append(f"the {MAX_ROUNDS}-round bound is SPENT (§4 clause 3)")
+    if armed:
+        causes.append("AUTO-MERGE IS ARMED, so this PR lands the moment checks "
+                      "go green and no later round can read a fix pushed here "
+                      "(kogaki#433)")
+    return " and ".join(causes)
+
+
 FIX_PROMPT = (
     "Resolve the open blocking findings on pull request #{n} in this "
     "repository.\n\n"
@@ -3565,7 +3662,7 @@ def head_scope(bodies, head):
     return None, False
 
 
-def report_dispositions(current, downgraded):
+def report_dispositions(current, downgraded, unreachable=None):
     """§4 clause 8 (kogaki#224) — THE `done` BOUNDARY REPORTS UNDISCHARGED
     NON-GATING FINDINGS. It REPORTS. It never gates, never denies, and never
     changes the state it was called from.
@@ -3612,6 +3709,26 @@ def report_dispositions(current, downgraded):
     function is reached on EVERY poll that reaches `done`, so a nag here would
     be emitted repeatedly at exactly the channel-eroding cadence that line
     names.
+
+    THE `d is None` FILTER BELOW IS THE POPULATION THIS NOTE CAN SEE, AND IT IS
+    NOT THE WHOLE ONE (kogaki#433, owner selection 2026-08-15). It counts
+    findings with NO stated disposition, so PR #413's finding — dispositioned
+    `declined: in-diff at round 1 … a round remains, so it is resolved in the
+    review` — was never in the set, and this NOTE's own text names only #221,
+    #231 and #240. Three evaporated UNDISPOSITIONED; the fourth evaporated
+    DISPOSITIONED ONTO A ROUTE THAT DID NOT EXIST, and the instrument that was
+    supposed to catch the class was structurally blind to it. So where no
+    further cycle is reachable a SECOND line is printed over the complementary
+    population — the open non-gating findings that DO carry a disposition —
+    because that is the only population the fourth specimen was ever in.
+
+    AND IT STAYS A PRESENCE READ. The second line counts findings that carry a
+    disposition while no cycle is reachable. It does NOT read the disposition's
+    reason, does not look for the words "resolved in the review", and does not
+    decide whether any particular disposition was the right one — that is
+    adequacy and it stays in the lane, exactly as the paragraph above says. Two
+    facts are joined, each of them computable over a declared record: a
+    disposition is present, and no further cycle can run.
     """
     undischarged = [(sev, st) for s in current
                     for sev, st, _j, d in s['findings']
@@ -3621,6 +3738,16 @@ def report_dispositions(current, downgraded):
     # the operator needs — the merge did not stop for it.
     undischarged += [('should (downgraded blocking)', st)
                      for _s, st, _j, d in downgraded if d is None]
+    # THE COMPLEMENTARY POPULATION, read only where it means something
+    # (kogaki#433). Inside a reachable cycle a dispositioned finding is simply
+    # dispositioned and this file has nothing to say about it; where no cycle
+    # is reachable, every one of them was routed somewhere while one of the
+    # routes clause 8 offers — "resolved in the review" — did not exist.
+    dispositioned = [(sev, st) for s in current
+                     for sev, st, _j, d in s['findings']
+                     if sev in NON_GATING and st == 'open' and d is not None]
+    dispositioned += [('should (downgraded blocking)', st)
+                      for _s, st, _j, d in downgraded if d is not None]
     bad = [b for s in current for b in s['bad_disp']]
     if bad:
         print(f"NOTE: {len(bad)} malformed disposition line(s) — "
@@ -3628,6 +3755,51 @@ def report_dispositions(current, downgraded):
               + " — read as NO disposition (§4 clause 8, kogaki#224). "
                 "`carried:` takes `#<N>` or `register`; `declined:` requires a "
                 "reason")
+    # NEITHER NOTE BELOW IS THE REMEDY, AND A LATER READER MUST NOT MISTAKE IT
+    # FOR ONE (kogaki#433). The served line the decision rested on rules out
+    # improving what the pipeline can DETECT — an enumerated prohibition can
+    # only name yesterday's leak — and these two lines are detection: they
+    # disclose, at the boundary, a fact about a PR already past the point where
+    # the disposition was written. THE CONSTRAINT IS ELSEWHERE. It is the
+    # vocabulary in SPEC §4 clause 8 and in `.claude/skills/review-lane/`,
+    # which removes "resolved in the review" from what a reviewer may write
+    # where no cycle is reachable, and which acts BEFORE the disposition
+    # exists. That is arm 2, the one selected; these NOTEs are arm 3, admitted
+    # only as disclosure riding beside it. So the test of this file is never
+    # "does the NOTE name the case" — a fifth specimen the NOTE fails to name
+    # is a defect in a disclosure, not a hole in the floor, and the repair for
+    # it is at the vocabulary, not another enumerated line here. The NOTEs
+    # carry no constraint, gate nothing, and are safe to reword or drop
+    # without touching the rule.
+    #
+    # THE REACHABILITY LINE COMES FIRST AND IS PRINTED EVEN WHEN EVERY FINDING
+    # IS DISCHARGED (kogaki#433). It is the fact that changes how BOTH lines
+    # below are read, and it is the fact the four specimens lacked — so it is
+    # not made conditional on the undischarged count, which is the "one of two
+    # paths" siting kogaki#76 named and this file has repaired three times.
+    if unreachable and (undischarged or dispositioned):
+        print(f"NOTE: NO FURTHER REVIEW CYCLE IS REACHABLE against this change "
+              f"— {unreachable}. §4 clause 8's floor is keyed on this rather "
+              "than on the round counter, which is only a proxy for it. The "
+              "instruction \"resolved in the review\" is UNAVAILABLE here: a "
+              "latent in-diff finding defaults to `carried: register` and a "
+              "reachable one takes clause 3's successor lane. This is a REPORT "
+              "and gates nothing — kogaki#72's blocking budget and the merge "
+              "layer are untouched.")
+    if unreachable and dispositioned:
+        _dc = {}
+        for sev, _st in dispositioned:
+            _dc[sev] = _dc.get(sev, 0) + 1
+        _dt = ", ".join(f"{n} {sev}" for sev, n in sorted(_dc.items()))
+        print(f"NOTE: {len(dispositioned)} open non-gating finding(s) reach "
+              f"`done` WITH a stated disposition ({_dt}) while no further "
+              "cycle is reachable — §4 clause 8's floor, kogaki#433. Whether "
+              "any of them was routed to a round that cannot run is a reading "
+              "of its own reason, and nothing here makes it: presence is read, "
+              "adequacy never is. This line exists because the undischarged "
+              "count below CANNOT see this population — PR #413's finding "
+              "carried a disposition, so the NOTE written for the class never "
+              "counted the specimen that earned this issue.")
     if not undischarged:
         return
     counts = {}
@@ -3642,11 +3814,13 @@ def report_dispositions(current, downgraded):
           "finding) or a `declined: <reason>` on the line after the finding, "
           "chosen by WHERE THE DEFECT LIVES rather than by its severity. "
           "Undischarged, they evaporate at merge — which is what happened on "
-          "PR #221, #231 and #240")
+          "PR #221, #231 and #240. PR #413 is the fourth specimen and is NOT "
+          "in this count: its finding carried a disposition, onto a round that "
+          "auto-merge had already foreclosed (kogaki#433)")
 
 
 def decide(bodies, head, resolves=None, base=None,
-           diff_at=None, merge_base=None):
+           diff_at=None, merge_base=None, armed=False):
     """The sweep's whole state machine, as a pure function.
 
     Returns one of:
@@ -3706,6 +3880,16 @@ def decide(bodies, head, resolves=None, base=None,
     would be using incompleteness to make a PR pass. So completeness decides
     whether a report EXISTS for this head; the finding set is read over every
     segment naming it.
+
+    `armed` IS READ BY THE CLAUSE-8 REPORT AND BY NO VERDICT (kogaki#433). It
+    is the PR's auto-merge state and it selects which column of clause 8's
+    floor the `done` report speaks from — nothing more. No state above changes
+    because of it, no fix is withheld, no park is manufactured, and the merge
+    layer is not consulted. It DEFAULTS TO False on the same discipline the
+    clause-7 readers default to None: every pre-existing fixture calls this
+    exactly as it did and gets exactly what it got, and a caller that supplies
+    no arming state gets the pre-kogaki#433 reading rather than a silent
+    downgrade.
     """
     segs = segments(bodies)
     # ANNOUNCED BEFORE ANY RETURN, on EVERY path (kogaki#91). The first version
@@ -3849,7 +4033,14 @@ def decide(bodies, head, resolves=None, base=None,
         _unadj = unadjudicated_blocking(bodies, head, carried)
         if _unadj:
             return 'unadjudicated'
-        report_dispositions(current, downgraded)
+        # THE FLOOR'S COLUMN IS SELECTED HERE, and it is selected by
+        # reachability rather than by the round counter (kogaki#433). Asked
+        # through `unreachable_cause()` so this and any later consumer cannot
+        # answer differently, and computed AT the report rather than beside it:
+        # the whole defect was a disposition written against a route nobody
+        # checked existed.
+        report_dispositions(current, downgraded,
+                            unreachable_cause(bodies, resolves, armed))
         return 'done'
     # THE FRAGMENT IS ANNOUNCED, never silently absent (§4 clause 6). A report
     # that reached the PR and was not counted is a different fact from no
@@ -4070,6 +4261,206 @@ if _pfail:
 print("disposition pass: 14/14 grammar cases + first-declaration-wins and "
       "count-blindness at the parser + the PR #221 specimen (5 undischarged "
       "findings named at `done`, verdict unchanged)")
+
+# --- §4 clause 8's floor is keyed on CYCLE REACHABILITY (kogaki#433) -------
+# SITED HERE, IMMEDIATELY AFTER THE CLAUSE IT AMENDS, on the placement argument
+# the block above already makes in full: a guard masked by an earlier
+# `sys.exit(1)` is asserted nowhere it can speak, and the floor's column
+# selector is the one constraint this change adds.
+#
+# THE 2x2 IS ASSERTED AS A 2x2. The condition has TWO causes — a spent bound
+# and an armed auto-merge — and a fixture that exercised one of them would pass
+# against an implementation that ignored the other, which is precisely the
+# defect: the counter-only reading was a correct implementation of one cause
+# mistaken for the condition. So all four combinations run, and the two
+# single-cause cases assert that the OTHER cause is NOT named — a NOTE that
+# blames a spent bound for an armed auto-merge sends the reader to raise the
+# round cap, which fixes nothing.
+#
+# AND THE VERDICT IS ASSERTED IN EVERY CASE. Nothing about reachability may
+# change what merges; `done` stays `done` under all four.
+#
+# MUTATION TABLE (kogaki#230; PR #469 round 1, finding 3). The ten cases below
+# shipped with a count and a green run, which is presence rather than truth.
+# Demonstrated now: each mutation was applied to the SHIPPED code by a
+# LINE-ANCHORED replacement — the line number AND its exact text asserted
+# before the edit, on the near-miss recorded at
+# checks/check-review-report.sh:2779 — the whole file re-run through
+# `./tools/review-sweep.sh --dry-run`, and the file restored byte-identical.
+# Every mutation was KILLED. The killer named is the case that fails FIRST and
+# alone where one does; where a mutation trips several, all are listed, because
+# a table that names one killer for a mutation three cases catch is telling
+# half a fact.
+#
+#   mutation applied to the shipped code            case that killed it
+#   ---------------------------------------------   -------------------
+#   M1  `cycle_reachable`: `if armed:` -> `if        inside the bound, ARMED
+#       False:` — the counter-only reading, which    (also the dispositioned
+#       is the defect this issue names               ARMED case)
+#   M2  `unreachable_cause`: `" and ".join(causes)`  BOTH causes at once
+#       -> `causes[0]` — half a fact
+#   M3  `unreachable_cause`: drop the spent-bound    at a spent bound,
+#       cause (`if rounds_used(...) >= MAX_ROUNDS:`  unarmed (also BOTH)
+#       -> `if False:`)
+#   M4  `auto_merge_armed`: `.get("autoMerge         a record with no such
+#       Request")` -> `.get(..., {})` — an absent    key (also no record at
+#       key defaults to an object                    all)
+#   M5  `auto_merge_armed`: `(pr or {})` -> `(pr     and so is no record at
+#       or {"autoMergeRequest": {}})`                all
+#   M6  `auto_merge_armed`: value read -> key        `autoMergeRequest:
+#       presence (`"autoMergeRequest" in (pr or      null` is unarmed
+#       {})`)
+#   M7  `auto_merge_armed`: `return False`           an autoMergeRequest
+#                                                    OBJECT is armed
+#   M8  `report_dispositions`: the reachability      inside the bound,
+#       NOTE loses its `unreachable` guard           UNARMED
+#   M9  `report_dispositions`: the dispositioned     the dispositioned
+#       population inverts (`d is not None` ->       ARMED case
+#       `d is None`)
+#   M10 `report_dispositions`: the dispositioned     and inside the bound it
+#       line loses its `unreachable` guard           is not
+#   M11 `report_dispositions`: the undischarged      the clause-8 pass ABOVE
+#       count loses its `d is None` filter           (three of its cases) —
+#                                                    see the note at the
+#                                                    leak guard below
+#   M12 `decide`: stops passing `armed` to           inside the bound, ARMED
+#       `unreachable_cause`, i.e. the call site      (also BOTH, also the
+#       stops carrying the new input                 dispositioned ARMED)
+#
+# TWO GAPS ARE STATED RATHER THAN PAPERED OVER.
+#   - M11 is killed, but NOT by the case written for it: the clause-8 pass
+#     above exits non-zero first, so the leak guard added here never runs. Its
+#     discrimination was shown by re-running M11 with that pass's `sys.exit(1)`
+#     ablated, at which point the guard fails by name. Recorded at the guard.
+#   - THE THREE `--json` FIELD ADDITIONS AND THE LIVE CALL SITE
+#     (`_armed = auto_merge_armed(pr)`) ARE NOT COVERED BY ANY FIXTURE HERE.
+#     They live in the shell half and on the network path; no fixture in this
+#     file can watch them, and no mutation of them is claimed. What the table
+#     covers is the read, the column selector, the report and the `decide()`
+#     call site.
+_rfail = 0
+_R_OLD = '9999999'
+
+
+# THE SHA RESOLVER THE SPENT-BOUND CASES NEED (kogaki#91). A synthetic earlier
+# head resolves to nothing in this repository's object store, so without this
+# it would exercise the PHANTOM path — not counted as a round — and the two
+# spent-bound cases below would silently be testing a LIVE bound while their
+# labels said spent. Defined here because this is now the first consumer in
+# file order; the state-machine pass further down reads the same callable, and
+# its own paragraph says so rather than declaring a second one.
+def _ALL(_sha):
+    return True
+
+
+def _reach(body, armed, head=_DH):
+    """(verdict, the reachability lines) for one body and one arming state.
+
+    SELECTED ON THE TWO LINES THIS CHANGE ADDS, not on `kogaki#433` — the
+    kogaki#224 tail NOTE now cites this issue too (it names PR #413 as the
+    fourth specimen it cannot count), so an issue-number filter would report
+    the reachability line as present on every `done` with an undischarged
+    finding, and the unarmed-inside-the-bound case would pass against an
+    implementation that never printed it at all.
+    """
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        v = decide(body, head, _ALL, armed=armed)
+    keep = [l for l in buf.getvalue().splitlines()
+            if 'REVIEW CYCLE IS REACHABLE' in l or 'WITH a stated disposition' in l]
+    return v, "\n".join(keep)
+
+
+# One counted head = one round of two, so the bound is LIVE. Two heads spend it.
+_LIVE = _rep("finding: should open  x")
+_SPENT_R = f"review-lane report: {_R_OLD}\n" + _rep("finding: should open  x")
+for _label, _body, _armed, _want_note, _want_bound, _want_arm in [
+    ("inside the bound, auto-merge UNARMED: a cycle is reachable and the "
+     "floor's spent-bound column does not apply", _LIVE, False,
+     False, False, False),
+    ("inside the bound, auto-merge ARMED: NO cycle is reachable, and the "
+     "cause named is the arming rather than the counter — the case the "
+     "counter-only reading got wrong four times", _LIVE, True,
+     True, False, True),
+    ("at a spent bound, auto-merge unarmed: the floor as kogaki#374 shipped "
+     "it, unchanged", _SPENT_R, False, True, True, False),
+    ("BOTH causes at once: both are named, because a reader who repairs one "
+     "and finds the floor unmoved was told half a fact", _SPENT_R, True,
+     True, True, True),
+]:
+    _v, _txt = _reach(_body, _armed)
+    _got = (_v, bool(_txt), 'bound is SPENT' in _txt, 'AUTO-MERGE IS ARMED' in _txt)
+    _want = ('done', _want_note, _want_bound, _want_arm)
+    if _got != _want:
+        print(f"FAIL reachability fixture [{_label}]: "
+              f"(verdict, reported, bound-named, arming-named)={_got}, "
+              f"want {_want}")
+        _rfail = 1
+
+# THE POPULATION THE OLD NOTE COULD NOT SEE (finding (b) on kogaki#433). PR
+# #413's finding CARRIED a disposition, so the `d is None` count never held it
+# and the NOTE written for the class named only #221, #231 and #240. This
+# asserts the complementary line in both directions: it fires for a
+# DISPOSITIONED finding where no cycle is reachable, and it stays silent inside
+# the bound, where a disposition is simply a disposition.
+_DISPOSED = _rep("finding: should open  x", "declined: in-diff at round 1 — a "
+                 "round remains, so it is resolved in the review")
+for _label, _armed, _want in [
+    ("a dispositioned finding with auto-merge ARMED is named — the #413 "
+     "specimen, which the undischarged count is structurally blind to",
+     True, True),
+    ("and inside the bound it is not: a reachable route is not a report",
+     False, False),
+]:
+    _v, _txt = _reach(_DISPOSED, _armed)
+    _got = 'WITH a stated disposition' in _txt
+    if _v != 'done' or _got != _want:
+        print(f"FAIL reachability fixture [{_label}]: verdict={_v}, "
+              f"dispositioned-line={_got}, want ('done', {_want})")
+        _rfail = 1
+# And the undischarged count is UNCHANGED by any of this — the dispositioned
+# line is a second population, never a re-count of the first.
+#
+# THIS ONE IS A REDUNDANCY GUARD AND IS MASKED IN NORMAL OPERATION, said here
+# rather than left for the next reader to discover. The filter it watches
+# (`d is None`, at the undischarged comprehension) is already asserted three
+# ways by the clause-8 pass ABOVE, and that pass exits non-zero before this
+# line is reached — so mutation M11 in the table below is killed there, and
+# this guard never speaks. Its own discrimination was demonstrated separately,
+# by re-running M11 with the clause-8 pass's `sys.exit(1)` ablated: this line
+# then fails by name. It is kept because it is the only assertion sited at the
+# kogaki#433 population, and it costs one comparison.
+if 'NO stated disposition' in _disp(_DISPOSED)[1]:
+    print("FAIL reachability fixture [a dispositioned finding leaked into the "
+          "undischarged count]")
+    _rfail = 1
+
+# THE ARMING READ IS PRESENCE. `null` is unarmed, an object is armed, and an
+# absent key is unarmed — the fail-safe side, asserted rather than inherited
+# from `.get()`'s default, because that default is exactly what a later
+# refactor would change without noticing.
+for _label, _pr, _want in [
+    ("`autoMergeRequest: null` is unarmed", {"autoMergeRequest": None}, False),
+    ("an autoMergeRequest OBJECT is armed",
+     {"autoMergeRequest": {"enabledAt": "2026-08-15T00:00:00Z"}}, True),
+    ("a record with no such key is unarmed, which is the fail-safe side",
+     {"number": 413}, False),
+    ("and so is no record at all", None, False),
+]:
+    if auto_merge_armed(_pr) != _want:
+        print(f"FAIL reachability fixture [{_label}]: "
+              f"auto_merge_armed({_pr!r})={not _want}, want {_want}")
+        _rfail = 1
+
+if _rfail:
+    print("FAIL: §4 clause 8's floor is not keyed on cycle reachability — "
+          "either a cause is unseen or a verdict moved (kogaki#433)")
+    sys.exit(1)
+print("reachability pass: 4/4 floor-column cases (the 2x2 of a spent bound "
+      "against an armed auto-merge, each naming its own causes and no other, "
+      "verdict `done` throughout) + 2 dispositioned-population cases (the PR "
+      "#413 specimen the `d is None` count cannot see) + the undischarged "
+      "count unchanged + 4 arming presence-read cases")
 
 # --- OUTSIDE is load-bearing, so it is exercised (kogaki#61) --------------
 # The isolation's whole value is that the spawned session's tree is not the
@@ -4624,10 +5015,12 @@ FIX = [
 # the synthetic shas resolve to nothing in this repository's object store, so
 # they would start exercising the PHANTOM path while their labels still said
 # `stale`, and the park case would stop testing the cap it was written for.
-def _ALL(_sha):
-    return True
-
-
+#
+# THE RESOLVER ITSELF IS DEFINED ABOVE, beside the reachability pass that
+# became its first consumer (kogaki#433) — a spent bound cannot be constructed
+# without one, and a second stub there would have been a second answer to a
+# question this one already answers. It is the same callable; only its
+# definition site moved, and this paragraph is why it reads as absent here.
 bad = [f"{n}: got {decide(b, h, _ALL)!r}, want {w!r}"
        for n, b, h, w in FIX if decide(b, h, _ALL) != w]
 
@@ -6870,8 +7263,14 @@ for pr in prs:
     _base = pr.get("baseRefOid") or None
     _d_at, _m_base = make_git_readers(
         lambda *a: (lambda r: r.stdout if r.returncode == 0 else None)(_git(*a)))
+    # The arming state rides the SAME listing the head sha and the base came
+    # from — one more field on a read already made, never a second request
+    # (kogaki#433). Read through the predicate rather than by testing the raw
+    # field here, so the sweep and its fixtures cannot disagree about what
+    # "armed" means.
+    _armed = auto_merge_armed(pr)
     state = decide(bodies, head, base=_base,
-                   diff_at=_d_at, merge_base=_m_base)
+                   diff_at=_d_at, merge_base=_m_base, armed=_armed)
     counts[state.split('-round-')[0]] = counts.get(state.split('-round-')[0], 0) + 1
     # WHAT THE REPORT ATTESTS TO IS PART OF THE LINE (§4 clause 5). The gate
     # reads presence and open-blocking identically whatever the round, so a
