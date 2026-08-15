@@ -1412,6 +1412,57 @@ invariant: Gukan guarantees Unit schema, never data schema).
      answers is *from which tree*, never *whether to enumerate*.
 
      **deferred slots: none.**
+
+     **A PASS DISCLOSES ITS OWN SPEND — every spawn it made and every grant
+     it consumed, empty sets included** (kogaki#470, owner selection
+     2026-08-15). Added here rather than as a new numbered clause for the
+     stated renumbering reason. The per-act lines above record each spawn
+     and each consume in the stdout of the process that performed them — and
+     that is exactly the limit: the spawn-log directory and the approvals
+     store are **global** while a sweep's stdout is **per-process**, so two
+     concurrent passes each print one true account and both operators read
+     the directory against the wrong one. The measured specimen (2026-08-15):
+     two sessions asked two grants one second apart (PRs #468 and #469), each
+     pass consumed a correctly-keyed grant the *other* session had clicked —
+     nothing double-spent, no bound crossed — and each operator's output
+     attributed to their own click a round they never asked for. Three prior
+     failures on this carrier (kogaki#293, #323, #349) were spend or record
+     failures; this fourth is a **reading** failure, and the hop with no
+     carrier is *click → which sweep spends it*:
+
+     > "stop filing at the symptom and ask which hop between producer and
+     > observer has no carrier at all — re-slice the decomposition by hop,
+     > not by which artifact happened to be wrong last time."
+
+     `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:22`
+       outcome: discriminating
+       query: the same grant carrier fails a fourth time, each prior fix repairing a different artifact — which hop between the owner's click and the spend has no carrier at all
+
+     So the pass close names, beside the existing counts line, every spawn
+     **this** pass made (by log basename) and every grant **this** pass
+     consumed (by PR, round and spawn tag) — and **an empty set renders as an
+     empty set**, because "this pass spawned nothing and consumed nothing" is
+     precisely the line that lets an operator attribute a foreign log in the
+     global directory to another pass rather than to their own click. The
+     record is tracked at the two act sites that already exist — the claim
+     write in `spawn()` and the one `consume_grant()` call site — never
+     derived afterwards from the directory, which would be the
+     per-process/global confusion re-entering as an implementation.
+
+     **What this deliberately does NOT change, recorded so neither losing arm
+     is re-proposed blind** (the 2026-08-15 gate on kogaki#470). Grants stay
+     target-keyed and requester-less. *Requester-bound grants* — a grant
+     carrying its requester, spend refused across sessions — would have
+     refused both consumes in the specimen, and both were legitimate: it
+     changes who may spend a click to fix an observability defect, with no
+     harmful spend in evidence, and an instrument's expansion is evidenced by
+     escapes, never by catches (`LESSONS.md:21` at the same pin). *A
+     per-sweep spawn-log directory* removes the artifact the misreading was
+     assembled from, but the global directory is load-bearing: the in-flight
+     guard reads it to observe another session's live round, and it refused a
+     double spawn in the specimen itself.
+
+     **deferred slots: none.**
   5. **A report DECLARES ITS SCOPE — `full` or `delta`** (kogaki#70). A
      round-2 review is a delta review by default: its subject is round 1's
      findings × the fix commits, and it re-reviews the whole diff only where
