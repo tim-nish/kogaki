@@ -2787,10 +2787,25 @@ try {
   writeFileSync(subs, JSON.stringify({ "testing × architecture": { judged: true, subgroups: [] } }));
 
   // The two actual renderings, over the COMMITTED input.
+  //
+  // BOTH ARE READ FROM THEIR ARTIFACT, NEVER FROM STDOUT (§14.4.1 v18,
+  // kogaki#464). The report's specimen always was, because `announceArtifacts`
+  // prints beside it; the screen's could be taken from stdout only while stdout
+  // WAS the rendering, and §14.4.1 is the ruling that it is not — a tool call's
+  // stdout is displayed to the model, not reliably to the owner. Reading the
+  // artifact keeps the specimen bound to what the owner actually opens, and it
+  // is why the hand-over lines do not have to be admitted into the grammar:
+  // they are beside the surface, exactly as the report's have always been.
+  const sdir = join(dir, "s");
   const screen = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "cotags", "--survey", SURVEY, "--tag", TAG, "--claims", claims],
+    ["terrain/terrain.mjs", "cotags", "--survey", SURVEY, "--tag", TAG, "--claims", claims,
+     "--rendering-dir", sdir],
     { encoding: "utf8" });
   if (screen.status !== 0) fails.push(`cotags exited ${screen.status}: ${(screen.stderr || "").trim()}`);
+  const smd = readdirSync(sdir).filter((f) => f.endsWith(".md"));
+  if (smd.length !== 1 || smd[0] !== "Screen.md") {
+    fails.push(`expected exactly one screen artifact named Screen.md, found ${JSON.stringify(smd)} — §14.4.1 fixes the name and the count`);
+  }
 
   const rdir = join(dir, "r"); const gdir = join(dir, "g");
   const rep = spawnSync(process.execPath,
@@ -2802,7 +2817,7 @@ try {
   if (rep.status !== 0) fails.push(`report exited ${rep.status}: ${(rep.stderr || "").trim()}`);
   const md = readdirSync(gdir).filter((f) => f.endsWith(".md"));
   const actual = {
-    cotag_screen: String(screen.stdout),
+    cotag_screen: smd.includes("Screen.md") ? readFileSync(join(sdir, "Screen.md"), "utf8") : null,
     full_report: md.length === 1 ? readFileSync(join(gdir, md[0]), "utf8") : null,
   };
   if (md.length !== 1) fails.push(`expected exactly one rendered report, found ${md.length}`);
@@ -4181,4 +4196,153 @@ console.log("§12.2 v12 retirement: SEAM-FREE and RAN — both identity-named re
   + "fails), the disposal ANNOUNCED with its count (so a silent `rmSync` fails), and the no-op "
   + "direction asserted silent (so an announcement on every run fails). This is the case whose "
   + "absence let the whole retirement be deleted with the suite green on any machine without a seam.");
+JS
+
+# --------------------------------------------------------------------------
+# §14.4.1 v18 — THE SCREEN IS DELIVERED AS AN ARTIFACT (kogaki#434, kogaki#464,
+# story 1.66).
+#
+# The ruling: each screen is written by the runtime to `reports/Screen.md`, a
+# fixed human name, overwritten on every render. It is here rather than beside
+# the §12.2 v12 block because the two counts are SCOPED SEPARATELY — v12 counts
+# Full Report renderings, this counts the screen, and §14.4.1 states which side
+# wins for which artifact. A single "exactly one .md" assertion over the
+# directory would now be false by construction and would have made this clause
+# unimplementable.
+#
+# SEAM-FREE ON PURPOSE. Every §12.2 case reached its subject through `report`,
+# which reads served Gloss, so on a machine with no gateway the whole behaviour
+# could be deleted with the suite green (PR #436 round 1, finding 4). `view`
+# without `--tag` fetches no headlines, so this case RUNS EVERYWHERE — the one
+# property the block it is modelled on had to be rewritten to obtain.
+#
+# AND IT CARRIES ITS OWN MUTATION. Story 1.66's Verification section requires
+# it: a screen test that passes when nothing is written is the defect class
+# kogaki#243 tracks, and a case written to prove a delivery clause is exactly
+# where that failure would be invisible. Two mutants run below — the write
+# removed, and the hand-over line removed with the write left standing — and
+# each must fail.
+node --input-type=module - <<'JS'
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, symlinkSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+
+const fails = [];
+const A = "checks/fixtures/terrain/conforming/survey-two-strands.json";
+const B = "checks/fixtures/terrain/conforming/survey-with-no-relation-section.json";
+
+function render(runtime, dir, survey) {
+  return spawnSync(process.execPath, [runtime, "view", "--survey", survey], {
+    encoding: "utf8", env: { ...process.env, KOGAKI_REPORTS_DIR: dir },
+  });
+}
+const mds = (dir) => readdirSync(dir).filter((f) => f.endsWith(".md"));
+
+// ---- AC1 + AC2, over the SHIPPED runtime ---------------------------------
+// The two renders are DELIBERATELY DIFFERENT surveys. Rendering the same screen
+// twice would pass on an implementation that wrote once and never overwrote,
+// which is half of what AC2 asserts — "overwritten, never accumulated" has two
+// failure directions and identical inputs can only see one.
+const dir = mkdtempSync(join(tmpdir(), "kogaki-screen-artifact-"));
+const r1 = render("terrain/terrain.mjs", dir, A);
+if (r1.status !== 0) fails.push(`the first screen render failed (exit ${r1.status}): ${(r1.stderr || "").trim().slice(0, 200)}`);
+const after1 = mds(dir);
+if (!after1.includes("Screen.md")) {
+  fails.push(`no screen artifact was written — the tree holds ${JSON.stringify(after1)} and §14.4.1 names reports/Screen.md. A screen delivered only to stdout is the state kogaki#434 was filed against, because stdout is displayed to the model and not reliably to the owner`);
+}
+const r2 = render("terrain/terrain.mjs", dir, B);
+if (r2.status !== 0) fails.push(`the second screen render failed (exit ${r2.status}): ${(r2.stderr || "").trim().slice(0, 200)}`);
+const after2 = mds(dir);
+if (after2.length !== 1) {
+  fails.push(`after two renders the renderings directory holds ${after2.length} screen file(s) (${after2.join(", ")}) — §14.4.1 rules ONE, overwritten per render, and a second name accumulating is the §12.2 v12 defect arriving one artifact class over`);
+}
+if (after2.includes("Screen.md")) {
+  const body = readFileSync(join(dir, "Screen.md"), "utf8");
+  // The SECOND render's material, not the first: this is what makes the
+  // assertion about overwriting rather than about existence.
+  if (!body.includes("no relation")) {
+    fails.push("the screen artifact does not carry the SECOND render's material — the file exists but was not overwritten, so the owner opens a stale screen while the run reports success");
+  }
+}
+// The hand-over FLOOR's runtime half: the artifact is NAMED. Writing the file
+// and saying nothing produces exactly the owner-visible state the ruling was
+// filed against, so the announcement is asserted, never assumed.
+if (!/Screen — READ THIS ONE/.test(r1.stdout || "")) {
+  fails.push("the run wrote the screen artifact and never named it — §14.4.1's hand-over floor binds to the HAND-OVER and never to the write");
+}
+
+// ---- THE MUTANTS ----------------------------------------------------------
+// A copy of the runtime with one behaviour removed. `format-guard.mjs` travels
+// with it because `terrain.mjs` imports it relatively; nothing else is needed,
+// which is itself a property worth having (a mutant needing the whole tree is
+// a mutant nobody runs).
+function mutant(name, edit) {
+  const md = mkdtempSync(join(tmpdir(), `kogaki-screen-mutant-${name}-`));
+  mkdirSync(join(md, "terrain"), { recursive: true });
+  copyFileSync("terrain/format-guard.mjs", join(md, "terrain", "format-guard.mjs"));
+  // `terrain.mjs` resolves its schemas from ITS OWN location (`REPO =
+  // resolve(HERE, "..")`), never from the cwd — so a mutant that copies only
+  // the two modules dies at import, before reaching the behaviour it mutates.
+  // It then writes no artifact FOR THE WRONG REASON and the mutation reads as
+  // killed while asserting nothing, which is
+  // `a-verification-artifact-bound-by-belief-verifies-nothing` inside the case
+  // written to prevent it. The sibling directories are linked so the mutant
+  // resolves exactly what the shipped runtime resolves.
+  for (const d of ["specs", "gates"]) symlinkSync(resolve(d), join(md, d), "dir");
+  const src = readFileSync("terrain/terrain.mjs", "utf8");
+  const out = edit(src);
+  if (out === src) return { skipped: true };
+  writeFileSync(join(md, "terrain", "terrain.mjs"), out);
+  const rdir = mkdtempSync(join(tmpdir(), `kogaki-screen-mutant-${name}-out-`));
+  const r = render(join(md, "terrain", "terrain.mjs"), rdir, A);
+  // THE MUTANT MUST HAVE RUN. Every assertion below reads an ABSENCE, and an
+  // absence produced by a crash is indistinguishable from one produced by the
+  // removed behaviour. Asserting the exit first is what makes the kill mean
+  // what it says.
+  if (r.status !== 0) {
+    fails.push(`the ${name} mutant did not RUN (exit ${r.status}): ${(r.stderr || "").trim().split("\n")[0].slice(0, 200)} — an absent artifact from a crashed mutant asserts nothing about the behaviour that was removed`);
+    return { skipped: true };
+  }
+  return { r, rdir, skipped: false };
+}
+
+// Mutant 1 — the write path is broken. The AC1/AC2 assertions above must fail.
+const m1 = mutant("nowrite", (s) => s.replace(
+  '  writeFileSync(path, text.endsWith("\\n") ? text : text + "\\n");\n', ""));
+if (m1.skipped) {
+  // Either the text moved or the mutant crashed; the crash case already
+  // reported itself above, and this names the other one.
+  if (m1.r === undefined) fails.push("the no-write mutant could not be constructed — `writeScreen`'s write no longer matches the text this case mutates, so the mutation is not exercising the write path it names");
+} else if (mds(m1.rdir).includes("Screen.md")) {
+  fails.push("the no-write mutant still produced Screen.md — the assertion above is not bound to the write path it claims to verify");
+}
+
+// Mutant 2 — the write survives and the HAND-OVER is removed. This is the
+// mutant that matters most: it is the shape §14.4.1 explicitly names as
+// satisfying the clause while producing the failure the clause is about.
+const m2 = mutant("nohandover", (s) => s.replace(
+  "  console.log(`Screen — READ THIS ONE (owner rendering, SPEC-terrain §14.4.1): ${relFromRepo(path)}`);\n", ""));
+if (m2.skipped) {
+  if (m2.r === undefined) fails.push("the no-hand-over mutant could not be constructed — `announceScreen`'s line no longer matches the text this case mutates");
+} else {
+  if (!mds(m2.rdir).includes("Screen.md")) {
+    fails.push("the no-hand-over mutant wrote no artifact — the two mutants are not independent, so neither isolates its behaviour");
+  }
+  if (/Screen — READ THIS ONE/.test(m2.r.stdout || "")) {
+    fails.push("the no-hand-over mutant still named the artifact — the hand-over assertion is not bound to the line it claims to verify");
+  }
+}
+
+if (fails.length) {
+  console.log("FAIL §14.4.1 screen-as-artifact (kogaki#464, story 1.66):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("§14.4.1 screen delivery: SEAM-FREE and RAN — the screen is written to reports/Screen.md, "
+  + "ONE file after two renders of DIFFERENT surveys (so an accumulating name fails), carrying the "
+  + "SECOND render's material (so a write-once implementation fails), and NAMED on stdout (so a silent "
+  + "write fails). Both mutants confirmed: removing the write kills the artifact assertions, and "
+  + "removing the hand-over line while keeping the write kills the floor assertion — the shape §14.4.1 "
+  + "names as satisfying the clause while producing the failure it is about.");
 JS

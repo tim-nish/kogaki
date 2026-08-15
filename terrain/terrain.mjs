@@ -556,6 +556,12 @@ function fetchHeadlines(kind, tags) {
 const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
 
 function cmdView(args) {
+  // COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES — the same discipline
+  // `cmdCotags` already follows (§14.2, story 1.54 AC1), and here it is also
+  // what makes the screen writable as ONE artifact (§14.4.1): a surface printed
+  // line by line has no text to hand over.
+  const screen = [];
+  const say = (s = "") => { for (const line of String(s).split("\n")) screen.push(line); };
   const record = readJson(String(args.survey || fail("view needs --survey <file>")));
   const tags = args.tag ? [].concat(args.tag).map(String) : null;
   const family = args.family ? String(args.family) : null;
@@ -585,24 +591,31 @@ function cmdView(args) {
     // traceable to the served surface.
     const shown = c.display_id || NO_DISPLAY_ID;
     if (!c.display_id) missingDisplayId++;
-    console.log(`  ${shown}  (${c.tags.join(", ") || "no relation"})  ${c.cite}${mark}`);
+    say(`  ${shown}  (${c.tags.join(", ") || "no relation"})  ${c.cite}${mark}`);
     if (!tags) continue;
     const h = heads.get(c.slug);
-    if (h) console.log(`      “${h.headline}”  ${h.cite}`);
-    else { missing++; console.log(`      ${NO_HEADLINE}`); }
+    if (h) say(`      “${h.headline}”  ${h.cite}`);
+    else { missing++; say(`      ${NO_HEADLINE}`); }
     if (c.journey) {
       const jh = journeyHeads.get(c.slug);
-      console.log(jh ? `      ↳ Journey: “${jh.headline}”  ${jh.cite}` : `      ↳ Journey: ${NO_HEADLINE}`);
+      say(jh ? `      ↳ Journey: “${jh.headline}”  ${jh.cite}` : `      ↳ Journey: ${NO_HEADLINE}`);
     }
   }
   const split = familySplit(list.map((c) => c.id), record.candidates);
-  console.log(`\n${denominator(list.length, record.candidates.length)} in view (${strandFigure(split)}) — a view, not a narrowing: the survey record is unchanged and every Strand stays selectable (free text reaches all of them at the gate).`);
+  say(`\n${denominator(list.length, record.candidates.length)} in view (${strandFigure(split)}) — a view, not a narrowing: the survey record is unchanged and every Strand stays selectable (free text reaches all of them at the gate).`);
   if (!tags) {
-    console.log("Gloss headlines are tag-scoped (one shard per viewed tag) — name a --tag to read them. No whole-corpus prefetch is taken to fill this in (SPEC.md §9).");
+    say("Gloss headlines are tag-scoped (one shard per viewed tag) — name a --tag to read them. No whole-corpus prefetch is taken to fill this in (SPEC.md §9).");
   } else if (missing) {
-    console.log(`ABNORMAL: ${missing} of ${list.length} rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
+    say(`ABNORMAL: ${missing} of ${list.length} rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
   }
-  if (missingDisplayId) console.log(displayIdAbnormalLine(missingDisplayId, list.length));
+  if (missingDisplayId) say(displayIdAbnormalLine(missingDisplayId, list.length));
+
+  // §14.4.1 — the screen is DELIVERED as the artifact, not as this stdout.
+  // Printing stays for the terminal and for pipes; the artifact is what the
+  // hand-over names, and it is the same bytes either way.
+  const text = screen.join("\n");
+  console.log(text);
+  announceScreen(writeScreen(args, text));
 }
 
 // --------------------------------------------------------------------------
@@ -960,7 +973,13 @@ function cmdCotags(args) {
   // over `groups`, not over `record` — the recorded specimen is a renderer that
   // dropped four of six member fields while every assertion about the data
   // structure stayed green.
-  emitOrRefuse("cotag_screen", screen.join("\n"), (text) => console.log(text));
+  // The refusal still gates the WRITE as well as the print — `emitOrRefuse`
+  // validates before its callback runs, so a nonconformant screen reaches
+  // neither the owner's terminal nor their artifact (§14.2, story 1.54 AC1).
+  emitOrRefuse("cotag_screen", screen.join("\n"), (text) => {
+    console.log(text);
+    announceScreen(writeScreen(args, text));
+  });
 }
 
 // The one emit path for both covered surfaces. It exists so the two callers
@@ -1941,6 +1960,54 @@ function announceArtifacts(rendered, recordPath) {
     console.log("machine record written (JSON, identity + idempotence; SPEC.md §12.1) "
       + `as ${basename(recordPath)} in the run workspace. Set KOGAKI_DEBUG=1 for its path.`);
   }
+}
+
+// THE SCREEN'S OWNER RENDERING (§14.4.1 v18, kogaki#434; implemented under
+// kogaki#464 after #434 closed without it).
+//
+// §14.4.1 rules that an owner-facing screen is delivered as an ARTIFACT THE
+// RUNTIME WRITES, never through a display channel. The channel this repository
+// is operated through displays a tool call's stdout TO THE MODEL and not
+// reliably to the owner — it collapses to a one-line summary — so through v17
+// the contract had no satisfiable member: retyping is prohibited (§14.4), a
+// question UI is prohibited after tag selection (§6.3), and model-side
+// re-emission is refused. What that produced was not silence but a FALSE CLAIM
+// OF SUCCESS, which reads as delivery.
+//
+// THE NAME IS A LITERAL joined onto the renderings directory, exactly as
+// `FullReport.md` is, so a second screen name is UNWRITABLE RATHER THAN
+// DETECTED — the constrain-side answer §14.4.1 names in its own
+// what-is-not-carried list. Every screen renders through here; there is no
+// second path and no caller-supplied name.
+//
+// §12.2 v12's "exactly one owner rendering" is SCOPED TO FULL REPORT
+// RENDERINGS (§14.4.1), and the screen is a SECOND owner-rendering class with
+// its own count of exactly one: overwritten per render, never accumulated. The
+// invariant §12.2 v12 actually protects — no accumulation, no machine-register
+// naming on the owner surface — holds for both, which is why this is a scoping
+// and not a repeal.
+export const SCREEN_RENDERING = "Screen.md";
+
+function writeScreen(args, text) {
+  const path = join(renderingsDir(args), SCREEN_RENDERING);
+  writeFileSync(path, text.endsWith("\n") ? text : text + "\n");
+  return path;
+}
+
+// THE HAND-OVER'S FLOOR, and only its floor. Writing the artifact is NOT
+// delivery: a run that writes `reports/Screen.md` and tells the owner nothing
+// produces exactly the owner-visible state kogaki#434 was filed against, so
+// §14.4's "Delivering nothing is still a failure" binds to the HAND-OVER and
+// never to the write.
+//
+// What this function does is name the artifact. WHICH FORM the relay's own
+// hand-over takes — a pointer, an `!`-command, a file-send — is non-normative
+// per §14.4.1 and is deliberately not decided here: a runtime that printed one
+// prescribed form would re-import the harness binding the ruling removed.
+function announceScreen(path) {
+  console.log(`Screen — READ THIS ONE (owner rendering, SPEC-terrain §14.4.1): ${relFromRepo(path)}`);
+  console.log("ONE screen file, overwritten per render (§14.4.1) — §12.2 v12's count is scoped to "
+    + "FullReport.md, and this is the second owner-rendering class with its own count of exactly one.");
 }
 
 // The owner register (§12.2 v11). Markdown, because the artifact's whole job is
@@ -3182,7 +3249,14 @@ function cmdNeighborhood(args) {
     gids: resolved.targets.map((t) => t.gid),
     suggestions, unresolved, counts, unmapped,
   });
-  console.log(out.join("\n"));
+  // §14.4.1 binds EACH screen, not the two the grammar happens to cover: the
+  // clause above declines format validation for this surface because §14.1's
+  // grammar does not describe it, and delivery is a different axis from
+  // conformance. A screen exempt from the grammar is not exempt from reaching
+  // its owner.
+  const text = out.join("\n");
+  console.log(text);
+  announceScreen(writeScreen(args, text));
 }
 
 // THE NEIGHBORHOOD SCREEN, composed apart from the command (story 1.45).

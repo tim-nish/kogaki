@@ -16,19 +16,47 @@ owner-facing text, and it is `terrain/terrain.mjs`. You compose the runtime's
 *inputs* — the claims, the subdivisions — and you **hand over its output**. You
 never re-type it.
 
-- **The Full Report: `cat` the file.** The runtime names it for you —
-  `announceArtifacts` prints `Full Report — READ THIS ONE (owner rendering,
-  SPEC.md §12.2): <path>`. Run `cat <that path>` and let the tool output be
-  what the owner reads. Do not open the file, read it, and write its contents
-  into your reply; that is retyping with extra steps.
-- **The screens: the command's own output IS the reply.** `cotags` and the tag
-  screen print to stdout. That printed text is the rendering; leave it as the
-  thing the owner reads and add nothing between them and it.
+- **The Full Report: name `reports/FullReport.md`.** The runtime names it for
+  you — `announceArtifacts` prints `Full Report — READ THIS ONE (owner
+  rendering, SPEC.md §12.2): <path>`. Hand that artifact over. Do not open the
+  file, read it, and write its contents into your reply; that is retyping with
+  extra steps, and `cat`-ing it into a tool call is the same delivery through
+  the same unreliable channel with an extra process.
+- **The screens: name `reports/Screen.md`.** `view`, `cotags` and the
+  neighborhood screen each write their rendering to `reports/Screen.md` and
+  print the line `Screen — READ THIS ONE (owner rendering, SPEC-terrain
+  §14.4.1): <path>`. That file is the rendering. **Do not treat the printed
+  screen text as the delivery** — a tool call's stdout is displayed to the
+  model, not reliably to the owner, which is the defect §14.4.1 (v18) was
+  ruled against.
 - **A runtime refusal is delivered the same way and is never swallowed.**
   `fail()` writes to stderr and exits non-zero. Relay that stream as it stands.
 - **Retyping, summarizing, re-formatting, tabulating or paraphrasing runtime
   output into your reply is PROHIBITED.** So is "quoting it accurately" —
-  accuracy is not the property; not being a second producer is.
+  accuracy is not the property; not being a second producer is. **Handing over
+  an artifact is not retyping it**, which is why the hand-over below is
+  permitted by the very clause that prohibits the relay: §14.4.1 narrows
+  §14.4, it does not repeal it.
+
+**THE HAND-OVER IS OWED, AND ITS FORM IS YOURS** (SPEC.md §14.4.1). Two
+properties, and they are separable — do not collapse them:
+
+- **You MUST name the artifact to the owner**, as the **first act after the
+  command returns** — before any gate, any question, any other tool call. This
+  is §2.4's positive limb (v19) and §6.3 act 1. Writing the file is the
+  runtime's act and is **not** delivery: a run that produces `reports/Screen.md`
+  and tells the owner nothing has produced exactly the state kogaki#434 was
+  filed against. **"Delivering nothing is still a failure" discharges on the
+  HAND-OVER, never on the write.**
+- **HOW you name it is yours, and this skill fixes no form.** A pointer to the
+  path in your reply, an owner-executed `!`-prefixed command, a harness
+  file-send — these are interchangeable and none is required. §14.4.1 makes the
+  mechanism non-normative on purpose, and a projection that picked one would
+  re-import the harness binding the ruling removed. **What is not free is
+  skipping it.**
+
+Whether the owner then *reads* the artifact is outside every carrier here —
+but that is a statement about the owner, not a discharge for you.
 
 **WHY THERE IS NOTHING HERE TO POLICE.** This is a REMOVAL, not a new duty
 (§14.4: *"nothing new is prohibited, so nothing new has to be policed"*). The
@@ -189,10 +217,11 @@ this sentence is here.
      pin advance may renumber, so never reuse a list from an earlier screen —
      re-read the current one.
    - **ONCE A TAG IS NAMED, EXACTLY TWO ACTS REMAIN** (SPEC.md §6.3;
-     kogaki#166, owner ruling 2026-08-07): **(1)** run `cotags` and let its printed
-     screen stand as the reply (§14.4 — you deliver it, you do not retype it),
-     **(2)** accept the owner's ID entry, run `report --ids <list>`, and `cat`
-     the rendering it names. **The stop now sits BETWEEN the two acts**
+     kogaki#166, owner ruling 2026-08-07): **(1)** run `cotags` and hand over
+     the `reports/Screen.md` it names (§14.4.1 v19 — you deliver the artifact,
+     you do not retype it and you do not treat the printed text as the
+     delivery), **(2)** accept the owner's ID entry, run `report --ids <list>`,
+     and hand over the rendering it names. **The stop now sits BETWEEN the two acts**
      (§6.3 v7): nothing runs after the screen until the owner speaks. ID entry
      is the owner speaking, not the runtime asking — no prompt, no selector,
      no question. The subdivision judgment is part of act
