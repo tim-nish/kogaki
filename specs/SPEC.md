@@ -3196,6 +3196,91 @@ invariant: Gukan guarantees Unit schema, never data schema).
   (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:35`)
   — which prices a spurious match at exactly one consultation on purpose, and
   one consultation is the entire cost measured so far.
+
+  13. **AN ISSUE DISCHARGED BY A SIBLING'S MERGE DECLARES THE RELATION AS A
+      TOKEN AT THE CLOSE, AND THE `done` BOUNDARY REPORTS THE SURVIVORS**
+      (kogaki#461, spec sitting 2026-08-15, owner selection).
+
+      An issue split out of a parent to carry "the remainder" can be discharged
+      by that parent's **own successor PR**, and no read in this pipeline
+      notices. The issue stays open asserting an absence that is false, and
+      every stage behaves correctly while it does. The specimen is measured:
+      kogaki#403 was filed 2026-08-12 to carry the fix half of kogaki#269; PR
+      **#406** merged 2026-08-13 **licensed by #269** and implemented #403's
+      entire scope; #403 then sat open for two days. `git log --grep='#403'`
+      returns **0** — the work exists and is not addressed to that issue.
+
+      **The defect is an ABSENCE, so this clause reports and never gates.** No
+      act occurs at the moment an open issue becomes false, so there is nothing
+      to deny; the same polarity clause 12 above already holds for `supersedes:`
+      and the findings disposition, and for the same stated reason.
+      `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/archive/knowledge-architecture.md:172`
+      — *"an **obligation** is violated by an absence, which produces no event
+      to hook, so it stays behavioral and its carrier is a signal that makes the
+      absence visible."*
+
+      **THE FACT IS RECORDED WHERE IT IS DECIDABLE — at the close, as a
+      token.** Whether #403 is a successor of #269 is a **fact**, and the only
+      moment it is cheaply known is the close that creates the relation.
+      `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:74`
+      — *"a fact gets a mechanical carrier at the moment it is decidable, and a
+      judgment rides a gate that already exists."* So a close-as-discharged
+      comment carries, per successor, on its own line:
+
+          successor: #<n>  <one line naming the scope that issue now carries>
+
+      Anchored whole; one declaration per line; the scope text is required and
+      non-empty; a malformed line declares nothing. The token binds and its
+      **position does not** — §"Property and carrier, separated" governs here as
+      elsewhere, so it rides the same comment as any other closing prose.
+
+      **WHY A TOKEN AND NOT A BETTER PARSE, which is measured rather than
+      argued.** A reader for this relation already exists —
+      `_successor_from_closing_comment` in `~/.claude/tools/story-sync`, used by
+      `register-append` to refuse an append to a closed register — and it
+      scrapes the closing comment for `successor|superseded by … #N`. Run
+      against **#269 it returns #269**: it matches an argumentative sentence
+      containing the word "successor" before reaching the line that actually
+      names #403. Prose-scraping this relation is not a suspected fragility, it
+      is a demonstrated wrong answer on this clause's own specimen, and a
+      sharper regex would be the next one. **That reader is claude-toolkit's and
+      is not fixed here**; this clause neither depends on it nor changes it, and
+      the finding is escalated rather than state-asserted.
+
+      **THE READ RIDES AN ACT THAT ALREADY HAPPENS.**
+      `checks/check-review-report.sh` already computes, at the `done` boundary,
+      the set of issues **this merge closes**, and already cross-references
+      declaration lines against that set — the evaporating-carrier rule at
+      `:474-475` and `:598-626`. This clause adds one reading over the same
+      set: **any OPEN issue whose `successor:` declaration names an issue this
+      merge closes is reported**, with its number and its declared scope. No new
+      act, no new schedule, and no periodic reader —
+      `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:62`,
+      a held item "names an act that ALREADY HAPPENS and observes the quantity
+      its trigger fires on".
+
+      **THE RELATION IS NARROWER THAN kogaki#461 STATED, and saying so is part
+      of the ruling.** That issue's third acceptance item asks for a
+      parent→split-child relation on the ground that "no current grammar carries
+      it". Two do, for adjacent relations — `--parent`/`tracking-status` carries
+      tracking→child, and `carried:`/`supersedes:` carries findings across heads
+      — and **#269's close did name #403 in prose**, so the
+      close-requires-successor discipline was followed. What had no carrier is
+      the **token**, not the practice. The relation is not invented here; it is
+      typed.
+
+      **WHAT THIS DOES NOT CARRY, stated rather than left to read as covered.**
+      - **Prospective only.** An issue closed before this token exists declares
+        nothing, and no backfill is performed or promised. A run reading zero
+        over such a period is reporting the token's absence, not a clean sweep.
+      - **A successor whose work lands with NO declared relation is invisible
+        to this clause**, exactly as before. That is the case arm (b) of #461
+        would have covered, and it was declined for the reasons recorded on that
+        issue — the read is judgment-shaped and its input, a machine-readable
+        scope, does not exist.
+      - **Nothing closes anything.** The clause reports; the close stays a
+        judgment, and `/repo-cleanup`'s never-auto-close discipline is
+        untouched.
 - **Review altitude is a declared property of the diff, and the instrument's
   own diff is its own class** (kogaki#99). The tier that decides a spawned
   review's model and turn cap was until now an invariant carried only in code —
