@@ -782,6 +782,23 @@ product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:13`).
 existing slug refuses rather than overwriting — a Brief is owner state from
 the moment it exists, and the entry point is a creator, never an editor.
 
+**What this does to §7.2's `instrument: none`, named here because the
+declaration binds at authoring time and this amendment is the authoring
+moment (PR #483 round 1).** §7.2's first measured ground reads "No Brief or
+Draft carrier ships here today … there is no run to sign, so there is
+nothing for a ledger to accumulate", beside §7's dated corpus measurement.
+The entry point's landing (story 1.71) falsifies the **carrier half** of
+that premise going forward: `briefs/` will exist and hold documents. It does
+**not** by itself falsify the ground's conclusion — a minted Brief with
+every composition field an unfilled slot is still **no signed run**, and the
+cross-run signature ledger the trigger names still does not exist — so the
+hold's `instrument: none` **stands, on its second ground alone**, and the
+sitting that lands the first *composed* Brief (a filled sequence, a run to
+sign) is the one that owes §7.2 a re-read. Stated here rather than left,
+because a hold resting on a premise a sibling section quietly retired is the
+false-premise inheritance §7.2's own measurement discipline exists to
+prevent.
+
 ## 6. Candidates ride the existing gate — no new carrier, no new check
 
 Two to three **Candidates** per article, differing in **reader experience**,

@@ -291,9 +291,13 @@ follows is what each clause earned.
 
 ## 9. Out of scope, by decision
 
-The Brief's **durable home** — where the document lives, checkpoints and
-resume — is manifest item 5's and is untouched here
-(`specs/spec-draft-pipeline/SPEC.md:88`). §4.5's design-baseline declaration
+The Brief's **durable home** is manifest item 5's and is untouched here —
+**decided since at SPEC-draft-pipeline §5.3 (v7, kogaki#482)**: a directory
+per Brief, `briefs/<slug>/brief.md`, tracked; checkpoints and resume remain
+item 5's owed future. Cited by section name rather than by line, because the
+line-number form this sentence previously carried (`:88`) had drifted twice
+before anyone read it — a pointer into a moving file is the fragile
+cross-reference arm. §4.5's design-baseline declaration
 is untouched: this adds a manifest item's carrier and re-declares no baseline.
 Also out: any authored style clause, and any instrument for any section.
 
