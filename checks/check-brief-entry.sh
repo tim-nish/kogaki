@@ -37,6 +37,7 @@ try {
   if (!/A \*\*brief\*\* is the working plan/.test(doc)) fails.push("(a) the reader-facing definition of 'brief' is absent — coining an owner-facing term obliges a definition in the same act");
   if (!/### L2 — alpha/.test(doc) || !/### L1 — bravo/.test(doc)) fails.push("(a) a resolved Strand heading is absent");
   if (!new RegExp("cite: `gloss/").test(doc)) fails.push("(a) a Strand renders no cite");
+  if (!/journey cite: `gloss/.test(doc)) fails.push("(a) L2's Journey cite is absent — a served cite the record holds and the document drops (§5.3, PR #484 round 1 finding 5)");
   for (const h of ["Reader start", "Reader target", "Opening question", "Thesis",
                    "Sequence", "Strand coverage", "Unresolved obligations",
                    "Thesis closure", "Tradeoffs"]) {
@@ -89,8 +90,11 @@ console.log("brief entry: 4/4 cases — (a) the mint carries the definition, the
   + "with the command path byte-equal to the exported composer; (b) an unknown id refuses "
   + "naming both sides and leaves no partial home; (c) a G-id refuses by name pointing at "
   + "L<n>; (d) a slug collision refuses without mutating the existing Brief. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71): dropping one FIELDS row "
-  + "failed (a)'s per-field slot assertion in one run; restored, green. NOT COVERED, "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1): FOUR "
+  + "mutations, each run once and restored surgically — dropping one FIELDS row failed (a)'s "
+  + "per-field assertion; emptying the missing-id filter failed both (b) assertions; emptying "
+  + "the G-id filter failed (c)'s token-class assertion; disabling the collision guard failed "
+  + "both (d) assertions. NOT COVERED, "
   + "stated rather than implied: the skill's hand-over conduct is a relay property no "
   + "check can run (the same standing SPEC-terrain §14.4's prohibitions have).");
 JS

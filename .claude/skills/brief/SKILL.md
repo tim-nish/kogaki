@@ -39,6 +39,12 @@ refusal is relayed as it stands, never swallowed.
    identity.
 3. **Mint** —
    `node brief/brief.mjs start --survey <survey record> --ids L…,L… --slug <slug>`.
+   **The survey record is the machine-local run-workspace JSON the Terrain
+   survey wrote** (default under `~/.kogaki/runs/…` — the terrain runtime
+   prints its path at survey time; set `KOGAKI_DEBUG=1` there to see it).
+   It is the record that assigned the `L<n>` ids, which is what makes it the
+   resolver — `reports/FullReport.md` is the rendering the owner READ the
+   ids off, not the record that resolves them.
    The runtime resolves each id against the survey record at its pin,
    refuses an unknown id naming both sides, refuses a slug collision
    (a creator, never an editor), and writes `briefs/<slug>/brief.md`: the
@@ -57,5 +63,6 @@ refusal is relayed as it stands, never swallowed.
   describe-never-generate all assume the material set is fixed).
 - **The Thesis is never invented at entry** — composition determines it from
   the settled set (§3).
-- **`briefs/` holds Briefs and nothing else** — it is the declared product
-  class the footprint contract widened by (SPEC-draft-pipeline §5.3).
+- **`briefs/` holds Briefs and nothing else** — the durable home §5.3
+  declares: a directory per Brief, tracked in the repository, the one
+  product class this pipeline adds to the tree.

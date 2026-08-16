@@ -28,6 +28,18 @@ function fail(msg) {
   process.exit(1);
 }
 
+// A flag whose value was omitted parses as boolean true, and String(true)
+// is "true" — a string that passes the slug grammar and reaches
+// readFileSync as a filename (PR #484 round 1 finding 1). So every consumer
+// reads through this guard: a non-string value is the omitted-value defect,
+// refused with the runtime's own refusal shape rather than leaking an
+// ENOENT stack the skill's relay contract does not cover.
+function argString(args, key, usage) {
+  const v = args[key];
+  if (typeof v !== "string" || v === "") fail(usage);
+  return v;
+}
+
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
@@ -81,7 +93,13 @@ export function composeBrief({ slug, pin, strands }) {
     say(`### ${s.display_id} — ${s.slug}`);
     say();
     say(`- cite: \`${s.cite ?? "none recorded"}\``);
-    if (s.journey) say("- carries a Journey");
+    if (s.journey) {
+      // The served Journey cite is part of "their pins and served cites"
+      // (§5.3) — a cite the record holds and the document drops sends the
+      // composition sitting back to the run workspace, which is what a
+      // durable Brief exists to avoid (PR #484 round 1 finding 5).
+      say(`- journey cite: \`${s.journey.cite ?? "none recorded"}\``);
+    }
     say();
   }
   for (const [heading, meaning] of FIELDS) {
@@ -141,15 +159,15 @@ export function resolveStrandIds(record, entered) {
 
 function cmdStart(args) {
   const record = JSON.parse(readFileSync(
-    String(args.survey || fail("start needs --survey <survey record>")), "utf8"));
-  const entered = String(args.ids || fail(
+    argString(args, "survey", "start needs --survey <survey record> — the machine-local run-workspace JSON the terrain survey wrote (a value is required; a bare --survey flag is the omitted-value defect)"), "utf8"));
+  const entered = argString(args, "ids",
     "start needs --ids <L1,L2,...> — the settled Strand set as "
-    + "LessonDisplayIDs (SPEC-draft-pipeline §5.3)"))
+    + "LessonDisplayIDs (SPEC-draft-pipeline §5.3)")
     .split(",").map((s) => s.trim()).filter(Boolean);
   if (!entered.length) fail("--ids was empty. A Brief needs at least one settled Strand.");
-  const slug = String(args.slug || fail(
+  const slug = argString(args, "slug",
     "start needs --slug <name> — owner-chosen, ordinary vocabulary, never a "
-    + "machine identity (SPEC-draft-pipeline §5.3)"));
+    + "machine identity (SPEC-draft-pipeline §5.3)");
   if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
     fail(`slug ${JSON.stringify(slug)} — use lowercase words joined by hyphens; `
       + "the slug names a directory the owner enumerates.");
@@ -158,7 +176,7 @@ function cmdStart(args) {
   const r = resolveStrandIds(record, entered);
   if (r.error) fail(r.error);
 
-  const briefsDir = resolve(String(args["briefs-dir"] || "briefs"));
+  const briefsDir = resolve(typeof args["briefs-dir"] === "string" && args["briefs-dir"] !== "" ? args["briefs-dir"] : "briefs");
   const home = join(briefsDir, slug);
   // IDEMPOTENCE IS BY SLUG, AND A COLLISION REFUSES (§5.3): a Brief is owner
   // state from the moment it exists, and this runtime is a creator, never an
