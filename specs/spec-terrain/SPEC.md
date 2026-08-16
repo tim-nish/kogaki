@@ -1,6 +1,21 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v21, amended 2026-08-16 (kogaki#474) — **§14.4.1's ruling is
+**Status:** v22, amended 2026-08-16 (kogaki#481; hub batch
+`q_a/2026-08-13-strand-expansion-measured-the-other-arm` D1/D3, owner-swept
+2026-08-16) — **§13.5's entry condition is RE-POINTED: the measurable-miss arm
+is demoted to one of two, and the live arm is the FLOOD.** The first
+corpus-wide run (PR #367, at exactly v16's declared values; kogaki#385) fired
+the drowning arm while the starve arm did not — suggestions median 27 / max
+217, 38 of 126 co-tag groups over 50, only 6 reaching nothing — so the
+deferred judged layer's entry condition ("the mechanical layer measurably
+misses") pointed at the arm the evidence contradicts. Recall-vs-precision
+distinction recorded (hub D2): **the stale condition can no longer authorize a
+recall-mechanism build.** No replacement mechanism is proposed; §13.3's unit
+fork is untouched; the owner note is carried — any future judged layer arrives
+as its own tightly-controlled design, not through this slot.
+**deferred slots minted by this amendment: none.**
+
+v21, amended 2026-08-16 (kogaki#474) — **§14.4.1's ruling is
 PROMOTED, not weakened.** The general rule it carried — an owner-facing screen
 is delivered as an artifact the runtime writes, never a display channel, never
 model-retyped — now lives once, cross-surface, at `specs/SPEC.md` §2.5.3, and
@@ -4220,18 +4235,51 @@ never the membership.
 
 ### 13.5 The extend-or-discard gate
 
-The LLM-relevance extension enters **only** if the mechanical layer measurably
-misses during dogfooding, by the subdivision precedent: implemented →
+**The entry condition is TWO-ARMED, and the arms are different jobs (v22,
+kogaki#481; hub batch `q_a/2026-08-13-strand-expansion-measured-the-other-arm`
+D1/D3, owner-swept 2026-08-16).** A judged layer enters only on a measured
+defect of the mechanical layer, by the subdivision precedent: implemented →
 dogfooded → owner-verdicted (§8.1's measurement-before-offering rider, applied
-unchanged). **Discard stays a valid outcome**, and so does "mechanical layer
-sufficient".
+unchanged). The mechanical layer fails in two directions, and each arm is its
+own entry condition:
 
-The trigger is an observation, never a date: **a recorded run in which the
-owner names a Grain that belonged in the Strand set and that none of §13.3's
-three substrates reached.** The unresolved-`source_batch` markers of §13.3 are
-deliberately *not* that evidence — an unresolved join is a mechanical defect to
-fix, and counting it as a relevance miss would buy the extension with the
-mechanical layer's own bugs.
+- **The miss arm (recall)** — a recorded run in which the owner names a Grain
+  that belonged in the Strand set and that none of §13.3's three substrates
+  reached. This was the *only* entry condition before v22, and it is **demoted
+  to one of two, unfired**: the first corpus-wide run (PR #367, at exactly
+  v16's declared values; kogaki#385) found only 6 of 126 co-tag groups
+  reaching nothing.
+- **The flood arm (precision) — the live arm.** The same run fired it: 967
+  records, 126 co-tag groups; suggestions median 27 / max 217; 38 of 126
+  groups above 50; `source_batch` supplying 5068 against `cross_links`' 330
+  (~15:1). kogaki#385 records the firing.
+
+**The distinction is load-bearing, not taxonomy (hub D2, recorded with the
+measurement).** A layer entering on misses is a **recall** mechanism; a layer
+answering the measured defect is a **precision** mechanism — different jobs,
+different risks, different acceptance evidence. **The stale miss condition can
+no longer authorize a recall-mechanism build**: a later reader holding the
+flood measurement must not be routed into the recall design by the arm the
+evidence contradicts.
+
+**A fired arm records direction; it does not open the gate.** The flood
+measurement is the same one that fired §13.3's reopen trigger, whose answer is
+v17's substrate-instance grouping at the rendering layer — spent there, not
+re-armed here. A judged layer remains unentered; this section re-points which
+arm *could* admit one, and admits none. **No replacement mechanism is proposed
+here, and none may arrive through this slot** (owner note at the hub sweep,
+2026-08-16): no LLM-driven selection over the survey surface is planned, and
+any future judged layer arrives as its own tightly-controlled design, never
+through this deferred slot. **Discard stays a valid outcome**, and so does
+"mechanical layer sufficient".
+
+**The instrument is the corpus-wide distribution the implementing story
+already produces** — no new instrument is owed. The trigger for either arm
+remains an observation, never a date, and the unresolved-`source_batch`
+markers of §13.3 are deliberately *not* evidence for either arm — an
+unresolved join is a mechanical defect to fix, and counting it as a relevance
+miss (or as flood volume) would buy the extension with the mechanical layer's
+own bugs.
 
 **The §13.3 traversal bound is not this gate, and must not become it (v13,
 kogaki#300; re-cut v15).** §13.3 bounds how far the enumeration expands —
