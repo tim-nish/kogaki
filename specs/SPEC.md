@@ -1435,6 +1435,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
      > not by which artifact happened to be wrong last time."
 
      `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:22`
+       request_id: unrecoverable — stated rather than dropped. This consult was
+         performed at the 2026-08-15 recommendation gate, whose receipts on
+         kogaki#470 carry no `request_id` either, so no carrier retains it and
+         the field cannot be filled truthfully. A silently absent field and an
+         unrecoverable one are the same silence to a reader and different
+         silences to a grep.
        outcome: discriminating
        query: the same grant carrier fails a fourth time, each prior fix repairing a different artifact — which hop between the owner's click and the spend has no carrier at all
 
@@ -1461,6 +1467,31 @@ invariant: Gukan guarantees Unit schema, never data schema).
      assembled from, but the global directory is load-bearing: the in-flight
      guard reads it to observe another session's live round, and it refused a
      double spawn in the specimen itself.
+
+     **On adopting the 2026-08-15 gate as the live word.** kogaki#470's
+     original report is marked **AMENDED — the original premise was falsified
+     by measurement**, so writing "the gate chose remedy 2, and arms 1 and 3
+     lost for these grounds" into a spec is a record-disposition act
+     (consultation map entry 3) and owes its receipt on the branch rather than
+     only on the issue. What the served surface prescribes is that the
+     *reversal* travel with the reading:
+
+     > "The believed-before state is only cheaply recordable at the moment of
+     > supersession — capture reversal narratives (question verbatim + what
+     > moved it) at the gate that overturns them, or the arc costs a full
+     > reconstruction and is usually lost."
+
+     `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:118`
+       request_id: 9deb90f8-401e-4580-a320-9df22794a731
+       outcome: covered-after-reframing
+       query: adopting one record as the live word on what a decision decided, where the originating issue is marked amended because its original premise was falsified by measurement — what must be checked before that reading is written into a spec
+       query: when a spec clause records which arm of a fork a gate chose and why the losing arms lost, must it quote the decision record verbatim or may it paraphrase, and what obligation attaches when the originating report was later amended
+
+     The obligation is discharged in the clause above rather than by this
+     receipt: what the amendment moved is stated in the text — the fourth
+     failure is a **reading** failure where the three prior ones were spend or
+     record failures — and that reading is available only from the amended
+     premise, never from the original report.
 
      **deferred slots: none.**
   5. **A report DECLARES ITS SCOPE — `full` or `delta`** (kogaki#70). A
