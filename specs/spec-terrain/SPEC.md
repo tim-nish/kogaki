@@ -2778,6 +2778,7 @@ in common: <claim>
 
 ## Counted                                 ← ONCE, aggregated over the set
 ## Served lines                            ← ONCE, merged and DEDUPED
+## Provenance neighborhood                 ← ONCE, seeded by the entered set
 ```
 
 **Once, and why each:**
@@ -2790,6 +2791,19 @@ in common: <claim>
   `G5` and `G5-1` appears in the map once. A repeated map is the class
   kogaki#315 named unjustified, and deduping is what keeps the merge honest
   rather than merely shorter.
+- **`## Provenance neighborhood`** (v8, kogaki#472), seeded by the entered ID
+  set and aggregated over it. §13 governs its contents entirely; what §12 fixes
+  is only that it is **one** section rather than one per entered id, and that it
+  comes **last**. Once, for §13.3's own reason: the traversal walks the union of
+  the entered set's members, and a per-section neighborhood would re-walk shared
+  batches and render the same suggestion under several headings — the
+  double-count §13.4 obligation 4 admits *within* a family for a genuine second
+  substrate, arriving here as an artifact of layout instead. Last, because it is
+  the one part of the file that is **not** the material the owner entered ids to
+  read: §13.1 calls it a view *beside* the candidate set, and putting it after
+  the served-lines map keeps the report's own pins contiguous with the report's
+  own material. **It renders even when empty** — §13.4's disclosure discipline,
+  and the same rule `## Counted` already follows.
 
 **Repeating: the sections, one per entered id, keyed by the id.** A section's
 heading carries its id and its name, which is what lets an owner match a
@@ -3623,6 +3637,55 @@ defends the premise of a ratified position rather than only improving a screen.
 The neighborhood **widens**. It never narrows, never reorders the candidate set,
 never hides a row, and gates nothing.
 
+**THE ARTIFACT IS A SECTION OF THE FULL REPORT (v20, kogaki#472).** It is not a
+screen and has no owner surface of its own: it renders inside
+`reports/FullReport.md`, at the ONCE tier §12's multi-section form defines —
+aggregated over the entered set, beside `## Counted` and `## Served lines`
+rather than repeating per section. §12.2 (v12)'s rules govern it wholly, which
+is what it means for this to be a *section* rather than a second artifact
+sharing a directory: one file, overwritten per pull, one identity.
+
+**Three things follow, and each is stated because a reader could otherwise
+assume its opposite.**
+
+- **It renders on every pull, empty included.** §13.4's obligations below are
+  written against the section, and an absent section is indistinguishable from
+  a pull that found nothing — the disclosure discipline §13.4 obligation 2
+  already owes, applied to the section's own existence.
+- **§14.1's owner-surface enumeration stays SIX and its coverage claim stays
+  TWO of six.** Before v20 the neighborhood screen was a **seventh** owner
+  surface by §14.1's own definition — text this runtime writes for the owner to
+  read (`terrain/terrain.mjs:3259`, a `reports/Screen.md` writer beside
+  `cmdView` at `:618` and `cmdCotags` at `:981`) — enumerated nowhere and
+  covered by no grammar. v20 does not *cover* that surface; it removes it. The
+  enumeration is true again rather than widened, and §14.1's reopen trigger
+  ("the first grammar edit that could have covered one and did not") is not
+  fired, because the surface this edit would have covered no longer exists.
+- **It is still a report and still never a proposal.** Nothing above changes
+  what §2.3's residual clause governs; siting a widening view inside the
+  untruncated artifact makes it *more* obviously a rendering and not a choice,
+  since §12's own preamble already says the artifact "ranks nothing, narrows
+  nothing and hides nothing".
+
+**What grammar coverage of the section BUYS, and what it does not — stated here
+because "brought under the grammar" reads as more than it is.**
+`report-format.json` v6 admits the section's line classes, so the forms are
+written down, §14.5's fixture exercises them, and a renderer edit that changes a
+form diverges from a contract rather than from nothing. What it does **not** buy
+is the emit-time refusal of a line matching no class: `line_class_allowlist` is
+**inert on `full_report`**, because three body classes there have a bare
+placeholder as their whole form and a malformed line falls through to one of
+them. The new classes **inherit** that exemption without being able to justify
+it — which is `an-inherited-exemption-signals-nothing`
+(`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:64`)
+observed at the widening. It is **disclosed and not repaired here**: withdrawing
+it requires constraining the body classes or admitting a sectioned allowlist,
+which is a decision about the artifact and outside kogaki#472's licence. The
+fork is carried as a named deferred slot in `report-format.json`
+(`deferred_slot_full_report_allowlist`), and the alternative that would have
+avoided it — a `neighborhood_section` surface of its own — was weighed and
+declined at the same gate, on §14.5's grounds.
+
 **§2's three inherited contracts are untouched, and this is the load-bearing
 paragraph of the section.** §2.3 defines a proposal as the act of narrowing:
 
@@ -3660,7 +3723,7 @@ Nothing here is smaller. So:
   proposal-rendering affordance of its own and that §1's refused alternative was
   built.
 
-### 13.2 Input is the SETTLED STRAND SET ALONE (v15)
+### 13.2 Input is the SETTLED STRAND SET ALONE (v15); the trigger is the REPORT PULL's ID ENTRY (v20)
 
 The surface takes **one** input: the Strand set the owner has settled. The
 GroupClaim is visible at selection as an aid to *choosing* that set and is **not
@@ -3685,13 +3748,47 @@ licenses the judged layer §13.5 gates.
 `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:15`
 (`[[an-input-the-substrate-cannot-read-is-dead]]`)
 
-**THE TRIGGER IS AN EXPLICIT OWNER ACT SETTLING THE SET**, and it carries the
-concern the Thesis was reached for. Expansion must not fire until the Strands
-and GroupClaim are settled and the owner has explicitly named the set. The
-ruling's own reading: a purely mechanical expansion is **just as noisy fired too
-early** — on the co-tag GroupClaim screen right after the first tag selection it
-would fan out across a large number of Lessons — so noise is a property of
-**trigger timing**, not of the substrate.
+**THE TRIGGER IS AN EXPLICIT OWNER ACT NAMING A BOUNDED SET**, and it carries
+the concern the Thesis was reached for. Expansion must not fire on an unsettled
+screen. The ruling's own reading: a purely mechanical expansion is **just as
+noisy fired too early** — on the co-tag GroupClaim screen right after the first
+tag selection it would fan out across a large number of Lessons — so noise is a
+property of **trigger timing**, not of the substrate.
+
+**WHICH owner act — the REPORT PULL's ID ENTRY (v20, kogaki#472, owner decision
+2026-08-16).** The neighborhood is computed **inside `report`**, seeded by the
+entered Group/SubGroup IDs, on every pull. **The post-gate trigger of v15 —
+"expansion fires after the strand-selection gate", and the standalone invocation
+that carried it — is SUPERSEDED.** No standalone invocation remains normative;
+§6.3's two-act window is unchanged, because the neighborhood is computed inside
+**act 2** and never as a third act.
+
+**This is a trigger re-site and not a loosening, and the distinction is the
+whole of why v15's principle survives.** v15 ruled that "expansion fires on an
+explicit owner act settling the Strand set". Its operative half — *an explicit
+owner act naming a bounded set* — is preserved exactly: the report pull's ID
+entry **is** such an act (§6.3 act 2, "the owner speaking"), and the fan-out is
+bounded by the entered set precisely as the report itself is. What is withdrawn
+is only the *identification* of that act with the strand-selection gate.
+
+**The ground is a defect v15 could not have measured, and it is stated in the
+record's own numbers.** v15 sited the trigger after the gate because firing on
+an unsettled screen fans out; the corpus measurement (kogaki#385, PR #367 — 967
+records, 126 co-tag groups at the declared bound) found suggestions **median 27,
+max 217**, which is §13.3's drowning arm and not its starve arm. That
+measurement was **per co-tag group across the whole screen** — a population the
+report pull's entered set does not have. And the post-gate siting carries a
+defect the flood numbers never measured: **suggestions arrive after the set is
+settled**, so acting on one requires re-opening a decision already made. A
+suggestion's only use is to inform the selection; delivered after it, the §13
+report is structurally too late. Riding the report, the owner reads Glosses and
+neighbors together and takes ONE informed act at the gate.
+
+**Identity is unchanged, and this is checked rather than assumed.** §12.1's
+report identity triple — substrate pin, co-tag query, judge pin — already covers
+everything the neighborhood reads (the entered set rides `selections` in the
+query component, and the substrate pin is the same one). So idempotence needs no
+new component, and a re-pull under the same identity renders the same section.
 
 **What trigger timing does NOT cover, and where the rest of the bound now
 lives.** Trigger timing decides *when* the expansion fires and nothing about
@@ -3703,12 +3800,16 @@ implementation that picks different values in code has settled a spec question
 silently; an implementation that derives them from the settled set's content
 has reintroduced the input v15 withdrew.
 
-**Still not a third sibling entry point.** It takes a settled set, so it sits
-downstream of whichever entry produced one (Lessons co-tag today, Decisions
-later) — the siting survives the correction untouched, as do the closed-set
-invariant and the never-a-Brief-fetch rule. **And Terrain ENDS here:** the shape
-is *selection → Strand exploration → end of Terrain*. A session may offer to
-start Brief afterward; this spec neither mentions nor guarantees that.
+**Still not a third sibling entry point.** It takes a bounded owner-named set,
+so it sits downstream of whichever entry produced one (Lessons co-tag today,
+Decisions later) — the siting survives both corrections untouched, as do the
+closed-set invariant and the never-a-Brief-fetch rule. Under v20 it is not an
+entry point at all, having no invocation of its own. **And Terrain ENDS at
+Strand exploration:** the shape is *selection → Strand exploration → end of
+Terrain*. A session may offer to start Brief afterward; this spec neither
+mentions nor guarantees that. **v20 does not move that boundary** — the
+neighborhood now renders *earlier* in the flow, at the report pull, and the
+owner's act of taking a suggestion is still the last thing Terrain does.
 
 ### 13.3 The three substrates, and the join that does not hold by equality
 
@@ -3939,7 +4040,37 @@ the filter *and* reintroduces the dead input.
 ### 13.4 Disclosure, denominator, and families that are never pooled
 
 Four obligations on the rendering — three inherited, and one added at v17 by
-the measurement §13.3's own reopen trigger produced:
+the measurement §13.3's own reopen trigger produced.
+
+**ALL FOUR BIND THE FULL REPORT SECTION, UNCHANGED IN SUBSTANCE (v20,
+kogaki#472).** The obligations were written when the rendering was a screen, and
+re-siting it is exactly the act at which an obligation quietly stops binding —
+so each is restated here against its new carrier rather than left to be inherited
+by implication:
+
+1. **Substrate disclosure** — every suggestion row in the section names the
+   substrate that reached it, or renders the explicit undisclosed form. A row
+   whose substrate is not stated is non-conformant in the section exactly as it
+   was on the screen.
+2. **The named enumeration and the family-keyed figure** — the section states
+   what it looked for and did not find, and every figure names its family. The
+   region is the **entered ID set** under v20 rather than the settled Strand
+   set; it is still supplied by the owner and still enumerated by the surface,
+   so the served coverage-claim rule quoted below is satisfied identically.
+3. **Populations are never pooled** — family sections are outermost in the
+   section, as they were on the screen.
+4. **Grouping by substrate instance inside each family**, with the
+   suggestion/rendering distinction stated at every figure.
+
+**And two properties of the section that the screen did not have to state.**
+**Complete enumeration is a rendering of the set, never a selection over it** —
+already obligation 4's words, and load-bearing here because §12's no-truncation
+rule now covers the section too: the section may be long, and it is in a file by
+design. **The §13.3 bound is untouched** — `source_batch` 1 hop, `cross_links` 2
+hops, shared carrier off, still fixed and declared and still read rather than
+chosen. Neither the re-siting nor the seed change is a licence to re-cut it.
+
+The four, as originally written:
 
 1. **Every suggestion discloses the substrate that reached it** — batch-mate,
    cross-link, or shared carrier — and names it. This is §2.3's residual clause
@@ -4128,6 +4259,18 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   tag and its `--claims` refusal is keyed to `compose-input`'s composition pin
   (§11), which a widening view must not perturb. The neighborhood reads the
   survey record and the settled Strand set (v15) and emits its own artifact.
+  **SUPERSEDED at v20 (kogaki#472): there is no standalone subcommand.** The
+  enumeration (`neighborhoodOf`, `terrain/terrain.mjs:2894`) and the rendering
+  (`neighborhoodScreen`, `:3274`) are computed inside `cmdReport` (`:2331`) and
+  emitted as a section of the Full Report; nothing writes `reports/Screen.md`
+  for this rendering and nothing dispatches it by name. The sibling-of-`cotags`
+  reasoning is kept above rather than deleted, because what it establishes —
+  that a widening view must not perturb `cotags` or `compose-input`'s
+  composition pin — is **strengthened** by the re-siting and not withdrawn by
+  it: the neighborhood now touches neither.
+  **The implementation of this bullet is NOT licensed by kogaki#472**, which is
+  the spec amendment only; the code carrier is kogaki#473 and names #472 as its
+  precondition.
 - **`compose-input`'s bounded read is unchanged** (`terrain/terrain.mjs:1496`).
   §11's subset refusal is what guarantees claims are composed only from served
   members; a neighborhood suggestion the owner **took** enters through the
@@ -4168,6 +4311,16 @@ left: the subcommand landed at kogaki#302 (PR #367), and the flow step with
 §13.4's three conformance properties at kogaki#303 (PR #383). What kogaki#289
 scoped is built; what remains open is §13.3's declared bound, whose reopen
 trigger fired on the first real run and is carried at kogaki#385.
+
+**v20 re-opens the implementation without re-opening the design (kogaki#472).**
+The enumeration, the bound, the `N<n>` space and the four §13.4 obligations are
+all built and all unchanged; what v20 moves is where the rendering is computed
+and where it lands. That move is code the spec does not contain, carried at
+kogaki#473, which names this amendment as its precondition. **Until #473 lands,
+the shipped runtime dispatches a standalone `neighborhood` and writes
+`reports/Screen.md`, which this section now declares superseded** — the ordinary
+spec-ahead-of-code interval, named here so a reader who runs the tool and finds
+a screen knows which of the two is stale.
 
 ## 14. The rendered format's carrier, and the owner-surface display ID
 
@@ -4413,6 +4566,23 @@ success**, which is the worse failure because it reads as delivery.
 already rules for `reports/FullReport.md`. Delivery is then the act of the
 owner reading that artifact.
 
+**WHICH renderings are screens under this clause: `view` and `cotags`, and no
+third (v19, kogaki#472).** At v18 there were three, the provenance neighborhood
+being the third. §13.1 (v20) re-sites that rendering into the Full Report, so it
+is **no longer a screen and no longer written to `reports/Screen.md`** — it is
+governed by §12.2 (v12)'s Full Report rules instead, under the split this clause
+already draws between the two owner-rendering classes. **`view` and `cotags`
+keep this clause unchanged in every respect.**
+
+**This is a member leaving the class, not the class being re-cut.** Everything
+below — the artifact-not-a-channel discriminator, the hand-over floor, the
+enforced-by-construction write, the four uncarried items — holds exactly as
+written for the two remaining screens. Recorded rather than left implicit
+because a clause whose membership shrinks silently reads afterwards as though it
+had always meant two, and the reason the third left (it moved to the *other*
+owner-rendering class, not out of owner-facing rendering altogether) is the part
+a later reader would otherwise have to reconstruct.
+
 **And the delivery MECHANISM is explicitly non-normative.** A pointer in the
 reply, an owner-executed `!`-prefixed command, a harness file-send — any of
 these may hand the artifact over, and **this spec names none of them as
@@ -4540,6 +4710,36 @@ things, and the third is the one a reader would otherwise assume:
 **two** at v14, one for the co-tag screen and one for the Full Report owner
 rendering, per §14.1's stated coverage. A renderer edit that changes the shape
 fails in the PR rather than in the owner's next hands-on round.
+
+**The count stays TWO at v20 (kogaki#472), and the Full Report specimen GAINS
+the provenance-neighborhood section.** §13.1 (v20) sites that rendering inside
+the Full Report rather than on a surface of its own, so no third surface is
+covered and no third fixture is owed — but the section's line classes are
+covered from the moment `report-format.json` v6 admits them, and a covered class
+with no specimen is exactly the drift this section exists to catch. So the
+obligation lands on the **existing** Full Report fixture: it must render a
+neighborhood section, and a **non-empty** one, since an empty section exercises
+the empty-enumeration classes and none of the others.
+
+**THE OBLIGATION IS OWED, NOT DISCHARGED, AND ITS CARRIER IS NAMED.**
+`checks/fixtures/terrain/format/full-report.md` carries no such section at v20 —
+kogaki#472 amends the spec only and touches no fixture. The fixture edit rides
+**kogaki#473**, the same code carrier §13.7 names, and this is the ordinary
+spec-ahead-of-code interval that bullet already describes. Written in the owed
+tense rather than the present one because a paragraph asserting a specimen that
+does not exist reads as a discharged obligation, which is precisely the drift
+this section says it exists to catch — one level up, in its own prose.
+
+**The cost is stated rather than discovered: one specimen now carries two
+concerns.** A change to the report body and a change to the neighborhood
+rendering fail the same fixture, and a reader diagnosing a failure has to
+establish which. That is the price of leaving §14.1's six-surface enumeration
+alone, and it was priced against the alternative at the kogaki#472 gate — a
+`neighborhood_section` surface with its own fallback, its own allowlist and a
+third specimen, declined because §14.1 enumerates owner surfaces **by emitter**
+and this section has no emitter of its own, so admitting it would have amended
+the very clause whose argument is that naming six and covering two is an honest
+partial.
 
 The count is stated **per covered surface** rather than as a flat number
 because a flat number cannot stay true across §14.1's reopen trigger: the
