@@ -2646,6 +2646,57 @@ TERMINAL_MARK = "=== spawn terminal:"
 SPAWN_MARK = "=== spawn:"   # the line that opens each attempt in a round log
 PID_MARK = "=== spawn pid:"  # the owning process, so liveness is asked rather than inferred
 
+# A PASS DISCLOSES ITS OWN SPEND (§4 clause 4, kogaki#470, story 1.68).
+# The spawn-log directory and the approvals store are GLOBAL while this
+# process's stdout is PER-PROCESS, so two concurrent passes each print one
+# true account and both operators read the directory against the wrong one —
+# the 2026-08-15 specimen (PRs #468/#469), where each session spent the
+# other's click's sibling grant correctly and each output attributed a round
+# to a click that never asked for it. These records are populated at the TWO
+# ACT SITES that already exist — spawn()'s claim write and the one
+# consume_grant() call — and NEVER derived from the directory afterwards,
+# which would be the per-process/global confusion re-entering as an
+# implementation. Refusals and in-flight declines return before the claim
+# and are deliberately not "spawns this pass made". All grant classes are
+# recorded, fixture included: the record is of acts, and a self-describing
+# fixture-* tag is cheaper and more honest than a filter whose exclusions
+# have to be argued.
+PASS_SPAWNS = []    # (tag, grant_class, log basename), appended at the claim
+PASS_CONSUMES = []  # (pr, round, tag), appended in consume_grant()
+
+
+def pass_spend_disclosure():
+    """The two disclosure lines, BUILT and returned so the fixture asserts
+    the rendered string rather than the source that builds it (§4's own
+    vacuity rule). An empty set renders AS an empty set: 'this pass spawned
+    nothing / consumed no grant' is precisely the line that lets an operator
+    attribute a foreign log in the global directory to another pass rather
+    than to their own click."""
+    if PASS_SPAWNS:
+        spawns = ("this pass spawned: "
+                  + ", ".join(f"{base} [{tag}"
+                              + (f", {gc}" if gc else "") + "]"
+                              for tag, gc, base in PASS_SPAWNS))
+    else:
+        spawns = "this pass spawned nothing"
+    if PASS_CONSUMES:
+        consumes = ("this pass consumed: "
+                    + ", ".join(f"round {rnd} for PR #{pr} [{tag}]"
+                                for pr, rnd, tag in PASS_CONSUMES))
+    else:
+        consumes = "this pass consumed no grant"
+    return spawns, consumes
+
+
+def print_pass_spend_disclosure():
+    """Rendered at EVERY pass close — the counts line and the nothing-to-sweep
+    exit alike, because fixture spawns have already claimed by then and a
+    disclosure that skips an exit path is the per-call-site defect this file
+    names about itself."""
+    spawns, consumes = pass_spend_disclosure()
+    print(spawns)
+    print(consumes)
+
 
 def attempt_pid(text):
     """The pid recorded by THIS attempt, or None — kogaki#227.
@@ -2933,6 +2984,10 @@ def consume_grant(path, rec, tag):
         f.write("\n")
     _grant_log("consume", {"repo": rec.get("repo"), "pr": rec.get("pr"),
                            "round": rec.get("round"), "spawn": tag})
+    # §4 clause 4 (story 1.68): the pass-level record, at the act and only
+    # here — this is the single consume site, so the record cannot drift
+    # from the acts it discloses.
+    PASS_CONSUMES.append((rec.get("pr"), rec.get("round"), tag))
 
 
 def _grant_log(kind, detail):
@@ -3084,6 +3139,10 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
     # what `round_state()` reads.
     with open(log_path, "a", encoding="utf-8") as _claim:
         _claim.write(f"{SPAWN_MARK} (round claimed; the command line follows)\n")
+    # §4 clause 4 (story 1.68): recorded AT the claim — the moment a spawn
+    # artifact exists in the global directory. Refusals and in-flight
+    # declines returned above and are not spawns this pass made.
+    PASS_SPAWNS.append((tag, grant_class, os.path.basename(log_path)))
     # A refusal is terminal for that command (kogaki#100). The state file, the
     # gate's own firing record and the generated hook all sit BESIDE this
     # spawn's log, so a run is diagnosable from one directory and two
@@ -7043,6 +7102,67 @@ print("spawn-grant pass: 11/11 third-layer cases (no class refuses artifact-less
       "closed / the creator field is absent from this file / the sentinel is "
       "distinct)")
 
+# --- fixture pass: the spend disclosure (§4 clause 4, kogaki#470, story 1.68)
+# Asserted over the BUILT STRINGS pass_spend_disclosure() returns — never the
+# source that builds them (§4's own vacuity rule) — in both directions, plus
+# one wiring assertion that ties the record to the acts the grant fixture
+# above just performed rather than to synthetic entries alone.
+_sd_fail = 0
+
+# Wiring: the grant fixture consumed g901 under tag "grant-consume" and its
+# spawn claimed a log line, so BOTH records are non-empty here by the acts
+# above — an empty record at this point means an act site lost its append.
+if not any(t == "grant-consume" for _pr, _rnd, t in PASS_CONSUMES):
+    print("FAIL spend-disclosure fixture [consume_grant() did not record the "
+          "grant fixture's own consume — the act site lost its append]")
+    _sd_fail = 1
+if not PASS_SPAWNS:
+    print("FAIL spend-disclosure fixture [spawn()'s claim write recorded "
+          "nothing across every fixture spawn above]")
+    _sd_fail = 1
+
+# AC1 direction: recorded acts appear in the rendered lines.
+_sd_spawns, _sd_consumes = pass_spend_disclosure()
+if "grant-consume" not in _sd_consumes or "PR #901" not in _sd_consumes:
+    print(f"FAIL spend-disclosure fixture [a recorded consume is absent from "
+          f"the rendered line]: {_sd_consumes!r}")
+    _sd_fail = 1
+if not _sd_spawns.startswith("this pass spawned: "):
+    print(f"FAIL spend-disclosure fixture [recorded spawns render no list]: "
+          f"{_sd_spawns!r}")
+    _sd_fail = 1
+
+# AC2 direction: THE EMPTY CASE RENDERS AS AN EMPTY CASE — the line that
+# lets an operator attribute a foreign log to another pass rather than to
+# their own click. Asserted over saved-and-restored records so the check is
+# hermetic; a mutation dropping either typed empty line fails here.
+_sd_save = (PASS_SPAWNS[:], PASS_CONSUMES[:])
+try:
+    del PASS_SPAWNS[:]
+    del PASS_CONSUMES[:]
+    _sd_es, _sd_ec = pass_spend_disclosure()
+    if _sd_es != "this pass spawned nothing":
+        print(f"FAIL spend-disclosure fixture [the empty spawn set does not "
+              f"render its typed line]: {_sd_es!r}")
+        _sd_fail = 1
+    if _sd_ec != "this pass consumed no grant":
+        print(f"FAIL spend-disclosure fixture [the empty consume set does "
+              f"not render its typed line]: {_sd_ec!r}")
+        _sd_fail = 1
+finally:
+    PASS_SPAWNS.extend(_sd_save[0])
+    PASS_CONSUMES.extend(_sd_save[1])
+
+if _sd_fail:
+    print("FAIL: the pass does not disclose its own spend — §4 clause 4, "
+          "kogaki#470")
+    sys.exit(1)
+print("spend-disclosure pass: 6/6 cases (both act sites recorded the grant "
+      "fixture's real acts / a recorded consume renders with PR, round and "
+      "tag / recorded spawns render as a list / the empty spawn set renders "
+      "its typed line / the empty consume set renders its typed line / "
+      "records restored so the close discloses the real pass)")
+
 # --- the declarations: one grammar, one segmenter (kogaki#70, kogaki#74) ---
 # THE FORM WAS CHOSEN BY RUNNING THIS PASS, which is story 1.17's own named
 # closing act rather than a promise to be careful. Both candidate forms were
@@ -7212,6 +7332,11 @@ limit = int(os.environ["SWEEP_LIMIT"])
 prs = json.loads(os.environ["SWEEP_PRS"])
 if not prs:
     print("no open pull requests — nothing to sweep")
+    # §4 clause 4 (story 1.68): the disclosure binds this exit too — the
+    # fixture passes above have already claimed and consumed by now, and a
+    # disclosure that skips an exit path is the per-call-site defect this
+    # file names about itself.
+    print_pass_spend_disclosure()
     sys.exit(0)
 
 # Eligibility honors pipeline.json's optional allowlist beside the owner —
@@ -7806,6 +7931,9 @@ for pr in prs:
 
 print(f"swept {len(prs)} open PR(s): "
       + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
+# §4 clause 4 (story 1.68): every spawn this pass made and every grant this
+# pass consumed, empty sets included, beside the counts line.
+print_pass_spend_disclosure()
 if mode != 'spawn':
     print("dry run — nothing was spawned. Spawning is an outward act and is "
           "opt-in rather than a flag someone forgets is on.")
