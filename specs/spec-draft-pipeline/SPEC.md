@@ -1069,6 +1069,35 @@ mechanical evidence resolution — quotation from served renderings at pins
 remains the boundary. Pin resolution stays the sole mechanical instrument on
 grounding.
 
+**The selection screen's DELIVERY is inherited too, and this section is the
+inheriting site (v2, kogaki#474).** `specs/SPEC.md` §2.5.3 rules that an
+owner-facing screen is delivered as an artifact the mechanical half writes,
+never through a display channel and never model-retyped. **That clause is cited
+here and restated nowhere** — this section's own title is the reason: a
+constraint this section inherits is not one it re-derives. Two consequences bind
+move ingestion specifically, and both are this section's own rather than
+§2.5.3's:
+
+- **The artifact is `reports/MoveScreen.md`** — a fixed literal, overwritten on
+  every render, repo-visible and not committed. The name is this surface's
+  because the renderers are independent and a shared name would have them
+  clobber each other; the *discipline* around the name is §2.5.3's.
+- **The count line comes FIRST and is never suppressed**, per §6.9.0 — the
+  parsed-record count is the only instrument that can catch `1` where the owner
+  wrote `22`, and the 2026-08-16 truncation is what a screen without a leading
+  count looks like from the owner's side.
+
+**"No verdict machinery" above is now a CONSTRUCTION constraint on this surface,
+not only a prohibition.** §2.5.3's closing clause binds it: the renderer makes a
+per-row verdict, score or status token **unrenderable** rather than disallowed.
+The specimen is the 2026-08-16 run's per-row `judgment: clean` column — verdict
+machinery on the selection screen, which this section already excluded by name
+and which shipped anyway, because a prohibition binds whoever writes the
+renderer and nothing bound the output. Review owes **readings** — this proposes a
+split, these two are near-duplicates — and silence where there is nothing to say.
+
+**deferred slots: none.**
+
 ### 6.9.3 kogaki#177's trigger — a false FIRED, a correction, and a verified FIRED
 
 **CORRECTION RECORD (kogaki#236). The heading of this section and its opening
