@@ -4261,7 +4261,7 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   survey record and the settled Strand set (v15) and emits its own artifact.
   **SUPERSEDED at v20 (kogaki#472): there is no standalone subcommand.** The
   enumeration (`neighborhoodOf`, `terrain/terrain.mjs:2894`) and the rendering
-  (`neighborhoodScreen`, `:3274`) are computed inside `cmdReport` (`:1788`) and
+  (`neighborhoodScreen`, `:3274`) are computed inside `cmdReport` (`:2331`) and
   emitted as a section of the Full Report; nothing writes `reports/Screen.md`
   for this rendering and nothing dispatches it by name. The sibling-of-`cotags`
   reasoning is kept above rather than deleted, because what it establishes —
@@ -4717,9 +4717,18 @@ the Full Report rather than on a surface of its own, so no third surface is
 covered and no third fixture is owed — but the section's line classes are
 covered from the moment `report-format.json` v6 admits them, and a covered class
 with no specimen is exactly the drift this section exists to catch. So the
-obligation lands on the **existing** Full Report fixture: it renders a
-neighborhood section, and it renders a **non-empty** one, since an empty section
-exercises the empty-enumeration classes and none of the others.
+obligation lands on the **existing** Full Report fixture: it must render a
+neighborhood section, and a **non-empty** one, since an empty section exercises
+the empty-enumeration classes and none of the others.
+
+**THE OBLIGATION IS OWED, NOT DISCHARGED, AND ITS CARRIER IS NAMED.**
+`checks/fixtures/terrain/format/full-report.md` carries no such section at v20 —
+kogaki#472 amends the spec only and touches no fixture. The fixture edit rides
+**kogaki#473**, the same code carrier §13.7 names, and this is the ordinary
+spec-ahead-of-code interval that bullet already describes. Written in the owed
+tense rather than the present one because a paragraph asserting a specimen that
+does not exist reads as a discharged obligation, which is precisely the drift
+this section says it exists to catch — one level up, in its own prose.
 
 **The cost is stated rather than discovered: one specimen now carries two
 concerns.** A change to the report body and a change to the neighborhood
