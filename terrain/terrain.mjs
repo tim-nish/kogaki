@@ -2081,6 +2081,17 @@ export function renderReportMarkdown(report, tag) {
   L.push(`- lessons served: ${report.lessons_served}`);
   L.push("");
   L.push(...servedLinesBlock(report));
+  // §13.1 v20 / §12 v8 (kogaki#473) — the provenance neighborhood, ONCE and
+  // LAST. Conditional on the record carrying one: a record written before
+  // this section existed renders without it — the ordinary
+  // spec-ahead-of-code interval §13.7 names, read here from the record's own
+  // shape rather than guessed. A NEW pull always carries the field, empty
+  // enumeration included (§13.4's disclosure: an empty result renders its
+  // explicit lines, never an absent section).
+  if (report.neighborhood) {
+    L.push("");
+    L.push(...neighborhoodSection(report.neighborhood));
+  }
   return L.join("\n") + "\n";
 }
 
@@ -2587,6 +2598,15 @@ function cmdReport(args) {
   }
 
 
+  // THE PROVENANCE NEIGHBORHOOD, computed INSIDE the pull (§13.2 v20,
+  // kogaki#473): the trigger is the report pull's ID entry, and the section
+  // is seeded by the entered set. Stored IN THE RECORD, so the rendering
+  // stays a pure function of the record (§12.1) — a section recomputed from
+  // the live seam at render time would let a moved serving change what an
+  // unchanged identity renders. Computed after every refusal above, so a
+  // refused pull pays no seam call.
+  const neighborhood = neighborhoodForTargets(record, targets);
+
   const report = {
     id: `terrain-full-report-${identityDigest(identity)}`,
     kind: "full-report",
@@ -2603,6 +2623,8 @@ function cmdReport(args) {
     // under both G5 and G5-1 is one Lesson, not two.
     counted: familySplit([...new Set(allMemberIds)], record.candidates),
     lessons_served: record.candidates.length,
+    // §13.1 v20 — ONCE per file, rendered LAST by `renderReportMarkdown`.
+    neighborhood,
   };
   const abnormal = abnormalTotal;
   // THE REFUSAL PRECEDES BOTH WRITES (§14.2, story 1.54 AC2). The record is
@@ -3181,31 +3203,15 @@ export function settledSlugs(candidates, memberIds) {
   return { slugs: [...new Set(slugs)], unmapped };
 }
 
-function cmdNeighborhood(args) {
-  const record = readJson(String(args.survey || fail("neighborhood needs --survey <file>")));
-  const tag = String(args.tag || fail("neighborhood needs --tag <selected tag>"));
-  const entered = String(args.ids || fail(
-    "neighborhood needs --ids <G5,G5-1,...> naming the SETTLED Strand set. "
-    + "§13.2 v15: expansion fires on an EXPLICIT OWNER ACT settling that set and "
-    + "not before — a run over an unsettled screen fans out across a large number "
-    + "of Lessons, and noise is a property of trigger timing rather than of the "
-    + "substrate.")).split(",").map((s) => s.trim()).filter(Boolean);
-
-  const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
-  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
-  const groups = cotagGroups(members, tag);
-  // The subdivision reader is `cmdReport`'s, reused rather than re-derived —
-  // SubGroup ids must resolve here exactly as they do on the screen that
-  // printed them, and a second derivation is how the two would drift.
-  const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
-  const subOf = (g) => readSubdivisionEntry(
-    g.name,
-    subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
-  const resolved = resolveEnteredIds(entered, groups, subOf);
-
+// THE ENUMERATION FOR A RESOLVED TARGET SET — the machinery `cmdNeighborhood`
+// held, extracted when that subcommand retired (SPEC-terrain §13.2 v20,
+// story 1.69, kogaki#473) so `cmdReport` computes it inside the pull. Reuse,
+// never re-derive: a second resolver is how the section and the screen it
+// replaced would drift.
+function neighborhoodForTargets(record, targets) {
   // The settled set is the MEMBERS the entered ids reach. A SubGroup id brings
   // its SubGroup, a Group id brings the group — story 1.58's rule, reused.
-  const memberIds = [...new Set(resolved.targets.flatMap((t) =>
+  const memberIds = [...new Set(targets.flatMap((t) =>
     (t.kind === "subgroup" ? t.sg.members : t.group.members)))];
   // TWO KEY SPACES MEET HERE. A group's members are candidate `id`s
   // (`lesson:<slug>`, minted at :378); the served records the neighborhood
@@ -3236,27 +3242,7 @@ function cmdNeighborhood(args) {
   }
 
   const { suggestions, unresolved, counts } = neighborhoodOf(records, seedSlugs);
-
-  // THE SCREEN IS NOT VALIDATED AGAINST report-format.json, and that is
-  // deliberate rather than an omission. §14.1's grammar covers `cotag_screen`
-  // and `full_report` only; a third rendered owner surface is §14.1's OWN
-  // REOPEN TRIGGER, named on kogaki#300 and explicitly not story 1.44's work.
-  // Running this text through `emitOrRefuse` would validate it against a
-  // grammar that does not describe it, which fails toward a refusal on
-  // conformant output.
-  const out = neighborhoodScreen({
-    tag,
-    gids: resolved.targets.map((t) => t.gid),
-    suggestions, unresolved, counts, unmapped,
-  });
-  // §14.4.1 binds EACH screen, not the two the grammar happens to cover: the
-  // clause above declines format validation for this surface because §14.1's
-  // grammar does not describe it, and delivery is a different axis from
-  // conformance. A screen exempt from the grammar is not exempt from reaching
-  // its owner.
-  const text = out.join("\n");
-  console.log(text);
-  announceScreen(writeScreen(args, text));
+  return { gids: targets.map((t) => t.gid), suggestions, unresolved, counts, unmapped };
 }
 
 // THE NEIGHBORHOOD SCREEN, composed apart from the command (story 1.45).
@@ -3423,6 +3409,33 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
   return out;
 }
 
+// THE FULL REPORT SECTION (SPEC-terrain §13.1 v20, story 1.69, kogaki#473).
+//
+// The neighborhood's owner rendering is a section of `reports/FullReport.md`,
+// at §12's ONCE tier, LAST — never a screen of its own. The lines are
+// `neighborhoodScreen`'s, reused rather than re-derived: the screen's own
+// heading (a plain-text line naming tag and set) is replaced by the Markdown
+// heading and the `*Seeded by:*` line `report-format.json` v6 declares, and
+// everything from the counts line down is the same emitter §13.4's
+// obligations were asserted against. A second composer is how the section
+// and the enumeration would drift — the reuse rule the licensing issue
+// states verbatim.
+//
+// Exported and pure over its inputs for the same reason `neighborhoodScreen`
+// is: §13.4's obligations are properties of what RENDERS, so a fixture must
+// reach this without a seam.
+export function neighborhoodSection({ gids, suggestions, unresolved, counts, unmapped = [] }) {
+  return [
+    "## Provenance neighborhood",
+    "",
+    `*Seeded by:* ${gids.join(", ")}`,
+    "",
+    // Drop only the screen's heading line; the tag it carried already heads
+    // the report's own title, and the set rides `*Seeded by:*` above.
+    ...neighborhoodScreen({ tag: "", gids, suggestions, unresolved, counts, unmapped }).slice(1),
+  ];
+}
+
 // The CLI dispatch runs only when this file IS the entry point. Without the
 // guard, importing the module to exercise one of its exported composers runs
 // the dispatch with no command, which prints the usage banner and calls
@@ -3438,7 +3451,17 @@ switch (cmd) {
   case "survey": cmdSurvey(args); break;
   case "view": cmdView(args); break;
   case "cotags": cmdCotags(args); break;
-  case "neighborhood": cmdNeighborhood(args); break;
+  // RETIRED, LOUDLY (§13.2 v20, kogaki#473) — the same shape `--all-groups`
+  // and `--group` took: a refusal naming the replacement, never a silent
+  // no-op. The post-gate act is the defect, not a deprecated convenience —
+  // a suggestion delivered after the selection cannot inform it.
+  case "neighborhood":
+    fail("neighborhood is retired as a standalone act (SPEC-terrain §13.2 v20, kogaki#472): "
+      + "the provenance-neighborhood section renders on every `report` pull, seeded by the "
+      + "entered ID set, inside reports/FullReport.md. Pull the report — "
+      + "`report --survey <f> --tag <T> --ids <G…> --claims <f> --subdivisions <f> "
+      + "--judge-model <m> --judge-effort <e>` — and read the section there.");
+    break;
   case "compose-input": cmdComposeInput(args); break;
   case "claim": cmdClaim(args); break;
   case "adopt": cmdAdopt(args); break;

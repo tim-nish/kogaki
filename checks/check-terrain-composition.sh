@@ -4392,3 +4392,111 @@ console.log("§14.4.1 screen delivery: SEAM-FREE and RAN — the screen is writt
   + "second screen name is unwritable), and a mutation would have to invent a second write path rather "
   + "than alter this one.");
 JS
+
+# --------------------------------------------------------------------------
+# The provenance neighborhood RIDES THE FULL REPORT (SPEC-terrain §13.1/§13.2
+# v20, story 1.69, kogaki#473) — five cases against the stub gateway, per the
+# issue's acceptance item 5. Each was asserted by breaking its write path once
+# during implementation (AC5's "assert by breaking it once"): dropping the
+# `report.neighborhood` field kills (a), (c) and (d); recomputing from the
+# live seam instead of the record kills (b) the moment the stub changes; and
+# restoring the dispatch entry kills (e).
+# --------------------------------------------------------------------------
+node --input-type=module - <<'JS'
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+
+const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const STUB = "checks/fixtures/terrain/compose-input/stub-gateway.mjs";
+const fails = [];
+const dir = mkdtempSync(join(tmpdir(), "terrain-neighborhood-"));
+try {
+  const pin = JSON.parse(readFileSync(SURVEY, "utf8")).pin;
+  const claims = join(dir, "claims.json");
+  writeFileSync(claims, JSON.stringify({
+    composition_pin: { tag: "testing", pin, groups: {
+      "testing × (no second served tag)": ["lesson:delta"],
+      "testing × architecture": ["lesson:alpha", "lesson:bravo"],
+      "testing × cost": ["lesson:charlie"],
+    } },
+    claims: {
+      "testing × architecture": "both hold that a guard is real only once something exercised it",
+      "testing × cost": "both price a check by where in the loop it runs",
+      "testing × (no second served tag)": "carries the selected tag and no other",
+    },
+  }));
+  const subs = join(dir, "subs.json");
+  writeFileSync(subs, JSON.stringify({
+    "testing × architecture": { judged: true, subgroups: [] },
+    "testing × (no second served tag)": { judged: true, subgroups: [] },
+  }));
+  const pull = (ids, rdir, gdir) => spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", ids,
+     "--claims", claims, "--subdivisions", subs,
+     "--judge-model", "claude-opus-5", "--judge-effort", "high",
+     "--report-dir", join(dir, rdir), "--rendering-dir", join(dir, gdir)],
+    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
+
+  // (a) A pulled report CONTAINS the section, conformant under v6. Conformance
+  // is the emitters' own predicate: the pull succeeding IS the emitOrRefuse
+  // pass, so this case asserts presence and the §13.4 obligations' rendered
+  // forms rather than re-running the validator.
+  const r1 = pull("G2", "r1", "g1");
+  if (r1.status !== 0) fails.push(`(a) report exited ${r1.status}: ${(r1.stderr || "").trim()}`);
+  const md1 = readFileSync(join(dir, "g1", "FullReport.md"), "utf8");
+  if (!md1.includes("\n## Provenance neighborhood\n")) fails.push("(a) the pulled report carries no `## Provenance neighborhood` section — §13.1 v20 sites it in the report, once");
+  if (!/Suggestions by family \(§13\.4 — per family, never pooled\):/.test(md1)) fails.push("(a) the section states no per-family figures — §13.4 obligation 2");
+  if (!/reached by: /.test(md1)) fails.push("(a) no suggestion row discloses its substrate — §13.4 obligation 1");
+  if (!/unresolved reference\(s\) — NAMED rather than dropped/.test(md1)) fails.push("(a) the dangling cross_link the stub serves (bravo -> zulu-missing) produced no named unresolved reference — §13.4 obligation 2's second half");
+  if ((md1.match(/\n## Provenance neighborhood\n/g) || []).length !== 1) fails.push("(a) the section renders other than ONCE — §12 v8");
+  if (md1.indexOf("## Provenance neighborhood") < md1.indexOf("## Served lines")) fails.push("(a) the section renders before `## Served lines` — §12 v8 puts it LAST");
+
+  // (b) SAME IDENTITY TWICE -> IDENTICAL SECTION. The second pull takes the
+  // rerun path and renders from the recorded neighborhood, which is what makes
+  // idempotence hold even if the seam moves between pulls.
+  const r2 = pull("G2", "r1", "g1");
+  if (r2.status !== 0) fails.push(`(b) rerun exited ${r2.status}: ${(r2.stderr || "").trim()}`);
+  if (!/IDEMPOTENT/.test(r2.stdout)) fails.push("(b) the second pull did not take the idempotent rerun path");
+  const md2 = readFileSync(join(dir, "g1", "FullReport.md"), "utf8");
+  if (md1 !== md2) fails.push("(b) two pulls under one identity rendered different artifacts — the section is not a pure function of the record");
+
+  // (c) SUGGESTION IDS ARE N<n>, DISJOINT FROM L<n>, inside the report.
+  const nids = [...md1.matchAll(/^    (N[0-9]+) — /gm)].map((m) => m[1]);
+  if (nids.length === 0) fails.push("(c) no N<n> suggestion rows in the section");
+  if (nids.some((id) => !/^N[0-9]+$/.test(id))) fails.push(`(c) a suggestion id is outside the N<n> space: ${JSON.stringify(nids)}`);
+  if (!/^#### L[0-9]+$|^### L[0-9]+$/m.test(md1)) fails.push("(c) no L<n> member headings in the same report — the disjointness case needs both spaces present");
+  if (!/DISJOINT from the survey's `L<n>`/.test(md1)) fails.push("(c) the disjointness statement line is absent (§14.6)");
+
+  // (d) An EMPTY enumeration renders the EXPLICIT empty lines, never an
+  // absent section. G1 is delta, alone in batch q_a/solo with no links.
+  const r3 = pull("G1", "r3", "g3");
+  if (r3.status !== 0) fails.push(`(d) empty-set report exited ${r3.status}: ${(r3.stderr || "").trim()}`);
+  const md3 = readFileSync(join(dir, "g3", "FullReport.md"), "utf8");
+  if (!md3.includes("\n## Provenance neighborhood\n")) fails.push("(d) an empty enumeration rendered an ABSENT section — the silent exclusion §13.0 removes, §13.4's disclosure discipline");
+  if (!/No suggestion\. The enumeration itself came back empty at the declared bound/.test(md3)) fails.push("(d) the explicit empty-enumeration line is absent");
+  if (!/Not asserted: that an empty neighborhood is informative in the STRONG sense/.test(md3)) fails.push("(d) the second empty-enumeration line is absent — the two-line form is the declared class");
+
+  // (e) The standalone subcommand REFUSES, naming the replacement.
+  const r4 = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "neighborhood", "--survey", SURVEY, "--tag", "testing", "--ids", "G2"],
+    { encoding: "utf8" });
+  if (r4.status === 0) fails.push("(e) `neighborhood` exited 0 — the retirement must refuse, never no-op (§13.2 v20)");
+  if (!/retired/.test(r4.stderr) || !/FullReport\.md/.test(r4.stderr)) fails.push(`(e) the refusal does not name the replacement: ${JSON.stringify((r4.stderr || "").slice(0, 200))}`);
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}
+
+if (fails.length) {
+  console.log("FAIL provenance-neighborhood section (SPEC-terrain §13 v20, story 1.69):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("neighborhood section: 5/5 cases — (a) present and conformant with §13.4's rendered obligations, "
+  + "(b) idempotent under one identity via the recorded neighborhood, (c) N<n> disjoint from L<n> with both "
+  + "spaces present and the disjointness stated, (d) empty enumeration renders its explicit two-line form and "
+  + "never an absent section, (e) the standalone subcommand refuses naming reports/FullReport.md. "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.69): dropping `report.neighborhood` kills (a)/(c)/(d); "
+  + "skipping the rerun render kills (b); restoring the dispatch entry kills (e).");
+JS

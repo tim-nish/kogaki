@@ -58,6 +58,32 @@ function shard(tag, slugs) {
 
 const SLUGS = ["alpha", "bravo", "charlie", "delta", "echo"];
 
+// THE ELEMENT SET THE NEIGHBORHOOD TRAVERSES (story 1.69, kogaki#473).
+// `report` computes the provenance-neighborhood section on every pull
+// (SPEC-terrain §13.2 v20), reading `element_survey` for element AND batch
+// records — so the stub serves both, deterministically, shaped to exercise
+// every §13.4 obligation the check cases assert:
+//   - alpha/bravo (the golden seeds, batch `q_a/stub`) reach charlie and echo
+//     as batch-mates, foxtrot as a JOURNEY batch-mate (families never pooled),
+//     and golf by cross_link only (an outside-population figure with no
+//     batch denominator);
+//   - bravo's `zulu-missing` link dangles, so one unresolved reference is
+//     NAMED with its value;
+//   - delta sits alone in batch `q_a/solo` with no links, so a delta-seeded
+//     pull enumerates EMPTY and must render the explicit empty lines.
+const ELEMENTS = [
+  { slug: "alpha", kind: "lesson", source_batch: "q_a/stub", cross_links: ["golf"] },
+  { slug: "bravo", kind: "lesson", source_batch: "q_a/stub", cross_links: ["zulu-missing"] },
+  { slug: "charlie", kind: "lesson", source_batch: "q_a/stub" },
+  { slug: "delta", kind: "lesson", source_batch: "q_a/solo" },
+  { slug: "echo", kind: "lesson", source_batch: "q_a/stub" },
+  { slug: "foxtrot", kind: "journey", source_batch: "q_a/stub" },
+  { slug: "golf", kind: "lesson" },
+  { kind: "batch", id: "q_a/stub",
+    members: { lesson: ["alpha", "bravo", "charlie", "echo"], journey: ["foxtrot"] } },
+  { kind: "batch", id: "q_a/solo", members: { lesson: ["delta"] } },
+];
+
 function result(name, args) {
   if (LOG) appendFileSync(LOG, `${name} ${JSON.stringify(args)}\n`);
   if (name === "gloss_index") {
@@ -68,6 +94,12 @@ function result(name, args) {
     // reading something.
     if (!/^(lessons|journeys)\//.test(tag)) return { miss: true, pin: PIN, request_id: "stub-miss", consulted: `consulted: ${PIN} gloss/INDEX.md:1` };
     return shard(tag, tag.startsWith("journeys/") ? ["alpha"] : SLUGS);
+  }
+  if (name === "element_survey") {
+    let n = 0;
+    return { miss: false, pin: PIN, request_id: "stub-elements",
+      consulted: `consulted: ${PIN} gloss/ELEMENTS.jsonl:1-${ELEMENTS.length}`,
+      lines: ELEMENTS.map((r) => ({ cite: `gloss/ELEMENTS.jsonl:${++n}@stubbed`, text: JSON.stringify(r) })) };
   }
   return { miss: true, pin: PIN, request_id: "stub-unknown", consulted: `consulted: ${PIN} gloss/INDEX.md:1` };
 }
