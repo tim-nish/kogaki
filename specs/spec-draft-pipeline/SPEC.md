@@ -1,6 +1,17 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v6, amended 2026-08-16 (kogaki#474) — **§6.9.2 gains the selection
+**Status:** v7, amended 2026-08-16 (kogaki#482) — **§5.3 lands the Brief's
+durable home and its entry point**, discharging the absence §2 declared
+deliberately ("manifest item 5's and is not decided here") on the first
+run-surfaced demand (the owner attempting a Brief for a pulled report's
+G1-1 and finding no entry point — the promotion condition kogaki#127's close
+named). The home is a **directory per Brief** (`briefs/<slug>/brief.md`,
+tracked); the entry point is a **new `brief` skill fronting a runtime**,
+outside Terrain, whose input unit is the `LessonDisplayID` and nothing else.
+§2's durable-home paragraph is re-pointed rather than edited away.
+**deferred slots minted by this amendment: none** (checkpoint/resume format
+is item 5's remaining future and is HOMED, not designed — see §5.3).
+v6, amended 2026-08-16 (kogaki#474) — **§6.9.2 gains the selection
 screen's delivery binding by INHERITANCE**: `specs/SPEC.md` §2.5.3 now carries
 the cross-surface rule that an owner-facing screen is delivered as an artifact
 the mechanical half writes, and §6.9.2 cites it rather than restating it. What
@@ -97,8 +108,11 @@ second style artifact**, which is what keeps that prohibition intact rather
 than overridden.
 
 The Brief's **durable home** — where the document lives, checkpoints and
-resume — is manifest item 5's and is not decided here. v1 describes the
-Brief's structure section and says nothing about its file.
+resume — is manifest item 5's and was not decided at v1: v1 describes the
+Brief's structure section and says nothing about its file. **The home half
+is decided at §5.3 (v7, kogaki#482)**, on the first run-surfaced demand;
+checkpoints and resume remain item 5's owed future, now with a declared
+home rather than an open siting question.
 
 **The Move architecture is CONSTRUCTED at §§4.3–4.9 (kogaki#220).** Reader
 Path as the artifact plus the five workflow blocks, the Step's grounding and
@@ -671,6 +685,102 @@ this question"), not something a computation reveals from data already kept,
 so they need a record and the record belongs where its consumer reads it.
 v1's "three resolutions, **none selected**" **no longer describes the state**
 and is struck.
+
+### 5.3 The durable home and the entry point (v7, kogaki#482)
+
+**Promoted by a run, exactly as the promotion rule required.** kogaki#127's
+close left "Reader Path composition as a live workflow, the Step record as an
+artifact, the path-review agent" deliberately uncarried, with the rule that an
+item enters only when a run of the product surfaces it — never ranked from
+inside the loop (`consulted:
+product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:14`). On
+2026-08-16 the owner attempted to start a Brief for group `G1-1` of a pulled
+Full Report and found no entry point. This section carries the **entry point
+and the home** that demand instance names — and only those: the live
+composition workflow, the Step record and the path-review agent remain
+uncarried, each still awaiting its own surfacing run.
+
+**The durable home is a DIRECTORY PER BRIEF: `briefs/<slug>/brief.md`,
+tracked in the repository.** The class was settled by the hub and is applied,
+not re-decided:
+
+> "An adopted Brief IS a second declared-product class and belongs in the
+> host repo … a run workspace holds things whose lifetime is the RUN, a
+> declared product holds things whose lifetime is the OWNER's, and the
+> Brief's stated lifecycle — created and deleted casually, re-drafted from
+> frequently — puts it squarely in the second."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:45`
+
+> "a MACHINE RECORD (identity, run workspaces, logs) is legitimately
+> machine-local; a HUMAN-FACING ARTIFACT (a report the owner reads, a screen,
+> a document) must live where the owner works."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:28`
+
+What this section's own decision adds is the **grain** (owner selection at
+the kogaki#482 gate, 2026-08-16): a directory, because manifest item 5's
+remaining future — checkpoints and resume — then lands **beside the
+document** with no re-siting decision, which is the same one-decision-now
+shape §2's gate table already prefers. The declined arm is recorded so it is
+not re-proposed blind: **one file per Brief** (`briefs/<slug>.md`) is the
+flattest enumeration and was declined because checkpoints would then either
+ride inside the document or reopen the home question this section exists to
+close. **The cost is stated:** a directory holding one file today. Tracked
+rather than gitignored, because a Brief is a product the owner enumerates,
+selects and re-opens — the exact acts `articles.md:45` records failing when
+the home was a recency-keyed workspace. The slug is **owner-chosen at
+entry**, ordinary human vocabulary, never a machine identity — identity-named
+files on an owner surface are the defect §12.2 of SPEC-terrain repaired.
+
+**The entry point is a NEW invocation — a `brief` skill fronting a runtime —
+and it sits OUTSIDE Terrain.** Terrain ends at Strand exploration and its
+spec neither mentions nor guarantees a Brief launch (owner correction
+2026-08-09; the boundary is cited from `specs/spec-terrain/SPEC.md` §13.2 and
+not re-argued). The composing producer is the runtime, never the session: the
+skill drives inputs and hands over the artifact the runtime wrote —
+
+> "owner-facing content that has a composed artifact goes through the seam
+> and the reply carries a pointer rather than a restatement."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:131`
+
+**The input unit is the `LessonDisplayID`, and nothing else** — SPEC-terrain
+§14.3's join key, "assigned once in the survey record … and a Brief launched
+from either", stable within a pin. The entry point takes the settled Strand
+set as `L<n>` ids plus the survey record that assigned them, resolves each id
+against that record, and **refuses** an id the record does not carry — a
+refusal naming what was entered and what the record holds, never a silent
+drop (the completeness rider of §3, applied at entry). **Group and SubGroup
+ids are refused BY NAME**: `G<n>`/`G<n>-<m>` are minted per report identity
+(§12.1 of SPEC-terrain) and name a grouping, not the settled set; an entry
+point that accepted one would key a Brief to a token a pin advance renumbers.
+The refusal says exactly that, and points at the report's member headings
+where the `L<n>` ids stand beside the grouping the owner navigated by.
+
+**What the entry point MINTS is the §5.1 structure, empty where composition
+owes it.** `briefs/<slug>/brief.md` opens with the reader-facing definition
+of "brief" — coining an owner-facing term obliges a reader-facing definition
+in the same act (`consulted:
+product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:132`)
+— then carries the §5.1 fields: the selected Strands with their pins and
+served cites resolved from the survey record; `thesis`, `sequence`,
+`reader_start`, `reader_target`, `opening_question`, `strand_coverage`,
+`thesis_closure`, `tradeoffs` and the §5.2 ledger present as **typed unfilled
+slots**, never omitted — an absent field and a field awaiting composition are
+different silences, and only the second lets a later sitting resume. The
+Thesis is what Brief composition determines from the settled set; the entry
+point never invents one (§3's read-not-invented rule, applied to the minting
+act).
+
+**The closed-set invariant binds from the mint.** The Strand set the entry
+point writes is the set composition may use; growing it is an owner act that
+routes back through Terrain, never a Brief fetch (`consulted:
+product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:13`).
+
+**Idempotence is by slug, and a collision refuses.** Re-invoking with an
+existing slug refuses rather than overwriting — a Brief is owner state from
+the moment it exists, and the entry point is a creator, never an editor.
 
 ## 6. Candidates ride the existing gate — no new carrier, no new check
 
