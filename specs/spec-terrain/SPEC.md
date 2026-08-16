@@ -4758,14 +4758,16 @@ obligation lands on the **existing** Full Report fixture: it must render a
 neighborhood section, and a **non-empty** one, since an empty section exercises
 the empty-enumeration classes and none of the others.
 
-**THE OBLIGATION IS OWED, NOT DISCHARGED, AND ITS CARRIER IS NAMED.**
-`checks/fixtures/terrain/format/full-report.md` carries no such section at v20 —
-kogaki#472 amends the spec only and touches no fixture. The fixture edit rides
-**kogaki#473**, the same code carrier §13.7 names, and this is the ordinary
-spec-ahead-of-code interval that bullet already describes. Written in the owed
-tense rather than the present one because a paragraph asserting a specimen that
-does not exist reads as a discharged obligation, which is precisely the drift
-this section says it exists to catch — one level up, in its own prose.
+**THE OBLIGATION IS DISCHARGED — by kogaki#473 (story 1.69), the carrier this
+paragraph named while it was owed.** `checks/fixtures/terrain/format/full-report.md`
+carries a non-empty neighborhood section — suggestions in two families, an
+outside-population figure, a named unresolved reference — regenerated from the
+renderer over the committed input, so the golden block's byte-equality and
+conformance assertions both exercise the section's classes. The interval
+history is kept rather than smoothed: kogaki#472 amended the spec only, this
+paragraph stood in the owed tense across the gap (PR #475 round 1's finding),
+and the discharge is recorded here in the same edit that made it true, so the
+two tenses never coexist.
 
 **The cost is stated rather than discovered: one specimen now carries two
 concerns.** A change to the report body and a change to the neighborhood
