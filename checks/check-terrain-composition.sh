@@ -4395,12 +4395,17 @@ JS
 
 # --------------------------------------------------------------------------
 # The provenance neighborhood RIDES THE FULL REPORT (SPEC-terrain §13.1/§13.2
-# v20, story 1.69, kogaki#473) — five cases against the stub gateway, per the
-# issue's acceptance item 5. Each was asserted by breaking its write path once
-# during implementation (AC5's "assert by breaking it once"): dropping the
-# `report.neighborhood` field kills (a), (c) and (d); recomputing from the
-# live seam instead of the record kills (b) the moment the stub changes; and
-# restoring the dispatch entry kills (e).
+# v20, story 1.69, kogaki#473) — the five cases of the issue's acceptance item
+# 5, plus (f) for the no-material degradation PR #477 round 1 asked for. Mutation evidence, stated as what was RUN rather
+# than as a per-case claim (PR #477 round 1 finding 5): ONE mutation was
+# performed during implementation — dropping the `report.neighborhood` field —
+# and it failed (a), (c) and (d) across seven assertions in one run. Cases
+# (b) and (e) assert their own direction on every run: (b) reads the rendered
+# bytes across two pulls and the IDEMPOTENT marker, (e) reads the refusal's
+# exit and text. No mutation for (b) was demonstrated in this suite — both
+# pulls read one deterministic stub, so a live-seam recomputation would pass
+# here and diverge only when the serving moves; that limit is stated rather
+# than claimed away.
 # --------------------------------------------------------------------------
 node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
@@ -4431,6 +4436,7 @@ try {
   writeFileSync(subs, JSON.stringify({
     "testing × architecture": { judged: true, subgroups: [] },
     "testing × (no second served tag)": { judged: true, subgroups: [] },
+    "testing × cost": { judged: true, subgroups: [] },
   }));
   const pull = (ids, rdir, gdir) => spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", ids,
@@ -4484,6 +4490,24 @@ try {
     { encoding: "utf8" });
   if (r4.status === 0) fails.push("(e) `neighborhood` exited 0 — the retirement must refuse, never no-op (§13.2 v20)");
   if (!/retired/.test(r4.stderr) || !/FullReport\.md/.test(r4.stderr)) fails.push(`(e) the refusal does not name the replacement: ${JSON.stringify((r4.stderr || "").slice(0, 200))}`);
+
+  // (f) NO MATERIAL: the seam serves zero element records and the pull
+  // DEGRADES — the section renders its explicit did-not-run statement and the
+  // report completes (PR #477 round 1's should, carried on kogaki#473). The
+  // env flag flips the same stub, so this is the same transport as (a)-(d).
+  const r5 = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G3",
+     "--claims", claims, "--subdivisions", subs,
+     "--judge-model", "claude-opus-5", "--judge-effort", "high",
+     "--report-dir", join(dir, "r5"), "--rendering-dir", join(dir, "g5")],
+    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB, STUB_ELEMENT_SURVEY_EMPTY: "1" } });
+  if (r5.status !== 0) fails.push(`(f) the pull ABORTED on an empty element_survey (exit ${r5.status}) — the degradation must complete the report: ${(r5.stderr || "").trim().slice(0, 200)}`);
+  else {
+    const md5 = readFileSync(join(dir, "g5", "FullReport.md"), "utf8");
+    if (!md5.includes("\n## Provenance neighborhood\n")) fails.push("(f) the no-material pull rendered an ABSENT section");
+    if (!/No served material reached the neighborhood: the seam returned no element records/.test(md5)) fails.push("(f) the explicit did-not-run line is absent (report-format.json v7 neighborhood_no_material)");
+    if (/No suggestion\. The enumeration itself came back empty/.test(md5)) fails.push("(f) the no-material state rendered the RAN-AND-FOUND-NOTHING lines — the two states must stay distinguishable");
+  }
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
@@ -4493,10 +4517,12 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("neighborhood section: 5/5 cases — (a) present and conformant with §13.4's rendered obligations, "
+console.log("neighborhood section: 6/6 cases — (a) present and conformant with §13.4's rendered obligations, "
   + "(b) idempotent under one identity via the recorded neighborhood, (c) N<n> disjoint from L<n> with both "
   + "spaces present and the disjointness stated, (d) empty enumeration renders its explicit two-line form and "
   + "never an absent section, (e) the standalone subcommand refuses naming reports/FullReport.md. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.69): dropping `report.neighborhood` kills (a)/(c)/(d); "
-  + "skipping the rerun render kills (b); restoring the dispatch entry kills (e).");
+  + "MUTATION EVIDENCE (story 1.69, honesty per PR #477 round 1 finding 5): ONE mutation run — dropping "
+  + "`report.neighborhood` failed (a)/(c)/(d) across seven assertions; (b) and (e) assert their direction on "
+  + "every run, and no mutation for (b) is demonstrable against a deterministic stub. Case (f) exercises the "
+  + "no-material degradation: an empty element_survey renders the explicit did-not-run line and the pull completes.");
 JS

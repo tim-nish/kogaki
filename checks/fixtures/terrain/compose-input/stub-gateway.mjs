@@ -96,6 +96,14 @@ function result(name, args) {
     return shard(tag, tag.startsWith("journeys/") ? ["alpha"] : SLUGS);
   }
   if (name === "element_survey") {
+    // The no-material arm (story 1.69, PR #477 round 1): with this env set the
+    // survey serves ZERO lines, which is how the check exercises the report
+    // pull's degradation — the section's explicit did-not-run statement —
+    // without a second stub. The default arm is unchanged.
+    if (process.env.STUB_ELEMENT_SURVEY_EMPTY === "1") {
+      return { miss: false, pin: PIN, request_id: "stub-elements-empty",
+        consulted: `consulted: ${PIN} gloss/ELEMENTS.jsonl:1`, lines: [] };
+    }
     let n = 0;
     return { miss: false, pin: PIN, request_id: "stub-elements",
       consulted: `consulted: ${PIN} gloss/ELEMENTS.jsonl:1-${ELEMENTS.length}`,

@@ -3238,7 +3238,19 @@ function neighborhoodForTargets(record, targets) {
     catch { fail(`unparseable served record at ${line.cite} — surfaced, not skipped`); }
   }
   if (records.length === 0) {
-    fail("the seam returned no records — the neighborhood has no material, and an empty result here would be indistinguishable from a settled set with no provenance neighbors");
+    // DEGRADE, NEVER ABORT THE PULL (PR #477 round 1, carried on kogaki#473).
+    // As a standalone act this refused — the owner asked for exactly this
+    // enumeration, and a false empty is worse than a refusal. Inside the
+    // report pull the same fail() would abort a DIFFERENT deliverable that
+    // has its own answer to absence: `fetchGlossBodies` degrades to declared
+    // abnormalities rather than killing the report. So the no-material state
+    // is DISCLOSED as its own typed section form — a different state from an
+    // enumeration that ran and found nothing, and stated as such, which is
+    // §13.4's disclosure discipline applied to the section's own inputs.
+    return { gids: targets.map((t) => t.gid), no_material: true,
+      suggestions: [], unresolved: [],
+      counts: { seeds: 0, suggested: 0, rendered: 0, unresolved: 0, by_family: {} },
+      unmapped };
   }
 
   const { suggestions, unresolved, counts } = neighborhoodOf(records, seedSlugs);
@@ -3424,12 +3436,22 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
 // Exported and pure over its inputs for the same reason `neighborhoodScreen`
 // is: §13.4's obligations are properties of what RENDERS, so a fixture must
 // reach this without a seam.
-export function neighborhoodSection({ gids, suggestions, unresolved, counts, unmapped = [] }) {
-  return [
+export function neighborhoodSection({ gids, no_material, suggestions, unresolved, counts, unmapped = [] }) {
+  const head = [
     "## Provenance neighborhood",
     "",
     `*Seeded by:* ${gids.join(", ")}`,
     "",
+  ];
+  // The seam served no element records: the enumeration DID NOT RUN, which is
+  // a different state from an enumeration that ran and found nothing, and the
+  // section says which (report-format.json v7 `neighborhood_no_material`).
+  if (no_material) {
+    return [...head,
+      "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (§13.4's disclosure discipline).",
+    ];
+  }
+  return [...head,
     // Drop only the screen's heading line; the tag it carried already heads
     // the report's own title, and the set rides `*Seeded by:*` above.
     ...neighborhoodScreen({ tag: "", gids, suggestions, unresolved, counts, unmapped }).slice(1),
