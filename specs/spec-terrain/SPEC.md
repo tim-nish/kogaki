@@ -1,6 +1,25 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v19, amended 2026-08-15 (kogaki#462, owner selection) — **v18's
+**Status:** v21, amended 2026-08-16 (kogaki#474) — **§14.4.1's ruling is
+PROMOTED, not weakened.** The general rule it carried — an owner-facing screen
+is delivered as an artifact the runtime writes, never a display channel, never
+model-retyped — now lives once, cross-surface, at `specs/SPEC.md` §2.5.3, and
+§14.4.1 cites it. **Nothing Terrain's own is changed**: the artifact name
+`reports/Screen.md`, the two-member screen class, the four uncarried items and
+the non-normative-mechanism ruling all stand exactly as v18 took them. The
+ground is that a second surface (move ingestion) reproduced this clause's defect
+three days after it shipped, which per `product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0
+topics/claude-code-ops.md:38` is the tell that a rule's carrier sits at the
+wrong layer rather than that the rule was wrong.
+**deferred slots minted by this amendment: none.**
+
+**The v20 token is carried by §13.1–§13.4 (kogaki#472) and has NO Status entry
+here** — observed while writing this one, and recorded rather than repaired,
+because repairing another amendment's register is not kogaki#474's licence. A
+reader meeting `(v20)` in §13.2 and no v20 entry above should read the
+kogaki#472 decision record, not infer that the counter skipped.
+
+v19, amended 2026-08-15 (kogaki#462, owner selection) — **v18's
 ruling is propagated to the clauses it silently invalidated.** §14.4.1 replaced
 the object of the flow's first act and named the wrong clause as its source,
 asserting an ordering was unchanged when that ordering belonged to **§2.4's
@@ -4535,6 +4554,24 @@ that guarantee reach them.
 nothing new is prohibited, so nothing new has to be policed.
 
 ### 14.4.1 (v18) Delivery binds to an ARTIFACT, never to a display channel
+
+**The general rule is now `specs/SPEC.md` §2.5.3, and this section CITES it
+(v21, kogaki#474).** Nothing below changes: the artifact name, the two-member
+screen class, the four uncarried items and the non-normative-mechanism ruling
+all stand exactly as ratified. What changes is that this section stopped being
+the only place the general rule existed.
+
+**Why it moved, recorded here because this is where a reader looks for it.**
+Three days after this clause shipped, the first live `/move-ingest` run
+reproduced the identical defect on a different surface — a selection screen
+retyped by the model, truncated mid-identifier, accepted by an owner who had
+been shown 15½ of 22 rows. This clause was correct, specific, present, and bound
+only the surface it was written in, so the second surface was born unguarded.
+Per `product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0
+topics/claude-code-ops.md:38`, repeated successful implementation of one rule is
+itself the tell that its carrier sits at the wrong layer. The ruling below is
+therefore **promoted, not weakened**: §2.5.3 carries it for every owner-facing
+screen, and this section keeps everything that is Terrain's own.
 
 **Owner ruling 2026-08-15 (kogaki#434).** §14.4's removal is right and is not
 reopened. What was false is the layer its delivery instructions bound to.

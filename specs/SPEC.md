@@ -109,6 +109,100 @@ it committed is a declassification act needing its own grounds. A carrier that
 moved a file into the tree and let the default `git add` decide the rest would
 satisfy clause 1 while committing the defect this line names.
 
+### 2.5.3 An owner-facing SCREEN is delivered as an ARTIFACT, never through a display channel (kogaki#474)
+
+**Repository-wide, and sited here rather than in either consuming spec, because
+the property is cross-surface by construction.** §2.5 rules *where* a
+human-facing artifact lives. This rules *how* an owner-facing **screen** — a
+rendering the owner is asked to make a decision against — reaches them.
+
+**The rule.** Where a command asks the owner to decide against a rendering, that
+rendering is **written by the mechanical half to a file at a fixed literal name,
+overwritten on every render**, and delivery is the act of the owner reading that
+file. The rendering is **never** a tool call's stdout and **never** retyped,
+summarized or tabulated into the model's reply. **The hand-over is owed** — the
+artifact is named to the owner as the first act after the command returns — and
+**its form is explicitly non-normative**: a pointer in the reply, an
+owner-executed `!`-prefixed command, or a harness file-send all discharge it, and
+this clause names none of them as required.
+
+**Why a channel cannot carry it, stated as arithmetic rather than preference.** A
+tool call's stdout is displayed to the model, not reliably to the owner; it
+collapses to a one-line summary. A runtime cannot fuse or drop lines mid-word; a
+model retyping a screen can, and did. **A contract whose only remaining delivery
+path is model composition does not yield silence — it yields a false claim of
+success**, which is worse than nothing because it reads as delivery.
+
+**This clause is written because the rule was fixed once and the next surface was
+born unguarded.** `specs/spec-terrain/SPEC.md` §14.4.1 (v18, owner ruling
+2026-08-15, kogaki#434) ruled exactly this for Terrain's screens. Three days
+later the first live `/move-ingest` run reproduced the identical defect on a
+different surface: the selection screen reached the owner as model-retyped text
+and **truncated mid-identifier at row 16 of 22**, the owner accepted "all"
+having been shown 15½ of 22 rows, and nothing in the flow could notice. The save
+was mechanical and the saved result was correct — which is precisely why the
+defect was invisible.
+
+> It is the SECOND instance of one defect class after a fix […]
+> `persistence-through-fixes-falsifies-the-diagnosis` is invoked with its bound
+> stated: N=2, which per `trigger-counts-are-proxies-for-evidence` justifies
+> widening the SCOPE of the next fix and not declaring a law.
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/claude-code-ops.md:135`
+  request_id: 239cf76c-af9a-411c-87eb-e9ea4492d36a
+  outcome: discriminating
+  query: the same owner-facing delivery defect has now appeared on a second surface three days after being fixed on the first — should the rule be restated per surface in each spec, or promoted to one cross-surface clause every owner-facing screen passes through
+
+> REPEATED SUCCESSFUL IMPLEMENTATION OF ONE RULE IS ITSELF THE TELL that the
+> carrier sits at the wrong layer — each delivery was real, reviewed, merged, and
+> judged on whether it worked AT ITS SURFACE, where every one of them passed, so
+> the signal is the COUNT, which no per-surface review can see because the
+> property is cross-surface by construction.
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/claude-code-ops.md:38`
+  request_id: 239cf76c-af9a-411c-87eb-e9ea4492d36a
+  outcome: discriminating
+  query: as above — the same call, whose second discriminating line rules on the carrier's layer rather than on the fix's scope
+
+**Consuming specs CITE this clause and never restate it.** That is the whole
+point of siting it here: a per-surface restatement is what made surface N+1 born
+unguarded, and a third restatement would repeat the defect a third time. The two
+members today are `specs/spec-terrain/SPEC.md` §14.4.1 and
+`specs/spec-draft-pipeline/SPEC.md` §6.9.2. **A surface joining later joins by
+being a screen, not by being added to a list** — this clause enumerates nothing,
+which is why it has no non-member fallback to get wrong.
+
+**Membership is an obligation, never a compliance claim.** Naming a surface here
+says the clause **binds** it; it says nothing about whether that surface's code
+already satisfies it. At the head this clause was written, Terrain complies and
+move ingestion does not — `specs/spec-draft-pipeline/SPEC.md` §6.9.2 states its
+own owed tense and names story 1.70 under kogaki#474 as the carrier. A reader
+checking whether a member complies reads the member, never this list.
+
+**What each surface still owns, and what it does not.** The **artifact's name**
+is the surface's own (`reports/Screen.md` for Terrain, `reports/MoveScreen.md`
+for move ingestion) — a shared name across independent renderers would make two
+surfaces clobber each other. The **content** is the surface's own. What is **not**
+the surface's own is the delivery binding, the fixed-literal-and-overwritten
+discipline, the prohibition on retyping, and the hand-over duty: those are this
+clause's, once.
+
+**Terrain's shipped behavior is unchanged by this clause.** §14.4.1 keeps its
+artifact name, its two-member screen class, its four uncarried items and its
+non-normative-mechanism ruling; what changes there is that it cites this clause
+for the general rule instead of being the only place the general rule exists.
+
+**Verdict machinery on a screen is UNWRITABLE, not prohibited.** Where a
+consuming spec excludes verdict machinery from a screen — `specs/spec-draft-pipeline/SPEC.md`
+§6.9.2's *"no verdict machinery and no lint"* is the live instance — the
+renderer must make the excluded token **unrenderable** rather than merely
+disallowed. A prohibition binds the author of the renderer; unwritability binds
+the output. This is `constrain-generation-not-post-hoc-detection` applied at the
+render step, and it is stated here because a screen whose producer is mechanical
+is exactly where the constrain form becomes available.
+
+**deferred slots: none.**
+
 ## 2.6 An owner-surface issue's acceptance criterion verifies at the EXPERIENCED unit (kogaki#234 remedy (c))
 
 **Repository-wide, carrier kogaki#234**, in the remedy's filed words:
