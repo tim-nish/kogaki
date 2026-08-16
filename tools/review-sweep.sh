@@ -7107,6 +7107,17 @@ print("spawn-grant pass: 11/11 third-layer cases (no class refuses artifact-less
 # source that builds them (§4's own vacuity rule) — in both directions, plus
 # one wiring assertion that ties the record to the acts the grant fixture
 # above just performed rather than to synthetic entries alone.
+#
+# ADMISSION TERMS, declared at birth (entry 1 of policy/consultation-map.md;
+# every-check-enters-with-a-budget-and-a-removal-signal, read whole at
+# product-lab@8906f20 gloss/lessons/claude-code-ops.md:63-67): STAGE — inside
+# every pass, fixture tier, before the board read. BUDGET — string assembly
+# and list mutation only, no spawn, no I/O beyond one source read;
+# sub-millisecond against the pass's multi-second fixture tier. REMOVAL
+# SIGNAL — an outer harness test that runs the sweep end to end and asserts
+# the disclosure lines on its captured stdout would subsume every case here
+# (the built-string and call-site halves alike); or §4 clause 4's repeal.
+# Until one exists, this block is the property's only executable carrier.
 _sd_fail = 0
 
 # Wiring: the grant fixture consumed g901 under tag "grant-consume" and its
@@ -7153,15 +7164,38 @@ finally:
     PASS_SPAWNS.extend(_sd_save[0])
     PASS_CONSUMES.extend(_sd_save[1])
 
+# THE CALL-SITE HALF (PR #480 round 1 finding 1): the string cases above
+# cannot see a deleted close — pass_spend_disclosure() tested in isolation
+# stays green while neither close renders it, which is the kogaki#209 shape
+# one field over. So the two closes are counted in the source, the same
+# in-file precedent the grant fixture's AC8 uses: rendering is a property of
+# the built string, reachability is a property of the call sites, and each
+# half is asserted in the unit it lives in. The expected count is EXACTLY
+# two — the counts-line close and the nothing-to-sweep exit — so a third
+# close added without extending the disclosure fails here rather than
+# silently skipping it, the per-call-site defect this file names about
+# itself.
+with open("tools/review-sweep.sh", encoding="utf-8") as _sd_src_f:
+    _sd_src = _sd_src_f.read()
+# def-line + call sites; the token is built by concatenation here so this
+# assertion's own code never counts itself (the grant fixture's AC8 move).
+_sd_token = "print_pass_spend" + "_disclosure()"
+if _sd_src.count(_sd_token) - 1 != 2:
+    print(f"FAIL spend-disclosure fixture [the disclosure must be rendered "
+          f"at exactly the two pass closes — counts line and nothing-to-sweep "
+          f"exit; found {_sd_src.count(_sd_token) - 1} call site(s)]")
+    _sd_fail = 1
+
 if _sd_fail:
     print("FAIL: the pass does not disclose its own spend — §4 clause 4, "
           "kogaki#470")
     sys.exit(1)
-print("spend-disclosure pass: 6/6 cases (both act sites recorded the grant "
+print("spend-disclosure pass: 7/7 cases (both act sites recorded the grant "
       "fixture's real acts / a recorded consume renders with PR, round and "
       "tag / recorded spawns render as a list / the empty spawn set renders "
       "its typed line / the empty consume set renders its typed line / "
-      "records restored so the close discloses the real pass)")
+      "records restored so the close discloses the real pass / both pass "
+      "closes reference the renderer, counted in the source)")
 
 # --- the declarations: one grammar, one segmenter (kogaki#70, kogaki#74) ---
 # THE FORM WAS CHOSEN BY RUNNING THIS PASS, which is story 1.17's own named
