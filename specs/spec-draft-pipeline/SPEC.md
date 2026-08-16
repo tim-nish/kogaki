@@ -1,6 +1,17 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v5, amended 2026-08-13 (kogaki#426) — §2's item-2 gate table row 4
+**Status:** v6, amended 2026-08-16 (kogaki#474) — **§6.9.2 gains the selection
+screen's delivery binding by INHERITANCE**: `specs/SPEC.md` §2.5.3 now carries
+the cross-surface rule that an owner-facing screen is delivered as an artifact
+the mechanical half writes, and §6.9.2 cites it rather than restating it. What
+is this section's own is named there and nowhere else — the artifact
+`reports/MoveScreen.md` and the count-line-first rule — both written in the
+**owed tense** with story 1.70 named as their carrier, since no code writes that
+file at this head. §6.9.2's existing *"no verdict machinery and no lint"* is
+re-read as a **construction constraint** rather than a prohibition: the renderer
+makes a per-row verdict token unrenderable. No other section is touched and no
+prior ruling is reopened. **deferred slots minted by this amendment: none.**
+v5, amended 2026-08-13 (kogaki#426) — §2's item-2 gate table row 4
 (plain register with round-trip concessions) moves from **not bound** to
 **bound**: manifest item 6's carrier landed as
 `specs/spec-style-contract/SPEC.md` (v1), and the row's v1 reading is kept
@@ -1070,7 +1081,7 @@ remains the boundary. Pin resolution stays the sole mechanical instrument on
 grounding.
 
 **The selection screen's DELIVERY is inherited too, and this section is the
-inheriting site (v2, kogaki#474).** `specs/SPEC.md` §2.5.3 rules that an
+inheriting site (kogaki#474).** `specs/SPEC.md` §2.5.3 rules that an
 owner-facing screen is delivered as an artifact the mechanical half writes,
 never through a display channel and never model-retyped. **That clause is cited
 here and restated nowhere** — this section's own title is the reason: a
@@ -1078,14 +1089,26 @@ constraint this section inherits is not one it re-derives. Two consequences bind
 move ingestion specifically, and both are this section's own rather than
 §2.5.3's:
 
-- **The artifact is `reports/MoveScreen.md`** — a fixed literal, overwritten on
-  every render, repo-visible and not committed. The name is this surface's
-  because the renderers are independent and a shared name would have them
-  clobber each other; the *discipline* around the name is §2.5.3's.
-- **The count line comes FIRST and is never suppressed**, per §6.9.0 — the
+- **The artifact is to be `reports/MoveScreen.md`** — a fixed literal,
+  overwritten on every render, repo-visible and not committed. The name is this
+  surface's because the renderers are independent and a shared name would have
+  them clobber each other; the *discipline* around the name is §2.5.3's.
+- **The count line is to come FIRST and never be suppressed**, per §6.9.0 — the
   parsed-record count is the only instrument that can catch `1` where the owner
   wrote `22`, and the 2026-08-16 truncation is what a screen without a leading
   count looks like from the owner's side.
+
+**Both bullets are written in the OWED tense, and the carrier is named: story
+1.70 under kogaki#474.** This is the ordinary spec-ahead-of-code interval, named
+here so a reader who runs the tool and finds no `reports/MoveScreen.md` knows
+which of the two is stale — the code, not the clause. **Nothing in this
+repository writes that file at the head this section was amended at**, and
+saying so is the whole point: issue #474's own empty-query names *"the skill
+edited to name the artifact while the tool still writes nothing"* as the state
+this work exists **not** to recreate, and a present-tense clause here would
+half-instantiate exactly that state one layer up. `specs/SPEC.md` §2.5.3's
+member list reads this section as a member of the clause, never as a claim that
+the surface already complies.
 
 **"No verdict machinery" above is now a CONSTRUCTION constraint on this surface,
 not only a prohibition.** §2.5.3's closing clause binds it: the renderer makes a

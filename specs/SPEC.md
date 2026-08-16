@@ -172,6 +172,13 @@ members today are `specs/spec-terrain/SPEC.md` §14.4.1 and
 being a screen, not by being added to a list** — this clause enumerates nothing,
 which is why it has no non-member fallback to get wrong.
 
+**Membership is an obligation, never a compliance claim.** Naming a surface here
+says the clause **binds** it; it says nothing about whether that surface's code
+already satisfies it. At the head this clause was written, Terrain complies and
+move ingestion does not — `specs/spec-draft-pipeline/SPEC.md` §6.9.2 states its
+own owed tense and names story 1.70 under kogaki#474 as the carrier. A reader
+checking whether a member complies reads the member, never this list.
+
 **What each surface still owns, and what it does not.** The **artifact's name**
 is the surface's own (`reports/Screen.md` for Terrain, `reports/MoveScreen.md`
 for move ingestion) — a shared name across independent renderers would make two
