@@ -609,13 +609,51 @@ def write_index(moves_dir):
 # CLI — proposals only. It never saves; saving needs the owner's selection.
 # --------------------------------------------------------------------------
 
-def render_screen(proposals):
+# A verdict, score or status token arrives in one of two shapes: a bare token
+# (`clean`, `PASS`, `7/10`) or a `key: value` pair (`judgment: clean` — the
+# 2026-08-16 specimen). §2.5.3's closing clause and §6.9.2 make such a token
+# UNRENDERABLE on a row rather than prohibited: a reading is a prose judgment
+# ("this proposes a split", "these two are near-duplicates"), so a value in
+# either token shape is refused at render. This is a FORM floor, not a content
+# lint — the same class as the trim label's effect-stating floor — and the
+# record half needs no check at all: no record field except `id` ever reaches
+# a row, so a verdict smuggled into a field has no way onto the screen.
+VERDICT_SHAPE = re.compile(r"^\s*(?:[\w./-]+|[\w-]+\s*:\s*[\w./-]+)\s*$")
+
+
+def render_screen(proposals, readings=None):
     """The count line §6.9.0 requires, plus one line per proposal.
 
     The PARSED RECORD COUNT is the only instrument that can catch `1` where the
     owner wrote `22`, and it is arithmetic the command already holds, displayed
     rather than withheld. It is printed FIRST and unconditionally.
+
+    `readings` is the review's typed input — id -> prose reading — riding the
+    render as DATA so the reviewed screen is still the tool's own artifact
+    (story 1.70; the CLI flag mirrors Terrain's `--claims` file pattern). A
+    reading naming an id outside the parsed set REFUSES: a silently dropped
+    reading is the row-loss defect §2.5.3 exists to remove, one input over. An
+    id with no reading renders no reading line — absence is the normal case.
     """
+    readings = dict(readings or {})
+    known = set(p.id for p in proposals if p.admitted and p.id)
+    strangers = sorted(set(readings) - known)
+    if strangers:
+        raise Refusal(
+            "stranger-reading",
+            "readings name id(s) outside the parsed set: %s — parsed ids: %s"
+            % (", ".join(strangers), ", ".join(sorted(known)) or "(none)"),
+        )
+    for move_id, value in sorted(readings.items()):
+        if not isinstance(value, str) or VERDICT_SHAPE.match(value):
+            raise Refusal(
+                "verdict-shaped-reading",
+                "the reading for %r is a bare token or key:value pair (%r) — a "
+                "verdict, score or status shape. A reading is a prose judgment "
+                "(specs/SPEC.md \u00a72.5.3; \u00a76.9.2: readings, and silence "
+                "where there is nothing to say)" % (move_id, value),
+            )
+
     lines = [
         "parsed records: %d  (admitted %d, refused %d)"
         % (
@@ -631,9 +669,30 @@ def render_screen(proposals):
             if proposal.stripped:
                 note = "  [stripped: %s]" % ", ".join(proposal.stripped)
             lines.append("  line %-5d ok      %s%s" % (proposal.line_no, proposal.id, note))
+            reading = readings.get(proposal.id)
+            if reading:
+                # An em-dash continuation, deliberately not a `key: value`
+                # line — the reading's own carrier must not wear the one
+                # shape the floor above refuses.
+                lines.append("            \u2014 %s" % reading.strip())
         else:
             lines.append("  line %-5d REFUSED %s" % (proposal.line_no, proposal.refusal))
     return "\n".join(lines)
+
+
+SCREEN_NAME = "MoveScreen.md"
+
+
+def write_screen(text, reports_dir="reports"):
+    """specs/SPEC.md \u00a72.5.3: the screen is WRITTEN by the mechanical half
+    to a fixed literal name, overwritten on every render. The literal is
+    joined here, so a second screen name is unwritable rather than detected —
+    the same construction spec-terrain \u00a712.2/\u00a714.4.1 use."""
+    os.makedirs(reports_dir, exist_ok=True)
+    path = os.path.join(reports_dir, SCREEN_NAME)
+    with open(path, "w") as handle:
+        handle.write(text + "\n")
+    return path
 
 
 def main(argv=None):
@@ -643,6 +702,10 @@ def main(argv=None):
     )
     parser.add_argument("input", nargs="?", help="the owner-authored Moves file")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--readings", help="JSON file mapping id -> prose reading "
+                        "(the review's typed input; mirrors Terrain's --claims file pattern)")
+    parser.add_argument("--reports-dir", default="reports",
+                        help="where the screen artifact lands (tests only; the owner path is the default)")
     args = parser.parse_args(argv)
 
     if args.self_test:
@@ -660,7 +723,27 @@ def main(argv=None):
         sys.stderr.write("refused: %s\n" % refusal)
         return 1
 
-    print(render_screen(proposals))
+    readings = None
+    if args.readings:
+        import json
+        with open(args.readings) as handle:
+            readings = json.load(handle)
+
+    # THE DEFECT SITE, REPAIRED (story 1.70, kogaki#474): the rendering is
+    # never stdout — a tool call's stdout is displayed to the model, not
+    # reliably to the owner, and the first live run truncated mid-identifier
+    # at row 16 of 22 on exactly that channel. The screen is written to its
+    # artifact and stdout carries the hand-over pointer plus nothing of the
+    # rendering (specs/SPEC.md \u00a72.5.3; \u00a76.9.2).
+    try:
+        screen = render_screen(proposals, readings)
+    except Refusal as refusal:
+        sys.stderr.write("refused: %s\n" % refusal)
+        return 1
+    path = write_screen(screen, args.reports_dir)
+    print("Move screen \u2014 READ THIS ONE (owner rendering, specs/SPEC.md \u00a72.5.3): %s" % path)
+    print("parsed records: %d \u2014 the screen's own first line carries the full count and every row"
+          % len(proposals))
     return 0
 
 
@@ -1173,6 +1256,16 @@ def self_test():
 
         tree = ast.parse(open(__file__).read())
         forbidden = ("score", "verdict", "lint", "rank", "grade")
+        # THE REFUSER POLARITY IS EXEMPT, BY NAME AND WITH ITS GROUND (story
+        # 1.70, kogaki#474). §6.9.2 v2 re-reads "no verdict machinery" as a
+        # CONSTRUCTION constraint: the renderer makes a verdict token
+        # unrenderable. The carrier of that constraint necessarily names the
+        # thing it refuses — VERDICT_SHAPE is the shape REFUSED at render,
+        # and its test asserts the refusal. A producer of verdicts and a
+        # refuser of them share vocabulary and have opposite polarity; this
+        # walk guards against the first, and an exemption wider than these
+        # two named refusers would gut it.
+        refusers = ("VERDICT_SHAPE", "verdict_token_is_unwritable")
         defined = []
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -1186,7 +1279,9 @@ def self_test():
         assert "save_accepted" in defined, "the walk missed a known definition"
 
         offenders = [
-            name for name in defined if any(word in name.lower() for word in forbidden)
+            name for name in defined
+            if any(word in name.lower() for word in forbidden)
+            and name not in refusers
         ]
         assert not offenders, (
             "§6.9.2 excludes verdict machinery; these names exist: %s" % sorted(set(offenders))
@@ -1225,6 +1320,105 @@ def self_test():
             assert "declined" not in index, "a declined Move reached INDEX"
 
     check("AC6 admission is the caller's act, never this module's", nothing_here_admits_a_move)
+
+    # ---- story 1.70 (kogaki#474): the screen is an artifact the tool writes --
+    def screen_artifact_carries_every_row():
+        """AC1: N records -> reports/MoveScreen.md with exactly N rows, the
+        count line FIRST. Asserted over the FILE the owner opens, never over
+        a return value \u2014 the defect was between the renderer and the
+        owner's eyes, so the assertion binds the artifact."""
+        with tempfile.TemporaryDirectory() as tmp:
+            text = "\n".join(_record("m%d" % n) for n in range(22))
+            proposals = read_proposals(text)
+            path = write_screen(render_screen(proposals), tmp)
+            assert os.path.basename(path) == SCREEN_NAME, path
+            body = open(path).read()
+            assert body.startswith("parsed records: 22"), (
+                "the count line must be the file's first line; got %r" % body[:40])
+            rows = [ln for ln in body.splitlines() if ln.startswith("  line ")]
+            assert len(rows) == 22, "expected 22 rows in the artifact, got %d" % len(rows)
+
+    check("1.70 AC1 the artifact carries the count first and every row",
+          screen_artifact_carries_every_row)
+
+    def screen_overwrites_never_appends():
+        """AC2: the fixed literal is overwritten per render \u2014 a second
+        run's screen is the second run's, whole and alone."""
+        with tempfile.TemporaryDirectory() as tmp:
+            write_screen(render_screen(read_proposals(
+                "\n".join(_record("m%d" % n) for n in range(5)))), tmp)
+            path = write_screen(render_screen(read_proposals(_record("solo"))), tmp)
+            body = open(path).read()
+            assert body.startswith("parsed records: 1"), body[:40]
+            assert "m0" not in body, "a prior render's row survived the overwrite"
+
+    check("1.70 AC2 the artifact is overwritten, never appended",
+          screen_overwrites_never_appends)
+
+    def refusal_row_reaches_the_artifact():
+        """AC3: a refused record's row carries its condition and line number
+        verbatim, in the file."""
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = _record("broken").replace("sources: >-\n  a passage somewhere\n", "")
+            proposals = read_proposals(_record("good") + bad)
+            body = open(write_screen(render_screen(proposals), tmp)).read()
+            assert "REFUSED" in body, body
+            refused = [p for p in proposals if not p.admitted][0]
+            assert str(refused.refusal) in body, (
+                "the refusal text must reach the artifact verbatim")
+
+    check("1.70 AC3 a refusal row reaches the artifact verbatim",
+          refusal_row_reaches_the_artifact)
+
+    def readings_ride_as_data():
+        """AC4: a reading renders under its row; a stranger id REFUSES naming
+        it; an id with no reading renders no reading line."""
+        proposals = read_proposals(_record("with-reading") + _record("without"))
+        screen = render_screen(proposals, {
+            "with-reading": "reads as one clean local transition and nothing more"})
+        lines = screen.splitlines()
+        i = next(n for n, ln in enumerate(lines) if "with-reading" in ln)
+        assert lines[i + 1].strip().startswith("\u2014"), (
+            "the reading must render as a continuation under its row")
+        j = next(n for n, ln in enumerate(lines) if ln.endswith("without"))
+        assert j + 1 == len(lines) or lines[j + 1].startswith("  line "), (
+            "an id with no reading must render no reading line")
+        try:
+            render_screen(proposals, {"stranger": "some prose reading of it"})
+        except Refusal as refusal:
+            assert refusal.condition == "stranger-reading", refusal.condition
+            assert "stranger" in str(refusal), str(refusal)
+        else:
+            raise AssertionError("a stranger reading id did not refuse")
+
+    check("1.70 AC4 readings ride as data; a stranger id refuses by name",
+          readings_ride_as_data)
+
+    def verdict_token_is_unwritable():
+        """AC5: a verdict, score or status token cannot reach a row. Two arms:
+        the readings arm REFUSES both token shapes (the 2026-08-16 specimen
+        `judgment: clean` literally among them), and the record arm is
+        unwritable BY CONSTRUCTION \u2014 no record field but `id` is ever
+        printed, so a verdict smuggled into a field has no path to the screen,
+        which is asserted by rendering exactly such a record."""
+        proposals = read_proposals(_record("target"))
+        for specimen in ("clean", "judgment: clean", "PASS", "7/10", "status: ok"):
+            try:
+                render_screen(proposals, {"target": specimen})
+            except Refusal as refusal:
+                assert refusal.condition == "verdict-shaped-reading", (
+                    "%r: %s" % (specimen, refusal.condition))
+            else:
+                raise AssertionError(
+                    "verdict-shaped reading %r rendered instead of refusing" % specimen)
+        smuggled = _record("smuggler").replace(
+            "does a thing", "judgment: clean")
+        screen = render_screen(read_proposals(smuggled))
+        assert "judgment: clean" not in screen, (
+            "a record field reached a row \u2014 the construction constraint is broken")
+
+    check("1.70 AC5 a verdict token is unwritable on a row, both arms",
+          verdict_token_is_unwritable)
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)
