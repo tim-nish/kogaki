@@ -2759,9 +2759,13 @@ call was made.
   so recruiting it as a *relevance* substrate would give one field two jobs
   across two subsystems, which is the shape that ruling declines one level up.
   Carried as a question, never as contract, per this section's own rule.
-  **Its trigger is §13.5's dogfooding gate** — a recorded miss whose Grain
-  shares only `projects:` with the candidate set is what would decide it, and
-  that is an observation rather than a date.
+  **Its trigger is §13.5's MISS ARM** — a recorded miss whose Grain shares
+  only `projects:` with the candidate set is what would decide it, and that
+  is an observation rather than a date. Named per arm since v22 (kogaki#481,
+  PR #485 round 1): §13.5's entry condition is two-armed and the miss arm is
+  the demoted, unfired one — this deferral rides that arm by its nature (a
+  fourth substrate is a recall widening), so it inherits the arm's own
+  standing and a reader holding the flood measurement is not routed here.
 
 ## 12. The Full Report — untruncated material, keyed to what produced it
 
@@ -4266,12 +4270,22 @@ evidence contradicts.
 measurement is the same one that fired §13.3's reopen trigger, whose answer is
 v17's substrate-instance grouping at the rendering layer — spent there, not
 re-armed here. A judged layer remains unentered; this section re-points which
-arm *could* admit one, and admits none. **No replacement mechanism is proposed
-here, and none may arrive through this slot** (owner note at the hub sweep,
-2026-08-16): no LLM-driven selection over the survey surface is planned, and
-any future judged layer arrives as its own tightly-controlled design, never
-through this deferred slot. **Discard stays a valid outcome**, and so does
-"mechanical layer sufficient".
+arm *could* admit one, and admits none.
+
+**The SLOT as a route is closed; the GATE as a condition is not, and the two
+are different facts (PR #485 round 1; the #481 triage recorded the owner
+declining to close the gate outright as exceeding the ratified verdict).**
+The owner note (hub sweep, 2026-08-16) closes the *route*: no LLM-driven
+selection over the survey surface is planned, no replacement mechanism is
+proposed here, and any future judged layer arrives as its own
+tightly-controlled design — **never through this deferred slot**. The
+*condition* stands as re-pointed: the two arms remain live entry conditions
+in the sense that a future measured defect is still what any such design
+would owe as its evidence, entering by its own licensed sitting rather than
+by this slot. A reader must be able to tell a demoted-arm gate from a closed
+one, which is why this paragraph separates them rather than letting the
+route's closure read as the condition's. **Discard stays a valid outcome**,
+and so does "mechanical layer sufficient".
 
 **The instrument is the corpus-wide distribution the implementing story
 already produces** — no new instrument is owed. The trigger for either arm
@@ -4285,7 +4299,7 @@ own bugs.
 kogaki#300; re-cut v15).** §13.3 bounds how far the enumeration expands —
 under v16 by the declared traversal values in §13.3, the Thesis having been
 withdrawn; this section holds *relevance judgment* — whether a surfaced
-neighbor is worth keeping — behind the trigger above, undesigned. The two are
+neighbor is worth keeping — behind the two-armed condition above, undesigned. The two are
 adjacent enough to collapse silently, so the line is drawn mechanically rather
 than by intent: **the §13.3 bound may decide how much of the enumeration is
 traversed, and may never score, rank, or drop an enumerated neighbor on
