@@ -37,9 +37,13 @@ is nothing to compare against, and a human reading `22` is the whole mechanism.
 
 ## Steps
 
-1. **Split and admit.** Run `python3 tools/move_ingest.py <input>`. It prints
-   the count line and one row per record — admitted, or refused with its
-   condition and the offending line named.
+1. **Split and admit.** Run `python3 tools/move_ingest.py <input>`. It writes
+   the screen — the count line first, one row per record, admitted or refused
+   with its condition and the offending line named — to
+   **`reports/MoveScreen.md`** (`specs/SPEC.md` §2.5.3; §6.9.2), a fixed
+   literal overwritten on every render. Stdout carries only the hand-over
+   pointer. **Name that artifact to the owner as the first act after the
+   command returns.**
 
    A refused record does **not** stop the run: the owner sees the whole file at
    one screen, and one malformed record does not hide the other twenty-one.
@@ -80,8 +84,22 @@ is nothing to compare against, and a human reading `22` is the whole mechanism.
    *reviewed proposal*, not the authored record — say so on the screen wherever
    the two differ, and show what changed.
 
-3. **One selection screen.** Present every proposal once, with per-Move
-   **accept / decline / free-form**, and the count line at the top.
+   **Readings ride the render as DATA, never as model-retyped rows** (story
+   1.70). Write them to a JSON file mapping `id` → prose reading and re-run
+   `python3 tools/move_ingest.py <input> --readings <file>` — the tool renders
+   each reading under its row and refuses a reading naming an id outside the
+   parsed set, or one in a verdict shape (a bare token or `key: value` pair);
+   the refusal is the §6.9.2 construction constraint doing its job, not an
+   error to work around. Silence where there is nothing to say: an id with no
+   reading is the normal case.
+
+3. **One selection screen — and the screen IS `reports/MoveScreen.md`.**
+   Name the artifact to the owner as the first act after the command returns;
+   **retyping, summarizing or tabulating it into the reply is prohibited**
+   (`specs/SPEC.md` §2.5.3 — the first live run truncated a model-retyped
+   screen mid-identifier at row 16 of 22, and nothing could notice).
+   Acceptance stays the owner's chat act — per-Move **accept / decline /
+   free-form** — against the artifact's own numbering.
 
    **ADMISSION IS THE OWNER'S ACT AT THIS SCREEN, NEVER THE COMMAND'S.** Nothing
    self-admits — including a proposal review left untouched, and including a
