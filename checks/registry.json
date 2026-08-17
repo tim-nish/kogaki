@@ -226,6 +226,21 @@
         "efficacy": "case: checks/check-brief-entry.sh::MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72)",
         "efficacy_note": "nine mutations performed and restored surgically \u2014 story 1.72's six (enter minting the home; a candidate composed from a foreign phrase; the negates_premise option dropped; the slug derived at enter; mint's adopted-thesis guard removed; the Thesis rendered as a slot) each failing its own case at the re-cut, plus story 1.71's FIELDS-row drop and PR #484 round 1's three refusal-path mutations; the pass line names all nine so the evidence is read from the output, not from a commit message alone"
       }
+    },
+    {
+      "id": "brief-compose",
+      "file": "check-brief-compose.sh",
+      "admission": {
+        "contract": "the Step-record runtime's shape, fill, and count-after-composition properties (SPEC-draft-pipeline \u00a7\u00a74.1/4.4/5.1-5.2, story 1.73), asserted seam-free against a Brief minted through the real \u00a75.3 v9 flow in a temporary directory: (a) \u00a74.1's Step SHAPE \u2014 every field refused by name when absent, \u00a74.4's ground types a CLOSED list, a step_effect ground naming which effect of which EARLIER step, entailed:true refused without its entailment_reasoning, Move optional in both directions; (b) the FILL \u2014 sequence serialized as the recorded fenced-block form (SQ1's fixture), strand_coverage carrying used_by_steps DERIVED from the composed steps plus role_in_thesis, the \u00a75.2 ledger with introduced_by/discharged_by and an undischarged entry RENDERING as undischarged, and a filled Sequence refusing overwrite; (c) the placement count taken AFTER composition COUNTED IN PLACEMENTS \u2014 a declared cover is not believed, an unplaced selected Strand DISCLOSES and never refuses, and a foreign L-id in materials refuses as a Brief fetch under the closed-set invariant; (d) the command path byte-equal to the exported fill. THE MEMBER'S SCOPE IS DECLARED IN ITS OWN OUTPUT on every run, pass included: every composition MUST is judgment-class (\u00a74.6) and is judged at path review and its human gate, never here.",
+        "license": "kogaki#489 (story 1.73), under SPEC-draft-pipeline \u00a7\u00a74.1/4.4/5.1-5.2",
+        "tier": "pre-push",
+        "runtime_ms": 170,
+        "runtime_ms_note": "measured at admission (story 1.73): 0.16/0.17/0.16 s over three consecutive local runs \u2014 four subprocess invocations (the three-command mint plus one fill) and in-process validate/fill calls, no seam, no network. CI measures the same: every input is committed or authored inline in the check.",
+        "removal_signal": "the live composition workflow gaining end-to-end coverage of its own \u2014 a registered member exercising a full composition sitting (compose \u2192 review \u2192 assemble \u2192 adopt) over a real Brief, at which point the fill and count assertions here are exercised by every downstream run and (b)-(d) are subsumed; the shape refusals of (a) retire only with \u00a74.1's own field list",
+        "removal_instrument": "act: the PR that lands the end-to-end composition-sitting coverage \u2014 subsumption is a judgment over what that member exercises, not a tree probe, and that PR's licensing issue owes the removal row for (b)-(d)",
+        "efficacy": "case: checks/check-brief-compose.sh::MUTATION EVIDENCE (assert-by-breaking-once, story 1.73)",
+        "efficacy_note": "three mutations performed and restored surgically \u2014 the rationale requirement dropped from validateSteps, the placement count re-pointed at the DECLARED coverage (the exact defect \u00a75.2's count-after-composition rider names), and the UNPLACED disclosure branch dropped \u2014 each failing its own case in one run; the pass line names all three so the evidence is read from the output"
+      }
     }
   ]
 }
