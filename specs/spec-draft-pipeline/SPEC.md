@@ -1,6 +1,16 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v8, amended 2026-08-17 (kogaki#492) — **§4.10 binds the
+**Status:** v9, amended 2026-08-17 (kogaki#494) — **§5.3 is RE-SEQUENCED by
+owner ruling: the Brief is minted at Thesis adoption, not at entry.** Entry
+resolves the settled Strand set (refusals unchanged) → the
+thesis-determination gate (kogaki#488) → the mint; the slug is **one
+candidate derived from the adopted Thesis**, presented through the question
+UI for approval with free-form override. Two grains of v7 are superseded and
+the supersessions are stated in §5.3 rather than absorbed; the home grain,
+the §5.1 typed-unfilled-slots interior downstream of the Thesis,
+idempotence-by-slug, the closed-set invariant and creator-never-editor are
+unchanged. **deferred slots minted by this amendment: none.**
+v8, amended 2026-08-17 (kogaki#492) — **§4.10 binds the
 journey-incorporation gate**, closing §2's item-2 gate table row 2, the one
 "partial" standing since v1. The register choice is decided **at the Brief**,
 after Thesis determination and before path composition; the option-composer's
@@ -770,7 +780,33 @@ so they need a record and the record belongs where its consumer reads it.
 v1's "three resolutions, **none selected**" **no longer describes the state**
 and is struck.
 
-### 5.3 The durable home and the entry point (v7, kogaki#482)
+### 5.3 The durable home and the entry point (v7, kogaki#482; re-sequenced v9, kogaki#494)
+
+**Re-sequenced at v9 (kogaki#494, owner ruling 2026-08-17).** Brief creation
+runs: **entry resolves the settled Strand set** (LessonDisplayIDs against the
+survey record, every refusal below unchanged) → **the thesis-determination
+gate** (kogaki#488) → **the mint**. The slug is **one candidate derived from
+the adopted Thesis**, presented through the question UI for approval, with
+free-form override; the approved slug names `briefs/<slug>/`. Two grains of
+v7 are superseded, stated rather than absorbed:
+
+- *"the slug is owner-chosen **at entry**"* → the slug is **owner-approved at
+  Thesis adoption**, derived from the Thesis. The owner still decides it —
+  approval with free-form override — so §12.2's no-machine-identity repair is
+  kept by a different route.
+- *the mint-at-entry checkpoint* → **pre-Thesis state is machine-local run
+  state** — a machine record, legitimately machine-local per the served
+  artifacts-live-where-human-works split (`topics/knowledge-architecture.md:28`,
+  quoted below). The owner artifact begins exactly when the first piece of
+  substantive owner judgment — the Thesis — exists.
+
+Unchanged by v9: the directory-per-Brief home (kogaki#482's grain), the §5.1
+typed-unfilled-slots interior for everything **downstream of the Thesis**
+(the `thesis` field itself is filled at mint by construction), idempotence-
+by-slug with collision refusing, the closed-set invariant from the mint, and
+creator-never-editor. Where v7 prose below says the mint or the slug happens
+"at entry", this block is the current reading; the v7 text is kept so the
+supersession stays countable.
 
 **Promoted by a run, exactly as the promotion rule required.** kogaki#127's
 close left "Reader Path composition as a live workflow, the Step record as an
@@ -813,9 +849,11 @@ ride inside the document or reopen the home question this section exists to
 close. **The cost is stated:** a directory holding one file today. Tracked
 rather than gitignored, because a Brief is a product the owner enumerates,
 selects and re-opens — the exact acts `articles.md:45` records failing when
-the home was a recency-keyed workspace. The slug is **owner-chosen at
-entry**, ordinary human vocabulary, never a machine identity — identity-named
-files on an owner surface are the defect §12.2 of SPEC-terrain repaired.
+the home was a recency-keyed workspace. The slug is ordinary human
+vocabulary, never a machine identity — identity-named files on an owner
+surface are the defect §12.2 of SPEC-terrain repaired. *(v7 read "owner-chosen
+at entry"; superseded at v9 — the slug is owner-approved at Thesis adoption,
+per the block above.)*
 
 **The entry point is a NEW invocation — a `brief` skill fronting a runtime —
 and it sits OUTSIDE Terrain.** Terrain ends at Strand exploration and its
@@ -853,9 +891,11 @@ served cites resolved from the survey record; `thesis`, `sequence`,
 `thesis_closure`, `tradeoffs` and the §5.2 ledger present as **typed unfilled
 slots**, never omitted — an absent field and a field awaiting composition are
 different silences, and only the second lets a later sitting resume. The
-Thesis is what Brief composition determines from the settled set; the entry
-point never invents one (§3's read-not-invented rule, applied to the minting
-act).
+Thesis is what Brief composition determines from the settled set; the mint
+never invents one (§3's read-not-invented rule, applied to the minting
+act). *(At v9 the mint runs at Thesis adoption, so `thesis` is filled at
+mint by construction; the typed-unfilled-slot rule governs every field
+downstream of it.)*
 
 **The closed-set invariant binds from the mint.** The Strand set the entry
 point writes is the set composition may use; growing it is an owner act that
