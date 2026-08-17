@@ -68,6 +68,40 @@
       "free_text_offered": true,
       "fork": false,
       "dynamic_options": "The recomposed-claim option comes per run from the *.terrain-claim.json record being presented, whose `claim` was composed over the SUBSET the owner selected. The standing keep-original option is standing because §7 makes it explicitly available: a recomposed claim is a PROPOSAL, and the owner keeping the original wording over a changed member set is a legible mismatch rather than a forbidden one — the record carries the members, so the disagreement is readable rather than hidden. This gate exists because a change to the set a derived expression was derived from is a GATE EVENT rather than a refresh (topics/articles.md:73@f918c515); keeping the claim silently would assert commonality over absent members — a provenance lie — while discarding it would throw away the only thing in the interaction the machine did not supply. fork:false deliberately, for the same reason as terrain-trim-ratification: Terrain attaches no recommendation to which wording is truer over the subset, and a recommendation here would be the machine making the owner's judgment for them. Same run-workspace siting as the other two gates."
+    },
+    {
+      "id": "brief-thesis-adoption",
+      "raised_by": "brief/brief.mjs enter + .claude/skills/brief — the thesis-determination gate (specs/spec-draft-pipeline/SPEC.md §5.3 v9, kogaki#494; kogaki#488, story 1.72)",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "Which Thesis does the Brief adopt?",
+      "options": [
+        {
+          "id": "back-to-terrain",
+          "label": "The settled set is what should change — go back through Terrain and re-settle; no Brief is started and nothing is written (a Brief never fetches)",
+          "negates_premise": true
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "dynamic_options": "The 2-3 Thesis candidates are composed per run FROM THE SETTLED STRAND SET ONLY (§3's read-not-invented rule; ids thesis-1..thesis-3), each in plain register with its round-trip concession stated (SPEC-style-contract §4). The run's full declaration is written into the machine-local run state beside the composed candidates (pre-Thesis state is machine-local, §5.3 v9) — the same run-workspace siting as the terrain gates. The standing negation option is standing because the composing premise — this settled set supports a Thesis — is the machine's, and its negation routes back through Terrain, never a Brief fetch. fork:false deliberately: the runtime attaches no recommendation among its own candidates — ranking them would be the machine adopting a Thesis by another name, and the Thesis is the first piece of substantive OWNER judgment in the flow. The free-text answer becomes the adopted Thesis verbatim and does not discharge the negation option."
+    },
+    {
+      "id": "brief-slug-approval",
+      "raised_by": "brief/brief.mjs adopt + .claude/skills/brief — the thesis-derived slug approval before the mint (specs/spec-draft-pipeline/SPEC.md §5.3 v9, kogaki#494; kogaki#488, story 1.72)",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "Approve the thesis-derived slug as the Brief's home name?",
+      "options": [
+        {
+          "id": "no-mint-under-this-thesis",
+          "label": "This Thesis should not name a Brief after all — reopen Thesis adoption; nothing is written under briefs/",
+          "negates_premise": true
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "dynamic_options": "Exactly ONE approve-option comes per run from the run state's slug_candidate — derived from the adopted Thesis, existing only after adoption (story 1.72 AC4), ordinary vocabulary and never a machine identity (SPEC-terrain §12.2's repair kept by the v9 route). The owner's free-form override IS the approved slug when given (lowercase-and-hyphens; the runtime's grammar refusal covers a malformed one). fork:false: one candidate plus an override is an approval, not a fork, and no recommendation is attached beyond the single derivation itself, which the option's label discloses. With no answer the mint never runs and nothing exists under briefs/ (story 1.72 AC6)."
     }
   ]
 }
