@@ -23,6 +23,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep } from "./brief/compose.mjs";
+import { assembleSelection, adoptCandidate } from "./brief/assemble.mjs";
+import { REVIEW_AREAS } from "./brief/review.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const fails = [];
@@ -135,6 +137,90 @@ try {
   if (r1.status !== 0) fails.push(`(d) fill exited ${r1.status}: ${(r1.stderr || "").trim()}`);
   if (!/DISCLOSED/.test(r1.stdout || "")) fails.push("(d) the command did not disclose the unplaced Strand in its own output");
   if (readFileSync(briefPath, "utf8") !== doc2) fails.push("(d) the command's document differs from the exported fill's — two producers");
+  // ---- story 1.75 (kogaki#491): Candidate assembly and the selection
+  // gate's payload, cases added to THIS member because §6 registers no new
+  // check — the surface is the same composition pipeline's plumbing. ----
+  const mkReview = () => Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for ${a}`]));
+  const mkCand = (id, exp, steps) => ({
+    candidate_id: id, reader_experience: exp, steps,
+    review: mkReview(),
+    reasoning: {
+      step_validity: `${id}: each step's grounds were traced`,
+      transition_continuity: `${id}: each after-state feeds the next before-state`,
+      thesis_closure: `${id}: the claim is established by the final step`,
+    },
+    coverage: { L2: { role_in_thesis: "states the claim" }, L1: { role_in_thesis: "carries the case" } },
+    obligations: [{ text: "the case's generality is asserted", introduced_by: steps[steps.length - 1].step_id }],
+  });
+  const candA = mkCand("cand-1", "claim first, then the case", [step1, step2]);
+  const candB = mkCand("cand-2", "the case first, claim emerging from it", [
+    { ...step1, step_id: "t1", materials: ["L1"], grounds: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" }] },
+    { ...step2, step_id: "t2", move: undefined, materials: ["L2"], depends_on: ["t1"],
+      grounds: [{ type: "step_effect", step: "t1", proposition: "t1 leaves the case seen, which the claim generalizes" }], entailed: undefined, entailment_reasoning: undefined },
+  ]);
+  candB.obligations = [{ text: "the claim's scope beyond the case", introduced_by: "t2" }];
+
+  // (e) ASSEMBLY: 2-3 Candidates differing in reader experience; the count
+  // and the difference are the contract; the payload rides the record shape
+  // with per-Candidate evidence and the first-class negation.
+  const one = assembleSelection({ candidates: [candA] }, doc0);
+  if (!one.error || !/1 Candidate/.test(one.error)) fails.push("(e) a single Candidate was presented — a default in disguise (§6: two to three)");
+  const four = assembleSelection({ candidates: [candA, candB, mkCand("cand-3", "x3", [step1]), mkCand("cand-4", "x4", [step1])] }, doc0);
+  if (!four.error || !/4 Candidate/.test(four.error)) fails.push("(e) four Candidates were presented — the selector overruns");
+  const same = assembleSelection({ candidates: [candA, { ...candB, reader_experience: candA.reader_experience }] }, doc0);
+  if (!same.error || !/SAME reader experience/.test(same.error)) fails.push("(e) two Candidates with one reader experience were presented as two (§6: differing in reader experience)");
+  const noReas = JSON.parse(JSON.stringify(candB)); delete noReas.reasoning.thesis_closure;
+  const nr = assembleSelection({ candidates: [candA, noReas] }, doc0);
+  if (!nr.error || !/thesis_closure/.test(nr.error)) fails.push("(e) a Candidate without its composition-time reasoning was presentable — the evidence is the contract (§6)");
+  const noRev = JSON.parse(JSON.stringify(candB)); delete noRev.review.grounds_test;
+  const nv = assembleSelection({ candidates: [candA, noRev] }, doc0);
+  if (!nv.error || !/unreviewed/.test(nv.error)) fails.push("(e) an unreviewed Candidate was presentable at the selection gate");
+  const ok = assembleSelection({ candidates: [candA, candB] }, doc0);
+  if (ok.error) fails.push(`(e) a conforming Candidate set was refused: ${ok.error}`);
+  const pay = ok.payload || {};
+  for (const f of ["where", "why", "label", "options", "free_text"]) if (!(f in pay)) fails.push(`(e) the payload lacks record field ${JSON.stringify(f)} — Candidates ride the proposal-contract shape (§6)`);
+  const negOpt = (pay.options || []).find((o) => o.negates_premise === true);
+  if (!negOpt) fails.push("(e) no option flagged negates_premise — the premise's negation is first-class (§6)");
+  else if (!/Thesis or the selected set/.test(negOpt.label)) fails.push("(e) the negation option does not state the premise it negates");
+  if (pay.free_text?.accepted !== true) fails.push("(e) the free-text channel is not unconditionally accepted");
+  if (!/does not discharge/.test(pay.free_text?.prompt || "")) fails.push("(e) the free-text prompt does not state that it leaves the negation undischarged");
+  for (const o of (pay.options || []).filter((x) => !x.negates_premise)) {
+    for (const f of ["step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count"]) {
+      if (typeof o.evidence?.[f] !== "string") fails.push(`(e) option ${o.id} carries no ${f} evidence — the five composition-time items ride each Candidate (§6)`);
+    }
+    if (!/Adopt .+ becomes the Brief's sequence/.test(o.label)) fails.push(`(e) option ${o.id}'s label does not state its effect (proposal-contract §2.2)`);
+    if (typeof o.evidence?.review !== "object") fails.push(`(e) option ${o.id} does not carry the path-review reasoning`);
+  }
+  // candB places only L1+L2 across two steps; candA the same — per-candidate
+  // placement counts must come from each Candidate's OWN steps.
+  const oneStrand = assembleSelection({ candidates: [mkCand("cand-5", "only the claim, no case", [step1]), candB] }, doc0);
+  const opt5 = (oneStrand.payload?.options || []).find((o) => o.id === "cand-5");
+  if (!opt5 || !/1 of 2/.test(opt5.evidence.placement_count)) fails.push("(e) a Candidate placing one of two Strands does not carry '1 of 2' — the count is per Candidate, from its own steps");
+
+  // (f) ADOPTION: the adopted Candidate's Reader Path lands in the Brief's
+  // sequence; thesis_closure and tradeoffs fill from its reasoning (§5.1).
+  const ad = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2");
+  if (ad.error) fails.push(`(f) adopting a reviewed Candidate was refused: ${ad.error}`);
+  const doc3 = ad.doc || "";
+  if (!/```step\nstep_id: t1/.test(doc3)) fails.push("(f) the adopted Candidate's Reader Path did not land in the Brief's sequence");
+  if (/```step\nstep_id: s1/.test(doc3)) fails.push("(f) a DECLINED Candidate's steps landed in the Brief");
+  if (!/## Thesis closure\n\ncand-2: the claim is established by the final step/.test(doc3)) fails.push("(f) thesis_closure did not fill from the adopted Candidate's reasoning");
+  if (!/established_by_steps: t1, t2/.test(doc3)) fails.push("(f) thesis_closure does not carry established_by_steps");
+  if (/## Tradeoffs\n\n\*\(awaiting composition\)\*/.test(doc3)) fails.push("(f) tradeoffs is still an unfilled slot after adoption");
+  const noSuch = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-9");
+  if (!noSuch.error || !/not in the reviewed set/.test(noSuch.error)) fails.push("(f) adopting a Candidate the gate never offered was accepted");
+
+  // (g) COMMAND PATHS agree with the exported functions.
+  const rvf = join(dir, "reviewed.json"); const ouf = join(dir, "payload.json");
+  writeFileSync(rvf, JSON.stringify({ candidates: [candA, candB] }));
+  const bp2 = join(dir, "brief-adopt.md"); writeFileSync(bp2, doc0);
+  const p1 = spawnSync(process.execPath, ["brief/assemble.mjs", "assemble", "--reviewed", rvf, "--brief", briefPath, "--out", ouf], { encoding: "utf8" });
+  if (p1.status !== 0) fails.push(`(g) assemble exited ${p1.status}: ${(p1.stderr || "").trim()}`);
+  else if (JSON.stringify(JSON.parse(readFileSync(ouf, "utf8"))) !== JSON.stringify(pay)) fails.push("(g) the command's payload differs from the exported function's — two producers");
+  if (!/never a verdict/.test(p1.stdout || "")) fails.push("(g) assemble does not state the no-verdict property in its own output");
+  const p2 = spawnSync(process.execPath, ["brief/assemble.mjs", "adopt-candidate", "--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2"], { encoding: "utf8" });
+  if (p2.status !== 0) fails.push(`(g) adopt-candidate exited ${p2.status}: ${(p2.stderr || "").trim()}`);
+  else if (readFileSync(bp2, "utf8") !== doc3) fails.push("(g) the command's adopted document differs from the exported function's — two producers");
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
@@ -144,7 +230,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief compose: 4/4 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 7/7 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "Move optional both ways; (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -152,13 +238,27 @@ console.log("brief compose: 4/4 cases — (a) §4.1 Step shape refused per missi
   + "refusing overwrite; (c) the placement count runs AFTER composition counted in placements "
   + "— a declared cover is not believed, an unplaced Strand DISCLOSES and never refuses, a "
   + "foreign L-id refuses as a Brief fetch; (d) the command path is byte-equal to the "
-  + "exported fill. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.73): THREE mutations, each run once "
-  + "and restored surgically — dropping the rationale requirement from validateSteps failed "
-  + "(a)'s field refusal; counting placements from the DECLARED coverage instead of the steps "
-  + "failed (c)'s 1-of-2 assertion; dropping the UNPLACED disclosure branch failed (c)'s "
-  + "disclosure assertion. NOT COVERED, stated rather than implied: every composition MUST is "
-  + "judgment-class (§4.6) — grounds-test soundness, entailment quality, Move-binding order — "
-  + "judged at path review (story 1.74) and its human gate, never here; this member exercises "
-  + "record shape and fill plumbing only.");
+  + "exported fill; (e) Candidate assembly refuses one or four Candidates and a duplicated "
+  + "reader experience, and the payload rides the proposal-contract shape — where/why, "
+  + "effect-stating labels, the first-class none-of-these flagged negates_premise, an "
+  + "unconditional free-text channel that states it does not discharge the negation, and "
+  + "per-Candidate evidence carrying step validity, transition continuity, Thesis closure, "
+  + "the ledger's state and the placement count from each Candidate's OWN steps; (f) the "
+  + "adopted Candidate's Reader Path lands in the Brief's sequence with thesis_closure and "
+  + "tradeoffs filled from its reasoning, a declined Candidate lands nowhere, and an "
+  + "unoffered Candidate refuses; (g) both assemble and adopt-candidate command paths are "
+  + "byte-equal to the exported functions. "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75): SIX mutations, each "
+  + "run once and restored surgically — story 1.73's three: dropping the rationale "
+  + "requirement from validateSteps failed (a)'s field refusal; counting placements from the "
+  + "DECLARED coverage instead of the steps failed (c)'s 1-of-2 assertion; dropping the "
+  + "UNPLACED disclosure branch failed (c)'s disclosure assertion. Story 1.75's three: "
+  + "dropping the 2-3 count guard failed (e)'s single-Candidate refusal; dropping the "
+  + "negation option failed (e)'s negates_premise assertion; skipping the thesis_closure "
+  + "fill at adoption failed (f). NOT COVERED, stated rather than implied: every composition "
+  + "MUST is judgment-class (§4.6) — grounds-test soundness, entailment quality, "
+  + "Move-binding order, and whether the surfaced evidence is ADEQUATE evidence — judged at "
+  + "path review (story 1.74) and the human gate, never here; this member exercises record "
+  + "shape, fill and gate-payload plumbing only, and the selection gate itself is raised by "
+  + "the sitting through AskUserQuestion, a relay property no check can run.");
 JS

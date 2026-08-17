@@ -144,7 +144,10 @@ export function placements(steps, strandIds) {
   return used;
 }
 
-function replaceSlot(doc, heading, body) {
+// Exported for the adoption writer (story 1.75): thesis_closure and
+// tradeoffs fill through the same one slot-replacer, so a filled field
+// refuses overwrite everywhere for the same reason.
+export function replaceSlot(doc, heading, body) {
   const re = new RegExp(`## ${heading}\\n\\n\\*\\(awaiting composition\\)\\*`);
   if (!re.test(doc)) {
     return { error: `the Brief's "${heading}" section is not a typed unfilled slot — `
