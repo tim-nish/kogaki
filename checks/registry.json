@@ -241,6 +241,21 @@
         "efficacy": "case: checks/check-brief-compose.sh::MUTATION EVIDENCE (assert-by-breaking-once, story 1.73)",
         "efficacy_note": "three mutations performed and restored surgically \u2014 the rationale requirement dropped from validateSteps, the placement count re-pointed at the DECLARED coverage (the exact defect \u00a75.2's count-after-composition rider names), and the UNPLACED disclosure branch dropped \u2014 each failing its own case in one run; the pass line names all three so the evidence is read from the output"
       }
+    },
+    {
+      "id": "brief-review",
+      "file": "check-brief-review.sh",
+      "admission": {
+        "contract": "the path-review ATTACH plumbing (SPEC-draft-pipeline \u00a74.6, story 1.74) \u2014 the carrier that makes the judgment-class review ridable and its absence or corruption unridable: (a) per-Candidate reasoning attaches and rides each Candidate with every \u00a7\u00a74.4-4.8 area present (grounds_test, entailment, prohibitions, semantic_economy, arc_integrity, evaluation_levels); (b) an unreviewed Candidate REFUSES BY NAME and a missing area refuses \u2014 review runs machine-side PER CANDIDATE (kogaki#490's bound: N Candidates never multiply owner questions) and an unjudged Candidate cannot reach the selection gate as if judged; (c) a VERDICT IS UNATTACHABLE \u2014 verdict-shaped keys (verdict/pass/score and kin) refused by name, non-string values refused as verdicts wearing a type (\u00a74.6 clause 3: no rule becomes a lint, even where deterministic processing is possible); (d) the command path byte-equal to the exported function, the no-verdict property stated in the command's own output. THE MEMBER'S SCOPE IS DECLARED IN ITS OWN OUTPUT on every run, pass included: the reasoning's soundness is judgment-class and belongs to the human gate \u2014 this member exercises plumbing only, never the judgment (\u00a74.6; the agent contract is brief/path-review-agent.md, which no check judges).",
+        "license": "kogaki#490 (story 1.74), under SPEC-draft-pipeline \u00a74.6",
+        "tier": "pre-push",
+        "runtime_ms": 70,
+        "runtime_ms_note": "measured at admission (story 1.74): 0.06/0.07/0.07 s over three consecutive local runs \u2014 one subprocess invocation plus in-process attach calls, no seam, no network. CI measures the same: every input is authored inline in the check.",
+        "removal_signal": "the same end-to-end composition-sitting coverage brief-compose names \u2014 a registered member exercising compose \u2192 review \u2192 assemble \u2192 adopt over a real Brief subsumes (a)/(d); the refusal cases (b)-(c) retire only with \u00a74.6's own clauses, because they are the clause's carrier rather than a projection of it",
+        "removal_instrument": "act: the PR that lands the end-to-end composition-sitting coverage \u2014 the same act brief-compose's instrument names, owing both members' removal rows in one sitting",
+        "efficacy": "case: checks/check-brief-review.sh::MUTATION EVIDENCE (assert-by-breaking-once, story 1.74)",
+        "efficacy_note": "two mutations performed and restored surgically \u2014 the per-candidate completeness guard dropped (an unreviewed Candidate rode forward as if reviewed, the exact defect (b) exists for) and the verdict-key scan dropped (a verdict attached, the exact \u00a74.6 clause-3 defect) \u2014 each failing its own case in one run; the pass line names both"
+      }
     }
   ]
 }
