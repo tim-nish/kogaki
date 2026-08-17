@@ -34,9 +34,16 @@ refusal is relayed as it stands, never swallowed.
    member headings. **Group/SubGroup ids (`G1`, `G1-1`) are not the input**
    and the runtime refuses them by name: they are per-report-identity tokens,
    at most how the owner *found* the members on the report.
-2. **Ask the owner for a slug** — ordinary vocabulary, lowercase-and-hyphens,
-   the name they will enumerate `briefs/` by. Never derive one from a machine
-   identity.
+2. **Ask the owner for a slug — a gate the run BLOCKS on** (kogaki#487).
+   Raise the ask through AskUserQuestion with the declaration line
+   `gate: mechanical` in the question text, a free-form answer always
+   offered. Options may propose candidates in ordinary vocabulary,
+   lowercase-and-hyphens — the name the owner will enumerate `briefs/` by —
+   but the adopted slug is **the owner's recorded answer and nothing else**.
+   A denied or unanswered ask stops the flow right here. Never derive a slug
+   from a machine identity, the Lessons' theme, or anything the owner did
+   not answer: §5.3's slug is owner-chosen at entry, so a mint that precedes
+   the answer is machine-chosen by construction.
 3. **Mint** —
    `node brief/brief.mjs start --survey <survey record> --ids L…,L… --slug <slug>`.
    **The survey record is the machine-local run-workspace JSON the Terrain
@@ -63,6 +70,11 @@ refusal is relayed as it stands, never swallowed.
   describe-never-generate all assume the material set is fixed).
 - **The Thesis is never invented at entry** — composition determines it from
   the settled set (§3).
+- **No filesystem write before the owner's slug answer** (kogaki#487). The
+  mint — and any write under `briefs/`, `mkdir` included — happens only
+  after the owner's recorded answer to the step-2 gate exists. The observed
+  failure this line repairs: `briefs/derived-artifacts/` was minted under a
+  session-derived slug while the slug question was still pending in the UI.
 - **`briefs/` holds Briefs and nothing else** — the durable home §5.3
   declares: a directory per Brief, tracked in the repository, the one
   product class this pipeline adds to the tree.
