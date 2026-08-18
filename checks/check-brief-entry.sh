@@ -13,11 +13,12 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, mkdtempSync, existsSync, readdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { composeBrief, resolveStrandIds, composeThesisCandidates, deriveSlugCandidate } from "./brief/brief.mjs";
+import { journeyBearingStrands, fillBrief } from "./brief/compose.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const record = JSON.parse(readFileSync(SURVEY, "utf8"));
@@ -176,6 +177,52 @@ try {
   if (JSON.stringify(viaExport) !== JSON.stringify(st1.thesis_candidates)) {
     fails.push("(j) the command's thesis candidates differ from the exported composer's — two producers");
   }
+
+  // (k) THE UNCITED JOURNEY RENDERS DIFFERENTLY FROM A CITED ONE (kogaki#507).
+  // A Journey with a served cite and a Journey with none are different facts.
+  // Rendering them on one line with only the value differing made an absence
+  // indistinguishable from a presence to EVERY reader of the marker — the
+  // defect kogaki#507 reports, whose fix belongs in this projection rather
+  // than in each reader (consulted: product-lab@8906f207 LESSONS.md:57).
+  // Driven through a DERIVED survey so the shared fixture other checks read
+  // is untouched: L2's journey keeps its slug and loses its cite, which is
+  // the state terrain tallies as an abnormality (`c.journey && !jg`).
+  {
+    const derived = JSON.parse(JSON.stringify(record));
+    const l2 = derived.candidates.find((c) => c.display_id === "L2");
+    delete l2.journey.cite;
+    const dsurvey = join(dir, "uncited-journey.json");
+    writeFileSync(dsurvey, JSON.stringify(derived));
+    const ds = rs("uncited");
+    const e = spawnSync(process.execPath, ["brief/brief.mjs", "enter", "--survey", dsurvey, "--ids", "L2,L1", "--run-state", ds], { encoding: "utf8" });
+    if (e.status !== 0) fails.push(`(k) enter over the derived survey exited ${e.status}: ${(e.stderr || "").trim()}`);
+    const a = spawnSync(process.execPath, ["brief/brief.mjs", "adopt", "--run-state", ds, "--thesis", "thesis-1"], { encoding: "utf8" });
+    if (a.status !== 0) fails.push(`(k) adopt over the derived survey exited ${a.status}: ${(a.stderr || "").trim()}`);
+    const st = JSON.parse(readFileSync(ds, "utf8"));
+    const m = spawnSync(process.execPath, ["brief/brief.mjs", "mint", "--run-state", ds, "--slug", "uncited-case", "--briefs-dir", briefs], { encoding: "utf8" });
+    if (m.status !== 0) fails.push(`(k) mint over the derived survey exited ${m.status}: ${(m.stderr || "").trim()}`);
+    const doc = readFileSync(join(briefs, "uncited-case", "brief.md"), "utf8");
+
+    // The absence is DISCLOSED — never silently dropped.
+    if (!/PRESENT WITH NO SERVED CITE/.test(doc))
+      fails.push("(k) a Journey with no served cite is not disclosed — the composition sitting is owed the abnormality, not silence");
+    // …and it does NOT wear the cited marker, which is the whole repair.
+    if (/^- journey cite:/m.test(doc))
+      fails.push("(k) an uncited Journey still renders the `- journey cite:` marker — an absence rendered identically to a presence, which is the defect kogaki#507 names");
+    // The reader is then correct WITHOUT a predicate of its own.
+    if (JSON.stringify(journeyBearingStrands(doc)) !== "[]")
+      fails.push(`(k) journeyBearingStrands counts an uncited Journey: ${JSON.stringify(journeyBearingStrands(doc))} — the projection fix must make the reader correct by construction`);
+    // And §6.1's refusal now fires for it, which is what kogaki#507 was filed for.
+    const bad = fillBrief(doc, { steps: [{
+      step_id: "s1", materials: ["L2.journey"], purpose: "p",
+      reader_state_before: "b", reader_state_after: "a", depends_on: [],
+      rationale: "r", grounds: [{ type: "strand", strand: "L2", proposition: "x" }],
+    }] });
+    if (!bad.error || !/carries none/.test(bad.error))
+      fails.push("(k) the §4.4 carries-none refusal still does not fire for an uncited Journey — the guard is absent in the case it is named for");
+    if (st.slug_candidate === undefined) fails.push("(k) the derived run produced no slug candidate");
+  }
+
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
@@ -185,7 +232,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief entry: 10/10 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
+console.log("brief entry: 11/11 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
   + "state is machine-local, §5.3 v9); (b) 2-3 Thesis candidates composed from the settled "
   + "set only, each with its round-trip concession; (c) the ask carries its gate declaration "
   + "with the premise's negation first-class, routing back through Terrain; (d) no slug "
@@ -195,15 +242,26 @@ console.log("brief entry: 10/10 cases — (a) entry writes NOTHING under briefs/
   + "field is a typed unfilled slot, with the command path byte-equal to the exported "
   + "composer; (g) an unknown id refuses naming both sides; (h) a G-id refuses by name "
   + "pointing at L<n>; (i) a slug collision refuses without mutating the existing Brief; "
-  + "(j) a free-form Thesis is taken verbatim and the slug follows it. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72): NINE "
+  + "(j) a free-form Thesis is taken verbatim and the slug follows it; (k) A JOURNEY WITH NO "
+  + "SERVED CITE RENDERS DIFFERENTLY FROM A CITED ONE (kogaki#507), driven end to end through a "
+  + "DERIVED survey so the shared fixture is untouched: the absence is DISCLOSED rather than "
+  + "dropped, it does NOT wear the `- journey cite:` marker, journeyBearingStrands is then correct "
+  + "WITH NO PREDICATE OF ITS OWN, and \u00a74.4's carries-none refusal fires for it \u2014 the case "
+  + "kogaki#507 was filed for. "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507)"
+  + ": ELEVEN "
   + "mutations, each run once and restored surgically — story 1.72's six: minting the home "
   + "at enter failed (a); composing a candidate from a hardcoded foreign phrase failed (b)'s "
   + "set-only assertion; dropping the negates_premise option failed (c); deriving the slug at "
   + "enter failed (d)'s none-before-adoption; removing mint's adopted-thesis guard failed (e); "
   + "rendering Thesis as a slot failed (f)'s filled-by-construction; plus story 1.71's three "
   + "refusal-path mutations (missing-id filter emptied, G-id filter emptied, collision guard "
-  + "disabled) failing (g)-(i). NOT COVERED, stated rather than implied: the skill's ask "
+  + "disabled) failing (g)-(i); plus kogaki#507's two: rendering the CITED marker for an uncited "
+  + "Journey \u2014 the pre-fix behaviour \u2014 failed (k)'s marker assertion AND its reader "
+  + "assertion, which is the direct evidence that the PROJECTION is what makes the reader correct "
+  + "rather than a predicate added to the reader; and dropping the disclosure entirely failed (k)'s "
+  + "disclosure assertion, so the absence cannot be repaired by silence. "
+  + "NOT COVERED, stated rather than implied: the skill's ask "
   + "conduct — that AskUserQuestion is actually raised and blocked on — is a relay property "
   + "no check can run (the same standing SPEC-terrain §14.4's prohibitions have); the check "
   + "drives the runtime's refusals, which make an unanswered gate UNMINTABLE rather than "

@@ -118,7 +118,33 @@ export function composeBrief({ slug, pin, strands, thesis }) {
       // (§5.3) — a cite the record holds and the document drops sends the
       // composition sitting back to the run workspace, which is what a
       // durable Brief exists to avoid (PR #484 round 1 finding 5).
-      say(`- journey cite: \`${s.journey.cite ?? "none recorded"}\``);
+      //
+      // THE TWO STATES RENDER DIFFERENTLY, AND THAT IS THE POINT (kogaki#507).
+      // A Journey with a served cite and a Journey with none are different
+      // facts, and rendering them on the same line with only the value
+      // differing made an absence indistinguishable from a presence to every
+      // reader of the marker. That is not a reader's bug to fix one at a
+      // time: this line is the PROJECTION the readers share, so the
+      // distinction belongs here.
+      //
+      //   "a carrier owes an enumerated READER set rather than only a write
+      //    contract, and where the readers share a projection the obligation
+      //    belongs in the projection, because a per-reader fix repairs one
+      //    reader and leaves the count unchanged."
+      //
+      // consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:57
+      //
+      // The uncited state is DISCLOSED rather than dropped: terrain tallies it
+      // as an abnormality (`terrain.mjs`: `c.journey && !jg`), so a
+      // composition sitting is owed the fact that a Journey exists whose cite
+      // the served record does not carry.
+      if (s.journey.cite) {
+        say(`- journey cite: \`${s.journey.cite}\``);
+      } else {
+        say("- journey: PRESENT WITH NO SERVED CITE — abnormal; this Strand's Journey");
+        say("  material cannot be cited at the pin, so it is not composable material");
+        say("  (§6.1 MUST 2). Disclosed rather than dropped.");
+      }
     }
     say();
   }
