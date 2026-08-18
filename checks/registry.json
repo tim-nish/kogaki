@@ -238,7 +238,7 @@
         "runtime_ms_note": "measured at story 1.75's extension: 0.22/0.23/0.22 s over three consecutive local runs \u2014 six subprocess invocations (the three-command mint, one fill, one assemble, one adopt) plus in-process calls, no seam, no network. CI measures the same: every input is committed or authored inline in the check.",
         "removal_signal": "the live composition workflow gaining end-to-end coverage of its own \u2014 a registered member exercising a full composition sitting (compose \u2192 review \u2192 assemble \u2192 adopt) over a real Brief, at which point the fill and count assertions here are exercised by every downstream run and (b)-(d) are subsumed; the shape refusals of (a) retire only with \u00a74.1's own field list",
         "removal_instrument": "act: the PR that lands the end-to-end composition-sitting coverage \u2014 subsumption is a judgment over what that member exercises, not a tree probe, and that PR's licensing issue owes the removal row for (b)-(d)",
-        "efficacy": "case: checks/check-brief-compose.sh::MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75)",
+        "efficacy": "case: checks/check-brief-compose.sh::MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + kogaki#501)",
         "efficacy_note": "six mutations performed and restored surgically \u2014 story 1.73's three (rationale requirement dropped; placement count re-pointed at the DECLARED coverage; UNPLACED disclosure branch dropped) and story 1.75's three (the 2-3 count guard dropped; the negates_premise option dropped; the thesis_closure fill skipped at adoption) \u2014 each failing its own case in one run; the pass line names all six so the evidence is read from the output"
       }
     },
