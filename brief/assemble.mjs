@@ -20,7 +20,11 @@
 //     EVIDENCE the composition-time reasoning — step validity, transition
 //     continuity, Thesis closure, the obligations ledger's state, and the
 //     Strand placement count. Reasoning surfaced for the owner, never an
-//     automated verdict (§6).
+//     automated verdict (§6). THE OWNER-FACING HALF OF THAT PAYLOAD IS ITS
+//     `rendering` (kogaki#520): each evidence item under one plain label,
+//     the internal keys kept in `evidence` as the record and shown to
+//     nobody — with a deny tripwire refusing any rendering that carries
+//     spec-internal vocabulary anyway.
 //   adopt-candidate — the owner's recorded answer: the adopted Candidate's
 //     Reader Path lands in the Brief's sequence (through the same §4.1
 //     fill the composition runtime owns), and thesis_closure and tradeoffs
@@ -41,6 +45,85 @@ function fail(msg) {
 // review areas the attach already guaranteed. The three levels are §4.6's
 // — observed, never scored — and the composer records them per Candidate.
 const REASONING_FIELDS = ["step_validity", "transition_continuity", "thesis_closure"];
+
+// THE OWNER READS THE GATE, NOT THE SPEC (kogaki#520). Every evidence item
+// keeps its internal key in the payload — that is the record, and the record
+// is machine-local — and renders under exactly ONE plain-register label. The
+// key name has no rendering path at all: `rendering` below is the whole
+// owner-facing surface, and it carries labels and prose, never key names.
+// One label per key, in the order the owner reads them.
+export const EVIDENCE_LABELS = [
+  ["step_validity", "Does each step stand on the material it cites?"],
+  ["transition_continuity", "Does each step leave the reader where the next one starts?"],
+  ["thesis_closure", "Does the path close the claim?"],
+  ["obligations_ledger", "What does this path still owe the reader?"],
+  ["placement_count", "How much of the settled material does this path use?"],
+  ["journey_coverage", "How much of the selected Journey material does this path use?"],
+];
+
+// The path-review reasoning rides the same gate and is read by the same
+// owner, so it renders under plain labels on the same rule. The areas are
+// brief/review.mjs's REVIEW_AREAS; the labels are theirs here because this
+// file owns the gate's rendering.
+export const REVIEW_LABELS = {
+  grounds_test: "Does each step's reason survive without its Move name?",
+  entailment: "What does the path claim follows from what, and does it?",
+  prohibitions: "Does anything here go beyond what the material says?",
+  semantic_economy: "Is the wording the composer's own, or mechanized?",
+  arc_integrity: "Does the story still hold together in this order?",
+  evaluation_levels: "What was observed about the path as a whole?",
+};
+
+// Spec-internal vocabulary, refused wherever it would reach the owner —
+// modelled on brief/review.mjs's verdict-shaped-key refusal, and a DENY for
+// the same reason: a layer that rewrote the leak would let the leak keep
+// being written, and the next term of art would arrive unlabelled. Two
+// shapes are refused, both mechanical, neither a judgment about prose:
+//   * an internal identifier — `thesis_closure` and every snake_case
+//     sibling: the payload's own keys, the record's field names, anything
+//     shaped like a name only this codebase uses;
+//   * a section reference — `§6.1` and kin: a pointer into a spec the owner
+//     does not hold.
+// This judges no composition MUST (§4.6 clause 3 stands): it reads the
+// REGISTER of the gate's rendering, never whether the reasoning is good.
+const INTERNAL_IDENTIFIER = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
+const SECTION_REFERENCE = /§\s*\d/;
+
+// Pure; exported for the check. Returns { error } naming what leaked and
+// where, or {} when the rendering is clean.
+export function denyInternalVocabulary(payload) {
+  const surfaces = [
+    ["the ask's where", payload.where],
+    ["the ask's why", payload.why],
+    ["the ask's label", payload.label],
+    ["the free-text prompt", payload.free_text?.prompt],
+  ];
+  for (const o of payload.options || []) {
+    surfaces.push([`option ${o.id}'s label`, o.label]);
+    for (const item of o.rendering || []) {
+      surfaces.push([`option ${o.id}'s evidence label "${item.label}"`, item.label]);
+      surfaces.push([`the evidence under "${item.label}" on option ${o.id}`, item.text]);
+    }
+  }
+  for (const [where, text] of surfaces) {
+    if (typeof text !== "string") continue;
+    const id = text.match(INTERNAL_IDENTIFIER);
+    if (id) {
+      return { error: `gate rendering leaks spec-internal vocabulary: ${JSON.stringify(id[0])} `
+        + `in ${where}. The owner reads this rendering and holds none of this codebase's `
+        + `names — internal keys stay in the payload's record and have no rendering path `
+        + `(kogaki#520). This REFUSES rather than rewrites: a rewrite layer would let the `
+        + `leak keep being written` };
+    }
+    const sec = text.match(SECTION_REFERENCE);
+    if (sec) {
+      return { error: `gate rendering leaks spec-internal vocabulary: the section reference `
+        + `${JSON.stringify(sec[0])} in ${where}. A pointer into a spec the owner does not `
+        + `hold is a term of art (kogaki#520). This REFUSES rather than rewrites` };
+    }
+  }
+  return {};
+}
 
 // The obligations ledger's state and the placement count are PER-CANDIDATE
 // composition-time values: at assembly the Brief is pre-adoption (its
@@ -64,10 +147,10 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   return {
     obligations_ledger: obligations.length === 0
       ? "the ledger is empty — a statement, not an omission"
-      : `${obligations.length} entr${obligations.length === 1 ? "y" : "ies"}, ${undischarged} UNDISCHARGED (disclosed, never refused — §5.2)`,
+      : `${obligations.length} entr${obligations.length === 1 ? "y" : "ies"}, ${undischarged} UNDISCHARGED — disclosed here, never a refusal`,
     placement_count: `${placed.length} of ${strandIds.length} selected Strand(s) placed, counted in placements after this Candidate's composition${placed.length < strandIds.length ? " — the unplaced disclose at adoption" : ""}`,
     journey_coverage: journeyIds.length === 0
-      ? "no selected Strand carries Journey material — §6.1's MUSTs are vacuous for this Brief, not unmet"
+      ? "no selected Strand carries Journey material — nothing to place for this Brief, and nothing missing"
       : `${jplaced.length} of ${journeyIds.length} Journey-bearing Strand(s) placed by this Candidate`
         + `${jplaced.length < journeyIds.length ? ` — OMITTED and disclosed: ${journeyIds.filter((id) => jplace.get(id).length === 0).join(", ")}` : ""}`,
   };
@@ -119,7 +202,9 @@ export function assembleSelection(reviewed, doc) {
     // differ by.
     label: `Adopt ${c.candidate_id} — its Reader Path becomes the Brief's sequence; the reader's experience: ${c.reader_experience}`,
     // THE EVIDENCE AT THE GATE (§6): composition-time reasoning, surfaced
-    // for the owner — never an automated verdict.
+    // for the owner — never an automated verdict. THIS OBJECT IS THE RECORD,
+    // not the rendering: it keeps the internal keys, it stays in the
+    // machine-local payload, and nothing shows it to the owner (kogaki#520).
     evidence: {
       step_validity: c.reasoning.step_validity,
       transition_continuity: c.reasoning.transition_continuity,
@@ -129,6 +214,16 @@ export function assembleSelection(reviewed, doc) {
       journey_coverage: ev.journey_coverage,
       review: c.review,
     },
+    // THE RENDERING (kogaki#520): the same evidence, in the same order,
+    // under one plain label each — and this is the ONLY surface the gate
+    // shows. Same items, same prose; the key names are simply not here.
+    rendering: [
+      ...EVIDENCE_LABELS.map(([key, label]) => ({
+        label,
+        text: key in ev ? ev[key] : c.reasoning[key],
+      })),
+      ...REVIEW_AREAS.map((area) => ({ label: REVIEW_LABELS[area], text: c.review[area] })),
+    ],
   }); });
   options.push({
     id: "none-of-these",
@@ -139,15 +234,22 @@ export function assembleSelection(reviewed, doc) {
     label: "None of these — the Thesis or the selected set is what should change; no Reader Path lands in the Brief",
     negates_premise: true,
   });
-  return { payload: {
+  const payload = {
     id: "brief-candidate-selection-payload",
     kind: "proposal",
     where: "the Brief's sequence — which composed Reader Path the article follows",
-    why: "the machine's premise, rendered: the adopted Thesis and the settled Strand set support a composed structure — the Candidates below differ in reader experience and each carries its composition-time reasoning as evidence (§6)",
-    label: "Adopting a Candidate writes its Reader Path into the Brief's sequence and fills thesis_closure and tradeoffs from its reasoning",
+    why: "the machine's premise, rendered: the adopted Thesis and the settled Strand set support a composed structure — the Candidates below differ in reader experience and each carries the reasoning it was composed with as evidence",
+    label: "Adopting a Candidate writes its Reader Path into the Brief's sequence and fills the Brief's closing sections — how the path closes the claim, and what it traded away — from its reasoning",
     options,
     free_text: { accepted: true, prompt: "Or say in your own words what should happen instead — a free-text answer is recorded as your ruling, and it does not discharge the none-of-these option." },
-  } };
+  };
+  // THE TRIPWIRE, LAST: the rendering the owner will read is checked for
+  // spec-internal vocabulary before it can be presented. It does not stand
+  // in for the plain labels above — it is what catches the NEXT term of art
+  // that finds a rendering path (kogaki#520).
+  const leak = denyInternalVocabulary(payload);
+  if (leak.error) return leak;
+  return { payload };
 }
 
 // The adopted Candidate's Reader Path lands in the Brief (§5.1): sequence

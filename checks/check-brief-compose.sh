@@ -24,7 +24,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements } from "./brief/compose.mjs";
-import { assembleSelection, adoptCandidate } from "./brief/assemble.mjs";
+import { assembleSelection, adoptCandidate, denyInternalVocabulary } from "./brief/assemble.mjs";
 import { REVIEW_AREAS } from "./brief/review.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -141,7 +141,9 @@ try {
   // ---- story 1.75 (kogaki#491): Candidate assembly and the selection
   // gate's payload, cases added to THIS member because §6 registers no new
   // check — the surface is the same composition pipeline's plumbing. ----
-  const mkReview = () => Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for ${a}`]));
+  // The fixture reasoning is itself in plain register: an area name pasted
+  // into its own prose would leak at the gate, which (j) refuses.
+  const mkReview = () => Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for the ${a.replace(/_/g, " ")} area`]));
   const mkCand = (id, exp, steps) => ({
     candidate_id: id, reader_experience: exp, steps,
     review: mkReview(),
@@ -272,6 +274,63 @@ try {
     if (/verdict|pass|score/i.test(o?.evidence?.journey_coverage || "")) fails.push("(i) journey_coverage reads as a verdict — §6.1 registers no check and §4.6 keeps every MUST un-linted");
   }
 
+  // (j) PLAIN-REGISTER RENDERING and its deny tripwire (kogaki#520): the
+  // owner reads `rendering` — one plain label per evidence item, the same
+  // prose the record carries — and the internal keys stay in `evidence`,
+  // which nothing shows. The tripwire REFUSES a rendering that carries
+  // spec-internal vocabulary anyway, naming what leaked; it never rewrites.
+  const INTERNAL = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
+  const plain = assembleSelection({ candidates: [candA, candB] }, doc0);
+  if (plain.error) fails.push(`(j) a plain-register Candidate set was refused: ${plain.error}`);
+  for (const o of (plain.payload?.options || []).filter((x) => !x.negates_premise)) {
+    const rend = o.rendering;
+    if (!Array.isArray(rend) || rend.length !== 6 + REVIEW_AREAS.length) {
+      fails.push(`(j) option ${o.id} carries no rendering of the expected size — one plain label per evidence item and per review area`);
+      continue;
+    }
+    for (const item of rend) {
+      if (typeof item.label !== "string" || item.label === "") fails.push(`(j) option ${o.id} has a rendering entry with no label — the label IS the owner-facing name`);
+      if (typeof item.text !== "string" || item.text === "") fails.push(`(j) option ${o.id} has a rendering entry with no text`);
+      if (INTERNAL.test(item.label || "")) fails.push(`(j) option ${o.id}'s rendering label reads an internal key: ${item.label}`);
+    }
+    // the labels are the SIX evidence items in order, each one distinct
+    if (new Set(rend.map((r) => r.label)).size !== rend.length) fails.push(`(j) option ${o.id}'s rendering reuses a label — one label per key (kogaki#520)`);
+    if (rend[2].label !== "Does the path close the claim?") fails.push(`(j) the Thesis-closure item does not render under its plain label`);
+    // the rendering is the RECORD's own prose, not a second source
+    if (rend[2].text !== o.evidence.thesis_closure) fails.push(`(j) option ${o.id}'s rendering restates the evidence instead of carrying it`);
+    // the internal keys survive IN THE RECORD
+    for (const k of ["step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count", "journey_coverage"]) {
+      if (typeof o.evidence?.[k] !== "string") fails.push(`(j) the record lost internal key ${k} — the keys stay in the payload, only the rendering changes`);
+    }
+  }
+  // no owner-facing string in the whole payload carries an internal key or a
+  // section reference — the ask's own fields included
+  const ownerFacing = [plain.payload?.where, plain.payload?.why, plain.payload?.label,
+    plain.payload?.free_text?.prompt,
+    ...(plain.payload?.options || []).flatMap((o) => [o.label, ...(o.rendering || []).flatMap((r) => [r.label, r.text])])];
+  for (const t of ownerFacing) {
+    if (typeof t === "string" && INTERNAL.test(t)) fails.push(`(j) an owner-facing string carries an internal key: ${JSON.stringify(t)}`);
+    if (typeof t === "string" && /§\s*\d/.test(t)) fails.push(`(j) an owner-facing string carries a section reference: ${JSON.stringify(t)}`);
+  }
+  // THE TRIPWIRE FIRES, and names what leaked
+  const leakCand = JSON.parse(JSON.stringify(candB));
+  leakCand.reasoning.thesis_closure = "the final step discharges thesis_closure for the reader";
+  const leaked = assembleSelection({ candidates: [candA, leakCand] }, doc0);
+  if (!leaked.error) fails.push("(j) a rendering carrying an internal key was presented to the owner — the tripwire did not fire");
+  else {
+    if (!/thesis_closure/.test(leaked.error)) fails.push("(j) the tripwire refused without NAMING what leaked");
+    if (leaked.payload) fails.push("(j) the tripwire produced a payload anyway — a deny, never a rewrite layer");
+  }
+  const secCand = JSON.parse(JSON.stringify(candB));
+  secCand.reasoning.step_validity = "each step's grounds were traced, as §4.4 requires";
+  const secLeak = assembleSelection({ candidates: [candA, secCand] }, doc0);
+  if (!secLeak.error || !/section reference/.test(secLeak.error)) fails.push("(j) a section reference reached the owner-facing rendering — the tripwire did not fire");
+  // the deny reads the RENDERING, not the record: it is not a lint on any
+  // composition MUST (§4.6 clause 3 stands) — a clean rendering passes with
+  // the internal keys still present in the record, asserted above.
+  const denyClean = denyInternalVocabulary(plain.payload || {});
+  if (denyClean.error) fails.push(`(j) the tripwire refused a clean rendering: ${denyClean.error}`);
+
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
@@ -281,7 +340,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief compose: 9/9 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 10/10 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "Move optional both ways; (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -305,8 +364,14 @@ console.log("brief compose: 9/9 cases — (a) §4.1 Step shape refused per missi
   + "NAME as unsupported completion, a Journey outside the closed set refused as a Brief fetch, "
   + "and the no-Journey case vacuous rather than violated; (i) per-Candidate journey_coverage "
   + "rides the gate payload as EVIDENCE, so two Candidates differing on the journey axis do not "
-  + "read identically, and it carries no verdict token. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + kogaki#501): TEN "
+  + "read identically, and it carries no verdict token; (j) PLAIN-REGISTER RENDERING "
+  + "(kogaki#520) — every evidence item and every review area renders under one distinct plain "
+  + "label carrying the record's own prose, no owner-facing string in the payload holds an "
+  + "internal key or a section reference, the internal keys SURVIVE in `evidence` as the "
+  + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
+  + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
+  + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + kogaki#501 + kogaki#520): THIRTEEN "
   + "mutations, each "
   + "run once and restored surgically — story 1.73's three: dropping the rationale "
   + "requirement from validateSteps failed (a)'s field refusal; counting placements from the "
@@ -320,7 +385,11 @@ console.log("brief compose: 9/9 cases — (a) §4.1 Step shape refused per missi
   + "assertion, which is the direct evidence that option would have made MUST 1 "
   + "unfalsifiable; dropping the carries-none refusal failed (h)'s unsupported-completion "
   + "case; and computing journey coverage from something other than THIS Candidate's steps "
-  + "failed (i). NOT COVERED, stated rather than implied: every composition "
+  + "failed (i). kogaki#520's three: dropping the per-option `rendering` "
+  + "failed (j)'s label assertions; neutering the deny to return clean failed (j)'s two "
+  + "tripwire cases; and rendering each item under its KEY instead of its plain label was "
+  + "refused BY THE TRIPWIRE ITSELF, failing (e) — the direct evidence that the generator fix "
+  + "and the tripwire are two guards and not one. NOT COVERED, stated rather than implied: every composition "
   + "MUST is judgment-class (§4.6) — grounds-test soundness, entailment quality, "
   + "Move-binding order, and whether the surfaced evidence is ADEQUATE evidence — judged at "
   + "path review (story 1.74) and the human gate, never here; this member exercises record "
