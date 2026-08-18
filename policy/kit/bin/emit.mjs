@@ -172,6 +172,14 @@ function selfTest() {
     // the oldest is the earliest date, not the first listed
     writeFileSync(join(td, "2026-08-01-charlie.md"), "x");
     if (emissionBacklog(td, "2026-08-18").oldest !== "2026-08-01") fail("the oldest must be the earliest date whatever the listing order");
+    // The write path's guard, asserted as the predicate the read declares —
+    // the two must agree, and this is the case that names that path.
+    const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
+    for (const bad of ["2026-8-18", "26-08-18", "2026/08/18", "today", ""]) {
+      if (DATE_OK.test(bad)) fail(`--date ${JSON.stringify(bad)} must be refused: it writes a file the backlog read cannot see`);
+      if (EMISSION_FILE.test(`${bad}-x.md`)) fail(`a file dated ${JSON.stringify(bad)} must not be a backlog member — the two paths would disagree`);
+    }
+    if (!DATE_OK.test("2026-08-18")) fail("a well-formed date must be accepted");
     rmSync(td, { recursive: true, force: true });
   }
 
@@ -179,7 +187,9 @@ function selfTest() {
     + "the §4.7 backlog read counts <YYYY-MM-DD>-<slug>.md members only (README.md excluded by "
     + "construction), reads the oldest from the FILENAME date rather than mtime so it survives a "
     + "clone, renders the empty and absent-directory cases as 0 rather than as an absence, and "
-    + "derives at the act with no stored tally. "
+    + "derives at the act with no stored tally; and the WRITE path's --date guard is the same "
+    + "predicate the read declares, so a malformed date is refused rather than writing an emission "
+    + "the disclosure cannot see. "
     + "MUTATION EVIDENCE (assert-by-breaking-once, kogaki#505): FIVE mutations, each run once and "
     + "restored — widening the membership pattern to any *.md let README.md count and failed the "
     + "membership case; taking the newest date as the oldest failed the oldest case; returning "
@@ -216,6 +226,28 @@ if (!GRAINS.includes(grain)) {
 
 const repoPath = resolve(opt("repo", process.cwd()));
 const date = opt("date", new Date().toISOString().slice(0, 10));
+
+// THE WRITE PATH AND THE READ PATH MUST AGREE (PR #508 round 1, finding 2).
+// The file is written as `${date}-${slug}.md` while `EMISSION_FILE` requires
+// `\d{4}-\d{2}-\d{2}`, so an unvalidated --date can write a file the backlog
+// read cannot see — and the disclosure would then report an EMPTY backlog at
+// the very act that grew it, which is the failure §4.7 exists to prevent
+// rather than a cosmetic one. Guarded here, at the one place the two paths
+// diverge:
+//
+//   "A safety check only proves itself on the code paths that actually reached
+//    it … a path with no named run is untested no matter how healthy the
+//    overall suite looks."
+//
+// consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
+if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  console.error(
+    `--date must be YYYY-MM-DD (got ${JSON.stringify(date)}). This is the membership rule the ` +
+    "backlog read declares, not a format preference: a differently-shaped date writes an emission " +
+    "the §4.7 disclosure cannot see, so the count would report an empty backlog at the act that grew it.",
+  );
+  process.exit(2);
+}
 const repoName = (() => {
   const cm = join(repoPath, "CLAUDE.md");
   if (existsSync(cm)) {

@@ -121,6 +121,20 @@ grep -q 'no disposition marker' "$TMP/backlog-out" \
   || fail "the disclosure does not state WHICH population it counted — a convenience total standing in for §4.7's subset"
 echo "ok: §4.7 backlog disclosure — count, oldest and age at the act, with its population stated"
 
+#     The WRITE path's guard gets its own named run, per the served line the
+#     entry-1 read prescription surfaced: a path with no named run is untested
+#     however healthy the suite looks. A malformed --date must REFUSE rather
+#     than write an emission the backlog read cannot see.
+#     consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
+node "$KIT_DIR/bin/emit.mjs" --repo "$TMP/repo" --date 2026-8-18 --title 'bad date' \
+  --trigger x --learning y --grain lesson >"$TMP/baddate-out" 2>&1 \
+  && fail "a malformed --date must be refused — it writes an emission the §4.7 disclosure cannot see"
+grep -q 'must be YYYY-MM-DD' "$TMP/baddate-out" || fail "the --date refusal does not name the expected shape"
+grep -q 'cannot see' "$TMP/baddate-out" || fail "the --date refusal does not say WHY the shape is load-bearing"
+[[ ! -f "$TMP/repo/policy/emissions/2026-8-18-bad-date.md" ]] \
+  || fail "the refused emission was written anyway — the guard must precede the write"
+echo "ok: the --date write path is guarded by the same predicate the backlog read declares"
+
 # 2h. The writer's fixture pass, sited with the code it covers.
 node "$KIT_DIR/bin/emit.mjs" --self-test || fail "emission writer fixtures failed"
 echo "ok: emission writer fixture pass (story 1.49)"
