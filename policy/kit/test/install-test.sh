@@ -129,11 +129,32 @@ echo "ok: §4.7 backlog disclosure — count, oldest and age at the act, with it
 node "$KIT_DIR/bin/emit.mjs" --repo "$TMP/repo" --date 2026-8-18 --title 'bad date' \
   --trigger x --learning y --grain lesson >"$TMP/baddate-out" 2>&1 \
   && fail "a malformed --date must be refused — it writes an emission the §4.7 disclosure cannot see"
-grep -q 'must be YYYY-MM-DD' "$TMP/baddate-out" || fail "the --date refusal does not name the expected shape"
-grep -q 'cannot see' "$TMP/baddate-out" || fail "the --date refusal does not say WHY the shape is load-bearing"
+grep -q 'is not YYYY-MM-DD' "$TMP/baddate-out" || fail "the refusal does not name WHICH half failed (the date)"
+grep -q 'cannot see' "$TMP/baddate-out" || fail "the refusal does not say WHY the shape is load-bearing"
 [[ ! -f "$TMP/repo/policy/emissions/2026-8-18-bad-date.md" ]] \
   || fail "the refused emission was written anyway — the guard must precede the write"
-echo "ok: the --date write path is guarded by the same predicate the backlog read declares"
+
+#     THE SLUG HALF GETS ITS OWN NAMED RUN (kogaki#509). The filename has two
+#     variable halves and PR #508 guarded one; a title with no [a-z0-9] slugs
+#     to the empty string, so `2026-08-18-.md` was written and the §4.7
+#     disclosure could not see it. A Japanese title reaches this with no
+#     unusual input at all, and `--title` defaults to `--trigger`, so a trigger
+#     in that shape reaches it with no --title given.
+#     consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
+node "$KIT_DIR/bin/emit.mjs" --repo "$TMP/repo" --date 2026-08-18 --title 'ジャーニー素材の記録' \
+  --trigger x --learning y --grain lesson >"$TMP/badslug-out" 2>&1 \
+  && fail "a title that slugs to nothing must be refused — it writes an emission the §4.7 disclosure cannot see"
+grep -q 'slugs to nothing' "$TMP/badslug-out" || fail "the refusal does not name WHICH half failed (the slug)"
+[[ ! -f "$TMP/repo/policy/emissions/2026-08-18-.md" ]] \
+  || fail "the refused emission was written anyway — the guard must precede the write"
+#     …and the guard bounds the NAME, never the language: a non-ASCII title
+#     that still yields some [a-z0-9] is admissible.
+node "$KIT_DIR/bin/emit.mjs" --repo "$TMP/repo" --date 2026-08-18 --title '2026年の学び' \
+  --trigger x --learning y --grain lesson >/dev/null 2>&1 \
+  || fail "a non-ASCII title that still slugs to something must be ACCEPTED — the guard bounds the name, not the language"
+[[ -f "$TMP/repo/policy/emissions/2026-08-18-2026.md" ]] \
+  || fail "the admissible non-ASCII title did not produce its emission"
+echo "ok: BOTH filename halves are guarded by one assertion on the composed name, and the guard bounds the name rather than the language"
 
 # 2h. The writer's fixture pass, sited with the code it covers.
 node "$KIT_DIR/bin/emit.mjs" --self-test || fail "emission writer fixtures failed"
