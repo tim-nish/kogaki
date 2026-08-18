@@ -172,14 +172,32 @@ function selfTest() {
     // the oldest is the earliest date, not the first listed
     writeFileSync(join(td, "2026-08-01-charlie.md"), "x");
     if (emissionBacklog(td, "2026-08-18").oldest !== "2026-08-01") fail("the oldest must be the earliest date whatever the listing order");
-    // The write path's guard, asserted as the predicate the read declares —
-    // the two must agree, and this is the case that names that path.
-    const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
-    for (const bad of ["2026-8-18", "26-08-18", "2026/08/18", "today", ""]) {
-      if (DATE_OK.test(bad)) fail(`--date ${JSON.stringify(bad)} must be refused: it writes a file the backlog read cannot see`);
-      if (EMISSION_FILE.test(`${bad}-x.md`)) fail(`a file dated ${JSON.stringify(bad)} must not be a backlog member — the two paths would disagree`);
+    // THE WRITE PATH IS ASSERTED AGAINST THE SHIPPED PREDICATE, NEVER A LOCAL
+    // COPY OF IT (kogaki#509). An earlier form declared its own
+    // `const DATE_OK = /^\d{4}-\d{2}-\d{2}$/` and asserted that literal against
+    // literals, so it stayed green whatever the shipped guard did — a coverage
+    // claim rather than coverage. These cases run `EMISSION_FILE`, the same
+    // constant the guard and the backlog read both use, over the name the
+    // writer actually composes.
+    const composed = (d, t) => `${d}-${slug(t)}.md`;
+    for (const [d, t, why] of [
+      ["2026-8-18", "ok", "a single-digit month"],
+      ["26-08-18", "ok", "a two-digit year"],
+      ["2026/08/18", "ok", "slashes"],
+      ["today", "ok", "a word"],
+      ["", "ok", "an empty date"],
+      ["2026-08-18", "ジャーニー素材", "a title with no ASCII alphanumerics — the kogaki#509 case"],
+      ["2026-08-18", "—", "a punctuation-only title"],
+      ["2026-08-18", "", "an empty title"],
+    ]) {
+      if (EMISSION_FILE.test(composed(d, t))) {
+        fail(`${composed(d, t)} (${why}) must NOT be a backlog member: the writer would emit a file the read cannot see`);
+      }
     }
-    if (!DATE_OK.test("2026-08-18")) fail("a well-formed date must be accepted");
+    // …and the well-formed name on BOTH halves is accepted, so the guard is a
+    // filter rather than a wall.
+    if (!EMISSION_FILE.test(composed("2026-08-18", "a real title"))) fail("a well-formed date AND slug must compose an admissible name");
+    if (!EMISSION_FILE.test(composed("2026-08-18", "2026年の学び"))) fail("a non-ASCII title that still yields some [a-z0-9] must be admissible — the guard bounds the NAME, never the language");
     rmSync(td, { recursive: true, force: true });
   }
 
@@ -187,10 +205,11 @@ function selfTest() {
     + "the §4.7 backlog read counts <YYYY-MM-DD>-<slug>.md members only (README.md excluded by "
     + "construction), reads the oldest from the FILENAME date rather than mtime so it survives a "
     + "clone, renders the empty and absent-directory cases as 0 rather than as an absence, and "
-    + "derives at the act with no stored tally; and the WRITE path's --date guard is the same "
-    + "predicate the read declares, so a malformed date is refused rather than writing an emission "
-    + "the disclosure cannot see. "
-    + "MUTATION EVIDENCE (assert-by-breaking-once, kogaki#505): FIVE mutations, each run once and "
+    + "derives at the act with no stored tally; and the WRITE path is guarded by asserting the "
+    + "COMPOSED FILENAME against EMISSION_FILE \u2014 the shipped constant, never a local copy \u2014 so BOTH "
+    + "variable halves are covered by one condition and a third field cannot open a third hole "
+    + "(kogaki#509). A non-ASCII title, which slugs to nothing, is refused by that one guard. "
+    + "MUTATION EVIDENCE (assert-by-breaking-once, kogaki#505 + kogaki#509): EIGHT mutations, each run once and "
     + "restored — widening the membership pattern to any *.md let README.md count and failed the "
     + "membership case; taking the newest date as the oldest failed the oldest case; returning "
     + "undefined for an empty directory failed the empty case; removing the absent-directory guard "
@@ -198,7 +217,16 @@ function selfTest() {
     + "mutation while its message does not name the property — stated because a reader comparing "
     + "the four would otherwise read them as uniform; and removing the RENDER SITE leaves this "
     + "self-test GREEN and is caught only by policy/kit/test/install-test.sh, which is why the "
-    + "read and the render are asserted at two layers rather than one. "
+    + "read and the render are asserted at two layers rather than one. kogaki#509's three: removing "
+    + "the composed-filename guard let BOTH halves through and failed the first assertion to reach "
+    + "it; replacing it with a per-field date-only guard \u2014 the LAZY REPAIR this fix refuses \u2014 let the "
+    + "slug half through and failed the slug case, which is the evidence that a second per-field "
+    + "guard would not have closed the class; and writing before the guard failed the "
+    + "not-written-anyway assertion, so ORDER is asserted rather than assumed. Recorded with a note "
+    + "on method: two of these first reported NOT CAUGHT \u2014 one because the fixture aborts at an "
+    + "earlier assertion (so the grep, not the check, was wrong) and one because the mutation as "
+    + "first written did not express the ordering property at all. Both were re-run correctly rather "
+    + "than recorded as evidence the branch does not carry. "
     + "NOT COVERED, stated rather than implied: \u00a74.7's own blind spot — a repository that stops "
     + "emitting stops reporting, so this disclosure is silent exactly when the directory is "
     + "stagnant and ageing. No instrument here reaches that state and none is invented for it.");
@@ -227,27 +255,6 @@ if (!GRAINS.includes(grain)) {
 const repoPath = resolve(opt("repo", process.cwd()));
 const date = opt("date", new Date().toISOString().slice(0, 10));
 
-// THE WRITE PATH AND THE READ PATH MUST AGREE (PR #508 round 1, finding 2).
-// The file is written as `${date}-${slug}.md` while `EMISSION_FILE` requires
-// `\d{4}-\d{2}-\d{2}`, so an unvalidated --date can write a file the backlog
-// read cannot see — and the disclosure would then report an EMPTY backlog at
-// the very act that grew it, which is the failure §4.7 exists to prevent
-// rather than a cosmetic one. Guarded here, at the one place the two paths
-// diverge:
-//
-//   "A safety check only proves itself on the code paths that actually reached
-//    it … a path with no named run is untested no matter how healthy the
-//    overall suite looks."
-//
-// consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
-if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-  console.error(
-    `--date must be YYYY-MM-DD (got ${JSON.stringify(date)}). This is the membership rule the ` +
-    "backlog read declares, not a format preference: a differently-shaped date writes an emission " +
-    "the §4.7 disclosure cannot see, so the count would report an empty backlog at the act that grew it.",
-  );
-  process.exit(2);
-}
 const repoName = (() => {
   const cm = join(repoPath, "CLAUDE.md");
   if (existsSync(cm)) {
@@ -259,7 +266,40 @@ const repoName = (() => {
 
 const dir = join(repoPath, "policy/emissions");
 mkdirSync(dir, { recursive: true });
-const out = join(dir, `${date}-${slug(title)}.md`);
+// THE COMPOSED FILENAME IS ASSERTED AGAINST THE READ'S OWN PATTERN, ONCE
+// (kogaki#509). The name has TWO variable halves — the date and the slug —
+// and PR #508 guarded only the date, while `slug()` maps any title with no
+// `[a-z0-9]` to the empty string. `2026-08-18-.md` fails `EMISSION_FILE`, so
+// the emission was written and the §4.7 disclosure could not see it: an empty
+// backlog reported at the very act that grew it.
+//
+// A SECOND per-field guard was the lazy repair and is refused. The served
+// test for a rule is to imagine the laziest implementation that obeys every
+// word of it while defeating the point — guarding the slug obeys "guard the
+// slug" and leaves a third field to open a third hole. Asserting the
+// COMPOSED name is the one condition that cannot acquire a next hole:
+//
+//   "imagine the laziest implementation that obeys every word of it while
+//    defeating the point, and ask what would notice."
+//
+// consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:149
+//
+// One guard, and the message still names WHICH half failed — diagnostics are
+// not the same thing as a second check.
+const filename = `${date}-${slug(title)}.md`;
+if (!EMISSION_FILE.test(filename)) {
+  const why = !/^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? `the date ${JSON.stringify(date)} is not YYYY-MM-DD`
+    : `the title ${JSON.stringify(title)} slugs to nothing — it carries no [a-z0-9] characters, which a non-ASCII title routinely does not`;
+  console.error(
+    `emit: refusing to write ${JSON.stringify(filename)} — ${why}. This is the membership rule the ` +
+    "backlog read declares, not a format preference: a name it cannot match writes an emission the " +
+    "§4.7 disclosure cannot see, so the count would report an empty backlog at the act that grew it.",
+  );
+  process.exit(2);
+}
+
+const out = join(dir, filename);
 writeFileSync(out, render({ date, repo: repoName, trigger, learning, grain }));
 
 // The in-session receipt: the path, printed. A durable artifact whose location
