@@ -447,13 +447,23 @@ question about a hub-side command. Kogaki declares it here so the fork is
 recorded as answered-by-scope rather than forgotten: this spec binds emission
 and says nothing about when the hub reads.
 
-### 4.7 The post-disposition lifecycle — the undispositioned arm, and a named slot for the other two (kogaki#498)
+### 4.7 The post-disposition lifecycle — NEITHER served arm is available here, and that is the finding (kogaki#498)
 
 **§§4.1–4.4 define the duty, the emission/promotion boundary, the location and
 the format, and say nothing about what a file owes once the hub's gate has
 ruled on it.** Under a keep-by-default reading that silence is invisible; under
-the owner's inverted default (an artifact owes an explicit need) it is the gap
-kogaki#498 reports.
+the inverted default it is the gap kogaki#498 reports.
+
+**The ground for that default is an OWNER RULING, named rather than pinned.**
+The position — an artifact owes an explicit need, and "better to have it than
+not" is not one — was ruled by the owner on 2026-08-17. Its hub-side carrier is
+`q_a/staging/2026-08-17-existence-needs-an-explicit-need.md`, **which is not
+committed at this head**, so no receipt on this axis is available and none is
+manufactured. Recorded in the named-never-state-asserted form: a later reader
+can tell an unpinned owner ruling from a served position, which is exactly what
+a bare citation here would have hidden. (kogaki#498's own thread records the
+same: the pin it carries "is defective as written … the receipt binds at that
+file's first commit".)
 
 **The served rule is a binary, and it binds at introduction:**
 
@@ -466,27 +476,44 @@ kogaki#498 reports.
   outcome: discriminating
   query: defining a lifecycle for artifact states that have never occurred; a growing directory of candidates whose disposal act is unnamed; expiry or executable home decided when the class is introduced
 
-**Which arm, and why the other is unavailable rather than unchosen.** The
-executable home for this class is the hub's own sweep — and §4.6 above already
-declares hub sweep cadence out of scope, while kogaki#498 scopes hub-side
-registration out by name. So the home arm is not this spec's to take, and the
-expiry arm is what remains. Recorded this way rather than as a preference: a
-later reader who can reach the hub should read this as *unavailable here*, not
-as *rejected*.
+**NEITHER ARM IS AVAILABLE AT THIS CONSUMER. That is this section's answer, and
+it is a finding rather than a gap in it.**
 
-**The expiry is an OBSERVATION bound, never a deletion bound.** Measured at this
-head: **125 emissions, dated 2026-08-09 through 2026-08-18, of which zero have
-ever been dispositioned** — the hub's mine ledger carries no kogaki rows. Every
-file in this directory is therefore material **no gate has ever seen**, and
-deleting it on age would destroy a learning that was never offered rather than
-one that was judged and found wanting. It would also breach §4.2 from the other
-side: the consumer disposing of what only the hub's gate may rule on. So nothing
-here deletes, and the bound is on the **silence** instead.
+- **The executable home** for this class is the hub's own sweep. §4.6 above
+  declares hub sweep cadence out of scope and kogaki#498 scopes hub-side
+  registration out by name, so the home is **not this spec's to take** —
+  unavailable here, never rejected. A later reader who *can* reach the hub
+  should read it that way.
+- **The expiry** requires an authority to dispose, and §4.2 denies the consumer
+  exactly that: emission is the duty, promotion is the hub's, and a candidate
+  may be ruled on only by the hub's gate. An emission deleted here would be
+  material **no gate ever saw** — destroyed rather than judged. So nothing
+  consumer-side can expire this class either.
 
-**The observer is named, and it is the growth event itself.**
-`policy/kit/bin/emit.mjs` renders, at each emission, the **count of
-undispositioned emissions and the age of the oldest**. The siting is the served
-rule applied directly:
+**The consequence, stated plainly rather than dressed as a third arm.** An
+earlier draft of this section called the instrument below "the expiry arm". It
+is not one: **nothing leaves this class, the population is monotonic by
+construction, and a rendered count is itself a new report-only row** — which by
+the same served line would owe its own home or expiry and could be given
+neither. Presenting it as an arm would have discharged the binary in appearance
+while leaving it unsatisfied in fact.
+
+**What this section installs instead is a DISCLOSURE, and it is owed rather
+than built.** The unsatisfiability above is invisible from the directory: a
+reader sees files accumulating and cannot tell a healthy backlog from one no
+gate will ever reach. So `policy/kit/bin/emit.mjs` **is to render**, at each
+emission, the count of undispositioned emissions and the age of the oldest.
+
+**IT DOES NOT DO SO AT THIS HEAD. The renderer is DEFERRED and its carrier is
+kogaki#505** — named here rather than left to be discovered, in the shape §4.5
+already uses one section above for its own deferred third part. Until #505
+lands, this paragraph is a specification of an instrument, never a claim that
+one exists; a reader meeting the clause must not read the disclosure as being
+in force.
+
+**Its siting, decided now so #505 implements rather than designs.** The
+observer is the **growth event itself** — the emission act — per the served
+rule:
 
 > "**site a check at a trigger that is its own subject, or give it its own
 > trigger.** … for each check, ask which run raises it and whether that run's
@@ -498,24 +525,39 @@ rule applied directly:
   query: defining a lifecycle for artifact states that have never occurred; a growing directory of candidates whose disposal act is unnamed; expiry or executable home decided when the class is introduced
 
 Emitting **is** the act that grows the directory, so the report cannot be
-absent while the subject grows — which is precisely the anti-correlation that
-line warns about, avoided by construction rather than by care.
+absent while the subject grows — the anti-correlation that line warns about,
+avoided by construction rather than by care.
 
 **The blind spot, stated rather than minimised.** A repository that stops
-emitting stops reporting, so this signal is silent in exactly one state: the
-directory stagnant and ageing with no new sittings. That state is real and this
-clause does not cover it. **No second instrument is invented for it** — a
-second reader would be the check-suite growth this repository refuses
-elsewhere, and the honest move is to name the uncovered state so a future
-reader can tell a complete signal from a partial one. Filling it, if it is ever
-worth filling, is its own decision act.
+emitting stops reporting, so the disclosure is silent in exactly one state: the
+directory stagnant and ageing with no new sittings. That state is real and
+uncovered. **No second instrument is invented for it** — a second reader would
+be the check-suite growth this repository refuses elsewhere — and naming it is
+what lets a later reader tell a complete signal from a partial one.
+
+**The population, named rather than counted bare.** At the sitting that wrote
+this section (2026-08-18) the working tree held **125** emission files dated
+2026-08-09 onward, of which **114 were committed** at the head carrying this
+text; the remaining eleven were uncommitted, which is itself a departure from
+§4.3 and is carried separately. **Zero had ever been dispositioned** — the
+hub's mine ledger carried no kogaki rows. The figures are stated as a
+measurement on a dated population, never as a property of the directory, so a
+later reader re-counting and disagreeing has learned something rather than
+found an error.
+
+**"Apply it to the N", the licence's second half.** kogaki#498 asks that the
+lifecycle then be applied to the existing files. Under the finding above there
+is nothing to apply *to* them — neither arm exists, so no file changes state,
+and no file is touched by this amendment. What the population receives is the
+disclosure, and it covers every member by construction because it counts the
+directory rather than a subset. That coverage begins when **kogaki#505** lands,
+not here.
 
 **Distinct from §4.5 and from §7 q2, which cover a different absence.** §4.5's
 absence is *a sitting produced a durable learning and emitted nothing*; this
 one is *emissions exist and nothing has ruled on them*. Different absences,
-different observers, and §7 q2's deferred lane read is untouched by this
-section — a reader who conflates them will think q2 was filled here, and it
-was not.
+different observers, and §7 q2's deferred lane read is untouched — a reader who
+conflates them will think q2 was filled here, and it was not.
 
 **Not a cadence nudge; §4.6 stands.** Rendering a consumer-side backlog age
 reports a fact about this repository. It does not ask the hub to sweep, does
@@ -532,6 +574,9 @@ which the decide-or-name rule prices rather than permits:
 > filling is itself a decision act … An UNNAMED deferral is the defect."
 
 `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:60`
+  request_id: 50376547-9fef-4314-8a41-1233a3dd43a9
+  outcome: discriminating
+  query: defining a lifecycle for artifact states that have never occurred; a growing directory of candidates whose disposal act is unnamed; expiry or executable home decided when the class is introduced
 
 - **slot:** `emission-accepted-and-declined-lifecycle`
 - **trigger:** the first kogaki emission that the hub's gate disposes of, in
@@ -540,8 +585,8 @@ which the decide-or-name rule prices rather than permits:
   issue, before any code or convention embeds a reading of it.
 
 **What this section does not do.** It deletes nothing, registers no check, adds
-no gate, mints no ledger, and writes nothing to the hub. It defines one arm of a
-lifecycle and names the other two as a slot with a trigger.
+no gate, mints no ledger, writes nothing to the hub, and — until kogaki#505 —
+puts no instrument in force.
 
 ## 5. What binds a consumer, and what binds the kit
 
@@ -605,7 +650,9 @@ lifecycle and names the other two as a slot with a trigger.
    distinction §3.4 above now turns on.
 
 5. **What an ACCEPTED and a DECLINED emission's file owes** (§4.7). The
-   post-disposition lifecycle's other two arms. **This is a NAMED SLOT, not an
+   post-disposition lifecycle's other two states. (§4.7's own finding is that
+   **neither served arm — executable home nor expiry — is available at this
+   consumer**; this slot is about the two states, not about those arms.) **This is a NAMED SLOT, not an
    omission**, and it is named on evidence rather than on caution: at the head
    that added §4.7, **zero** kogaki emissions had ever been dispositioned in
    either direction, so both arms would have been designed against no
