@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // brief — the Brief entry point (SPEC-draft-pipeline §5.3, v9 re-sequencing,
-// kogaki#494; entry point v7, kogaki#482; stories 1.71 and 1.72).
+// kogaki#494; slug PAIRED INTO THE ONE GATE at v11, kogaki#518; entry point
+// v7, kogaki#482; stories 1.71, 1.72 and 1.76).
 //
 // THE ORDER IS THE CONTRACT (v9, owner ruling 2026-08-17): entry resolves
 // the settled Strand set → the thesis-determination gate → the mint. Nothing
@@ -16,16 +17,29 @@
 //   enter  — resolves LessonDisplayIDs against the survey record (refusals
 //            unchanged from §5.3: unknown id names both sides; G-ids refused
 //            by name), composes 2–3 Thesis candidates FROM THE SETTLED SET
-//            ONLY (§3's read-not-invented rule), and writes the machine-local
-//            run state. Emits the thesis-determination gate's declaration.
-//   adopt  — records the owner's adopted Thesis into the run state and
-//            derives exactly ONE slug candidate from it. No slug candidate
-//            exists before adoption. Emits the slug-approval ask.
-//   mint   — consumes the adopted Thesis and the owner-approved slug, and
+//            ONLY (§3's read-not-invented rule), DERIVES ONE SLUG PER
+//            CANDIDATE from that candidate's own Thesis, and writes the
+//            machine-local run state. Emits the thesis-determination gate's
+//            declaration, whose every option is a (Thesis, slug) PAIR.
+//   adopt  — records the owner's answer at THE ONE GATE: the adopted Thesis
+//            and the slug it is paired with, or an override slug the owner
+//            named in the same answer. Emits no ask of its own.
+//   mint   — consumes the adopted (Thesis, slug) PAIR from the run state and
 //            creates briefs/<slug>/brief.md with `thesis` FILLED AT MINT BY
 //            CONSTRUCTION and every downstream §5.1 field a typed unfilled
 //            slot. Idempotence by slug; a collision refuses (creator, never
 //            an editor).
+//
+// THERE IS NO SECOND ASK (v11, kogaki#518, owner ruling 2026-08-17 recorded
+// in kogaki#494's thread). The slug question does not exist as a code path:
+// nothing below emits a `slug_gate` and no command carries a
+// brief-slug-approval declaration, so a second slug ask is UNPRODUCIBLE
+// rather than prohibited. The merge is admissible only under the served
+// constraint §5.3 v11 binds it by — a gate may carry a second decision class
+// only if that class is SEPARATELY RENDERED and SEPARATELY DECLINABLE — so
+// each option renders its slug as its own element of the option body (the
+// bare slug, never a `briefs/` path), and `adopt --slug` declines that half
+// without restating the Thesis or abandoning the option.
 //
 // OUTSIDE TERRAIN, by the 2026-08-09 boundary correction: this runtime never
 // surveys, widens, or fetches a set — it receives one the owner settled. The
@@ -219,6 +233,13 @@ export function resolveStrandIds(record, entered) {
 // sentence, a concrete subject acting) and carries its round-trip
 // CONCESSION explicitly — a concession is part of the output, never a
 // silent omission. Exported for the check's compose-from-settled-set case.
+//
+// PAIRED AT v11 (kogaki#518, story 1.76): each candidate also carries the
+// slug its OWN Thesis derives — `deriveSlugCandidate` is the one derivation
+// in this file, and it is applied here so the gate's every option is a
+// (Thesis, slug) pair. Deriving it here rather than at adoption is what
+// makes the second ask unproducible: the name is already on the table when
+// the owner answers, so there is nothing left to ask afterwards.
 export function composeThesisCandidates(strands) {
   const phrase = (s) => s.slug.replace(/-/g, " ");
   const names = strands.map(phrase);
@@ -247,12 +268,15 @@ export function composeThesisCandidates(strands) {
       });
     }
   }
+  for (const c of candidates) c.slug = deriveSlugCandidate(c.thesis);
   return candidates;
 }
 
-// Derive exactly ONE slug candidate from the adopted Thesis (story 1.72
-// AC4): the slug is thesis-derived and owner-approved, never machine
-// identity — §12.2's no-machine-identity repair kept by the v9 route.
+// Derive ONE slug from a Thesis (story 1.72 AC4; paired into the gate at
+// v11, kogaki#518): the slug is thesis-derived and owner-decided, never
+// machine identity — §12.2's no-machine-identity repair kept by this route
+// exactly as v9 kept it by its own. THIS IS THE ONE DERIVATION: the paired
+// candidate slugs and a free-form Thesis's slug both come from here.
 // Exported for the check's thesis-derived-slug case.
 export function deriveSlugCandidate(thesis) {
   const words = thesis.toLowerCase().replace(/[^a-z0-9\s-]/g, "")
@@ -272,6 +296,11 @@ const STOP = new Set(["the", "article", "articles", "makes", "one", "claim",
   "how", "was", "reached", "before", "being", "asked", "accept", "exists",
   "state", "came", "from", "defend", "section", "settled", "members",
   "place", "does", "work", "tells"]);
+
+// The slug grammar, in ONE place: the owner's override at the gate and the
+// paired derivation are the same class of value and are refused the same way
+// (the slug names a directory the owner enumerates).
+const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 function defaultRunState() {
   return join(homedir(), ".kogaki", "brief-runs", `run-${Date.now()}.json`);
@@ -316,15 +345,27 @@ function cmdEnter(args) {
   // through Terrain, and the registered gate id (gates/registry.json:
   // brief-thesis-adoption). The free-text channel does not discharge the
   // negation and carries no condition.
+  //
+  // THIS IS THE ONLY OWNER QUESTION BEFORE THE MINT (v11, kogaki#518): each
+  // option carries its Thesis AND the name that Thesis derives. The slug
+  // rides the option's `rendering` — the same body surface the composition
+  // gate uses (kogaki#520) — so it is SEPARATELY RENDERED rather than hidden
+  // inside the Thesis text, and it shows the BARE slug, never a `briefs/`
+  // path (owner rendering ruling 2026-08-18; the option body is already
+  // dense). Placement in the body rather than the label is a try-one-first
+  // instruction: moving it to the label needs no amendment (§5.3 v11).
   const gate = {
     gate_id: "brief-thesis-adoption",
     where: `the settled Strand set: ${r.strands.map((s) => s.display_id).join(", ")} at pin ${record.pin}`,
-    why: "the machine's premise, rendered: this settled set supports a Thesis — the candidates below are composed from the set's own members and from nothing else (§3)",
-    label: "Adopting a Thesis starts the Brief: the mint runs next and briefs/<slug>/brief.md is created carrying the adopted Thesis",
+    why: "the machine's premise, rendered: this settled set supports a Thesis — the candidates below are composed from the set's own members and from nothing else (§3), and each carries the name it would give the Brief",
+    label: "Adopting a Thesis starts the Brief: the mint runs next and the Brief's durable home is created under the adopted name, carrying the adopted Thesis",
     options: [
       ...candidates.map((c) => ({
         id: c.id,
         label: `${c.thesis} ${c.concession}`,
+        rendering: [
+          { label: "The name this Thesis gives the Brief", text: c.slug },
+        ],
       })),
       {
         id: "back-to-terrain",
@@ -332,7 +373,7 @@ function cmdEnter(args) {
         negates_premise: true,
       },
     ],
-    free_text: { accepted: true, prompt: "Or state your own Thesis in your own words — it becomes the adopted Thesis verbatim." },
+    free_text: { accepted: true, prompt: "Or state your own Thesis in your own words — it becomes the adopted Thesis verbatim, and its name is derived from it. Keeping an option's Thesis but naming the Brief differently is the same one answer: say which option, and say the name you want." },
   };
 
   const state = {
@@ -347,7 +388,12 @@ function cmdEnter(args) {
   console.log(`# entry resolved ${r.strands.length} member(s); nothing written under briefs/ — pre-Thesis state is machine-local (§5.3 v9).`);
 }
 
-// ---- adopt: record the owner's Thesis, derive ONE slug candidate. ----
+// ---- adopt: record the owner's answer at THE ONE GATE — the pair. ----
+// The answer has two halves and they arrive together (§5.3 v11, kogaki#518):
+// `--thesis` is the adopted candidate id or the owner's own words, and the
+// OPTIONAL `--slug` is the owner declining the paired name without declining
+// the Thesis. Declining the slug half costs neither the Thesis nor the
+// option: no restatement, no abandonment. This command emits NO ask.
 function cmdAdopt(args) {
   const { path: runPath, state } = readRunState(args);
   const answer = argString(args, "thesis",
@@ -360,33 +406,46 @@ function cmdAdopt(args) {
       + "through Terrain. No Brief is started (§5.3: never a Brief fetch).");
   }
   const thesis = hit ? hit.thesis : answer;
+  // The slug half. An override is the owner's, taken as given; with none, the
+  // adopted candidate's OWN paired slug stands — the one the owner read on
+  // the option they chose. A free-form Thesis has no paired slug to stand,
+  // so its slug derives from the owner's own words (v9 behaviour, unchanged).
+  const override = args.slug;
+  let slug, via;
+  if (override !== undefined) {
+    slug = argString(args, "slug",
+      "adopt --slug needs a value — the name the owner wants instead of the "
+      + "one paired with the adopted Thesis (a bare --slug flag is the "
+      + "omitted-value defect).");
+    via = "owner-override";
+  } else if (hit && typeof hit.slug === "string" && hit.slug) {
+    slug = hit.slug;
+    via = "paired-with-adopted-candidate";
+  } else {
+    slug = deriveSlugCandidate(thesis);
+    via = "derived-from-free-form-thesis";
+  }
+  if (!SLUG_RE.test(slug)) {
+    fail(`slug ${JSON.stringify(slug)} — use lowercase words joined by hyphens; `
+      + "the slug names a directory the owner enumerates.");
+  }
   state.stage = "adopted";
   state.adopted_thesis = thesis;
   state.adopted_via = hit ? hit.id : "free-form";
-  // The ONE thesis-derived slug candidate exists only now — after adoption,
-  // derived from the adopted text (story 1.72 AC4).
-  state.slug_candidate = deriveSlugCandidate(thesis);
-  state.slug_gate = {
-    gate_id: "brief-slug-approval",
-    where: `the adopted Thesis: ${thesis}`,
-    why: "the machine's premise, rendered: this thesis-derived name is the right home name — one candidate, derived from the adopted Thesis, never a machine identity (§5.3 v9; SPEC-terrain §12.2)",
-    label: `Approving the slug creates briefs/${state.slug_candidate}/brief.md as the Brief's durable home`,
-    options: [
-      { id: "approve-slug", label: `Approve "${state.slug_candidate}" — the Brief's home becomes briefs/${state.slug_candidate}/` },
-      {
-        id: "no-mint-under-this-thesis",
-        label: "This Thesis should not name a Brief after all — reopen Thesis adoption; nothing is written under briefs/",
-        negates_premise: true,
-      },
-    ],
-    free_text: { accepted: true, prompt: "Or write a different slug (lowercase words joined by hyphens) — your override is the approved slug." },
-  };
+  // The adopted PAIR — what the mint consumes. There is no slug_candidate
+  // awaiting approval and no slug_gate, because there is no second ask.
+  state.adopted_slug = slug;
+  state.adopted_slug_via = via;
   writeFileSync(runPath, JSON.stringify(state, null, 2) + "\n");
-  console.log(JSON.stringify({ run_state: runPath, slug_gate: state.slug_gate }, null, 2));
-  console.log("# Thesis adopted into machine-local run state; still nothing under briefs/ until the approved slug reaches `mint`.");
+  console.log(JSON.stringify({
+    run_state: runPath,
+    adopted: { thesis, slug, thesis_via: state.adopted_via, slug_via: via },
+  }, null, 2));
+  console.log("# The (Thesis, name) pair is adopted into machine-local run state — one gate, already answered. "
+    + "Nothing exists under briefs/ until `mint` runs; no further question is raised (§5.3 v11, kogaki#518).");
 }
 
-// ---- mint: consume the adopted Thesis and the owner-approved slug. ----
+// ---- mint: consume the adopted (Thesis, slug) PAIR. ----
 function cmdMint(args) {
   const { state } = readRunState(args);
   if (state.stage !== "adopted" || typeof state.adopted_thesis !== "string" || state.adopted_thesis === "") {
@@ -396,14 +455,22 @@ function cmdMint(args) {
       + "gate blocks and nothing is written under briefs/ (§5.3 v9; "
       + "kogaki#494: a pre-Thesis Brief is unproducible).");
   }
-  const slug = argString(args, "slug",
-    "mint needs --slug <approved slug> — the owner's answer at the "
-    + "slug-approval ask (the derived candidate approved, or the owner's "
-    + "free-form override). With no owner answer the gate blocks and "
-    + "nothing is written (story 1.72 AC6).");
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-    fail(`slug ${JSON.stringify(slug)} — use lowercase words joined by hyphens; `
-      + "the slug names a directory the owner enumerates.");
+  // THE MINT CONSUMES THE ADOPTED PAIR (§5.3 v11, kogaki#518). The owner's
+  // name reaches here one way only — through `adopt`, as the half of the one
+  // gate's answer they settled — and the mint DERIVES NOTHING of its own: a
+  // run whose pair carries no name refuses rather than inventing one, which
+  // is what keeps the name an answered half rather than a machine identity.
+  // `--slug` survives as a caller-supplied name for programmatic drivers
+  // (a harness minting a fixture Brief under a fixed home); it is not a
+  // question, is never passed by the skill, and the retired second ASK is
+  // gone from this file entirely.
+  const slug = typeof args.slug === "string" && args.slug !== ""
+    ? args.slug : state.adopted_slug;
+  if (typeof slug !== "string" || !SLUG_RE.test(slug)) {
+    fail("the run state carries no adopted name — re-run `adopt` with the "
+      + "owner's answer at the thesis-determination gate (§5.3 v11: the one "
+      + "gate carries the Thesis and its name together; there is no separate "
+      + "slug ask to answer).");
   }
 
   const briefsDir = resolve(typeof args["briefs-dir"] === "string" && args["briefs-dir"] !== "" ? args["briefs-dir"] : "briefs");
@@ -413,8 +480,9 @@ function cmdMint(args) {
   // editor.
   if (existsSync(home)) {
     fail(`briefs/${slug}/ already exists. The entry point creates and never `
-      + "overwrites — resume that Brief by opening its document, or choose "
-      + "another slug (SPEC-draft-pipeline §5.3).");
+      + "overwrites — resume that Brief by opening its document, or re-answer "
+      + "the thesis-determination gate naming a different name (`adopt "
+      + "--thesis <id|text> --slug <name>`, SPEC-draft-pipeline §5.3 v11).");
   }
   mkdirSync(home, { recursive: true });
   const out = join(home, "brief.md");
@@ -438,6 +506,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         + "re-sequenced at v9 (kogaki#494): entry → thesis-determination "
         + "gate → mint. Run `enter`, then `adopt`, then `mint`.");
       break;
-    default: fail("usage: brief.mjs enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | adopt --run-state <path> --thesis <id|text> | mint --run-state <path> --slug <approved> [--briefs-dir <dir>]");
+    default: fail("usage: brief.mjs enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | adopt --run-state <path> --thesis <id|text> [--slug <override>] | mint --run-state <path> [--briefs-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
   }
 }

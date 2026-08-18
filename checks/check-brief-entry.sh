@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # check-brief-entry — the Brief entry point's contract properties
 # (SPEC-draft-pipeline §5.3; v7 kogaki#482 story 1.71; re-sequenced v9
-# kogaki#494, story 1.72: entry → thesis-determination gate → mint).
+# kogaki#494, story 1.72: entry → thesis-determination gate → mint; the slug
+# PAIRED INTO THE ONE GATE at v11, kogaki#518, story 1.76).
 #
 # Seam-free: every case runs against the committed terrain survey fixture
 # (checks/fixtures/terrain/cotags/lone-tag-member.json, display ids L1-L5)
@@ -29,10 +30,11 @@ const rs = (name) => join(dir, `${name}.run.json`);
 const run = (argv) => spawnSync(process.execPath,
   ["brief/brief.mjs", ...argv], { encoding: "utf8" });
 const enter = (ids, state) => run(["enter", "--survey", SURVEY, "--ids", ids, "--run-state", state]);
-const adopt = (state, thesis) => run(["adopt", "--run-state", state, "--thesis", thesis]);
-const mint = (state, slug) => slug === undefined
-  ? run(["mint", "--run-state", state, "--briefs-dir", briefs])
-  : run(["mint", "--run-state", state, "--slug", slug, "--briefs-dir", briefs]);
+const adopt = (state, thesis, slug) => run(slug === undefined
+  ? ["adopt", "--run-state", state, "--thesis", thesis]
+  : ["adopt", "--run-state", state, "--thesis", thesis, "--slug", slug]);
+// The mint takes NO name of its own at v11 — it consumes the adopted pair.
+const mint = (state) => run(["mint", "--run-state", state, "--briefs-dir", briefs]);
 const briefsEmpty = () => !existsSync(briefs) || readdirSync(briefs).length === 0;
 // The strand phrases the fixture's set can contribute — the vocabulary a
 // composed candidate may draw content from (plus plain-register frame words).
@@ -81,42 +83,95 @@ try {
   else if (!/Terrain/.test(neg.label) || !/never|no Brief/.test(neg.label)) fails.push("(c) the negation option does not route back through Terrain / refuse a Brief fetch");
   if (gate.free_text?.accepted !== true) fails.push("(c) free text is not unconditionally accepted");
 
-  // (d) NO SLUG CANDIDATE EXISTS BEFORE ADOPTION; adoption derives exactly
-  // ONE, from the adopted Thesis (AC4).
-  if ("slug_candidate" in st1) fails.push("(d) a slug candidate exists before Thesis adoption");
+  // (d) THE ONE GATE CARRIES THE (THESIS, SLUG) PAIR (kogaki#518, story
+  // 1.76; §5.3 v11). The second ask is GONE, not skipped: this case asserts
+  // the pair on the gate payload, the two conditions v11 binds the merge by
+  // — separately RENDERED and separately DECLINABLE — and the absence of the
+  // retired ask from the run state, the runtime source and the gate registry.
+  if ("slug_gate" in st1 || "slug_candidate" in st1) fails.push("(d) the run state still carries the RETIRED slug ask's keys — the second question is gone, not merely unraised (§5.3 v11)");
+  const gateOpts = (st1.gate?.options || []).filter((o) => !o.negates_premise);
+  for (const c of cands) {
+    // AC1: one slug per candidate, and deriveSlugCandidate is THE derivation.
+    if (typeof c.slug !== "string" || !c.slug) { fails.push(`(d) candidate ${c.id} carries no paired slug`); continue; }
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(c.slug)) fails.push(`(d) candidate ${c.id}'s slug ${JSON.stringify(c.slug)} is not a name the owner could enumerate as a directory`);
+    if (c.slug !== deriveSlugCandidate(c.thesis)) fails.push(`(d) candidate ${c.id}'s slug is not what deriveSlugCandidate makes of ITS OWN Thesis — two derivations`);
+    const words = new Set(c.thesis.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/));
+    for (const w of c.slug.split("-")) if (![...words].some((t) => t === w || t.includes(w))) fails.push(`(d) candidate ${c.id}'s slug word "${w}" does not derive from its own Thesis`);
+    // AC2: SEPARATELY RENDERED — its own visible element of the option BODY.
+    const opt = gateOpts.find((o) => o.id === c.id);
+    if (!opt) { fails.push(`(d) candidate ${c.id} has no option in the gate payload`); continue; }
+    const item = (opt.rendering || []).find((r) => r.text === c.slug);
+    if (!item) fails.push(`(d) option ${c.id} does not render its slug as its own element of the option body — a second decision class riding invisibly inside the first is what §5.3 v11's served constraint forbids`);
+    else if (!String(item.label || "").trim()) fails.push(`(d) option ${c.id}'s slug element carries no label of its own`);
+  }
+  // AC2: the BARE slug — `briefs/` appears in NO option's rendering.
+  for (const o of st1.gate?.options || []) {
+    const surfaces = [o.label, ...(o.rendering || []).flatMap((r) => [r.label, r.text])];
+    for (const t of surfaces) if (String(t).includes("briefs/")) fails.push(`(d) option ${o.id} renders a briefs/ path — the owner reads the BARE name (owner rendering ruling 2026-08-18)`);
+  }
+  // AC3, half one: with no override, the ADOPTED CANDIDATE'S OWN paired slug
+  // is what the run carries forward.
   const r2 = adopt(s1, "thesis-1");
   if (r2.status !== 0) fails.push(`(d) adopt exited ${r2.status}: ${(r2.stderr || "").trim()}`);
   const st2 = JSON.parse(readFileSync(s1, "utf8"));
-  if (typeof st2.slug_candidate !== "string" || !st2.slug_candidate) fails.push("(d) adoption derived no slug candidate");
-  else {
-    const thesisWords = new Set(st2.adopted_thesis.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/));
-    for (const w of st2.slug_candidate.split("-")) if (![...thesisWords].some((t) => t === w || t.includes(w))) fails.push(`(d) slug word "${w}" does not derive from the adopted Thesis`);
-    const sg = st2.slug_gate || {};
-    const approves = (sg.options || []).filter((o) => !o.negates_premise);
-    if (approves.length !== 1) fails.push(`(d) ${approves.length} slug candidate option(s) — exactly one is presented for approval`);
-    if (!(sg.options || []).some((o) => o.negates_premise === true)) fails.push("(d) the slug ask carries no negates_premise option");
-    if (sg.free_text?.accepted !== true) fails.push("(d) the slug ask's free-form override is missing");
-  }
+  if ("slug_gate" in st2 || "slug_candidate" in st2) fails.push("(d) adoption emitted the RETIRED slug ask");
+  if (/slug_gate|brief-slug-approval/.test(r2.stdout || "")) fails.push("(d) adopt printed a slug ask — the second question has no path to exist (§5.3 v11)");
   if (st2.adopted_thesis !== (st1.thesis_candidates || [])[0]?.thesis) fails.push("(d) adopting thesis-1 did not record that candidate's text");
+  if (st2.adopted_slug !== cands[0]?.slug) fails.push(`(d) the adopted name is not the one paired with the adopted candidate: ${JSON.stringify(st2.adopted_slug)} vs ${JSON.stringify(cands[0]?.slug)}`);
+  // AC3, half two: SEPARATELY DECLINABLE — the slug half is overridden in the
+  // SAME one answer, costing neither a restatement of the Thesis nor the
+  // option. Driven on its own run so the un-overridden path above stands.
+  const sOv = rs("case-d-override");
+  enter("L2,L1", sOv);
+  const stOv0 = JSON.parse(readFileSync(sOv, "utf8"));
+  const rOv = adopt(sOv, "thesis-1", "owner-named-this-brief");
+  if (rOv.status !== 0) fails.push(`(d) adopt with an override slug exited ${rOv.status}: ${(rOv.stderr || "").trim()}`);
+  const stOv = JSON.parse(readFileSync(sOv, "utf8"));
+  if (stOv.adopted_slug !== "owner-named-this-brief") fails.push("(d) the owner's override is not the adopted name — the slug half is not separately declinable");
+  if (stOv.adopted_thesis !== stOv0.thesis_candidates[0].thesis) fails.push("(d) overriding the slug cost the owner the listed Thesis — declining one half must not abandon the option");
+  if (stOv.adopted_via !== "thesis-1") fails.push("(d) the override path did not record the LISTED candidate as adopted — the option was abandoned rather than kept");
+  const rBad = adopt(sOv, "thesis-2", "Not A Slug");
+  if (rBad.status === 0) fails.push("(d) a malformed override was accepted as the Brief's name");
+  // AC4: the retired ask is ABSENT FROM THE TREE, not merely unraised.
+  const runtimeSrc = readFileSync("brief/brief.mjs", "utf8");
+  for (const token of ["slug_gate", "brief-slug-approval"]) {
+    if (new RegExp(`"${token}"|'${token}'|\\b${token}:`).test(runtimeSrc)) fails.push(`(d) brief/brief.mjs still carries ${token} as a live path — kogaki#518 retires the ask, it does not leave it unraised`);
+  }
+  const gatesRegistry = JSON.parse(readFileSync("gates/registry.json", "utf8"));
+  if ((gatesRegistry.gates || []).some((g) => g.id === "brief-slug-approval")) fails.push("(d) gates/registry.json still declares brief-slug-approval — a registered gate nothing raises is the uncovered-by-default shape");
+  const thesisGate = (gatesRegistry.gates || []).find((g) => g.id === "brief-thesis-adoption");
+  const dyn = thesisGate?.dynamic_options || "";
+  for (const [needle, what] of [[/pair/i, "the paired option"], [/separately RENDERED/i, "the separately-rendered condition"], [/separately DECLINABLE/i, "the separately-declinable condition"]]) {
+    if (!needle.test(dyn)) fails.push(`(d) brief-thesis-adoption's dynamic_options does not declare ${what}`);
+  }
 
   // (e) THE GATE BLOCKS (AC6): mint before adoption refuses and writes
-  // nothing; mint without an approved slug refuses and writes nothing.
+  // nothing; and the mint INVENTS NO NAME — a run state carrying an adopted
+  // Thesis but no adopted name refuses rather than deriving one itself,
+  // which is the guard that keeps the name an ANSWERED half of the one gate.
   const s2 = rs("case-e");
   enter("L3", s2);
-  const r3 = mint(s2, "anything");
+  const r3 = mint(s2);
   if (r3.status === 0) fails.push("(e) mint ran with NO adopted Thesis");
   if (!/no Thesis has been adopted/.test(r3.stderr || "")) fails.push(`(e) the pre-adoption refusal does not name the blocked gate: ${JSON.stringify((r3.stderr || "").slice(0, 120))}`);
-  const r4 = mint(s1); // adopted, but no owner answer at the slug ask
-  if (r4.status === 0) fails.push("(e) mint ran with no approved slug — the ask was never answered");
+  const sNoName = rs("case-e-nameless");
+  enter("L3", sNoName);
+  adopt(sNoName, "thesis-1");
+  const stripped = JSON.parse(readFileSync(sNoName, "utf8"));
+  delete stripped.adopted_slug;
+  writeFileSync(sNoName, JSON.stringify(stripped, null, 2) + "\n");
+  const r4 = mint(sNoName);
+  if (r4.status === 0) fails.push("(e) mint invented a name for a run whose adopted pair carries none");
+  if (!/no adopted name/.test(r4.stderr || "")) fails.push(`(e) the nameless refusal does not name what is missing: ${JSON.stringify((r4.stderr || "").slice(0, 160))}`);
   if (!briefsEmpty()) fails.push("(e) a blocked gate left something under briefs/");
 
   // (f) THE MINT (AC5): thesis FILLED at mint by construction — the adopted
   // text, never a slot — and every DOWNSTREAM §5.1 field a typed unfilled
   // slot; definition, pin, cites and closed-set line retained from v7; the
   // command path byte-equal to the exported composer.
-  const r5 = mint(s1, st2.slug_candidate);
+  const r5 = mint(s1);
   if (r5.status !== 0) fails.push(`(f) mint exited ${r5.status}: ${(r5.stderr || "").trim()}`);
-  const home = join(briefs, st2.slug_candidate);
+  const home = join(briefs, st2.adopted_slug);
   const doc = existsSync(join(home, "brief.md")) ? readFileSync(join(home, "brief.md"), "utf8") : "";
   if (!/A \*\*brief\*\* is the working plan/.test(doc)) fails.push("(f) the reader-facing definition of 'brief' is absent — coining an owner-facing term obliges a definition in the same act");
   if (!/### L2 — alpha/.test(doc) || !/### L1 — bravo/.test(doc)) fails.push("(f) a resolved Strand heading is absent");
@@ -134,7 +189,7 @@ try {
   if (!/CLOSED at mint/.test(doc)) fails.push("(f) the closed-set line is absent — the invariant binds from the mint");
   if (!doc.includes(record.pin)) fails.push("(f) the survey pin is absent from the document");
   const { strands } = resolveStrandIds(record, ["L2", "L1"]);
-  if (composeBrief({ slug: st2.slug_candidate, pin: record.pin, strands, thesis: st2.adopted_thesis }) !== doc) {
+  if (composeBrief({ slug: st2.adopted_slug, pin: record.pin, strands, thesis: st2.adopted_thesis }) !== doc) {
     fails.push("(f) the command's document differs from the exported composer's — two producers");
   }
 
@@ -154,7 +209,7 @@ try {
   }
 
   // (i) COLLISION: a creator, never an editor.
-  const r8 = mint(s1, st2.slug_candidate);
+  const r8 = mint(s1);
   if (r8.status === 0) fails.push("(i) an existing slug was overwritten");
   if (!/already exists/.test(r8.stderr) || !/never\s+overwrites/.test(r8.stderr)) {
     fails.push(`(i) the refusal does not state the creator-never-editor rule: ${JSON.stringify((r8.stderr || "").slice(0, 160))}`);
@@ -170,7 +225,8 @@ try {
   adopt(s3, owner);
   const st3 = JSON.parse(readFileSync(s3, "utf8"));
   if (st3.adopted_thesis !== owner) fails.push("(j) a free-form Thesis was not taken verbatim");
-  if (st3.slug_candidate !== deriveSlugCandidate(owner)) fails.push("(j) the slug candidate does not derive from the owner's Thesis");
+  if (st3.adopted_slug !== deriveSlugCandidate(owner)) fails.push("(j) the adopted name does not derive from the owner's own Thesis — v9 behaviour, unchanged at v11");
+  if (st3.adopted_slug_via !== "derived-from-free-form-thesis") fails.push("(j) a free-form Thesis's name is not recorded as derived from it");
   // Exported helpers agree with the command path (same dual-producer guard
   // as (f)).
   const viaExport = composeThesisCandidates(resolveStrandIds(record, ["L2", "L1"]).strands);
@@ -187,7 +243,7 @@ try {
   // Driven through a DERIVED survey so the shared fixture other checks read
   // is untouched: L2's journey keeps its slug and loses its cite, which is
   // the state terrain tallies as an abnormality (`c.journey && !jg`).
-  {
+  try {
     const derived = JSON.parse(JSON.stringify(record));
     const l2 = derived.candidates.find((c) => c.display_id === "L2");
     delete l2.journey.cite;
@@ -196,12 +252,24 @@ try {
     const ds = rs("uncited");
     const e = spawnSync(process.execPath, ["brief/brief.mjs", "enter", "--survey", dsurvey, "--ids", "L2,L1", "--run-state", ds], { encoding: "utf8" });
     if (e.status !== 0) fails.push(`(k) enter over the derived survey exited ${e.status}: ${(e.stderr || "").trim()}`);
-    const a = spawnSync(process.execPath, ["brief/brief.mjs", "adopt", "--run-state", ds, "--thesis", "thesis-1"], { encoding: "utf8" });
+    // The override half of the one gate, driven end to end: this run adopts
+    // the SAME listed Thesis as (f) and names the Brief differently in the
+    // same answer, which is also what keeps the two runs from colliding.
+    const a = spawnSync(process.execPath, ["brief/brief.mjs", "adopt", "--run-state", ds, "--thesis", "thesis-1", "--slug", "uncited-case"], { encoding: "utf8" });
     if (a.status !== 0) fails.push(`(k) adopt over the derived survey exited ${a.status}: ${(a.stderr || "").trim()}`);
     const st = JSON.parse(readFileSync(ds, "utf8"));
-    const m = spawnSync(process.execPath, ["brief/brief.mjs", "mint", "--run-state", ds, "--slug", "uncited-case", "--briefs-dir", briefs], { encoding: "utf8" });
+    const m = spawnSync(process.execPath, ["brief/brief.mjs", "mint", "--run-state", ds, "--briefs-dir", briefs], { encoding: "utf8" });
     if (m.status !== 0) fails.push(`(k) mint over the derived survey exited ${m.status}: ${(m.stderr || "").trim()}`);
-    const doc = readFileSync(join(briefs, "uncited-case", "brief.md"), "utf8");
+    // GUARDED: (k) mints under the name the owner OVERRODE at the one gate,
+    // so a broken override strands this case with no document. Report that
+    // as (k)'s own finding rather than crashing the whole check — a crash
+    // here would hide every case after it.
+    const docPath = join(briefs, "uncited-case", "brief.md");
+    if (!existsSync(docPath)) {
+      fails.push("(k) no Brief was minted under the overriding name — the derived run has no document to assert against");
+      throw new Error("__k_skipped__");
+    }
+    const doc = readFileSync(docPath, "utf8");
 
     // The absence is DISCLOSED — never silently dropped.
     if (!/PRESENT WITH NO SERVED CITE/.test(doc))
@@ -220,7 +288,9 @@ try {
     }] });
     if (!bad.error || !/carries none/.test(bad.error))
       fails.push("(k) the §4.4 carries-none refusal still does not fire for an uncited Journey — the guard is absent in the case it is named for");
-    if (st.slug_candidate === undefined) fails.push("(k) the derived run produced no slug candidate");
+    if (st.adopted_slug !== "uncited-case") fails.push("(k) the derived run's overriding name did not reach the mint");
+  } catch (e) {
+    if (e.message !== "__k_skipped__") throw e;
   }
 
 } finally {
@@ -228,32 +298,56 @@ try {
 }
 
 if (fails.length) {
-  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v9, stories 1.71/1.72):");
+  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11, stories 1.71/1.72/1.76):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
 console.log("brief entry: 11/11 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
   + "state is machine-local, §5.3 v9); (b) 2-3 Thesis candidates composed from the settled "
   + "set only, each with its round-trip concession; (c) the ask carries its gate declaration "
-  + "with the premise's negation first-class, routing back through Terrain; (d) no slug "
-  + "candidate before adoption, exactly one thesis-derived candidate after; (e) the gate "
-  + "blocks — mint refuses without an adopted Thesis and without an approved slug, leaving "
-  + "briefs/ empty; (f) the mint fills thesis BY CONSTRUCTION and every downstream §5.1 "
+  + "with the premise's negation first-class, routing back through Terrain; "
+  + "(d) THE ONE GATE CARRIES THE (THESIS, SLUG) PAIR AND THE SECOND ASK IS GONE, NOT SKIPPED "
+  + "(kogaki#518, §5.3 v11): every candidate carries a slug DERIVED FROM ITS OWN Thesis through the "
+  + "one exported derivation, each option renders that slug as its own labelled element of the option "
+  + "BODY (separately RENDERED) as the BARE name with no `briefs/` path on any option surface, the "
+  + "owner's `--slug` override in the SAME one answer becomes the adopted name while the listed Thesis "
+  + "and the option itself are kept and a malformed override refuses (separately DECLINABLE), and the "
+  + "retired ask is ABSENT — no slug_gate or slug_candidate in the run state, no such live path in "
+  + "brief/brief.mjs, no brief-slug-approval row in gates/registry.json, and brief-thesis-adoption's "
+  + "dynamic_options declaring the pair with both of its conditions; "
+  + "(e) the gate blocks — mint refuses without an adopted Thesis, and INVENTS NO NAME for a run whose "
+  + "adopted pair carries none, leaving briefs/ empty; (f) the mint fills thesis BY CONSTRUCTION and "
+  + "every downstream §5.1 "
   + "field is a typed unfilled slot, with the command path byte-equal to the exported "
   + "composer; (g) an unknown id refuses naming both sides; (h) a G-id refuses by name "
   + "pointing at L<n>; (i) a slug collision refuses without mutating the existing Brief; "
-  + "(j) a free-form Thesis is taken verbatim and the slug follows it; (k) A JOURNEY WITH NO "
+  + "(j) a free-form Thesis is taken verbatim and its name derives from the owner's own words "
+  + "(v9 behaviour, unchanged at v11); (k) A JOURNEY WITH NO "
   + "SERVED CITE RENDERS DIFFERENTLY FROM A CITED ONE (kogaki#507), driven end to end through a "
-  + "DERIVED survey so the shared fixture is untouched: the absence is DISCLOSED rather than "
+  + "DERIVED survey so the shared fixture is untouched — and now through the OVERRIDE half of the one "
+  + "gate, which is what gives it a distinct home: the absence is DISCLOSED rather than "
   + "dropped, it does NOT wear the `- journey cite:` marker, journeyBearingStrands is then correct "
   + "WITH NO PREDICATE OF ITS OWN, and \u00a74.4's carries-none refusal fires for it \u2014 the case "
   + "kogaki#507 was filed for. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507)"
-  + ": ELEVEN "
-  + "mutations, each run once and restored surgically — story 1.72's six: minting the home "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76)"
+  + ": SIXTEEN "
+  + "mutations, each run once and restored surgically — story 1.76's six, all against §5.3 v11's "
+  + "paired gate: dropping each option's slug element failed (d)'s separately-RENDERED assertion; "
+  + "putting the `briefs/<slug>` path into that element failed (d)'s bare-name assertion; leaving the "
+  + "candidates unpaired failed (d)'s per-candidate slug assertion; making adopt ignore `--slug` failed "
+  + "(d)'s separately-DECLINABLE assertion AND stranded (k), which is the direct evidence that the "
+  + "override is load-bearing rather than decorative; making mint derive a name when the adopted pair "
+  + "carries none failed (e)'s invents-no-name assertion; re-emitting a slug_gate from adopt failed "
+  + "(d)'s retired-ask assertions at BOTH the run state and the runtime source, which is the evidence "
+  + "that the ask is unproducible rather than merely unraised. "
+  + "RETIRED BY THIS HEAD, stated because a dropped mutation and an invented one read identically: "
+  + "story 1.72's \"deriving the slug at enter failed (d)'s none-before-adoption\" is no longer "
+  + "re-runnable — deriving the slug at enter IS the v11 contract, so the mutation names the current "
+  + "behaviour. It is removed rather than reworded. "
+  + "Story 1.72's remaining five: minting the home "
   + "at enter failed (a); composing a candidate from a hardcoded foreign phrase failed (b)'s "
-  + "set-only assertion; dropping the negates_premise option failed (c); deriving the slug at "
-  + "enter failed (d)'s none-before-adoption; removing mint's adopted-thesis guard failed (e); "
+  + "set-only assertion; dropping the negates_premise option failed (c); "
+  + "removing mint's adopted-thesis guard failed (e); "
   + "rendering Thesis as a slot failed (f)'s filled-by-construction; plus story 1.71's three "
   + "refusal-path mutations (missing-id filter emptied, G-id filter emptied, collision guard "
   + "disabled) failing (g)-(i); plus kogaki#507's two: rendering the CITED marker for an uncited "
@@ -262,8 +356,9 @@ console.log("brief entry: 11/11 cases — (a) entry writes NOTHING under briefs/
   + "rather than a predicate added to the reader; and dropping the disclosure entirely failed (k)'s "
   + "disclosure assertion, so the absence cannot be repaired by silence. "
   + "NOT COVERED, stated rather than implied: the skill's ask "
-  + "conduct — that AskUserQuestion is actually raised and blocked on — is a relay property "
-  + "no check can run (the same standing SPEC-terrain §14.4's prohibitions have); the check "
+  + "conduct — that AskUserQuestion is actually raised and blocked on, and that the option body the "
+  + "owner sees is the payload's rendering — is a relay property no check can run (the same standing "
+  + "SPEC-terrain §14.4's prohibitions have); the check "
   + "drives the runtime's refusals, which make an unanswered gate UNMINTABLE rather than "
   + "merely prohibited.");
 JS

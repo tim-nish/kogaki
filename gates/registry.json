@@ -71,10 +71,10 @@
     },
     {
       "id": "brief-thesis-adoption",
-      "raised_by": "brief/brief.mjs enter + .claude/skills/brief — the thesis-determination gate (specs/spec-draft-pipeline/SPEC.md §5.3 v9, kogaki#494; kogaki#488, story 1.72)",
+      "raised_by": "brief/brief.mjs enter + .claude/skills/brief — the thesis-determination gate, THE ONE OWNER QUESTION before the mint (specs/spec-draft-pipeline/SPEC.md §5.3 v11, kogaki#518; re-sequenced v9, kogaki#494; kogaki#488, story 1.72)",
       "host": "claude-code",
       "medium": "selector",
-      "question": "Which Thesis does the Brief adopt?",
+      "question": "Which Thesis does the Brief adopt, and under what name?",
       "options": [
         {
           "id": "back-to-terrain",
@@ -84,24 +84,7 @@
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "The 2-3 Thesis candidates are composed per run FROM THE SETTLED STRAND SET ONLY (§3's read-not-invented rule; ids thesis-1..thesis-3), each in plain register with its round-trip concession stated (SPEC-style-contract §4). The run's full declaration is written into the machine-local run state beside the composed candidates (pre-Thesis state is machine-local, §5.3 v9) — the same run-workspace siting as the terrain gates. The standing negation option is standing because the composing premise — this settled set supports a Thesis — is the machine's, and its negation routes back through Terrain, never a Brief fetch. fork:false deliberately: the runtime attaches no recommendation among its own candidates — ranking them would be the machine adopting a Thesis by another name, and the Thesis is the first piece of substantive OWNER judgment in the flow. The free-text answer becomes the adopted Thesis verbatim and does not discharge the negation option."
-    },
-    {
-      "id": "brief-slug-approval",
-      "raised_by": "brief/brief.mjs adopt + .claude/skills/brief — the thesis-derived slug approval before the mint (specs/spec-draft-pipeline/SPEC.md §5.3 v9, kogaki#494; kogaki#488, story 1.72)",
-      "host": "claude-code",
-      "medium": "selector",
-      "question": "Approve the thesis-derived slug as the Brief's home name?",
-      "options": [
-        {
-          "id": "no-mint-under-this-thesis",
-          "label": "This Thesis should not name a Brief after all — reopen Thesis adoption; nothing is written under briefs/",
-          "negates_premise": true
-        }
-      ],
-      "free_text_offered": true,
-      "fork": false,
-      "dynamic_options": "Exactly ONE approve-option comes per run from the run state's slug_candidate — derived from the adopted Thesis, existing only after adoption (story 1.72 AC4), ordinary vocabulary and never a machine identity (SPEC-terrain §12.2's repair kept by the v9 route). The owner's free-form override IS the approved slug when given (lowercase-and-hyphens; the runtime's grammar refusal covers a malformed one). fork:false: one candidate plus an override is an approval, not a fork, and no recommendation is attached beyond the single derivation itself, which the option's label discloses. With no answer the mint never runs and nothing exists under briefs/ (story 1.72 AC6)."
+      "dynamic_options": "The 2-3 options are composed per run FROM THE SETTLED STRAND SET ONLY (§3's read-not-invented rule; ids thesis-1..thesis-3), each in plain register with its round-trip concession stated (SPEC-style-contract §4). EACH OPTION IS A (THESIS, SLUG) PAIR (v11, kogaki#518, owner ruling 2026-08-17 recorded in kogaki#494's thread): `enter` derives one slug per candidate from that candidate's own Thesis and carries it in the option, and adopting an option adopts both halves — the mint consumes the adopted pair. There is no second slug question anywhere in this flow; the retired brief-slug-approval gate is gone from this registry rather than left unraised, because two gates whose owner_decision resolves to the same vocabulary entry at the same artifact are ONE gate, the second being a defect. THE PAIR RIDES ONE GATE ONLY UNDER THE TWO CONDITIONS §5.3 v11 BINDS IT BY, and both are declared here rather than left to the runtime. SEPARATELY RENDERED: the slug is its own visible element of the option BODY — the option's `rendering` entry \"The name this Thesis gives the Brief\", carrying the BARE slug and never a briefs/ path (owner rendering ruling 2026-08-18; the body rather than the label is a try-one-first instruction, and moving it to the label needs no amendment). SEPARATELY DECLINABLE: an owner who adopts a listed Thesis but wants a different name says so in the SAME one answer — `adopt --thesis <id> --slug <name>` — which costs neither a restatement of the Thesis nor the abandonment of the option; the runtime's lowercase-and-hyphens refusal covers a malformed one. The run's full declaration is written into the machine-local run state beside the composed candidates (pre-Thesis state is machine-local, §5.3 v9) — the same run-workspace siting as the terrain gates. The standing negation option is standing because the composing premise — this settled set supports a Thesis — is the machine's, and its negation routes back through Terrain, never a Brief fetch. fork:false deliberately: the runtime attaches no recommendation among its own candidates — ranking them would be the machine adopting a Thesis by another name, and the Thesis is the first piece of substantive OWNER judgment in the flow. The free-text answer becomes the adopted Thesis verbatim, with its name derived from it, and does not discharge the negation option."
     }
   ]
 }
