@@ -28,7 +28,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fillBrief, replaceSlot, selectedStrands, placements } from "./compose.mjs";
+import { fillBrief, replaceSlot, selectedStrands, placements,
+         journeyBearingStrands, journeyPlacements } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 
 function fail(msg) {
@@ -48,9 +49,16 @@ const REASONING_FIELDS = ["step_validity", "transition_continuity", "thesis_clos
 // computed MECHANICALLY from its own steps and obligations against the
 // Brief's closed Strand set. The count is taken after that Candidate's
 // composition, counted in placements (§5.2's rider, applied per Candidate).
-export function candidateEvidence(c, strandIds) {
+export function candidateEvidence(c, strandIds, journeyIds = []) {
   const place = placements(c.steps, strandIds);
   const placed = strandIds.filter((id) => place.get(id).length > 0);
+  // §6.1 MUST 1, applied PER CANDIDATE: journey register is an axis of
+  // Candidate differentiation, so the place-or-disclose rider is evidence
+  // each Candidate owes the gate separately — two Candidates over the same
+  // Strand set may place different journey material, and a per-Brief figure
+  // would average exactly the difference the owner is selecting on.
+  const jplace = journeyPlacements(c.steps, journeyIds);
+  const jplaced = journeyIds.filter((id) => jplace.get(id).length > 0);
   const obligations = c.obligations || [];
   const undischarged = obligations.filter((o) => o.discharged_by === undefined).length;
   return {
@@ -58,6 +66,10 @@ export function candidateEvidence(c, strandIds) {
       ? "the ledger is empty — a statement, not an omission"
       : `${obligations.length} entr${obligations.length === 1 ? "y" : "ies"}, ${undischarged} UNDISCHARGED (disclosed, never refused — §5.2)`,
     placement_count: `${placed.length} of ${strandIds.length} selected Strand(s) placed, counted in placements after this Candidate's composition${placed.length < strandIds.length ? " — the unplaced disclose at adoption" : ""}`,
+    journey_coverage: journeyIds.length === 0
+      ? "no selected Strand carries Journey material — §6.1's MUSTs are vacuous for this Brief, not unmet"
+      : `${jplaced.length} of ${journeyIds.length} Journey-bearing Strand(s) placed by this Candidate`
+        + `${jplaced.length < journeyIds.length ? ` — OMITTED and disclosed: ${journeyIds.filter((id) => jplace.get(id).length === 0).join(", ")}` : ""}`,
   };
 }
 
@@ -99,7 +111,8 @@ export function assembleSelection(reviewed, doc) {
   if (strandIds.length === 0) {
     return { error: "the Brief carries no Strands section — not a minted Brief (assembly runs over the Brief whose closed set the Candidates composed from)" };
   }
-  const options = cands.map((c) => { const ev = candidateEvidence(c, strandIds); return ({
+  const journeyIds = journeyBearingStrands(doc);
+  const options = cands.map((c) => { const ev = candidateEvidence(c, strandIds, journeyIds); return ({
     id: c.candidate_id,
     // THE LABEL STATES AN EFFECT (proposal-contract §2.2): what happens if
     // this option is taken, in the reader-experience terms the Candidates
@@ -113,6 +126,7 @@ export function assembleSelection(reviewed, doc) {
       thesis_closure: c.reasoning.thesis_closure,
       obligations_ledger: ev.obligations_ledger,
       placement_count: ev.placement_count,
+      journey_coverage: ev.journey_coverage,
       review: c.review,
     },
   }); });

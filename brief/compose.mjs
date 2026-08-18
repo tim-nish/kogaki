@@ -144,6 +144,38 @@ export function placements(steps, strandIds) {
   return used;
 }
 
+// The JOURNEY-BEARING members of the closed set, read from the Brief's own
+// Strands section: the mint renders a `- journey cite:` line under exactly
+// those Strands whose served record carried Journey material (brief.mjs).
+// Read from the document for the same reason selectedStrands is — the Brief
+// is the closed set's carrier, and a second source would be a Brief fetch.
+export function journeyBearingStrands(doc) {
+  const out = [];
+  const secs = [...doc.matchAll(/^### (L[0-9]+) — [^\n]*\n([\s\S]*?)(?=^### |^## )/gm)];
+  for (const m of secs) {
+    if (/^- journey cite:/m.test(m[2])) out.push(m[1]);
+  }
+  return out;
+}
+
+// Journey placement, the §6.1 MUST 1 half of the completeness rider: a
+// Journey is a DISTINCT material (§4.1 — "which Strands, which Journeys"),
+// carried in a step's materials as `<L-id>.journey`. Derived from the
+// composed steps for the same reason placements() is, and the reason is
+// load-bearing here rather than inherited: a Strand can be placed while the
+// journey material it carries is dropped, so a per-Strand count cannot see
+// this omission at all and a declared cover would hide it by construction.
+export function journeyPlacements(steps, journeyIds) {
+  const used = new Map(journeyIds.map((id) => [id, []]));
+  for (const s of steps) {
+    for (const m of s.materials) {
+      const j = /^(L[0-9]+)\.journey$/.exec(m);
+      if (j && used.has(j[1])) used.get(j[1]).push(s.step_id);
+    }
+  }
+  return used;
+}
+
 // Exported for the adoption writer (story 1.75): thesis_closure and
 // tradeoffs fill through the same one slot-replacer, so a filled field
 // refuses overwrite everywhere for the same reason.
@@ -168,11 +200,29 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
   // reader assumptions, earlier steps' conclusions, constructed material —
   // §4.1's many-to-many list; only L<n> tokens are checkable against the
   // closed set, and a foreign L<n> is a Brief fetch by the §5.3 invariant).
+  const journeyIds = journeyBearingStrands(doc);
   for (const s of steps) {
     for (const m of s.materials) {
       if (/^L[0-9]+$/.test(m) && !strandIds.includes(m)) {
         return { error: `step ${s.step_id}: material ${m} is outside the Brief's closed Strand set `
           + `(${strandIds.join(", ")}) — growing the set routes back through Terrain, never a Brief fetch (§5.3)` };
+      }
+      // A Journey material (§4.1) is checkable twice: against the closed set,
+      // and against that Strand ACTUALLY carrying Journey material. The second
+      // check is what stops a composer inventing journey material for a Strand
+      // whose served record has none — unsupported completion (§4.4), in the
+      // one place the bare-L<n> check cannot see.
+      const j = /^(L[0-9]+)\.journey$/.exec(m);
+      if (j) {
+        if (!strandIds.includes(j[1])) {
+          return { error: `step ${s.step_id}: material ${m} names a Strand outside the Brief's closed set `
+            + `(${strandIds.join(", ")}) — never a Brief fetch (§5.3)` };
+        }
+        if (!journeyIds.includes(j[1])) {
+          return { error: `step ${s.step_id}: material ${m} claims Journey material for ${j[1]}, whose served `
+            + `record carries none (the Brief renders no journey cite for it) — a Journey the material does not `
+            + `have is unsupported completion (§4.4), never a composition choice` };
+        }
       }
     }
     for (const g of s.grounds) {
@@ -203,6 +253,27 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
   }
   covL.push("");
   covL.push(`*Strand placement count, taken AFTER composition, counted in placements: ${placed.length} of ${strandIds.length} selected Strand(s) placed.*`);
+  // §6.1 MUST 1 — journey material is PLACED OR ITS OMISSION IS DISCLOSED,
+  // per Journey-bearing member. Vacuous rather than violated where the
+  // selected set carries no Journey material (§6.1's contingency), and the
+  // empty case renders its own line rather than being omitted.
+  covL.push("");
+  if (journeyIds.length === 0) {
+    covL.push("*Journey coverage: no selected Strand carries Journey material — §6.1's MUSTs are vacuous here, not unmet.*");
+  } else {
+    const jplace = journeyPlacements(steps, journeyIds);
+    const jplaced = journeyIds.filter((id) => jplace.get(id).length > 0);
+    covL.push("*Journey coverage (§6.1 MUST 1 — placed, or the omission disclosed):*");
+    for (const id of journeyIds) {
+      const uses = jplace.get(id);
+      if (uses.length > 0) {
+        covL.push(`- **${id}** journey — placed by: ${uses.join(", ")}`);
+      } else {
+        covL.push(`- **${id}** journey — **OMITTED, disclosed**: ${unused[`${id}.journey`] ?? "the Journey material is left unplaced (§4.4's third move — omit the Step, revise the path, or leave the material unused; never invention)"}`);
+      }
+    }
+    covL.push(`*Journey placement count, taken AFTER composition: ${jplaced.length} of ${journeyIds.length} Journey-bearing Strand(s) placed.*`);
+  }
   r = replaceSlot(out, "Strand coverage", covL.join("\n"));
   if (r.error) return r;
   out = r.doc;

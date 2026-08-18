@@ -22,7 +22,8 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { validateSteps, fillBrief, selectedStrands, placements, renderStep } from "./brief/compose.mjs";
+import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
+         journeyBearingStrands, journeyPlacements } from "./brief/compose.mjs";
 import { assembleSelection, adoptCandidate } from "./brief/assemble.mjs";
 import { REVIEW_AREAS } from "./brief/review.mjs";
 
@@ -221,6 +222,56 @@ try {
   const p2 = spawnSync(process.execPath, ["brief/assemble.mjs", "adopt-candidate", "--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2"], { encoding: "utf8" });
   if (p2.status !== 0) fails.push(`(g) adopt-candidate exited ${p2.status}: ${(p2.stderr || "").trim()}`);
   else if (readFileSync(bp2, "utf8") !== doc3) fails.push("(g) the command's adopted document differs from the exported function's — two producers");
+
+  // (h) JOURNEY COVERAGE (§6.1 MUST 1, kogaki#501): journey material is a
+  // DISTINCT material (§4.1's "which Journeys"), carried as `<L-id>.journey`,
+  // PLACED OR ITS OMISSION DISCLOSED — derived from the composed steps, never
+  // declared. The fixture's L2 carries a Journey and L1 does not, which is
+  // what makes the two refusals below separable.
+  if (JSON.stringify(journeyBearingStrands(doc0)) !== JSON.stringify(["L2"]))
+    fails.push(`(h) journey-bearing members misread: got ${JSON.stringify(journeyBearingStrands(doc0))}, expected ["L2"] (L2 carries a journey cite, L1 does not)`);
+
+  // placed: a step carrying L2.journey
+  const jstep = { ...JSON.parse(JSON.stringify(step1)), materials: ["L2", "L2.journey", "thesis"] };
+  const jfill = fillBrief(doc0, { steps: [jstep, step2] });
+  if (jfill.error) fails.push(`(h) a path placing journey material was refused: ${jfill.error}`);
+  else {
+    if (!/\*\*L2\*\* journey — placed by: s1/.test(jfill.doc)) fails.push("(h) placed journey material is not disclosed as placed");
+    if (!/Journey placement count[^\n]*1 of 1/.test(jfill.doc)) fails.push("(h) the journey placement count is not 1 of 1 when the only Journey-bearing Strand is placed");
+  }
+
+  // omitted: no step carries L2.journey — DISCLOSES, never refuses
+  const ofill = fillBrief(doc0, { steps: [step1, step2] });
+  if (ofill.error) fails.push(`(h) a path omitting journey material was REFUSED — §6.1 is place-or-disclose, never place-or-fail: ${ofill.error}`);
+  else {
+    if (!/\*\*L2\*\* journey — \*\*OMITTED, disclosed\*\*/.test(ofill.doc)) fails.push("(h) omitted journey material is not disclosed — it dropped silently, which is the defect §6.1 MUST 1 names");
+    if (!/Journey placement count[^\n]*0 of 1/.test(ofill.doc)) fails.push("(h) the journey placement count is not 0 of 1 when the Journey-bearing Strand is unplaced");
+  }
+
+  // a Strand whose served record carries NO journey refuses BY NAME
+  const bad1 = fillBrief(doc0, { steps: [{ ...JSON.parse(JSON.stringify(step1)), materials: ["L1.journey"] }, step2] });
+  if (!bad1.error || !/carries none/.test(bad1.error)) fails.push("(h) claiming Journey material for a Strand that has none was accepted — unsupported completion (§4.4)");
+  // a Journey outside the closed set refuses as a Brief fetch
+  const bad2 = fillBrief(doc0, { steps: [{ ...JSON.parse(JSON.stringify(step1)), materials: ["L9.journey"] }, step2] });
+  if (!bad2.error || !/closed set/.test(bad2.error)) fails.push("(h) a Journey naming a Strand outside the closed set was accepted — a Brief fetch (§5.3)");
+
+  // VACUOUS, never violated: journeyPlacements over an empty Journey set
+  if (journeyPlacements([step1, step2], []).size !== 0) fails.push("(h) journeyPlacements over no Journey-bearing member is not empty");
+
+  // (i) PER-CANDIDATE journey coverage rides the gate payload as EVIDENCE
+  // (§6.1: register is an axis Candidates differ on, so the figure is per
+  // Candidate and never averaged across the Brief).
+  const jcandA = { ...JSON.parse(JSON.stringify(candA)), steps: [jstep] };
+  const jpay = assembleSelection({ candidates: [jcandA, candB] }, doc0);
+  if (jpay.error) fails.push(`(i) assembly refused a Candidate placing journey material: ${jpay.error}`);
+  else {
+    const o = jpay.payload.options.find((x) => x.id === jcandA.candidate_id);
+    const o2 = jpay.payload.options.find((x) => x.id === candB.candidate_id);
+    if (!/1 of 1 Journey-bearing/.test(o?.evidence?.journey_coverage || "")) fails.push("(i) the placing Candidate's journey_coverage is absent or wrong");
+    if (!/OMITTED and disclosed: L2/.test(o2?.evidence?.journey_coverage || "")) fails.push("(i) the omitting Candidate's journey_coverage does not disclose the omission — two Candidates differing on this axis read identically");
+    if (/verdict|pass|score/i.test(o?.evidence?.journey_coverage || "")) fails.push("(i) journey_coverage reads as a verdict — §6.1 registers no check and §4.6 keeps every MUST un-linted");
+  }
+
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
@@ -230,7 +281,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief compose: 7/7 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 9/9 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "Move optional both ways; (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -247,15 +298,29 @@ console.log("brief compose: 7/7 cases — (a) §4.1 Step shape refused per missi
   + "adopted Candidate's Reader Path lands in the Brief's sequence with thesis_closure and "
   + "tradeoffs filled from its reasoning, a declined Candidate lands nowhere, and an "
   + "unoffered Candidate refuses; (g) both assemble and adopt-candidate command paths are "
-  + "byte-equal to the exported functions. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75): SIX mutations, each "
+  + "byte-equal to the exported functions; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
+  + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "
+  + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
+  + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "
+  + "NAME as unsupported completion, a Journey outside the closed set refused as a Brief fetch, "
+  + "and the no-Journey case vacuous rather than violated; (i) per-Candidate journey_coverage "
+  + "rides the gate payload as EVIDENCE, so two Candidates differing on the journey axis do not "
+  + "read identically, and it carries no verdict token. "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + kogaki#501): TEN "
+  + "mutations, each "
   + "run once and restored surgically — story 1.73's three: dropping the rationale "
   + "requirement from validateSteps failed (a)'s field refusal; counting placements from the "
   + "DECLARED coverage instead of the steps failed (c)'s 1-of-2 assertion; dropping the "
   + "UNPLACED disclosure branch failed (c)'s disclosure assertion. Story 1.75's three: "
   + "dropping the 2-3 count guard failed (e)'s single-Candidate refusal; dropping the "
   + "negation option failed (e)'s negates_premise assertion; skipping the thesis_closure "
-  + "fill at adoption failed (f). NOT COVERED, stated rather than implied: every composition "
+  + "fill at adoption failed (f). kogaki#501's four: dropping the OMITTED-disclosed branch "
+  + "failed (h)'s disclosure assertion; matching a BARE L-id instead of `<L-id>.journey` — "
+  + "the declined \"placing the Strand places its Journey\" option — failed (h)'s 0-of-1 "
+  + "assertion, which is the direct evidence that option would have made MUST 1 "
+  + "unfalsifiable; dropping the carries-none refusal failed (h)'s unsupported-completion "
+  + "case; and computing journey coverage from something other than THIS Candidate's steps "
+  + "failed (i). NOT COVERED, stated rather than implied: every composition "
   + "MUST is judgment-class (§4.6) — grounds-test soundness, entailment quality, "
   + "Move-binding order, and whether the surfaced evidence is ADEQUATE evidence — judged at "
   + "path review (story 1.74) and the human gate, never here; this member exercises record "

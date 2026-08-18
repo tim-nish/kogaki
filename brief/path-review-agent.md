@@ -46,6 +46,26 @@ than merely discouraged.
    reversed or severed. Say whether each Journey's arc survives this
    Candidate's order, and why.
 
+   **The ARC-SHAPE FLOOR rides here too (§6.1 MUST 3, kogaki#492/#501),
+   because journey register is an axis this Candidate differs on.** Every
+   register a Candidate offers must keep the arc's shape —
+   before-position → what broke → after-position — and never flatten it
+   into rule-statement register. A Candidate that states the lesson the
+   Journey teaches, in place of showing the position that broke and what it
+   became, has flattened the arc however well it reads. Judge that per
+   Candidate and say so in this area; **it gets no area of its own, and no
+   check**, because §4.6 clause 3 keeps every MUST un-linted and §6.1
+   registers nothing. Judge MUST 2 here as well — whether the served arc is
+   cited at the Brief's pin rather than paraphrased — since a paraphrase is
+   a judgment about faithfulness that no field can hold.
+
+   **What is NOT yours here:** whether the journey material was placed at
+   all. That is mechanical and already derived from the composed steps —
+   it rides each Candidate as `journey_coverage` evidence. Read it; do not
+   recompute it, and do not treat a disclosed omission as a defect: §6.1
+   makes place-or-disclose the requirement, and a Candidate that places
+   none and says so is conformant.
+
 ## The three evaluation levels — surfaced, never licensed
 
 Local Move validity, transition continuity, Thesis closure: these are NOT
