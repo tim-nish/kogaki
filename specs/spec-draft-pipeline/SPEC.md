@@ -1,6 +1,19 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v9, amended 2026-08-17 (kogaki#494) — **§5.3 is RE-SEQUENCED by
+**Status:** v10, amended 2026-08-18 (kogaki#492) — **§4.10's SITING is
+SUPERSEDED by owner ruling: the journey register rides CANDIDATE
+DIFFERENTIATION, not a gate of its own.** The register choice is no longer
+decided at a dedicated Brief gate; Candidates already differ in reader
+experience, and journey register is an axis of that difference. The
+2026-07-31 frozen requirements SURVIVE unchanged, re-homed to **§6** as
+composition MUSTs binding **every** Candidate. §4.10 becomes the
+**supersession record** — it retains v8's reading rather than editing it
+away, and names the served line it diverges from at its pin. §2 row 2 stays
+**bound** and is re-pointed: no incorporation gate is registered, and none is
+owed. Spec-only resolution; the runtime binding of the MUSTs into the shipped
+Candidate composer is carried by **kogaki#501** rather than left as a
+slot. **deferred slots minted by this amendment: none.**
+v9, amended 2026-08-17 (kogaki#494) — **§5.3 is RE-SEQUENCED by
 owner ruling: the Brief is minted at Thesis adoption, not at entry.** Entry
 resolves the settled Strand set (refusals unchanged) → the
 thesis-determination gate (kogaki#488) → the mint; the slug is **one
@@ -103,11 +116,11 @@ is countable rather than assumed:
 | Item 2 gate | state |
 | --- | --- |
 | thesis | **bound** as design — §3 |
-| journey incorporation | **bound** — Journeys are admissible step materials (§4), §4.8 binds arc integrity, and §4.10 binds the incorporation gate itself (v8, kogaki#492). At v1–v7 this row read "**partial** — … the incorporation gate itself is owed"; the v1 reading is kept here rather than edited away |
+| journey incorporation | **bound** — Journeys are admissible step materials (§4), §4.8 binds arc integrity, and the **register choice rides Candidate differentiation** at §6, whose composition MUSTs carry the 2026-07-31 frozen requirements (v10, kogaki#492). **No incorporation gate is registered, and none is owed.** At v8 this row read "… §4.10 binds the incorporation gate itself"; at v1–v7 it read "**partial** — … the incorporation gate itself is owed". Both prior readings are kept here rather than edited away |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
 | plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 |
 
-**Only row 4 was re-assessed at v5, and row 2 at v8. Rows 1 and 3 carry
+**Only row 4 was re-assessed at v5, and row 2 at v8 and again at v10. Rows 1 and 3 carry
 their v1 judgments unchanged and were not re-checked at either head** — the
 column is named `state` rather than `v1` because two rows no longer hold a v1
 value, and that rename asserts currency for the other two that nothing here
@@ -605,77 +618,112 @@ because no act computes it: `moves/<id>.md` collides mechanically on a derived
 stem, while a passage has no id to derive from. Recorded rather than solved; a
 naming rule is owed only once a second passage exists to disagree about.
 
-### 4.10 The journey-incorporation gate (v8, kogaki#492)
+### 4.10 The journey register rides Candidate differentiation — and v8's gate, SUPERSEDED (v10, kogaki#492)
 
-**The journey register is decided AT the Brief — after Thesis determination,
-before path composition.** This is the gate §2 row 2 owed from v1, and its
-siting is served rather than chosen here:
+**This section no longer binds a gate. It records a supersession and points
+at §6.** At v8 it bound a dedicated journey-incorporation gate at the Brief,
+sited between Thesis determination and path composition. That siting is
+retracted by owner ruling; the obligations it carried are not.
 
-> "**The journey register is decided AT the brief gate, and what the hub owes
-> is the option-composer's FROZEN REQUIREMENTS, never a register vocabulary.**
-> Deferring the incorporation choice past the Brief distorts the article's
-> structure, so it belongs to the stage where design happens; the three
-> registers offered (worked example, short story, standalone paragraph) were
-> ideas, never a menu — the gate inspects THIS brief's state and composes
-> options fitting THIS article. Requirements, inherited rather than invented:
-> every option places every selected member's journey material or discloses
-> the omission; every option cites the served arc at the pin; the ARC-SHAPE
-> FLOOR binds every register offered (before-position → what broke →
-> after-position, never rule-statement register); enumerated never
-> ranked-and-trimmed, free text wins. Only the arc-shape floor is new work —
-> the rest are the thesis-candidate requirements re-used verbatim."
+**The ruling, quoted rather than paraphrased** (kogaki#492, owner, 2026-08-17,
+recorded on the issue thread "so the direction does not decay in a
+transcript"):
 
-`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:87`
-  request_id: dbc53b22-61c5-48d4-9ace-3f67bb75f487
-  outcome: discriminating
-  query: journey incorporation gate register choice decided at the brief gate arc-shape floor enumerated never ranked
+> "**No Journey-specific block inside the Brief.** A Journey stays what the
+> ratified definition already makes it — a first-class Strand (Strand = one
+> Lesson or one Journey), selectable independently; a parent Lesson and its
+> Journey may both be selected as two independent Strands. Placement is path
+> composition's ordinary work; place-or-disclose is the completeness rider;
+> arc integrity stays §4.8, judged at path review.
+>
+> **The register choice rides Candidate differentiation instead of its own
+> gate.** Candidates already differ in reader experience; different journey
+> registers are a natural axis of that difference. The 2026-07-31 frozen
+> requirements SURVIVE as composition MUSTs on every Candidate: every
+> selected member's journey material placed or its omission disclosed; the
+> served arc cited at its pin; the arc-shape floor (before-position → what
+> broke → after-position, never rule-statement register); options enumerated
+> never ranked-and-trimmed; free text wins.
+>
+> **This supersedes the 2026-07-31 'decided at its own gate' wording** — the
+> amendment must state the supersession rather than absorb it. Scope of this
+> issue accordingly: close spec §2 row 2 with this design (no new gate
+> registered)."
 
-**The gate fires only when the Brief's selected Strands carry Journey
-material.** A Brief with no Journey-bearing member has no register to decide,
-and the gate composes nothing — incorporation is a **contingent** property of
-this article's materials.
+**The served line this spec now diverges from, named at its pin.** v8 quoted
+and rested on:
 
-**The option-composer's requirements, frozen as served.** The gate inspects
-this Brief's state and composes register options fitting this article — there
-is no register vocabulary and no standing menu. Every composed option:
+`product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:87`
+— "**The journey register is decided AT the brief gate, and what the hub owes
+is the option-composer's FROZEN REQUIREMENTS, never a register vocabulary.**
+… Deferring the incorporation choice past the Brief distorts the article's
+structure, so it belongs to the stage where design happens".
 
-1. **places every selected member's journey material or discloses the
-   omission** — the completeness rider of §3 and §5.2, reaching this gate
-   unchanged;
-2. **cites the served arc at the pin** — the Strand's Journey rendering, at
-   the Brief's own pin, never a paraphrase;
-3. **honors the arc-shape floor**: before-position → what broke →
-   after-position, never rule-statement register. The floor binds **every**
-   register offered — an option that flattens the arc into a rule statement
-   is not composable, whatever its other merits;
-4. is **enumerated, never ranked-and-trimmed**, and **free text wins** — the
-   same presentation discipline the thesis-candidate requirements carry,
-   re-used verbatim per the served line.
+That line is **still served at this head** — the divergence is this
+repository's, ahead of the hub wording, and the hub refresh is **owed, not
+done**. Declaring it here rather than absorbing it is what the served
+discipline requires:
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:172`
+— "A consumer that ships ahead of the hub wording DECLARES its divergence in
+the artifact, with a source-qualified pin … naming the diverged line converts
+an unratified shape into a CHECKABLE PROPOSAL."
 
-**The adopted register rides the Brief as a DISCLOSURE, never a §5.1 slot.**
-Incorporation is contingent (it exists only when Journey material does), and
-the served position on the design/realization boundary already ruled that a
-mandatory slot for a contingent property manufactures the property — visual
-direction rides the Brief as a disclosure for exactly this reason
-(`topics/articles.md:86@8906f207` — "a mandatory slot for a CONTINGENT
-property manufactures the property (the retired Surprise slot)"). §5.1's
-field list is unchanged by this amendment, which is what keeps the shipped
-entry-point runtime and its registered check conformant without churn.
+**Note precisely what is superseded and what is not.** The served line has two
+halves. Its **siting** half — *decided at the brief gate, because deferring
+past the Brief distorts structure* — is what the ruling overturns, and the
+ruling's own ground answers the served rationale rather than ignoring it: the
+choice is **not** deferred past the Brief, because Candidate assembly and
+selection are themselves Brief-stage acts (§6). Its **requirements** half —
+the frozen option-composer requirements — is not superseded at all and is
+carried forward verbatim at §6. A supersession that silently took both halves
+would be the absorption the ruling forbids.
+
+**Where the obligations now live: §6.** The four frozen requirements bind
+**every composed Candidate**, stated once at §6 and not restated here.
+
+**What is retracted with the gate.** v8's *"adopted register rides the Brief
+as a DISCLOSURE"* clause is moot rather than reversed: with no separate
+register decision there is no adopted register to disclose — **the selected
+Candidate is the register**. §5.1's field list is unchanged by this amendment
+exactly as it was unchanged by v8, so the shipped entry-point runtime and its
+registered check stay conformant without churn; and v8's reason for refusing a
+slot survives with more force, not less (`topics/articles.md:86@8906f207` —
+"a mandatory slot for a CONTINGENT property manufactures the property").
 
 **The judges, named per §4.3's own rule.** The register **choice** is the
-gate's — a human selection over composed options, exactly as Candidate
-selection is. **Conformance** of the composed path to the adopted register's
-arc obligations is judged at **path review**, where §4.8's arc-integrity
-clauses already sit; no new judge and no new block is minted. Nothing here
-becomes a lint (§4.6 clause 3 reaches this section unchanged), and no gate is
-registered in the gate registry by this spec — the ask rides the question UI
-exactly as the Thesis determination does (§6's no-new-carrier discipline).
+**Candidate-selection gate's** (§6) — a human selection over composed
+Candidates, which is what it already was, now with no second gate beside it.
+**Conformance** of a composed path to its Candidate's arc obligations is
+judged at **path review**, where §4.8's arc-integrity clauses already sit. No
+new judge, no new block, **no gate registered in the gate registry by this
+spec**, and nothing here becomes a lint (§4.6 clause 3 reaches this section
+unchanged).
 
-**What this amendment does not do.** It schedules no implementation: the
-gate's runtime enters when a run of the product surfaces it — the same
-kogaki#127 promotion rule §5.3 exercised, cited rather than re-argued. It
-adds no field, registers no check, and re-opens neither §4.8's arc clauses
-nor §6's carrier rulings.
+**The contingency clause survives the re-siting.** Journey register is a
+property only of Briefs whose selected Strands carry Journey material; a Brief
+with no Journey-bearing member has no register to differentiate on, and §6's
+MUSTs are vacuous for it rather than violated by it.
+
+**v8's reading, retained rather than edited away** — the convention §2 row 2
+and §7.R already exercise:
+
+> "**The journey register is decided AT the Brief — after Thesis
+> determination, before path composition.** This is the gate §2 row 2 owed
+> from v1, and its siting is served rather than chosen here. … **The gate
+> fires only when the Brief's selected Strands carry Journey material.** …
+> **The adopted register rides the Brief as a DISCLOSURE, never a §5.1
+> slot.** … The register **choice** is the gate's — a human selection over
+> composed options, exactly as Candidate selection is."
+
+v8 was correct for its own sitting and on the evidence it had: it read the
+served line as written and sited the gate where that line put it. What it
+could not have is a ruling issued six minutes after its commit landed.
+
+**What this amendment does not do.** It re-opens neither §4.8's arc clauses
+nor §6's carrier rulings, adds no field, and registers no check. It schedules
+no implementation **in this sitting**: the runtime binding of §6's MUSTs into
+the shipped Candidate composer is carried by **kogaki#501**, so
+the obligation has a carrier rather than a mention in a closing report.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 
@@ -952,6 +1000,59 @@ the Thesis and the selected set support a structure, so the option set
 carries "none of these — the Thesis or the selected set is what should
 change", flagged `negates_premise`. The free-text channel does not discharge
 it.
+
+### 6.1 Journey register is an axis of Candidate differentiation (v10, kogaki#492)
+
+**Candidates differ in reader experience, and journey register is one of the
+ways they differ.** This is where §2 row 2's incorporation obligation is
+discharged — by the differentiation Candidates already carry, not by a gate of
+its own. The siting, the ruling behind it, and the supersession it records are
+at §4.10; what follows is the binding.
+
+**The gate is the one that already exists.** No gate is registered by this
+section, exactly as §6's opening states for the whole of §6: the register
+choice is made by selecting a Candidate at the Candidate-selection gate. There
+is **no register vocabulary and no standing menu** — the three registers once
+floated (worked example, short story, standalone paragraph) were ideas, never
+a menu; Candidate composition inspects **this** Brief's state and composes
+what fits **this** article.
+
+**The 2026-07-31 frozen requirements, carried forward verbatim as composition
+MUSTs.** They bind **every** composed Candidate, not a favoured one:
+
+1. **Place every selected member's journey material, or disclose the
+   omission** — the completeness rider of §3 and §5.2, reaching Candidate
+   composition unchanged. A Candidate that silently drops a selected Strand's
+   Journey material is non-conformant; one that places none of it and says so
+   is conformant.
+2. **Cite the served arc at the pin** — the Strand's Journey rendering, at the
+   Brief's own pin, never a paraphrase.
+3. **Honor the ARC-SHAPE FLOOR: before-position → what broke →
+   after-position, never rule-statement register.** The floor binds **every**
+   Candidate offered — a Candidate that flattens an arc into a rule statement
+   is not composable, whatever its other merits. This is the one requirement
+   the 2026-07-31 design called new work; the other three are the
+   thesis-candidate requirements re-used verbatim.
+4. **Enumerated, never ranked-and-trimmed, and free text wins** — the same
+   presentation discipline §6's Candidate set already carries, which is why
+   this requirement costs nothing here.
+
+**Vacuous, never violated, on a Brief with no Journey material.** Journey
+register is contingent on the selected Strands carrying Journey material. Where
+none do, these MUSTs bind nothing and a Candidate set that differentiates on
+other axes alone is fully conformant — the contingency §4.10 states, applied.
+
+**Judged as judgment, never as a lint.** Conformance is read at **path
+review** (§4.8's arc-integrity clauses, per Candidate, as `brief/review.mjs`
+already runs them), and surfaced to the owner as reasoning on the Candidate
+per §6's evidence rule. Nothing here becomes a check: §4.6 clause 3 and §6's
+"no check is registered by this spec" both reach this section unchanged.
+
+**The runtime binding is owed and CARRIED, not deferred namelessly.** The
+Candidate composer shipped after §4.10 was written (`brief/assemble.mjs`,
+`brief/compose.mjs`, `brief/review.mjs`; kogaki#489/#490/#491), so these MUSTs
+have a live target this spec does not bind in this sitting. **kogaki#501** is
+that carrier.
 
 ## 6.9 Move INGESTION — how a Move enters the library (kogaki#223)
 
@@ -2144,6 +2245,25 @@ the read performed **for this amendment**.
 v1 (§7.4), and the prescribed read was performed rather than waived. This
 spec still touches no file under `checks/` and still registers no check; §6's
 no-new-check clause is unchanged by v2.
+
+**kogaki#492 v10 (the journey register re-sited onto Candidate
+differentiation), 2026-08-18.** The design itself is an **owner ruling on the
+issue thread**, not a served line — the consult below discriminated only *how
+to record a supersession of a still-served position*, which is what §4.10's
+divergence declaration rests on.
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:172`
+  request_id: 18df16ad-c103-4664-b868-ec0ed5e9acb6
+  outcome: discriminating
+  query: journey register choice rides Candidate differentiation rather than its own brief gate; recording a supersession of an earlier served wording in a spec amendment
+
+**The served surface did NOT move for this amendment, and that is the
+finding rather than a gap.** `topics/articles.md:87` still carries the
+2026-07-31 "decided at the brief gate" wording at this pin; the shape read run
+as this sitting's pre-step reported 0 of 4 sections differing from the
+vendored digest. So this spec is **ahead of the hub**, deliberately and
+declaredly, and the hub refresh is owed. A later reader who finds `:87`
+contradicting §4.10 is reading the divergence this section names, not a defect.
 
 ### 9.2 The served surface moved mid-sitting, and the pins were re-read
 
