@@ -34,8 +34,10 @@
 // on hub-internal vocabulary at the point of writing — a REPORT, never a
 // refusal, because a channel that rejects your words is a channel you stop using.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => {
@@ -55,6 +57,45 @@ const HUB_INTERNAL = [
 
 const slug = (s) =>
   String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
+
+// THE BACKLOG DISCLOSURE (spec-client-kit §4.7, kogaki#498; carrier kogaki#505).
+//
+// §4.7 finds that NEITHER served arm of the report-only-row binary is available
+// at this consumer: the executable home belongs to the hub's sweep, and an
+// expiry needs a disposal authority §4.2 denies the consumer — an emission
+// deleted here is material no gate ever saw. What is installed instead is a
+// DISCLOSURE of that unsatisfiability, and this is it.
+//
+// SITED AT THE GROWTH EVENT. The observer is the emission act itself, so the
+// report cannot be absent while the subject grows. Its blind spot is stated at
+// §4.7 rather than papered over: a repository that stops emitting stops
+// reporting, so the disclosure is silent in exactly one state — the directory
+// stagnant and ageing. No second instrument is invented for it here.
+//
+// MEMBERSHIP IS BY CONSTRUCTION, not by a filter. Only `<YYYY-MM-DD>-<slug>.md`
+// matches, so `README.md` is excluded because it cannot match rather than
+// because a special case removes it.
+//
+// THE AGE IS READ FROM THE FILENAME DATE, never from mtime: mtime is a fact
+// about this working copy that a fresh clone destroys, while the filename date
+// is the emission's own declared date and travels with the file.
+//
+// DERIVED AT THE ACT, never stored. There is no tally to repair, migrate or
+// garbage-collect — the D1 prohibition on a derived second ledger.
+const EMISSION_FILE = /^(\d{4}-\d{2}-\d{2})-.+\.md$/;
+
+function emissionBacklog(dir, todayISO) {
+  if (!existsSync(dir)) return { count: 0, oldest: null, ageDays: null };
+  const dates = readdirSync(dir)
+    .map((f) => EMISSION_FILE.exec(f))
+    .filter(Boolean)
+    .map((m) => m[1])
+    .sort();
+  if (dates.length === 0) return { count: 0, oldest: null, ageDays: null };
+  const oldest = dates[0];
+  const ageDays = Math.round((Date.parse(`${todayISO}T00:00:00Z`) - Date.parse(`${oldest}T00:00:00Z`)) / 86400000);
+  return { count: dates.length, oldest, ageDays };
+}
 
 // The five fixed fields, in the order §4.4 states them. Rendered as a stable
 // shape so `/qa-mine`'s sweep reads one format rather than N.
@@ -108,7 +149,59 @@ function selfTest() {
   if (hubInternalTerms("we hit the distill gate").length !== 1) fail("hub-internal vocabulary must be detected");
   if (hubInternalTerms("plain words only").length !== 0) fail("plain register must not be flagged");
 
-  console.log("emit self-test: five-field format, candidate statement, slug and register cases pass");
+  // §4.7's backlog read (kogaki#505). Exercised over a real temp directory
+  // rather than a stubbed listing, because the membership rule is the point:
+  // it must exclude README.md BY CONSTRUCTION and read the age from the
+  // FILENAME date, both of which a stub would assert about itself.
+  {
+    const td = mkdtempSync(join(tmpdir(), "emit-backlog-"));
+    // the empty case — rendered explicitly, never omitted
+    const z = emissionBacklog(td, "2026-08-18");
+    if (z.count !== 0 || z.oldest !== null || z.ageDays !== null) fail("an empty emissions directory must read as 0 with a null oldest, not as an absence");
+    const absent = emissionBacklog(join(td, "nope"), "2026-08-18");
+    if (absent.count !== 0) fail("a directory that does not exist must read as 0 rather than throwing");
+
+    writeFileSync(join(td, "2026-08-09-alpha.md"), "x");
+    writeFileSync(join(td, "2026-08-18-bravo.md"), "x");
+    writeFileSync(join(td, "README.md"), "x");
+    writeFileSync(join(td, "notes.md"), "x");
+    const b = emissionBacklog(td, "2026-08-18");
+    if (b.count !== 2) fail(`membership is <YYYY-MM-DD>-<slug>.md only — README.md and a bare name must not count (got ${b.count})`);
+    if (b.oldest !== "2026-08-09") fail(`the oldest must be the earliest FILENAME date (got ${b.oldest})`);
+    if (b.ageDays !== 9) fail(`the age must be in days from the filename date (got ${b.ageDays})`);
+    // the oldest is the earliest date, not the first listed
+    writeFileSync(join(td, "2026-08-01-charlie.md"), "x");
+    if (emissionBacklog(td, "2026-08-18").oldest !== "2026-08-01") fail("the oldest must be the earliest date whatever the listing order");
+    // The write path's guard, asserted as the predicate the read declares —
+    // the two must agree, and this is the case that names that path.
+    const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
+    for (const bad of ["2026-8-18", "26-08-18", "2026/08/18", "today", ""]) {
+      if (DATE_OK.test(bad)) fail(`--date ${JSON.stringify(bad)} must be refused: it writes a file the backlog read cannot see`);
+      if (EMISSION_FILE.test(`${bad}-x.md`)) fail(`a file dated ${JSON.stringify(bad)} must not be a backlog member — the two paths would disagree`);
+    }
+    if (!DATE_OK.test("2026-08-18")) fail("a well-formed date must be accepted");
+    rmSync(td, { recursive: true, force: true });
+  }
+
+  console.log("emit self-test: five-field format, candidate statement, slug and register cases pass; "
+    + "the §4.7 backlog read counts <YYYY-MM-DD>-<slug>.md members only (README.md excluded by "
+    + "construction), reads the oldest from the FILENAME date rather than mtime so it survives a "
+    + "clone, renders the empty and absent-directory cases as 0 rather than as an absence, and "
+    + "derives at the act with no stored tally; and the WRITE path's --date guard is the same "
+    + "predicate the read declares, so a malformed date is refused rather than writing an emission "
+    + "the disclosure cannot see. "
+    + "MUTATION EVIDENCE (assert-by-breaking-once, kogaki#505): FIVE mutations, each run once and "
+    + "restored — widening the membership pattern to any *.md let README.md count and failed the "
+    + "membership case; taking the newest date as the oldest failed the oldest case; returning "
+    + "undefined for an empty directory failed the empty case; removing the absent-directory guard "
+    + "IS caught but as an UNCAUGHT ENOENT rather than by its assertion, so the case detects the "
+    + "mutation while its message does not name the property — stated because a reader comparing "
+    + "the four would otherwise read them as uniform; and removing the RENDER SITE leaves this "
+    + "self-test GREEN and is caught only by policy/kit/test/install-test.sh, which is why the "
+    + "read and the render are asserted at two layers rather than one. "
+    + "NOT COVERED, stated rather than implied: \u00a74.7's own blind spot — a repository that stops "
+    + "emitting stops reporting, so this disclosure is silent exactly when the directory is "
+    + "stagnant and ageing. No instrument here reaches that state and none is invented for it.");
   process.exit(0);
 }
 
@@ -133,6 +226,28 @@ if (!GRAINS.includes(grain)) {
 
 const repoPath = resolve(opt("repo", process.cwd()));
 const date = opt("date", new Date().toISOString().slice(0, 10));
+
+// THE WRITE PATH AND THE READ PATH MUST AGREE (PR #508 round 1, finding 2).
+// The file is written as `${date}-${slug}.md` while `EMISSION_FILE` requires
+// `\d{4}-\d{2}-\d{2}`, so an unvalidated --date can write a file the backlog
+// read cannot see — and the disclosure would then report an EMPTY backlog at
+// the very act that grew it, which is the failure §4.7 exists to prevent
+// rather than a cosmetic one. Guarded here, at the one place the two paths
+// diverge:
+//
+//   "A safety check only proves itself on the code paths that actually reached
+//    it … a path with no named run is untested no matter how healthy the
+//    overall suite looks."
+//
+// consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
+if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  console.error(
+    `--date must be YYYY-MM-DD (got ${JSON.stringify(date)}). This is the membership rule the ` +
+    "backlog read declares, not a format preference: a differently-shaped date writes an emission " +
+    "the §4.7 disclosure cannot see, so the count would report an empty backlog at the act that grew it.",
+  );
+  process.exit(2);
+}
 const repoName = (() => {
   const cm = join(repoPath, "CLAUDE.md");
   if (existsSync(cm)) {
@@ -150,6 +265,27 @@ writeFileSync(out, render({ date, repo: repoName, trigger, learning, grain }));
 // The in-session receipt: the path, printed. A durable artifact whose location
 // the sitting never learns is one the sitting cannot cite.
 console.log(`emission: wrote ${out}`);
+
+// §4.7's disclosure, rendered at the growth event. The count INCLUDES the
+// emission just written — it is a reading of the directory as it now stands,
+// so it is 1 or more here by construction and the zero case belongs to
+// `emissionBacklog` rather than to this site (the self-test holds it).
+//
+// The population is stated rather than assumed: §4.7 specifies UNDISPOSITIONED
+// emissions, the format carries no disposition marker, and nothing has ever
+// been dispositioned — so the spec's subset and the directory total coincide
+// at this head. Saying which is what stops a convenience total silently
+// standing in for the spec's set if that ever stops being true.
+{
+  const b = emissionBacklog(dir, date);
+  console.log(
+    `emission: backlog — ${b.count} candidate(s) awaiting the hub's gate, oldest ${b.oldest} ` +
+    `(${b.ageDays} day(s) old). Every member counts: the format carries no disposition marker, ` +
+    "so §4.7's undispositioned set and this directory are the same set at this head. " +
+    "Neither served arm — an executable home nor an expiry — is available to this consumer; " +
+    "this line is the disclosure that stands in their place (spec-client-kit §4.7).",
+  );
+}
 
 const terms = hubInternalTerms(`${trigger} ${learning}`);
 if (terms.length) {
