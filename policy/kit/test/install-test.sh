@@ -103,6 +103,24 @@ grep -q 'plain-register note' "$TMP/reg-out" || fail "hub-internal vocabulary wa
 grep -q 'Reported, not refused' "$TMP/reg-out" || fail "the note does not state that it is a report"
 echo "ok: plain-register note reports without refusing"
 
+# 2g-bis. The §4.7 BACKLOG DISCLOSURE fires at the emission act (kogaki#505).
+#     Asserted end-to-end rather than only in the writer's own fixtures, because
+#     the fixtures cover the READ and this covers the RENDER SITE — a correct
+#     function nobody calls is the shape §4.7 was itself written in the deferred
+#     voice to avoid claiming. Two emissions exist in this temp repo by now
+#     (2026-01-01 and 2026-01-02), so the count and the oldest are both known.
+node "$KIT_DIR/bin/emit.mjs" --repo "$TMP/repo" --date 2026-01-03 --title 'backlog case' \
+  --trigger 'a third emission lands' --learning 'the backlog is disclosed at the act' \
+  --grain lesson >"$TMP/backlog-out" 2>&1 \
+  || fail "the emission writer exited non-zero on the backlog case"
+grep -q 'emission: backlog' "$TMP/backlog-out" || fail "the §4.7 backlog disclosure is not rendered at the emission act"
+grep -q '3 candidate(s) awaiting' "$TMP/backlog-out" || fail "the backlog count does not include the emission just written"
+grep -q 'oldest 2026-01-01' "$TMP/backlog-out" || fail "the backlog does not name the oldest emission by its filename date"
+grep -q '2 day(s) old' "$TMP/backlog-out" || fail "the backlog age is not in days from the oldest filename date"
+grep -q 'no disposition marker' "$TMP/backlog-out" \
+  || fail "the disclosure does not state WHICH population it counted — a convenience total standing in for §4.7's subset"
+echo "ok: §4.7 backlog disclosure — count, oldest and age at the act, with its population stated"
+
 # 2h. The writer's fixture pass, sited with the code it covers.
 node "$KIT_DIR/bin/emit.mjs" --self-test || fail "emission writer fixtures failed"
 echo "ok: emission writer fixture pass (story 1.49)"
