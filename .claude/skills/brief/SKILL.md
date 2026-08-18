@@ -80,6 +80,34 @@ kogaki#494).
    path review, Candidate selection — those are the composition sittings'
    work (stories 1.73–1.75), not this entry's.
 
+## Rendering contract — the owner reads plain register
+
+Every ask this pipeline raises through AskUserQuestion is rendered from a
+runtime payload, and **the payload has two halves that must not be
+confused**: a machine-local *record*, which keeps the internal field names
+so the run stays reconstructible, and a *rendering*, which is the only thing
+a human ever sees.
+
+- **Render the payload's `rendering` entries and nothing else.** Each entry
+  is a `label` and its `text`. The label is shown verbatim as the heading of
+  that piece of evidence; the text is shown under it, verbatim. Nothing is
+  summarized, reordered, or re-titled.
+- **Never show an internal key name.** `thesis_closure`, `placement_count`,
+  `grounds_test` and their siblings are this codebase's names for the
+  record's fields, not the owner's names for anything. They stay in the
+  payload's `evidence` object, which is never displayed. At the
+  Candidate-selection gate this is what the owner reads instead: "Does the
+  path close the claim?", "How much of the settled material does this path
+  use?", one plain question per item (kogaki#520).
+- **Never show a section reference.** A pointer into a spec (`§6.1`) is a
+  term of art to a reader who does not hold the spec.
+- **The runtime denies a leak; it does not repair one.** `brief/assemble.mjs`
+  refuses to emit a selection payload whose rendering carries an internal
+  identifier or a section reference, and names what leaked. Relay that
+  refusal as it stands and fix the wording at its source — the deny exists
+  because a rewrite layer would let the leak keep being written, and it is
+  not a substitute for writing the labels plainly in the first place.
+
 ## Hard lines
 
 - **The Strand set is CLOSED at mint.** Growing it is an owner act that
