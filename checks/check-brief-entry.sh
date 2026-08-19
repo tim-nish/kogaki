@@ -108,12 +108,62 @@ try {
     if (new Set(c2.map((c) => c.thesis)).size !== c2.length) {
       fails.push("(b2) two candidates state the SAME Thesis — the composition fork is not real");
     }
+    // TWO MEMBERS MAY SHARE A HEADLINE, and then `rest` must still hold the
+    // other one. Filtering `names` for inequality against the lead's TEXT drops
+    // every member sharing that text, so a duplicate headline emptied the
+    // supporting list and made the options collapse. Real rather than
+    // hypothetical: a served first sentence is prose, and nothing makes two
+    // Lessons' first sentences distinct. Index-filtering is what holds here, and
+    // this case is what makes that choice falsifiable rather than defensive.
+    {
+      const dup = "Both members say the same first sentence.";
+      const dupHeads = new Map([...heads.keys()].map((k) => [k, { headline: dup, cite: "x:1@d" }]));
+      const cd = composeThesisCandidates(strandsB2, dupHeads);
+      if (cd.some((c) => !/—/.test(c.thesis || ""))) {
+        fails.push("(b2) with a shared headline a candidate lists no supporting members — `rest` was filtered by text, not by position");
+      }
+      for (const c of cd) {
+        const seg = (c.thesis || "").split("—")[1] || "";
+        if (!seg.includes(dup)) {
+          fails.push(`(b2) candidate ${c.id} dropped the member sharing the lead's headline — filtered by text, not by position`);
+        }
+      }
+    }
+
+    // A REAL WIDENING ASSERTION (PR #534 round 1). (b)'s foreign-phrase loop
+    // tests slug-derived phrases, which the fix makes unproducible, so it
+    // became vacuous — a survivor that cannot fail. The property it MEANT to
+    // hold is that no candidate carries material from a member OUTSIDE the
+    // settled set, and that is now asserted in the substrate the composer
+    // actually reads: a rendering for a foreign member is offered in the map
+    // and must not appear.
+    const widened = new Map(heads);
+    const outsider = record.candidates.find((c) => !["L1", "L2"].includes(c.display_id));
+    const OUTSIDE = "Foxtrot is a member nobody settled on and it must never appear.";
+    widened.set(outsider.slug, { headline: OUTSIDE, cite: "gloss/lessons/testing.md:1@deadbeef" });
+    for (const c of composeThesisCandidates(strandsB2, widened)) {
+      if ((c.thesis || "").includes(OUTSIDE)) {
+        fails.push(`(b2) candidate ${c.id} carries a rendering for ${outsider.display_id}, which is OUTSIDE the settled set — never widened (§3)`);
+      }
+    }
     // AN ABSENT RENDERING IS DISCLOSED, NEVER SUBSTITUTED: with no map the
     // composer must carry terrain's abnormal marker rather than fall back to
     // the slug, which is the fallback kogaki#519 exists to remove.
     const c3 = composeThesisCandidates(strandsB2, new Map());
     if (!c3.every((c) => (c.thesis || "").includes(NO_HEADLINE))) {
       fails.push("(b2) an unresolved rendering does not carry terrain's abnormal marker — an absence was substituted");
+    }
+    // AND THE DEGRADED OPTIONS STAY DISTINGUISHABLE. A bare marker is the same
+    // text for every member, so the options collapsed into one option shown
+    // three times — on the seam-free CI path and the gateway-down owner path
+    // alike (PR #534 round 1). The marker carries its member's display_id.
+    if (new Set(c3.map((c) => c.thesis)).size !== c3.length) {
+      fails.push("(b2) with nothing resolved the candidates are byte-identical — the gate offers one option three times");
+    }
+    for (const c of c3) {
+      if (!/L[0-9]+/.test(c.thesis || "")) {
+        fails.push(`(b2) candidate ${c.id}'s abnormal marker names no member — the owner cannot tell which Strand lacks material`);
+      }
     }
     for (const sp of slugPhrases) {
       if (c3.some((c) => (c.thesis || "").includes(sp))) {
@@ -279,10 +329,14 @@ try {
   if (st3.adopted_slug_via !== "derived-from-free-form-thesis") fails.push("(j) a free-form Thesis's name is not recorded as derived from it");
   // Exported helpers agree with the command path (same dual-producer guard
   // as (f)).
-  // The command path runs SEAM-FREE in CI, so its renderings degrade to the
-  // marker; the exported call is given the same empty map, which is what makes
-  // this a dual-producer guard rather than a comparison of two environments.
-  const viaExport = composeThesisCandidates(resolveStrandIds(record, ["L2", "L1"]).strands, new Map());
+  // FED WHAT THE COMMAND ACTUALLY RESOLVED. Handing the exported composer an
+  // empty map compared two different INPUTS, so the guard passed or failed on
+  // whether the seam happened to answer during the run — non-determinism, not a
+  // guard (PR #534 round 1). `strand_renderings` is the command's own record of
+  // what it resolved, so this is one input through two producers.
+  const usedHeads = new Map(Object.entries(st1.strand_renderings || {})
+    .map(([slug, e]) => [slug, e]));
+  const viaExport = composeThesisCandidates(resolveStrandIds(record, ["L2", "L1"]).strands, usedHeads);
   if (JSON.stringify(viaExport) !== JSON.stringify(st1.thesis_candidates)) {
     fails.push("(j) the command's thesis candidates differ from the exported composer's — two producers");
   }

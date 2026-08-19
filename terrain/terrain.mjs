@@ -110,7 +110,6 @@ function gatewayQuery(tool, toolArgs, { soft = false } = {}) {
   }
   res.stdout = readFileSync(outPath, "utf8");
   rmSync(outPath, { force: true });
-  if (res.status === 11 && soft) return null;
   if (res.status !== 0 && soft) return null;
   if (res.status === 11) {
     // The seam is an enhancer elsewhere; here it is the material itself.

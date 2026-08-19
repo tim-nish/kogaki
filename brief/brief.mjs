@@ -263,7 +263,22 @@ export function resolveStrandIds(record, entered) {
 export function composeThesisCandidates(strands, headlines = new Map()) {
   const phrase = (s) => {
     const e = headlines.get(s.slug);
-    return (e && e.headline) ? e.headline : NO_RENDERING;
+    if (e && e.headline) return e.headline;
+    // THE MARKER CARRIES ITS MEMBER. An unresolved rendering is the same text
+    // for every member, so a bare marker made all 2-3 candidates byte-identical
+    // — one option presented three times, at the moment the owner most needed
+    // to see that something was wrong (PR #534 round 1). The display_id is the
+    // token §14.3 already renders on owner surfaces, so naming it here keeps
+    // the options distinguishable AND says which member is missing material.
+    return `${s.display_id} ${NO_RENDERING}`;
+    // KNOWN AND BOUNDED, stated rather than left: on a FULLY degraded set the
+    // derived slugs still collide, because `deriveSlugCandidate` drops tokens of
+    // two characters or fewer and every display_id is one. Three abnormally
+    // marked options sharing a name is a wart on a state the owner must clear,
+    // not the defect that mattered — which was three options that were
+    // indistinguishable as PROSE. Left alone deliberately: widening the
+    // derivation to keep short tokens would change every slug on the healthy
+    // path to fix a cosmetic on the broken one.
   };
   const names = strands.map(phrase);
   const candidates = [];
@@ -282,8 +297,15 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
   } else {
     const leads = strands.slice(0, 3);
     for (let i = 0; i < leads.length; i++) {
-      const lead = phrase(leads[i]);
-      const rest = names.filter((n) => n !== lead);
+        const lead = phrase(leads[i]);
+      // BY INDEX, NEVER BY VALUE. Filtering `names` for inequality against the
+      // lead's TEXT collapses whenever two members share a phrase — and they all
+      // do on the degraded path, where every phrase is NO_RENDERING. `rest` then
+      // emptied for every lead, so all 2-3 candidates rendered byte-identical
+      // with an empty member list and the same derived slug: the gate offered
+      // three options that were one option, exactly when the owner most needed
+      // to see that something was wrong (PR #534 round 1).
+      const rest = names.filter((_, j) => j !== i);
       candidates.push({
         id: `thesis-${i + 1}`,
         thesis: `The article's spine is this claim: ${lead}. The other settled members — ${rest.join("; ")} — each show one place where that claim does its work.`,
@@ -407,6 +429,14 @@ function cmdEnter(args) {
     stage: "entered",
     pin: record.pin,
     strands: r.strands,
+    // WHAT WAS RESOLVED, AND FROM WHERE (kogaki#528). Recorded because the
+    // candidates are composed FROM this and a later reader cannot otherwise
+    // tell served prose from an abnormal marker, nor which pin the prose came
+    // from. It also makes the dual-producer guard deterministic: the check
+    // feeds the exported composer exactly what the command used, instead of
+    // guessing and comparing two different inputs.
+    strand_renderings: Object.fromEntries(
+      [...headlines].map(([slug, e]) => [slug, { headline: e.headline, cite: e.cite }])),
     thesis_candidates: candidates,
     gate,
   };
