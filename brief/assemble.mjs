@@ -74,6 +74,7 @@ export const EVIDENCE_LABELS = [
   ["obligations_ledger", "What does this path still owe the reader?"],
   ["placement_count", "How much of the settled material does this path use?"],
   ["journey_coverage", "How much of the selected Journey material does this path use?"],
+  ["bridges", "Which gaps did this path bridge, and on what reasoning?"],
 ];
 
 // The path-review reasoning rides the same gate and is read by the same
@@ -196,6 +197,27 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // owner see which Candidate is incomplete before choosing it, and keeping
   // the refusal at adoption is what stops that refusal becoming unreachable.
   // The disclosure carries no record key — this text has a rendering path.
+  // BRIDGE DISCLOSURE (§4.11 v16, kogaki#524). Approval is POST-HOC: no
+  // per-Bridge question, so the one gate that exists must carry what was
+  // inserted and why. Computed from THIS Candidate's own steps — two Candidates
+  // that bridged differently must not read identically, the same reason
+  // journey_coverage is per-Candidate.
+  //
+  // A Bridge Step is an ordinary §4.1 Step, so it is recognised by the
+  // insertion contract rather than by a type: `bridges` names the pair it sits
+  // between. Its reasoning is whichever flag it already carries — entailment
+  // reasoning, or a declared reader assumption — never a new field.
+  const bridges = (c.steps || []).filter((st) => st && st.bridges);
+  const bridgeLine = bridges.length === 0
+    ? "no gaps were bridged — the path's transitions stand on the material as composed"
+    : bridges.map((st) => {
+        const between = Array.isArray(st.bridges) ? st.bridges.join(" → ") : String(st.bridges);
+        const why = st.entailment_reasoning
+          || (st.grounds || []).filter((g) => g && g.type === "assumption").map((g) => g.proposition).join("; ")
+          || "NO REASONING CARRIED — abnormal: a bridge owes its entailment reasoning or a declared assumption";
+        return `between ${between}: ${why}`;
+      }).join(" | ");
+
   const reader = {};
   for (const [key] of READER_FIELDS) {
     const v = c[key];
@@ -205,6 +227,9 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   }
   return {
     ...reader,
+    bridges: bridges.length === 0
+      ? bridgeLine
+      : `${bridges.length} bridge(s) inserted — ${bridgeLine}`,
     obligations_ledger: obligations.length === 0
       ? "the ledger is empty — a statement, not an omission"
       : `${obligations.length} entr${obligations.length === 1 ? "y" : "ies"}, ${undischarged} UNDISCHARGED — disclosed here, never a refusal`,
@@ -275,6 +300,7 @@ export function assembleSelection(reviewed, doc) {
       obligations_ledger: ev.obligations_ledger,
       placement_count: ev.placement_count,
       journey_coverage: ev.journey_coverage,
+      bridges: ev.bridges,
       review: c.review,
     },
     // THE RENDERING (kogaki#520): the same evidence, in the same order,

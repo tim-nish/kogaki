@@ -93,6 +93,18 @@ kogaki#494).
    path review, Candidate selection — those are the composition sittings'
    work (stories 1.73–1.75), not this entry's.
 
+**Where a path review's finding goes** (SPEC §4.11, kogaki#524). Path review
+is not a check and it does not fail a Candidate: when it finds a gap between
+two adjacent Steps, that Candidate routes **back to composition**, a Bridge
+Step is inserted, and the path is **re-reviewed** — then assembly. The routing
+is bounded at **one revise round** per Candidate; a Candidate whose gap
+survives its revise carries the residue to the selection gate rather than
+looping. A Bridge Step mints **no Move** — it is an ordinary §4.1 Step
+recognised by its insertion contract, so nothing here reaches the Move
+substrate. Approval is **post-hoc**: there is no per-Bridge question, and each
+Candidate's evidence at the existing selection gate discloses what it bridged
+and on what reasoning.
+
 ## Rendering contract — the owner reads plain register
 
 Every ask this pipeline raises through AskUserQuestion is rendered from a

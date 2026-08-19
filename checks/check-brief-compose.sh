@@ -24,7 +24,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements, replaceSlot } from "./brief/compose.mjs";
-import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, READER_FIELDS } from "./brief/assemble.mjs";
+import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./brief/assemble.mjs";
 import { REVIEW_AREAS } from "./brief/review.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -466,6 +466,40 @@ try {
   if (!/doc\.replace\(re, \(\) =>/.test(src)) {
     fails.push("(k) replaceSlot does not use a replacer function — a replacement string reinterprets the body, and escaping enumerates patterns instead of removing the possibility");
   }
+}
+
+// (l) BRIDGE DISCLOSURE RIDES THE EXISTING GATE (§4.11 v16, kogaki#524).
+// Approval is POST-HOC — no per-Bridge question — so the one gate that exists
+// must carry what was inserted and why, per Candidate. A Bridge Step is an
+// ordinary §4.1 Step recognised by its insertion contract, never by a type.
+{
+  const S = (id, extra = {}) => ({ step_id: id, materials: [], ...extra });
+  const cases = [
+    ["none", [S("s1")], /no gaps were bridged/],
+    ["entailment reasoning", [S("s1"), S("b1", { bridges: ["s1", "s2"], entailment_reasoning: "the case generalises" }), S("s2")], /between s1 → s2: the case generalises/],
+    ["declared assumption", [S("b", { bridges: ["a", "c"], grounds: [{ type: "assumption", proposition: "readers have shipped software" }] })], /readers have shipped software/],
+    // A bridge carrying NEITHER flag is abnormal and must SAY so rather than
+    // render an empty reason — §4.4 gives every Step those flags, so a bridge
+    // without one is a composition fault the gate is owed.
+    ["no reasoning", [S("b", { bridges: ["a", "c"] })], /NO REASONING CARRIED/],
+  ];
+  for (const [what, steps, want] of cases) {
+    const ev = candidateEvidence({ steps, obligations: [] }, [], []);
+    if (typeof ev.bridges !== "string" || !want.test(ev.bridges)) {
+      fails.push(`(l) the ${what} case does not render its bridge disclosure: ${JSON.stringify(ev.bridges)}`);
+    }
+  }
+  // PER CANDIDATE, not per Brief: two Candidates bridging differently must not
+  // read identically, the same property journey_coverage already has.
+  const a = candidateEvidence({ steps: cases[1][1], obligations: [] }, [], []).bridges;
+  const b = candidateEvidence({ steps: cases[0][1], obligations: [] }, [], []).bridges;
+  if (a === b) fails.push("(l) a bridged Candidate and an unbridged one read identically — the disclosure is not per-Candidate");
+  // It rides the EXISTING gate: a plain label, no new gate row.
+  const lbl = EVIDENCE_LABELS.find(([k]) => k === "bridges");
+  if (!lbl) fails.push("(l) `bridges` has no plain label — it would reach the owner under its internal key (kogaki#520)");
+  // The SHARED predicate (kogaki#526), not a re-derived regex: one definition,
+  // every owner surface.
+  else if (findInternalVocabulary(lbl[1])) fails.push(`(l) the bridge label reads an internal key: ${lbl[1]}`);
 }
 
 if (fails.length) {

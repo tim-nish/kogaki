@@ -1,6 +1,20 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v15, amended 2026-08-19 (kogaki#537) — **the minted Brief's
+**Status:** v16, amended 2026-08-19 (kogaki#524) — **the Bridge Step and the
+revise pass.** A causal gap between adjacent Steps is repaired by inserting an
+ordinary §4.1 Step whose before/after states are fixed by its neighbours — no new
+type, no new field, and no special Move class. A gap found at path review's
+`evaluation_levels` area routes its Candidate back to composition for **one**
+bounded revise round, then re-review before assembly; a gap surviving it is
+disclosed and rides to the gate. Approval is **post-hoc disclosure** on the
+existing selection gate, never a per-Bridge question. **The Brief workflow
+proposes and creates no Move** — a missing Move degrades a Brief and never blocks
+one (§7.5). Routing a finding does **not** make an evaluation level a check:
+`topics/articles.md:22` supersedes their entry into the registered check suite,
+and `topics/articles.md:28` already ratifies *revise the path* as a remedy.
+**deferred slots minted by this amendment: `bridge-approval-shape`.**
+
+v15, amended 2026-08-19 (kogaki#537) — **the minted Brief's
 vocabulary guard binds THIS COMPOSER'S OWN TEXT, and not the material it
 carries.** The captions, headings and frame are guarded; the **adopted Thesis**
 and the **Strand material** (display id, slug, cites, survey pin, Brief name)
@@ -797,6 +811,114 @@ nor §6's carrier rulings, adds no field, and registers no check. It schedules
 no implementation **in this sitting**: the runtime binding of §6's MUSTs into
 the shipped Candidate composer is carried by **kogaki#501**, so
 the obligation has a carrier rather than a mention in a closing report.
+
+### 4.11 The Bridge Step and the revise pass (v16, kogaki#524)
+
+**Owner ruling 2026-08-18, restated and confirmed the same sitting.** Once the
+Thesis is decided and the Step sequence is being composed, a causal gap between
+adjacent Steps is repaired by inserting a **Bridge Step**.
+
+#### The Bridge Step is an INSERTION CONTRACT, not a type
+
+No new Step type and no new field. A Bridge Step is an ordinary §4.1 Step whose
+placement is constrained by its neighbours:
+
+- its `reader_state_before` is the predecessor's `reader_state_after`;
+- its `reader_state_after` supplies what the successor's `reader_state_before`
+  requires;
+- `depends_on` is updated across the splice.
+
+It may use Strands or not, and it may bind a Move or not. Where its connecting
+claim is not traceable to Strand material it carries the flags **every** Step
+already has — `entailed` with its reasoning, or a declared reader-assumption
+ground (§4.4). "Authored" in the ruling means written by the composer rather
+than quoted from material; it says nothing about approval, which the disclosure
+below settles.
+
+**No special Move class exists for a bridge, and that is a boundary rather than
+an omission.** A bridge-shaped Move — a shared-experience appeal, an inductive
+plausibility account — enters the library as an ordinary Move through the
+existing ingestion path when a reference passage yields one. A Bridge Step's
+inputs and outputs are fixed by its neighbours, so an ordinary Move, or none,
+suffices.
+
+#### The Brief workflow never proposes or creates a Move
+
+A missing Move **degrades** the output — a strange article, or the same Move
+reused repeatedly — and that degradation is the owner's signal to find or create
+the Move and ingest it themselves. `/brief`'s responsibility is to complete the
+Brief from the **existing** Move library and the selected Strands.
+
+This closes cleanly because §7.5 makes Moves optional per Step: a missing Move
+can degrade a Brief, never block one. Stated here so the exclusion is a
+**greppable position** rather than an absence a later reader reads as an
+oversight.
+
+#### The revise pass — the occasion the contract is used at
+
+After path review, per Candidate: a gap found in transition continuity routes
+that Candidate **back to path composition**, where the composer inserts a Bridge
+Step or discloses the gap as a §5.2 ledger entry. The revised Candidate is
+**re-reviewed before assembly**.
+
+**The loop is bounded: one revise round per Candidate.** A gap surviving it is
+disclosed and rides to the gate — never re-looped.
+
+**WHERE THE FINDING COMES FROM, named precisely (kogaki#524's label correction).**
+Path review has **six** areas (`brief/review.mjs`) and none is called
+"transition continuity". That level is observed inside the **`evaluation_levels`**
+area — §4.6's "three levels, observed and never scored", enumerated at §4.6
+above as local Move validity, transition continuity and Thesis closure. A reader
+looking for a transition-continuity *area* will not find one, and the issue's own
+body sent this sitting looking for it.
+
+**ROUTING A FINDING DOES NOT MAKE AN EVALUATION LEVEL A CHECK**, and the
+distinction is load-bearing because the served ruling reads, on its face, as
+forbidding this:
+
+> "The three evaluation levels — local Move validity, transition continuity,
+> Thesis closure — are NOT licensed checks: they survive only as reasoning
+> surfaced on Candidates at the human gate. This supersedes the second-round
+> assessment that they would enter the **registered check suite as judgment-class
+> members with admission records**."
+>
+> `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:22`
+
+What that supersedes is naming them **registered checks**. The revise pass
+registers no check member, computes no score, and produces no verdict: a review
+agent's judgment routes a Candidate, and the outcome is a composer's Bridge Step
+or a disclosure — both judgment acts. And the remedy itself is already ratified
+rather than minted here:
+
+> "When information is unavailable: omit the Step, **revise the path**, or leave
+> the Strand unused."
+>
+> `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:28`
+
+So the revise pass is the ratified *revise the path* remedy given an **occasion**
+(a review finding) and a **bound** (one round), not a second survival mode for a
+level the ruling confined to one.
+
+#### Approval is POST-HOC DISCLOSURE, with the fork left open
+
+**No per-Bridge question.** Each Candidate's evidence at the existing selection
+gate carries its inserted bridges: how many, between which Steps, and each
+bridge's reasoning — the entailment reasoning or the declared assumption.
+
+Three grounds, each doing separate work: per-Candidate machine-side work must
+never multiply owner questions (§6's bound, kogaki#490); the flags already expose
+every bridge's reasoning at the one gate that exists; and a per-Bridge stop would
+be a default mid-workflow stop with no inspection need, which kogaki#522's rule
+removes.
+
+**The fork is deliberately open.** If dogfooding the completed mechanism shows
+bridges misbehaving, escalation to explicit per-Bridge approval is the recorded
+alternative. Recorded rather than decided, so a run informs it rather than an
+argument.
+
+**deferred slot: `bridge-approval-shape`** — the per-Bridge-approval escalation,
+owed on its own licensing issue with choice, alternatives and receipt before any
+gate embeds it.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 
