@@ -130,14 +130,45 @@ try {
   const foreign = fillBrief(doc0, { steps: [{ ...step1, materials: ["L7"] }] });
   if (!foreign.error || !/closed Strand set/.test(foreign.error)) fails.push("(c) a material outside the closed set was accepted — growing the set routes through Terrain, never a Brief fetch");
 
-  // (d) COMMAND PATH agrees with the exported fill (dual-producer guard),
-  // and the disclosure survives to the document on disk.
-  const pj = join(dir, "path.json");
-  writeFileSync(pj, JSON.stringify(only2));
-  const r1 = run(["brief/compose.mjs", "fill", "--brief", briefPath, "--path", pj]);
-  if (r1.status !== 0) fails.push(`(d) fill exited ${r1.status}: ${(r1.stderr || "").trim()}`);
-  if (!/DISCLOSED/.test(r1.stdout || "")) fails.push("(d) the command did not disclose the unplaced Strand in its own output");
-  if (readFileSync(briefPath, "utf8") !== doc2) fails.push("(d) the command's document differs from the exported fill's — two producers");
+  // Boundary 1 (Check/CI infrastructure) — both prescribed shards surveyed
+  // this sitting before (d) was rewritten:
+  //   "A rule written in a shared document only affects the projects whose
+  //   authors go and look it up."
+  //   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/claude-code-ops.md:29
+  //   "Write down each path and which passing run covers it; a path with no
+  //   named run is untested no matter how healthy the overall suite looks."
+  //   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
+  // The second is why the guard was MOVED to (g) and said to be moved, rather
+  // than deleted with the route it happened to sit on.
+  //
+  // (d) THE `fill` CLI ROUTE IS RETIRED (§5.3 v17, kogaki#551), and it refuses
+  // with the route that replaces it.
+  //
+  // WHAT THIS CASE USED TO ASSERT, AND WHERE THAT COVERAGE WENT. It was the
+  // dual-producer guard on `fill`: the command's on-disk document had to equal
+  // the exported composer's. The property is unchanged and still guarded — on
+  // the write path that survives — by (g), which asserts exactly that for
+  // `adopt-candidate`. So the guard MOVED with the route rather than being
+  // dropped with it; a retirement that silently took a guard with it is the
+  // failure this comment exists to prevent.
+  //
+  // The retirement is asserted rather than assumed, because a removed
+  // subcommand and a subcommand that still works are indistinguishable to a
+  // suite that stops calling it.
+  const r1 = run(["brief/compose.mjs", "fill", "--brief", briefPath, "--path", join(dir, "nonexistent.json")]);
+  if (r1.status === 0) fails.push("(d) `fill` still succeeds — the ungated route §6's selection gate exists to replace is still reachable");
+  const r1err = `${r1.stderr || ""}${r1.stdout || ""}`;
+  if (!/no longer exists/.test(r1err)) fails.push(`(d) \`fill\` does not name itself retired: ${r1err.trim().slice(0, 120)}`);
+  // A refusal that does not name the replacement sends the caller looking.
+  if (!/adopt-candidate/.test(r1err)) fails.push("(d) the retirement refusal does not name the route that replaces it");
+  // The COMPOSER is untouched: what retired is the CLI entry point, never the
+  // composition. NO ASSERTION IS WRITTEN FOR THAT HERE, and the omission is
+  // deliberate — a `typeof fillBrief !== "function"` line was written, run as a
+  // mutation, and found UNREACHABLE: `brief/assemble.mjs` imports `fillBrief`,
+  // so un-exporting it fails this suite at MODULE LOAD with a SyntaxError,
+  // before any case executes. The import is the carrier; a line that can never
+  // fire would have claimed the coverage the import already supplies.
+  // (c) above exercises `fillBrief` directly, which is the positive half.
   // ---- story 1.75 (kogaki#491): Candidate assembly and the selection
   // gate's payload, cases added to THIS member because §6 registers no new
   // check — the surface is the same composition pipeline's plumbing. ----
@@ -577,8 +608,8 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "discharged_by, an undischarged entry rendering as UNDISCHARGED, and a filled Sequence "
   + "refusing overwrite; (c) the placement count runs AFTER composition counted in placements "
   + "— a declared cover is not believed, an unplaced Strand DISCLOSES and never refuses, a "
-  + "foreign L-id refuses as a Brief fetch; (d) the command path is byte-equal to the "
-  + "exported fill; (e) Candidate assembly refuses one or four Candidates and a duplicated "
+  + "foreign L-id refuses as a Brief fetch; (d) the retired `fill` CLI route refuses and names its replacement, with its dual-producer guard MOVED to (g) rather than dropped and the composer still "
+  + "exported; (e) Candidate assembly refuses one or four Candidates and a duplicated "
   + "reader experience, and the payload rides the proposal-contract shape — where/why, "
   + "effect-stating labels, the first-class none-of-these flagged negates_premise, an "
   + "unconditional free-text channel that states it does not discharge the negation, and "
@@ -601,7 +632,14 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
   + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
   + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + kogaki#501 + kogaki#520): THIRTEEN "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + kogaki#501 + kogaki#520 + kogaki#551): FIFTEEN "
+  + "mutations. kogaki#551's two, both against the retirement: restoring the `fill` route "
+  + "failed (d)'s retirement assertion, and refusing without naming the replacement failed "
+  + "(d)'s replacement assertion. A THIRD was run and its assertion WITHDRAWN rather than "
+  + "kept: un-exporting `fillBrief` fails this suite at MODULE LOAD, because brief/assemble.mjs "
+  + "imports it, so a `typeof fillBrief` line could never fire and would have claimed coverage "
+  + "the import already supplies — recorded because a dropped mutation and an invented one read "
+  + "identically. Then the earlier "
   + "mutations, each "
   + "run once and restored surgically — story 1.73's three: dropping the rationale "
   + "requirement from validateSteps failed (a)'s field refusal; counting placements from the "
