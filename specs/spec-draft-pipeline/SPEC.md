@@ -16,11 +16,8 @@ fields get their authoring block.** `reader_start`, `reader_target` and
 `opening_question` were bound by §5.1 and written by no runtime; they are
 authored at **path composition**, per Candidate, and land at **Candidate
 selection**. An adopted Candidate carrying no value for one of them REFUSES at
-adoption, naming the field, as an UNAUTHORED FIELD. That name is this
-section's own: §4.4's `unsupported completion` is NOT reused, because §4.4
-defines it as material invented from outside the Strands and an unauthored
-field is the opposite — nothing was invented, the composing act did not run.
-No precedent in this spec prescribes the refusal and none is claimed: §6.1's nearby rule points the
+adoption, naming the field, as unsupported completion. No precedent in this
+spec prescribes that refusal and none is claimed: §6.1's nearby rule points the
 opposite way and DISCLOSES, because an omitted Journey is a fact about the
 served material, whereas nothing external withholds these three — an empty one
 records that the composing act did not run. The runtime carrier is story 1.77
