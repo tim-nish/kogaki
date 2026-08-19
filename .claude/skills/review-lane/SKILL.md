@@ -431,6 +431,16 @@ introduced re-read.
 
 ### `cannot-determine:` — a refusal is terminal, and the blocked dimension is reported (§4's third conduct clause, kogaki#100)
 
+**Compose files with `Write`, never with a shell redirect (kogaki#552).** When
+you need to stage text — a long comment body, a register append, any scratch
+file — you hold the `Write` tool and you do not hold `Bash(cat > …)`. A
+redirect is not in the grant, and **its denial degrades the entire report
+rather than failing one command**: the round is marked degraded, the gate
+correctly stays red, and the single-use owner grant is spent for nothing. The
+cost is not a retry — it is the round. On PR #547 a sound four-finding review
+was lost to exactly this, and its findings had to be harvested from the route
+log by hand.
+
 **When a command you compose is refused, that command is over.** Do not rephrase
 it, pipe it, redirect it, or look for a form that gets through. Write the
 dimension you could not cover as `cannot-determine: <dimension> — <why>` and

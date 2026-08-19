@@ -3350,6 +3350,77 @@ def terminal_subtype(log_path):
     return "" if sub is None else sub
 
 
+def never_ran(log_path):
+    """Did this session terminate WITHOUT doing any review work? (kogaki#553)
+
+    True only for a terminal record that is an error AND records zero model
+    usage. Both halves are required: an error with usage is a session that
+    reviewed and then failed, which spends its round legitimately, and a
+    zero-usage record with no error is not a shape the runner produces.
+
+    THE SPECIMEN. PR #547 round 2 terminated on `authentication_failed` after
+    1 turn, $0.00 and 1.9 seconds. It read no diff and produced no finding, and
+    it spent the last of a 2-round bound — so the PR became unmergeable with
+    nothing wrong in its diff. Two such failures exhaust a PR's whole review
+    capacity.
+
+    WHY THIS IS NOT "CONSUME THE GRANT LATER". `consume_grant()` is called
+    BEFORE the spawn, deliberately: the state read and the log's first write
+    used to sit several statements apart, so two invocations landing inside
+    that window both read `absent` and both spawned (PR #219 round 1, nit 3).
+    Moving consumption later reopens that race. This is a COMPENSATING RESTORE
+    keyed on a terminal record, and the race it must not reopen is between two
+    SPAWNS — a restore that runs after one has terminated cannot participate in
+    it.
+
+    IT READS THROUGH `result_record` like its two siblings, so the cost line,
+    the stall line and this predicate can never disagree about which run ended.
+    """
+    rec = result_record(log_path)
+    if rec is None:
+        return False
+    if not rec.get("is_error"):
+        return False
+    # `modelUsage` empty AND no positive cost. Either alone is weaker: a
+    # runner that omits `modelUsage` on an early death would make the first
+    # test true for a session that did work, and `total_cost_usd` can be
+    # absent rather than zero.
+    if rec.get("modelUsage"):
+        return False
+    cost = rec.get("total_cost_usd")
+    return cost is None or cost == 0
+
+
+def restore_grant(pr, tag):
+    """Un-spend the round this session never used (kogaki#553).
+
+    Rewrites the grant record the pre-spawn `consume_grant()` stamped, dropping
+    the consumption stamp so the owner's click is available again. Failure to
+    restore changes no decision and is reported, never raised: the worst case
+    is the state we already had.
+    """
+    _state, _path, _rec = grant_lookup(pr)
+    if _path is None or _rec is None:
+        return False
+    if not _rec.get("consumed_at"):
+        return False
+    _rec.pop("consumed_at", None)
+    _rec.pop("consumed_by", None)
+    _rec["restored_at"] = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())
+    _rec["restored_because"] = "terminal error with zero model usage — the session never ran (kogaki#553)"
+    try:
+        with open(_path, "w", encoding="utf-8") as f:
+            json.dump(_rec, f, indent=2)
+            f.write("\n")
+    except OSError:
+        return False
+    _grant_log("restore", {"repo": _rec.get("repo"), "pr": pr,
+                           "round": _rec.get("round"), "spawn": tag})
+    global PASS_CONSUMES
+    PASS_CONSUMES = [c for c in PASS_CONSUMES if not (c[0] == pr and c[2] == tag)]
+    return True
+
+
 STALL_SUBTYPE = "error_max_turns"
 
 
@@ -4859,6 +4930,89 @@ for _label, _measured, _events, _must, _also in _recon:
         print(f"FAIL denial fixture [{_label}]: an absent event path reported "
               "as 'no denials' — the measured-absence defect itself")
         _dfail = 1
+
+# THE NEVER-RAN READ (kogaki#553) — the grant-restore predicate.
+#
+# Admission (consultation-map entry 1 — modifying a check surface; both
+# prescribed shards surveyed this sitting):
+#   loop position   this file's inline fixture pass, run on every invocation
+#                   of the sweep, `--dry-run` included.
+#   budget          pure dict construction through a stubbed `result_record`;
+#                   no file write, no mkdtemp, no subprocess, no network.
+#   removal signal  the runner ceasing to emit `is_error` with a usage record —
+#                   at which point the predicate has no input and these cases
+#                   become review candidates, NEVER auto-deletions.
+#   "each check enters with three things fixed: which stage of the workflow it
+#    runs at, what its budget there is, and what evidence would justify
+#    removing it later" (gloss/lessons/claude-code-ops.md:65@8906f20)
+#
+# WHY BOTH HALVES OF THE PREDICATE ARE ASSERTED SEPARATELY. `lessons/testing`
+# supplied the design: "Write down each path and which passing run covers it;
+# a path with no named run is untested no matter how healthy the overall suite
+# looks" (gloss/lessons/testing.md:173@8906f20). The predicate has two
+# independently sufficient ways to be wrong — restoring a round that DID work,
+# and failing to restore one that did not — so the cases below cover both
+# directions rather than only the specimen.
+_nr_fail = 0
+_nr_real = result_record
+for _label, _rec, _want in [
+    # THE SPECIMEN — PR #547 round 2, verbatim shape.
+    ("authentication_failed, 1 turn, $0.00",
+     {"type": "result", "is_error": True, "num_turns": 1,
+      "total_cost_usd": 0, "modelUsage": {}}, True),
+    # A session that REVIEWED and then failed spends its round legitimately.
+    ("an error AFTER real work — modelUsage present",
+     {"type": "result", "is_error": True, "num_turns": 25,
+      "total_cost_usd": 2.17, "modelUsage": {"claude-opus-5": {}}}, False),
+    # Cost alone must not carry it: a runner may omit modelUsage on an early
+    # death, so a positive cost is the second, independent refusal.
+    ("an error with no modelUsage but a real cost",
+     {"type": "result", "is_error": True, "total_cost_usd": 1.40}, False),
+    # A turn-cap stall DID work. It is a spent round, not a free one.
+    ("the turn-cap stall",
+     {"type": "result", "is_error": True, "subtype": "error_max_turns",
+      "num_turns": 60, "total_cost_usd": 3.10,
+      "modelUsage": {"claude-opus-5": {}}}, False),
+    # No error at all is not this shape, whatever the usage says.
+    ("a clean run", {"type": "result", "is_error": False, "num_turns": 19,
+                     "total_cost_usd": 1.02, "modelUsage": {"x": {}}}, False),
+    # No terminal record: the reader cannot say, so it must not restore.
+    ("no terminal record", None, False),
+    # THE TWO CASES BELOW EXIST BECAUSE THE FIRST SIX DID NOT DISCRIMINATE
+    # THEIR GUARDS. Deleting the `modelUsage` test and deleting the `is_error`
+    # test each left the fixture green: every case that should have caught them
+    # also carried a positive cost, so the cost test answered first and the
+    # other two guards were asserted by nothing. Each case here is built so
+    # exactly ONE guard can refuse it.
+    #
+    # Only `modelUsage` refuses this: an error, and no cost recorded, but the
+    # model was used — a session that reviewed and died before its cost was
+    # written. Restoring it would hand back a round that did real work.
+    ("an error with modelUsage but NO cost recorded",
+     {"type": "result", "is_error": True, "num_turns": 14,
+      "modelUsage": {"claude-opus-5": {}}}, False),
+    # Only `is_error` refuses this: no error, no usage, no cost. Not a shape
+    # the runner is expected to produce, which is the reason to pin it — an
+    # unexpected shape must not silently mint a free round.
+    ("no error, no usage, no cost",
+     {"type": "result", "is_error": False, "num_turns": 0,
+      "total_cost_usd": 0, "modelUsage": {}}, False),
+]:
+    result_record = (lambda _r: (lambda _p: _r))(_rec)
+    _got = never_ran("ignored")
+    if _got is not _want:
+        print(f"FAIL never-ran fixture [{_label}]: got {_got!r}, want {_want!r}")
+        _nr_fail = 1
+result_record = _nr_real
+if _nr_fail:
+    print("FAIL: the grant-restore predicate does not separate a session that "
+          "never ran from one that ran and failed — a wrong answer either "
+          "hands back a spent round or keeps a round nobody used")
+    sys.exit(1)
+print("never-ran pass: 8/8 cases (specimen / worked-then-failed / cost-only / "
+      "stall / clean / no record / usage-no-cost / no-error-no-usage) — the "
+      "last two isolate the modelUsage and is_error guards, which the first "
+      "six left asserted by nothing")
 
 # THE TERMINAL-STATE READ (kogaki#414).
 #
@@ -7859,6 +8013,18 @@ for pr in prs:
                 print(f"  #{n}: the PR is deliberately left report-less — the "
                       "presence gate is the loud backstop, and a partial "
                       "report is never fabricated to make this quiet.")
+                # THE ROUND IS RESTORED WHEN THE SESSION NEVER RAN (kogaki#553).
+                # Reported either way: a restore the operator cannot see is a
+                # grant that silently reappears, and a failed restore is the
+                # state they must plan around.
+                if never_ran(log_path):
+                    if restore_grant(n, tag):
+                        print(f"  #{n}: round RESTORED — the terminal record is "
+                              "an error with zero model usage, so this session "
+                              "reviewed nothing and its grant is available again")
+                    else:
+                        print(f"  #{n}: the session never ran, but its grant "
+                              "could NOT be restored — the round stays spent")
                 spawn_failures += 1
                 counts['spawn-failed'] = counts.get('spawn-failed', 0) + 1
             elif landed is None:
