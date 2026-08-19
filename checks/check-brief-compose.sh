@@ -23,7 +23,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
-         journeyBearingStrands, journeyPlacements } from "./brief/compose.mjs";
+         journeyBearingStrands, journeyPlacements, replaceSlot } from "./brief/compose.mjs";
 import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, READER_FIELDS } from "./brief/assemble.mjs";
 import { REVIEW_AREAS } from "./brief/review.mjs";
 
@@ -422,6 +422,45 @@ try {
 
 } finally {
   rmSync(dir, { recursive: true, force: true });
+}
+
+// (k) A COMPOSED BODY IS WRITTEN LITERALLY (kogaki#539). `replaceSlot` is the
+// shared writer for every filled slot, and it used to pass its body to
+// `String.prototype.replace` as a REPLACEMENT STRING — where `$&`, `` $` ``,
+// `$'` and `$<name>` are substitution patterns rather than text. A composed
+// `reader_start` of `costs $& twice` reached the owner's Brief as
+// `costs ## Reader start`, silently: nothing refused, warned, or recorded that
+// a substitution had happened.
+//
+// EVERY SHAPE, not a sample. The old form corrupted `$&`, `` $` `` and `$'`
+// while leaving `$1` and `$<name>` alone — `$1` only because this regex has no
+// capture groups, which is a property of the pattern and not a guarantee. A
+// case exercising one shape would have passed against the defect.
+{
+  const doc = "## Reader start\n\n*(awaiting composition)*\n";
+  const bodies = [
+    ["plain", "plain text with no dollar"],
+    ["whole-match", "costs $& twice"],
+    ["prefix", "$` before"],
+    ["suffix", "tail $' here"],
+    ["group", "group $1 here"],
+    ["named", "named $<x> here"],
+  ];
+  for (const [what, body] of bodies) {
+    const r = replaceSlot(doc, "Reader start", body);
+    if (r.error) { fails.push(`(k) filling a slot with a ${what} body was refused: ${r.error}`); continue; }
+    const written = (r.doc || "").split("\n")[2];
+    if (written !== body) {
+      fails.push(`(k) a ${what} body was REINTERPRETED on its way into the Brief: wrote ${JSON.stringify(written)} for ${JSON.stringify(body)} — the writer takes substitution patterns (kogaki#539)`);
+    }
+  }
+  // The fix is the REPLACER FUNCTION, not an escape of `$` in the body: an
+  // escape is a denial list over a syntax that grew once already (`$<name>`),
+  // so the source is asserted to carry no escaping of the body at all.
+  const src = readFileSync("brief/compose.mjs", "utf8");
+  if (!/doc\.replace\(re, \(\) =>/.test(src)) {
+    fails.push("(k) replaceSlot does not use a replacer function — a replacement string reinterprets the body, and escaping enumerates patterns instead of removing the possibility");
+  }
 }
 
 if (fails.length) {
