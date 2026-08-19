@@ -555,7 +555,7 @@ try {
 // alone — the 2026-08-18 dogfood run is the specimen of a rule nobody looked
 // up. The second is why the arc is a TABLE with a named mutation per row.
 //
-// (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v17, kogaki#522).
+// (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v19, kogaki#522).
 // The rule "/brief completes the Brief" has exactly one carrier — the skill
 // file — and a rule whose only carrier is prose is advisory. The 2026-08-18
 // dogfood run is the specimen: the flow stopped at the mint, every composition
@@ -588,13 +588,13 @@ try {
     ["adoption", /assemble\.mjs adopt-candidate /],
   ];
   for (const [stage, re] of ARC) {
-    if (!re.test(SKILL)) fails.push(`(n) the skill does not drive the ${stage} stage — the arc §5.3 v17 requires ends before the Brief is filled`);
+    if (!re.test(SKILL)) fails.push(`(n) the skill does not drive the ${stage} stage — the arc §5.3 v19 requires ends before the Brief is filled`);
   }
 
   // The abolished default stop. The old text ended the flow at the mint with
   // "Hand over the artifact and stop"; that exact shape must not return.
   if (/\*\*Hand over the artifact\*\* and stop/.test(SKILL)) {
-    fails.push("(n) the skill still ends at the mint — the default mid-workflow stop §5.3 v17 abolished");
+    fails.push("(n) the skill still ends at the mint — the default mid-workflow stop §5.3 v19 abolished");
   }
   if (!/ENDS AT A FILLED BRIEF/.test(SKILL)) {
     fails.push("(n) the skill does not state that the invocation ends at a FILLED Brief — the rule has no carrier");

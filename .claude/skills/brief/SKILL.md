@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v17): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates briefs/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates briefs/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -25,7 +25,7 @@ adopting an option adopts both. **Never raise a slug-approval ask** — it does
 not exist: no gate is registered for it, and the runtime emits no such
 payload.
 
-**"Before the mint" is the whole of that bound** (§5.3 v17, kogaki#522). The
+**"Before the mint" is the whole of that bound** (§5.3 v19, kogaki#522). The
 completed flow raises **two** gates: this one, and §6's Candidate-selection
 gate at step 10. What v11 forbids is a second ask for a decision the owner has
 already made — never a second decision.
@@ -126,7 +126,7 @@ kogaki#494).
     `briefs/<slug>/brief.md` to the owner and never retype, summarize or
     restate it.
 
-**THE INVOCATION ENDS AT A FILLED BRIEF, NEVER BEFORE** (§5.3 v17,
+**THE INVOCATION ENDS AT A FILLED BRIEF, NEVER BEFORE** (§5.3 v19,
 kogaki#522, owner ruling 2026-08-18). A command is named for the artifact it
 completes and runs until that artifact is complete; `/brief` completes a Brief,
 it does not create a Brief template. **A human gate is not a stop** — raise it
