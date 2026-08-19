@@ -5,9 +5,12 @@ fields get their authoring block.** `reader_start`, `reader_target` and
 `opening_question` were bound by §5.1 and written by no runtime; they are
 authored at **path composition**, per Candidate, and land at **Candidate
 selection**. An adopted Candidate carrying no value for one of them REFUSES at
-adoption, naming the field, as unsupported completion — §4.4's shape rather
-than §6.1's disclosure, because nothing external withholds these values and an
-empty one means the composing act did not run. This is §4.3's own
+adoption, naming the field, as unsupported completion. No precedent in this
+spec prescribes that refusal and none is claimed: §6.1's nearby rule points the
+opposite way and DISCLOSES, because an omitted Journey is a fact about the
+served material, whereas nothing external withholds these three — an empty one
+records that the composing act did not run. The runtime carrier is story 1.77
+under kogaki#521, named rather than left to a report. This is §4.3's own
 named-judge rule applied to this spec: an obligation stating no block is
 defective, not merely unhomed. No field is added and no new gate or check is
 registered. **deferred slots minted by this amendment:
@@ -787,8 +790,14 @@ writes three of them (`sequence`, `strand_coverage`, the §5.2 ledger);
 `brief/assemble.mjs adopt-candidate` writes two (`thesis_closure`,
 `tradeoffs`); `thesis` is filled at mint by construction (§5.3 v9). The
 remaining three — `reader_start`, `reader_target`, `opening_question` — were
-written by **no runtime at all**. Measured 2026-08-19 by grepping all four
-`brief/*.mjs` for the three field names: zero writers. The dogfooded Brief
+written by **no runtime at all**. Measured 2026-08-19: grepping all four
+`brief/*.mjs` for the three field names returns **three hits, every one of
+them in `brief/brief.mjs:93-95` and every one a DECLARATION rather than a
+write** — the `FIELDS` slot table that renders each name as
+`*(awaiting composition)*`. No assignment, no `replaceSlot` call and no fill
+path names any of the three. The reading is therefore **zero writers beside
+three declarations**, which is the precise shape of the defect: the fields are
+announced by the document and authored by nothing. The dogfooded Brief
 `briefs/derived-artifacts-inherit-source/brief.md` completed adoption with all
 three still rendering `*(awaiting composition)*`.
 
@@ -828,18 +837,21 @@ adopted Candidate carries no value for one of the three, `adopt-candidate`
 refuses and **names which field is missing**. It does not fill a default, and
 it does not render a typed absence and proceed.
 
-This takes §4.4's carries-none shape rather than §6.1 MUST 1's
-OMITTED-disclosed shape, and the two precedents genuinely point opposite ways,
-so the choice is recorded with its ground. §6.1 discloses because an omitted
-Journey is a *fact about the served material* — the Strand's record either
-carries Journey material or does not, and a composition sitting cannot conjure
-it. These three fields are the opposite: nothing external withholds them, and
-an empty `reader_start` is a composition that was not performed. Disclosing it
-would leave legal precisely the state kogaki#521 was filed about — a Brief
-complete through adoption with all three still slots — merely relabelled.
+**This refusal stands on its own ground, and NO precedent in this spec
+prescribes it.** An earlier draft of this clause cited §4.4 as a carries-none
+precedent; §4.4 governs a Step's grounding and the `entailed` flag and
+prescribes no refusal of this kind, so the citation is **withdrawn rather than
+reworded**. The one nearby precedent — §6.1 MUST 1 — points the **opposite**
+way, and that contrast is the whole argument: §6.1 **discloses** an omitted
+Journey because its absence is a *fact about the served material*, which a
+composition sitting cannot conjure. These three fields are the reverse case.
+Nothing external withholds them, so an empty `reader_start` records that the
+composing act did not run. Disclosing it would leave legal precisely the state
+kogaki#521 was filed about — a Brief complete through adoption with all three
+still slots — merely relabelled.
 
-The refusal is also what makes the ledger rule below mechanical rather than
-disciplinary:
+The refusal is what gives THIS clause a mechanical carrier instead of a
+disciplinary one:
 
 > "an item whose discharging act is unnamed produces no surfaced next action,
 > and that silence is caused by the gap rather than evidence of completeness,
@@ -848,12 +860,43 @@ disciplinary:
 
 `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:53`
 
+**The runtime binding has a carrier, named here rather than left to a closing
+report.** This clause binds a refusal in `adopt-candidate` that no runtime
+performs today; the act that lands it is **story 1.77 under kogaki#521**. The
+spec's own v10 precedent (kogaki#501) refuses exactly the shape where an
+obligation's carrier is a mention in a report rather than a named act, and
+that refusal binds this amendment too. Until 1.77 lands, `brief/brief.mjs:95`
+renders `opening_question` without the defining clause §5.1 now carries, and
+reconciling the two is inside 1.77's scope.
+
 **What this amendment does not do.** It adds no field, registers no new gate,
-and opens neither §4.8's arc clauses nor §6's carrier rulings. §5.2's
-"disclosure, never a refusal" stance is untouched — it governs the
-*obligations ledger*, whose entries are judgments about material, and this
-clause governs three structure fields whose absence means the composing act
-did not run.
+and opens neither §4.8's arc clauses nor §6's carrier rulings. **§5.2's
+"disclosure, never a refusal" stance is untouched, and this clause is not an
+exception to it**: §5.2 governs the *obligations ledger*, whose entries are
+judgments about material a sitting may legitimately leave open, while this
+clause governs three structure fields whose absence records an act that did
+not run. The paragraph above claims a mechanical carrier for THIS clause and
+makes no claim about the ledger, which stays a disclosure.
+
+**Boundary consult, recorded because the first pass missed it.** This clause
+writes three disposition readings into a spec — what §6.1 prescribes, what
+§5.2's stance is, and (in the withdrawn draft) what §4.4 prescribed — which is
+consultation-map **entry 3, record disposition**. The prescribed survey was run
+on the second pass: `gloss_index("lessons/knowledge-architecture")`
+headline-first over all 60 units, and kogaki#521 read whole (body, 0 comments).
+The governing line names the defect the withdrawn citation was:
+
+> "Duplication is not the sin; **unowned** duplication is, because owning a
+> fact means your version wins on disagreement and you may change it, so a
+> safe copy has to be deliberately stripped of both powers. Write down which
+> side wins when the two disagree."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:215`
+(`conformance-copy-needs-declared-precedence`)
+
+Applied here: this clause **owns** its refusal rule and copies no section's
+disposition. Where it describes §6.1 it describes it as a **contrast it does
+not govern**, and §6.1 wins on any disagreement about §6.1.
 
 **Deferred slot: `section-5-1-bare-name-fields`.** §5.1 gives `opening_question`
 and `tradeoffs` bare names where every other field carries a defining clause.
