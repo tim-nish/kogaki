@@ -19,6 +19,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { composeBrief, resolveStrandIds, composeThesisCandidates, deriveSlugCandidate } from "./brief/brief.mjs";
+import { NO_HEADLINE } from "./terrain/terrain.mjs";
 import { journeyBearingStrands, fillBrief } from "./brief/compose.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -40,6 +41,16 @@ const briefsEmpty = () => !existsSync(briefs) || readdirSync(briefs).length === 
 // composed candidate may draw content from (plus plain-register frame words).
 const setPhrases = (ids) => ids.map((id) =>
   record.candidates.find((c) => c.display_id === id).slug.replace(/-/g, " "));
+// Served renderings, INJECTED (kogaki#519/#528). The composer is pure over
+// this map, so the compose-from-the-set case runs deterministically and
+// SEAM-FREE — the whole reason the resolution lives in terrain and the
+// composer only consumes it. Prose deliberately unlike any slug, so the
+// no-slug-phrase assertion cannot pass by accident.
+const mkHeads = (ids) => new Map(ids.map((id) => {
+  const c = record.candidates.find((x) => x.display_id === id);
+  return [c.slug, { headline: `A team that ships ${id} learns the cost only after the second time.`,
+                    cite: `gloss/lessons/testing.md:${id.slice(1)}@deadbeef` }];
+}));
 
 try {
   // (a) ENTRY WRITES NOTHING UNDER briefs/ (AC1): pre-Thesis state is
@@ -64,12 +75,51 @@ try {
   // invented-from-outside defect.
   const cands = st1.thesis_candidates || [];
   if (cands.length < 2 || cands.length > 3) fails.push(`(b) ${cands.length} thesis candidate(s) — the gate composes 2-3`);
-  const inSet = setPhrases(["L1", "L2"]);
   const foreign = setPhrases(["L3", "L4", "L5"]);
   for (const c of cands) {
-    if (!inSet.some((p) => (c.thesis || "").includes(p))) fails.push(`(b) candidate ${c.id} references no settled member — not composed FROM the set`);
     for (const f of foreign) if ((c.thesis || "").includes(f)) fails.push(`(b) candidate ${c.id} references "${f}", which is outside the settled set — never widened, never invented (§3)`);
     if (!/Concedes:/.test(c.concession || "")) fails.push(`(b) candidate ${c.id} carries no round-trip concession (SPEC-style-contract §4)`);
+  }
+
+  // (b2) COMPOSED FROM THE SERVED RENDERINGS, NEVER FROM THE SLUGS
+  // (kogaki#519/#528). Driven through the EXPORTED composer with an injected
+  // map, which is what keeps this seam-free: the resolution is terrain's and
+  // the composer is pure over its result. The old form templated
+  // `slug.replace(/-/g, " ")`, so with four members three options shared
+  // everything but the lead and read as machine language.
+  {
+    const strandsB2 = resolveStrandIds(record, ["L2", "L1"]).strands;
+    const heads = mkHeads(["L2", "L1"]);
+    const c2 = composeThesisCandidates(strandsB2, heads);
+    const served = [...heads.values()].map((h) => h.headline);
+    const slugPhrases = setPhrases(["L1", "L2"]);
+    for (const c of c2) {
+      if (!served.some((h) => (c.thesis || "").includes(h))) {
+        fails.push(`(b2) candidate ${c.id} carries no served rendering — it is not composed FROM the set's material`);
+      }
+      for (const sp of slugPhrases) {
+        if ((c.thesis || "").includes(sp)) {
+          fails.push(`(b2) candidate ${c.id} still carries the slug-derived phrase "${sp}" — the generator is the defect (kogaki#519)`);
+        }
+      }
+    }
+    // The options must DIFFER on their lead, which is the whole reason the
+    // gate offers more than one.
+    if (new Set(c2.map((c) => c.thesis)).size !== c2.length) {
+      fails.push("(b2) two candidates state the SAME Thesis — the composition fork is not real");
+    }
+    // AN ABSENT RENDERING IS DISCLOSED, NEVER SUBSTITUTED: with no map the
+    // composer must carry terrain's abnormal marker rather than fall back to
+    // the slug, which is the fallback kogaki#519 exists to remove.
+    const c3 = composeThesisCandidates(strandsB2, new Map());
+    if (!c3.every((c) => (c.thesis || "").includes(NO_HEADLINE))) {
+      fails.push("(b2) an unresolved rendering does not carry terrain's abnormal marker — an absence was substituted");
+    }
+    for (const sp of slugPhrases) {
+      if (c3.some((c) => (c.thesis || "").includes(sp))) {
+        fails.push(`(b2) an unresolved rendering fell back to the slug phrase "${sp}" — substitution, not disclosure`);
+      }
+    }
   }
 
   // (c) THE ASK CARRIES ITS GATE DECLARATION AND THE PREMISE'S NEGATION AS
@@ -229,7 +279,10 @@ try {
   if (st3.adopted_slug_via !== "derived-from-free-form-thesis") fails.push("(j) a free-form Thesis's name is not recorded as derived from it");
   // Exported helpers agree with the command path (same dual-producer guard
   // as (f)).
-  const viaExport = composeThesisCandidates(resolveStrandIds(record, ["L2", "L1"]).strands);
+  // The command path runs SEAM-FREE in CI, so its renderings degrade to the
+  // marker; the exported call is given the same empty map, which is what makes
+  // this a dual-producer guard rather than a comparison of two environments.
+  const viaExport = composeThesisCandidates(resolveStrandIds(record, ["L2", "L1"]).strands, new Map());
   if (JSON.stringify(viaExport) !== JSON.stringify(st1.thesis_candidates)) {
     fails.push("(j) the command's thesis candidates differ from the exported composer's — two producers");
   }

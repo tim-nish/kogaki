@@ -48,6 +48,7 @@
 // at the same pin) — which is why the thesis gate's premise-negation option
 // routes BACK THROUGH TERRAIN and never re-opens the set here.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "../terrain/terrain.mjs";
 import { join, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -225,9 +226,28 @@ export function resolveStrandIds(record, entered) {
 }
 
 // Compose 2–3 Thesis candidates FROM THE SETTLED STRAND SET ONLY (§3,
-// story 1.72 AC2): every content token below is derived from the record's
-// own slugs — never fetched, never widened, never invented from outside the
-// set. The candidates differ in which member LEADS, because that is a real
+// story 1.72 AC2), and from that set's SERVED GLOSS RENDERINGS rather than
+// from its slugs (kogaki#519/#528).
+//
+// WHAT CHANGED AND WHY THE OLD FORM WAS A DEFECT. Every content token used to
+// be a slug with its hyphens replaced by spaces ("derived view dogfood needs
+// its join key"). With four members the three options shared everything except
+// which member led, so they read ~80% identical and in machine language. The
+// cause was mechanical rather than model drift: a slug is an identifier, and no
+// amount of care at the composing step turns an identifier into prose.
+//
+// NEVER WIDENED, AND STILL NEVER FETCHED BY THIS LANE. The set is closed at
+// entry and this composes from its members and nothing else — the §5.3
+// invariant is about GROWING the set, and resolving the material a settled
+// member already names is not growth. The resolution itself is terrain's:
+// `resolveHeadlines` is called there, bounded by the members' own tags, so the
+// Brief lane gains no seam read of its own and terrain stays the one component
+// that reads served renderings (§3, §9).
+//
+// AN ABSENT RENDERING IS DISCLOSED, NEVER SUBSTITUTED: the member's phrase
+// becomes terrain's own NO_HEADLINE marker, which is loud at the gate and is
+// the convention `cmdView` already follows. Composing around the gap would
+// hide a fault the owner is the one who can clear. The candidates differ in which member LEADS, because that is a real
 // composition fork the set itself carries; each is in plain register per
 // SPEC-style-contract §4 (no unexplained term of art, one relation per
 // sentence, a concrete subject acting) and carries its round-trip
@@ -240,8 +260,11 @@ export function resolveStrandIds(record, entered) {
 // (Thesis, slug) pair. Deriving it here rather than at adoption is what
 // makes the second ask unproducible: the name is already on the table when
 // the owner answers, so there is nothing left to ask afterwards.
-export function composeThesisCandidates(strands) {
-  const phrase = (s) => s.slug.replace(/-/g, " ");
+export function composeThesisCandidates(strands, headlines = new Map()) {
+  const phrase = (s) => {
+    const e = headlines.get(s.slug);
+    return (e && e.headline) ? e.headline : NO_RENDERING;
+  };
   const names = strands.map(phrase);
   const candidates = [];
   if (strands.length === 1) {
@@ -333,7 +356,11 @@ function cmdEnter(args) {
   const r = resolveStrandIds(record, entered);
   if (r.error) fail(r.error);
 
-  const candidates = composeThesisCandidates(r.strands);
+  // Terrain resolves the settled members' served renderings — bounded by
+  // their own tags, never the corpus (kogaki#528). This lane performs no seam
+  // read of its own; it hands over the set it has already closed.
+  const headlines = resolveHeadlines(r.strands);
+  const candidates = composeThesisCandidates(r.strands, headlines);
   const runPath = typeof args["run-state"] === "string" && args["run-state"] !== ""
     ? args["run-state"] : defaultRunState();
   mkdirSync(dirname(runPath), { recursive: true });

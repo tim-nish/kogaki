@@ -1,6 +1,22 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v13, corrected 2026-08-19 (kogaki#531) — **three corrections to
+**Status:** v14, amended 2026-08-19 (kogaki#528, discharging kogaki#519) —
+**RESOLVING a settled Strand's served rendering is not the Brief fetch §5.3
+forbids.** §5.3's closed-set invariant governs GROWING the set; resolving the
+material a member already names is not growth, and the two were conflated by
+`composeThesisCandidates`'s own "never fetched" comment. Thesis candidates are
+therefore composed from each member's **served Gloss rendering**, never from
+its slug. **The Brief lane performs no seam read of its own**: terrain resolves
+the renderings, bounded by the settled members' own tags, because terrain is
+the one component that reads served renderings (§3, §9) — which is also why
+attaching a rendering to every candidate at survey-generation time was REFUSED,
+that being the whole-corpus prefetch §9 names. An unresolved rendering is
+DISCLOSED with terrain's abnormal marker and never substituted with the slug,
+and an unavailable seam DEGRADES rather than blocking a Brief, per the founding
+rule that the substrate is an enhancer and never a dependency. **deferred slots
+minted by this amendment: none.**
+
+v13, corrected 2026-08-19 (kogaki#531) — **three corrections to
 v12's own text, no decision reopened.** §5.1.1's refusal is renamed from
 `unsupported completion` to an **unauthored field**: §4.4 owns the former and
 defines it as material invented from outside the Strands, which is the opposite
@@ -1175,6 +1191,28 @@ downstream of it.)*
 point writes is the set composition may use; growing it is an owner act that
 routes back through Terrain, never a Brief fetch (`consulted:
 product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:13`).
+
+**What the invariant forbids is GROWTH, not RESOLUTION (v14, kogaki#528).**
+Reading the served rendering of a Strand the set ALREADY NAMES adds no member,
+so it is not a Brief fetch and never was; the invariant and the prohibition on
+resolution were conflated by `composeThesisCandidates`'s own comment ("never
+fetched, never widened"), which read the second conjunct as implying the first.
+The distinction is the one the whole section rests on: **the set is owner state
+and the material is served state**, and only the first is closed here.
+
+Two consequences bind the implementation rather than being left to it. The
+resolution is **terrain's**, called by the Brief lane and never performed by it,
+because terrain is the one component that reads served renderings (§3, §9) — a
+second reader would put the seam boundary in two places. And it is **bounded by
+the settled members' own tags**, never by the corpus, which is why the
+alternative of attaching a rendering to every candidate at survey generation was
+refused: that is the whole-corpus prefetch §9 already names.
+
+An unresolved rendering **discloses** with terrain's abnormal marker and is
+never substituted with the slug — a substitution would restore exactly the
+defect kogaki#519 reports, silently. An unavailable seam **degrades** rather
+than blocking: a Brief stays startable, per the founding rule that the
+substrate is an enhancer and never a dependency.
 
 **Idempotence is by slug, and a collision refuses.** Re-invoking with an
 existing slug refuses rather than overwriting — a Brief is owner state from
