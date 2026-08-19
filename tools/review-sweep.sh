@@ -3472,12 +3472,20 @@ def restore_grant(pr, tag):
         return False
     _grant_log("restore", {"repo": _rec.get("repo"), "pr": pr,
                            "round": _rec.get("round"), "spawn": tag})
+    # THE RETRACTION USES THE SAME KEY AS THE LOOKUP (PR #560 round 1). The
+    # store match moved to `(repo, pr, round)` and this filter was left on
+    # `(pr, tag)` — which is the very key kogaki#558 found cannot tell two
+    # rounds of one PR apart, so a restore of round 2 would have retracted
+    # round 1's entry as well. A lookup and its retraction keyed differently is
+    # the same defect twice: whichever key is weaker decides.
+    #
     # STRING-COMPARED (PR #556 round 1, nit). `c[0]` is `rec.get("pr")` as the
     # store wrote it and `pr` is the int from `gh`'s `number`, so `==` across
     # the JSON round trip is a type coin-flip — and a retraction that silently
     # matches nothing leaves the pass reporting a consume it just undid.
     PASS_CONSUMES = [c for c in PASS_CONSUMES
-                     if not (str(c[0]) == str(pr) and c[2] == tag)]
+                     if not (str(c[0]) == str(pr) and str(c[1]) == str(_round)
+                             and c[2] == tag)]
     return True
 
 
@@ -5163,6 +5171,14 @@ try:
                            "consumed_by": "review-sweep spawn (review-606)"})
     _rg_write("g4b.json", {"repo": "tim-nish/kogaki", "pr": 606, "round": 2})
     consume_grant(os.path.join(_rg_dir, "g4b.json"), _rg_read("g4b.json"), "review-606")
+    # THE RETRACTION IS KEYED LIKE THE LOOKUP (PR #560 round 1, finding 1).
+    # Nothing asserted this until a mutation showed the fix had no carrier:
+    # reverting the retraction to `(pr, tag)` left the fixture green. A SECOND
+    # entry for PR 606 — a different round, same tag — is placed AFTER the
+    # round-2 consume, so the lookup still resolves to round 2 while a
+    # PR-scoped retraction would take both. It must survive.
+    _rg_marker = ("606", 1, "review-606")
+    PASS_CONSUMES.append(_rg_marker)
     if not restore_grant(606, "review-606"):
         print("FAIL restore fixture [two rounds]: the round this pass consumed was not restored")
         _rg_fail = 1
@@ -5176,23 +5192,34 @@ try:
                   "round on the same PR is not this pass's to hand back, and the PR-scoped "
                   "tag could not tell them apart (kogaki#558)")
             _rg_fail = 1
+        if _rg_marker not in PASS_CONSUMES:
+            print("FAIL restore fixture [two rounds]: the retraction removed ANOTHER round's "
+                  "PASS_CONSUMES entry — the lookup is round-keyed and the retraction is not, "
+                  "so the weaker of the two keys decides")
+            _rg_fail = 1
+        PASS_CONSUMES[:] = [c for c in PASS_CONSUMES if c != _rg_marker]
 
-    # 3. AN UNCONSUMED GRANT IS NOT 'RESTORED'. Nothing to undo, and a True
-    #    here would mean the pass reports a restore that never happened.
-    #    WHICH GUARD THIS CASE ACTUALLY COVERS, stated rather than implied:
-    #    the TAG filter, not the `consumed_at` test. Deleting `consumed_at`
-    #    from the match leaves this case green, because an unconsumed record
-    #    carries no `consumed_by` for the tag to be found in. The
-    #    `consumed_at` test is therefore REDUNDANT here — kept as a statement
-    #    of intent and as cover if the tag filter ever changes, and recorded
-    #    as uncovered rather than counted as asserted.
-    _rg_write("g3.json", {**_BASE, "pr": 888})
+
+    # 3. A GRANT THIS PASS DID NOT CONSUME IS NOT 'RESTORED', even though a
+    #    record for it sits in the store. This is now the `PASS_CONSUMES`
+    #    guard's case and nothing else's: the record exists and is consumed,
+    #    so only the absence of a pass entry refuses it.
+    #    THE OLD COMMENT HERE DESCRIBED THE TAG FILTER (PR #560 round 1) — a
+    #    filter this diff removed. A comment naming a guard that no longer
+    #    exists is worse than none, because the next reader checks the claim
+    #    rather than the code.
+    _rg_write("g3.json", {**_BASE, "pr": 888,
+                          "consumed_at": "2026-08-18T00:00:00+00:00",
+                          "consumed_by": "review-sweep spawn (review-888)"})
     if restore_grant(888, "review-888"):
-        print("FAIL restore fixture [unconsumed]: an unconsumed grant reported as restored")
+        print("FAIL restore fixture [not this pass]: a consumed grant with no PASS_CONSUMES "
+              "entry was restored — this process can hand back a round it never spent")
         _rg_fail = 1
 
     # 4. NO RECORD AT ALL is False, never an exception — the caller prints the
-    #    could-not-restore line and the round stays spent.
+    #    could-not-restore line and the round stays spent. DISTINCT FROM 3:
+    #    that one has a record and no pass entry, this one has neither, and
+    #    they exercise different early returns.
     if restore_grant(999, "review-999"):
         print("FAIL restore fixture [absent]: a PR with no grant reported as restored")
         _rg_fail = 1
@@ -5205,8 +5232,11 @@ if _rg_fail:
           "remedy is unreachable, and the issue would close with the defect intact")
     sys.exit(1)
 print("restore pass: 5/5 cases (specimen incl. reads-as-open / foreign tag / "
-      "TWO ROUNDS ON ONE PR / unconsumed / absent) — every case consumes through "
-      "consume_grant(), so PASS_CONSUMES holds what the real flow would hold")
+      "TWO ROUNDS ON ONE PR / not-this-pass / absent) — the two cases that must "
+      "SUCCEED consume through consume_grant(), so PASS_CONSUMES holds what the "
+      "real flow would hold; the three that must REFUSE write the store directly, "
+      "which is the point of them (PR #560 round 1: the line used to claim EVERY "
+      "case consumed, which was false of the three)")
 
 # THE TERMINAL-STATE READ (kogaki#414).
 #
