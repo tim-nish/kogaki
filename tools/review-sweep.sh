@@ -5135,6 +5135,13 @@ try:
     # only `consume_grant()` appends to, so a fixture that stamped the record
     # itself would exercise a state the real flow never produces — and would
     # have gone green against a restore that could not find its round.
+    #
+    # TWO CASES WRITE THE STORE DIRECTLY, AND THAT IS THE RULE'S OWN EXCEPTION
+    # rather than a lapse: foreign-tag and not-this-pass assert the refusal at
+    # the `PASS_CONSUMES` guard, so they must have a store record and NO pass
+    # entry — a state `consume_grant()` cannot produce, because producing the
+    # entry is what it does. Every case that needs a pass entry consumes for
+    # one (PR #562 round 1).
     _rg_saved_consumes = list(PASS_CONSUMES)
 
     # 1. THE SPECIMEN: a grant this pass consumed is restored, and the record
@@ -5186,7 +5193,13 @@ try:
     # ordering of two lines in this block.
     _rg_write("g4a.json", {"repo": "tim-nish/kogaki", "pr": 606, "round": 1})
     consume_grant(os.path.join(_rg_dir, "g4a.json"), _rg_read("g4a.json"), "review-606")
-    _rg_marker = [c for c in PASS_CONSUMES if str(c[0]) == "606"][-1]
+    # NAMED, not searched (PR #562 round 1, nit). `consume_grant()` appends
+    # exactly one tuple per call, so `[-1]` IS the entry the line above made.
+    # The filter-and-take-last form matched on `pr` alone and would bind to a
+    # foreign entry if any earlier case ever consumed for 606 — resolving the
+    # assertion's subject by list position, which is the dependency this diff
+    # exists to remove.
+    _rg_marker = PASS_CONSUMES[-1]
     _rg_write("g4b.json", {"repo": "tim-nish/kogaki", "pr": 606, "round": 2})
     consume_grant(os.path.join(_rg_dir, "g4b.json"), _rg_read("g4b.json"), "review-606")
     if not restore_grant(606, "review-606"):
@@ -5236,7 +5249,14 @@ try:
     #    Giving this one a pass entry carries it PAST that guard and into the
     #    store scan, where `_path is None` is the branch nothing else covers —
     #    a deleted or unreadable record, and a False rather than an exception.
-    PASS_CONSUMES.append(("999", 1, "review-999"))
+    #    IT CONSUMES FOR REAL AND THEN THE RECORD GOES (PR #562 round 1). The
+    #    first cut appended a literal tuple — the hand-written state kogaki#561
+    #    finding 4 ruled out, reintroduced one case over. Consuming and then
+    #    deleting the file is both faithful and the branch's own story: a
+    #    record that was consumed and has since become unreadable.
+    _rg_write("g5.json", {"repo": "tim-nish/kogaki", "pr": 999, "round": 1})
+    consume_grant(os.path.join(_rg_dir, "g5.json"), _rg_read("g5.json"), "review-999")
+    os.remove(os.path.join(_rg_dir, "g5.json"))
     if restore_grant(999, "review-999"):
         print("FAIL restore fixture [no store record]: a consumed round whose store record "
               "is missing reported as restored — the caller would print a restore that "
@@ -5252,13 +5272,18 @@ if _rg_fail:
           "remedy is unreachable, and the issue would close with the defect intact")
     sys.exit(1)
 print("restore pass: 5/5 cases — specimen (incl. reads-as-open) / foreign tag / "
-      "TWO ROUNDS ON ONE PR / not-this-pass / no store record. Every case that "
-      "must SUCCEED consumes through consume_grant(); of the three that must "
-      "REFUSE, two write the store directly and one writes NOTHING to it, which "
-      "is that case's whole point. Each refusal names the branch it reaches: "
-      "foreign tag and not-this-pass stop at the PASS_CONSUMES guard, no-store-"
-      "record carries past it to the store scan (PR #560 rounds 1-2: the line "
-      "twice described cases it did not have)")
+      "TWO ROUNDS ON ONE PR / not-this-pass / no store record. THREE consume "
+      "through consume_grant() (specimen, two-rounds, no-store-record); the "
+      "other TWO write the store directly and deliberately leave PASS_CONSUMES "
+      "empty, because refusing at that guard is exactly what they assert. Each "
+      "refusal names the branch it reaches: foreign-tag and not-this-pass stop "
+      "at the PASS_CONSUMES guard, no-store-record carries past it to the store "
+      "scan. NOT ASSERTED, stated rather than implied: that the store scan "
+      "returns False rather than RAISING on a missing record — deleting that "
+      "guard outright raises AttributeError and kills this pass on a traceback, "
+      "which is caught but not by the case's own line (PR #562 round 1). The "
+      "pass line has now described cases it did not have three times, so it "
+      "enumerates rather than summarises.")
 
 # THE TERMINAL-STATE READ (kogaki#414).
 #
