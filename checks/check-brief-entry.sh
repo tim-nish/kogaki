@@ -120,13 +120,23 @@ try {
       const dup = "Both members say the same first sentence.";
       const dupHeads = new Map([...heads.keys()].map((k) => [k, { headline: dup, cite: "x:1@d" }]));
       const cd = composeThesisCandidates(strandsB2, dupHeads);
-      if (cd.some((c) => !/—/.test(c.thesis || ""))) {
-        fails.push("(b2) with a shared headline a candidate lists no supporting members — `rest` was filtered by text, not by position");
-      }
+      // ONE ASSERTION, because a second one added nothing (PR #543 round 1).
+      // The history is worth keeping: this case first tested `!/—/.test(...)`,
+      // an em dash the thesis template writes LITERALLY, so it was present
+      // whatever `rest` held — a survivor that could not fail. Replacing it
+      // with an emptiness test then produced an assertion STRICTLY SUBSUMED by
+      // the one below (an empty segment cannot include `dup`), plus an
+      // unreachable `/^\s*—/` disjunct — a constant-false guard inside the fix
+      // for a vacuous assertion.
+      //
+      // What actually discriminates is that the segment after the dash CARRIES
+      // THE SHARED HEADLINE. Value-filtering empties `rest`, so the segment
+      // loses it; position-filtering keeps it. That is the whole property, and
+      // it is asserted once.
       for (const c of cd) {
         const seg = (c.thesis || "").split("—")[1] || "";
         if (!seg.includes(dup)) {
-          fails.push(`(b2) candidate ${c.id} dropped the member sharing the lead's headline — filtered by text, not by position`);
+          fails.push(`(b2) candidate ${c.id} dropped the member sharing the lead's headline — \`rest\` was filtered by text, not by position`);
         }
       }
     }
@@ -141,10 +151,19 @@ try {
     const widened = new Map(heads);
     const outsider = record.candidates.find((c) => !["L1", "L2"].includes(c.display_id));
     const OUTSIDE = "Foxtrot is a member nobody settled on and it must never appear.";
-    widened.set(outsider.slug, { headline: OUTSIDE, cite: "gloss/lessons/testing.md:1@deadbeef" });
-    for (const c of composeThesisCandidates(strandsB2, widened)) {
-      if ((c.thesis || "").includes(OUTSIDE)) {
-        fails.push(`(b2) candidate ${c.id} carries a rendering for ${outsider.display_id}, which is OUTSIDE the settled set — never widened (§3)`);
+    // GUARDED, and it NAMES what it lacked (kogaki#540). The fixture carries
+    // L3-L5 today; narrowing it to the settled pair turned this named assertion
+    // into a TypeError — fail-safe in direction, and lossy in exactly the way a
+    // check exists to avoid. A fixture that cannot supply an outsider cannot
+    // exercise widening, and that is a finding rather than a crash.
+    if (!outsider) {
+      fails.push("(b2) the survey fixture carries no member outside the settled set, so the widening assertion could not run — it is unexercised rather than passing");
+    } else {
+      widened.set(outsider.slug, { headline: OUTSIDE, cite: "gloss/lessons/testing.md:1@deadbeef" });
+      for (const c of composeThesisCandidates(strandsB2, widened)) {
+        if ((c.thesis || "").includes(OUTSIDE)) {
+          fails.push(`(b2) candidate ${c.id} carries a rendering for ${outsider.display_id}, which is OUTSIDE the settled set — never widened (§3)`);
+        }
       }
     }
     // AN ABSENT RENDERING IS DISCLOSED, NEVER SUBSTITUTED: with no map the
