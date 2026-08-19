@@ -347,17 +347,12 @@ function parseArgs(argv) {
   return args;
 }
 
-function cmdFill(args) {
-  const briefPath = argString(args, "brief", "fill needs --brief <briefs/<slug>/brief.md>");
-  const pathFile = argString(args, "path", "fill needs --path <composed-path.json> — the Step records the composition sitting authored (§4.1)");
-  const doc = readFileSync(briefPath, "utf8");
-  const input = JSON.parse(readFileSync(pathFile, "utf8"));
-  const r = fillBrief(doc, input);
-  if (r.error) fail(r.error);
-  writeFileSync(briefPath, r.doc);
-  console.log(`Brief filled — READ THIS ONE (owner document): ${briefPath}`);
-  console.log(`Sequence: ${input.steps.length} step(s); Strand placement: ${r.placed} of ${r.total} placed (counted in placements, after composition${r.placed < r.total ? "; the unplaced are DISCLOSED in Strand coverage" : ""}).`);
-}
+// `cmdFill` IS GONE with its route (kogaki#551, PR #557 round 1). The first
+// cut left the function defined and uncalled — a retired route whose body
+// survives reads as a route that could be switched back on, which is the
+// demotion-not-a-retirement shape this change exists to end. `fillBrief`,
+// the composer it called, is exported and untouched.
+
 
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

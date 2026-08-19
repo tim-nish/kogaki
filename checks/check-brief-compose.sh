@@ -130,6 +130,17 @@ try {
   const foreign = fillBrief(doc0, { steps: [{ ...step1, materials: ["L7"] }] });
   if (!foreign.error || !/closed Strand set/.test(foreign.error)) fails.push("(c) a material outside the closed set was accepted — growing the set routes through Terrain, never a Brief fetch");
 
+  // Boundary 1 (Check/CI infrastructure) — both prescribed shards surveyed
+  // this sitting before (d) was rewritten:
+  //   "A rule written in a shared document only affects the projects whose
+  //   authors go and look it up."
+  //   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/claude-code-ops.md:29
+  //   "Write down each path and which passing run covers it; a path with no
+  //   named run is untested no matter how healthy the overall suite looks."
+  //   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
+  // The second is why the guard was MOVED to (g) and said to be moved, rather
+  // than deleted with the route it happened to sit on.
+  //
   // (d) THE `fill` CLI ROUTE IS RETIRED (§5.3 v17, kogaki#551), and it refuses
   // with the route that replaces it.
   //
@@ -597,8 +608,8 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "discharged_by, an undischarged entry rendering as UNDISCHARGED, and a filled Sequence "
   + "refusing overwrite; (c) the placement count runs AFTER composition counted in placements "
   + "— a declared cover is not believed, an unplaced Strand DISCLOSES and never refuses, a "
-  + "foreign L-id refuses as a Brief fetch; (d) the retired `fill` CLI route refuses and names its replacement, with the composer still exported and its dual-producer guard moved to (g); the command path is byte-equal to the "
-  + "exported fill; (e) Candidate assembly refuses one or four Candidates and a duplicated "
+  + "foreign L-id refuses as a Brief fetch; (d) the retired `fill` CLI route refuses and names its replacement, with its dual-producer guard MOVED to (g) rather than dropped and the composer still "
+  + "exported; (e) Candidate assembly refuses one or four Candidates and a duplicated "
   + "reader experience, and the payload rides the proposal-contract shape — where/why, "
   + "effect-stating labels, the first-class none-of-these flagged negates_premise, an "
   + "unconditional free-text channel that states it does not discharge the negation, and "
@@ -621,7 +632,14 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
   + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
   + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + kogaki#501 + kogaki#520): THIRTEEN "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + kogaki#501 + kogaki#520 + kogaki#551): FIFTEEN "
+  + "mutations. kogaki#551's two, both against the retirement: restoring the `fill` route "
+  + "failed (d)'s retirement assertion, and refusing without naming the replacement failed "
+  + "(d)'s replacement assertion. A THIRD was run and its assertion WITHDRAWN rather than "
+  + "kept: un-exporting `fillBrief` fails this suite at MODULE LOAD, because brief/assemble.mjs "
+  + "imports it, so a `typeof fillBrief` line could never fire and would have claimed coverage "
+  + "the import already supplies — recorded because a dropped mutation and an invented one read "
+  + "identically. Then the earlier "
   + "mutations, each "
   + "run once and restored surgically — story 1.73's three: dropping the rationale "
   + "requirement from validateSteps failed (a)'s field refusal; counting placements from the "
