@@ -539,6 +539,56 @@ try {
   fails.push(`(m) the vocabulary case threw outside its own assertions: ${e.message}`);
 }
 
+// (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v17, kogaki#522).
+// The rule "/brief completes the Brief" has exactly one carrier — the skill
+// file — and a rule whose only carrier is prose is advisory. The 2026-08-18
+// dogfood run is the specimen: the flow stopped at the mint, every composition
+// field an unfilled slot, and nothing but the owner noticed. Terrain's skill is
+// asserted the same way (checks/check-terrain-composition.sh).
+{
+  const SKILL = readFileSync(".claude/skills/brief/SKILL.md", "utf8");
+
+  // Each stage names the runtime act that performs it, so a stage cannot be
+  // satisfied by a passing mention in prose.
+  const ARC = [
+    ["entry", /brief\.mjs enter /],
+    ["thesis gate", /gates\/registry\.json:\s*\n?\s*brief-thesis-adoption|brief-thesis-adoption/],
+    ["adopt", /brief\.mjs adopt /],
+    ["mint", /brief\.mjs mint /],
+    ["path review", /review\.mjs attach /],
+    ["assembly", /assemble\.mjs assemble /],
+    ["adoption", /assemble\.mjs adopt-candidate /],
+  ];
+  for (const [stage, re] of ARC) {
+    if (!re.test(SKILL)) fails.push(`(n) the skill does not drive the ${stage} stage — the arc §5.3 v17 requires ends before the Brief is filled`);
+  }
+
+  // The abolished default stop. The old text ended the flow at the mint with
+  // "Hand over the artifact and stop"; that exact shape must not return.
+  if (/\*\*Hand over the artifact\*\* and stop/.test(SKILL)) {
+    fails.push("(n) the skill still ends at the mint — the default mid-workflow stop §5.3 v17 abolished");
+  }
+  if (!/ENDS AT A FILLED BRIEF/.test(SKILL)) {
+    fails.push("(n) the skill does not state that the invocation ends at a FILLED Brief — the rule has no carrier");
+  }
+  // A stop is legitimate only NAMED, on an inspection-need. The skill must
+  // record which it is: this flow has none, and saying so is what stops the
+  // finding being re-derived every sitting.
+  if (!/inspection-need/.test(SKILL)) {
+    fails.push("(n) the skill does not name the inspection-need rule — the only legitimate mid-workflow stop is unstated, so any stop reads as licensed");
+  }
+
+  // The pre-mint bound. v11's "exactly one owner question" is TRUE of the
+  // pre-mint segment and FALSE of the arc — the completed flow raises two
+  // gates. An unqualified claim here would forbid §6's selection gate.
+  if (/\*\*the only owner\s*\n?\s*question in this flow\*\*/.test(SKILL)) {
+    fails.push("(n) the skill claims the thesis gate is the only owner question IN THIS FLOW — false once the arc runs through §6's selection gate");
+  }
+  if (!/ONE OWNER QUESTION BEFORE THE MINT/.test(SKILL)) {
+    fails.push("(n) the skill dropped v11's pre-mint bound — kogaki#518's ruling has no carrier");
+  }
+}
+
 if (fails.length) {
   console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11, stories 1.71/1.72/1.76):");
   for (const f of fails) console.log(`  - ${f}`);

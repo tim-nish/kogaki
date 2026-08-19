@@ -1,5 +1,15 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v19, amended 2026-08-20 (kogaki#522) — **`/brief` completes the
+Brief.** The invocation drives entry → thesis gate → mint → path composition →
+path review → Candidate assembly → Candidate selection → adoption, ending only
+at a **filled** Brief or at an owner answer that ends it. There is **no default
+mid-workflow stop**; the only legitimate stop is a *named* inspection-need, and
+§5.3 records that this flow has none and why. **"Exactly one owner question" is
+bounded to the pre-mint segment** and always was — the completed flow raises two
+gates, thesis adoption and Candidate selection, and each blocks on its answer.
+A human gate is not a stop: the workflow raises it and continues on the answer.
+
 **Status:** v18, amended 2026-08-19 (kogaki#548) — **§6.9.4's FILLED slot is
 REOPENED and `sources` carries source text only.** The ingestion run's
 derivation pointer is retired by owner ruling on three grounds: it is not source
@@ -1469,6 +1479,79 @@ never invents one (§3's read-not-invented rule, applied to the minting
 act). *(At v9 the mint runs at Thesis adoption, so `thesis` is filled at
 mint by construction; the typed-unfilled-slot rule governs every field
 downstream of it.)*
+
+#### The invocation completes the Brief (v17, kogaki#522)
+
+**A command is named for the artifact it completes, and it runs until that
+artifact is complete** (owner ruling 2026-08-18). `/brief` is a command for
+completing a Brief, not for creating a Brief template. So one invocation drives
+the whole arc — entry, the thesis-determination gate, the mint, path
+composition, path review with §4.11's revise routing, Candidate assembly, the
+Candidate-selection gate, and adoption — and ends only at a **filled** Brief, or
+at an owner answer that ends it: the premise's negation at either gate, or "none
+of these" at the selection gate.
+
+**A human gate is not a stop.** The workflow raises it and continues on the
+answer. What is abolished is the **default** stop — ending mid-arc because the
+mint happened to be the last act anyone wired up. The observed specimen is the
+2026-08-18 dogfood run: it ended after the mint with every composition field an
+unfilled slot, and the owner typed "keep going" to get the rest.
+
+**A mid-workflow stop is legitimate only when it is NAMED, and only on an
+inspection-need** — a point where the owner must leave the conversation to read
+another console or surface before the next gate can be answered honestly.
+Terrain's co-tag inspection is the named precedent.
+
+**This flow has no such point, and the finding is recorded rather than left to
+be re-derived each sitting.** Both gates are answerable from what the runtime
+renders into them: the thesis gate carries its candidates composed from the
+settled set with each one's concession stated (§5.3 v11), and the
+Candidate-selection gate carries each Candidate's composition-time reasoning as
+its evidence (§6), including what it bridged (§4.11). Neither asks the owner for
+a fact the payload does not contain. A later sitting that finds one adds the
+named stop **there**, with its ground; it does not restore the default.
+
+**The rule's LIMIT, because a served position bounds it and the issue recorded
+none.** kogaki#522's `consult:` line reads `none: … no served position
+discriminates it yet`. One does — not the rule's truth, its edge:
+
+> "It is a genuine requirement that a command finish its job rather than leaving
+> a person to hand-copy text, but finishing is bounded by ownership: when a
+> workflow crosses a line where one side proposes and another side approves,
+> there is one completing action per side, not a single one spanning both. …
+> If the producer can write directly past the receiver's gate, that gate is
+> decorative in everything but name."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:203`
+
+The test it supplies is **does the workflow write past a gate its owner owns**,
+and this one does not: each gate blocks, nothing under `briefs/` exists before
+the thesis is adopted, and `adopt-candidate` refuses without a recorded owner
+answer. Completing the Brief is therefore one completing action on **one** side
+of no ratification boundary. Were a second party's gate ever added to this arc,
+this clause stops at it rather than driving through it.
+
+**What "exactly one owner question" means, stated because extending the flow
+makes the unqualified reading false.** §5.3 v11's ruling bounds the **pre-mint**
+segment: one gate carrying the (Thesis, slug) pair, and no second slug ask. The
+completed flow raises **two** gates in total, the second being §6's
+Candidate-selection gate, which v11 never spoke to. The property v11 protects is
+that the owner is not interrupted twice for one decision class; the mechanism is
+the single pre-mint gate. **The property binds; the count does not** — a reading
+that froze the number at one would forbid the selection gate this spec has
+carried since v1.
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:299`
+— "state which of the two actually binds … the first time somebody can deliver
+the same property by a better mechanism, the text supports two equally honest
+readings."
+
+**deferred slot: `single-path-fill-route`.** `brief/compose.mjs fill` writes a
+sequence from one composed path, bypassing assembly and the selection gate. The
+arc above always routes through §6, so `fill` is not on it. Whether it is a
+legitimate second route or a pre-§6 remnant is a decision act owed on its own
+licensing issue with alternatives and a receipt; this sitting names the slot and
+does not fill it, and changes nothing about `fill`.
 
 **The closed-set invariant binds from the mint.** The Strand set the entry
 point writes is the set composition may use; growing it is an owner act that
