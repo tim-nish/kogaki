@@ -1,5 +1,14 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v17, amended 2026-08-19 (kogaki#550, kogaki#551) — **the `move`
+field stays OPTIONAL and §4.1 now names which half of that rule binds**, and
+**`compose.mjs`'s `fill` CLI route is RETIRED.** The property protected is that
+every Step effects a real reader-state transition; `reader_state_before/after`
+plus path review are today's carrier, and the `move` binding is not and never
+was. `fill` wrote a Brief's sequence bypassing §6's Candidate-selection gate,
+so its output was a path nobody chose and nobody could decline; the exported
+`fillBrief` composer is untouched.
+
 **Status:** v16, amended 2026-08-19 (kogaki#524) — **the Bridge Step and the
 revise pass.** A causal gap between adjacent Steps is repaired by inserting an
 ordinary §4.1 Step whose before/after states are fixed by its neighbours — no new
@@ -293,6 +302,37 @@ article's private property and every step a library entry, which is neither.
 - **`step_id`** — the step's identity within this Brief.
 - **`move`** — a binding to a Move library entry (§7), or **absent**. A step
   need not bind a Move; see the no-mandatory-Moves constraint at §7.5.
+
+  **Which half of this rule binds (v17, kogaki#550).** The **property** is that
+  every Step effects a real reader-state transition — no reader-irrelevant
+  filler. The **mechanism** delivering it today is `reader_state_before` /
+  `reader_state_after` being required, plus path review's judgment. **The
+  property binds; `move` is not its carrier and never was.** A Step can bind a
+  Move and still transition nothing, and a Move-less Step can transition
+  perfectly well, so requiring `move` would test something adjacent to the
+  property rather than the property.
+
+  This is stated because the rule previously named a permission and no property,
+  which is the shape that lets a mechanism silently become the rule:
+
+  > "When you write a rule that mentions both the property you are protecting
+  > and the particular mechanism that currently delivers it, state which of the
+  > two actually binds. Otherwise, the first time somebody can deliver the same
+  > property by a better mechanism, the text supports two equally honest
+  > readings … That is how an implementation detail silently hardens into
+  > policy, or a constraint that genuinely mattered gets silently thrown away."
+
+  `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:100`
+
+  **The considered alternative, and why it was declined.** `Step = Input +
+  State` reads the Move as the state component every Step holds, which would
+  make `move` mandatory and a Move-less "dead prose" Step unrepresentable. It
+  was declined on two costs: it forces every transition to be typeable against
+  a 22-entry library, so an untypeable-but-genuine transition becomes a
+  library-growth demand or a blocked Step; and it hardens today's mechanism
+  into the rule, which is exactly what the line above names. **What a
+  replacement would have to demonstrate**, per that line's own instruction: a
+  carrier that refuses a Step transitioning nothing, which `move` does not.
 - **`materials`** — which Strands, which Journeys, the Thesis, a
   `reader_assumption`, or `constructed_material` it works on. Materials are
   **many-to-many** with steps.
@@ -2500,7 +2540,10 @@ Admitting the library carries the 2026-08-06 consultation's **own riders**
 forward as binding constraints. They are what keep the admitted thing on the
 permitted side of the declination's boundary, so they are not decoration:
 
-- **No mandatory Moves.** No step is required to bind one.
+- **No mandatory Moves.** No step is required to bind one. **Confirmed at v17
+  (kogaki#550) against the `Step = Input + State` reading**, with §4.1 now
+  naming the protected property and today's carrier so this rider is not read
+  as protecting the `move` field itself.
 - **No minimum sequence**, and **no obligatory opening shape.** Slot
   obligations manufacture the property they require — the retired
   Surprise-slot precedent — so none are imposed.

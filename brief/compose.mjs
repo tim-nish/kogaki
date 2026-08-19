@@ -362,7 +362,29 @@ function cmdFill(args) {
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
-    case "fill": cmdFill(args); break;
-    default: fail("usage: compose.mjs fill --brief <briefs/<slug>/brief.md> --path <composed-path.json>");
+    // `fill` IS RETIRED (§5.3 v17, kogaki#551). It wrote a Brief's sequence
+    // from one composed path, bypassing assembly and §6's Candidate-selection
+    // gate — so its output was a path nobody chose and nobody could decline,
+    // and §6's premise-negation option ("none of these — the Thesis or the
+    // settled set is what should change") was unreachable on that route.
+    //
+    // It is REMOVED rather than left demoted, because a demotion is not a
+    // retirement: "the constrain half landed and the retire half never ran …
+    // the growth curve does not stop when the diagnosis is corrected; it stops
+    // when something removes members"
+    // (product-lab@8906f20 topics/knowledge-architecture.md:174).
+    //
+    // `fillBrief` — the composer this subcommand called — is UNTOUCHED and
+    // still exported: it is how `adopt-candidate` and the checks fill a
+    // sequence. What is retired is the ungated CLI entry point, never the
+    // composition itself.
+    case "fill":
+      fail("`fill` no longer exists — a Brief's sequence is filled by adopting "
+        + "a Candidate at the selection gate (SPEC-draft-pipeline §6; retired "
+        + "at §5.3 v17, kogaki#551). Run `assemble.mjs assemble` to build the "
+        + "selection payload, raise the gate, then `assemble.mjs "
+        + "adopt-candidate --brief <path> --reviewed <json> --candidate <id>`.");
+      break;
+    default: fail("usage: compose.mjs — no subcommand; `fillBrief` is exported for the composition path, and the retired `fill` subcommand is replaced by assemble.mjs adopt-candidate (§6, kogaki#551)");
   }
 }
