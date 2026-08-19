@@ -78,7 +78,8 @@ is nothing to compare against, and a human reading `22` is the whole mechanism.
    the screen stops being a decision and becomes a rubber stamp. Semantic
    economy binds authoring and is applied here as judgment: one local
    transition, the five-warrant sentence test, one proposition per field,
-   provenance-only `sources`.
+   source-text-only `sources` (kogaki#548 retired the term
+   "provenance-only" along with the mechanism that made it ambiguous).
 
    Review **may split or rename**. What the owner sees is therefore the
    *reviewed proposal*, not the authored record — say so on the screen wherever
@@ -200,7 +201,11 @@ against a case no grammar can decide.
 ## Downstream, so it is not re-derived
 
 - **kogaki#177** — the ~20 already-admitted Moves carry no served pin. §6.9.4
-  makes the **first ingestion run** the vehicle that backfills them, so the
-  first live run of this skill is what discharges it.
+  **used to** make the first ingestion run the vehicle that backfills them.
+  **That route is RETIRED (kogaki#548)**: there is no pointer to write, so this
+  skill discharges nothing for #177 and the issue needs a route of its own.
+  Flagged here rather than silently dropped — a retirement that leaves a
+  discharge claim standing is how an issue reads as scheduled while nothing
+  schedules it. Carried to #177.
 - **kogaki#220 and #127** consume this library. This skill fills it and
   constructs no pipeline over it.

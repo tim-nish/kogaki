@@ -1,5 +1,16 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v18, amended 2026-08-19 (kogaki#548) — **§6.9.4's FILLED slot is
+REOPENED and `sources` carries source text only.** The ingestion run's
+derivation pointer is retired by owner ruling on three grounds: it is not source
+text (§4.7's own rule already excluded it), it is redundant with `git log`, and
+it was appended AFTER the owner's acceptance so what landed on disk was not what
+was approved. The reopen is licensed by §6.9.4's own clause returning its fork
+to open on disagreement; the v1 fill is retained unedited. kogaki#417 D1's form
+decision is MOOTED rather than reversed. §4.9.1's analysis-document pointer is
+untouched — it is AUTHORED into a proposal and reaches disk through acceptance,
+which is why retiring a tool's post-acceptance append does not reach it.
+
 **Status:** v17, amended 2026-08-19 (kogaki#550, kogaki#551) — **the `move`
 field stays OPTIONAL and §4.1 now names which half of that rule binds**, and
 **`compose.mjs`'s `fill` CLI route is RETIRED.** The property protected is that

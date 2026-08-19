@@ -1186,6 +1186,27 @@ def self_test():
 
     # ---- AC8: RETIRED, and what replaces it (kogaki#548) -----------------
     #
+    # Consultation-map entry 1 (modifying a check surface) — surveyed before
+    # this block was rewritten, because three registered cases are RETIRED here
+    # and one is ADMITTED in their place. The line that governs the retiring
+    # half, quoted at its pin:
+    #
+    #   "A check that cannot fail is not a lenient check; it is theatre, and it
+    #   looks identical to a check that has been switched off."
+    #   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:35
+    #
+    # It names re-POINTING a check at a new subject as the error and RETIRING it
+    # as the correct move when its unit dissolves. That is exactly this case:
+    # `attach_derivation_pointer` is gone, so its three cases have no subject,
+    # and re-aiming them at `sources` generally would have produced cases that
+    # cannot fail. They are deleted rather than re-pointed.
+    #
+    # The ADMITTING half is a separate act and carries its own admission below:
+    # the new case has a named defect (the append after acceptance, kogaki#548's
+    # third ground), it runs in this file's own self-test at the same loop
+    # position as its siblings, and its removal signal is the acceptance-to-disk
+    # write ceasing to exist as a distinct step.
+    #
     # The three AC8 cases are GONE with the mechanism they covered. What
     # remains is the property the retirement creates, which nothing asserted
     # before: `save_accepted` must write the owner's accepted record UNCHANGED.
