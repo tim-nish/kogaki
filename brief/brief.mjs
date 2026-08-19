@@ -349,7 +349,7 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
   } else {
     const leads = strands.slice(0, 3);
     for (let i = 0; i < leads.length; i++) {
-        const lead = phrase(leads[i]);
+      const lead = phrase(leads[i]);
       // BY INDEX, NEVER BY VALUE. Filtering `names` for inequality against the
       // lead's TEXT collapses whenever two members share a phrase — and they all
       // do on the degraded path, where every phrase is NO_RENDERING. `rest` then
