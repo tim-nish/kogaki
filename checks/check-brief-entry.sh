@@ -446,14 +446,46 @@ try {
   //
   // BOTH DIRECTIONS ARE ASSERTED. A guard narrowed without asserting that it
   // still fires is a guard that has been removed.
-  for (const [what, thesisText] of [
-    ["a section reference", "The reader_start field matters, per §4.1 of the spec."],
-    ["an internal identifier", "I want to lead with strand_coverage."],
-  ]) {
+  // ALL SIX EXEMPT POSITIONS, not one. Round 1 of PR #538 found the earlier
+  // fixture exercised only the Thesis, so re-routing the pin, the Brief name, a
+  // cite or a slug back through the guarded emitter left the suite GREEN — the
+  // exempt set is an ENUMERATION and asserting one member asserts nothing about
+  // the other five. Each position is poisoned with BOTH shapes at once and the
+  // mint must succeed AND carry the value through unaltered.
+  {
+    const POISON_ID = "strand_coverage";
+    const POISON_SEC = "§4.1";
+    const poisoned = {
+      slug: `owner_name-${POISON_SEC.replace(/\W/g, "")}`,
+      pin: `survey_pin@abc ${POISON_SEC}`,
+      thesis: `I want to lead with ${POISON_ID}, per ${POISON_SEC} of the spec.`,
+      strands: [{
+        display_id: "L1",
+        slug: `alpha_beta ${POISON_SEC}`,
+        cite: `gloss/x.md:1@abc ${POISON_ID} ${POISON_SEC}`,
+        journey: { slug: "alpha_beta", cite: `gloss/j.md:2@abc ${POISON_ID} ${POISON_SEC}` },
+      }],
+    };
     let minted = null;
-    try { minted = composeBrief({ slug: `owner-${what.replace(/\W+/g, "-")}`, pin: "p@1", thesis: thesisText, strands }); }
-    catch (e) { fails.push(`(m) the owner's own Thesis carrying ${what} was REFUSED at mint: ${e.message.slice(0, 100)} — a rule is enforced at the layer where it can be broken, and the owner is not this codebase (kogaki#537)`); }
-    if (minted && !minted.includes(thesisText)) fails.push(`(m) the owner's Thesis was altered on its way into the document — it is taken verbatim`);
+    try { minted = composeBrief(poisoned); }
+    catch (e) {
+      fails.push(`(m) a Brief whose OWNER and SUBSTRATE fields carry internal shapes was REFUSED at mint: ${e.message.slice(0, 120)} — a rule is enforced at the layer where it can be broken, and neither the owner nor the substrate is this codebase (kogaki#537)`);
+    }
+    if (minted) {
+      // Each exempt value must appear VERBATIM: exempt means uninspected, not
+      // rewritten. A guard that stripped instead of refusing would pass an
+      // is-it-minted assertion on its own.
+      for (const [what, value] of [
+        ["the Brief name", poisoned.slug],
+        ["the survey pin", poisoned.pin],
+        ["the adopted Thesis", poisoned.thesis],
+        ["the Strand slug", poisoned.strands[0].slug],
+        ["the Strand cite", poisoned.strands[0].cite],
+        ["the Journey cite", poisoned.strands[0].journey.cite],
+      ]) {
+        if (!minted.includes(value)) fails.push(`(m) ${what} did not reach the document verbatim — an exempt field is uninspected, never rewritten`);
+      }
+    }
   }
 
   // …AND THE COMPOSER'S OWN TEXT IS STILL GUARDED, refusing rather than
@@ -476,8 +508,13 @@ try {
     catch (e) { guardFired = /composer-authored text/.test(e.message) && /thesis_closure/.test(e.message); }
     finally { SLOT_CAPTIONS.set("Thesis closure", original); }
     if (!guardFired) fails.push("(m) a key-bearing COMPOSER caption was MINTED — narrowing the reach to composer-authored text removed the guard instead of scoping it");
-    // …and the restore worked, so no later case runs against a poisoned table.
-    if (SLOT_CAPTIONS.get("Thesis closure") !== original) fails.push("(m) the caption table was left poisoned by this case");
+    // The restore rides `finally`, so an assertion that it happened could not
+    // fail and is not written — PR #538 round 1's nit. What IS asserted is that
+    // a later composition over the shipped table is clean, which fails if the
+    // restore is ever removed.
+    if (findInternalVocabulary(SLOT_CAPTIONS.get("Thesis closure"))) {
+      fails.push("(m) the caption table is still poisoned — the restore did not hold, and every later case runs against it");
+    }
   }
 } catch (e) {
   fails.push(`(m) the vocabulary case threw outside its own assertions: ${e.message}`);

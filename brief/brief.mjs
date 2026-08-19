@@ -208,12 +208,13 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   // kogaki#520 took at the gate: a rewrite layer would let the leak keep being
   // written and the next term of art would arrive unlabelled.
   //
-  // Every line is checked, not only the captions. kogaki#526's scope names the
-  // captions, but the assertion it asks for is that NO internal key or section
-  // reference appears in a minted brief.md — and three lines outside the
-  // captions carried one (the closed-set note, the uncited-Journey disclosure,
-  // and the Thesis caption). Narrowing the check to the captions would have
-  // satisfied the sentence and left the document leaking.
+  // WHAT IS CHECKED, and it is no longer every line (§5.3 v15, kogaki#537).
+  // kogaki#526 checked all of them, which was right about the captions — three
+  // lines outside them carried a section reference, and narrowing to captions
+  // would have satisfied #526's sentence while leaving the document leaking.
+  // But the full reach also read the ADOPTED THESIS and the STRAND MATERIAL,
+  // and refused the owner's own verbatim words at mint. So the guard now binds
+  // the `say` set — this composer's own text — and the `material` set is exempt.
   for (const line of guarded) {
     const leak = findInternalVocabulary(line);
     if (leak) {
