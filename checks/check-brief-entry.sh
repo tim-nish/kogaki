@@ -20,6 +20,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { composeBrief, resolveStrandIds, composeThesisCandidates, deriveSlugCandidate } from "./brief/brief.mjs";
 import { NO_HEADLINE } from "./terrain/terrain.mjs";
+import { findInternalVocabulary, SLOT_CAPTIONS } from "./brief/assemble.mjs";
 import { journeyBearingStrands, fillBrief } from "./brief/compose.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -402,6 +403,52 @@ try {
 
 } finally {
   rmSync(dir, { recursive: true, force: true });
+}
+
+// (m) THE MINTED BRIEF CARRIES NO INTERNAL KEY AND NO SECTION REFERENCE
+// (kogaki#526). `briefs/<slug>/brief.md` is a TRACKED document the owner reads
+// directly. kogaki#520 removed spec-internal vocabulary from the gate payload
+// and installed a tripwire there; that tripwire reads the payload and had no
+// reach into the minted document, which is why #526 is its own carrier.
+try {
+  const strands = [
+    { display_id: "L1", slug: "alpha-beta", cite: "gloss/ELEMENTS.jsonl:2@abc",
+      journey: { slug: "alpha-beta", cite: "gloss/journeys/x.md:3@abc" } },
+    // The second member's Journey carries NO cite, so the abnormal-disclosure
+    // branch is composed too — it used to carry a section reference of its own.
+    { display_id: "L2", slug: "gamma-delta", cite: "gloss/ELEMENTS.jsonl:3@abc",
+      journey: { slug: "gamma-delta" } },
+  ];
+  const doc = composeBrief({ slug: "vocab-probe", pin: "survey@abc", thesis: "One claim the article makes.", strands });
+
+  // EVERY LINE, not only the captions. #526's scope names the captions, but the
+  // assertion it asks for is that no internal key or section reference appears
+  // in a minted brief.md — and three lines OUTSIDE the captions carried one.
+  doc.split("\n").forEach((line, i) => {
+    const leak = findInternalVocabulary(line);
+    if (leak) fails.push(`(m) the minted Brief leaks ${leak.kind} ${JSON.stringify(leak.token)} on line ${i + 1}: ${JSON.stringify(line.trim().slice(0, 70))}`);
+  });
+
+  // The captions come from ONE table, so a caption written here would be a
+  // second vocabulary — which is the thing #526 forbids, not merely the keys.
+  for (const [heading, caption] of SLOT_CAPTIONS) {
+    if (!doc.includes(`## ${heading}`)) fails.push(`(m) the minted Brief has no ${JSON.stringify(heading)} slot`);
+    if (!doc.includes(caption)) fails.push(`(m) the ${JSON.stringify(heading)} slot does not render the shared table's caption — a second vocabulary`);
+  }
+
+  // AND THE COMPOSER REFUSES rather than rewriting, the same stance the gate's
+  // tripwire takes: a rewrite layer would let the leak keep being written.
+  let refused = false;
+  try { composeBrief({ slug: "leaky", pin: "p@1", thesis: "See §4.1 for the step shape.", strands }); }
+  catch (e) { refused = /leaks spec-internal vocabulary/.test(e.message) && /line \d+/.test(e.message); }
+  if (!refused) fails.push("(m) a Thesis carrying a section reference was MINTED — the composer rewrote or ignored it instead of refusing");
+
+  let refusedKey = false;
+  try { composeBrief({ slug: "leaky2", pin: "p@1", thesis: "The reader_start is stated.", strands }); }
+  catch (e) { refusedKey = /an internal identifier/.test(e.message); }
+  if (!refusedKey) fails.push("(m) a Thesis carrying an internal key was MINTED — the predicate reads section references only");
+} catch (e) {
+  fails.push(`(m) the vocabulary case threw outside its own assertions: ${e.message}`);
 }
 
 if (fails.length) {

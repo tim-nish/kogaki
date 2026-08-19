@@ -49,6 +49,7 @@
 // routes BACK THROUGH TERRAIN and never re-opens the set here.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "../terrain/terrain.mjs";
+import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
 import { join, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -90,16 +91,14 @@ function parseArgs(argv) {
 // (§5.3). The `thesis` field is NOT in this list at v9: it is filled at
 // mint by construction, because the mint runs at Thesis adoption.
 const SLOT = "*(awaiting composition)*";
-const FIELDS = [
-  ["Reader start", "reader_start — where the reader is before the article."],
-  ["Reader target", "reader_target — where the article leaves them."],
-  ["Opening question", "opening_question — the question the article's opening puts to the reader standing at reader_start."],
-  ["Sequence", "sequence — the ordered steps of §4.1."],
-  ["Strand coverage", "strand_coverage — per selected Strand: used_by_steps and role_in_thesis. The count check runs AFTER composition (§3's completeness rider)."],
-  ["Unresolved obligations", "unresolved_obligations — the §5.2 ledger: authored judgments, recorded where their consumer reads them."],
-  ["Thesis closure", "thesis_closure — explanation and established_by_steps."],
-  ["Tradeoffs", "tradeoffs."],
-];
+// THE CAPTIONS ARE READ FROM ONE TABLE, NOT WRITTEN HERE (kogaki#526). Every
+// caption used to carry its own field key and, in three cases, a section
+// reference — `thesis_closure — explanation and established_by_steps.`,
+// `sequence — the ordered steps of §4.1.` — on a TRACKED document the owner
+// reads directly. kogaki#520 removed that vocabulary from the gate payload and
+// installed a tripwire there; the tripwire reads the payload and had no reach
+// into the minted document, which is why this was a separate carrier.
+const FIELDS = [...SLOT_CAPTIONS.entries()];
 
 // Exported and pure over its inputs, so the check exercises the composed
 // document without a filesystem. `thesis` is required: at v9 no document
@@ -120,7 +119,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   say("> sitting resumes from.");
   say();
   say(`*Survey pin:* \`${pin}\``);
-  say("*Strand set: CLOSED at mint — growing it is an owner act that routes back through Terrain, never a Brief fetch (SPEC-draft-pipeline §5.3).*");
+  say("*Strand set: CLOSED at mint. Adding a Strand is your act, taken by going back through Terrain — a Brief never reaches for material on its own.*");
   say();
   say("## Strands");
   say();
@@ -158,7 +157,8 @@ export function composeBrief({ slug, pin, strands, thesis }) {
       } else {
         say("- journey: PRESENT WITH NO SERVED CITE — abnormal; this Strand's Journey");
         say("  material cannot be cited at the pin, so it is not composable material");
-        say("  (§6.1 MUST 2). Disclosed rather than dropped.");
+        say("  Stated here rather than dropped, because a Journey nothing can cite is");
+        say("  a fault to clear rather than material to compose from.");
       }
     }
     say();
@@ -167,7 +167,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   say();
   say(thesis);
   say();
-  say("*thesis — adopted at the thesis-determination gate and filled at mint by construction (§5.3 v9, kogaki#494); composed from the settled set, never invented (§3).*");
+  say("*The claim this article makes. You adopted it when the Brief was named; it is composed from the settled Strands and never invented.*");
   say();
   for (const [heading, meaning] of FIELDS) {
     say(`## ${heading}`);
@@ -177,7 +177,32 @@ export function composeBrief({ slug, pin, strands, thesis }) {
     say(`*${meaning}*`);
     say();
   }
-  return L.join("\n") + "\n";
+  // THE TRIPWIRE, LAST — the same predicate the gate rendering uses, now with
+  // reach into the minted document (kogaki#526). It THROWS rather than
+  // returning a refusal because a caller cannot usefully proceed with a
+  // half-composed Brief, and because this is the same deny-not-rewrite stance
+  // kogaki#520 took at the gate: a rewrite layer would let the leak keep being
+  // written and the next term of art would arrive unlabelled.
+  //
+  // Every line is checked, not only the captions. kogaki#526's scope names the
+  // captions, but the assertion it asks for is that NO internal key or section
+  // reference appears in a minted brief.md — and three lines outside the
+  // captions carried one (the closed-set note, the uncited-Journey disclosure,
+  // and the Thesis caption). Narrowing the check to the captions would have
+  // satisfied the sentence and left the document leaking.
+  const composed = L.join("\n") + "\n";
+  for (const [i, line] of composed.split("\n").entries()) {
+    const leak = findInternalVocabulary(line);
+    if (leak) {
+      throw new Error(
+        `the minted Brief leaks spec-internal vocabulary: ${leak.kind} `
+        + `${JSON.stringify(leak.token)} on line ${i + 1} — ${JSON.stringify(line.trim().slice(0, 80))}. `
+        + `briefs/<slug>/brief.md is a tracked document the owner reads directly, so an `
+        + `internal key or a pointer into a spec they do not hold has no rendering path here `
+        + `(kogaki#526). This REFUSES rather than rewrites, as the gate's own tripwire does.`);
+    }
+  }
+  return composed;
 }
 
 // Resolve the entered ids against the survey record. Refusals are the
