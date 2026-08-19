@@ -51,6 +51,11 @@
 #   tools/gloss-survey.sh                 # unscoped tier-1 index (the opening move)
 #   tools/gloss-survey.sh --tag lessons/testing   # one tier-2 shard
 #
+# `$GLOSS_SURVEY_GATEWAY`, when set, is passed through as the kit's `--gateway`.
+# It exists so the DEGRADED path can be exercised — pointing it at a missing
+# file is how the unavailable-seam branch below is tested — and it keeps the
+# gateway's location machine-local (kogaki#9), naming no committed path.
+#
 # Output: one record per line, `<cite>\t<text>`. Degradation is the kit's own —
 # an unavailable seam prints `policy_source unavailable: <reason>` and exits 11,
 # so a reviewer declares `cannot-determine:` on evidence rather than on silence.
@@ -63,18 +68,41 @@ if [ "${1:-}" = "--tag" ]; then
   ARGS="$(printf '{"tag":"%s"}' "$2")"
 fi
 
-OUT="$(mktemp)"
-trap 'rm -f "$OUT"' EXIT
+OUT="$(mktemp)"; ERR="$(mktemp)"
+trap 'rm -f "$OUT" "$ERR"' EXIT
 if ! node "$REPO/policy/kit/bin/gateway-query.mjs" \
-      --consumer kogaki --tool gloss_index --args "$ARGS" > "$OUT" 2>/dev/null; then
-  # The kit's own degradation idiom, passed through unchanged: the seam is an
-  # enhancer, and a reviewer that cannot reach it says so rather than guessing.
-  echo "policy_source unavailable: gloss_index could not be served — declare cannot-determine on this dimension"
+      --consumer kogaki --tool gloss_index --args "$ARGS" ${GLOSS_SURVEY_GATEWAY:+--gateway "$GLOSS_SURVEY_GATEWAY"} > "$OUT" 2>"$ERR"; then
+  # THE REASON IS CARRIED, NOT SWALLOWED (PR #544 round 1). An earlier form sent
+  # the transport's stderr to /dev/null and printed a reasonless line, while the
+  # header above promised `policy_source unavailable: <reason>` — suppressing
+  # exactly the evidence this file argues a `cannot-determine:` should rest on.
+  # The kit already emits its own one-line idiom; where it does, that line is
+  # passed through verbatim rather than restated.
+  # BOTH STREAMS, and STDOUT FIRST — measured rather than assumed. The kit emits
+  # its idiom with `console.log` (`policy/kit/bin/gateway-query.mjs:219`), so the
+  # reason lands on STDOUT, which is the stream this script captures for JSON.
+  # A first attempt at this repair read only stderr and reported "nothing on
+  # either stream" against a transport that had said exactly why — the same
+  # suppression one layer over, which is why the stream is now probed rather
+  # than reasoned about.
+  if grep -qs '^policy_source unavailable:' "$OUT"; then
+    grep -m1 '^policy_source unavailable:' "$OUT"
+  elif grep -qs '^policy_source unavailable:' "$ERR"; then
+    grep -m1 '^policy_source unavailable:' "$ERR"
+  else
+    reason="$(cat "$OUT" "$ERR" 2>/dev/null | tr '\n' ' ' | sed 's/  */ /g; s/^ *//; s/ *$//' | cut -c1-300)"
+    echo "policy_source unavailable: gloss_index could not be served — ${reason:-(the transport reported nothing on either stream)}"
+  fi
   exit 11
 fi
 
 python3 - "$OUT" <<'PY'
-import json, sys
+import json, signal, sys
+# `| head` IS THE INTENDED USE, so a closed pipe must not print a traceback.
+# Python turns SIGPIPE into BrokenPipeError by default; restoring the default
+# disposition makes `tools/gloss-survey.sh | head -50` exit quietly, which is
+# how a reviewer reads a 192-record survey in the first place.
+signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 d = json.load(open(sys.argv[1]))
 lines = d.get("lines") or []
 # The pin first, so a quoted line can be cited without a second call.

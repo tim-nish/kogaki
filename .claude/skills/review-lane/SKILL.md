@@ -809,6 +809,7 @@ its owner grant and one of §4 clause 3's two rounds are already spent.
 | `gh pr view/diff/checks/list`, `gh issue view`, `gh {pr,issue} comment`, `gh run` | the `:*` forms |
 | `git log`, `git diff`, `git show` | reads only |
 | `bash checks/<file>` | per registered check |
+| `bash tools/<file>` | per repository tool — **including `tools/gloss-survey.sh`, the opening move's instrument** (kogaki#541). Both halves of the grant are DERIVED over the tree the round runs in, so a tool added by the diff under review is granted to the round reviewing it |
 | the `mcp__tsurezure__*` seam tools | the consultation surface |
 
 **Shell `grep` is UNRELIABLE, and that is measured rather than assumed — do
