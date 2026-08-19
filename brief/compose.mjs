@@ -67,6 +67,15 @@ export function validateSteps(steps) {
     for (const d of s.depends_on) {
       if (!seen.has(d)) return { error: `${at}: depends_on names "${d}", which is not an EARLIER step — §4.1's depends_on is the earlier steps whose conclusions this step stands on` };
     }
+    // §4.11's `bridges` — optional, and when present it names the ADJACENT
+    // PAIR this Step was inserted between. Validated here because the
+    // selection gate's disclosure is computed from it: an unvalidated marking
+    // renders `between :` or `between true:` at an owner surface.
+    if (s.bridges !== undefined) {
+      if (!Array.isArray(s.bridges) || s.bridges.length !== 2 || s.bridges.some((b) => typeof b !== "string" || b === "")) {
+        return { error: `${at}: bridges, when present, names the two adjacent steps this Step was inserted between (§4.11) — an array of exactly two step ids` };
+      }
+    }
     if (!Array.isArray(s.grounds) || s.grounds.length === 0) {
       return { error: `${at}: grounds are required — specific propositions, each a Strand proposition, a named earlier Step's effect, or a declared reader assumption (§4.4)` };
     }
@@ -114,6 +123,7 @@ export function renderStep(s) {
   for (const g of s.grounds) {
     L.push(`ground (${g.type}${g.strand ? ` ${g.strand}` : ""}${g.step ? ` ${g.step}` : ""}): ${g.proposition}`);
   }
+  if (s.bridges) L.push(`bridges: ${s.bridges.join(", ")}`);
   if (s.entailed === true) {
     L.push(`entailed: true`);
     L.push(`entailment_reasoning: ${s.entailment_reasoning}`);

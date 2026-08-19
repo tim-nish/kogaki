@@ -206,14 +206,16 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // A Bridge Step is an ordinary §4.1 Step, so it is recognised by the
   // insertion contract rather than by a type: `bridges` names the pair it sits
   // between. Its reasoning is whichever flag it already carries — entailment
-  // reasoning, or a declared reader assumption — never a new field.
-  const bridges = (c.steps || []).filter((st) => st && st.bridges);
+  // reasoning, or a declared reader ASSUMPTION — the §4.4 token is
+  // `reader_assumption`, and §4.4's list is closed, so no other spelling ever
+  // reaches here (kogaki#546 round 1 finding 1: `assumption` was dead code).
+  const bridges = (c.steps || []).filter((st) => st && Array.isArray(st.bridges) && st.bridges.length > 0);
   const bridgeLine = bridges.length === 0
     ? "no gaps were bridged — the path's transitions stand on the material as composed"
     : bridges.map((st) => {
-        const between = Array.isArray(st.bridges) ? st.bridges.join(" → ") : String(st.bridges);
+        const between = st.bridges.join(" → ");
         const why = st.entailment_reasoning
-          || (st.grounds || []).filter((g) => g && g.type === "assumption").map((g) => g.proposition).join("; ")
+          || (st.grounds || []).filter((g) => g && g.type === "reader_assumption").map((g) => g.proposition).join("; ")
           || "NO REASONING CARRIED — abnormal: a bridge owes its entailment reasoning or a declared assumption";
         return `between ${between}: ${why}`;
       }).join(" | ");

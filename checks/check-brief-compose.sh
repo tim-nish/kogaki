@@ -468,22 +468,70 @@ try {
   }
 }
 
+// Boundary 1 (Check/CI infrastructure) — surveyed before writing these cases.
+// The two headlines that ground them, quoted at their pins:
+//
+//   "To catch such a problem you need a measurement that does not absorb it —
+//   a stated limit that gets checked, or a deliberately weak tester whose
+//   failure is the signal."
+//   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:29
+//
+//   "Write down each path and which passing run covers it; a path with no
+//   named run is untested no matter how healthy the overall suite looks."
+//   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
+//
+// The first names round 1's finding 2 exactly: case (l) absorbed a dead branch
+// and read as clean. The second is why the paths are enumerated below with the
+// run that covers each, rather than counted.
+//
+// PATHS AND THEIR COVERING RUNS
+//   no bridge ............... (l) case "none"
+//   entailment reasoning .... (l) case "entailment reasoning"
+//   declared assumption ..... (l) case "declared assumption" — the §4.4 TOKEN
+//   neither flag ............ (l) case "no reasoning"
+//   per-Candidate ........... (l) the a !== b comparison
+//   plain label ............. (l) the EVIDENCE_LABELS lookup
+//   field admission ......... (l2), four refused shapes
+//   serialization ........... (l3)
+//
 // (l) BRIDGE DISCLOSURE RIDES THE EXISTING GATE (§4.11 v16, kogaki#524).
 // Approval is POST-HOC — no per-Bridge question — so the one gate that exists
-// must carry what was inserted and why, per Candidate. A Bridge Step is an
-// ordinary §4.1 Step recognised by its insertion contract, never by a type.
+// must carry what was inserted and why, per Candidate.
+//
+// EVERY fixture here is admitted by validateSteps FIRST. Round 1 of PR #546
+// found why: the declared-assumption case was built with `type: "assumption"`,
+// which §4.4's closed list refuses, so the assertion passed over a Step shape
+// the runtime cannot admit and the branch it claimed to cover was dead
+// (kogaki#209 — a fixture whose only demonstrated failure mode is the code's
+// total absence).
 {
-  const S = (id, extra = {}) => ({ step_id: id, materials: [], ...extra });
+  const S = (id, extra = {}) => ({
+    step_id: id, materials: ["L1"], purpose: "p", reader_state_before: "b",
+    reader_state_after: "a", depends_on: [], rationale: "r",
+    grounds: [{ type: "strand", strand: "L1", proposition: "the strand says so" }],
+    ...extra,
+  });
+  const admit = (steps, what) => {
+    const v = validateSteps(steps);
+    if (v.error) fails.push(`(l) the ${what} fixture is not an admissible path — it would assert over a shape the runtime refuses: ${v.error}`);
+    return steps;
+  };
   const cases = [
     ["none", [S("s1")], /no gaps were bridged/],
-    ["entailment reasoning", [S("s1"), S("b1", { bridges: ["s1", "s2"], entailment_reasoning: "the case generalises" }), S("s2")], /between s1 → s2: the case generalises/],
-    ["declared assumption", [S("b", { bridges: ["a", "c"], grounds: [{ type: "assumption", proposition: "readers have shipped software" }] })], /readers have shipped software/],
+    ["entailment reasoning",
+      [S("s1"), S("b1", { bridges: ["s1", "s2"], entailed: true, entailment_reasoning: "the case generalises" }), S("s2")],
+      /between s1 → s2: the case generalises/],
+    // The §4.4 TOKEN, not a plausible synonym — this is finding 1's fixture.
+    ["declared assumption",
+      [S("a"), S("c"), S("b", { bridges: ["a", "c"], grounds: [{ type: "reader_assumption", proposition: "readers have shipped software" }] })],
+      /readers have shipped software/],
     // A bridge carrying NEITHER flag is abnormal and must SAY so rather than
     // render an empty reason — §4.4 gives every Step those flags, so a bridge
     // without one is a composition fault the gate is owed.
-    ["no reasoning", [S("b", { bridges: ["a", "c"] })], /NO REASONING CARRIED/],
+    ["no reasoning", [S("a"), S("c"), S("b", { bridges: ["a", "c"] })], /NO REASONING CARRIED/],
   ];
   for (const [what, steps, want] of cases) {
+    admit(steps, what);
     const ev = candidateEvidence({ steps, obligations: [] }, [], []);
     if (typeof ev.bridges !== "string" || !want.test(ev.bridges)) {
       fails.push(`(l) the ${what} case does not render its bridge disclosure: ${JSON.stringify(ev.bridges)}`);
@@ -494,12 +542,27 @@ try {
   const a = candidateEvidence({ steps: cases[1][1], obligations: [] }, [], []).bridges;
   const b = candidateEvidence({ steps: cases[0][1], obligations: [] }, [], []).bridges;
   if (a === b) fails.push("(l) a bridged Candidate and an unbridged one read identically — the disclosure is not per-Candidate");
-  // It rides the EXISTING gate: a plain label, no new gate row.
+  // It rides the EXISTING gate: a plain label, no new gate row. The SHARED
+  // predicate (kogaki#526), not a re-derived regex: one definition, every
+  // owner surface.
   const lbl = EVIDENCE_LABELS.find(([k]) => k === "bridges");
   if (!lbl) fails.push("(l) `bridges` has no plain label — it would reach the owner under its internal key (kogaki#520)");
-  // The SHARED predicate (kogaki#526), not a re-derived regex: one definition,
-  // every owner surface.
   else if (findInternalVocabulary(lbl[1])) fails.push(`(l) the bridge label reads an internal key: ${lbl[1]}`);
+
+  // (l2) THE FIELD IS ADMITTED AND BOUNDED (#546 round 1, finding 3). §4.11
+  // recognises a Bridge Step by this field, so §4.1 admits it and validateSteps
+  // bounds it — an unvalidated marking renders `between :` at an owner surface.
+  for (const [bad, what] of [[[], "empty"], [["only-one"], "single"], [true, "non-array"], [["a", "c", "d"], "three-id"]]) {
+    if (!validateSteps([S("a"), S("c"), S("b", { bridges: bad })]).error) {
+      fails.push(`(l2) a ${what} bridges value is admitted — the gate would disclose a pair that was never named`);
+    }
+  }
+  // (l3) IT SURVIVES SERIALIZATION (#546 round 1, finding 4). Post-hoc
+  // disclosure is the WHOLE approval shape, so a Brief re-read from its
+  // recorded form must still say what was bridged.
+  if (!/^bridges: a, c$/m.test(renderStep(S("b", { bridges: ["a", "c"] })))) {
+    fails.push("(l3) renderStep drops `bridges` — a Brief re-read from its recorded form discloses no bridge at all");
+  }
 }
 
 if (fails.length) {

@@ -820,13 +820,52 @@ adjacent Steps is repaired by inserting a **Bridge Step**.
 
 #### The Bridge Step is an INSERTION CONTRACT, not a type
 
-No new Step type and no new field. A Bridge Step is an ordinary §4.1 Step whose
-placement is constrained by its neighbours:
+**No new Step type**, and one new optional §4.1 field — `bridges`, which names
+the adjacent pair the Step was inserted between. A Bridge Step is an ordinary
+§4.1 Step whose placement is constrained by its neighbours:
 
 - its `reader_state_before` is the predecessor's `reader_state_after`;
 - its `reader_state_after` supplies what the successor's `reader_state_before`
   requires;
 - `depends_on` is updated across the splice.
+
+**Why the marking is a field rather than a recovered property (corrected
+2026-08-19, PR #546 round 1 finding 3).** This section first said "no new
+field", and the implementation shipped in the same commit recognised a bridge
+by exactly such a field — a contradiction between a spec and its runtime, which
+is the worse of the two defects. The constraints above are *placement*
+constraints: a Step satisfying them is well-placed, and an ordinary Step is
+equally well-placed, so nothing in them distinguishes a Step that was
+**inserted** from one composed in the first pass. Insertion is a fact about the
+Brief's history, not about its shape, and §4.11 makes post-hoc disclosure the
+whole of the approval shape — a disclosure computed from an unrecoverable fact
+must read it from a record. So `bridges` is admitted in §4.1 as optional, an
+array of exactly two step ids, validated on composition and carried through the
+recorded serialization. It marks; it never constrains, and it mints no Move.
+
+**And the served position warns against exactly this resolution, so the reason
+it does not bind here is stated rather than skipped.** The headline is quoted
+whole:
+
+> "If a team agrees on a data format and a downstream service ships a
+> different-but-equivalent format before the agreed schema file has actually
+> landed, the two do not have equal claim: the approved decision is the
+> contract and the code is only one implementation of it. Shipping first is not
+> approving, and accepting the shipped shape merely because it exists amends
+> the contract by accident. … Resolve the divergence before any real data
+> exists, while it is still just a code change."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:77`
+
+The trap it names is a de facto standard set by the first real record in the
+shipped shape. **No such record exists** — no Brief carries a `bridges` field,
+both halves are unmerged, and this is still just a code change, which is the
+window the line itself names as the one to resolve in. The field is admitted on
+the argument above — insertion is a fact about history, not about shape — and
+not on the fact that code for it exists; had the argument gone the other way,
+the correct repair would have been to delete the field, not to ratify it.
+Recorded here so a later reader can see the position was consulted and
+answered, rather than unmet.
 
 It may use Strands or not, and it may bind a Move or not. Where its connecting
 claim is not traceable to Strand material it carries the flags **every** Step
