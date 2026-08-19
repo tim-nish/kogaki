@@ -436,17 +436,49 @@ try {
     if (!doc.includes(caption)) fails.push(`(m) the ${JSON.stringify(heading)} slot does not render the shared table's caption — a second vocabulary`);
   }
 
-  // AND THE COMPOSER REFUSES rather than rewriting, the same stance the gate's
-  // tripwire takes: a rewrite layer would let the leak keep being written.
-  let refused = false;
-  try { composeBrief({ slug: "leaky", pin: "p@1", thesis: "See §4.1 for the step shape.", strands }); }
-  catch (e) { refused = /leaks spec-internal vocabulary/.test(e.message) && /line \d+/.test(e.message); }
-  if (!refused) fails.push("(m) a Thesis carrying a section reference was MINTED — the composer rewrote or ignored it instead of refusing");
+  // THE REACH IS THE COMPOSER'S OWN TEXT, AND NOT THE MATERIAL IT CARRIES
+  // (§5.3 v15, kogaki#537). Round 1 of PR #536 found that the earlier full-line
+  // reach refused the OWNER'S OWN adopted Thesis at mint, after the one gate
+  // answer was spent — and §5.3 v11 takes a free-form Thesis verbatim, so that
+  // path is live by design rather than hypothetical. Measured at the decision:
+  // 0 of 160 served lesson headlines trip the predicate, so the served side was
+  // never the live hazard; the owner side always was.
+  //
+  // BOTH DIRECTIONS ARE ASSERTED. A guard narrowed without asserting that it
+  // still fires is a guard that has been removed.
+  for (const [what, thesisText] of [
+    ["a section reference", "The reader_start field matters, per §4.1 of the spec."],
+    ["an internal identifier", "I want to lead with strand_coverage."],
+  ]) {
+    let minted = null;
+    try { minted = composeBrief({ slug: `owner-${what.replace(/\W+/g, "-")}`, pin: "p@1", thesis: thesisText, strands }); }
+    catch (e) { fails.push(`(m) the owner's own Thesis carrying ${what} was REFUSED at mint: ${e.message.slice(0, 100)} — a rule is enforced at the layer where it can be broken, and the owner is not this codebase (kogaki#537)`); }
+    if (minted && !minted.includes(thesisText)) fails.push(`(m) the owner's Thesis was altered on its way into the document — it is taken verbatim`);
+  }
 
-  let refusedKey = false;
-  try { composeBrief({ slug: "leaky2", pin: "p@1", thesis: "The reader_start is stated.", strands }); }
-  catch (e) { refusedKey = /an internal identifier/.test(e.message); }
-  if (!refusedKey) fails.push("(m) a Thesis carrying an internal key was MINTED — the predicate reads section references only");
+  // …AND THE COMPOSER'S OWN TEXT IS STILL GUARDED, refusing rather than
+  // rewriting, which is the stance the gate's tripwire takes.
+  {
+    for (const [heading, caption] of SLOT_CAPTIONS) {
+      const leak = findInternalVocabulary(caption);
+      if (leak) fails.push(`(m) the shipped caption for ${JSON.stringify(heading)} carries ${leak.kind} ${JSON.stringify(leak.token)}`);
+    }
+    // DRIVEN THROUGH THE REAL COMPOSER by poisoning the shared caption table and
+    // restoring it. An earlier draft of this block tested the predicate directly
+    // and asserted nothing about the guard: deleting the guard outright left the
+    // suite GREEN, which is a survivor that cannot fail — the third one this
+    // check has carried, and the reason `fields()` now reads the table at use
+    // rather than snapshotting it at module load.
+    const original = SLOT_CAPTIONS.get("Thesis closure");
+    SLOT_CAPTIONS.set("Thesis closure", "thesis_closure — explanation and established_by_steps.");
+    let guardFired = false;
+    try { composeBrief({ slug: "guard-probe", pin: "p@1", thesis: "A clean claim.", strands }); }
+    catch (e) { guardFired = /composer-authored text/.test(e.message) && /thesis_closure/.test(e.message); }
+    finally { SLOT_CAPTIONS.set("Thesis closure", original); }
+    if (!guardFired) fails.push("(m) a key-bearing COMPOSER caption was MINTED — narrowing the reach to composer-authored text removed the guard instead of scoping it");
+    // …and the restore worked, so no later case runs against a poisoned table.
+    if (SLOT_CAPTIONS.get("Thesis closure") !== original) fails.push("(m) the caption table was left poisoned by this case");
+  }
 } catch (e) {
   fails.push(`(m) the vocabulary case threw outside its own assertions: ${e.message}`);
 }
