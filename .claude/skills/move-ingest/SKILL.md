@@ -117,22 +117,28 @@ is nothing to compare against, and a human reading `22` is the whole mechanism.
    an ingestion into a non-empty `moves/`. Dedupe there is the whole job, not an
    edge case.
 
-4. **Save, and write the derivation pointer in the same act.** Call
-   `save_accepted(moves_dir, accepted, provenance=<prose>)`.
+4. **Save. The act writes exactly what the owner accepted.** Call
+   `save_accepted(moves_dir, accepted)`.
 
    Each accepted Move lands at `moves/<id>.md` — the id as the whole stem —
    with the §4.2 mapping in §4.2's order as the body, no fence and no `---`.
    `moves/INDEX.md` is then rewritten **whole** from the files on disk.
 
-   **The derivation pointer is written here, not later** (§6.9.4). This run is
-   the only moment holding an accepted Move and its served ruling line together;
-   a follow-up pass would re-derive that link by guess. It goes **inside
-   `sources`** — no ninth field.
+   **NOTHING IS APPENDED AT SAVE, and the retirement is the point**
+   (kogaki#548, owner ruling 2026-08-19). This step used to pass
+   `provenance=<prose>` and the tool appended an ingestion-run note to
+   `sources`. That is gone: `sources` carries source text only, `git log
+   moves/<id>.md` is the audit trail for when and from what a Move was
+   ingested, and **no record is mutated between the owner's acceptance at the
+   screen and the write to disk** — which was the sharpest of the three
+   grounds, because the appended delta was never displayed to the owner who
+   had just approved the record without it.
 
-   **Its form is prose provenance, not a `path:line@sha` pin** — owner decision
-   at kogaki#417 D1, on the corpus's own survival measurement: 148 unpinned
-   `file:line` citations broke repeatedly against 1,127 issue anchors of which
-   every one survived every relocation. Do not re-litigate it per run.
+   §6.9.4's slot-fill is reopened by this ruling, which that section's own
+   clause licenses: it marked the placement as the author's judgment with the
+   fork returning to open on disagreement. kogaki#417 D1's form decision
+   (prose over a `path:line@sha` pin) is **mooted rather than reversed** —
+   with no pointer there is no form to decide.
 
    **A `sources` value may point at an analysis document, and that is the only
    legal home for an observed sequence** (SPEC §4.9, §4.9.1). If review or the
@@ -142,11 +148,18 @@ is nothing to compare against, and a human reading `22` is the whole mechanism.
 
    **The pointer prose must contain the literal path** `analysis/<source-slug>.md`
    (§4.9.1). Prose that merely names the passage is indistinguishable from the
-   provenance prose every `sources` value already carries, so a pointer written
+   source prose every `sources` value already carries, so a pointer written
    that way leaves no trace and nothing can tell a Move that points at an
    analysis document from one that does not. Still prose, still `sources`' own
    form — nothing in `tools/move_ingest.py` knows the analysis document exists,
    and nothing needs to.
+
+   **This pointer is AUTHORED, never appended, and the distinction is what
+   survives kogaki#548's retirement.** It is written into the proposal's own
+   `sources` value by whoever composes the Move, so it reaches disk through the
+   owner's acceptance like every other field — which is exactly why retiring the
+   tool's append does not touch it. What was retired is the tool writing into a
+   record after acceptance; what remains is an author writing source text.
 
 5. **Report** what was accepted, declined, and refused, and name the INDEX
    regeneration. State the record count again beside the saved count — if they
