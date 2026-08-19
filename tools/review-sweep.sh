@@ -3425,8 +3425,19 @@ def restore_grant(pr, tag):
     # Declared before the first READ, not just before the rebind: Python
     # refuses `global` after any use in the same function.
     global PASS_CONSUMES
+    # THE MOST RECENT CONSUME WINS (kogaki#561). This scan used to break on the
+    # FIRST match, so with two entries for one PR the resolved round was decided
+    # by list order — the very ambiguity kogaki#558 was filed about, moved one
+    # call earlier rather than removed. The store lookup below was made precise
+    # about a round this scan may have picked arbitrarily.
+    #
+    # `reversed` is the property, not a trick: `consume_grant()` appends in
+    # chronological order and `restore_grant()` is called immediately after the
+    # spawn that failed, so the entry this restore is for is the LAST one for
+    # this (pr, tag). Nothing here depends on how a fixture happens to order
+    # its appends.
     _round = None
-    for _c_pr, _c_round, _c_tag in PASS_CONSUMES:
+    for _c_pr, _c_round, _c_tag in reversed(PASS_CONSUMES):
         if str(_c_pr) == str(pr) and _c_tag == tag:
             _round = _c_round
             break
@@ -5166,19 +5177,18 @@ try:
     #     `consumed_by`, so only the ROUND distinguishes them. An EARLIER
     #     round's record sits beside the one this pass consumed, and restoring
     #     the wrong one hands back a round nobody in this process spent.
-    _rg_write("g4a.json", {"repo": "tim-nish/kogaki", "pr": 606, "round": 1,
-                           "consumed_at": "2026-08-18T00:00:00+00:00",
-                           "consumed_by": "review-sweep spawn (review-606)"})
+    # BOTH ROUNDS ARE CONSUMED THROUGH THE REAL FUNCTION, IN ORDER (kogaki#561).
+    # The earlier version hand-wrote round 1's stamp and appended a literal
+    # `PASS_CONSUMES` tuple AFTER the round-2 consume — the state the fixture's
+    # own header says it exists to avoid, and an append order the real flow
+    # never produces. Consuming both in chronological order is what makes the
+    # `reversed` scan an assertion about the property rather than about the
+    # ordering of two lines in this block.
+    _rg_write("g4a.json", {"repo": "tim-nish/kogaki", "pr": 606, "round": 1})
+    consume_grant(os.path.join(_rg_dir, "g4a.json"), _rg_read("g4a.json"), "review-606")
+    _rg_marker = [c for c in PASS_CONSUMES if str(c[0]) == "606"][-1]
     _rg_write("g4b.json", {"repo": "tim-nish/kogaki", "pr": 606, "round": 2})
     consume_grant(os.path.join(_rg_dir, "g4b.json"), _rg_read("g4b.json"), "review-606")
-    # THE RETRACTION IS KEYED LIKE THE LOOKUP (PR #560 round 1, finding 1).
-    # Nothing asserted this until a mutation showed the fix had no carrier:
-    # reverting the retraction to `(pr, tag)` left the fixture green. A SECOND
-    # entry for PR 606 — a different round, same tag — is placed AFTER the
-    # round-2 consume, so the lookup still resolves to round 2 while a
-    # PR-scoped retraction would take both. It must survive.
-    _rg_marker = ("606", 1, "review-606")
-    PASS_CONSUMES.append(_rg_marker)
     if not restore_grant(606, "review-606"):
         print("FAIL restore fixture [two rounds]: the round this pass consumed was not restored")
         _rg_fail = 1
@@ -5192,6 +5202,9 @@ try:
                   "round on the same PR is not this pass's to hand back, and the PR-scoped "
                   "tag could not tell them apart (kogaki#558)")
             _rg_fail = 1
+        # THE RETRACTION IS KEYED LIKE THE LOOKUP (PR #560 round 1, finding 1).
+        # Round 1's entry was consumed by this same pass and is NOT what the
+        # restore was for, so it must survive: a PR-scoped retraction takes both.
         if _rg_marker not in PASS_CONSUMES:
             print("FAIL restore fixture [two rounds]: the retraction removed ANOTHER round's "
                   "PASS_CONSUMES entry — the lookup is round-keyed and the retraction is not, "
@@ -5216,13 +5229,20 @@ try:
               "entry was restored — this process can hand back a round it never spent")
         _rg_fail = 1
 
-    # 4. NO RECORD AT ALL is False, never an exception — the caller prints the
-    #    could-not-restore line and the round stays spent. DISTINCT FROM 3:
-    #    that one has a record and no pass entry, this one has neither, and
-    #    they exercise different early returns.
+    # 4. THIS PASS CONSUMED SOMETHING AND THE STORE HAS NO RECORD FOR IT.
+    #    DISTINCT FROM 3 (PR #560 round 2, finding 2): case 3 refuses at the
+    #    `PASS_CONSUMES` guard and never reaches the store, so the two used to
+    #    exercise the IDENTICAL early return while a comment claimed otherwise.
+    #    Giving this one a pass entry carries it PAST that guard and into the
+    #    store scan, where `_path is None` is the branch nothing else covers —
+    #    a deleted or unreadable record, and a False rather than an exception.
+    PASS_CONSUMES.append(("999", 1, "review-999"))
     if restore_grant(999, "review-999"):
-        print("FAIL restore fixture [absent]: a PR with no grant reported as restored")
+        print("FAIL restore fixture [no store record]: a consumed round whose store record "
+              "is missing reported as restored — the caller would print a restore that "
+              "never happened")
         _rg_fail = 1
+    PASS_CONSUMES[:] = [c for c in PASS_CONSUMES if str(c[0]) != "999"]
 finally:
     _approvals_dir, _repo_slug = _rg_real_dir, _rg_real_slug
     PASS_CONSUMES[:] = _rg_saved_consumes
@@ -5231,12 +5251,14 @@ if _rg_fail:
     print("FAIL: the grant restore does not write what it claims — kogaki#553's "
           "remedy is unreachable, and the issue would close with the defect intact")
     sys.exit(1)
-print("restore pass: 5/5 cases (specimen incl. reads-as-open / foreign tag / "
-      "TWO ROUNDS ON ONE PR / not-this-pass / absent) — the two cases that must "
-      "SUCCEED consume through consume_grant(), so PASS_CONSUMES holds what the "
-      "real flow would hold; the three that must REFUSE write the store directly, "
-      "which is the point of them (PR #560 round 1: the line used to claim EVERY "
-      "case consumed, which was false of the three)")
+print("restore pass: 5/5 cases — specimen (incl. reads-as-open) / foreign tag / "
+      "TWO ROUNDS ON ONE PR / not-this-pass / no store record. Every case that "
+      "must SUCCEED consumes through consume_grant(); of the three that must "
+      "REFUSE, two write the store directly and one writes NOTHING to it, which "
+      "is that case's whole point. Each refusal names the branch it reaches: "
+      "foreign tag and not-this-pass stop at the PASS_CONSUMES guard, no-store-"
+      "record carries past it to the store scan (PR #560 rounds 1-2: the line "
+      "twice described cases it did not have)")
 
 # THE TERMINAL-STATE READ (kogaki#414).
 #
