@@ -1,6 +1,17 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v12, amended 2026-08-19 (kogaki#521) — **§5.1's three READER
+**Status:** v13, corrected 2026-08-19 (kogaki#531) — **three corrections to
+v12's own text, no decision reopened.** §5.1.1's refusal is renamed from
+`unsupported completion` to an **unauthored field**: §4.4 owns the former and
+defines it as material invented from outside the Strands, which is the opposite
+act, so v12 labelled its refusal with a term meaning its reverse. The runtime
+carrier is re-pointed from `story 1.77 under kogaki#521` — a story id resolving
+to nothing in the tree, under an umbrella that closed at its own merge — to
+**PR #532, merged as `0d008c8`**. And the transitional sentence naming that work
+as pending is removed, since the merge falsified it. **deferred slots minted by
+this correction: none.**
+
+v12, amended 2026-08-19 (kogaki#521) — **§5.1's three READER
 fields get their authoring block.** `reader_start`, `reader_target` and
 `opening_question` were bound by §5.1 and written by no runtime; they are
 authored at **path composition**, per Candidate, and land at **Candidate
@@ -832,7 +843,7 @@ Three consequences, stated so they are not rediscovered:
   from the adopted Thesis would be inventing material its source does not
   carry — §3's read-not-invented rule.
 
-**An absent value REFUSES at adoption as unsupported completion.** Where the
+**An absent value REFUSES at adoption as an UNAUTHORED FIELD.** Where the
 adopted Candidate carries no value for one of the three, `adopt-candidate`
 refuses and **names which field is missing**. It does not fill a default, and
 it does not render a typed absence and proceed.
@@ -860,14 +871,17 @@ disciplinary one:
 
 `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:53`
 
-**The runtime binding has a carrier, named here rather than left to a closing
-report.** This clause binds a refusal in `adopt-candidate` that no runtime
-performs today; the act that lands it is **story 1.77 under kogaki#521**. The
-spec's own v10 precedent (kogaki#501) refuses exactly the shape where an
-obligation's carrier is a mention in a report rather than a named act, and
-that refusal binds this amendment too. Until 1.77 lands, `brief/brief.mjs:95`
-renders `opening_question` without the defining clause §5.1 now carries, and
-reconciling the two is inside 1.77's scope.
+**The runtime binding has a carrier, and it has LANDED.** This clause binds a
+refusal in `adopt-candidate`; the act that landed it is **PR #532, merged as
+`0d008c8`**, which also reconciled `brief/brief.mjs:95` with the
+`opening_question` clause §5.1 carries. The spec's own v10 precedent
+(kogaki#501) refuses the shape where an obligation's carrier is a mention in a
+report rather than a named act, and that refusal binds this amendment too — so
+the carrier is named as a **merged commit a reader can open**, never as a story
+id that resolves to nothing in the tree nor as an umbrella that closes at its
+own merge. The transitional sentence this paragraph carried until kogaki#531 —
+naming the work as pending — is removed rather than reworded: a clause authored
+knowing it would be falsified is a claim with an expiry that no act reads.
 
 **What this amendment does not do.** It adds no field, registers no new gate,
 and opens neither §4.8's arc clauses nor §6's carrier rulings. **§5.2's
