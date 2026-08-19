@@ -186,7 +186,21 @@ export function replaceSlot(doc, heading, body) {
       + `either it was already filled (composition resumes by judgment, not by overwrite) `
       + `or this is not a minted Brief (§5.3)` };
   }
-  return { doc: doc.replace(re, `## ${heading}\n\n${body}`) };
+  // A REPLACER FUNCTION, NEVER A REPLACEMENT STRING (kogaki#539). `String
+  // .prototype.replace` reads `$&`, `` $` ``, `$'` and `$<name>` in its second
+  // argument as SUBSTITUTION PATTERNS, so a composed body containing any of
+  // them was expanded instead of written: `costs $& twice` reached the Brief as
+  // `costs ## Reader start`. A function form takes no patterns at all.
+  //
+  // NOT AN ESCAPE OF `$` IN THE BODY, deliberately. Escaping is a denial list
+  // over a syntax that can grow — `$<name>` was added to the language after the
+  // others — and it leaves the next pattern unhandled. The function removes the
+  // possibility rather than enumerating what to catch.
+  //
+  // `$1` survived the old form only because this regex has no capture groups,
+  // which is a property of the pattern rather than a guarantee, and is exactly
+  // the kind of incidental safety that stops holding when the pattern changes.
+  return { doc: doc.replace(re, () => `## ${heading}\n\n${body}`) };
 }
 
 // ---- the fill: sequence, strand_coverage, obligations ledger ----
