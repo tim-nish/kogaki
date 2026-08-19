@@ -3407,10 +3407,31 @@ def restore_grant(pr, tag):
     False on every input, so the remedy was dead on arrival while its own
     issue read as closed.
 
-    IT RESTORES ONLY WHAT THIS PASS CONSUMED. `consumed_by` carries the spawn
-    tag, so a grant consumed by an earlier run — or by another PR's spawn — is
-    never touched: the match is (repo, pr, this tag), not (repo, pr).
+    IT RESTORES ONLY WHAT THIS PASS CONSUMED, and the key is the ROUND
+    (kogaki#558). The first version matched on `(repo, pr, tag in consumed_by)`
+    and its docstring claimed that told two passes apart. It did not: the tag is
+    `f"review-{n}"`, which is PR-SCOPED, so every round on one PR consumes under
+    the identical string `review-sweep spawn (review-556)`. The cross-PR half of
+    that claim was true and the same-PR half was false.
+
+    `PASS_CONSUMES` is the pass-scoped record and already exists: it is a
+    module-level list, empty at process start, appended only by `consume_grant()`
+    — so an entry in it is by construction something THIS process spent. The
+    round is read from there and the store record is matched on
+    `(repo, pr, round)`. With no matching entry there is nothing this pass
+    consumed and the function refuses, which is also what makes it safe to call
+    on a session whose grant some earlier run had already spent.
     """
+    # Declared before the first READ, not just before the rebind: Python
+    # refuses `global` after any use in the same function.
+    global PASS_CONSUMES
+    _round = None
+    for _c_pr, _c_round, _c_tag in PASS_CONSUMES:
+        if str(_c_pr) == str(pr) and _c_tag == tag:
+            _round = _c_round
+            break
+    if _round is None:
+        return False
     d = _approvals_dir()
     if not os.path.isdir(d):
         return False
@@ -3427,9 +3448,14 @@ def restore_grant(pr, tag):
                 _r = json.load(f)
         except (OSError, ValueError):
             continue
+        # THE ROUND IS THE DISCRIMINATOR (kogaki#558), string-compared for the
+        # same JSON-round-trip reason the retraction below is. `consumed_at`
+        # stays in the match: it states the intent, and it is the one condition
+        # that would still refuse if `PASS_CONSUMES` were ever populated by
+        # something other than a consume.
         if (_r.get("repo") == repo and str(_r.get("pr")) == str(pr)
-                and _r.get("consumed_at")
-                and tag and tag in str(_r.get("consumed_by") or "")):
+                and str(_r.get("round")) == str(_round)
+                and _r.get("consumed_at")):
             _path, _rec = _p, _r
             break
     if _path is None or _rec is None:
@@ -3446,7 +3472,6 @@ def restore_grant(pr, tag):
         return False
     _grant_log("restore", {"repo": _rec.get("repo"), "pr": pr,
                            "round": _rec.get("round"), "spawn": tag})
-    global PASS_CONSUMES
     # STRING-COMPARED (PR #556 round 1, nit). `c[0]` is `rec.get("pr")` as the
     # store wrote it and `pr` is the int from `gh`'s `number`, so `==` across
     # the JSON round trip is a type coin-flip — and a retraction that silently
@@ -5086,11 +5111,18 @@ try:
 
     _BASE = {"repo": "tim-nish/kogaki", "pr": 556, "round": 1}
 
+    # THE FIXTURE CONSUMES THROUGH `consume_grant()` RATHER THAN HAND-WRITING
+    # THE STAMP (kogaki#558). The restore is keyed on `PASS_CONSUMES`, which
+    # only `consume_grant()` appends to, so a fixture that stamped the record
+    # itself would exercise a state the real flow never produces — and would
+    # have gone green against a restore that could not find its round.
+    _rg_saved_consumes = list(PASS_CONSUMES)
+
     # 1. THE SPECIMEN: a grant this pass consumed is restored, and the record
     #    on disk actually loses its stamp. Asserting the return value alone
     #    would pass for a function that returns True and writes nothing.
-    _rg_write("g1.json", {**_BASE, "consumed_at": "2026-08-19T00:00:00+00:00",
-                          "consumed_by": "review-sweep spawn (review-556)"})
+    _rg_write("g1.json", dict(_BASE))
+    consume_grant(os.path.join(_rg_dir, "g1.json"), _rg_read("g1.json"), "review-556")
     if not restore_grant(556, "review-556"):
         print("FAIL restore fixture [the specimen]: the consumed grant was not restored")
         _rg_fail = 1
@@ -5121,6 +5153,30 @@ try:
               "was restored — a run can hand back a round it never spent")
         _rg_fail = 1
 
+    # 2b. TWO ROUNDS ON ONE PR ARE TOLD APART (kogaki#558). This is the case
+    #     the PR-scoped tag could not express: both rounds carry the identical
+    #     `consumed_by`, so only the ROUND distinguishes them. An EARLIER
+    #     round's record sits beside the one this pass consumed, and restoring
+    #     the wrong one hands back a round nobody in this process spent.
+    _rg_write("g4a.json", {"repo": "tim-nish/kogaki", "pr": 606, "round": 1,
+                           "consumed_at": "2026-08-18T00:00:00+00:00",
+                           "consumed_by": "review-sweep spawn (review-606)"})
+    _rg_write("g4b.json", {"repo": "tim-nish/kogaki", "pr": 606, "round": 2})
+    consume_grant(os.path.join(_rg_dir, "g4b.json"), _rg_read("g4b.json"), "review-606")
+    if not restore_grant(606, "review-606"):
+        print("FAIL restore fixture [two rounds]: the round this pass consumed was not restored")
+        _rg_fail = 1
+    else:
+        if _rg_read("g4b.json").get("consumed_at"):
+            print("FAIL restore fixture [two rounds]: round 2 — the one this pass spent — "
+                  "still reads consumed")
+            _rg_fail = 1
+        if not _rg_read("g4a.json").get("consumed_at"):
+            print("FAIL restore fixture [two rounds]: round 1 was restored too — an EARLIER "
+                  "round on the same PR is not this pass's to hand back, and the PR-scoped "
+                  "tag could not tell them apart (kogaki#558)")
+            _rg_fail = 1
+
     # 3. AN UNCONSUMED GRANT IS NOT 'RESTORED'. Nothing to undo, and a True
     #    here would mean the pass reports a restore that never happened.
     #    WHICH GUARD THIS CASE ACTUALLY COVERS, stated rather than implied:
@@ -5142,14 +5198,15 @@ try:
         _rg_fail = 1
 finally:
     _approvals_dir, _repo_slug = _rg_real_dir, _rg_real_slug
+    PASS_CONSUMES[:] = _rg_saved_consumes
     shutil.rmtree(_rg_dir, ignore_errors=True)
 if _rg_fail:
     print("FAIL: the grant restore does not write what it claims — kogaki#553's "
           "remedy is unreachable, and the issue would close with the defect intact")
     sys.exit(1)
-print("restore pass: 4/4 cases (specimen incl. reads-as-open / foreign tag / "
-      "unconsumed / absent) — the `consumed_at` guard is redundant against the "
-      "tag filter and is declared uncovered rather than counted")
+print("restore pass: 5/5 cases (specimen incl. reads-as-open / foreign tag / "
+      "TWO ROUNDS ON ONE PR / unconsumed / absent) — every case consumes through "
+      "consume_grant(), so PASS_CONSUMES holds what the real flow would hold")
 
 # THE TERMINAL-STATE READ (kogaki#414).
 #

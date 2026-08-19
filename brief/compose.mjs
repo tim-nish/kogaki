@@ -27,7 +27,6 @@
 // before it reads the move name only in the trivial sense that it validates
 // rationale presence; the order invariant itself is invisible in the
 // artifact and is carried by the §4.5 grounds test, judged at review.
-import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
