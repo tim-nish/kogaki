@@ -1,6 +1,19 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v14, amended 2026-08-19 (kogaki#528, discharging kogaki#519) —
+**Status:** v15, amended 2026-08-19 (kogaki#537) — **the minted Brief's
+vocabulary guard binds THIS COMPOSER'S OWN TEXT, and not the material it
+carries.** The captions, headings and frame are guarded; the **adopted Thesis**
+and the **Strand material** (display id, slug, cites, survey pin, Brief name)
+are not. The rule being enforced is that this codebase's vocabulary does not
+reach the owner, and a rule is enforced at the layer where it can be broken —
+the composer. An owner typing their own Thesis is not this system leaking, and
+neither is a served rendering quoted at its pin. **Measured at the decision:** 0
+of 160 served lesson headlines trip the predicate, while §5.3 v11's free-form
+Thesis path is live by design — so the guard's full-line reach could only ever
+have fired on the owner's own words, at mint, after the one gate answer was
+spent. **deferred slots minted by this amendment: none.**
+
+v14, amended 2026-08-19 (kogaki#528, discharging kogaki#519) —
 **RESOLVING a settled Strand's served rendering is not the Brief fetch §5.3
 forbids.** §5.3's closed-set invariant governs GROWING the set; resolving the
 material a member already names is not growth, and the two were conflated by
@@ -936,6 +949,64 @@ content is still unstated. **`tradeoffs` is left bare and is named here rather
 than quietly fixed** — it has a writer (`adopt-candidate`), so it is not this
 issue's defect, and defining a bound field is a decision act owed on its own
 licensing issue.
+
+#### 5.1.2 The vocabulary guard's reach (v15, kogaki#537)
+
+`briefs/<slug>/brief.md` is a tracked document the owner reads directly, and
+kogaki#526 installed a guard refusing spec-internal vocabulary in it — an
+internal identifier or a pointer into a spec the owner does not hold. That guard
+read **every line**. This clause decides **whose text it governs**.
+
+**It governs the composer's own text.** The slot captions, the headings, the
+reader-facing definition, the frame. It does **not** govern the **adopted
+Thesis** or the **Strand material** — display id, slug, served cites, the survey
+pin, the Brief's own name. Those arrived from the owner or from the served
+substrate; they are what the Brief exists to carry.
+
+**Why, and it is the layer argument rather than a preference.** The rule is that
+*this codebase's* vocabulary does not reach the owner, and
+
+> "a rule is enforced only at the layer where it can be broken"
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:103`
+
+An owner typing their own Thesis cannot break that rule — they are not this
+system. Neither can a served rendering quoted at its pin. The governing line on
+the guard's own kind says the same from the other side: it scopes the lexicon
+grep to
+
+> "the known internal vocabulary **at the boundary** … that grep covers only the
+> coined-identifier sub-class"
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:63`
+
+The boundary is where this composer writes. Past it, the text is the owner's.
+
+**The measurement, because kogaki#537 made it part of the decision.** Every
+served lesson rendering was resolved and tested against the predicate:
+**0 of 160**, across 16 tag shards, denominator stated. So the served side was
+never the live hazard. The **owner** side always was — §5.3 v11 takes a
+free-form Thesis **verbatim**, so a Thesis containing a snake_case token or a
+section reference was refused **at mint**, after the one permitted gate answer
+had been spent, naming a token the owner had deliberately written. That is the
+defect this clause removes, and it was reachable by design rather than by
+accident.
+
+**Two things this does not do.** It does not relax the guard on composer text —
+a key-bearing caption still refuses, and the check drives that refusal through
+the real composer rather than asserting the predicate in isolation. And it does
+not widen §5.2's disclosure stance: this is a refusal that was mis-aimed, not a
+refusal converted into a disclosure.
+
+**The cost, stated rather than left.** A leak written **into** an exempt line is
+unguarded, and the exempt set is an **enumeration** — the kind that goes stale.
+It is small, it lives in one function, and it is named here so a future line
+carrying external content is routed deliberately: through the material emitter,
+or the guard silently widens back to text this codebase did not write. The
+alternative that would remove the enumeration — a positive admission test at one
+typed owner-surface seam, with the lexicon grep demoted to a fast path beneath
+it — is the shape `LESSONS.md:63` prescribes and is **not built here**; it is
+named as the end state this clause is a fast path toward.
 
 ### 5.2 The obligations ledger
 

@@ -98,7 +98,7 @@ const SLOT = "*(awaiting composition)*";
 // reads directly. kogaki#520 removed that vocabulary from the gate payload and
 // installed a tripwire there; the tripwire reads the payload and had no reach
 // into the minted document, which is why this was a separate carrier.
-const FIELDS = [...SLOT_CAPTIONS.entries()];
+const fields = () => [...SLOT_CAPTIONS.entries()];
 
 // Exported and pure over its inputs, so the check exercises the composed
 // document without a filesystem. `thesis` is required: at v9 no document
@@ -108,8 +108,32 @@ export function composeBrief({ slug, pin, strands, thesis }) {
     throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (§5.3 v9)");
   }
   const L = [];
-  const say = (s = "") => L.push(s);
-  say(`# Brief — ${slug}`);
+  // TWO EMITTERS, and the split IS the tripwire's reach (§5.3 v15, kogaki#537).
+  // `say` emits text THIS COMPOSER AUTHORS and is guarded; `material` emits text
+  // that arrived from the owner or from the served substrate and is not.
+  //
+  // WHY THE SPLIT RATHER THAN ONE GUARD OVER EVERYTHING. The rule being enforced
+  // is "this codebase's vocabulary does not reach the owner", and a rule is
+  // enforced at the layer where it CAN BE BROKEN — the composer. An owner typing
+  // their own Thesis is not this system leaking; neither is a served rendering
+  // quoted at its pin. The predicate reads SHAPE and cannot tell provenance, so
+  // provenance is carried here, by which emitter the line goes through.
+  //
+  //   "grep the known internal vocabulary AT THE BOUNDARY … that grep covers
+  //    only the coined-identifier sub-class"
+  //   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:63
+  //   "a rule is enforced only at the layer where it can be broken"
+  //   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:103
+  //
+  // THE COST, STATED RATHER THAN LEFT: a leak written INTO a material line is
+  // unguarded, and the set of material lines is an enumeration that can go
+  // stale. It is small, it is all in this function, and §5.3 v15 names it — a
+  // future line carrying external content goes through `material` or the guard
+  // silently widens to text this codebase did not write.
+  const guarded = [];
+  const say = (s = "") => { L.push(s); guarded.push(s); };
+  const material = (s = "") => { L.push(s); };
+  material(`# Brief — ${slug}`);
   say();
   // The reader-facing definition, in the act that uses the term (§5.3).
   say("> A **brief** is the working plan for one article: the served");
@@ -118,15 +142,15 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   say("> composition proceeds. It is the durable document a drafting");
   say("> sitting resumes from.");
   say();
-  say(`*Survey pin:* \`${pin}\``);
+  material(`*Survey pin:* \`${pin}\``);
   say("*Strand set: CLOSED at mint. Adding a Strand is your act, taken by going back through Terrain — a Brief never reaches for material on its own.*");
   say();
   say("## Strands");
   say();
   for (const s of strands) {
-    say(`### ${s.display_id} — ${s.slug}`);
+    material(`### ${s.display_id} — ${s.slug}`);
     say();
-    say(`- cite: \`${s.cite ?? "none recorded"}\``);
+    material(`- cite: \`${s.cite ?? "none recorded"}\``);
     if (s.journey) {
       // The served Journey cite is part of "their pins and served cites"
       // (§5.3) — a cite the record holds and the document drops sends the
@@ -153,7 +177,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
       // composition sitting is owed the fact that a Journey exists whose cite
       // the served record does not carry.
       if (s.journey.cite) {
-        say(`- journey cite: \`${s.journey.cite}\``);
+        material(`- journey cite: \`${s.journey.cite}\``);
       } else {
         say("- journey: PRESENT WITH NO SERVED CITE — abnormal; this Strand's Journey");
         say("  material cannot be cited at the pin, so it is not composable material");
@@ -165,11 +189,11 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   }
   say("## Thesis");
   say();
-  say(thesis);
+  material(thesis);
   say();
   say("*The claim this article makes. You adopted it when the Brief was named; it is composed from the settled Strands and never invented.*");
   say();
-  for (const [heading, meaning] of FIELDS) {
+  for (const [heading, meaning] of fields()) {
     say(`## ${heading}`);
     say();
     say(`${SLOT}`);
@@ -184,25 +208,28 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   // kogaki#520 took at the gate: a rewrite layer would let the leak keep being
   // written and the next term of art would arrive unlabelled.
   //
-  // Every line is checked, not only the captions. kogaki#526's scope names the
-  // captions, but the assertion it asks for is that NO internal key or section
-  // reference appears in a minted brief.md — and three lines outside the
-  // captions carried one (the closed-set note, the uncited-Journey disclosure,
-  // and the Thesis caption). Narrowing the check to the captions would have
-  // satisfied the sentence and left the document leaking.
-  const composed = L.join("\n") + "\n";
-  for (const [i, line] of composed.split("\n").entries()) {
+  // WHAT IS CHECKED, and it is no longer every line (§5.3 v15, kogaki#537).
+  // kogaki#526 checked all of them, which was right about the captions — three
+  // lines outside them carried a section reference, and narrowing to captions
+  // would have satisfied #526's sentence while leaving the document leaking.
+  // But the full reach also read the ADOPTED THESIS and the STRAND MATERIAL,
+  // and refused the owner's own verbatim words at mint. So the guard now binds
+  // the `say` set — this composer's own text — and the `material` set is exempt.
+  for (const line of guarded) {
     const leak = findInternalVocabulary(line);
     if (leak) {
       throw new Error(
         `the minted Brief leaks spec-internal vocabulary: ${leak.kind} `
-        + `${JSON.stringify(leak.token)} on line ${i + 1} — ${JSON.stringify(line.trim().slice(0, 80))}. `
-        + `briefs/<slug>/brief.md is a tracked document the owner reads directly, so an `
-        + `internal key or a pointer into a spec they do not hold has no rendering path here `
-        + `(kogaki#526). This REFUSES rather than rewrites, as the gate's own tripwire does.`);
+        + `${JSON.stringify(leak.token)} in composer-authored text — `
+        + `${JSON.stringify(line.trim().slice(0, 80))}. briefs/<slug>/brief.md is a tracked `
+        + `document the owner reads directly, so an internal key or a pointer into a spec they `
+        + `do not hold has no rendering path here (kogaki#526). This REFUSES rather than `
+        + `rewrites, as the gate's own tripwire does. The adopted Thesis and the Strand `
+        + `material are NOT checked (kogaki#537): they are the owner's words and the `
+        + `substrate's, and a rule is enforced at the layer where it can be broken.`);
     }
   }
-  return composed;
+  return L.join("\n") + "\n";
 }
 
 // Resolve the entered ids against the survey record. Refusals are the
