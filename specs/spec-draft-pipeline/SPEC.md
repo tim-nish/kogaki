@@ -1,5 +1,16 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v18, amended 2026-08-19 (kogaki#548) — **§6.9.4's FILLED slot is
+REOPENED and `sources` carries source text only.** The ingestion run's
+derivation pointer is retired by owner ruling on three grounds: it is not source
+text (§4.7's own rule already excluded it), it is redundant with `git log`, and
+it was appended AFTER the owner's acceptance so what landed on disk was not what
+was approved. The reopen is licensed by §6.9.4's own clause returning its fork
+to open on disagreement; the v1 fill is retained unedited. kogaki#417 D1's form
+decision is MOOTED rather than reversed. §4.9.1's analysis-document pointer is
+untouched — it is AUTHORED into a proposal and reaches disk through acceptance,
+which is why retiring a tool's post-acceptance append does not reach it.
+
 **Status:** v17, amended 2026-08-19 (kogaki#550, kogaki#551) — **the `move`
 field stays OPTIONAL and §4.1 now names which half of that rule binds**, and
 **`compose.mjs`'s `fill` CLI route is RETIRED.** The property protected is that
@@ -2128,10 +2139,58 @@ it, and deferral is priced here rather than banned:
 **DECIDE-OR-NAME, never force-decide**, since forcing it now would decide
 without the information the first run produces.
 
-### 6.9.4 The named slot is FILLED — `move-sources-derivation-vehicle`
+### 6.9.4 The named slot is REOPENED — `move-sources-derivation-vehicle`
 
     deferred-slot: move-sources-derivation-vehicle
-    status: FILLED (kogaki#223, 2026-08-08)
+    status: REOPENED (kogaki#548, 2026-08-19) — was FILLED (kogaki#223, 2026-08-08)
+
+**THE FILL IS WITHDRAWN by owner ruling of 2026-08-19, and this section's own
+clause is what licenses the withdrawal**: it marked the placement of a
+derivation pointer inside `sources` as the author's judgment, with the fork
+**returning to open on disagreement**. This is that disagreement. The v1 text
+is kept below unedited, because a superseded fill must stay countable.
+
+**The successor position.** `sources` holds **source text only** — what text
+this Move came from, the passage it locates, the derivation it explains.
+`git log moves/<id>.md` is the audit trail for when and from what batch a Move
+was ingested. **No Source/Provenance schema distinction is defined**, because
+nothing demands one.
+
+**Three grounds, each independently sufficient.**
+
+1. **Not source text.** The appended string located no passage and explained no
+   derivation — it recorded an ingestion event and a batch outcome. §4.7's own
+   rule for `sources` already excluded it, so this is that rule applied rather
+   than a new one.
+2. **Redundant with git.** The ingestion date, the batch and the source commit
+   are all in version history; the string stored in a semantic field what the
+   history already held.
+3. **Mutation after acceptance.** `save_accepted` appended it *after* the owner
+   accepted at the selection screen, so what landed on disk was not what was
+   approved, and the delta was never displayed. This is the sharpest of the
+   three and the one that generalises: **nothing may change a record between
+   the owner's acceptance and the write.**
+
+**What is mooted rather than reversed.** kogaki#417 D1 decided the pointer's
+FORM — prose provenance over a `path:line@sha` pin, on the corpus's own
+survival measurement. With no pointer there is no form to decide, so that
+decision is not overturned; its subject is gone.
+
+**What this does NOT touch.** §4.9.1's `analysis/<source-slug>.md` pointer
+stays exactly as it is. That one is **authored** into a proposal's own `sources`
+value and reaches disk through the owner's acceptance like every other field —
+which is precisely why retiring the tool's append leaves it untouched. What was
+retired is a tool writing into a record after acceptance; what remains is an
+author writing source text.
+
+**The carrier of ground 3 is mechanical, not this prose.** `tools/move_ingest.py`
+asserts that `save_accepted` writes every §4.2 field exactly as the owner
+accepted it. Deleting the append and leaving nothing watching would readmit the
+same class the next time a field looked like a good place to record something.
+
+---
+
+*The v1 fill follows, unedited.*
 
 **THE CHOICE: the first ingestion run writes each accepted Move's derivation
 pointer, in the same act that saves the file.** kogaki#177 is discharged by

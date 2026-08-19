@@ -15,6 +15,31 @@ pass/fail**. The attach runtime (`brief/review.mjs`) refuses any
 verdict-shaped field you emit, by key, so a verdict is unattachable rather
 than merely discouraged.
 
+## What you are the only control over — read this before diagnosing a defect
+
+**Every Step field reaching you is LLM-authored with no harness** (kogaki#549,
+verified 2026-08-19). `purpose`, `rationale`, `reader_state_before/after`, the
+grounds, `entailed` and its reasoning are all written wholesale by the
+composing sitting under the spec's policy prose. There is **no per-field input
+specification, no field-level prose contract, and no mechanism holding declared
+inputs in state while a field is generated.**
+
+The only mechanical control is `validateSteps` in `brief/compose.mjs`, and it
+is SHAPE-ONLY: field presence and type, ground types in the closed set,
+`step_effect` grounds naming an earlier Step, `strand` grounds and materials
+inside the Brief's closed set, `entailed` requiring reasoning, and `bridges`
+naming two ids. **No content conformance is checked anywhere but here.**
+
+Step-to-Step connection is deliberately weak too — only `depends_on`, optional
+`step_effect` grounds, and reader-state continuity that nothing verifies.
+
+**So when a Draft comes out strange, inspect this absence FIRST** before
+attributing the defect to composition strategy, Move selection, or the
+material. Both properties above are plausible causes and neither leaves a
+trace. This is a recorded first-suspect, not a defect filing: no fix is
+proposed and no design is reopened, and disposition waits for a concrete
+dogfood failure (kogaki#549, owner ruling).
+
 ## The MUSTs you apply, per Candidate — §§4.4–4.8, each as judgment
 
 1. **The grounds test (§4.5).** For each Step: delete the Move name from

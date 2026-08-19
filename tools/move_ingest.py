@@ -458,38 +458,38 @@ def move_path(moves_dir, move_id):
 
 
 # --------------------------------------------------------------------------
-# AC8 — the derivation pointer (§6.9.4, form decided at kogaki#417 D1)
+# AC8 — RETIRED: the derivation pointer (kogaki#548, owner ruling 2026-08-19)
 # --------------------------------------------------------------------------
-
-def attach_derivation_pointer(mapping, provenance):
-    """Write the accepted Move's derivation pointer INSIDE `sources`.
-
-    §6.9.4 fills the `move-sources-derivation-vehicle` slot with the ingestion
-    run: it is the only moment holding the accepted Move and its served ruling
-    line together, and a follow-up pass would re-derive that link by guess.
-
-    The FORM is prose provenance, decided by the owner at kogaki#417 D1 over a
-    `path:line@sha` pin. Grounds: the corpus's own survival measurement — 148
-    unpinned file:line citations broke repeatedly against 1,127 issue anchors
-    of which every one survived every relocation — plus the specimen already
-    writing `sources` this way, with zero occurrences of `path:line@sha`.
-
-    NO NINTH FIELD is added: the pointer joins the existing `sources` value.
-    """
-    if not provenance:
-        return mapping
-    existing = str(mapping.get("sources", "")).strip()
-    if provenance in existing:
-        return mapping
-    mapping["sources"] = ("%s %s" % (existing, provenance)).strip()
-    return mapping
-
+#
+# `attach_derivation_pointer` and its `provenance` parameter are GONE, and the
+# 22 saved Moves have had the ingestion string stripped from their `sources`.
+#
+# §6.9.4 filled the `move-sources-derivation-vehicle` slot with the ingestion
+# run and marked that placement as the author's judgment, with the fork
+# RETURNING TO OPEN on disagreement. This is that disagreement, by owner
+# ruling, on three independently sufficient grounds:
+#
+#   * NOT SOURCE TEXT. `sources` means "what text this Move came from". The
+#     appended string located no passage and explained no derivation — it
+#     recorded an ingestion event and a batch outcome, which §4.7's own rule
+#     already excludes.
+#   * REDUNDANT WITH GIT. `git log moves/<id>.md` carries the ingestion date,
+#     batch and source commit; the string stored in a semantic field what
+#     version history already holds.
+#   * MUTATION AFTER ACCEPTANCE. It was appended AFTER the owner accepted at
+#     the selection screen, so what landed on disk was not what was approved
+#     and the delta was never displayed. That is the sharpest of the three:
+#     nothing may now change a record between the owner's act and the write.
+#
+# kogaki#417 D1's form decision (prose over `path:line@sha`) is MOOTED rather
+# than reversed — with no pointer there is no form to decide. No Source vs
+# Provenance schema split is defined, because nothing demands one.
 
 # --------------------------------------------------------------------------
 # Save and regenerate
 # --------------------------------------------------------------------------
 
-def save_accepted(moves_dir, accepted, provenance=None):
+def save_accepted(moves_dir, accepted):
     """Write one file per accepted Move, then regenerate INDEX.
 
     `accepted` is the set of proposals the OWNER selected. Nothing in this
@@ -542,7 +542,6 @@ def save_accepted(moves_dir, accepted, provenance=None):
     written = []
     for proposal in accepted:
         mapping = dict(proposal.mapping)
-        attach_derivation_pointer(mapping, provenance)
         path = move_path(moves_dir, proposal.id)
         with open(path, "w") as handle:
             handle.write(render_move(mapping))
@@ -773,6 +772,7 @@ def _record(move_id="a-move"):
 
 
 def self_test():
+    import copy
     import tempfile
 
     failures = []
@@ -1184,57 +1184,54 @@ def self_test():
 
     check("AC7 a refused batch writes nothing, and the retry runs clean", a_refused_batch_writes_nothing)
 
-    # ---- AC8: the derivation pointer, prose, no ninth field --------------
-    def pointer_written_in_the_saving_act():
+    # ---- AC8: RETIRED, and what replaces it (kogaki#548) -----------------
+    #
+    # Consultation-map entry 1 (modifying a check surface) — surveyed before
+    # this block was rewritten, because three registered cases are RETIRED here
+    # and one is ADMITTED in their place. The line that governs the retiring
+    # half, quoted at its pin:
+    #
+    #   "A check that cannot fail is not a lenient check; it is theatre, and it
+    #   looks identical to a check that has been switched off."
+    #   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:35
+    #
+    # It names re-POINTING a check at a new subject as the error and RETIRING it
+    # as the correct move when its unit dissolves. That is exactly this case:
+    # `attach_derivation_pointer` is gone, so its three cases have no subject,
+    # and re-aiming them at `sources` generally would have produced cases that
+    # cannot fail. They are deleted rather than re-pointed.
+    #
+    # The ADMITTING half is a separate act and carries its own admission below:
+    # the new case has a named defect (the append after acceptance, kogaki#548's
+    # third ground), it runs in this file's own self-test at the same loop
+    # position as its siblings, and its removal signal is the acceptance-to-disk
+    # write ceasing to exist as a distinct step.
+    #
+    # The three AC8 cases are GONE with the mechanism they covered. What
+    # remains is the property the retirement creates, which nothing asserted
+    # before: `save_accepted` must write the owner's accepted record UNCHANGED.
+    #
+    # That is the sharpest of the issue's three grounds — the pointer was
+    # appended after acceptance, so what landed on disk was not what was
+    # approved and the delta was never displayed. A retirement that removed the
+    # append and left nothing watching would readmit the same class the next
+    # time a field looked like a good place to record something.
+    def saving_mutates_nothing_the_owner_accepted():
         with tempfile.TemporaryDirectory() as tmp:
             moves = os.path.join(tmp, "moves")
             proposal = read_proposals(_record("p"))[0]
-            save_accepted(moves, [proposal], provenance="derived from the 2026-08-06 rulings")
-            body = open(move_path(moves, "p")).read()
-            assert "derived from the 2026-08-06 rulings" in body, body
-            keys = [ln.split(":")[0] for ln in body.splitlines() if ln and not ln[:1].isspace()]
-            assert keys == list(FIELDS), "a ninth field was added: %s" % keys
+            accepted = copy.deepcopy(proposal.mapping)
+            save_accepted(moves, [proposal])
             saved = read_saved(move_path(moves, "p"))
-            assert "a passage somewhere" in saved["sources"], "the existing sources value was lost"
-            assert "derived from the 2026-08-06 rulings" in saved["sources"], (
-                "the pointer is not inside `sources`"
-            )
+            for field in FIELDS:
+                assert saved.get(field, "") == accepted.get(field, ""), (
+                    "save_accepted CHANGED %r between acceptance and disk: "
+                    "accepted %r, wrote %r"
+                    % (field, accepted.get(field, ""), saved.get(field, ""))
+                )
 
-    check("AC8 pointer written inside `sources`, no ninth field", pointer_written_in_the_saving_act)
-
-    # AC8's pointer FORM has no assertion here, and the absence is deliberate.
-    #
-    # One was written and REMOVED as vacuous: it passed a prose string into
-    # `attach_derivation_pointer`, which only concatenates its argument, then
-    # asserted the result was not a pin. No implementation of that function
-    # could fail it — a pin appears in `sources` only if the caller passes one,
-    # and the caller was the test. The fixture supplied the value under test,
-    # which is kogaki#243's class, standing one check below the AC5 guard where
-    # this file records catching it twice already. The mutation table having no
-    # mutant for AC8's form was the corroborating tell.
-    #
-    # The real property — that nothing ever COMPOSES a `path:line@sha` — is not
-    # this function's to hold. It lives in the caller, and the caller is
-    # `.claude/skills/move-ingest/SKILL.md` step 4, which is prose. What IS
-    # mechanical here is that the pointer is appended verbatim and nothing is
-    # synthesized, and that is asserted below.
-    def pointer_is_appended_verbatim_and_nothing_synthesized():
-        mapping = attach_derivation_pointer({"sources": "a passage"}, "PROVENANCE")
-        assert mapping["sources"] == "a passage PROVENANCE", repr(mapping["sources"])
-        assert set(mapping) == {"sources"}, "a field was synthesized: %s" % sorted(mapping)
-
-    check(
-        "AC8 the pointer is appended verbatim, nothing synthesized",
-        pointer_is_appended_verbatim_and_nothing_synthesized,
-    )
-
-    def pointer_is_idempotent():
-        mapping = {"sources": "a passage"}
-        attach_derivation_pointer(mapping, "the ruling")
-        attach_derivation_pointer(mapping, "the ruling")
-        assert mapping["sources"].count("the ruling") == 1, mapping["sources"]
-
-    check("AC8 re-running does not duplicate the pointer", pointer_is_idempotent)
+    check("AC8 saving mutates nothing the owner accepted",
+          saving_mutates_nothing_the_owner_accepted)
 
     # ---- AC5/AC6: what this module must NOT contain ----------------------
     def mechanical_half_holds_no_judgment_apparatus():

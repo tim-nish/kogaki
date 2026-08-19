@@ -93,6 +93,12 @@ kogaki#494).
    path review, Candidate selection — those are the composition sittings'
    work (stories 1.73–1.75), not this entry's.
 
+**When a Draft comes out strange, the first suspect is recorded** (kogaki#549).
+Every Step field is LLM-authored with no harness — `validateSteps` checks shape
+only, and no content conformance is checked outside path review's judgment. The
+statement lives at the top of `brief/path-review-agent.md`, which is where a
+sitting diagnosing a Draft defect is already reading.
+
 **Where a path review's finding goes** (SPEC §4.11, kogaki#524). Path review
 is not a check and it does not fail a Candidate: when it finds a gap between
 two adjacent Steps, that Candidate routes **back to composition**, a Bridge
