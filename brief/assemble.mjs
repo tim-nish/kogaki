@@ -52,7 +52,22 @@ const REASONING_FIELDS = ["step_validity", "transition_continuity", "thesis_clos
 // key name has no rendering path at all: `rendering` below is the whole
 // owner-facing surface, and it carries labels and prose, never key names.
 // One label per key, in the order the owner reads them.
+// The three §5.1 fields whose authoring block is PATH COMPOSITION (v12,
+// kogaki#521). Each pairs its record key with the Brief slot heading it
+// lands in; brief/brief.mjs's FIELDS table owns those headings, and this is
+// the join to them. ONE declaration: the evidence, the rendering, the
+// adoption fill and the adoption refusal all read this list, so a fourth
+// reader field is added here and nowhere else.
+export const READER_FIELDS = [
+  ["reader_start", "Reader start"],
+  ["reader_target", "Reader target"],
+  ["opening_question", "Opening question"],
+];
+
 export const EVIDENCE_LABELS = [
+  ["reader_start", "Where does this path assume the reader is standing?"],
+  ["reader_target", "Where does this path leave the reader?"],
+  ["opening_question", "What question does this path open with?"],
   ["step_validity", "Does each step stand on the material it cites?"],
   ["transition_continuity", "Does each step leave the reader where the next one starts?"],
   ["thesis_closure", "Does the path close the claim?"],
@@ -144,7 +159,23 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   const jplaced = journeyIds.filter((id) => jplace.get(id).length > 0);
   const obligations = c.obligations || [];
   const undischarged = obligations.filter((o) => o.discharged_by === undefined).length;
+  // The three reader fields are authored at PATH COMPOSITION, per Candidate
+  // (§5.1 v12), so they are this Candidate's own and ride its evidence — two
+  // Candidates differing on the reader axis must not read identically at the
+  // gate, which is the same reason journey_coverage is per-Candidate above.
+  // An ABSENCE DISCLOSES HERE and REFUSES AT ADOPTION: disclosing lets the
+  // owner see which Candidate is incomplete before choosing it, and keeping
+  // the refusal at adoption is what stops that refusal becoming unreachable.
+  // The disclosure carries no record key — this text has a rendering path.
+  const reader = {};
+  for (const [key] of READER_FIELDS) {
+    const v = c[key];
+    reader[key] = (typeof v === "string" && v !== "")
+      ? v
+      : "not stated by this path — adopting it will refuse, because the composing act did not run";
+  }
   return {
+    ...reader,
     obligations_ledger: obligations.length === 0
       ? "the ledger is empty — a statement, not an omission"
       : `${obligations.length} entr${obligations.length === 1 ? "y" : "ies"}, ${undischarged} UNDISCHARGED — disclosed here, never a refusal`,
@@ -206,6 +237,9 @@ export function assembleSelection(reviewed, doc) {
     // not the rendering: it keeps the internal keys, it stays in the
     // machine-local payload, and nothing shows it to the owner (kogaki#520).
     evidence: {
+      reader_start: ev.reader_start,
+      reader_target: ev.reader_target,
+      opening_question: ev.opening_question,
       step_validity: c.reasoning.step_validity,
       transition_continuity: c.reasoning.transition_continuity,
       thesis_closure: c.reasoning.thesis_closure,
@@ -261,6 +295,24 @@ export function adoptCandidate(doc, reviewed, candidateId) {
     return { error: `candidate ${JSON.stringify(candidateId)} is not in the reviewed set `
       + `(${cands.map((x) => x.candidate_id).join(", ") || "empty"}) — the owner adopts from what the gate offered` };
   }
+  // §5.1 v12: an adopted Candidate carrying no value for one of the three
+  // reader fields REFUSES, naming the field, BEFORE anything is written.
+  // This is not §4.4's `unsupported completion` and does not borrow that
+  // term: nothing here was invented from outside the material — the value is
+  // absent because the composing act did not run. The refusal is named
+  // distinctly from the not-in-the-reviewed-set refusal above so a caller is
+  // never sent to re-answer a gate that is not the problem, and it fills no
+  // default: a default would be this file inventing reader state, which is
+  // exactly what §3's read-not-invented rule refuses.
+  const unauthored = READER_FIELDS
+    .filter(([key]) => typeof c[key] !== "string" || c[key] === "")
+    .map(([, heading]) => heading);
+  if (unauthored.length) {
+    return { error: `candidate ${candidateId}: ${unauthored.join(", ")} `
+      + `${unauthored.length === 1 ? "is" : "are"} unauthored — path composition writes `
+      + `${unauthored.length === 1 ? "it" : "them"} per Candidate, and adoption fills no default. `
+      + `Compose the path again; nothing was written to the Brief.` };
+  }
   const filled = fillBrief(doc, {
     steps: c.steps,
     coverage: c.coverage || {},
@@ -279,7 +331,16 @@ export function adoptCandidate(doc, reviewed, candidateId) {
       ? c.tradeoffs
       : `adopted over its siblings on reader experience: ${c.reader_experience}. The declined Candidates' experiences are recorded in the run's gate payload.`);
   if (r.error) return r;
-  return { doc: r.doc, placed: filled.placed, total: filled.total };
+  out = r.doc;
+  // The three land from THIS Candidate, beside thesis_closure and tradeoffs
+  // (§5.1 v12). A declined Candidate's values land nowhere, because only the
+  // adopted Candidate reaches this function at all.
+  for (const [key, heading] of READER_FIELDS) {
+    r = replaceSlot(out, heading, c[key]);
+    if (r.error) return r;
+    out = r.doc;
+  }
+  return { doc: out, placed: filled.placed, total: filled.total };
 }
 
 function argString(args, key, usage) {

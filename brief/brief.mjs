@@ -92,7 +92,7 @@ const SLOT = "*(awaiting composition)*";
 const FIELDS = [
   ["Reader start", "reader_start — where the reader is before the article."],
   ["Reader target", "reader_target — where the article leaves them."],
-  ["Opening question", "opening_question."],
+  ["Opening question", "opening_question — the question the article's opening puts to the reader standing at reader_start."],
   ["Sequence", "sequence — the ordered steps of §4.1."],
   ["Strand coverage", "strand_coverage — per selected Strand: used_by_steps and role_in_thesis. The count check runs AFTER composition (§3's completeness rider)."],
   ["Unresolved obligations", "unresolved_obligations — the §5.2 ledger: authored judgments, recorded where their consumer reads them."],

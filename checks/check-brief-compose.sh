@@ -24,7 +24,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements } from "./brief/compose.mjs";
-import { assembleSelection, adoptCandidate, denyInternalVocabulary } from "./brief/assemble.mjs";
+import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, READER_FIELDS } from "./brief/assemble.mjs";
 import { REVIEW_AREAS } from "./brief/review.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -144,8 +144,16 @@ try {
   // The fixture reasoning is itself in plain register: an area name pasted
   // into its own prose would leak at the gate, which (j) refuses.
   const mkReview = () => Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for the ${a.replace(/_/g, " ")} area`]));
+  // The three reader fields are authored at PATH COMPOSITION, per Candidate
+  // (§5.1 v12, kogaki#521), so the fixture carries them per Candidate and
+  // they DIFFER between cand-1 and cand-2 — (l) asserts that difference
+  // survives to the gate, which is what makes them a real axis rather than a
+  // constant repeated twice.
   const mkCand = (id, exp, steps) => ({
     candidate_id: id, reader_experience: exp, steps,
+    reader_start: `${id}: the reader treats the case as one team's habit`,
+    reader_target: `${id}: the reader treats it as a property of the shape`,
+    opening_question: `${id}: why did the same fix land twice?`,
     review: mkReview(),
     reasoning: {
       step_validity: `${id}: each step's grounds were traced`,
@@ -284,7 +292,11 @@ try {
   if (plain.error) fails.push(`(j) a plain-register Candidate set was refused: ${plain.error}`);
   for (const o of (plain.payload?.options || []).filter((x) => !x.negates_premise)) {
     const rend = o.rendering;
-    if (!Array.isArray(rend) || rend.length !== 6 + REVIEW_AREAS.length) {
+    // Derived from EVIDENCE_LABELS rather than a literal: the count moved
+    // from 6 to 9 when v12 added the three reader fields, and a literal here
+    // would have to be found and edited every time the evidence set grows,
+    // which is the edit a reader is most likely to make wrongly.
+    if (!Array.isArray(rend) || rend.length !== EVIDENCE_LABELS.length + REVIEW_AREAS.length) {
       fails.push(`(j) option ${o.id} carries no rendering of the expected size — one plain label per evidence item and per review area`);
       continue;
     }
@@ -293,16 +305,93 @@ try {
       if (typeof item.text !== "string" || item.text === "") fails.push(`(j) option ${o.id} has a rendering entry with no text`);
       if (INTERNAL.test(item.label || "")) fails.push(`(j) option ${o.id}'s rendering label reads an internal key: ${item.label}`);
     }
-    // the labels are the SIX evidence items in order, each one distinct
+    // one label per evidence item and per review area, each one distinct
     if (new Set(rend.map((r) => r.label)).size !== rend.length) fails.push(`(j) option ${o.id}'s rendering reuses a label — one label per key (kogaki#520)`);
-    if (rend[2].label !== "Does the path close the claim?") fails.push(`(j) the Thesis-closure item does not render under its plain label`);
+    // Located BY LABEL rather than by index: this assertion read rend[2]
+    // until v12 prepended three reader items and silently moved it to five.
+    // A positional probe over a growing list tests whichever item happens to
+    // sit there, which is not the assertion anyone wrote.
+    const tcLabel = EVIDENCE_LABELS.find(([k]) => k === "thesis_closure")[1];
+    const tc = rend.find((r) => r.label === tcLabel);
+    if (!tc) fails.push(`(j) the Thesis-closure item does not render under its plain label`);
     // the rendering is the RECORD's own prose, not a second source
-    if (rend[2].text !== o.evidence.thesis_closure) fails.push(`(j) option ${o.id}'s rendering restates the evidence instead of carrying it`);
+    else if (tc.text !== o.evidence.thesis_closure) fails.push(`(j) option ${o.id}'s rendering restates the evidence instead of carrying it`);
     // the internal keys survive IN THE RECORD
-    for (const k of ["step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count", "journey_coverage"]) {
+    for (const k of ["reader_start", "reader_target", "opening_question", "step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count", "journey_coverage"]) {
       if (typeof o.evidence?.[k] !== "string") fails.push(`(j) the record lost internal key ${k} — the keys stay in the payload, only the rendering changes`);
     }
   }
+  // ---- (l) THE THREE READER FIELDS (§5.1 v12, kogaki#521, story 1.77):
+  // authored at PATH COMPOSITION per Candidate, riding the EXISTING gate,
+  // landing at adoption, and REFUSING by name when unauthored. ----
+  {
+    // AC1 — the axis is real: cand-1 and cand-2 carry DIFFERENT values, and
+    // the difference survives to the gate. A per-Brief fill would make these
+    // identical, which is the direct evidence that the fill pass was the
+    // wrong site.
+    const rp = assembleSelection({ candidates: [candA, candB] }, doc0);
+    if (rp.error) fails.push(`(l) a Candidate set carrying the reader fields was refused: ${rp.error}`);
+    const opts = (rp.payload?.options || []).filter((x) => !x.negates_premise);
+    for (const [key] of READER_FIELDS) {
+      const seen = opts.map((o) => o.evidence?.[key]);
+      if (seen.some((v) => typeof v !== "string" || v === "")) {
+        fails.push(`(l) an option carries no ${key} — path composition writes it per Candidate`);
+      } else if (new Set(seen).size !== seen.length) {
+        fails.push(`(l) two Candidates read IDENTICALLY on ${key} — the reader axis is not per-Candidate`);
+      }
+    }
+    // AC2 — they ride the EXISTING gate: same payload id, no second payload.
+    if (rp.payload?.id !== "brief-candidate-selection-payload") {
+      fails.push("(l) the reader fields did not ride the existing Candidate-selection payload — §5.1.1 owes no new gate");
+    }
+    // AC3 — each renders under a plain label carrying the record's own prose.
+    // (j)'s loop already refuses an internal key in any label; this asserts
+    // the three are PRESENT and carry the record rather than a restatement.
+    for (const o of opts) {
+      for (const [key] of READER_FIELDS) {
+        const label = EVIDENCE_LABELS.find(([k]) => k === key)[1];
+        const item = (o.rendering || []).find((r) => r.label === label);
+        if (!item) fails.push(`(l) option ${o.id} does not render ${key} under its plain label`);
+        else if (item.text !== o.evidence[key]) fails.push(`(l) option ${o.id}'s ${key} rendering restates the record instead of carrying it`);
+      }
+    }
+    // AC4 — adoption lands all three, from the ADOPTED Candidate.
+    const adr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2");
+    if (adr.error) fails.push(`(l) adopting a complete Candidate was refused: ${adr.error}`);
+    else {
+      for (const [key, heading] of READER_FIELDS) {
+        const body = (adr.doc.split(`## ${heading}`)[1] || "").split("\n## ")[0];
+        if (!body.includes(candB[key])) fails.push(`(l) ${heading} did not fill from the adopted Candidate`);
+        if (body.includes(candA[key])) fails.push(`(l) ${heading} carries the DECLINED Candidate's value`);
+        if (body.includes("(awaiting composition)")) fails.push(`(l) ${heading} is still a typed unfilled slot after adoption`);
+      }
+    }
+    // AC5 — an unauthored field REFUSES at adoption, NAMING it, writing
+    // nothing; and the refusal is distinguishable from the unoffered-Candidate
+    // refusal, so a caller is never sent to re-answer the wrong gate.
+    for (const [key, heading] of READER_FIELDS) {
+      const maimed = { ...candB }; delete maimed[key];
+      const bad = adoptCandidate(doc0, { candidates: [candA, maimed] }, "cand-2");
+      if (!bad.error) fails.push(`(l) adoption ACCEPTED a Candidate with no ${key} — the composing act did not run and nothing refused`);
+      else {
+        if (!bad.error.includes(heading)) fails.push(`(l) the refusal for a missing ${key} does not NAME the field`);
+        if (bad.doc) fails.push(`(l) the refusal for a missing ${key} still produced a document`);
+        if (/is not in the reviewed set/.test(bad.error)) fails.push(`(l) the unauthored-field refusal is worded as the unoffered-Candidate refusal — two different problems, one message`);
+      }
+      // an EMPTY STRING is the same absence as a missing key
+      const empty = adoptCandidate(doc0, { candidates: [candA, { ...candB, [key]: "" }] }, "cand-2");
+      if (!empty.error) fails.push(`(l) adoption ACCEPTED an empty ${key} — an empty value is an unauthored one`);
+    }
+    // AC5b — the refusal names ALL unauthored fields, not merely the first:
+    // a caller told about one field at a time re-runs composition per field.
+    const none = { ...candB };
+    for (const [key] of READER_FIELDS) delete none[key];
+    const allBad = adoptCandidate(doc0, { candidates: [candA, none] }, "cand-2");
+    for (const [, heading] of READER_FIELDS) {
+      if (!allBad.error?.includes(heading)) fails.push(`(l) a Candidate missing all three does not name ${heading} in its refusal`);
+    }
+  }
+
   // no owner-facing string in the whole payload carries an internal key or a
   // section reference — the ask's own fields included
   const ownerFacing = [plain.payload?.where, plain.payload?.why, plain.payload?.label,
@@ -340,7 +429,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief compose: 10/10 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "Move optional both ways; (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -389,7 +478,17 @@ console.log("brief compose: 10/10 cases — (a) §4.1 Step shape refused per mis
   + "failed (j)'s label assertions; neutering the deny to return clean failed (j)'s two "
   + "tripwire cases; and rendering each item under its KEY instead of its plain label was "
   + "refused BY THE TRIPWIRE ITSELF, failing (e) — the direct evidence that the generator fix "
-  + "and the tripwire are two guards and not one. NOT COVERED, stated rather than implied: every composition "
+  + "and the tripwire are two guards and not one. "
+  + "Story 1.77's six, each against \u00a75.1 v12's reader fields: composing the three ONCE "
+  + "for the whole set \u2014 the DECLINED fill-pass site \u2014 failed (l)'s identical-reading "
+  + "assertion on every field, which is the direct evidence that the fill pass would have "
+  + "made the reader axis unselectable; dropping the three from the gate payload failed "
+  + "(l)'s carries-no-field assertion; skipping the adoption fill failed (l)'s "
+  + "did-not-fill AND still-a-slot assertions; neutering the refusal to return clean "
+  + "failed (l)'s ACCEPTED assertion; refusing without naming the field failed (l)'s "
+  + "by-name assertion, which is what keeps a caller from being sent to re-answer a gate "
+  + "that is not the problem; and treating an empty string as authored failed (l)'s "
+  + "empty-value assertion. NOT COVERED, stated rather than implied: every composition "
   + "MUST is judgment-class (§4.6) — grounds-test soundness, entailment quality, "
   + "Move-binding order, and whether the surfaced evidence is ADEQUATE evidence — judged at "
   + "path review (story 1.74) and the human gate, never here; this member exercises record "
