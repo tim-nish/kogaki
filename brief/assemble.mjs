@@ -104,6 +104,42 @@ export const REVIEW_LABELS = {
 const INTERNAL_IDENTIFIER = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
 const SECTION_REFERENCE = /§\s*\d/;
 
+// THE LEAK PREDICATE, exported so a second owner surface reuses it rather
+// than re-deriving the same two regexes (kogaki#526). The gate payload was the
+// first surface to need it; the MINTED BRIEF is the second, and it is a tracked
+// document the owner reads directly. One predicate, two callers.
+export function findInternalVocabulary(text) {
+  if (typeof text !== "string") return null;
+  const id = text.match(INTERNAL_IDENTIFIER);
+  if (id) return { kind: "an internal identifier", token: id[0] };
+  const sec = text.match(SECTION_REFERENCE);
+  if (sec) return { kind: "a section reference", token: sec[0] };
+  return null;
+}
+
+// THE MINTED BRIEF'S SLOT CAPTIONS (kogaki#526), sited HERE beside the gate's
+// label tables so every owner-facing label in this lane has ONE home. They are
+// keyed by the document heading `composeBrief` already writes.
+//
+// WHY NOT EVIDENCE_LABELS VERBATIM. kogaki#526 asks for "the same label table
+// the gate rendering established rather than a second one", and the tables share
+// only four of eight keys — and where they overlap the REGISTER differs: the gate
+// asks the owner a question about a Candidate ("Does the path close the claim?")
+// while the document captions a slot awaiting composition. Reusing the question
+// text as a caption would put a question where a description belongs. What is
+// genuinely shared, and what the issue is protecting, is the VOCABULARY and the
+// GUARD: no internal key, no section reference, one predicate refusing both.
+export const SLOT_CAPTIONS = new Map([
+  ["Reader start", "Where the reader stands before the article."],
+  ["Reader target", "Where the article leaves them."],
+  ["Opening question", "The question the opening puts to the reader standing there."],
+  ["Sequence", "The ordered steps the article walks."],
+  ["Strand coverage", "Per settled Strand: which steps use it, and the part it plays in the claim. The count is taken after composition, never declared ahead of it."],
+  ["Unresolved obligations", "What each step still owes the reader, entered with the step that settles it."],
+  ["Thesis closure", "How the path closes the claim, and which steps establish it."],
+  ["Tradeoffs", "What adopting this path gave up."],
+]);
+
 // Pure; exported for the check. Returns { error } naming what leaked and
 // where, or {} when the rendering is clean.
 export function denyInternalVocabulary(payload) {
@@ -121,20 +157,13 @@ export function denyInternalVocabulary(payload) {
     }
   }
   for (const [where, text] of surfaces) {
-    if (typeof text !== "string") continue;
-    const id = text.match(INTERNAL_IDENTIFIER);
-    if (id) {
-      return { error: `gate rendering leaks spec-internal vocabulary: ${JSON.stringify(id[0])} `
-        + `in ${where}. The owner reads this rendering and holds none of this codebase's `
-        + `names — internal keys stay in the payload's record and have no rendering path `
-        + `(kogaki#520). This REFUSES rather than rewrites: a rewrite layer would let the `
-        + `leak keep being written` };
-    }
-    const sec = text.match(SECTION_REFERENCE);
-    if (sec) {
-      return { error: `gate rendering leaks spec-internal vocabulary: the section reference `
-        + `${JSON.stringify(sec[0])} in ${where}. A pointer into a spec the owner does not `
-        + `hold is a term of art (kogaki#520). This REFUSES rather than rewrites` };
+    const leak = findInternalVocabulary(text);
+    if (leak) {
+      return { error: `gate rendering leaks spec-internal vocabulary: ${leak.kind} `
+        + `${JSON.stringify(leak.token)} in ${where}. The owner reads this rendering and `
+        + `holds none of this codebase's names — internal keys stay in the payload's record `
+        + `and have no rendering path (kogaki#520). This REFUSES rather than rewrites: a `
+        + `rewrite layer would let the leak keep being written` };
     }
   }
   return {};
