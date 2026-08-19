@@ -1,6 +1,24 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v11, amended 2026-08-18 (kogaki#518) — **§5.3's SEPARATE SLUG
+**Status:** v12, amended 2026-08-19 (kogaki#521) — **§5.1's three READER
+fields get their authoring block.** `reader_start`, `reader_target` and
+`opening_question` were bound by §5.1 and written by no runtime; they are
+authored at **path composition**, per Candidate, and land at **Candidate
+selection**. An adopted Candidate carrying no value for one of them REFUSES at
+adoption, naming the field, as unsupported completion. No precedent in this
+spec prescribes that refusal and none is claimed: §6.1's nearby rule points the
+opposite way and DISCLOSES, because an omitted Journey is a fact about the
+served material, whereas nothing external withholds these three — an empty one
+records that the composing act did not run. The runtime carrier is story 1.77
+under kogaki#521, named rather than left to a report. This is §4.3's own
+named-judge rule applied to this spec: an obligation stating no block is
+defective, not merely unhomed. No field is added and no new gate or check is
+registered. **deferred slots minted by this amendment:
+`section-5-1-bare-name-fields`** — §5.1 leaves `tradeoffs` a bare name; it has
+a writer, so it is not this issue's defect, and defining a bound field is a
+decision act owed on its own licensing issue.
+
+v11, amended 2026-08-18 (kogaki#518) — **§5.3's SEPARATE SLUG
 APPROVAL is SUPERSEDED by owner ruling: one gate carries the (Thesis, slug)
 PAIR.** No separate slug question exists. The thesis-determination gate
 presents each option as a Thesis together with its derived slug; adopting an
@@ -746,9 +764,13 @@ the obligation has a carrier rather than a mention in a closing report.
 
 v2 binds the Brief's whole structure section, not the step shape alone:
 
-- **`reader_start`** — where the reader is before the article.
-- **`reader_target`** — where the article leaves them.
-- **`opening_question`**
+- **`reader_start`** — where the reader is before the article. *Authored at
+  **path composition**, per Candidate; lands at **Candidate selection** (v12).*
+- **`reader_target`** — where the article leaves them. *Authored at **path
+  composition**, per Candidate; lands at **Candidate selection** (v12).*
+- **`opening_question`** — the question the article's opening puts to the
+  reader standing at `reader_start`. *Authored at **path composition**, per
+  Candidate; lands at **Candidate selection** (v12).*
 - **`thesis`** — read from Terrain (§3), never invented here.
 - **`sequence`** — the ordered steps of §4.1.
 - **`strand_coverage`** — per selected Strand: `used_by_steps` and
@@ -760,6 +782,130 @@ v2 binds the Brief's whole structure section, not the step shape alone:
 §3 (Thesis and Strands read from Terrain) and §6 (Candidates on the existing
 gates, reasoning surfaced and never verdicts) are consistent with this shape
 and stand unchanged under v2.
+
+#### 5.1.1 The three reader fields get their authoring block (v12, kogaki#521)
+
+**The defect, as found.** §5.1 binds nine fields. `brief/compose.mjs fill`
+writes three of them (`sequence`, `strand_coverage`, the §5.2 ledger);
+`brief/assemble.mjs adopt-candidate` writes two (`thesis_closure`,
+`tradeoffs`); `thesis` is filled at mint by construction (§5.3 v9). The
+remaining three — `reader_start`, `reader_target`, `opening_question` — were
+written by **no runtime at all**. Measured 2026-08-19: grepping all four
+`brief/*.mjs` for the three field names returns **three hits, every one of
+them in `brief/brief.mjs:93-95` and every one a DECLARATION rather than a
+write** — the `FIELDS` slot table that renders each name as
+`*(awaiting composition)*`. No assignment, no `replaceSlot` call and no fill
+path names any of the three. The reading is therefore **zero writers beside
+three declarations**, which is the precise shape of the defect: the fields are
+announced by the document and authored by nothing. The dogfooded Brief
+`briefs/derived-artifacts-inherit-source/brief.md` completed adoption with all
+three still rendering `*(awaiting composition)*`.
+
+**This is §4.3's own rule failing inside this spec.** §4.3 states it without
+qualification — *"a MUST with no named judge is a rule with no occasion, and
+the occasion is the scarce resource. Where this spec states an obligation
+without naming its block, the obligation is defective, not merely unhomed."*
+§5.1 stated three obligations and named no block for any of them. The
+amendment is that rule applied to its own author, not a new rule.
+
+**The block is PATH COMPOSITION, per Candidate.** The three fields describe a
+reader's movement — where they stand, where they end, what they are asked —
+and a Candidate's Reader Path *is* that movement in ordered Steps (§4.3). So
+the values are composed where the movement is composed, carried per Candidate
+through Candidate assembly, and land in the Brief at adoption beside
+`thesis_closure` and `tradeoffs`.
+
+Three consequences, stated so they are not rediscovered:
+
+- **No new gate and no new check are owed**, which is what kogaki#521 declared
+  out of scope. The three ride the Candidate-selection gate §6 already carries,
+  exactly as `journey_coverage` rides it as per-Candidate evidence (§6.1).
+- **Two Candidates may differ on the reader axis**, and that difference is real
+  composition information rather than noise: a Candidate that starts the reader
+  somewhere else is a different article, and the gate is where that is chosen.
+- **The fill pass is NOT the site**, and declining it was a decision. Filling
+  from the composed steps in `compose.mjs fill` is simpler — one writer, one
+  act — but it lands the values *before* Candidates exist, so every Candidate
+  would carry identical reader fields and the selection gate could not
+  differentiate on them. The mint was declined on a different ground: a Thesis
+  states a claim, not a reader's starting state, so a mint deriving these three
+  from the adopted Thesis would be inventing material its source does not
+  carry — §3's read-not-invented rule.
+
+**An absent value REFUSES at adoption as unsupported completion.** Where the
+adopted Candidate carries no value for one of the three, `adopt-candidate`
+refuses and **names which field is missing**. It does not fill a default, and
+it does not render a typed absence and proceed.
+
+**This refusal stands on its own ground, and NO precedent in this spec
+prescribes it.** An earlier draft of this clause cited §4.4 as a carries-none
+precedent; §4.4 governs a Step's grounding and the `entailed` flag and
+prescribes no refusal of this kind, so the citation is **withdrawn rather than
+reworded**. The one nearby precedent — §6.1 MUST 1 — points the **opposite**
+way, and that contrast is the whole argument: §6.1 **discloses** an omitted
+Journey because its absence is a *fact about the served material*, which a
+composition sitting cannot conjure. These three fields are the reverse case.
+Nothing external withholds them, so an empty `reader_start` records that the
+composing act did not run. Disclosing it would leave legal precisely the state
+kogaki#521 was filed about — a Brief complete through adoption with all three
+still slots — merely relabelled.
+
+The refusal is what gives THIS clause a mechanical carrier instead of a
+disciplinary one:
+
+> "an item whose discharging act is unnamed produces no surfaced next action,
+> and that silence is caused by the gap rather than evidence of completeness,
+> so the item is re-proposed and re-excluded forever while its unexecuted
+> content propagates into whatever derives from it"
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:53`
+
+**The runtime binding has a carrier, named here rather than left to a closing
+report.** This clause binds a refusal in `adopt-candidate` that no runtime
+performs today; the act that lands it is **story 1.77 under kogaki#521**. The
+spec's own v10 precedent (kogaki#501) refuses exactly the shape where an
+obligation's carrier is a mention in a report rather than a named act, and
+that refusal binds this amendment too. Until 1.77 lands, `brief/brief.mjs:95`
+renders `opening_question` without the defining clause §5.1 now carries, and
+reconciling the two is inside 1.77's scope.
+
+**What this amendment does not do.** It adds no field, registers no new gate,
+and opens neither §4.8's arc clauses nor §6's carrier rulings. **§5.2's
+"disclosure, never a refusal" stance is untouched, and this clause is not an
+exception to it**: §5.2 governs the *obligations ledger*, whose entries are
+judgments about material a sitting may legitimately leave open, while this
+clause governs three structure fields whose absence records an act that did
+not run. The paragraph above claims a mechanical carrier for THIS clause and
+makes no claim about the ledger, which stays a disclosure.
+
+**Boundary consult, recorded because the first pass missed it.** This clause
+writes three disposition readings into a spec — what §6.1 prescribes, what
+§5.2's stance is, and (in the withdrawn draft) what §4.4 prescribed — which is
+consultation-map **entry 3, record disposition**. The prescribed survey was run
+on the second pass: `gloss_index("lessons/knowledge-architecture")`
+headline-first over all 60 units, and kogaki#521 read whole (body, 0 comments).
+The governing line names the defect the withdrawn citation was:
+
+> "Duplication is not the sin; **unowned** duplication is, because owning a
+> fact means your version wins on disagreement and you may change it, so a
+> safe copy has to be deliberately stripped of both powers. Write down which
+> side wins when the two disagree."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:215`
+(`conformance-copy-needs-declared-precedence`)
+
+Applied here: this clause **owns** its refusal rule and copies no section's
+disposition. Where it describes §6.1 it describes it as a **contrast it does
+not govern**, and §6.1 wins on any disagreement about §6.1.
+
+**Deferred slot: `section-5-1-bare-name-fields`.** §5.1 gives `opening_question`
+and `tradeoffs` bare names where every other field carries a defining clause.
+This amendment supplies one for `opening_question`, because naming its
+authoring block without saying what it holds would home an obligation whose
+content is still unstated. **`tradeoffs` is left bare and is named here rather
+than quietly fixed** — it has a writer (`adopt-candidate`), so it is not this
+issue's defect, and defining a bound field is a decision act owed on its own
+licensing issue.
 
 ### 5.2 The obligations ledger
 
