@@ -804,13 +804,23 @@ its owner grant and one of §4 clause 3's two rounds are already spent.
 | you have | notes |
 |---|---|
 | `Read`, `Grep`, `Glob` | `Grep` is the bounded search over repository files |
-| `Write` **and `Edit`** | `Edit` was ungranted until 2026-08-09 and its absence killed PR #313's round 1; it is granted now |
+| `Write` **and `Edit`** | `Edit` was ungranted until 2026-08-09 and its absence killed PR #313's round 1; it is granted now. **Stage every file with `Write` — never a shell redirect** (kogaki#552); see below the table |
 | **shell `grep`** | **SOMETIMES.** Simple patterns run; a regex carrying an alternation or a quantifier may be refused. Never rely on it — see below |
 | `gh pr view/diff/checks/list`, `gh issue view`, `gh {pr,issue} comment`, `gh run` | the `:*` forms |
 | `git log`, `git diff`, `git show` | reads only |
 | `bash checks/<file>` | per registered check |
 | `bash tools/<file>` | per repository tool — **including `tools/gloss-survey.sh`, the opening move's instrument** (kogaki#541). Both halves of the grant are DERIVED over the tree the round runs in, so a tool added by the diff under review is granted to the round reviewing it |
 | the `mcp__tsurezure__*` seam tools | the consultation surface |
+
+**Stage every file with `Write`, never with a shell redirect (kogaki#552).**
+When you need to compose text — a long comment body, a register append, any
+scratch file — you hold `Write` and you do not hold `Bash(cat > …)`. The
+redirect is not in the grant above, and **its denial degrades the ENTIRE
+report rather than failing one command**: the round is marked degraded, the
+gate correctly stays red, and the single-use owner grant is spent for nothing.
+The cost is not a retry — it is the round. On PR #547 a sound four-finding
+review was lost to exactly this, and its findings had to be harvested from the
+route log by hand.
 
 **Shell `grep` is UNRELIABLE, and that is measured rather than assumed — do
 not plan a turn around it.** Two runs wrote two confident claims here and both
