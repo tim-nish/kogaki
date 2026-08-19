@@ -1550,8 +1550,11 @@ readings."
 sequence from one composed path, bypassing assembly and the selection gate. The
 arc above always routes through §6, so `fill` is not on it. Whether it is a
 legitimate second route or a pre-§6 remnant is a decision act owed on its own
-licensing issue with alternatives and a receipt; this sitting names the slot and
-does not fill it, and changes nothing about `fill`.
+licensing issue with alternatives and a receipt — **filed as kogaki#551**,
+which carries both arms and their costs. This sitting names the slot, schedules
+its discharge, and changes nothing about `fill`. The issue number is here
+because a slot whose only carrier is a paragraph somebody must re-read is not
+scheduled at all: a tracking artifact names its discharging act.
 
 **The closed-set invariant binds from the mint.** The Strand set the entry
 point writes is the set composition may use; growing it is an owner act that
