@@ -82,7 +82,15 @@ function runDir(args) {
   return dir;
 }
 
-function gatewayQuery(tool, toolArgs) {
+// `soft` callers get a NULL instead of a process exit when the seam is
+// unavailable (kogaki#528). Terrain's own calls stay HARD and must: "Terrain
+// without served renderings has nothing to survey", so degrading there would
+// compose a survey out of nothing. The Brief lane is the opposite case — its
+// set is already settled and the rendering enriches material it holds — and
+// CLAUDE.md's founding rule binds it: the substrate is an ENHANCER, NEVER A
+// DEPENDENCY. A hard exit here would make a Brief unstartable whenever the
+// gateway is down, which is the dependency that rule forbids.
+function gatewayQuery(tool, toolArgs, { soft = false } = {}) {
   const bin = join(REPO, "policy/kit/bin/gateway-query.mjs");
   // Capture stdout through a file descriptor, not a pipe. The kit now drains
   // stdout before exiting (kogaki#23), so a pipe would work — but this call
@@ -102,6 +110,7 @@ function gatewayQuery(tool, toolArgs) {
   }
   res.stdout = readFileSync(outPath, "utf8");
   rmSync(outPath, { force: true });
+  if (res.status !== 0 && soft) return null;
   if (res.status === 11) {
     // The seam is an enhancer elsewhere; here it is the material itself.
     // Degrade with the one-line idiom and stop — Terrain without served
@@ -543,17 +552,46 @@ export function parseGlossShard(resp) {
 
 // Tag-scoped and bounded: one shard per viewed tag, addressed `<kind>/<tag>`
 // and never `<tag>` alone. No fan-out, no whole-corpus prefetch (SPEC.md §9).
-function fetchHeadlines(kind, tags) {
+function fetchHeadlines(kind, tags, { soft = false } = {}) {
   const out = new Map();
   for (const t of tags) {
-    const resp = gatewayQuery("gloss_index", { tag: `${kind}/${t}` });
-    if (resp.miss) continue;
+    const resp = gatewayQuery("gloss_index", { tag: `${kind}/${t}` }, { soft });
+    if (!resp || resp.miss) continue;
     for (const [slug, entry] of parseGlossShard(resp)) if (!out.has(slug)) out.set(slug, entry);
   }
   return out;
 }
 
-const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
+export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
+
+// THE BOUNDED RESOLVER THE BRIEF LANE CALLS (kogaki#528). Terrain is the one
+// component that reads served renderings through the seam (§3, §9), so the
+// Brief does not become a second substrate reader: it hands over the members
+// it has already settled and gets their served prose back.
+//
+// BOUNDED BY THE MEMBERS, NEVER BY THE CORPUS. The tag set fetched is the
+// union of the given members' OWN tags, so a settled set of 2-4 Strands costs
+// at most that many shards. This is the same rule §9 already binds `cmdView`
+// to — "one shard per viewed tag … no fan-out, no whole-corpus prefetch" —
+// applied to a set that is smaller still, and it is why attaching renderings
+// to every candidate at survey-generation time was REFUSED: that would fetch
+// every tag in the corpus, which is the prefetch §9 names.
+//
+// AN ABSENCE IS DISCLOSED, NEVER SUBSTITUTED: a member whose shard carries no
+// rendering gets NO_HEADLINE, the same abnormal marker `cmdView` renders, so a
+// missing rendering reads as a fault to clear rather than as prose.
+export function resolveHeadlines(members) {
+  const list = Array.isArray(members) ? members : [];
+  const tags = [...new Set(list.flatMap((m) => m.tags || []))];
+  const heads = tags.length ? fetchHeadlines("lessons", tags, { soft: true }) : new Map();
+  const out = new Map();
+  for (const m of list) {
+    const e = heads.get(m.slug);
+    out.set(m.slug, e ? { headline: e.headline, cite: e.cite }
+                      : { headline: NO_HEADLINE, cite: null });
+  }
+  return out;
+}
 
 function cmdView(args) {
   // COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES — the same discipline

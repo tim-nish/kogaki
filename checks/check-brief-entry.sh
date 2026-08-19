@@ -19,6 +19,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { composeBrief, resolveStrandIds, composeThesisCandidates, deriveSlugCandidate } from "./brief/brief.mjs";
+import { NO_HEADLINE } from "./terrain/terrain.mjs";
 import { journeyBearingStrands, fillBrief } from "./brief/compose.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -40,6 +41,16 @@ const briefsEmpty = () => !existsSync(briefs) || readdirSync(briefs).length === 
 // composed candidate may draw content from (plus plain-register frame words).
 const setPhrases = (ids) => ids.map((id) =>
   record.candidates.find((c) => c.display_id === id).slug.replace(/-/g, " "));
+// Served renderings, INJECTED (kogaki#519/#528). The composer is pure over
+// this map, so the compose-from-the-set case runs deterministically and
+// SEAM-FREE — the whole reason the resolution lives in terrain and the
+// composer only consumes it. Prose deliberately unlike any slug, so the
+// no-slug-phrase assertion cannot pass by accident.
+const mkHeads = (ids) => new Map(ids.map((id) => {
+  const c = record.candidates.find((x) => x.display_id === id);
+  return [c.slug, { headline: `A team that ships ${id} learns the cost only after the second time.`,
+                    cite: `gloss/lessons/testing.md:${id.slice(1)}@deadbeef` }];
+}));
 
 try {
   // (a) ENTRY WRITES NOTHING UNDER briefs/ (AC1): pre-Thesis state is
@@ -64,12 +75,101 @@ try {
   // invented-from-outside defect.
   const cands = st1.thesis_candidates || [];
   if (cands.length < 2 || cands.length > 3) fails.push(`(b) ${cands.length} thesis candidate(s) — the gate composes 2-3`);
-  const inSet = setPhrases(["L1", "L2"]);
   const foreign = setPhrases(["L3", "L4", "L5"]);
   for (const c of cands) {
-    if (!inSet.some((p) => (c.thesis || "").includes(p))) fails.push(`(b) candidate ${c.id} references no settled member — not composed FROM the set`);
     for (const f of foreign) if ((c.thesis || "").includes(f)) fails.push(`(b) candidate ${c.id} references "${f}", which is outside the settled set — never widened, never invented (§3)`);
     if (!/Concedes:/.test(c.concession || "")) fails.push(`(b) candidate ${c.id} carries no round-trip concession (SPEC-style-contract §4)`);
+  }
+
+  // (b2) COMPOSED FROM THE SERVED RENDERINGS, NEVER FROM THE SLUGS
+  // (kogaki#519/#528). Driven through the EXPORTED composer with an injected
+  // map, which is what keeps this seam-free: the resolution is terrain's and
+  // the composer is pure over its result. The old form templated
+  // `slug.replace(/-/g, " ")`, so with four members three options shared
+  // everything but the lead and read as machine language.
+  {
+    const strandsB2 = resolveStrandIds(record, ["L2", "L1"]).strands;
+    const heads = mkHeads(["L2", "L1"]);
+    const c2 = composeThesisCandidates(strandsB2, heads);
+    const served = [...heads.values()].map((h) => h.headline);
+    const slugPhrases = setPhrases(["L1", "L2"]);
+    for (const c of c2) {
+      if (!served.some((h) => (c.thesis || "").includes(h))) {
+        fails.push(`(b2) candidate ${c.id} carries no served rendering — it is not composed FROM the set's material`);
+      }
+      for (const sp of slugPhrases) {
+        if ((c.thesis || "").includes(sp)) {
+          fails.push(`(b2) candidate ${c.id} still carries the slug-derived phrase "${sp}" — the generator is the defect (kogaki#519)`);
+        }
+      }
+    }
+    // The options must DIFFER on their lead, which is the whole reason the
+    // gate offers more than one.
+    if (new Set(c2.map((c) => c.thesis)).size !== c2.length) {
+      fails.push("(b2) two candidates state the SAME Thesis — the composition fork is not real");
+    }
+    // TWO MEMBERS MAY SHARE A HEADLINE, and then `rest` must still hold the
+    // other one. Filtering `names` for inequality against the lead's TEXT drops
+    // every member sharing that text, so a duplicate headline emptied the
+    // supporting list and made the options collapse. Real rather than
+    // hypothetical: a served first sentence is prose, and nothing makes two
+    // Lessons' first sentences distinct. Index-filtering is what holds here, and
+    // this case is what makes that choice falsifiable rather than defensive.
+    {
+      const dup = "Both members say the same first sentence.";
+      const dupHeads = new Map([...heads.keys()].map((k) => [k, { headline: dup, cite: "x:1@d" }]));
+      const cd = composeThesisCandidates(strandsB2, dupHeads);
+      if (cd.some((c) => !/—/.test(c.thesis || ""))) {
+        fails.push("(b2) with a shared headline a candidate lists no supporting members — `rest` was filtered by text, not by position");
+      }
+      for (const c of cd) {
+        const seg = (c.thesis || "").split("—")[1] || "";
+        if (!seg.includes(dup)) {
+          fails.push(`(b2) candidate ${c.id} dropped the member sharing the lead's headline — filtered by text, not by position`);
+        }
+      }
+    }
+
+    // A REAL WIDENING ASSERTION (PR #534 round 1). (b)'s foreign-phrase loop
+    // tests slug-derived phrases, which the fix makes unproducible, so it
+    // became vacuous — a survivor that cannot fail. The property it MEANT to
+    // hold is that no candidate carries material from a member OUTSIDE the
+    // settled set, and that is now asserted in the substrate the composer
+    // actually reads: a rendering for a foreign member is offered in the map
+    // and must not appear.
+    const widened = new Map(heads);
+    const outsider = record.candidates.find((c) => !["L1", "L2"].includes(c.display_id));
+    const OUTSIDE = "Foxtrot is a member nobody settled on and it must never appear.";
+    widened.set(outsider.slug, { headline: OUTSIDE, cite: "gloss/lessons/testing.md:1@deadbeef" });
+    for (const c of composeThesisCandidates(strandsB2, widened)) {
+      if ((c.thesis || "").includes(OUTSIDE)) {
+        fails.push(`(b2) candidate ${c.id} carries a rendering for ${outsider.display_id}, which is OUTSIDE the settled set — never widened (§3)`);
+      }
+    }
+    // AN ABSENT RENDERING IS DISCLOSED, NEVER SUBSTITUTED: with no map the
+    // composer must carry terrain's abnormal marker rather than fall back to
+    // the slug, which is the fallback kogaki#519 exists to remove.
+    const c3 = composeThesisCandidates(strandsB2, new Map());
+    if (!c3.every((c) => (c.thesis || "").includes(NO_HEADLINE))) {
+      fails.push("(b2) an unresolved rendering does not carry terrain's abnormal marker — an absence was substituted");
+    }
+    // AND THE DEGRADED OPTIONS STAY DISTINGUISHABLE. A bare marker is the same
+    // text for every member, so the options collapsed into one option shown
+    // three times — on the seam-free CI path and the gateway-down owner path
+    // alike (PR #534 round 1). The marker carries its member's display_id.
+    if (new Set(c3.map((c) => c.thesis)).size !== c3.length) {
+      fails.push("(b2) with nothing resolved the candidates are byte-identical — the gate offers one option three times");
+    }
+    for (const c of c3) {
+      if (!/L[0-9]+/.test(c.thesis || "")) {
+        fails.push(`(b2) candidate ${c.id}'s abnormal marker names no member — the owner cannot tell which Strand lacks material`);
+      }
+    }
+    for (const sp of slugPhrases) {
+      if (c3.some((c) => (c.thesis || "").includes(sp))) {
+        fails.push(`(b2) an unresolved rendering fell back to the slug phrase "${sp}" — substitution, not disclosure`);
+      }
+    }
   }
 
   // (c) THE ASK CARRIES ITS GATE DECLARATION AND THE PREMISE'S NEGATION AS
@@ -229,7 +329,14 @@ try {
   if (st3.adopted_slug_via !== "derived-from-free-form-thesis") fails.push("(j) a free-form Thesis's name is not recorded as derived from it");
   // Exported helpers agree with the command path (same dual-producer guard
   // as (f)).
-  const viaExport = composeThesisCandidates(resolveStrandIds(record, ["L2", "L1"]).strands);
+  // FED WHAT THE COMMAND ACTUALLY RESOLVED. Handing the exported composer an
+  // empty map compared two different INPUTS, so the guard passed or failed on
+  // whether the seam happened to answer during the run — non-determinism, not a
+  // guard (PR #534 round 1). `strand_renderings` is the command's own record of
+  // what it resolved, so this is one input through two producers.
+  const usedHeads = new Map(Object.entries(st1.strand_renderings || {})
+    .map(([slug, e]) => [slug, e]));
+  const viaExport = composeThesisCandidates(resolveStrandIds(record, ["L2", "L1"]).strands, usedHeads);
   if (JSON.stringify(viaExport) !== JSON.stringify(st1.thesis_candidates)) {
     fails.push("(j) the command's thesis candidates differ from the exported composer's — two producers");
   }
