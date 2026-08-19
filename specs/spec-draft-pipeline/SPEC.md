@@ -1,6 +1,21 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v10, amended 2026-08-18 (kogaki#492) — **§4.10's SITING is
+**Status:** v11, amended 2026-08-18 (kogaki#518) — **§5.3's SEPARATE SLUG
+APPROVAL is SUPERSEDED by owner ruling: one gate carries the (Thesis, slug)
+PAIR.** No separate slug question exists. The thesis-determination gate
+presents each option as a Thesis together with its derived slug; adopting an
+option adopts both halves. v9's clause "the slug is one candidate derived
+from the adopted Thesis, **presented through the question UI for approval**"
+is retained below as a supersession record rather than edited away — what is
+superseded is the SECOND ASK, never the owner's authority over the slug,
+which the paired option and its typed override carry intact. The merge is
+admissible only under the served constraint it is bound by: a gate may carry
+a second decision class **only if that class is separately rendered and
+separately declinable**, so the slug renders as its own element of the
+option body and stays declinable without abandoning the option or restating
+the Thesis. **deferred slots minted by this amendment: none.**
+
+v10, amended 2026-08-18 (kogaki#492) — **§4.10's SITING is
 SUPERSEDED by owner ruling: the journey register rides CANDIDATE
 DIFFERENTIATION, not a gate of its own.** The register choice is no longer
 decided at a dedicated Brief gate; Candidates already differ in reader
@@ -828,7 +843,58 @@ so they need a record and the record belongs where its consumer reads it.
 v1's "three resolutions, **none selected**" **no longer describes the state**
 and is struck.
 
-### 5.3 The durable home and the entry point (v7, kogaki#482; re-sequenced v9, kogaki#494)
+### 5.3 The durable home and the entry point (v7, kogaki#482; re-sequenced v9, kogaki#494; slug paired into the one gate at v11, kogaki#518)
+
+**Paired into the one gate at v11 (kogaki#518, owner ruling 2026-08-17
+recorded in kogaki#494's thread; rendering ruled 2026-08-18).** The v9 clause
+below — *"presented through the question UI for approval"* — is a SECOND ASK,
+and it is superseded. **There is no separate slug question at any point in
+this flow.** The thesis-determination gate presents each option as a
+**(Thesis, slug) pair**: `enter` derives one slug per Thesis candidate and
+carries it in the gate payload, and adopting an option adopts both halves.
+The mint consumes the adopted pair. The v9 text is kept below so the
+supersession stays countable, exactly as v9 kept v7's.
+
+*Why a pair may ride one gate at all, and the two conditions it may not shed.*
+The merge is not free — a gate may carry a second decision class **only if
+that class is separately RENDERED and separately DECLINABLE**, and a slug
+riding invisibly inside a Thesis option would be a second judgment ratified
+with only the first actually asked:
+
+> "A gate may carry a SECOND DECISION CLASS only if that class is separately
+> RENDERED and separately DECLINABLE. … approving the plan would ratify two
+> judgments … with only the first actually asked. So such a close must appear
+> as its own visible element of the plan … and be removable without
+> hand-editing the message or abandoning the group."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/archive/knowledge-architecture.md:159`
+
+So both conditions bind this section, and neither is presentation polish:
+
+- **Separately rendered.** The slug appears as its own visible element of the
+  option body — the **bare slug**, never the `briefs/<slug>` path, since the
+  option body is already dense (owner rendering ruling 2026-08-18). Placement
+  in the body rather than the label is a **try-one-first instruction, not a
+  settled placement**: if it reads badly in use, it moves to the label, and
+  that move needs no amendment here.
+- **Separately declinable.** An owner who adopts a listed Thesis but wants a
+  different slug says so **in the same one answer**, and the adopt act takes
+  the pair as two arguments — the adopted Thesis and an optional slug
+  override. Declining the slug must never cost the owner the Thesis: it
+  requires neither restating the Thesis nor abandoning the option. The
+  free-form channel remains what it was at v9 — an answer written there is
+  the owner's own Thesis, taken verbatim, and its slug derives from it.
+
+*What is NOT superseded.* The slug is still **thesis-derived and
+owner-decided**, so SPEC-terrain §12.2's no-machine-identity repair is kept
+by this route exactly as v9 kept it by its own. The owner still decides the
+slug; what is removed is the second interruption in which they decided it.
+And the two-gates reading is not merely permitted to collapse but **owed** to:
+
+> "two gates whose `owner_decision` resolves to the same vocabulary entry at
+> the same artifact are ONE gate, the second being a defect"
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:63`
 
 **Re-sequenced at v9 (kogaki#494, owner ruling 2026-08-17).** Brief creation
 runs: **entry resolves the settled Strand set** (LessonDisplayIDs against the

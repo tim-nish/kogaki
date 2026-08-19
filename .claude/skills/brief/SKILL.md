@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". Runs entry → thesis-determination gate → mint (SPEC-draft-pipeline §5.3 v9); creates briefs/<slug>/brief.md only after a Thesis is adopted; never composes Steps, never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". Runs entry → thesis-determination gate → mint (SPEC-draft-pipeline §5.3 v11) — ONE owner question before the mint, carrying each Thesis with the name it gives the Brief; creates briefs/<slug>/brief.md only after a Thesis is adopted; never composes Steps, never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -13,9 +13,17 @@ opens every minted document — the term is owner-facing vocabulary and is
 defined where the owner reads it.)
 
 Governing spec: `specs/spec-draft-pipeline/SPEC.md` §5.3 (v7, kogaki#482;
-**re-sequenced v9, kogaki#494** — entry → thesis-determination gate → mint);
-runtime: `brief/brief.mjs`. Everything below is that contract driven through
-the harness — none of it is discretion.
+**re-sequenced v9, kogaki#494** — entry → thesis-determination gate → mint;
+**slug paired into the one gate at v11, kogaki#518**); runtime:
+`brief/brief.mjs`. Everything below is that contract driven through the
+harness — none of it is discretion.
+
+**THERE IS EXACTLY ONE OWNER QUESTION BEFORE THE MINT** (§5.3 v11,
+kogaki#518, owner ruling 2026-08-17). The thesis-determination gate presents
+each option as a **Thesis together with the name it gives the Brief**, and
+adopting an option adopts both. **Never raise a slug-approval ask** — it does
+not exist: no gate is registered for it, and the runtime emits no such
+payload.
 
 **THIS SITS OUTSIDE TERRAIN.** Terrain ends at Strand exploration (owner
 correction 2026-08-09). This skill starts from a set the owner has ALREADY
@@ -53,30 +61,35 @@ kogaki#494).
    refuses an unknown id naming both sides, writes the machine-local run
    state, and emits the **thesis-determination gate's declaration**: 2–3
    Thesis candidates composed from the settled set only, each in plain
-   register with its round-trip concession stated.
+   register with its round-trip concession stated, **each paired with the
+   name it gives the Brief** (derived from that candidate's own Thesis).
 3. **Raise the thesis-determination gate** (`gates/registry.json:
-   brief-thesis-adoption`) through AskUserQuestion, offering exactly what
-   the runtime declared: the composed candidates, the premise's negation as
-   a first-class option ("the settled set is what should change — back
-   through Terrain, never a Brief fetch"), and free text (the owner's own
-   Thesis, taken verbatim). **No owner answer, no next step** — the gate
-   blocks and nothing exists under `briefs/`.
-4. **Adopt** —
-   `node brief/brief.mjs adopt --run-state <path> --thesis <candidate id | the owner's free text>`.
-   The runtime records the adopted Thesis and derives exactly **one slug
-   candidate from it** — no slug exists before adoption, and there is no
-   entry-time slug ask anywhere in this flow (it ceased to exist at v9).
-5. **Raise the slug-approval ask** (`gates/registry.json:
-   brief-slug-approval`) through AskUserQuestion: approve the derived slug,
-   decline the mint (negates_premise), or override with a free-form slug
-   (lowercase-and-hyphens). **No answer, no mint.**
-6. **Mint** —
-   `node brief/brief.mjs mint --run-state <path> --slug <approved slug>`.
-   The runtime refuses without an adopted Thesis, refuses a slug collision
-   (a creator, never an editor), and writes `briefs/<slug>/brief.md`: the
-   Strands with their cites, **`thesis` filled at mint by construction**,
-   and every downstream §5.1 composition field as a typed unfilled slot.
-7. **Hand over the artifact** and stop. Step composition, Move binding,
+   brief-thesis-adoption`) through AskUserQuestion — **the only owner
+   question in this flow** — offering exactly what the runtime declared:
+   the composed candidates, each with its name shown in the option body
+   under the runtime's own label (the **bare** name, never a `briefs/…`
+   path); the premise's negation as a first-class option ("the settled set
+   is what should change — back through Terrain, never a Brief fetch"); and
+   free text (the owner's own Thesis, taken verbatim). Say in the question
+   that the name can be changed in the same answer: an owner who wants a
+   listed Thesis under a different name says which option and what name,
+   and keeps the option. **No owner answer, no next step** — the gate blocks
+   and nothing exists under `briefs/`.
+4. **Adopt the pair** —
+   `node brief/brief.mjs adopt --run-state <path> --thesis <candidate id | the owner's free text> [--slug <the owner's name>]`.
+   Pass `--slug` only when the owner named a different one at the gate;
+   with it omitted, the adopted candidate's own paired name stands, and a
+   free-form Thesis derives its name from the owner's words. The runtime
+   raises no ask here and none follows.
+5. **Mint** — `node brief/brief.mjs mint --run-state <path>`.
+   The mint consumes the adopted **(Thesis, name) pair** from the run state.
+   **Never pass it a name** — the owner's name is already settled, and a name
+   supplied here would be a decision the owner was not asked for. The runtime refuses without an adopted
+   Thesis, refuses a collision (a creator, never an editor), and writes
+   `briefs/<slug>/brief.md`: the Strands with their cites, **`thesis` filled
+   at mint by construction**, and every downstream §5.1 composition field as
+   a typed unfilled slot.
+6. **Hand over the artifact** and stop. Step composition, Move binding,
    path review, Candidate selection — those are the composition sittings'
    work (stories 1.73–1.75), not this entry's.
 
@@ -117,9 +130,14 @@ a human ever sees.
 - **The Thesis is composed from the settled set, never invented** — the
   candidates the gate shows are read from the set's own members (§3), and
   the owner's free-form answer is the owner's, taken verbatim.
-- **The slug is thesis-derived and owner-approved** — one candidate, after
-  adoption, never a machine identity (§5.3 v9; SPEC-terrain §12.2's repair
-  kept by the v9 route).
+- **The Brief's name is thesis-derived and owner-decided** — it rides the
+  Thesis it derives from, and the owner settles both in one answer; never a
+  machine identity (§5.3 v11; SPEC-terrain §12.2's repair kept by this route
+  exactly as v9 kept it by its own). What v11 removed is the second
+  interruption, never the owner's authority over the name.
+- **No second ask exists.** A slug-approval question is not merely skipped
+  here: nothing registers it and nothing emits it, so raising one would be
+  inventing a gate rather than relaying one.
 - **`briefs/` holds Briefs and nothing else** — the durable home §5.3
   declares: a directory per Brief, tracked in the repository, the one
   product class this pipeline adds to the tree.
