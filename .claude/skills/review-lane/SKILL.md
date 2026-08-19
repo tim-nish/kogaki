@@ -729,9 +729,34 @@ unimproved, so the property is **converged or escalated**, not reviewed-once.
 
 ## How a review opens, and what it may ask the seam
 
-- **Fixed first move: an unscoped tier-1 `gloss_index` survey.** Where to look
-  is an *output* of the survey, not a heading you supply — a scoped query can
-  only return lines about something you already thought to name.
+- **Fixed first move: an unscoped tier-1 `gloss_index` survey, run through
+  `tools/gloss-survey.sh`.** Where to look is an *output* of the survey, not a
+  heading you supply — a scoped query can only return lines about something you
+  already thought to name.
+
+  **Run it through the instrument, never through the MCP tool** (kogaki#541).
+  The tool returns the same content as ~77,000 characters on ONE line, which the
+  harness refuses before any of it reaches you; the fallback it offers is
+  byte-slicing a spill file, which §"What a review reads" puts out of scope for
+  a per-PR review. `tools/gloss-survey.sh` reads the same surface through the
+  kit's file transport — the one `terrain.mjs` has always used — and emits one
+  record per line, so ordinary reading works. Measured 2026-08-19: the unscoped
+  index is 192 records, and the largest shard 373, none of them long lines.
+
+  It takes an optional `--tag <kind>/<tag>` for a tier-2 shard. Its degradation
+  is the kit's own: an unreachable seam prints `policy_source unavailable:` and
+  exits 11, so `cannot-determine:` on this dimension rests on evidence rather
+  than on silence.
+
+  **Substituting a scoped `policy_lookup` is NOT the fallback**, and rounds that
+  did so were reporting a narrower thing than the move asks for:
+
+  > "EXISTENCE-AWARENESS IS AN INDEX-SHAPED NEED, NOT A QUERY-SHAPED ONE … a
+  > boundary consult answers questions the asker knows to ask; the failure class
+  > here is policy whose EXISTENCE is unknown, so additional consulting cannot
+  > reach it by construction"
+  >
+  > `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:21`
 - **The seam is never asked for a verdict.** The review supplies the claims;
   the seam supplies the positions. Asking it to judge would make a live answer
   authoritative and unpinnable, which the seam's own contract refuses.
@@ -784,6 +809,7 @@ its owner grant and one of §4 clause 3's two rounds are already spent.
 | `gh pr view/diff/checks/list`, `gh issue view`, `gh {pr,issue} comment`, `gh run` | the `:*` forms |
 | `git log`, `git diff`, `git show` | reads only |
 | `bash checks/<file>` | per registered check |
+| `bash tools/<file>` | per repository tool — **including `tools/gloss-survey.sh`, the opening move's instrument** (kogaki#541). Both halves of the grant are DERIVED over the tree the round runs in, so a tool added by the diff under review is granted to the round reviewing it |
 | the `mcp__tsurezure__*` seam tools | the consultation surface |
 
 **Shell `grep` is UNRELIABLE, and that is measured rather than assumed — do
