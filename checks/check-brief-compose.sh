@@ -454,9 +454,14 @@ try {
       fails.push(`(k) a ${what} body was REINTERPRETED on its way into the Brief: wrote ${JSON.stringify(written)} for ${JSON.stringify(body)} — the writer takes substitution patterns (kogaki#539)`);
     }
   }
-  // The fix is the REPLACER FUNCTION, not an escape of `$` in the body: an
-  // escape is a denial list over a syntax that grew once already (`$<name>`),
-  // so the source is asserted to carry no escaping of the body at all.
+  // The fix is the REPLACER FUNCTION rather than an escape of `$` in the body,
+  // because an escape is a denial list over a syntax that grew once already
+  // (`$<name>`). WHAT THE NEXT ASSERTION ESTABLISHES, precisely: that the
+  // replacer-function form is present. It does NOT establish that no escaping
+  // happens anywhere — an implementation could use the function form AND escape
+  // the body, and this would pass. The behavioural cases above are what carry
+  // the property; this reads the shape so that a body-escaping implementation
+  // covering only today's patterns cannot satisfy them by accident.
   const src = readFileSync("brief/compose.mjs", "utf8");
   if (!/doc\.replace\(re, \(\) =>/.test(src)) {
     fails.push("(k) replaceSlot does not use a replacer function — a replacement string reinterprets the body, and escaping enumerates patterns instead of removing the possibility");
