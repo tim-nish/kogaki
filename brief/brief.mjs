@@ -307,12 +307,47 @@ export function resolveStrandIds(record, entered) {
 // CONCESSION explicitly — a concession is part of the output, never a
 // silent omission. Exported for the check's compose-from-settled-set case.
 //
+// PROSE AT THE SURFACE, SCHEMA IN THE RECORD (§5.1.3 v20, kogaki#566). What
+// this function returns is a RECORD and keeps its fields; what the owner reads
+// is prose composed from them, and it carries NO FIELD LABEL. The three frames
+// that shipped before — "The article's spine is this claim:", "The article makes
+// one claim:", "Concedes:" — handed the owner labelled fields at the one surface
+// SPEC-style-contract §4 promises plain register to, so they are gone rather
+// than reworded: the colon-framed shape was the defect, not the words inside it.
+//
+// AND `claim` IS SEPARATE FROM `thesis`, WHICH IS THE HALF THE MINT NEEDS.
+// `claim` is what the owner adopts; `thesis` is `claim` plus the sentence saying
+// how the other settled members serve it, and that second half is GATE
+// SCAFFOLDING. Keeping them apart here is what lets the mint record the claim
+// and drop the frame (§5.1.3) without the mint re-parsing prose it did not
+// compose. The supporting members are NOT restated inline: splicing served
+// sentences together with "; " produced one unreadable sentence, and the members
+// are readable on the Full Report the ids came from and in the Brief's own
+// Strands section.
+//
 // PAIRED AT v11 (kogaki#518, story 1.76): each candidate also carries the
 // slug its OWN Thesis derives — `deriveSlugCandidate` is the one derivation
 // in this file, and it is applied here so the gate's every option is a
 // (Thesis, slug) pair. Deriving it here rather than at adoption is what
 // makes the second ask unproducible: the name is already on the table when
 // the owner answers, so there is nothing left to ask afterwards.
+// ONE TERMINAL PERIOD, AND NEVER TWO (§5.1.3, kogaki#566). A served headline is
+// a sentence and already ends in a period; the old templates appended their own,
+// so every option read `…you already keep..` at the gate. Trimming first and
+// adding one back is what makes the composer's output independent of how the
+// served text happens to end — a template that assumed the absence of a period
+// would fail the same way on the day a rendering ends in a question mark.
+function sentence(text) {
+  const t = String(text).trim().replace(/[.\s]+$/, "");
+  if (t === "") return "";
+  // A question mark or an exclamation is ALREADY terminal, so it keeps its own
+  // punctuation rather than collecting a period behind it. The trim above takes
+  // periods and whitespace only, which is why this second test is needed and is
+  // not the same test twice: served prose is prose, and nothing guarantees it
+  // ends the way the common case does.
+  return /[?!]$/.test(t) ? t : `${t}.`;
+}
+
 export function composeThesisCandidates(strands, headlines = new Map()) {
   const phrase = (s) => {
     const e = headlines.get(s.slug);
@@ -333,24 +368,42 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
     // derivation to keep short tokens would change every slug on the healthy
     // path to fix a cosmetic on the broken one.
   };
-  const names = strands.map(phrase);
   const candidates = [];
   if (strands.length === 1) {
-    const p = names[0];
+    const p = sentence(phrase(strands[0]));
+    // THE TWO OPTIONS MUST ADOPT DIFFERENTLY, NOT ONLY READ DIFFERENTLY (PR #571
+    // round 1). With one member there is no lead to vary, so both options carry
+    // the same proposition — and when the mint began recording the CLAIM rather
+    // than the framed thesis, whichever option the owner chose produced a
+    // byte-identical Brief, with the choice surviving only as `adopted_via`. A
+    // gate whose arms record the same string is a gate offering one option
+    // twice, which is the defect PR #534 round 1 found in another form.
+    //
+    // SO THE SECOND OPTION'S CLAIM CARRIES ITS OWN COMMITMENT. That sentence is
+    // NOT the scaffolding §5.1.3 strips: scaffolding says how the OTHER settled
+    // members serve the claim, and there are no other members here. This says
+    // what the article does with THIS claim, which is part of what the owner
+    // adopts — the same reason a free-form Thesis is taken verbatim however it
+    // is phrased.
     candidates.push({
       id: "thesis-1",
-      thesis: `The article makes one claim: ${p}. Every section exists to state that claim, show where it came from, and defend it.`,
-      concession: `Concedes: the claim is argued on its own, without a second member to test it against.`,
+      claim: p,
+      thesis: `${p} The article states that claim, shows where it came from, and defends it.`,
+      concession: `Argued on its own, it has no second member to test it against.`,
     });
     candidates.push({
       id: "thesis-2",
-      thesis: `The article tells the story behind one claim: ${p}. The reader follows how the claim was reached before being asked to accept it.`,
-      concession: `Concedes: the claim's flat statement arrives late; a reader who wants the rule first must wait for the story to finish.`,
+      claim: `${p} The article earns that claim by retracing how it was reached, rather than stating it and defending it.`,
+      thesis: `${p} The article tells the story of how that claim was reached before asking the reader to accept it.`,
+      concession: `The flat statement of the claim arrives late, so a reader who wants the rule first waits for the story to finish.`,
     });
   } else {
     const leads = strands.slice(0, 3);
+    const supporting = strands.length - 1;
+    const others = supporting === 1 ? "the other settled member shows" : `the other ${supporting} settled members each show`;
+    const become = supporting === 1 ? "the other member reads" : "the other members read";
     for (let i = 0; i < leads.length; i++) {
-      const lead = phrase(leads[i]);
+      const lead = sentence(phrase(leads[i]));
       // BY INDEX, NEVER BY VALUE. Filtering `names` for inequality against the
       // lead's TEXT collapses whenever two members share a phrase — and they all
       // do on the degraded path, where every phrase is NO_RENDERING. `rest` then
@@ -358,15 +411,15 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
       // with an empty member list and the same derived slug: the gate offered
       // three options that were one option, exactly when the owner most needed
       // to see that something was wrong (PR #534 round 1).
-      const rest = names.filter((_, j) => j !== i);
       candidates.push({
         id: `thesis-${i + 1}`,
-        thesis: `The article's spine is this claim: ${lead}. The other settled members — ${rest.join("; ")} — each show one place where that claim does its work.`,
-        concession: `Concedes: ${rest.join(" and ")} become supporting material rather than co-equal claims.`,
+        claim: lead,
+        thesis: `${lead} That is what the article argues, and ${others} one place where it holds.`,
+        concession: `Adopting it means ${become} as support rather than as claims of equal weight.`,
       });
     }
   }
-  for (const c of candidates) c.slug = deriveSlugCandidate(c.thesis);
+  for (const c of candidates) c.slug = deriveSlugCandidate(c.claim);
   return candidates;
 }
 
@@ -515,7 +568,24 @@ function cmdAdopt(args) {
     fail("the owner ruled the settled set is what should change — route back "
       + "through Terrain. No Brief is started (§5.3: never a Brief fetch).");
   }
-  const thesis = hit ? hit.thesis : answer;
+  // THE MINT RECORDS THE CLAIM, NEVER THE FRAME (§5.1.3 v20, kogaki#566). What
+  // the owner adopted at the gate is the claim; `thesis` also carries the
+  // sentence about how the other settled members serve it, which is scaffolding
+  // for the gate and has no business in a tracked document. A free-form answer
+  // has no frame to strip — it is the owner's own words and is taken verbatim,
+  // exactly as v9 took it and v11 kept it.
+  // NO FALLBACK TO `thesis`. Every candidate carries a `claim` by construction
+  // (`composeThesisCandidates` sets one on every branch), so a `hit.claim ||
+  // hit.thesis` disjunct could only fire on a run state this file did not write
+  // — and what it would do THERE is silently record the framed sentence the
+  // strip exists to remove, reporting nothing. An absent claim refuses instead
+  // (PR #571 round 1).
+  if (hit && (typeof hit.claim !== "string" || hit.claim === "")) {
+    fail(`candidate ${hit.id} carries no claim — the mint records the adopted claim `
+      + "(§5.1.3), and a run state whose candidates predate that field cannot be "
+      + "adopted from. Re-run `enter` to recompose the gate.");
+  }
+  const thesis = hit ? hit.claim : answer;
   // The slug half. An override is the owner's, taken as given; with none, the
   // adopted candidate's OWN paired slug stands — the one the owner read on
   // the option they chose. A free-form Thesis has no paired slug to stand,
