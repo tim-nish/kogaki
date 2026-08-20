@@ -1,5 +1,16 @@
 # SPEC-gate-carrier — the gate carrier
 
+**Status:** v2, amended 2026-08-21 (kogaki#569) — **§3.1 binds what the question
+screen carries.** §3 bound the medium and never the composition, so the screen's
+contents were discretion in a spec whose own admission record calls that
+rendering contract. Four members — identifying material, instruction, question,
+options — and a fifth owes a stated reason. Machine-facing text is not among
+them, per this repository's own pin rule. One exception is in force and named
+with its mandating carrier: the gate declaration block, mandated in the question
+text by a clause and an actor-level hook that both live in `tim-nish/claude-toolkit`,
+where kogaki#569's reversal is filed as `tim-nish/claude-toolkit#402`. **deferred slots minted by this amendment:
+none.**
+
 **Status:** v1, authored 2026-08-05 (kogaki#16, umbrella kogaki#14).
 **Governs:** port manifest item 4 (`specs/SPEC.md` §5).
 
@@ -72,6 +83,94 @@ host, named or not. **Additional hosts get their own bindings**, per the same
 served line; a host with no declared binding fails rather than inheriting
 one, because inheriting would restore the unfalsifiable general form under a
 new name.
+
+### 3.1 What the question screen carries (v2, kogaki#569)
+
+§3 binds the **medium** — which affordance a gate renders through. This clause
+binds what that affordance **carries**, which the manifest already admits as
+contract rather than discretion:
+
+> "with rendering through the question UI as contract, not discretion"
+
+`specs/SPEC.md:4745-4747` — **repointed at v2.** This clause's first cut carried
+`:99-101`, which is where the file's own header block still cites the item and
+which resolves at this head to unrelated text on derived-artifact sensitivity.
+The quote is the whole ground §3.1 rests on, and a pin that looks sound while
+resolving elsewhere is the defect class `policy/consultation-map.md` records at
+kogaki#266. The header's copy is outside this clause and is not repaired here.
+
+**The owner ruling (2026-08-20).** The question screen carries the identifying
+material the owner reads, the instruction, the question, and the options.
+**Anything else on a gate screen is added only with a stated reason**, and the
+reason is stated where the element is added rather than assumed by whoever adds
+it.
+
+**The general clause is the load-bearing half, deliberately.** Naming the one
+element that prompted the ruling would cover that element and leave the next one
+uncovered by default — the enumeration shape this repository refuses elsewhere.
+So the rule is composition-shaped: the screen has four members, and a fifth owes
+an argument.
+
+**Machine-facing text is not one of the four.** This repository already classes
+pins that way and says where they go instead:
+
+> "**Pins do not go here.** `consulted:`, `request_id:` and `@<sha>` are
+> machine-facing and belong in the receipt, whose destinations are unchanged —
+> PR bodies, issue bodies, run records, spec amendments. …"
+
+`.claude/skills/consult-first/SKILL.md:97-101`
+
+**And that source licenses a second, narrower exception, which this clause
+carries rather than silently omitting.** The sentence the excerpt cuts reads:
+"One exception is not an exception: a gate declaration may carry an `outcome:`
+line, which is a token and not a pin." A bare `outcome:` token is therefore
+admissible on a gate declaration by the same source, independently of the
+mandated block below — and an exception paragraph that declared exactly one while
+its own cited range licensed two would be quoting selectively against itself.
+
+Rendering a machine-facing record into the question body is the record/rendering
+confusion the payload design exists to prevent, applied to the gate's own chrome.
+Where a consultation must be visible to the owner **before** a gate, the existing
+owner-render block — Question / Answer / Conclusion, printed before the UI — is
+the sanctioned surface and is unchanged.
+
+**ONE EXCEPTION IS IN FORCE AND IT IS NOT THIS REPOSITORY'S TO LIFT.** The gate
+declaration block — `gate: <class>` with its `receipt:` and `outcome:` lines — is
+mandated in the question text by a rule and a carrier that both live in
+`tim-nish/claude-toolkit`: `SPEC-triage-gh` §"The declaration rides in the
+question", and the actor-level `PreToolUse` hook `lint-gate-declaration.py`,
+which reads the declaration out of the question and refuses the call without it.
+Neither is reachable from here.
+
+**The carrier is NAMED and its state is not asserted**, which is the form the
+served line this clause consults requires and the form
+`policy/consultation-map.md` entry 4 already models. **`instrument: none`** —
+nothing in this repository observes that rule's version, that hook's behaviour,
+or whether either has changed, so this clause records neither. Its first cut
+pinned the clause at `v52` and added "and will until that repository acts": a
+version claim and a forward claim about a carrier nobody here watches, both of
+which rot silently the moment that repository rules. What a reader is owed
+instead is where the disposition is read, which is the paragraph below.
+
+**Stated as an exception with its carrier named, rather than as silence.** A
+clause whose one live violation goes unmentioned reads to the next reader as a
+clause nobody follows. Naming the mandating carrier is what distinguishes *this
+rule is not in force yet* from *this rule is ignored* — and it is the same
+discipline §3's medium binding already applies to a host with no declared
+binding, which fails rather than inheriting one.
+
+**The reversal is handed off, not deferred here.** kogaki#569's cross-repo half
+is `tim-nish/claude-toolkit#402`; this clause is the arm that stays,
+because what a question screen carries is unbound in this contract regardless of
+how that repository rules. A gate record names its carrier and does not assert
+that carrier's state:
+
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 LESSONS.md:97`
+
+**No gate is registered by this clause and no check is registered by it.** It
+binds composition, which `gates/registry.json` already declares per gate, and a
+check over question text would be a second reader of a surface the actor-level
+hook already reads.
 
 ## 4. Payload and answer capture, with the gate-less row
 
