@@ -1,5 +1,18 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v20, amended 2026-08-20 (kogaki#566) — **the owner surface is
+prose and the schema stays in the record.** §5.1.3 carries the owner's
+2026-08-20 ruling at the layer that broke it: the thesis-candidate templates
+emitted field-labelled frames, a double period and a semicolon-spliced run-on,
+and the frame then rode the adopted Thesis into the minted Brief. Every
+owner-facing rendering this pipeline emits is ordinary prose; a schema-style
+presentation that does reach a surface carries at most three fields; the mint
+records the adopted CLAIM and strips the gate's framing. Sited here rather than
+in `specs/spec-style-contract/SPEC.md` §4 because that spec binds the protocol
+of an owner-authored document and binds no authored clause. §4's three clauses
+reach this composer unchanged and are not restated. **deferred slots minted by
+this amendment: none.**
+
 **Status:** v19, amended 2026-08-20 (kogaki#522) — **`/brief` completes the
 Brief.** The invocation drives entry → thesis gate → mint → path composition →
 path review → Candidate assembly → Candidate selection → adoption, ending only
@@ -1229,6 +1242,84 @@ alternative that would remove the enumeration — a positive admission test at o
 typed owner-surface seam, with the lexicon grep demoted to a fast path beneath
 it — is the shape `LESSONS.md:63` prescribes and is **not built here**; it is
 named as the end state this clause is a fast path toward.
+
+### 5.1.3 The owner surface is prose; the schema stays in the record (v20, kogaki#566)
+
+§5.1.2 decides **whose** text the vocabulary guard governs. This clause decides
+**what shape** that text takes when it reaches the owner, and it is sited here
+for the same reason: the composer is the layer where the rule can be broken.
+
+**The ruling (owner, 2026-08-20).** A schema may exist internally — the record
+half stays as it is — but **every owner-facing rendering is ordinary prose**.
+The loose contract form: write the surface in plain prose; it must at minimum
+communicate the claim and its concession. Where a schema-style presentation
+does reach a surface, it carries **at most three fields** — beyond that the
+presentation defeats natural line breaks and stops being readable.
+
+**What it binds.** Every rendering this pipeline puts in front of the owner: the
+thesis-determination gate's options (§5.3), the Candidate-selection gate's
+rendering (§6), and the minted Brief's own composed text. It binds the composer
+and not the material — a served Gloss rendering quoted at its pin arrives as
+prose already, and the owner's free-form Thesis is the owner's, exactly as
+§5.1.2 scopes the guard.
+
+**And the mint records the CLAIM, not the frame.** What the owner adopts at the
+gate is a claim; the sentence that carries it to the gate also says how the
+other settled members serve it, and that half is gate scaffolding. It does not
+survive the mint. The Brief's Thesis section holds the adopted claim in plain
+prose, and the settled members stay derivable from the Brief's own Strands
+section rather than restated inline.
+
+**Why here and not in `specs/spec-style-contract/SPEC.md` §4**, where §2 row 4
+points register. That spec binds the **protocol** of an owner-authored document
+and says so:
+
+> "It binds **no authored clause**: the contract's own text is owner-authored,
+> at the owner's drafts destination, and **nothing in this repository creates
+> that file.**"
+
+`specs/spec-style-contract/SPEC.md:42-45`
+
+A rule about what **this repository's** composers may emit is not a clause of
+the owner's style contract. §4's three clauses — the operational definition, the
+round-trip test, and candidates rather than a single rendering — reach this
+composer unchanged and are not restated here; this clause adds the surface-shape
+half that §4 has no standing to carry.
+
+**The carrier is a shape refusal, never a string match.** A check asserting a
+literal frame — `/Concedes:/` was the one that shipped
+(`checks/check-brief-entry.sh`, v19 and earlier) — rewards the templating the
+ruling forbids, and the served position says so at the level of the check's own
+kind:
+
+> "the check must be equivalence rather than string match: a string check would
+> reward exactly the templating D1 forbids"
+
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/articles.md:49`
+
+So what is checked is that no candidate's rendered halves **open with a field
+label**, and that the concession is present as prose. The round-trip concession
+itself is untouched — §4 clause 2 still requires it as part of the output; what
+is retired is the label announcing it.
+
+**The producer that earned this clause, named rather than generalised.**
+`composeThesisCandidates` emitted three fixed frames — a colon-framed spine
+sentence, a semicolon-spliced member list, and a `Concedes:` field — so the
+owner read labelled fields where §4 promises plain register, and the frame then
+rode the adopted Thesis into the minted Brief. Two mechanical defects travelled
+with it: the served headline already ends in a period and the template appended
+a second, and full sentences joined with `"; "` produced one unreadable
+sentence. Both are removed at the producer.
+
+**Two costs, stated.** The rendered options no longer restate the supporting
+members' headlines inline, so an owner comparing candidates reads the leads and
+the count rather than the full list — the members are on the Full Report the ids
+were read from and in the Brief's Strands section, and this is the run-on the
+ruling names, not a narrowing of what the gate discloses. And the
+`rest`-filtered-by-position property `checks/check-brief-entry.sh` guarded is
+retired **with its mechanism** rather than re-guarded: nothing splices a
+supporting member's sentence into a candidate any more, so the defect it caught
+is unproducible. The check's replacement asserts that unproducibility directly.
 
 ### 5.2 The obligations ledger
 
