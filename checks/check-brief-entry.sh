@@ -211,10 +211,16 @@ try {
         // headline rather than against a denylist of composer vocabulary — a
         // denylist is the enumeration that goes stale one phrase later.
         {
-          const servedWords = new Set(String(c.name_source || c.claim).toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(Boolean));
+          // THE TOLERANT MEMBERSHIP THE SIBLING AT (d) ALREADY USES.
+          // `deriveSlugCandidate` strips `[^a-z0-9\s-]` and so KEEPS a hyphen inside a
+          // token: a served "review-lane" yields the slug token `review-lane`, which
+          // splitting on `-` breaks into two pieces present in no whitespace-split word
+          // set. An exact test would report composer words that were never there — red
+          // on correct output the moment any fixture headline carries a hyphen.
+          const servedWords = [...String(c.name_source).toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(Boolean)];
           for (const w of String(c.slug).split("-")) {
-            if (!servedWords.has(w)) {
+            if (!servedWords.some((t) => t === w || t.includes(w))) {
               fails.push(`(b2) candidate ${c.id}'s name carries "${w}", which is not in the served sentence it derives from — the composer's own words reached a directory name (kogaki#572)`);
             }
           }
@@ -315,10 +321,12 @@ try {
       const SHORT = "Reviews should be isolated.";
       const shortHeads = new Map([[one[0].slug, { headline: SHORT, cite: "gloss/lessons/testing.md:1@deadbeef" }]]);
       const cShort = composeThesisCandidates(one, shortHeads);
-      const servedShort = new Set(SHORT.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(Boolean));
+      // Tolerant membership, for the reason stated at (b2): a hyphen survives inside
+      // a slug token and an exact test would break on correct output.
+      const servedShort = [...SHORT.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(Boolean)];
       for (const c of cShort) {
         for (const w of String(c.slug).split("-")) {
-          if (!servedShort.has(w)) {
+          if (!servedShort.some((t) => t === w || t.includes(w))) {
             fails.push(`(b3) candidate ${c.id}'s name carries "${w}", which is not in the short served sentence it derives from — the composer's own words reached a directory name (kogaki#572)`);
           }
         }
@@ -384,7 +392,7 @@ try {
     // AC1: one slug per candidate, and deriveSlugCandidate is THE derivation.
     if (typeof c.slug !== "string" || !c.slug) { fails.push(`(d) candidate ${c.id} carries no paired slug`); continue; }
     if (!/^[a-z0-9][a-z0-9-]*$/.test(c.slug)) fails.push(`(d) candidate ${c.id}'s slug ${JSON.stringify(c.slug)} is not a name the owner could enumerate as a directory`);
-    if (c.slug !== deriveSlugCandidate(c.name_source || c.claim)) fails.push(`(d) candidate ${c.id}'s slug is not what deriveSlugCandidate makes of ITS OWN served sentence — two derivations`);
+    if (c.slug !== deriveSlugCandidate(c.name_source)) fails.push(`(d) candidate ${c.id}'s slug is not what deriveSlugCandidate makes of ITS OWN served sentence — two derivations`);
     const words = new Set(c.thesis.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/));
     for (const w of c.slug.split("-")) if (![...words].some((t) => t === w || t.includes(w))) fails.push(`(d) candidate ${c.id}'s slug word "${w}" does not derive from its own Thesis`);
     // AC2: SEPARATELY RENDERED. THE SITE MOVED AND THE PROPERTY DID NOT
@@ -855,11 +863,13 @@ console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522 + kogaki#566 + kogaki#567 + kogaki#572)"
   + ": THIRTY-TWO "
   + "mutations, COUNTED rather than incremented. The figure was re-derived by reading the "
-  + "enumeration below, and doing so found the previous one wrong INDEPENDENTLY of this head: the "
-  + "groups sum to 5 + 6 + 5 + 3 + 2 = TWENTY-ONE and the header read TWENTY, an undercount an "
-  + "increment would have carried forward. That is the drift kogaki#559 recorded at "
-  + "check-brief-compose, arriving here by the same act, so what changes is the maintenance mode "
-  + "and not only the number. "
+  + "enumeration below rather than by incrementing it, which is the maintenance mode this header "
+  + "keeps. The mode was installed at kogaki#566, where re-counting found the figure wrong "
+  + "INDEPENDENTLY of that head \u2014 the groups summed to twenty-one under a header reading twenty, "
+  + "the drift kogaki#559 had recorded at check-brief-compose arriving here by the same act. That "
+  + "reading is history, not a claim about THIS head, where the groups and the header agree: a "
+  + "justification note surviving the count it was written to explain is the same drift one level up "
+  + "(PR #579 round 1). "
   + "kogaki#572's two, both against properties that held FOR FREE until a fix broke them: rewording a "
   + "claim instead of extending it fails (b3)'s containment assertion \u2014 the mint records `claim` and the "
   + "owner reads `thesis`, so the strip is honest only while the recorded text is CONTAINED in the rendered "

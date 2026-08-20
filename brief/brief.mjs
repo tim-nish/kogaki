@@ -444,7 +444,13 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
       }));
     }
   }
-  for (const c of candidates) c.slug = deriveSlugCandidate(c.name_source || c.claim);
+  // NO FALLBACK TO THE WHOLE CLAIM (PR #579 round 1). `buildCandidate` sets
+  // `name_source` on every branch, so a `|| c.claim` disjunct could never fire —
+  // and what it would do if it did is derive the name from the whole claim, the
+  // precise behaviour kogaki#572 exists to remove, silently and reporting
+  // nothing. That is the reading `cmdAdopt` already refuses by name thirty lines
+  // down: two adjacent readings of one question, and this was the rejected one.
+  for (const c of candidates) c.slug = deriveSlugCandidate(c.name_source);
   return candidates;
 }
 
