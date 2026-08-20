@@ -1,5 +1,18 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v20, amended 2026-08-20 (kogaki#566) — **the owner surface is
+prose and the schema stays in the record.** §5.1.3 carries the owner's
+2026-08-20 ruling at the layer that broke it: the thesis-candidate templates
+emitted field-labelled frames, a double period and a semicolon-spliced run-on,
+and the frame then rode the adopted Thesis into the minted Brief. Every
+owner-facing rendering this pipeline emits is ordinary prose; a schema-style
+presentation that does reach a surface carries at most three fields; the mint
+records the adopted CLAIM and strips the gate's framing. Sited here rather than
+in `specs/spec-style-contract/SPEC.md` §4 because that spec binds the protocol
+of an owner-authored document and binds no authored clause. §4's three clauses
+reach this composer unchanged and are not restated. **deferred slots minted by
+this amendment: none.**
+
 **Status:** v19, amended 2026-08-20 (kogaki#522) — **`/brief` completes the
 Brief.** The invocation drives entry → thesis gate → mint → path composition →
 path review → Candidate assembly → Candidate selection → adoption, ending only
@@ -235,9 +248,9 @@ is countable rather than assumed:
 | thesis | **bound** as design — §3 |
 | journey incorporation | **bound** — Journeys are admissible step materials (§4), §4.8 binds arc integrity, and the **register choice rides Candidate differentiation** at §6, whose composition MUSTs carry the 2026-07-31 frozen requirements (v10, kogaki#492). **No incorporation gate is registered, and none is owed.** At v8 this row read "… §4.10 binds the incorporation gate itself"; at v1–v7 it read "**partial** — … the incorporation gate itself is owed". Both prior readings are kept here rather than edited away |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
-| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 |
+| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2. **The SURFACE-SHAPE half is §5.1.3** (v20, kogaki#566): §4 binds the protocol of an owner-authored document and has no standing to say what this repository's composers may emit, so a reader tracing this gate reads both |
 
-**Only row 4 was re-assessed at v5, and row 2 at v8 and again at v10. Rows 1 and 3 carry
+**Row 4 was re-assessed at v5 and again at v20, and row 2 at v8 and again at v10. Rows 1 and 3 carry
 their v1 judgments unchanged and were not re-checked at either head** — the
 column is named `state` rather than `v1` because two rows no longer hold a v1
 value, and that rename asserts currency for the other two that nothing here
@@ -1229,6 +1242,121 @@ alternative that would remove the enumeration — a positive admission test at o
 typed owner-surface seam, with the lexicon grep demoted to a fast path beneath
 it — is the shape `LESSONS.md:63` prescribes and is **not built here**; it is
 named as the end state this clause is a fast path toward.
+
+#### 5.1.3 The owner surface is prose; the schema stays in the record (v20, kogaki#566)
+
+§5.1.2 decides **whose** text the vocabulary guard governs. This clause decides
+**what shape** that text takes when it reaches the owner, and it is sited here
+for the same reason: the composer is the layer where the rule can be broken.
+
+**The ruling (owner, 2026-08-20).** A schema may exist internally — the record
+half stays as it is — but **every owner-facing rendering is ordinary prose**.
+The loose contract form: write the surface in plain prose; it must at minimum
+communicate the claim and its concession. Where a schema-style presentation
+does reach a surface, it carries **at most three fields** — beyond that the
+presentation defeats natural line breaks and stops being readable.
+
+**The two are not two readings of one act, and which governs is stated rather
+than left to the composer.** Prose governs **everything composed FOR the owner**:
+if a rendering exists because an owner will read it, it is written as prose and
+the three-field bound never licenses an alternative. The bound is a **ceiling on
+the other case** — a record-side presentation that surfaces incidentally, which
+this pipeline should be shrinking rather than authoring. A composer choosing
+between them has already made an error: the choice is whether the surface is
+composed for the owner, and it always is.
+
+**What it binds.** Every rendering this pipeline puts in front of the owner: the
+thesis-determination gate's options (§5.3), the Candidate-selection gate's
+rendering (§6), and the minted Brief's own composed text. **The §6 half's
+discharging carrier is kogaki#568**, named here rather than left as "a companion
+issue": an unnamed deferral is the defect the portfolio rule names —
+
+> "a sitting that leaves a design choice to the implementation either DECIDES
+> the fork there … or emits a NAMED SLOT whose filling is itself a decision act
+> … An UNNAMED deferral is the defect."
+
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/knowledge-architecture.md:94`
+
+The binding lands here at v20 and its discharge is that issue's; nothing in this
+amendment's own story touches `brief/assemble.mjs`. It binds the composer
+and not the material — a served Gloss rendering quoted at its pin arrives as
+prose already, and the owner's free-form Thesis is the owner's, exactly as
+§5.1.2 scopes the guard.
+
+**And the mint records the CLAIM, not the frame.** What the owner adopts at the
+gate is a claim; the sentence that carries it to the gate also says how the
+other settled members serve it, and that half is gate scaffolding. It does not
+survive the mint. The Brief's Thesis section holds the adopted claim in plain
+prose, and the settled members stay derivable from the Brief's own Strands
+section rather than restated inline.
+
+**Why here and not in `specs/spec-style-contract/SPEC.md` §4**, where §2 row 4
+points register. That spec binds the **protocol** of an owner-authored document
+and says so:
+
+> "It binds **no authored clause**: the contract's own text is owner-authored,
+> at the owner's drafts destination, and **nothing in this repository creates
+> that file.**"
+
+`specs/spec-style-contract/SPEC.md:42-45`
+
+A rule about what **this repository's** composers may emit is not a clause of
+the owner's style contract. §4's three clauses — the operational definition, the
+round-trip test, and candidates rather than a single rendering — reach this
+composer unchanged and are not restated here; this clause adds the surface-shape
+half that §4 has no standing to carry.
+
+**The carrier is a shape refusal, never a string match.** A check asserting a
+literal frame — `/Concedes:/` was the one that shipped
+(`checks/check-brief-entry.sh`, v19 and earlier) — rewards the templating the
+ruling forbids, and the served position says so at the level of the check's own
+kind:
+
+> "the check must be equivalence rather than string match: a string check would
+> reward exactly the templating D1 forbids"
+
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/articles.md:49`
+
+So what is checked is that no candidate's rendered halves **open with a field
+label**, and that the concession is present as prose. The round-trip concession
+itself is untouched — §4 clause 2 still requires it as part of the output; what
+is retired is the label announcing it.
+
+**The producer that earned this clause, named rather than generalised.**
+`composeThesisCandidates` emitted three fixed frames — a colon-framed spine
+sentence, a semicolon-spliced member list, and a `Concedes:` field — so the
+owner read labelled fields where §4 promises plain register, and the frame then
+rode the adopted Thesis into the minted Brief. Two mechanical defects travelled
+with it: the served headline already ends in a period and the template appended
+a second, and full sentences joined with `"; "` produced one unreadable
+sentence. Both are removed at the producer.
+
+**Two costs, stated.** The rendered options no longer restate the supporting
+members' headlines inline, so an owner comparing candidates reads the leads and
+the count rather than the full list — the members are on the Full Report the ids
+were read from and in the Brief's Strands section, and this is the run-on the
+ruling names, not a narrowing of what the gate discloses. And the
+`rest`-filtered-by-position property `checks/check-brief-entry.sh` guarded is
+retired **with its mechanism** rather than re-guarded: nothing splices a
+supporting member's sentence into a candidate any more, so the defect it caught
+is unproducible. The check's replacement asserts that unproducibility directly.
+
+**That retirement is licensed rather than asserted.** The served rule on this
+act class is that members are reviewed rather than deleted, with one exception,
+and this is the exception:
+
+> "**Admission requires a REMOVAL SIGNAL DECLARED AT BIRTH, and retention runs
+> on a catch ledger over EXERCISED runs; never-fired members are review
+> candidates, never auto-deletions.** … delete only retired-subject orphans
+> whose catch record can never matter"
+
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/claude-code-ops.md:81`
+
+The retired case's **subject** is gone, not merely quiet: with no splice there is
+no filter, so no future run can exercise the guarded path and no catch record it
+could accumulate can matter. A member whose subject a diff removes is the
+retired-subject orphan that line permits deleting; a member that simply has not
+fired is not, and nothing here widens the permission to that population.
 
 ### 5.2 The obligations ledger
 
