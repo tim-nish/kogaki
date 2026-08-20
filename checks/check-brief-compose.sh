@@ -474,11 +474,35 @@ try {
   // section reference — the ask's own fields included
   const ownerFacing = [plain.payload?.where, plain.payload?.why, plain.payload?.label,
     plain.payload?.free_text?.prompt,
-    ...(plain.payload?.options || []).flatMap((o) => [o.label, ...(o.rendering || []).flatMap((r) => [r.label, r.text])])];
+    // THE ENTRIES THEMSELVES, never their retired fields (PR #576 round 1). This
+    // read `[r.label, r.text]`, and after kogaki#568 every entry is a string —
+    // both were `undefined`, the loop below skipped them, and the SECTION-
+    // REFERENCE half of this independent belt went vacuous while the pass line
+    // still claimed it. The internal-key half survived at the per-item loop
+    // above, which is exactly what made the loss invisible. Flattening the
+    // entries covers both shapes: a string rides as itself, a pair contributes
+    // its two fields.
+    ...(plain.payload?.options || []).flatMap((o) => [o.label,
+      ...(o.rendering || []).flatMap((r) => (typeof r === "string" ? [r] : [r?.label, r?.text]))])];
   for (const t of ownerFacing) {
     if (typeof t === "string" && INTERNAL.test(t)) fails.push(`(j) an owner-facing string carries an internal key: ${JSON.stringify(t)}`);
     if (typeof t === "string" && /§\s*\d/.test(t)) fails.push(`(j) an owner-facing string carries a section reference: ${JSON.stringify(t)}`);
   }
+  // TWO CANDIDATES DIFFERING ONLY IN CASE ARE ONE CANDIDATE (PR #576 round 1).
+  // Since kogaki#568 the option LABEL is the reader experience, so this
+  // refusal is what keeps two labels distinguishable — and the retired
+  // `Adopt <id> — …` prefix used to carry that by the id whatever the prose
+  // did. An exact-string key admitted two experiences differing only in case
+  // or surrounding space, which is two labels an owner cannot tell apart.
+  {
+    const cased = { ...JSON.parse(JSON.stringify(candB)), candidate_id: "cand-3",
+      reader_experience: `  ${String(candA.reader_experience).toUpperCase()}  ` };
+    const r = assembleSelection({ candidates: [candA, cased] }, doc0);
+    if (!r.error || !/SAME reader experience/.test(r.error)) {
+      fails.push("(j) two Candidates whose reader experience differs only in case were accepted — two option labels the owner cannot tell apart (PR #576 round 1)");
+    }
+  }
+
   // THE TRIPWIRE FIRES, and names what leaked
   const leakCand = JSON.parse(JSON.stringify(candB));
   leakCand.reasoning.thesis_closure = "the final step discharges thesis_closure for the reader";
@@ -679,9 +703,9 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
   + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
   + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568): TWENTY-FIVE "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568): TWENTY-SEVEN "
   + "mutations. The figure was re-derived by reading the enumeration below \u2014 3 + 3 + 6 + 4 + 3 + 2 = 21, plus "
-  + "this head's four \u2014 which is the maintenance mode kogaki#559 installed here and this head keeps. "
+  + "this head's six \u2014 which is the maintenance mode kogaki#559 installed here and this head keeps. "
   + "kogaki#568's four, all against the selection screen's shape: restoring the shared effect prefix on every "
   + "option label fails (e)'s no-repetition assertion AND its opens-with-the-record-id assertion; dropping the "
   + "effect from the payload label too fails (e)'s states-ONCE assertion, which is the half that stops "
@@ -689,7 +713,15 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "fails (j)'s count assertion, taken against EVIDENCE_LABELS and REVIEW_AREAS rather than a literal; and "
   + "making the leak predicate skip the paragraphs \u2014 the shape the reshaping introduced \u2014 fails BOTH of "
   + "(j)'s tripwire cases, the direct evidence that a leak cannot escape by moving into a surface the predicate "
-  + "stopped walking. RE-POINTED, NOT RELAXED, stated because a re-pointed assertion and a deleted one read "
+  + "stopped walking. TWO MORE FROM PR #576 ROUND 1, which found a re-pointing this head MISSED: the "
+  + "independent belt at (j) still read the retired `r.label`/`r.text` off entries that are now strings, so "
+  + "its SECTION-REFERENCE arm went vacuous while the pass line kept claiming it \u2014 the internal-key arm survived at the per-item loop, which is what made the loss invisible. Discriminating it needed the predicate "
+  + "NEUTERED as well as a leak planted, because the runtime tripwire shadows the belt on the happy path: "
+  + "with both, the shipped read fired the assertion 0 times and the repaired read 12. And normalising the "
+  + "reader-experience key to trimmed-and-lowercased is asserted by two Candidates whose experiences differ "
+  + "only in case, which the exact-string key admitted \u2014 two option labels an owner cannot tell apart, a "
+  + "new indistinguishability the retired `Adopt <id>` prefix used to prevent by carrying the id. "
+  + "RE-POINTED, NOT RELAXED, stated because a re-pointed assertion and a deleted one read "
   + "identically to a later reader: (j)'s label/text-pair assertions and (l)'s three reader-field assertions now "
   + "read the same two properties \u2014 present under its plain question, and CARRYING the record rather than "
   + "restating it \u2014 off a paragraph instead of a pair; the label-distinctness test is re-pointed as one "

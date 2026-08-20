@@ -269,10 +269,19 @@ export function assembleSelection(reviewed, doc) {
     if (typeof c.reader_experience !== "string" || c.reader_experience === "") {
       return { error: `candidate ${c.candidate_id}: reader_experience is required — Candidates DIFFER IN READER EXPERIENCE (§6), and the difference must be stated to be selectable` };
     }
-    if (seenExp.has(c.reader_experience)) {
-      return { error: `candidates ${seenExp.get(c.reader_experience)} and ${c.candidate_id} state the SAME reader experience — Candidates differ in reader experience (§6), or they are one Candidate presented twice` };
+    // NORMALISED, because this refusal is now what keeps two OPTION LABELS
+    // distinguishable (kogaki#568 made the label the reader experience, and
+    // PR #576 round 1 found the claim overstated). An exact-string key passes
+    // two experiences differing only in case or surrounding whitespace, and
+    // the retired `Adopt <id> — …` prefix used to make every label distinct by
+    // the id whatever the prose did. The key is folded the same way the
+    // proposal contract's own floor compares labels — trimmed and lowercased —
+    // so the refusal matches the condition it is offered as proof of.
+    const expKey = String(c.reader_experience).trim().toLowerCase();
+    if (seenExp.has(expKey)) {
+      return { error: `candidates ${seenExp.get(expKey)} and ${c.candidate_id} state the SAME reader experience — Candidates differ in reader experience (§6), or they are one Candidate presented twice` };
     }
-    seenExp.set(c.reader_experience, c.candidate_id);
+    seenExp.set(expKey, c.candidate_id);
     if (!Array.isArray(c.steps) || c.steps.length === 0) return { error: `candidate ${c.candidate_id}: no steps — a Candidate is an ordered sequence of Steps (§4.3)` };
     // The attach guaranteed the review areas; assembly re-checks presence
     // because an unreviewed Candidate is unpresentable at this gate.
@@ -306,10 +315,10 @@ export function assembleSelection(reviewed, doc) {
     // carries that for the whole gate, once. Its MECHANICAL floor — a label
     // present, not a bare act token, not an option index, not identical to
     // another option's label, more than one word — is unaffected: a reader
-    // experience is prose, and `assembleSelection` already refuses two
-    // Candidates stating the same one, which is what keeps the
-    // not-identical-to-a-sibling condition true by construction rather than by
-    // luck.
+    // experience is prose, and `assembleSelection` refuses two Candidates
+    // stating the same one — on a TRIMMED, LOWERCASED key, so the refusal
+    // matches the condition it is offered as proof of rather than passing two
+    // labels an owner cannot tell apart.
     //
     // THE ID STAYS THE RECORD ID. It is `id` above, where the owner's answer is
     // resolved; it is not the label's opening, because a token nobody chose
