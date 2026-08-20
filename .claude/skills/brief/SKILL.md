@@ -166,6 +166,19 @@ and on what reasoning.
 
 ## Rendering contract — the owner reads plain register
 
+**The schema is internal; every owner-facing rendering is prose**
+(`specs/spec-draft-pipeline/SPEC.md` §5.1.3, owner ruling 2026-08-20,
+kogaki#566). A record may carry fields and this pipeline's records do — what
+reaches the owner is written as ordinary prose, with no field label opening it.
+Where a schema-style presentation reaches a surface at all it carries **at most
+three fields**; beyond that the presentation defeats natural line breaks and
+stops being readable. **This binds both gates, not only the one it was found
+at**: the thesis-determination gate's options and the Candidate-selection gate's
+rendering are the same surface class, and the §6 half's own carrier is
+kogaki#568. What the mint records is the adopted **claim** — the sentence
+saying how the other settled members serve it is gate scaffolding and does not
+survive into the Brief.
+
 Every ask this pipeline raises through AskUserQuestion is rendered from a
 runtime payload, and **the payload has two halves that must not be
 confused**: a machine-local *record*, which keeps the internal field names

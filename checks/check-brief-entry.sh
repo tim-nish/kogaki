@@ -47,6 +47,20 @@ const setPhrases = (ids) => ids.map((id) =>
 // SEAM-FREE — the whole reason the resolution lives in terrain and the
 // composer only consumes it. Prose deliberately unlike any slug, so the
 // no-slug-phrase assertion cannot pass by accident.
+// THE LABEL TEST GOVERNS THE COMPOSER'S TEXT, NEVER THE MATERIAL (§5.1.2's
+// layer argument, applied to §5.1.3's surface rule). A candidate's thesis OPENS
+// with the served claim, and served prose may legitimately begin "Note: …" — that
+// colon is the substrate's, not this composer's, and an owner typing a Thesis
+// cannot break a rule about what this codebase emits. So a leading label is a
+// finding only when it is NOT the claim's own opening. The concession is
+// composer text end to end and has no such exemption.
+const openingLabel = (text, exempt) => {
+  const m = /^\s*[A-Z][A-Za-z' ]{0,30}:/.exec(text || "");
+  if (!m) return null;
+  if (exempt && String(exempt).trimStart().startsWith(m[0].trimStart())) return null;
+  return m[0];
+};
+
 const mkHeads = (ids) => new Map(ids.map((id) => {
   const c = record.candidates.find((x) => x.display_id === id);
   return [c.slug, { headline: `A team that ships ${id} learns the cost only after the second time.`,
@@ -79,7 +93,24 @@ try {
   const foreign = setPhrases(["L3", "L4", "L5"]);
   for (const c of cands) {
     for (const f of foreign) if ((c.thesis || "").includes(f)) fails.push(`(b) candidate ${c.id} references "${f}", which is outside the settled set — never widened, never invented (§3)`);
-    if (!/Concedes:/.test(c.concession || "")) fails.push(`(b) candidate ${c.id} carries no round-trip concession (SPEC-style-contract §4)`);
+    // THE SHAPE, NEVER THE STRING (§5.1.3 v20, kogaki#566). This line used to
+    // read `/Concedes:/`, which asserted the very field label the ruling
+    // retires — and a string check "would reward exactly the templating D1
+    // forbids" (product-lab@541e5958 topics/articles.md:49). What is asserted
+    // now is that the concession is PRESENT as prose (SPEC-style-contract §4
+    // clause 2 still requires it as part of the output) and that neither half
+    // the owner reads OPENS WITH A FIELD LABEL.
+    if (!(c.concession || "").trim()) fails.push(`(b) candidate ${c.id} carries no round-trip concession (SPEC-style-contract §4 clause 2 — a concession is part of the output, never a silent omission)`);
+    for (const [half, text, exempt] of [["thesis", c.thesis, c.claim], ["concession", c.concession, null]]) {
+      const label = openingLabel(text, exempt);
+      if (label) fails.push(`(b) candidate ${c.id}'s ${half} opens with the field label ${JSON.stringify(label)} — every owner-facing rendering is ordinary prose (§5.1.3)`);
+    }
+    // THE DOUBLED-PERIOD ASSERTION IS NOT HERE, and that is deliberate rather
+    // than an omission: this case reads the run state `enter` wrote, whose
+    // renderings are UNRESOLVED on the check's seam-free path, so its candidates
+    // carry terrain's marker and never a served sentence. A period assertion
+    // here could not fail — it was written here first and SURVIVED its mutation
+    // for exactly that reason. It lives in (b2), which injects served text.
   }
 
   // (b2) COMPOSED FROM THE SERVED RENDERINGS, NEVER FROM THE SLUGS
@@ -109,34 +140,60 @@ try {
     if (new Set(c2.map((c) => c.thesis)).size !== c2.length) {
       fails.push("(b2) two candidates state the SAME Thesis — the composition fork is not real");
     }
-    // TWO MEMBERS MAY SHARE A HEADLINE, and then `rest` must still hold the
-    // other one. Filtering `names` for inequality against the lead's TEXT drops
-    // every member sharing that text, so a duplicate headline emptied the
-    // supporting list and made the options collapse. Real rather than
-    // hypothetical: a served first sentence is prose, and nothing makes two
-    // Lessons' first sentences distinct. Index-filtering is what holds here, and
-    // this case is what makes that choice falsifiable rather than defensive.
+    // TWO MEMBERS MAY SHARE A HEADLINE. A served first sentence is prose, and
+    // nothing makes two Lessons' first sentences distinct — so this case is
+    // real rather than hypothetical, and it is kept. WHAT IT ASSERTS CHANGED
+    // AT §5.1.3 (v20, kogaki#566), and the supersession is recorded rather
+    // than edited away, because a dropped case and an invented one read
+    // identically.
+    //
+    // IT USED TO ASSERT: that the segment after the thesis's em dash carried
+    // the shared headline, which discriminated position-filtering (`rest`
+    // filtered by index) from text-filtering (filtered by value, which emptied
+    // `rest` whenever two members shared a phrase). THAT PROPERTY IS RETIRED
+    // WITH ITS MECHANISM. The composer no longer splices the supporting
+    // members into the thesis at all — the splice was the run-on defect
+    // kogaki#566 names — so there is no `rest`, no filter, and no way for the
+    // defect to be reintroduced by a filtering choice. It is a retired-subject
+    // orphan whose catch record can never matter, which is the one case the
+    // served retention rule permits deleting
+    // (product-lab@541e5958 topics/claude-code-ops.md:81); it is NOT a
+    // never-fired member, and nothing here widens the permission to those.
+    //
+    // IT NOW ASSERTS THE UNPRODUCIBILITY DIRECTLY: no candidate carries more
+    // than ONE served headline. That is the property that makes the splice
+    // unreachable, and it fails the moment anyone re-introduces one — which a
+    // punctuation search for the doubled period could not do on its own.
     {
       const dup = "Both members say the same first sentence.";
       const dupHeads = new Map([...heads.keys()].map((k) => [k, { headline: dup, cite: "x:1@d" }]));
-      const cd = composeThesisCandidates(strandsB2, dupHeads);
-      // ONE ASSERTION, because a second one added nothing (PR #543 round 1).
-      // The history is worth keeping: this case first tested `!/—/.test(...)`,
-      // an em dash the thesis template writes LITERALLY, so it was present
-      // whatever `rest` held — a survivor that could not fail. Replacing it
-      // with an emptiness test then produced an assertion STRICTLY SUBSUMED by
-      // the one below (an empty segment cannot include `dup`), plus an
-      // unreachable `/^\s*—/` disjunct — a constant-false guard inside the fix
-      // for a vacuous assertion.
-      //
-      // What actually discriminates is that the segment after the dash CARRIES
-      // THE SHARED HEADLINE. Value-filtering empties `rest`, so the segment
-      // loses it; position-filtering keeps it. That is the whole property, and
-      // it is asserted once.
-      for (const c of cd) {
-        const seg = (c.thesis || "").split("—")[1] || "";
-        if (!seg.includes(dup)) {
-          fails.push(`(b2) candidate ${c.id} dropped the member sharing the lead's headline — \`rest\` was filtered by text, not by position`);
+      for (const c of composeThesisCandidates(strandsB2, dupHeads)) {
+        const occurrences = (c.thesis || "").split(dup).length - 1;
+        if (occurrences !== 1) {
+          fails.push(`(b2) candidate ${c.id} carries the served headline ${occurrences} time(s) — exactly one leads, and a second is the splice §5.1.3 retires`);
+        }
+      }
+      // AND THE SAME OVER DISTINCT HEADLINES, which is where a splice would
+      // actually show: with the members' texts different, a candidate that
+      // restated the others would carry two headlines and be caught here.
+      const served2 = [...heads.values()].map((h) => h.headline);
+      for (const c of composeThesisCandidates(strandsB2, heads)) {
+        const carried = served2.filter((h) => (c.thesis || "").includes(h)).length;
+        if (carried !== 1) {
+          fails.push(`(b2) candidate ${c.id} carries ${carried} served headline(s) — a candidate leads with one member and restates none (§5.1.3)`);
+        }
+        // ONE TERMINAL PERIOD. The fixture's headlines END IN A SENTENCE, which
+        // is what makes this assertion able to fail at all: the composer trims
+        // before it appends, and a composer that appends unconditionally writes
+        // `…second time..` here.
+        if (/\.\./.test(c.thesis || "") || /\.\./.test(c.concession || "")) {
+          fails.push(`(b2) candidate ${c.id} carries a doubled period — the composer appended a period to text that already ended in one (§5.1.3)`);
+        }
+        // AND NO FIELD LABEL, asserted over the SERVED path too. (b) asserts it
+        // over the degraded one; a rendering is prose on both.
+        for (const [half, text, exempt] of [["thesis", c.thesis, c.claim], ["concession", c.concession, null]]) {
+          const label = openingLabel(text, exempt);
+          if (label) fails.push(`(b2) candidate ${c.id}'s ${half} opens with the field label ${JSON.stringify(label)} — every owner-facing rendering is ordinary prose (§5.1.3)`);
         }
       }
     }
@@ -214,7 +271,7 @@ try {
     // AC1: one slug per candidate, and deriveSlugCandidate is THE derivation.
     if (typeof c.slug !== "string" || !c.slug) { fails.push(`(d) candidate ${c.id} carries no paired slug`); continue; }
     if (!/^[a-z0-9][a-z0-9-]*$/.test(c.slug)) fails.push(`(d) candidate ${c.id}'s slug ${JSON.stringify(c.slug)} is not a name the owner could enumerate as a directory`);
-    if (c.slug !== deriveSlugCandidate(c.thesis)) fails.push(`(d) candidate ${c.id}'s slug is not what deriveSlugCandidate makes of ITS OWN Thesis — two derivations`);
+    if (c.slug !== deriveSlugCandidate(c.claim)) fails.push(`(d) candidate ${c.id}'s slug is not what deriveSlugCandidate makes of ITS OWN adopted claim — two derivations`);
     const words = new Set(c.thesis.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/));
     for (const w of c.slug.split("-")) if (![...words].some((t) => t === w || t.includes(w))) fails.push(`(d) candidate ${c.id}'s slug word "${w}" does not derive from its own Thesis`);
     // AC2: SEPARATELY RENDERED — its own visible element of the option BODY.
@@ -236,7 +293,17 @@ try {
   const st2 = JSON.parse(readFileSync(s1, "utf8"));
   if ("slug_gate" in st2 || "slug_candidate" in st2) fails.push("(d) adoption emitted the RETIRED slug ask");
   if (/slug_gate|brief-slug-approval/.test(r2.stdout || "")) fails.push("(d) adopt printed a slug ask — the second question has no path to exist (§5.3 v11)");
-  if (st2.adopted_thesis !== (st1.thesis_candidates || [])[0]?.thesis) fails.push("(d) adopting thesis-1 did not record that candidate's text");
+  // THE ADOPTED TEXT IS THE CLAIM, AND THE FRAME IS STRIPPED (§5.1.3 v20,
+  // kogaki#566). Asserted in BOTH directions, because the equality alone would
+  // pass a composer that simply renamed its field: the run must carry the
+  // candidate's claim AND must not carry the gate sentence that framed it.
+  {
+    const c1 = (st1.thesis_candidates || [])[0] || {};
+    if (st2.adopted_thesis !== c1.claim) fails.push("(d) adopting thesis-1 did not record that candidate's CLAIM");
+    if (c1.thesis && c1.thesis !== c1.claim && st2.adopted_thesis === c1.thesis) {
+      fails.push("(d) the gate's framing sentence survived adoption — the mint records the claim, never the scaffolding (§5.1.3)");
+    }
+  }
   if (st2.adopted_slug !== cands[0]?.slug) fails.push(`(d) the adopted name is not the one paired with the adopted candidate: ${JSON.stringify(st2.adopted_slug)} vs ${JSON.stringify(cands[0]?.slug)}`);
   // AC3, half two: SEPARATELY DECLINABLE — the slug half is overridden in the
   // SAME one answer, costing neither a restatement of the Thesis nor the
@@ -248,7 +315,7 @@ try {
   if (rOv.status !== 0) fails.push(`(d) adopt with an override slug exited ${rOv.status}: ${(rOv.stderr || "").trim()}`);
   const stOv = JSON.parse(readFileSync(sOv, "utf8"));
   if (stOv.adopted_slug !== "owner-named-this-brief") fails.push("(d) the owner's override is not the adopted name — the slug half is not separately declinable");
-  if (stOv.adopted_thesis !== stOv0.thesis_candidates[0].thesis) fails.push("(d) overriding the slug cost the owner the listed Thesis — declining one half must not abandon the option");
+  if (stOv.adopted_thesis !== stOv0.thesis_candidates[0].claim) fails.push("(d) overriding the slug cost the owner the listed Thesis — declining one half must not abandon the option");
   if (stOv.adopted_via !== "thesis-1") fails.push("(d) the override path did not record the LISTED candidate as adopted — the option was abandoned rather than kept");
   const rBad = adopt(sOv, "thesis-2", "Not A Slug");
   if (rBad.status === 0) fails.push("(d) a malformed override was accepted as the Brief's name");
@@ -618,13 +685,15 @@ try {
 }
 
 if (fails.length) {
-  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11, stories 1.71/1.72/1.76):");
+  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11 and §5.1.3 v20, stories 1.71/1.72/1.76/1.78):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
 console.log("brief entry: 13/13 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
   + "state is machine-local, §5.3 v9); (b) 2-3 Thesis candidates composed from the settled "
-  + "set only, each with its round-trip concession; (c) the ask carries its gate declaration "
+  + "set only, each carrying its round-trip concession AS PROSE \u2014 no field label opens either "
+  + "half the owner reads, no doubled period, and no supporting member spliced into the lead "
+  + "(\u00a75.1.3 v20, kogaki#566); (c) the ask carries its gate declaration "
   + "with the premise's negation first-class, routing back through Terrain; "
   + "(d) THE ONE GATE CARRIES THE (THESIS, SLUG) PAIR AND THE SECOND ASK IS GONE, NOT SKIPPED "
   + "(kogaki#518, §5.3 v11): every candidate carries a slug DERIVED FROM ITS OWN Thesis through the "
@@ -649,9 +718,34 @@ console.log("brief entry: 13/13 cases — (a) entry writes NOTHING under briefs/
   + "dropped, it does NOT wear the `- journey cite:` marker, journeyBearingStrands is then correct "
   + "WITH NO PREDICATE OF ITS OWN, and \u00a74.4's carries-none refusal fires for it \u2014 the case "
   + "kogaki#507 was filed for. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522)"
-  + ": TWENTY "
-  + "mutations. kogaki#522's five, all against \u00a75.3 v17's completed arc and case (n): "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522 + kogaki#566)"
+  + ": TWENTY-FIVE "
+  + "mutations, COUNTED rather than incremented. The figure was re-derived by reading the "
+  + "enumeration below, and doing so found the previous one wrong INDEPENDENTLY of this head: the "
+  + "groups sum to 5 + 6 + 5 + 3 + 2 = TWENTY-ONE and the header read TWENTY, an undercount an "
+  + "increment would have carried forward. That is the drift kogaki#559 recorded at "
+  + "check-brief-compose, arriving here by the same act, so what changes is the maintenance mode "
+  + "and not only the number. "
+  + "kogaki#566's four, all against \u00a75.1.3's prose surface: restoring the `Concedes:` label on a "
+  + "concession failed (b)'s and (b2)'s no-field-label assertions; appending a period "
+  + "unconditionally \u2014 dropping the composer's trim \u2014 failed (b2)'s doubled-period assertion; "
+  + "re-introducing the supporting-member splice failed (b2)'s one-headline assertions in both "
+  + "forms; and making adopt record the framed `thesis` instead of the `claim` failed (d)'s CLAIM "
+  + "assertion AND its framing-survived assertion, which is the direct evidence that the mint's "
+  + "strip is asserted in BOTH directions rather than by an equality a renamed field would satisfy. "
+  + "A SURVIVOR IS RECORDED BESIDE THEM, because it is the finding rather than an embarrassment: "
+  + "the doubled-period assertion was FIRST WRITTEN IN (b) and survived its mutation there, since "
+  + "(b) reads the run state `enter` wrote and this check's seam-free path leaves every rendering "
+  + "UNRESOLVED \u2014 so those candidates carry terrain's marker and can never carry a served sentence "
+  + "to double a period on. It was moved to (b2), which injects served text, and fails there. "
+  + "RETIRED BY THIS HEAD, stated because a dropped case and an invented one read identically: "
+  + "(b2)'s duplicate-headline case no longer asserts that the segment after an em dash carries the "
+  + "shared headline. That property discriminated position-filtering from text-filtering in `rest`, "
+  + "and \u00a75.1.3 removes `rest` itself \u2014 no splice, no filter, no reachable defect \u2014 so it is a "
+  + "retired-subject orphan whose catch record can never matter (product-lab@541e5958 "
+  + "topics/claude-code-ops.md:81), the one population that rule permits deleting. The CASE is kept "
+  + "and re-pointed at the unproducibility instead. "
+  + "kogaki#522's five, all against \u00a75.3 v17's completed arc and case (n): "
   + "restoring the stop-at-mint ending failed (n)'s abolished-default-stop assertion; deleting the "
   + "adoption stage failed (n)'s arc row for it; re-widening the pre-mint bound to \"in this flow\" "
   + "failed (n)'s pre-mint-bound assertion; dropping the inspection-need rule failed (n)'s "
