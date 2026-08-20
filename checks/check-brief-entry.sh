@@ -539,12 +539,90 @@ try {
   fails.push(`(m) the vocabulary case threw outside its own assertions: ${e.message}`);
 }
 
+// Boundary 1 (Check/CI infrastructure) — both prescribed shards surveyed
+// before this case was written. The two headlines that ground it:
+//
+//   "A rule written in a shared document only affects the projects whose
+//   authors go and look it up. … The give-away that enforcement sits at the
+//   wrong level is repetition."
+//   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/claude-code-ops.md:29
+//
+//   "Write down each path and which passing run covers it; a path with no
+//   named run is untested no matter how healthy the overall suite looks."
+//   consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/testing.md:173
+//
+// The first is why this case exists rather than the skill's prose standing
+// alone — the 2026-08-18 dogfood run is the specimen of a rule nobody looked
+// up. The second is why the arc is a TABLE with a named mutation per row.
+//
+// (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v19, kogaki#522).
+// The rule "/brief completes the Brief" has exactly one carrier — the skill
+// file — and a rule whose only carrier is prose is advisory. The 2026-08-18
+// dogfood run is the specimen: the flow stopped at the mint, every composition
+// field an unfilled slot, and nothing but the owner noticed. Terrain's skill is
+// asserted the same way (checks/check-terrain-composition.sh).
+{
+  const SKILL = readFileSync(".claude/skills/brief/SKILL.md", "utf8");
+
+  // Each stage names the runtime act that performs it, so a stage cannot be
+  // satisfied by a passing mention in prose.
+  // PATH COMPOSITION IS FIRST IN THE TABLE BECAUSE IT IS THE STAGE THE
+  // SPECIMEN FAILED AT (PR #547 round 1). The 2026-08-18 dogfood run stopped
+  // after the mint and never composed a path; a table that omitted step 7
+  // would go green on the exact regression it exists to catch. It has no CLI
+  // act of its own — the composer authors the Step records — so it is asserted
+  // through the §4.1 fields it must produce, which prose about "composition"
+  // does not contain.
+  const ARC = [
+    ["path composition", /Compose 2.3 Reader Paths/],
+    ["the §4.1 Step record composition must author", /depends_on[\s\S]{0,80}rationale|rationale[\s\S]{0,80}depends_on/],
+    ["entry", /brief\.mjs enter /],
+    // ANCHORED, not an alternation: `a|b` binds looser than the surrounding
+    // context, so the earlier two-branch form reduced to a bare
+    // `brief-thesis-adoption` and any prose mention satisfied it (round 1).
+    ["thesis gate", /gates\/registry\.json:\s*\n?\s*brief-thesis-adoption/],
+    ["adopt", /brief\.mjs adopt /],
+    ["mint", /brief\.mjs mint /],
+    ["path review", /review\.mjs attach /],
+    ["assembly", /assemble\.mjs assemble /],
+    ["adoption", /assemble\.mjs adopt-candidate /],
+  ];
+  for (const [stage, re] of ARC) {
+    if (!re.test(SKILL)) fails.push(`(n) the skill does not drive the ${stage} stage — the arc §5.3 v19 requires ends before the Brief is filled`);
+  }
+
+  // The abolished default stop. The old text ended the flow at the mint with
+  // "Hand over the artifact and stop"; that exact shape must not return.
+  if (/\*\*Hand over the artifact\*\* and stop/.test(SKILL)) {
+    fails.push("(n) the skill still ends at the mint — the default mid-workflow stop §5.3 v19 abolished");
+  }
+  if (!/ENDS AT A FILLED BRIEF/.test(SKILL)) {
+    fails.push("(n) the skill does not state that the invocation ends at a FILLED Brief — the rule has no carrier");
+  }
+  // A stop is legitimate only NAMED, on an inspection-need. The skill must
+  // record which it is: this flow has none, and saying so is what stops the
+  // finding being re-derived every sitting.
+  if (!/inspection-need/.test(SKILL)) {
+    fails.push("(n) the skill does not name the inspection-need rule — the only legitimate mid-workflow stop is unstated, so any stop reads as licensed");
+  }
+
+  // The pre-mint bound. v11's "exactly one owner question" is TRUE of the
+  // pre-mint segment and FALSE of the arc — the completed flow raises two
+  // gates. An unqualified claim here would forbid §6's selection gate.
+  if (/\*\*the only owner\s*\n?\s*question in this flow\*\*/.test(SKILL)) {
+    fails.push("(n) the skill claims the thesis gate is the only owner question IN THIS FLOW — false once the arc runs through §6's selection gate");
+  }
+  if (!/ONE OWNER QUESTION BEFORE THE MINT/.test(SKILL)) {
+    fails.push("(n) the skill dropped v11's pre-mint bound — kogaki#518's ruling has no carrier");
+  }
+}
+
 if (fails.length) {
   console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11, stories 1.71/1.72/1.76):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief entry: 11/11 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
+console.log("brief entry: 13/13 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
   + "state is machine-local, §5.3 v9); (b) 2-3 Thesis candidates composed from the settled "
   + "set only, each with its round-trip concession; (c) the ask carries its gate declaration "
   + "with the premise's negation first-class, routing back through Terrain; "
@@ -571,8 +649,16 @@ console.log("brief entry: 11/11 cases — (a) entry writes NOTHING under briefs/
   + "dropped, it does NOT wear the `- journey cite:` marker, journeyBearingStrands is then correct "
   + "WITH NO PREDICATE OF ITS OWN, and \u00a74.4's carries-none refusal fires for it \u2014 the case "
   + "kogaki#507 was filed for. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76)"
-  + ": SIXTEEN "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522)"
+  + ": TWENTY "
+  + "mutations. kogaki#522's five, all against \u00a75.3 v17's completed arc and case (n): "
+  + "restoring the stop-at-mint ending failed (n)'s abolished-default-stop assertion; deleting the "
+  + "adoption stage failed (n)'s arc row for it; re-widening the pre-mint bound to \"in this flow\" "
+  + "failed (n)'s pre-mint-bound assertion; dropping the inspection-need rule failed (n)'s "
+  + "named-stop assertion; and DELETING STEP 7 failed (n)'s path-composition row \u2014 the fifth "
+  + "was added at PR #547 round 1, which found the first four spanned every stage EXCEPT the one "
+  + "the specimen actually failed at. "
+  + "Then the earlier "
   + "mutations, each run once and restored surgically — story 1.76's six, all against §5.3 v11's "
   + "paired gate: dropping each option's slug element failed (d)'s separately-RENDERED assertion; "
   + "putting the `briefs/<slug>` path into that element failed (d)'s bare-name assertion; leaving the "

@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". Runs entry → thesis-determination gate → mint (SPEC-draft-pipeline §5.3 v11) — ONE owner question before the mint, carrying each Thesis with the name it gives the Brief; creates briefs/<slug>/brief.md only after a Thesis is adopted; never composes Steps, never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates briefs/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -24,6 +24,11 @@ each option as a **Thesis together with the name it gives the Brief**, and
 adopting an option adopts both. **Never raise a slug-approval ask** — it does
 not exist: no gate is registered for it, and the runtime emits no such
 payload.
+
+**"Before the mint" is the whole of that bound** (§5.3 v19, kogaki#522). The
+completed flow raises **two** gates: this one, and §6's Candidate-selection
+gate at step 10. What v11 forbids is a second ask for a decision the owner has
+already made — never a second decision.
 
 **THIS SITS OUTSIDE TERRAIN.** Terrain ends at Strand exploration (owner
 correction 2026-08-09). This skill starts from a set the owner has ALREADY
@@ -65,7 +70,7 @@ kogaki#494).
    name it gives the Brief** (derived from that candidate's own Thesis).
 3. **Raise the thesis-determination gate** (`gates/registry.json:
    brief-thesis-adoption`) through AskUserQuestion — **the only owner
-   question in this flow** — offering exactly what the runtime declared:
+   question before the mint** — offering exactly what the runtime declared:
    the composed candidates, each with its name shown in the option body
    under the runtime's own label (the **bare** name, never a `briefs/…`
    path); the premise's negation as a first-class option ("the settled set
@@ -89,9 +94,56 @@ kogaki#494).
    `briefs/<slug>/brief.md`: the Strands with their cites, **`thesis` filled
    at mint by construction**, and every downstream §5.1 composition field as
    a typed unfilled slot.
-6. **Hand over the artifact** and stop. Step composition, Move binding,
-   path review, Candidate selection — those are the composition sittings'
-   work (stories 1.73–1.75), not this entry's.
+6. **Name the minted artifact** — `briefs/<slug>/brief.md` — and **keep
+   going**. The mint is the middle of this invocation, not its end.
+7. **Compose 2–3 Reader Paths** over the settled set: for each, the §4.1 Step
+   records with their materials, purposes, reader states, `depends_on`,
+   rationale and §4.4 grounds, plus a Move binding where one fits (never
+   minted — §7.5: a missing Move degrades a Brief and never blocks one).
+   The Candidates differ in **reader experience** (§6), Journey register
+   included (§6.1). Write them to the run workspace as the composed-Candidates
+   JSON.
+8. **Review each path** across the six areas `brief/review.mjs` names
+   (`grounds_test`, `entailment`, `prohibitions`, `semantic_economy`,
+   `arc_integrity`, `evaluation_levels`), then
+   `node brief/review.mjs attach --candidates <json> --review <json> --out <reviewed.json>`.
+   Review does **not** fail a Candidate — see the revise routing below.
+9. **Assemble the selection payload** —
+   `node brief/assemble.mjs assemble --reviewed <reviewed.json> --brief briefs/<slug>/brief.md --out <selection.json>`.
+   The runtime refuses a payload whose rendering leaks an internal identifier
+   or a section reference; relay that refusal and fix the wording at source.
+10. **Raise the Candidate-selection gate** through AskUserQuestion — the
+    second and last owner question — rendering the payload's `rendering`
+    entries and nothing else, per the rendering contract below. Carry the
+    premise's negation as a first-class option ("none of these — the Thesis or
+    the settled set is what should change", §6), and free text.
+11. **Adopt the owner's Candidate** —
+    `node brief/assemble.mjs adopt-candidate --brief briefs/<slug>/brief.md --reviewed <reviewed.json> --candidate <id>`.
+    Its Reader Path becomes the Brief's sequence; `thesis_closure` and
+    `tradeoffs` fill from its reasoning. **With no owner answer nothing lands**
+    — the runtime refuses.
+12. **Hand over the filled Brief** and stop. This is the end of the arc: name
+    `briefs/<slug>/brief.md` to the owner and never retype, summarize or
+    restate it.
+
+**THE INVOCATION ENDS AT A FILLED BRIEF, NEVER BEFORE** (§5.3 v19,
+kogaki#522, owner ruling 2026-08-18). A command is named for the artifact it
+completes and runs until that artifact is complete; `/brief` completes a Brief,
+it does not create a Brief template. **A human gate is not a stop** — raise it
+and continue on the answer. The only other legitimate ending is an owner answer
+that ends the run: the premise's negation at either gate, or "none of these" at
+selection.
+
+**There is NO named inspection-need in this flow, and that was checked rather
+than assumed.** A legitimate mid-workflow stop exists only where the owner must
+leave the conversation to read another console or surface before the next gate
+can be answered honestly — Terrain's co-tag inspection is the precedent. Neither
+gate here is such a point: both are answerable from what the runtime renders
+into them. If a later sitting finds one, it names the stop **there** with its
+ground; it never restores a default stop.
+
+**The specimen this replaces:** the 2026-08-18 dogfood run ended after the mint
+with every composition field an unfilled slot, and the owner typed "keep going".
 
 **When a Draft comes out strange, the first suspect is recorded** (kogaki#549).
 Every Step field is LLM-authored with no harness — `validateSteps` checks shape
