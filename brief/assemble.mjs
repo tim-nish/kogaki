@@ -33,7 +33,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fillBrief, replaceSlot, selectedStrands, placements,
-         journeyBearingStrands, journeyPlacements } from "./compose.mjs";
+         journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 
 function fail(msg) {
@@ -444,7 +444,14 @@ function cmdAdopt(args) {
   const doc = readFileSync(briefPath, "utf8");
   const r = adoptCandidate(doc, reviewed, id);
   if (r.error) fail(r.error);
+  // Per-block snapshots (kogaki#523): adoption is the ONE surviving write
+  // that lands blocks in an existing Brief — the sequence (through the same
+  // fillBrief the retired `fill` CLI called, §5.3 v17) and the closure
+  // fields land in this single write, so its before/after pair traces both.
+  // Machine-local trace; a failure warns and never blocks the write.
+  const snapSeq = snapshotBrief(briefPath, "adopt-candidate", "before", doc);
   writeFileSync(briefPath, r.doc);
+  snapshotBrief(briefPath, "adopt-candidate", "after", r.doc, snapSeq);
   console.log(`adopted ${id} — its Reader Path is the Brief's sequence; thesis_closure and tradeoffs filled from its reasoning; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
 }
 

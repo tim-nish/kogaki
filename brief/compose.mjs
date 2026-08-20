@@ -27,12 +27,53 @@
 // before it reads the move name only in the trivial sense that it validates
 // rationale presence; the order invariant itself is invisible in the
 // artifact and is carried by the §4.5 grounds test, judged at review.
-import { resolve } from "node:path";
+import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 function fail(msg) {
   process.stderr.write(`compose: ${msg}\n`);
   process.exit(1);
+}
+
+// ---- per-block Brief snapshots (kogaki#523) ----
+// Machine-local debugging trace with the run's lifetime, NEVER owner state:
+// each command that lands a block in the Brief snapshots the FULL document
+// into the run workspace (~/.kogaki/brief-runs/<slug>/snapshots/) before and
+// after its landing write, so a later sitting can inspect what a block
+// changed and trace a defect backward. FULL snapshots rather than per-block
+// diffs: a diff is derivable from two adjacent snapshots, while
+// reconstructing a document from diffs needs a base that would itself be a
+// snapshot. The helper lives HERE because this module is the shared import
+// of both surviving write sites (brief.mjs mint, assemble.mjs
+// adopt-candidate — the `fill` CLI was retired at §5.3 v17 and its composer
+// `fillBrief` writes nothing itself).
+//
+// A snapshot failure WARNS AND CONTINUES — the trace never gates the write
+// it traces. Returns the sequence number used, so a `before` call's seq can
+// be handed to its paired `after`; on failure it returns the seq it was
+// given (null when none), still harmlessly.
+export function snapshotBrief(briefPath, stage, phase, content, seq = null) {
+  try {
+    const slug = basename(dirname(resolve(briefPath)));
+    const dir = join(homedir(), ".kogaki", "brief-runs", slug, "snapshots");
+    mkdirSync(dir, { recursive: true });
+    if (seq === null) {
+      let max = 0;
+      for (const f of readdirSync(dir)) {
+        const m = /^([0-9]{3})-/.exec(f);
+        if (m) max = Math.max(max, Number(m[1]));
+      }
+      seq = max + 1;
+    }
+    writeFileSync(join(dir, `${String(seq).padStart(3, "0")}-${stage}-${phase}.md`), content);
+    return seq;
+  } catch (e) {
+    process.stderr.write(`compose: Brief snapshot ${stage}/${phase} skipped `
+      + `(${e && e.message ? e.message : e}) — the trace never blocks the write it traces (kogaki#523)\n`);
+    return seq;
+  }
 }
 
 const GROUND_TYPES = new Set(["strand", "step_effect", "reader_assumption"]);
