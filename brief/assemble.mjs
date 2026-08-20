@@ -279,8 +279,19 @@ export function assembleSelection(reviewed, doc) {
   const seenExp = new Map();
   for (const c of cands) {
     if (typeof c.candidate_id !== "string" || c.candidate_id === "") return { error: "every Candidate carries a candidate_id" };
-    if (typeof c.reader_experience !== "string" || c.reader_experience === "") {
-      return { error: `candidate ${c.candidate_id}: reader_experience is required — Candidates DIFFER IN READER EXPERIENCE (§6), and the difference must be stated to be selectable` };
+    // FOLDED BEFORE THE TEST, the same way the dedup key three lines down folds
+    // (kogaki#578). This refused only the empty string while the key beside it
+    // compared trimmed-and-lowercased — so a WHITESPACE-ONLY experience passed
+    // here, and since kogaki#568 made the option label the raw prose it then
+    // rendered as a BLANK OPTION LABEL: the owner asked to choose between a
+    // visible option and an invisible one.
+    //
+    // THE RETIRED PREFIX IS WHY TWO GUARDS CARRY THIS. `Adopt <id> — its Reader
+    // Path becomes …` made every label non-blank whatever the prose did, and
+    // removing it moved that property onto these two. PR #576 round 1 normalised
+    // one of them and left the other, which is the same defect one field over.
+    if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
+      return { error: `candidate ${c.candidate_id}: reader_experience is required and cannot be blank — Candidates DIFFER IN READER EXPERIENCE (§6), the difference must be stated to be selectable, and since the label IS this prose a whitespace-only value renders as an option the owner cannot see` };
     }
     // NORMALISED, because this refusal is now what keeps two OPTION LABELS
     // distinguishable (kogaki#568 made the label the reader experience, and
@@ -328,10 +339,13 @@ export function assembleSelection(reviewed, doc) {
     // carries that for the whole gate, once. Its MECHANICAL floor — a label
     // present, not a bare act token, not an option index, not identical to
     // another option's label, more than one word — is unaffected: a reader
-    // experience is prose, and `assembleSelection` refuses two Candidates
-    // stating the same one — on a TRIMMED, LOWERCASED key, so the refusal
-    // matches the condition it is offered as proof of rather than passing two
-    // labels an owner cannot tell apart.
+    // experience is prose, and `assembleSelection` refuses a blank one and
+    // refuses two Candidates stating the same one — both on a folded value, so
+    // each refusal matches the condition it is offered against rather than
+    // passing a label an owner cannot read or two they cannot tell apart. What
+    // this does NOT prove is §2.2's floor, which binds the RECORD's label and
+    // not each option's; the floor is unaffected either way and the proof
+    // offered here is about the owner surface (PR #576 round 2).
     //
     // THE ID STAYS THE RECORD ID. It is `id` above, where the owner's answer is
     // resolved; it is not the label's opening, because a token nobody chose

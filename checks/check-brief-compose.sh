@@ -221,6 +221,19 @@ try {
   if (!four.error || !/4 Candidate/.test(four.error)) fails.push("(e) four Candidates were presented — the selector overruns");
   const same = assembleSelection({ candidates: [candA, { ...candB, reader_experience: candA.reader_experience }] }, doc0);
   if (!same.error || !/SAME reader experience/.test(same.error)) fails.push("(e) two Candidates with one reader experience were presented as two (§6: differing in reader experience)");
+
+  // A BLANK OPTION LABEL IS UNPRODUCIBLE (kogaki#578). Since the label IS the
+  // reader-experience prose, the presence guard is what keeps every option
+  // visible — and it refused only the empty string while the dedup key beside
+  // it folded. A whitespace-only experience therefore passed and rendered as an
+  // option the owner cannot see. Sited HERE, beside its twin, because the
+  // property is case (e)'s: what assembly refuses about a reader experience.
+  {
+    const blank = assembleSelection({ candidates: [candA, { ...JSON.parse(JSON.stringify(candB)), reader_experience: "   \t  " }] }, doc0);
+    if (!blank.error || !/cannot be blank/.test(blank.error)) {
+      fails.push("(e) a whitespace-only reader experience was accepted — the option label IS that prose, so it renders blank and the owner is asked to choose between a visible option and an invisible one (kogaki#578)");
+    }
+  }
   const noReas = JSON.parse(JSON.stringify(candB)); delete noReas.reasoning.thesis_closure;
   const nr = assembleSelection({ candidates: [candA, noReas] }, doc0);
   if (!nr.error || !/thesis_closure/.test(nr.error)) fails.push("(e) a Candidate without its composition-time reasoning was presentable — the evidence is the contract (§6)");
@@ -499,6 +512,10 @@ try {
     if (typeof t === "string" && /§\s*\d/.test(t)) fails.push(`(j) an owner-facing string carries a section reference: ${JSON.stringify(t)}`);
   }
   // TWO CANDIDATES DIFFERING ONLY IN CASE ARE ONE CANDIDATE (PR #576 round 1).
+  // REPORTED UNDER (e), NOT (j) (PR #576 round 2): the property is assembly's
+  // refusal about a reader experience, whose twin sits in (e)'s block; the code
+  // is here only because candA/candB/doc0 are in scope. Scope-driven siting is
+  // fine; a failure string a reader greps by case is not.
   // Since kogaki#568 the option LABEL is the reader experience, so this
   // refusal is what keeps two labels distinguishable — and the retired
   // `Adopt <id> — …` prefix used to carry that by the id whatever the prose
@@ -509,7 +526,7 @@ try {
       reader_experience: `  ${String(candA.reader_experience).toUpperCase()}  ` };
     const r = assembleSelection({ candidates: [candA, cased] }, doc0);
     if (!r.error || !/SAME reader experience/.test(r.error)) {
-      fails.push("(j) two Candidates whose reader experience differs only in case were accepted — two option labels the owner cannot tell apart (PR #576 round 1)");
+      fails.push("(e) two Candidates whose reader experience differs only in case were accepted — two option labels the owner cannot tell apart (PR #576 round 1; sited in (j)'s block for its fixtures, reported under (e) because the property is assembly's refusal about a reader experience — its twin is above)");
     }
   }
 
@@ -686,7 +703,7 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "Move optional both ways; (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
-  + "discharged_by, an undischarged entry rendering as UNDISCHARGED, the structure section rendering "
+  + "discharged_by, an undischarged entry rendering as UNDISCHARGED, a blank option label unproducible (kogaki#578), the structure section rendering "
   + "under its RATIFIED name Reader Path while the \u00a75.1 record field stays `sequence` (kogaki#574), "
   + "and a filled Reader Path "
   + "refusing overwrite; (c) the placement count runs AFTER composition counted in placements "
@@ -715,7 +732,7 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
   + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
   + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574): TWENTY-NINE "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578): THIRTY "
   + "mutations. RE-DERIVED, not incremented: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
   + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two = 29. "
   + "THE PREVIOUS HEAD INCREMENTED AND LEFT THIS SENTENCE STANDING (PR #581 round 1): the headline moved "
@@ -724,6 +741,12 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "revision after kogaki#559 made re-counting the maintenance mode \u2014 recorded rather than quietly "
   + "corrected, because a maintenance note that has itself drifted is evidence about the mode and not "
   + "only about the number. "
+  + "kogaki#578's one, against the guard that keeps every option VISIBLE: restoring the exact "
+  + "emptiness test \u2014 the shipped defect \u2014 fails (e)'s blank-label assertion. Driven end to end as "
+  + "well as asserted, because the consequence is the whole finding: with the exact test the payload's "
+  + "second option label came out as three spaces, an option the owner is asked to choose and cannot see. "
+  + "The retired `Adopt <id>` prefix is why TWO guards carry this property, and PR #576 round 1 "
+  + "normalised one and left the other. "
   + "kogaki#574's two, both against the RENDERING/RECORD split the rename is: reverting the caption "
   + "table fails (b)'s renders-as-Reader-Path assertion, and renaming the RECORD field alongside the "
   + "heading \u2014 the non-change the issue names explicitly \u2014 fails the fill outright, which is the "
