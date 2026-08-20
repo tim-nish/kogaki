@@ -1,5 +1,21 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v21, amended 2026-08-21 (kogaki#577) — **§5.3 v11's release
+condition is recorded as FIRED.** The clause declared the option body a
+try-one-first placement and pre-authorized the move to the label without
+amendment; the condition fired at the 2026-08-20 dogfood and kogaki#567 made the
+move, leaving this clause declaring a site the runtime no longer uses — while
+`gates/registry.json` had been repaired to delegate its standing to exactly this
+text. No amendment was owed for the move and none is claimed; what was owed was
+the record. The clause names its carriers and asserts no reading of their state.
+**The v11 status row below still reads "the slug renders as its own element of
+the option body", in the present tense, and is NOT edited** — this spec retains
+superseded text as record rather than rewriting it, so that row stands and its
+PLACEMENT half is released at §5.3's separately-rendered bullet. A reader
+entering through the version record, which is how an amendment record is normally
+entered, meets this pointer rather than the retired site asserted as live.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v20, amended 2026-08-20 (kogaki#566) — **the owner surface is
 prose and the schema stays in the record.** §5.1.3 carries the owner's
 2026-08-20 ruling at the layer that broke it: the thesis-candidate templates
@@ -1469,11 +1485,42 @@ with only the first actually asked:
 So both conditions bind this section, and neither is presentation polish:
 
 - **Separately rendered.** The slug appears as its own visible element of the
-  option body — the **bare slug**, never the `briefs/<slug>` path, since the
-  option body is already dense (owner rendering ruling 2026-08-18). Placement
-  in the body rather than the label is a **try-one-first instruction, not a
-  settled placement**: if it reads badly in use, it moves to the label, and
-  that move needs no amendment here.
+  option — the **bare slug**, never the `briefs/<slug>` path, **since the option
+  is already dense** (owner rendering ruling 2026-08-18). Placement in the body
+  rather than the label was a **try-one-first instruction, not a settled
+  placement**: if it reads badly in use, it moves to the label, and that move
+  needs no amendment here.
+
+  **The bare-slug ground is RE-HOMED rather than dropped, and it survives the
+  move.** It was written as "since the option **body** is already dense" and the
+  body is no longer the site — but density was never a fact about the body: it
+  is a fact about an option carrying a Thesis, its concession and a name at
+  once, which the label now carries in one line. So the ground reads "the option"
+  and still does its work. Dropping it while the rule it grounds survived would
+  leave a reader unable to ask whether it still applies —
+
+  > "when such an input is removed, its rationale must be re-homed rather than
+  > dropped, or it returns as an argument for restoring the element"
+
+  `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 LESSONS.md:35`
+
+  **THE CONDITION FIRED, and the site is now the option LABEL (kogaki#567).**
+  The body entry read badly in use at the 2026-08-20 dogfood — it sank the name
+  below the fold of an already dense option, so the owner answered a pair having
+  seen one half. The move is the one this clause pre-authorized, so no amendment
+  was owed and none is claimed here; **what was owed was this record**, because a
+  release condition that has fired and gone unrecorded reads to the next reader
+  as a choice still open. The property is unchanged and only its site moved: the
+  name is set off and named rather than folded into the Thesis prose, and it
+  renders once.
+
+  **Where the disposition is read, and what this clause does not assert.**
+  `gates/registry.json`'s `brief-thesis-adoption` entry carries the live shape,
+  and kogaki#567 carries the move. This clause names those carriers and states
+  no reading of their current state — a record that asserted one would rot the
+  next time either moved.
+
+  `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 LESSONS.md:97`
 - **Separately declinable.** An owner who adopts a listed Thesis but wants a
   different slug says so **in the same one answer**, and the adopt act takes
   the pair as two arguments — the adopted Thesis and an optional slug
