@@ -139,7 +139,13 @@ export function composeBrief({ slug, pin, strands, thesis }) {
   // The reader-facing definition, in the act that uses the term (§5.3).
   say("> A **brief** is the working plan for one article: the served");
   say("> material (Strands) the owner settled on, and the composition");
-  say("> fields — thesis, sequence, coverage, obligations — filled in as");
+  // THE THIRD OWNER-FACING SURFACE (PR #581 round 1). This definition names the
+  // composition fields to an owner, and it carried `sequence` — so after
+  // kogaki#574 a reader met a field name in the document's own opening and then
+  // found no section by that name below it. Neither the heading the issue names
+  // nor the record field it protects: a third surface, and the one place the
+  // retired token was actively misleading once its section moved.
+  say("> fields — thesis, Reader Path, coverage, obligations — filled in as");
   say("> composition proceeds. It is the durable document a drafting");
   say("> sitting resumes from.");
   say();

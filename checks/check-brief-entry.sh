@@ -515,7 +515,25 @@ try {
   // check went red on correct output, and a reader would have "fixed" it by
   // editing the copy rather than the source. The table is the one declaration;
   // `thesis` is excluded because it is filled at mint by construction.
-  for (const [h] of [...SLOT_CAPTIONS.keys()].filter((k) => k !== "Thesis").map((k) => [k])) {
+  // MEMBERSHIP IS DERIVED; THE ROSTER IS LITERAL (PR #581 round 1). Deriving the
+  // loop from the table stops the copy drifting — but expectation and subject
+  // then read the SAME table, so an unratified rename of any of these headings
+  // passes in silence. That is the vacuous class this head is recording,
+  // re-created one line over while retiring an instance of it. So the derivation
+  // holds the loop and one literal roster holds the NAMES: a heading rename now
+  // has to be declared somewhere a reviewer meets it.
+  const ROSTER = ["Reader start", "Reader target", "Opening question", "Reader Path",
+                  "Strand coverage", "Unresolved obligations", "Thesis closure", "Tradeoffs"];
+  {
+    const live = [...SLOT_CAPTIONS.keys()];
+    if (live.join("|") !== ROSTER.join("|")) {
+      fails.push(`(f) the owner-facing heading roster changed without being declared here: table reads [${live.join(", ")}], roster reads [${ROSTER.join(", ")}] — a rename is a decision and this is where it is met`);
+    }
+  }
+  // `Thesis` is NOT filtered, because the table has never carried it — it is
+  // written by composeBrief directly. The filter that stood here read as
+  // load-bearing and was inert (PR #581 round 1).
+  for (const h of [...SLOT_CAPTIONS.keys()]) {
     const re = new RegExp(`## ${h}\\n\\n\\*\\(awaiting composition\\)\\*`);
     if (!re.test(doc)) fails.push(`(f) downstream §5.1 field ${JSON.stringify(h)} is not present as a typed unfilled slot`);
   }
@@ -831,7 +849,7 @@ try {
 }
 
 if (fails.length) {
-  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11 and §5.1.3 v20, stories 1.71/1.72/1.76/1.78 + kogaki#567/#572):");
+  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11 and §5.1.3 v20, stories 1.71/1.72/1.76/1.78 + kogaki#567/#572/#574):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
@@ -864,8 +882,8 @@ console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/
   + "dropped, it does NOT wear the `- journey cite:` marker, journeyBearingStrands is then correct "
   + "WITH NO PREDICATE OF ITS OWN, and \u00a74.4's carries-none refusal fires for it \u2014 the case "
   + "kogaki#507 was filed for. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522 + kogaki#566 + kogaki#567 + kogaki#572)"
-  + ": THIRTY-TWO "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522 + kogaki#566 + kogaki#567 + kogaki#572 + kogaki#574)"
+  + ": THIRTY-THREE "
   + "mutations, COUNTED rather than incremented. The figure was re-derived by reading the "
   + "enumeration below rather than by incrementing it, which is the maintenance mode this header "
   + "keeps. The mode was installed at kogaki#566, where re-counting found the figure wrong "
@@ -874,7 +892,12 @@ console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/
   + "reading is history, not a claim about THIS head, where the groups and the header agree: a "
   + "justification note surviving the count it was written to explain is the same drift one level up "
   + "(PR #579 round 1). "
-  + "kogaki#572's two, both against properties that held FOR FREE until a fix broke them: rewording a "
+  + "kogaki#574's one, against the ROSTER anchor this head restores: renaming a heading in the caption "
+  + "table without declaring it here fails (f)'s roster assertion. That anchor exists because deriving "
+  + "the loop from the table \u2014 the right fix for a drifting copy \u2014 made expectation and subject the "
+  + "SAME table, so seven of the eight headings could be renamed in silence: the vacuous class this "
+  + "suite is recording, re-created one line over while retiring an instance of it (PR #581 round 1). "
+  + "Membership stays derived; the NAMES are literal. "  + "kogaki#572's two, both against properties that held FOR FREE until a fix broke them: rewording a "
   + "claim instead of extending it fails (b3)'s containment assertion \u2014 the mint records `claim` and the "
   + "owner reads `thesis`, so the strip is honest only while the recorded text is CONTAINED in the rendered "
   + "text \u2014 and deriving the name from the whole claim rather than its served sentence fails (b3)'s "
