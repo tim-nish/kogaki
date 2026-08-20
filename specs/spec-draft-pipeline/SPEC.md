@@ -8,6 +8,12 @@ move, leaving this clause declaring a site the runtime no longer uses — while
 `gates/registry.json` had been repaired to delegate its standing to exactly this
 text. No amendment was owed for the move and none is claimed; what was owed was
 the record. The clause names its carriers and asserts no reading of their state.
+**The v11 status row below still reads "the slug renders as its own element of
+the option body", in the present tense, and is NOT edited** — this spec retains
+superseded text as record rather than rewriting it, so that row stands and its
+PLACEMENT half is released at §5.3's separately-rendered bullet. A reader
+entering through the version record, which is how an amendment record is normally
+entered, meets this pointer rather than the retired site asserted as live.
 **deferred slots minted by this amendment: none.**
 
 **Status:** v20, amended 2026-08-20 (kogaki#566) — **the owner surface is
