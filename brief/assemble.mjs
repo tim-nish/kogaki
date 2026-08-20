@@ -152,7 +152,17 @@ export function denyInternalVocabulary(payload) {
   ];
   for (const o of payload.options || []) {
     surfaces.push([`option ${o.id}'s label`, o.label]);
-    for (const item of o.rendering || []) {
+    // THE PREDICATE WALKS WHATEVER THE OWNER READS (kogaki#568). The rendering
+    // was a list of {label, text} pairs and is now a list of prose paragraphs;
+    // this loop follows the shape rather than assuming one, because a leak that
+    // escaped by moving into a field the predicate stopped walking is exactly
+    // the failure a tripwire exists to make impossible. Both shapes are read so
+    // the deny does not depend on the reshaping having reached every producer.
+    for (const [i, item] of (o.rendering || []).entries()) {
+      if (typeof item === "string") {
+        surfaces.push([`the evidence paragraph ${i + 1} on option ${o.id}`, item]);
+        continue;
+      }
       surfaces.push([`option ${o.id}'s evidence label "${item.label}"`, item.label]);
       surfaces.push([`the evidence under "${item.label}" on option ${o.id}`, item.text]);
     }
@@ -284,10 +294,27 @@ export function assembleSelection(reviewed, doc) {
   const journeyIds = journeyBearingStrands(doc);
   const options = cands.map((c) => { const ev = candidateEvidence(c, strandIds, journeyIds); return ({
     id: c.candidate_id,
-    // THE LABEL STATES AN EFFECT (proposal-contract §2.2): what happens if
-    // this option is taken, in the reader-experience terms the Candidates
-    // differ by.
-    label: `Adopt ${c.candidate_id} — its Reader Path becomes the Brief's sequence; the reader's experience: ${c.reader_experience}`,
+    // THE EFFECT STATES ONCE, AT QUESTION LEVEL (kogaki#568). Every option's
+    // label used to open `Adopt <id> — its Reader Path becomes the Brief's
+    // sequence; the reader's experience: …`, and the whole of that prefix is
+    // IDENTICAL on every option. Repeating a shared clause N times buries the
+    // one thing the options differ by, which is the reader experience §6 says
+    // they differ by.
+    //
+    // PROPOSAL-CONTRACT §2.2 IS SATISFIED RATHER THAN WAIVED. Its purpose is
+    // that the owner knows what answering does; the payload's own `label`
+    // carries that for the whole gate, once. Its MECHANICAL floor — a label
+    // present, not a bare act token, not an option index, not identical to
+    // another option's label, more than one word — is unaffected: a reader
+    // experience is prose, and `assembleSelection` already refuses two
+    // Candidates stating the same one, which is what keeps the
+    // not-identical-to-a-sibling condition true by construction rather than by
+    // luck.
+    //
+    // THE ID STAYS THE RECORD ID. It is `id` above, where the owner's answer is
+    // resolved; it is not the label's opening, because a token nobody chose
+    // between is not what distinguishes an option.
+    label: c.reader_experience,
     // THE EVIDENCE AT THE GATE (§6): composition-time reasoning, surfaced
     // for the owner — never an automated verdict. THIS OBJECT IS THE RECORD,
     // not the rendering: it keeps the internal keys, it stays in the
@@ -305,15 +332,23 @@ export function assembleSelection(reviewed, doc) {
       bridges: ev.bridges,
       review: c.review,
     },
-    // THE RENDERING (kogaki#520): the same evidence, in the same order,
-    // under one plain label each — and this is the ONLY surface the gate
-    // shows. Same items, same prose; the key names are simply not here.
+    // THE RENDERING (kogaki#520, reshaped at kogaki#568): the same evidence, in
+    // the same order, and this is still the ONLY surface the gate shows. What
+    // changed is the SHAPE, not the content. kogaki#520 got the words right —
+    // plain questions instead of key names — and left a label/text pair per
+    // item, which displays as a field list however plain the labels read. The
+    // §5.1.3 contract (v20, kogaki#566) governs the shape too, and names this
+    // issue as the §6 half's carrier.
+    //
+    // EACH ITEM IS ONE PARAGRAPH: its plain question followed by its own prose.
+    // Nothing is dropped and nothing is reordered — the question that used to
+    // be a label is now the paragraph's first sentence, which is where a reader
+    // meets it anyway. The count still comes from EVIDENCE_LABELS and
+    // REVIEW_AREAS rather than a literal, so an added evidence item reaches the
+    // owner without a second edit here.
     rendering: [
-      ...EVIDENCE_LABELS.map(([key, label]) => ({
-        label,
-        text: key in ev ? ev[key] : c.reasoning[key],
-      })),
-      ...REVIEW_AREAS.map((area) => ({ label: REVIEW_LABELS[area], text: c.review[area] })),
+      ...EVIDENCE_LABELS.map(([key, label]) => `${label} ${key in ev ? ev[key] : c.reasoning[key]}`),
+      ...REVIEW_AREAS.map((area) => `${REVIEW_LABELS[area]} ${c.review[area]}`),
     ],
   }); });
   options.push({
