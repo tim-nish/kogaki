@@ -50,6 +50,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "../terrain/terrain.mjs";
 import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
+import { snapshotBrief } from "./compose.mjs";
 import { join, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -595,9 +596,14 @@ function cmdMint(args) {
   }
   mkdirSync(home, { recursive: true });
   const out = join(home, "brief.md");
-  writeFileSync(out, composeBrief({
+  const doc = composeBrief({
     slug, pin: state.pin, strands: state.strands, thesis: state.adopted_thesis,
-  }));
+  });
+  writeFileSync(out, doc);
+  // Per-block snapshot (kogaki#523): the mint's before-state is NO FILE —
+  // the collision refusal above guarantees it — so the mint writes only its
+  // `after` snapshot. Machine-local trace; a failure warns and never blocks.
+  snapshotBrief(out, "mint", "after", doc);
   console.log(`Brief minted — READ THIS ONE (owner document, SPEC-draft-pipeline §5.3): ${out}`);
   console.log(`Strands: ${state.strands.map((s) => s.display_id).join(", ")} `
     + `(${state.strands.length} member(s), set closed at mint)`);
