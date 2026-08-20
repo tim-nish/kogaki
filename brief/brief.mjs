@@ -348,6 +348,25 @@ function sentence(text) {
   return /[?!]$/.test(t) ? t : `${t}.`;
 }
 
+// THE CLAIM IS A PREFIX OF WHAT THE GATE RENDERS (§5.1.3; kogaki#572). The mint
+// records `claim` and the gate shows `thesis`, and the strip is only honest while
+// the first is contained in the second — the Brief then holds LESS than the owner
+// read, never something else. That held for free while every `thesis` was its
+// claim plus a sentence, and stopped holding the moment one branch reworded the
+// claim instead of extending it. Building both halves from ONE claim is what makes
+// it a property of the composer rather than a rule each branch remembers.
+//
+// AND THE NAME DERIVES FROM THE SERVED SENTENCE, NOT THE WHOLE CLAIM. A claim may
+// run to two sentences, and `deriveSlugCandidate` walks until five tokens or forty
+// characters — so a short served headline let the derivation run on into the
+// composer's own words and name the Brief's directory after them. `nameFrom` is the
+// served half, which is the only text the owner recognises as theirs.
+function buildCandidate({ id, claim, extra, concession, nameFrom }) {
+  const c = sentence(claim);
+  return { id, claim: c, thesis: extra ? `${c} ${extra}` : c, concession,
+           name_source: sentence(nameFrom || String(c).split(/(?<=[.?!])\s+/)[0] || c) };
+}
+
 export function composeThesisCandidates(strands, headlines = new Map()) {
   const phrase = (s) => {
     const e = headlines.get(s.slug);
@@ -385,18 +404,24 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
     // what the article does with THIS claim, which is part of what the owner
     // adopts — the same reason a free-form Thesis is taken verbatim however it
     // is phrased.
-    candidates.push({
-      id: "thesis-1",
-      claim: p,
-      thesis: `${p} The article states that claim, shows where it came from, and defends it.`,
-      concession: `Argued on its own, it has no second member to test it against.`,
-    });
-    candidates.push({
-      id: "thesis-2",
-      claim: `${p} The article earns that claim by retracing how it was reached, rather than stating it and defending it.`,
-      thesis: `${p} The article tells the story of how that claim was reached before asking the reader to accept it.`,
-      concession: `The flat statement of the claim arrives late, so a reader who wants the rule first waits for the story to finish.`,
-    });
+    //
+    // AND THE OWNER READS EVERY WORD OF IT (kogaki#572). The first cut gave
+    // thesis-2 a claim the gate never showed: `claim` ended "…earns that claim
+    // by retracing how it was reached" while its `thesis` read "…tells the story
+    // of how that claim was reached", so the Brief recorded a commitment that
+    // appeared on no surface the owner answered. THE CONTAINMENT IS THE POINT of
+    // the strip: what is recorded is LESS than what was read, never other than
+    // it. Both options are built claim-first now — `thesis` extends `claim` and
+    // never rewords it — which is a property `buildCandidate` holds rather than
+    // a convention each branch remembers.
+    const one = (id, claim, extra, concession) => buildCandidate({ id, claim, extra, concession });
+    candidates.push(one("thesis-1", p,
+      `The article states that claim, shows where it came from, and defends it.`,
+      `Argued on its own, it has no second member to test it against.`));
+    candidates.push(one("thesis-2",
+      `${p} The article reaches that claim by retracing how it was arrived at, rather than stating it and defending it.`,
+      `The reader follows the route before being asked to accept the destination.`,
+      `The flat statement of the claim arrives late, so a reader who wants the rule first waits for the story to finish.`));
   } else {
     const leads = strands.slice(0, 3);
     const supporting = strands.length - 1;
@@ -411,15 +436,21 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
       // with an empty member list and the same derived slug: the gate offered
       // three options that were one option, exactly when the owner most needed
       // to see that something was wrong (PR #534 round 1).
-      candidates.push({
+      candidates.push(buildCandidate({
         id: `thesis-${i + 1}`,
         claim: lead,
-        thesis: `${lead} That is what the article argues, and ${others} one place where it holds.`,
+        extra: `That is what the article argues, and ${others} one place where it holds.`,
         concession: `Adopting it means ${become} as support rather than as claims of equal weight.`,
-      });
+      }));
     }
   }
-  for (const c of candidates) c.slug = deriveSlugCandidate(c.claim);
+  // NO FALLBACK TO THE WHOLE CLAIM (PR #579 round 1). `buildCandidate` sets
+  // `name_source` on every branch, so a `|| c.claim` disjunct could never fire —
+  // and what it would do if it did is derive the name from the whole claim, the
+  // precise behaviour kogaki#572 exists to remove, silently and reporting
+  // nothing. That is the reading `cmdAdopt` already refuses by name thirty lines
+  // down: two adjacent readings of one question, and this was the rejected one.
+  for (const c of candidates) c.slug = deriveSlugCandidate(c.name_source);
   return candidates;
 }
 

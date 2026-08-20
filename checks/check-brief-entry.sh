@@ -100,6 +100,16 @@ try {
     // now is that the concession is PRESENT as prose (SPEC-style-contract §4
     // clause 2 still requires it as part of the output) and that neither half
     // the owner reads OPENS WITH A FIELD LABEL.
+    // THE CLAIM IS A PREFIX OF WHAT THE GATE RENDERS (kogaki#572). The mint
+    // records `claim` and the owner reads `thesis`, so the strip is honest only
+    // while the recorded text is CONTAINED in the rendered text — the Brief then
+    // holds less than the owner read, never something else. This held for free
+    // until one branch reworded its claim instead of extending it, and nothing
+    // asserted it, which is why a fix landing in the area passed a suite that
+    // had just been extended for it.
+    if (typeof c.claim !== "string" || !(c.thesis || "").startsWith(c.claim)) {
+      fails.push(`(b) candidate ${c.id}'s thesis does not open with its claim — the mint would record text the owner never read (§5.1.3, kogaki#572)`);
+    }
     if (!(c.concession || "").trim()) fails.push(`(b) candidate ${c.id} carries no round-trip concession (SPEC-style-contract §4 clause 2 — a concession is part of the output, never a silent omission)`);
     for (const [half, text, exempt] of [["thesis", c.thesis, c.claim], ["concession", c.concession, null]]) {
       const label = openingLabel(text, exempt);
@@ -194,6 +204,27 @@ try {
         if (/\.\./.test(c.thesis || "")) {
           fails.push(`(b2) candidate ${c.id} carries a doubled period — the composer appended a period to text that already ended in one (§5.1.3)`);
         }
+        // THE NAME IS MADE OF SERVED WORDS ONLY (kogaki#572). `deriveSlugCandidate`
+        // walks until five tokens or forty characters, so a claim running past its
+        // served sentence let the derivation run on into the composer's own words
+        // and name the Brief's directory after them. Asserted against the served
+        // headline rather than against a denylist of composer vocabulary — a
+        // denylist is the enumeration that goes stale one phrase later.
+        {
+          // THE TOLERANT MEMBERSHIP THE SIBLING AT (d) ALREADY USES.
+          // `deriveSlugCandidate` strips `[^a-z0-9\s-]` and so KEEPS a hyphen inside a
+          // token: a served "review-lane" yields the slug token `review-lane`, which
+          // splitting on `-` breaks into two pieces present in no whitespace-split word
+          // set. An exact test would report composer words that were never there — red
+          // on correct output the moment any fixture headline carries a hyphen.
+          const servedWords = [...String(c.name_source).toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(Boolean)];
+          for (const w of String(c.slug).split("-")) {
+            if (!servedWords.some((t) => t === w || t.includes(w))) {
+              fails.push(`(b2) candidate ${c.id}'s name carries "${w}", which is not in the served sentence it derives from — the composer's own words reached a directory name (kogaki#572)`);
+            }
+          }
+        }
         // AND NO FIELD LABEL, asserted over the SERVED path too. (b) asserts it
         // over the degraded one; a rendering is prose on both.
         for (const [half, text, exempt] of [["thesis", c.thesis, c.claim], ["concession", c.concession, null]]) {
@@ -273,10 +304,46 @@ try {
       if (new Set(c1.map((c) => c.thesis)).size !== c1.length) {
         fails.push("(b3) two candidates over a one-member set read identically at the gate");
       }
+      // THE ONE-MEMBER SET IS WHERE kogaki#572'S BOTH DEFECTS LIVED, so it is
+      // where they are asserted. (b) and (b2) carry the same two properties over
+      // multi-member sets, and on those every claim is a single served sentence
+      // — so both assertions hold there BY CONSTRUCTION and neither could fail.
+      // Two mutations survived exactly that way before this block was written,
+      // which is the same survivor class this suite has now recorded three times:
+      // an assertion is only as good as the inputs of the case it sits in.
+      // A SHORT SERVED SENTENCE IS THE INPUT THIS NEEDS, and it is injected rather
+      // than borrowed. `mkHeads` composes a long headline, which yields five slug
+      // tokens on its own — so the derivation stops inside the served text and a
+      // name assertion over it cannot fail however the claim runs on. kogaki#572's
+      // own report says so: the defect "fires only under a short headline". The
+      // fixture's headline is the wrong input for this property, and using it is
+      // how the first cut of this assertion survived its mutation.
+      const SHORT = "Reviews should be isolated.";
+      const shortHeads = new Map([[one[0].slug, { headline: SHORT, cite: "gloss/lessons/testing.md:1@deadbeef" }]]);
+      const cShort = composeThesisCandidates(one, shortHeads);
+      // Tolerant membership, for the reason stated at (b2): a hyphen survives inside
+      // a slug token and an exact test would break on correct output.
+      const servedShort = [...SHORT.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(Boolean)];
+      for (const c of cShort) {
+        for (const w of String(c.slug).split("-")) {
+          if (!servedShort.some((t) => t === w || t.includes(w))) {
+            fails.push(`(b3) candidate ${c.id}'s name carries "${w}", which is not in the short served sentence it derives from — the composer's own words reached a directory name (kogaki#572)`);
+          }
+        }
+        if (!(c.thesis || "").startsWith(c.claim || "\u0000")) {
+          fails.push(`(b3) candidate ${c.id}'s thesis does not open with its claim, over a short served sentence (kogaki#572)`);
+        }
+      }
       for (const c of c1) {
         if (!(c.concession || "").trim()) fails.push(`(b3) candidate ${c.id} carries no round-trip concession`);
         const label = openingLabel(c.thesis, c.claim);
         if (label) fails.push(`(b3) candidate ${c.id}'s thesis opens with the field label ${JSON.stringify(label)} — prose, never a labelled field (§5.1.3)`);
+        // CONTAINMENT: the mint records `claim`, the owner reads `thesis`.
+        if (!(c.thesis || "").startsWith(c.claim || "\u0000")) {
+          fails.push(`(b3) candidate ${c.id}'s thesis does not open with its claim — the Brief would record text the owner never read (kogaki#572)`);
+        }
+        // (name purity is asserted above, over a SHORT served sentence — the only
+        // input under which the derivation can run past it)
       }
     }
   }
@@ -325,7 +392,7 @@ try {
     // AC1: one slug per candidate, and deriveSlugCandidate is THE derivation.
     if (typeof c.slug !== "string" || !c.slug) { fails.push(`(d) candidate ${c.id} carries no paired slug`); continue; }
     if (!/^[a-z0-9][a-z0-9-]*$/.test(c.slug)) fails.push(`(d) candidate ${c.id}'s slug ${JSON.stringify(c.slug)} is not a name the owner could enumerate as a directory`);
-    if (c.slug !== deriveSlugCandidate(c.claim)) fails.push(`(d) candidate ${c.id}'s slug is not what deriveSlugCandidate makes of ITS OWN adopted claim — two derivations`);
+    if (c.slug !== deriveSlugCandidate(c.name_source)) fails.push(`(d) candidate ${c.id}'s slug is not what deriveSlugCandidate makes of ITS OWN served sentence — two derivations`);
     const words = new Set(c.thesis.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/));
     for (const w of c.slug.split("-")) if (![...words].some((t) => t === w || t.includes(w))) fails.push(`(d) candidate ${c.id}'s slug word "${w}" does not derive from its own Thesis`);
     // AC2: SEPARATELY RENDERED. THE SITE MOVED AND THE PROPERTY DID NOT
@@ -760,7 +827,7 @@ try {
 }
 
 if (fails.length) {
-  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11 and §5.1.3 v20, stories 1.71/1.72/1.76/1.78 + kogaki#567):");
+  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11 and §5.1.3 v20, stories 1.71/1.72/1.76/1.78 + kogaki#567/#572):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
@@ -793,14 +860,29 @@ console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/
   + "dropped, it does NOT wear the `- journey cite:` marker, journeyBearingStrands is then correct "
   + "WITH NO PREDICATE OF ITS OWN, and \u00a74.4's carries-none refusal fires for it \u2014 the case "
   + "kogaki#507 was filed for. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522 + kogaki#566)"
-  + ": THIRTY "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522 + kogaki#566 + kogaki#567 + kogaki#572)"
+  + ": THIRTY-TWO "
   + "mutations, COUNTED rather than incremented. The figure was re-derived by reading the "
-  + "enumeration below, and doing so found the previous one wrong INDEPENDENTLY of this head: the "
-  + "groups sum to 5 + 6 + 5 + 3 + 2 = TWENTY-ONE and the header read TWENTY, an undercount an "
-  + "increment would have carried forward. That is the drift kogaki#559 recorded at "
-  + "check-brief-compose, arriving here by the same act, so what changes is the maintenance mode "
-  + "and not only the number. "
+  + "enumeration below rather than by incrementing it, which is the maintenance mode this header "
+  + "keeps. The mode was installed at kogaki#566, where re-counting found the figure wrong "
+  + "INDEPENDENTLY of that head \u2014 the groups summed to twenty-one under a header reading twenty, "
+  + "the drift kogaki#559 had recorded at check-brief-compose arriving here by the same act. That "
+  + "reading is history, not a claim about THIS head, where the groups and the header agree: a "
+  + "justification note surviving the count it was written to explain is the same drift one level up "
+  + "(PR #579 round 1). "
+  + "kogaki#572's two, both against properties that held FOR FREE until a fix broke them: rewording a "
+  + "claim instead of extending it fails (b3)'s containment assertion \u2014 the mint records `claim` and the "
+  + "owner reads `thesis`, so the strip is honest only while the recorded text is CONTAINED in the rendered "
+  + "text \u2014 and deriving the name from the whole claim rather than its served sentence fails (b3)'s "
+  + "name-purity assertion. A THIRD SURVIVOR IS RECORDED WITH THEM, because this suite has now caught the "
+  + "same class three times and the pattern is the finding rather than the instance: BOTH assertions were "
+  + "first written in (b) and (b2), over MULTI-member sets, where every claim is a single served sentence \u2014 "
+  + "so containment holds by construction and the derivation stops inside the served text however it is "
+  + "written. Neither could fail there. They are sited in (b3), the one-member case both defects lived in, "
+  + "and the name assertion injects a SHORT served sentence rather than borrowing the fixture's long one, "
+  + "because kogaki#572's own report says the defect \u0022fires only under a short headline\u0022. An assertion "
+  + "is only as good as the inputs of the case it sits in, and the case is chosen for convenience while the "
+  + "assertion is written for the defect. "
   + "kogaki#567's three, all against the name's MOVE to the option label: folding the name into the "
   + "Thesis prose with no marked-off element fails (d)'s separately-RENDERED assertion at its new site; "
   + "labelling a name the candidate does not carry fails (d)'s pairing assertion, which is what stops the "
