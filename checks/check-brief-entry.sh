@@ -328,12 +328,33 @@ try {
     if (c.slug !== deriveSlugCandidate(c.claim)) fails.push(`(d) candidate ${c.id}'s slug is not what deriveSlugCandidate makes of ITS OWN adopted claim — two derivations`);
     const words = new Set(c.thesis.toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/\s+/));
     for (const w of c.slug.split("-")) if (![...words].some((t) => t === w || t.includes(w))) fails.push(`(d) candidate ${c.id}'s slug word "${w}" does not derive from its own Thesis`);
-    // AC2: SEPARATELY RENDERED — its own visible element of the option BODY.
+    // AC2: SEPARATELY RENDERED. THE SITE MOVED AND THE PROPERTY DID NOT
+    // (kogaki#567). v11 declared the option BODY a try-one-first placement with
+    // its own release condition — "if it reads badly in use, it moves to the
+    // label, and that move needs no amendment" — and the condition fired at the
+    // 2026-08-20 dogfood. So what is asserted here is no longer WHERE the name
+    // renders but that it is still SEPARATELY rendered: a marked-off element
+    // carrying its own name, never folded into the Thesis prose where the owner
+    // would ratify a second decision class without seeing it.
+    //
+    // RETIRED WITH ITS SITE, stated because a dropped assertion and an invented
+    // one read identically: the body-element assertion and its label-presence
+    // sibling are gone, because the body element they read is gone. They are
+    // replaced rather than deleted — the same property, asserted at the site
+    // that now carries it, plus a NEW assertion the old form never needed: the
+    // name renders ONCE. Two sites for one value is the state a move can leave
+    // behind, and nothing else would catch it.
     const opt = gateOpts.find((o) => o.id === c.id);
     if (!opt) { fails.push(`(d) candidate ${c.id} has no option in the gate payload`); continue; }
-    const item = (opt.rendering || []).find((r) => r.text === c.slug);
-    if (!item) fails.push(`(d) option ${c.id} does not render its slug as its own element of the option body — a second decision class riding invisibly inside the first is what §5.3 v11's served constraint forbids`);
-    else if (!String(item.label || "").trim()) fails.push(`(d) option ${c.id}'s slug element carries no label of its own`);
+    const named = /\s—\s([A-Za-z][A-Za-z ]{0,20}):\s*([a-z0-9][a-z0-9-]*)\s*$/.exec(opt.label || "");
+    if (!named) {
+      fails.push(`(d) option ${c.id}'s label carries no marked-off, NAMED name element — a second decision class riding invisibly inside the first is what §5.3 v11's served constraint forbids`);
+    } else if (named[2] !== c.slug) {
+      fails.push(`(d) option ${c.id}'s label names ${JSON.stringify(named[2])} while the candidate's paired name is ${JSON.stringify(c.slug)} — the owner would adopt a name the run does not carry`);
+    }
+    if ((opt.rendering || []).some((r) => r.text === c.slug)) {
+      fails.push(`(d) option ${c.id} renders its name TWICE — the body element is retired by kogaki#567, and two sites for one value is what a half-finished move leaves behind`);
+    }
   }
   // AC2: the BARE slug — `briefs/` appears in NO option's rendering.
   for (const o of st1.gate?.options || []) {
@@ -739,7 +760,7 @@ try {
 }
 
 if (fails.length) {
-  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11 and §5.1.3 v20, stories 1.71/1.72/1.76/1.78):");
+  console.log("FAIL brief entry point (SPEC-draft-pipeline §5.3 v11 and §5.1.3 v20, stories 1.71/1.72/1.76/1.78 + kogaki#567):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
@@ -773,13 +794,23 @@ console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/
   + "WITH NO PREDICATE OF ITS OWN, and \u00a74.4's carries-none refusal fires for it \u2014 the case "
   + "kogaki#507 was filed for. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522 + kogaki#566)"
-  + ": TWENTY-SEVEN "
+  + ": THIRTY "
   + "mutations, COUNTED rather than incremented. The figure was re-derived by reading the "
   + "enumeration below, and doing so found the previous one wrong INDEPENDENTLY of this head: the "
   + "groups sum to 5 + 6 + 5 + 3 + 2 = TWENTY-ONE and the header read TWENTY, an undercount an "
   + "increment would have carried forward. That is the drift kogaki#559 recorded at "
   + "check-brief-compose, arriving here by the same act, so what changes is the maintenance mode "
   + "and not only the number. "
+  + "kogaki#567's three, all against the name's MOVE to the option label: folding the name into the "
+  + "Thesis prose with no marked-off element fails (d)'s separately-RENDERED assertion at its new site; "
+  + "labelling a name the candidate does not carry fails (d)'s pairing assertion, which is what stops the "
+  + "owner adopting a name the run never had; and leaving the retired body entry beside the label fails "
+  + "(d)'s renders-ONCE assertion \u2014 an assertion the body-sited form never needed and the one a "
+  + "half-finished move would otherwise leave uncaught. RETIRED WITH THEIR SITE, stated because a dropped "
+  + "assertion and an invented one read identically: (d)'s body-element assertion and its label-presence "
+  + "sibling are gone because the element they read is gone. \u00a75.3 v11 declared that site a TRY-ONE-FIRST "
+  + "instruction carrying its own release condition, the condition fired in use, and the property is "
+  + "asserted unchanged at the site that now carries it. "
   + "kogaki#566's SIX \u2014 four at the first head and two more from PR #571 round 1, which found a "
   + "regression the first four could not see: with one settled member both options carried the same "
   + "`claim`, so the mint recorded the same string whichever the owner adopted and the choice survived "

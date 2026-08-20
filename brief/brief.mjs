@@ -515,12 +515,25 @@ function cmdEnter(args) {
     why: "the machine's premise, rendered: this settled set supports a Thesis — the candidates below are composed from the set's own members and from nothing else (§3), and each carries the name it would give the Brief",
     label: "Adopting a Thesis starts the Brief: the mint runs next and the Brief's durable home is created under the adopted name, carrying the adopted Thesis",
     options: [
+      // THE NAME RIDES THE LABEL (kogaki#567). The slug was a `rendering` entry
+      // in the option BODY, which §5.3 v11 declared a TRY-ONE-FIRST placement
+      // with its own release condition — "if it reads badly in use, it moves to
+      // the label, and that move needs no amendment". It read badly at the
+      // 2026-08-20 dogfood: the body entry sinks the name below the fold of an
+      // option that is already dense, so the owner answers a (Thesis, name) pair
+      // having seen one half. The condition fired; this is the move it
+      // pre-authorized, not an amendment.
+      //
+      // BOTH v11 CONDITIONS STILL HOLD, which is why the move is admissible at
+      // all. SEPARATELY RENDERED: the name is its own visible element of the
+      // label, set off by a dash and named, rather than folded into the Thesis
+      // prose where it would read as part of the claim. SEPARATELY DECLINABLE is
+      // untouched — the owner keeps the option and renames in the same answer.
+      // The BARE name, never a `briefs/` path, exactly as the body entry carried
+      // it.
       ...candidates.map((c) => ({
         id: c.id,
-        label: `${c.thesis} ${c.concession}`,
-        rendering: [
-          { label: "The name this Thesis gives the Brief", text: c.slug },
-        ],
+        label: `${c.thesis} ${c.concession} — Brief: ${c.slug}`,
       })),
       {
         id: "back-to-terrain",

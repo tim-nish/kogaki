@@ -71,11 +71,14 @@ kogaki#494).
 3. **Raise the thesis-determination gate** (`gates/registry.json:
    brief-thesis-adoption`) through AskUserQuestion — **the only owner
    question before the mint** — offering exactly what the runtime declared:
-   the composed candidates, each with its name shown in the option body
-   under the runtime's own label (the **bare** name, never a `briefs/…`
-   path); the premise's negation as a first-class option ("the settled set
-   is what should change — back through Terrain, never a Brief fetch"); and
-   free text (the owner's own Thesis, taken verbatim). Say in the question
+   the composed candidates, each with its name **in the option label**, set
+   off and named as the runtime writes it (the **bare** name, never a
+   `briefs/…` path — render it where the runtime put it and add no body entry
+   of your own, so the name renders once; the site moved there at kogaki#567,
+   which is where that move's standing is read); the premise's negation as a
+   first-class option ("the settled set is what should change — back through
+   Terrain, never a Brief fetch"); and free text (the owner's own Thesis,
+   taken verbatim). Say in the question
    that the name can be changed in the same answer: an owner who wants a
    listed Thesis under a different name says which option and what name,
    and keeps the option. **No owner answer, no next step** — the gate blocks
