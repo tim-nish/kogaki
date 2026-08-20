@@ -248,9 +248,9 @@ is countable rather than assumed:
 | thesis | **bound** as design — §3 |
 | journey incorporation | **bound** — Journeys are admissible step materials (§4), §4.8 binds arc integrity, and the **register choice rides Candidate differentiation** at §6, whose composition MUSTs carry the 2026-07-31 frozen requirements (v10, kogaki#492). **No incorporation gate is registered, and none is owed.** At v8 this row read "… §4.10 binds the incorporation gate itself"; at v1–v7 it read "**partial** — … the incorporation gate itself is owed". Both prior readings are kept here rather than edited away |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
-| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 |
+| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2. **The SURFACE-SHAPE half is §5.1.3** (v20, kogaki#566): §4 binds the protocol of an owner-authored document and has no standing to say what this repository's composers may emit, so a reader tracing this gate reads both |
 
-**Only row 4 was re-assessed at v5, and row 2 at v8 and again at v10. Rows 1 and 3 carry
+**Row 4 was re-assessed at v5 and again at v20, and row 2 at v8 and again at v10. Rows 1 and 3 carry
 their v1 judgments unchanged and were not re-checked at either head** — the
 column is named `state` rather than `v1` because two rows no longer hold a v1
 value, and that rename asserts currency for the other two that nothing here
@@ -1243,7 +1243,7 @@ typed owner-surface seam, with the lexicon grep demoted to a fast path beneath
 it — is the shape `LESSONS.md:63` prescribes and is **not built here**; it is
 named as the end state this clause is a fast path toward.
 
-### 5.1.3 The owner surface is prose; the schema stays in the record (v20, kogaki#566)
+#### 5.1.3 The owner surface is prose; the schema stays in the record (v20, kogaki#566)
 
 §5.1.2 decides **whose** text the vocabulary guard governs. This clause decides
 **what shape** that text takes when it reaches the owner, and it is sited here
@@ -1256,9 +1256,29 @@ communicate the claim and its concession. Where a schema-style presentation
 does reach a surface, it carries **at most three fields** — beyond that the
 presentation defeats natural line breaks and stops being readable.
 
+**The two are not two readings of one act, and which governs is stated rather
+than left to the composer.** Prose governs **everything composed FOR the owner**:
+if a rendering exists because an owner will read it, it is written as prose and
+the three-field bound never licenses an alternative. The bound is a **ceiling on
+the other case** — a record-side presentation that surfaces incidentally, which
+this pipeline should be shrinking rather than authoring. A composer choosing
+between them has already made an error: the choice is whether the surface is
+composed for the owner, and it always is.
+
 **What it binds.** Every rendering this pipeline puts in front of the owner: the
 thesis-determination gate's options (§5.3), the Candidate-selection gate's
-rendering (§6), and the minted Brief's own composed text. It binds the composer
+rendering (§6), and the minted Brief's own composed text. **The §6 half's
+discharging carrier is kogaki#568**, named here rather than left as "a companion
+issue": an unnamed deferral is the defect the portfolio rule names —
+
+> "a sitting that leaves a design choice to the implementation either DECIDES
+> the fork there … or emits a NAMED SLOT whose filling is itself a decision act
+> … An UNNAMED deferral is the defect."
+
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/knowledge-architecture.md:94`
+
+The binding lands here at v20 and its discharge is that issue's; nothing in this
+amendment's own story touches `brief/assemble.mjs`. It binds the composer
 and not the material — a served Gloss rendering quoted at its pin arrives as
 prose already, and the owner's free-form Thesis is the owner's, exactly as
 §5.1.2 scopes the guard.
@@ -1320,6 +1340,23 @@ ruling names, not a narrowing of what the gate discloses. And the
 retired **with its mechanism** rather than re-guarded: nothing splices a
 supporting member's sentence into a candidate any more, so the defect it caught
 is unproducible. The check's replacement asserts that unproducibility directly.
+
+**That retirement is licensed rather than asserted.** The served rule on this
+act class is that members are reviewed rather than deleted, with one exception,
+and this is the exception:
+
+> "**Admission requires a REMOVAL SIGNAL DECLARED AT BIRTH, and retention runs
+> on a catch ledger over EXERCISED runs; never-fired members are review
+> candidates, never auto-deletions.** … delete only retired-subject orphans
+> whose catch record can never matter"
+
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/claude-code-ops.md:81`
+
+The retired case's **subject** is gone, not merely quiet: with no splice there is
+no filter, so no future run can exercise the guarded path and no catch record it
+could accumulate can matter. A member whose subject a diff removes is the
+retired-subject orphan that line permits deleting; a member that simply has not
+fired is not, and nothing here widens the permission to that population.
 
 ### 5.2 The obligations ledger
 
