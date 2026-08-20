@@ -105,9 +105,19 @@ try {
   if (!/role_in_thesis: states the claim/.test(doc1)) fails.push("(b) strand_coverage does not carry role_in_thesis");
   if (!/introduced_by: s1; discharged_by: s2/.test(doc1)) fails.push("(b) a ledger entry does not carry introduced_by/discharged_by (§5.2)");
   if (!/\*\*UNDISCHARGED\*\*/.test(doc1)) fails.push("(b) an undischarged obligation does not render as undischarged — the disclosure is the contract (§5.2)");
-  if (/## Sequence\n\n\*\(awaiting composition\)\*/.test(doc1)) fails.push("(b) the Sequence slot survived the fill");
+  // THE RATIFIED HEADING, AND THE ASSERTION FOLLOWS IT (kogaki#574). This read
+  // `## Sequence`, the heading kogaki#574 retires — so after the rename it tested
+  // for a string the composer can no longer emit and could never fail. RE-POINTED
+  // rather than deleted: same property, read at the heading that now carries it.
+  if (/## Reader Path\n\n\*\(awaiting composition\)\*/.test(doc1)) fails.push("(b) the Reader Path slot survived the fill");
+  // AND THE OWNER SURFACE CARRIES THE RATIFIED NAME while the RECORD FIELD does
+  // not move — the two halves of §5.1.3's split, asserted together because the
+  // issue's constraint is exactly that pairing. Renaming the field too would pass
+  // the first of these and fail the second.
+  if (!/^## Reader Path$/m.test(doc1)) fails.push("(b) the filled Brief does not render its structure section as Reader Path (kogaki#574)");
+  if (/^## Sequence$/m.test(doc1)) fails.push("(b) the retired Sequence heading still reaches the owner (kogaki#574)");
   const refill = fillBrief(doc1, input);
-  if (!refill.error) fails.push("(b) an already-filled Sequence was overwritten — composition resumes by judgment, not by overwrite");
+  if (!refill.error) fails.push("(b) an already-filled Reader Path was overwritten — composition resumes by judgment, not by overwrite");
   const badObl = fillBrief(doc0, { ...input, obligations: [{ text: "x", introduced_by: "s9" }] });
   if (!badObl.error) fails.push("(b) a ledger entry introduced_by a non-step was accepted");
 
@@ -676,7 +686,9 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "Move optional both ways; (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
-  + "discharged_by, an undischarged entry rendering as UNDISCHARGED, and a filled Sequence "
+  + "discharged_by, an undischarged entry rendering as UNDISCHARGED, the structure section rendering "
+  + "under its RATIFIED name Reader Path while the \u00a75.1 record field stays `sequence` (kogaki#574), "
+  + "and a filled Reader Path "
   + "refusing overwrite; (c) the placement count runs AFTER composition counted in placements "
   + "— a declared cover is not believed, an unplaced Strand DISCLOSES and never refuses, a "
   + "foreign L-id refuses as a Brief fetch; (d) the retired `fill` CLI route refuses and names its replacement, with its dual-producer guard MOVED to (g) rather than dropped and the composer still "
@@ -703,9 +715,19 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
   + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
   + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568): TWENTY-SEVEN "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574): TWENTY-NINE "
   + "mutations. The figure was re-derived by reading the enumeration below \u2014 3 + 3 + 6 + 4 + 3 + 2 = 21, plus "
   + "this head's six \u2014 which is the maintenance mode kogaki#559 installed here and this head keeps. "
+  + "kogaki#574's two, both against the RENDERING/RECORD split the rename is: reverting the caption "
+  + "table fails (b)'s renders-as-Reader-Path assertion, and renaming the RECORD field alongside the "
+  + "heading \u2014 the non-change the issue names explicitly \u2014 fails the fill outright, which is the "
+  + "direct evidence that the two halves are asserted separately rather than by one string test. A "
+  + "VACUOUS ASSERTION WAS FOUND AND RE-POINTED IN THE SAME ACT, and it is recorded because this suite "
+  + "family has now met the class four times: (b)'s slot-survived test read `## Sequence`, the heading "
+  + "this head retires, so after the rename it tested for a string the composer can no longer emit. Its "
+  + "sibling in check-brief-entry was a LITERAL ENUMERATION of the same headings and went red on correct "
+  + "output; it now derives from SLOT_CAPTIONS, because a copy of a table is a second declaration that "
+  + "drifts the first time the table moves. "
   + "kogaki#568's four, all against the selection screen's shape: restoring the shared effect prefix on every "
   + "option label fails (e)'s no-repetition assertion AND its opens-with-the-record-id assertion; dropping the "
   + "effect from the payload label too fails (e)'s states-ONCE assertion, which is the half that stops "

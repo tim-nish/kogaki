@@ -509,9 +509,13 @@ try {
   const thesisBlock = (doc.split(/^## Thesis$/m)[1] || "").split(/^## /m)[0];
   if (!thesisBlock.includes(st2.adopted_thesis)) fails.push("(f) the Thesis section does not carry the adopted Thesis — thesis is filled at mint BY CONSTRUCTION (§5.3 v9)");
   if (/awaiting composition/.test(thesisBlock)) fails.push("(f) the Thesis section renders as an unfilled slot — the mint consumes the Thesis, it does not defer it");
-  for (const h of ["Reader start", "Reader target", "Opening question",
-                   "Sequence", "Strand coverage", "Unresolved obligations",
-                   "Thesis closure", "Tradeoffs"]) {
+  // DERIVED FROM THE CAPTION TABLE, NEVER RE-LISTED (kogaki#574). This was a
+  // literal enumeration carrying "Sequence", so renaming that heading to its
+  // ratified name left the list naming a slot the mint no longer writes — the
+  // check went red on correct output, and a reader would have "fixed" it by
+  // editing the copy rather than the source. The table is the one declaration;
+  // `thesis` is excluded because it is filled at mint by construction.
+  for (const [h] of [...SLOT_CAPTIONS.keys()].filter((k) => k !== "Thesis").map((k) => [k])) {
     const re = new RegExp(`## ${h}\\n\\n\\*\\(awaiting composition\\)\\*`);
     if (!re.test(doc)) fails.push(`(f) downstream §5.1 field ${JSON.stringify(h)} is not present as a typed unfilled slot`);
   }

@@ -134,7 +134,20 @@ export const SLOT_CAPTIONS = new Map([
   ["Reader start", "Where the reader stands before the article."],
   ["Reader target", "Where the article leaves them."],
   ["Opening question", "The question the opening puts to the reader standing there."],
-  ["Sequence", "The ordered steps the article walks."],
+  // THE RATIFIED NAME (kogaki#574). This heading read "Sequence" while the
+  // artifact it holds has a settled name: the adopted Candidate's Reader Path,
+  // which the selection gate's own effect wording says becomes this section. The
+  // served line names it and says why — "Reader Path names the ARTIFACT only …
+  // Reader Path beats 'step sequence' for third-party legibility and clears the
+  // established-terms rule as plain descriptive English"
+  // (product-lab@8906f207 topics/articles.md:40). A heading is the composer's own
+  // text, which the vocabulary guard and the prose-surface contract already
+  // govern, so the owner surface takes the ratified name.
+  //
+  // THE RECORD FIELD STAYS `sequence`. This is a RENDERING correction and not a
+  // schema rename: §5.1's field keeps its name, the fill still writes through it,
+  // and nothing machine-facing moves. The two halves are exactly §5.1.3's split.
+  ["Reader Path", "The ordered steps the article walks."],
   ["Strand coverage", "Per settled Strand: which steps use it, and the part it plays in the claim. The count is taken after composition, never declared ahead of it."],
   ["Unresolved obligations", "What each step still owes the reader, entered with the step that settles it."],
   ["Thesis closure", "How the path closes the claim, and which steps establish it."],
