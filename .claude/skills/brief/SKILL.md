@@ -188,10 +188,14 @@ confused**: a machine-local *record*, which keeps the internal field names
 so the run stays reconstructible, and a *rendering*, which is the only thing
 a human ever sees.
 
-- **Render the payload's `rendering` entries and nothing else.** Each entry
-  is a `label` and its `text`. The label is shown verbatim as the heading of
-  that piece of evidence; the text is shown under it, verbatim. Nothing is
-  summarized, reordered, or re-titled.
+- **Render the payload's `rendering` entries and nothing else.** At the
+  Candidate-selection gate each entry is **one prose paragraph** — its plain
+  question, then the reasoning that answers it — and you print the entries in
+  order, verbatim, as prose. **Do not turn them back into a field list**: no
+  heading per entry, no bold label, no table. The shape was `label`/`text`
+  pairs until kogaki#568; plain words in a field layout still read as a form,
+  and §5.1.3 governs the shape as well as the words. Nothing is summarized,
+  reordered, or re-titled.
 - **Never show an internal key name.** `thesis_closure`, `placement_count`,
   `grounds_test` and their siblings are this codebase's names for the
   record's fields, not the owner's names for anything. They stay in the

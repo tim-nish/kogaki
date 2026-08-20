@@ -24,7 +24,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements, replaceSlot } from "./brief/compose.mjs";
-import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./brief/assemble.mjs";
+import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./brief/assemble.mjs";
 import { REVIEW_AREAS } from "./brief/review.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -224,13 +224,39 @@ try {
   const negOpt = (pay.options || []).find((o) => o.negates_premise === true);
   if (!negOpt) fails.push("(e) no option flagged negates_premise — the premise's negation is first-class (§6)");
   else if (!/Thesis or the selected set/.test(negOpt.label)) fails.push("(e) the negation option does not state the premise it negates");
+  // THE SHARED EFFECT IS CARRIED, not merely absent from the labels. Dropping
+  // the prefix without stating the effect anywhere would satisfy every
+  // no-repetition assertion below and leave the owner not knowing what
+  // answering does — the failure proposal-contract §2.2 exists to prevent, and
+  // the reason the two halves are asserted together rather than one of them.
+  if (!/Reader Path/.test(pay.label || "") || !/Brief's sequence/.test(pay.label || "")) {
+    fails.push("(e) the gate's own label does not state what adopting an option does — the effect states ONCE, and once is not zero (kogaki#568, proposal-contract §2.2)");
+  }
   if (pay.free_text?.accepted !== true) fails.push("(e) the free-text channel is not unconditionally accepted");
   if (!/does not discharge/.test(pay.free_text?.prompt || "")) fails.push("(e) the free-text prompt does not state that it leaves the negation undischarged");
   for (const o of (pay.options || []).filter((x) => !x.negates_premise)) {
     for (const f of ["step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count"]) {
       if (typeof o.evidence?.[f] !== "string") fails.push(`(e) option ${o.id} carries no ${f} evidence — the five composition-time items ride each Candidate (§6)`);
     }
-    if (!/Adopt .+ becomes the Brief's sequence/.test(o.label)) fails.push(`(e) option ${o.id}'s label does not state its effect (proposal-contract §2.2)`);
+    // THE EFFECT STATES ONCE, AND NO OPTION REPEATS IT (kogaki#568). This line
+    // used to require every option label to match `Adopt … becomes the Brief's
+    // sequence` — a string match on a clause IDENTICAL on every option, so what
+    // it actually asserted was the repetition rather than the effect. What is
+    // asserted now is the property that replaced it: the shared effect rides
+    // the payload's own label (above), and an option label carries only what
+    // distinguishes it.
+    if (/becomes the Brief's sequence/.test(o.label || "")) {
+      fails.push(`(e) option ${o.id}'s label repeats the shared effect clause — the effect states once, at question level (kogaki#568)`);
+    }
+    if (String(o.label || "").trim().split(/\s+/).length < 2) {
+      fails.push(`(e) option ${o.id}'s label is not prose — proposal-contract §2.2's floor refuses a one-word label`);
+    }
+    if (String(o.label || "").trim().toLowerCase() === String(pay.label || "").trim().toLowerCase()) {
+      fails.push(`(e) option ${o.id}'s label is identical to the gate's own — §2.2's floor refuses a record label that restates an option's`);
+    }
+    if (new RegExp("^\\s*Adopt\\s+" + o.id + "\\b").test(o.label || "")) {
+      fails.push(`(e) option ${o.id}'s label opens with the record id — the id resolves the answer and is not what distinguishes an option (kogaki#568)`);
+    }
     if (typeof o.evidence?.review !== "object") fails.push(`(e) option ${o.id} does not carry the path-review reasoning`);
   }
   // candB places only L1+L2 across two steps; candA the same — per-candidate
@@ -313,9 +339,9 @@ try {
     if (/verdict|pass|score/i.test(o?.evidence?.journey_coverage || "")) fails.push("(i) journey_coverage reads as a verdict — §6.1 registers no check and §4.6 keeps every MUST un-linted");
   }
 
-  // (j) PLAIN-REGISTER RENDERING and its deny tripwire (kogaki#520): the
-  // owner reads `rendering` — one plain label per evidence item, the same
-  // prose the record carries — and the internal keys stay in `evidence`,
+  // (j) PLAIN-REGISTER RENDERING and its deny tripwire (kogaki#520, reshaped
+  // at kogaki#568): the owner reads `rendering` — one PROSE PARAGRAPH per
+  // evidence item, its plain question first and the record's own prose after — and the internal keys stay in `evidence`,
   // which nothing shows. The tripwire REFUSES a rendering that carries
   // spec-internal vocabulary anyway, naming what leaked; it never rewrites.
   const INTERNAL = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
@@ -328,25 +354,42 @@ try {
     // would have to be found and edited every time the evidence set grows,
     // which is the edit a reader is most likely to make wrongly.
     if (!Array.isArray(rend) || rend.length !== EVIDENCE_LABELS.length + REVIEW_AREAS.length) {
-      fails.push(`(j) option ${o.id} carries no rendering of the expected size — one plain label per evidence item and per review area`);
+      fails.push(`(j) option ${o.id} carries no rendering of the expected size — one prose paragraph per evidence item and per review area`);
       continue;
     }
+    // EACH ENTRY IS ONE PROSE PARAGRAPH (kogaki#568). The entries were
+    // {label, text} pairs, which display as a field list however plain the
+    // labels read — kogaki#520 fixed the WORDS and left the SHAPE, and §5.1.3
+    // (v20, kogaki#566) governs the shape too. The label/text assertions are
+    // RE-POINTED rather than deleted: same properties, read off the paragraph.
     for (const item of rend) {
-      if (typeof item.label !== "string" || item.label === "") fails.push(`(j) option ${o.id} has a rendering entry with no label — the label IS the owner-facing name`);
-      if (typeof item.text !== "string" || item.text === "") fails.push(`(j) option ${o.id} has a rendering entry with no text`);
-      if (INTERNAL.test(item.label || "")) fails.push(`(j) option ${o.id}'s rendering label reads an internal key: ${item.label}`);
+      if (typeof item !== "string" || item.trim() === "") {
+        fails.push(`(j) option ${o.id} has a rendering entry that is not a non-empty prose paragraph — the owner-facing half is prose, never a field (§5.1.3)`);
+        continue;
+      }
+      if (INTERNAL.test(item)) fails.push(`(j) option ${o.id}'s rendering reads an internal key: ${item.slice(0, 60)}`);
     }
-    // one label per evidence item and per review area, each one distinct
-    if (new Set(rend.map((r) => r.label)).size !== rend.length) fails.push(`(j) option ${o.id}'s rendering reuses a label — one label per key (kogaki#520)`);
-    // Located BY LABEL rather than by index: this assertion read rend[2]
+    // NOTHING IS DROPPED IN THE RESHAPING: every plain question that had a
+    // label still opens a paragraph, and each opens exactly one. This is the
+    // distinctness assertion the label-set test used to carry, re-pointed —
+    // two items collapsing into one paragraph is the loss a count alone would
+    // miss, because the count is asserted against the same source lists above.
+    const questions = [...EVIDENCE_LABELS.map(([, l]) => l), ...REVIEW_AREAS.map((a) => REVIEW_LABELS[a])];
+    for (const q of questions) {
+      const carriers = rend.filter((r) => typeof r === "string" && r.startsWith(q));
+      if (carriers.length !== 1) {
+        fails.push(`(j) option ${o.id} opens ${carriers.length} paragraph(s) with ${JSON.stringify(q)} — every item reaches the owner, exactly once`);
+      }
+    }
+    // Located BY ITS QUESTION rather than by index: this assertion read rend[2]
     // until v12 prepended three reader items and silently moved it to five.
     // A positional probe over a growing list tests whichever item happens to
     // sit there, which is not the assertion anyone wrote.
     const tcLabel = EVIDENCE_LABELS.find(([k]) => k === "thesis_closure")[1];
-    const tc = rend.find((r) => r.label === tcLabel);
-    if (!tc) fails.push(`(j) the Thesis-closure item does not render under its plain label`);
+    const tc = rend.find((r) => typeof r === "string" && r.startsWith(tcLabel));
+    if (!tc) fails.push(`(j) the Thesis-closure item does not open a paragraph with its plain question`);
     // the rendering is the RECORD's own prose, not a second source
-    else if (tc.text !== o.evidence.thesis_closure) fails.push(`(j) option ${o.id}'s rendering restates the evidence instead of carrying it`);
+    else if (tc !== `${tcLabel} ${o.evidence.thesis_closure}`) fails.push(`(j) option ${o.id}'s rendering restates the evidence instead of carrying it`);
     // the internal keys survive IN THE RECORD
     for (const k of ["reader_start", "reader_target", "opening_question", "step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count", "journey_coverage"]) {
       if (typeof o.evidence?.[k] !== "string") fails.push(`(j) the record lost internal key ${k} — the keys stay in the payload, only the rendering changes`);
@@ -380,10 +423,14 @@ try {
     // the three are PRESENT and carry the record rather than a restatement.
     for (const o of opts) {
       for (const [key] of READER_FIELDS) {
+        // RE-POINTED AT THE PARAGRAPH SHAPE (kogaki#568), not relaxed: the same
+        // two properties — the item is PRESENT under its plain question, and it
+        // CARRIES the record rather than restating it — read off a paragraph
+        // instead of a {label, text} pair.
         const label = EVIDENCE_LABELS.find(([k]) => k === key)[1];
-        const item = (o.rendering || []).find((r) => r.label === label);
-        if (!item) fails.push(`(l) option ${o.id} does not render ${key} under its plain label`);
-        else if (item.text !== o.evidence[key]) fails.push(`(l) option ${o.id}'s ${key} rendering restates the record instead of carrying it`);
+        const item = (o.rendering || []).find((r) => typeof r === "string" && r.startsWith(label));
+        if (!item) fails.push(`(l) option ${o.id} does not open a paragraph with ${key}'s plain question`);
+        else if (item !== `${label} ${o.evidence[key]}`) fails.push(`(l) option ${o.id}'s ${key} rendering restates the record instead of carrying it`);
       }
     }
     // AC4 — adoption lands all three, from the ADOPTED Candidate.
@@ -427,11 +474,35 @@ try {
   // section reference — the ask's own fields included
   const ownerFacing = [plain.payload?.where, plain.payload?.why, plain.payload?.label,
     plain.payload?.free_text?.prompt,
-    ...(plain.payload?.options || []).flatMap((o) => [o.label, ...(o.rendering || []).flatMap((r) => [r.label, r.text])])];
+    // THE ENTRIES THEMSELVES, never their retired fields (PR #576 round 1). This
+    // read `[r.label, r.text]`, and after kogaki#568 every entry is a string —
+    // both were `undefined`, the loop below skipped them, and the SECTION-
+    // REFERENCE half of this independent belt went vacuous while the pass line
+    // still claimed it. The internal-key half survived at the per-item loop
+    // above, which is exactly what made the loss invisible. Flattening the
+    // entries covers both shapes: a string rides as itself, a pair contributes
+    // its two fields.
+    ...(plain.payload?.options || []).flatMap((o) => [o.label,
+      ...(o.rendering || []).flatMap((r) => (typeof r === "string" ? [r] : [r?.label, r?.text]))])];
   for (const t of ownerFacing) {
     if (typeof t === "string" && INTERNAL.test(t)) fails.push(`(j) an owner-facing string carries an internal key: ${JSON.stringify(t)}`);
     if (typeof t === "string" && /§\s*\d/.test(t)) fails.push(`(j) an owner-facing string carries a section reference: ${JSON.stringify(t)}`);
   }
+  // TWO CANDIDATES DIFFERING ONLY IN CASE ARE ONE CANDIDATE (PR #576 round 1).
+  // Since kogaki#568 the option LABEL is the reader experience, so this
+  // refusal is what keeps two labels distinguishable — and the retired
+  // `Adopt <id> — …` prefix used to carry that by the id whatever the prose
+  // did. An exact-string key admitted two experiences differing only in case
+  // or surrounding space, which is two labels an owner cannot tell apart.
+  {
+    const cased = { ...JSON.parse(JSON.stringify(candB)), candidate_id: "cand-3",
+      reader_experience: `  ${String(candA.reader_experience).toUpperCase()}  ` };
+    const r = assembleSelection({ candidates: [candA, cased] }, doc0);
+    if (!r.error || !/SAME reader experience/.test(r.error)) {
+      fails.push("(j) two Candidates whose reader experience differs only in case were accepted — two option labels the owner cannot tell apart (PR #576 round 1)");
+    }
+  }
+
   // THE TRIPWIRE FIRES, and names what leaked
   const leakCand = JSON.parse(JSON.stringify(candB));
   leakCand.reasoning.thesis_closure = "the final step discharges thesis_closure for the reader";
@@ -632,7 +703,30 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
   + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
   + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551): TWENTY-ONE "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568): TWENTY-SEVEN "
+  + "mutations. The figure was re-derived by reading the enumeration below \u2014 3 + 3 + 6 + 4 + 3 + 2 = 21, plus "
+  + "this head's six \u2014 which is the maintenance mode kogaki#559 installed here and this head keeps. "
+  + "kogaki#568's four, all against the selection screen's shape: restoring the shared effect prefix on every "
+  + "option label fails (e)'s no-repetition assertion AND its opens-with-the-record-id assertion; dropping the "
+  + "effect from the payload label too fails (e)'s states-ONCE assertion, which is the half that stops "
+  + "\u0022no repetition\u0022 being satisfied by stating it nowhere; slicing one evidence item out of the rendering "
+  + "fails (j)'s count assertion, taken against EVIDENCE_LABELS and REVIEW_AREAS rather than a literal; and "
+  + "making the leak predicate skip the paragraphs \u2014 the shape the reshaping introduced \u2014 fails BOTH of "
+  + "(j)'s tripwire cases, the direct evidence that a leak cannot escape by moving into a surface the predicate "
+  + "stopped walking. TWO MORE FROM PR #576 ROUND 1, which found a re-pointing this head MISSED: the "
+  + "independent belt at (j) still read the retired `r.label`/`r.text` off entries that are now strings, so "
+  + "its SECTION-REFERENCE arm went vacuous while the pass line kept claiming it \u2014 the internal-key arm survived at the per-item loop, which is what made the loss invisible. Discriminating it needed the predicate "
+  + "NEUTERED as well as a leak planted, because the runtime tripwire shadows the belt on the happy path: "
+  + "with both, the shipped read fired the assertion 0 times and the repaired read 12. And normalising the "
+  + "reader-experience key to trimmed-and-lowercased is asserted by two Candidates whose experiences differ "
+  + "only in case, which the exact-string key admitted \u2014 two option labels an owner cannot tell apart, a "
+  + "new indistinguishability the retired `Adopt <id>` prefix used to prevent by carrying the id. "
+  + "RE-POINTED, NOT RELAXED, stated because a re-pointed assertion and a deleted one read "
+  + "identically to a later reader: (j)'s label/text-pair assertions and (l)'s three reader-field assertions now "
+  + "read the same two properties \u2014 present under its plain question, and CARRYING the record rather than "
+  + "restating it \u2014 off a paragraph instead of a pair; the label-distinctness test is re-pointed as one "
+  + "paragraph per plain question, because two items collapsing into one is a loss the count alone would miss. "
+  + "THE ORIGINAL TWENTY-ONE "
   + "mutations, COUNTED at kogaki#559 rather than incremented. The count was "
   + "taken by reading the enumeration below, and it is recorded here so the "
   + "next reader re-counts rather than re-increments: an unchecked number "
