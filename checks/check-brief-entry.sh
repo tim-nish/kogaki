@@ -186,7 +186,12 @@ try {
         // is what makes this assertion able to fail at all: the composer trims
         // before it appends, and a composer that appends unconditionally writes
         // `…second time..` here.
-        if (/\.\./.test(c.thesis || "") || /\.\./.test(c.concession || "")) {
+        // THE THESIS HALF ONLY, and the exclusion is the point rather than an
+        // oversight (PR #571 round 1). Every concession is a composer literal
+        // interpolating a member COUNT — no served text reaches it, so it has no
+        // terminal period to double and a concession clause here could not fail.
+        // Asserting over it would read as coverage this check does not have.
+        if (/\.\./.test(c.thesis || "")) {
           fails.push(`(b2) candidate ${c.id} carries a doubled period — the composer appended a period to text that already ended in one (§5.1.3)`);
         }
         // AND NO FIELD LABEL, asserted over the SERVED path too. (b) asserts it
@@ -247,6 +252,55 @@ try {
         fails.push(`(b2) an unresolved rendering fell back to the slug phrase "${sp}" — substitution, not disclosure`);
       }
     }
+  }
+
+  // (b3) A ONE-MEMBER SET STILL OFFERS TWO REAL OPTIONS (PR #571 round 1). With
+  // no lead to vary, the two candidates carry the same proposition — so the
+  // property that matters is that they ADOPT differently, not merely that they
+  // READ differently. Asserted on `claim`, because `claim` is what the mint
+  // records: a check reading `thesis` here passes while the Brief comes out
+  // byte-identical whichever option the owner chose, which is the regression
+  // this case exists for.
+  {
+    const one = resolveStrandIds(record, ["L1"]).strands;
+    const c1 = composeThesisCandidates(one, mkHeads(["L1"]));
+    if (c1.length < 2) {
+      fails.push(`(b3) a one-member set composed ${c1.length} candidate(s) — the gate offers 2-3`);
+    } else {
+      if (new Set(c1.map((c) => c.claim)).size !== c1.length) {
+        fails.push("(b3) two candidates over a one-member set adopt the SAME claim — whichever option the owner takes, the Brief is byte-identical and the choice survives only as a routing token");
+      }
+      if (new Set(c1.map((c) => c.thesis)).size !== c1.length) {
+        fails.push("(b3) two candidates over a one-member set read identically at the gate");
+      }
+      for (const c of c1) {
+        if (!(c.concession || "").trim()) fails.push(`(b3) candidate ${c.id} carries no round-trip concession`);
+        const label = openingLabel(c.thesis, c.claim);
+        if (label) fails.push(`(b3) candidate ${c.id}'s thesis opens with the field label ${JSON.stringify(label)} — prose, never a labelled field (§5.1.3)`);
+      }
+    }
+  }
+
+  // (b4) A CANDIDATE WITH NO CLAIM REFUSES, NAMING IT (PR #571 round 1). The
+  // `hit.claim || hit.thesis` disjunct this replaced could only fire on a run
+  // state this file did not write — and there it would have silently recorded
+  // the framed sentence the strip exists to remove. Exercised by writing exactly
+  // that state rather than recorded as unreachable: a refusal nothing drives is
+  // indistinguishable from one that was never wired up.
+  {
+    const sNo = rs("case-b4-claimless");
+    enter("L2,L1", sNo);
+    const stNo = JSON.parse(readFileSync(sNo, "utf8"));
+    delete stNo.thesis_candidates[0].claim;
+    writeFileSync(sNo, JSON.stringify(stNo, null, 2) + "\n");
+    const rNo = adopt(sNo, "thesis-1");
+    if (rNo.status === 0) {
+      fails.push("(b4) adopting a claimless candidate SUCCEEDED — the framed thesis would be recorded as the Brief's claim with nothing reporting it");
+    } else if (!/claim/.test(rNo.stderr || "")) {
+      fails.push("(b4) the claimless refusal does not name the claim — a caller cannot tell which half is missing");
+    }
+    const stAfter = JSON.parse(readFileSync(sNo, "utf8"));
+    if (stAfter.stage === "adopted") fails.push("(b4) the refused adoption still advanced the run state");
   }
 
   // (c) THE ASK CARRIES ITS GATE DECLARATION AND THE PREMISE'S NEGATION AS
@@ -689,7 +743,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief entry: 13/13 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
+console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
   + "state is machine-local, §5.3 v9); (b) 2-3 Thesis candidates composed from the settled "
   + "set only, each carrying its round-trip concession AS PROSE \u2014 no field label opens either "
   + "half the owner reads, no doubled period, and no supporting member spliced into the lead "
@@ -719,14 +773,23 @@ console.log("brief entry: 13/13 cases — (a) entry writes NOTHING under briefs/
   + "WITH NO PREDICATE OF ITS OWN, and \u00a74.4's carries-none refusal fires for it \u2014 the case "
   + "kogaki#507 was filed for. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.71 + PR #484 round 1 + story 1.72 + kogaki#507 + story 1.76 + kogaki#522 + kogaki#566)"
-  + ": TWENTY-FIVE "
+  + ": TWENTY-SEVEN "
   + "mutations, COUNTED rather than incremented. The figure was re-derived by reading the "
   + "enumeration below, and doing so found the previous one wrong INDEPENDENTLY of this head: the "
   + "groups sum to 5 + 6 + 5 + 3 + 2 = TWENTY-ONE and the header read TWENTY, an undercount an "
   + "increment would have carried forward. That is the drift kogaki#559 recorded at "
   + "check-brief-compose, arriving here by the same act, so what changes is the maintenance mode "
   + "and not only the number. "
-  + "kogaki#566's four, all against \u00a75.1.3's prose surface: restoring the `Concedes:` label on a "
+  + "kogaki#566's SIX \u2014 four at the first head and two more from PR #571 round 1, which found a "
+  + "regression the first four could not see: with one settled member both options carried the same "
+  + "`claim`, so the mint recorded the same string whichever the owner adopted and the choice survived "
+  + "only as a routing token. Collapsing the one-member claims again fails (b3)'s adopt-differently "
+  + "assertion, and restoring the silent `claim || thesis` fallback fails (b4)'s claimless refusal AND "
+  + "its run-state assertion \u2014 that second case exists because the fallback was reachable only on a "
+  + "run state this file does not write, and a refusal nothing drives reads the same as one never wired "
+  + "up. A SECOND SURVIVOR was retired with them: (b2)'s doubled-period clause also tested the "
+  + "concession, which is a composer literal interpolating a member count \u2014 no served text, no "
+  + "terminal period, nothing it could catch. The four at the first head, all against \u00a75.1.3's prose surface: restoring the `Concedes:` label on a "
   + "concession failed (b)'s and (b2)'s no-field-label assertions; appending a period "
   + "unconditionally \u2014 dropping the composer's trim \u2014 failed (b2)'s doubled-period assertion; "
   + "re-introducing the supporting-member splice failed (b2)'s one-headline assertions in both "

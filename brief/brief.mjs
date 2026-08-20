@@ -371,6 +371,20 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
   const candidates = [];
   if (strands.length === 1) {
     const p = sentence(phrase(strands[0]));
+    // THE TWO OPTIONS MUST ADOPT DIFFERENTLY, NOT ONLY READ DIFFERENTLY (PR #571
+    // round 1). With one member there is no lead to vary, so both options carry
+    // the same proposition — and when the mint began recording the CLAIM rather
+    // than the framed thesis, whichever option the owner chose produced a
+    // byte-identical Brief, with the choice surviving only as `adopted_via`. A
+    // gate whose arms record the same string is a gate offering one option
+    // twice, which is the defect PR #534 round 1 found in another form.
+    //
+    // SO THE SECOND OPTION'S CLAIM CARRIES ITS OWN COMMITMENT. That sentence is
+    // NOT the scaffolding §5.1.3 strips: scaffolding says how the OTHER settled
+    // members serve the claim, and there are no other members here. This says
+    // what the article does with THIS claim, which is part of what the owner
+    // adopts — the same reason a free-form Thesis is taken verbatim however it
+    // is phrased.
     candidates.push({
       id: "thesis-1",
       claim: p,
@@ -379,7 +393,7 @@ export function composeThesisCandidates(strands, headlines = new Map()) {
     });
     candidates.push({
       id: "thesis-2",
-      claim: p,
+      claim: `${p} The article earns that claim by retracing how it was reached, rather than stating it and defending it.`,
       thesis: `${p} The article tells the story of how that claim was reached before asking the reader to accept it.`,
       concession: `The flat statement of the claim arrives late, so a reader who wants the rule first waits for the story to finish.`,
     });
@@ -560,7 +574,18 @@ function cmdAdopt(args) {
   // for the gate and has no business in a tracked document. A free-form answer
   // has no frame to strip — it is the owner's own words and is taken verbatim,
   // exactly as v9 took it and v11 kept it.
-  const thesis = hit ? (hit.claim || hit.thesis) : answer;
+  // NO FALLBACK TO `thesis`. Every candidate carries a `claim` by construction
+  // (`composeThesisCandidates` sets one on every branch), so a `hit.claim ||
+  // hit.thesis` disjunct could only fire on a run state this file did not write
+  // — and what it would do THERE is silently record the framed sentence the
+  // strip exists to remove, reporting nothing. An absent claim refuses instead
+  // (PR #571 round 1).
+  if (hit && (typeof hit.claim !== "string" || hit.claim === "")) {
+    fail(`candidate ${hit.id} carries no claim — the mint records the adopted claim `
+      + "(§5.1.3), and a run state whose candidates predate that field cannot be "
+      + "adopted from. Re-run `enter` to recompose the gate.");
+  }
+  const thesis = hit ? hit.claim : answer;
   // The slug half. An override is the owner's, taken as given; with none, the
   // adopted candidate's OWN paired slug stands — the one the owner read on
   // the option they chose. A free-form Thesis has no paired slug to stand,
