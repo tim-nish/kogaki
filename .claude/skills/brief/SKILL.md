@@ -124,7 +124,8 @@ kogaki#494).
     — the runtime refuses.
 12. **Hand over the filled Brief** and stop. This is the end of the arc: name
     `briefs/<slug>/brief.md` to the owner and never retype, summarize or
-    restate it.
+    restate it. The run's per-block Brief snapshots (before/after each
+    landing write) sit machine-local at `~/.kogaki/brief-runs/<slug>/snapshots/`.
 
 **THE INVOCATION ENDS AT A FILLED BRIEF, NEVER BEFORE** (§5.3 v19,
 kogaki#522, owner ruling 2026-08-18). A command is named for the artifact it
