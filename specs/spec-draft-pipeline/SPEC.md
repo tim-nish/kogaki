@@ -1479,10 +1479,24 @@ with only the first actually asked:
 So both conditions bind this section, and neither is presentation polish:
 
 - **Separately rendered.** The slug appears as its own visible element of the
-  option — the **bare slug**, never the `briefs/<slug>` path. Placement in the
-  body rather than the label was a **try-one-first instruction, not a settled
+  option — the **bare slug**, never the `briefs/<slug>` path, **since the option
+  is already dense** (owner rendering ruling 2026-08-18). Placement in the body
+  rather than the label was a **try-one-first instruction, not a settled
   placement**: if it reads badly in use, it moves to the label, and that move
-  needs no amendment here (owner rendering ruling 2026-08-18).
+  needs no amendment here.
+
+  **The bare-slug ground is RE-HOMED rather than dropped, and it survives the
+  move.** It was written as "since the option **body** is already dense" and the
+  body is no longer the site — but density was never a fact about the body: it
+  is a fact about an option carrying a Thesis, its concession and a name at
+  once, which the label now carries in one line. So the ground reads "the option"
+  and still does its work. Dropping it while the rule it grounds survived would
+  leave a reader unable to ask whether it still applies —
+
+  > "when such an input is removed, its rationale must be re-homed rather than
+  > dropped, or it returns as an argument for restoring the element"
+
+  `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 LESSONS.md:35`
 
   **THE CONDITION FIRED, and the site is now the option LABEL (kogaki#567).**
   The body entry read badly in use at the 2026-08-20 dogfood — it sank the name
