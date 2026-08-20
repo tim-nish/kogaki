@@ -298,7 +298,9 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
 
   let out = doc;
   const seq = steps.map(renderStep).join("\n\n");
-  let r = replaceSlot(out, "Sequence", seq);
+  // The owner-facing heading is the ratified name (kogaki#574); the §5.1 record
+  // field this fills is still `sequence`, and only the rendering moved.
+  let r = replaceSlot(out, "Reader Path", seq);
   if (r.error) return r;
   out = r.doc;
 
