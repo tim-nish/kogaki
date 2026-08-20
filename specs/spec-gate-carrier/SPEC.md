@@ -6,9 +6,9 @@ contents were discretion in a spec whose own admission record calls that
 rendering contract. Four members — identifying material, instruction, question,
 options — and a fifth owes a stated reason. Machine-facing text is not among
 them, per this repository's own pin rule. One exception is in force and named
-with its mandating carrier: the gate declaration block, required in the question
+with its mandating carrier: the gate declaration block, mandated in the question
 text by a clause and an actor-level hook that both live in `tim-nish/claude-toolkit`,
-where kogaki#569's reversal is filed. **deferred slots minted by this amendment:
+where kogaki#569's reversal is filed as `tim-nish/claude-toolkit#402`. **deferred slots minted by this amendment:
 none.**
 
 **Status:** v1, authored 2026-08-05 (kogaki#16, umbrella kogaki#14).
@@ -92,7 +92,12 @@ contract rather than discretion:
 
 > "with rendering through the question UI as contract, not discretion"
 
-`specs/SPEC.md:99-101`
+`specs/SPEC.md:4745-4747` — **repointed at v2.** This clause's first cut carried
+`:99-101`, which is where the file's own header block still cites the item and
+which resolves at this head to unrelated text on derived-artifact sensitivity.
+The quote is the whole ground §3.1 rests on, and a pin that looks sound while
+resolving elsewhere is the defect class `policy/consultation-map.md` records at
+kogaki#266. The header's copy is outside this clause and is not repaired here.
 
 **The owner ruling (2026-08-20).** The question screen carries the identifying
 material the owner reads, the instruction, the question, and the options.
@@ -111,9 +116,17 @@ pins that way and says where they go instead:
 
 > "**Pins do not go here.** `consulted:`, `request_id:` and `@<sha>` are
 > machine-facing and belong in the receipt, whose destinations are unchanged —
-> PR bodies, issue bodies, run records, spec amendments."
+> PR bodies, issue bodies, run records, spec amendments. …"
 
-`.claude/skills/consult-first/SKILL.md:97-100`
+`.claude/skills/consult-first/SKILL.md:97-101`
+
+**And that source licenses a second, narrower exception, which this clause
+carries rather than silently omitting.** The sentence the excerpt cuts reads:
+"One exception is not an exception: a gate declaration may carry an `outcome:`
+line, which is a token and not a pin." A bare `outcome:` token is therefore
+admissible on a gate declaration by the same source, independently of the
+mandated block below — and an exception paragraph that declared exactly one while
+its own cited range licensed two would be quoting selectively against itself.
 
 Rendering a machine-facing record into the question body is the record/rendering
 confusion the payload design exists to prevent, applied to the gate's own chrome.
@@ -122,13 +135,22 @@ owner-render block — Question / Answer / Conclusion, printed before the UI —
 the sanctioned surface and is unchanged.
 
 **ONE EXCEPTION IS IN FORCE AND IT IS NOT THIS REPOSITORY'S TO LIFT.** The gate
-declaration block — `gate: <class>` with its `receipt:` and `outcome:` lines —
-is **required** in the question text by `SPEC-triage-gh` §"The declaration rides
-in the question" (v52), and its carrier is an actor-level `PreToolUse` hook,
-`lint-gate-declaration.py`, which reads the declaration out of the question and
-refuses the call without it. Both the clause and the hook live in
-`tim-nish/claude-toolkit`; neither is reachable from here. So every gate this
-repository raises carries the block today, and will until that repository acts.
+declaration block — `gate: <class>` with its `receipt:` and `outcome:` lines — is
+mandated in the question text by a rule and a carrier that both live in
+`tim-nish/claude-toolkit`: `SPEC-triage-gh` §"The declaration rides in the
+question", and the actor-level `PreToolUse` hook `lint-gate-declaration.py`,
+which reads the declaration out of the question and refuses the call without it.
+Neither is reachable from here.
+
+**The carrier is NAMED and its state is not asserted**, which is the form the
+served line this clause consults requires and the form
+`policy/consultation-map.md` entry 4 already models. **`instrument: none`** —
+nothing in this repository observes that rule's version, that hook's behaviour,
+or whether either has changed, so this clause records neither. Its first cut
+pinned the clause at `v52` and added "and will until that repository acts": a
+version claim and a forward claim about a carrier nobody here watches, both of
+which rot silently the moment that repository rules. What a reader is owed
+instead is where the disposition is read, which is the paragraph below.
 
 **Stated as an exception with its carrier named, rather than as silence.** A
 clause whose one live violation goes unmentioned reads to the next reader as a
@@ -138,7 +160,7 @@ discipline §3's medium binding already applies to a host with no declared
 binding, which fails rather than inheriting one.
 
 **The reversal is handed off, not deferred here.** kogaki#569's cross-repo half
-is filed against `tim-nish/claude-toolkit`; this clause is the arm that stays,
+is `tim-nish/claude-toolkit#402`; this clause is the arm that stays,
 because what a question screen carries is unbound in this contract regardless of
 how that repository rules. A gate record names its carrier and does not assert
 that carrier's state:
