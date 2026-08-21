@@ -230,7 +230,7 @@ record:
 > structure composed from the Brief's own state, plain register with
 > round-trip concessions) — the design/realization boundary test."
 
-`specs/SPEC.md:986-988`
+`specs/SPEC.md:4740-4742`
 
 What is admitted there is **four gates**, which is a contract. The design
 that satisfies them is authored **here, fresh**, and this spec is not a port
@@ -244,7 +244,7 @@ already, and it names this subsystem by name:
 > other subsystem. A sitting citing this section for a non-Terrain design
 > question is misusing it."
 
-`specs/spec-terrain/SPEC.md:177-182`
+`specs/spec-terrain/SPEC.md:586-591`
 
 So §2.4's WA baseline does not reach this spec, and no clause below may be
 read as inherited. The owner's inheritance whitelist for this pipeline

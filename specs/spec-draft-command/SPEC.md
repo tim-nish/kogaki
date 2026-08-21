@@ -16,7 +16,7 @@ realizes are **owed** rather than covered:
 > v1**: this spec stops at the Brief's structure, and both live downstream of
 > it."
 
-`specs/spec-draft-pipeline/SPEC.md:290-295`
+`specs/spec-draft-pipeline/SPEC.md:306-310`
 
 Sections for a second command would sit under a `Governs:` line that does not
 cover them. The cost of the alternative is stated rather than waved away: this

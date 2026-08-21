@@ -26,7 +26,8 @@
 #      tree): FAILS when the line range exceeds the file — the pointer
 #      resolves nowhere.
 #   2. LOCAL pointer with an ADJACENT VERBATIM QUOTATION (a double-quoted span
-#      of >=24 characters on the pointer's own line or the line above):
+#      of >=24 characters, adjacency discriminated by SHAPE — see the window
+#      comment in the resolver):
 #      FAILS when the normalized quote is absent from the pointed-to range —
 #      the pointer resolves, ELSEWHERE. This is kogaki#583 instances 1 and 2,
 #      and PR #580 round 1's defect class.
@@ -106,16 +107,38 @@ QUOTE = re.compile(r'[“"]([^"“”]{24,})[”"]')
 # Lines above the pointer searched for an adjacent pin. Wider than the quote
 # window: `consulted:` blocks put the pin a line or two above the cite.
 PIN_ADJACENCY = 2
-# Lines above the pointer searched for a quotation it vouches for. Deliberately
-# 1, not 2: this corpus quotes OTHER carriers (an issue's premise, a PR round)
-# in the same paragraph as a code pointer, and a wider window pairs a quote
-# with a pointer that never claimed it (observed on specs/SPEC.md's
-# kogaki#204-premise passage). A quote two lines clear of a pointer is
-# review's, not this resolver's.
-QUOTE_ADJACENCY = 1
+# The quote window discriminates SHAPE, not distance (PR #586 round 1,
+# finding 2). The corpus's dominant citation form is quote / blank line / pin,
+# which a flat one-line window excludes — the founding specimen's own shape —
+# while a flat two-line window pairs a quote with a pointer that never claimed
+# it (specs/SPEC.md's kogaki#204-premise passage, where the intervening line
+# is PROSE). So: the pointer's line, plus the line above, where a single
+# BLANK line is skipped and a contiguous `>`-blockquote is taken whole; a
+# quote separated by a non-blank prose line binds to nothing here.
+
+
+def quote_present(q: str, hay: str) -> bool:
+    """An elided quotation ("A … B") is honest when every kept segment
+    appears at the target, in order — contiguity across an ellipsis is
+    exactly what the quoter disclaimed (PR #586 round 1: 8 corpus
+    quotations elide with … and all resolve correctly)."""
+    pos = 0
+    for seg in re.split(r"…|\.\.\.", q):
+        seg = norm(seg)
+        if len(seg) < 12:
+            continue  # a fragment too short to discriminate binds nothing
+        found = hay.find(seg, pos)
+        if found < 0:
+            return False
+        pos = found + len(seg)
+    return True
 
 
 def norm(s: str) -> str:
+    # Emphasis and quote markers are rendering, not content: a spec line
+    # carrying **bold** or a backtick is the same claim as its unmarked
+    # quotation (PR #586 round 1 surfaced 8 such pairs).
+    s = re.sub(r"[*`_>]", "", s)
     return re.sub(r"\s+", " ", s).strip().lower()
 
 
@@ -158,7 +181,18 @@ def scan_file(path: pathlib.Path, tree_root: pathlib.Path):
                        f"resolves nowhere — {target} ends at line {len(body)}")
                 continue
             # population 2: adjacent quotation must be present at the target
-            context = " ".join(lines[max(0, i - 1 - QUOTE_ADJACENCY): i])
+            ctx = [ln]
+            j = i - 2
+            if j >= 0 and not lines[j].strip():
+                j -= 1  # a single blank line between quote and pointer
+            if j >= 0:
+                if lines[j].lstrip().startswith(">"):
+                    while j >= 0 and lines[j].lstrip().startswith(">"):
+                        ctx.append(lines[j].lstrip().lstrip(">"))
+                        j -= 1
+                else:
+                    ctx.append(lines[j])
+            context = " ".join(reversed(ctx))
             quotes = [q for q in QUOTE.findall(context)]
             if quotes:
                 # widen the target window one line each way: a quote that
@@ -167,7 +201,7 @@ def scan_file(path: pathlib.Path, tree_root: pathlib.Path):
                 lo, hi = max(0, a - 2), min(len(body), b + 1)
                 hay = norm(" ".join(body[lo:hi]))
                 for q in quotes:
-                    if norm(q) not in hay:
+                    if not quote_present(q, hay):
                         yield ("fail", i, ptr,
                                f"resolves elsewhere — the adjacent quote "
                                f"“{q[:60]}…” is not at {target}:{a}"
@@ -237,7 +271,12 @@ fixture_pass() {
     echo "FAIL: fixture 'a served quotation carrying no pin' was not reported"
     printf '%s\n' "$out"; FAIL=1
   fi
-  [[ $FAIL -eq 0 ]] && echo "ok: fixture pass — 3 constructed defects, each refused or reported by name"
+  out=$(run_resolver --scan "$FIX/blank-line-shape.md" 2>&1)
+  if ! grep -q "resolves elsewhere" <<<"$out"; then
+    echo "FAIL: fixture 'a quotation a blank line above its pointer' was not refused — the blank-skip window is not being exercised"
+    printf '%s\n' "$out"; FAIL=1
+  fi
+  [[ $FAIL -eq 0 ]] && echo "ok: fixture pass — 4 constructed defects, each refused or reported by name"
 }
 fixture_pass
 
@@ -251,8 +290,10 @@ printf '%s\n' "$OUT"
 cat <<'EOF'
 reach of this check, stated rather than implied: it resolves LOCAL file:line
 pointers in specs/SPEC.md and specs/*/SPEC.md against this working tree, and
-matches >=24-char double-quoted spans (pointer's line, or one above) at their
-targets — a quote further from its pointer is review's. Served pins
+matches >=24-char double-quoted spans at their targets, with adjacency
+discriminated by shape (blank-skip, >-blockquotes whole; never across prose)
+and ellipses honored segment-wise — a quote beyond those shapes is review's.
+Served pins
 are counted, never fetched — content drift behind a valid-looking pin is the
 kit's and the review lane's to catch. Bare served pointers and cross-repo
 mentions are report-only classes with rendered counts; promoting either to a
