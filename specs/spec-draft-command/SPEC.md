@@ -1,6 +1,8 @@
 # SPEC-draft-command — `/draft` and the CanonicalDraft it produces
 
-**Status:** v1, authored 2026-08-21 (kogaki#573).
+**Status:** v2, amended 2026-08-21 (kogaki#600) — the record half's cite form
+moves from positional (`file:line@sha`) to identity + pin; v1 authored
+2026-08-21 (kogaki#573).
 **Governs:** the third owner-invoked command of the article pipeline, and the
 one artifact it creates. It discharges the **design** half of kogaki#573 and
 decomposes that issue's implementation licence into stories; it implements
@@ -185,8 +187,25 @@ Brief-derived and human.
 
 The CanonicalDraft is one durable file whose
 frontmatter carries the Brief it realizes (path and pin), the survey pin, and
-an immutable `generated_by` birth record written at creation. Cites are in
-resolvable `file:line@sha` form. A **per-Step trace** — which sections realize
+an immutable `generated_by` birth record written at creation. **Cites address
+the served manifest record by identity, never by position** (v2, kogaki#600):
+the resolvable form is `gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey>
+@<sha>` — the (slug, kind) pair is the join key, resolved against the served
+survey at its current HEAD, and the `@<sha>` substrate pin is **provenance**,
+never the resolution target. Content drift behind a resolving identity remains
+the quote check's to catch, unchanged. The prior form,
+`gloss/ELEMENTS.jsonl:<line>@<sha>`, is retired as a scheduled defect: the hub
+regenerates the manifest wholesale at every distill close, so every positional
+cite broke at the first close after authoring (all 7 cites of the first
+dogfooded Draft, kogaki#600, while every cited identity survived), and the
+served position rules the class directly — identity anchors survived every
+observed relocation, 1,127 to 148 against positional cites
+(`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32
+topics/knowledge-architecture.md:126,137`; the constrain-shaped remedy per
+`LESSONS.md:81` at the same pin: the emitter can no longer produce a
+line-number address, rather than a repair pass re-pointing what it produced).
+A positional cite is **malformed** to the resolve check, which names the
+identity form as the migration in its refusal. A **per-Step trace** — which sections realize
 which `step_id` — is machine-readable record, persisted because review's
 fidelity dimension reads it: persist what the review rule reads. **The trace
 never renders as visible structure in the article body.**
