@@ -40,9 +40,10 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..");
 
-// The guarantee split, quoted in the output per AC2. Verbatim from
-// specs/SPEC.md:424-430 (verified against the tree by the spec-pin-resolve
-// member's quote matcher).
+// The guarantee split, quoted in the output per AC2. Quoted from
+// specs/SPEC.md:424-430 by hand and verified by no instrument — this file is
+// outside spec-pin-resolve's corpus (specs/** only, bounded on purpose), so
+// the pointer's currency is review's to check, not asserted here.
 export const GUARANTEE_SPLIT =
   'the boundary this instrument stops at — "Kogaki guarantees citation ' +
   "integrity — a quoted claim was quoted, and its pin resolves. Gukan " +
@@ -59,9 +60,12 @@ export function parseDraftCites(text) {
   const inCites = fm.match(/^cites:\n((?:  - .*\n)*)/m);
   if (!inCites) return cites;
   for (const ln of inCites[1].split("\n")) {
-    const m = ln.match(/^  - (\{.*\})\s*$/);
+    const m = ln.match(/^  - (.+?)\s*$/);
     if (!m) continue;
-    try { cites.push(JSON.parse(m[1])); } catch { /* a malformed entry is judged below */ }
+    try {
+      const v = JSON.parse(m[1]);
+      cites.push(typeof v === "object" && v !== null ? v : { unparseable: ln.trim() });
+    } catch { cites.push({ unparseable: ln.trim() }); }
   }
   return cites;
 }
@@ -77,6 +81,11 @@ export function judgeCites(cites, served, servedPin) {
   const results = [];
   const servedSha = (servedPin ?? "").split("@").pop();
   for (const c of cites) {
+    if (c.unparseable) {
+      results.push({ ...c, verdict: "malformed",
+        detail: `the cite entry is not readable JSON and can be judged no further: ${c.unparseable.slice(0, 80)}` });
+      continue;
+    }
     const ref = parseCiteRef(c.cite);
     if (!ref) {
       results.push({ ...c, verdict: "malformed",
@@ -118,13 +127,21 @@ function fetchSurvey() {
     [bin, "--consumer", "kogaki", "--tool", "element_survey", "--args", "{}"],
     { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (res.status !== 0) return { ok: false, reason: (res.stdout + res.stderr).trim().split("\n")[0] || `gateway exit ${res.status}` };
+  return parseSurveyPayload(res.stdout);
+}
+
+// The adapter between the seam and the judge, pure over the transport's text
+// so the fixture pass can exercise it with a RECORDED payload (round 1
+// finding 2: a-verification-artifact-bound-by-belief-verifies-nothing — a
+// made-up Map handed straight to the judge left this parse untried).
+export function parseSurveyPayload(stdoutText) {
   try {
-    const payload = JSON.parse(res.stdout.slice(res.stdout.indexOf("{")));
+    const payload = JSON.parse(stdoutText.slice(stdoutText.indexOf("{")));
     const served = new Map();
     for (const l of payload.lines ?? []) {
       const m = (l.cite ?? "").match(/^gloss\/ELEMENTS\.jsonl:(\d+)@/);
       if (!m) continue;
-      try { served.set(Number(m[1]), JSON.parse(l.text)); } catch { /* skip */ }
+      try { served.set(Number(m[1]), JSON.parse(l.text)); } catch { /* a broken text line serves no element */ }
     }
     return { ok: true, served, pin: payload.pin ?? null };
   } catch (e) {
@@ -200,7 +217,27 @@ function selfTest() {
   ].join("\n"));
   ok("frontmatter cites parse", cites.length === 1 && cites[0].strand === "L1");
 
+  // New fixture cases (round 1): the recorded-payload adapter trial, and the
+  // judged (never dropped) malformed entry.
+  const recorded = JSON.stringify({ pin: "product-lab@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    lines: [
+      { cite: "gloss/ELEMENTS.jsonl:1@aaaaaaa", text: '{"slug":"alpha","kind":"lesson"}' },
+      { cite: "gloss/ELEMENTS.jsonl:2@aaaaaaa", text: "not json" },
+      { cite: "gloss/INDEX.md:1@aaaaaaa", text: '{"slug":"zulu"}' },
+    ] });
+  const parsed = parseSurveyPayload("noise before payload " + recorded);
+  ok("a recorded survey payload parses through the live adapter",
+    parsed.ok && parsed.served.size === 1 && parsed.served.get(1).slug === "alpha"
+    && parsed.pin.startsWith("product-lab@"));
+  ok("an unreadable payload degrades with its reason, never a throw",
+    parseSurveyPayload("garbage").ok === false);
+  const dropped = parseDraftCites(["---", "cites:", "  - {broken", "---"].join("\n"));
+  ok("a malformed cite entry is judged, never dropped",
+    dropped.length === 1
+    && judgeCites(dropped, served, pin)[0].verdict === "malformed");
+
   console.log(`cite-check self-test: ${passed} case(s) pass${failures.length ? `, FAILURES: ${failures.join(" | ")}` : ""}`);
+  console.log(GUARANTEE_SPLIT);
   if (failures.length) process.exit(1);
 }
 
