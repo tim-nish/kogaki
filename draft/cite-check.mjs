@@ -159,7 +159,7 @@ export function parseSurveyPayload(stdoutText) {
       return { ok: false, reason: "miss-shaped payload — no lines array; the trial did not run" };
     }
     const served = new Map();
-    for (const l of payload.lines ?? []) {
+    for (const l of payload.lines) {
       const m = (l.cite ?? "").match(/^gloss\/ELEMENTS\.jsonl:(\d+)@/);
       if (!m) continue;
       try { served.set(Number(m[1]), JSON.parse(l.text)); } catch { /* a broken text line serves no element */ }
@@ -250,8 +250,9 @@ function selfTest() {
   ok("a recorded survey payload parses through the live adapter",
     parsed.ok && parsed.served.size === 1 && parsed.served.get(1).slug === "alpha"
     && parsed.pin.startsWith("product-lab@"));
-  ok("an unreadable payload degrades with its reason, never a throw",
-    parseSurveyPayload("garbage").ok === false);
+  const unreadable = parseSurveyPayload("{not json");
+  ok("an unreadable payload reaches the parse arm and degrades with its reason, never a throw",
+    unreadable.ok === false && unreadable.reason.includes("unreadable"));
   const missShaped = parseSurveyPayload(JSON.stringify({ miss: true, pin: "product-lab@aaaaaaa", request: {} }));
   ok("a miss-shaped payload is a refused trial, never a survey of zero elements",
     missShaped.ok === false && missShaped.reason.includes("miss-shaped"));
