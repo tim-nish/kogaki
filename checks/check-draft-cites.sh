@@ -12,8 +12,10 @@
 # THE SEAM IS AN ENHANCER, NEVER A DEPENDENCY: with the gateway unreachable
 # the live pass prints CANNOT-DETERMINE per draft — the trial did not run,
 # which is neither a pass nor a failure — and this member stays green. A
-# refusal fires only when the trial RAN and a cite resolved nowhere or
-# elsewhere. An empty draft population renders its explicit zero.
+# refusal fires only when the trial RAN and a cite was malformed (the
+# retired positional form included, SPEC-draft-command v2, kogaki#600) or
+# its declared (slug, kind) identity resolved nowhere. An empty draft
+# population renders its explicit zero.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
