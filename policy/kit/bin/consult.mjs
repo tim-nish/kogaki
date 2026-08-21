@@ -147,6 +147,12 @@ const GATE_CLASSIFICATIONS = {
     "a degraded consult emits NO receipt by design (policy_source unavailable:, " +
     "exit 11), so zero-degraded and zero-consults are indistinguishable",
 };
+// The axis value set, ADOPTED rather than coined (kogaki#602). The shape-only
+// window (owner selection 2026-08-11 — "the price of not minting") is CLOSED:
+// tim-nish/product-lab#172 ratified the set, so admitting free text here would
+// no longer be declining to mint, it would be declining to read. A refusal
+// over free text invites respelling; a refusal over a closed set ends there.
+const RATIFIED_AXES = new Set(["subject", "conduct"]);
 // One re-framing, and one only. AC 4's "a fixed bound, never a search loop":
 // widening the read until something comes back is the failure mode the bounded
 // question exists to prevent, and a bound that lives in prose is a bound a
@@ -232,14 +238,24 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
         "`--axis` is positional against `--claim` — one per framing, in order, " +
         "or none at all.",
     );
-  // SHAPE ONLY (owner selection 2026-08-11): the value set is the hub's and is
-  // not minted here — any non-empty one-line token passes through untouched.
-  // Unknown values are the checker's to report and nobody's to deny.
+  // The value set is the hub's and is STILL not minted here — it is QUOTED
+  // (subject | conduct, ratified in tim-nish/product-lab#172), which closes the
+  // shape-only window specs/SPEC.md §4 accepted as "the price of not minting"
+  // (kogaki#602). `checks/check-consult-receipts.sh` stays shape-only on
+  // purpose: its scope is the receipt RECORD, and this is the invocation.
   for (const [i, a] of axisList.entries()) {
     if (typeof a !== "string" || !a.trim())
       return refuse(2, `--axis ${i + 1} is empty; the \`axis:\` line carries a non-empty token`);
     if (a.includes("\n"))
       return refuse(2, `--axis ${i + 1} spans several lines; \`axis:\` is one line`);
+    if (!RATIFIED_AXES.has(a))
+      return refuse(
+        2,
+        `--axis ${i + 1} '${a}' is not the ratified axis set (subject | conduct, ` +
+          "tim-nish/product-lab#172). The set is CLOSED and quoted, never minted " +
+          "here: a refusal over free text invites respelling, so an unknown " +
+          "token is refused with the set rather than passed through.",
+      );
   }
 
   // AC 2 — corrected at the POINT OF USE, before the gateway is reached. A
@@ -346,6 +362,37 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
         "N names the queries. The count is this tool's to observe and the token " +
         "is yours to assign, so a disagreement is refused rather than repaired.",
     );
+
+  // THE MECHANICAL HALF OF DID-THE-AXIS-VARY (kogaki#602). A non-discriminating
+  // outcome claims the floor above was discharged by a re-framing along a
+  // DIFFERENT axis. Identical tokens are provably the SAME axis — the one
+  // negative this tool can read from facts the transport already holds (the
+  // tokens the operator supplied, per framing) — so that claim is refused
+  // rather than recorded. The refusal assigns no outcome token, composes no
+  // re-framing, and judges no return; and the positive stays out of reach on
+  // purpose: distinct tokens remain a judgment, not a proof, of varied axes.
+  // Scoped exactly to the outcomes whose floor the pair claims to discharge:
+  // a discriminating return claims no re-framing, and an axis-less invocation
+  // keeps kogaki#601's optional-key behavior untouched.
+  if (outcome !== "discriminating" && axisList.length >= MIN_FRAMINGS && new Set(axisList).size === 1) {
+    const same = axisList[0];
+    const owed = [...RATIFIED_AXES].find((a) => a !== same);
+    return refuse(
+      4,
+      `outcome '${outcome}' with every framing on axis '${same}': identical ` +
+        "tokens are provably the SAME axis, so the two-framings floor is not " +
+        "discharged — a lexical rephrasing is not a re-framing. The second " +
+        `framing owes the other axis: '${owed}'.`,
+      "",
+      "Re-submit the corrected pair in the same act:",
+      `  --claim '<the first framing>' --axis ${same} --claim '<the second, ` +
+        `re-framed along ${owed}>' --axis ${owed}`,
+      "",
+      "Distinct tokens remain a judgment, not a proof, of varied axes — this " +
+        "tool refuses only the provable negative, and whether the axis really " +
+        "varied stays the review lane's reading, never a count's.",
+    );
+  }
 
   // THE SECOND AXIS (kogaki#268). Checked last because it is independent of
   // every clause above: the gate half neither constrains nor is constrained by
@@ -558,8 +605,40 @@ function selfTest() {
              return r.code === 2 && r.message.includes("--axis given 1 time(s) for 2 framing(s)"); }],
     ["an empty --axis token is refused as shape — the value set stays unminted",
      () => run({ framings: ["a"], axisList: ["  "], outcome: "discriminating" }).code === 2],
-    ["an unknown axis VALUE passes through — shape-only, denied nowhere",
-     () => run({ framings: ["a"], axisList: ["zzz-not-ratified"], outcome: "discriminating" }).ok === true],
+    // --- kogaki#602: the ratified set, quoted; the same-token floor ---------
+    ["an unknown axis token is refused NAMING the ratified set — the shape-only window is closed",
+     () => { const r = run({ framings: ["a"], axisList: ["zzz-not-ratified"], outcome: "discriminating" });
+             return r.code === 2 && r.message.includes("subject | conduct") &&
+               r.message.includes("product-lab#172"); }],
+    ["a same-token pair at covered-after-reframing is refused with the floor's own code",
+     () => { const r = run({ framings: ["a", "b"], axisList: ["subject", "subject"],
+                             outcome: "covered-after-reframing" });
+             return r.ok === false && r.code === 4 && r.message.includes("provably the SAME axis"); }],
+    ["a same-token pair at uncovered-after-2-framings hits the same refusal",
+     () => { const r = run({ framings: ["a", "b"], axisList: ["conduct", "conduct"],
+                             outcome: "uncovered-after-2-framings" });
+             return r.code === 4 && r.message.includes("provably the SAME axis"); }],
+    ["the refusal names which axis the second framing owes",
+     () => run({ framings: ["a", "b"], axisList: ["subject", "subject"],
+                 outcome: "covered-after-reframing" })
+             .message.includes("The second framing owes the other axis: 'conduct'")],
+    ["the refusal is an affordance: the corrected --claim/--axis pair re-submits in the same act",
+     () => run({ framings: ["a", "b"], axisList: ["conduct", "conduct"],
+                 outcome: "covered-after-reframing" })
+             .message.includes("--claim '<the first framing>' --axis conduct")],
+    ["the refusal states that distinct tokens remain a judgment, not a proof, of varied axes",
+     () => run({ framings: ["a", "b"], axisList: ["subject", "subject"],
+                 outcome: "uncovered-after-2-framings" })
+             .message.includes("Distinct tokens remain a judgment, not a proof, of varied axes")],
+    ["a distinct-token pair is accepted — the judgment half stays human",
+     () => run({ framings: ["a", "b"], axisList: ["subject", "conduct"],
+                 outcome: "covered-after-reframing" }).ok === true],
+    ["a discriminating return with same tokens is accepted — no floor was claimed",
+     () => run({ framings: ["a", "b"], axisList: ["subject", "subject"],
+                 outcome: "discriminating" }).ok === true],
+    ["an axis-less two-framing invocation keeps #601's optional-key behavior",
+     () => { const r = run({ framings: ["a", "b"], outcome: "covered-after-reframing" });
+             return r.ok === true && r.axes.length === 0; }],
     ["each --axis rides in its framing's own group, after that framing's --question",
      () => transportArgv({ consumer: "k", framings: ["first", "second"],
              axisList: ["subject", "conduct"], outcome: "uncovered-after-2-framings" })
@@ -639,7 +718,8 @@ function selfTest() {
     "statement's unindented marker; the gate disposition adopted as a closed " +
     "set on its own axis, omittable, with consult-miss and degraded refused by " +
     "reason rather than by set; the per-query axis paired positionally with " +
-    "its claim, partial lists refused, values passed through shape-only)");
+    "its claim, partial lists refused, tokens held to the ratified set, and " +
+    "same-token pairs refused at the floor with the judgment half left human)");
   process.exit(0);
 }
 
