@@ -284,6 +284,20 @@
         "efficacy": "case: draft/draft.mjs::template refused by field name",
         "efficacy_note": "the self-test constructs each defect and asserts refusal by name: a Brief whose Thesis is the typed unfilled slot (the cited case), a foreign L-id at material and in section prose, an unknown step_id, trace structure in a body (step key line and bare-id heading both), and emit short of completion; the produce-direction cases assert recorded order, the fixed human name, frontmatter record half, generated_by immutability across overwrite, and owner-tree/workspace locality"
       }
+    },
+    {
+      "id": "draft-cites",
+      "file": "check-draft-cites.sh",
+      "admission": {
+        "contract": "SPEC-draft-command v1 section 6: the citation resolve check over a CanonicalDraft's own cites, the SOLE mechanical instrument on grounding, its output quoting the guarantee split (specs/SPEC.md:424-430) so the boundary is learned from the instrument. Each frontmatter cite (gloss/ELEMENTS.jsonl:<line>@<sha>, line = LessonDisplayID) resolves when the served element at that line carries the declared slug; refusals name both halves — resolves-nowhere, and resolves-elsewhere with where the slug moved (the kogaki#266 / PR #580 class, AC4). Pin drift is disclosed (the seam serves no history). Seam unreachable renders CANNOT-DETERMINE and never fails the tree — enhancer, never dependency; an empty draft population renders its explicit zero",
+        "license": "kogaki#588 (story 1.81, decomposed from kogaki#573)",
+        "tier": "pre-push",
+        "runtime_ms": 400,
+        "removal_signal": "the served surface begins serving historical pins, letting cite verification move into the kit's pin-quote machinery (issue-pins.mjs) as one resolver over both consumers — a shared resolver subsumes this per-artifact judge",
+        "removal_instrument": "act: the PR that lands a shared pinned-history resolver owes this check's removal row; until then the current-pin judge with disclosed drift is the only executable form the seam supports",
+        "efficacy": "case: draft/cite-check.mjs::a resolvable pin carrying the wrong element refuses with both halves and where it moved",
+        "efficacy_note": "the fixture pass constructs every verdict seam-free over injected served lines: the cited case is AC4's class — a pin that looks sound while resolving to other content, refused naming the cite as written, what the line now holds, and the line the declared slug moved to; siblings construct resolves-nowhere, wrong-element-with-no-new-home, pin drift (disclosed, never silently passed), malformed form, and the frontmatter parse"
+      }
     }
   ]
 }
