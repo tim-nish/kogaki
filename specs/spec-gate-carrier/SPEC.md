@@ -84,7 +84,7 @@ served line; a host with no declared binding fails rather than inheriting
 one, because inheriting would restore the unfalsifiable general form under a
 new name.
 
-### 3.1 What the question screen carries (v2, kogaki#569)
+### 3.1 What the question screen carries (v2, kogaki#569; exception discharged at v3, kogaki#569)
 
 §3 binds the **medium** — which affordance a gate renders through. This clause
 binds what that affordance **carries**, which the manifest already admits as
@@ -120,13 +120,14 @@ pins that way and says where they go instead:
 
 `.claude/skills/consult-first/SKILL.md:97-101`
 
-**And that source licenses a second, narrower exception, which this clause
-carries rather than silently omitting.** The sentence the excerpt cuts reads:
+**And that source licenses one narrower admission, scoped to the DECLARATION
+surface and not to the question screen.** The sentence the excerpt cuts reads:
 "One exception is not an exception: a gate declaration may carry an `outcome:`
 line, which is a token and not a pin." A bare `outcome:` token is therefore
-admissible on a gate declaration by the same source, independently of the
-mandated block below — and an exception paragraph that declared exactly one while
-its own cited range licensed two would be quoting selectively against itself.
+admissible on a gate declaration by the same source — and since v3 the
+declaration itself rides the transcript (see the discharge below), so this
+admission touches the question screen not at all: the four-member rule and
+"no exception in force" stand together with it, not against it.
 
 Rendering a machine-facing record into the question body is the record/rendering
 confusion the payload design exists to prevent, applied to the gate's own chrome.
@@ -146,6 +147,15 @@ transcript before the gate call**, keyed `gate-declaration (question N):`, and
 observed enforcing in this repository's own sittings the same day. The two
 contracts now agree, no element of the declaration block reaches the question
 UI, and §3.1's four-member rule binds with no exception in force.
+
+**The discharge is an observation dated 2026-08-21, not a self-maintaining
+claim.** Nothing in this repository watches that repository (`instrument:
+none`, unchanged below), so the state claims above are readings taken at the
+discharge, and this clause states what reopens it rather than leaving the
+reader to infer permanence: the hook's removal or staleness, or a
+`SPEC-triage-gh` amendment moving the declaration off the transcript, reopens
+v3 — the observing act is whoever meets a declaration back in question text,
+exactly the event that filed kogaki#569.
 
 **The carrier is NAMED and its state is not asserted**, which is the form the
 served line this clause consults requires and the form
