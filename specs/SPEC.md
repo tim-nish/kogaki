@@ -1225,9 +1225,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **The carrier is the per-round spawn log, which already exists** — and
      kogaki#204's premise that "there is no persisted per-round state today"
      is corrected here rather than carried forward. `spawn_log_path(pr, rnd)`
-     is already keyed per PR per round (`tools/review-sweep.sh:1168`), and
+     is already keyed per PR per round (`tools/review-sweep.sh:1881`), and
      `spawn()` writes the command line into it **before the process starts**
-     (`tools/review-sweep.sh:1716`, `:1775-1781`), precisely so "a spawn that
+     (`tools/review-sweep.sh:3140-3141`, `:3189-3190`), precisely so "a spawn that
      dies immediately still leaves a file saying what was attempted". What it
      lacks is a **terminal** line, so existence alone cannot separate in
      flight from finished. That is what this clause adds:

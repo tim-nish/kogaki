@@ -9,7 +9,7 @@ record:
 > "6. **The style contract and plain-register commitment**, consumed at
 > generation."
 
-`specs/SPEC.md:4212-4218` — the item's opening sentence, quoted; the
+`specs/SPEC.md:4750-4752` — the item's opening sentence, quoted; the
 remainder of the range is the carrier pointer this spec's landing added.
 
 Authored consumer-side, in the same shape as

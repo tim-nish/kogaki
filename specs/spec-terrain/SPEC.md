@@ -2657,7 +2657,7 @@ call was made.
   groups "sorted descending by member count"
   (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/articles.md:80`),
   while Kogaki's shipped `COTAG_SORT` declares "co-tag name ascending, then
-  member id ascending" (`terrain/terrain.mjs:486`), adopted under §6. Both are
+  member id ascending" (`terrain/terrain.mjs:684`), adopted under §6. Both are
   declared deterministic sorts and both are admitted as navigation, so neither
   is a violation; which one Kogaki serves is **undecided here**. kogaki#128
   raises the screen's *composition* and not its ordering, and deciding an
@@ -4361,7 +4361,7 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   expect one.
 - **`.claude/skills/terrain/SKILL.md`** — the flow gains the surface. Its hard
   line "Compose from `compose-input`, never from the whole survey"
-  (`.claude/skills/terrain/SKILL.md:226`) is untouched and, note, is *why* the
+  (`.claude/skills/terrain/SKILL.md:318`) is untouched and, note, is *why* the
   neighborhood cannot be implemented as a wider survey read at composition time.
 - **`checks/check-terrain-composition.sh`** — the conformance home. The three
   mechanically checkable properties are substrate disclosure per suggestion, a

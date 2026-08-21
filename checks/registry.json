@@ -256,6 +256,20 @@
         "efficacy": "case: checks/check-brief-review.sh::MUTATION EVIDENCE (assert-by-breaking-once, story 1.74)",
         "efficacy_note": "Mutations are performed and restored surgically, each failing its own case in one run. NEITHER THE TALLY NOR THE MEMBER LIST IS RESTATED HERE (kogaki#511, then kogaki#515): the count was ACCURATE at this head when kogaki#511 removed it, and the enumeration it left goes on the same ground — a restatement that happens to agree today is the one that drifts unnoticed tomorrow, and it drifts by membership as readily as by count. The pass line names every mutation with the assertion that kills it; the `efficacy` field above resolves the case label against the file."
       }
+    },
+    {
+      "id": "spec-pin-resolve",
+      "file": "check-spec-pin-resolve.sh",
+      "admission": {
+        "contract": "the repository's one grounding guarantee (specs/SPEC.md:424-425) applied to its own governing prose: every local file:line pointer in specs/SPEC.md and specs/*/SPEC.md resolves against the tree, and a >=24-char quotation adjacent to a local pointer is present at the target — adjacency is SHAPE-discriminated (the pointer's line; the line above; across a single blank line; a contiguous >-blockquote taken whole; never across a non-blank prose line), and an elided quotation (…) matches by its kept segments in order. Served pins and cross-repo mentions are counted report-only classes with rendered zeros; bare served pointers (kogaki#583 instance 3) are report-only BY DECISION — the tree held 69 at admission, and a member born red on the whole corpus gates every PR on defects it did not introduce; the rendered count is the evidence a later promotion argues from",
+        "license": "kogaki#583 (story 1.83)",
+        "tier": "pre-push",
+        "runtime_ms": 510,
+        "removal_signal": "spec prose adopts a durable anchor form for local pointers (hash-pinned quotes with a writer, or CAP-n/#issue-style anchors), making a bare file:line unrepresentable at authoring — constrain-generation subsumes this detection",
+        "removal_instrument": "act: the PR that lands a spec-prose anchor grammar with its own writer owes this check's removal row; until one exists, hand-authored file:line pointers are the irreducible free-composition surface this member polices",
+        "efficacy": "case: checks/fixtures/spec-pin-resolve/wrong-pin.md::an accurate quote over a pointer to different text",
+        "efficacy_note": "the fixture pass runs every invocation, before the corpus scan: wrong-pin.md constructs kogaki#583 instances 1-2 (an accurate quote over a pointer that resolves cleanly to different text) and the check must report `resolves elsewhere`; siblings out-of-range.md (`resolves nowhere`), bare-served.md (`bare served pointer`) and blank-line-shape.md (the corpus's dominant quote/blank/pin shape, added in PR #586 round 1 so the window width is exercised rather than assumed) construct the other mechanical classes. MUTATION EVIDENCE (assert-by-breaking-once, run 2026-08-21, each mutation applied once and restored): removing the blank-skip failed the blank-line-shape case; disabling quote matching failed wrong-pin AND blank-line-shape; removing the line-range check failed out-of-range"
+      }
     }
   ]
 }

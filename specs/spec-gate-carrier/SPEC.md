@@ -21,7 +21,7 @@ record:
 > payload/answer capture) — with rendering through the question UI as
 > contract, not discretion."
 
-`specs/SPEC.md:99-101`
+`specs/SPEC.md:4745-4747`
 
 Ported **with** its contract, ahead of Terrain, on the same ground as item 3
 (`specs/SPEC.md:113-121`). Authored consumer-side, in the same shape as
