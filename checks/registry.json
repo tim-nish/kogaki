@@ -270,6 +270,20 @@
         "efficacy": "case: checks/fixtures/spec-pin-resolve/wrong-pin.md::an accurate quote over a pointer to different text",
         "efficacy_note": "the fixture pass runs every invocation, before the corpus scan: wrong-pin.md constructs kogaki#583 instances 1-2 (an accurate quote over a pointer that resolves cleanly to different text) and the check must report `resolves elsewhere`; siblings out-of-range.md (`resolves nowhere`), bare-served.md (`bare served pointer`) and blank-line-shape.md (the corpus's dominant quote/blank/pin shape, added in PR #586 round 1 so the window width is exercised rather than assumed) construct the other mechanical classes. MUTATION EVIDENCE (assert-by-breaking-once, run 2026-08-21, each mutation applied once and restored): removing the blank-skip failed the blank-line-shape case; disabling quote matching failed wrong-pin AND blank-line-shape; removing the line-range check failed out-of-range"
       }
+    },
+    {
+      "id": "draft-runtime",
+      "file": "check-draft-runtime.sh",
+      "admission": {
+        "contract": "story 1.80's harness half of SPEC-draft-command v1: a template Brief refuses by field name; the closed reference set refuses a foreign Strand by name (at material and in section prose); the Reader Path is realized in recorded order; emit refuses short of completion naming the owed steps; the CanonicalDraft lands under its fixed human name with the record half (brief pin, survey pin, immutable generated_by, cites, per-Step trace) in frontmatter and no trace structure in the body; snapshots stay machine-local. A thin invoker — the cases live in draft/draft.mjs --self-test, seam-free, temp-dir only",
+        "license": "kogaki#587 (story 1.80, decomposed from kogaki#573)",
+        "tier": "pre-push",
+        "runtime_ms": 900,
+        "removal_signal": "the /draft flow gains an end-to-end registered check over a real Brief corpus that exercises these refusal surfaces as part of driving the full pipeline — a superset pass subsumes the unit fixture pass",
+        "removal_instrument": "act: the PR that lands such an end-to-end member owes this check's removal row; until then the self-test is the only executable home story 1.80's assertions have",
+        "efficacy": "case: draft/draft.mjs::template refused by field name",
+        "efficacy_note": "the self-test constructs each defect and asserts refusal by name: a Brief whose Thesis is the typed unfilled slot (the cited case), a foreign L-id at material and in section prose, an unknown step_id, trace structure in a body (step key line and bare-id heading both), and emit short of completion; the produce-direction cases assert recorded order, the fixed human name, frontmatter record half, generated_by immutability across overwrite, and owner-tree/workspace locality"
+      }
     }
   ]
 }
