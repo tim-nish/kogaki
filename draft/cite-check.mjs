@@ -10,21 +10,25 @@
 // attributed as such, and Gukan's facts are Gukan's.
 //
 // WHAT IT RESOLVES. A CanonicalDraft's frontmatter cites are
-// `gloss/ELEMENTS.jsonl:<line>@<sha>` entries, each declaring the Strand id
-// and slug it grounds. The LessonDisplayID is the line number (SPEC-terrain
-// §14.3's join key, stable within a pin), so a cite resolves when the served
-// element at that line carries the declared slug. Three refusal shapes:
-//   resolves nowhere   — the served survey has no such line;
-//   resolves elsewhere — the line exists and carries a DIFFERENT element:
-//                        the pin that looks sound while resolving to other
-//                        content, this repository's kogaki#266 / PR #580
-//                        class, reported with both halves (the cite as
-//                        written, what the line now holds) and, where the
-//                        declared slug is found at another line, where it
-//                        moved to;
+// `gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha>` entries
+// (SPEC-draft-command §"Schema — the record half", v2, kogaki#600): the
+// (slug, kind) pair is the join key, resolved against the served survey at
+// its current HEAD; the `@<sha>` substrate pin is PROVENANCE, never the
+// resolution target. The prior positional form
+// `gloss/ELEMENTS.jsonl:<line>@<sha>` is retired as a scheduled defect —
+// the hub regenerates the manifest wholesale at every distill close, so
+// every positional cite broke at the first close after authoring while
+// every cited identity survived (kogaki#600). Refusal shapes:
+//   malformed          — including every positional cite, refused with the
+//                        identity form named as the migration;
+//   resolves nowhere   — the served survey holds no record with the
+//                        declared (slug, kind) identity;
 //   pin drift          — the served surface is at a different sha than the
 //                        cite names; the trial ran at the current pin and
 //                        says so, because the seam serves no history.
+// The old resolves-elsewhere class (a line resolving to other content,
+// kogaki#266 / PR #580) is unreachable under identity addressing: no
+// line-based lookup exists to resolve to the wrong record.
 //
 // THE SEAM IS AN ENHANCER, NEVER A DEPENDENCY (CLAUDE.md, Policy seam): an
 // unreachable gateway degrades to CANNOT-DETERMINE — the trial did not run,
@@ -53,7 +57,7 @@ export const GUARANTEE_SPLIT =
   "Nothing here judges whether a claim is true, an interpretation valid, or " +
   "a scope widened — those are the author's judgment, attributed as such.";
 
-// Frontmatter cites: `  - {"strand":"L87","slug":"…","kind":"cite","cite":"gloss/ELEMENTS.jsonl:87@<sha>"}`
+// Frontmatter cites: `  - {"strand":"L87","slug":"…","kind":"cite","cite":"gloss/ELEMENTS.jsonl slug=… kind=lesson @<sha>"}`
 export function parseDraftCites(text) {
   const fm = text.split(/^---$/m)[1] ?? "";
   const cites = [];
@@ -70,13 +74,28 @@ export function parseDraftCites(text) {
   return cites;
 }
 
+// The identity form (SPEC-draft-command v2, kogaki#600): (slug, kind) is the
+// join key; @<sha> is provenance. The retired positional form is recognized
+// only to refuse it with the migration named.
+const IDENTITY_RE = /^gloss\/ELEMENTS\.jsonl slug=([A-Za-z0-9._-]+) kind=(lesson|journey) @([0-9a-f]{7,40})$/;
+const POSITIONAL_RE = /^gloss\/ELEMENTS\.jsonl:\d+@[0-9a-f]{7,40}$/;
+
 export function parseCiteRef(cite) {
-  const m = (cite ?? "").match(/^gloss\/ELEMENTS\.jsonl:(\d+)@([0-9a-f]{7,40})$/);
-  return m ? { line: Number(m[1]), sha: m[2] } : null;
+  const m = (cite ?? "").match(IDENTITY_RE);
+  return m ? { slug: m[1], kind: m[2], sha: m[3] } : null;
 }
 
-// The pure judge: cites × served lines → verdicts. `served` is
-// Map<lineNumber, {slug}>; `servedPin` is the pin the fetch ran at.
+// The served lookup's key: identity, never position — kind is in the key so
+// a journey cite can never resolve against the same slug's lesson record
+// (kogaki#600 §Secondary finding: the slug-only relocation hint returned the
+// lesson record's line for a journey cite; that class is unreachable here).
+export function identityKey(slug, kind) {
+  return `${kind} ${slug}`;
+}
+
+// The pure judge: cites × served records → verdicts. `served` is
+// Map<identityKey(slug, kind), record>; `servedPin` is the pin the fetch
+// ran at.
 export function judgeCites(cites, served, servedPin) {
   const results = [];
   const servedSha = (servedPin ?? "").split("@").pop();
@@ -88,23 +107,18 @@ export function judgeCites(cites, served, servedPin) {
     }
     const ref = parseCiteRef(c.cite);
     if (!ref) {
+      const positional = POSITIONAL_RE.test(c.cite ?? "");
       results.push({ ...c, verdict: "malformed",
-        detail: `the cite is not in resolvable file:line@sha form: ${c.cite}` });
+        detail: positional
+          ? `the positional form gloss/ELEMENTS.jsonl:<line>@<sha> is retired (SPEC-draft-command v2, kogaki#600) — migrate to the identity form gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha>: ${c.cite}`
+          : `the cite is not in the resolvable identity form gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha>: ${c.cite}` });
       continue;
     }
     const pinMatch = servedSha ? servedSha.startsWith(ref.sha) || ref.sha.startsWith(servedSha) : false;
-    const el = served.get(ref.line);
+    const el = served.get(identityKey(ref.slug, ref.kind));
     if (!el) {
       results.push({ ...c, verdict: "resolves-nowhere", pinMatch,
-        detail: `resolves nowhere — the served survey (${served.size} element(s) at ${servedPin}) has no line ${ref.line}` });
-      continue;
-    }
-    if (el.slug !== c.slug) {
-      let movedTo = null;
-      for (const [n, e] of served) if (e.slug === c.slug) { movedTo = n; break; }
-      results.push({ ...c, verdict: "resolves-elsewhere", pinMatch, movedTo,
-        detail: `resolves elsewhere — the cite as written (${c.cite}, declaring "${c.slug}") resolves to "${el.slug}"`
-          + (movedTo ? `; "${c.slug}" now sits at line ${movedTo}` : `; "${c.slug}" is at no served line`) });
+        detail: `resolves nowhere — the served survey (${served.size} record(s) at ${servedPin}) holds no record slug=${ref.slug} kind=${ref.kind}` });
       continue;
     }
     results.push({ ...c, verdict: pinMatch ? "verified" : "verified-at-current-pin", pinMatch,
@@ -158,11 +172,17 @@ export function parseSurveyPayload(stdoutText) {
     if (!Array.isArray(payload.lines)) {
       return { ok: false, reason: "miss-shaped payload — no lines array; the trial did not run" };
     }
+    // Keyed by (slug, kind) read from each served record's OWN fields —
+    // identity, never position (SPEC-draft-command v2, kogaki#600).
     const served = new Map();
     for (const l of payload.lines) {
-      const m = (l.cite ?? "").match(/^gloss\/ELEMENTS\.jsonl:(\d+)@/);
-      if (!m) continue;
-      try { served.set(Number(m[1]), JSON.parse(l.text)); } catch { /* a broken text line serves no element */ }
+      if (!/^gloss\/ELEMENTS\.jsonl:/.test(l.cite ?? "")) continue;
+      try {
+        const el = JSON.parse(l.text);
+        if (typeof el?.slug === "string" && typeof el?.kind === "string") {
+          served.set(identityKey(el.slug, el.kind), el);
+        }
+      } catch { /* a broken text line serves no record */ }
     }
     return { ok: true, served, pin: payload.pin ?? null };
   } catch (e) {
@@ -200,32 +220,47 @@ function selfTest() {
   let passed = 0; const failures = [];
   const ok = (name, cond) => { if (cond) passed++; else failures.push(name); };
   const served = new Map([
-    [1, { slug: "alpha" }], [2, { slug: "bravo" }], [3, { slug: "charlie" }],
+    [identityKey("alpha", "lesson"), { slug: "alpha", kind: "lesson" }],
+    [identityKey("bravo", "lesson"), { slug: "bravo", kind: "lesson" }],
+    [identityKey("charlie", "journey"), { slug: "charlie", kind: "journey" }],
   ]);
   const pin = "product-lab@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const mk = (line, slug, sha = "aaaaaaa") =>
-    ({ strand: `L${line}`, slug, kind: "cite", cite: `gloss/ELEMENTS.jsonl:${line}@${sha}` });
+  const mk = (slug, kind = "lesson", sha = "aaaaaaa") =>
+    ({ strand: `L-${slug}`, slug, kind: "cite",
+      cite: `gloss/ELEMENTS.jsonl slug=${slug} kind=${kind} @${sha}` });
 
-  let r = judgeCites([mk(1, "alpha")], served, pin);
-  ok("a sound cite verifies", r[0].verdict === "verified");
+  // AC1 — the identity form parses to {slug, kind, sha}.
+  const ref = parseCiteRef("gloss/ELEMENTS.jsonl slug=alpha kind=lesson @aaaaaaa");
+  ok("the identity form parses to slug, kind and sha",
+    ref !== null && ref.slug === "alpha" && ref.kind === "lesson" && ref.sha === "aaaaaaa");
 
-  r = judgeCites([mk(9, "alpha")], served, pin);
-  ok("a missing line resolves nowhere, both halves named",
-    r[0].verdict === "resolves-nowhere" && r[0].detail.includes("no line 9"));
+  let r = judgeCites([mk("alpha")], served, pin);
+  ok("a sound identity cite verifies", r[0].verdict === "verified");
 
-  // AC4 — the pin that looks sound while resolving to other content.
-  r = judgeCites([mk(2, "alpha")], served, pin);
-  ok("a resolvable pin carrying the wrong element refuses with both halves and where it moved",
-    r[0].verdict === "resolves-elsewhere" && r[0].detail.includes('"bravo"')
-    && r[0].movedTo === 1);
+  r = judgeCites([mk("charlie", "journey")], served, pin);
+  ok("a journey identity resolves against the journey record", r[0].verdict === "verified");
 
-  r = judgeCites([mk(2, "zulu")], served, pin);
-  ok("a wrong element with no new home says so",
-    r[0].verdict === "resolves-elsewhere" && r[0].movedTo === null
-    && r[0].detail.includes("no served line"));
+  // AC1 — the retired positional form is malformed, migration named.
+  r = judgeCites([{ strand: "L1", slug: "alpha", kind: "cite",
+    cite: "gloss/ELEMENTS.jsonl:1@aaaaaaa" }], served, pin);
+  ok("a positional cite is malformed and the refusal names the identity form as the migration",
+    r[0].verdict === "malformed" && r[0].detail.includes("retired")
+    && r[0].detail.includes("slug=<slug> kind=<lesson|journey>"));
 
-  r = judgeCites([mk(1, "alpha", "bbbbbbb")], served, pin);
-  ok("pin drift is disclosed, never silently passed",
+  // AC2 — absent identity resolves nowhere.
+  r = judgeCites([mk("zulu")], served, pin);
+  ok("an absent identity resolves nowhere, the declared identity named",
+    r[0].verdict === "resolves-nowhere" && r[0].detail.includes("slug=zulu kind=lesson"));
+
+  // AC3 — kind discrimination: a journey cite never resolves against the
+  // same slug's lesson record (kogaki#600 §Secondary finding).
+  r = judgeCites([mk("alpha", "journey")], served, pin);
+  ok("a journey cite never resolves against the same slug's lesson record",
+    r[0].verdict === "resolves-nowhere" && r[0].detail.includes("kind=journey"));
+
+  // Pin provenance: @<sha> is provenance, never the resolution target.
+  r = judgeCites([mk("alpha", "lesson", "bbbbbbb")], served, pin);
+  ok("pin drift is disclosed, never silently passed — and the identity still resolved",
     r[0].verdict === "verified-at-current-pin" && r[0].detail.includes("current pin"));
 
   r = judgeCites([{ strand: "L1", slug: "alpha", cite: "ELEMENTS:one" }], served, pin);
@@ -233,7 +268,7 @@ function selfTest() {
 
   const cites = parseDraftCites([
     "---", "cites:",
-    '  - {"strand":"L1","slug":"alpha","kind":"cite","cite":"gloss/ELEMENTS.jsonl:1@aaaaaaa"}',
+    '  - {"strand":"L1","slug":"alpha","kind":"cite","cite":"gloss/ELEMENTS.jsonl slug=alpha kind=lesson @aaaaaaa"}',
     "---", "body",
   ].join("\n"));
   ok("frontmatter cites parse", cites.length === 1 && cites[0].strand === "L1");
@@ -244,11 +279,13 @@ function selfTest() {
     lines: [
       { cite: "gloss/ELEMENTS.jsonl:1@aaaaaaa", text: '{"slug":"alpha","kind":"lesson"}' },
       { cite: "gloss/ELEMENTS.jsonl:2@aaaaaaa", text: "not json" },
-      { cite: "gloss/INDEX.md:1@aaaaaaa", text: '{"slug":"zulu"}' },
+      { cite: "gloss/ELEMENTS.jsonl:3@aaaaaaa", text: '{"slug":"kindless"}' },
+      { cite: "gloss/INDEX.md:1@aaaaaaa", text: '{"slug":"zulu","kind":"lesson"}' },
     ] });
   const parsed = parseSurveyPayload("noise before payload " + recorded);
-  ok("a recorded survey payload parses through the live adapter",
-    parsed.ok && parsed.served.size === 1 && parsed.served.get(1).slug === "alpha"
+  ok("a recorded survey payload parses through the live adapter, keyed by identity",
+    parsed.ok && parsed.served.size === 1
+    && parsed.served.get(identityKey("alpha", "lesson")).slug === "alpha"
     && parsed.pin.startsWith("product-lab@"));
   const unreadable = parseSurveyPayload("{not json");
   ok("an unreadable payload reaches the parse arm and degrades with its reason, never a throw",

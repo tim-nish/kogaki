@@ -60,7 +60,17 @@ launches this and this never launches `/variant`. Review sits between
    relayed, then repaired in the prose, never worked around.
 3. **Emit** — `node draft/draft.mjs emit --brief <brief>`. Refuses while any
    Step lacks its section, naming what is owed; on completion it writes the
-   CanonicalDraft with its record half in frontmatter.
+   CanonicalDraft with its record half in frontmatter. **The record half's
+   cites address the served manifest record by identity, never by
+   position** (SPEC-draft-command §"Schema — the record half", v2,
+   kogaki#600): the one writable form is
+   `gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha>` — the
+   (slug, kind) pair is the join key resolved at the served HEAD, and
+   `@<sha>` is provenance, never the resolution target. A line-number
+   address (`gloss/ELEMENTS.jsonl:<line>@<sha>`) is not producible here:
+   the emitter copies the Brief's cite lines verbatim, and a positional
+   cite is malformed to the resolve check, which names the identity form
+   as the migration in its refusal.
 4. **Run the citation resolve check** —
    `node draft/cite-check.mjs --draft briefs/<slug>/draft.md` — the sole
    mechanical instrument on grounding. An unreachable seam degrades to
