@@ -218,6 +218,18 @@ export function stripFences(body) {
 //   (b) as a standalone qualified cite — `topics/articles.md:271@bb68ccf`.
 // Both are collected. `line` is null for a range, which is what routes a range
 // to `cannot-tell (range cite)` rather than to a silent pass.
+//
+// IDENTITY-FORM CITES PASS THROUGH UNPARSED, BY CHOICE (kogaki#603). The
+// consultation map's live-read cites of served units now address by stable
+// identity — `<file> slug=<slug> kind=<lesson|journey>` for lesson/journey
+// records, `<file> gloss_sha=<sha256>` for topic decision lines — with the
+// `@<sha>` beside them as provenance only. Neither shape carries `:<line>`,
+// so neither grammar below collects it: an identity cite generates no trial
+// here, and that is the ruling rather than a gap — this machinery detects the
+// CONSEQUENCE of line drift, and the identity form removes the cause, so
+// teaching this parser to resolve identities would be the drift-compensation
+// mechanism kogaki#603 refuses in advance. Frozen `file:line@sha` provenance
+// still parses exactly as before.
 export function parseCites(body) {
   // `pin-quote:` LINES ARE STRIPPED FIRST. Shape (b) below matches any
   // `<file>:<line>@<sha>`, which is exactly a pin-quote line's own provenance
@@ -653,6 +665,15 @@ function selfTest() {
     ["a range cite is collected with line=null, never as a line",
      () => { const c = parseCites(`consulted: product-lab@${SHA} gloss/lessons/testing.md:1-157`)[0];
              return c.spec === "1-157" && c.line === null; }],
+
+    // -- kogaki#603: identity-form cites PASS THROUGH unparsed, deliberately --
+    ["kogaki#603 a gloss_sha identity receipt yields NO cite and no trial",
+     () => parseCites(`consulted: product-lab@${SHA} topics/knowledge-architecture.md gloss_sha=d11ac0f8ef5ef4c53d299c61b49ef032d7b91ca540da1d4bb6a2eed372e8f18f`).length === 0],
+    ["kogaki#603 a (slug, kind) identity receipt yields NO cite either",
+     () => parseCites(`consulted: product-lab@${SHA} gloss/lessons/knowledge-architecture.md slug=repo-boundaries-follow-publication-boundaries kind=lesson`).length === 0],
+    ["kogaki#603 a bare identity cite with its provenance pin manufactures nothing",
+     () => { const b = "see `topics/claude-code-ops.md gloss_sha=ba7be2fee6c08c139752452e2bd62aa8b77f2be943535a6452f26b6a0016453c @" + SHA + "` for the rule\n";
+             return parseCites(b).length === 0 && judgeContent(b, new Map()).length === 0; }],
     ["a FENCED pin-quote is a mention, not an emission",
      () => parsePinQuotes("```\npin-quote: topics/articles.md:79@abc1234 q1:0000000000000000\n```\n").size === 0],
     ["a fenced `consulted:` line yields no cites",
