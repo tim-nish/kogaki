@@ -228,8 +228,8 @@ real sides rather than an anticipated second one.
 kogaki#222 named this slot with "no served line discriminates it". Re-read at
 the current pin — the issue pinned `product-lab@98195e0a`, the served surface
 answers at `@dec0d568` — that premise is **false**:
-`gloss/lessons/knowledge-architecture.md:311` discriminates it directly, on its
-own terms and without extension. The correction is reported rather than quietly
+`gloss/lessons/knowledge-architecture.md slug=repo-boundaries-follow-publication-boundaries
+kind=lesson` discriminates it directly, on its own terms and without extension. The correction is reported rather than quietly
 reconciled, which is the disposition discipline this file's entry 3 exists for.
 It changes nothing about the fill: the served rule and the owner's selection
 agree, so no fork re-opens.
