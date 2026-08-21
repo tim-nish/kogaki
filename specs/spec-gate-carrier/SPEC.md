@@ -1,15 +1,15 @@
 # SPEC-gate-carrier — the gate carrier
 
-**Status:** v2, amended 2026-08-21 (kogaki#569) — **§3.1 binds what the question
-screen carries.** §3 bound the medium and never the composition, so the screen's
-contents were discretion in a spec whose own admission record calls that
-rendering contract. Four members — identifying material, instruction, question,
-options — and a fifth owes a stated reason. Machine-facing text is not among
-them, per this repository's own pin rule. One exception is in force and named
-with its mandating carrier: the gate declaration block, mandated in the question
-text by a clause and an actor-level hook that both live in `tim-nish/claude-toolkit`,
-where kogaki#569's reversal is filed as `tim-nish/claude-toolkit#402`. **deferred slots minted by this amendment:
-none.**
+**Status:** v3, amended 2026-08-21 (kogaki#569) — **§3.1's one exception is
+discharged.** v2 (same day, same issue) bound what the question screen carries —
+four members, a fifth owes a stated reason, machine-facing text not among them —
+and named one exception in force: the gate declaration block, mandated in the
+question text by a clause and hook living in `tim-nish/claude-toolkit`, where
+the reversal was filed as `tim-nish/claude-toolkit#402`. That repository ruled
+the same day (`SPEC-triage-gh` §"The declaration rides in the transcript", v65,
+its #402 closed; observed enforcing in this repository's own sittings), so the
+exception is dropped and §3.1 now binds without one. **deferred slots minted by
+this amendment: none.**
 
 **Status:** v1, authored 2026-08-05 (kogaki#16, umbrella kogaki#14).
 **Governs:** port manifest item 4 (`specs/SPEC.md` §5).
@@ -84,7 +84,7 @@ served line; a host with no declared binding fails rather than inheriting
 one, because inheriting would restore the unfalsifiable general form under a
 new name.
 
-### 3.1 What the question screen carries (v2, kogaki#569)
+### 3.1 What the question screen carries (v2, kogaki#569; exception discharged at v3, kogaki#569)
 
 §3 binds the **medium** — which affordance a gate renders through. This clause
 binds what that affordance **carries**, which the manifest already admits as
@@ -120,13 +120,14 @@ pins that way and says where they go instead:
 
 `.claude/skills/consult-first/SKILL.md:97-101`
 
-**And that source licenses a second, narrower exception, which this clause
-carries rather than silently omitting.** The sentence the excerpt cuts reads:
+**And that source licenses one narrower admission, scoped to the DECLARATION
+surface and not to the question screen.** The sentence the excerpt cuts reads:
 "One exception is not an exception: a gate declaration may carry an `outcome:`
 line, which is a token and not a pin." A bare `outcome:` token is therefore
-admissible on a gate declaration by the same source, independently of the
-mandated block below — and an exception paragraph that declared exactly one while
-its own cited range licensed two would be quoting selectively against itself.
+admissible on a gate declaration by the same source — and since v3 the
+declaration itself rides the transcript (see the discharge below), so this
+admission touches the question screen not at all: the four-member rule and
+"no exception in force" stand together with it, not against it.
 
 Rendering a machine-facing record into the question body is the record/rendering
 confusion the payload design exists to prevent, applied to the gate's own chrome.
@@ -134,36 +135,40 @@ Where a consultation must be visible to the owner **before** a gate, the existin
 owner-render block — Question / Answer / Conclusion, printed before the UI — is
 the sanctioned surface and is unchanged.
 
-**ONE EXCEPTION IS IN FORCE AND IT IS NOT THIS REPOSITORY'S TO LIFT.** The gate
-declaration block — `gate: <class>` with its `receipt:` and `outcome:` lines — is
-mandated in the question text by a rule and a carrier that both live in
-`tim-nish/claude-toolkit`: `SPEC-triage-gh` §"The declaration rides in the
-question", and the actor-level `PreToolUse` hook `lint-gate-declaration.py`,
-which reads the declaration out of the question and refuses the call without it.
-Neither is reachable from here.
+**THE EXCEPTION IS DISCHARGED (v3).** v2 named one live exception: the gate
+declaration block — `gate: <class>` with its `receipt:` and `outcome:` lines —
+was mandated **in the question text** by a rule and an actor-level hook living
+in `tim-nish/claude-toolkit`, neither reachable from here, so v2 named the
+carrier and asserted nothing about its state. That repository ruled on
+2026-08-21 (`SPEC-triage-gh` §"The declaration rides in the transcript", v65,
+issue #402 there, closed): the block is emitted as **assistant text in the
+transcript before the gate call**, keyed `gate-declaration (question N):`, and
+`lint-gate-declaration.py` now REFUSES a question text carrying `gate:` —
+observed enforcing in this repository's own sittings the same day. The two
+contracts now agree, no element of the declaration block reaches the question
+UI, and §3.1's four-member rule binds with no exception in force.
+
+**The discharge is an observation dated 2026-08-21, not a self-maintaining
+claim.** Nothing in this repository watches that repository (`instrument:
+none`, unchanged below), so the state claims above are readings taken at the
+discharge, and this clause states what reopens it rather than leaving the
+reader to infer permanence: the hook's removal or staleness, or a
+`SPEC-triage-gh` amendment moving the declaration off the transcript, reopens
+v3 — the observing act is whoever meets a declaration back in question text,
+exactly the event that filed kogaki#569.
 
 **The carrier is NAMED and its state is not asserted**, which is the form the
 served line this clause consults requires and the form
-`policy/consultation-map.md` entry 4 already models. **`instrument: none`** —
-nothing in this repository observes that rule's version, that hook's behaviour,
-or whether either has changed, so this clause records neither. Its first cut
-pinned the clause at `v52` and added "and will until that repository acts": a
-version claim and a forward claim about a carrier nobody here watches, both of
-which rot silently the moment that repository rules. What a reader is owed
-instead is where the disposition is read, which is the paragraph below.
+`policy/consultation-map.md` entry 4 already models — kept at v3 as the record
+of HOW the exception was carried while it lived: the carrier named, its state
+never asserted, `instrument: none` because nothing here watches that
+repository. That form is why this clause could not rot between the toolkit's
+ruling and this amendment — it claimed nothing the ruling falsified.
 
-**Stated as an exception with its carrier named, rather than as silence.** A
-clause whose one live violation goes unmentioned reads to the next reader as a
-clause nobody follows. Naming the mandating carrier is what distinguishes *this
-rule is not in force yet* from *this rule is ignored* — and it is the same
-discipline §3's medium binding already applies to a host with no declared
-binding, which fails rather than inheriting one.
-
-**The reversal is handed off, not deferred here.** kogaki#569's cross-repo half
-is `tim-nish/claude-toolkit#402`; this clause is the arm that stays,
-because what a question screen carries is unbound in this contract regardless of
-how that repository rules. A gate record names its carrier and does not assert
-that carrier's state:
+**The v2→v3 discharge is read from the carrier it named, not inferred.**
+kogaki#569's cross-repo half, `tim-nish/claude-toolkit#402`, closed with the
+transcript transport ratified and the hook's refusal observed live in this
+repository. The paragraph below preserves v2's disposition record:
 
 `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 LESSONS.md:97`
 
