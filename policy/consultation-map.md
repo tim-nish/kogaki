@@ -32,7 +32,7 @@ served position is quoted whole at its pin:
 > q_a/2026-08-07-baseline-dissolution-and-consult-discipline D5.
 > (q_a/2026-08-05-consultation-seam-vocabulary-and-allocation §4 R2)"
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:26
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md gloss_sha=d11ac0f8ef5ef4c53d299c61b49ef032d7b91ca540da1d4bb6a2eed372e8f18f
 
 The same distinction is restated on the served surface at its own pin, in the
 seeding batch's line, with the reason it is restated there — an excerpt from a
@@ -42,7 +42,7 @@ longer line, marked, never spliced with another:
 > freely from existing decision content while each member still needs its own
 > `[x]`."
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:15
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md gloss_sha=611e34a01b125d450c96d15d21201e22cbf1094aff399830c4f4b9f370d7cd48
 
 **What this permits.** A **proposal** — a candidate entry offered to the
 admission act — may be produced by any means, including a machine, and needs no
@@ -67,7 +67,7 @@ Invariant 2, an excerpt quoted at its own pin:
 > dark, sited next to the code where it carries more apparent weight than the
 > surface it copied."
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:69
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md gloss_sha=a78864feb4f135335ae0a86595000b363446318c724ff760aa9c75b8d75de9ed
 
 A proposer that admitted its own findings would be precisely that second
 authority. So the split is not bureaucratic symmetry: **proposal is a
@@ -110,7 +110,7 @@ requirement and not a courtesy — an excerpt quoted at its pin:
 > filling is itself a decision act — consult, then record choice, alternatives
 > and receipt on the licensing issue BEFORE code embeds it."
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:41
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md gloss_sha=27a5b7cbdbde7363a5b87546a5223d3981236fbde8056aa3d11c2f5908501b7e
 
 **What discriminates it.** **One** served line does the work, and it is quoted
 here under the grounds rather than under an alternative — the correction PR #256
@@ -122,8 +122,7 @@ this record's reading of them:
 > similar subject matter. … When in doubt, keep them separate and connect them
 > with pointers"
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:311
-(`repo-boundaries-follow-publication-boundaries`)
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md slug=repo-boundaries-follow-publication-boundaries kind=lesson
 
 Run over these two proposers it yields the split **directly**, with no extension
 of its terms. `policy/kit/bin/` and `tools/` have **different visibility
@@ -148,7 +147,7 @@ hidden.* Served:
 > (their own misses) and the baseline is hub-served because the owner authors
 > its content …"
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:47
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md gloss_sha=788e9e9081124bf8a76c890e34bb14612beff37e419d435b6db54831d1525360
 
 On its own terms the rule keys on **who authors the sited file's own content**,
 and both of its worked examples are of that form. Kogaki authors **both**
@@ -167,7 +166,7 @@ story 1.40 AC2 quotes for the token set:
 > the field to work: a field read by one side is that side's, a field read by
 > both is the boundary's, and the boundary's owner is the hub."
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:31
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md gloss_sha=75408bb48118106fa79ec964790d87feed90a194c5c92df6a01ce7bb2022ae06
 
 What it settles is **which side each proposer's input belongs to** — the
 `outcome` token is read by both sides and is the boundary's; the review lane's
@@ -185,7 +184,7 @@ consumer exists.* Its appeal is real: the separation trigger has not fired, and
 finding out late.** A packaging error is invisible to every executed path —
 "a design model can be correct on every executed path and wrong in where its
 files sit, because nothing executes a directory layout"
-(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:56`),
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md gloss_sha=e83da8b59f1b7a7e7d746154a7359fd1c11b71311b4ee5bc6778d03cf20d5610`),
 the line that also records the 2026-08-05 audit finding the kit's design HELD
 BEHAVIORALLY AND BROKE IN PACKAGING with two colocation defaults. So the
 deferral does not buy information; it buys a relocation nothing will signal is
@@ -197,23 +196,29 @@ a directory, and no runtime difference.
 repository-specific component into a package built to be repository-neutral,
 across a boundary that is one-way.** The kit separates into its own repository
 when a second kit-installing consumer exists (kogaki#9, and
-`topics/knowledge-architecture.md:56@dec0d568` above). This is **the same served
+`topics/knowledge-architecture.md
+gloss_sha=e83da8b59f1b7a7e7d746154a7359fd1c11b71311b4ee5bc6778d03cf20d5610
+@dec0d568` above). This is **the same served
 line the grounds above turn on** —
-`gloss/lessons/knowledge-architecture.md:311@dec0d568`, membership by visibility
+`gloss/lessons/knowledge-architecture.md
+slug=repo-boundaries-follow-publication-boundaries kind=lesson @dec0d568`,
+membership by visibility
 and never by subject-matter kinship — pointed at rather than re-quoted here, per
 `pointer-not-copy-for-readable-assets`: a rule that discriminates a fork also
 declines the arm it discriminates against, and quoting it twice would make this
 section carry its own conformance copy. The Layer-2 boundary is
 untouched by this fill and is restated rather than assumed to have survived it,
 per the served surface's own handling of the last home change
-(`topics/knowledge-architecture.md:57@dec0d568`): packaging for the owner's own
+(`topics/knowledge-architecture.md
+gloss_sha=629a5aa277cf4af1d7de4cdee5834932469641f1a7047d65b43d90dd2afafcf4
+@dec0d568`): packaging for the owner's own
 repositories is internal work and proceeds; the kit as a product for unknown
 third parties stays a held candidate, and siting one file in `policy/kit/bin/`
 is not a step toward it.
 
 **The counter-line, met rather than skipped.** `encode-the-boundary-that-is-real`
 warns against baking a distinction whose axis has only one live value
-(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md:239`).
+(`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/lessons/knowledge-architecture.md slug=encode-the-boundary-that-is-real kind=lesson`).
 It does not bite here, and the reason is the test the lesson itself gives:
 portability has **two live values in today's content** — one proposer reads the
 hub's grammar, the other reads a local record — so the boundary already has two
@@ -302,7 +307,7 @@ clause is the operative reading of a ratified position, not a new one:
 > the map a conformance copy with no declared precedence, and on any divergence
 > the served surface wins and the entry is repaired."
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:69
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md gloss_sha=a78864feb4f135335ae0a86595000b363446318c724ff760aa9c75b8d75de9ed
 
 Both of that invariant's limbs entail the clause. A pin into a hub repository
 path quotes no *served* line, so such an entry fails the first limb outright;
@@ -399,8 +404,9 @@ Landing a checker over that 9-of-24 subset would fail **this file's own entry 3
 prescription**, quoted there at its pin: *"When you write a rule that names a
 source, also name what a complete read of that source includes — otherwise
 every partial view counts as compliance"*
-(`gloss/lessons/knowledge-architecture.md:47@dec0d568`,
-`a-partial-projection-can-satisfy-a-total-read-rule`). A green check covering
+(`gloss/lessons/knowledge-architecture.md
+slug=a-partial-projection-can-satisfy-a-total-read-rule kind=lesson
+@dec0d568`). A green check covering
 nine cites, over a file whose rule is that *every* cite is checked, is that
 lesson exactly — and it would be quieter than today's silence, because today at
 least nothing claims coverage. So the partial mechanism is **declined on the
@@ -413,7 +419,9 @@ boundary kogaki#41 drew and kogaki#209 hardened. That was a fork, and per
 DECIDE-OR-NAME —
 *"a sitting that leaves a design choice to the implementation either DECIDES the
 fork there, consulting the substrate on it, or emits a NAMED SLOT whose filling
-is itself a decision act"* (`topics/knowledge-architecture.md:41@dec0d568`) —
+is itself a decision act"* (`topics/knowledge-architecture.md
+gloss_sha=27a5b7cbdbde7363a5b87546a5223d3981236fbde8056aa3d11c2f5908501b7e
+@dec0d568`) —
 it was emitted as a named carrier rather than improvised. **It was filled on
 2026-08-12 by owner selection (kogaki#274): arm 2 above, with arm 1 declined on
 the blast-radius ground.** What remains of the mechanism — the registered check
@@ -494,6 +502,35 @@ line *and* re-cutting its quote, which no issue in front of this file then
 authorized; kogaki#175 is that carrier, and the repair happened there rather
 than silently.
 
+### Served-unit cites address by STABLE IDENTITY — the revision is a pin, never the address (kogaki#603)
+
+The drift measured above was the line number's fault, and the remedy is the
+form, not a mechanism: a **live-read** cite of a served unit — one whose target
+is read against current content — addresses the unit by an identity the hub
+itself joins on, with the `@<sha>` retained beside it as **provenance only**,
+never the resolution target. Two identity classes, one per unit kind:
+
+- a **lesson or journey record** is addressed
+  `<shard file> slug=<slug> kind=<lesson|journey>` — the (slug, kind) pair its
+  own served record carries;
+- a **topic decision line** is addressed
+  `<topic file> gloss_sha=<sha256 of the raw served line, leading "- "
+  included>` — the hub's own Gloss-companion join key, per the served ruling
+  quoted whole at its pin:
+
+> "The Gloss companion's join key is `gloss_sha:`, not the citation; the
+> citation is PROVENANCE."
+
+consulted: product-lab@c2f4650f6a3f4fa39c562c2538ddbd01c68dd7b0 topics/knowledge-architecture.md gloss_sha=62069ae3bfeee426e3fc0ca7eb28da70d0f35c60cc3325d91b6514aebd7dc01b
+
+A `file:line@sha` reference **FROZEN at its pin** — a historical record, only
+ever re-read at that revision — is legitimate provenance and stays in its
+frozen form (owner ruling, kogaki#603); this file's own drift-repair history
+above keeps its frozen references untouched. **No reconciliation, re-pinning,
+relocation, or drift-compensation mechanism may be introduced** (same ruling):
+the identity survives relocation by construction, and a cite whose identity
+stops resolving is a finding to surface, never something a pass re-points.
+
 **Miss postmortem** — recorded when an entry is **admitted** on a miss:
 
 - **Violating artifact** — what shipped, or was about to.
@@ -558,7 +595,7 @@ about this file — an excerpt quoted at its own pin:
 > truth is relative to the set it was derived from, so the derivation carries
 > that set and a change to the set is a GATE EVENT rather than a refresh."
 
-consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:88
+consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md gloss_sha=41319193fff69e1680c3f1d01a10cb3547cb673d3f919368d0f2d23c3737170a
 
 A proposal is a derived expression and its source set is the record it was
 harvested from. Carrying that record is what keeps a machine-composed
@@ -584,16 +621,22 @@ a human wrote — and the map's own choice is the one that line prescribes:
   entry's act class:
   - "… Kernel: a check suite is budgeted at its loop position; suite membership
     is opt-in per loop; admission carries a removal signal."
-    (`topics/claude-code-ops.md:41@dec0d568`)
+    (`topics/claude-code-ops.md
+    gloss_sha=ba7be2fee6c08c139752452e2bd62aa8b77f2be943535a6452f26b6a0016453c
+    @dec0d568`)
   - "Admission requires a REMOVAL SIGNAL DECLARED AT BIRTH, and retention runs
     on a catch ledger over EXERCISED runs; never-fired members are review
     candidates, never auto-deletions."
-    (`topics/claude-code-ops.md:43@dec0d568`)
+    (`topics/claude-code-ops.md
+    gloss_sha=041d61fccb5fc898d5dcd9b0da8a4d439b8625cc68dc07b495079e390a50b8ff
+    @dec0d568`)
 
   The same line carries the live context an implementer of a new check needs —
   "NO CURRENT MEMBER CARRIES ONE, which is the whole reason the family has no
   shrink lever"
-  (`topics/claude-code-ops.md:43@dec0d568`) —
+  (`topics/claude-code-ops.md
+  gloss_sha=041d61fccb5fc898d5dcd9b0da8a4d439b8625cc68dc07b495079e390a50b8ff
+  @dec0d568`) —
   which is why the survey is prescribed before the check is written rather than
   at review. The earlier note that product-lab#150 protects
   the build-vs-adopt clause (the trigger counts check-runner consumers,
@@ -626,7 +669,9 @@ a human wrote — and the map's own choice is the one that line prescribes:
 - **Served line (pinned):** "served mode = server-side access log is the
   canonical record (caller, realm, files, pin), consumer `consulted:` lines
   remain as their own receipts; logging lives with whichever component
-  mediates access" — `topics/archive/knowledge-architecture.md:271@dec0d568`.
+  mediates access" — `topics/archive/knowledge-architecture.md
+  gloss_sha=25b0c82901febe60f9ba42b6a90dd2b82fbc54222296f93265ffb9234217dc07
+  @dec0d568`.
 - **Origin miss:** kogaki#7 was classified story-sized on 2026-08-05 without
   consulting this boundary; its acceptance criterion ("verified against the
   gateway access log") would have produced an unimplementable story — the log
@@ -665,8 +710,9 @@ a human wrote — and the map's own choice is the one that line prescribes:
     a rule that names a source is satisfied by a partial view of it: "When you
     write a rule that names a source, also name what a complete read of that
     source includes — otherwise every partial view counts as compliance"
-    (`gloss/lessons/knowledge-architecture.md:47@dec0d568`,
-    `a-partial-projection-can-satisfy-a-total-read-rule`).
+    (`gloss/lessons/knowledge-architecture.md
+    slug=a-partial-projection-can-satisfy-a-total-read-rule kind=lesson
+    @dec0d568`).
   - *what does NOT discharge it:* `policy/kit/bin/issue-pins.mjs --recheck`.
     Since kogaki#188 it compares **content**, not only SHAs: a stored
     `pin-quote:` hash is checked against the text re-fetched at the cited
@@ -691,12 +737,13 @@ a human wrote — and the map's own choice is the one that line prescribes:
 - **Served line (pinned):** the disposition read has two halves and neither is
   settled by recency alone — "Say which system decides which half. Being
   written more recently says when someone wrote, not what they could see"
-  (`gloss/lessons/knowledge-architecture.md:209@dec0d568`,
-  `declare-precedence-per-axis-not-per-artifact`) — and within the standing
+  (`gloss/lessons/knowledge-architecture.md
+  slug=declare-precedence-per-axis-not-per-artifact kind=lesson @dec0d568`) — and within the standing
   half a disagreement is surfaced rather than absorbed: "read the decision
   record for verdicts dated after that evidence, and when they conflict the
   later verdict wins and the conflict is reported rather than quietly
-  reconciled" (`gloss/lessons/knowledge-architecture.md:269@dec0d568`,
+  reconciled" (`gloss/lessons/knowledge-architecture.md
+  slug=merged-code-evidences-existence-never-standing kind=lesson @dec0d568`,
   `merged-code-evidences-existence-never-standing`).
 - **Origin miss:** `specs/spec-draft-pipeline/SPEC.md` v1 (PR #157, `b3722cb`)
   shipped with the Move library held, because the spec lane read
@@ -762,7 +809,9 @@ a human wrote — and the map's own choice is the one that line prescribes:
   > in the `carried:`/`declined:` grammar, and a base postdating the corrective
   > merge — with the blocked PR closing as *superseded by N* only once the
   > successor exists. …"
-  > (`topics/claude-code-ops.md:20@8906f20`)
+  > (`topics/claude-code-ops.md
+  > gloss_sha=6ab980220abed9cb496a4436de02f20e133b400d2a867280283dd92ef169e900
+  > @8906f20`)
 
   **The excerpt is marked at both ends and carries the successor obligations
   deliberately.** The first cut of this quote stopped at *"no counter reset"*,
@@ -821,7 +870,7 @@ enumerated denial would not be —
 > member that turns out not to apply costs a consultation rather than a false
 > verdict."
 
-`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:88`
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md gloss_sha=a78864feb4f135335ae0a86595000b363446318c724ff760aa9c75b8d75de9ed`
 
 **Two further occurrences, recorded because they are the honest denominator.**
 The 2026-08-15 `/ship-cycle` sitting reached this act twice more — PR #452 and
@@ -872,7 +921,7 @@ cannot be composed without evidence of the act-shaped read"* — is carried as a
 requiring a receipt *"whose pin resolves to the act-shaped read"*. That is not
 enforceable at that boundary and asking for it would have amended the hook's
 stated contract rather than fitting inside it —
-`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:24`,
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md slug=a-gate-enforces-only-what-its-arguments-name kind=lesson`,
 *"a gate can enforce a routing rule exactly when every carrier the rule
 references is derivable from the gate's own arguments; a rule naming a carrier
 whose existence is a property of the target environment cannot be enforced
@@ -896,7 +945,7 @@ asserts its state**, per this file's own convention. Escalated at the selection.
 round 1, finding 3). The rule above and the hook's implemented shape are two
 copies of one normative claim, and a copy that does not say which side wins is
 the defect —
-`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:215`,
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md slug=conformance-copy-needs-declared-precedence kind=lesson`,
 `conformance-copy-needs-declared-precedence`. **This entry is the ruling; the
 hook conforms to it.** A hook that lands narrower or wider than the quoted rule
 is a defect in the hook, reported against claude-toolkit#389 and not a
