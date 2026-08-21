@@ -32,7 +32,7 @@
 // function of (cites, served lines), so the fixture pass constructs every
 // verdict seam-free; only the live pass touches the transport, the same
 // split issue-pins.mjs and gateway-query.mjs declare.
-import { readFileSync, readFileSync as rf } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -121,6 +121,15 @@ export function tally(results) {
 
 // ---------------------------------------------------------------------------
 // Transport — the live half, and the only code that touches the seam.
+//
+// THE CAPTURE IS A PIPE, AND THE FORK IS RECORDED (kogaki#597, from PR #591
+// round 2): terrain/terrain.mjs captures the same ~500KB element_survey
+// through a file descriptor and says why — a file write is synchronous
+// whatever the other side does. This file takes the pipe deliberately: the
+// kit drains stdout before exiting (kogaki#23), terrain's own comment states
+// the pipe would work under that drain, and this caller runs one bounded
+// fetch per invocation rather than a survey loop. If the drain guarantee
+// ever moves, this is the line to revisit.
 function fetchSurvey() {
   const bin = join(REPO, "policy/kit/bin/gateway-query.mjs");
   const res = spawnSync(process.execPath,
@@ -135,10 +144,22 @@ function fetchSurvey() {
 // finding 2: a-verification-artifact-bound-by-belief-verifies-nothing — a
 // made-up Map handed straight to the judge left this parse untried).
 export function parseSurveyPayload(stdoutText) {
+  // A payload with no lines ARRAY is the gateway's miss shape (or noise), not
+  // a survey of zero elements — reading it as ok would render every cite
+  // resolves-nowhere, the loud wrong answer kogaki#597 names and terrain met
+  // at the same seam tool (terrain/terrain.mjs, kogaki#368). Refuse at the
+  // shape, so the caller degrades to CANNOT-DETERMINE.
+  const start = stdoutText.indexOf("{");
+  if (start < 0) {
+    return { ok: false, reason: `no payload in the transport's output: ${stdoutText.trim().slice(0, 80) || "(empty)"}` };
+  }
   try {
-    const payload = JSON.parse(stdoutText.slice(stdoutText.indexOf("{")));
+    const payload = JSON.parse(stdoutText.slice(start));
+    if (!Array.isArray(payload.lines)) {
+      return { ok: false, reason: "miss-shaped payload — no lines array; the trial did not run" };
+    }
     const served = new Map();
-    for (const l of payload.lines ?? []) {
+    for (const l of payload.lines) {
       const m = (l.cite ?? "").match(/^gloss\/ELEMENTS\.jsonl:(\d+)@/);
       if (!m) continue;
       try { served.set(Number(m[1]), JSON.parse(l.text)); } catch { /* a broken text line serves no element */ }
@@ -229,8 +250,15 @@ function selfTest() {
   ok("a recorded survey payload parses through the live adapter",
     parsed.ok && parsed.served.size === 1 && parsed.served.get(1).slug === "alpha"
     && parsed.pin.startsWith("product-lab@"));
-  ok("an unreadable payload degrades with its reason, never a throw",
-    parseSurveyPayload("garbage").ok === false);
+  const unreadable = parseSurveyPayload("{not json");
+  ok("an unreadable payload reaches the parse arm and degrades with its reason, never a throw",
+    unreadable.ok === false && unreadable.reason.includes("unreadable"));
+  const missShaped = parseSurveyPayload(JSON.stringify({ miss: true, pin: "product-lab@aaaaaaa", request: {} }));
+  ok("a miss-shaped payload is a refused trial, never a survey of zero elements",
+    missShaped.ok === false && missShaped.reason.includes("miss-shaped"));
+  const shapeless = parseSurveyPayload("gateway error 5");
+  ok("a shapeless line ending in a digit is refused at the anchor, not parsed as a number",
+    shapeless.ok === false && shapeless.reason.includes("no payload"));
   const dropped = parseDraftCites(["---", "cites:", "  - {broken", "---"].join("\n"));
   ok("a malformed cite entry is judged, never dropped",
     dropped.length === 1
