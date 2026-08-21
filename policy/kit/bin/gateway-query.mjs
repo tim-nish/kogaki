@@ -161,6 +161,12 @@ const tool = opt("tool", "policy_lookup");
 const rawArgsList = opts("args");
 const toolList = opts("tool");
 const questionList = opts("question");
+// THE PER-QUERY AXIS (kogaki#601; grammar at specs/SPEC.md §4, kogaki#336).
+// Positional against `--args` exactly as `--question` is, and OPTIONAL: no
+// `--axis` at all composes the block byte-for-byte as before. The value is
+// CARRIED, never judged — the set is the hub's to ratify, so this transport
+// passes any non-empty one-line token through and mints nothing.
+const axisList = opts("axis");
 const receiptMode = flag("receipt");
 // THE OWNER-REGISTER RENDERING (kogaki#320; specs/spec-client-kit/SPEC.md §8).
 // Independent of `--receipt` on purpose: §8 keeps the audit register and the
@@ -185,6 +191,7 @@ const framings = (rawArgsList.length ? rawArgsList : ["{}"]).map((raw, i) => ({
   tool: toolList[i] ?? tool,
   args: JSON.parse(raw),
   question: questionList[i],
+  axis: axisList[i],
 }));
 const toolArgs = framings[0].args;
 
@@ -292,6 +299,21 @@ if (receiptMode && questionList.length !== framings.length) {
       "this argument existed the transport recorded the --args JSON for any " +
       "tool but `policy_lookup`, which is a serialized tool argument and not " +
       "a question anyone can reuse (kogaki#160 finding 4).",
+  );
+  process.exit(2);
+}
+// Same COUNT discipline for the axis (kogaki#601), with one difference stated:
+// the key is OPTIONAL per the grammar, so zero axes is the common case and
+// passes — what refuses is a PARTIAL list, because `--axis` is positional
+// against `--args` and a wire that pairs by position cannot express a gap
+// without silently covering a prefix.
+if (axisList.length && axisList.length !== framings.length) {
+  console.error(
+    `refusing ${axisList.length} --axis for ${framings.length} framing(s): ` +
+      "`--axis` is positional against `--args` — one per framing, in the " +
+      "same order, or none at all. The `axis:` line binds upward to its own " +
+      "`query:` line (specs/SPEC.md §4, kogaki#336), so a partial list " +
+      "would bind axes to framings nobody paired them with.",
   );
   process.exit(2);
 }
@@ -614,6 +636,21 @@ function composeReceipt(observed, outcomeToken, dispositionToken) {
       throw new Error(`framing ${i + 1} spans several lines; \`query:\` is one line`);
     return q;
   });
+  // THE PER-QUERY AXIS (kogaki#601). Read off the framing's OWN record like
+  // its question, so the axis and the call it names are one value — the
+  // composer cannot orphan an axis or bind it to a neighbour, because it
+  // never holds them apart. Shape is asserted (non-empty, one line — an empty
+  // `axis:` is absent under the checker's one empty rule, so emitting one
+  // would silently drop what the caller said); the VALUE is carried untouched.
+  const axes = observed.map((o, i) => {
+    const a = o.framing.axis;
+    if (a === undefined) return undefined;
+    if (typeof a !== "string" || !a.trim())
+      throw new Error(`framing ${i + 1}'s axis is empty; \`axis:\` carries a non-empty token`);
+    if (a.includes("\n"))
+      throw new Error(`framing ${i + 1}'s axis spans several lines; \`axis:\` is one line`);
+    return a.trim();
+  });
   // Line one: the gateway's own rendering when there is exactly one framing,
   // its union when there are several.
   let lineOne;
@@ -664,7 +701,15 @@ function composeReceipt(observed, outcomeToken, dispositionToken) {
     // convenience, because an unrecognised indented key here ends the
     // continuation scan and silently drops every field below it.
     ...(dispositionToken === undefined ? [] : [`  disposition: ${dispositionToken}`]),
-    ...queries.map((q) => `  query: ${q}`),
+    // Each `axis:` sits DIRECTLY under its own `query:` line, indented one
+    // level deeper, because the key binds UPWARD to the nearest preceding
+    // query (specs/SPEC.md §4, kogaki#336) — adjacency here is correctness,
+    // not layout. Omitted for a framing that carried none: the key is
+    // per-query and OPTIONAL, and an all-omitted invocation composes the
+    // block byte-for-byte as before.
+    ...queries.flatMap((q, i) =>
+      axes[i] === undefined ? [`  query: ${q}`] : [`  query: ${q}`, `    axis: ${axes[i]}`],
+    ),
   ].join("\n");
 }
 
@@ -685,9 +730,9 @@ function selfTest() {
   // unchecked address form a refusal rather than a pass.
   const LOOKUP = new Set(["question", "topic_hints"]);
   const GLOSS = new Set(["tag"]);
-  const framing = (q) => ({
+  const framing = (q, axis) => ({
     raw: JSON.stringify({ question: q }), args: { question: q }, question: q,
-    tool: "policy_lookup",
+    tool: "policy_lookup", axis,
   });
   const one = [{ framing: framing("first framing"), text: served("id-1", "LESSONS.md:31"), declared: LOOKUP }];
   const two = [
@@ -736,6 +781,34 @@ function selfTest() {
     ["every query line still follows the disposition — the tail is not truncated by the new key",
      () => compose(two, "uncovered-after-2-framings", "escalated").split("\n")
        .filter((l) => l.startsWith("  query: ")).length === 2],
+    // --- kogaki#601: the per-query axis, emitted from what was actually sent -
+    ["each axis: line sits DIRECTLY under its own query: line, two framings, two distinct axes",
+     () => { const withAxes = [
+               { ...one[0], framing: framing("first framing", "subject") },
+               { framing: framing("second framing, another axis", "conduct"),
+                 text: served("id-2", "LESSONS.md:40, topics/x.md:9"), declared: LOOKUP }];
+             const b = compose(withAxes, "uncovered-after-2-framings").split("\n");
+             const q1 = b.indexOf("  query: first framing");
+             const q2 = b.indexOf("  query: second framing, another axis");
+             return q1 > 0 && b[q1 + 1] === "    axis: subject" &&
+               b[q2 + 1] === "    axis: conduct"; }],
+    ["an axis-less framing beside an axis-carrying one keeps its slot empty — per-query, never shifted",
+     () => { const mixed = [one[0],
+               { framing: framing("second framing, another axis", "conduct"),
+                 text: served("id-2", "LESSONS.md:40"), declared: LOOKUP }];
+             const b = compose(mixed, "uncovered-after-2-framings").split("\n");
+             return b.filter((l) => l.trim().startsWith("axis:")).length === 1 &&
+               b[b.indexOf("  query: second framing, another axis") + 1] === "    axis: conduct"; }],
+    ["all axes omitted composes the pre-#601 block byte-for-byte — the key is OPTIONAL",
+     () => !compose(two, "uncovered-after-2-framings").includes("axis:") &&
+       compose(one, "discriminating").split("\n").slice(2).join("|") ===
+         "  request_id: id-1|  outcome: discriminating|  query: first framing"],
+    ["an EMPTY axis refuses rather than emitting a line the checker reads as absent",
+     () => compose([{ ...one[0], framing: framing("first framing", "  ") }], "discriminating")
+       .startsWith("THREW: framing 1's axis is empty")],
+    ["an unknown axis VALUE is carried untouched — shape-only, the set is the hub's",
+     () => compose([{ ...one[0], framing: framing("first framing", "zzz-not-ratified") }], "discriminating")
+       .includes("    axis: zzz-not-ratified")],
     // Refusals: a receipt the transport cannot stand behind is never emitted.
     ["a non-JSON response refuses rather than composing",
      () => compose([{ framing: framing("q"), text: "not json" }], "discriminating")
@@ -901,7 +974,9 @@ function selfTest() {
     "echo is still left undecided rather than re-derived, which is what keeps " +
     "an older gateway admitted; " +
     "the gate disposition carried on its own key above the query tail and " +
-    "absent from a non-gate block; ten refusals)");
+    "absent from a non-gate block; the per-query axis emitted directly under " +
+    "its own query line from what was actually sent, optional per query and " +
+    "absent from an axis-less block; ten refusals)");
 
   // THE OWNER REGISTER (kogaki#320, story 1.50). Sited with the composer it
   // covers, and gateway-free like every case above: the properties are pure

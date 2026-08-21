@@ -197,7 +197,7 @@ export function verdictShaped(text) {
 // or the refusal to print. Pure so the fixture pass below can fire every branch
 // without a gateway, a child process, or a temp directory: every property this
 // entry point adds is a property of the invocation, not of the wire.
-export function discipline({ framings, restatements = [], outcome, disposition, argsList = [] }) {
+export function discipline({ framings, restatements = [], outcome, disposition, argsList = [], axisList = [] }) {
   const refuse = (code, ...lines) => ({ ok: false, code, message: lines.join("\n") });
 
   if (!framings.length)
@@ -219,6 +219,27 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
     } catch {
       return refuse(2, `--args ${i + 1} is not valid JSON: ${a}`);
     }
+  }
+
+  // `--axis` is positional against `--claim`, exactly as `--args` is (kogaki
+  // #601). A partial list would silently cover a prefix of the framings and
+  // leave the rest axis-less without anyone having chosen that, so it is
+  // refused with the count delta — one per framing, in order, or none at all.
+  if (axisList.length && axisList.length !== framings.length)
+    return refuse(
+      2,
+      `--axis given ${axisList.length} time(s) for ${framings.length} framing(s); ` +
+        "`--axis` is positional against `--claim` — one per framing, in order, " +
+        "or none at all.",
+    );
+  // SHAPE ONLY (owner selection 2026-08-11): the value set is the hub's and is
+  // not minted here — any non-empty one-line token passes through untouched.
+  // Unknown values are the checker's to report and nobody's to deny.
+  for (const [i, a] of axisList.entries()) {
+    if (typeof a !== "string" || !a.trim())
+      return refuse(2, `--axis ${i + 1} is empty; the \`axis:\` line carries a non-empty token`);
+    if (a.includes("\n"))
+      return refuse(2, `--axis ${i + 1} spans several lines; \`axis:\` is one line`);
   }
 
   // AC 2 — corrected at the POINT OF USE, before the gateway is reached. A
@@ -345,7 +366,7 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
     );
   }
 
-  return { ok: true, framings: applied, disposition };
+  return { ok: true, framings: applied, disposition, axes: axisList };
 }
 
 // One `--args` per framing, in order — the transport's own contract, and the
@@ -365,12 +386,18 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
 // absent, the historical `policy_lookup` shape is unchanged. So a `gloss_index`
 // consult states the shard it read AND the question it was reading for, and
 // the receipt records the second.
-export function transportArgv({ consumer, framings, outcome, disposition, tool, gateway, argsList = [], ownerRender = false }) {
+export function transportArgv({ consumer, framings, outcome, disposition, tool, gateway, argsList = [], axisList = [], ownerRender = false }) {
   const argv = ["--consumer", consumer];
   for (const [i, f] of framings.entries()) {
     argv.push("--tool", tool ?? "policy_lookup");
     argv.push("--args", argsList[i] ?? JSON.stringify({ question: f }));
     argv.push("--question", f);
+    // The axis rides WITH its framing, in the same per-framing group as
+    // `--question`, so the transport's positional read pairs it with the call
+    // it names (kogaki#601). Emitted only when supplied: an all-omitted
+    // invocation's argv is byte-for-byte what it was before, which is what
+    // keeps every existing fixture over this function exact.
+    if (axisList[i] !== undefined) argv.push("--axis", axisList[i]);
   }
   argv.push("--receipt", "--outcome", outcome);
   // Forwarded only when the caller supplied it, so a non-gate consult's argv is
@@ -520,6 +547,30 @@ function selfTest() {
              return r.code === 2 && r.message.includes("never a search loop"); }],
     ["a multi-line framing is refused before a consult is spent",
      () => run({ framings: ["line one\nline two"], outcome: "discriminating" }).code === 2],
+    // --- kogaki#601: the axis rides per framing, positionally --------------
+    ["--axis positional against --claim: a full list is accepted and carried",
+     () => { const r = run({ framings: ["a", "b"], axisList: ["subject", "conduct"],
+                             outcome: "covered-after-reframing" });
+             return r.ok === true && r.axes.join("|") === "subject|conduct"; }],
+    ["--axis positional against --claim: a partial list is refused with the count delta, never a covered prefix",
+     () => { const r = run({ framings: ["a", "b"], axisList: ["subject"],
+                             outcome: "covered-after-reframing" });
+             return r.code === 2 && r.message.includes("--axis given 1 time(s) for 2 framing(s)"); }],
+    ["an empty --axis token is refused as shape — the value set stays unminted",
+     () => run({ framings: ["a"], axisList: ["  "], outcome: "discriminating" }).code === 2],
+    ["an unknown axis VALUE passes through — shape-only, denied nowhere",
+     () => run({ framings: ["a"], axisList: ["zzz-not-ratified"], outcome: "discriminating" }).ok === true],
+    ["each --axis rides in its framing's own group, after that framing's --question",
+     () => transportArgv({ consumer: "k", framings: ["first", "second"],
+             axisList: ["subject", "conduct"], outcome: "uncovered-after-2-framings" })
+             .join(" ") === '--consumer k --tool policy_lookup --args {"question":"first"} ' +
+             "--question first --axis subject " +
+             '--tool policy_lookup --args {"question":"second"} --question second --axis conduct ' +
+             "--receipt --outcome uncovered-after-2-framings"],
+    ["no --axis at all leaves the transport argv byte-for-byte unchanged",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating" })
+             .join(" ") === '--consumer k --tool policy_lookup --args {"question":"q"} ' +
+             "--question q --receipt --outcome discriminating"],
     // AC 5 — the degraded statement, in the shape the checker actually accepts.
     ["the degraded statement's marker is unindented and above line one",
      () => { const l = degradedStatement("the gateway was unreachable").split("\n");
@@ -587,7 +638,8 @@ function selfTest() {
     "--question, including for a non-policy_lookup prescription; the degraded " +
     "statement's unindented marker; the gate disposition adopted as a closed " +
     "set on its own axis, omittable, with consult-miss and degraded refused by " +
-    "reason rather than by set)");
+    "reason rather than by set; the per-query axis paired positionally with " +
+    "its claim, partial lists refused, values passed through shape-only)");
   process.exit(0);
 }
 
@@ -622,6 +674,7 @@ const verdict = discipline({
   outcome,
   disposition,
   argsList: opts("args"),
+  axisList: opts("axis"),
 });
 if (!verdict.ok) {
   console.error(verdict.message);
@@ -656,6 +709,7 @@ const child = spawnSync(
     tool: opt("tool"),
     gateway: opt("gateway"),
     argsList: opts("args"),
+    axisList: verdict.axes,
     ownerRender: flagPresent("owner-render"),
   })],
   { stdio: "inherit" },
