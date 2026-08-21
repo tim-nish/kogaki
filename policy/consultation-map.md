@@ -282,6 +282,12 @@ surface's own kind-qualification rule, quoted at its pin:
 
 consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/INDEX.md:12-17
 
+This receipt is DECLARED FROZEN provenance (owner ruling 2026-08-22,
+kogaki#603): it records a historical consult at its pin and is only ever read
+at that revision. `gloss/INDEX.md` is neither a lesson/journey record nor a
+topic decision line, so neither identity class applies; the frozen form is the
+ruling, not a leftover.
+
 The kinds are `lessons/<tag>`, `journeys/<tag>`, and `decisions/<topic>` —
 the last sharded by topic rather than by tag. A prescription names that
 address, which is the argument `gloss_index` takes; it never names a served
