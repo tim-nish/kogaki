@@ -39,7 +39,7 @@
 // while any Step lacks its section, so a flow cannot end "done" short of the
 // artifact without the refusal saying exactly which Steps are owed.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
-import { join, resolve, dirname, basename } from "node:path";
+import { join, resolve, relative, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -302,9 +302,13 @@ function cmdEmit(args) {
   const cites = brief.strands.flatMap((s) =>
     s.cites.map((c) => ({ strand: s.id, slug: s.slug, kind: c.kind, cite: c.cite })));
   const trace = brief.steps.map((s, i) => ({ step_id: s.step_id, section: i + 1 }));
+  // The artifact is owner-visible and machine-independent (round 1 finding 3):
+  // the Brief is named relative to the draft that realizes it — always its
+  // sibling — so two machines emit identical bytes. The absolute path is
+  // machine identity and stays in run.json / last-emit.json.
   const fm = [
     "---",
-    `brief: ${brief.path}`,
+    `brief: ${relative(dirname(outPath), brief.path)}`,
     `brief_pin: sha256:${sha256(brief.text)}`,
     `survey_pin: ${brief.surveyPin}`,
     `generated_by: ${JSON.stringify(generatedBy)}`,
@@ -394,6 +398,10 @@ async function runSelfTest() {
     drive("section", "--step", "s1", "--file", wForeign).status !== 0);
   ok("an unknown step names both sides",
     drive("section", "--step", "s3", "--file", sec1).stderr.includes("s1, s2"));
+  const mForeign = drive("material", "--strand", "L9");
+  ok("material refuses a foreign strand by driving the command",
+    mForeign.status !== 0 && mForeign.stderr.includes("L9") && mForeign.stderr.includes("(L1)"));
+  ok("material serves an in-set strand", drive("material", "--strand", "L1").status === 0);
 
   const e1 = drive("emit");
   const outPath = join(briefDir, "draft.md");
@@ -404,7 +412,10 @@ async function runSelfTest() {
     out.indexOf("The opening prose.") < out.indexOf("The closing prose."));
   ok("frontmatter carries the record half",
     out.includes("brief_pin: sha256:") && out.includes("survey_pin: product-lab@") &&
-    out.includes("generated_by: {") && out.includes('"step_id":"s1"') || out.includes('"step_id": "s1"'));
+    out.includes("generated_by: {") &&
+    (out.includes('"step_id":"s1"') || out.includes('"step_id": "s1"')));
+  ok("the artifact names its Brief machine-independently",
+    /^brief: brief\.md$/m.test(out));
   const bodyHalf = out.split("---\n").slice(2).join("---\n");
   ok("the trace renders no visible structure in the body",
     !/^\s*step_id\s*:/m.test(bodyHalf) && !/^#{1,6}\s*s1\s*$/m.test(bodyHalf));
