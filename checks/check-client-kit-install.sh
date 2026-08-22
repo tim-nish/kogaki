@@ -37,6 +37,29 @@ cd "$(dirname "$0")/.."
 # `--disposition` documentation and restored a sentence it had made false.
 SOURCE=policy/kit/skills/consult-first.md
 INSTALLED=.claude/skills/consult-first/SKILL.md
+# RE-SCOPED under kogaki#615 (owner untrack ruling 2026-08-22): the installed
+# copy is a machine-local INSTALL ARTIFACT and no longer tracked, so its
+# absence is the expected state of a fresh clone rather than the divergence
+# this check guards. The absence is STATED, never a silent skip — the
+# comparison ran over 0 pairs and says so. Where the install IS present, the
+# byte-equality assertion below runs unchanged, which is the only state in
+# which a divergence can exist at all.
+#
+# Why an absence and not a re-include: the allowlist's public-need criterion
+# (.gitignore) admits a path when this repository's own verification cannot run
+# without it. Here it can — an absent install has nothing to diverge from, so
+# the property is vacuous rather than unverifiable. That is the line dividing
+# this check from check-brief-entry and check-terrain-composition, whose
+# assertions have no meaning without their file and whose paths are therefore
+# re-included.
+if [[ ! -f "$INSTALLED" ]]; then
+  echo "client-kit-install: $INSTALLED is not installed in this working copy —"
+  echo "  a machine-local install artifact (kogaki#615). The source/installed"
+  echo "  byte-equality assertion compared 0 pairs here; an absent install"
+  echo "  cannot diverge. This is a stated absence, not a pass over a"
+  echo "  comparison that ran."
+  exit 0
+fi
 if ! cmp -s "$SOURCE" "$INSTALLED"; then
   echo "FAIL: the consult-first kit SOURCE and INSTALLED COPY have diverged."
   echo

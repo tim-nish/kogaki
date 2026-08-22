@@ -44,12 +44,44 @@ policy/shape.md
 
 # THE PRIVATE HARNESS SURFACE (kogaki#615, owner ruling 2026-08-22). `.claude`
 # is machine-local by default: the repository is public, and harness state —
-# lane declarations, hook registrations, pipeline config, skill files — is
-# private unless a file genuinely must be shared. Default-deny: the directory
-# is excluded wholesale, and a path stays tracked ONLY with an explicit `!`
+# hook registrations, pipeline and project config, skill files — is private
+# unless a file genuinely must be shared. Default-deny: the directory's
+# contents are excluded, and a path stays tracked ONLY through an explicit
 # re-include below carrying its public-need argument. The registered boundary
-# guard (kogaki#618) asserts every tracked `.claude/` path has its re-include
-# here, so a `git add -f` bypass fails loudly in CI rather than silently
-# re-publishing private state. History predating the ruling stays published —
+# guard kogaki#618 (PENDING — not landed at this head; until it lands, a
+# `git add -f` bypass fails nowhere) asserts every tracked `.claude/` path has
+# its re-include here. History predating the ruling stays published —
 # untracking removes the files from the tree going forward, not from history.
-.claude/
+#
+# THE PUBLIC-NEED CRITERION, applied rather than asserted: a file stays tracked
+# when THIS REPOSITORY'S OWN VERIFICATION CANNOT RUN WITHOUT IT. A registered
+# check that reads a path binds a contract to it, and CI runs on a fresh clone
+# — so an untracked path under a tracked assertion is not a private file, it is
+# a red suite on every clone. Each re-include below names the reader that makes
+# it public. Prose MENTIONS do not qualify: `.claude/skills/review-lane/SKILL.md`
+# is named in three tracked files and READ by none, so it stays private.
+.claude/*
+
+# SPEC.md §4's no-owner-override clause grounds the review rounds-bound on this
+# site being TRACKED — "the same edit to a machine-local file would leave
+# nothing to review" (specs/SPEC.md:1183-1188) — and the Review lane's
+# mechanism declaration landed here as a tracked declaration (PR #617). A
+# machine-local copy would make the bound unraisable-by-diff, which is the one
+# property the clause exists to guarantee.
+!.claude/review-lane.json
+
+# The two skill files a registered check READS. Each carries a contract with no
+# second carrier, and the check is the enforcement: `check-brief-entry.sh:796`
+# asserts /brief's completion stages against its skill (the 2026-08-18 dogfood
+# stopped at the mint and only the owner noticed), and
+# `check-terrain-composition.sh:473` asserts the co-tag step is named in
+# terrain's (its absence routed a tag selection to a second `view --tag` and
+# produced the dump, §6.1).
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/brief/
+!.claude/skills/terrain/
+.claude/skills/brief/*
+.claude/skills/terrain/*
+!.claude/skills/brief/SKILL.md
+!.claude/skills/terrain/SKILL.md
