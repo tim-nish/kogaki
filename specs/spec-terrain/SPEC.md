@@ -2657,7 +2657,7 @@ call was made.
   groups "sorted descending by member count"
   (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/articles.md:80`),
   while Kogaki's shipped `COTAG_SORT` declares "co-tag name ascending, then
-  member id ascending" (`terrain/terrain.mjs:684`), adopted under §6. Both are
+  member id ascending" (`terrain/terrain.mjs:704`), adopted under §6. Both are
   declared deterministic sorts and both are admitted as navigation, so neither
   is a violation; which one Kogaki serves is **undecided here**. kogaki#128
   raises the screen's *composition* and not its ordering, and deciding an
@@ -4549,6 +4549,16 @@ the machine wants to display, not information the owner wants to read.
 matching `^L[0-9]+$`, assigned at survey time (`terrain/terrain.mjs:300`,
 beside `id` / `slug` / `family` / `tags` / `cite`). **The survey record is the
 ID→slug map**; there is no second carrier and no per-artifact mint.
+
+**The per-candidate `cite` is the identity form** — `gloss/ELEMENTS.jsonl
+slug=<slug> kind=<lesson|journey> @<pin-sha>` — composed at survey time from
+the served record's own `slug`/`kind` plus the response pin
+(`terrain/terrain.mjs`, `composeIdentityCite`; kogaki#612, the producer half
+of kogaki#600's ruling). The gateway's positional `gloss/ELEMENTS.jsonl:
+<line>@<sha>` cite is never copied into the record, so Brief and Draft
+transport identity addresses by construction and the resolve check
+(`draft/cite-check.mjs`, SPEC-draft-command v2) receives the only form it
+resolves.
 
 **Why once rather than per artifact — the fork this amendment actually
 decided.** The display ID is a **join key**: the co-tag screen, the Full Report

@@ -343,7 +343,7 @@ async function runSelfTest() {
     "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
     "## Strands", "",
     "### L1 — first-strand", "",
-    "- cite: `gloss/ELEMENTS.jsonl:1@0000000000000000000000000000000000000000`", "",
+    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
     "## Thesis", "", "The fixture claim.", "",
     "## Sequence", "",
     "```step", "step_id: s1", "purpose: open", "```", "",

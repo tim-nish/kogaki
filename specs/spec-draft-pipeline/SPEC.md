@@ -1644,7 +1644,11 @@ of "brief" — coining an owner-facing term obliges a reader-facing definition
 in the same act (`consulted:
 product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:132`)
 — then carries the §5.1 fields: the selected Strands with their pins and
-served cites resolved from the survey record; `thesis`, `sequence`,
+served cites resolved from the survey record — each cite in the identity form
+`gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<pin-sha>`
+(SPEC-draft-command v2, kogaki#600; composed at the producing site by
+terrain's survey, kogaki#612 — the positional line-number form is
+unproducible and the resolve check refuses it); `thesis`, `sequence`,
 `reader_start`, `reader_target`, `opening_question`, `strand_coverage`,
 `thesis_closure`, `tradeoffs` and the §5.2 ledger present as **typed unfilled
 slots**, never omitted — an absent field and a field awaiting composition are
