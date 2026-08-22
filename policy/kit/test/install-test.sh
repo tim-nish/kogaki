@@ -415,16 +415,58 @@ echo "ok: skill installed harness-loadably"
 # 6. Boundary (consultation-map entry 2, kogaki#7): no kit tool reads gateway
 #    internals. The access log is the SERVER's record; consumer-side receipts
 #    are `consulted:` lines.
-#    The trigger is scoped to the PROPERTY — a reference to the gateway's
-#    STATE (its state directory, its logs) — not to the string "tsurezure",
-#    which also names the MCP server the transport legitimately resolves
-#    through. This file is excluded because it must contain the patterns to
-#    test for them.
-if grep -rn '\.tsurezure/\|access\.jsonl\|diagnostics\.jsonl\|TSUREZURE_STATE_DIR' \
-     "$KIT_DIR/bin" "$KIT_DIR/install.sh" "$KIT_DIR/skills" "$KIT_DIR/templates" 2>/dev/null; then
-  fail "a kit tool references gateway state (entry-2 boundary)"
+#    THE DETECTOR'S UNIT IS THE CODE LINE, NOT THE MENTION (kogaki#610). The
+#    earlier grep matched the tokens anywhere, and fired live on a code
+#    COMMENT narrating gw#91's history (PR #609, 2026-08-22) while staying
+#    silent on the one construction a real read would use — a path composed
+#    from parts. So:
+#      * comment lines are stripped before matching: a mention is prose, and
+#        the property is about ACCESS, not vocabulary;
+#      * the tokens are the gateway's OWN artifacts (its logs, its state-dir
+#        env var) PLUS the slash-form directory literal `.tsurezure/` — kept,
+#        after PR #611 round 1 found its proposed removal rested on a false
+#        premise: the ratified ledger (gw#92, kogaki#608) addresses the shared
+#        directory as a quoted path SEGMENT (`join(homedir(), ".tsurezure",
+#        …)`, no slash), which never matched this token, so removing it bought
+#        nothing and lost every literal `.tsurezure/<anything>` read;
+#      * a COMPOSED path fires only where a token appears on the code line.
+#        The fully name-free composition (fragment concatenation) remains
+#        undetected — the residue of kogaki#610's fs-access-pattern
+#        alternative, stated rather than claimed closed.
+#    The trigger stays scoped away from the string "tsurezure", which also
+#    names the MCP server the transport legitimately resolves through. This
+#    file is excluded because it must contain the patterns to test for them.
+GATEWAY_ARTIFACTS='\.tsurezure/\|access\.jsonl\|diagnostics\.jsonl\|TSUREZURE_STATE_DIR'
+entry2_hits() {
+  # Code lines only: strip whole-line comments (// and JSDoc `*` continuation
+  # lines for .mjs, # for sh) before matching, so a narration cannot fire the
+  # boundary a read would — including the block-comment form already live in
+  # this kit (harvest-misses.mjs).
+  grep -rnH "$GATEWAY_ARTIFACTS" "$@" 2>/dev/null | grep -v ':[0-9]*:[[:space:]]*\(//\|#\|\*\)'
+}
+if entry2_hits "$KIT_DIR/bin" "$KIT_DIR/install.sh" "$KIT_DIR/skills" "$KIT_DIR/templates"; then
+  fail "a kit tool references gateway state on a code line (entry-2 boundary)"
 fi
-echo "ok: no kit tool reads gateway internals (entry-2 boundary)"
+# The detector's own discrimination evidence, both directions, over synthetic
+# specimens — the two live shapes kogaki#610 records: the comment mention that
+# fired falsely, and the composed-path read the old grep could never catch.
+E2FIX="$TMP/entry2-fixture"; mkdir -p "$E2FIX"
+printf '// the gateway old request log, access.jsonl, is gone (gw#91)\n' > "$E2FIX/mention.mjs"
+printf ' * narration in a block comment: access.jsonl is gone (gw#91)\n' > "$E2FIX/block-mention.mjs"
+printf 'const p = join(homedir(), ".tsurezure", "access.jsonl");\nreadFileSync(p);\n' > "$E2FIX/artifact-read.mjs"
+printf 'readFileSync(join(homedir(), ".tsurezure/telemetry.db"));\n' > "$E2FIX/dir-literal-read.mjs"
+# The LEGAL form, documented as a constraint rather than as discrimination:
+# kit-owned records address the shared directory as a quoted segment with no
+# slash (the ratified ledger's own form). A slash literal would fire above —
+# so kit code keeps the join form, and this specimen pins that reading.
+printf 'const mine = join(homedir(), ".tsurezure", "effectiveness.jsonl");\n' > "$E2FIX/kit-owned.mjs"
+entry2_hits "$E2FIX/mention.mjs" >/dev/null && fail "entry-2 detector fired on a comment mention — the kogaki#610 false positive is back"
+entry2_hits "$E2FIX/block-mention.mjs" >/dev/null && fail "entry-2 detector fired on a block-comment narration (the harvest-misses.mjs form)"
+entry2_hits "$E2FIX/artifact-read.mjs" >/dev/null || fail "entry-2 detector missed a code-line read naming a gateway artifact"
+entry2_hits "$E2FIX/dir-literal-read.mjs" >/dev/null || fail "entry-2 detector missed a literal .tsurezure/ path read — the token PR #611 round 1 restored"
+entry2_hits "$E2FIX/kit-owned.mjs" >/dev/null && fail "entry-2 detector fired on the kit's own ratified ledger form (gw#92, kogaki#608)"
+rm -rf "$E2FIX"
+echo "ok: no kit tool reads gateway internals (entry-2 boundary; unit = code line, kogaki#610)"
 
 # 7. No colocation default: with every configuration source withheld, the
 #    transport degrades rather than resolving a path by directory adjacency.
