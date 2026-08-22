@@ -173,18 +173,31 @@ export function parseSurveyPayload(stdoutText) {
       return { ok: false, reason: "miss-shaped payload — no lines array; the trial did not run" };
     }
     // Keyed by (slug, kind) read from each served record's OWN fields —
-    // identity, never position (SPEC-draft-command v2, kogaki#600).
+    // identity, never position (SPEC-draft-command v2, kogaki#600). A record
+    // that anchors as an ELEMENTS line but yields no string slug/kind is
+    // SURFACED, never silently dropped (kogaki#613): a cite naming it would
+    // otherwise report resolves-nowhere and point the author at the wrong
+    // repair — the cite, when the defect is the served record. Same rule as
+    // terrain's composition cover ("nothing is silently dropped",
+    // specs/spec-terrain/SPEC.md §2.1).
     const served = new Map();
+    const malformed = [];
     for (const l of payload.lines) {
       if (!/^gloss\/ELEMENTS\.jsonl:/.test(l.cite ?? "")) continue;
       try {
         const el = JSON.parse(l.text);
         if (typeof el?.slug === "string" && typeof el?.kind === "string") {
           served.set(identityKey(el.slug, el.kind), el);
+        } else {
+          malformed.push({ cite: l.cite ?? "?",
+            reason: "the served record lacks string slug/kind — the repair belongs on the served record, not on any cite that names it" });
         }
-      } catch { /* a broken text line serves no record */ }
+      } catch {
+        malformed.push({ cite: l.cite ?? "?",
+          reason: "the served record's text is not readable JSON" });
+      }
     }
-    return { ok: true, served, pin: payload.pin ?? null };
+    return { ok: true, served, pin: payload.pin ?? null, malformed };
   } catch (e) {
     return { ok: false, reason: `survey payload unreadable: ${e.message}` };
   }
@@ -201,6 +214,9 @@ function runLive(draftPath) {
   if (!f.ok) {
     console.log(`CANNOT-DETERMINE: ${draftPath} carries ${cites.length} cite(s) and the served seam is unavailable (${f.reason}) — the trial did not run, which is neither a pass nor a failure (absence-verification-counts-exercised-trials)`);
     return 0;
+  }
+  for (const m of f.malformed ?? []) {
+    console.log(`note: served-record ${m.cite}: ${m.reason}`);
   }
   const results = judgeCites(cites, f.served, f.pin);
   let failed = false;
@@ -287,6 +303,10 @@ function selfTest() {
     parsed.ok && parsed.served.size === 1
     && parsed.served.get(identityKey("alpha", "lesson")).slug === "alpha"
     && parsed.pin.startsWith("product-lab@"));
+  ok("a served record lacking string slug/kind is surfaced, never silently dropped",
+    parsed.ok && parsed.malformed.length === 2
+    && parsed.malformed.some((m) => m.reason.includes("slug/kind"))
+    && parsed.malformed.some((m) => m.reason.includes("not readable JSON")));
   const unreadable = parseSurveyPayload("{not json");
   ok("an unreadable payload reaches the parse arm and degrades with its reason, never a throw",
     unreadable.ok === false && unreadable.reason.includes("unreadable"));
