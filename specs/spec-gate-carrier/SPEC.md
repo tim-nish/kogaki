@@ -118,7 +118,10 @@ pins that way and says where they go instead:
 > machine-facing and belong in the receipt, whose destinations are unchanged —
 > PR bodies, issue bodies, run records, spec amendments. …"
 
-`.claude/skills/consult-first/SKILL.md:97-101`
+`policy/kit/skills/consult-first.md:97-101` (the kit SOURCE, which
+`policy/kit/install.sh` copies to `.claude/skills/consult-first/SKILL.md`;
+the source is authoritative and the installed copy derived — `checks/check-client-kit-install.sh` — and the install copy is machine-local
+since kogaki#615, so a pointer into it resolves nowhere on a fresh clone)
 
 **And that source licenses one narrower admission, scoped to the DECLARATION
 surface and not to the question screen.** The sentence the excerpt cuts reads:
