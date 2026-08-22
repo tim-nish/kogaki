@@ -371,6 +371,22 @@ export function surveyEmptinessNote(servedLines, lessonCount) {
     + "about the corpus.";
 }
 
+// The cite is COMPOSED at this producing site in the identity form
+// (SPEC-draft-command v2, kogaki#600; producer half kogaki#612):
+// `gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<pin-sha>`, where
+// (slug, kind) is the join key read from the served record's OWN fields and
+// the substrate pin rides as provenance. The gateway's positional
+// `gloss/ELEMENTS.jsonl:<line>@<sha>` cite is never copied into any kogaki
+// artifact — Brief and Draft transport this composed form verbatim, so the
+// positional form is unproducible downstream by construction. The pin's sha
+// segment is taken as the response serves it; judging its shape belongs to
+// the resolve check (draft/cite-check.mjs), not to the producer.
+export function composeIdentityCite(slug, kind, pin) {
+  const sha = String(pin ?? "").split("@").pop();
+  if (!sha) return null;
+  return `gloss/ELEMENTS.jsonl slug=${slug} kind=${kind} @${sha}`;
+}
+
 // --------------------------------------------------------------------------
 // survey — read the seam, compose, validate, write.
 // --------------------------------------------------------------------------
@@ -415,9 +431,13 @@ function cmdSurvey(args) {
       // earlier in the served order, and no assignment can be without a
       // persistent map — which AC3 forbids as the second carrier this story
       // exists to remove. The weaker guarantee is stated rather than implied.
-      lessons.push({ id: `lesson:${rec.slug}`, display_id: `L${lessons.length + 1}`, slug: rec.slug, family: "lesson", tags: rec.tags || [], cite: line.cite, journey: null });
+      const cite = composeIdentityCite(rec.slug, rec.kind, resp.pin);
+      if (!cite) fail(`cannot compose an identity cite for lesson ${rec.slug} — the survey response carries no resolvable pin (${resp.pin ?? "absent"}); surfaced, not skipped`);
+      lessons.push({ id: `lesson:${rec.slug}`, display_id: `L${lessons.length + 1}`, slug: rec.slug, family: "lesson", tags: rec.tags || [], cite, journey: null });
     } else if (rec.kind === "journey") {
-      journeys.push({ slug: rec.slug, cite: line.cite });
+      const cite = composeIdentityCite(rec.slug, rec.kind, resp.pin);
+      if (!cite) fail(`cannot compose an identity cite for journey ${rec.slug} — the survey response carries no resolvable pin (${resp.pin ?? "absent"}); surfaced, not skipped`);
+      journeys.push({ slug: rec.slug, cite });
     }
   }
   const emptiness = surveyEmptinessNote((resp.lines || []).length, lessons.length);
@@ -3530,6 +3550,27 @@ switch (cmd) {
   case "act": cmdAct(args); break;
   case "gate": cmdGate(args); break;
   case "capture": cmdCapture(args); break;
+  case "self-test": {
+    // The composed-form fixture pass (kogaki#612): pure, seam-free — every
+    // case constructs its own inputs, so the trial runs with no gateway.
+    let n = 0; const bad = [];
+    const ok = (name, cond) => { if (cond) n++; else bad.push(name); };
+    ok("a lesson cite composes in the identity form from the record's own fields",
+      composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa") === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @aaaaaaa");
+    ok("a journey cite carries its own kind in the join key",
+      composeIdentityCite("alpha", "journey", "product-lab@aaaaaaa") === "gloss/ELEMENTS.jsonl slug=alpha kind=journey @aaaaaaa");
+    ok("the pin's sha segment is taken as served — a bare sha pin composes too",
+      composeIdentityCite("alpha", "lesson", "bbbbbbb") === "gloss/ELEMENTS.jsonl slug=alpha kind=lesson @bbbbbbb");
+    ok("an absent or empty pin refuses composition rather than minting an unpinned cite",
+      composeIdentityCite("alpha", "lesson", undefined) === null
+      && composeIdentityCite("alpha", "lesson", "") === null
+      && composeIdentityCite("alpha", "lesson", "product-lab@") === null);
+    ok("the positional form is not producible by this composer",
+      !/ELEMENTS\.jsonl:\d/.test(composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa")));
+    console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
+    if (bad.length) process.exit(1);
+    break;
+  }
   case "validate": {
     const record = readJson(String(args.survey || fail("validate needs --survey <file>")));
     const v = validateSurvey(record);
@@ -3584,7 +3625,8 @@ switch (cmd) {
   act --act <other>                         report record — the non-member fallback
   gate --gate ID --ids a,b | --proposal F   per-run gate declaration (item 4 carrier)
   capture --declaration F --tool-use-id ID --option X | --free-text S
-  validate --survey F                       run the composition rules on a record`);
+  validate --survey F                       run the composition rules on a record
+  self-test                                 the composed-form fixture pass (identity cites, kogaki#612)`);
     process.exit(cmd ? 1 : 0);
 }
 }
