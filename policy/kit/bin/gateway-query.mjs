@@ -138,6 +138,7 @@ import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { recordConsultation } from "./effectiveness.mjs";
 
 const argv = process.argv.slice(2);
 function opt(name, fallback = undefined) {
@@ -182,6 +183,12 @@ const outcome = opt("outcome");
 // admitting it here without judging it is what keeps exactly one receipt
 // composer and exactly one place the vocabulary is enforced.
 const disposition = opt("disposition");
+// THE CONSUMING ACT'S CARRIER (kogaki#608; source design tsurezure-gateway#92).
+// Optional, carried onto the effectiveness row's `act` field — an issue/PR
+// reference like `kogaki#608`. Not in the row's refusal set: the ledger's
+// validity instrument names `outcome` and `axis` only, and the act is not
+// always known at emission.
+const act = opt("act");
 // One framing per --args; no --args at all is the historical single empty call.
 // `question` is positional against `--args`: framing i's question is
 // `--question` i. Carried ON the framing rather than in a parallel array, so
@@ -1249,6 +1256,31 @@ try {
       // not carry what a receipt asserts. Print the results, refuse the block.
       writeThenExit(`${results}${ownerBlock}\nreceipt not composable: ${why}`, 12);
     } else {
+      // THE EFFECTIVENESS ROW (kogaki#608; design record tsurezure-gateway#92).
+      // Written AT RECEIPT EMISSION — the one moment request facts and outcome
+      // co-exist — and only when a receipt is actually emitted: an exit-12 run
+      // asserted no receipt, so it records no consultation-effectiveness row.
+      // The row's `axis` is the LAST framing's, the same reading the receipt's
+      // own request_id already makes ("the answer the outcome is a reading
+      // of"); a consult whose last framing carried no axis is refused by the
+      // writer — born labeled or not written — and the refusal NEVER gates the
+      // receipt: one stderr line, exit codes untouched, because this kit is an
+      // enhancer and the ledger measures the seam rather than governing it.
+      try {
+        const rowParsed = observed.map((o) => JSON.parse(o.text));
+        recordConsultation({
+          consumer,
+          request_ids: rowParsed.map((d) => d.request_id),
+          tool: framings[framings.length - 1].tool,
+          pin: rowParsed[rowParsed.length - 1].pin,
+          axis: framings[framings.length - 1].axis,
+          queries: framings.length,
+          outcome,
+          act,
+        });
+      } catch (e) {
+        process.stderr.write(`effectiveness row refused: ${e.message}\n`);
+      }
       writeThenExit(`${results}${ownerBlock}\n\n${block}`, 0);
     }
   }
