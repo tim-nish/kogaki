@@ -41,3 +41,65 @@ policy/shape.md
 # file, and a bare `moves.md` would also exclude `moves/moves.md` — silently
 # un-addable, which is the admission-by-omission this comment argues against.
 /moves.md
+
+# THE PRIVATE HARNESS SURFACE (kogaki#615, owner ruling 2026-08-22). `.claude`
+# is machine-local by default: the repository is public, and harness state —
+# hook registrations, pipeline and project config, skill files — is private
+# unless a file genuinely must be shared. Default-deny: the directory's
+# contents are excluded, and a path stays tracked ONLY through an explicit
+# re-include below carrying its public-need argument. The registered boundary
+# guard kogaki#618 (PENDING — not landed at this head; until it lands, a
+# `git add -f` bypass fails nowhere) asserts every tracked `.claude/` path has
+# its re-include here. History predating the ruling stays published —
+# untracking removes the files from the tree going forward, not from history.
+#
+# THE PUBLIC-NEED CRITERION, applied rather than asserted: a file stays tracked
+# when THIS REPOSITORY'S OWN VERIFICATION CANNOT RUN WITHOUT IT. A registered
+# check that reads a path binds a contract to it, and CI runs on a fresh clone
+# — so an untracked path under a tracked assertion is not a private file, it is
+# a red suite on every clone. Each re-include below names the reader that makes
+# it public. Prose MENTIONS do not qualify: `.claude/skills/review-lane/SKILL.md`
+# is named in 9 tracked files and READ by none — every occurrence is a
+# prose mention or a path-glob literal, and no reader opens it — so it stays
+# private. (Counted at this head with `git grep -l`; the first form of this
+# block said "three", an undercount of the one worked example the criterion
+# is stated through. PR #620 round 2.)
+.claude/*
+
+# SPEC.md §4's no-owner-override clause grounds the review rounds-bound on this
+# site being TRACKED — "the same edit to a machine-local file would leave
+# nothing to review" (specs/SPEC.md:1183-1188) — and the Review lane's
+# mechanism declaration landed here as a tracked declaration (PR #617). A
+# machine-local copy would make the bound unraisable-by-diff, which is the one
+# property the clause exists to guarantee.
+!.claude/review-lane.json
+
+# The two skill files a registered check READS. Each carries a contract with no
+# second carrier, and the check is the enforcement: `check-brief-entry.sh:796`
+# asserts /brief's completion stages against its skill (the 2026-08-18 dogfood
+# stopped at the mint and only the owner noticed), and
+# `check-terrain-composition.sh:473` asserts the co-tag step is named in
+# terrain's (its absence routed a tag selection to a second `view --tag` and
+# produced the dump, §6.1).
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/brief/
+!.claude/skills/terrain/
+.claude/skills/brief/*
+.claude/skills/terrain/*
+!.claude/skills/brief/SKILL.md
+!.claude/skills/terrain/SKILL.md
+
+# The remaining two readers, admitted by the same criterion (kogaki#621).
+# Tracking them is what lets BOTH absence guards be deleted rather than
+# placed: `check-client-kit-install.sh` compares the kit source against the
+# installed copy, and `check-review-trigger.sh` runs its whole fixture pass
+# over the hook — neither assertion exists without its file, and a guard
+# standing in for it can hide more than it states (PR #620 round 2, where an
+# `exit 0` guard silently skipped the check's primary job on every clone).
+!.claude/skills/consult-first/
+.claude/skills/consult-first/*
+!.claude/skills/consult-first/SKILL.md
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/review-trigger.py
