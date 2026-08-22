@@ -41,3 +41,15 @@ policy/shape.md
 # file, and a bare `moves.md` would also exclude `moves/moves.md` — silently
 # un-addable, which is the admission-by-omission this comment argues against.
 /moves.md
+
+# THE PRIVATE HARNESS SURFACE (kogaki#615, owner ruling 2026-08-22). `.claude`
+# is machine-local by default: the repository is public, and harness state —
+# lane declarations, hook registrations, pipeline config, skill files — is
+# private unless a file genuinely must be shared. Default-deny: the directory
+# is excluded wholesale, and a path stays tracked ONLY with an explicit `!`
+# re-include below carrying its public-need argument. The registered boundary
+# guard (kogaki#618) asserts every tracked `.claude/` path has its re-include
+# here, so a `git add -f` bypass fails loudly in CI rather than silently
+# re-publishing private state. History predating the ruling stays published —
+# untracking removes the files from the tree going forward, not from history.
+.claude/

@@ -31,9 +31,17 @@ REPO_ROOT="$(pwd -P)"
 HOOK_ABS="$REPO_ROOT/$HOOK"
 
 if [[ ! -f "$HOOK" ]]; then
-  echo "FAIL: $HOOK does not exist — the trigger this check covers is absent,"
-  echo "  which is a stronger failure than a fixture mismatch, not a skip."
-  exit 1
+  # RE-SCOPED under kogaki#615 (owner untrack ruling 2026-08-22): the hook is
+  # a machine-local installed artifact, no longer tracked, so a working copy
+  # without it is the expected state of a fresh clone — not the regression the
+  # pre-#615 hard fail was written for. The absence is STATED, never a silent
+  # skip: the fixture pass is unreachable here and this line says so. Where
+  # the hook IS installed, every assertion below still runs in full.
+  echo "review-trigger: $HOOK is not installed in this working copy — a"
+  echo "  machine-local hook (kogaki#615); the fixture pass is unreachable"
+  echo "  here and ran 0 of its cases. This is a stated absence, not a pass"
+  echo "  over the hook's logic."
+  exit 0
 fi
 
 # The extraction must be reachable and exercised. A regression that inlined it
