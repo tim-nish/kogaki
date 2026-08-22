@@ -1,3 +1,9 @@
 {
-  "review_rounds_max": 2
+  "review_rounds_max": 2,
+  "review": {
+    "mechanisms": [
+      "checks-registry"
+    ],
+    "trigger": true
+  }
 }
