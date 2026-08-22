@@ -41,6 +41,32 @@ export function ledgerPath() {
     ?? join(homedir(), ".tsurezure", "effectiveness.jsonl");
 }
 
+// THE REFUSAL RECORD (PR #609 round-1 finding 4). "Born labeled or not
+// written" self-selects the sample: every axis-less consult writes no row, and
+// without this file nothing counts what was excluded — the four statistics
+// would run over a denominator that silently dropped the unlabeled
+// population. So a refusal appends {ts, consumer, reason} to the sidecar
+// `<ledger>.refused` (same rotation cap), and `stats` renders the count
+// beside the rates. The sidecar records REFUSALS, never rows: no outcome, no
+// axis, nothing a statistic could mistake for a consultation.
+export function refusalPath() {
+  return `${ledgerPath()}.refused`;
+}
+
+function recordRefusal(consumer, reason) {
+  try {
+    const path = refusalPath();
+    mkdirSync(dirname(path), { recursive: true });
+    if (existsSync(path) && statSync(path).size >= ROTATE_AT_BYTES) {
+      renameSync(path, `${path}.1`);
+    }
+    appendFileSync(path, `${JSON.stringify({ ts: new Date().toISOString(), consumer: consumer ?? null, reason })}\n`);
+  } catch {
+    // The refusal record is itself an enhancer: failing to count a refusal
+    // never turns into a second failure at the seam.
+  }
+}
+
 // The outcome families the statistics are defined over — a row outside them
 // cannot serve the statistics and is refused at write time. `uncovered-after-N`
 // is a family, not a literal: receipts carry the count the transport emitted
@@ -65,22 +91,26 @@ export function outcomeFamily(token) {
 // (the receipt path) turns that into one stderr line and proceeds, because
 // the ledger never gates the emission it measures.
 export function recordConsultation({ ts, consumer, request_ids, tool, pin, axis, queries, outcome, act }) {
+  const refuse = (msg) => {
+    recordRefusal(consumer, msg);
+    throw new Error(msg);
+  };
   if (typeof outcome !== "string" || !outcome.trim() || outcomeFamily(outcome.trim()) === null)
-    throw new Error(
+    refuse(
       `row refused: \`outcome\` is ${JSON.stringify(outcome)} — a row is born labeled or not ` +
         "written, and the label must serve the four statistics " +
         "(discriminating | covered-after-reframing | uncovered-after-N | not-applied)",
     );
   if (typeof axis !== "string" || !axis.trim())
-    throw new Error(
+    refuse(
       `row refused: \`axis\` is ${JSON.stringify(axis)} — a row is born labeled or not written; ` +
         "the axis token rides the framing (kogaki#604) and the row carries the " +
         "same framing's axis whose request_id and outcome it records",
     );
   if (typeof consumer !== "string" || !consumer.trim())
-    throw new Error("row refused: `consumer` is required");
+    refuse("row refused: `consumer` is required");
   if (!Array.isArray(request_ids) || request_ids.length === 0)
-    throw new Error("row refused: `request_ids` must name every gateway call the consultation made");
+    refuse("row refused: `request_ids` must name every gateway call the consultation made");
   const row = {
     ts: ts ?? new Date().toISOString(),
     consumer: consumer.trim(),
@@ -210,6 +240,10 @@ function main(argv) {
   if (cmd === "stats") {
     const rows = readLedger();
     const stats = computeStats(rows);
+    // The excluded population, counted (PR #609 round-1 finding 4): rendered
+    // beside the rates so the denominators' self-selection is visible. Never
+    // folded into any rate — a refusal is not a consultation outcome.
+    stats.refused = readLedger(refusalPath()).length;
     console.log(JSON.stringify(stats, null, 2));
     if (rows.length === 0) {
       console.error(`(ledger empty or absent at ${ledgerPath()} — statistics are defined from row 1; ` +
@@ -227,7 +261,9 @@ function main(argv) {
 // synthetic rows, no filesystem beyond a scratch ledger under $TMPDIR.
 function selfTest() {
   const failures = [];
+  let total = 0;
   const ok = (name, f) => {
+    total += 1;
     let r;
     try { r = f(); } catch (e) { r = `THREW: ${e.message}`; }
     if (r !== true) failures.push(`${name}${typeof r === "string" ? ` — ${r}` : ""}`);
@@ -258,6 +294,14 @@ function selfTest() {
   ok("an uncovered-after-N token is admitted as its family",
     () => outcomeFamily("uncovered-after-2-framings") === "uncovered");
   ok("a refusal writes nothing", () => readLedger(tmp).length === 1);
+  // Finding 4 (PR #609 round 1): the excluded population is counted, not lost.
+  ok("each refusal above landed in the refusal record with its reason", () => {
+    const refused = readLedger(`${tmp}.refused`);
+    return refused.length === 3 && refused.every((r) => typeof r.reason === "string" && r.ts) &&
+      refused.some((r) => r.reason.includes("`axis`"));
+  });
+  ok("a refusal record entry is not a row — no outcome field a statistic could read", () =>
+    readLedger(`${tmp}.refused`).every((r) => !("outcome" in r) && !("axis" in r)));
   ok("act is nullable, never refused", () => recordConsultation({ ...base, act: undefined }).act === null);
   // AC 4 — the four statistics, from a synthetic ledger.
   const rows = [
@@ -288,18 +332,22 @@ function selfTest() {
     recordConsultation(base);
     return existsSync(`${tmp}.1`) && statSync(tmp).size < ROTATE_AT_BYTES;
   });
-  try { unlinkSync(tmp); unlinkSync(`${tmp}.1`); } catch {}
+  for (const p of [tmp, `${tmp}.1`, `${tmp}.refused`, `${tmp}.refused.1`]) {
+    try { unlinkSync(p); } catch {}
+  }
   if (failures.length) {
     console.log("FAIL effectiveness-ledger fixtures:");
     for (const f of failures) console.log(`  ${f}`);
     return 1;
   }
-  console.log("fixture pass: 14/14 effectiveness-ledger cases (a labeled row lands complete; " +
+  console.log(`fixture pass: ${total}/${total} effectiveness-ledger cases (a labeled row lands complete; ` +
     "outcome and axis refusals fire and write nothing; the outcome vocabulary is the four " +
     "families and uncovered-after-N is a family, not a literal; act stays nullable; the four " +
     "statistics compute from a synthetic ledger with not-applied excluded from denominators; " +
     "an empty ledger reads as null rates, never invented zeros; rotation caps the live file " +
-    "keeping one prior generation)");
+    "keeping one prior generation; every refusal lands in the refusal record with its reason " +
+    "and no field a statistic could mistake for a row, so the excluded population is counted " +
+    "rather than lost)");
   return 0;
 }
 
