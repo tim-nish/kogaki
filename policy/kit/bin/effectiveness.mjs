@@ -12,8 +12,9 @@
 // WRITE REFUSAL IS THE VALIDITY INSTRUMENT. A row missing `outcome` or `axis`
 // is refused — born labeled or not written. There is no repair pass and no
 // post-hoc detector: the constraint is on what the path can PRODUCE, which is
-// the shape the served surface asks remedies to take (the access.jsonl
-// failure, gw#91: 28,605 rows, zero outcome fields, discovered unlabelable).
+// the shape the served surface asks remedies to take (the gateway's old
+// request log, gw#91: 28,605 rows, zero outcome fields, discovered
+// unlabelable).
 // A refusal is announced on stderr so the absence is observable, and it NEVER
 // gates the receipt it measures — the kit is an enhancer, never a dependency.
 //
