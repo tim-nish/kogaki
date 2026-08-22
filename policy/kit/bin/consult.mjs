@@ -433,7 +433,7 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
 // absent, the historical `policy_lookup` shape is unchanged. So a `gloss_index`
 // consult states the shard it read AND the question it was reading for, and
 // the receipt records the second.
-export function transportArgv({ consumer, framings, outcome, disposition, tool, gateway, argsList = [], axisList = [], ownerRender = false }) {
+export function transportArgv({ consumer, framings, outcome, disposition, act, tool, gateway, argsList = [], axisList = [], ownerRender = false }) {
   const argv = ["--consumer", consumer];
   for (const [i, f] of framings.entries()) {
     argv.push("--tool", tool ?? "policy_lookup");
@@ -451,6 +451,13 @@ export function transportArgv({ consumer, framings, outcome, disposition, tool, 
   // byte-for-byte what it was before kogaki#268 and every existing fixture over
   // this function keeps its exact expected string.
   if (disposition !== undefined) argv.push("--disposition", disposition);
+  // THE CONSUMING ACT'S CARRIER (kogaki#608, PR #609 round-1 finding 5).
+  // Forwarded only when supplied, on the same principle as `--disposition`:
+  // the field was admitted with no producer on the sanctioned path, and every
+  // consultation through this entry point wrote `act: null` — a nullable
+  // field and an unreachable one being different facts. Argv is byte-for-byte
+  // unchanged when absent, so every existing fixture keeps its exact string.
+  if (act !== undefined) argv.push("--act", act);
   // §8.2 (kogaki#320). Forwarded only when asked, on the same principle as
   // `--disposition` above: every existing fixture over this function keeps its
   // exact expected string, and a consult that does not want the owner register
@@ -650,6 +657,14 @@ function selfTest() {
      () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating" })
              .join(" ") === '--consumer k --tool policy_lookup --args {"question":"q"} ' +
              "--question q --receipt --outcome discriminating"],
+    // kogaki#608, PR #609 round-1 finding 5: the effectiveness row's `act`
+    // field gains its producer on the sanctioned path.
+    ["--act is forwarded to the transport when supplied",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating", act: "kogaki#608" })
+             .join(" ").endsWith("--receipt --outcome discriminating --act kogaki#608")],
+    ["no --act leaves the transport argv byte-for-byte unchanged",
+     () => !transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating" })
+             .includes("--act")],
     // AC 5 — the degraded statement, in the shape the checker actually accepts.
     ["the degraded statement's marker is unindented and above line one",
      () => { const l = degradedStatement("the gateway was unreachable").split("\n");
@@ -786,6 +801,7 @@ const child = spawnSync(
     framings: verdict.framings,
     outcome,
     disposition: verdict.disposition,
+    act: opt("act"),
     tool: opt("tool"),
     gateway: opt("gateway"),
     argsList: opts("args"),

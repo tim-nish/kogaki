@@ -397,6 +397,14 @@ echo "ok: emit-pin-quotes degrade (one line, exit 11)"
 node "$KIT_DIR/bin/issue-pins.mjs" --self-test || fail "issue-pins content-liveness fixtures failed"
 echo "ok: issue-pins content-liveness fixture pass (kogaki#188)"
 
+#     The effectiveness ledger's own fixture pass (kogaki#608; PR #609 round-1
+#     finding 2 — a test nothing invokes is the orphan-guard shape kogaki#6 was
+#     filed to end). Gateway-free like its siblings: the writer, the refusal
+#     pair, rotation and the four statistics are pure functions plus a scratch
+#     ledger under $TMPDIR.
+node "$KIT_DIR/bin/effectiveness.mjs" --self-test || fail "effectiveness-ledger fixtures failed"
+echo "ok: effectiveness-ledger fixture pass (kogaki#608)"
+
 # 5. Skill is installed where the harness loads it, with frontmatter.
 SKILL="$TMP/repo/.claude/skills/consult-first/SKILL.md"
 [[ -f "$SKILL" ]] || fail "consult-first skill not installed at .claude/skills/"
