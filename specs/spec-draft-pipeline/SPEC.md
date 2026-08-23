@@ -244,7 +244,7 @@ already, and it names this subsystem by name:
 > other subsystem. A sitting citing this section for a non-Terrain design
 > question is misusing it."
 
-`specs/spec-terrain/SPEC.md:586-591`
+`specs/spec-terrain/SPEC.md:604-609`
 
 So §2.4's WA baseline does not reach this spec, and no clause below may be
 read as inherited. The owner's inheritance whitelist for this pipeline
