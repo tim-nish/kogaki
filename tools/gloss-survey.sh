@@ -2,8 +2,10 @@
 # The review lane's opening survey, served LINE-SHAPED (kogaki#541, spec sitting
 # 2026-08-19).
 #
-# WHAT WAS BROKEN, AND IT WAS NOT THE CORPUS. `.claude/skills/review-lane/SKILL.md`
-# makes an unscoped tier-1 `gloss_index` survey the review's fixed opening move.
+# WHAT WAS BROKEN, AND IT WAS NOT THE CORPUS. The review lane makes an unscoped
+# tier-1 `gloss_index` survey its fixed opening move. (The artifact that said so
+# here, `.claude/skills/review-lane/SKILL.md`, was retired by kogaki#630; the
+# opening move travels with the method port, claude-toolkit#479 — kogaki#632.)
 # Through the MCP tool that call returns ~77,000 characters on ONE line, which
 # the harness refuses before any of it reaches the reviewer; the offered fallback
 # is byte-slicing a spill file, which SKILL.md puts out of scope for a per-PR
