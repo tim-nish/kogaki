@@ -21,7 +21,7 @@ record:
 > payload/answer capture) — with rendering through the question UI as
 > contract, not discretion."
 
-`specs/SPEC.md:4738-4740`
+`specs/SPEC.md:4776-4778`
 
 Ported **with** its contract, ahead of Terrain, on the same ground as item 3
 (`specs/SPEC.md:113-121`). Authored consumer-side, in the same shape as
@@ -92,7 +92,7 @@ contract rather than discretion:
 
 > "with rendering through the question UI as contract, not discretion"
 
-`specs/SPEC.md:4738-4740` — **repointed at v2.** This clause's first cut carried
+`specs/SPEC.md:4776-4778` — **repointed at v2.** This clause's first cut carried
 `:99-101`, which is where the file's own header block still cites the item and
 which resolves at this head to unrelated text on derived-artifact sensitivity.
 The quote is the whole ground §3.1 rests on, and a pin that looks sound while

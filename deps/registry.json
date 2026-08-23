@@ -57,9 +57,9 @@
     },
     {
       "id": "spawned-session-tool-grants",
-      "capability": "the tool grants a spawned reviewer session actually receives from its host (the MCP servers, Bash and file tools available inside the session the review sweep starts)",
+      "capability": "the tool grants a spawned reviewer session actually receives from its host (the MCP servers, Bash and file tools available inside the session the review lane starts — the engine's, since kogaki#630)",
       "needed_by": [
-        "the review sweep's spawned reviewer, which cannot produce a report without the tools that read the diff and post it",
+        "the review lane's spawned reviewer, which cannot produce a report without the tools that read the diff and post it. NOTE (kogaki#630): the spawner is claude-toolkit's engine, not this repository — kogaki retired its own sweep, so this dependency is needed BY an act kogaki no longer performs and FOR a session the engine still spawns against kogaki PRs",
         "any consultation the spawned session is expected to perform, which needs the gateway tool to be granted inside that session rather than in the spawning one"
       ],
       "verification": {

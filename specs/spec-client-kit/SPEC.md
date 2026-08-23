@@ -742,7 +742,11 @@ would stall a lane over a conflict that does not exist.
 **The hook is NOT in this repository, and this subsection is unfalsifiable from
 inside it without saying so.** `lint-gate-declaration.py` is installed
 **actor-level** at `~/.claude/hooks/`, owned by `claude-toolkit`;
-`.claude/hooks/` here holds only `review-trigger.py`. A reader who greps for it
+`.claude/hooks/` here holds **nothing tracked at all** since kogaki#630
+retired `review-trigger.py` with the reviewer stack — so the grep this
+subsection anticipates now returns an empty directory rather than one
+unrelated file, which is the same stall in a slightly cheaper form
+(PR #631 round 1, finding 5). A reader who greps for it
 finds nothing and stalls one step later than the stall this subsection exists to
 prevent. Declared in this repository's own convention for an off-repo carrier:
 

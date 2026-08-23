@@ -1793,9 +1793,30 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **Why this section stopped defining it.** Through kogaki#630 this
      repository held a complete parallel reviewer stack beside the engine's,
      and the grammar was defined in both. Two definitions of one wire format
-     is the divergence this retirement removes by construction: kogaki now
-     holds no code that reads or writes a review report, so there is nothing
-     here for a second definition to serve. The paragraphs this replaces
+     is the divergence this retirement removes by construction: kogaki no
+     longer **drives, spawns or gates** a review round, so a second definition
+     of the wire format has no producer here to serve.
+
+     **ONE READER SURVIVES, AND IT IS NAMED RATHER THAN GLOSSED OVER**
+     (PR #631 round 1, finding 1). The first form of this paragraph claimed
+     kogaki "holds no code that reads or writes a review report", and the tree
+     falsifies it: `tools/mine-receipt-absence.sh` is live and tracked, is not
+     retired by kogaki#630, and **segments PR comments on the report token and
+     parses the `boundary:` line class**. It is a *reader* of the record, not a
+     driver of the lane, which is why #630's inventory leaves it standing — but
+     that makes it a **consumer of the upstream grammar**, and this clause
+     states so rather than asserting a cleanliness the grep contradicts.
+
+     **What that consumer is owed, stated as an open gap rather than repaired
+     here.** The `boundary:` line class it parses is one this repository
+     authored, and whether §Decision 3 upstream covers that half **cannot be
+     verified from this tree**. So the honest position is: the reader conforms
+     to the upstream grammar for the report token, and its `boundary:` half has
+     no verified definition anywhere at this head. Naming it is the fix this
+     clause can make; closing it belongs with the method port (ct#479), which
+     is where the `boundary:` record's shape travels.
+
+     The paragraphs this replaces
      argued the adjacent-line form from the regexes in
      `checks/check-review-report.sh` and `tools/review-sweep.sh`; **both files
      are deleted by kogaki#630**, so the argument's own evidence no longer
@@ -2393,32 +2414,49 @@ invariant: Gukan guarantees Unit schema, never data schema).
      was corrected in the same change — a header asserting ten over eleven rows
      is the false record clause 9 forbids one field over. **Adjacent and NOT
      repaired here:** the `Four rows moved` above already disagrees with the
-     post-table heading `THE FIVE ROWS THAT MOVED SINCE FILING`, and it
-     disagreed before this change — named so a repair sitting sees both rather
-     than fixing one and inheriting the other.
-     Row 10 was added 2026-08-08 WITH its observing act, per this clause's own
-     rule that an issue does not discharge a row: kogaki#290 found row 5's act
-     (`rally_cycles()`, firing when the sweep polls) structurally unable to
-     fire on rounds arriving from actors that never spawned through the sweep
-     — PR #287's third round was counted by nothing while the gate enumerated
-     all three heads in its own stale message. Row 5 is UNCHANGED (the
-     counting act is real and counts correctly); the transition it could not
-     observe is now row 10's, typed `act` only because the observer shipped
-     in the same change.
+     post-table heading `THE FIVE ROWS THAT MOVED SINCE FILING`, and it is left
+     standing as the record of a disagreement rather than smoothed over.
+
+     **EVERY `act` TYPING IN THIS TABLE IS WITHDRAWN TO `upstream`
+     (kogaki#630, PR #631 round 1 finding 2).** The rows below typed eleven
+     transitions of the review record, and the `act` rows named their
+     observers by file: `tools/review-sweep.sh`, `checks/check-review-report.sh`,
+     `.claude/skills/review-lane/SKILL.md`, and the three shared units under
+     `lib/`. **kogaki#630 deletes every one of those carriers**, and row 2's own
+     text states what that makes the rows: *"a row typed `act` naming an
+     observing act that does not exist is a false record"*. The diff does not
+     touch these rows, and the diff is exactly what falsifies them — the
+     mechanical-consequence class the sixteen line-numbered pointers were swept
+     for, arriving in the form with no line number to grep.
+
+     So the transitions are kept and the typing is withdrawn. Each row still
+     names a transition the review record must express — that enumeration is
+     this repository's own reading and is worth keeping — and its carrier is
+     now **claude-toolkit's engine**, which this tree cannot cite: an upstream
+     line number not read from here would be an inference wearing a citation's
+     clothes, which is the defect row 2 refuses one direction over.
 
      | # | transition of the review record | type |
      |---|---|---|
-     | 1 | a finding is **raised and typed** | **act** — the `finding: <severity> <state>` line, parsed by `checks/check-review-report.sh`'s `FINDING` regex and by `tools/review-sweep.sh`'s segmenter, both anchored whole |
-     | 2 | a **severity is revised across heads** | **act** — clause 12's `unadjudicated_blocking()`, defined in `lib/adjudication.py` and loaded by `checks/check-review-report.sh`, which denies when a justified `blocking open` at an earlier counted segment is named by no `adjudicates: <earlier head sha> finding <N>` line in any later counted segment (kogaki#269). The row was typed `none:` from 2026-08-12, when clause 12 landed the GRAMMAR alone, until 2026-08-13, when the act landed with 22 fixture cases and 26 killed mutations — and the interval is recorded rather than smoothed over, because the reason the row could not move earlier is the rule this table exists to state: a row typed `act` naming an observing act that does not exist is a false record, and naming a clause does not type a row. The polarity is unchanged from clause 12's ratification: it gates the SILENCE, never the SEVERITY, so kogaki#72 stays untouched. |
+     | 1 | a finding is **raised and typed** | `upstream` — the engine |
+     | 2 | a **severity is revised across heads** | `upstream` — the engine. Its polarity is unchanged and load-bearing: it gates the SILENCE, never the SEVERITY (kogaki#269, kogaki#72) |
      | 3 | a finding goes **`open` → `resolved`** | `none: the state token is the reviewer's own attestation about its own work and no act re-derives it from the diff. No carrier is filed, and this row is how that is surfaced.` |
-     | 4 | a **report carries forward** to a head that changed no content | **act, CARRIED BY BOTH READERS** (v3, kogaki#308) — the ONE head-resolution unit `lib/head_resolution.py`, loaded by `checks/check-review-report.sh` and by `tools/review-sweep.sh` and defined in neither. `carry_forward()` recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it; `decide()` consumes that record rather than resolving by sha identity, and an agreement fixture IN BOTH consumers asserts they reach the same unit and answer alike. **The v2 typing of this row read `HALF-CARRIED`, naming the sweep half `owed and unbuilt`; PR #321 built it and this row is re-typed in the same change that discharged it** — a row left asserting its own half unbuilt after the build is the stale table this section warns about, arriving from the third direction |
-     | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
-     | 6 | a **non-gating finding crosses the merge** | **act** — §4 clause 8's `carried:` / `declined:` disposition line, written by the reviewer under `.claude/skills/review-lane/SKILL.md` §`carried:`/`declined:` and read at the sweep's `done` boundary (kogaki#224, reader half kogaki#251) |
-     | 7 | a **fix is authored after its own PR merges** | `none: the sweep enumerates OPEN pull requests and the merge check runs on a pull-request event, so a commit pushed to a merged branch produces neither — no CI run, no licence assertion, no review segment, and gh pr view keeps returning the merged head. No carrier is filed.` |
-     | 8 | a **review is degraded** (the session was denied tools) | **act** — clause 10's `review-report-degraded: <head sha>` line class, written by `tools/review-sweep.sh`'s `report-degraded` arm and read by `decide()`, so a head whose only report came from a denied-tools session resolves to a state distinct from `done` (kogaki#271 parts (a)–(c)) |
-     | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
-     | 10 | a **round is admitted to the record past the bound** | **act** — `_rounds_observation()` in `checks/check-review-report.sh`: distinct heads carrying counted segments, printed against clause 3's bound on every terminal state; reported, never gated, unit disclosed as NOT the sweep's cycle count (kogaki#290) |
-     | 11 | a **head moves past a spent bound** — a fix commit lands on the reviewed PR's branch after clause 3's rounds are gone | **act** — `post_bound_head_move()` in `tools/review-sweep.sh`, read by `decide()` at its spent-bound branch and returning the state `post-bound-head-move`, which the driver routes to the SUPERSESSION lane rather than to the owner arbitration a generic `park` produced. The predicate is `performed()` on both halves and not `counted()`: a fragment is performed and not counted (clause 6), so it is charged a round and sits at its head — reading `counted()` would call a fragmented round-2 report a post-bound move at the current head, and would let two fragments at two heads spend the bound and then miss the push that follows. Strictly NARROWER than `park_class()`'s residual `unreviewed-head` class, which still truthfully reports a push where the bound was spent AT this head; the implication is asserted in the one direction it holds. Typed `none: OWED AND UNBUILT` from 2026-08-15, when the arm was decided and the observer was not built, until story 1.65 landed it — the interval is recorded rather than smoothed over, per row 2's precedent (kogaki#401) |
+     | 4 | a **report carries forward** to a head that changed no content | `upstream` — the engine. The property kogaki relied on is that the comparison is RECORDED rather than trusted, and that a consumer which stops disclosing an uncomputable comparison fails (kogaki#308, #323) |
+     | 5 | a **round is counted** | `upstream` — the engine |
+     | 6 | a **non-gating finding crosses the merge** | `upstream` — the engine. Clause 8's `carried:` / `declined:` disposition line (kogaki#224, reader half kogaki#251) |
+     | 7 | a **fix is authored after its own PR merges** | `none: a commit pushed to a merged branch produces no CI run, no licence assertion and no review segment. No carrier is filed.` |
+     | 8 | a **review is degraded** (the session was denied tools) | `upstream` — the engine (kogaki#271). PR #631 round 1 is a live instance: the reviewer could not run the declared mechanism and said so in its own report |
+     | 9 | a **boundary is touched and a receipt does or does not cover it** | `upstream, AND THE ONE ROW WITH A GAP` — the `boundary:` line class was authored here, its writer (`.claude/skills/review-lane/SKILL.md`) is deleted by #630, and whether the engine's grammar covers it is unverifiable from this tree. `tools/mine-receipt-absence.sh` still parses it. Named as open above; it travels with the method port, ct#479 |
+     | 10 | a **round is admitted to the record past the bound** | `upstream` — the engine; reported, never gated (kogaki#290) |
+     | 11 | a **head moves past a spent bound** | `upstream` — the engine. The predicate kogaki settled on is `performed()` and not `counted()`, for the reason row 11 recorded: a fragment is performed and not counted (kogaki#401) |
+
+     **What `upstream` means here, so it is not read as `none:`.** The act
+     exists and is performed; what this repository lost is the ability to name
+     its observer from its own tree. That is a weaker claim than `act` and a
+     stronger one than `none:`, and collapsing it into either would be the
+     false record this table exists to prevent — `none:` would assert no
+     carrier where one runs every round, and `act` would name an observer this
+     tree cannot show you.
 
      **ROW 11 ADDED 2026-08-15 (kogaki#401), typed `none:` and RE-TYPED `act`
      the same day when story 1.65 landed its observer.** Three

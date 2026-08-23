@@ -90,16 +90,22 @@ policy/shape.md
 !.claude/skills/brief/SKILL.md
 !.claude/skills/terrain/SKILL.md
 
-# The remaining two readers, admitted by the same criterion (kogaki#621).
-# Tracking them is what lets BOTH absence guards be deleted rather than
-# placed: `check-client-kit-install.sh` compares the kit source against the
-# installed copy, and `check-review-trigger.sh` runs its whole fixture pass
-# over the hook — neither assertion exists without its file, and a guard
-# standing in for it can hide more than it states (PR #620 round 2, where an
-# `exit 0` guard silently skipped the check's primary job on every clone).
+# The remaining reader, admitted by the same criterion (kogaki#621).
+# Tracking it is what lets its absence guard be deleted rather than placed:
+# `check-client-kit-install.sh` compares the kit source against the installed
+# copy — the assertion does not exist without its file, and a guard standing
+# in for it can hide more than it states (PR #620 round 2, where an `exit 0`
+# guard silently skipped the check's primary job on every clone).
+#
+# THE HOOK RE-INCLUDE IS GONE (kogaki#630; PR #631 round 1, finding 4). This
+# block used to admit `.claude/hooks/review-trigger.py` on the argument that
+# `check-review-trigger.sh` ran its fixture pass over it. #630 deletes BOTH,
+# so the argument named two absent files while the re-include kept admitting
+# a path that no longer exists. `check-claude-boundary.sh` asserts only the
+# subset direction (tracked ⊆ allowlist), so this passed mechanically and its
+# own header routes exactly this case to a reader — which is where it was
+# caught. The `.claude/hooks/` directory re-include goes with it: the
+# directory now holds nothing tracked.
 !.claude/skills/consult-first/
 .claude/skills/consult-first/*
 !.claude/skills/consult-first/SKILL.md
-!.claude/hooks/
-.claude/hooks/*
-!.claude/hooks/review-trigger.py

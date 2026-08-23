@@ -96,11 +96,19 @@ sited **apart**, and the axis is what each one READS:
   not this repository's, so the proposer works unchanged in any kit-installing
   consumer. It travels with the kit because it depends on nothing this
   repository authors.
-- **Receipt-absence mining** (story 1.41) lives in **`tools/`**, beside
-  `tools/review-sweep.sh`. Its input is `.claude/skills/review-lane/SKILL.md`
-  §2's boundary-vs-receipt record — an artifact **this** repository authors and
-  whose shape this repository owns. It cannot travel, and a copy of it in the
-  kit would be a component whose input does not exist at the other end.
+- **Receipt-absence mining** (story 1.41) lives in **`tools/`**. Its input is
+  the review record's boundary-vs-receipt line class.
+  **BOTH GROUNDS THIS SITING WAS ARGUED FROM ARE GONE** (kogaki#630; PR #631
+  round 1, finding 6): the neighbour it was sited beside, `tools/review-sweep.sh`,
+  is retired, and the artifact whose shape "this repository owns",
+  `.claude/skills/review-lane/SKILL.md`, is retired with it. The siting stands
+  and its argument does not: the miner still cannot travel, because its input is
+  a record produced per-repository, but this repository no longer **authors the
+  shape** of the `boundary:` half it parses. That shape travels with the method
+  port (ct#479) and has no verified definition anywhere at this head — stated
+  here rather than left, because this is a gating policy surface and a live
+  siting decision resting on two absent referents reads as settled when it is
+  open.
 
 **Recorded before code embeds it**, which is the decide-or-name rule's own
 requirement and not a courtesy — an excerpt quoted at its pin:

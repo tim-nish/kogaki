@@ -9,7 +9,7 @@ record:
 > "3. **The owner-facing proposal contract** (Where/Why/effect-stating
 > labels; machine-proposed options plus free text; payload capture)."
 
-`specs/SPEC.md:4736-4737`
+`specs/SPEC.md:4774-4775`
 
 Ported **with** its contract, ahead of Terrain, because admitting a subsystem
 without its contract is the manifest's own named failure mode
