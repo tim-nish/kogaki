@@ -59,11 +59,17 @@ policy/shape.md
 # — so an untracked path under a tracked assertion is not a private file, it is
 # a red suite on every clone. Each re-include below names the reader that makes
 # it public. Prose MENTIONS do not qualify: `.claude/skills/review-lane/SKILL.md`
-# is named in 9 tracked files and READ by none — every occurrence is a
-# prose mention or a path-glob literal, and no reader opens it — so it stays
-# private. (Counted at this head with `git grep -l`; the first form of this
-# block said "three", an undercount of the one worked example the criterion
-# is stated through. PR #620 round 2.)
+# is named in a handful of tracked files and READ by none — every occurrence is
+# a prose mention or a path-glob literal, and no reader opens it — so it stayed
+# private, and kogaki#630 retired the file itself.
+#
+# THE COUNT IS DELIBERATELY NOT A NUMBER ANY MORE (kogaki#632; PR #637 round 1).
+# It read "9 tracked files", was 6 at that PR's base and 5 at its head, and it
+# moved every time an unrelated sitting reworded a mention. The criterion the
+# number was stated through — no reader opens the path — is what does the work
+# and is unchanged; the figure was a fact that changes without a review point,
+# which `specs/SPEC.md` already forbids a record from stating. Earlier forms
+# said "three" and then "9"; both were true when written.
 .claude/*
 
 # SPEC.md §4's no-owner-override clause grounds the review rounds-bound on this

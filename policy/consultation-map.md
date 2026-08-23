@@ -52,10 +52,12 @@ served line and are therefore legitimate here:
 1. **Miss harvesting** — a recorded consult outcome token of
    `covered-after-reframing` or `uncovered-after-N-framings` proposes an entry
    for the occasion that produced it.
-2. **Receipt-absence mining** — the review lane's boundary-vs-receipt record
-   (`.claude/skills/review-lane/SKILL.md` §2, *Consultation-map boundaries
-   touched*) proposes the missing occasion where a boundary was touched with no
-   receipt.
+2. **Receipt-absence mining** — the review record's boundary-vs-receipt line
+   class proposes the missing occasion where a boundary was touched with no
+   receipt. (The artifact that defined that class here,
+   `.claude/skills/review-lane/SKILL.md` §2, was retired by kogaki#630; the
+   definition travels with the method port, claude-toolkit#479, and is
+   unverified from this tree — kogaki#632, PR #637 round 1.)
 
 **What this does not permit, and why the line is exactly here.** Neither
 proposer writes this file. Admission stays a human act, still requires the
