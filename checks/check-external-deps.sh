@@ -33,7 +33,9 @@
 # A READ THAT DID NOT COMPLETE IS NOT AN ABSENCE. A verification command that
 # exits non-zero is reported COULD-NOT-ESTABLISH, on its own row, and never as
 # "absent" — an instrument that reports absence without establishing it is the
-# defect check-review-report.sh refuses one layer up. The interpretation rule is
+# defect the review lane refuses one layer up (the check that used to carry that
+# refusal here, check-review-report.sh, retired with the stack at kogaki#630;
+# the refusal is the engine's now). The interpretation rule is
 # stated in the output: the command owes an exit-0 read printing a value, and
 # `true`/`false` is the shape both current decidable entries print.
 #

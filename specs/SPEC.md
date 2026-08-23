@@ -1225,9 +1225,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **The carrier is the per-round spawn log, which already exists** — and
      kogaki#204's premise that "there is no persisted per-round state today"
      is corrected here rather than carried forward. `spawn_log_path(pr, rnd)`
-     is already keyed per PR per round (`tools/review-sweep.sh:1881`), and
+     is already keyed per PR per round (the engine), and
      `spawn()` writes the command line into it **before the process starts**
-     (`tools/review-sweep.sh:3140-3141`, `:3189-3190`), precisely so "a spawn that
+     (the engine), precisely so "a spawn that
      dies immediately still leaves a file saying what was attempted". What it
      lacks is a **terminal** line, so existence alone cannot separate in
      flight from finished. That is what this clause adds:
@@ -1341,7 +1341,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      see they are relying on.
 
      **Sited in `spawn()`, not at its call sites** — the same rule this file
-     already applies to isolation (`tools/review-sweep.sh:90`), and the same
+     already applies to isolation (the engine), and the same
      place the served line puts the missing component: between the
      instruction and the spawn. A per-call-site guard would leave call site
      N+1 uncovered by default.
@@ -1351,7 +1351,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      siting rule above is why the authorization check lands here and not at
      the reviewer call site; the grant class is why landing it here does not
      over-gate. `spawn()` is **shared** — the driver spawns the *fix* through
-     it (`tools/review-sweep.sh:4331`) and the fixtures spawn noop and
+     it (the engine) and the fixtures spawn noop and
      never-launch cases through it — while `claude-toolkit#283`'s contract is
      about **reviewer** sessions. A blanket consume at the exec point would
      therefore gate work that ruling never reached.
@@ -1501,7 +1501,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **What is NOT reopened.** The per-file enumeration itself stays, and it
      is forced rather than chosen: `Bash(bash checks/:*)` is a **measured dead
-     grant** (`tools/review-sweep.sh:175`, round 1's) and `Bash(bash:*)` is a
+     grant** (the engine, round 1's) and `Bash(bash:*)` is a
      general shell refused by a shipped fixture. So the question this clause
      answers is *from which tree*, never *whether to enumerate*.
 
@@ -1664,7 +1664,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      written after it ships.
   7. **A report CARRIES FORWARD to a new head when the content it reviewed is
      provably unchanged** (kogaki#96). The head sha is part of presence
-     (`checks/check-review-report.sh:44` — "THE HEAD SHA IS PART OF PRESENCE,
+     (the engine — "THE HEAD SHA IS PART OF PRESENCE,
      not decoration"), and that binding composes with the toolkit's mandated
      post-squash rebase (`~/work/claude-toolkit/commands/implement-story.md:250`,
      restated at `:418` — "after a squash merge use `git rebase --onto <default>
@@ -1784,39 +1784,53 @@ invariant: Gukan guarantees Unit schema, never data schema).
      The last boundary this repository controls is the report the reviewing act
      writes, which is where the fact is therefore carried.
 
-     **THE GRAMMAR CHANGE, grounded in the parser that must read it.** The base
-     rides an **adjacent line beside the report token**, never a widening of
-     it:
+     **THE REPORT GRAMMAR IS DEFINED UPSTREAM, AND THIS IS A POINTER**
+     (kogaki#630, owner selection 2026-08-23). The field list, the token
+     shapes, the anchoring rule and the first-declaration-wins rule live once,
+     in `claude-toolkit`'s `specs/spec-review-lane-command/SPEC.md`
+     §"Decision 3". **One grammar, one definition** — read it there.
 
-     ```
-     review-lane report: <head sha>
-     review-base: <base sha>
-     review-scope: full | delta          — absent is read as `full`
-     finding: ...
-     report-complete: <N> findings       — absent is read as complete
-     ```
+     **Why this section stopped defining it.** Through kogaki#630 this
+     repository held a complete parallel reviewer stack beside the engine's,
+     and the grammar was defined in both. Two definitions of one wire format
+     is the divergence this retirement removes by construction: kogaki no
+     longer **drives, spawns or gates** a review round, so a second definition
+     of the wire format has no producer here to serve.
 
-     `review-base:` is anchored WHOLE exactly as its two siblings are, takes
-     the same 7–40 hex sha the report token takes, is read in the **same single
-     pass** over the **same segmenter**, and the **first declaration wins** — a
-     second is a malformed report, not a correction, on clauses 5 and 6's
-     established rule. Its value is the commit the reviewing act **actually
-     diffed against**, read as a value in that same act under the
-     never-reconstruct-a-sha rule kogaki#91 imposes on the head; a base sha
-     assembled from a prefix is the same defect one field over. **Absent means
-     no recorded base** — the transitional case below — and never a default
-     sha.
+     **ONE READER SURVIVES, AND IT IS NAMED RATHER THAN GLOSSED OVER**
+     (PR #631 round 1, finding 1). The first form of this paragraph claimed
+     kogaki "holds no code that reads or writes a review report", and the tree
+     falsifies it: `tools/mine-receipt-absence.sh` is live and tracked, is not
+     retired by kogaki#630, and **segments PR comments on the report token and
+     parses the `boundary:` line class**. It is a *reader* of the record, not a
+     driver of the lane, which is why #630's inventory leaves it standing — but
+     that makes it a **consumer of the upstream grammar**, and this clause
+     states so rather than asserting a cleanliness the grep contradicts.
 
-     The adjacent form is not a preference. Widening the token to
-     `review-lane report: <sha> <base>` is the shape that was **exercised and
-     failed** for the scope declaration (story 1.17, through
-     `tools/review-sweep.sh`'s embedded fixture pass): with the token's regex
-     not widened in lockstep, a declared report segmented to **nothing** and
-     was read as *absent*. That regex lives in two files —
-     `checks/check-review-report.sh:245` and `tools/review-sweep.sh:723` — and
-     an adjacent line leaves **both untouched**, which is precisely why clauses
-     5 and 6 already have this shape. A third declaration on the established
-     pattern is the change whose failure mode does not exist.
+     **What that consumer is owed, stated as an open gap rather than repaired
+     here.** The `boundary:` line class it parses is one this repository
+     authored, and whether §Decision 3 upstream covers that half **cannot be
+     verified from this tree**. So the honest position is: the reader conforms
+     to the upstream grammar for the report token, and its `boundary:` half has
+     no verified definition anywhere at this head. Naming it is the fix this
+     clause can make; closing it belongs with the method port (ct#479), which
+     is where the `boundary:` record's shape travels.
+
+     The paragraphs this replaces
+     argued the adjacent-line form from the regexes in
+     `checks/check-review-report.sh` and `tools/review-sweep.sh`; **both files
+     are deleted by kogaki#630**, so the argument's own evidence no longer
+     exists in this repository and keeping the prose would be a definition
+     with no reader, contradicting the one upstream at whatever rate the two
+     drifted.
+
+     **What is NOT carried, stated rather than left to read as covered.** The
+     clauses around this one still describe report-dependent behaviour — the
+     rounds bound, the carry-forward, the disposition floor — and after this
+     retirement **none of them has a kogaki-side mechanical carrier**. Their
+     carrier is the engine. A reader who finds those clauses here and looks in
+     this repository for the code enforcing them will find none, and that is
+     the state rather than a gap in the search.
 
      **The cost, stated rather than absorbed. Reports written before the field
      ships carry no base at all**, and the carry-forward cannot read one from
@@ -2400,32 +2414,49 @@ invariant: Gukan guarantees Unit schema, never data schema).
      was corrected in the same change — a header asserting ten over eleven rows
      is the false record clause 9 forbids one field over. **Adjacent and NOT
      repaired here:** the `Four rows moved` above already disagrees with the
-     post-table heading `THE FIVE ROWS THAT MOVED SINCE FILING`, and it
-     disagreed before this change — named so a repair sitting sees both rather
-     than fixing one and inheriting the other.
-     Row 10 was added 2026-08-08 WITH its observing act, per this clause's own
-     rule that an issue does not discharge a row: kogaki#290 found row 5's act
-     (`rally_cycles()`, firing when the sweep polls) structurally unable to
-     fire on rounds arriving from actors that never spawned through the sweep
-     — PR #287's third round was counted by nothing while the gate enumerated
-     all three heads in its own stale message. Row 5 is UNCHANGED (the
-     counting act is real and counts correctly); the transition it could not
-     observe is now row 10's, typed `act` only because the observer shipped
-     in the same change.
+     post-table heading `THE FIVE ROWS THAT MOVED SINCE FILING`, and it is left
+     standing as the record of a disagreement rather than smoothed over.
+
+     **EVERY `act` TYPING IN THIS TABLE IS WITHDRAWN TO `upstream`
+     (kogaki#630, PR #631 round 1 finding 2).** The rows below typed eleven
+     transitions of the review record, and the `act` rows named their
+     observers by file: `tools/review-sweep.sh`, `checks/check-review-report.sh`,
+     `.claude/skills/review-lane/SKILL.md`, and the three shared units under
+     `lib/`. **kogaki#630 deletes every one of those carriers**, and row 2's own
+     text states what that makes the rows: *"a row typed `act` naming an
+     observing act that does not exist is a false record"*. The diff does not
+     touch these rows, and the diff is exactly what falsifies them — the
+     mechanical-consequence class the sixteen line-numbered pointers were swept
+     for, arriving in the form with no line number to grep.
+
+     So the transitions are kept and the typing is withdrawn. Each row still
+     names a transition the review record must express — that enumeration is
+     this repository's own reading and is worth keeping — and its carrier is
+     now **claude-toolkit's engine**, which this tree cannot cite: an upstream
+     line number not read from here would be an inference wearing a citation's
+     clothes, which is the defect row 2 refuses one direction over.
 
      | # | transition of the review record | type |
      |---|---|---|
-     | 1 | a finding is **raised and typed** | **act** — the `finding: <severity> <state>` line, parsed by `checks/check-review-report.sh`'s `FINDING` regex and by `tools/review-sweep.sh`'s segmenter, both anchored whole |
-     | 2 | a **severity is revised across heads** | **act** — clause 12's `unadjudicated_blocking()`, defined in `lib/adjudication.py` and loaded by `checks/check-review-report.sh`, which denies when a justified `blocking open` at an earlier counted segment is named by no `adjudicates: <earlier head sha> finding <N>` line in any later counted segment (kogaki#269). The row was typed `none:` from 2026-08-12, when clause 12 landed the GRAMMAR alone, until 2026-08-13, when the act landed with 22 fixture cases and 26 killed mutations — and the interval is recorded rather than smoothed over, because the reason the row could not move earlier is the rule this table exists to state: a row typed `act` naming an observing act that does not exist is a false record, and naming a clause does not type a row. The polarity is unchanged from clause 12's ratification: it gates the SILENCE, never the SEVERITY, so kogaki#72 stays untouched. |
+     | 1 | a finding is **raised and typed** | `upstream` — the engine |
+     | 2 | a **severity is revised across heads** | `upstream` — the engine. Its polarity is unchanged and load-bearing: it gates the SILENCE, never the SEVERITY (kogaki#269, kogaki#72) |
      | 3 | a finding goes **`open` → `resolved`** | `none: the state token is the reviewer's own attestation about its own work and no act re-derives it from the diff. No carrier is filed, and this row is how that is surfaced.` |
-     | 4 | a **report carries forward** to a head that changed no content | **act, CARRIED BY BOTH READERS** (v3, kogaki#308) — the ONE head-resolution unit `lib/head_resolution.py`, loaded by `checks/check-review-report.sh` and by `tools/review-sweep.sh` and defined in neither. `carry_forward()` recomputes both diffs against the declared base and RECORDS the comparison rather than trusting it; `decide()` consumes that record rather than resolving by sha identity, and an agreement fixture IN BOTH consumers asserts they reach the same unit and answer alike. **The v2 typing of this row read `HALF-CARRIED`, naming the sweep half `owed and unbuilt`; PR #321 built it and this row is re-typed in the same change that discharged it** — a row left asserting its own half unbuilt after the build is the stale table this section warns about, arriving from the third direction |
-     | 5 | a **round is counted** | **act** — `rally_cycles()` / `rounds_used()` in `tools/review-sweep.sh`: performed segments grouped by head, ONE cycle per head however many reviewers reported against it, with unattested `review-round-unverified:` marks counted separately and subsumed by a performed report at the same head (kogaki#190) |
-     | 6 | a **non-gating finding crosses the merge** | **act** — §4 clause 8's `carried:` / `declined:` disposition line, written by the reviewer under `.claude/skills/review-lane/SKILL.md` §`carried:`/`declined:` and read at the sweep's `done` boundary (kogaki#224, reader half kogaki#251) |
-     | 7 | a **fix is authored after its own PR merges** | `none: the sweep enumerates OPEN pull requests and the merge check runs on a pull-request event, so a commit pushed to a merged branch produces neither — no CI run, no licence assertion, no review segment, and gh pr view keeps returning the merged head. No carrier is filed.` |
-     | 8 | a **review is degraded** (the session was denied tools) | **act** — clause 10's `review-report-degraded: <head sha>` line class, written by `tools/review-sweep.sh`'s `report-degraded` arm and read by `decide()`, so a head whose only report came from a denied-tools session resolves to a state distinct from `done` (kogaki#271 parts (a)–(c)) |
-     | 9 | a **boundary is touched and a receipt does or does not cover it** | **act** — the `boundary: <entry N> <verdict> [receipt: <pin>]` line class, written under `.claude/skills/review-lane/SKILL.md` §`boundary:` and parsed and printed by `checks/check-review-report.sh`; reported, never gated (kogaki#258) |
-     | 10 | a **round is admitted to the record past the bound** | **act** — `_rounds_observation()` in `checks/check-review-report.sh`: distinct heads carrying counted segments, printed against clause 3's bound on every terminal state; reported, never gated, unit disclosed as NOT the sweep's cycle count (kogaki#290) |
-     | 11 | a **head moves past a spent bound** — a fix commit lands on the reviewed PR's branch after clause 3's rounds are gone | **act** — `post_bound_head_move()` in `tools/review-sweep.sh`, read by `decide()` at its spent-bound branch and returning the state `post-bound-head-move`, which the driver routes to the SUPERSESSION lane rather than to the owner arbitration a generic `park` produced. The predicate is `performed()` on both halves and not `counted()`: a fragment is performed and not counted (clause 6), so it is charged a round and sits at its head — reading `counted()` would call a fragmented round-2 report a post-bound move at the current head, and would let two fragments at two heads spend the bound and then miss the push that follows. Strictly NARROWER than `park_class()`'s residual `unreviewed-head` class, which still truthfully reports a push where the bound was spent AT this head; the implication is asserted in the one direction it holds. Typed `none: OWED AND UNBUILT` from 2026-08-15, when the arm was decided and the observer was not built, until story 1.65 landed it — the interval is recorded rather than smoothed over, per row 2's precedent (kogaki#401) |
+     | 4 | a **report carries forward** to a head that changed no content | `upstream` — the engine. The property kogaki relied on is that the comparison is RECORDED rather than trusted, and that a consumer which stops disclosing an uncomputable comparison fails (kogaki#308, #323) |
+     | 5 | a **round is counted** | `upstream` — the engine |
+     | 6 | a **non-gating finding crosses the merge** | `upstream` — the engine. Clause 8's `carried:` / `declined:` disposition line (kogaki#224, reader half kogaki#251) |
+     | 7 | a **fix is authored after its own PR merges** | `none: a commit pushed to a merged branch produces no CI run, no licence assertion and no review segment. No carrier is filed.` |
+     | 8 | a **review is degraded** (the session was denied tools) | `upstream` — the engine (kogaki#271). PR #631 round 1 is a live instance: the reviewer could not run the declared mechanism and said so in its own report |
+     | 9 | a **boundary is touched and a receipt does or does not cover it** | `upstream, AND THE ONE ROW WITH A GAP` — the `boundary:` line class was authored here, its writer (`.claude/skills/review-lane/SKILL.md`) is deleted by #630, and whether the engine's grammar covers it is unverifiable from this tree. `tools/mine-receipt-absence.sh` still parses it. Named as open above; it travels with the method port, ct#479 |
+     | 10 | a **round is admitted to the record past the bound** | `upstream` — the engine; reported, never gated (kogaki#290) |
+     | 11 | a **head moves past a spent bound** | `upstream` — the engine. The predicate kogaki settled on is `performed()` and not `counted()`, for the reason row 11 recorded: a fragment is performed and not counted (kogaki#401) |
+
+     **What `upstream` means here, so it is not read as `none:`.** The act
+     exists and is performed; what this repository lost is the ability to name
+     its observer from its own tree. That is a weaker claim than `act` and a
+     stronger one than `none:`, and collapsing it into either would be the
+     false record this table exists to prevent — `none:` would assert no
+     carrier where one runs every round, and `act` would name an observer this
+     tree cannot show you.
 
      **ROW 11 ADDED 2026-08-15 (kogaki#401), typed `none:` and RE-TYPED `act`
      the same day when story 1.65 landed its observer.** Three
@@ -2674,7 +2705,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **(a) THE LINE CLASS — `review-report-degraded: <head sha>`, minted
      rather than reused.** The `report-degraded` arm
-     (`tools/review-sweep.sh:4509-4517`) *knows* the reporting session was
+     (the engine) *knows* the reporting session was
      denied tools and posts `post_stall_comment`, which is prose bound to no
      segment and carrying no token the state machine reads — deliberately, so
      it can never satisfy the presence token. The consequence is that a head
@@ -2682,19 +2713,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `decide()` has **no degraded input at all**.
 
      The token is **sweep-written and head-anchored**, on the established
-     pattern of `review-round-unverified:` (`tools/review-sweep.sh:762`): it
+     pattern of `review-round-unverified:` (the engine): it
      is anchored WHOLE, takes the same 7–40 hex sha, is read in the **same
      single pass** over the **same segmenter**, and the **first declaration
      wins** — a second is malformed, not a correction, on clauses 5 and 6's
      rule. It rides an adjacent line and widens no existing token, which is
-     why the two report-token regexes at `checks/check-review-report.sh:245`
-     and `tools/review-sweep.sh:723` stay untouched; clause 7 already records what
+     why the two report-token regexes at the engine
+     and the engine stay untouched; clause 7 already records what
      widening a token instead costs.
 
      **Two reuses were considered and both fail on the same test — whether the
      existing class can carry a HEAD.** `cannot-determine:` is the near miss
      and the one clause 9 row 8 credited: it exists
-     (`checks/check-review-report.sh:318`), it is honest, and it is
+     (the engine), it is honest, and it is
      **reviewer-owned and dimension-shaped** (`cannot-determine: <dimension> —
      <why>`), carrying no sha — so `decide()` cannot bind it to a head, which
      is the entire requirement. `review-round-unverified:` carries a head and
@@ -2710,13 +2741,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:12`
 
      **(b) THE EXPORTED READ — three-valued, and `cannot-determine` may NEVER
-     mean `covered`.** `decide()` (`tools/review-sweep.sh:2637`) is already a
+     mean `covered`.** `decide()` (the engine) is already a
      pure function over one PR at one head, reachable only by running the
      sweep. It is exported as a **machine-readable form of the existing
      `--dry-run` path** — never a dedicated mode — so that the exported value
      and the spawn decision **cannot disagree by construction**. That is this
      file's own ratified rule at kogaki#227, already fixture-guarded
-     (`tools/review-sweep.sh:3886`), and the general ground is served: *"a dual
+     (the engine), and the general ground is served: *"a dual
      implementation per call site doubles the surface that must stay correct
      while its second path runs precisely when nobody is positioned to notice
      it is wrong"*
@@ -3192,7 +3223,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
   review.
 
   **This is a RELOCATION, not a new rule.** The rule already shipped as prose,
-  in the `COMPOSITION` prompt kogaki#74 added — `tools/review-sweep.sh:759`
+  in the `COMPOSITION` prompt kogaki#74 added — the engine
   ("never re-attempt a refused command in another form") and `:775` ("Do not
   spend turns probing for a form that gets through") — and was measured failing
   on the very next PR. On PR #98 the post-kogaki#74 prompt was present in the
@@ -3612,8 +3643,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
 - **Review altitude is a declared property of the diff, and the instrument's
   own diff is its own class** (kogaki#99). The tier that decides a spawned
   review's model and turn cap was until now an invariant carried only in code —
-  the table at `tools/review-sweep.sh:549-554`, resolved by `resolve_tier()` at
-  `tools/review-sweep.sh:804` — with no clause here, so the first thing this
+  the table at the engine, resolved by `resolve_tier()` at
+  the engine — with no clause here, so the first thing this
   does is write it down. The declared classes are `careful` and `ordinary`; any
   careful path carries the whole diff and is never averaged down; an unmatched
   path falls to the careful side, which is the fail-safe. The served ground for

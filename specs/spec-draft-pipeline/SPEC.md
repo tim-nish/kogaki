@@ -230,7 +230,7 @@ record:
 > structure composed from the Brief's own state, plain register with
 > round-trip concessions) — the design/realization boundary test."
 
-`specs/SPEC.md:4740-4742`
+`specs/SPEC.md:4771-4773`
 
 What is admitted there is **four gates**, which is a contract. The design
 that satisfies them is authored **here, fresh**, and this spec is not a port

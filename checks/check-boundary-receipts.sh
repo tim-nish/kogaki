@@ -278,7 +278,8 @@
 # the linked issue body. Where a source is unavailable the check SAYS SO rather
 # than reporting a clean pass over a smaller denominator — an instrument that
 # reports absence without establishing it is the defect
-# `check-review-report.sh` refuses one layer up.
+# the review lane refuses one layer up — carried by claude-toolkit's engine
+# since kogaki#630 retired `check-review-report.sh` with the stack.
 #
 # THE MIDDLE SOURCE IS A COMPOUND AND THE OUTPUT DOES NOT SAY SO. `changed text`
 # is `BOUNDARY_TEXT="$commits\n$body"`, so three DECLARED sources are reported
