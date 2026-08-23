@@ -1225,9 +1225,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **The carrier is the per-round spawn log, which already exists** — and
      kogaki#204's premise that "there is no persisted per-round state today"
      is corrected here rather than carried forward. `spawn_log_path(pr, rnd)`
-     is already keyed per PR per round (`tools/review-sweep.sh:1881`), and
+     is already keyed per PR per round (the engine), and
      `spawn()` writes the command line into it **before the process starts**
-     (`tools/review-sweep.sh:3140-3141`, `:3189-3190`), precisely so "a spawn that
+     (the engine), precisely so "a spawn that
      dies immediately still leaves a file saying what was attempted". What it
      lacks is a **terminal** line, so existence alone cannot separate in
      flight from finished. That is what this clause adds:
@@ -1341,7 +1341,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      see they are relying on.
 
      **Sited in `spawn()`, not at its call sites** — the same rule this file
-     already applies to isolation (`tools/review-sweep.sh:90`), and the same
+     already applies to isolation (the engine), and the same
      place the served line puts the missing component: between the
      instruction and the spawn. A per-call-site guard would leave call site
      N+1 uncovered by default.
@@ -1351,7 +1351,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      siting rule above is why the authorization check lands here and not at
      the reviewer call site; the grant class is why landing it here does not
      over-gate. `spawn()` is **shared** — the driver spawns the *fix* through
-     it (`tools/review-sweep.sh:4331`) and the fixtures spawn noop and
+     it (the engine) and the fixtures spawn noop and
      never-launch cases through it — while `claude-toolkit#283`'s contract is
      about **reviewer** sessions. A blanket consume at the exec point would
      therefore gate work that ruling never reached.
@@ -1501,7 +1501,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **What is NOT reopened.** The per-file enumeration itself stays, and it
      is forced rather than chosen: `Bash(bash checks/:*)` is a **measured dead
-     grant** (`tools/review-sweep.sh:175`, round 1's) and `Bash(bash:*)` is a
+     grant** (the engine, round 1's) and `Bash(bash:*)` is a
      general shell refused by a shipped fixture. So the question this clause
      answers is *from which tree*, never *whether to enumerate*.
 
@@ -1664,7 +1664,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      written after it ships.
   7. **A report CARRIES FORWARD to a new head when the content it reviewed is
      provably unchanged** (kogaki#96). The head sha is part of presence
-     (`checks/check-review-report.sh:44` — "THE HEAD SHA IS PART OF PRESENCE,
+     (the engine — "THE HEAD SHA IS PART OF PRESENCE,
      not decoration"), and that binding composes with the toolkit's mandated
      post-squash rebase (`~/work/claude-toolkit/commands/implement-story.md:250`,
      restated at `:418` — "after a squash merge use `git rebase --onto <default>
@@ -1784,39 +1784,32 @@ invariant: Gukan guarantees Unit schema, never data schema).
      The last boundary this repository controls is the report the reviewing act
      writes, which is where the fact is therefore carried.
 
-     **THE GRAMMAR CHANGE, grounded in the parser that must read it.** The base
-     rides an **adjacent line beside the report token**, never a widening of
-     it:
+     **THE REPORT GRAMMAR IS DEFINED UPSTREAM, AND THIS IS A POINTER**
+     (kogaki#630, owner selection 2026-08-23). The field list, the token
+     shapes, the anchoring rule and the first-declaration-wins rule live once,
+     in `claude-toolkit`'s `specs/spec-review-lane-command/SPEC.md`
+     §"Decision 3". **One grammar, one definition** — read it there.
 
-     ```
-     review-lane report: <head sha>
-     review-base: <base sha>
-     review-scope: full | delta          — absent is read as `full`
-     finding: ...
-     report-complete: <N> findings       — absent is read as complete
-     ```
+     **Why this section stopped defining it.** Through kogaki#630 this
+     repository held a complete parallel reviewer stack beside the engine's,
+     and the grammar was defined in both. Two definitions of one wire format
+     is the divergence this retirement removes by construction: kogaki now
+     holds no code that reads or writes a review report, so there is nothing
+     here for a second definition to serve. The paragraphs this replaces
+     argued the adjacent-line form from the regexes in
+     `checks/check-review-report.sh` and `tools/review-sweep.sh`; **both files
+     are deleted by kogaki#630**, so the argument's own evidence no longer
+     exists in this repository and keeping the prose would be a definition
+     with no reader, contradicting the one upstream at whatever rate the two
+     drifted.
 
-     `review-base:` is anchored WHOLE exactly as its two siblings are, takes
-     the same 7–40 hex sha the report token takes, is read in the **same single
-     pass** over the **same segmenter**, and the **first declaration wins** — a
-     second is a malformed report, not a correction, on clauses 5 and 6's
-     established rule. Its value is the commit the reviewing act **actually
-     diffed against**, read as a value in that same act under the
-     never-reconstruct-a-sha rule kogaki#91 imposes on the head; a base sha
-     assembled from a prefix is the same defect one field over. **Absent means
-     no recorded base** — the transitional case below — and never a default
-     sha.
-
-     The adjacent form is not a preference. Widening the token to
-     `review-lane report: <sha> <base>` is the shape that was **exercised and
-     failed** for the scope declaration (story 1.17, through
-     `tools/review-sweep.sh`'s embedded fixture pass): with the token's regex
-     not widened in lockstep, a declared report segmented to **nothing** and
-     was read as *absent*. That regex lives in two files —
-     `checks/check-review-report.sh:245` and `tools/review-sweep.sh:723` — and
-     an adjacent line leaves **both untouched**, which is precisely why clauses
-     5 and 6 already have this shape. A third declaration on the established
-     pattern is the change whose failure mode does not exist.
+     **What is NOT carried, stated rather than left to read as covered.** The
+     clauses around this one still describe report-dependent behaviour — the
+     rounds bound, the carry-forward, the disposition floor — and after this
+     retirement **none of them has a kogaki-side mechanical carrier**. Their
+     carrier is the engine. A reader who finds those clauses here and looks in
+     this repository for the code enforcing them will find none, and that is
+     the state rather than a gap in the search.
 
      **The cost, stated rather than absorbed. Reports written before the field
      ships carry no base at all**, and the carry-forward cannot read one from
@@ -2674,7 +2667,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **(a) THE LINE CLASS — `review-report-degraded: <head sha>`, minted
      rather than reused.** The `report-degraded` arm
-     (`tools/review-sweep.sh:4509-4517`) *knows* the reporting session was
+     (the engine) *knows* the reporting session was
      denied tools and posts `post_stall_comment`, which is prose bound to no
      segment and carrying no token the state machine reads — deliberately, so
      it can never satisfy the presence token. The consequence is that a head
@@ -2682,19 +2675,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `decide()` has **no degraded input at all**.
 
      The token is **sweep-written and head-anchored**, on the established
-     pattern of `review-round-unverified:` (`tools/review-sweep.sh:762`): it
+     pattern of `review-round-unverified:` (the engine): it
      is anchored WHOLE, takes the same 7–40 hex sha, is read in the **same
      single pass** over the **same segmenter**, and the **first declaration
      wins** — a second is malformed, not a correction, on clauses 5 and 6's
      rule. It rides an adjacent line and widens no existing token, which is
-     why the two report-token regexes at `checks/check-review-report.sh:245`
-     and `tools/review-sweep.sh:723` stay untouched; clause 7 already records what
+     why the two report-token regexes at the engine
+     and the engine stay untouched; clause 7 already records what
      widening a token instead costs.
 
      **Two reuses were considered and both fail on the same test — whether the
      existing class can carry a HEAD.** `cannot-determine:` is the near miss
      and the one clause 9 row 8 credited: it exists
-     (`checks/check-review-report.sh:318`), it is honest, and it is
+     (the engine), it is honest, and it is
      **reviewer-owned and dimension-shaped** (`cannot-determine: <dimension> —
      <why>`), carrying no sha — so `decide()` cannot bind it to a head, which
      is the entire requirement. `review-round-unverified:` carries a head and
@@ -2710,13 +2703,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/knowledge-architecture.md:12`
 
      **(b) THE EXPORTED READ — three-valued, and `cannot-determine` may NEVER
-     mean `covered`.** `decide()` (`tools/review-sweep.sh:2637`) is already a
+     mean `covered`.** `decide()` (the engine) is already a
      pure function over one PR at one head, reachable only by running the
      sweep. It is exported as a **machine-readable form of the existing
      `--dry-run` path** — never a dedicated mode — so that the exported value
      and the spawn decision **cannot disagree by construction**. That is this
      file's own ratified rule at kogaki#227, already fixture-guarded
-     (`tools/review-sweep.sh:3886`), and the general ground is served: *"a dual
+     (the engine), and the general ground is served: *"a dual
      implementation per call site doubles the surface that must stay correct
      while its second path runs precisely when nobody is positioned to notice
      it is wrong"*
@@ -3192,7 +3185,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
   review.
 
   **This is a RELOCATION, not a new rule.** The rule already shipped as prose,
-  in the `COMPOSITION` prompt kogaki#74 added — `tools/review-sweep.sh:759`
+  in the `COMPOSITION` prompt kogaki#74 added — the engine
   ("never re-attempt a refused command in another form") and `:775` ("Do not
   spend turns probing for a form that gets through") — and was measured failing
   on the very next PR. On PR #98 the post-kogaki#74 prompt was present in the
@@ -3612,8 +3605,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
 - **Review altitude is a declared property of the diff, and the instrument's
   own diff is its own class** (kogaki#99). The tier that decides a spawned
   review's model and turn cap was until now an invariant carried only in code —
-  the table at `tools/review-sweep.sh:549-554`, resolved by `resolve_tier()` at
-  `tools/review-sweep.sh:804` — with no clause here, so the first thing this
+  the table at the engine, resolved by `resolve_tier()` at
+  the engine — with no clause here, so the first thing this
   does is write it down. The declared classes are `careful` and `ordinary`; any
   careful path carries the whole diff and is never averaged down; an unmatched
   path falls to the careful side, which is the fail-safe. The served ground for
