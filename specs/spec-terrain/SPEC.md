@@ -13,9 +13,12 @@ so the executor is re-entrant and the record is what makes it so; `cmdView` and
 `cmdCotags` both write `reports/Screen.md` and only one of them passes the
 format guard, which is the two-writer class §14.4.1 declared and nothing
 counted; and the issue's baseline table named two waits where the flow has
-four. §6.3's act enumeration and §14.4.1's two-writer screen class are
-**superseded by name** below. The semantic contracts — §§2.1, 5, 7, 8, 12, 13
-content, the seam, the gloss registers — are **untouched**.
+four. §6.3's act enumeration, §14.4.1's two-writer screen class **and §14.1's
+two-of-six coverage figure** are **superseded by name** below. §14.1 joined that
+list at PR #626 round 1: §15.7 moved its denominator by removing four surfaces
+rather than grammaring them, and a clause amended in effect but not by name is a
+live figure a later reader counts against. The semantic contracts — §§2.1, 5, 7,
+8, 12, 13 content, the seam, the gloss registers — are **untouched**.
 **deferred slots minted by this amendment: none.**
 
 v22, amended 2026-08-16 (kogaki#481; hub batch
@@ -4454,7 +4457,22 @@ enumeration as it stands is **six**: `cmdView` (`terrain/terrain.mjs:447`),
 §12.2 v11). The machine record is not one; it is machine-facing by §12.2 v11's
 split.
 
-**The grammar's coverage is TWO of those six today, and that is a stated
+**AMENDED BY §15.7 AT v23 — the coverage figure is now TWO OF TWO**
+(kogaki#625; PR #626 round 1, finding 1). §15.7 removes `cmdView`, `cmdClaim`,
+`cmdAdopt` and `cmdSubdivide` as entry points, so the four surfaces this
+paragraph counted as uncovered **stop emitting owner text at all** rather than
+gaining grammar entries. The denominator moved, not the numerator. The
+paragraph below is kept as the record of what the figure was and why, and the
+**reopen trigger it carries is discharged**: there is no uncovered surface left
+for a first format defect to be observed on.
+
+Recorded as an amendment by name because the v23 Status block's supersession
+list named only §6.3 and §14.4.1 — this clause was amended **in effect** and
+left standing, so a later reader counting owner surfaces would have landed on a
+live figure the same amendment had invalidated. That is this amendment's own
+emission about a baseline inheriting its omissions, arriving one file over.
+
+**The grammar's coverage was TWO of those six through v22, and that was a stated
 partial rather than the definition.** `cotag_screen` and `full_report` are the
 two surfaces §14.2's refusal reaches at v14, chosen because they are the two
 kogaki#319 enumerated and the two whose defect specimens exist. **§14.3's

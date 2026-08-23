@@ -1,32 +1,26 @@
 {
   "note": "THE WORKFLOW TABLE. SPEC-terrain §15.1 makes this artifact authoritative over SEQUENCING — the states, their order, which of them wait for the owner, which write which artifact, and which reach a judgment point — from the moment it exists and not before. It is authoritative over NOTHING ELSE: every semantic contract in §§2-14 (what a claim says, which members are placed, whether a figure is honest, what the grammar admits) is untouched by this file and is not readable from it. The executor is a generic interpreter of this table and holds no state list of its own.",
-
-  "version": 1,
-
-  "licensed_by": "v1, kogaki#625, owner selection 2026-08-23 at the /ship-cycle 625 sitting, executing SPEC-terrain §15 (Status v23). Mints the table as a carrier and declares the baseline states. THE BASELINE CORRECTS THE ISSUE'S OWN: kogaki#625 named the table as `survey -> TAG-SELECTION (wait) -> screen render -> ID-SELECTION (wait) -> full report -> done`, which omits compose-input and its composition pin, the two judgment points as states, the tag-screen state, and TWO of the four owner waits — the terrain-trim-ratification gate and the terrain-strand-selection gate the flow actually ends at (.claude/skills/terrain/SKILL.md steps 5-6, 'The flow ends at step 6'). Acceptance item 2 counts waits and writes against this table, so a table declaring two waits would have passed its own check while dropping shipped contract. Recorded here rather than only in the issue because this file is what a later reader counts against.",
-
+  "version": 2,
+  "licensed_by": "v1, kogaki#625, owner selection 2026-08-23 at the /ship-cycle 625 sitting, executing SPEC-terrain §15 (Status v23). Mints the table as a carrier and declares the baseline states. THE BASELINE CORRECTS THE ISSUE'S OWN: kogaki#625 named the table as `survey -> TAG-SELECTION (wait) -> screen render -> ID-SELECTION (wait) -> full report -> done`, which omits compose-input and its composition pin, the two judgment points as states, the tag-screen state, and TWO of the four owner waits — the terrain-trim-ratification gate and the terrain-strand-selection gate the flow actually ends at (.claude/skills/terrain/SKILL.md steps 5-6, 'The flow ends at step 6'). Acceptance item 2 counts waits and writes against this table, so a table declaring two waits would have passed its own check while dropping shipped contract. Recorded here rather than only in the issue because this file is what a later reader counts against. | v2, kogaki#625, PR #626 round 1 (2026-08-23): three reviewer findings, all against v1's own encoding rather than its content. Prose members `rule` and `why_they_survive` moved out of the name-keyed maps into sibling `_note` fields — an interpreter enumerating those objects read them as two phantom entry points, in a file whose own note calls its conformance mechanically checkable. `renders_gate_declaration` declared explicitly on every state rather than carried by absence. `done` re-typed to a new `terminal` kind, because `compute` — \"does not stop\" — gave a generic executor no way to read the end of the run from the table.",
   "governing_text": "specs/spec-terrain/SPEC.md §15",
-
   "encoding_choice": {
     "chosen": "An ordered state array in JSON, each state declaring its kind, its writes, its judgment point and its wait binding.",
     "declined": "A state-transition graph with explicit edges. The flow is a line with one conditional state; edges would encode a generality nothing in §15.4 asks for, and an unreachable edge is a defect a linear array cannot express.",
     "recorded_here_because": "SPEC §15.1 names this file and its duties and deliberately does not decide its encoding, exactly as §14.1 leaves report-format.json's encoding to the artifact."
   },
-
   "ratification": {
     "procedure": "An issue licenses the change; a dated owner decision settles whatever in it is a decision rather than a transcription; the edit lands here; the version integer is bumped and a licensed_by clause is appended.",
     "precedent": "specs/spec-terrain/report-format.json, adopted rather than re-invented (SPEC §15.1).",
     "this_file_carries_a_pointer_never_a_verdict": "Where an entry records an owner ruling, the ruling's home is the issue named beside it.",
     "not_enforced": "Nothing denies an edit here that no issue licensed. The version and licensed_by fields are a ledger for readers and gate no code path — declared at SPEC §15.8 rather than left to be discovered."
   },
-
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
     "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (SPEC §15.5).",
     "judgment": "Reaches a declared judgment point. The judgment arrives as a typed record; the executor validates and never composes it (SPEC §15.6).",
-    "wait": "The executor stops. Nothing further runs until the owner speaks and the session re-enters (SPEC §15.2, §15.4)."
+    "wait": "The executor stops. Nothing further runs until the owner speaks and the session re-enters (SPEC §15.2, §15.4).",
+    "terminal": "The run is over. Runs nothing, writes nothing, and the executor stops without awaiting an owner. Distinct from `compute` because a generic interpreter holds no state list of its own (SPEC §15.1) and must read the end from the table rather than from position (PR #626 round 1, finding 4)."
   },
-
   "owner_artifacts": {
     "screen": {
       "path": "reports/Screen.md",
@@ -41,7 +35,6 @@
       "grammar_surface": "full_report in report-format.json"
     }
   },
-
   "states": [
     {
       "id": "survey",
@@ -49,7 +42,8 @@
       "does": "Reads the seam once (element_survey), composes Lesson candidates and Journey marks, mints every display_id, validates, writes the survey record to the run workspace.",
       "writes": null,
       "governing": "§3, §5, §14.3",
-      "note": "The survey record IS the ID->slug map (§14.3). The run record references it by path and copies nothing out of it (§15.3)."
+      "note": "The survey record IS the ID->slug map (§14.3). The run record references it by path and copies nothing out of it (§15.3).",
+      "renders_gate_declaration": false
     },
     {
       "id": "tag_screen",
@@ -57,7 +51,8 @@
       "does": "Renders the tag screen the owner chooses from.",
       "writes": "screen",
       "governing": "§9 screen-1 tag-row allowlist",
-      "note": "Formerly the standalone `view` subcommand, whose direct unguarded write to reports/Screen.md is the defect §15.5 names. As a state its render goes through the one screen writer and therefore through the format guard."
+      "note": "Formerly the standalone `view` subcommand, whose direct unguarded write to reports/Screen.md is the defect §15.5 names. As a state its render goes through the one screen writer and therefore through the format guard.",
+      "renders_gate_declaration": false
     },
     {
       "id": "TAG_SELECTION",
@@ -73,7 +68,8 @@
       "does": "Bounded tag-scoped read; emits the composition pin naming the tag, the survey pin and the member set served per group.",
       "writes": null,
       "governing": "§11, §13.7",
-      "note": "Composes nothing and judges nothing. Its pin is what makes composing outside the bounded read unproducible."
+      "note": "Composes nothing and judges nothing. Its pin is what makes composing outside the bounded read unproducible.",
+      "renders_gate_declaration": false
     },
     {
       "id": "J1_claims",
@@ -81,7 +77,8 @@
       "judgment_point": "GroupClaim / SubGroupClaim composition",
       "input_shape": "typed claims record carrying composition_pin and one claim per group",
       "refusal": "claims whose group/member set is not a subset of the composition pin are refused, naming the members outside it",
-      "governing": "§7, §11"
+      "governing": "§7, §11",
+      "renders_gate_declaration": false
     },
     {
       "id": "J2_subdivision",
@@ -89,14 +86,16 @@
       "judgment_point": "semantic subdivision",
       "input_shape": "typed per-group record, judged: true, one entry per composed group, carrying the judge pin",
       "refusal": "a missing group entry, a bare array, or an absent judge pin is refused; the leaf condition is evaluated from the supplied verdicts and never invented",
-      "governing": "§8, §8.1, §12.1"
+      "governing": "§8, §8.1, §12.1",
+      "renders_gate_declaration": false
     },
     {
       "id": "cotag_screen",
       "kind": "write",
       "does": "Renders the co-tag screen: groups by co-tag, mints GroupIDs, renders the composed claims and the SubGroups J2 placed.",
       "writes": "screen",
-      "governing": "§6.1, §6.2, §7, §14.2"
+      "governing": "§6.1, §6.2, §7, §14.2",
+      "renders_gate_declaration": false
     },
     {
       "id": "ID_SELECTION",
@@ -111,7 +110,8 @@
       "kind": "write",
       "does": "One Full Report over exactly the entered set, idempotent per §12.1's identity triple, carrying the provenance-neighborhood section.",
       "writes": "full_report",
-      "governing": "§12, §12.1, §12.2 v12, §13"
+      "governing": "§12, §12.1, §12.2 v12, §13",
+      "renders_gate_declaration": false
     },
     {
       "id": "TRIM_RATIFICATION",
@@ -132,13 +132,13 @@
     },
     {
       "id": "done",
-      "kind": "compute",
+      "kind": "terminal",
       "does": "Terminal. The flow ends here; Brief is outside the boundary and this table neither names nor guarantees a Brief launch.",
       "writes": null,
-      "governing": "§4"
+      "governing": "§4",
+      "renders_gate_declaration": false
     }
   ],
-
   "counted_baseline": {
     "waits": 4,
     "conditional_waits": 1,
@@ -147,26 +147,24 @@
     "judgment_points": 2,
     "why_this_block_exists": "Acceptance item 2 of kogaki#625 counts waits and writes per run against the table. Stating the baseline figures here makes that count checkable against a declaration rather than against a reading of the array."
   },
-
   "non_flow_entry_points": {
     "self-test": "seam-free identity-cite fixture pass; emits no owner surface, carries no sequencing authority",
-    "validate": "runs survey-record validation; emits no owner surface",
-    "why_they_survive": "SPEC §15.7 — stated so their survival reads as a decision rather than an oversight."
+    "validate": "runs survey-record validation; emits no owner surface"
   },
-
   "removed_entry_points": {
     "view": "becomes the tag_screen state",
     "claim": "becomes part of J1_claims",
     "adopt": "becomes part of J1_claims' gate re-offer path",
     "subdivide": "becomes J2_subdivision",
-    "neighborhood": "already retired (kogaki#472/#473); the section rides the Full Report",
-    "rule": "Removed, not flagged debug-only — SPEC §15.7. This discharges §14.1's four uncovered owner surfaces by removing them rather than by grammaring them, taking grammar coverage to two of two."
+    "neighborhood": "already retired (kogaki#472/#473); the section rides the Full Report"
   },
-
   "reader_notes": [
     "The table is authoritative over sequencing and over nothing else. A reader looking for what a claim may SAY is in the wrong file (§7); for what a rendered line may LOOK LIKE, report-format.json.",
     "Conformance to this table is mechanically checkable. Whether the declared order is the RIGHT order, whether a wait belongs where it sits, and whether a judgment point is placed where judgment is owed are judgments and route to the review lane (§15.8).",
     "TAG_SELECTION and ID_SELECTION render no gate declaration and must not: they are the owner speaking, and §6.3's question allowlist for that window is empty. A future table row giving either of them a gate would be refused at ratification, not caught at runtime.",
-    "The run record holds control state only. It references the survey record by path and holds no ID->slug map, because §14.3 rules the survey record is that map and a second carrier is refused (§15.3)."
-  ]
+    "The run record holds control state only. It references the survey record by path and holds no ID->slug map, because §14.3 rules the survey record is that map and a second carrier is refused (§15.3).",
+    "`renders_gate_declaration` is present and explicit on EVERY state, including the ten that never gate (PR #626 round 1, finding 3). It was carried by absence in v1, which made §15.4's load-bearing claim — that the states between TAG-SELECTION and ID-SELECTION declare no gate, §6.3's one surviving prohibition — indistinguishable from a field somebody forgot. A property the table exists to carry may not be read off a missing key."
+  ],
+  "removed_entry_points_note": "Removed, not flagged debug-only — SPEC §15.7. This discharges §14.1's four uncovered owner surfaces by removing them rather than by grammaring them, taking grammar coverage to two of two.",
+  "non_flow_entry_points_note": "SPEC §15.7 — stated so their survival reads as a decision rather than an oversight."
 }
