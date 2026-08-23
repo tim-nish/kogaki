@@ -1461,6 +1461,62 @@ WORKTREE_ROOT = os.environ["SWEEP_WORKTREE_ROOT"]
 INFLIGHT_TTL = int(os.environ["SWEEP_INFLIGHT_TTL"])
 REPO_ROOT = os.path.realpath(os.getcwd())
 
+# THE LANE DEFINITION, AND WHY IT IS RESOLVED FROM THIS CHECKOUT (kogaki#627).
+# A round runs in a worktree detached at the PR head, and a worktree carries
+# TRACKED FILES ONLY. `.claude/` is machine-local by default (the private
+# harness surface ruling, kogaki#615), so the skill the reviewer is spawned to
+# run does not exist in any worktree — and on 2026-08-23 every round therefore
+# answered "Unknown command: /review-lane" in 141 ms having already consumed
+# its single-use owner grant.
+#
+# The owner's remedy (selected at the /ship-cycle 627 sitting, 2026-08-23) is
+# to keep every harness skill PRIVATE and give the spawn its lane instead:
+# resolved here from THE SWEEP'S OWN CHECKOUT and materialized into the round's
+# tree. The alternative — admitting the file through the `.gitignore`
+# allowlist — was declined because it publishes a harness file to a public
+# repository, which is the boundary that ruling exists to hold.
+#
+# Two properties this siting buys, both load-bearing:
+#   - the file stays untracked and unpublished, and lands in the tree at a path
+#     `.claude/*` already ignores, so it cannot appear in any diff the round
+#     reviews or in the PR's own contents;
+#   - the lane the round runs is THIS sweep's lane, not whatever the PR head
+#     happens to carry — a PR editing the review lane cannot alter the reviewer
+#     that judges it, which is the reflexive-tier property stated at the tier
+#     table below and previously true only by the accident of absence.
+LANE_REL = os.path.join(".claude", "skills", "review-lane")
+LANE_SOURCE = os.path.join(REPO_ROOT, LANE_REL)
+
+
+def lane_present():
+    """Is the review lane resolvable from this checkout? (kogaki#627)
+
+    Read BEFORE a grant is consumed. An absent lane is not a round that fails —
+    it is a round that must never start, because starting it spends the owner's
+    single-use click on a session that cannot post a report. `never_ran()`'s
+    second arm is the compensating restore for the cases this precondition
+    cannot see; this is the constraint that keeps those cases rare.
+    """
+    return os.path.isfile(os.path.join(LANE_SOURCE, "SKILL.md"))
+
+
+def materialize_lane(tree, log):
+    """Copy the lane definition into the round's worktree. (kogaki#627)
+
+    Raises IsolationError on failure, so an unreachable lane closes the round
+    through the path that already handles a tree that could not be established
+    — the same class, and one the caller already reports and logs.
+    """
+    dest = os.path.join(tree, LANE_REL)
+    try:
+        shutil.copytree(LANE_SOURCE, dest, dirs_exist_ok=True)
+    except OSError as e:
+        raise IsolationError(
+            f"the review lane could not be materialized into {dest}: {e}")
+    log.write(f"=== lane: {LANE_SOURCE} -> {LANE_REL} (from this checkout, "
+              f"untracked in the worktree)\n")
+    log.flush()
+
 # The tier table (kogaki#81), resolved in the shell above and passed in on the
 # same ground every other knob is: two places that both know a default are two
 # places that can disagree about it.
@@ -3104,6 +3160,21 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
     # thread. The owner re-grants a burnt round; nothing re-opens a doubled
     # one.
     if grant_class == "reviewer":
+        # THE LANE PRECONDITION, READ BEFORE THE GRANT IS SPENT (kogaki#627).
+        # Placed above the consume rather than beside the worktree because the
+        # cost this refuses is the OWNER'S CLICK, not the round: a spawn that
+        # cannot reach its lane produces no report, and consuming first would
+        # make "the owner has not approved" and "the owner approved and the
+        # round could not start" indistinguishable at the next spawn. This
+        # moves nothing — `consume_grant()` still runs before the spawn, so the
+        # two-invocation race the comment below names is untouched.
+        if not lane_present():
+            print(f"  refused: no review lane at {LANE_SOURCE} — a round that "
+                  f"cannot reach its lane would spend the owner's grant and "
+                  f"post nothing (kogaki#627). Nothing was spawned and no "
+                  f"grant was consumed.")
+            _grant_log("refuse", {"state": "no-lane", "tag": tag})
+            return GRANT_REFUSED
         which_pr = pr
         if which_pr is None:
             _m_pr = re.search(r"pr-(\d+)-", os.path.basename(log_path))
@@ -3217,6 +3288,29 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
                   f"[{'detached at' if detach else 'branch'} {ref}]\n")
         log.flush()
         try:
+            # THE LANE LANDS IN THE TREE BEFORE THE SESSION STARTS
+            # (kogaki#627). Guarded on presence rather than assumed, so a spawn
+            # class needing no lane still runs on a machine that has none; the
+            # reviewer class already refused above when it was absent, so this
+            # cannot silently start a reviewer without one.
+            #
+            # SITED INSIDE THIS TRY, and that is not incidental. A failure here
+            # is the same class as a tree that could not be established, and it
+            # exits through the `finally` below rather than tearing the tree
+            # down itself — ONE teardown call for the whole function. The first
+            # draft added a second one in its own handler and the in-flight
+            # fixture caught it: that fixture anchors on the first teardown
+            # call in this file's source and reads the characters after it for
+            # the terminal write, so a second call upstream silently moved its
+            # anchor onto the new block. The fixture was right and the
+            # structure was wrong.
+            #
+            # The same anchoring is why no comment here may spell that call
+            # literally: the split is over the file's text, so a MENTION lands
+            # in it exactly as a USE does. That is the distinction kogaki#627
+            # itself turned on, one layer down.
+            if lane_present():
+                materialize_lane(tree, log)
             # stdin=DEVNULL closes the contamination class (kogaki#65 defect
             # 2). The held run's reviewers reported, verbatim, that their
             # arguments carried "a full paste of the review-sweep driver
@@ -3252,6 +3346,16 @@ def spawn(prompt, log_path, model=None, tools=None, ref=None, detach=True,
                 log.write(line + "\n")
             log.flush()
             return code
+        except IsolationError as e:
+            # The lane could not be placed (kogaki#627). Reported like the
+            # worktree failure it is a sibling of, and returned rather than
+            # raised so the caller's contract is unchanged. The `finally`
+            # below removes the tree and closes the round on this path too.
+            log.write(f"=== lane FAILED: {e}\n")
+            log.flush()
+            print(f"  FAIL the review lane could not be placed in the round's "
+                  f"tree, so nothing was reviewed: {e}")
+            return ISOLATION_FAILED
         finally:
             # EVERY exit path, not only success: a non-zero exit and an
             # exception both reach here.
@@ -3353,10 +3457,14 @@ def terminal_subtype(log_path):
 def never_ran(log_path):
     """Did this session terminate WITHOUT doing any review work? (kogaki#553)
 
-    True only for a terminal record that is an error AND records zero model
-    usage. Both halves are required: an error with usage is a session that
-    reviewed and then failed, which spends its round legitimately, and a
-    zero-usage record with no error is not a shape the runner produces.
+    Zero model usage and no positive cost are required of every arm: a record
+    carrying usage is a session that reviewed and then failed, which spends its
+    round legitimately. Given that, TWO shapes qualify — an errored termination
+    (kogaki#553), and a terminal SUCCESS that completed zero turns
+    (kogaki#627). The second arm exists because this docstring used to assert
+    that "a zero-usage record with no error is not a shape the runner
+    produces", and a real round produced it; the arm's own comment carries the
+    specimen.
 
     THE SPECIMEN. PR #547 round 2 terminated on `authentication_failed` after
     1 turn, $0.00 and 1.9 seconds. It read no diff and produced no finding, and
@@ -3379,8 +3487,6 @@ def never_ran(log_path):
     rec = result_record(log_path)
     if rec is None:
         return False
-    if not rec.get("is_error"):
-        return False
     # `modelUsage` empty AND no positive cost. Either alone is weaker: a
     # runner that omits `modelUsage` on an early death would make the first
     # test true for a session that did work, and `total_cost_usd` can be
@@ -3388,7 +3494,29 @@ def never_ran(log_path):
     if rec.get("modelUsage"):
         return False
     cost = rec.get("total_cost_usd")
-    return cost is None or cost == 0
+    if not (cost is None or cost == 0):
+        return False
+    if rec.get("is_error"):
+        return True
+    # THE SECOND ARM, AND THE CLAUSE IT CORRECTS (kogaki#627). This function
+    # used to return False here, on the stated ground that "a zero-usage record
+    # with no error is not a shape the runner produces". The runner produces it.
+    # Specimen, 2026-08-23, PR #626 round 1: the spawn reached a worktree whose
+    # tree carried no review-lane skill, and the runner answered
+    #   {"subtype": "success", "is_error": false, "num_turns": 0,
+    #    "total_cost_usd": 0, "modelUsage": {}, "result": "Unknown command: /review-lane"}
+    # in 141 ms — a terminal SUCCESS that did nothing at all, so the round was
+    # spent and the compensating restore could not fire on it.
+    #
+    # WHY `num_turns` RATHER THAN WIDENING THE FIRST ARM. Dropping the
+    # `is_error` test outright would also catch a session that completed turns
+    # and reported neither usage nor cost, which is a session that may well have
+    # posted a report — restoring that grant would hand back a round that was
+    # legitimately spent. Zero turns cannot have produced a report, so this arm
+    # is bounded by the one fact that makes the restore safe rather than by the
+    # absence of an error flag.
+    turns = rec.get("num_turns")
+    return turns == 0
 
 
 def restore_grant(pr, tag):
@@ -5070,12 +5198,24 @@ for _label, _rec, _want in [
     ("an error with modelUsage but NO cost recorded",
      {"type": "result", "is_error": True, "num_turns": 14,
       "modelUsage": {"claude-opus-5": {}}}, False),
-    # Only `is_error` refuses this: no error, no usage, no cost. Not a shape
-    # the runner is expected to produce, which is the reason to pin it — an
-    # unexpected shape must not silently mint a free round.
-    ("no error, no usage, no cost",
-     {"type": "result", "is_error": False, "num_turns": 0,
-      "total_cost_usd": 0, "modelUsage": {}}, False),
+    # THE SECOND SPECIMEN — PR #626 round 1, 2026-08-23, verbatim shape
+    # (kogaki#627). This case read `want False` until that round produced it,
+    # on the stated ground that it was "not a shape the runner is expected to
+    # produce". The runner produced it: the spawn reached a worktree carrying
+    # no review-lane skill and the session answered `Unknown command:
+    # /review-lane` in 141 ms as a terminal SUCCESS. Pinning it False kept a
+    # round nobody used, which is the second of the two directions the comment
+    # above says this fixture covers.
+    ("terminal success, 0 turns, no usage, no cost",
+     {"type": "result", "is_error": False, "subtype": "success",
+      "num_turns": 0, "total_cost_usd": 0, "modelUsage": {}}, True),
+    # Only `num_turns` refuses this, and it is what keeps the case above from
+    # widening into "no error flag means never ran". A session that completed
+    # turns may have posted a report whatever its usage record says, so its
+    # round is spent — restoring it would hand back a round that did work.
+    ("no error and no usage, but turns were completed",
+     {"type": "result", "is_error": False, "subtype": "success",
+      "num_turns": 7, "total_cost_usd": 0, "modelUsage": {}}, False),
 ]:
     result_record = (lambda _r: (lambda _p: _r))(_rec)
     _got = never_ran("ignored")
@@ -5088,10 +5228,10 @@ if _nr_fail:
           "never ran from one that ran and failed — a wrong answer either "
           "hands back a spent round or keeps a round nobody used")
     sys.exit(1)
-print("never-ran pass: 8/8 cases (specimen / worked-then-failed / cost-only / "
-      "stall / clean / no record / usage-no-cost / no-error-no-usage) — the "
-      "last two isolate the modelUsage and is_error guards, which the first "
-      "six left asserted by nothing")
+print("never-ran pass: 9/9 cases (specimen / worked-then-failed / cost-only / "
+      "stall / clean / no record / usage-no-cost / zero-turn success / "
+      "turns-without-usage) — the last three isolate the modelUsage, is_error "
+      "and num_turns guards, which the first six left asserted by nothing")
 
 # THE RESTORE ITSELF (kogaki#553) — the WRITER, not just the predicate.
 #
