@@ -15,8 +15,23 @@
 # WHY IT LIVES IN `tools/` AND NOT IN THE KIT. Owner decision 2026-08-08
 # (kogaki#222), recorded at `policy/consultation-map.md` §"`deferred-slot:
 # proposer-siting` is FILLED". The axis is PORTABILITY: this proposer's input
-# is `.claude/skills/review-lane/SKILL.md`'s `boundary:` record — an artifact
-# THIS repository authors and whose shape it owns — so it cannot run in another
+# is the review record's `boundary:` line class.
+#
+# BOTH GROUNDS THIS SITING WAS ARGUED FROM ARE GONE (kogaki#630, swept at
+# kogaki#632). The neighbour this tool was sited beside, `tools/review-sweep.sh`,
+# is retired, and `.claude/skills/review-lane/SKILL.md` — the artifact whose
+# shape the argument said THIS repository authors — is retired with it. The
+# siting stands and its argument does not: the tool still cannot travel,
+# because its input is a record produced per-repository, but this repository no
+# longer authors the shape of the half it parses. That shape travels with the
+# method port, claude-toolkit#479, and has no verified definition anywhere at
+# this head. `policy/consultation-map.md` carries the same correction; this
+# header is the copy a reader of the tool reaches first, which is why it is
+# corrected here rather than left to disagree.
+#
+# The original argument, kept as the record of what was withdrawn: the input
+# was an artifact this repository authored and whose shape it owned, so the
+# tool could not run in another
 # kit-installing consumer, and a copy inside the kit would be a component whose
 # input does not exist at the other end. Story 1.40's proposer reads only the
 # hub's receipt grammar and is sited in `policy/kit/bin/` for the same reason
@@ -85,8 +100,10 @@ PR = os.environ.get("MINE_PR", "")
 MAP = os.environ.get("MINE_MAP", "policy/consultation-map.md")
 SELF_TEST = os.environ.get("MINE_SELF_TEST") == "1"
 
-# THE DECLARED SHAPE, read at the shape `.claude/skills/review-lane/SKILL.md`
-# prescribes and kogaki#258 landed — never re-derived from prose:
+# THE DECLARED SHAPE, read at the shape kogaki#258 landed — never re-derived
+# from prose. The prescribing artifact was `.claude/skills/review-lane/SKILL.md`,
+# retired by kogaki#630; the shape's definition now travels with the method
+# port (claude-toolkit#479) and is unverified from this tree (kogaki#632):
 #
 #   boundary: <entry N> <covered|uncovered|cannot-determine> [receipt: <pin>]  <prose>
 #   boundary: none

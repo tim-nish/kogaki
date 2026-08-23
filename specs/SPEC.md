@@ -1501,7 +1501,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **What is NOT reopened.** The per-file enumeration itself stays, and it
      is forced rather than chosen: `Bash(bash checks/:*)` is a **measured dead
-     grant** (the engine, round 1's) and `Bash(bash:*)` is a
+     grant** (measured in the retired sweep's own round 1, kogaki#630) and
+     `Bash(bash:*)` is a
      general shell refused by a shipped fixture. So the question this clause
      answers is *from which tree*, never *whether to enumerate*.
 
@@ -1664,8 +1665,11 @@ invariant: Gukan guarantees Unit schema, never data schema).
      written after it ships.
   7. **A report CARRIES FORWARD to a new head when the content it reviewed is
      provably unchanged** (kogaki#96). The head sha is part of presence
-     (the engine — "THE HEAD SHA IS PART OF PRESENCE,
-     not decoration"), and that binding composes with the toolkit's mandated
+     — a binding this repository stated in the reader kogaki#630 retired, and
+     which the engine carries now; the wording is not re-quoted here, because a
+     quotation asserts its source's words as well as its location and this tree
+     cannot open that source (kogaki#632). That binding composes with the
+     toolkit's mandated
      post-squash rebase (`~/work/claude-toolkit/commands/implement-story.md:250`,
      restated at `:418` — "after a squash merge use `git rebase --onto <default>
      <old elder branch>` so the elder's pre-squash commits are dropped rather
@@ -2718,9 +2722,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
      single pass** over the **same segmenter**, and the **first declaration
      wins** — a second is malformed, not a correction, on clauses 5 and 6's
      rule. It rides an adjacent line and widens no existing token, which is
-     why the two report-token regexes at the engine
-     and the engine stay untouched; clause 7 already records what
-     widening a token instead costs.
+     why the two report-token regexes — one in each of the two readers this
+     repository used to hold, both retired at kogaki#630 and their successor
+     now the engine's single one — stayed untouched; clause 7 already records
+     what widening a token instead costs. (The substitution that withdrew those
+     two file pointers collapsed them into a repetition stating nothing;
+     repaired at kogaki#632.)
 
      **Two reuses were considered and both fail on the same test — whether the
      existing class can carry a HEAD.** `cannot-determine:` is the near miss
@@ -3223,9 +3230,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
   review.
 
   **This is a RELOCATION, not a new rule.** The rule already shipped as prose,
-  in the `COMPOSITION` prompt kogaki#74 added — the engine
-  ("never re-attempt a refused command in another form") and `:775` ("Do not
-  spend turns probing for a form that gets through") — and was measured failing
+  in the `COMPOSITION` prompt kogaki#74 added — two adjacent clauses of it,
+  "never re-attempt a refused command in another form" and "Do not spend turns
+  probing for a form that gets through" — and was measured failing
   on the very next PR. On PR #98 the post-kogaki#74 prompt was present in the
   second spawn's own context while that spawn spent its last four turns
   rephrasing one refused command; the first spawn issued nine denials of one
@@ -3643,8 +3650,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
 - **Review altitude is a declared property of the diff, and the instrument's
   own diff is its own class** (kogaki#99). The tier that decides a spawned
   review's model and turn cap was until now an invariant carried only in code —
-  the table at the engine, resolved by `resolve_tier()` at
-  the engine — with no clause here, so the first thing this
+  a table in the sweep, resolved by its own `resolve_tier()` — both retired at
+  kogaki#630 and carried by the engine since — with no clause here, so the
+  first thing this
   does is write it down. The declared classes are `careful` and `ordinary`; any
   careful path carries the whole diff and is never averaged down; an unmatched
   path falls to the careful side, which is the fail-safe. The served ground for

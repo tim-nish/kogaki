@@ -4477,9 +4477,11 @@ and no divergence check, which is exactly the half the line warns about.
 stays green. **Reopen trigger:** the first observed disagreement between a §14
 prose site and `report-format.json`, or the first grammar edit made without a
 corresponding read of the eight. The form of this disclosure is the repository's
-own — `.claude/skills/review-lane/SKILL.md` marks its grammar block as "the half
-this section does NOT have … stated here so the gap is a known one rather than
-an assumption" — reused rather than re-invented.
+own: the retired review-lane skill marked its grammar block as "the half this
+section does NOT have … stated here so the gap is a known one rather than an
+assumption", and that form is reused here rather than re-invented. (The
+artifact is gone — kogaki#630 — so this cites it as the origin of a form, not
+as a live surface; swept at kogaki#632.)
 
 **What precedence does NOT reach.** The grammar governs the **rendered form**
 and nothing else. It does not govern which members are placed, what a claim
