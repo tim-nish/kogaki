@@ -1,6 +1,24 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v22, amended 2026-08-16 (kogaki#481; hub batch
+**Status:** v23, amended 2026-08-23 (kogaki#625, owner selection) — **the
+control plane becomes DATA plus a re-entrant executor: §15 is added, and the
+sequencing authority that lived in skill prose is withdrawn from it.** The
+states, their order, which of them wait for the owner, which write which
+artifact, and which reach a judgment point are declared in
+`specs/spec-terrain/workflow.json`; `terrain/terrain.mjs` becomes a generic
+executor of that table, entered once per act over a persisted run record.
+**Three findings from the shipped code shaped the ruling rather than riding
+along with it:** no single process can own a run whose waits span chat turns,
+so the executor is re-entrant and the record is what makes it so; `cmdView` and
+`cmdCotags` both write `reports/Screen.md` and only one of them passes the
+format guard, which is the two-writer class §14.4.1 declared and nothing
+counted; and the issue's baseline table named two waits where the flow has
+four. §6.3's act enumeration and §14.4.1's two-writer screen class are
+**superseded by name** below. The semantic contracts — §§2.1, 5, 7, 8, 12, 13
+content, the seam, the gloss registers — are **untouched**.
+**deferred slots minted by this amendment: none.**
+
+v22, amended 2026-08-16 (kogaki#481; hub batch
 `q_a/2026-08-13-strand-expansion-measured-the-other-arm` D1/D3, owner-swept
 2026-08-16) — **§13.5's entry condition is RE-POINTED: the measurable-miss arm
 is demoted to one of two, and the live arm is the FLOOD.** The first
@@ -1370,6 +1388,15 @@ and WA's "~4", stays calibration evidence for where the
 undiscriminating-claim condition binds, and no member count enters the code.
 
 ### 6.3 The post-tag-selection window — exactly two acts, and no question
+
+**THE ACT ENUMERATION IS SUPERSEDED BY §15's WORKFLOW TABLE; THE WINDOW'S
+AUTHORITY IS NOT** (v23, kogaki#625, owner selection 2026-08-23). What this
+section decided still binds and is carried into the table: nothing runs
+unattended between the screen and the owner's ID entry, and **the question
+allowlist for that window is empty**. What it can no longer do is count the
+acts — `compose-input`, J1 and J2 are states in their own right under §15.4
+rather than an argument about what sits "inside" act 1. Read the ruling here
+and the sequencing at §15.
 
 **Owner ruling 2026-08-07 (kogaki#166), landing in one clause with
 kogaki#164's relay limb (§2.4), kogaki#161's tag-selection limb, and
@@ -4627,6 +4654,17 @@ nothing new is prohibited, so nothing new has to be policed.
 
 ### 14.4.1 (v18) Delivery binds to an ARTIFACT, never to a display channel
 
+**THE TWO-WRITER SCREEN CLASS IS SUPERSEDED BY §15.5; EVERY OTHER RULING HERE
+STANDS** (v23, kogaki#625, owner selection 2026-08-23). This clause admitted
+`view` and `cotags` as two members of one screen class writing one artifact,
+and the shipped code showed the cost: only one of the two passed the format
+guard. Under §15.5 there is **one screen writer**, private to the executor.
+The artifact name, the overwrite-per-render rule, the artifact-not-a-channel
+discriminator, the non-normative hand-over mechanism and the four uncarried
+items are **untouched** — and the third uncarried item, the hand-over floor
+with no mechanical carrier, is restated as uncarried at §15.8 rather than
+repaired.
+
 **The general rule is now `specs/SPEC.md` §2.5.3, and this section CITES it
 (v21, kogaki#474).** Nothing below changes: the artifact name, the two-member
 screen class, the four uncarried items and the non-normative-mechanism ruling
@@ -4922,3 +4960,224 @@ rendered with its disjointness statement at `:3152`
 artifact, the `display_id` field, the refusal, the single producer and the
 fixture are each a separate licensed act, decomposed on kogaki#319 and
 kogaki#318.
+
+## 15. The control plane — a workflow table, and a re-entrant executor
+
+**Owner selection 2026-08-23 (kogaki#625), under the standing ruling that
+workflow orchestration is deterministic engine code and an LLM session holds
+only steps whose next action turns on an open question.** Through v22 this
+spec declared its semantic contracts thoroughly and its *sequencing* nowhere:
+§6.3 carried the post-tag window as prose, §14.4.1 declared the control
+bindings uncarried in as many words, and the order of acts lived in
+`.claude/skills/terrain/SKILL.md` — advisory to something whose job is to
+satisfy instructions. This section is the carrier that ends that.
+
+### 15.1 The workflow table is DATA, and its carrier is `specs/spec-terrain/workflow.json`
+
+The states, their order, which of them **wait** for the owner, which of them
+**write** which artifact, and which of them reach a **judgment point** are
+declared in one versioned artifact. The executor is a generic interpreter of
+that artifact and holds no state list of its own.
+
+**EVOLVABILITY IS THE CONTRACT.** Moving a handoff, adding a wait, or adding an
+entry point beside co-tags is a **table row plus a renderer** — never a change
+to executor control code and never a prose instruction to a session. §10's
+parked opening gate, if it is ever unparked, lands as a table change.
+
+**Ratification follows `report-format.json`'s, which is this repository's
+existing precedent for a versioned spec-adjacent carrier and is adopted rather
+than re-invented.** An issue licenses the change; a dated owner decision settles
+whatever in it is a decision rather than a transcription; the edit lands in the
+artifact; and a `version` integer bump plus a new `licensed_by` clause records
+it. As with §14.1, the prose here governs intent and the artifact wins on the
+form it carries — **and on nothing else**: the table is authoritative over
+sequencing, waits, write bindings and judgment-point placement, and over no
+semantic contract in §§2–14.
+
+### 15.2 The executor is RE-ENTRANT, and no single process owns the run
+
+kogaki#625 proposed one driver process owning the run. **That is unsatisfiable
+here, and the reason is a fact about this surface rather than a preference.**
+Every wait in this flow spans a chat turn — the owner names a tag in chat, and
+later enters IDs in chat. The runtime has no stdin path (`terrain/terrain.mjs`
+`parseArgs` reads `process.argv` only), supplying one would make a wait a
+prompt, and §6.3's question allowlist for that window is **empty**. A blocking
+process would also lose the run when killed, which acceptance item 5 forbids —
+so a run record is owed under every reading, and once it exists the blocking
+process buys nothing it does not already have.
+
+**So: ONE entry point, entered once per act.** The executor reads the run
+record, executes table states until the next declared wait, writes that state's
+artifact, and stops. The session hands the owner the artifact and says nothing
+else; when the owner speaks, the session re-enters the executor with what the
+owner said. The executor validates that input against the **awaited** state and
+continues. What the discarded arm wanted — that no act can happen out of order
+— is delivered by §15.5 instead of by process lifetime.
+
+### 15.3 The run record carries CONTROL state, and never a second copy of anything
+
+One machine run record, in the machine-local run workspace, carries the run's
+position: which states have completed, which wait is outstanding, what the
+owner entered at each satisfied wait, and which artifacts were written. There
+is **no second state store**.
+
+**It holds no ID→slug map, and this is a constraint rather than an omission.**
+`terrain/terrain.mjs` carries a standing refusal — *"No persistent map is
+written — that would be the second carrier §14.3's ID→slug rule already
+refuses"* — and §14.3 rules the survey record **is** that map, assigned once,
+with no per-artifact mint. The record therefore **references the survey record
+by path** and copies nothing out of it. Stated because discharging §15's
+one-record rule by copying the map would breach §14.3 in the same act, and the
+two clauses are satisfiable together only this way.
+
+**Lifetime and siting** follow §12.2's machine-record precedent: machine-local,
+never committed, and never an owner surface. A path under the run workspace is
+never named on an owner surface outside debugging.
+
+### 15.4 A wait is the executor STOPPING; it is never the runtime asking
+
+The table declares which states wait. **The baseline table declares four, and
+that count is the correction kogaki#625's own baseline needed** — it named two
+(tag selection, ID selection) and omitted the two the flow actually ends at:
+the `terrain-trim-ratification` gate and the `terrain-strand-selection` gate
+with its capture. Acceptance is counted against the table, so a table naming
+two waits would have passed its own check while dropping shipped contract.
+
+The baseline states, in order:
+
+    survey
+      → tag screen (writes a screen)
+      → TAG-SELECTION            (wait)
+      → compose-input            (bounded read, emits the composition pin)
+      → J1 claim composition     (judgment point)
+      → J2 subdivision judgment  (judgment point)
+      → co-tag screen            (writes a screen)
+      → ID-SELECTION             (wait)
+      → full report              (writes the report)
+      → TRIM-RATIFICATION        (wait, conditional — entered only on a trim)
+      → STRAND-SELECTION         (wait, gate + capture)
+      → done
+
+**§6.3's two-act enumeration is superseded by this table and its ruling is
+not.** What §6.3 decided — that nothing runs unattended between the screen and
+the owner's ID entry, and that **no question UI may appear in that window** —
+binds the table: the states between TAG-SELECTION and ID-SELECTION declare no
+gate, and a table that gave them one would be refused at ratification. What
+§6.3 can no longer do is *count the acts*, because compose-input, J1 and J2 are
+states in their own right rather than an argument about whether they are "part
+of act 1". The window's authority survives; its arithmetic does not.
+
+Two waits render a gate declaration for `AskUserQuestion` and two do not.
+TAG-SELECTION and ID-SELECTION are the owner **speaking**, unprompted, exactly
+as §6.3 rules; TRIM-RATIFICATION and STRAND-SELECTION are declared gates and
+were always so.
+
+### 15.5 Write authority — owner artifacts are written only from writing states
+
+A renderer is a module-private function that only the executor calls, from the
+state the table binds it to. **There is no callable surface by which an act can
+happen out of order** — the property is unwritable rather than detected, which
+is the served position on this class rather than a preference of this section:
+
+> "Where a defect class recurs against enumerated post-hoc repairs, the remedy
+> is to constrain what the pipeline can PRODUCE rather than to improve what it
+> can DETECT — an enumerated prohibition can only name yesterday's leak while a
+> construction constraint makes tomorrow's unreachable; detection survives only
+> where free composition is irreducible, and there the correct move is to
+> shrink that surface rather than police it better, with the enumerated list
+> demoted to a fast path beneath both — and the checkable tell that you are on
+> the wrong side is a check suite growing at roughly one member per incident."
+
+`consulted: product-lab@c2f4650f6a3f4fa39c562c2538ddbd01c68dd7b0 LESSONS.md:81`
+  request_id: 575e99f2-9013-4944-b3b9-e5ba790878ba
+  outcome: discriminating
+
+**ONE WRITER PER ARTIFACT, and §14.4.1's two-writer screen class is SUPERSEDED.**
+That clause admitted `view` and `cotags` as two members of one screen class,
+both writing `reports/Screen.md`. The shipped code shows what the class cost:
+`cmdCotags` writes it through the format guard while `cmdView` writes the same
+file directly, bypassing the guard — so one artifact had two producers and only
+one of them was conformance-checked. Under this section there is **one screen
+writer**, a private function the tag-screen and co-tag-screen states both call.
+
+**The artifact NAME does not change, and per-state names were the declined
+arm.** §12.2 (v12) rules the tree holds one overwritten rendering per
+owner-rendering class, and per-state names would multiply owner renderings —
+repairing a writer-count defect by breaking a count rule one clause over. The
+defect was two writers, not one name.
+
+**Delivery is unchanged.** §14.4.1's ruling that an owner rendering is an
+artifact the runtime wrote, never a display channel, and that the hand-over's
+form is non-normative, stands in every respect. §14.4's one-producer removal
+stands: the session composes the executor's inputs and hands over its outputs,
+and retyping remains prohibited.
+
+### 15.6 Judgment points are typed, fenced, and reached only from declared states
+
+Exactly two, and the existing refusals fence them unchanged:
+
+- **J1 — GroupClaim / SubGroupClaim composition (§7).** Composed outside the
+  runtime and arriving as a typed claims record carrying its `composition_pin`;
+  §11's subset refusal already makes a claim naming material outside the
+  bounded read unproducible.
+- **J2 — subdivision judgment (§8).** Arriving as the typed per-group record
+  with its judge pin; §8's leaf condition is evaluated from the supplied
+  verdicts and never invented.
+
+**The salvage here is real rather than aspirational**: the runtime already
+contains no model client and no prompt, and both judgments already arrive as
+files. What this section adds is that they are reachable **only** from the
+states the table declares, so a session cannot supply a judgment at a moment
+the table does not ask for one.
+
+### 15.7 The standalone owner-facing subcommands are REMOVED, not flagged
+
+`view`, `claim`, `adopt` and `subdivide` cease to exist as entry points; their
+behavior becomes table states reachable only through the executor. A
+debug-only flag was the declined arm, on the issue's own no-negative-legacy
+rule and on the served position that a retained generator regenerates what a
+ban forbids:
+
+> "A prohibition installed at one layer fails to align the system, because
+> lower layers regenerate the forbidden expression from the material they hold
+> at writing time — the mechanism is source-removal (change the writers' inputs
+> so the correct form regenerates by itself), with denies installed only after,
+> as leakage measurement."
+
+`consulted: product-lab@c2f4650f6a3f4fa39c562c2538ddbd01c68dd7b0 LESSONS.md:16`
+  request_id: d7b3ad45-e452-43fe-adcd-2d6ae9338c36
+  outcome: discriminating
+
+**This discharges §14.1's four uncovered surfaces by removing them rather than
+by grammaring them.** §14.1 records that the grammar covers two of six owner
+surfaces and names the other four — `cmdView`, `cmdClaim`, `cmdAdopt`,
+`cmdSubdivide` — with a reopen trigger. Those four stop emitting owner text at
+all, so the coverage figure becomes **two of two** without four new grammar
+entries. `cmdSubdivide`'s hand-rendered lines, which §14.2's guard never saw,
+are removed with it.
+
+**`self-test` and `validate` survive** as non-flow utilities: they emit no
+owner surface, carry no sequencing authority, and are reachable without a run
+record. Stated so their survival reads as a decision rather than an oversight.
+
+### 15.8 What is NOT carried
+
+- **The hand-over floor still has no mechanical carrier.** That a session named
+  the artifact to the owner remains a property of the relay's behaviour, and
+  nothing in this repository observes it. §14.4.1 already declared this and
+  this section does not repair it — the executor can guarantee the artifact was
+  *written*, never that it was *handed over*.
+- **Nothing counts the rendering files.** Unchanged from §12.2 (v12) and
+  §14.4.1: a rendering arriving under some other name, hand-copied or written
+  by a path outside the renderings directory, is unobserved.
+- **The table's SEMANTIC honesty is not checkable.** That the declared order is
+  the *right* order, that a wait belongs where it sits, and that a judgment
+  point is placed where judgment is actually owed are judgments and route to
+  the review lane. What is mechanically checkable is conformance to the table,
+  never the table's fitness.
+- **Ratification of a table change is a human act.** Nothing denies an edit to
+  `workflow.json` that no issue licensed; the `version` and `licensed_by`
+  fields are a ledger for readers, exactly as `report-format.json`'s are, and
+  they gate no code path.
+
+**deferred slots minted by this amendment: none.**
