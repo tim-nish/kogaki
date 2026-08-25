@@ -1,6 +1,18 @@
 # The golden specimens (SPEC-terrain §14.5, story 1.55, kogaki#347)
 
-One specimen per surface the grammar covers. Two at v14 —
+**FOUR at v24 (kogaki#636)** — `tag-screen.txt` and `tag-row-view.txt` join the
+two below, because §15.5 binds grammar to the writing STATE rather than to the
+artifact path and `report-format.json` mints the two screen-1 surfaces from
+§9's allowlist. **Both new specimens carry assertion 1 only.** Assertion 2
+needs a renderer that writes the surface's artifact, and screen 1 has none: the
+tag listing is `cmdSurvey`'s stdout (`terrain/terrain.mjs:506`), not a write to
+`reports/Screen.md`, until §15's executor lands. The check's green line reports
+that split (`2 of them asserted TWICE and 2 ONCE`) rather than averaging it —
+claiming TWICE for a surface asserted ONCE is exactly the defect kogaki#636 was
+filed over.
+
+Historically, and the per-covered-surface rule that produced the change:
+one specimen per surface the grammar covers. Two at v14 —
 `cotag-screen.txt` and `full-report.md` — because
 `specs/spec-terrain/report-format.json` covers `cotag_screen` and `full_report`
 and marks the other four owner surfaces uncovered under their own reopen
