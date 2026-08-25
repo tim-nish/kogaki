@@ -1029,8 +1029,12 @@ reused repeatedly — and that degradation is the owner's signal to find or crea
 the Move and ingest it themselves. `/brief`'s responsibility is to complete the
 Brief from the **existing** Move library and the selected Strands.
 
-This closes cleanly because §7.5 makes Moves optional per Step: a missing Move
-can degrade a Brief, never block one. Stated here so the exclusion is a
+This closes cleanly because **minting** a Move is not this workflow's act —
+§7.5's never-minted rider, which v18 leaves standing. **The optionality half of
+this sentence is superseded** (v18, kogaki#642): a Step now binds a Move, so a
+missing one no longer degrades a Brief, it makes the Step unwritable, and a
+transition typing against no entry raises §4.1's reopen trigger rather than
+composing anyway. Stated here so the exclusion is a
 **greppable position** rather than an absence a later reader reads as an
 oversight.
 
@@ -2687,13 +2691,23 @@ and it is stated precisely:
   rather than one line at a time, `topics/articles.md:121` declines named
   frameworks "**each carrying slot obligations, plus a fit rule proposing
   candidates**". The Move design excludes **both** constituents by explicit
-  rider — no mandatory Moves, no minimum sequence, no obligatory opening
-  shape (no slot obligations); Recipes cite-as-precedent and never
+  rider — no minimum sequence, no obligatory opening shape (no slot
+  obligations); Recipes cite-as-precedent and never
   retrieve-as-generator, requires/effect judgment-class and never
   type-checked (no fit rule). It also satisfies the declination's own
   positive prescription, that "the rationale be tied to THIS article's
   materials" — a step binds its Move to *this* article's Strands, Journeys,
   Thesis, or an earlier step's conclusion.
+
+  **`no mandatory Moves` was dropped from this list at v18 (kogaki#642) and
+  the argument does not rest on it.** The declination's first constituent is
+  **slot obligations** — an obligatory position in a sequence, which the
+  no-minimum-sequence and no-obligatory-opening-shape riders exclude between
+  them. Requiring that every Step name its State component imposes no position
+  on any Step and constrains no Move to any slot, so the excluded constituent
+  stays excluded by the riders that actually bear on it. Recorded rather than
+  silently pruned: an argument quietly losing a premise reads, later, as an
+  argument that never had it.
 
 The served surface names this failure mode exactly, and names it as a defect
 of the **quoting**, not of the practice:

@@ -21,8 +21,9 @@
 // reasoning — recorded here so path review and the human gate can judge
 // them. No grounds-test verdict is produced anywhere in this file.
 //
-// MOVE BINDING CHANGES THE TYPE OF NOTHING (§4): `move` is optional on
-// every Step — a step need not bind a Move at all — and the binding is a
+// MOVE BINDING CHANGES THE TYPE OF NOTHING (§4): `move` is REQUIRED on every
+// Step (§4.1 v18, kogaki#642 — the Move is a Step's State component, and this
+// file is the carrier the spec names for it), and the binding is still a
 // recorded field, never a generator: this runtime reads the rationale
 // before it reads the move name only in the trivial sense that it validates
 // rationale presence; the order invariant itself is invisible in the
