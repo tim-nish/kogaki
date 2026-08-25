@@ -34,7 +34,7 @@ The two are separately addressable and are cited separately: the port manifest i
 `specs/SPEC.md` §5, and the whitelist is kogaki#127's, recorded at
 `specs/spec-draft-pipeline/SPEC.md:234` and enumerated at `:290-295`.
 
-**The first cut of this clause attributed the distinction to `specs/SPEC.md:4713-4717`,
+**The first cut of this clause attributed the distinction to `specs/SPEC.md:4721-4725`,
 and those lines do not carry it.** §4.5.3 there distinguishes the whitelist from
 **§4.5's declared design baseline**, not from the port manifest — a true and
 adjacent distinction whose reasoning this clause borrowed and re-pointed at a
