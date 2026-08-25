@@ -21,8 +21,9 @@
 // reasoning — recorded here so path review and the human gate can judge
 // them. No grounds-test verdict is produced anywhere in this file.
 //
-// MOVE BINDING CHANGES THE TYPE OF NOTHING (§4): `move` is optional on
-// every Step — a step need not bind a Move at all — and the binding is a
+// MOVE BINDING CHANGES THE TYPE OF NOTHING (§4): `move` is REQUIRED on every
+// Step (§4.1 v18, kogaki#642 — the Move is a Step's State component, and this
+// file is the carrier the spec names for it), and the binding is still a
 // recorded field, never a generator: this runtime reads the rationale
 // before it reads the move name only in the trivial sense that it validates
 // rationale presence; the order invariant itself is invisible in the
@@ -101,8 +102,13 @@ export function validateSteps(steps) {
     ].filter(Boolean);
     if (errs.length) return { error: errs[0] };
     if (seen.has(s.step_id)) return { error: `${at}: duplicate step_id` };
-    if (s.move !== undefined && (typeof s.move !== "string" || s.move === "")) {
-      return { error: `${at}: move, when present, is a binding to a Move library entry by id — or absent (a step need not bind a Move, §4.1/§7.5)` };
+    // §4.1 v18 (kogaki#642) — `Step = Input + State`, and the Move IS the
+    // State, so a Move-less Step is not a Step. This is the seat the spec
+    // names as the carrier: the requirement binds at composition, which is
+    // what makes such a Step unwritable rather than discouraged. §7.5's
+    // no-mandatory-Moves rider is superseded there by name.
+    if (typeof s.move !== "string" || s.move === "") {
+      return { error: `${at}: move is required by §4.1 — a Step binds a Move library entry by id (§7), because the Move is the State component of a Step and a Step without one has no defined reader-state transition type` };
     }
     for (const d of s.depends_on) {
       if (!seen.has(d)) return { error: `${at}: depends_on names "${d}", which is not an EARLIER step — §4.1's depends_on is the earlier steps whose conclusions this step stands on` };

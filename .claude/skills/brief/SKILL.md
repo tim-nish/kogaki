@@ -101,8 +101,14 @@ kogaki#494).
    going**. The mint is the middle of this invocation, not its end.
 7. **Compose 2–3 Reader Paths** over the settled set: for each, the §4.1 Step
    records with their materials, purposes, reader states, `depends_on`,
-   rationale and §4.4 grounds, plus a Move binding where one fits (never
-   minted — §7.5: a missing Move degrades a Brief and never blocks one).
+   rationale and §4.4 grounds, plus **a Move binding on every Step** — §4.1
+   v18 (kogaki#642): the Move is a Step's State component, and `validateSteps`
+   refuses a Step without one, so a Move-less Candidate is unwritable rather
+   than degraded. §7.5's no-mandatory-Moves rider is superseded there by name.
+   Bind from the **existing** library; minting a Move is not this workflow's
+   act (§7.5's never-minted rider stands), so a transition that types against
+   no entry is the reopen trigger §4.1 names and is raised, never papered over
+   with a filler entry.
    The Candidates differ in **reader experience** (§6), Journey register
    included (§6.1). Write them to the run workspace as the composed-Candidates
    JSON.

@@ -50,6 +50,42 @@ decision is MOOTED rather than reversed. §4.9.1's analysis-document pointer is
 untouched — it is AUTHORED into a proposal and reaches disk through acceptance,
 which is why retiring a tool's post-acceptance append does not reach it.
 
+**Status:** v18, amended 2026-08-25 (kogaki#642) — **a Move is MANDATORY on
+every Step, reversing v17's optional reading.** `Step = Input + State`: the
+Strands, the Thesis and previous Step output are the inputs, the Move is the
+State, and `reader_state_before` / `reader_state_after` are that framework's
+**result** rather than the guarantee's carrier. v17 declined this arm by testing
+`move` as a candidate *mechanism* for the no-filler *property*; the owner's frame
+is **definitional** — what a Step is — so the served line v17 rested on was
+applied to a fork it does not reach. That line's own instruction is why: "the
+test is not whether the mechanism is named but what work the naming does, so
+consult the rationale, not the phrasing", and for that the rationale is the
+authority.
+
+`consulted: product-lab@c2f4650f6a3f4fa39c562c2538ddbd01c68dd7b0 LESSONS.md:120`
+  request_id: 18db2bd0-606e-4d27-bda1-5462442d4f92
+  outcome: discriminating
+  query: "When a rule names both a protected property and the mechanism
+         delivering it, does that guidance apply to a definitional claim —
+         where the disputed field is the definition of the object rather than
+         a candidate carrier for a property?"
+
+**The carrier is `validateSteps` in `brief/compose.mjs`, cited here and restated
+nowhere** (rider R1, owner selection 2026-08-25). The requirement binds at
+composition, where a Move-less Step becomes **unwritable rather than
+discouraged**; this spec names the seat and does not reproduce the check.
+
+**The reopen trigger is named, because the declined arm's cost is currently
+hypothetical** (rider R2). v17 declined `Step = Input + State` partly on library
+pressure against a 22-entry library; the owner reports never having received
+that pressure as a report, and this sitting found **no tracked Brief in the tree
+at all**, so the cost has no instance. The trigger: **the first genuine
+transition that cannot be typed against the library — one that forces a filler
+entry minted only to satisfy the validator.** That instance is the evidence that
+re-costs §7's `move: none` arm, and it comes back as **its own fork**, never as a
+silent skip. Until it fires, minting a real entry under real pressure is the
+library doing its job.
+
 **Status:** v17, amended 2026-08-19 (kogaki#550, kogaki#551) — **the `move`
 field stays OPTIONAL and §4.1 now names which half of that rule binds**, and
 **`compose.mjs`'s `fill` CLI route is RETIRED.** The property protected is that
@@ -350,39 +386,54 @@ article's private property and every step a library entry, which is neither.
 ### 4.1 The step — the Brief's sequence element
 
 - **`step_id`** — the step's identity within this Brief.
-- **`move`** — a binding to a Move library entry (§7), or **absent**. A step
-  need not bind a Move; see the no-mandatory-Moves constraint at §7.5.
+- **`move`** — a binding to a Move library entry (§7). **Required** (v18,
+  kogaki#642): every Step binds one, and §7.5's no-mandatory-Moves rider is
+  superseded by name there.
 
-  **Which half of this rule binds (v17, kogaki#550).** The **property** is that
-  every Step effects a real reader-state transition — no reader-irrelevant
-  filler. The **mechanism** delivering it today is `reader_state_before` /
-  `reader_state_after` being required, plus path review's judgment. **The
-  property binds; `move` is not its carrier and never was.** A Step can bind a
-  Move and still transition nothing, and a Move-less Step can transition
-  perfectly well, so requiring `move` would test something adjacent to the
-  property rather than the property.
+  **Why it is required, and it is not the property/mechanism reading returning
+  (v18, kogaki#642).** `Step = Input + State`. The inputs are the Strands, the
+  Thesis and previous Step output — any or all; the **Move is the State**, and
+  `reader_state_before` / `reader_state_after` are that framework's **result**.
+  So `move` is not a candidate carrier for a property that could be delivered
+  some better way: it is **what a Step is made of**, and a Step without one has
+  no defined reader-state transition type rather than an undertested one.
 
-  This is stated because the rule previously named a permission and no property,
-  which is the shape that lets a mechanism silently become the rule:
+  **What v17 got wrong, recorded rather than silently replaced.** v17 read this
+  arm as proposing `move` as a *mechanism* for the no-filler *property*, found
+  that a Step can bind a Move and transition nothing, and declined on that
+  ground plus library pressure. The first half tests a claim this arm never
+  made. The served line v17 rested on says so itself — the authority is what
+  work the naming does, and the rationale rather than the phrasing settles it:
 
-  > "When you write a rule that mentions both the property you are protecting
-  > and the particular mechanism that currently delivers it, state which of the
-  > two actually binds. Otherwise, the first time somebody can deliver the same
-  > property by a better mechanism, the text supports two equally honest
-  > readings … That is how an implementation detail silently hardens into
-  > policy, or a constraint that genuinely mattered gets silently thrown away."
+  > "the test is not whether the mechanism is named but what work the naming
+  > does, so consult the rationale, not the phrasing."
 
-  `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:100`
+  `consulted: product-lab@c2f4650f6a3f4fa39c562c2538ddbd01c68dd7b0 LESSONS.md:120`
+    request_id: 18db2bd0-606e-4d27-bda1-5462442d4f92
+    outcome: discriminating
+    query: "When a rule names both a protected property and the mechanism
+           delivering it, does that guidance apply to a definitional claim —
+           where the disputed field is the definition of the object rather
+           than a candidate carrier for a property?"
 
-  **The considered alternative, and why it was declined.** `Step = Input +
-  State` reads the Move as the state component every Step holds, which would
-  make `move` mandatory and a Move-less "dead prose" Step unrepresentable. It
-  was declined on two costs: it forces every transition to be typeable against
-  a 22-entry library, so an untypeable-but-genuine transition becomes a
-  library-growth demand or a blocked Step; and it hardens today's mechanism
-  into the rule, which is exactly what the line above names. **What a
-  replacement would have to demonstrate**, per that line's own instruction: a
-  carrier that refuses a Step transitioning nothing, which `move` does not.
+  The no-filler property is **untouched** by this amendment: it still binds, and
+  `reader_state_before` / `reader_state_after` plus path review still carry it.
+  v18 adds a second, independent requirement rather than re-homing that one.
+
+  **The carrier is `validateSteps` in `brief/compose.mjs`** — cited, restated
+  nowhere. It binds at composition, so a Move-less Step is **unwritable rather
+  than discouraged**, and this clause names the seat instead of reproducing the
+  check.
+
+  **The reopen trigger** (v18, rider R2). The declined `move: none` arm — every
+  Step declaring either a library entry or a typed absence with a reason —
+  costs nothing today because the library pressure v17 weighed has no observed
+  instance: 22 entries, no report of an untypeable transition, and no tracked
+  Brief in the tree. **The first genuine transition that cannot be typed against
+  the library, forcing a filler entry minted only to satisfy the validator, is
+  the evidence that re-costs that arm** — brought back as its own fork, one
+  instance, never a silent skip. Until then, minting a real entry under real
+  pressure is the library working.
 - **`materials`** — which Strands, which Journeys, the Thesis, a
   `reader_assumption`, or `constructed_material` it works on. Materials are
   **many-to-many** with steps.
@@ -978,8 +1029,12 @@ reused repeatedly — and that degradation is the owner's signal to find or crea
 the Move and ingest it themselves. `/brief`'s responsibility is to complete the
 Brief from the **existing** Move library and the selected Strands.
 
-This closes cleanly because §7.5 makes Moves optional per Step: a missing Move
-can degrade a Brief, never block one. Stated here so the exclusion is a
+This closes cleanly because **minting** a Move is not this workflow's act —
+§7.5's never-minted rider, which v18 leaves standing. **The optionality half of
+this sentence is superseded** (v18, kogaki#642): a Step now binds a Move, so a
+missing one no longer degrades a Brief, it makes the Step unwritable, and a
+transition typing against no entry raises §4.1's reopen trigger rather than
+composing anyway. Stated here so the exclusion is a
 **greppable position** rather than an absence a later reader reads as an
 oversight.
 
@@ -2636,13 +2691,23 @@ and it is stated precisely:
   rather than one line at a time, `topics/articles.md:121` declines named
   frameworks "**each carrying slot obligations, plus a fit rule proposing
   candidates**". The Move design excludes **both** constituents by explicit
-  rider — no mandatory Moves, no minimum sequence, no obligatory opening
-  shape (no slot obligations); Recipes cite-as-precedent and never
+  rider — no minimum sequence, no obligatory opening shape (no slot
+  obligations); Recipes cite-as-precedent and never
   retrieve-as-generator, requires/effect judgment-class and never
   type-checked (no fit rule). It also satisfies the declination's own
   positive prescription, that "the rationale be tied to THIS article's
   materials" — a step binds its Move to *this* article's Strands, Journeys,
   Thesis, or an earlier step's conclusion.
+
+  **`no mandatory Moves` was dropped from this list at v18 (kogaki#642) and
+  the argument does not rest on it.** The declination's first constituent is
+  **slot obligations** — an obligatory position in a sequence, which the
+  no-minimum-sequence and no-obligatory-opening-shape riders exclude between
+  them. Requiring that every Step name its State component imposes no position
+  on any Step and constrains no Move to any slot, so the excluded constituent
+  stays excluded by the riders that actually bear on it. Recorded rather than
+  silently pruned: an argument quietly losing a premise reads, later, as an
+  argument that never had it.
 
 The served surface names this failure mode exactly, and names it as a defect
 of the **quoting**, not of the practice:
@@ -2864,10 +2929,19 @@ Admitting the library carries the 2026-08-06 consultation's **own riders**
 forward as binding constraints. They are what keep the admitted thing on the
 permitted side of the declination's boundary, so they are not decoration:
 
-- **No mandatory Moves.** No step is required to bind one. **Confirmed at v17
-  (kogaki#550) against the `Step = Input + State` reading**, with §4.1 now
-  naming the protected property and today's carrier so this rider is not read
-  as protecting the `move` field itself.
+- **No mandatory Moves — SUPERSEDED at v18 (kogaki#642), by name.** The rider
+  read "no step is required to bind one", was confirmed at v17 (kogaki#550)
+  against the `Step = Input + State` reading, and is now reversed: **every Step
+  binds a Move** (§4.1), because the Move is the State component of a Step
+  rather than a candidate carrier for the no-filler property v17 tested it as.
+  The rider is superseded rather than deleted, so a reader meeting it in an
+  older rendering finds the amendment instead of a live figure to count
+  against. **What the rider was protecting survives intact and is where it
+  moves to:** the 2026-08-06 consultation's boundary was against a *stored
+  flowchart* — obligatory shapes, adjacency lists, slot obligations — and the
+  three riders below carry the whole of that. Requiring the State component of
+  a Step is not a sequence obligation and imposes no shape on which Moves may
+  follow which.
 - **No minimum sequence**, and **no obligatory opening shape.** Slot
   obligations manufacture the property they require — the retired
   Surprise-slot precedent — so none are imposed.
