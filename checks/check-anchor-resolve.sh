@@ -85,7 +85,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 python3 - "$@" <<'PY'
-import os, re, sys, pathlib
+import os, re, sys, pathlib, subprocess
 
 # The ANCHOR corpus: where anchors are resolved and refused.
 ROOTS = ["specs", "checks", "policy", "gates"]
@@ -98,6 +98,20 @@ ROOTS = ["specs", "checks", "policy", "gates"]
 # the enumeration behind it, so the number whose drain to zero closes
 # kogaki#635 is counted over the tree rather than over the corpus.
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv"}
+
+def tracked_files():
+    """Every TRACKED file, which is what makes the closed-set count the SAME
+    number in every clone. A working-directory walk counts untracked files a
+    fresh checkout does not have — `.local/` here — so two environments
+    disagree about when the drain is finished, and 'closes when the count
+    reaches zero' names no single moment. Found by PR #649 round 1, whose own
+    worktree rendered a different figure than this repository did."""
+    try:
+        out = subprocess.run(["git", "ls-files", "-z"], capture_output=True,
+                             text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return [f for f in out.split("\0") if f]
 
 # `<path>::<token>` — the path half never contains whitespace or `::`.
 ANCHOR = re.compile(r'`((?:[\w.-]+/)*[\w.-]+\.[A-Za-z0-9]+)::([^`]+)`')
@@ -199,7 +213,24 @@ for p, txt in walk():
                 resolved += 1
             else:
                 fails.append(f"{p}:{i}  {path}::{token[:60]} — {why}")
-for p, txt in walk(["."]):
+_tracked = tracked_files()
+if _tracked is None:
+    print("FAIL anchor resolve: `git ls-files` unavailable — the closed-set "
+          "count is defined over the TRACKED tree and cannot be taken here; a "
+          "working-directory fallback would render a different number than a "
+          "clone, which is the defect the tracked scope exists to remove.")
+    sys.exit(1)
+
+def tracked_texts():
+    for f in _tracked:
+        if os.path.normpath(os.path.dirname(f)) == os.path.normpath(FIXTURE_DIR):
+            continue
+        try:
+            yield f, pathlib.Path(f).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+for p, txt in tracked_texts():
     for i, line in enumerate(txt.splitlines(), 1):
         for m in ORPHAN.finditer(line):
             orphan.append(f"{p}:{i}  {m.group(1)}")
@@ -263,7 +294,7 @@ print(f"anchor resolve: {resolved} cross-artifact anchor(s) resolve, each "
       f"— the hub's boundary field, untouched by kogaki#635 and correct until "
       f"Gukan rules on its own carrier question. Bare internal `<file>:<line>` "
       f"pointers remaining: {len(bare)} — the CLOSED SET §3.1 names, counted over "
-      f"the WHOLE TREE rather than over this member's own corpus, so the "
+      f"the TRACKED tree rather than over this member's own corpus, so the "
       f"denominator is never narrower than the population (PR #648 round 1 "
       f"blocked on a pointer in .gitignore a corpus-scoped count could not "
       f"see). Counted rather than sampled and reported on every run, so both "

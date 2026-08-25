@@ -4897,8 +4897,11 @@ bounded per-item passes**, where a sitting reads each pointer's own sentence and
 anchors it to its true referent by human judgment, never mechanically.
 **kogaki#635 closes when the count reaches zero, not when this resolver lands.**
 
-**THE DENOMINATOR IS A WHOLE-TREE SCAN FOR THE BARE-POINTER SHAPE, never the
-checker's roots.** `check-anchor-resolve.sh` walks `specs/`, `checks/`,
+**THE DENOMINATOR IS A TRACKED-TREE SCAN FOR THE BARE-POINTER SHAPE, never the
+checker's roots and never the working directory.** Tracked, because a number
+whose zero closes an issue must be the SAME number in every clone: `.local/` is
+untracked here, so a working-copy scan counts files a fresh checkout does not
+have and two environments disagree about when the work is done. `check-anchor-resolve.sh` walks `specs/`, `checks/`,
 `policy/` and `gates/`; the pointers do not respect that boundary. A round-1
 finding on PR #648 was a pointer in **`.gitignore`** invalidated by this
 section's own earlier insertion and invisible to every instrument, and a whole-
@@ -4907,13 +4910,18 @@ taken over the tree and the method is stated here, because a completeness claim
 is only ever as wide as the enumeration behind it — and this migration proved
 that about itself.
 
-**THE COVERAGE GAP IS BOUNDED, AND SUSPENDED RATHER THAN LOST.** Retiring
-`check-spec-pin-resolve.sh` ends verification of quote-adjacent legacy pins, and
-until the first anchor is minted there is nothing for the new member to resolve.
-The gap does not grow: the resolver's **refuse-new-bare-pointers** half is live
-from merge, so it is bounded to the existing closed set — which the drain owns
-and counts, and which only shrinks. Each drain pass re-verifies what it
-migrates, so the legacy verification returns per item as the set empties.
+**THE COVERAGE GAP IS REAL, AND ITS BOUND IS A DISCIPLINE RATHER THAN A
+MECHANISM — stated precisely because the first cut of this paragraph claimed a
+mechanism that does not exist.** Retiring `check-spec-pin-resolve.sh` ends
+verification of quote-adjacent legacy pins, and until the first anchor is minted
+there is nothing for the new member to resolve. **Nothing REFUSES a new bare
+pointer**: `check-anchor-resolve.sh` counts them and never fails on them, by the
+deliberate choice recorded above, because failing on the count would force the
+mechanical rewrite that launders stale pins. So the set is bounded only by the
+rule in this section and by the count rendered on every run — a number that goes
+UP if the rule is ignored, which is the whole of the detection. Each drain pass
+re-verifies what it migrates, so legacy verification returns per item as the set
+empties; a growing count is the tell that it is not.
 
 **Out of scope:** the hub-facing receipt grammar — `<repo>@<sha> <file>:<line>`
 in consults, gate declarations and issue receipts — is the **hub's** boundary
