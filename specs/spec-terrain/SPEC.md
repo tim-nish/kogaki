@@ -174,7 +174,7 @@ the survey — the premise §14.3 rests on. Assigning an `L<n>` only when a
 suggestion is *taken* was declined too: the owner needs a token *while
 choosing*, and choosing among several is exactly when one is needed. The answer
 is implemented and merged: the space is declared at `NEIGHBOR_ID`
-(`terrain/terrain.mjs:2728`), minted over the sorted output at `:2915`, and
+(`terrain/terrain.mjs::// the other again.`), minted over the sorted output at `:2915`, and
 rendered with its disjointness statement at `:3152` (kogaki#367).
 The two other tokens in the file — `terrain-family-split-carrier` and
 `terrain-subdivision-offering-verdict` — are filled, checked at their sites
@@ -687,7 +687,7 @@ missing**, and its absence is what let §6.1 be read as self-contradictory:
   Gloss line and Journey line would multiply across every SubGroup of every
   group rather than appearing once per group, running the screen against
   §8's `screen_budget_lines` instrument
-  (`terrain/terrain.mjs:1082-1084`). The owner chose to keep the screen's
+  (`terrain/terrain.mjs::const CLAIM_GATE = "terrain-claim-reoffer";`). The owner chose to keep the screen's
   size rather than restore the lines.
 - **The cost is real and is recorded rather than argued away.** The screen
   keeps running without the Gloss and Journey lines the baseline it cites
@@ -729,7 +729,7 @@ divergence is least likely to be noticed and most likely to read as a
 contradiction to whoever notices it next.
 
 **THE FLOW RULE, AND THE POSITIVE LIMB IT WAS MISSING — v7, kogaki#164.**
-`.claude/skills/terrain/SKILL.md:14` cites "SPEC.md §2.4's flow rule
+`.claude/skills/terrain/SKILL.md::(SPEC.md §14.4; kogaki#319, kogaki#347). There is exactly ONE producer of` cites "SPEC.md §2.4's flow rule
 (kogaki#150)" as this section's, so the rule is stated **here**, in full, and
 the skill states it operationally. It has two limbs and only one shipped:
 
@@ -864,7 +864,7 @@ own section is admitted where nobody looks for the answer.
 are **not proposals** in this spec's sense. §2.3 fixes "proposal" to the act of
 **narrowing** the candidate set, and routes `rank`/`trim`/`hide` to
 `specs/spec-proposal-contract/SPEC.md` on exactly that ground
-(`specs/spec-proposal-contract/SPEC.md:27-29` records Terrain as its first
+(`specs/spec-proposal-contract/SPEC.md::prose) is manifest item 4's, ported by kogaki#16, and is not restated here.` records Terrain as its first
 consumer and reproduces the split). A widening view narrows nothing, so it grows
 no proposal-rendering affordance and needs none — the word "propose-only" in
 kogaki#289's riders means *suggests without gating*, which is this spec's
@@ -1093,10 +1093,10 @@ at this amendment's pin: the served co-tag screen prints a co-tag count table
 and, beside it, a flat `All 59 Lesson slugs, in served order:` dump. **No
 GroupClaim appears anywhere and no Lesson IDs are visible *grouped*.** The
 composition defect is that v2's machinery is unreached, not that it is wrong
-— `cotagGroups` places every member (`terrain/terrain.mjs:488-503`) and
+— `cotagGroups` places every member (`terrain/terrain.mjs::// Rendering. The figure takes the first line here as a PRESENTATION choice;`) and
 `cmdCotags` prints each group's *figure* while emitting member IDs **only
-under `--group`** (`terrain/terrain.mjs:571-580`); `claim`
-(`terrain/terrain.mjs:663`) and `subdivide` compose the missing halves and
+under `--group`** (`terrain/terrain.mjs::for (const [slug, entry] of parseGlossShard(resp)) if (!out.has(slug)) out.set(slug, entry);`); `claim`
+(`terrain/terrain.mjs::say("Gloss headlines are tag-scoped (one shard per viewed tag) — name a --tag to read them. No whole-corpus prefetch is taken to fill this in (SPEC.md §9).");`) and `subdivide` compose the missing halves and
 nothing calls them, the skill's own flow being survey → view → narrow →
 select with no co-tag step at all (`.claude/skills/terrain/SKILL.md`).
 
@@ -1232,7 +1232,7 @@ the same members, served grouped instead of served twice — every Lesson ID
 still reaches the screen inside at least one Group, which is exactly what
 §2.1's cover counted in placements already guarantees and what
 `COTAG_COVER_INCOMPLETE` already refuses on
-(`terrain/terrain.mjs:534-544, 583-586`). Nothing that reaches the owner is
+(``terrain/terrain.mjs::// (SPEC.md §9, v5, kogaki#147): the tag name, and the tag's Lesson count. A`, 583-586`). Nothing that reaches the owner is
 smaller than what exists, so §2.3's boundary is untouched. The dump's defect
 was never that it showed too much: it is that a flat list beside a count
 table lets **no image of a possible Thesis form**, which is the purpose §6
@@ -1663,7 +1663,7 @@ screen carried none. Two consequences, and neither weakens anything above:
 
 - **Composing a claim for every group narrows nothing** and writes no record.
   §6's classification is unchanged — the screen stays NAVIGATION, and the
-  no-record rule at `terrain/terrain.mjs:470-483` binds the composition too.
+  no-record rule at `terrain/terrain.mjs::const thin = [...placed].filter((id) => !lessons.find((c) => c.id === id).journey).length;` binds the composition too.
   A claim record is written only when the owner acts on a group, which is
   where pinning and the re-offer gate already live.
 - **The pinning rule binds per group at screen scope.** Each screen-composed
@@ -2137,7 +2137,7 @@ in the sentence a reader reaches for when asking what a tag row may carry.
 **Where the recomputation lives.** `terrain/terrain.mjs` already recomputes
 `by_family` from the placements the figure claims to be counted over, and
 refuses to write a record whose stored figure disagrees
-(`FIGURE_MISMATCH`, `terrain/terrain.mjs:206-209,278,292`). Extending that
+(`FIGURE_MISMATCH`, `terrain/terrain.mjs::if (comp.family !== undefined && comp.family !== "" && comp.family !== cs.family_must_name) {`). Extending that
 recomputation to section-level figures is the mechanism, and the refusal
 stays **generation-time**: constrain generation, then detect what generation
 cannot promise.
@@ -2214,7 +2214,7 @@ A per-section `by_family` **is** a derived count, so the tension is real. It is
 answered by in-repo precedent rather than by re-reasoning:
 `completeness.by_family` is the identical shape — a stored derived count over
 the same placements — ratified at v1 (kogaki#14/#17) and already refused on
-mismatch at `terrain/terrain.mjs:206-209,278`. Under (b) the record would be
+mismatch at `terrain/terrain.mjs::if (comp.family !== undefined && comp.family !== "" && comp.family !== cs.family_must_name) {`. Under (b) the record would be
 **inconsistent with itself**: section figures unguarded while the completeness
 figure beside them, counted over the same placements, is guarded.
 
@@ -2257,8 +2257,8 @@ implementer.** The closing clause says the check "inherits the extension
 without a second copy". That holds for the **field lists**, which
 `survey-schema.json` carries once and the check reads. It does **not** hold for
 the **recompute algorithm**, which is already written twice —
-`terrain/terrain.mjs:193-215` (JS, generation-time) and
-`checks/check-terrain-composition.sh:146-163` (Python, merge-layer). (a)
+`terrain/terrain.mjs::// counted over and refused on mismatch, exactly as completeness.by_family` (JS, generation-time) and
+`checks/check-terrain-composition.sh::// 6. GroupClaim-first rendering AT the screen (kogaki#128, story 1.29 — §6.1).` (Python, merge-layer). (a)
 extends **both**. The duplication predates this fill and is not created by it;
 collapsing it is not licensed by this decision, and it is named so the next
 reader meets it in the spec rather than in the diff.
@@ -2454,11 +2454,11 @@ carrier-less **by omission**, which `LESSONS.md:26` names as the defect rather
 than as one of the three admissible end states. This paragraph is the ruling
 that ends it.
 
-**The property, stated exactly.** `.claude/skills/terrain/SKILL.md:195` carries
+**The property, stated exactly.** `.claude/skills/terrain/SKILL.md::material is the Full Report's (§12). **No per-row pin renders either**` carries
 the hard line *"Compose from `compose-input`, never from the whole survey"*, and
 nothing observes whether a live session obeyed it. `cmdCotags` accepts
 `--survey`, `--tag`, `--claims`, `--subdivisions` and `--connective`
-(`terrain/terrain.mjs:575-591`) and records nothing about **how** the claims
+(`terrain/terrain.mjs::export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";`) and records nothing about **how** the claims
 were composed; `checks/check-terrain-composition.sh` exercises `cotags` end to
 end and observes only its outputs. So the rule lives entirely in instruction
 text, which is advisory to something whose job is to satisfy instructions.
@@ -2706,7 +2706,7 @@ call was made.
   groups "sorted descending by member count"
   (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/articles.md:80`),
   while Kogaki's shipped `COTAG_SORT` declares "co-tag name ascending, then
-  member id ascending" (`terrain/terrain.mjs:704`), adopted under §6. Both are
+  member id ascending" (`terrain/terrain.mjs::export const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";`), adopted under §6. Both are
   declared deterministic sorts and both are admitted as navigation, so neither
   is a violation; which one Kogaki serves is **undecided here**. kogaki#128
   raises the screen's *composition* and not its ordering, and deciding an
@@ -3291,15 +3291,15 @@ mechanisms, none of which kogaki#199's filing names:
 
 - `subOf(g)` returns `subdivisions[g.name]`, and **`[]` is truthy in
   JavaScript**, so `{"Group": []}` already takes the judge-required branch
-  (`terrain/terrain.mjs:1405`, `:1429`). Judged-empty is *accidentally*
+  (`terrain/terrain.mjs::sg.leaf_reason = honest`, `:1429`). Judged-empty is *accidentally*
   expressible today, by a language property nothing states.
 - On that branch `subgroupPlacement(group, [], …)` places nothing, computes
   `unplaced` as **every member of the group**, and pushes the
-  `no_member_hidden_subgroup` catch-all (`terrain/terrain.mjs:1011-1020`). So
+  `no_member_hidden_subgroup` catch-all (`terrain/terrain.mjs::// The cover, counted AFTER composition, over ALL composed groups — never`). So
   the artifact carries **one SubGroup holding the entire membership**, not
   zero.
 - `members: subgroups ? null : renderMembers(group.members)`
-  (`terrain/terrain.mjs:1484`) then sets `members` to `null`, because `[]` is
+  (`terrain/terrain.mjs::cover: { placed: placedIds.size, of: parent.members.length, counted_over: "placements" },`) then sets `members` to `null`, because `[]` is
   truthy there too — so the members are neither in `subgroups` honestly nor in
   `members` at all.
 
@@ -3358,7 +3358,7 @@ published input format, and the served surface names exactly that hazard.**
 So the boundary fixture is **required by this amendment rather than suggested
 by it**: the producer is `.claude/skills/terrain/SKILL.md`, which composes the
 subdivision input, and the consumer is `cmdReport`. `cmdCotags`
-(`terrain/terrain.mjs:614-628`) reads the **same** map and follows in the same
+(`terrain/terrain.mjs::const record = readJson(String(args.survey || fail("view needs --survey <file>")));`) reads the **same** map and follows in the same
 change; a fix that migrates one reader and not the other rebuilds the defect
 between them.
 
@@ -3742,7 +3742,7 @@ assume its opposite.**
 - **§14.1's owner-surface enumeration stays SIX and its coverage claim stays
   TWO of six.** Before v20 the neighborhood screen was a **seventh** owner
   surface by §14.1's own definition — text this runtime writes for the owner to
-  read (`terrain/terrain.mjs:3259`, a `reports/Screen.md` writer beside
+  read (`terrain/terrain.mjs::else unmapped.push(id);`, a `reports/Screen.md` writer beside
   `cmdView` at `:618` and `cmdCotags` at `:981`) — enumerated nowhere and
   covered by no grammar. v20 does not *cover* that surface; it removes it. The
   enumeration is true again rather than widened, and §14.1's reopen trigger
@@ -3804,7 +3804,7 @@ Nothing here is smaller. So:
 - **"Propose-only" is the licensing issue's word and not this spec's.** In
   kogaki#289 it means *suggests without gating*; in this spec a **proposal** is
   a narrowing act routed to `specs/spec-proposal-contract/SPEC.md`
-  (`specs/spec-proposal-contract/SPEC.md:27-29`). The mapping is
+  (`specs/spec-proposal-contract/SPEC.md::prose) is manifest item 4's, ported by kogaki#16, and is not restated here.`). The mapping is
   §289-propose-only → **this spec's report**. §4 states why the collision
   matters: resolved the other way, a reader concludes Terrain grew a
   proposal-rendering affordance of its own and that §1's refused alternative was
@@ -4384,13 +4384,13 @@ section exists to preserve.
 Stated as blast radius, with shipped-code pointers read at this amendment:
 
 - **`terrain/terrain.mjs`** — a new subcommand beside the eleven dispatched at
-  `terrain/terrain.mjs:2128-2138`. It is a **sibling of `cotags`**
-  (`terrain/terrain.mjs:574`), not a change to it: `cotags` composes within one
+  `terrain/terrain.mjs::L.push("## Counted");`. It is a **sibling of `cotags`**
+  (`terrain/terrain.mjs::function fetchHeadlines(kind, tags, { soft = false } = {}) {`), not a change to it: `cotags` composes within one
   tag and its `--claims` refusal is keyed to `compose-input`'s composition pin
   (§11), which a widening view must not perturb. The neighborhood reads the
   survey record and the settled Strand set (v15) and emits its own artifact.
   **SUPERSEDED at v20 (kogaki#472): there is no standalone subcommand.** The
-  enumeration (`neighborhoodOf`, `terrain/terrain.mjs:2894`) and the rendering
+  enumeration (`neighborhoodOf`, `terrain/terrain.mjs::// setting and needs no code change if a later amendment turns it on. Writing it`) and the rendering
   (`neighborhoodScreen`, `:3274`) are computed inside `cmdReport` (`:2331`) and
   emitted as a section of the Full Report; nothing writes `reports/Screen.md`
   for this rendering and nothing dispatches it by name. The sibling-of-`cotags`
@@ -4401,7 +4401,7 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   **The implementation of this bullet is NOT licensed by kogaki#472**, which is
   the spec amendment only; the code carrier is kogaki#473 and names #472 as its
   precondition.
-- **`compose-input`'s bounded read is unchanged** (`terrain/terrain.mjs:1496`).
+- **`compose-input`'s bounded read is unchanged** (`terrain/terrain.mjs::// story's work. Rendering it CONSISTENTLY by hand is — an owner reading two`).
   §11's subset refusal is what guarantees claims are composed only from served
   members; a neighborhood suggestion the owner **took** enters through the
   ordinary candidate path and is covered by that pin, and one the owner did not
@@ -4410,7 +4410,7 @@ Stated as blast radius, with shipped-code pointers read at this amendment:
   expect one.
 - **`.claude/skills/terrain/SKILL.md`** — the flow gains the surface. Its hard
   line "Compose from `compose-input`, never from the whole survey"
-  (`.claude/skills/terrain/SKILL.md:318`) is untouched and, note, is *why* the
+  (`.claude/skills/terrain/SKILL.md::kogaki#163). One tag-scoped shard pair per run feeds every GroupClaim and`) is untouched and, note, is *why* the
   neighborhood cannot be implemented as a wider survey read at composition time.
 - **`checks/check-terrain-composition.sh`** — the conformance home. The three
   mechanically checkable properties are substrate disclosure per suggestion, a
@@ -4470,7 +4470,7 @@ field, and the per-surface allowlist.
 
 **An OWNER SURFACE is any text this runtime prints or writes for the owner to
 read.** Defined once, here, and used with this meaning everywhere in §14. The
-enumeration as it stands is **six**: `cmdView` (`terrain/terrain.mjs:447`),
+enumeration as it stands is **six**: `cmdView` (`terrain/terrain.mjs::const journeyBySlug = new Map(journeys.map((j) => [j.slug, j]));`),
 `cmdCotags` (`:574`), `cmdClaim` (`:819`), `cmdAdopt` (`:943`), `cmdSubdivide`
 (`:1099`), and the Full Report owner rendering emitted by `cmdReport` (`:1788`,
 §12.2 v11). The machine record is not one; it is machine-facing by §12.2 v11's
@@ -4588,8 +4588,8 @@ asking which side to believe.
 
 ### 14.2 The emitters refuse; they do not report
 
-`cmdCotags` (`terrain/terrain.mjs:574`) and `cmdReport`
-(`terrain/terrain.mjs:1788`) **validate their own rendered text against the
+`cmdCotags` (`terrain/terrain.mjs::function fetchHeadlines(kind, tags, { soft = false } = {}) {`) and `cmdReport`
+(`terrain/terrain.mjs::// Untruncated, exactly as §12 serves it: the composer judging whether a`) **validate their own rendered text against the
 grammar and refuse to write or print on failure.** A nonconformant artifact
 becomes **unmintable** rather than detectable.
 
@@ -4606,7 +4606,7 @@ that warning sign firing. The refusal is the constrain-side answer; the check
 suite is demoted to the fast path beneath it.
 
 **The refusal is generation-time, which is where §9 already puts it.** §9's
-`FIGURE_MISMATCH` path (`terrain/terrain.mjs:206-209,278,292`) refuses to write
+`FIGURE_MISMATCH` path (`terrain/terrain.mjs::if (comp.family !== undefined && comp.family !== "" && comp.family !== cs.family_must_name) {`) refuses to write
 a record whose stored figure disagrees with its recomputation, and states the
 rule as *"the refusal stays generation-time: constrain generation, then detect
 what generation cannot promise."* §14.2 is that same rule applied to the
@@ -4634,7 +4634,7 @@ the machine wants to display, not information the owner wants to read.
 
 **The rendered token is the `display_id`, assigned ONCE in the survey record.**
 `specs/spec-terrain/survey-schema.json` gains a per-candidate `display_id`
-matching `^L[0-9]+$`, assigned at survey time (`terrain/terrain.mjs:300`,
+matching `^L[0-9]+$`, assigned at survey time (`terrain/terrain.mjs::// about 115 Strands while the section holds 59 rows.`,
 beside `id` / `slug` / `family` / `tags` / `cite`). **The survey record is the
 ID→slug map**; there is no second carrier and no per-artifact mint.
 
@@ -4950,7 +4950,7 @@ them until their specimens existed, rather than quietly still saying two.
 **The second assertion does not run for either, and the check REPORTS that
 split rather than averaging it.** Renderer-equality needs a renderer that
 writes the surface's artifact, and screen 1 has none: the tag listing is
-`cmdSurvey`'s **stdout** (`terrain/terrain.mjs:506`), and nothing writes it to
+`cmdSurvey`'s **stdout** (`terrain/terrain.mjs::// The bounded-input pointer, sited at the step BEFORE the one that needs it.`), and nothing writes it to
 `reports/Screen.md` until §15's executor lands. So both specimens carry
 assertion 1 — conformant against the grammar, by the emitters' own predicate —
 and neither carries assertion 2 yet. The green line names `2 of them asserted
@@ -4961,7 +4961,7 @@ over, reproduced one layer down in this suite's own reporting.
 **A correction this sitting owed §14.1 in passing.** §14.1 describes `cmdView`
 as rendering "tag rows, candidate rows, Gloss headlines", and
 `report-format.json` repeated it. `cmdView` renders **candidate rows and Gloss
-headlines only** (`terrain/terrain.mjs:651-661`); the tag rows are
+headlines only** (`terrain/terrain.mjs::if (!c.display_id) missingDisplayId++;`); the tag rows are
 `cmdSurvey`'s, through `tagRow()` at `:547`. The allowlist and its verbatim
 reading are untouched — only the attribution moves — and it is recorded because
 it is why the two surfaces are split by **rendering** rather than by
@@ -5039,7 +5039,7 @@ owner copying an id has to know which space it came from. That is the price of
 leaving §14.3 alone, and it is the cheaper price.
 
 **Implemented and merged**: the `N<n>` space is declared at `NEIGHBOR_ID`
-(`terrain/terrain.mjs:2728`), minted over the sorted output at `:2915`, and
+(`terrain/terrain.mjs::// the other again.`), minted over the sorted output at `:2915`, and
 rendered with its disjointness statement at `:3152`
 (kogaki#367), with the flow step at `.claude/skills/terrain/SKILL.md` step 7
 (kogaki#383).
@@ -5210,7 +5210,7 @@ is the served position on this class rather than a preference of this section:
 
 **That sentence was FALSE when it was written, and making it true is a
 removal** — PR #626 round 2, finding 3. `act`, `gate` and `capture` were live
-CLI entry points (`terrain/terrain.mjs:3550-3552`), bound to no state and named
+CLI entry points (`terrain/terrain.mjs::case "capture": cmdCapture(args); break;`), bound to no state and named
 in neither `removed_entry_points` nor `non_flow_entry_points` — and they are
 not incidental utilities: they are exactly the carriers behind
 STRAND-SELECTION's declaration-and-capture and TRIM-RATIFICATION's proposal
@@ -5393,7 +5393,7 @@ record. Stated so their survival reads as a decision rather than an oversight.
   Stated here rather than left for a third review round to find.
 
 - **§15.5's unwritability claim is not true at this head.** `act`, `gate` and
-  `capture` are still live dispatcher cases (`terrain/terrain.mjs:3550-3552`);
+  `capture` are still live dispatcher cases (`terrain/terrain.mjs::case "capture": cmdCapture(args); break;`);
   their removal is table-side only in this act, so *"there is no callable
   surface by which an act can happen out of order"* is a property the executor
   will make true and not one the tree holds today. PR #641 round 1, should 3 —

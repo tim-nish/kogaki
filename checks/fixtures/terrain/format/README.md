@@ -5,7 +5,7 @@ two below, because §15.5 binds grammar to the writing STATE rather than to the
 artifact path and `report-format.json` mints the two screen-1 surfaces from
 §9's allowlist. **Both new specimens carry assertion 1 only.** Assertion 2
 needs a renderer that writes the surface's artifact, and screen 1 has none: the
-tag listing is `cmdSurvey`'s stdout (`terrain/terrain.mjs:506`), not a write to
+tag listing is `cmdSurvey`'s stdout (`terrain/terrain.mjs::// The bounded-input pointer, sited at the step BEFORE the one that needs it.`), not a write to
 `reports/Screen.md`, until §15's executor lands. The check's green line reports
 that split (`2 of them asserted TWICE and 2 ONCE`) rather than averaging it —
 claiming TWICE for a surface asserted ONCE is exactly the defect kogaki#636 was

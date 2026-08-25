@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The external-dependency registry, made checkable (specs/SPEC.md:69-80,
+# The external-dependency registry, made checkable (`specs/SPEC.md::application of this is exact — an artifact was found in a run workspace keyed`,
 # specs/spec-external-deps/SPEC.md; kogaki#55, story 1.14).
 #
 # WHAT THIS CARRIES. `deps/registry.json` declares the capabilities this
@@ -245,7 +245,7 @@ def registry_line(entries, path):
         return (f"registry: 0 declared dependencies in {path} — none yet; the "
                 "zero is rendered because a silent pass is indistinguishable "
                 "from a check that did not run (SPEC.md §6 precedent: "
-                "specs/spec-gate-carrier/SPEC.md:50-52)")
+                "`specs/spec-gate-carrier/SPEC.md::mechanical before it is philosophical.** Every entry in the check registry`)")
     return (f"registry: {len(entries)} declared dependency/dependencies in "
             f"{path}, all conforming")
 

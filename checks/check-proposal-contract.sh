@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The owner-facing proposal contract, made checkable (manifest item 3,
-# specs/SPEC.md:97-98; kogaki#15, umbrella kogaki#14).
+# `specs/SPEC.md::> "A derived artifact (summary, distilled line, report) inherits the highest`; kogaki#15, umbrella kogaki#14).
 #
 # Validates every proposal record (*.proposal.json, anywhere in the tree)
 # against specs/spec-proposal-contract/record-schema.json — the single
@@ -232,7 +232,7 @@ if records:
     print(f"records: {len(records)} *.proposal.json, all conforming")
 else:
     print("records: 0 *.proposal.json in the tree — none yet; the contract is "
-          "ported ahead of its first consumer (Terrain, specs/SPEC.md:109-112)")
+          "ported ahead of its first consumer (Terrain, `specs/SPEC.md::**Repository-wide, and sited here rather than in either consuming spec, because`)")
 print(f"fixtures: {len(conforming)} conforming accepted, {len(nonconforming)} "
       f"non-conforming each rejected with its declared code "
       f"({len(covered)}/{len(CODES - set(CODES_WITHOUT_FIXTURE))} violation codes exercised)")

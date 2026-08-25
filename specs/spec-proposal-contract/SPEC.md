@@ -9,12 +9,12 @@ record:
 > "3. **The owner-facing proposal contract** (Where/Why/effect-stating
 > labels; machine-proposed options plus free text; payload capture)."
 
-`specs/SPEC.md:4782-4783`
+`specs/SPEC.md::three named seam-side instruments fail differently, so merging them`
 
 Ported **with** its contract, ahead of Terrain, because admitting a subsystem
 without its contract is the manifest's own named failure mode
-(`specs/SPEC.md:113-121`). This spec is authored consumer-side, in the same
-shape and on the same ground as `specs/spec-terrain/SPEC.md:6-15`.
+(`specs/SPEC.md::**The rule.** Where a command asks the owner to decide against a rendering, that`). This spec is authored consumer-side, in the same
+shape and on the same ground as `specs/spec-terrain/SPEC.md::carriers behind TRIM-RATIFICATION and STRAND-SELECTION — are **removed**, which`.
 
 ## 1. What this contract binds
 
@@ -24,7 +24,7 @@ must have — and deliberately delivers no rendering engine. The gate's
 *medium* binding (a gate renders through the selector affordance, never
 prose) is manifest item 4's, ported by kogaki#16, and is not restated here.
 
-Its first consumer is Terrain: `specs/spec-terrain/SPEC.md:76-86` types
+Its first consumer is Terrain: `specs/spec-terrain/SPEC.md::ruling is propagated to the clauses it silently invalidated.** §14.4.1 replaced` types
 `rank`, `trim`, and `hide` as proposals that route to this contract, and
 `enumerate`, `sort`, `filter-by-owner` as navigation that does not.
 
@@ -113,7 +113,7 @@ disagrees with its own record is a violation, not a rounding.
 
 ### 2.5 The non-member fallback
 
-An act in neither `specs/spec-terrain/SPEC.md:80-81` list is a **report**: it
+An act in neither `specs/spec-terrain/SPEC.md::positive limb** and had just had its object replaced. **§2.4's positive limb` list is a **report**: it
 carries its reason and takes no narrowing action (`narrows: false`). It is
 never silently classified into either list. A navigation act presented as a
 proposal is a violation from the other direction — the second-proposer line

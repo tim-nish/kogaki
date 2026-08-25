@@ -49,7 +49,7 @@ Every entry in the check registry names a `file` that must exist under
 not — an external dependency has no file in this repository by definition, so
 a dependency row would be a dangling entry by construction. The admission
 record there is check-loop economics (`tier`, `runtime_ms`, `removal_signal`;
-`checks/registry.json:2-7`), and an external dependency has neither a runtime
+`checks/registry.json::"caught or the contract it uniquely carries, the licensing issue, and a",`), and an external dependency has neither a runtime
 nor a loop position. The gate registry's admission is medium and evidence, and
 a dependency raises no gate.
 
