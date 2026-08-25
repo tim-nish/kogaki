@@ -27,11 +27,17 @@
 # the binding rather than presence, because a citation resolving to whichever
 # copy is found first is not a binding.
 #
-# TWO REFUSING DIRECTIONS, BOTH FIXTURED (acceptance item 2, kogaki#635):
+# THREE REFUSING DIRECTIONS, EACH FIXTURED (acceptance item 2, kogaki#635, plus
+# the third this migration earned):
 #   1. DANGLING  — the path is gone, or the token is absent from it.
 #   2. DUPLICATE — the token occurs more than once, so it identifies nothing.
+#   3. HEADING   — the token is a heading or § number, which §3.1 excludes
+#                  because both renumber.
 # A check that only refused direction 1 would pass a pointer that resolves
-# ambiguously, which is the failure this form exists to remove.
+# ambiguously, which is the failure this form exists to remove. The third was
+# added when this migration violated §3.1's heading exclusion thirteen times
+# under prose that stated it — the count is here because a rule with a carrier
+# and a rule without one are indistinguishable until one is broken.
 #
 # WHAT THIS DOES NOT DO, stated rather than left to be discovered:
 #   * It does not judge whether the anchored text is what the citing sentence
@@ -60,6 +66,18 @@ BARE = re.compile(
     r'(?<![\w@/.-])((?:[\w.-]+/)*[\w.-]+\.(?:md|mjs|js|json|sh|py|yml|yaml|txt))'
     r'(:\d+(?:[-,]\d+)*)')
 HUB_RECEIPT = re.compile(r'[\w.-]+@[0-9a-f]{7,64}\s')
+
+# An ORPHANED CONTINUATION: a backticked bare `:<line>` or `:<line>-<line>` with
+# no path of its own, which reads as an offset into whatever filename the prose
+# named last. PR #645 round 1 found these surviving the migration BY NOT BEING
+# SEEN: the BARE pattern above requires a path, so `at `:2915`` was invisible to
+# the count while being exactly the thing the count claims is gone. A pointer
+# that resolves from no tree at all is strictly worse than one that resolves
+# wrongly, so the acceptance number counts it rather than the regex flattering
+# itself. Kept distinct from BARE in the report, because they are different
+# repairs: one has a target to anchor, the other must first recover which file
+# it ever meant.
+ORPHAN = re.compile(r'`(:\d+(?:[-,]\d+)*)`')
 HUB_PREFIX = ("topics/", "gloss/", "q_a/", "journeys/", "lessons/")
 HUB_FILE = ("LESSONS.md", "GLOSSARY.md", "ELEMENTS.jsonl", "INDEX.md",
             "SWEEP.md", "articles.md")
@@ -114,7 +132,7 @@ def resolve(path, token):
         return False, f"anchor occurs {n} times — DUPLICATE, identifies nothing"
     return True, ""
 
-fails, resolved, bare, hub, outside = [], 0, [], 0, []
+fails, resolved, bare, hub, outside, orphan = [], 0, [], 0, [], []
 for p, txt in walk():
     for i, line in enumerate(txt.splitlines(), 1):
         for m in ANCHOR.finditer(line):
@@ -124,6 +142,8 @@ for p, txt in walk():
                 resolved += 1
             else:
                 fails.append(f"{p}:{i}  {path}::{token[:60]} — {why}")
+        for m in ORPHAN.finditer(line):
+            orphan.append(f"{p}:{i}  {m.group(1)}")
         for m in BARE.finditer(line):
             if is_hub(m.group(1), line, m.start()):
                 hub += 1
@@ -185,7 +205,14 @@ print(f"anchor resolve: {resolved} cross-artifact anchor(s) resolve, each "
       f"this number COUNTED rather than sampled, and it is reported on every "
       f"run so a reintroduction is visible at the next green line rather than "
       f"at the next incident. Out-of-tree pointers, counted and NOT anchorable "
-      f"because this checker cannot open their target: {len(outside)}.")
+      f"because this checker cannot open their target: {len(outside)}. "
+      f"Orphaned bare `:<line>` continuations, which carry no path and resolve "
+      f"from no tree at all: {len(orphan)}.")
+if orphan:
+    print("  orphaned continuations (a line number with no filename of its "
+          "own — the count's blind spot until PR #645 round 1 named it):")
+    for o in orphan:
+        print(f"    {o}")
 if outside:
     print("  out-of-tree pointers (cross-repository references and grammar "
           "examples — named so the exclusion carries a number):")
