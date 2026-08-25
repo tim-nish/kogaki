@@ -5208,7 +5208,7 @@ is the served position on this class rather than a preference of this section:
 
 **That sentence was FALSE when it was written, and making it true is a
 removal** — PR #626 round 2, finding 3. `act`, `gate` and `capture` were live
-CLI entry points (`terrain/terrain.mjs:3546-3548`), bound to no state and named
+CLI entry points (`terrain/terrain.mjs:3550-3552`), bound to no state and named
 in neither `removed_entry_points` nor `non_flow_entry_points` — and they are
 not incidental utilities: they are exactly the carriers behind
 STRAND-SELECTION's declaration-and-capture and TRIM-RATIFICATION's proposal
@@ -5217,8 +5217,14 @@ the executor with **no run record**, which is the precise act this sentence
 claims is unwritable.
 
 The repair is the one the served line above prescribes and the one this section
-already chose for the four subcommands: **they are removed**, not detected and
-not flagged. `workflow.json` v3 accounts for them in `removed_entry_points`,
+already chose for the four subcommands: **they cease to exist as entry points**,
+not detected and not flagged. Read in this repository's **spec-ahead-of-code**
+tense, exactly as the four subcommands above are: the table accounts for them,
+and no code lands in this act — `terrain/terrain.mjs` is untouched here, so the
+three cases are still live in the dispatcher at this head and the sentence this
+paragraph opened by calling false **stays false until the executor lands**. What
+this amendment changes is that the falsity is now named, accounted and derivable
+from the table rather than invisible; §15.8 carries it as uncarried. `workflow.json` v3 accounts for them in `removed_entry_points`,
 and its `entry_point_accounting` note carries the property that actually
 matters — **every dispatcher case appears in exactly one of the four maps**, so
 the next entry point is covered by the totality rather than by having been
@@ -5383,6 +5389,15 @@ record. Stated so their survival reads as a decision rather than an oversight.
   checker exists. The derived coverage figure of §15.7 is in the same tense: its
   **rule** is executable over the array, and **no member executes it today**.
   Stated here rather than left for a third review round to find.
+
+- **§15.5's unwritability claim is not true at this head.** `act`, `gate` and
+  `capture` are still live dispatcher cases (`terrain/terrain.mjs:3550-3552`);
+  their removal is table-side only in this act, so *"there is no callable
+  surface by which an act can happen out of order"* is a property the executor
+  will make true and not one the tree holds today. PR #641 round 1, should 3 —
+  round 2 of PR #626 found the sentence false, and this amendment rewrote its
+  justification without landing the code, so it is stated here rather than left
+  for a later reader to re-find.
 
 - **Ratification of a table change is a human act.** Nothing denies an edit to
   `workflow.json` that no issue licensed; the `version` and `licensed_by`
