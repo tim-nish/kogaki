@@ -2754,7 +2754,8 @@ const GROUP = "testing × architecture";
 // failure telling it a specimen is owed, instead of a suite that quietly still
 // says two.
 const covered = Object.keys(G.surfaces || {});
-const SPECIMENS = { cotag_screen: "cotag-screen.txt", full_report: "full-report.md" };
+const SPECIMENS = { cotag_screen: "cotag-screen.txt", full_report: "full-report.md",
+                    tag_screen: "tag-screen.txt", tag_row_view: "tag-row-view.txt" };
 for (const s of covered) {
   if (!SPECIMENS[s]) {
     fails.push(`the grammar covers ${s} and ${DIR} holds no specimen for it — §14.5's count is ONE PER COVERED SURFACE, so covering a surface owes a specimen in the same sitting`);
@@ -2767,6 +2768,7 @@ for (const f of present) {
   }
 }
 
+let paired = 0;
 const dir = mkdtempSync(join(tmpdir(), "terrain-golden-"));
 try {
   const pin = JSON.parse(readFileSync(SURVEY, "utf8")).pin;
@@ -2822,6 +2824,8 @@ try {
   };
   if (md.length !== 1) fails.push(`expected exactly one rendered report, found ${md.length}`);
 
+  paired = Object.keys(SPECIMENS).filter((s) => actual[s] !== null && actual[s] !== undefined).length;
+
   for (const [surface, file] of Object.entries(SPECIMENS)) {
     const path = join(DIR, file);
     const specimen = readFileSync(path, "utf8");
@@ -2856,9 +2860,14 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log(`golden specimens: ${Object.keys(SPECIMENS).length}/${Object.keys(SPECIMENS).length} covered surfaces carry one, `
-  + "each asserted TWICE — conformant against the grammar (by the emitters' own predicate), and byte-equal to the renderer's "
-  + "output over the committed input. The count is read from the grammar, so covering a third surface fails here until its "
+console.log(`golden specimens: ${Object.keys(SPECIMENS).length}/${Object.keys(SPECIMENS).length} covered surfaces carry one; `
+  + `${paired} of them asserted TWICE and ${Object.keys(SPECIMENS).length - paired} ONCE. `
+  + "The two assertions are: conformant against the grammar (by the emitters' own predicate), and byte-equal to the renderer's "
+  + "output over the committed input. THE SPLIT IS REPORTED RATHER THAN AVERAGED (kogaki#636): the second assertion runs only "
+  + "where a renderer writes that surface's artifact today, and the screen-1 surfaces have none — the tag listing goes to "
+  + "stdout from cmdSurvey and nothing writes it to reports/Screen.md until §15's executor lands. A green line claiming TWICE "
+  + "for a surface asserted ONCE is the figure-asserted-rather-than-derived defect this issue was filed over, one layer down. "
+  + "The count is read from the grammar, so covering a third surface fails here until its "
   + "specimen exists, and a file matching no covered surface fails as corpus growth (AC6). On disagreement the SPECIMEN is "
   + "reported stale and the grammar stands (AC5). Hand-authored, not generated — the reason is recorded in the README beside them.");
 JS
