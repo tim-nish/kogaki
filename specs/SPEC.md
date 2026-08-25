@@ -469,9 +469,16 @@ under exactly this exactly-once literal rule. Three consequences bind:
   tokens are prose carrying `(`, `)`, `:` and `—` freely.
 
 **The carrier is `checks/check-anchor-resolve.sh`**, which replaces
-`check-spec-pin-resolve.sh` outright; it refuses a **dangling** anchor and a
-**duplicated** anchor, and both refusing directions are fixtured. Cited here,
-restated nowhere.
+`check-spec-pin-resolve.sh` outright; it refuses a **dangling** anchor, a
+**duplicated** anchor, and an anchor that is itself a **heading** — three
+refusing directions, each fixtured. Cited here, restated nowhere.
+
+**The third direction was earned rather than designed.** The heading exclusion
+two paragraphs up was prose with no carrier, and the migration that introduced
+this whole form violated it **thirteen times** before anything said so — a
+heading is the most distinctive line in its neighbourhood, so it is the first
+unique literal any anchor search returns. Recorded because the alternative
+reading is that the guard was foreseen.
 
 **Out of scope, stated so the migration does not overreach:** the hub-facing
 receipt grammar — `<repo>@<sha> <file>:<line>` in consults, gate declarations
@@ -4098,7 +4105,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      mode, one per `--args`, and the `query:` line may not hold a serialized
      tool argument** (owner selection 2026-08-07, kogaki#160 finding 4).
 
-     ``policy/consultation-map.md::> "… Invariant 2: the map triggers CONSULTATION and never encodes verdicts,`@a3b635d` already defines the field:
+     `policy/consultation-map.md::miss, and still records the postmortem — and the ground is this map's founding` already defines the field:
 
      > **The question, verbatim** — the query that would have found the served
      > line. This is the field the map accumulates: situation-specific keys for

@@ -174,8 +174,9 @@ the survey — the premise §14.3 rests on. Assigning an `L<n>` only when a
 suggestion is *taken* was declined too: the owner needs a token *while
 choosing*, and choosing among several is exactly when one is needed. The answer
 is implemented and merged: the space is declared at `NEIGHBOR_ID`
-(`terrain/terrain.mjs::// the other again.`), minted over the sorted output at `:2915`, and
-rendered with its disjointness statement at `:3152` (kogaki#367).
+(`terrain/terrain.mjs::// the other again.`), minted over the sorted output at
+`terrain/terrain.mjs::// equality join returns NO batch-mates for every Grain in them and presents`, and rendered with its disjointness statement at
+`terrain/terrain.mjs::// ORDER IS THE SORT, NEVER A RANK (§13.3). The bound may change HOW MANY` (kogaki#367).
 The two other tokens in the file — `terrain-family-split-carrier` and
 `terrain-subdivision-offering-verdict` — are filled, checked at their sites
 rather than assumed.
@@ -1232,7 +1233,7 @@ the same members, served grouped instead of served twice — every Lesson ID
 still reaches the screen inside at least one Group, which is exactly what
 §2.1's cover counted in placements already guarantees and what
 `COTAG_COVER_INCOMPLETE` already refuses on
-(``terrain/terrain.mjs::// (SPEC.md §9, v5, kogaki#147): the tag name, and the tag's Lesson count. A`, 583-586`). Nothing that reaches the owner is
+(`terrain/terrain.mjs::for (const [slug, entry] of parseGlossShard(resp)) if (!out.has(slug)) out.set(slug, entry);`). Nothing that reaches the owner is
 smaller than what exists, so §2.3's boundary is untouched. The dump's defect
 was never that it showed too much: it is that a flat list beside a count
 table lets **no image of a possible Thesis form**, which is the purpose §6
