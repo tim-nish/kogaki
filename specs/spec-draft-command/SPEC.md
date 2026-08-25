@@ -18,7 +18,7 @@ realizes are **owed** rather than covered:
 > v1**: this spec stops at the Brief's structure, and both live downstream of
 > it."
 
-`specs/spec-draft-pipeline/SPEC.md::Draft creation driven by questions in a UI — and item 4 — the CanonicalDraft`
+`specs/spec-draft-pipeline/SPEC.md:343-347`
 
 Sections for a second command would sit under a `Governs:` line that does not
 cover them. The cost of the alternative is stated rather than waved away: this
@@ -32,9 +32,9 @@ own. Whitelist items 3 and 4 are what `/draft` realizes; port manifest items 3
 and 4 are the proposal contract and the gate carrier, which it does not.
 The two are separately addressable and are cited separately: the port manifest is
 `specs/SPEC.md` §5, and the whitelist is kogaki#127's, recorded at
-`specs/spec-draft-pipeline/SPEC.md::is this section's own is named there and nowhere else — the artifact` and enumerated at `:290-295`.
+`specs/spec-draft-pipeline/SPEC.md:234` and enumerated at `:290-295`.
 
-**The first cut of this clause attributed the distinction to `specs/SPEC.md::terms ("nothing here may be read as a general WA inheritance — not for`,
+**The first cut of this clause attributed the distinction to `specs/SPEC.md:4721-4725`,
 and those lines do not carry it.** §4.5.3 there distinguishes the whitelist from
 **§4.5's declared design baseline**, not from the port manifest — a true and
 adjacent distinction whose reasoning this clause borrowed and re-pointed at a
@@ -231,7 +231,7 @@ thin:
 > floor, and no provenance map — the citation resolve check over the draft's
 > own cites is the sole mechanical instrument on grounding."
 
-`specs/SPEC.md::scope is the author's judgment and is attributed as such (scope travels with`
+`specs/SPEC.md:424-430`
 
 **No content conformance is checked mechanically beyond it.** When a Draft
 comes out strange the first suspect is recorded and is not this command: every

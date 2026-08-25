@@ -266,7 +266,7 @@ record:
 > structure composed from the Brief's own state, plain register with
 > round-trip concessions) — the design/realization boundary test."
 
-`specs/SPEC.md::2. **The Brief and its four gates** (thesis, journey incorporation,`
+`specs/SPEC.md:4779-4781`
 
 What is admitted there is **four gates**, which is a contract. The design
 that satisfies them is authored **here, fresh**, and this spec is not a port
@@ -280,7 +280,7 @@ already, and it names this subsystem by name:
 > other subsystem. A sitting citing this section for a non-Terrain design
 > question is misusing it."
 
-`specs/spec-terrain/SPEC.md::separate Draft and Brief completely from WA, and nothing here may be read as`
+`specs/spec-terrain/SPEC.md:626-631`
 
 So §2.4's WA baseline does not reach this spec, and no clause below may be
 read as inherited. The owner's inheritance whitelist for this pipeline
@@ -1138,7 +1138,7 @@ writes three of them (`sequence`, `strand_coverage`, the §5.2 ledger);
 remaining three — `reader_start`, `reader_target`, `opening_question` — were
 written by **no runtime at all**. Measured 2026-08-19: grepping all four
 `brief/*.mjs` for the three field names returns **three hits, every one of
-them in `brief/brief.mjs::// THE CAPTIONS ARE READ FROM ONE TABLE, NOT WRITTEN HERE (kogaki#526). Every` and every one a DECLARATION rather than a
+them in `brief/brief.mjs:93-95` and every one a DECLARATION rather than a
 write** — the `FIELDS` slot table that renders each name as
 `*(awaiting composition)*`. No assignment, no `replaceSlot` call and no fill
 path names any of the three. The reading is therefore **zero writers beside
@@ -1208,7 +1208,7 @@ disciplinary one:
 
 **The runtime binding has a carrier, and it has LANDED.** This clause binds a
 refusal in `adopt-candidate`; the act that landed it is **PR #532, merged as
-`0d008c8`**, which also reconciled `brief/brief.mjs::// THE CAPTIONS ARE READ FROM ONE TABLE, NOT WRITTEN HERE (kogaki#526). Every` with the
+`0d008c8`**, which also reconciled `brief/brief.mjs:95` with the
 `opening_question` clause §5.1 carries. The spec's own v10 precedent
 (kogaki#501) refuses the shape where an obligation's carrier is a mention in a
 report rather than a named act, and that refusal binds this amendment too — so
@@ -1369,7 +1369,7 @@ and says so:
 > at the owner's drafts destination, and **nothing in this repository creates
 > that file.**"
 
-`specs/spec-style-contract/SPEC.md::contract is absent, malformed, or unauthored. It binds **no authored clause**:`
+`specs/spec-style-contract/SPEC.md:42-45`
 
 A rule about what **this repository's** composers may emit is not a clause of
 the owner's style contract. §4's three clauses — the operational definition, the

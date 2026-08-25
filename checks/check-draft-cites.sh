@@ -3,7 +3,7 @@
 # (SPEC-draft-command v1 §6, kogaki#573; story 1.81, kogaki#588).
 #
 # THE SOLE MECHANICAL INSTRUMENT ON GROUNDING — §6's words, and the judge's
-# output quotes the guarantee split (`specs/SPEC.md::scope is the author's judgment and is attributed as such (scope travels with`) so a reader learns
+# output quotes the guarantee split (specs/SPEC.md:424-430) so a reader learns
 # the boundary from the instrument. The cases live with the judge in
 # `draft/cite-check.mjs --self-test` (seam-free: every verdict constructed
 # over injected served lines); this wrapper runs that pass, then the LIVE

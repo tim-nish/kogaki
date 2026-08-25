@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The gate carrier, made checkable (manifest item 4, `specs/SPEC.md::> sensitivity of its sources unless an explicit human-held gate deliberately`;
+# The gate carrier, made checkable (manifest item 4, specs/SPEC.md:99-101;
 # kogaki#16, umbrella kogaki#14).
 #
 # Validates the declared gate registry (gates/registry.json) and every gate
@@ -393,7 +393,7 @@ if gates:
 else:
     print("registry: 0 declared gates in gates/registry.json — none yet; the "
           "carrier is ported ahead of its first consumer (Terrain, "
-          "`specs/SPEC.md::**Repository-wide, and sited here rather than in either consuming spec, because`)")
+          "specs/SPEC.md:109-112)")
     print("coverage: 0/0 — vacuous by construction, stated rather than omitted; "
           "the registry is what would make the fraction mean anything")
 print(f"captures: {len(captures)} *.gate-capture.json, {capture_rows} row(s), "

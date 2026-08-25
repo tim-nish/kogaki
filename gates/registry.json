@@ -1,14 +1,14 @@
 {
   "note": [
     "The gate registry — the enumeration against which gate coverage is",
-    "measured (manifest item 4, `specs/SPEC.md::> sensitivity of its sources unless an explicit human-held gate deliberately`; kogaki#16).",
+    "measured (manifest item 4, specs/SPEC.md:99-101; kogaki#16).",
     "An unregistered gate is the uncovered-by-default shape, so this file",
     "is what makes a coverage claim mean anything: the number the check",
     "prints is a fraction OF this list and of nothing else.",
     "Deliberately NOT checks/registry.json, and the argument is mechanical",
     "before it is philosophical: every entry there names a `file` that must",
     "exist under checks/, and check-registry-conformance.sh fails any entry",
-    "that does not (`checks/check-registry-conformance.sh::Efficacy validation (kogaki#243): every admission record additionally`). A gate is",
+    "that does not (checks/check-registry-conformance.sh:21-27). A gate is",
     "not a file in checks/, so a gate row is a dangling entry by",
     "construction. The admission record is check-loop economics too — tier,",
     "runtime_ms, removal_signal — and a gate has no runtime and no loop",
@@ -23,7 +23,7 @@
   "gates": [
     {
       "id": "terrain-strand-selection",
-      "raised_by": "terrain/terrain.mjs gate + .claude/skills/terrain — the selection screen (`specs/spec-terrain/SPEC.md::ruling is propagated to the clauses it silently invalidated.** §14.4.1 replaced`; kogaki#17)",
+      "raised_by": "terrain/terrain.mjs gate + .claude/skills/terrain — the selection screen (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which Strand does the article take as material?",
@@ -39,7 +39,7 @@
     },
     {
       "id": "terrain-trim-ratification",
-      "raised_by": "terrain/terrain.mjs gate --proposal + .claude/skills/terrain — a rank/trim/hide proposal record presented for ratification (`specs/spec-terrain/SPEC.md::ruling is propagated to the clauses it silently invalidated.** §14.4.1 replaced`; kogaki#17)",
+      "raised_by": "terrain/terrain.mjs gate --proposal + .claude/skills/terrain — a rank/trim/hide proposal record presented for ratification (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
       "host": "claude-code",
       "medium": "selector",
       "question": "The machine proposes narrowing the candidate set — apply it?",

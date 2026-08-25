@@ -47,11 +47,15 @@
 # wrong one, and the instrument reports green over exactly the defect the form
 # was built to end.
 #
-# The migration produced 39 of them in one act, and the cause was ORDERING
-# rather than judgment: §3.1 was inserted into specs/SPEC.md (57 lines) BEFORE
-# the migrator ran, so every pin below the insertion resolved ~50 lines low and
-# anchored to text the pin never named. Several of those pins were CORRECT at
-# base and were broken by the very change that claimed to be repairing them.
+# A bulk migration produced 39 of them in one act (PRs #645/#646), and the cause
+# was ORDERING rather than judgment: §3.1 was inserted into specs/SPEC.md (57
+# lines) BEFORE the migrator ran, so every pin below the insertion resolved ~50
+# lines low and anchored to text the pin never named. Several of those pins were
+# CORRECT at base and were broken by the very change claiming to repair them.
+# THAT MIGRATION IS NOT IN THIS DIFF: it was reverted and the pointers left as
+# the closed set §3.1 names, because three review rounds each found defects of
+# this shape and the per-item correctness a mechanical rewrite cannot establish
+# is exactly what the form is for.
 #
 # This checker cannot see the class by construction: a laundered anchor
 # satisfies exactly-once, is not a heading, and its target exists. Detection
@@ -70,9 +74,13 @@
 #     <file>:<line>` in consults, gate declarations and issue receipts. That is
 #     the hub's boundary field (specs/SPEC.md §3.1, Out of scope), and a line
 #     number there is correct until Gukan rules otherwise.
-#   * It does not read a bare `:<line>` as a failure by itself. The
-#     no-bare-pointers property is a COUNT taken at migration and re-taken
-#     here, reported below.
+#   * It does not read a bare `:<line>` as a failure by itself, and that is
+#     deliberate rather than provisional. The existing pointers are a CLOSED,
+#     ENUMERATED SET (§3.1) draining by on-touch migration and by bounded
+#     per-item passes where a human reads each pointer's sentence — never
+#     mechanically, because a mechanical rewrite LAUNDERS a stale pin into a
+#     cleanly-resolving wrong anchor this checker can never raise. Failing on
+#     the count would force exactly that rewrite.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 

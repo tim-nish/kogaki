@@ -14,7 +14,7 @@ spec by this repository's own carrier —
 > "The consumer half of the seam, as one install (tsurezure-gateway#78;
 > spec: `product-lab specs/tsurezure-client-kit.md`, RATIFIED 2026-08-04)."
 
-`policy/kit/README.md::The consumer half of the seam, as one install (tsurezure-gateway#78;`
+`policy/kit/README.md:3-4`
 
 Kogaki holds the kit on an **interim** basis and **cannot write to the hub**.
 The seam is read-only — "insights are staged as proposals through the hub's own
@@ -24,7 +24,7 @@ it had nowhere kogaki-side either. That absence is the 6a finding both #325 and
 #326 produced independently: the invariant was **implicit**, held in
 `policy/kit/README.md`'s prose and in an install script.
 
-`specs/SPEC.md::hook, but a PR is an event, so receipt-absence over a diff is a computable` (§4.5.1 clause 2) makes the consequence exact — a
+`specs/SPEC.md:3487-3494` (§4.5.1 clause 2) makes the consequence exact — a
 subject with no declared baseline has a **fresh** design — and clause 1 puts
 the declaration "in the spec that owns its subject". This is that spec. Its
 finding-aid row is added to `specs/SPEC.md` §4.5.2 in the same amendment, per
@@ -148,7 +148,7 @@ because nothing a successor loads at founding carried it). A successor's
 
 The digest is assembled by the kit over reads the gateway **already serves** —
 `gloss_index`, `surface_names`, `glossary_entry`, and for element 3
-`policy_lookup` (`policy/CAPABILITIES.md::surface the miss with the question, never widen the read. A served miss is`) — through the existing transport
+`policy_lookup` (`policy/CAPABILITIES.md:11-20`) — through the existing transport
 `policy/kit/bin/gateway-query.mjs`. **No gateway tool is added and no gateway
 invariant is touched**; the server stays read-only and stays a server.
 
@@ -190,7 +190,7 @@ specification rather than wasted work.
 
 ### 3.3 The digest is repo-visible and NOT committed, and the two are separate decisions
 
-`specs/SPEC.md::So this section **moves** artifacts and **grants no publication**. A derivation` (§2.5.2) binds this, and both halves are load-bearing:
+`specs/SPEC.md:90-111` (§2.5.2) binds this, and both halves are load-bearing:
 
 - **Repo-visible** (clause 1 of §2.5). The digest is read by the owner and by
   every session in the working tree; its lifetime is the owner's, not a run's
@@ -304,7 +304,7 @@ The declined alternative is a **CI cron in the consumer repo**, and it is dead
 on two independent mechanical facts rather than on taste: the digest is
 gitignored (§3.3), so a CI job has nothing to commit; and the gateway's
 location is machine-local configuration by contract — "never a committed path
-and never directory adjacency" (`policy/kit/README.md::when a second consumer installs it. The gateway's location is **machine-local`) — so CI cannot
+and never directory adjacency" (`policy/kit/README.md:21-24`) — so CI cannot
 reach the substrate at all. The general position is served: a trigger binds to
 an act that already happens, never a schedule.
 

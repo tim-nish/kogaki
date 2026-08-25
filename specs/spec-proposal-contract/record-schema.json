@@ -6,7 +6,7 @@
     "restating them — this file is the single carrier, so amending the",
     "contract is one edit and never a two-copy divergence.",
     "The act lists are Terrain's second-proposer enumeration, inherited",
-    "unamended from `specs/spec-terrain/SPEC.md::positive limb** and had just had its object replaced. **§2.4's positive limb`."
+    "unamended from specs/spec-terrain/SPEC.md:80-81."
   ],
   "version": "1",
   "kinds": ["proposal", "report"],

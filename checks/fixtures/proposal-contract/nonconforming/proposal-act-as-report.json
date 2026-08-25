@@ -2,7 +2,7 @@
   "id": "cluster-by-similarity-unclassified",
   "kind": "report",
   "act": "hide",
-  "reason": "clustering is in neither the navigation list nor the proposal list of `specs/spec-terrain/SPEC.md::positive limb** and had just had its object replaced. **§2.4's positive limb` — surfaced rather than classified",
+  "reason": "clustering is in neither the navigation list nor the proposal list of specs/spec-terrain/SPEC.md:80-81 — surfaced rather than classified",
   "narrows": false,
   "_expect": "ACT_PROPOSAL_AS_REPORT"
 }

@@ -4,8 +4,7 @@
 //
 // THE SOLE MECHANICAL INSTRUMENT ON GROUNDING, and the check's own output
 // states the boundary it stops at, quoting the guarantee split it rests on
-// (`specs/SPEC.md::Kogaki guarantees citation integrity`) — a reader learns
-// the boundary from the instrument.
+// (specs/SPEC.md:424-430) — a reader learns the boundary from the instrument.
 // It asserts nothing about whether a claim is true, whether an interpretation
 // is valid, or whether a scope was widened: those are the author's judgment,
 // attributed as such, and Gukan's facts are Gukan's.
@@ -45,22 +44,16 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..");
 
-// The guarantee split, quoted in the output per AC2. The source is addressed
-// by ANCHOR rather than by line number (specs/SPEC.md §3.1, kogaki#635):
-// `specs/SPEC.md::Kogaki guarantees citation integrity` — so an edit above it
-// cannot silently repoint this quotation, which a line number could and did.
-// This file still sits outside the resolver's corpus — checks/check-anchor-
-// resolve.sh walks specs/, checks/, policy/ and gates/, the four roots
-// kogaki#635's acceptance names — so the anchor here is correct by
-// construction and unasserted by any instrument; that it resolves is review's
-// to check. Stated rather than left: an uncovered root is a bound on the
-// count, not a claim that nothing outside it points anywhere.
+// The guarantee split, quoted in the output per AC2. Quoted from
+// specs/SPEC.md:424-430 by hand and verified by no instrument — this file is
+// outside spec-pin-resolve's corpus (specs/** only, bounded on purpose), so
+// the pointer's currency is review's to check, not asserted here.
 export const GUARANTEE_SPLIT =
   'the boundary this instrument stops at — "Kogaki guarantees citation ' +
   "integrity — a quoted claim was quoted, and its pin resolves. Gukan " +
   "guarantees the facts. … There is no Fact unit, no fact floor, and no " +
   "provenance map — the citation resolve check over the draft's own cites " +
-  'is the sole mechanical instrument on grounding." (`specs/SPEC.md::Kogaki guarantees citation integrity`). ' +
+  'is the sole mechanical instrument on grounding." (specs/SPEC.md:424-430). ' +
   "Nothing here judges whether a claim is true, an interpretation valid, or " +
   "a scope widened — those are the author's judgment, attributed as such.";
 

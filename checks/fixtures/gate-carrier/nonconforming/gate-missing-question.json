@@ -1,6 +1,6 @@
 {
   "id": "terrain-direction",
-  "raised_by": "`specs/spec-terrain/SPEC.md::ruling is propagated to the clauses it silently invalidated.** §14.4.1 replaced` — the owner's chosen direction",
+  "raised_by": "specs/spec-terrain/SPEC.md:76-86 — the owner's chosen direction",
   "host": "claude-code",
   "medium": "selector",
   "options": [
