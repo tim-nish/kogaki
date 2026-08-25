@@ -266,7 +266,7 @@ record:
 > structure composed from the Brief's own state, plain register with
 > round-trip concessions) — the design/realization boundary test."
 
-`specs/SPEC.md::and registered in the owning spec, never in a central register here. A`
+`specs/SPEC.md::2. **The Brief and its four gates** (thesis, journey incorporation,`
 
 What is admitted there is **four gates**, which is a contract. The design
 that satisfies them is authored **here, fresh**, and this spec is not a port

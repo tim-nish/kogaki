@@ -174,9 +174,9 @@ the survey — the premise §14.3 rests on. Assigning an `L<n>` only when a
 suggestion is *taken* was declined too: the owner needs a token *while
 choosing*, and choosing among several is exactly when one is needed. The answer
 is implemented and merged: the space is declared at `NEIGHBOR_ID`
-(`terrain/terrain.mjs::// the other again.`), minted over the sorted output at
-`terrain/terrain.mjs::// equality join returns NO batch-mates for every Grain in them and presents`, and rendered with its disjointness statement at
-`terrain/terrain.mjs::// ORDER IS THE SORT, NEVER A RANK (§13.3). The bound may change HOW MANY` (kogaki#367).
+(`terrain/terrain.mjs::case "capture": cmdCapture(args); break;`), minted over the sorted output at
+`terrain/terrain.mjs::// (SPEC.md §9, v5, kogaki#147): the tag name, and the tag's Lesson count. A`, and rendered with its disjointness statement at
+`terrain/terrain.mjs::case "capture": cmdCapture(args); break;` (kogaki#367).
 The two other tokens in the file — `terrain-family-split-carrier` and
 `terrain-subdivision-offering-verdict` — are filled, checked at their sites
 rather than assumed.
@@ -1096,7 +1096,7 @@ GroupClaim appears anywhere and no Lesson IDs are visible *grouped*.** The
 composition defect is that v2's machinery is unreached, not that it is wrong
 — `cotagGroups` places every member (`terrain/terrain.mjs::// Rendering. The figure takes the first line here as a PRESENTATION choice;`) and
 `cmdCotags` prints each group's *figure* while emitting member IDs **only
-under `--group`** (`terrain/terrain.mjs::for (const [slug, entry] of parseGlossShard(resp)) if (!out.has(slug)) out.set(slug, entry);`); `claim`
+under `--group`** (`terrain/terrain.mjs::// which is where the contract now lives so that neither path can drift from`); `claim`
 (`terrain/terrain.mjs::say("Gloss headlines are tag-scoped (one shard per viewed tag) — name a --tag to read them. No whole-corpus prefetch is taken to fill this in (SPEC.md §9).");`) and `subdivide` compose the missing halves and
 nothing calls them, the skill's own flow being survey → view → narrow →
 select with no co-tag step at all (`.claude/skills/terrain/SKILL.md`).

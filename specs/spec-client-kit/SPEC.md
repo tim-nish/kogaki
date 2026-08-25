@@ -24,7 +24,7 @@ it had nowhere kogaki-side either. That absence is the 6a finding both #325 and
 #326 produced independently: the invariant was **implicit**, held in
 `policy/kit/README.md`'s prose and in an install script.
 
-`specs/SPEC.md::classification would be a string match on error prose, which is the transient-` (§4.5.1 clause 2) makes the consequence exact — a
+`specs/SPEC.md::hook, but a PR is an event, so receipt-absence over a diff is a computable` (§4.5.1 clause 2) makes the consequence exact — a
 subject with no declared baseline has a **fresh** design — and clause 1 puts
 the declaration "in the spec that owns its subject". This is that spec. Its
 finding-aid row is added to `specs/SPEC.md` §4.5.2 in the same amendment, per

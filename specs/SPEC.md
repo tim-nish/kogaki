@@ -480,6 +480,23 @@ heading is the most distinctive line in its neighbourhood, so it is the first
 unique literal any anchor search returns. Recorded because the alternative
 reading is that the guard was foreseen.
 
+**A MIGRATION RESOLVES EACH PIN AGAINST THE TREE THE PIN WAS WRITTEN AGAINST,
+never the tree it is editing.** This is the anchor form's own founding defect,
+committed by the migration that introduced it (PR #645 round 2): this section
+was inserted into `specs/SPEC.md` first, adding 57 lines, and the migrator then
+read every pin against the shifted file — so 39 anchors were minted ~50 lines
+low, several of them from pins that had been **correct** until this very
+insertion moved them.
+
+**The result is worse than the defect it replaced, which is why the rule is
+stated rather than assumed.** An anchor minted from a stale pin **resolves
+cleanly**, so `check-anchor-resolve.sh` can never raise it: a detectably wrong
+pointer becomes an undetectably wrong one, and the instrument reports green over
+exactly the class it exists to end. The checker cannot see this by construction
+— a laundered anchor is unique, is not a heading, and its target exists — so the
+guard is at the **mint**, and review remains the only reader of whether an
+anchor's text is what its sentence names.
+
 **Out of scope, stated so the migration does not overreach:** the hub-facing
 receipt grammar — `<repo>@<sha> <file>:<line>` in consults, gate declarations
 and issue receipts — is the **hub's** boundary field and is untouched. It
@@ -4105,7 +4122,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      mode, one per `--args`, and the `query:` line may not hold a serialized
      tool argument** (owner selection 2026-08-07, kogaki#160 finding 4).
 
-     `policy/consultation-map.md::miss, and still records the postmortem — and the ground is this map's founding` already defines the field:
+     `policy/consultation-map.md::**The question, verbatim** — the query that would have found the served` already defines the field:
 
      > **The question, verbatim** — the query that would have found the served
      > line. This is the field the map accumulates: situation-specific keys for

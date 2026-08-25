@@ -34,7 +34,7 @@ The two are separately addressable and are cited separately: the port manifest i
 `specs/SPEC.md` §5, and the whitelist is kogaki#127's, recorded at
 `specs/spec-draft-pipeline/SPEC.md::is this section's own is named there and nowhere else — the artifact` and enumerated at `:290-295`.
 
-**The first cut of this clause attributed the distinction to `specs/SPEC.md::**Kogaki's spec states which existing design it inherits as its default —`,
+**The first cut of this clause attributed the distinction to `specs/SPEC.md::terms ("nothing here may be read as a general WA inheritance — not for`,
 and those lines do not carry it.** §4.5.3 there distinguishes the whitelist from
 **§4.5's declared design baseline**, not from the port manifest — a true and
 adjacent distinction whose reasoning this clause borrowed and re-pointed at a

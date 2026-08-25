@@ -9,7 +9,7 @@ record:
 > "3. **The owner-facing proposal contract** (Where/Why/effect-stating
 > labels; machine-proposed options plus free text; payload capture)."
 
-`specs/SPEC.md::three named seam-side instruments fail differently, so merging them`
+`specs/SPEC.md::3. **The owner-facing proposal contract** (Where/Why/effect-stating labels;`
 
 Ported **with** its contract, ahead of Terrain, because admitting a subsystem
 without its contract is the manifest's own named failure mode

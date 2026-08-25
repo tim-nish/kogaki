@@ -39,9 +39,33 @@
 # under prose that stated it — the count is here because a rule with a carrier
 # and a rule without one are indistinguishable until one is broken.
 #
+# THE LAUNDERING CLASS, and why the migration that introduced this form is the
+# reason the class has a name (PR #645 round 2). An anchor minted from a stale
+# pin by reading the pin's CURRENT neighbourhood does not repair the pointer —
+# it FREEZES the error into a form that resolves cleanly, so this checker will
+# never raise it again. A detectably-wrong pointer becomes an undetectably
+# wrong one, and the instrument reports green over exactly the defect the form
+# was built to end.
+#
+# The migration produced 39 of them in one act, and the cause was ORDERING
+# rather than judgment: §3.1 was inserted into specs/SPEC.md (57 lines) BEFORE
+# the migrator ran, so every pin below the insertion resolved ~50 lines low and
+# anchored to text the pin never named. Several of those pins were CORRECT at
+# base and were broken by the very change that claimed to be repairing them.
+#
+# This checker cannot see the class by construction: a laundered anchor
+# satisfies exactly-once, is not a heading, and its target exists. Detection
+# lives at the MINT — resolve a pin against the tree the pin was WRITTEN
+# against, never the tree you are editing — which is why the guard below is a
+# mint-time discipline recorded here rather than a rule this file enforces.
+# Stated because a class named only in a merged commit message is a class the
+# next migration meets fresh.
+#
 # WHAT THIS DOES NOT DO, stated rather than left to be discovered:
 #   * It does not judge whether the anchored text is what the citing sentence
-#     MEANS. That is review's, exactly as it was under the retired member.
+#     MEANS. That is review's, exactly as it was under the retired member —
+#     and the laundering class above is precisely why that limit is load-
+#     bearing rather than a caveat: every laundered anchor passes here.
 #   * It does not touch the HUB-FACING receipt grammar — `<repo>@<sha>
 #     <file>:<line>` in consults, gate declarations and issue receipts. That is
 #     the hub's boundary field (specs/SPEC.md §3.1, Out of scope), and a line
