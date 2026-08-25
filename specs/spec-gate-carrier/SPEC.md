@@ -21,16 +21,16 @@ record:
 > payload/answer capture) — with rendering through the question UI as
 > contract, not discretion."
 
-`specs/SPEC.md:4784-4786`
+`specs/SPEC.md::Which subjects have declared a baseline, and where the declaration lives.`
 
 Ported **with** its contract, ahead of Terrain, on the same ground as item 3
-(`specs/SPEC.md:113-121`). Authored consumer-side, in the same shape as
-`specs/spec-proposal-contract/SPEC.md` and `specs/spec-terrain/SPEC.md:6-15`.
+(`specs/SPEC.md::**The rule.** Where a command asks the owner to decide against a rendering, that`). Authored consumer-side, in the same shape as
+`specs/spec-proposal-contract/SPEC.md` and `specs/spec-terrain/SPEC.md::carriers behind TRIM-RATIFICATION and STRAND-SELECTION — are **removed**, which`.
 
 ## 1. What this contract binds, and what it does not
 
 Item 3 binds a **record** and by its own decision delivers no rendering
-(`specs/spec-proposal-contract/SPEC.md:137-139` puts the medium binding, the
+(`specs/spec-proposal-contract/SPEC.md::are manifest item 4, kogaki#16, and building them here would be item 3` puts the medium binding, the
 gate registry and `AskUserQuestion` evidence here). This spec is the other
 half: it binds the **gate** — the moment a decision reaches the owner — its
 declared enumeration, its medium, and the evidence its answer leaves behind.
@@ -50,16 +50,16 @@ happened to remember.
 **It is a separate artifact from `checks/registry.json`, and the argument is
 mechanical before it is philosophical.** Every entry in the check registry
 names a `file` that must exist under `checks/`, and
-`checks/check-registry-conformance.sh:21-27` fails any entry that does not —
+`checks/check-registry-conformance.sh::Efficacy validation (kogaki#243): every admission record additionally` fails any entry that does not —
 a gate row would be a dangling entry by construction. The admission record
 there is check-loop economics (`tier`, `runtime_ms`, `removal_signal`;
-`checks/registry.json:2-7`) and a gate has neither a runtime nor a loop
+`checks/registry.json::"caught or the contract it uniquely carries, the licensing issue, and a",`) and a gate has neither a runtime nor a loop
 position, so merging would mean fabricating those fields or making them
 optional — and an optional admission field is precisely the gap kogaki#6 was
 filed to close. Same coverage discipline, different admission economics, so
 two artifacts. The registry is currently **empty**, and the check renders
 that zero explicitly rather than passing silently: the carrier ports ahead of
-its first consumer, Terrain (`specs/SPEC.md:109-112`).
+its first consumer, Terrain (`specs/SPEC.md::**Repository-wide, and sited here rather than in either consuming spec, because`).
 
 The machine-readable shape is `specs/spec-gate-carrier/gate-schema.json`.
 `checks/check-gate-carrier.sh` reads its field lists rather than restating
@@ -92,7 +92,7 @@ contract rather than discretion:
 
 > "with rendering through the question UI as contract, not discretion"
 
-`specs/SPEC.md:4784-4786` — **repointed at v2.** This clause's first cut carried
+`specs/SPEC.md::Which subjects have declared a baseline, and where the declaration lives.` — **repointed at v2.** This clause's first cut carried
 `:99-101`, which is where the file's own header block still cites the item and
 which resolves at this head to unrelated text on derived-artifact sensitivity.
 The quote is the whole ground §3.1 rests on, and a pin that looks sound while
@@ -118,7 +118,7 @@ pins that way and says where they go instead:
 > machine-facing and belong in the receipt, whose destinations are unchanged —
 > PR bodies, issue bodies, run records, spec amendments. …"
 
-`policy/kit/skills/consult-first.md:97-101` (the kit SOURCE, which
+`policy/kit/skills/consult-first.md::PR bodies, issue bodies, run records, spec amendments. One exception is not an` (the kit SOURCE, which
 `policy/kit/install.sh` copies to `.claude/skills/consult-first/SKILL.md`;
 the source is authoritative and the installed copy derived — `checks/check-client-kit-install.sh` — and the install copy is machine-local
 since kogaki#615, so a pointer into it resolves nowhere on a fresh clone)
@@ -206,7 +206,7 @@ incident.
 ## 5. The machine's own comparison — item 4's, decided here
 
 Story 1.6 left undecided whether the served gate lesson's comparison half is
-item 3's or item 4's (`specs/spec-proposal-contract/SPEC.md:151-156`). **It is
+item 3's or item 4's (`specs/spec-proposal-contract/SPEC.md::- **Whether the ranked-recommendation half is owed here.** The served gate`). **It is
 item 4's.** Three grounds, and the question is answered rather than returned:
 
 1. The served lesson states the obligation of a gate's **input surface**, and

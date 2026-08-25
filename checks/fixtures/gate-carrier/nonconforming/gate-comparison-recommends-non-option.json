@@ -1,6 +1,6 @@
 {
   "id": "sequencing-fork",
-  "raised_by": "specs/SPEC.md:105-112 — the port ordering",
+  "raised_by": "`specs/SPEC.md::**Repository-wide, and sited here rather than in either consuming spec, because` — the port ordering",
   "host": "claude-code",
   "medium": "selector",
   "question": "Which subsystem ports first?",
@@ -8,7 +8,7 @@
     {
       "id": "items-3-4-first",
       "label": "Port items 3 and 4 ahead of Terrain",
-      "evidence": "Terrain's screens present selections, so both are preconditions (specs/spec-terrain/SPEC.md:19-22)"
+      "evidence": "Terrain's screens present selections, so both are preconditions (`specs/spec-terrain/SPEC.md::prose site states the figure now and its derivation source is the state table.`)"
     },
     {
       "id": "terrain-first",

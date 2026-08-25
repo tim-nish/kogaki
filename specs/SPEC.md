@@ -429,6 +429,56 @@ the claim). There is no Fact unit, no fact floor, and no provenance map —
 the citation resolve check over the draft's own cites is the sole mechanical
 instrument on grounding.
 
+### 3.1 A cross-artifact pointer addresses an anchor, never a line number
+
+**Owner ruling 2026-08-25 (kogaki#635), both forks resolved on the issue
+thread.** A pointer from one artifact in this repository to another is written
+`<path>::<anchor-token>` and **never** `<path>:<line>`. The resolver refuses it
+unless the path exists **and** contains the token **literally and exactly
+once**.
+
+**Why line numbers are eliminated rather than checked harder.** A line number
+is a correctness claim about an unrelated file's line count, so every edit to a
+target invalidates every pointer below it and owes an unbounded repoint pass
+over its siblings. One 2026-08-23 session paid four such passes. And the pass
+is only ever as complete as the subset a checker can see: the retired
+`check-spec-pin-resolve.sh` could only say "resolves elsewhere" where a pointer
+carried an adjacent verbatim quote, so a wrong pointer without one was
+indistinguishable from a right one. Under the anchor form those passes are not
+cheaper — **they do not exist**, and the invisible population has nowhere to
+hide, because an anchor that stops resolving fails loudly.
+
+**Even a sha-pinned line number buys this repository nothing**, which is why
+the fix is not "pin the sha". Kogaki is a consumer: verifying against Gukan's
+commit sha would need Gukan-side implementation, and whether Gukan's files
+carry shas at all is undecided. So a line-number pointer keeps every
+disadvantage and gains no advantage even where a sha is present.
+
+**The form reuses a discipline this repository already ships** rather than
+minting one: `checks/registry.json`'s efficacy citation is already
+`<path>::<verbatim label>`, resolved by `checks/check-registry-conformance.sh`
+under exactly this exactly-once literal rule. Three consequences bind:
+
+- **Headings and § numbers are NOT anchors.** Both renumber, which reproduces
+  the defect one level up.
+- **Exactly-once is the binding, not merely presence.** A token occurring
+  twice identifies nothing, and a citation resolving to whichever copy is
+  found first is not a binding. This is also what refuses a single common
+  word.
+- **The anchor is matched as a literal substring, never a regex** — these
+  tokens are prose carrying `(`, `)`, `:` and `—` freely.
+
+**The carrier is `checks/check-anchor-resolve.sh`**, which replaces
+`check-spec-pin-resolve.sh` outright; it refuses a **dangling** anchor and a
+**duplicated** anchor, and both refusing directions are fixtured. Cited here,
+restated nowhere.
+
+**Out of scope, stated so the migration does not overreach:** the hub-facing
+receipt grammar — `<repo>@<sha> <file>:<line>` in consults, gate declarations
+and issue receipts — is the **hub's** boundary field and is untouched. It
+changes only if Gukan rules on its own carrier question. This section governs
+this repository's internal cross-artifact pointers only.
+
 **Measurements:** no article class requiring measurement display exists yet
 (product-lab#153, held). When one arrives, *Kogaki's* boundary changes — a
 declared measurement input for that class — never Gukan's (PolicyPackage
@@ -3813,7 +3863,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
   Two consequences follow from the shape rather than from taste. **Line one
   is unchanged from v1**, so every receipt already in git history stays
-  parseable and the `PIN` anchor at `checks/check-consult-receipts.sh:47`
+  parseable and the `PIN` anchor at `checks/check-consult-receipts.sh::evaluates it (product-lab D7, 2026-07-31), so the value set is the`
   needs no change; and **each re-framing gets its own `query:` line**, which
   is what makes "record the queries verbatim" checkable rather than
   aspirational when a consult took more than one framing.
@@ -3963,7 +4013,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
   1. **The emitting tool is the one that made the call** — the kit's own
      transport (`policy/kit/bin/gateway-query.mjs`, which today contains no
      receipt-composition code at all: verified, `writeThenExit` at
-     `policy/kit/bin/gateway-query.mjs:41` prints the tool result and exits).
+     `policy/kit/bin/gateway-query.mjs::// and REQUIRED in receipt mode. It is bound to A CALL, never to the invocation` prints the tool result and exits).
      A tool that did not perform the consult may not emit its receipt, because
      then it is transcribing.
   2. **A hand-composed receipt stays admissible and is MARKED as the
@@ -4048,7 +4098,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      mode, one per `--args`, and the `query:` line may not hold a serialized
      tool argument** (owner selection 2026-08-07, kogaki#160 finding 4).
 
-     `policy/consultation-map.md:67@a3b635d` already defines the field:
+     ``policy/consultation-map.md::> "… Invariant 2: the map triggers CONSULTATION and never encodes verdicts,`@a3b635d` already defines the field:
 
      > **The question, verbatim** — the query that would have found the served
      > line. This is the field the map accumulates: situation-specific keys for
@@ -4441,7 +4491,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      ANSWERS ARE GIVEN UP WITH IT** (kogaki#206, owner selection 2026-08-07).
      The enumeration above attributes exit 11 only to `-32602` schema
      validation on required-address tools, which is no longer the whole of it.
-     In **receipt mode**, `policy/kit/bin/gateway-query.mjs:744` routes a
+     In **receipt mode**, `policy/kit/bin/gateway-query.mjs::const one = [{ framing: framing("first framing"), text: served("id-1", "LESSONS.md:31"), declared: LOOKUP }];` routes a
      `tools/list` rpc error to `unavailable()` — exit **11**, one line, before
      any `tools/call` is issued. So a gateway that answers `tools/call`
      perfectly well is reported unavailable and **its answers are discarded
@@ -4451,7 +4501,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **This is recorded rather than repaired, and the reason is uniformity.**
      The `tools/call` loop routes its **own** rpc errors to `unavailable()`
-     identically (`policy/kit/bin/gateway-query.mjs:757`); PR #201 made the
+     identically (`policy/kit/bin/gateway-query.mjs::const cases = [`); PR #201 made the
      routing uniform, which is what its round-1 nit asked for — three causes
      had collapsed into one refusal message. Undoing it for `tools/list` alone
      would restore the split, trading a recorded judgment for an unrecorded
@@ -4463,7 +4513,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **The counter-argument is recorded rather than left standing.** Exit 11
      prints `policy_source unavailable`, and on this path the source is *not*
      unavailable — it is up and answering. Exit 12's own documented meaning
-     (`policy/kit/bin/gateway-query.mjs:115`) — *"The consult happened and its
+     (`policy/kit/bin/gateway-query.mjs::// and not on an observation, and the transport does not assert it. Deriving it`) — *"The consult happened and its
      results are printed, but the wire did not carry what a receipt asserts"* —
      describes a missing **catalogue** at least as well. The alternative that
      restores answers-then-exit-12 for `tools/list` specifically was therefore
