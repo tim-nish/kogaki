@@ -497,6 +497,21 @@ PRs #645 and #646 seed the first pass, because those are precisely the ones
 attrition can never claim and laundering cannot fix. **kogaki#635 closes when
 the count reaches zero, not when this resolver lands.**
 
+**A SECTION INSERTED ABOVE EXISTING POINTERS OWES THE REPOINT PASS IN THE SAME
+COMMIT** — including this one, which owed nine and paid them (PR #647 round 1).
+Inserting these 74 lines moved every pointer into this file below line 432, and
+a contract that eliminates repoint passes cannot leave one unpaid on the commit
+that installs it.
+
+**And that pass is MECHANICAL, which is what distinguishes it from the migration
+this section refuses.** Adding a fixed offset to a pin PRESERVES ITS REFERENT
+EXACTLY: the text at base line X is at head line X+74, verifiable by comparing
+the two ranges. The laundering the paragraph above forbids comes from
+RE-READING the shifted tree and anchoring to whatever now sits at X — a
+different act with a different result. Offsetting is arithmetic on a known
+insertion; re-reading is a guess about meaning. Each of this commit's nine was
+verified line-by-line against the base tree.
+
 **Out of scope, stated so the migration does not overreach:** the hub-facing
 receipt grammar — `<repo>@<sha> <file>:<line>` in consults, gate declarations
 and issue receipts — is the **hub's** boundary field and is untouched. It

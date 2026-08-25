@@ -93,7 +93,17 @@ ROOTS = ["specs", "checks", "policy", "gates"]
 ANCHOR = re.compile(r'`((?:[\w.-]+/)*[\w.-]+\.[A-Za-z0-9]+)::([^`]+)`')
 
 # A bare internal pointer, for the count. The hub-facing receipt grammar is
-# excluded by the `<repo>@<sha>` prefix test below, never by path guessing.
+# excluded TWO ways, and the second is path guessing — stated because the
+# earlier wording claimed the first alone and a reader checking the count's
+# meaning would have been misled about what it excludes:
+#   1. a `<repo>@<sha>` token earlier on the same line (the receipt form), and
+#   2. a path in the served-surface namespace (HUB_PREFIX / HUB_FILE below).
+# Arm 2 is a guess, and it can be WRONG in one direction: an IN-TREE file whose
+# path or basename collides with the served namespace is counted as a hub
+# receipt rather than as a member of the closed set, so the count can UNDER-
+# report. It never over-reports, which is the direction that matters for a
+# number whose drain to zero closes kogaki#635 — an under-report leaves work
+# visible as un-migrated pointers a later pass still meets.
 BARE = re.compile(
     r'(?<![\w@/.-])((?:[\w.-]+/)*[\w.-]+\.(?:md|mjs|js|json|sh|py|yml|yaml|txt))'
     r'(:\d+(?:[-,]\d+)*)')
@@ -195,8 +205,10 @@ for p, txt in walk():
             else:
                 bare.append(f"{p}:{i}  {m.group(1)}{m.group(2)}")
 
-# SELF-TEST, run every time rather than in a mode nobody invokes: the two
-# refusing directions asserted against fixtures that exist to fail.
+# SELF-TEST, run every time rather than in a mode nobody invokes: all THREE
+# refusing directions asserted against fixtures that exist to fail. The count
+# is written once here and once in the header; a stale figure beside the loop
+# it describes is the drift this file's own subject is about.
 FX = "checks/fixtures/anchor-resolve"
 selftest = []
 for name, want in (("dangling-anchor.md", "DANGLING"),
