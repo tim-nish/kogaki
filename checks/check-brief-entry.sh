@@ -640,7 +640,11 @@ try {
       fails.push(`(k) journeyBearingStrands counts an uncited Journey: ${JSON.stringify(journeyBearingStrands(doc))} — the projection fix must make the reader correct by construction`);
     // And §6.1's refusal now fires for it, which is what kogaki#507 was filed for.
     const bad = fillBrief(doc, { steps: [{
-      step_id: "s1", materials: ["L2.journey"], purpose: "p",
+      // `move` is required by §4.1 v18 (kogaki#642). It is carried here so the
+      // refusal this case asserts is the CARRIES-NONE one under test: without
+      // it the step is refused for the missing Move first and (k) goes vacuous,
+      // passing while its own guard is never reached.
+      step_id: "s1", move: "m", materials: ["L2.journey"], purpose: "p",
       reader_state_before: "b", reader_state_after: "a", depends_on: [],
       rationale: "r", grounds: [{ type: "strand", strand: "L2", proposition: "x" }],
     }] });

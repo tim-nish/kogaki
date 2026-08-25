@@ -41,7 +41,8 @@ run(["brief/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--
 const briefPath = join(briefs, "compose-case", "brief.md");
 
 const step1 = {
-  step_id: "s1", materials: ["L2", "thesis"],
+  // §4.1 v18 (kogaki#642): every Step binds a Move — the State component.
+  step_id: "s1", move: "state-claim-in-working-form", materials: ["L2", "thesis"],
   purpose: "give the reader the claim in working form",
   reader_state_before: "the reader has no stake in the claim",
   reader_state_after: "the reader can state the claim and its cost",
@@ -80,8 +81,15 @@ try {
   if (!badDep.error || !/EARLIER/.test(badDep.error)) fails.push("(a) a depends_on naming a non-earlier step was accepted");
   const badGround = validateSteps([{ ...step1, grounds: [{ type: "vibes", proposition: "x" }] }]);
   if (!badGround.error || !/closed/.test(badGround.error)) fails.push("(a) a ground type outside §4.4's closed list was accepted");
-  // move is OPTIONAL both ways: absent on s1 (accepted above), present on s2.
-  if (validateSteps([step1, { ...step2, move: undefined }]).error) fails.push("(a) a step without a Move was refused — a step need not bind a Move (§4.1/§7.5)");
+  // move is REQUIRED on every Step — §4.1 v18 (kogaki#642), which supersedes
+  // §7.5's no-mandatory-Moves rider by name. The assertion is INVERTED rather
+  // than removed: the case it covers is the same one, and deleting it would
+  // leave the new requirement with no exercised trial. The refusal must name
+  // the field, so a later loosening cannot pass by refusing for another reason.
+  const noMove = validateSteps([step1, { ...step2, move: undefined }]);
+  if (!noMove.error || !/move/.test(noMove.error)) fails.push("(a) a step without a Move was accepted — the Move is a Step's State component and §4.1 v18 requires one");
+  const emptyMove = validateSteps([{ ...step1, move: "" }]);
+  if (!emptyMove.error || !/move/.test(emptyMove.error)) fails.push("(a) an empty-string Move was accepted — a binding is to a library entry by id, never the empty id");
 
   // (b) FILL (§5.1/§5.2): sequence, strand_coverage and the ledger land in
   // the minted document; the ledger entries carry introduced_by /
@@ -207,7 +215,7 @@ try {
   const candA = mkCand("cand-1", "claim first, then the case", [step1, step2]);
   const candB = mkCand("cand-2", "the case first, claim emerging from it", [
     { ...step1, step_id: "t1", materials: ["L1"], grounds: [{ type: "strand", strand: "L1", proposition: "the bravo lesson records the concrete case" }] },
-    { ...step2, step_id: "t2", move: undefined, materials: ["L2"], depends_on: ["t1"],
+    { ...step2, step_id: "t2", move: "generalize-from-the-seen-case", materials: ["L2"], depends_on: ["t1"],
       grounds: [{ type: "step_effect", step: "t1", proposition: "t1 leaves the case seen, which the claim generalizes" }], entailed: undefined, entailment_reasoning: undefined },
   ]);
   candB.obligations = [{ text: "the claim's scope beyond the case", introduced_by: "t2" }];
@@ -635,7 +643,7 @@ try {
 // total absence).
 {
   const S = (id, extra = {}) => ({
-    step_id: id, materials: ["L1"], purpose: "p", reader_state_before: "b",
+    step_id: id, move: "m", materials: ["L1"], purpose: "p", reader_state_before: "b",
     reader_state_after: "a", depends_on: [], rationale: "r",
     grounds: [{ type: "strand", strand: "L1", proposition: "the strand says so" }],
     ...extra,
@@ -701,7 +709,7 @@ if (fails.length) {
 }
 console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
-  + "Move optional both ways; (b) the fill lands sequence, strand_coverage (used_by_steps "
+  + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
   + "discharged_by, an undischarged entry rendering as UNDISCHARGED, the structure section rendering "
   + "under its RATIFIED name Reader Path while the \u00a75.1 record field stays `sequence` (kogaki#574), "
@@ -733,9 +741,16 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
   + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
   + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578): THIRTY "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642): THIRTY-ONE "
   + "mutations. RE-DERIVED, not incremented: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
-  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one = 30. "
+  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one = 31. "
+  + "kogaki#642's one, against the requirement that a Move is a Step's State component: restoring the optional test in "
+  + "validateSteps — the v17 shape, `move` checked only when present — fails (a)'s a-step-without-a-Move assertion. The "
+  + "assertion it fails is the INVERSION of the one that stood here, not a new sibling beside it: v17's (a) asserted that a "
+  + "Move-less Step is ACCEPTED, so leaving it would have contradicted the amendment and deleting it would have left the "
+  + "new requirement with no exercised trial. Recorded because an inverted assertion and a deleted one read identically at "
+  + "a later head; and the re-derivation is written HERE, in the file, which is the correction the two preceding heads' "
+  + "drift already earned. "
   + "THE PREVIOUS HEAD INCREMENTED AND LEFT THIS SENTENCE STANDING (PR #581 round 1): the headline moved "
   + "while the arithmetic under it still read \u002221, plus this head's six\u0022, which totals 27 and "
   + "named a head contributing two. That is exactly the drift this paragraph installs against, one "
