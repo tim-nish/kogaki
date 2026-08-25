@@ -429,6 +429,95 @@ the claim). There is no Fact unit, no fact floor, and no provenance map —
 the citation resolve check over the draft's own cites is the sole mechanical
 instrument on grounding.
 
+### 3.1 A cross-artifact pointer addresses an anchor, never a line number
+
+**Owner ruling 2026-08-25 (kogaki#635), both forks resolved on the issue
+thread.** A pointer from one artifact in this repository to another is written
+`<path>::<anchor-token>` and **never** `<path>:<line>`. The resolver refuses it
+unless the path exists **and** contains the token **literally and exactly
+once**.
+
+**Why line numbers are eliminated rather than checked harder.** A line number is
+a correctness claim about an unrelated file's line count, so every edit to a
+target invalidates every pointer below it and owes an unbounded repoint pass
+over its siblings. One 2026-08-23 session paid four such passes. And the pass is
+only ever as complete as the subset a checker can see: the retired
+`check-spec-pin-resolve.sh` could only say "resolves elsewhere" where a pointer
+carried an adjacent verbatim quote, so a wrong pointer without one was
+indistinguishable from a right one.
+
+**Even a sha-pinned line number buys this repository nothing.** Kogaki is a
+consumer: verifying against Gukan's commit sha would need Gukan-side
+implementation, and whether Gukan's files carry shas at all is undecided.
+
+**The form reuses a discipline this repository already ships** rather than
+minting one: `checks/registry.json`'s efficacy citation is already
+`<path>::<verbatim label>`, resolved by `checks/check-registry-conformance.sh`
+under exactly this exactly-once literal rule. Three consequences bind:
+
+- **Headings and § numbers are NOT anchors.** Both renumber, which reproduces
+  the defect one level up.
+- **Exactly-once is the binding, not merely presence.** A token occurring twice
+  identifies nothing, and a citation resolving to whichever copy is found first
+  is not a binding. This is also what refuses a single common word.
+- **The anchor is matched as a literal substring, never a regex** — these tokens
+  are prose carrying `(`, `)`, `:` and `—` freely.
+
+**The carrier is `checks/check-anchor-resolve.sh`**, which replaces
+`check-spec-pin-resolve.sh` outright; it refuses a **dangling** anchor, a
+**duplicated** anchor, and an anchor that is itself a **heading** — three
+refusing directions, each fixtured. Cited here, restated nowhere.
+
+**A MIGRATION RESOLVES EACH PIN AGAINST THE TREE THE PIN WAS WRITTEN AGAINST,
+never the tree it is editing.** This is the rule a mechanical bulk migration
+broke on its first attempt (PRs #645/#646): this section was inserted into
+`specs/SPEC.md` first, adding ~57 lines, and the migrator then read every pin
+against the shifted file — so 39 anchors were minted ~50 lines low, several from
+pins that had been **correct** until this very insertion moved them.
+
+**The LAUNDERING class, and why this section landed without a bulk migration.**
+An anchor minted from a stale pin does not repair the pointer — it **freezes the
+error into a form that resolves cleanly**, so `check-anchor-resolve.sh` can
+never raise it: a detectably wrong pointer becomes an **undetectably** wrong
+one, and the instrument reports green over exactly the class it exists to end.
+The checker cannot see this by construction — a laundered anchor is unique, is
+not a heading, and its target exists — and whether an anchor's text is what its
+citing sentence NAMES is per-item judgment no checker can make. So the existing
+line-number pointers were **not** rewritten mechanically.
+
+**They are a CLOSED, ENUMERATED SET, and this is not grandfathering by
+attrition** (owner ruling, 2026-08-25). The set is countable by construction —
+bare `<file>:<line>` pointers are greppable, and `check-anchor-resolve.sh`
+reports the number on every run, green ones included. It drains two ways:
+**on-touch migration**, which the mint-time rule above makes automatic for
+whoever next edits a pointer; and **deliberate bounded per-item passes**, where
+a sitting reads each pointer's own sentence and anchors it to its true referent
+by human judgment, never mechanically. The wrong-at-base pointers enumerated on
+PRs #645 and #646 seed the first pass, because those are precisely the ones
+attrition can never claim and laundering cannot fix. **kogaki#635 closes when
+the count reaches zero, not when this resolver lands.**
+
+**A SECTION INSERTED ABOVE EXISTING POINTERS OWES THE REPOINT PASS IN THE SAME
+COMMIT** — including this one, which owed nine and paid them (PR #647 round 1).
+Inserting these 89 lines moved every pointer into this file below line 432, and
+a contract that eliminates repoint passes cannot leave one unpaid on the commit
+that installs it.
+
+**And that pass is MECHANICAL, which is what distinguishes it from the migration
+this section refuses.** Adding a fixed offset to a pin PRESERVES ITS REFERENT
+EXACTLY: the text at base line X is at head line X+89, verifiable by comparing
+the two ranges. The laundering the paragraph above forbids comes from
+RE-READING the shifted tree and anchoring to whatever now sits at X — a
+different act with a different result. Offsetting is arithmetic on a known
+insertion; re-reading is a guess about meaning. Each of this commit's nine was
+verified line-by-line against the base tree.
+
+**Out of scope, stated so the migration does not overreach:** the hub-facing
+receipt grammar — `<repo>@<sha> <file>:<line>` in consults, gate declarations
+and issue receipts — is the **hub's** boundary field and is untouched. It
+changes only if Gukan rules on its own carrier question. This section governs
+this repository's internal cross-artifact pointers only.
+
 **Measurements:** no article class requiring measurement display exists yet
 (product-lab#153, held). When one arrives, *Kogaki's* boundary changes — a
 declared measurement input for that class — never Gukan's (PolicyPackage
