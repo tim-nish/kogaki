@@ -4825,3 +4825,98 @@ individually).
 Prose generation from repositories; measurement storage or transport;
 writing to the Gukan substrate (proposal-only contribute-back stays the
 sole path); a second knowledge store of any kind.
+
+## 3.1 A cross-artifact pointer addresses an anchor, never a line number
+
+**Owner ruling 2026-08-25 (kogaki#635), both forks resolved on the issue
+thread.** A pointer from one artifact in this repository to another is written
+`<path>::<anchor-token>` and **never** `<path>:<line>`. The resolver refuses it
+unless the path exists **and** contains the token **literally and exactly
+once**.
+
+**SITED AT END-OF-FILE, AND THAT IS A DECISION WITH AN EXPIRY.** This section
+belongs under §3 semantically. It is here because inserting it there moves every
+pointer into this file below the insertion — which cost four pull requests and
+eight review rounds to learn, every blocking finding among them an instance of
+the class this section retires, minted by the section's own insertion.
+**The siting cost is a wasting asset:** once anchors are the addressing form,
+physical position is dead weight, and §3.1 re-sites under §3 in any later edit
+as an ordinary movement-free act, because by then nothing points by line.
+
+**The forward line under §3 is deliberately NOT added yet**, and the reason is
+this section's own argument: adding one line there shifts every pointer below
+it. It lands in the same edit that re-sites this section, when shifting is free.
+Recorded rather than left, so a reader who notices §3 does not announce §3.1
+finds the decision instead of an oversight.
+
+**Why line numbers are eliminated rather than checked harder.** A line number is
+a correctness claim about an unrelated file's line count, so every edit to a
+target invalidates every pointer below it and owes an unbounded repoint pass
+over its siblings. And the pass is only ever as complete as the subset a checker
+can see: the retired `check-spec-pin-resolve.sh` could only say "resolves
+elsewhere" where a pointer carried an adjacent verbatim quote, so a wrong
+pointer without one was indistinguishable from a right one.
+
+**Even a sha-pinned line number buys this repository nothing.** Kogaki is a
+consumer: verifying against Gukan's commit sha would need Gukan-side
+implementation, and whether Gukan's files carry shas at all is undecided.
+
+**The form reuses a discipline this repository already ships** rather than
+minting one: `checks/registry.json`'s efficacy citation is already
+`<path>::<verbatim label>`, resolved by `checks/check-registry-conformance.sh`
+under exactly this exactly-once literal rule. Three consequences bind:
+
+- **Headings and § numbers are NOT anchors.** Both renumber, which reproduces
+  the defect one level up.
+- **Exactly-once is the binding, not merely presence.** A token occurring twice
+  identifies nothing, and a citation resolving to whichever copy is found first
+  is not a binding. This is also what refuses a single common word.
+- **The anchor is matched as a literal substring, never a regex** — these tokens
+  are prose carrying `(`, `)`, `:` and `—` freely.
+
+**The carrier is `checks/check-anchor-resolve.sh`**, which replaces
+`check-spec-pin-resolve.sh` outright; it refuses a **dangling** anchor, a
+**duplicated** anchor, and an anchor that is itself a **heading** — three
+refusing directions, each fixtured. Cited here, restated nowhere.
+
+**A MIGRATION RESOLVES EACH PIN AGAINST THE TREE THE PIN WAS WRITTEN AGAINST,
+never the tree it is editing** — and a section inserted above existing pointers
+owes the repoint pass in the same commit. Both rules were learned by breaking
+them (PRs #645-#648). Adding a fixed offset to a pin PRESERVES ITS REFERENT
+EXACTLY: it is arithmetic on a known insertion, verifiable by comparing two
+ranges. **Re-reading** the shifted tree and anchoring to whatever now sits at
+the old number is a different act — a guess about meaning — and it LAUNDERS the
+error into a form that resolves cleanly, so `check-anchor-resolve.sh` can never
+raise it. A detectably wrong pointer becomes an undetectably wrong one. That is
+why the existing pointers were **not** rewritten mechanically.
+
+**They are a CLOSED, ENUMERATED SET, and this is not grandfathering by
+attrition** (owner ruling, 2026-08-25). It drains two ways: **on-touch
+migration**, automatic for whoever next edits a pointer; and **deliberate
+bounded per-item passes**, where a sitting reads each pointer's own sentence and
+anchors it to its true referent by human judgment, never mechanically.
+**kogaki#635 closes when the count reaches zero, not when this resolver lands.**
+
+**THE DENOMINATOR IS A WHOLE-TREE SCAN FOR THE BARE-POINTER SHAPE, never the
+checker's roots.** `check-anchor-resolve.sh` walks `specs/`, `checks/`,
+`policy/` and `gates/`; the pointers do not respect that boundary. A round-1
+finding on PR #648 was a pointer in **`.gitignore`** invalidated by this
+section's own earlier insertion and invisible to every instrument, and a whole-
+tree scan found two more under `.local/stories/`. So the drain's enumeration is
+taken over the tree and the method is stated here, because a completeness claim
+is only ever as wide as the enumeration behind it — and this migration proved
+that about itself.
+
+**THE COVERAGE GAP IS BOUNDED, AND SUSPENDED RATHER THAN LOST.** Retiring
+`check-spec-pin-resolve.sh` ends verification of quote-adjacent legacy pins, and
+until the first anchor is minted there is nothing for the new member to resolve.
+The gap does not grow: the resolver's **refuse-new-bare-pointers** half is live
+from merge, so it is bounded to the existing closed set — which the drain owns
+and counts, and which only shrinks. Each drain pass re-verifies what it
+migrates, so the legacy verification returns per item as the set empties.
+
+**Out of scope:** the hub-facing receipt grammar — `<repo>@<sha> <file>:<line>`
+in consults, gate declarations and issue receipts — is the **hub's** boundary
+field and is untouched. It changes only if Gukan rules on its own carrier
+question. This section governs this repository's internal cross-artifact
+pointers only.
