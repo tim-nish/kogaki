@@ -512,6 +512,16 @@ invariant: Gukan guarantees Unit schema, never data schema).
   here; `checks/check-registry-conformance.sh` refuses an admission whose
   instrument is missing or malformed (kogaki#113).
 
+  **A member that DELEGATES its assertions to another artifact's fixture
+  pass owes a `case_floor`** (kogaki#661, owner ruling 2026-08-26). Such a
+  member can verify that the pass ran clean and cannot, by the same
+  evidence, verify that the pass still asserts anything — an exit code and
+  an output token both improve as the cases disappear. Lowering the floor is
+  an admission-class change and owes a paired retirement note, on the same
+  review path as admitting a member; the grammar and the deny are carried
+  once, in `checks/registry.json`'s own note, and pointed at rather than
+  restated here.
+
   **The admission record additionally owes RE-EXECUTABLE EFFICACY EVIDENCE**
   (kogaki#243, owner selection 2026-08-08 — fork 1). Constrain-generation was
   applied to check **existence** and never to check **efficacy**: the schema
