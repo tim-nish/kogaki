@@ -1,7 +1,7 @@
 # SPEC-terrain — the survey/selection surface
 
 **Status:** v27, amended 2026-08-27 (kogaki#625 acceptance item 1, PR #671
-round 2) — **the IN-BAND half of the capture rule is recorded: a gate wait whose
+round 2 and PR #672 round 1) — **the IN-BAND half of the capture rule is recorded: a gate wait whose
 declaration was written is answered by a capture and never by a bare `--input`,
 and a wait whose declaration is owed-and-unwritten is answered by `--input` and
 never by a capture.** v26 recorded the out-of-band closure — no surface outside a
@@ -10,6 +10,9 @@ beside it, so a reader of §15 could not tell the in-band bypass had been closed
 nor where it deliberately is not. §15.6.4 is that record, and its carve-out is
 **acceptance item 6's**: refusing both routes at a composer-less gate state would
 make adding a gate state to a table need driver code.
+§15.8's *"nothing mechanical reads `workflow.json`"* is corrected in the same
+act: it has been false since kogaki#654, and §15.7's coverage figure — which
+that bullet bundled with it — is separated out as the half still uncarried.
 **deferred slots minted by the v27 amendment: none.**
 
 **Status:** v26, amended 2026-08-26 (kogaki#625 acceptance item 1, owner
@@ -5589,16 +5592,28 @@ record. Stated so their survival reads as a decision rather than an oversight.
   point is placed where judgment is actually owed are judgments and route to
   the review lane. What is mechanically checkable is conformance to the table,
   never the table's fitness.
-- **NOTHING MECHANICAL READS `workflow.json`, and no check reads it yet.** PR
-  #626 round 2, should 3: both artifacts this section mints assert present-tense
-  mechanical checkability that nothing provides — a grep across `checks/*.sh`
-  returns no reader of the workflow table, and the check registry gains no
-  member. `workflow.json`'s own `reader_notes` say conformance to the table *is*
-  mechanically checkable; read in this repository's **spec-ahead-of-code**
-  tense that is a statement about what the encoding admits, not a claim that a
-  checker exists. The derived coverage figure of §15.7 is in the same tense: its
-  **rule** is executable over the array, and **no member executes it today**.
-  Stated here rather than left for a third review round to find.
+- **`workflow.json` IS READ MECHANICALLY (v27); §15.7's COVERAGE FIGURE still is
+  not, and the two halves are separated because they were true together and
+  stopped being so at different moments.** This bullet read *"nothing mechanical
+  reads `workflow.json`, and no check reads it yet"* from v23 to v26 — correct
+  when PR #626 round 2 wrote it, and false from kogaki#654 onward, which landed
+  `checks/check-terrain-workflow.sh` and its registry member. It read the table
+  the whole time this section said nothing did.
+  - **What IS executed today**: the table's `counted_baseline` against the
+    baseline `derivedBaseline` computes from its own `states` array, the
+    presence of every key that derivation produces, the run's traversal to a
+    terminal over a fixture table, and (v27) the gate path — declaration
+    composed, `--input` refused, capture validated, owed-and-unwritten refused.
+  - **What is NOT**: §15.7's derived owner-surface coverage figure. Its **rule**
+    is executable over `owner_surface_coverage` and **no registered member
+    executes it**, so `at_this_version` stays a convenience for a human reader
+    carrying no authority, exactly as that field says of itself.
+  **The correction is the interesting half, not the fact.** A section whose job
+  is to record what is NOT carried is the one place a discharged item is least
+  likely to be revisited, because every reader arrives expecting absences. That
+  is the fourth time this chain has found a clause amended in effect and not by
+  name — and the reason it is repaired at #625's closing act rather than carried
+  is that closing the carrier would leave nothing to carry it.
 
 - **THE v25 FOLDING IS BUILT (kogaki#625 acceptance item 1, v26).** The clause
   this bullet carried at v25 — *"table-side and spec-side only at this head; no

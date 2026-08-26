@@ -17,12 +17,30 @@ import json, subprocess, sys
 table_path = sys.argv[1]
 label = sys.argv[2]
 
-derived = json.loads(subprocess.run(
+# A FAILURE TO REACH THE DERIVATION IS A NAMED FAILURE, NEVER A TRACEBACK
+# (PR #672 round 1). `check=True` turned a syntax error in terrain.mjs, a
+# missing node, or an invocation from the wrong cwd into a CalledProcessError
+# naming a subprocess argv — and this member's own efficacy note records
+# repairing exactly that shape once already. The assertions around it fail with
+# the property named; so does this.
+run = subprocess.run(
     [ "node", "--input-type=module", "-e",
       'import { derivedBaseline } from "./terrain/terrain.mjs";'
       'import { readFileSync } from "node:fs";'
       f'process.stdout.write(JSON.stringify(derivedBaseline(JSON.parse(readFileSync({json.dumps(table_path)}, "utf8")))));' ],
-    capture_output=True, text=True, check=True).stdout)
+    capture_output=True, text=True)
+if run.returncode != 0 or not run.stdout.strip():
+    err = (run.stderr or "").strip().splitlines()
+    print(f"FAIL: {label}'s counted_baseline could not be DERIVED, so the key set it is compared "
+          f"against is unknown — this is CANNOT-DETERMINE and never a pass: "
+          + (err[-1] if err else f"node exited {run.returncode} saying nothing"))
+    raise SystemExit(1)
+try:
+    derived = json.loads(run.stdout)
+except ValueError:
+    print(f"FAIL: {label}'s derivation returned something that is not JSON, so the key set is "
+          f"unknown: {run.stdout.strip()[:160]!r}")
+    raise SystemExit(1)
 
 declared = json.load(open(table_path)).get("counted_baseline") or {}
 missing = sorted(set(derived) - set(declared))

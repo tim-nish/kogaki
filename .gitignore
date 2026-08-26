@@ -115,3 +115,13 @@ policy/shape.md
 !.claude/skills/consult-first/
 .claude/skills/consult-first/*
 !.claude/skills/consult-first/SKILL.md
+
+# check-terrain-workflow.sh mints ONE run workspace at the repository root, on
+# purpose: it is the only place an in-repo `--run-dir` can be driven from a
+# subdirectory, which is the sole combination where the gate declaration's
+# record and read conventions can disagree (kogaki#625, PR #671 round 2). The
+# check removes it on EXIT — but a run killed without that trap firing (a
+# SIGKILL timeout, a cancelled CI job, an OOM) leaves terrain run records in the
+# tree, which is the class this file's own preamble is written against. The
+# ignore closes the window rather than trusting the trap.
+/.gate-path-check-*

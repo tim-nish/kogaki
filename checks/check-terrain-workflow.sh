@@ -234,7 +234,13 @@ fi
 # SUBDIRECTORY, which is the only combination where the two conventions can
 # disagree: the declaration is recorded root-relative and, under a bare read,
 # would be resolved against a CWD that is not the root.
-RD5="$(mktemp -d "$PWD/.gate-path-check-XXXXXX")"; trap 'rm -rf "$RD5"' EXIT
+# ONE TRAP, BOTH DIRECTORIES (PR #672 round 1). Bash keeps ONE handler per
+# signal, so a second `trap ... EXIT` REPLACES the first rather than joining it
+# — this line silently disarmed the cleanup at :59 and leaked $WORK, holding all
+# four run workspaces, on every run of this member. The PR that added it asked in
+# its own Review Focus whether the NEW directory could leave residue; it could
+# not, and the pre-existing one then always did.
+RD5="$(mktemp -d "$PWD/.gate-path-check-XXXXXX")"; trap 'rm -rf "$WORK" "$RD5"' EXIT
 REL5="${RD5#"$PWD"/}"
 ( cd checks && node ../terrain/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --ids a,b ) >/dev/null 2>&1
 CAP5=$( cd checks && node ../terrain/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --capture-option "strand:a" --tool-use-id tu_5 2>&1 )
