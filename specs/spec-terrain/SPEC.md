@@ -1,5 +1,17 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v27, amended 2026-08-27 (kogaki#625 acceptance item 1, PR #671
+round 2) — **the IN-BAND half of the capture rule is recorded: a gate wait whose
+declaration was written is answered by a capture and never by a bare `--input`,
+and a wait whose declaration is owed-and-unwritten is answered by `--input` and
+never by a capture.** v26 recorded the out-of-band closure — no surface outside a
+run can write a capture row — and recorded nothing about the route that sat open
+beside it, so a reader of §15 could not tell the in-band bypass had been closed
+nor where it deliberately is not. §15.6.4 is that record, and its carve-out is
+**acceptance item 6's**: refusing both routes at a composer-less gate state would
+make adding a gate state to a table need driver code.
+**deferred slots minted by the v27 amendment: none.**
+
 **Status:** v26, amended 2026-08-26 (kogaki#625 acceptance item 1, owner
 selection at the /ship-cycle 625 sitting) — **the executor absorbs the six
 standalone acts, and §15.5's unwritable-out-of-order claim becomes TRUE.**
@@ -5446,6 +5458,49 @@ kogaki#625's open question (b). That question is now answered: all six refuse
 with a pointer, on the same ground and in the same shape. The rule has no
 exceptions, and this paragraph is kept rather than deleted so that a reader
 meeting the v25 text elsewhere can see it was discharged rather than dropped.
+
+### 15.6.4 (v27) A GATE WAIT IS ANSWERED BY A CAPTURE — the in-band half
+
+Removing `capture` as an entry point closed the **out-of-band** route: no
+surface outside a run can write a capture row. §15.6.3 and §15.8 record that
+closure and record nothing else, and for one head that was the whole of what
+was true — because the **in-band** route sat open beside it.
+
+**The defect, stated so it is not re-introduced.** `--input` admitted an answer
+on the sole test that *some* wait was outstanding. At `CLAIM_REOFFER`,
+`TRIM_RATIFICATION` or `STRAND_SELECTION` a session could therefore write
+`owner_input`, push `completed` and clear `awaiting` with a bare
+`--input adopt-recomposed:G1` — skipping the declaration's own option
+validation, the `tool_use_id` that evidences the rendering, and the capture row
+entirely. §15.4's *"a capture is admissible only at the wait that declared the
+gate"* says nothing from this direction, and the missing sentence is the one
+that matters: **at a wait whose declaration was written, the capture is not one
+way to answer, it is the only one.**
+
+**And the carve-out, which is a real exception rather than an oversight.** A
+gate state this runtime binds no option composer to records its declaration
+**owed and unwritten** (§15.8). There is no declaration for a capture to be
+validated against, so a capture there **refuses by name** — and `--input`
+**remains admissible**, because refusing both would leave the state
+unanswerable, which is to say that adding a gate state to a table would need
+driver code. **Acceptance item 6 denies exactly that**, and the evolvability
+fixture's `CLOSING_CONFIRMATION` is the state that proves it: the fixture
+deadlocked when the refusal was written unscoped, which is how the exception was
+found rather than reasoned about.
+
+**So the rule reads in two parts, and neither half is safe alone:**
+
+| the wait's declaration | how it is answered |
+|---|---|
+| **written** | a capture, carrying an offered option (or free text) and its `tool_use_id`. A bare `--input` is refused, naming the file and the invocation. |
+| **owed and unwritten** | `--input`. A capture refuses, naming the state and why no declaration exists. |
+
+**This is a statement about the RUNTIME, not about the owner's surface.** §6.3's
+question allowlist for the post-tag window is empty and stays empty: the
+executor composes a file and stops, and it still asks nothing. What changed is
+that the answer it will accept now has to carry evidence that a question was
+put — and an answer nothing can show was asked is precisely what §2.3's gate
+carrier exists to prevent.
 
 ### 15.7 The standalone owner-facing subcommands are REMOVED, not flagged
 

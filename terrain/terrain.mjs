@@ -3996,14 +3996,25 @@ function cmdRun(args) {
       fail(`${rec.awaiting} owes a gate declaration that was never written: ${owed.unwritten || "no option composer is bound to this state"}. There is nothing for a capture to be validated against, so the answer is refused rather than recorded against an absent declaration.`);
     }
     const toolUseId = String(args["tool-use-id"] || fail("a capture needs --tool-use-id (the AskUserQuestion tool use — evidence, not a claim)"));
-    // READ AS RECORDED, never re-joined to REPO (PR #671 round 1, found by
-    // driving it). `relFromRepo` returns a path OUTSIDE the repository
-    // unchanged, and the run workspace is machine-local and routinely is one —
-    // so `join(REPO, …)` turned an absolute /tmp path into
-    // `<repo>/tmp/...` and every capture died in `readFileSync` before any
-    // refusal could speak. The siblings already read their recorded paths
-    // as-is (`readJson(needSurvey(rec))`), and this now matches them.
-    const { path: capPath, row } = writeCapture(dir, readJson(owed.declaration), { toolUseId, option: capOption, freeText: capFree });
+    // RECORDED REPO-RELATIVE, READ REPO-RELATIVE — and it took two goes to get
+    // both halves pointing the same way (PR #671 rounds 1 and 2).
+    //
+    // The declaration is stored as `relFromRepo(resolve(declPath))`, which
+    // strips the repository root and returns an OUT-OF-REPO path unchanged. The
+    // first cut read it back through `join(REPO, …)`, which turned an absolute
+    // /tmp path into `<repo>/tmp/...` — every capture in a machine-local run
+    // workspace died in `readFileSync` before any refusal could speak. Round 1
+    // replaced that with a bare `readJson(owed.declaration)`, which fixed /tmp
+    // and broke the mirror case: Node resolves a relative path against
+    // `process.cwd()`, so an IN-REPO `--run-dir` driven from a subdirectory
+    // records `terrain/run/…` and reads it from wherever the process happens to
+    // stand. The same crash, arriving from the other side.
+    //
+    // `resolve(REPO, …)` is the form that satisfies both, because it returns an
+    // already-absolute path untouched and re-roots a repo-relative one against
+    // the root `relFromRepo` stripped — so the read is the exact inverse of the
+    // write rather than a second convention that agrees with it by luck.
+    const { path: capPath, row } = writeCapture(dir, readJson(resolve(REPO, owed.declaration)), { toolUseId, option: capOption, freeText: capFree });
     // The answer IS the owner input for this wait. Adoption, ratification and
     // strand selection are all this one act (§15.6.1: adoption is applying the
     // captured answer), which is why no second command remains to apply it.
@@ -4456,6 +4467,12 @@ switch (cmd) {
                                             generates one report per composed group.
   validate --survey F                       run the composition rules on a record
   self-test                                 the composed-form fixture pass (identity cites, kogaki#612)
+
+ RETIRED, and refusing with a pointer (§13.2 v20, kogaki#472) — the precedent:
+   neighborhood                              the provenance-neighborhood section rides every
+                                             'report' pull, seeded by the entered ID set. Its
+                                             behaviour is GONE FROM THE SYSTEM as a standalone act;
+                                             the pointer names where the material now renders.
 
  REMOVED, and refusing with a pointer (§15.6.3, §15.7 — kogaki#625 item 1):
    claim  adopt  subdivide  act  gate  capture

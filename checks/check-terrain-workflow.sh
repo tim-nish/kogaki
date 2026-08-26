@@ -217,6 +217,32 @@ else
   python3 checks/lib/assert-gate-capture.py "$RD3" || FAIL=1
 fi
 
+# THE PATH BRANCH, REACHED RATHER THAN REASONED ABOUT (PR #671 round 2).
+# Every run dir above is under `mktemp -d`, where `relFromRepo` returns the path
+# ABSOLUTE AND UNTOUCHED — so none of them exercises the repo-relative branch of
+# the record/read pair at all, and a fix to that branch reads correct against a
+# suite that never runs it. That is how the same crash arrived twice from
+# opposite sides: `join(REPO, ...)` broke the absolute case, and the bare read
+# that fixed it broke the relative one.
+#
+# So this case puts the run dir INSIDE the repository and drives it from a
+# SUBDIRECTORY, which is the only combination where the two conventions can
+# disagree: the declaration is recorded root-relative and, under a bare read,
+# would be resolved against a CWD that is not the root.
+RD5="$(mktemp -d "$PWD/.gate-path-check-XXXXXX")"; trap 'rm -rf "$RD5"' EXIT
+REL5="${RD5#"$PWD"/}"
+( cd checks && node ../terrain/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --ids a,b ) >/dev/null 2>&1
+CAP5=$( cd checks && node ../terrain/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --capture-option "strand:a" --tool-use-id tu_5 2>&1 )
+if grep -q "ERR_INVALID_ARG_TYPE\|ENOENT\|no such file" <<<"$CAP5"; then
+  echo "FAIL: a capture with an IN-REPO run dir, driven from a subdirectory, died resolving its own declaration — the declaration is recorded repo-root-relative and must be read the same way, or the write and the read are two conventions that agree only where the path happens to be absolute:"
+  sed 's|^|    |' <<<"$CAP5" | head -3
+  FAIL=1
+elif ! grep -q "Captured" <<<"$CAP5"; then
+  echo "FAIL: a capture with an IN-REPO run dir did not record its row: $(head -1 <<<"$CAP5")"; FAIL=1
+else
+  echo "ok: the gate declaration is recorded and read through ONE convention — an in-repo run dir driven from a subdirectory captures, which is the branch every mktemp-based case above leaves untouched"
+fi
+
 # The OTHER half of the pair: a gate state with NO bound composer. Its
 # declaration is owed-and-unwritten by design — refusing it outright would make
 # adding a gate state to a table need driver code, which item 6 denies — so a
