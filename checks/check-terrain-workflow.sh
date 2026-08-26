@@ -92,17 +92,15 @@ else
   # denominator-asserting-a-shape class this member exists to catch, reached by
   # omission instead of by drift. The declared set is asserted before the
   # disagreement is read.
-  MISSING=$(python3 - <<'EOM'
-import json
-need = {"waits", "conditional_states", "owner_artifact_writes", "judgment_points"}
-have = set((json.load(open("specs/spec-terrain/workflow.json")).get("counted_baseline") or {}))
-print(",".join(sorted(need - have)))
-EOM
-)
-  if [[ -n "$MISSING" ]]; then
-    echo "FAIL: the shipped table's counted_baseline DECLARES no $MISSING — an omitted key is not compared at all, so its absence disables the judgment rather than passing it (kogaki#654)"
-    FAIL=1
-  fi
+  #
+  # THE REQUIRED SET IS DERIVED FROM THE RUNTIME (kogaki#625, from PR #664
+  # round 2). It was a four-name list written here while `derivedBaseline`
+  # computed five, so deleting `grammared_writing_states` disabled that key's
+  # comparison and passed — the very route this assertion exists to close,
+  # surviving inside it for a fifth of the denominator. A longer list would
+  # repair the instance and keep the shape; reading the set from the runtime
+  # removes the list.
+  python3 checks/lib/assert-baseline-keys.py specs/spec-terrain/workflow.json "the shipped table" || FAIL=1
   if grep -q "DISAGREES with counted_baseline" <<<"$ST1"; then
     echo "FAIL: the shipped table's counted_baseline disagrees with the baseline derived from its own states array — a denominator asserting a shape the table no longer has:"
     grep "DISAGREES" <<<"$ST1" | sed 's/^/    /'
@@ -164,6 +162,13 @@ if "second_thoughts" not in rec.get("conditional_skipped", []):
     raise SystemExit(1)
 PY
 
+# BLOCK 2 HAD NO OMISSION ASSERTION AT ALL, so the same hole was open on the
+# fixture table whose baseline this check otherwise insists on counting against
+# itself (PR #664 round 2). One derived assertion, applied to every table this
+# member drives.
+python3 checks/lib/assert-baseline-keys.py "$EVOLVED" "the evolvability fixture" || FAIL=1
+python3 checks/lib/assert-baseline-keys.py "$GATED" "the gate fixture" || FAIL=1
+
 ST2=$(step --status)
 if grep -q "DISAGREES with counted_baseline" <<<"$ST2"; then
   echo "FAIL: the fixture table's own counted_baseline disagrees with its derived baseline — the check counts each table AGAINST ITSELF, which is the property acceptance item 6 asks for:"
@@ -215,6 +220,38 @@ else
     echo "FAIL: a valid capture did not carry the run to its terminal:"; sed 's|^|    |' <<<"$OK" | head -3; FAIL=1
   fi
   python3 checks/lib/assert-gate-capture.py "$RD3" || FAIL=1
+fi
+
+# THE PATH BRANCH, REACHED RATHER THAN REASONED ABOUT (PR #671 round 2).
+# Every run dir above is under `mktemp -d`, where `relFromRepo` returns the path
+# ABSOLUTE AND UNTOUCHED — so none of them exercises the repo-relative branch of
+# the record/read pair at all, and a fix to that branch reads correct against a
+# suite that never runs it. That is how the same crash arrived twice from
+# opposite sides: `join(REPO, ...)` broke the absolute case, and the bare read
+# that fixed it broke the relative one.
+#
+# So this case puts the run dir INSIDE the repository and drives it from a
+# SUBDIRECTORY, which is the only combination where the two conventions can
+# disagree: the declaration is recorded root-relative and, under a bare read,
+# would be resolved against a CWD that is not the root.
+# ONE TRAP, BOTH DIRECTORIES (PR #672 round 1). Bash keeps ONE handler per
+# signal, so a second `trap ... EXIT` REPLACES the first rather than joining it
+# — this line silently disarmed the cleanup at :59 and leaked $WORK, holding all
+# four run workspaces, on every run of this member. The PR that added it asked in
+# its own Review Focus whether the NEW directory could leave residue; it could
+# not, and the pre-existing one then always did.
+RD5="$(mktemp -d "$PWD/.gate-path-check-XXXXXX")"; trap 'rm -rf "$WORK" "$RD5"' EXIT
+REL5="${RD5#"$PWD"/}"
+( cd checks && node ../terrain/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --ids a,b ) >/dev/null 2>&1
+CAP5=$( cd checks && node ../terrain/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --capture-option "strand:a" --tool-use-id tu_5 2>&1 )
+if grep -q "ERR_INVALID_ARG_TYPE\|ENOENT\|no such file" <<<"$CAP5"; then
+  echo "FAIL: a capture with an IN-REPO run dir, driven from a subdirectory, died resolving its own declaration — the declaration is recorded repo-root-relative and must be read the same way, or the write and the read are two conventions that agree only where the path happens to be absolute:"
+  sed 's|^|    |' <<<"$CAP5" | head -3
+  FAIL=1
+elif ! grep -q "Captured" <<<"$CAP5"; then
+  echo "FAIL: a capture with an IN-REPO run dir did not record its row: $(head -1 <<<"$CAP5")"; FAIL=1
+else
+  echo "ok: the gate declaration is recorded and read through ONE convention — an in-repo run dir driven from a subdirectory captures, which is the branch every mktemp-based case above leaves untouched"
 fi
 
 # The OTHER half of the pair: a gate state with NO bound composer. Its

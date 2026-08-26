@@ -46,7 +46,8 @@
     "waits": 1,
     "conditional_states": 0,
     "owner_artifact_writes": 0,
-    "judgment_points": 0
+    "judgment_points": 0,
+    "grammared_writing_states": 0
   },
-  "counted_baseline_note": "Counted against this table's own states array, exactly as the shipped table's is. The four keys are the ones check-terrain-workflow.sh asserts present."
+  "counted_baseline_note": "Counted against this table's own states array, exactly as the shipped table's is. The four keys are the ones check-terrain-workflow.sh asserts present. kogaki#625: `grammared_writing_states` is declared as 0 rather than omitted. The runtime DERIVES five keys and this table declared four, so that key's comparison was disabled here and the omission passed — which is the hole PR #664 round 2 found in the shipped table's own assertion, open on the fixtures because block 2 carried no omission assertion at all. Zero is the honest figure (this table has no write state) and a declared zero is a different silence from an absent key."
 }
