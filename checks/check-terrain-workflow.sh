@@ -57,6 +57,17 @@ STUB="checks/fixtures/terrain/compose-input/stub-gateway.mjs"
 EVOLVED="checks/fixtures/terrain/workflow/evolved.json"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
+# THE OWNER'S TREE IS NEVER WRITTEN (PR #664 round 1). The shipped table's
+# second state is a `write` rendering to `reports/Screen.md`, which
+# `renderingsDir` resolves under the repository root — so without this every
+# suite run would leave STUB material standing as the owner's screen, and would
+# run `retireIdentityNamedRenderings` over the owner's directory. `reports/` is
+# gitignored, so nothing would go red: the loss would be silent and local,
+# which is why it is prevented rather than detected. The sibling member states
+# the same position in its own words (check-terrain-composition.sh:50-58).
+KOGAKI_REPORTS_DIR="$WORK/renderings"; mkdir -p "$KOGAKI_REPORTS_DIR"
+export KOGAKI_REPORTS_DIR
+
 for f in "$STUB" "$EVOLVED"; do
   [[ -f "$f" ]] || { echo "FAIL: CANNOT-DETERMINE — $f is missing, and it is tree-local; a fixture this check cannot reach is a defect in the check, not a finding about the table"; exit 1; }
 done
@@ -73,6 +84,24 @@ if [[ ! -f "$RD1/run-record.json" ]]; then
 else
   ST1=$(STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
     node terrain/terrain.mjs run --run-dir "$RD1" --status 2>&1)
+  # AN OMITTED KEY IS A DISABLED COMPARISON, NOT A PASS (PR #664 round 1).
+  # `reportRunStatus` emits DISAGREES only for keys the table DECLARES, and
+  # renders `(not in counted_baseline)` for the rest — so deleting a key from
+  # `counted_baseline` silently removes it from the judgment, which is the
+  # denominator-asserting-a-shape class this member exists to catch, reached by
+  # omission instead of by drift. The declared set is asserted before the
+  # disagreement is read.
+  MISSING=$(python3 - <<'EOM'
+import json
+need = {"waits", "conditional_states", "owner_artifact_writes", "judgment_points"}
+have = set((json.load(open("specs/spec-terrain/workflow.json")).get("counted_baseline") or {}))
+print(",".join(sorted(need - have)))
+EOM
+)
+  if [[ -n "$MISSING" ]]; then
+    echo "FAIL: the shipped table's counted_baseline DECLARES no $MISSING — an omitted key is not compared at all, so its absence disables the judgment rather than passing it (kogaki#654)"
+    FAIL=1
+  fi
   if grep -q "DISAGREES with counted_baseline" <<<"$ST1"; then
     echo "FAIL: the shipped table's counted_baseline disagrees with the baseline derived from its own states array — a denominator asserting a shape the table no longer has:"
     grep "DISAGREES" <<<"$ST1" | sed 's/^/    /'
@@ -109,8 +138,16 @@ grep -q "reached done — terminal" <<<"$E2" || {
 python3 - "$RD2/run-record.json" "$WORK/first-record.json" <<'PY' || FAIL=1
 import json, sys
 rec = json.load(open(sys.argv[1]))
-first = json.load(open(FIRST_REC)) if (FIRST_REC := sys.argv[2]) else None
-if first is not None and first.get("completed"):
+try:
+    first = json.load(open(sys.argv[2]))
+except OSError:
+    # The record at the first stop is the ONLY place the moved-handoff property
+    # is readable; a run that left none has not demonstrated it, and saying so
+    # by name beats a traceback that names a path (PR #664 round 1).
+    print("FAIL: no run record was kept from the fixture's first act, so the "
+          "moved-handoff property could not be read — this is not a pass")
+    raise SystemExit(1)
+if first.get("completed"):
     print(f"FAIL: the fixture's first act completed {first['completed']} before reaching its wait — "
           f"the table declares the wait FIRST, so a run that computed anything ahead of it read "
           f"position rather than the table (#625 acceptance item 6)")

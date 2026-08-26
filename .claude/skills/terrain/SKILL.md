@@ -176,10 +176,10 @@ whose ID set the owner enters. **Nothing on either line is optional.**
      naming the tag and anything appearing. Through `compose-input` the same
      tag, grown to 172 placements, spent **4** reads and 2 min 23 s. The read
      count is bounded by the CANDIDATES and does not grow with the placements.
-     **This is not a third act.** It is the input step act (1) below has
-     always required — a composer had to read material to write `--claims` at
-     all — so it sits **inside** act (1), exactly where §6.3 puts the
-     subdivision judgment, and the two-act window is unchanged.
+     **This is not a separate act.** It is the input step composing `--claims`
+     has always required — a composer had to read material to write them at
+     all. Where it sits in the sequence is the workflow table's to say, not
+     this file's: `compose_input` is a state, and the table places it.
      **This line is advisory and is NOT a carrier, and saying so is part of
      it.** A rule written into a skill file is *"advisory, real, worth
      writing, and NOT a carrier"* (`product-lab@98195e0a
@@ -275,7 +275,8 @@ whose ID set the owner enters. **Nothing on either line is optional.**
 - The run workspace (`~/.kogaki/runs/…` or `$KOGAKI_RUN_DIR`) is
   machine-local state and is **never committed** (founding spec rider 3). It
   holds things whose lifetime is the RUN. Anything whose lifetime is the
-  OWNER's — the Full Report's rendering above — lives in the tree instead
+  OWNER's — `reports/FullReport.md` and `reports/Screen.md` — lives in the
+  tree instead
   (`specs/SPEC.md` §2.5.1), and **never name a machine-local path on an owner
   surface outside debugging**.
 - If the seam is unavailable the runtime prints one
