@@ -5520,7 +5520,10 @@ record. Stated so their survival reads as a decision rather than an oversight.
   fields are a ledger for readers, exactly as `report-format.json`'s are, and
   they gate no code path.
 
-**deferred slots minted by this amendment: none.**
+**deferred slots minted by §15's own amendment: none.** (PR #668 round 1: this
+line read "this amendment", which stopped identifying an amendment the moment a
+second declaration joined it below. Re-pointed at the section rather than given
+an issue attribution this file does not record.)
 
 **deferred slots minted by the v5 amendment (kogaki#666): none.** The three
 forks #666 named are each decided above — the re-offer's siting (§15.6.1),

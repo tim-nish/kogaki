@@ -106,7 +106,6 @@
       "writes": null,
       "conditional": "entered ONLY when a claim validated at J1_claims is pinned to a PROPER SUBSET of the member set its composition_pin served for that group. A full-group claim reaches no gate: §7 makes the full-group rendering per-invocation and not an adopted claim, so there is nothing to re-offer.",
       "renders_gate_declaration": true,
-      "grammar_surface": null,
       "governing": "§7, §7 v4 (the origin travels as an argument), §7 v5.1 (a derived origin member set announces itself), §15.4",
       "gate_id": "terrain-claim-reoffer",
       "note": "THE STATE THAT v3's `removed_entry_points` ALREADY POINTED AT AND THIS ARRAY DID NOT HOLD (kogaki#666). §7 rules a subset selection a GATE EVENT rather than a refresh, and in this table a gate event is a wait with `renders_gate_declaration: true` — the shape TRIM_RATIFICATION and STRAND_SELECTION already carry. The declaration is composed by the one declaration composer and carries the ORIGIN BLOCK, whose `original_members_provenance` is `recorded`, `derived` or `none`: an absent origin is stated and never fabricated (§7 v4), and a derived member set announces itself at the point of substitution (§7 v5.1). The RENDERING is the gate carrier's (manifest item 4, AskUserQuestion — options verbatim, nothing pre-selected, free text always on); the DECLARATION and the CAPTURE are this state's, which is the split TRIM_RATIFICATION already makes and the reason §7's \"routes through the gate carrier\" does not site the whole gate outside the executor. Adoption is applying the captured answer, and it is the OWNER's act rather than a judgment — which is why it is a wait beside J1_claims and not a second entry into it."
@@ -160,7 +159,8 @@
       "conditional": "entered only when a trim is proposed",
       "renders_gate_declaration": true,
       "governing": "§2.2, §2.3",
-      "note": "A declared gate, and always was. The record carries the machine premise and its negation as a first-class option; never trim silently."
+      "note": "A declared gate, and always was. The record carries the machine premise and its negation as a first-class option; never trim silently.",
+      "gate_id": "terrain-trim-ratification"
     },
     {
       "id": "STRAND_SELECTION",
@@ -170,7 +170,8 @@
       "conditional": false,
       "renders_gate_declaration": true,
       "governing": "§2.3",
-      "note": "The declaration is rendered through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on — and the answer is captured with its tool_use_id. More than three ids is a trim and is refused."
+      "note": "The declaration is rendered through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on — and the answer is captured with its tool_use_id. More than three ids is a trim and is refused.",
+      "gate_id": "terrain-strand-selection"
     },
     {
       "id": "done",
@@ -195,7 +196,7 @@
     "validate": "runs survey-record validation; emits no owner surface"
   },
   "removed_entry_points": {
-    "_note": "Removed, not flagged debug-only — SPEC §15.7. Their behaviour becomes table states reachable only through the executor.",
+    "_note": "Removed, not flagged debug-only — SPEC §15.7. Their behaviour becomes table states reachable only through the executor. WHAT 'REMOVED' MEANS AT THE DISPATCHER SPLITS IN v5, AND THE SPLIT IS STATED HERE RATHER THAN INFERRED (kogaki#666; PR #668 round 1): §15.6.3 keeps `claim`, `adopt` and `subdivide` as live cases that refuse NAMING THE STATE AND THE `run` INVOCATION THAT REACHES IT, while `act`, `gate` and `capture` are licensed no stub by any decision to date. Both kinds are REMOVED in this map's sense — no entry point performs the behaviour, and every path to it is the executor's — which is what still separates this map from `retired_entry_points` below: a retired entry point's behaviour is GONE FROM THE SYSTEM (its pointer names where the material now renders), a removed one's behaviour LIVES ON AS A STATE. The stub is how a reader is told which; it is not what the two maps are sorted by. Membership here is therefore still readable off this map alone, which is the property PR #626 round 2 finding 3 established.",
     "claim": "becomes J1_claims. The claims record is composed OUTSIDE the runtime and arrives as a file carrying its `composition_pin` (§15.6); the state validates it and refuses claims naming material outside the bounded read. kogaki#666 sharpens v3's bare \"becomes part of J1_claims\": the composition does not move into the state, only the validation and the record does.",
     "adopt": "becomes CLAIM_REOFFER's captured answer, applied on resume. v3 named this destination as \"J1_claims' gate re-offer path\" while no state in this array rendered a gate — kogaki#666 supplies the state the pointer already assumed.",
     "subdivide": "becomes J2_subdivision, INCLUDING the composition the standalone command performed — subgroup placement from the judge's classification, the per-subgroup instruments, and the SUBDIVISION_COVER_INCOMPLETE refusal. kogaki#666: §2.1 makes completeness a cover COUNTED IN PLACEMENTS, which is a runtime refusal; leaving it to the outside composer would move a ratified refusal out of the runtime, so the state accepts the classification record and composes under it. kogaki#165 is discharged by there being ONE path rather than two — the standalone path raised ReferenceError on every invocation while every exercised path masked it.",
@@ -215,7 +216,8 @@
     "renders_gate_declaration": "Required on every state. true only where the state renders a gate declaration for AskUserQuestion.",
     "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states.",
     "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
-    "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. This is the per-state binding v3 introduces."
+    "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. This is the per-state binding v3 introduces.",
+    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the gates/registry.json gate the state declares. PR #668 round 1: kogaki#666 introduced this key on CLAIM_REOFFER alone, leaving a reader unable to tell whether TRIM_RATIFICATION and STRAND_SELECTION have no gate id or the key was forgotten — which is this block's own rule (a property the table exists to carry may not be read off a missing key) failing on the key that was just added. Declared and applied to all three in the same act."
   },
   "entry_point_accounting": "EVERY case in terrain/terrain.mjs's dispatcher appears in exactly one of the four maps below, and that totality is the property — not the membership of any one map. PR #626 round 2, finding 3: `act`, `gate` and `capture` were live entry points bound to no state and named in no map, while `neighborhood` sat in removed_entry_points as a phantom whose own value said it was already retired. An interpreter enumerating these maps read three real surfaces as absent and one absent surface as real. The maps are now disjoint and their union is the dispatcher.",
   "bound_to_a_state": {
