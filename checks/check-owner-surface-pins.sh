@@ -67,15 +67,20 @@ d = json.load(open('checks/registry.json'))
 print(next(m['admission']['case_floor'] for m in d['checks'] if m['id'] == 'owner-surface-pins'))
 ") || { echo "FAIL: could not read case_floor for owner-surface-pins from checks/registry.json"; exit 1; }
 N=$(sed -n 's/.*fixture pass: \([0-9][0-9]*\)\/[0-9][0-9]* owner-register cases.*/\1/p' <<<"$OUT" | head -1)
+# FALL THROUGH, never exit: this member's scope disclosure below is declared
+# UNCONDITIONAL (story 1.50 AC5, and the admission record's own words — "the
+# member's scope is declared in its own output on every run, pass included").
+# An early exit here would make it conditional, which is why the failures
+# above it set FAIL=1 rather than exiting, and why these do too.
 if [[ -z "$N" ]]; then
   echo "FAIL: no case count readable from the pass's output — an unreadable floor is not a pass"
-  exit 1
-fi
-if (( N < FLOOR )); then
+  FAIL=1
+elif (( N < FLOOR )); then
   echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were LOST rather than broken, and this member would otherwise report their absence as evidence (kogaki#661)"
-  exit 1
+  FAIL=1
+else
+  echo "ok: owner-register fixture pass ran ${N} case(s) clean, at or above its declared floor of ${FLOOR}"
 fi
-echo "ok: owner-register fixture pass ran ${N} case(s) clean, at or above its declared floor of ${FLOOR}"
 
 # UNCONDITIONAL, per story 1.50 AC5.
 cat <<'EOF'

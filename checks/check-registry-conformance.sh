@@ -270,6 +270,8 @@ def check_floor_decrements(entries, base_reader=None):
         return rows, failures
     was = {e["id"]: (e.get("admission") or {}).get("case_floor")
            for e in base.get("checks", [])}
+    was_note = {e["id"]: (e.get("admission") or {}).get("case_floor_note", "")
+                for e in base.get("checks", [])}
     decrements = 0
     for entry in entries:
         admission = entry.get("admission") or {}
@@ -279,7 +281,17 @@ def check_floor_decrements(entries, base_reader=None):
         if now >= before:
             continue
         decrements += 1
-        if not str(admission.get("case_floor_note", "")).strip():
+        note = str(admission.get("case_floor_note", "")).strip()
+        # THE NOTE MUST BE NEW, not merely present (PR #663 round 1). A note
+        # left behind by an earlier retirement would otherwise satisfy the
+        # next decrement, so 18 -> 17 -> 16 would cost one note rather than
+        # two — the pairing would hold for the first step and be free
+        # afterwards, which is the shrinkage channel again at a slower rate.
+        # Staleness is decidable from the base record WITHOUT judging prose,
+        # so it is gated; whether the note names the RIGHT case stays
+        # judgment and stays ungated.
+        stale = note and note == str(was_note.get(entry["id"], "")).strip()
+        if not note:
             failures.append(
                 f"FAIL case_floor lowered without a retirement note: "
                 f"checks/{entry['file']} {before} -> {now} — lowering a floor "
@@ -287,9 +299,16 @@ def check_floor_decrements(entries, base_reader=None):
                 f"naming the case(s) retired (kogaki#661, owner ruling "
                 f"2026-08-26). Without the pairing this field is the "
                 f"silent-shrinkage channel one hop removed")
+        elif stale:
+            failures.append(
+                f"FAIL case_floor lowered against an UNCHANGED retirement "
+                f"note: checks/{entry['file']} {before} -> {now} — the "
+                f"`case_floor_note` is byte-identical to the one already at "
+                f"the base, so it pairs with the PREVIOUS retirement and not "
+                f"with this one. Each decrement owes its own (kogaki#661)")
         else:
             rows.append(f"case-floor-decrement: {entry['id']} {before} -> "
-                        f"{now}, paired with a retirement note (accepted; "
+                        f"{now}, paired with a NEW retirement note (accepted; "
                         f"whether it names the right case is judgment)")
     rows.append(f"case-floor-decrements: {decrements} observed against the "
                 f"base")
@@ -611,6 +630,24 @@ def fixture_pass():
     rows, f = dec(2, 5, "   ")
     cases.append(("a whitespace-only note does not pair — the omission a "
                   "typed field refuses", any("lowered without" in x for x in f)))
+    # The note must be NEW, not merely present (PR #663 round 1): otherwise a
+    # note left by an earlier retirement pays for every later decrement.
+    def dec_notes(now, before, note, base_note):
+        def reader():
+            return {"checks": [{"id": "fx", "admission": {
+                "case_floor": before, "case_floor_note": base_note}}]}
+        return check_floor_decrements(
+            [floor("fx", case_floor=now, case_floor_note=note)], reader)
+    rows, f = dec_notes(4, 5, "retired the widget case", "retired the widget case")
+    cases.append(("a decrement against an UNCHANGED note FAILS — it pairs "
+                  "with the previous retirement, not this one",
+                  any("UNCHANGED retirement" in x for x in f)))
+    rows, f = dec_notes(4, 5, "retired the gadget case", "retired the widget case")
+    cases.append(("a decrement carrying a CHANGED note is accepted",
+                  not f and any("NEW retirement note" in x for x in rows)))
+    rows, f = dec_notes(4, 5, "  retired the widget case  ", "retired the widget case")
+    cases.append(("staleness compares trimmed, so re-indenting the same note "
+                  "does not launder it", any("UNCHANGED retirement" in x for x in f)))
     rows, f = dec(9, 5)
     cases.append(("an INCREMENT owes nothing", not f))
     rows, f = dec(5, 5)
@@ -737,9 +774,17 @@ for line in failures:
     print(line)
 if failures:
     sys.exit(1)
+# THE TERMINAL LINE NEVER CLAIMS A COMPARISON THAT DID NOT HAPPEN (PR #663
+# round 1). An unresolvable base renders CANNOT-DETERMINE and fails nothing —
+# but the summary asserting "no floor was lowered unpaired" would be exactly
+# the pass the note says this state is never. So the claim is dropped from the
+# line, and the CANNOT-DETERMINE row above stands as the reading.
+undetermined = any("CANNOT-DETERMINE" in row for row in floor_rows)
 print(f"ok: registry and checks/ tree agree ({len(present)} check(s)); "
       "every admission record complete; every removal signal instrumented; "
       "every efficacy case resolves to a label its cited file carries; "
-      "every delegating member declares a case_floor and no floor was "
-      "lowered unpaired")
+      "every delegating member declares a case_floor"
+      + ("; DECREMENTS NOT CHECKED — see the CANNOT-DETERMINE row above"
+         if undetermined else
+         "; no floor was lowered unpaired or against a stale note"))
 EOF
