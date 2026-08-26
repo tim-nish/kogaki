@@ -83,25 +83,56 @@ screen and never showed it: the flow moved straight into a question UI and the
 owner saw nothing. Silence satisfies "do not retype" perfectly, which is why
 this sentence is here.
 
-## The flow
+## Invoking the executor
 
-1. **Survey** — `node terrain/terrain.mjs survey`. Composes from the seam
-   (`element_survey`, served renderings only, never gateway internals) into
-   the machine-local run workspace. The completeness line prints first:
-   every figure names which family it counted, and `placed of total` comes
-   from the composed placements, never from the candidate list.
-2. **Navigate — the tag screen** —
-   `view --survey <record> [--tag T] [--family F]`.
-   This is the owner moving around: enumerate, sort, filter-by-owner.
-   **Navigation narrows nothing** — say so if the owner asks, and never
-   present a view as a shortlist. The tag screen's axis is the served tag
-   vocabulary.
-3. **Navigate — the co-tag screen** —
-   `cotags --survey <record> --tag <T> --claims <F>
-   --subdivisions <F> --judge-model <M> --judge-effort <E>`.
-   **Nothing on that line is optional** — `--subdivisions` and its judge pin
-   are unbracketed because kogaki#168 made the subdivision judgment REQUIRED
-   (§6.2); see the SubGroups bullet below.
+**There is ONE entry point, and the ORDER IS NOT HERE** (SPEC.md §15;
+kogaki#625, kogaki#654). The flow's sequencing — which state runs when, where
+the run stops, which states are conditional, what ends a run — is read from
+`specs/spec-terrain/workflow.json` on every run and is held **nowhere in this
+file**. This section is how to invoke the executor; it is not a description of
+what the executor will do, and a reader who wants that reads the table.
+
+```
+node terrain/terrain.mjs run [--run-dir D] [--workflow F]
+node terrain/terrain.mjs run --run-dir D --input '<what the owner said>'
+node terrain/terrain.mjs run --run-dir D --enter <STATE>
+node terrain/terrain.mjs run --run-dir D --status
+```
+
+- **The executor stops; the owner speaks; you re-enter.** At a wait the
+  runtime prints where it stopped and what the owner supplies, and the run
+  ends there. Re-enter with `--input`. **Nothing is asked** — the executor
+  renders no question UI and no gate declaration, and a wait that declares a
+  gate records the obligation on the run record rather than rendering it.
+- **An owner input is admitted by the WAIT, never by its own shape.** An
+  `--input` with no outstanding wait is refused, and so is one naming a state
+  the run is not awaiting.
+- **A conditional state is entered only by `--enter`**, never scheduled. The
+  table marks which states those are.
+- **`--status` reads a run's counts from its record alone**, beside the
+  baseline derived from the table's states array. It is a read; the registered
+  check `check-terrain-workflow.sh` is what refuses on a disagreement.
+- **A resumption across a table version change is refused rather than
+  guessed** — start a fresh run directory.
+
+**WHY THIS FILE CARRIES NO STEP LIST.** It used to carry seven numbered steps,
+a stop instruction and an enumeration of the acts remaining after a tag was
+named. Those were a **second copy** of a sequencing the table already held, and
+a second copy is not documentation — it is a surface that can disagree with the
+one the executor reads, silently, while looking authoritative. The removal is
+the repair; re-adding a step list here would re-create exactly the divergence
+`workflow.json` exists to make impossible.
+
+## Composing the executor's inputs
+
+**This is what the skill still owes: the runtime VALIDATES the typed records
+and never composes them** (SPEC.md §15.6). The judgment is yours; the ordering
+is the table's; the rendering is the runtime's. The invocation forms below are
+the ones the judgment states consume — `cotags --survey <record> --tag <T>
+--claims <F> --subdivisions <F> --judge-model <M> --judge-effort <E>` for the
+co-tag screen, and `report --survey <record> --tag <T> --ids <G…> --claims <F>
+--subdivisions <F> --judge-model <M> --judge-effort <E>` for the Full Report,
+whose ID set the owner enters. **Nothing on either line is optional.**
 
    **THE SUBDIVISION FILE IS A TYPED RECORD PER GROUP** (§12.1 v9,
    kogaki#199). Compose it as:
@@ -130,6 +161,7 @@ this sentence is here.
    list of Lesson slugs beside a count table is what the co-tag screen
    REPLACES: it lets no image of a possible Thesis form, which is the purpose
    Terrain exists to serve (`specs/spec-terrain/SPEC.md` §6.1).
+
    - **FIRST, bound the input — `compose-input --survey <record> --tag <T>`**
      (kogaki#163 lever 3, story 1.33; SPEC.md §9's *"one shard pair per viewed
      tag"*). It writes one tag-scoped artifact, and **every GroupClaim and
@@ -188,125 +220,6 @@ this sentence is here.
      renders no SubGroups and is **fully conformant**; what is refused is a
      run that **never asked**. **Never a member count.**
      A number in that decision is a defect against §8 — the owner's "five or
-     more" is calibration evidence for where the undiscriminating-claim
-     condition binds, not a threshold, and "required" must not be read as
-     re-admitting it.
-   - The screen carries **no per-Strand Gloss line and no Journey line**. That
-     material is the Full Report's (§12). **No per-row pin renders either**
-     (§6.1 v5) — the pin is sited once, in the Full Report.
-     **This is a RATIFIED divergence, not a defect to repair** — SPEC.md §2.4
-     **register entry 4** (owner selection 2026-08-07, kogaki#167,
-     alternative (b)). The WA baseline this spec inherits does promise a
-     gloss and a journey per row; the owner declined restoring them on screen
-     size read against kogaki#168, since SubGroups being REQUIRED would
-     multiply those lines across every SubGroup of every group. Do not
-     "repair" it — read entry 4 first.
-   - **THE REPORT IS PULLED ON THE OWNER'S ID ENTRY, NOT GENERATED EAGERLY**
-     (§11 v5, §12 v6/v7 — owner decision kogaki#314, superseding the v5
-     decided-eager reading of kogaki#146). After `cotags`, **stop**. The owner
-     reads the screen and names the Group/SubGroup IDs they want; then run
-     `report --survey <record> --tag <T> --ids <G/SG list> --claims <F>
-     --subdivisions <F> --judge-model <M> --judge-effort <E>` — **ONE** report
-     covering exactly the entered set, idempotent per identity.
-     `--all-groups` and `--group` are **gone and will refuse**: the co-tag
-     count grew to the point where eleven reports nobody asked for stopped
-     serving the reading.
-     **`--subdivisions` is not optional here either**: §6.2 requires SubGroups
-     in the Full Report as well as on the screen, so a run without it produces
-     the exact artifact the ruling calls a failed run.
-     **The ids are valid for the run that printed them** (story 1.56 AC11): a
-     pin advance may renumber, so never reuse a list from an earlier screen —
-     re-read the current one.
-   - **ONCE A TAG IS NAMED, EXACTLY TWO ACTS REMAIN** (SPEC.md §6.3;
-     kogaki#166, owner ruling 2026-08-07): **(1)** run `cotags` and hand over
-     the `reports/Screen.md` it names (§14.4.1 v19 — you deliver the artifact,
-     you do not retype it and you do not treat the printed text as the
-     delivery), **(2)** accept the owner's ID entry, run `report --ids <list>`,
-     and hand over the rendering it names. **The stop now sits BETWEEN the two acts**
-     (§6.3 v7): nothing runs after the screen until the owner speaks. ID entry
-     is the owner speaking, not the runtime asking — no prompt, no selector,
-     no question. The subdivision judgment is part of act
-     (1) — you judge and render SubGroups inside the screen, never as a third
-     step beside it — and **`compose-input` and the claim composition it feeds
-     are part of act (1) for the same reason**: they are how act (1)'s
-     arguments come to exist, not a step beside it. Two acts, still two.
-     **No question UI may appear in this window. None** — not
-     to pick a co-tag group, not to ask "what next", not to ask for a second
-     tag. Reports are eager, so there is nothing left to authorize. After the
-     screen, state the available acts in plain chat prose and stop.
-4. **Read in full — the Full Report** — generated on the owner's ID entry;
-   `report --survey <record> --tag <T> --ids <G…> --claims <F>
-   --subdivisions <F> --judge-model <M> --judge-effort <E>` re-resolves one
-   (idempotent — same identity, same artifact).
-   **The report carries the provenance-neighborhood section** (SPEC-terrain
-   §13.1 v20, kogaki#472) — computed inside the pull, seeded by the entered
-   ID set, rendered once and last. There is no standalone act, and the
-   §6.3 two-act window is unchanged: the neighborhood is computed inside
-   act 2, never as a third act. What the section owes the owner (§13.4):
-   every suggestion **names the substrate that reached it**; figures are
-   stated **per family, never pooled**; unresolved references are **named
-   with their value** rather than dropped; and an empty enumeration renders
-   its explicit lines, never an absent section. Suggestion ids are `N<n>`,
-   disjoint from the survey's `L<n>` (§14.6) — a suggestion is not in the
-   survey record, and taking one assigns it an `L<n>` on the way in. It is
-   a **report, never a proposal** (§13.1): it widens, narrows nothing, and
-   taking a suggestion is a further owner act.
-   **Carry the subdivisions and the judge pin through the re-resolve.** A
-   re-resolve without them does not re-resolve anything: judge pin `none` is
-   a **different identity**, so it writes a *second* Full Report carrying no
-   SubGroups — a new artifact of exactly the shape §6.2 calls a failed run,
-   sitting beside the conformant one. Compose from the same `compose-input`
-   artifact the screen used and it costs no further read.
-   The screen is what the owner **navigates**; this is what they **read**.
-   Untruncated Claims and the complete Lesson and Journey Glosses.
-   **Two artifacts, two rules** (SPEC-terrain §12.2 v11, kogaki#234): the
-   **owner rendering** is Markdown in `reports/` **in the working tree** — that
-   is the one to open — and the **machine record** is JSON in the run
-   workspace, carrying identity and idempotence. Generated by default; the
-   rendering is repo-**visible** and **not committed**, which are two separate
-   decisions and not one.
-   **ONE rendering file** (§12.2 v12; owner ruling 2026-08-14): the tree holds
-   exactly `reports/FullReport.md`, overwritten on every pull. Identity and the
-   coexistence of reports live in the machine record alone. An identity-named
-   `terrain-full-report-*.md` in the tree is a machine name on the owner
-   surface — the runtime retires such files on sight, and a run that leaves two
-   or more rendering files in the tree is a **contract violation**.
-   Point the owner at the repo-relative path the runtime prints. Do **not**
-   name a `~/.kogaki/…` path on the owner surface outside debugging
-   (`specs/SPEC.md` §2.5 clause 3): a machine-local hidden directory *declares*
-   a file machine-facing, so naming one tells the owner the opposite of what is
-   true.
-   - **Identity is the triple (substrate pin, co-tag query, judge pin)**, with
-     `none` typed where nothing was judged. A rerun under the same identity is
-     **idempotent** — one report, not a duplicate — and a run under a new
-     substrate pin, a different `(tag, group)`, or a different judge produces
-     another.
-   - **A report carrying SubGroupClaims REFUSES without a judge pin.** Judged
-     material recorded without its judge is the drift-undetectable shape.
-   - **It is a rendering, not an address.** Never cite a report id in a Brief
-     or a proposal — cite members and pins, exactly as before.
-5. **Narrow (only through the contract)** — if a shortlist is wanted
-   (e.g. the selector affordance holds only 4 options), that is a **trim**:
-   `act --act trim --where … --why … --label … --ids …`. The record carries
-   the machine premise and its negation as a first-class option. Present it
-   at the `terrain-trim-ratification` gate. Never trim silently — a single
-   ranking affordance on a navigation screen is the refused minimal-form
-   bundling.
-6. **Select** — `gate --gate terrain-strand-selection --ids a,b,c` (≤3
-   Strands; more is a trim, and the runtime refuses). Render the printed
-   declaration through **AskUserQuestion exactly as declared**: options
-   verbatim, nothing pre-selected, free text always on — the medium binding
-   is contract, not discretion. Then
-   `capture --declaration <file> --tool-use-id <the AskUserQuestion tool
-   use id> --option <id> | --free-text <answer>`.
-7. RETIRED (SPEC-terrain §13.2 v20, kogaki#472/#473). The provenance
-   neighborhood is no longer a post-gate act: it rides the Full Report as a
-   section (step 4), computed at the report pull and seeded by the entered ID
-   set — delivered before the selection it exists to inform, not after it.
-   The `neighborhood` subcommand refuses, naming the report as the
-   replacement. **The flow ends at step 6**: Brief is outside the boundary,
-   and this skill neither mentions nor guarantees a Brief launch — a session
-   may offer one afterward in plain prose.
 
 ## Hard lines
 
