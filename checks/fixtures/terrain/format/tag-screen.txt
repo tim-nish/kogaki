@@ -4,4 +4,4 @@ The survey — screen 1. Navigation (narrows nothing): name a tag.
   cost — 1 Lesson
   testing — 4 Lessons
 
-Navigation (narrows nothing): view --survey <F> [--tag T] [--family lesson|journey] [--sort slug|section]
+Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4).

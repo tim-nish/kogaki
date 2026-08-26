@@ -2806,6 +2806,12 @@ function cmdReport(args) {
   console.log("The RENDERING is repo-visible and NOT committed; the RECORD is "
     + "machine-local (SPEC.md §2.5.2, §12.2 v11). Two artifacts, two rules — "
     + "visibility and publication are separate decisions.");
+
+  // RETURNS WHAT IT WROTE, so the §15 executor can OBSERVE the artifact
+  // rather than assert one (PR #655 round 1, carried to kogaki#665). Under
+  // `--no-render` nothing is written and `rendered` stays null — which is
+  // exactly the case that used to record a write that never happened.
+  return rendered;
   }
 }
 
@@ -3682,16 +3688,32 @@ export function loadWorkflowTable(path) {
 export function derivedBaseline(table) {
   const states = table.states;
   const writing = states.filter((s) => s.kind === "write");
-  const artifacts = table.owner_artifacts || {};
-  const writerCounts = Object.values(artifacts)
-    .map((a) => (typeof a.writer === "string" && a.writer ? 1 : 0));
+  // `writers_per_artifact` IS DROPPED, NOT REPAIRED (PR #655 round 1 finding 3,
+  // decided at kogaki#665 as that issue's body requires). It mapped each
+  // `owner_artifacts` entry to 1 when its `writer` field was a non-empty
+  // string and took the max — so the figure was 1 for any table declaring a
+  // writer, however many writers there were. `writer` is a PROSE SENTENCE and
+  // not a countable set, so the two-writer breach §15.5 exists to forbid was
+  // never expressible in this derivation, and the self-test asserting
+  // agreement with `counted_baseline` could not fail on the key.
+  //
+  // A DERIVED FIGURE THAT CAN NEVER DISAGREE IS WORSE THAN AN ABSENT ONE,
+  // because a Test Plan reads it as evidence. The countable alternative — the
+  // set of call sites reaching the private writer — is a fact about the CODE
+  // and not about the table, and `derivedBaseline` derives from the table
+  // alone. So the key leaves both sides: the derivation here and the
+  // declaration in `workflow.json`'s `counted_baseline`, together, because a
+  // declared key with no derived counterpart is the omission hole in the other
+  // direction. What replaces it is not a better count: §15.5's one-writer
+  // property is made true BY CONSTRUCTION at this issue — one private
+  // `writeScreenSurface`, no second path — which is constrain-generation where
+  // the figure was after-the-fact detection that never fired.
   return {
     waits: states.filter((s) => s.kind === "wait").length,
     conditional_states: states.filter((s) => Boolean(s.conditional)).length,
     owner_artifact_writes: writing.length,
     judgment_points: states.filter((s) => s.kind === "judgment").length,
     grammared_writing_states: writing.filter((s) => Boolean(s.grammar_surface)).length,
-    writers_per_artifact: writerCounts.length ? Math.max(...writerCounts) : 0,
   };
 }
 
@@ -3861,7 +3883,7 @@ const STATE_WORK = {
   }),
 
   full_report: (rec, st, args, table) => {
-    cmdReport({
+    const written = cmdReport({
       ...args,
       survey: needSurvey(rec),
       tag: ownerInput(rec, "TAG_SELECTION")
@@ -3869,11 +3891,16 @@ const STATE_WORK = {
       ids: ownerInput(rec, "ID_SELECTION")
         || fail("full_report needs the entered ID set, and no wait has supplied one yet."),
     });
-    // The rendering is written by cmdReport's own renderer; its NAME is taken
-    // from the artifact the STATE declares it writes, never from a literal
-    // here — so a table that renames an artifact does not need this file
-    // edited to keep the ledger honest.
-    return { artifact: join(renderingsDir(args), basename(artifactPath(table, st))) };
+    // OBSERVED, NOT CONSTRUCTED (PR #655 round 1). `cmdSurvey`, the two screen
+    // renderers and `cmdCotags` each return the path they actually wrote; this
+    // state ASSERTED one instead, via join(renderingsDir(args), basename(...)).
+    // `cmdReport` honours `--no-render` by writing NO rendering and `args` is
+    // spread into it verbatim, so `run --no-render` recorded a
+    // `reports/FullReport.md` write that never happened. Reading the basename
+    // from the table was never the defect — asserting a value where three
+    // siblings observe one was. A state that wrote no owner artifact records
+    // none, which is what makes the ledger's write count countable.
+    return written ? { artifact: written } : null;
   },
 };
 
@@ -3939,7 +3966,15 @@ function cmdRun(args) {
 
     if (st.kind === "wait") {
       rec.awaiting = st.id;
-      rec.waits_reached.push(st.id);
+      // DEDUPED, like its three siblings in this same loop (PR #655 round 1).
+      // Re-entering `run --run-dir D` with no `--input` at an outstanding wait —
+      // the resume act #625 acceptance item 4 licenses, and the act needSurvey's
+      // own refusal text tells the owner to perform — used to record the id a
+      // second time, so runCounts(rec).waits exceeded counted_baseline.waits for a
+      // run that reached exactly four waits. checks/check-terrain-workflow.sh now
+      // counts against that baseline, so the defect made a registered check go red
+      // on a record no owner mis-drove.
+      if (!rec.waits_reached.includes(st.id)) rec.waits_reached.push(st.id);
       // §15.4 / AC6: the executor renders NO gate declaration and NO question
       // UI. For a wait the table marks `renders_gate_declaration: true` the
       // obligation is RECORDED and named on stop; rendering it is not this
@@ -4027,7 +4062,6 @@ const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 switch (cmd) {
   case "survey": cmdSurvey(args); break;
-  case "view": cmdView(args); break;
   case "cotags": cmdCotags(args); break;
   // RETIRED, LOUDLY (§13.2 v20, kogaki#473) — the same shape `--all-groups`
   // and `--group` took: a refusal naming the replacement, never a silent
@@ -4189,7 +4223,7 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <run|survey|view|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
       [--claims F] [--subdivisions F] [--judge-model M] [--judge-effort E]
                                             THE §15 CONTROL PLANE. One entry point, entered once
@@ -4209,7 +4243,6 @@ switch (cmd) {
                                             counts derived from the table's states array and the
                                             table's own counted_baseline (#625 acceptance item 2).
   survey                                    compose the survey from the seam (element_survey)
-  view --survey F [--tag T] [--family X]    navigation — narrows nothing
   compose-input --survey F --tag T          the BOUNDED input for the claim and subdivision
                                             composers (§9): one tag-scoped shard pair, fetched
                                             once, material keyed by member id and groups

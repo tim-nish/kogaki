@@ -4241,8 +4241,19 @@ const fails = [];
 const A = "checks/fixtures/terrain/conforming/survey-two-strands.json";
 const B = "checks/fixtures/terrain/conforming/survey-with-no-relation-section.json";
 
+// THE INVOCATION PATH CHANGED, THE ASSERTIONS DID NOT (kogaki#665). §15.7
+// removes `view` as an entry point, so this block drives `cotags` instead —
+// a live entry point (`workflow.json` `bound_to_a_state`: "cotags: the
+// cotag_screen state") that takes a fixture survey directly and writes
+// `reports/Screen.md` through the same one private writer. What §14.4.1
+// asserts here is the WRITE, the OVERWRITE-never-accumulate and the HAND-OVER
+// line, and all three are properties of the screen artifact rather than of
+// whichever state rendered it — which is why the swap is an invocation change
+// and not a weakening. Both fixtures carry the tag named below.
+const DELIVERY_TAG = "architecture";
 function render(runtime, dir, survey) {
-  return spawnSync(process.execPath, [runtime, "view", "--survey", survey], {
+  return spawnSync(process.execPath,
+    [runtime, "cotags", "--survey", survey, "--tag", DELIVERY_TAG], {
     encoding: "utf8", env: { ...process.env, KOGAKI_REPORTS_DIR: dir },
   });
 }
@@ -4276,7 +4287,16 @@ if (after2.includes("Screen.md")) {
   const body = readFileSync(join(dir, "Screen.md"), "utf8");
   // The SECOND render's material, not the first: this is what makes the
   // assertion about overwriting rather than about existence.
-  if (!body.includes("no relation")) {
+  //
+  // THE MARKER WAS RE-BOUND WITH THE INVOCATION (kogaki#665). It used to be
+  // "no relation", a string `view`'s row listing produced; the co-tag screen
+  // filtered to one tag never emits it, so carrying the old marker across the
+  // swap would have made the assertion fail for a reason unrelated to
+  // overwriting. `G2 —` is the new marker and it is MATERIAL rather than
+  // incidental: fixture B composes a SECOND co-tag group and fixture A, with
+  // one member, cannot — so the string is present exactly when the second
+  // render's material is, which is the property this line claims.
+  if (!body.includes("G2 —")) {
     fails.push("the screen artifact does not carry the SECOND render's material — the file exists but was not overwritten, so the owner opens a stale screen while the run reports success");
   }
 }
