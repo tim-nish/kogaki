@@ -53,6 +53,30 @@ else
   echo "ok: the owner rendering carries Question, a readable Answer and the agent's Conclusion slot, and no pin-shaped token"
 fi
 
+
+# THE FLOOR IS READ FROM THE REGISTRY, never hardcoded here (kogaki#661).
+# checks/registry.json is the one source: a number transcribed into this file
+# would be the unbound-prose defect the floor exists to close, in a second
+# place. The EXTRACTION is this member's own, per the note's rule — the four
+# delegating members print their counts in three grammars, and imposing one
+# grammar on four runtimes would be a spec decision about check plumbing paid
+# for by edits to three unrelated files.
+FLOOR=$(python3 -c "
+import json
+d = json.load(open('checks/registry.json'))
+print(next(m['admission']['case_floor'] for m in d['checks'] if m['id'] == 'owner-surface-pins'))
+") || { echo "FAIL: could not read case_floor for owner-surface-pins from checks/registry.json"; exit 1; }
+N=$(sed -n 's/.*fixture pass: \([0-9][0-9]*\)\/[0-9][0-9]* owner-register cases.*/\1/p' <<<"$OUT" | head -1)
+if [[ -z "$N" ]]; then
+  echo "FAIL: no case count readable from the pass's output — an unreadable floor is not a pass"
+  exit 1
+fi
+if (( N < FLOOR )); then
+  echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were LOST rather than broken, and this member would otherwise report their absence as evidence (kogaki#661)"
+  exit 1
+fi
+echo "ok: owner-register fixture pass ran ${N} case(s) clean, at or above its declared floor of ${FLOOR}"
+
 # UNCONDITIONAL, per story 1.50 AC5.
 cat <<'EOF'
 reach of this check, stated rather than implied: it is a LEXICON GREP over

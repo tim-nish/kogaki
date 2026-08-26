@@ -29,6 +29,30 @@ grep -q "cite-check self-test:" <<<"$OUT" || {
   FAIL=1
 }
 
+
+# THE FLOOR IS READ FROM THE REGISTRY, never hardcoded here (kogaki#661).
+# checks/registry.json is the one source: a number transcribed into this file
+# would be the unbound-prose defect the floor exists to close, in a second
+# place. The EXTRACTION is this member's own, per the note's rule — the four
+# delegating members print their counts in three grammars, and imposing one
+# grammar on four runtimes would be a spec decision about check plumbing paid
+# for by edits to three unrelated files.
+FLOOR=$(python3 -c "
+import json
+d = json.load(open('checks/registry.json'))
+print(next(m['admission']['case_floor'] for m in d['checks'] if m['id'] == 'draft-cites'))
+") || { echo "FAIL: could not read case_floor for draft-cites from checks/registry.json"; exit 1; }
+N=$(sed -n 's/^cite-check self-test: \([0-9][0-9]*\) case(s) pass.*/\1/p' <<<"$OUT")
+if [[ -z "$N" ]]; then
+  echo "FAIL: no case count readable from the pass's output — an unreadable floor is not a pass"
+  exit 1
+fi
+if (( N < FLOOR )); then
+  echo "FAIL: the fixture pass reported $N case(s) against a declared case_floor of $FLOOR — cases were LOST rather than broken, and this member would otherwise report their absence as evidence (kogaki#661)"
+  exit 1
+fi
+echo "ok: cite-check fixture pass ran ${N} case(s) clean, at or above its declared floor of ${FLOOR}"
+
 shopt -s nullglob
 DRAFTS=(briefs/*/draft.md)
 if [[ ${#DRAFTS[@]} -eq 0 ]]; then
