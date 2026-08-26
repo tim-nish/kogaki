@@ -1,0 +1,52 @@
+{
+  "note": "A SECOND fixture table, minted for kogaki#625 item 1 and deliberately NOT a change to evolved.json — that table's whole claim is that a moved handoff and an added entry point run with zero driver changes, and editing it to carry a new property would make its evolvability evidence a different table's. This one carries the GATE property: a wait whose declaration the executor can actually COMPOSE, beside evolved.json's CLOSING_CONFIRMATION, whose declaration is owed-and-unwritten because this runtime binds no option composer to it. The pair is the point — the same executor must write one and refuse to invent the other.",
+  "version": 1,
+  "licensed_by": "v1, kogaki#625 acceptance item 1, PR #671 round 1. The `--input` refusal at a gate wait, the capture's option validation and the owed-and-unwritten refusal were all shipped asserted by nothing; this table is what a check can drive them with, seam-free.",
+  "governing_text": "specs/spec-terrain/SPEC.md §15.1 — a new state is a table row PLUS a renderer, and the executor interprets the table and invents neither",
+  "state_kinds": {
+    "compute": "no owner surface, no renderer needed",
+    "wait": "the executor stops; the owner speaks; re-enter with --input",
+    "terminal": "the end of a run, read from the table and never from position"
+  },
+  "states": [
+    {
+      "id": "gather",
+      "kind": "compute",
+      "does": "Seam-free no-op: this table exercises the GATE path and composes no material.",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "grammar_surface": null,
+      "governing": "§15.1"
+    },
+    {
+      "id": "STRAND_SELECTION",
+      "kind": "wait",
+      "owner_supplies": "up to three Strand ids, or free text",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": true,
+      "grammar_surface": null,
+      "gate_id": "terrain-strand-selection",
+      "governing": "§2.3, §15.4",
+      "note": "Named STRAND_SELECTION deliberately: GATE_WORK binds its option composer by STATE ID, so this is how a fixture table reaches a composer at all. The ids come from --ids, which is the composer's own declared input."
+    },
+    {
+      "id": "done",
+      "kind": "terminal",
+      "does": "Terminal.",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "grammar_surface": null,
+      "governing": "§15.1"
+    }
+  ],
+  "counted_baseline": {
+    "waits": 1,
+    "conditional_states": 0,
+    "owner_artifact_writes": 0,
+    "judgment_points": 0
+  },
+  "counted_baseline_note": "Counted against this table's own states array, exactly as the shipped table's is. The four keys are the ones check-terrain-workflow.sh asserts present."
+}

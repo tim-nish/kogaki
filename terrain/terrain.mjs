@@ -1167,8 +1167,12 @@ function emitOrRefuse(surfaceName, text, write) {
 //
 // The re-offer routes through the gate carrier (manifest item 4), never
 // through an affordance of Terrain's own: §1's refusal and §4's out-of-scope
-// decision are unchanged by this story, so `claim` emits the same run
-// declaration `gate` emits and adoption happens only against a capture.
+// decision are unchanged. The sentence that stood here named `claim` and `gate`
+// as the two commands emitting this declaration, and both are removed
+// (kogaki#625 item 1) — the declaration is composed by the executor at the wait
+// that owes it, and adoption is that wait's captured answer. What the removal
+// did NOT change is which surface renders it: AskUserQuestion, the gate
+// carrier, as it always was.
 // --------------------------------------------------------------------------
 const CLAIM_GATE = "terrain-claim-reoffer";
 
@@ -1278,9 +1282,13 @@ export function composeClaimReoffer(args, dir, record) {
   };
 }
 
-// The one place a run declaration is composed, shared by `gate` and by the
-// claim re-offer: the re-offer routes through manifest item 4's carrier and
-// never through an affordance of Terrain's own (SPEC.md §7, §4).
+// The one place a run declaration is composed. Its callers are `GATE_WORK`'s
+// option composers, reached from the executor at the wait that owes the
+// declaration; `gate` and the standalone claim re-offer, which this comment
+// used to name as its two callers, are both removed (kogaki#625 item 1). The
+// re-offer still routes through manifest item 4's carrier and never through an
+// affordance of Terrain's own (SPEC.md §7, §4) — what changed is that nothing
+// outside a run can reach this composer at all.
 export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
   if (!registered) fail(`${gateId} is not declared in gates/registry.json — an unregistered gate is the uncovered-by-default shape`);
@@ -3932,6 +3940,32 @@ function cmdRun(args) {
     if (args.at !== undefined && String(args.at) !== rec.awaiting) {
       fail(`--input names state ${JSON.stringify(String(args.at))} and this run awaits ${JSON.stringify(rec.awaiting)}. Refused rather than applied to the awaited state: an input bound to the wrong wait is not the input that wait asked for.`);
     }
+    // A GATE WAIT IS ANSWERED BY A CAPTURE, NEVER BY A BARE INPUT (PR #671
+    // round 1). Removing `capture` as an entry point closed the OUT-OF-BAND
+    // route and left this IN-BAND one open beside it: `--input` checked only
+    // that some wait was outstanding, so a bare `--input adopt-recomposed:G1`
+    // at a gate wait wrote the owner input, pushed `completed` and cleared
+    // `awaiting` — skipping the declaration's own option validation, the
+    // `--tool-use-id` evidence and the capture row entirely. §15.4's "a capture
+    // is admissible only at the wait that declared the gate" says nothing from
+    // this direction, so the refusal states it: at such a wait the capture is
+    // not one way to answer, it is the only one.
+    //
+    // SCOPED TO A DECLARATION THAT EXISTS, and acceptance item 6 is what scoped
+    // it. The first cut refused `--input` at every gate-declaring wait, which
+    // deadlocked the evolvability fixture: its `CLOSING_CONFIRMATION` has no
+    // bound option composer, so its declaration is owed-and-unwritten, a
+    // capture has nothing to validate against, and refusing the input too left
+    // the state unanswerable — adding a gate state to a table would then need
+    // driver code, which item 6 denies. So the refusal binds the state a
+    // declaration was WRITTEN for. Where none could be composed, `--input`
+    // stays the answer and the run record carries `unwritten` with its reason,
+    // which is the declared limit rather than a silent exemption.
+    const awaitedState = stateById(table, rec.awaiting);
+    const owedForInput = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting);
+    if (awaitedState && awaitedState.renders_gate_declaration && owedForInput && owedForInput.declaration) {
+      fail(`${rec.awaiting} declares a gate and its declaration is written (${owedForInput.declaration}), so it is answered by a CAPTURE and never by a bare --input. The answer must carry the option the declaration offered and the AskUserQuestion tool_use_id that evidences the rendering: run --run-dir ${dir} --capture-option <id> --tool-use-id <id> (or --capture-free-text '<answer>'). An input that skips the declaration answers a question nothing can show was asked (§15.4, §2.3).`);
+    }
     rec.owner_input[rec.awaiting] = String(args.input);
     rec.completed.push(rec.awaiting);
     rec.awaiting = null;
@@ -3950,8 +3984,26 @@ function cmdRun(args) {
     }
     const owed = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting)
       || fail(`the outstanding wait ${JSON.stringify(rec.awaiting)} declared no gate, so there is nothing to capture. An answer with no declaration is the shape §7 calls a silent refresh.`);
+    // OWED-AND-UNWRITTEN IS A STATE THIS PATH MUST NAME (PR #671 round 1). A
+    // gate state this runtime binds no option composer to records
+    // `declaration: null` by design — and reading that null as a path threw a
+    // raw TypeError instead of the refusal every neighbouring branch is careful
+    // to write. It is reachable on the very fixture the design cites as its
+    // proof (`evolved.json`'s CLOSING_CONFIRMATION), so the case is not
+    // hypothetical: the honest answer is that there is no declaration to answer
+    // against, not a stack trace.
+    if (!owed.declaration) {
+      fail(`${rec.awaiting} owes a gate declaration that was never written: ${owed.unwritten || "no option composer is bound to this state"}. There is nothing for a capture to be validated against, so the answer is refused rather than recorded against an absent declaration.`);
+    }
     const toolUseId = String(args["tool-use-id"] || fail("a capture needs --tool-use-id (the AskUserQuestion tool use — evidence, not a claim)"));
-    const { path: capPath, row } = writeCapture(dir, readJson(join(REPO, owed.declaration)), { toolUseId, option: capOption, freeText: capFree });
+    // READ AS RECORDED, never re-joined to REPO (PR #671 round 1, found by
+    // driving it). `relFromRepo` returns a path OUTSIDE the repository
+    // unchanged, and the run workspace is machine-local and routinely is one —
+    // so `join(REPO, …)` turned an absolute /tmp path into
+    // `<repo>/tmp/...` and every capture died in `readFileSync` before any
+    // refusal could speak. The siblings already read their recorded paths
+    // as-is (`readJson(needSurvey(rec))`), and this now matches them.
+    const { path: capPath, row } = writeCapture(dir, readJson(owed.declaration), { toolUseId, option: capOption, freeText: capFree });
     // The answer IS the owner input for this wait. Adoption, ratification and
     // strand selection are all this one act (§15.6.1: adoption is applying the
     // captured answer), which is why no second command remains to apply it.
@@ -4082,9 +4134,24 @@ function cmdRun(args) {
   console.log("");
   if (stopped && stopped.kind === "wait") {
     console.log(`Executor STOPPED at ${stopped.id} — a wait (§15.4). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
-    console.log(`Nothing is asked here: the executor stops and the owner speaks. Re-enter with what they said — run --run-dir ${dir} --input '<...>'`);
-    if (stopped.renders_gate_declaration) {
-      console.log(`This wait declares a gate (renders_gate_declaration: true); the declaration is recorded as owed on the run record and is not rendered by this runtime.`);
+    const owedHere = stopped.renders_gate_declaration
+      ? rec.gate_declarations_owed.find((g) => g.state === stopped.id) : null;
+    if (!stopped.renders_gate_declaration) {
+      console.log(`Nothing is asked here: the executor stops and the owner speaks. Re-enter with what they said — run --run-dir ${dir} --input '<...>'`);
+    } else if (owedHere && owedHere.declaration) {
+      // THE STOP NAMES THE FILE (PR #671 round 1). The executor now WRITES the
+      // declaration, and this message still said it did not and still sent the
+      // reader to `--input` — while SKILL.md promised "the executor composes the
+      // run declaration and names its path". The path was returned silently and
+      // carried only on the run record, so the skill instructed the session to
+      // render a file the runtime never pointed at.
+      console.log(`This wait declares a gate. Its run declaration is WRITTEN: ${owedHere.declaration}`);
+      console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. The executor renders no question UI and asks nothing (§6.3).`);
+      console.log(`Then re-enter with the answer AND its evidence — run --run-dir ${dir} --capture-option <id> --tool-use-id <id>   (or --capture-free-text '<answer>')`);
+      console.log(`A bare --input is refused at a gate wait: it would skip the declaration's own option check and the tool_use_id that evidences the rendering.`);
+    } else {
+      console.log(`This wait declares a gate and its declaration is OWED AND UNWRITTEN: ${(owedHere && owedHere.unwritten) || "no option composer is bound to this state"}.`);
+      console.log(`The run is not stuck — §15.1 makes a gate state a table row PLUS an option composer, and this table names one this runtime does not bind. Nothing can be captured here until it does.`);
     }
   } else if (stopped && stopped.kind === "terminal") {
     console.log(`Executor reached ${stopped.id} — terminal (§15.1). The run is over.`);
@@ -4337,9 +4404,10 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
-      [--claims F] [--subdivisions F] [--judge-model M] [--judge-effort E]
+      [--capture-option ID | --capture-free-text S] [--tool-use-id ID]
+      [--claims F] [--subdivisions F] [--classification F] [--judge-model M] [--judge-effort E]
                                             THE §15 CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
                                             specs/spec-terrain/workflow.json declares until the
@@ -4371,12 +4439,6 @@ switch (cmd) {
                                             where §8's conditions bind (§6.2). --claims and
                                             --subdivisions are maps keyed by group name; a
                                             group missing a claim is MARKED, never substituted.
-  claim --survey F --tag T --group G --text S [--members a,b]
-        [--original F | --original-text S [--original-members a,b]]
-                                            GroupClaim first, pinned to its member set (§7);
-                                            a subset RE-OFFERS it at the gate carrier
-  adopt --claim F --capture F [--original-text S]
-                                            record the adopted claim with its members, by id and pin
   report --survey F --tag T (--group G | --all-groups) [--claims F]
          [--subdivisions F] [--judge-model M --judge-effort E] [--report-dir D]
                                             the Full Report (§12) — untruncated Claims and
@@ -4392,16 +4454,25 @@ switch (cmd) {
                                             idempotent, not a duplicate. --all-groups is §11's
                                             decided EAGER reading (v5): the co-tag view
                                             generates one report per composed group.
-  subdivide --survey F --tag T --group G --group-claim S --classification F
-            --judge-model M --judge-effort E --screen-budget N
-                                            semantic subdivision (§8) — DOGFOOD-FIRST, never
-                                            offered by default; co-tags are the default
-  act --act rank|trim|hide --where --why --label --ids a,b   proposal record (item 3 contract)
-  act --act <other>                         report record — the non-member fallback
-  gate --gate ID --ids a,b | --proposal F   per-run gate declaration (item 4 carrier)
-  capture --declaration F --tool-use-id ID --option X | --free-text S
   validate --survey F                       run the composition rules on a record
-  self-test                                 the composed-form fixture pass (identity cites, kogaki#612)`);
+  self-test                                 the composed-form fixture pass (identity cites, kogaki#612)
+
+ REMOVED, and refusing with a pointer (§15.6.3, §15.7 — kogaki#625 item 1):
+   claim  adopt  subdivide  act  gate  capture
+                                             each is a STATE of the workflow table now, reachable
+                                             only through 'run'. Invoke one and its refusal names
+                                             the state and the exact 'run' invocation that gets
+                                             you there. Listed rather than dropped for the same
+                                             reason they still have cases: a reader who knew the
+                                             old surface is owed the replacement, and an entry
+                                             point that simply vanishes hands them a bare
+                                             unknown-command (§13.2's precedent).
+
+ At a wait that declares a gate, the executor WRITES the run declaration and names its path.
+ Render it through AskUserQuestion — options verbatim, nothing pre-selected, free text always on
+ — then re-enter with --capture-option <id> --tool-use-id <id> (or --capture-free-text).
+ A bare --input is REFUSED there: it would skip the declaration's own option check and the
+ tool_use_id that evidences the rendering.`);
     process.exit(cmd ? 1 : 0);
 }
 }
