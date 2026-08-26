@@ -1,6 +1,22 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v24, amended 2026-08-25 (kogaki#636, owner selection at the
+**Status:** v25, amended 2026-08-26 (kogaki#666, owner selection at the
+/triage-gh 666 sitting) — **the claim re-offer §7 rules a GATE EVENT becomes a
+declared state: `CLAIM_REOFFER`, a conditional wait beside `J1_claims`.**
+`subdivide` folds its **composition** into `J2_subdivision` and not only its
+validation, because §2.1's cover refusal is a runtime refusal; a removed entry
+point refuses with a pointer per §13.2's precedent. §15.4's prose wait count
+moves with `counted_baseline` (4→5) rather than being left behind, and
+`workflow.json` goes to **v5** in the same act. The three new sections are
+labelled by THIS file's version, never the table's — PR #668 round 2, should 2:
+the first cut labelled them "(v5)", importing the sibling carrier's numbering
+into a document numbered v24 whose header did not move at all, so one commit
+changed byte-state under an unmoved version while a second scheme named its
+amendments. §14.1's derived owner-surface figure does **not** move and stays 4
+of 4: a wait's `writes` is null, so it enters neither term.
+**deferred slots minted by this amendment: none.**
+
+**Status (v24):** amended 2026-08-25 (kogaki#636, owner selection at the
 /ship-cycle 636 sitting) — **§15's grammar and conditionality bind to STATES,
 not to artifact paths, and the owner-surface coverage figure becomes DERIVED
 rather than asserted.** Successor to PR #626, which spent its two-round bound
@@ -5124,12 +5140,21 @@ never named on an owner surface outside debugging.
 
 ### 15.4 A wait is the executor STOPPING; it is never the runtime asking
 
-The table declares which states wait. **The baseline table declares four, and
-that count is the correction kogaki#625's own baseline needed** — it named two
-(tag selection, ID selection) and omitted the two the flow actually ends at:
-the `terrain-trim-ratification` gate and the `terrain-strand-selection` gate
-with its capture. Acceptance is counted against the table, so a table naming
-two waits would have passed its own check while dropping shipped contract.
+The table declares which states wait. **It declares five at v5, and four was
+the correction kogaki#625's own baseline needed** — the issue named two (tag
+selection, ID selection) and omitted the two the flow actually ends at: the
+`terrain-trim-ratification` gate and the `terrain-strand-selection` gate with
+its capture. Acceptance is counted against the table, so a table naming two
+waits would have passed its own check while dropping shipped contract.
+
+**The fifth is `CLAIM_REOFFER` (§15.6.1, v25/table v5), and this paragraph
+moving with it is the point** — PR #668 round 2, should 1. §15.7's rider R2
+repair exists because *a coverage figure written as prose in one carrier and as
+data in another desynchronizes*, and the amendment that added the state moved
+`counted_baseline` to `waits: 5` while leaving this count at four one section
+above. The authoritative figure is and stays `workflow.json`'s
+`counted_baseline` (§15.1); the prose here is a reader's orientation and is
+repaired rather than re-asserted as a second authority.
 
 The baseline states, in order:
 
@@ -5139,6 +5164,8 @@ The baseline states, in order:
       → tag row view             (writes a screen, conditional — owner-requested)
       → compose-input            (bounded read, emits the composition pin)
       → J1 claim composition     (judgment point)
+      → CLAIM-REOFFER            (wait, conditional — entered only on a
+                                  proper-subset claim; gate + capture)
       → J2 subdivision judgment  (judgment point)
       → co-tag screen            (writes a screen)
       → ID-SELECTION             (wait)
@@ -5181,10 +5208,12 @@ It renders no gate declaration, offers no selector and asks nothing, so §6.3's
 **empty question allowlist is untouched** — which is the half of the fork
 ruling that was never about ordering.
 
-Two waits render a gate declaration for `AskUserQuestion` and two do not.
+Three waits render a gate declaration for `AskUserQuestion` and two do not.
 TAG-SELECTION and ID-SELECTION are the owner **speaking**, unprompted, exactly
 as §6.3 rules; TRIM-RATIFICATION and STRAND-SELECTION are declared gates and
-were always so.
+were always so, and CLAIM-REOFFER joins them at v25 (§15.6.1). All three carry
+`gate_id`, which `field_semantics` requires of exactly the states whose
+`renders_gate_declaration` is true.
 
 ### 15.5 Write authority — owner artifacts are written only from writing states
 
@@ -5294,7 +5323,7 @@ files. What this section adds is that they are reachable **only** from the
 states the table declares, so a session cannot supply a judgment at a moment
 the table does not ask for one.
 
-### 15.6.1 (v5) The claim re-offer is a WAIT beside J1, never part of it — kogaki#666
+### 15.6.1 (v25) The claim re-offer is a WAIT beside J1, never part of it — kogaki#666
 
 §7 rules that a claim pinned to a member set is **recomposed and re-offered as
 a GATE EVENT** when the set becomes a subset, *"never a silent refresh"*. §15.6
@@ -5364,7 +5393,7 @@ what §15.5 claims is unwritable*.
 term of §15.7's rule. Stated because a figure that happens to agree and a
 figure that agrees *by the rule* are indistinguishable to a later reader.
 
-### 15.6.2 (v5) `subdivide` folds its COMPOSITION into J2, not only its validation
+### 15.6.2 (v25) `subdivide` folds its COMPOSITION into J2, not only its validation
 
 `J2_subdivision` today reads a typed per-group record and validates it. The
 standalone `subdivide` did more: it placed the judge's subgroups over the
@@ -5379,7 +5408,7 @@ This is also what discharges kogaki#165, and by construction rather than by
 repair: the standalone path raised `ReferenceError` on every invocation while
 every exercised path masked it. **One path cannot diverge from itself.**
 
-### 15.6.3 (v5) A removed entry point refuses with a pointer; a bound one does not
+### 15.6.3 (v25) A removed entry point refuses with a pointer; a bound one does not
 
 The three cases do not simply disappear from the dispatcher. §13.2's
 `neighborhood` precedent binds — *a refusal naming the replacement, never a
@@ -5395,6 +5424,16 @@ reason: `view` sits in `workflow.json`'s `bound_to_a_state`, not in
 `entry_point_accounting`. An entry point whose behaviour **is** a state has a
 live successor the usage line already names; a removed one has none, and
 without the stub its reader meets a bare unknown-command.
+
+**`act`, `gate` and `capture` are carved out of this rule, and the grounds are
+stated rather than left to the map** — PR #668 round 2, nit. They sit in
+`removed_entry_points` beside the three this section covers, and no decision to
+date licenses them a stub. That is not an exception to the rule: their
+dispatcher disposition is **undecided**, not decided-against, and it belongs to
+kogaki#625's open question — §15.8 already records that they remain live cases
+and that §15.5's unwritability claim is false at this head because of it. This
+section decides the three commands #666 licenses and claims nothing about the
+other three.
 
 ### 15.7 The standalone owner-facing subcommands are REMOVED, not flagged
 
@@ -5494,7 +5533,7 @@ record. Stated so their survival reads as a decision rather than an oversight.
   **rule** is executable over the array, and **no member executes it today**.
   Stated here rather than left for a third review round to find.
 
-- **THE v5 FOLDING IS TABLE-SIDE AND SPEC-SIDE ONLY AT THIS HEAD (kogaki#666).**
+- **THE v25 FOLDING IS TABLE-SIDE AND SPEC-SIDE ONLY AT THIS HEAD (kogaki#666).**
   §15.6.1's `CLAIM_REOFFER` is a row in `workflow.json` and a decision recorded
   here; **no executor code implements it**, `J2_subdivision` still validates
   without composing (§15.6.2), and `claim`, `adopt` and `subdivide` are still
@@ -5525,7 +5564,7 @@ line read "this amendment", which stopped identifying an amendment the moment a
 second declaration joined it below. Re-pointed at the section rather than given
 an issue attribution this file does not record.)
 
-**deferred slots minted by the v5 amendment (kogaki#666): none.** The three
+**deferred slots minted by the v25 amendment (kogaki#666, table v5): none.** The three
 forks #666 named are each decided above — the re-offer's siting (§15.6.1),
 `subdivide`'s command path versus `J2_subdivision` (§15.6.2), and what replaces
 a removed entry point for a reader (§15.6.3).
