@@ -40,11 +40,36 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 python3 - <<'EOF'
-import json, pathlib, re, subprocess, sys, tempfile
+import json, os, pathlib, re, subprocess, sys, tempfile
 
 INSTRUMENT = re.compile(r'^(act|none|probe): \S', re.DOTALL)
 EFFICACY = re.compile(r'^(case|none): \S', re.DOTALL)
 PROBE_TIMEOUT_S = 10
+
+# The DELEGATING CLASS (kogaki#661), DETECTED rather than enumerated. A member
+# that spawns another artifact's fixture pass owes a `case_floor`, and the
+# thing that makes it such a member is the DISPATCH — so the dispatch is what
+# is matched, and member N+1 is covered by the match rather than by a list
+# somebody remembered to extend.
+#
+# Why a dispatch shape rather than the words `self-test`: the looser match
+# reaches checks/check-anchor-resolve.sh, whose two occurrences are a comment
+# and its own failure label. Verified at authoring (2026-08-26): this pattern
+# matches exactly the four delegating members and nothing else in checks/.
+#
+# DECLARED LIMIT, and it bit this file first. The match is over TEXT, so a
+# file that merely CONTAINS the dispatch shape is indistinguishable from one
+# that runs it — and THIS check's own fixtures need such a string, which put
+# the observer inside the set it searches. That is the boundary `efficacy`
+# already declares (it cannot tell code from a comment) and the same refusal:
+# a language-aware parser for it would be a lint over judgment. So the remedy
+# is at the WRITER rather than at the pattern — a fixture needing the shape
+# splits the literal, as the block below does, with this paragraph as the
+# reason. The near-miss fixture beside it needs no split: it carries the words
+# WITHOUT the dispatch, which is the distinction being asserted. A member that
+# genuinely delegates through a variable is out of reach here and is caught at
+# admission review.
+DELEGATES = re.compile(r'\b(?:node|bash|python3)\s+\S+\s+(?:--)?self-test\b')
 
 
 def resolve_efficacy_case(payload, opener=None):
@@ -162,6 +187,157 @@ def validate_entries(entries, opener=None):
                     f"FAIL efficacy case does not resolve: "
                     f"checks/{entry['file']} — {detail}")
     return failures
+
+
+def validate_case_floor(entries, file_reader=None):
+    """`case_floor` on every member that delegates to another artifact's pass.
+
+    Required of the DETECTED class, never of a list: a member is in the class
+    because its file spawns another artifact's fixture pass, so the file is
+    what decides membership. A member outside the class may still declare a
+    floor and is validated if it does — declaring one is never an error.
+
+    The floor is an integer at or above 1. Zero is refused rather than
+    admitted as "no floor": a floor of zero is exactly the vacuous pass the
+    field exists to refuse, spelled as a declaration.
+    """
+    if file_reader is None:
+        def file_reader(path):
+            return pathlib.Path(path).read_text(encoding="utf-8")
+    failures = []
+    for entry in entries:
+        admission = entry.get("admission") or {}
+        floor = admission.get("case_floor")
+        path = f"checks/{entry['file']}"
+        try:
+            delegates = bool(DELEGATES.search(file_reader(path)))
+        except OSError:
+            continue  # a missing file is the dangling-entry failure, reported above
+        if delegates and floor is None:
+            failures.append(
+                f"FAIL admission record has no case_floor: {path} spawns "
+                f"another artifact's fixture pass, so it can verify that the "
+                f"pass RAN CLEAN and cannot, by the same evidence, verify "
+                f"that the pass STILL ASSERTS ANYTHING — declare "
+                f"`case_floor` (kogaki#661)")
+        elif floor is not None and (isinstance(floor, bool)
+                                    or not isinstance(floor, int)
+                                    or floor < 1):
+            failures.append(
+                f"FAIL case_floor malformed: {path} — must be an integer at "
+                f"or above 1, got {floor!r}; a floor of zero is the vacuous "
+                f"pass the field refuses, spelled as a declaration")
+    return failures
+
+
+def check_floor_decrements(entries, base_reader=None):
+    """Lowering a `case_floor` takes the admission review path (kogaki#661).
+
+    Returns (rows, failures). A DECREMENT owes a paired `case_floor_note`
+    naming the case retired, and an unpaired one FAILS — deny rather than
+    report, at the strictness an incomplete admission record already draws,
+    because the owner's ruling (2026-08-26) is that a decrement needs the same
+    review path as admitting a member. Without this the field is the
+    silent-shrinkage channel one hop removed: deleting a case goes red while
+    decrementing the floor beside it goes green.
+
+    An INCREMENT owes nothing. Adding cases is the direction the floor exists
+    to protect, and a symmetric gate would tax exactly the edits worth
+    encouraging.
+
+    WHAT IS GATED IS THE PAIRING, NOT THE PROSE. Whether the note names the
+    RIGHT case is judgment, and judgment is never gated here — the same split
+    `probe:` and `efficacy` already run under.
+
+    An unresolvable base renders CANNOT-DETERMINE and never a pass: an absent
+    input owes could-not-establish rather than the healthy-looking answer an
+    absent-reads-as-unchanged coercion produces (kogaki#116).
+    """
+    if base_reader is None:
+        base_reader = _read_base_registry
+    rows, failures = [], []
+    try:
+        base = base_reader()
+    except Exception as exc:                      # noqa: BLE001 - reported, not raised
+        rows.append(f"case-floor-decrements: CANNOT-DETERMINE — the base "
+                    f"registry could not be read ({exc.__class__.__name__}); "
+                    f"this is not a pass")
+        return rows, failures
+    if base is None:
+        rows.append("case-floor-decrements: CANNOT-DETERMINE — no base commit "
+                    "resolved, so no decrement could be observed; this is not "
+                    "a pass")
+        return rows, failures
+    was = {e["id"]: (e.get("admission") or {}).get("case_floor")
+           for e in base.get("checks", [])}
+    was_note = {e["id"]: (e.get("admission") or {}).get("case_floor_note", "")
+                for e in base.get("checks", [])}
+    decrements = 0
+    for entry in entries:
+        admission = entry.get("admission") or {}
+        now, before = admission.get("case_floor"), was.get(entry["id"])
+        if not isinstance(now, int) or not isinstance(before, int):
+            continue
+        if now >= before:
+            continue
+        decrements += 1
+        note = str(admission.get("case_floor_note", "")).strip()
+        # THE NOTE MUST BE NEW, not merely present (PR #663 round 1). A note
+        # left behind by an earlier retirement would otherwise satisfy the
+        # next decrement, so 18 -> 17 -> 16 would cost one note rather than
+        # two — the pairing would hold for the first step and be free
+        # afterwards, which is the shrinkage channel again at a slower rate.
+        # Staleness is decidable from the base record WITHOUT judging prose,
+        # so it is gated; whether the note names the RIGHT case stays
+        # judgment and stays ungated.
+        stale = note and note == str(was_note.get(entry["id"], "")).strip()
+        if not note:
+            failures.append(
+                f"FAIL case_floor lowered without a retirement note: "
+                f"checks/{entry['file']} {before} -> {now} — lowering a floor "
+                f"is an admission-class change and owes a `case_floor_note` "
+                f"naming the case(s) retired (kogaki#661, owner ruling "
+                f"2026-08-26). Without the pairing this field is the "
+                f"silent-shrinkage channel one hop removed")
+        elif stale:
+            failures.append(
+                f"FAIL case_floor lowered against an UNCHANGED retirement "
+                f"note: checks/{entry['file']} {before} -> {now} — the "
+                f"`case_floor_note` is byte-identical to the one already at "
+                f"the base, so it pairs with the PREVIOUS retirement and not "
+                f"with this one. Each decrement owes its own (kogaki#661)")
+        else:
+            rows.append(f"case-floor-decrement: {entry['id']} {before} -> "
+                        f"{now}, paired with a NEW retirement note (accepted; "
+                        f"whether it names the right case is judgment)")
+    rows.append(f"case-floor-decrements: {decrements} observed against the "
+                f"base")
+    return rows, failures
+
+
+def _read_base_registry():
+    """The registry as of the base commit, or None when no base resolves.
+
+    The base resolution is checks/check-consult-receipts.sh's idiom, reused
+    rather than re-derived: CI supplies it, and locally we fall back to the
+    merge base with the default branch.
+    """
+    base = os.environ.get("CONSULT_BASE_SHA", "").strip()
+    head = os.environ.get("CONSULT_HEAD_SHA", "").strip() or "HEAD"
+    if not base:
+        for ref in ("origin/master", "master"):
+            r = subprocess.run(["git", "merge-base", ref, head],
+                               capture_output=True, text=True)
+            if r.returncode == 0 and r.stdout.strip():
+                base = r.stdout.strip()
+                break
+    if not base:
+        return None
+    r = subprocess.run(["git", "show", f"{base}:checks/registry.json"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    return json.loads(r.stdout)
 
 
 def run_probes(entries, runner=None):
@@ -383,6 +559,114 @@ def fixture_pass():
     cases.append(("summary row renders even with zero probes",
                   any(x.startswith("removal-instruments:") for x in rows)))
 
+    # The delegating class and its floor (kogaki#661, story 1.92). Synthetic
+    # registries and a stand-in tree, for the reason the block above states:
+    # a fixture that reads the repository passes for reasons the fixture does
+    # not control.
+    # The literal is SPLIT so this file does not match its own pattern —
+    # see the declared limit beside DELEGATES. Joined at runtime it is
+    # exactly the dispatch shape a delegating member carries.
+    DISPATCH = "OUT=$(node runtime/thing.mjs " + "--self" + "-test)\n"
+    FILES = {"checks/check-fx.sh": DISPATCH,
+             "checks/check-plain.sh": "echo no dispatch here\n",
+             # The near-miss that the looser `self-test` grep would catch and
+             # this pattern must not: the words in a comment and in a label.
+             "checks/check-nearmiss.sh": ('# the self-test above asserts them\n'
+                                          'print("FAIL thing — self-test:")\n')}
+
+    def files(path):
+        if path not in FILES:
+            raise FileNotFoundError(path)
+        return FILES[path]
+
+    def floor(id_, **admission):
+        return entry("act: x", id_=id_, **admission)
+
+    f = validate_case_floor([floor("fx")], files)
+    cases.append(("a delegating member with NO case_floor fails",
+                  any("has no case_floor" in x for x in f)))
+    cases.append(("a delegating member WITH a case_floor passes",
+                  not validate_case_floor([floor("fx", case_floor=3)], files)))
+    cases.append(("a NON-delegating member owes no case_floor",
+                  not validate_case_floor([floor("plain")], files)))
+    # Derived from the diff and initially UNCAUGHT: every fixture used the
+    # dispatch form, so a `self-test`-anywhere mutant of DELEGATES survived.
+    # The case is authored rather than the mutant dropped.
+    cases.append(("the class is the DISPATCH, not the words — a comment and a "
+                  "label do not make a member delegating",
+                  not validate_case_floor([floor("nearmiss")], files)))
+    for bad, why in ((0, "zero"), (-1, "negative"), ("3", "a string"),
+                     (True, "a bool"), (2.5, "a float")):
+        cases.append((f"a case_floor of {why} is refused",
+                      any("case_floor malformed" in x for x in
+                          validate_case_floor([floor("fx", case_floor=bad)],
+                                              files))))
+    # A member whose FILE is gone is the dangling-entry failure, reported by
+    # the tree comparison; this validator must not double-report it.
+    cases.append(("a missing check file is not reported here",
+                  not validate_case_floor([floor("gone")], files)))
+
+    def base(**floors):
+        def reader():
+            return {"checks": [{"id": k,
+                                "admission": {"case_floor": v}}
+                               for k, v in floors.items()]}
+        return reader
+
+    def dec(now, before, note=None):
+        adm = {"case_floor": now}
+        if note is not None:
+            adm["case_floor_note"] = note
+        return check_floor_decrements([floor("fx", **adm)], base(fx=before))
+
+    rows, f = dec(2, 5)
+    cases.append(("an UNPAIRED decrement FAILS",
+                  any("lowered without a retirement note" in x for x in f)))
+    cases.append(("the failure names both numbers",
+                  any("5 -> 2" in x for x in f)))
+    rows, f = dec(2, 5, "retired `the third widget case` at kogaki#999")
+    cases.append(("a decrement PAIRED with a note is accepted",
+                  not f and any("case-floor-decrement:" in x for x in rows)))
+    rows, f = dec(2, 5, "   ")
+    cases.append(("a whitespace-only note does not pair — the omission a "
+                  "typed field refuses", any("lowered without" in x for x in f)))
+    # The note must be NEW, not merely present (PR #663 round 1): otherwise a
+    # note left by an earlier retirement pays for every later decrement.
+    def dec_notes(now, before, note, base_note):
+        def reader():
+            return {"checks": [{"id": "fx", "admission": {
+                "case_floor": before, "case_floor_note": base_note}}]}
+        return check_floor_decrements(
+            [floor("fx", case_floor=now, case_floor_note=note)], reader)
+    rows, f = dec_notes(4, 5, "retired the widget case", "retired the widget case")
+    cases.append(("a decrement against an UNCHANGED note FAILS — it pairs "
+                  "with the previous retirement, not this one",
+                  any("UNCHANGED retirement" in x for x in f)))
+    rows, f = dec_notes(4, 5, "retired the gadget case", "retired the widget case")
+    cases.append(("a decrement carrying a CHANGED note is accepted",
+                  not f and any("NEW retirement note" in x for x in rows)))
+    rows, f = dec_notes(4, 5, "  retired the widget case  ", "retired the widget case")
+    cases.append(("staleness compares trimmed, so re-indenting the same note "
+                  "does not launder it", any("UNCHANGED retirement" in x for x in f)))
+    rows, f = dec(9, 5)
+    cases.append(("an INCREMENT owes nothing", not f))
+    rows, f = dec(5, 5)
+    cases.append(("an unchanged floor owes nothing", not f))
+    # A member that is NEW in this diff has no base floor to fall from.
+    rows, f = check_floor_decrements([floor("fx", case_floor=1)], base(other=9))
+    cases.append(("a member absent from the base is not a decrement", not f))
+
+    rows, f = check_floor_decrements([floor("fx", case_floor=1)],
+                                     lambda: None)
+    cases.append(("no resolvable base renders CANNOT-DETERMINE, never a pass",
+                  any("CANNOT-DETERMINE" in x for x in rows) and not f))
+    def boom():
+        raise OSError("no such object")
+    rows, f = check_floor_decrements([floor("fx", case_floor=1)], boom)
+    cases.append(("an unreadable base is CANNOT-DETERMINE too, and does not "
+                  "crash the check",
+                  any("CANNOT-DETERMINE" in x for x in rows) and not f))
+
     failed = [name for name, ok in cases if not ok]
     if failed:
         for name in failed:
@@ -476,17 +760,31 @@ for name in sorted(registered - present):
 # grammar added under kogaki#113): an empty record passed the filename
 # comparison above, which was the gap #6 names.
 failures += validate_entries(entries)
+# The delegating class and its floor (kogaki#661).
+failures += validate_case_floor(entries)
+floor_rows, floor_failures = check_floor_decrements(entries)
+failures += floor_failures
 
 rows, probe_failures = run_probes(entries)
 failures += probe_failures
-for row in rows:
+for row in floor_rows + rows:
     print(row)
 
 for line in failures:
     print(line)
 if failures:
     sys.exit(1)
+# THE TERMINAL LINE NEVER CLAIMS A COMPARISON THAT DID NOT HAPPEN (PR #663
+# round 1). An unresolvable base renders CANNOT-DETERMINE and fails nothing —
+# but the summary asserting "no floor was lowered unpaired" would be exactly
+# the pass the note says this state is never. So the claim is dropped from the
+# line, and the CANNOT-DETERMINE row above stands as the reading.
+undetermined = any("CANNOT-DETERMINE" in row for row in floor_rows)
 print(f"ok: registry and checks/ tree agree ({len(present)} check(s)); "
       "every admission record complete; every removal signal instrumented; "
-      "every efficacy case resolves to a label its cited file carries")
+      "every efficacy case resolves to a label its cited file carries; "
+      "every delegating member declares a case_floor"
+      + ("; DECREMENTS NOT CHECKED — see the CANNOT-DETERMINE row above"
+         if undetermined else
+         "; no floor was lowered unpaired or against a stale note"))
 EOF
