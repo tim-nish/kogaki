@@ -121,12 +121,27 @@ export function classMatchers(entry, grammar) {
     // the `preamble` and `judged_empty_notice` defect in another costume, both
     // recorded in the grammar's own notes.
     const abbreviated = alt.includes("…");
+    // TRUNCATE THE WHOLE ALTERNATIVE, NOT EACH PART. The masked form is split
+    // on digit runs to find placeholder indices, so an abbreviated tail
+    // CONTAINING DIGITS is scattered across several parts and a per-part
+    // truncation reaches only the one holding the `…` — every later fragment
+    // survives and is demanded as literal prefix text. `abnormal_display_id`
+    // is the specimen: its tail is "… Re-run `terrain survey` to regenerate
+    // the record (§12.2 v11).", whose `12`, `2` and `11` survived, so the
+    // class NEVER admitted the line its own emitter produces, on either
+    // surface that declares it. That is the exact failure its own note says it
+    // exists to prevent — "a refusal that admitted only ^L[0-9]+$ in a
+    // LessonDisplayID position would reject exactly the legacy record this
+    // line exists to make visible" — and it was invisible because it fires
+    // only on the abnormal path. `classification` masked it: its tail is ")",
+    // carries no digit, and therefore worked.
+    const body = abbreviated ? alt.replace(/…[\s\S]*$/, "") : alt;
     let out = "";
-    for (const part of alt.split(/(\d+)/)) {
+    for (const part of body.split(/(\d+)/)) {
       if (/^\d+$/.test(part) && holes[Number(part)] !== undefined) {
         out += placeholderFragment(holes[Number(part)], grammar);
       } else {
-        out += escapeLiteral(part).replace(/…[\s\S]*$/, "");
+        out += escapeLiteral(part);
       }
     }
     // Trailing whitespace is tolerated because a Markdown HARD BREAK is two
