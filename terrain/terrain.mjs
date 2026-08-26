@@ -4006,6 +4006,42 @@ switch (cmd) {
       && composeIdentityCite("alpha", "lesson", "product-lab@") === null);
     ok("the positional form is not producible by this composer",
       !/ELEMENTS\.jsonl:\d/.test(composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa")));
+    // ---- THE ABBREVIATED-FORM COMPILER (kogaki#653). A `…` in a `form`
+    // abbreviates the rest of a long fixed line, so the class matches as a
+    // PREFIX. The compiler truncated per split-part, and the masked form is
+    // split on digit runs to find placeholder indices — so an abbreviated tail
+    // CONTAINING DIGITS was scattered across parts the truncation never
+    // reached, and every later fragment was demanded as literal prefix text.
+    //
+    // THE ASSERTION IS OVER THE BEHAVIOUR, not over the compiler's text: for
+    // each surface declaring `abnormal_display_id`, the line
+    // `displayIdAbnormalLine` ACTUALLY EMITS must be admitted. That is the
+    // class's whole purpose — §14.3's absence case reaching the owner surface —
+    // and it had never once been true, on either surface, because the failure
+    // fires only on the abnormal path nothing exercised.
+    {
+      const grammar = loadGrammar(REPORT_FORMAT);
+      const emitted = displayIdAbnormalLine(2, 3);
+      const admits = (surface) => {
+        try { refuseUnlessConformant(surface, emitted, grammar); return true; }
+        catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
+      };
+      for (const surface of ["cotag_screen", "tag_row_view"]) {
+        ok(`${surface} admits the line displayIdAbnormalLine actually emits`, admits(surface));
+      }
+      // The control: an abbreviated form whose tail carries NO digit worked
+      // before this repair and must still work, so the fix is not a widening.
+      ok("an abbreviated form with a digit-free tail still matches (classification)",
+        (() => {
+          try {
+            refuseUnlessConformant("cotag_screen",
+              "Classification: NAVIGATION (SPEC.md §2.3 — it ranks nothing, narrows nothing and hides nothing.)",
+              grammar);
+            return true;
+          } catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
+        })());
+    }
+
     // ---- §15 CONTROL PLANE (story 1.89). Seam-free: every case below either
     // reads the shipped table or constructs a synthetic one, and no case
     // reaches the gateway. AC8: this pass needs no run record and emits no
