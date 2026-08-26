@@ -90,7 +90,7 @@ import os, re, sys, pathlib, subprocess
 # The ANCHOR corpus: where anchors are resolved and refused.
 ROOTS = ["specs", "checks", "policy", "gates"]
 
-# The CLOSED-SET denominator is a WHOLE-TREE scan, deliberately wider than
+# The CLOSED-SET denominator is a TRACKED-TREE scan, deliberately wider than
 # ROOTS (§3.1). Pointers do not respect the anchor corpus's boundary: PR #648
 # round 1 blocked on one in `.gitignore` that a section insertion had
 # invalidated, invisible to every instrument, and a whole-tree scan found two
