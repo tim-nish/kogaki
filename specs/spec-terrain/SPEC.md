@@ -14,9 +14,9 @@ into a document numbered v24 whose header did not move at all, so one commit
 changed byte-state under an unmoved version while a second scheme named its
 amendments. §14.1's derived owner-surface figure does **not** move and stays 4
 of 4: a wait's `writes` is null, so it enters neither term.
-**deferred slots minted by this amendment: none.**
+**deferred slots minted by the v25 amendment: none.**
 
-**Status (v24):** amended 2026-08-25 (kogaki#636, owner selection at the
+**Status:** v24, amended 2026-08-25 (kogaki#636, owner selection at the
 /ship-cycle 636 sitting) — **§15's grammar and conditionality bind to STATES,
 not to artifact paths, and the owner-surface coverage figure becomes DERIVED
 rather than asserted.** Successor to PR #626, which spent its two-round bound
