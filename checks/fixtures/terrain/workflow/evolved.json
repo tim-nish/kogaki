@@ -42,23 +42,45 @@
     "terminal": "the end of a run, read from the table and never from position"
   },
   "states": [
-    { "id": "OPENING_QUESTION", "kind": "wait", "owner_supplies": "what they are looking for, in free text",
-      "note": "THE MOVED HANDOFF. In the shipped table the first wait is the third state; here it is the first, so the run stops before computing anything." },
-    { "id": "gather", "kind": "compute",
-      "note": "stands in for the shipped table's survey — same kind, no renderer, no seam." },
-    { "id": "reconsider", "kind": "compute",
-      "note": "THE ADDED ENTRY POINT. No such id exists in the shipped table or in the executor." },
-    { "id": "second_thoughts", "kind": "wait", "conditional": "entered only with --enter second_thoughts; never scheduled by the flow",
-      "owner_supplies": "a revision, or nothing" },
-    { "id": "CLOSING_CONFIRMATION", "kind": "wait", "renders_gate_declaration": true,
-      "owner_supplies": "ratification" },
-    { "id": "done", "kind": "terminal" }
+    {
+      "id": "OPENING_QUESTION",
+      "kind": "wait",
+      "owner_supplies": "what they are looking for, in free text",
+      "note": "THE MOVED HANDOFF. In the shipped table the first wait is the third state; here it is the first, so the run stops before computing anything."
+    },
+    {
+      "id": "gather",
+      "kind": "compute",
+      "note": "stands in for the shipped table's survey — same kind, no renderer, no seam."
+    },
+    {
+      "id": "reconsider",
+      "kind": "compute",
+      "note": "THE ADDED ENTRY POINT. No such id exists in the shipped table or in the executor."
+    },
+    {
+      "id": "second_thoughts",
+      "kind": "wait",
+      "conditional": "entered only with --enter second_thoughts; never scheduled by the flow",
+      "owner_supplies": "a revision, or nothing"
+    },
+    {
+      "id": "CLOSING_CONFIRMATION",
+      "kind": "wait",
+      "renders_gate_declaration": true,
+      "owner_supplies": "ratification"
+    },
+    {
+      "id": "done",
+      "kind": "terminal"
+    }
   ],
   "counted_baseline": {
     "waits": 3,
     "conditional_states": 1,
     "owner_artifact_writes": 0,
-    "judgment_points": 0
+    "judgment_points": 0,
+    "grammared_writing_states": 0
   },
-  "counted_baseline_note": "Declared by hand and compared against the baseline the executor DERIVES from the states array above. The check refuses on a disagreement; that refusal is the fixture's whole point, so a mutation of either number is its efficacy case."
+  "counted_baseline_note": "Declared by hand and compared against the baseline the executor DERIVES from the states array above. The check refuses on a disagreement; that refusal is the fixture's whole point, so a mutation of either number is its efficacy case. kogaki#625: `grammared_writing_states` is declared as 0 rather than omitted. The runtime DERIVES five keys and this table declared four, so that key's comparison was disabled here and the omission passed — which is the hole PR #664 round 2 found in the shipped table's own assertion, open on the fixtures because block 2 carried no omission assertion at all. Zero is the honest figure (this table has no write state) and a declared zero is a different silence from an absent key."
 }

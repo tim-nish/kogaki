@@ -92,17 +92,15 @@ else
   # denominator-asserting-a-shape class this member exists to catch, reached by
   # omission instead of by drift. The declared set is asserted before the
   # disagreement is read.
-  MISSING=$(python3 - <<'EOM'
-import json
-need = {"waits", "conditional_states", "owner_artifact_writes", "judgment_points"}
-have = set((json.load(open("specs/spec-terrain/workflow.json")).get("counted_baseline") or {}))
-print(",".join(sorted(need - have)))
-EOM
-)
-  if [[ -n "$MISSING" ]]; then
-    echo "FAIL: the shipped table's counted_baseline DECLARES no $MISSING — an omitted key is not compared at all, so its absence disables the judgment rather than passing it (kogaki#654)"
-    FAIL=1
-  fi
+  #
+  # THE REQUIRED SET IS DERIVED FROM THE RUNTIME (kogaki#625, from PR #664
+  # round 2). It was a four-name list written here while `derivedBaseline`
+  # computed five, so deleting `grammared_writing_states` disabled that key's
+  # comparison and passed — the very route this assertion exists to close,
+  # surviving inside it for a fifth of the denominator. A longer list would
+  # repair the instance and keep the shape; reading the set from the runtime
+  # removes the list.
+  python3 checks/lib/assert-baseline-keys.py specs/spec-terrain/workflow.json "the shipped table" || FAIL=1
   if grep -q "DISAGREES with counted_baseline" <<<"$ST1"; then
     echo "FAIL: the shipped table's counted_baseline disagrees with the baseline derived from its own states array — a denominator asserting a shape the table no longer has:"
     grep "DISAGREES" <<<"$ST1" | sed 's/^/    /'
@@ -163,6 +161,13 @@ if "second_thoughts" not in rec.get("conditional_skipped", []):
           "conditionality is read from the table, and a record silent on it cannot be resumed from")
     raise SystemExit(1)
 PY
+
+# BLOCK 2 HAD NO OMISSION ASSERTION AT ALL, so the same hole was open on the
+# fixture table whose baseline this check otherwise insists on counting against
+# itself (PR #664 round 2). One derived assertion, applied to every table this
+# member drives.
+python3 checks/lib/assert-baseline-keys.py "$EVOLVED" "the evolvability fixture" || FAIL=1
+python3 checks/lib/assert-baseline-keys.py "$GATED" "the gate fixture" || FAIL=1
 
 ST2=$(step --status)
 if grep -q "DISAGREES with counted_baseline" <<<"$ST2"; then
