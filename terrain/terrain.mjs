@@ -503,8 +503,17 @@ function cmdSurvey(args) {
   console.log(`Journey coverage: ${c.coverage} Lessons carry a Journey — ${c.thin_lessons} thin Lesson(s), the actionable set; the mark reads by absence.`);
   console.log(`Pin: ${record.pin}`);
   console.log(`Survey record: ${out}\n`);
-  for (const s of sections) console.log(`  ${tagRow(s)}`);
-  console.log(`\nNavigation (narrows nothing): view --survey ${out} [--tag T] [--family lesson|journey] [--sort slug|section]`);
+  // THE TAG LISTING IS NOT EMITTED HERE ANY MORE (PR #667 round 1 findings 4
+  // and 5). It is `tag_screen`'s surface, and `renderTagScreen` is its one
+  // emitter, reached through the executor and written under that surface's
+  // grammar. While both existed a run emitted the listing TWICE — once from
+  // this compute state under no grammar, once from `tag_screen` through the
+  // guard — and the two had already diverged, since only the guarded copy
+  // carried the amended navigation hint. Two emitters of one surface with one
+  // of them unguarded is the defect class kogaki#665 exists to close, arriving
+  // one channel over; extracting rather than copying is what criterion 2 asks
+  // for. The navigation line went with it: it named `view`, which §15.7
+  // removes.
   // The bounded-input pointer, sited at the step BEFORE the one that needs it.
   // A composer reaching for material per group has already spent the reads by
   // the time `cotags` runs, so a pointer only on the co-tag screen would arrive
@@ -1066,14 +1075,19 @@ function cmdCotags(args) {
   // The refusal still gates the WRITE as well as the print — `emitOrRefuse`
   // validates before its callback runs, so a nonconformant screen reaches
   // neither the owner's terminal nor their artifact (§14.2, story 1.54 AC1).
-  let path = null;
-  emitOrRefuse("cotag_screen", screen.join("\n"), (text) => {
-    console.log(text);
-    path = writeScreen(args, text);
-    announceScreen(path);
-  });
+  // THROUGH THE ONE PRIVATE WRITER, like the two screen states beside it
+  // (PR #667 round 1 finding 3). This was a SECOND path to the same artifact —
+  // its own `emitOrRefuse` plus a direct `writeScreen` — which left
+  // `writeScreenSurface` one of two rather than the one criterion 1 names, and
+  // left the `writers_per_artifact` drop resting on a "no second path" ground
+  // the tree did not hold. The refusal still gates the write, because that is
+  // what `writeScreenSurface` does; the print stays here, before the write,
+  // exactly as it was.
+  const text = screen.join("\n");
+  console.log(text);
+  const path = writeScreenSurface(args, "cotag_screen", text);
+  announceScreen(path);
   // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
-  // Null is unreachable: emitOrRefuse either runs the callback or fails.
   return path;
 }
 
@@ -2823,7 +2837,7 @@ function cmdAct(args) {
   const act = String(args.act || fail("act needs --act <name>"));
   const acts = RECORD_SCHEMA.acts;
   if (acts.navigation.includes(act)) {
-    console.log(`${act} is NAVIGATION — use \`view\`; no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`);
+    console.log(`${act} is NAVIGATION — the executor reaches it as a table state (§15.7 removed \`view\` as an entry point); no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`);
     return;
   }
   if (!acts.proposal.includes(act)) {
@@ -3685,6 +3699,25 @@ export function loadWorkflowTable(path) {
 // figure someone typed beside it. `counted_baseline` is then a second reading
 // of the same array, and `terrain.mjs run --status` renders both so a
 // disagreement between them is visible rather than resolved silently.
+// THE WRITE-OUTCOME CLASSIFIER, pure and exported so the distinction it draws
+// is TESTABLE rather than asserted (PR #667 round 1 finding 2). The executor's
+// guard used to read `!outcome.artifact`, which folded two different claims
+// into one branch:
+//
+//   wrote          — the renderer wrote and named what it wrote
+//   wrote-nothing  — the renderer RAN and deliberately wrote nothing
+//                    (`--no-render`, §12.2 v11; the idempotent rerun, §12.1)
+//   named-nothing  — the renderer wrote and did not say where; the case the
+//                    guard was built for, and the only one that refuses
+//
+// It is a classifier rather than a refusal because `fail()` exits the process:
+// keeping the judgment pure is what lets the fixture pass exercise all three
+// directions without spawning three subprocesses.
+export function classifyWriteOutcome(outcome) {
+  if (!outcome || typeof outcome !== "object" || !("artifact" in outcome)) return "named-nothing";
+  return outcome.artifact ? "wrote" : "wrote-nothing";
+}
+
 export function derivedBaseline(table) {
   const states = table.states;
   const writing = states.filter((s) => s.kind === "write");
@@ -3900,7 +3933,10 @@ const STATE_WORK = {
     // from the table was never the defect — asserting a value where three
     // siblings observe one was. A state that wrote no owner artifact records
     // none, which is what makes the ledger's write count countable.
-    return written ? { artifact: written } : null;
+    // `{ artifact: null }` rather than a bare null: the state RAN and wrote
+    // nothing, which is a different claim from a renderer that named no
+    // artifact, and the executor's guard reads exactly that difference.
+    return { artifact: written || null };
   },
 };
 
@@ -4000,9 +4036,26 @@ function cmdRun(args) {
     }
     const outcome = work ? work(rec, st, args, table) : null;
     if (st.kind === "write") {
-      const path = outcome && outcome.artifact;
-      if (!path) fail(`workflow state ${JSON.stringify(st.id)} is kind "write" and its renderer named no artifact.`);
-      rec.artifacts_written.push({ state: st.id, artifact: st.writes, path: relFromRepo(resolve(path)) });
+      // A WRITE STATE THAT LEGITIMATELY WROTE NOTHING IS NOT A RENDERER THAT
+      // NAMED NO ARTIFACT (PR #667 round 1 finding 2). The two were one branch,
+      // so making `full_report` OBSERVE its path turned two live non-writing
+      // paths into executor aborts: `run --no-render`, which §12.2 v11 licenses
+      // ("--no-render opts out of the rendering"), and the idempotent-rerun
+      // branch, which §12.1 rules "IDEMPOTENT, not a duplicate" and which
+      // returns after having written. An abort is neither of those.
+      //
+      // So the renderer declares WHICH it means. `{ artifact: <path> }` wrote
+      // and names it; `{ artifact: null }` ran and wrote nothing, deliberately;
+      // and a renderer returning nothing at all still FAILS, because that is
+      // the case the guard was built for — a renderer that wrote and did not
+      // say where.
+      const kindOfWrite = classifyWriteOutcome(outcome);
+      if (kindOfWrite === "named-nothing") {
+        fail(`workflow state ${JSON.stringify(st.id)} is kind "write" and its renderer named no artifact.`);
+      }
+      if (kindOfWrite === "wrote") {
+        rec.artifacts_written.push({ state: st.id, artifact: st.writes, path: relFromRepo(resolve(outcome.artifact)) });
+      }
     }
     rec.completed.push(st.id);
   }
@@ -4144,6 +4197,18 @@ switch (cmd) {
     // reaches the gateway. AC8: this pass needs no run record and emits no
     // owner surface.
     const shipped = loadWorkflowTable(WORKFLOW_TABLE);
+    // The write-outcome classifier's three directions (PR #667 round 1 finding
+    // 2). The executor's guard reads this, so these are the cases that separate
+    // "wrote nothing deliberately" from "wrote and did not say where".
+    ok("a renderer that names its artifact is `wrote`",
+      classifyWriteOutcome({ artifact: "reports/FullReport.md" }) === "wrote");
+    ok("a renderer that RAN and deliberately wrote nothing is `wrote-nothing`, not a refusal — --no-render and the idempotent rerun are both this",
+      classifyWriteOutcome({ artifact: null }) === "wrote-nothing");
+    ok("a renderer returning nothing at all is `named-nothing` — the case the guard was built for",
+      classifyWriteOutcome(null) === "named-nothing");
+    ok("an outcome object with no `artifact` KEY is `named-nothing` too, so a renderer cannot pass the guard by omitting the field",
+      classifyWriteOutcome({ something_else: 1 }) === "named-nothing");
+
     ok("the shipped workflow table loads under the structural rules",
       Array.isArray(shipped.states) && shipped.states.length > 0);
     {

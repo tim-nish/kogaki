@@ -22,8 +22,8 @@ never re-type it.
   file, read it, and write its contents into your reply; that is retyping with
   extra steps, and `cat`-ing it into a tool call is the same delivery through
   the same unreliable channel with an extra process.
-- **The screens: name `reports/Screen.md`.** `view` and `cotags` — the two
-  screens, and no third (§14.4.1 v19; the neighborhood rides the Full Report
+- **The screens: name `reports/Screen.md`.** The two screen states —
+  `tag_screen`/`tag_row_view` and `cotag_screen` — and no third (§14.4.1 v19; the neighborhood rides the Full Report
   since §13.1 v20) — each write their rendering to `reports/Screen.md` and
   print the line `Screen — READ THIS ONE (owner rendering, SPEC-terrain
   §14.4.1): <path>`. That file is the rendering. **Do not treat the printed

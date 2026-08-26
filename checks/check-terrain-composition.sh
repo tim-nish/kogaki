@@ -1393,8 +1393,18 @@ if (/gloss\/ELEMENTS|a headline that must not render|\bx\b, ?\by\b/.test(rich)) 
 }
 // The composer is still WIRED. A unit that passes while nothing invokes it is
 // the orphan shape, and screen 1 is where the allowlist is broken.
-if (!/for \(const s of sections\) console\.log\(`  \$\{tagRow\(s\)\}`\)/.test(readFileSync("terrain/terrain.mjs", "utf8"))) {
-  fails.push("cmdSurvey no longer composes its tag rows through tagRow — the allowlist's single construction constraint is bypassed, which no assertion over tagRow itself can see");
+//
+// RE-POINTED WITH THE EMITTER (kogaki#665, PR #667 round 1 finding 5). This
+// read `cmdSurvey`'s stdout loop, which was screen 1's emitter until that
+// issue EXTRACTED the listing into `renderTagScreen` — the surface's one
+// emitter, reached through the executor and written under `tag_screen`'s
+// grammar. The property is unchanged and is the one this line always meant:
+// the tag rows are composed through the single constructor, never assembled
+// beside it. Only the function holding that loop moved, which is why this is a
+// re-binding and not a weakening — the assertion still fails if any emitter
+// builds a tag row by hand.
+if (!/for \(const s of record\.sections\) out\.push\(`  \$\{tagRow\(s\)\}`\)/.test(readFileSync("terrain/terrain.mjs", "utf8"))) {
+  fails.push("renderTagScreen no longer composes its tag rows through tagRow — the allowlist's single construction constraint is bypassed, which no assertion over tagRow itself can see");
 }
 
 // 2. kogaki#146's EAGER fan-out. Seam-aware exactly as the Full Report block
@@ -4394,7 +4404,13 @@ if (m3.skipped) {
     const f3 = mds(m3.rdir);
     if (!f3.includes("Screen.md")) {
       fails.push("the write-once mutant wrote no artifact at all — it is not isolating the OVERWRITE from the write, so it duplicates mutant 1 instead of covering AC2's second direction");
-    } else if (readFileSync(join(m3.rdir, "Screen.md"), "utf8").includes("no relation")) {
+    // THE SAME RE-BINDING AS ITS PARTNER AT :4295 (kogaki#665, PR #667 round 1
+    // finding 1). This assertion was left reading "no relation" when the
+    // invocation swapped to `cotags`, which never emits it — so the mutant
+    // passed whatever it did and the guard was DISARMED while the suite stayed
+    // green. A mutation and the assertion it is meant to kill are ONE unit:
+    // re-binding one without the other leaves a kill test that cannot kill.
+    } else if (readFileSync(join(m3.rdir, "Screen.md"), "utf8").includes("G2 —")) {
       fails.push("the write-once mutant still produced the SECOND render's material — the overwrite assertion is not bound to the write it claims to verify, and a write-once implementation would ship green");
     }
   }
