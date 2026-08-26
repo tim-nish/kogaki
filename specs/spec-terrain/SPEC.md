@@ -1,5 +1,19 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v26, amended 2026-08-26 (kogaki#625 acceptance item 1, owner
+selection at the /ship-cycle 625 sitting) — **the executor absorbs the six
+standalone acts, and §15.5's unwritable-out-of-order claim becomes TRUE.**
+`claim`, `adopt`, `subdivide`, `act`, `gate` and `capture` refuse with a pointer
+(§15.6.3, applied to all six); the gate DECLARATION and the CAPTURE are composed
+and recorded by the executor at the wait that owes them, while RENDERING them
+through `AskUserQuestion` stays the session's — the record/judgment split at
+`LESSONS.md:32`. A gate state with no bound option composer still runs and
+records its declaration as owed-and-unwritten, because refusing it would make
+adding a gate state need driver code, which **acceptance item 6** denies.
+§15.6.3's v25 carve-out for `act`/`gate`/`capture` is discharged, and §15.8's
+two "not true at this head" bullets are discharged with it.
+**deferred slots minted by the v26 amendment: none.**
+
 **Status:** v25, amended 2026-08-26 (kogaki#666, owner selection at the
 /triage-gh 666 sitting) — **the claim re-offer §7 rules a GATE EVENT becomes a
 declared state: `CLAIM_REOFFER`, a conditional wait beside `J1_claims`.**
@@ -5425,15 +5439,13 @@ reason: `view` sits in `workflow.json`'s `bound_to_a_state`, not in
 live successor the usage line already names; a removed one has none, and
 without the stub its reader meets a bare unknown-command.
 
-**`act`, `gate` and `capture` are carved out of this rule, and the grounds are
-stated rather than left to the map** — PR #668 round 2, nit. They sit in
-`removed_entry_points` beside the three this section covers, and no decision to
-date licenses them a stub. That is not an exception to the rule: their
-dispatcher disposition is **undecided**, not decided-against, and it belongs to
-kogaki#625's open question — §15.8 already records that they remain live cases
-and that §15.5's unwritability claim is false at this head because of it. This
-section decides the three commands #666 licenses and claims nothing about the
-other three.
+**`act`, `gate` and `capture` were carved out of this rule at v25 and are
+carved back in at v26.** The v25 carve-out was honest — their dispatcher
+disposition was **undecided**, not decided-against, and it belonged to
+kogaki#625's open question (b). That question is now answered: all six refuse
+with a pointer, on the same ground and in the same shape. The rule has no
+exceptions, and this paragraph is kept rather than deleted so that a reader
+meeting the v25 text elsewhere can see it was discharged rather than dropped.
 
 ### 15.7 The standalone owner-facing subcommands are REMOVED, not flagged
 
@@ -5533,26 +5545,54 @@ record. Stated so their survival reads as a decision rather than an oversight.
   **rule** is executable over the array, and **no member executes it today**.
   Stated here rather than left for a third review round to find.
 
-- **THE v25 FOLDING IS TABLE-SIDE AND SPEC-SIDE ONLY AT THIS HEAD (kogaki#666).**
-  §15.6.1's `CLAIM_REOFFER` is a row in `workflow.json` and a decision recorded
-  here; **no executor code implements it**, `J2_subdivision` still validates
-  without composing (§15.6.2), and `claim`, `adopt` and `subdivide` are still
-  live dispatcher cases rather than the refusing stubs §15.6.3 requires. The
-  implementation is licensed by kogaki#625, whose open question (b) — *the
-  disposition of `view`/`claim`/`adopt`/`subdivide` as standalone commands* —
-  these three sections answer. Written here rather than left for a review round
-  to find: this repository's spec-ahead-of-code tense makes the sections true as
-  *decisions* and false as *descriptions of the tree*, and only the second half
-  is a defect if it goes unsaid.
+- **THE v25 FOLDING IS BUILT (kogaki#625 acceptance item 1, v26).** The clause
+  this bullet carried at v25 — *"table-side and spec-side only at this head; no
+  executor code implements it"* — is **discharged rather than amended**:
+  `CLAIM_REOFFER` is a wait the executor enters, `J2_subdivision` composes under
+  the classification, and all six standalone acts are refusing stubs.
 
-- **§15.5's unwritability claim is not true at this head.** `act`, `gate` and
-  `capture` are still live dispatcher cases (`terrain/terrain.mjs:3550-3552`);
-  their removal is table-side only in this act, so *"there is no callable
-  surface by which an act can happen out of order"* is a property the executor
-  will make true and not one the tree holds today. PR #641 round 1, should 3 —
-  round 2 of PR #626 found the sentence false, and this amendment rewrote its
-  justification without landing the code, so it is stated here rather than left
-  for a later reader to re-find.
+- **§15.5's unwritability claim IS true at this head, and this is the amendment
+  that makes it so.** From v23 to v25 this bullet recorded the opposite — `act`,
+  `gate` and `capture` were live dispatcher cases and *"there is no callable
+  surface by which an act can happen out of order"* was a property the executor
+  *would* make true. It now holds: the six cases refuse with a pointer, and the
+  run state each of them used to write — a proposal record, a gate declaration,
+  a capture row — is written by the executor at the wait that owes it and
+  nowhere else. **What made this a real question rather than a deletion**: the
+  executor deliberately renders no question UI (§6.3's empty allowlist for the
+  post-tag window), so removing the commands that composed declarations would
+  have left nothing to compose them. The split is by role, not by convenience:
+
+  > "Workflow orchestration (start, supervise, land, record, expose state) is
+  > deterministic infrastructure and belongs in engine code, while a session
+  > holds only the steps whose next action turns on an open question … a
+  > judgment step is engine-scheduled but model-decided."
+
+  `consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:32`
+
+    outcome: covered-after-reframing
+    query: "Removing a command that a session invokes: when engine code absorbs
+           a step a session used to perform by hand, which part must stay with
+           the session and which becomes deterministic infrastructure?"
+
+  **COMPOSING** a declaration and **RECORDING** a capture are *record*, and
+  record is engine work; **RENDERING** the question through `AskUserQuestion` is
+  the judgment step and stays the session's. §6.3's allowlist is untouched — the
+  executor writes a file and stops, and it still asks nothing.
+
+- **A GATE STATE THIS RUNTIME HAS NO OPTION COMPOSER FOR STILL RUNS, and the
+  limit is declared rather than silent.** `GATE_WORK` is the gate-side mirror of
+  the renderer table §15.1 already requires, so a new gate state is a table row
+  **plus an option composer**. Refusing a state with no composer would have made
+  adding a gate state need driver code, which is exactly what **acceptance item
+  6 denies** — and the evolvability fixture proves it, since its
+  `CLOSING_CONFIRMATION` is such a state. So the executor reaches the wait,
+  stops, and records the declaration as **owed and unwritten**, naming why.
+  **This costs item 1 nothing**: what item 1 closes is a *session* minting run
+  state from outside the executor, and that is closed by the entry points
+  ceasing to exist, not by whether this runtime knows a given table's options.
+  An uncomposed declaration is a table owing a composer; it is not an escape
+  hatch, because no surface remains through which one could be written by hand.
 
 - **Ratification of a table change is a human act.** Nothing denies an edit to
   `workflow.json` that no issue licensed; the `version` and `licensed_by`
