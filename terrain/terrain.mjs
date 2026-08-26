@@ -702,6 +702,24 @@ function composeScreenText(record, tags, family, fetchShards) {
 // stdout: they belong to the `survey` COMPUTE state, which writes no owner
 // artifact, and admitting them here would put four line classes into a
 // grammar §9 deliberately holds to two.
+//
+// COMPLETENESS INVENTORY (kogaki#625, carried from PR #667 round 2). An
+// extraction criterion measures what must NOT remain, so it is satisfied most
+// cheaply by removing behaviour, and checked alone it rewards the loss it
+// exists to prevent — the inventory names what must SURVIVE and the test that
+// fails if it stops:
+//   · the header and one tag_row per section, and NOTHING else
+//       → `checks/check-terrain-composition.sh`'s tag_screen grammar case: the
+//         surface declares only `header` and `tag_row` under a REFUSE
+//         non_member_fallback, so a fourth line class fails at emit time.
+//   · ONE emitter for this surface — `cmdSurvey` no longer composes tag rows
+//       → the single-construction assertion in the same check, which counts
+//         `tagRow(` call sites and fails on a second.
+//   · the navigation hint, which is what tells the owner the surface narrows
+//     nothing
+//       → the same grammar case: `NAVIGATION_HINT` is a declared line class and
+//         its removal drops a required class.
+// consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
 function renderTagScreen(record) {
   const out = ["The survey — screen 1. Navigation (narrows nothing): name a tag.", ""];
   for (const s of record.sections) out.push(`  ${tagRow(s)}`);
@@ -713,7 +731,26 @@ function renderTagScreen(record) {
 // The candidate rows under ONE named tag — the conditional half, entered only
 // when the owner asks to browse rows and never scheduled by the flow (§6.3,
 // kogaki#162's fork half).
-function renderTagRowView(record, tag, family, fetchShards = fetchHeadlines) {
+//
+// COMPLETENESS INVENTORY (kogaki#625, carried from PR #667 round 2). What must
+// survive the extraction, and the test that fails if it stops:
+//   · candidate rows scoped to the ONE named tag, with their Gloss headlines
+//       → `checks/check-terrain-composition.sh`'s injected-fetcher case, which
+//         renders this surface with a stub `fetchShards` and asserts the rows
+//         carry the served headline.
+//   · a MISSING served rendering is MARKED and never substituted (§9)
+//       → the same case, whose stub omits one slug and which fails unless the
+//         ABNORMAL marker renders in its place.
+//   · REFUSE-conformance under the `tag_row_view` grammar
+//       → the same case, which runs the composed text through the guard.
+//
+// `fetchShards` IS INJECTED FOR THAT CASE, and until kogaki#625 it had no
+// injecting caller anywhere in `terrain/` or `checks/` — the affordance existed
+// and the test it exists for was not written, which is an extraction criterion
+// satisfied by the cheap half. Both call sites still take the default, so the
+// seam path is unchanged.
+// consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
+export function renderTagRowView(record, tag, family, fetchShards = fetchHeadlines) {
   return composeScreenText(record, [String(tag)], family || null, fetchShards);
 }
 
@@ -1081,10 +1118,11 @@ function cmdCotags(args) {
   // `writeScreenSurface` one of two rather than the one criterion 1 names, and
   // left the `writers_per_artifact` drop resting on a "no second path" ground
   // the tree did not hold. The refusal still gates the write, because that is
-  // what `writeScreenSurface` does; the print stays here, before the write,
-  // exactly as it was.
+  // what `writeScreenSurface` does — AND the print, which now happens inside
+  // that writer's refusal callback rather than here (PR #667 round 2). Hoisting
+  // it above the writer is what made `cmdCotags` emit before it validated,
+  // which at the base it did not.
   const text = screen.join("\n");
-  console.log(text);
   const path = writeScreenSurface(args, "cotag_screen", text);
   announceScreen(path);
   // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
@@ -1129,8 +1167,12 @@ function emitOrRefuse(surfaceName, text, write) {
 //
 // The re-offer routes through the gate carrier (manifest item 4), never
 // through an affordance of Terrain's own: §1's refusal and §4's out-of-scope
-// decision are unchanged by this story, so `claim` emits the same run
-// declaration `gate` emits and adoption happens only against a capture.
+// decision are unchanged. The sentence that stood here named `claim` and `gate`
+// as the two commands emitting this declaration, and both are removed
+// (kogaki#625 item 1) — the declaration is composed by the executor at the wait
+// that owes it, and adoption is that wait's captured answer. What the removal
+// did NOT change is which surface renders it: AskUserQuestion, the gate
+// carrier, as it always was.
 // --------------------------------------------------------------------------
 const CLAIM_GATE = "terrain-claim-reoffer";
 
@@ -1176,78 +1218,31 @@ function validateClaimRecord(rec, block) {
   return v;
 }
 
-function cmdClaim(args) {
-  const dir = runDir(args);
-  const record = readJson(String(args.survey || fail("claim needs --survey <file>")));
-  const tag = String(args.tag || fail("claim needs --tag <selected tag>"));
-  const groupArg = String(args.group || fail("claim needs --group <co-tag>"));
-  const text = String(args.text || fail("--text is required: the composed \"in common:\" line. §7 binds the pinning, the gate event and the record's shape — the composer's prompt, model and wording are not specified here and are not invented here."));
+// THE RE-OFFER, reachable only from `CLAIM_REOFFER` (§15.6.1, kogaki#625
+// item 1). `claim` and `adopt` ceased to be entry points, and the three halves
+// they welded together split by owner: COMPOSING the claims record is the
+// outside composer's (§15.6), VALIDATING it is `J1_claims`', and the GATE EVENT
+// §7 rules a subset selection is this state's. Adoption is applying the
+// captured answer, which the executor records at this same wait — so no
+// separate `adopt` act remains to be performed out of order.
+//
+// The subset check is kept here rather than inherited: §7 pins a claim to the
+// member set it was composed over, and a re-offer over members that were never
+// in the group is not a recomposition of anything.
+export function composeClaimReoffer(args, dir, record) {
+  const tag = String(args.tag || fail("CLAIM_REOFFER needs --tag <selected tag>"));
+  const groupArg = String(args.group || fail("CLAIM_REOFFER needs --group <co-tag>: the group whose claim is re-offered"));
+  const text = String(args.text || fail("--text is required: the RECOMPOSED \"in common:\" line. §7 binds the pinning, the gate event and the declaration's shape — the composer's prompt, model and wording are not specified here and are not invented here."));
   const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
   const group = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
-
   const subset = args.members ? String(args.members).split(",").map((s) => s.trim()).filter(Boolean) : null;
-  if (subset) {
-    const stray = subset.filter((id) => !group.members.includes(id));
-    if (stray.length) fail(`--members names ${stray.join(", ")}, which are not members of ${group.name} — a subset is a subset of the set the claim was pinned to`);
+  if (!subset) fail("CLAIM_REOFFER needs --members a,b,c — the SUBSET the claim is recomposed over. A full-group claim reaches no gate: §7 makes that rendering per-invocation and not an adopted claim, so there is nothing to re-offer.");
+  const stray = subset.filter((id) => !group.members.includes(id));
+  if (stray.length) fail(`--members names ${stray.join(", ")}, which are not members of ${group.name} — a subset is a subset of the set the claim was pinned to`);
+  if (subset.length === group.members.length) {
+    fail(`--members names all ${group.members.length} member(s) of ${group.name}, which is not a subset. This state's own \`conditional\` says so: it is entered ONLY on a PROPER subset.`);
   }
-  const members = subset || group.members;
-  const isSubset = Boolean(subset) && subset.length !== group.members.length;
-
-  // GroupClaim FIRST, then the member Lessons (§7). Every count beside a claim
-  // names its families and states its denominator in Lessons (§9).
-  group.by_family = familySplit(group.members, record.candidates);
-  console.log(sectionFigure(group, record.candidates.length));
-  console.log(`  in common: ${text}`);
-  console.log(`  pinned to ${members.length} member(s)${isSubset ? ` — a SUBSET of the group's ${group.members.length}` : ""}\n`);
-  // §14.3 — the member pins render by display_id. The RECORD written below
-  // keeps `member_pins` as the id/cite pairs unchanged (AC6): the machine
-  // record's identity triple is not narrowed by what the screen shows.
-  let claimMissingIds = 0;
-  for (const p of memberPins(members, record.candidates)) {
-    const shown = displayIdOf(p.id, record.candidates);
-    if (shown === NO_DISPLAY_ID) claimMissingIds++;
-    console.log(`    ${shown}  ${p.cite}`);
-  }
-  if (claimMissingIds) console.log(`    ${displayIdAbnormalLine(claimMissingIds, members.length)}`);
-
-  const id = `terrain-claim-${Date.now()}`;
-  const claimRec = {
-    id,
-    kind: "group-claim",
-    pin: record.pin,
-    group: group.name,
-    claim: text,
-    members,
-    member_pins: memberPins(members, record.candidates),
-    composed_over: "members",
-    adopted: false,
-    counted: familySplit(members, record.candidates),
-    lessons_served: record.candidates.length,
-    recomposed_over_subset: isSubset,
-  };
-  const violations = validateClaimRecord(claimRec, SURVEY_SCHEMA.group_claim);
-  if (violations.length) fail(`refusing to write a non-conforming claim record:\n  ${violations.join("\n  ")}`);
-  const out = join(dir, `${id}.terrain-claim.json`);
-  writeFileSync(out, JSON.stringify(claimRec, null, 2) + "\n");
-  console.log(`\nClaim record (pinned to its member set, adopted: false): ${out}`);
-  console.log(`Subset figure: ${strandFigure(claimRec.counted)}; ${denominator(members.length, record.candidates.length)}.`);
-  console.log("Composing a claim narrows nothing on its own — the survey record is unchanged and a subset selection is the OWNER's act; rank, trim and hide still route through the proposal contract (SPEC.md §2.3, §8.2).");
-
-  if (!isSubset) {
-    console.log("\nFull-group claim: this rendering is per-invocation. It is not persisted as the adopted claim, and it does not survive a subset selection (SPEC.md §7).");
-    return;
-  }
-
-  // The set changed, so this is a GATE EVENT rather than a refresh. The
-  // re-offer goes through the gate carrier — never a Terrain-local affordance.
-  // The ORIGIN travels into the gate — as a RECORD where one exists, and as
-  // ARGUMENTS where the claim was composed AT THE SCREEN (§7's v4 rider).
-  // The screen deliberately writes no record, so before this the re-offer for
-  // exactly the claims v3 moved earlier reached the owner with nothing to
-  // compare against — and handing the owner a stale claim and expecting them
-  // to notice it no longer fits IS homework (topics/articles.md:73@f918c515).
-  // No record is written here either: the caller already holds what it
-  // composed, so the origin is passed rather than persisted.
+  const members = subset;
   const original = args.original ? readJson(String(args.original)) : null;
   const originText = args["original-text"] ? String(args["original-text"]) : null;
   const originMembers = args["original-members"]
@@ -1281,18 +1276,20 @@ function cmdClaim(args) {
                     original_members_provenance: "none",
                     original_source: "NONE — this is the first composition over this set; no original exists and none is invented (SPEC.md §7)" };
   }
-  const declPath = emitGateDeclaration(dir, CLAIM_GATE, [
-    { id: `adopt-recomposed:${id}`, label: `Adopt the recomposed wording over these ${members.length} member(s): ${text}` },
-  ], originBlock);
-  console.log(`\nThe member set changed, so the claim is RE-OFFERED as a gate event, never silently refreshed and never carried over unchanged.`);
-  console.log(`Gate run declaration: ${declPath}`);
-  console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on — then \`capture\`, then \`adopt --claim ${out} --capture <capture file>\`.`);
+  return {
+    options: [{ id: `adopt-recomposed:${group.name}`, label: `Adopt the recomposed wording over these ${members.length} member(s): ${text}` }],
+    extra: { ...originBlock, recomposed_claim: text, recomposed_members: members, recomposed_over_subset: true },
+  };
 }
 
-// The one place a run declaration is composed, shared by `gate` and by the
-// claim re-offer: the re-offer routes through manifest item 4's carrier and
-// never through an affordance of Terrain's own (SPEC.md §7, §4).
-function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
+// The one place a run declaration is composed. Its callers are `GATE_WORK`'s
+// option composers, reached from the executor at the wait that owes the
+// declaration; `gate` and the standalone claim re-offer, which this comment
+// used to name as its two callers, are both removed (kogaki#625 item 1). The
+// re-offer still routes through manifest item 4's carrier and never through an
+// affordance of Terrain's own (SPEC.md §7, §4) — what changed is that nothing
+// outside a run can reach this composer at all.
+export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
   if (!registered) fail(`${gateId} is not declared in gates/registry.json — an unregistered gate is the uncovered-by-default shape`);
   const seen = new Set(dynamicOptions.map((o) => o.id));
@@ -1308,68 +1305,12 @@ function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
   return out;
 }
-
-function cmdAdopt(args) {
-  const dir = runDir(args);
-  const claimRec = readJson(String(args.claim || fail("adopt needs --claim <terrain-claim record>")));
-  // §14.3 REQUIRES the survey record here, and the alternative is what makes
-  // it required rather than convenient. `adopt` prints its member set for the
-  // owner, so it must render display_ids — and the only other way to have them
-  // is to copy them into the claim record at `claim` time, which is precisely
-  // the per-artifact map AC3 forbids. One map, read by whoever renders.
-  const surveyRec = readJson(String(args.survey
-    || fail("adopt needs --survey <survey record>: the adopted-claim surface names its members by display_id (SPEC.md §14.3) and the survey record is the ID→slug map — carrying the ids in the claim record instead would be a second carrier")));
-  const capture = readJson(String(args.capture || fail("adopt needs --capture <gate-capture file> — adoption happens only at the gate, never as a refresh")));
-  const row = [...(capture.rows || [])].reverse().find((r) => r.gate_id === CLAIM_GATE)
-    || fail(`no ${CLAIM_GATE} row in the capture — a recomposed claim that was never offered cannot be adopted (SPEC.md §7)`);
-  const answer = row.payload && row.payload.answer;
-  if (!answer) fail("the capture row carries no answer");
-
-  let claim = null;
-  let source = null;
-  if (answer.free_text) {
-    claim = answer.free_text;
-    source = "free-text";
-  } else if (String(answer.option || "").startsWith("adopt-recomposed:")) {
-    claim = claimRec.claim;
-    source = "recomposed";
-  } else if (answer.option === "keep-original-wording") {
-    claim = String(args["original-text"] || fail("--original-text is required when the owner kept the original wording: the adopted record carries the wording that was adopted, over the members it is now pinned to"));
-    source = "original-wording-kept";
-  } else {
-    fail(`answer option ${JSON.stringify(answer.option)} is not an adoption outcome this gate offers`);
-  }
-
-  // The members are ALWAYS the set the claim is now pinned to — the subset.
-  // Keeping the original wording keeps the WORDING, never the old member set:
-  // the recorded member set is exactly what makes the mismatch LEGIBLE rather
-  // than forbidden (§7). The full-group claim survives only in the
-  // per-invocation rendering and is never persisted here.
-  const id = `terrain-adopted-claim-${Date.now()}`;
-  const adopted = {
-    id,
-    kind: "adopted-claim",
-    pin: claimRec.pin,
-    claim,
-    claim_source: source,
-    members: claimRec.members,
-    member_pins: claimRec.member_pins,
-    counted: claimRec.counted,
-    lessons_served: claimRec.lessons_served,
-    gate: { gate_id: row.gate_id, stop_id: row.stop_id, answer: row.payload.answer },
-  };
-  const violations = validateClaimRecord(adopted, SURVEY_SCHEMA.adopted_claim);
-  if (violations.length) fail(`refusing to write a non-conforming adopted-claim record:\n  ${violations.join("\n  ")}`);
-  const out = join(dir, `${id}.terrain-adopted-claim.json`);
-  writeFileSync(out, JSON.stringify(adopted, null, 2) + "\n");
-  console.log(`Adopted claim (${source}) recorded with the members it was composed from — by member id and pin, never by a group id: ${out}`);
-  if (source === "original-wording-kept") {
-    console.log("The original wording now stands over a CHANGED member set. The record carries that set, so the mismatch is legible rather than forbidden (SPEC.md §7).");
-  }
-  const adoptedShown = displayIds(adopted.members, surveyRec.candidates);
-  console.log(`Members (${strandFigure(adopted.counted)}); ${denominator(adopted.members.length, adopted.lessons_served)} — by id: ${adoptedShown.rendered.join(", ")}`);
-  if (adoptedShown.missing) console.log(displayIdAbnormalLine(adoptedShown.missing, adopted.members.length));
-}
+// `adopt` ceased to be an entry point (kogaki#625 item 1). §15.6.1 rules
+// adoption the OWNER's act rather than a judgment, and the executor records it
+// as the captured answer at `CLAIM_REOFFER` — the wait that offered it. The
+// refusal the retired command carried ("a recomposed claim that was never
+// offered cannot be adopted") is now structural: there is no capture without a
+// declaration, and no declaration without the state.
 
 // --------------------------------------------------------------------------
 // subdivide — semantic subdivision as a judged substrate one level down
@@ -1474,17 +1415,22 @@ export function judgeSubgroup(sg, groupClaim) {
   return sg;
 }
 
-function cmdSubdivide(args) {
-  const dir = runDir(args);
+// THE RECORD HALF OF THE RETIRED `subdivide` SUBCOMMAND, reachable only from
+// `J2_subdivision` (§15.6.2, kogaki#625 item 1). The RENDERING half left with
+// the entry point — §15.7 removes `cmdSubdivide`'s hand-rendered lines, which
+// §14.2's guard never saw. What stays is the composition §2.1 makes a RUNTIME
+// refusal: subgroup placement, the three instruments, and
+// SUBDIVISION_COVER_INCOMPLETE. Leaving those to whatever composed the record
+// would move a ratified refusal out of the runtime.
+export function composeSubdivisionRecord(args, dir, record) {
   const block = SURVEY_SCHEMA.subdivision;
-  const record = readJson(String(args.survey || fail("subdivide needs --survey <file>")));
-  const tag = String(args.tag || fail("subdivide needs --tag <selected tag>"));
-  const groupArg = String(args.group || fail("subdivide needs --group <co-tag>"));
+  const tag = String(args.tag || fail("J2_subdivision needs --tag <selected tag>"));
+  const groupArg = String(args.group || fail("J2_subdivision needs --group <co-tag>"));
   const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the subgroup claims are judged TIGHTER THAN"));
   const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
   const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
   const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code, so no numeric constant enters this runtime (SPEC.md §8)"));
-  const classification = readJson(String(args.classification || fail("subdivide needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own composes_honestly / tighter_than_parent / trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
+  const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own composes_honestly / tighter_than_parent / trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
 
   const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
   const parent = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
@@ -1540,44 +1486,7 @@ function cmdSubdivide(args) {
   if (out.offered_by_default !== block.offered_by_default_must_be) fail("refusing to write a subdivision record marked offered by default (SPEC.md §8.1)");
   const path = join(dir, `${id}.terrain-subdivision.json`);
   writeFileSync(path, JSON.stringify(out, null, 2) + "\n");
-
-  // Rendering: GroupClaim FIRST, then the SubGroups each with its own composed
-  // claim, then the Lessons per SubGroup.
-  // SQ3, answered: `subdivide` is an owner surface but the grammar covers only
-  // `cotag_screen` and `full_report` (§14.1's `uncovered_surfaces`). Bringing it
-  // under the grammar is that section's own reopen trigger and is NOT this
-  // story's work. Rendering it CONSISTENTLY by hand is — an owner reading two
-  // surfaces of the same run should not meet two hierarchy conventions — so the
-  // ids and the flush-left form are applied here without registering a class.
-  console.log(sectionFigure(parent, record.candidates.length));
-  console.log(`in common: ${groupClaim}\n`);
-  let sgIdx = 0;
-  for (const sg of subgroups) {
-    // No `G?` placeholder fallback (PR #354 round 1 nit). §2.1 names an
-    // abnormality rather than substituting for it, and `G?-1` would match
-    // neither tokens.SubGroupID nor the abnormal-token discipline — it would
-    // simply be a wrong id on an owner surface. `parent` comes from
-    // `cotagGroups`, which mints `gid` for every group, so an absent one is a
-    // caller defect and is refused rather than papered over.
-    if (!parent.gid) fail("subdivide: the parent group carries no GroupID — §6.1 v6 mints one in `cotagGroups` for every composed group, so a group without one did not come from there and its SubGroup ids would be unresolvable");
-    const sgid = `${parent.gid}-${sgIdx += 1}`;
-    console.log(`${sgid} — ${strandFigure(sg.by_family)}; ${denominator(sg.members.length, record.candidates.length)} — ${sg.name}`);
-    console.log(`in common: ${sg.claim}`);
-    console.log(sg.leaf_reason);
-    for (const d of sg.disclosures) console.log(`DISCLOSURE — ${d}`);
-    const ins = sg.instruments;
-    console.log(`instruments (three quantities, none a threshold, none gating): relative share of placements ${(ins.relative_share_of_placements * 100).toFixed(1)}%; screen budget ${ins.screen_budget_lines.needs} lines needed of ${ins.screen_budget_lines.budget}; legible at a glance: ${ins.legible_at_a_glance}`);
-    // §14.3 — the SubGroup's member rows are display_ids.
-    const sgShown = displayIds(sg.members, record.candidates);
-    for (const shown of sgShown.rendered) console.log(shown);
-    if (sgShown.missing) console.log(displayIdAbnormalLine(sgShown.missing, sg.members.length));
-    console.log("");
-  }
-  console.log(`Cover: ${out.cover.placed} of ${out.cover.of} parent members placed in at least one SubGroup — counted AFTER composition, over placements. No member is hidden.`);
-  console.log(`Judge pin: ${modelId} (effort ${effortTier}) — the fourth component on the pin discipline, so a change of serving judge is OBSERVABLE and fires the judge-migration tripwire.`);
-  console.log(`Subdivision ranks, trims and hides nothing — those still route through the proposal contract, and the >${MAX_STRAND_OPTIONS}-option trim guard at the selection gate stands (SPEC.md §8.2).`);
-  console.log(`Dogfood specimen: ${path}`);
-  console.log("NOT OFFERED BY DEFAULT. Co-tags are the default for a run naming no substrate; subdivision is reachable only by naming it. Producing this specimen ARRIVES at §8.1's offering gate rather than discharging it — merged code evidences existence, never the gate's standing. The hub-side gate (product-lab:q_a/staging/2026-07-31-subdivision-offering-measurement-due.md) remains undischarged.");
+  return path;
 }
 
 // --------------------------------------------------------------------------
@@ -2126,9 +2035,21 @@ function writeScreen(args, text) {
 // one, and this is that one. The refusal gates the WRITE and not only a print,
 // because `emitOrRefuse` takes the write as a callback: there is no path here
 // that emits first.
+//
+// AND THE PRINT IS INSIDE THE CALLBACK TOO (PR #667 round 2, carried to
+// kogaki#625). All three screen states printed the text and THEN called this,
+// so the sentence above was true of the write and false of the terminal — the
+// property "a nonconformant screen reaches neither the owner's terminal nor
+// their artifact" had quietly become a property of the artifact alone. §14.4
+// puts the owner's reading on the artifact, so the ratified guarantee was
+// intact and only its stated reach was overclaimed; the repair is to make the
+// sentence true again rather than to narrow it, because a comment asserting a
+// structural property the code no longer has is how the next edit loses it for
+// real. One printer, one writer, one callback, one refusal.
 function writeScreenSurface(args, surface, text) {
   let path = null;
   emitOrRefuse(surface, text, (conformant) => {
+    console.log(conformant);
     path = writeScreen(args, conformant);
   });
   // Unreachable: `emitOrRefuse` either runs the callback or fails the process.
@@ -2734,7 +2655,17 @@ function cmdReport(args) {
         + "not a duplicate (SPEC.md §12.1).");
       announceArtifacts(priorRendered, out);
       console.log(`Identity: pin=${identity.pin} query=(${tag}, ${identity.query.ids.join(", ")}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
-      return;
+      // RETURNS WHAT THIS BRANCH WROTE (PR #667 round 2, carried to kogaki#625).
+      // It `return`ed undefined after writing `reports/FullReport.md`, so the
+      // executor's `written || null` mapped a real owner artifact to
+      // `{ artifact: null }` and `classifyWriteOutcome` reported `wrote-nothing`
+      // — the run record skipped its `artifacts_written` push for a state that
+      // did write. §12.1's idempotence is a claim about the RECORD, and the
+      // branch's own text says so ("the rendering is STILL WRITTEN IN THIS
+      // ACT"); under-reporting the write is the same defect as asserting one,
+      // facing the other way. Under `--no-render` `priorRendered` is null, which
+      // is the genuine wrote-nothing case and still reports as one.
+      return priorRendered;
     }
   }
 
@@ -2832,13 +2763,17 @@ function cmdReport(args) {
 // --------------------------------------------------------------------------
 // act — the second-proposer boundary, enforced by enumeration.
 // --------------------------------------------------------------------------
-function cmdAct(args) {
-  const dir = runDir(args);
-  const act = String(args.act || fail("act needs --act <name>"));
+// THE PROPOSAL RECORD of the retired `act` subcommand, reachable only from
+// `TRIM_RATIFICATION`'s declaration composer (kogaki#625 item 1). While `act`
+// stood, a session could mint a trim proposal from outside the executor with no
+// run record — precisely what §15.5 claims is unwritable.
+// Returns the written record's path, or null where the act names no proposal.
+export function composeTrimProposal(args, dir) {
+  const act = String(args.act || fail("TRIM_RATIFICATION needs --act <name>: the proposal it ratifies"));
   const acts = RECORD_SCHEMA.acts;
   if (acts.navigation.includes(act)) {
     console.log(`${act} is NAVIGATION — the executor reaches it as a table state (§15.7 removed \`view\` as an entry point); no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`);
-    return;
+    return null;
   }
   if (!acts.proposal.includes(act)) {
     // The non-member fallback: a report, never a guess.
@@ -2852,7 +2787,7 @@ function cmdAct(args) {
     const out = join(dir, `${record.id}.proposal.json`);
     writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
     console.log(`Unclassified act — report record written (narrows nothing): ${out}`);
-    return;
+    return null;
   }
   // A proposal. Where/Why/effect-stating label are the caller's to state —
   // this runtime binds the record's shape, never the narrowing's computation.
@@ -2891,51 +2826,22 @@ function cmdAct(args) {
   const out = join(dir, `${record.id}.proposal.json`);
   writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
   console.log(`Proposal record written (presented at gate terrain-trim-ratification, never as navigation): ${out}`);
+  return out;
 }
 
 // --------------------------------------------------------------------------
-// gate — emit the per-run gate declaration for the skill to render through
-// AskUserQuestion. The registry declares the gate CLASS; the run declaration
-// carries the computed options, written beside the capture in the run
-// workspace (the recorded consult miss: no served position was found on
-// static declaration of run-computed option sets — surfaced, not silently
-// resolved).
+// The per-run gate declaration carries the RUN-COMPUTED options; the registry
+// declares the gate CLASS. `gate` ceased to be an entry point (kogaki#625
+// item 1) — the declaration is composed by the executor at the wait that owes
+// it, and the recorded consult miss it carried (no served position on static
+// declaration of run-computed option sets) is unchanged by who composes it.
 // --------------------------------------------------------------------------
-function cmdGate(args) {
-  const dir = runDir(args);
-  const gateId = String(args.gate || fail("gate needs --gate <terrain-strand-selection|terrain-trim-ratification>"));
-  let strandOptions = [];
-  if (args.proposal) {
-    const p = readJson(String(args.proposal));
-    strandOptions = (p.options || []).map((o) => ({ id: o.id, label: o.label }));
-  } else {
-    const ids = String(args.ids || fail("gate needs --ids a,b,c (the current view's Strands) or --proposal <record>")).split(",").map((s) => s.trim()).filter(Boolean);
-    if (ids.length > MAX_STRAND_OPTIONS) {
-      fail(`${ids.length} Strands exceed the selector affordance (${MAX_STRAND_OPTIONS} beside the standing option). Narrowing the view for the gate is a TRIM — run \`act --act trim\` and present it at terrain-trim-ratification; picking a subset here silently would be the refused minimal-form bundling.`);
-    }
-    strandOptions = ids.map((id) => ({ id: `strand:${id}`, label: id }));
-  }
-  // The registered standing option always rides; a proposal record that
-  // already carries an option with the same id (the premise negation IS the
-  // standing decline) is not doubled — a duplicated option id would make
-  // options_offered unable to say which one was answered.
-  const out = emitGateDeclaration(dir, gateId, strandOptions);
-  console.log(readFileSync(out, "utf8").trimEnd());
-  console.log(`\nRun declaration: ${out}`);
-  console.log("Render through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. Then record with `capture`.");
-}
-
-// --------------------------------------------------------------------------
-// capture — record the answer with its payload and the rendering's own
-// evidence (the AskUserQuestion tool_use_id).
-// --------------------------------------------------------------------------
-function cmdCapture(args) {
-  const dir = runDir(args);
-  const decl = readJson(String(args.declaration || fail("capture needs --declaration <run-declaration file>")));
-  const toolUseId = String(args["tool-use-id"] || fail("capture needs --tool-use-id (the AskUserQuestion tool use — evidence, not a claim)"));
-  const option = args.option ? String(args.option) : null;
-  const freeText = args["free-text"] ? String(args["free-text"]) : null;
-  if (!option && !freeText) fail("capture needs --option <id> or --free-text <answer>");
+// THE CAPTURE, written by the executor and by nothing else (kogaki#625 item 1).
+// `capture` ceased to be an entry point: an answer to a declared gate is
+// admitted at the wait that declared it, which is what makes "a session could
+// mint run state from outside the executor" unwritable rather than discouraged.
+export function writeCapture(dir, decl, { toolUseId, option, freeText }) {
+  if (!option && !freeText) fail("a capture needs --capture-option <id> or --capture-free-text <answer>");
   if (option && !decl.options.some((o) => o.id === option)) {
     fail(`answer option ${JSON.stringify(option)} was not offered by the declaration`);
   }
@@ -2953,7 +2859,7 @@ function cmdCapture(args) {
   const doc = existsSync(out) ? readJson(out) : { rows: [] };
   doc.rows.push(row);
   writeFileSync(out, JSON.stringify(doc, null, 2) + "\n");
-  console.log(`Captured ${row.stop_id} (gate ${decl.id}) → ${out} — machine-local run state, never committed.`);
+  return { path: out, row };
 }
 
 // --------------------------------------------------------------------------
@@ -3843,7 +3749,6 @@ const STATE_WORK = {
   // workflow.json v3 corrected (PR #626 round 2, finding 4).
   tag_screen: (rec, st, args) => {
     const text = renderTagScreen(readJson(needSurvey(rec)));
-    console.log(text);
     const path = writeScreenSurface(args, st.id, text);
     announceScreen(path);
     return { artifact: path };
@@ -3857,7 +3762,6 @@ const STATE_WORK = {
       || fail("tag_row_view needs a tag, and no wait has supplied one yet.");
     const text = renderTagRowView(readJson(needSurvey(rec)), tag,
                                   args.family ? String(args.family) : null);
-    console.log(text);
     const path = writeScreenSurface(args, st.id, text);
     announceScreen(path);
     return { artifact: path };
@@ -3903,6 +3807,23 @@ const STATE_WORK = {
     // flag, the judge pin and the leaf-condition rules (§8, §8.1, §12.1).
     for (const name of Object.keys(raw)) readSubdivisionEntry(name, raw[name]);
     rec.judgments[st.id] = relFromRepo(resolve(path));
+
+    // AND THE COMPOSITION, WHICH THE RETIRED `subdivide` OWNED (§15.6.2,
+    // kogaki#625 item 1). Validation alone was never the whole of that command:
+    // it placed the judge's SubGroups over the parent's members, computed the
+    // three instruments, and REFUSED on SUBDIVISION_COVER_INCOMPLETE. §2.1
+    // makes completeness a cover COUNTED IN PLACEMENTS, which is a runtime
+    // refusal — leaving it to whatever composed the record would move a
+    // ratified refusal out of the runtime, so the state composes under the
+    // classification rather than trusting a record that says it already did.
+    //
+    // Optional by ARGUMENT and not by state: a run supplying no
+    // `--classification` is judged on the typed record alone, exactly as
+    // before. What is no longer possible is composing one from outside.
+    if (args.classification !== undefined) {
+      const composed = composeSubdivisionRecord(args, rec._dir, readJson(needSurvey(rec)));
+      rec.judgments[`${st.id}:composed`] = relFromRepo(resolve(composed));
+    }
     return null;
   },
 
@@ -3940,6 +3861,52 @@ const STATE_WORK = {
   },
 };
 
+// ---- GATE OPTION COMPOSERS — the mirror of STATE_WORK for the other half of
+// §15.4's split (kogaki#625 item 1, owner selection 2026-08-26).
+//
+//   "Workflow orchestration (start, supervise, land, record, expose state) is
+//    deterministic infrastructure and belongs in engine code, while a session
+//    holds only the steps whose next action turns on an open question ... a
+//    judgment step is engine-scheduled but model-decided."
+//
+// consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:32
+//   outcome: covered-after-reframing
+//   query: "Removing a command that a session invokes: when engine code absorbs
+//          a step a session used to perform by hand, which part must stay with
+//          the session and which becomes deterministic infrastructure?"
+//
+// COMPOSING a declaration and RECORDING a capture are `record`, and record is
+// engine code; RENDERING the question is the judgment step and stays the
+// session's. This is the same split §15.6.1 made for CLAIM_REOFFER, generalised
+// to every wait the table marks `renders_gate_declaration: true`.
+//
+// §6.3's EMPTY QUESTION ALLOWLIST IS UNTOUCHED, and that is the clause worth
+// checking rather than assuming: the executor still asks nothing and still
+// renders no question UI. It writes a file and stops. What changed is that the
+// file can no longer be written from anywhere else.
+const GATE_WORK = {
+  TRIM_RATIFICATION: (rec, st, args, dir) => {
+    const proposalPath = args.proposal ? String(args.proposal) : composeTrimProposal(args, dir);
+    if (!proposalPath) {
+      fail("TRIM_RATIFICATION composed no proposal: the named act is navigation, or is in neither act list, so there is nothing to ratify. §2.3 — a navigation act wrapped as a proposal is a contract violation from the other direction.");
+    }
+    const p = readJson(proposalPath);
+    return { options: (p.options || []).map((o) => ({ id: o.id, label: o.label })), extra: { proposal: relFromRepo(resolve(proposalPath)) } };
+  },
+
+  STRAND_SELECTION: (rec, st, args) => {
+    const raw = args.ids !== undefined ? String(args.ids) : ownerInput(rec, "ID_SELECTION");
+    const ids = String(raw || fail("STRAND_SELECTION needs --ids a,b,c — the current view's Strands. No wait has supplied an ID selection yet either.")).split(",").map((s) => s.trim()).filter(Boolean);
+    if (ids.length > MAX_STRAND_OPTIONS) {
+      fail(`${ids.length} Strands exceed the selector affordance (${MAX_STRAND_OPTIONS} beside the standing option). Narrowing the view for the gate is a TRIM — enter TRIM_RATIFICATION with \`--act trim\`; picking a subset here silently would be the refused minimal-form bundling.`);
+    }
+    return { options: ids.map((id) => ({ id: `strand:${id}`, label: id })), extra: {} };
+  },
+
+  CLAIM_REOFFER: (rec, st, args) => composeClaimReoffer(args, rec._dir, readJson(needSurvey(rec))),
+};
+
+
 // ---- THE EXECUTOR --------------------------------------------------------
 // ONE entry point, entered once per act (§15.2). It reads the run record,
 // executes table states until the next declared stop, writes that state's
@@ -3973,9 +3940,77 @@ function cmdRun(args) {
     if (args.at !== undefined && String(args.at) !== rec.awaiting) {
       fail(`--input names state ${JSON.stringify(String(args.at))} and this run awaits ${JSON.stringify(rec.awaiting)}. Refused rather than applied to the awaited state: an input bound to the wrong wait is not the input that wait asked for.`);
     }
+    // A GATE WAIT IS ANSWERED BY A CAPTURE, NEVER BY A BARE INPUT (PR #671
+    // round 1). Removing `capture` as an entry point closed the OUT-OF-BAND
+    // route and left this IN-BAND one open beside it: `--input` checked only
+    // that some wait was outstanding, so a bare `--input adopt-recomposed:G1`
+    // at a gate wait wrote the owner input, pushed `completed` and cleared
+    // `awaiting` — skipping the declaration's own option validation, the
+    // `--tool-use-id` evidence and the capture row entirely. §15.4's "a capture
+    // is admissible only at the wait that declared the gate" says nothing from
+    // this direction, so the refusal states it: at such a wait the capture is
+    // not one way to answer, it is the only one.
+    //
+    // SCOPED TO A DECLARATION THAT EXISTS, and acceptance item 6 is what scoped
+    // it. The first cut refused `--input` at every gate-declaring wait, which
+    // deadlocked the evolvability fixture: its `CLOSING_CONFIRMATION` has no
+    // bound option composer, so its declaration is owed-and-unwritten, a
+    // capture has nothing to validate against, and refusing the input too left
+    // the state unanswerable — adding a gate state to a table would then need
+    // driver code, which item 6 denies. So the refusal binds the state a
+    // declaration was WRITTEN for. Where none could be composed, `--input`
+    // stays the answer and the run record carries `unwritten` with its reason,
+    // which is the declared limit rather than a silent exemption.
+    const awaitedState = stateById(table, rec.awaiting);
+    const owedForInput = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting);
+    if (awaitedState && awaitedState.renders_gate_declaration && owedForInput && owedForInput.declaration) {
+      fail(`${rec.awaiting} declares a gate and its declaration is written (${owedForInput.declaration}), so it is answered by a CAPTURE and never by a bare --input. The answer must carry the option the declaration offered and the AskUserQuestion tool_use_id that evidences the rendering: run --run-dir ${dir} --capture-option <id> --tool-use-id <id> (or --capture-free-text '<answer>'). An input that skips the declaration answers a question nothing can show was asked (§15.4, §2.3).`);
+    }
     rec.owner_input[rec.awaiting] = String(args.input);
     rec.completed.push(rec.awaiting);
     rec.awaiting = null;
+  }
+
+  // ---- The CAPTURE, admitted by the WAIT THAT DECLARED THE GATE and by
+  // nothing else (kogaki#625 item 1). `capture` ceased to be an entry point,
+  // and the refusal the retired command carried — an answer to an option that
+  // was never offered — is unchanged, now read against the declaration THIS
+  // run wrote rather than one a caller named.
+  const capOption = args["capture-option"] !== undefined ? String(args["capture-option"]) : null;
+  const capFree = args["capture-free-text"] !== undefined ? String(args["capture-free-text"]) : null;
+  if (capOption !== null || capFree !== null) {
+    if (!rec.awaiting) {
+      fail(`no wait is outstanding in ${runRecordPath(dir)}, so there is no declared gate for a capture to answer. §15.4 — a capture is admissible only at the wait that declared the gate.`);
+    }
+    const owed = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting)
+      || fail(`the outstanding wait ${JSON.stringify(rec.awaiting)} declared no gate, so there is nothing to capture. An answer with no declaration is the shape §7 calls a silent refresh.`);
+    // OWED-AND-UNWRITTEN IS A STATE THIS PATH MUST NAME (PR #671 round 1). A
+    // gate state this runtime binds no option composer to records
+    // `declaration: null` by design — and reading that null as a path threw a
+    // raw TypeError instead of the refusal every neighbouring branch is careful
+    // to write. It is reachable on the very fixture the design cites as its
+    // proof (`evolved.json`'s CLOSING_CONFIRMATION), so the case is not
+    // hypothetical: the honest answer is that there is no declaration to answer
+    // against, not a stack trace.
+    if (!owed.declaration) {
+      fail(`${rec.awaiting} owes a gate declaration that was never written: ${owed.unwritten || "no option composer is bound to this state"}. There is nothing for a capture to be validated against, so the answer is refused rather than recorded against an absent declaration.`);
+    }
+    const toolUseId = String(args["tool-use-id"] || fail("a capture needs --tool-use-id (the AskUserQuestion tool use — evidence, not a claim)"));
+    // READ AS RECORDED, never re-joined to REPO (PR #671 round 1, found by
+    // driving it). `relFromRepo` returns a path OUTSIDE the repository
+    // unchanged, and the run workspace is machine-local and routinely is one —
+    // so `join(REPO, …)` turned an absolute /tmp path into
+    // `<repo>/tmp/...` and every capture died in `readFileSync` before any
+    // refusal could speak. The siblings already read their recorded paths
+    // as-is (`readJson(needSurvey(rec))`), and this now matches them.
+    const { path: capPath, row } = writeCapture(dir, readJson(owed.declaration), { toolUseId, option: capOption, freeText: capFree });
+    // The answer IS the owner input for this wait. Adoption, ratification and
+    // strand selection are all this one act (§15.6.1: adoption is applying the
+    // captured answer), which is why no second command remains to apply it.
+    rec.owner_input[rec.awaiting] = capOption !== null ? capOption : capFree;
+    rec.completed.push(rec.awaiting);
+    rec.awaiting = null;
+    console.log(`Captured ${row.stop_id} (gate ${owed.gate_id}) → ${capPath} — machine-local run state, never committed.`);
   }
 
   // ---- The advance. Order, kind, conditionality and stopping all come from
@@ -4016,8 +4051,41 @@ function cmdRun(args) {
       // obligation is RECORDED and named on stop; rendering it is not this
       // story's, and inventing one here would put a declaration behind a
       // runtime that §6.3's allowlist keeps empty for the other two waits.
-      if (st.renders_gate_declaration && !rec.gate_declarations_owed.includes(st.id)) {
-        rec.gate_declarations_owed.push(st.id);
+      if (st.renders_gate_declaration && !rec.gate_declarations_owed.some((g) => g.state === st.id)) {
+        // AND THE EXECUTOR COMPOSES IT (kogaki#625 item 1). The pre-item-1 form
+        // recorded the id of a state that owed a declaration and left composing
+        // it to a `gate` invocation outside the run — which is how a session
+        // minted run state the executor never saw. Composing is `record`, and
+        // record is engine work; the RENDERING through AskUserQuestion is the
+        // judgment step and is still not performed here.
+        //
+        // §15.1 binds this exactly as it binds a renderer: a new gate state is a
+        // table row PLUS an option composer, and the executor invents neither.
+        // THE LIMIT IS DECLARED RATHER THAN SILENT, and #625 acceptance item 6
+        // is what forced it to be. A state this runtime has no option composer
+        // for still RUNS — it reaches the wait, stops, and records that its
+        // declaration is owed and unwritten. Refusing instead would have meant
+        // that adding a gate state to a table needs driver code, which is the
+        // property item 6 denies and the evolvability fixture proves: its
+        // CLOSING_CONFIRMATION is exactly such a state.
+        //
+        // This costs item 1 nothing. What item 1 closes is a SESSION minting run
+        // state from outside the executor, and that is closed by `gate` and
+        // `capture` ceasing to exist — not by whether this runtime happens to
+        // know how to compose a given table's options. An uncomposed
+        // declaration is a table owing a composer; it is not an escape hatch,
+        // because there is no longer any surface through which one could be
+        // written by hand.
+        const compose = GATE_WORK[st.id];
+        if (!compose) {
+          rec.gate_declarations_owed.push({ state: st.id, gate_id: st.gate_id || null, declaration: null,
+            unwritten: `this runtime has no option composer bound to ${JSON.stringify(st.id)} — §15.1: a GATE state is a table row PLUS an option composer, and the executor invents neither options nor a judgment` });
+        } else {
+          const gateId = st.gate_id || fail(`workflow state ${JSON.stringify(st.id)} has an option composer bound to it and names no gate_id. field_semantics requires the key of exactly the states whose renders_gate_declaration is true.`);
+          const { options, extra } = compose(rec, st, args, dir);
+          const declPath = emitGateDeclaration(dir, gateId, options, extra || {});
+          rec.gate_declarations_owed.push({ state: st.id, gate_id: gateId, declaration: relFromRepo(resolve(declPath)) });
+        }
       }
       stopped = st;
       break;
@@ -4066,9 +4134,24 @@ function cmdRun(args) {
   console.log("");
   if (stopped && stopped.kind === "wait") {
     console.log(`Executor STOPPED at ${stopped.id} — a wait (§15.4). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
-    console.log(`Nothing is asked here: the executor stops and the owner speaks. Re-enter with what they said — run --run-dir ${dir} --input '<...>'`);
-    if (stopped.renders_gate_declaration) {
-      console.log(`This wait declares a gate (renders_gate_declaration: true); the declaration is recorded as owed on the run record and is not rendered by this runtime.`);
+    const owedHere = stopped.renders_gate_declaration
+      ? rec.gate_declarations_owed.find((g) => g.state === stopped.id) : null;
+    if (!stopped.renders_gate_declaration) {
+      console.log(`Nothing is asked here: the executor stops and the owner speaks. Re-enter with what they said — run --run-dir ${dir} --input '<...>'`);
+    } else if (owedHere && owedHere.declaration) {
+      // THE STOP NAMES THE FILE (PR #671 round 1). The executor now WRITES the
+      // declaration, and this message still said it did not and still sent the
+      // reader to `--input` — while SKILL.md promised "the executor composes the
+      // run declaration and names its path". The path was returned silently and
+      // carried only on the run record, so the skill instructed the session to
+      // render a file the runtime never pointed at.
+      console.log(`This wait declares a gate. Its run declaration is WRITTEN: ${owedHere.declaration}`);
+      console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. The executor renders no question UI and asks nothing (§6.3).`);
+      console.log(`Then re-enter with the answer AND its evidence — run --run-dir ${dir} --capture-option <id> --tool-use-id <id>   (or --capture-free-text '<answer>')`);
+      console.log(`A bare --input is refused at a gate wait: it would skip the declaration's own option check and the tool_use_id that evidences the rendering.`);
+    } else {
+      console.log(`This wait declares a gate and its declaration is OWED AND UNWRITTEN: ${(owedHere && owedHere.unwritten) || "no option composer is bound to this state"}.`);
+      console.log(`The run is not stuck — §15.1 makes a gate state a table row PLUS an option composer, and this table names one this runtime does not bind. Nothing can be captured here until it does.`);
     }
   } else if (stopped && stopped.kind === "terminal") {
     console.log(`Executor reached ${stopped.id} — terminal (§15.1). The run is over.`);
@@ -4128,17 +4211,50 @@ switch (cmd) {
       + "--judge-model <m> --judge-effort <e>` — and read the section there.");
     break;
   case "compose-input": cmdComposeInput(args); break;
-  case "claim": cmdClaim(args); break;
-  case "adopt": cmdAdopt(args); break;
-  case "subdivide": cmdSubdivide(args); break;
   case "report": cmdReport(args); break;
-  // §15's ONE ENTRY POINT, entered once per act. Every case above it is a
-  // standalone owner-facing act that story 1.90 removes; `run` is what
-  // replaces them, and the two coexist only for the length of that story.
+  // §15's ONE ENTRY POINT, entered once per act (§15.2). Every standalone
+  // owner-facing act is now a state of the table, reachable only through here.
   case "run": cmdRun(args); break;
-  case "act": cmdAct(args); break;
-  case "gate": cmdGate(args); break;
-  case "capture": cmdCapture(args); break;
+  // REMOVED, AND REFUSING WITH A POINTER (§15.6.3, kogaki#625 item 1). A
+  // removed entry point does not simply vanish: §13.2's `neighborhood`
+  // precedent is a refusal NAMING THE REPLACEMENT, never a silent no-op, and
+  // without the stub a reader meets a bare unknown-command. They emit no owner
+  // surface and carry no sequencing authority, which is why these stubs do not
+  // reopen §15.7's removal.
+  //
+  // This is what makes §15.5's claim TRUE rather than aspirational: with these
+  // six gone there is no callable surface by which an act can happen out of
+  // order, because every one of them wrote run state a session could mint from
+  // outside the executor.
+  case "claim":
+  case "adopt":
+    fail(`${cmd} is removed as an entry point (SPEC-terrain §15.6.1/§15.7, kogaki#625). `
+      + "Composing the claims record is the outside composer's; VALIDATING it is the "
+      + "`J1_claims` state's; the subset RE-OFFER §7 rules a gate event is the "
+      + "`CLAIM_REOFFER` state's, and adoption is that wait's captured answer. Drive them "
+      + "through the executor: `run --run-dir <D> --claims <f>`, then, on a proper-subset "
+      + "claim, `run --run-dir <D> --enter CLAIM_REOFFER --group <G> --text <line> "
+      + "--members a,b`, then `run --run-dir <D> --capture-option <id> --tool-use-id <id>`.");
+    break;
+  case "subdivide":
+    fail("subdivide is removed as an entry point (SPEC-terrain §15.6.2/§15.7, kogaki#625). "
+      + "The judgment and its composition — subgroup placement, the three instruments and "
+      + "the SUBDIVISION_COVER_INCOMPLETE refusal — are the `J2_subdivision` state's. Drive "
+      + "it through the executor: `run --run-dir <D> --subdivisions <f> --classification <f> "
+      + "--tag <T> --group <G> --group-claim <line> --judge-model <m> --judge-effort <e> "
+      + "--screen-budget <n>`.");
+    break;
+  case "act":
+  case "gate":
+  case "capture":
+    fail(`${cmd} is removed as an entry point (SPEC-terrain §15.6.3/§15.7, kogaki#625). `
+      + "The proposal record, the run declaration and the capture are the executor's, at the "
+      + "wait that owes them — composing and recording are engine work; RENDERING the "
+      + "declaration through AskUserQuestion stays the session's. Drive it through the "
+      + "executor: `run --run-dir <D> --enter TRIM_RATIFICATION --act trim --where <w> "
+      + "--why <p> --label <l> --ids a,b`, render the declaration it writes, then "
+      + "`run --run-dir <D> --capture-option <id> --tool-use-id <id>`.");
+    break;
   case "self-test": {
     // The composed-form fixture pass (kogaki#612): pure, seam-free — every
     // case constructs its own inputs, so the trial runs with no gateway.
@@ -4288,9 +4404,10 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
-      [--claims F] [--subdivisions F] [--judge-model M] [--judge-effort E]
+      [--capture-option ID | --capture-free-text S] [--tool-use-id ID]
+      [--claims F] [--subdivisions F] [--classification F] [--judge-model M] [--judge-effort E]
                                             THE §15 CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
                                             specs/spec-terrain/workflow.json declares until the
@@ -4322,12 +4439,6 @@ switch (cmd) {
                                             where §8's conditions bind (§6.2). --claims and
                                             --subdivisions are maps keyed by group name; a
                                             group missing a claim is MARKED, never substituted.
-  claim --survey F --tag T --group G --text S [--members a,b]
-        [--original F | --original-text S [--original-members a,b]]
-                                            GroupClaim first, pinned to its member set (§7);
-                                            a subset RE-OFFERS it at the gate carrier
-  adopt --claim F --capture F [--original-text S]
-                                            record the adopted claim with its members, by id and pin
   report --survey F --tag T (--group G | --all-groups) [--claims F]
          [--subdivisions F] [--judge-model M --judge-effort E] [--report-dir D]
                                             the Full Report (§12) — untruncated Claims and
@@ -4343,16 +4454,25 @@ switch (cmd) {
                                             idempotent, not a duplicate. --all-groups is §11's
                                             decided EAGER reading (v5): the co-tag view
                                             generates one report per composed group.
-  subdivide --survey F --tag T --group G --group-claim S --classification F
-            --judge-model M --judge-effort E --screen-budget N
-                                            semantic subdivision (§8) — DOGFOOD-FIRST, never
-                                            offered by default; co-tags are the default
-  act --act rank|trim|hide --where --why --label --ids a,b   proposal record (item 3 contract)
-  act --act <other>                         report record — the non-member fallback
-  gate --gate ID --ids a,b | --proposal F   per-run gate declaration (item 4 carrier)
-  capture --declaration F --tool-use-id ID --option X | --free-text S
   validate --survey F                       run the composition rules on a record
-  self-test                                 the composed-form fixture pass (identity cites, kogaki#612)`);
+  self-test                                 the composed-form fixture pass (identity cites, kogaki#612)
+
+ REMOVED, and refusing with a pointer (§15.6.3, §15.7 — kogaki#625 item 1):
+   claim  adopt  subdivide  act  gate  capture
+                                             each is a STATE of the workflow table now, reachable
+                                             only through 'run'. Invoke one and its refusal names
+                                             the state and the exact 'run' invocation that gets
+                                             you there. Listed rather than dropped for the same
+                                             reason they still have cases: a reader who knew the
+                                             old surface is owed the replacement, and an entry
+                                             point that simply vanishes hands them a bare
+                                             unknown-command (§13.2's precedent).
+
+ At a wait that declares a gate, the executor WRITES the run declaration and names its path.
+ Render it through AskUserQuestion — options verbatim, nothing pre-selected, free text always on
+ — then re-enter with --capture-option <id> --tool-use-id <id> (or --capture-free-text).
+ A bare --input is REFUSED there: it would skip the declaration's own option check and the
+ tool_use_id that evidences the rendering.`);
     process.exit(cmd ? 1 : 0);
 }
 }

@@ -55,6 +55,7 @@ echo "== terrain §15 control plane, counted against its table (kogaki#654)"
 FAIL=0
 STUB="checks/fixtures/terrain/compose-input/stub-gateway.mjs"
 EVOLVED="checks/fixtures/terrain/workflow/evolved.json"
+GATED="checks/fixtures/terrain/workflow/gated.json"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
 # THE OWNER'S TREE IS NEVER WRITTEN (PR #664 round 1). The shipped table's
@@ -68,7 +69,7 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 KOGAKI_REPORTS_DIR="$WORK/renderings"; mkdir -p "$KOGAKI_REPORTS_DIR"
 export KOGAKI_REPORTS_DIR
 
-for f in "$STUB" "$EVOLVED"; do
+for f in "$STUB" "$EVOLVED" "$GATED" "checks/lib/assert-gate-capture.py"; do
   [[ -f "$f" ]] || { echo "FAIL: CANNOT-DETERMINE — $f is missing, and it is tree-local; a fixture this check cannot reach is a defect in the check, not a finding about the table"; exit 1; }
 done
 
@@ -172,12 +173,79 @@ else
   echo "ok: evolvability fixture — a moved handoff and an added entry point ran to terminal with zero executor control-code changes, and the table's counted_baseline agrees with its own states"
 fi
 
+# ---- Block 3: THE GATE PATH (kogaki#625 item 1, PR #671 round 1).
+#
+# The `--input` refusal at a gate wait, the capture's option validation, the
+# tool_use_id evidence and the owed-and-unwritten refusal all shipped asserted
+# by nothing — which is the class this repository keeps finding, and keeps
+# finding in its own diffs. This block drives them, seam-free, over TWO tables
+# differing in exactly one property: `gated.json`'s wait has an option composer
+# bound to it (by state id, which is how a fixture table reaches one at all) and
+# `evolved.json`'s does not.
+#
+# The PAIR is the assertion. One table alone could not distinguish "the executor
+# writes declarations" from "the executor writes a declaration for every gate
+# state", and the second is what acceptance item 6 forbids.
+RD3="$WORK/gated"; mkdir -p "$RD3"
+g() { node terrain/terrain.mjs run --run-dir "$RD3" --workflow "$GATED" "$@" 2>&1; }
+
+STOP=$(g --ids a,b)
+DECL=$(sed -n 's|.*Its run declaration is WRITTEN: ||p' <<<"$STOP")
+if [[ -z "$DECL" || ! -f "$DECL" ]]; then
+  echo "FAIL: the executor stopped at a composable gate wait and named no written declaration — SKILL.md tells the session to render a file, so the runtime must point at it:"
+  sed 's|^|    |' <<<"$STOP"
+  FAIL=1
+else
+  IN=$(g --input "strand:a")
+  if ! grep -q "answered by a CAPTURE" <<<"$IN"; then
+    echo "FAIL: a bare --input ANSWERED a gate wait whose declaration was written — removing the capture command closed the out-of-band route and this is the in-band one beside it:"
+    sed 's|^|    |' <<<"$IN" | head -3
+    FAIL=1
+  fi
+  BOGUS=$(g --capture-option "not-offered" --tool-use-id tu_x)
+  if ! grep -q "was not offered by the declaration" <<<"$BOGUS"; then
+    echo "FAIL: a capture naming an option the declaration never offered was ACCEPTED: $(head -1 <<<"$BOGUS")"; FAIL=1
+  fi
+  NOEV=$(g --capture-option "strand:a")
+  if ! grep -q "tool-use-id" <<<"$NOEV"; then
+    echo "FAIL: a capture with no --tool-use-id was ACCEPTED — the evidence is what separates a rendering that happened from a claim that one did: $(head -1 <<<"$NOEV")"; FAIL=1
+  fi
+  OK=$(g --capture-option "strand:a" --tool-use-id tu_1)
+  if ! grep -q "reached done" <<<"$OK"; then
+    echo "FAIL: a valid capture did not carry the run to its terminal:"; sed 's|^|    |' <<<"$OK" | head -3; FAIL=1
+  fi
+  python3 checks/lib/assert-gate-capture.py "$RD3" || FAIL=1
+fi
+
+# The OTHER half of the pair: a gate state with NO bound composer. Its
+# declaration is owed-and-unwritten by design — refusing it outright would make
+# adding a gate state to a table need driver code, which item 6 denies — so a
+# capture must REFUSE naming that state while a bare --input stays admissible.
+# Without this the carve-out is a comment.
+RD4="$WORK/unwritten"; mkdir -p "$RD4"
+e() { node terrain/terrain.mjs run --run-dir "$RD4" --workflow "$EVOLVED" "$@" 2>&1; }
+e >/dev/null 2>&1 || true
+e --input "opening" >/dev/null 2>&1 || true
+e >/dev/null 2>&1 || true
+UNW=$(e --capture-option "anything" --tool-use-id tu_2)
+if ! grep -q "never written" <<<"$UNW"; then
+  echo "FAIL: a capture at a composer-less gate state did not refuse BY NAME — it is reachable on the very fixture the design cites as its proof, and a raw TypeError there is the shape every neighbouring branch is careful to avoid:"
+  sed 's|^|    |' <<<"$UNW" | head -3
+  FAIL=1
+else
+  echo "ok: a gate state with no bound option composer records its declaration owed-and-unwritten, refuses a capture by name, and still runs — which is what keeps acceptance item 6 true"
+fi
+
 cat <<'EOF'
 reach of this check, stated rather than implied: it asserts the §15 control
-plane's COUNTS and its table-drivenness. The evolvability fixture is seam-free
+plane's COUNTS, its table-drivenness, and its GATE PATH. The evolvability fixture is seam-free
 by construction and exercises NO owner-artifact writing — block 1, against the
 shipped table, is what covers that count. Composition of the material either
 table drives is check-terrain-composition.sh, and the runtime's own fixture
-pass is check-terrain-runtime.sh; neither is re-asserted here.
+pass is check-terrain-runtime.sh; neither is re-asserted here. Block 3 reaches
+an option composer only by naming a state id GATE_WORK already binds, so a
+fixture table cannot exercise a composer this runtime does not have — the gate
+path is covered for the states that have one, and the owed-and-unwritten case
+is what covers the states that do not.
 EOF
 exit $FAIL

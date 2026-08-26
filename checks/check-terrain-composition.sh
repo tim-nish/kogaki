@@ -1220,60 +1220,80 @@ if (seamAbsent) {
 }
 JS
 
-# --- claim re-offer origin fixture (kogaki#143) ------------------------------
+# --- claim re-offer origin fixture (kogaki#143; re-pointed kogaki#625 item 1) --
 #
-# WHY THIS IS AN EXTENSION AND NOT A TENTH CHECK. `claim`'s origin path is
-# terrain composition — §7's claim lifecycle is the contract this file already
-# carries — so the coverage lands inside an existing member's declared contract
-# and no admission record is owed. A tenth check for one finding is the
+# WHY THIS IS AN EXTENSION AND NOT A TENTH CHECK. The claim re-offer's origin
+# path is terrain composition — §7's claim lifecycle is the contract this file
+# already carries — so the coverage lands inside an existing member's declared
+# contract and no admission record is owed. A tenth check for one finding is the
 # one-member-per-incident growth the served surface names as the tell that you
 # are on the wrong side ("a check suite growing at roughly one member per
 # incident", product-lab@f918c515 LESSONS.md:45), in a repository whose
 # founding decision put a rebuilt suite under a high admission bar to avoid it.
 #
 # WHAT IT DISCRIMINATES. §7's v4 rider defines THREE origin branches and story
-# 1.31 shipped all three untested — no registered check invoked `terrain.mjs
-# claim` at all, and PR #141's acceptance table named a test that did not
-# exist. The third branch is the one most worth holding: its whole content is
-# that an absent origin is STATED and never fabricated, so its failure mode is
-# a MISSING line rather than a wrong one, which no assertion about present
-# content would catch.
+# 1.31 shipped all three untested — no registered check invoked the composition
+# at all, and PR #141's acceptance table named a test that did not exist. The
+# third branch is the one most worth holding: its whole content is that an
+# absent origin is STATED and never fabricated, so its failure mode is a MISSING
+# line rather than a wrong one, which no assertion about present content would
+# catch.
 #
-# Seam-free by construction: `claim` reads the survey record and the gate
-# registry and never reaches the gateway, so unlike the Full Report block above
-# this one runs everywhere.
+# RE-POINTED AT THE COMPOSER, AND WHY THAT IS A RE-BINDING RATHER THAN A
+# WEAKENING (kogaki#625 item 1). The block drove `terrain.mjs claim`, which
+# §15.6.1 removes as an entry point; the composition it exercised did not move,
+# it became `composeClaimReoffer`, reachable only from the `CLAIM_REOFFER`
+# state. Driving the executor instead would need a survey and therefore the
+# seam, and this block is seam-free by construction — so it calls the composer
+# directly, exactly as the runtime's own fixture pass calls its composers. The
+# three origin branches are the property; `claim` was only ever the invocation.
+#
+# The reachability half is asserted too, and separately: the retired entry
+# points must REFUSE WITH A POINTER (§15.6.3) rather than vanish, and a fixture
+# that only tested the composer would pass just as well if the commands had been
+# left live — which is the defect item 1 exists to close.
 node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
+import { composeClaimReoffer, emitGateDeclaration } from "./terrain/terrain.mjs";
 
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const TAG = "testing";
 const GROUP = "architecture";
+const CLAIM_GATE = "terrain-claim-reoffer";
+const survey = JSON.parse(readFileSync(FIXTURE, "utf8"));
 const fails = [];
 
 // The re-offer is a GATE EVENT and fires only on a SUBSET selection (§7), so
-// every case below names a proper subset of the group's members.
-const claim = (dir, extra) => spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "claim", "--survey", FIXTURE, "--tag", TAG, "--group", GROUP,
-   "--text", "the recomposed wording", "--members", "lesson:alpha",
-   "--run-dir", dir, ...extra], { encoding: "utf8" });
+// every case below names a proper subset of the group's members — which the
+// composer now REFUSES to treat otherwise, since `CLAIM_REOFFER`'s own
+// `conditional` says it is entered on a proper subset and nothing else.
+const reoffer = (dir, extra) => {
+  const args = { tag: TAG, group: GROUP, text: "the recomposed wording",
+                 members: "lesson:alpha", ...extra };
+  const { options, extra: origin } = composeClaimReoffer(args, dir, survey);
+  emitGateDeclaration(dir, CLAIM_GATE, options, origin);
+};
 
 const declarationIn = (dir) => {
   const f = readdirSync(dir).find((x) => x.endsWith(".run-declaration.json"));
   return f ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null;
 };
 
-// Branch 1 — RECORD. The pre-existing path: `--original <claim record>`.
+// Branch 1 — RECORD. `--original <claim record>`. The fixture writes its own
+// origin record: the retired `claim` used to seed one as a side effect, and a
+// fixture that builds its inputs is the shape the runtime's own pass uses.
 const d1 = mkdtempSync(join(tmpdir(), "claim-record-"));
-const seed = claim(d1, []);
-if (seed.status !== 0) fails.push(`claim (seed) exited ${seed.status}: ${(seed.stderr || "").trim()}`);
-const seedRec = readdirSync(d1).find((x) => x.endsWith(".terrain-claim.json"));
-if (!seedRec) fails.push("claim wrote no claim record for the subset selection");
+const seedPath = join(d1, "seed.terrain-claim.json");
+writeFileSync(seedPath, JSON.stringify({
+  id: "terrain-claim-seed", kind: "group-claim", claim: "the original wording",
+  members: ["lesson:alpha", "lesson:bravo"],
+}, null, 2) + "\n");
 const d1b = mkdtempSync(join(tmpdir(), "claim-record-b-"));
-const fromRecord = claim(d1b, ["--original", join(d1, seedRec || "")]);
-if (fromRecord.status !== 0) fails.push(`claim --original exited ${fromRecord.status}: ${(fromRecord.stderr || "").trim()}`);
+try { reoffer(d1b, { original: seedPath }); }
+catch (e) { fails.push(`the record branch threw: ${e && e.message}`); }
 const g1 = declarationIn(d1b);
 if (!g1) fails.push("the record branch emitted no gate run declaration");
 else if (g1.original_source !== "claim-record") {
@@ -1288,9 +1308,9 @@ else if (g1.original_source !== "claim-record") {
 // and the screen produces none, so exactly the claims v3 moved earlier reached
 // the owner with nothing to compare against.
 const d2 = mkdtempSync(join(tmpdir(), "claim-screen-"));
-const fromArgs = claim(d2, ["--original-text", "the screen's original line",
-                            "--original-members", "lesson:alpha,lesson:bravo"]);
-if (fromArgs.status !== 0) fails.push(`claim --original-text exited ${fromArgs.status}: ${(fromArgs.stderr || "").trim()}`);
+try { reoffer(d2, { "original-text": "the screen's original line",
+                    "original-members": "lesson:alpha,lesson:bravo" }); }
+catch (e) { fails.push(`the screen-composed branch threw: ${e && e.message}`); }
 const g2 = declarationIn(d2);
 if (!g2) fails.push("the screen-composed branch emitted no gate run declaration");
 else {
@@ -1304,11 +1324,12 @@ else {
     fails.push(`the screen-composed branch does not declare its source: ${JSON.stringify(g2.original_source)}`);
   }
 }
-// No record is written BY THE SCREEN — the origin is passed, not persisted, so
-// §7's no-record rider stands. The claim record `claim` writes for its own
-// subset is the pre-existing artifact and is not what that rider governs.
-if (readdirSync(d2).filter((f) => f.endsWith(".terrain-claim.json")).length !== 1) {
-  fails.push("the screen-composed branch wrote an unexpected number of claim records — the origin travels as an argument and persists nothing of its own");
+// THE NO-RECORD RIDER, NOW STRICTER THAN IT WAS. The retired `claim` wrote a
+// claim record of its own for the subset; the composer writes none at all —
+// composing the claims record is the outside composer's under §15.6, so the
+// re-offer persists nothing but the declaration it was asked for.
+if (readdirSync(d2).filter((f) => f.endsWith(".terrain-claim.json")).length !== 0) {
+  fails.push("the screen-composed branch persisted a claim record — the origin travels as an argument and the re-offer composes no claims record of its own (§15.6)");
 }
 
 // Branch 3 — ABSENT. The branch whose entire content is that the absence is
@@ -1316,8 +1337,8 @@ if (readdirSync(d2).filter((f) => f.endsWith(".terrain-claim.json")).length !== 
 // a wrong one, so it is asserted positively (the declaration says NONE) AND
 // negatively (nothing was invented).
 const d3 = mkdtempSync(join(tmpdir(), "claim-absent-"));
-const noOrigin = claim(d3, []);
-if (noOrigin.status !== 0) fails.push(`claim (no origin) exited ${noOrigin.status}: ${(noOrigin.stderr || "").trim()}`);
+try { reoffer(d3, {}); }
+catch (e) { fails.push(`the absent-origin branch threw: ${e && e.message}`); }
 const g3 = declarationIn(d3);
 if (!g3) fails.push("the absent-origin branch emitted no gate run declaration");
 else {
@@ -1337,6 +1358,42 @@ if (new Set(sources).size !== sources.length) {
   fails.push(`the origin branches do not discriminate — ${JSON.stringify(sources)} contains a duplicate, so at least two paths are indistinguishable at the gate`);
 }
 
+// A FULL-GROUP re-offer is refused rather than composed. §7 makes the
+// full-group rendering per-invocation and not an adopted claim, so there is
+// nothing to re-offer — and `CLAIM_REOFFER`'s `conditional` says the state is
+// entered on a PROPER subset. Without this the state's own entry condition is
+// asserted by the table and enforced by nothing.
+// Spawned rather than caught: the runtime's refusals exit the process, so an
+// in-process try/catch would observe nothing and the assertion would pass by
+// never running — a guard untested by its own happy path.
+const d4 = mkdtempSync(join(tmpdir(), "claim-full-"));
+const fullGroup = spawnSync(process.execPath, ["--input-type=module", "-e",
+  `import { composeClaimReoffer } from "./terrain/terrain.mjs";
+   import { readFileSync } from "node:fs";
+   composeClaimReoffer({ tag: ${JSON.stringify(TAG)}, group: ${JSON.stringify(GROUP)},
+     text: "the recomposed wording", members: "lesson:alpha,lesson:bravo" },
+     ${JSON.stringify(d4)}, JSON.parse(readFileSync(${JSON.stringify(FIXTURE)}, "utf8")));`],
+  { encoding: "utf8" });
+if (fullGroup.status === 0) {
+  fails.push("a FULL-GROUP member set was composed into a re-offer — §7 makes that rendering per-invocation and not an adopted claim, and CLAIM_REOFFER is entered only on a proper subset");
+} else if (!/not a subset/.test(`${fullGroup.stdout || ""}${fullGroup.stderr || ""}`)) {
+  fails.push(`the full-group re-offer failed for the wrong reason: ${JSON.stringify((fullGroup.stderr || "").trim().slice(0, 160))}`);
+}
+
+// THE REACHABILITY HALF (§15.6.3, kogaki#625 item 1). The retired entry points
+// must refuse WITH A POINTER, not vanish and not survive. Asserted here because
+// every assertion above would pass just as well with the commands still live,
+// which is precisely the defect item 1 closes.
+for (const cmd of ["claim", "adopt", "subdivide", "act", "gate", "capture"]) {
+  const r = spawnSync(process.execPath, ["terrain/terrain.mjs", cmd], { encoding: "utf8" });
+  const said = `${r.stdout || ""}${r.stderr || ""}`;
+  if (r.status === 0) {
+    fails.push(`\`${cmd}\` still succeeds as an entry point — §15.7 removes it, and while it stands a session can mint run state from outside the executor (#625 acceptance item 1)`);
+  } else if (!/removed as an entry point/.test(said) || !/run --run-dir/.test(said)) {
+    fails.push(`\`${cmd}\` refuses without naming its replacement: ${JSON.stringify(said.trim().slice(0, 120))} — §13.2's precedent is a refusal NAMING THE REPLACEMENT, never a silent no-op`);
+  }
+}
+
 if (fails.length) {
   console.log("FAIL claim re-offer origin fixture — §7's v4 rider is not observed:");
   for (const f of fails) console.log(`  - ${f}`);
@@ -1344,8 +1401,89 @@ if (fails.length) {
 }
 console.log("claim re-offer origin fixture: PASS — cases exercised (record branch carries claim and "
   + "members; screen-composed branch carries BOTH wording and member set as arguments and "
-  + "persists nothing of its own; absent branch STATES the absence and fabricates neither "
-  + "field; the three sources are mutually distinct at the gate)");
+  + "persists nothing at all; absent branch STATES the absence and fabricates neither "
+  + "field; the three sources are mutually distinct at the gate; a full-group set is refused; "
+  + "and all six retired entry points refuse with a pointer)");
+JS
+
+
+# --- the injected-fetcher case (kogaki#625, from PR #667 round 2) ------------
+#
+# `renderTagRowView` takes its shard fetcher as a parameter so that
+# "REFUSE-conformance is testable without the seam" — and until this case
+# existed no caller anywhere in `terrain/` or `checks/` injected one, so the
+# affordance was built and the test it exists for was not written. That is an
+# extraction criterion satisfied by its cheap half: the criterion measures what
+# must not remain, and only the completeness inventory beside the renderer names
+# what must survive (product-lab@d6fdadd5 LESSONS.md:36).
+#
+# Seam-free by construction, which is the point rather than a convenience: the
+# stub IS the seam, so this case runs on a machine with no gateway at all.
+node --input-type=module - <<'JS'
+import { readFileSync } from "node:fs";
+import { renderTagRowView, NO_HEADLINE } from "./terrain/terrain.mjs";
+import { validateSurface, loadGrammar } from "./terrain/format-guard.mjs";
+const GRAMMAR = loadGrammar("specs/spec-terrain/report-format.json");
+
+const FIXTURE = "checks/fixtures/terrain/conforming/survey-two-strands.json";
+const record = JSON.parse(readFileSync(FIXTURE, "utf8"));
+const TAG = "architecture";
+const fails = [];
+
+// The stub serves ONE slug and withholds the other, so the marked-absence
+// direction is exercised by the same render as the present one. A stub serving
+// everything could not distinguish "the headline reached the row" from "no row
+// needed one".
+const served = new Map([["strand-a", { headline: "the served headline", cite: "gloss/ELEMENTS.jsonl:9@16a6dbf6" }]]);
+let asked = [];
+const stub = (kind, tags) => { asked.push([kind, [...tags].join(",")]); return kind === "lessons" ? served : new Map(); };
+
+const text = renderTagRowView(record, TAG, null, stub);
+
+// 1. THE FETCHER WAS ACTUALLY USED. Without this the whole case passes on a
+//    renderer that ignores its parameter and reaches the seam anyway — the
+//    failure mode an injected affordance has when nothing asserts the injection.
+if (!asked.length) {
+  fails.push("the injected fetcher was never called — `renderTagRowView` ignored its `fetchShards` parameter, so this case proves nothing about the seam-free path and the affordance is unexercised");
+} else if (!asked.some(([, tags]) => tags === TAG)) {
+  fails.push(`the injected fetcher was called with ${JSON.stringify(asked)} — the shard read is TAG-SCOPED (§9: one shard per viewed tag, no whole-corpus prefetch), so a call not scoped to ${JSON.stringify(TAG)} is a different read`);
+}
+
+// 2. The served headline reaches the row.
+if (!text.includes("the served headline")) {
+  fails.push("the served headline did not reach the row — the fetcher's material is dropped between the read and the rendering");
+}
+
+// 3. A MISSING served rendering is MARKED, never substituted (§9). The stub
+//    withholds the journey shard, so the marker must render.
+if (!text.includes(NO_HEADLINE)) {
+  fails.push(`a withheld served rendering was not MARKED: the render carries no ${JSON.stringify(NO_HEADLINE)}. §9 makes an absent Gloss rendering a fault to clear rather than a tolerated gap, and nothing is substituted for it`);
+}
+
+// 4. REFUSE-CONFORMANCE, which is the property the parameter exists for. The
+//    composed text goes through the guard under this state's own grammar.
+const verdict = validateSurface("tag_row_view", text, GRAMMAR);
+if (verdict.length) {
+  fails.push(`the injected-fetcher render does not conform to the tag_row_view grammar: ${JSON.stringify(verdict.slice(0, 3))}`);
+}
+
+// 5. And the case is not vacuous: a line the grammar does not declare must be
+//    REFUSED by the same call, or assertion 4 would pass on a guard that admits
+//    anything.
+const bogus = validateSurface("tag_row_view", `${text}\n!! a line class this surface never declares`, GRAMMAR);
+if (!bogus.length) {
+  fails.push("the tag_row_view grammar ACCEPTED an undeclared line class, so assertion 4 above is not evidence of conformance — a guard that admits anything conforms everything");
+}
+
+if (fails.length) {
+  console.log("FAIL injected-fetcher case:");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("injected-fetcher case: SEAM-FREE and RAN — the injected fetcher IS called and tag-scoped, "
+  + "its material reaches the rows, a withheld rendering is MARKED rather than substituted, the "
+  + "composed text conforms to the tag_row_view grammar, and the same guard refuses an undeclared "
+  + "line class so the conformance assertion is not vacuous");
 JS
 
 # --- v5 residuals + origin provenance (kogaki#154, kogaki#145) ---------------
@@ -1475,19 +1613,28 @@ if (seamAbsent) {
 
 // 3. kogaki#145's origin PROVENANCE. A derived member set and a recorded one
 //    are otherwise indistinguishable at the gate.
-const CD = mkdtempSync(join(tmpdir(), "claim-prov-"));
-const claimRun = (dir, extra) => spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "claim", "--survey", FIXTURE, "--tag", TAG, "--group", "architecture",
-   "--text", "recomposed", "--members", "lesson:alpha", "--run-dir", dir, ...extra], { encoding: "utf8" });
+// RE-POINTED at the composer with its block above (kogaki#625 item 1): `claim`
+// is removed as an entry point and `composeClaimReoffer` is the same
+// composition, reachable only from the `CLAIM_REOFFER` state. Spawned rather
+// than imported so a refusal is observable — the runtime's refusals exit.
+const claimRun = (dir, extra) => spawnSync(process.execPath, ["--input-type=module", "-e",
+  `import { composeClaimReoffer, emitGateDeclaration } from "./terrain/terrain.mjs";
+   import { readFileSync } from "node:fs";
+   const a = { tag: ${JSON.stringify(TAG)}, group: "architecture", text: "recomposed",
+               members: "lesson:alpha", ...${JSON.stringify(extra)} };
+   const survey = JSON.parse(readFileSync(${JSON.stringify(FIXTURE)}, "utf8"));
+   const r = composeClaimReoffer(a, ${JSON.stringify(dir)}, survey);
+   emitGateDeclaration(${JSON.stringify(dir)}, "terrain-claim-reoffer", r.options, r.extra);`],
+  { encoding: "utf8" });
 const decl = (dir) => {
   const f = readdirSync(dir).find((x) => x.endsWith(".run-declaration.json"));
   return f ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null;
 };
 const dDer = mkdtempSync(join(tmpdir(), "prov-derived-"));
-claimRun(dDer, ["--original-text", "orig"]);
+claimRun(dDer, { "original-text": "orig" });
 const gDer = decl(dDer);
 const dRec = mkdtempSync(join(tmpdir(), "prov-recorded-"));
-claimRun(dRec, ["--original-text", "orig", "--original-members", "lesson:alpha,lesson:bravo"]);
+claimRun(dRec, { "original-text": "orig", "original-members": "lesson:alpha,lesson:bravo" });
 const gRec = decl(dRec);
 if (!gDer || !gRec) fails.push("the provenance cases emitted no gate run declaration");
 else {
@@ -1510,7 +1657,7 @@ else {
 // A written value, never an omission: the absent branch says `none` rather
 // than dropping the field, so the three states are greppable.
 const dNone = mkdtempSync(join(tmpdir(), "prov-none-"));
-claimRun(dNone, []);
+claimRun(dNone, {});
 const gNone = decl(dNone);
 if (!gNone || gNone.original_members_provenance !== "none") {
   fails.push(`the absent-origin branch omits its provenance rather than writing \`none\` — an omitted field and a field reading \`none\` are the same silence to a reader and different silences to a grep`);
@@ -1583,16 +1730,24 @@ const write = (dir, name, body) => {
   return p;
 };
 
-// One invocation of the COMMAND — the whole point of this block. Everything it
+// One invocation of the COMPOSER — the whole point of this block. Everything it
 // needs is supplied per run; no numeric constant enters the runtime (§8).
+//
+// RE-POINTED, NOT WEAKENED (kogaki#625 item 1). This drove `terrain.mjs
+// subdivide`, which §15.6.2 removes as an entry point; the composition did not
+// move, it became `composeSubdivisionRecord`, reachable only from the
+// `J2_subdivision` state. Spawned rather than imported because every case below
+// turns on whether the runtime REFUSED, and a refusal exits the process.
 const subdivide = (classification) => {
   const dir = mkdtempSync(join(tmpdir(), "subdivide-"));
   const cls = write(dir, "classification.json", classification);
-  const r = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "subdivide", "--survey", FIXTURE, "--tag", TAG,
-     "--group", GROUP, "--group-claim", "the parent group's line",
-     "--judge-model", "fixture-judge", "--judge-effort", "low",
-     "--screen-budget", "40", "--classification", cls, "--run-dir", dir],
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e",
+    `import { composeSubdivisionRecord } from "./terrain/terrain.mjs";
+     import { readFileSync } from "node:fs";
+     composeSubdivisionRecord({ tag: ${JSON.stringify(TAG)}, group: ${JSON.stringify(GROUP)},
+       "group-claim": "the parent group's line", "judge-model": "fixture-judge",
+       "judge-effort": "low", "screen-budget": "40", classification: ${JSON.stringify(cls)} },
+       ${JSON.stringify(dir)}, JSON.parse(readFileSync(${JSON.stringify(FIXTURE)}, "utf8")));`],
     { encoding: "utf8" });
   const f = readdirSync(dir).find((x) => x.endsWith(".terrain-subdivision.json"));
   return { r, dir, record: f ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null };
@@ -4322,7 +4477,13 @@ if (!/Screen — READ THIS ONE/.test(r1.stdout || "")) {
 // with it because `terrain.mjs` imports it relatively; nothing else is needed,
 // which is itself a property worth having (a mutant needing the whole tree is
 // a mutant nobody runs).
-function mutant(name, edit) {
+// `expectRefusal` names the ONE case where a non-zero exit is the behaviour
+// under test rather than a crash: a mutant whose whole point is that the format
+// guard refuses it. Without the parameter the did-it-RUN guard below reports
+// every such mutant as crashed, which is the guard doing its job on a case it
+// was not written for — so the case declares itself instead of the guard being
+// weakened for everyone.
+function mutant(name, edit, expectRefusal = false) {
   const md = temp(`kogaki-screen-mutant-${name}-`);
   mkdirSync(join(md, "terrain"), { recursive: true });
   copyFileSync("terrain/format-guard.mjs", join(md, "terrain", "format-guard.mjs"));
@@ -4345,6 +4506,11 @@ function mutant(name, edit) {
   // absence produced by a crash is indistinguishable from one produced by the
   // removed behaviour. Asserting the exit first is what makes the kill mean
   // what it says.
+  if (r.status !== 0 && expectRefusal) {
+    // The refusal IS the run. Returned whole so the caller reads the exit and
+    // the streams itself.
+    return { r, rdir, runtime: join(md, "terrain", "terrain.mjs"), skipped: false, refused: true };
+  }
   if (r.status !== 0) {
     fails.push(`the ${name} mutant did not RUN (exit ${r.status}): ${(r.stderr || "").trim().split("\n")[0].slice(0, 200)} — an absent artifact from a crashed mutant asserts nothing about the behaviour that was removed`);
     // `r` IS RETURNED so the caller can tell a crash from a no-match. Returning
@@ -4356,6 +4522,66 @@ function mutant(name, edit) {
     return { r, skipped: true };
   }
   return { r, rdir, runtime: join(md, "terrain", "terrain.mjs"), skipped: false };
+}
+
+// ---- THE REFUSAL'S REACH, bound rather than asserted (PR #667 round 2,
+// carried to kogaki#625). `writeScreenSurface`'s own header claims "a
+// nonconformant screen reaches neither the owner's terminal nor their
+// artifact" and "there is no path here that emits first". For three heads that
+// was true of the ARTIFACT and false of the TERMINAL: all three screen states
+// printed the text and then called the writer, so a refused screen was printed
+// in full and then not written. Nothing asserted the terminal half, which is
+// how a structural property became a comment.
+//
+// INJECT_NONCONFORMANT makes the composed screen violate its own grammar. The
+// pair below is the assertion and its own kill: the first says a refused screen
+// reaches neither surface; the second HOISTS the print back above the writer
+// and must therefore be caught by the first's assertion. Without the second,
+// "stdout did not carry the line" would pass just as well on a runtime that
+// never composed the line at all.
+//
+// THE INJECTION SITE IS LOAD-BEARING and was wrong once. Injecting inside the
+// `emitOrRefuse` CALL bound the assertion to the mutants and not to the
+// property: a runtime printing `text` before that call prints text the
+// injection never touched, so hoisting the real print left the case green. The
+// line is therefore appended to `text` ON ENTRY to the writer, upstream of both
+// the print and the guard — which is what makes "whichever surface it reaches,
+// it reaches with the injected line in it" true.
+const INJECT = "!! INJECTED NONCONFORMANT LINE";
+const inject = (s) => s.replace(
+  "function writeScreenSurface(args, surface, text) {\n  let path = null;\n",
+  `function writeScreenSurface(args, surface, text) {\n  text = text + "\\n${INJECT}";\n  let path = null;\n`);
+
+const refused = mutant("nonconformant", inject, true);
+if (refused.skipped && refused.r === undefined) {
+  fails.push("the nonconformant-screen mutant could not be constructed — `writeScreenSurface`'s emitOrRefuse call no longer matches the text this case mutates, so the refusal's reach is verified by nothing");
+} else {
+  // This mutant is EXPECTED to fail: the grammar must refuse it. The harness's
+  // did-it-RUN guard reads a non-zero exit as a crash, so this case reads the
+  // exit itself rather than going through that guard's verdict.
+  const said = `${(refused.r && refused.r.stdout) || ""}`;
+  if (refused.r && refused.r.status === 0) {
+    fails.push(`a screen carrying ${JSON.stringify(INJECT)} was ACCEPTED — the format guard admits a line class report-format.json does not declare, so §14.2's refusal is not gating this surface at all`);
+  } else if (said.includes(INJECT)) {
+    fails.push(`the refused screen REACHED THE OWNER'S TERMINAL: stdout carries ${JSON.stringify(INJECT)}. §14.2's guard gated the write and not the print, which is the state writeScreenSurface's own header says is unreachable ("there is no path here that emits first")`);
+  }
+}
+
+// The kill. A runtime that prints before it validates must be caught by the
+// assertion above, or that assertion is bound to nothing.
+const hoisted = mutant("nonconformant-hoisted", (s) => {
+  const injected = inject(s);
+  if (injected === s) return s;
+  // Exactly the pre-repair shape: the print moves OUT of the refusal callback
+  // and above the guard, printing the same `text` the guard is about to refuse.
+  const moved = injected.replace("    console.log(conformant);\n", "");
+  if (moved === injected) return s;
+  return moved.replace("  emitOrRefuse(surface, text,", "  console.log(text);\n  emitOrRefuse(surface, text,");
+}, true);
+if (hoisted.skipped && hoisted.r === undefined) {
+  fails.push("the hoisted-print mutant could not be constructed, so the refusal-reach assertion above is unkilled and may be asserting nothing");
+} else if (hoisted.r && !`${hoisted.r.stdout || ""}`.includes(INJECT)) {
+  fails.push("HOISTING the print above the writer did NOT put the refused line on stdout — the refusal-reach assertion above cannot distinguish a guarded print from an unguarded one, so it verifies nothing");
 }
 
 // Mutant 1 — the write path is broken. The AC1/AC2 assertions above must fail.
@@ -4428,11 +4654,11 @@ for (const d of TEMPS) rmSync(d, { recursive: true, force: true });
 // this file refuses everywhere else (PR #465 round 1, finding 2).
 console.log("§14.4.1 screen delivery: SEAM-FREE and RAN — the screen is written to reports/Screen.md, "
   + "ONE file after two renders of DIFFERENT surveys, carrying the SECOND render's material, and NAMED "
-  + "on stdout. THREE MUTANTS CONFIRMED, each asserted to have RUN before its absence is read: removing "
+  + "on stdout. FIVE MUTANTS CONFIRMED, each asserted to have RUN before its absence is read: removing "
   + "the write kills the artifact assertion; guarding the write with `existsSync` kills the OVERWRITE "
   + "assertion (AC2's own direction, which removing the write entirely cannot reach); and removing the "
   + "hand-over line while keeping the write kills the floor assertion — the shape §14.4.1 names as "
-  + "satisfying the clause while producing the failure it is about. NOT MUTATED, stated rather than "
+  + "satisfying the clause while producing the failure it is about; and a screen made NONCONFORMANT ON ENTRY to the writer reaches NEITHER surface, with its own kill — hoisting the print back above the guard puts the refused line on stdout and is caught (kogaki#625, PR #667 round 2). The injection sits UPSTREAM of both the print and the guard, because injecting inside the guard’s own call bound the case to the mutants rather than to the property and left a hoisted real print green. NOT MUTATED, stated rather than "
   + "claimed: the fixed NAME holds by construction (the literal is joined inside `writeScreen`, so a "
   + "second screen name is unwritable), and a mutation would have to invent a second write path rather "
   + "than alter this one.");

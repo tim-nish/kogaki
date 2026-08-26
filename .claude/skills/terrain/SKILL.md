@@ -102,8 +102,21 @@ node terrain/terrain.mjs run --run-dir D --status
 - **The executor stops; the owner speaks; you re-enter.** At a wait the
   runtime prints where it stopped and what the owner supplies, and the run
   ends there. Re-enter with `--input`. **Nothing is asked** — the executor
-  renders no question UI and no gate declaration, and a wait that declares a
-  gate records the obligation on the run record rather than rendering it.
+  renders no question UI, and §6.3's question allowlist for the post-tag window
+  stays empty.
+- **A wait that declares a gate now WRITES its declaration, and you render it.**
+  The executor composes the run declaration and names its path; you render it
+  through `AskUserQuestion` exactly as declared — options verbatim, nothing
+  pre-selected, free text always on — and re-enter with
+  `--capture-option <id> --tool-use-id <id>` (or `--capture-free-text`). That
+  answer IS the owner input for the wait: there is no separate adopt, ratify or
+  capture act, because there is no separate command left to perform one.
+  **Composing and recording are the engine's; deciding is the owner's and
+  rendering is yours.**
+- **Six commands are gone and refuse with a pointer.** `claim`, `adopt`,
+  `subdivide`, `act`, `gate` and `capture` are states of the table, reachable
+  only through `run`. If you reach for one, its refusal names the state and the
+  invocation that gets you there — read it rather than working around it.
 - **An owner input is admitted by the WAIT, never by its own shape.** An
   `--input` with no outstanding wait is refused, and so is one naming a state
   the run is not awaiting.
