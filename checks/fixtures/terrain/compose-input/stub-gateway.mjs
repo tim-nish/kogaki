@@ -79,6 +79,18 @@ const ELEMENTS = [
   { slug: "echo", kind: "lesson", source_batch: "q_a/stub" },
   { slug: "foxtrot", kind: "journey", source_batch: "q_a/stub" },
   { slug: "golf", kind: "lesson" },
+  // THE CONFORMING ARM (kogaki#654, story 1.91), on the convention
+  // STUB_ELEMENT_SURVEY_EMPTY already sets: an env-gated variant rather than a
+  // second stub file. The default set above carries `foxtrot` as a JOURNEY
+  // with no Lesson row of the same slug, which `validateSurvey` REFUSES as
+  // JOURNEY_ORPHAN — correct for the neighborhood cases it was built for, and
+  // fatal to a check that must drive a whole run through the `survey` state.
+  // This row supplies the missing Lesson so the survey composes, and it is
+  // ADDITIVE: with the env unset the served set is byte-identical to what
+  // check-terrain-composition.sh has always read.
+  ...(process.env.STUB_ELEMENT_SURVEY_CONFORMING === "1"
+      ? [{ slug: "foxtrot", kind: "lesson", source_batch: "q_a/stub" }]
+      : []),
   { kind: "batch", id: "q_a/stub",
     members: { lesson: ["alpha", "bravo", "charlie", "echo"], journey: ["foxtrot"] } },
   { kind: "batch", id: "q_a/solo", members: { lesson: ["delta"] } },
