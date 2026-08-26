@@ -1393,8 +1393,18 @@ if (/gloss\/ELEMENTS|a headline that must not render|\bx\b, ?\by\b/.test(rich)) 
 }
 // The composer is still WIRED. A unit that passes while nothing invokes it is
 // the orphan shape, and screen 1 is where the allowlist is broken.
-if (!/for \(const s of sections\) console\.log\(`  \$\{tagRow\(s\)\}`\)/.test(readFileSync("terrain/terrain.mjs", "utf8"))) {
-  fails.push("cmdSurvey no longer composes its tag rows through tagRow — the allowlist's single construction constraint is bypassed, which no assertion over tagRow itself can see");
+//
+// RE-POINTED WITH THE EMITTER (kogaki#665, PR #667 round 1 finding 5). This
+// read `cmdSurvey`'s stdout loop, which was screen 1's emitter until that
+// issue EXTRACTED the listing into `renderTagScreen` — the surface's one
+// emitter, reached through the executor and written under `tag_screen`'s
+// grammar. The property is unchanged and is the one this line always meant:
+// the tag rows are composed through the single constructor, never assembled
+// beside it. Only the function holding that loop moved, which is why this is a
+// re-binding and not a weakening — the assertion still fails if any emitter
+// builds a tag row by hand.
+if (!/for \(const s of record\.sections\) out\.push\(`  \$\{tagRow\(s\)\}`\)/.test(readFileSync("terrain/terrain.mjs", "utf8"))) {
+  fails.push("renderTagScreen no longer composes its tag rows through tagRow — the allowlist's single construction constraint is bypassed, which no assertion over tagRow itself can see");
 }
 
 // 2. kogaki#146's EAGER fan-out. Seam-aware exactly as the Full Report block
@@ -4241,8 +4251,19 @@ const fails = [];
 const A = "checks/fixtures/terrain/conforming/survey-two-strands.json";
 const B = "checks/fixtures/terrain/conforming/survey-with-no-relation-section.json";
 
+// THE INVOCATION PATH CHANGED, THE ASSERTIONS DID NOT (kogaki#665). §15.7
+// removes `view` as an entry point, so this block drives `cotags` instead —
+// a live entry point (`workflow.json` `bound_to_a_state`: "cotags: the
+// cotag_screen state") that takes a fixture survey directly and writes
+// `reports/Screen.md` through the same one private writer. What §14.4.1
+// asserts here is the WRITE, the OVERWRITE-never-accumulate and the HAND-OVER
+// line, and all three are properties of the screen artifact rather than of
+// whichever state rendered it — which is why the swap is an invocation change
+// and not a weakening. Both fixtures carry the tag named below.
+const DELIVERY_TAG = "architecture";
 function render(runtime, dir, survey) {
-  return spawnSync(process.execPath, [runtime, "view", "--survey", survey], {
+  return spawnSync(process.execPath,
+    [runtime, "cotags", "--survey", survey, "--tag", DELIVERY_TAG], {
     encoding: "utf8", env: { ...process.env, KOGAKI_REPORTS_DIR: dir },
   });
 }
@@ -4276,7 +4297,16 @@ if (after2.includes("Screen.md")) {
   const body = readFileSync(join(dir, "Screen.md"), "utf8");
   // The SECOND render's material, not the first: this is what makes the
   // assertion about overwriting rather than about existence.
-  if (!body.includes("no relation")) {
+  //
+  // THE MARKER WAS RE-BOUND WITH THE INVOCATION (kogaki#665). It used to be
+  // "no relation", a string `view`'s row listing produced; the co-tag screen
+  // filtered to one tag never emits it, so carrying the old marker across the
+  // swap would have made the assertion fail for a reason unrelated to
+  // overwriting. `G2 —` is the new marker and it is MATERIAL rather than
+  // incidental: fixture B composes a SECOND co-tag group and fixture A, with
+  // one member, cannot — so the string is present exactly when the second
+  // render's material is, which is the property this line claims.
+  if (!body.includes("G2 —")) {
     fails.push("the screen artifact does not carry the SECOND render's material — the file exists but was not overwritten, so the owner opens a stale screen while the run reports success");
   }
 }
@@ -4374,7 +4404,13 @@ if (m3.skipped) {
     const f3 = mds(m3.rdir);
     if (!f3.includes("Screen.md")) {
       fails.push("the write-once mutant wrote no artifact at all — it is not isolating the OVERWRITE from the write, so it duplicates mutant 1 instead of covering AC2's second direction");
-    } else if (readFileSync(join(m3.rdir, "Screen.md"), "utf8").includes("no relation")) {
+    // THE SAME RE-BINDING AS ITS PARTNER AT :4295 (kogaki#665, PR #667 round 1
+    // finding 1). This assertion was left reading "no relation" when the
+    // invocation swapped to `cotags`, which never emits it — so the mutant
+    // passed whatever it did and the guard was DISARMED while the suite stayed
+    // green. A mutation and the assertion it is meant to kill are ONE unit:
+    // re-binding one without the other leaves a kill test that cannot kill.
+    } else if (readFileSync(join(m3.rdir, "Screen.md"), "utf8").includes("G2 —")) {
       fails.push("the write-once mutant still produced the SECOND render's material — the overwrite assertion is not bound to the write it claims to verify, and a write-once implementation would ship green");
     }
   }

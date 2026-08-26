@@ -503,8 +503,17 @@ function cmdSurvey(args) {
   console.log(`Journey coverage: ${c.coverage} Lessons carry a Journey — ${c.thin_lessons} thin Lesson(s), the actionable set; the mark reads by absence.`);
   console.log(`Pin: ${record.pin}`);
   console.log(`Survey record: ${out}\n`);
-  for (const s of sections) console.log(`  ${tagRow(s)}`);
-  console.log(`\nNavigation (narrows nothing): view --survey ${out} [--tag T] [--family lesson|journey] [--sort slug|section]`);
+  // THE TAG LISTING IS NOT EMITTED HERE ANY MORE (PR #667 round 1 findings 4
+  // and 5). It is `tag_screen`'s surface, and `renderTagScreen` is its one
+  // emitter, reached through the executor and written under that surface's
+  // grammar. While both existed a run emitted the listing TWICE — once from
+  // this compute state under no grammar, once from `tag_screen` through the
+  // guard — and the two had already diverged, since only the guarded copy
+  // carried the amended navigation hint. Two emitters of one surface with one
+  // of them unguarded is the defect class kogaki#665 exists to close, arriving
+  // one channel over; extracting rather than copying is what criterion 2 asks
+  // for. The navigation line went with it: it named `view`, which §15.7
+  // removes.
   // The bounded-input pointer, sited at the step BEFORE the one that needs it.
   // A composer reaching for material per group has already spent the reads by
   // the time `cotags` runs, so a pointer only on the co-tag screen would arrive
@@ -617,16 +626,19 @@ export function resolveHeadlines(members) {
   return out;
 }
 
-function cmdView(args) {
-  // COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES — the same discipline
-  // `cmdCotags` already follows (§14.2, story 1.54 AC1), and here it is also
-  // what makes the screen writable as ONE artifact (§14.4.1): a surface printed
-  // line by line has no text to hand over.
+// THE TWO SCREEN RENDERERS, PRIVATE (§15.5, §15.1; kogaki#665). Each RETURNS
+// TEXT AND WRITES NOTHING — the write is the executor's, through the one
+// private writer, under the calling state's own grammar. Neither is exported
+// and neither is dispatchable by name: #625 acceptance item 1 makes an
+// out-of-order act unwritable by construction rather than detected after it.
+//
+// THE SHARD FETCHER IS INJECTED, exactly as `composeInput` already injects its
+// own, and that is load-bearing rather than symmetry: it is what makes
+// REFUSE-conformance testable without the substrate. A renderer that reached
+// the seam directly could only be exercised where the seam is.
+function composeScreenText(record, tags, family, fetchShards) {
   const screen = [];
   const say = (s = "") => { for (const line of String(s).split("\n")) screen.push(line); };
-  const record = readJson(String(args.survey || fail("view needs --survey <file>")));
-  const tags = args.tag ? [].concat(args.tag).map(String) : null;
-  const family = args.family ? String(args.family) : null;
   let list = record.candidates;
   if (tags) list = list.filter((c) => tags.some((t) => c.tags.includes(t)));
   // The rows are Lessons; a family filter selects rows whose Strand set
@@ -636,13 +648,13 @@ function cmdView(args) {
   list = [...list].sort((a, b) => a.id.localeCompare(b.id));
 
   // Headlines are fetched only for the tags actually being viewed. Without a
-  // --tag there is no shard to read, and prefetching the corpus to fill the
-  // gap is the fan-out §9 forbids — so the absence is stated instead.
+  // tag there is no shard to read, and prefetching the corpus to fill the gap
+  // is the fan-out §9 forbids — so the absence is stated instead.
   let heads = new Map();
   let journeyHeads = new Map();
   if (tags) {
-    heads = fetchHeadlines("lessons", tags);
-    if (list.some((c) => c.journey)) journeyHeads = fetchHeadlines("journeys", tags);
+    heads = fetchShards("lessons", tags);
+    if (list.some((c) => c.journey)) journeyHeads = fetchShards("journeys", tags);
   }
   let missing = 0;
   let missingDisplayId = 0;
@@ -671,16 +683,38 @@ function cmdView(args) {
     say(`ABNORMAL: ${missing} of ${list.length} rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
   }
   if (missingDisplayId) say(displayIdAbnormalLine(missingDisplayId, list.length));
+  return screen.join("\n");
+}
 
-  // §14.4.1 — the screen is DELIVERED as the artifact, not as this stdout.
-  // Printing stays for the terminal and for pipes; the artifact is what the
-  // hand-over names, and it is the same bytes either way.
-  const text = screen.join("\n");
-  console.log(text);
-  const path = writeScreen(args, text);
-  announceScreen(path);
-  // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
-  return path;
+// The PRE-SELECTION listing: the TAG ROWS — a tag name and its Lesson count,
+// and nothing else (§9's allowlist, transcribed into `tag_screen`'s grammar).
+//
+// EXTRACTED OUT OF `cmdSurvey`'s STDOUT, where this surface's own grammar
+// already named its emitter (`report-format.json` surfaces.tag_screen
+// `emitter_today`: "tagRow(), rendered at :506"). The state used to be wired
+// to the untagged half of `view` — a CANDIDATE-row listing, a different
+// surface — and the wiring was correct-looking because nothing enforced the
+// grammar on the write path. The stale `workflow.json` note that directed an
+// implementer there is criterion 5's second amendment and is corrected under
+// #666, which owns the table.
+//
+// The completeness, coverage, pin and record lines stay in `cmdSurvey`'s
+// stdout: they belong to the `survey` COMPUTE state, which writes no owner
+// artifact, and admitting them here would put four line classes into a
+// grammar §9 deliberately holds to two.
+function renderTagScreen(record) {
+  const out = ["The survey — screen 1. Navigation (narrows nothing): name a tag.", ""];
+  for (const s of record.sections) out.push(`  ${tagRow(s)}`);
+  out.push("");
+  out.push(NAVIGATION_HINT);
+  return out.join("\n");
+}
+
+// The candidate rows under ONE named tag — the conditional half, entered only
+// when the owner asks to browse rows and never scheduled by the flow (§6.3,
+// kogaki#162's fork half).
+function renderTagRowView(record, tag, family, fetchShards = fetchHeadlines) {
+  return composeScreenText(record, [String(tag)], family || null, fetchShards);
 }
 
 // --------------------------------------------------------------------------
@@ -1041,14 +1075,19 @@ function cmdCotags(args) {
   // The refusal still gates the WRITE as well as the print — `emitOrRefuse`
   // validates before its callback runs, so a nonconformant screen reaches
   // neither the owner's terminal nor their artifact (§14.2, story 1.54 AC1).
-  let path = null;
-  emitOrRefuse("cotag_screen", screen.join("\n"), (text) => {
-    console.log(text);
-    path = writeScreen(args, text);
-    announceScreen(path);
-  });
+  // THROUGH THE ONE PRIVATE WRITER, like the two screen states beside it
+  // (PR #667 round 1 finding 3). This was a SECOND path to the same artifact —
+  // its own `emitOrRefuse` plus a direct `writeScreen` — which left
+  // `writeScreenSurface` one of two rather than the one criterion 1 names, and
+  // left the `writers_per_artifact` drop resting on a "no second path" ground
+  // the tree did not hold. The refusal still gates the write, because that is
+  // what `writeScreenSurface` does; the print stays here, before the write,
+  // exactly as it was.
+  const text = screen.join("\n");
+  console.log(text);
+  const path = writeScreenSurface(args, "cotag_screen", text);
+  announceScreen(path);
   // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
-  // Null is unreachable: emitOrRefuse either runs the callback or fails.
   return path;
 }
 
@@ -2056,12 +2095,44 @@ function announceArtifacts(rendered, recordPath) {
 // invariant §12.2 v12 actually protects — no accumulation, no machine-register
 // naming on the owner surface — holds for both, which is why this is a scoping
 // and not a repeal.
+// THE NAVIGATION HINT, one literal shared by the emitter and asserted against
+// the grammar (kogaki#665). Its previous form named `view --survey <F> …` —
+// the entry point this issue REMOVES — so under REFUSE the emitter would have
+// had to print a removed subcommand or refuse. `report-format.json`'s
+// `navigation_hint` form is amended to match, deliberately and on this
+// issue's licence, never to make a refusal go away.
+export const NAVIGATION_HINT =
+  "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4).";
+
 export const SCREEN_RENDERING = "Screen.md";
 
 function writeScreen(args, text) {
   const path = join(renderingsDir(args), SCREEN_RENDERING);
   writeFileSync(path, text.endsWith("\n") ? text : text + "\n");
   return path;
+}
+
+// THE ONE PRIVATE SCREEN WRITER (§15.5, kogaki#665). Every state whose
+// `writes` field names the screen artifact goes through here, and the GRAMMAR
+// COMES FROM THE CALLING STATE rather than from the artifact path — three
+// states share one file, and `report-format.json` declares a separate surface
+// for each, so a writer that inferred the grammar from `Screen.md` could only
+// ever enforce one of the three.
+//
+// WHAT THIS REMOVES, which is the point rather than a tidy: `cmdView` used to
+// call `writeScreen` DIRECTLY, with no `emitOrRefuse` anywhere on its path —
+// so `tag_screen` and `tag_row_view` had declared grammars that nothing on the
+// write path enforced. §14.4.1 admitted two writers; §15.5 supersedes it with
+// one, and this is that one. The refusal gates the WRITE and not only a print,
+// because `emitOrRefuse` takes the write as a callback: there is no path here
+// that emits first.
+function writeScreenSurface(args, surface, text) {
+  let path = null;
+  emitOrRefuse(surface, text, (conformant) => {
+    path = writeScreen(args, conformant);
+  });
+  // Unreachable: `emitOrRefuse` either runs the callback or fails the process.
+  return path || fail(`${surface} produced no artifact path`);
 }
 
 // THE HAND-OVER'S FLOOR, and only its floor. Writing the artifact is NOT
@@ -2749,6 +2820,12 @@ function cmdReport(args) {
   console.log("The RENDERING is repo-visible and NOT committed; the RECORD is "
     + "machine-local (SPEC.md §2.5.2, §12.2 v11). Two artifacts, two rules — "
     + "visibility and publication are separate decisions.");
+
+  // RETURNS WHAT IT WROTE, so the §15 executor can OBSERVE the artifact
+  // rather than assert one (PR #655 round 1, carried to kogaki#665). Under
+  // `--no-render` nothing is written and `rendered` stays null — which is
+  // exactly the case that used to record a write that never happened.
+  return rendered;
   }
 }
 
@@ -2760,7 +2837,7 @@ function cmdAct(args) {
   const act = String(args.act || fail("act needs --act <name>"));
   const acts = RECORD_SCHEMA.acts;
   if (acts.navigation.includes(act)) {
-    console.log(`${act} is NAVIGATION — use \`view\`; no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`);
+    console.log(`${act} is NAVIGATION — the executor reaches it as a table state (§15.7 removed \`view\` as an entry point); no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`);
     return;
   }
   if (!acts.proposal.includes(act)) {
@@ -3622,19 +3699,54 @@ export function loadWorkflowTable(path) {
 // figure someone typed beside it. `counted_baseline` is then a second reading
 // of the same array, and `terrain.mjs run --status` renders both so a
 // disagreement between them is visible rather than resolved silently.
+// THE WRITE-OUTCOME CLASSIFIER, pure and exported so the distinction it draws
+// is TESTABLE rather than asserted (PR #667 round 1 finding 2). The executor's
+// guard used to read `!outcome.artifact`, which folded two different claims
+// into one branch:
+//
+//   wrote          — the renderer wrote and named what it wrote
+//   wrote-nothing  — the renderer RAN and deliberately wrote nothing
+//                    (`--no-render`, §12.2 v11; the idempotent rerun, §12.1)
+//   named-nothing  — the renderer wrote and did not say where; the case the
+//                    guard was built for, and the only one that refuses
+//
+// It is a classifier rather than a refusal because `fail()` exits the process:
+// keeping the judgment pure is what lets the fixture pass exercise all three
+// directions without spawning three subprocesses.
+export function classifyWriteOutcome(outcome) {
+  if (!outcome || typeof outcome !== "object" || !("artifact" in outcome)) return "named-nothing";
+  return outcome.artifact ? "wrote" : "wrote-nothing";
+}
+
 export function derivedBaseline(table) {
   const states = table.states;
   const writing = states.filter((s) => s.kind === "write");
-  const artifacts = table.owner_artifacts || {};
-  const writerCounts = Object.values(artifacts)
-    .map((a) => (typeof a.writer === "string" && a.writer ? 1 : 0));
+  // `writers_per_artifact` IS DROPPED, NOT REPAIRED (PR #655 round 1 finding 3,
+  // decided at kogaki#665 as that issue's body requires). It mapped each
+  // `owner_artifacts` entry to 1 when its `writer` field was a non-empty
+  // string and took the max — so the figure was 1 for any table declaring a
+  // writer, however many writers there were. `writer` is a PROSE SENTENCE and
+  // not a countable set, so the two-writer breach §15.5 exists to forbid was
+  // never expressible in this derivation, and the self-test asserting
+  // agreement with `counted_baseline` could not fail on the key.
+  //
+  // A DERIVED FIGURE THAT CAN NEVER DISAGREE IS WORSE THAN AN ABSENT ONE,
+  // because a Test Plan reads it as evidence. The countable alternative — the
+  // set of call sites reaching the private writer — is a fact about the CODE
+  // and not about the table, and `derivedBaseline` derives from the table
+  // alone. So the key leaves both sides: the derivation here and the
+  // declaration in `workflow.json`'s `counted_baseline`, together, because a
+  // declared key with no derived counterpart is the omission hole in the other
+  // direction. What replaces it is not a better count: §15.5's one-writer
+  // property is made true BY CONSTRUCTION at this issue — one private
+  // `writeScreenSurface`, no second path — which is constrain-generation where
+  // the figure was after-the-fact detection that never fired.
   return {
     waits: states.filter((s) => s.kind === "wait").length,
     conditional_states: states.filter((s) => Boolean(s.conditional)).length,
     owner_artifact_writes: writing.length,
     judgment_points: states.filter((s) => s.kind === "judgment").length,
     grammared_writing_states: writing.filter((s) => Boolean(s.grammar_surface)).length,
-    writers_per_artifact: writerCounts.length ? Math.max(...writerCounts) : 0,
   };
 }
 
@@ -3729,21 +3841,27 @@ const STATE_WORK = {
   // --tag is passed, deliberately — the per-tag row view is the separate
   // conditional state below, and collapsing the two is the defect
   // workflow.json v3 corrected (PR #626 round 2, finding 4).
-  tag_screen: (rec, st, args) => ({
-    artifact: cmdView({ ...args, survey: needSurvey(rec), tag: undefined }),
-  }),
+  tag_screen: (rec, st, args) => {
+    const text = renderTagScreen(readJson(needSurvey(rec)));
+    console.log(text);
+    const path = writeScreenSurface(args, st.id, text);
+    announceScreen(path);
+    return { artifact: path };
+  },
 
   // The OTHER half of the retired `view`: the candidate rows under one named
   // tag. Conditional — entered only when the owner asks to browse rows, and
   // never scheduled by the flow (§6.3, kogaki#162's fork half).
-  tag_row_view: (rec, st, args) => ({
-    artifact: cmdView({
-      ...args,
-      survey: needSurvey(rec),
-      tag: ownerInput(rec, "TAG_SELECTION")
-        || fail("tag_row_view needs a tag, and no wait has supplied one yet."),
-    }),
-  }),
+  tag_row_view: (rec, st, args) => {
+    const tag = ownerInput(rec, "TAG_SELECTION")
+      || fail("tag_row_view needs a tag, and no wait has supplied one yet.");
+    const text = renderTagRowView(readJson(needSurvey(rec)), tag,
+                                  args.family ? String(args.family) : null);
+    console.log(text);
+    const path = writeScreenSurface(args, st.id, text);
+    announceScreen(path);
+    return { artifact: path };
+  },
 
   compose_input: (rec, st, args) => {
     cmdComposeInput({
@@ -3798,7 +3916,7 @@ const STATE_WORK = {
   }),
 
   full_report: (rec, st, args, table) => {
-    cmdReport({
+    const written = cmdReport({
       ...args,
       survey: needSurvey(rec),
       tag: ownerInput(rec, "TAG_SELECTION")
@@ -3806,11 +3924,19 @@ const STATE_WORK = {
       ids: ownerInput(rec, "ID_SELECTION")
         || fail("full_report needs the entered ID set, and no wait has supplied one yet."),
     });
-    // The rendering is written by cmdReport's own renderer; its NAME is taken
-    // from the artifact the STATE declares it writes, never from a literal
-    // here — so a table that renames an artifact does not need this file
-    // edited to keep the ledger honest.
-    return { artifact: join(renderingsDir(args), basename(artifactPath(table, st))) };
+    // OBSERVED, NOT CONSTRUCTED (PR #655 round 1). `cmdSurvey`, the two screen
+    // renderers and `cmdCotags` each return the path they actually wrote; this
+    // state ASSERTED one instead, via join(renderingsDir(args), basename(...)).
+    // `cmdReport` honours `--no-render` by writing NO rendering and `args` is
+    // spread into it verbatim, so `run --no-render` recorded a
+    // `reports/FullReport.md` write that never happened. Reading the basename
+    // from the table was never the defect — asserting a value where three
+    // siblings observe one was. A state that wrote no owner artifact records
+    // none, which is what makes the ledger's write count countable.
+    // `{ artifact: null }` rather than a bare null: the state RAN and wrote
+    // nothing, which is a different claim from a renderer that named no
+    // artifact, and the executor's guard reads exactly that difference.
+    return { artifact: written || null };
   },
 };
 
@@ -3876,7 +4002,15 @@ function cmdRun(args) {
 
     if (st.kind === "wait") {
       rec.awaiting = st.id;
-      rec.waits_reached.push(st.id);
+      // DEDUPED, like its three siblings in this same loop (PR #655 round 1).
+      // Re-entering `run --run-dir D` with no `--input` at an outstanding wait —
+      // the resume act #625 acceptance item 4 licenses, and the act needSurvey's
+      // own refusal text tells the owner to perform — used to record the id a
+      // second time, so runCounts(rec).waits exceeded counted_baseline.waits for a
+      // run that reached exactly four waits. checks/check-terrain-workflow.sh now
+      // counts against that baseline, so the defect made a registered check go red
+      // on a record no owner mis-drove.
+      if (!rec.waits_reached.includes(st.id)) rec.waits_reached.push(st.id);
       // §15.4 / AC6: the executor renders NO gate declaration and NO question
       // UI. For a wait the table marks `renders_gate_declaration: true` the
       // obligation is RECORDED and named on stop; rendering it is not this
@@ -3902,9 +4036,26 @@ function cmdRun(args) {
     }
     const outcome = work ? work(rec, st, args, table) : null;
     if (st.kind === "write") {
-      const path = outcome && outcome.artifact;
-      if (!path) fail(`workflow state ${JSON.stringify(st.id)} is kind "write" and its renderer named no artifact.`);
-      rec.artifacts_written.push({ state: st.id, artifact: st.writes, path: relFromRepo(resolve(path)) });
+      // A WRITE STATE THAT LEGITIMATELY WROTE NOTHING IS NOT A RENDERER THAT
+      // NAMED NO ARTIFACT (PR #667 round 1 finding 2). The two were one branch,
+      // so making `full_report` OBSERVE its path turned two live non-writing
+      // paths into executor aborts: `run --no-render`, which §12.2 v11 licenses
+      // ("--no-render opts out of the rendering"), and the idempotent-rerun
+      // branch, which §12.1 rules "IDEMPOTENT, not a duplicate" and which
+      // returns after having written. An abort is neither of those.
+      //
+      // So the renderer declares WHICH it means. `{ artifact: <path> }` wrote
+      // and names it; `{ artifact: null }` ran and wrote nothing, deliberately;
+      // and a renderer returning nothing at all still FAILS, because that is
+      // the case the guard was built for — a renderer that wrote and did not
+      // say where.
+      const kindOfWrite = classifyWriteOutcome(outcome);
+      if (kindOfWrite === "named-nothing") {
+        fail(`workflow state ${JSON.stringify(st.id)} is kind "write" and its renderer named no artifact.`);
+      }
+      if (kindOfWrite === "wrote") {
+        rec.artifacts_written.push({ state: st.id, artifact: st.writes, path: relFromRepo(resolve(outcome.artifact)) });
+      }
     }
     rec.completed.push(st.id);
   }
@@ -3964,7 +4115,6 @@ const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 switch (cmd) {
   case "survey": cmdSurvey(args); break;
-  case "view": cmdView(args); break;
   case "cotags": cmdCotags(args); break;
   // RETIRED, LOUDLY (§13.2 v20, kogaki#473) — the same shape `--all-groups`
   // and `--group` took: a refusal naming the replacement, never a silent
@@ -4047,6 +4197,18 @@ switch (cmd) {
     // reaches the gateway. AC8: this pass needs no run record and emits no
     // owner surface.
     const shipped = loadWorkflowTable(WORKFLOW_TABLE);
+    // The write-outcome classifier's three directions (PR #667 round 1 finding
+    // 2). The executor's guard reads this, so these are the cases that separate
+    // "wrote nothing deliberately" from "wrote and did not say where".
+    ok("a renderer that names its artifact is `wrote`",
+      classifyWriteOutcome({ artifact: "reports/FullReport.md" }) === "wrote");
+    ok("a renderer that RAN and deliberately wrote nothing is `wrote-nothing`, not a refusal — --no-render and the idempotent rerun are both this",
+      classifyWriteOutcome({ artifact: null }) === "wrote-nothing");
+    ok("a renderer returning nothing at all is `named-nothing` — the case the guard was built for",
+      classifyWriteOutcome(null) === "named-nothing");
+    ok("an outcome object with no `artifact` KEY is `named-nothing` too, so a renderer cannot pass the guard by omitting the field",
+      classifyWriteOutcome({ something_else: 1 }) === "named-nothing");
+
     ok("the shipped workflow table loads under the structural rules",
       Array.isArray(shipped.states) && shipped.states.length > 0);
     {
@@ -4126,7 +4288,7 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <run|survey|view|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
       [--claims F] [--subdivisions F] [--judge-model M] [--judge-effort E]
                                             THE §15 CONTROL PLANE. One entry point, entered once
@@ -4146,7 +4308,6 @@ switch (cmd) {
                                             counts derived from the table's states array and the
                                             table's own counted_baseline (#625 acceptance item 2).
   survey                                    compose the survey from the seam (element_survey)
-  view --survey F [--tag T] [--family X]    navigation — narrows nothing
   compose-input --survey F --tag T          the BOUNDED input for the claim and subdivision
                                             composers (§9): one tag-scoped shard pair, fetched
                                             once, material keyed by member id and groups
