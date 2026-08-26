@@ -476,7 +476,8 @@
         },
         {
           "id": "navigation_hint",
-          "form": "Navigation (narrows nothing): view --survey <F> [--tag T] [--family lesson|journey] [--sort slug|section]"
+          "form": "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4).",
+          "amended_because": "kogaki#665. The previous form named `view --survey <F> [--tag T] …` — the standalone entry point that issue removes — so once the write path went through the format guard the emitter had to either print a removed subcommand or refuse. Amended deliberately on that issue's licence, which is the only ground §14.1 admits: the grammar wins on divergence, so it is the grammar that moves, never the refusal that is silenced."
         },
         {
           "id": "blank",

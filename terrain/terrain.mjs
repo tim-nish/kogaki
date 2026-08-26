@@ -617,16 +617,19 @@ export function resolveHeadlines(members) {
   return out;
 }
 
-function cmdView(args) {
-  // COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES — the same discipline
-  // `cmdCotags` already follows (§14.2, story 1.54 AC1), and here it is also
-  // what makes the screen writable as ONE artifact (§14.4.1): a surface printed
-  // line by line has no text to hand over.
+// THE TWO SCREEN RENDERERS, PRIVATE (§15.5, §15.1; kogaki#665). Each RETURNS
+// TEXT AND WRITES NOTHING — the write is the executor's, through the one
+// private writer, under the calling state's own grammar. Neither is exported
+// and neither is dispatchable by name: #625 acceptance item 1 makes an
+// out-of-order act unwritable by construction rather than detected after it.
+//
+// THE SHARD FETCHER IS INJECTED, exactly as `composeInput` already injects its
+// own, and that is load-bearing rather than symmetry: it is what makes
+// REFUSE-conformance testable without the substrate. A renderer that reached
+// the seam directly could only be exercised where the seam is.
+function composeScreenText(record, tags, family, fetchShards) {
   const screen = [];
   const say = (s = "") => { for (const line of String(s).split("\n")) screen.push(line); };
-  const record = readJson(String(args.survey || fail("view needs --survey <file>")));
-  const tags = args.tag ? [].concat(args.tag).map(String) : null;
-  const family = args.family ? String(args.family) : null;
   let list = record.candidates;
   if (tags) list = list.filter((c) => tags.some((t) => c.tags.includes(t)));
   // The rows are Lessons; a family filter selects rows whose Strand set
@@ -636,13 +639,13 @@ function cmdView(args) {
   list = [...list].sort((a, b) => a.id.localeCompare(b.id));
 
   // Headlines are fetched only for the tags actually being viewed. Without a
-  // --tag there is no shard to read, and prefetching the corpus to fill the
-  // gap is the fan-out §9 forbids — so the absence is stated instead.
+  // tag there is no shard to read, and prefetching the corpus to fill the gap
+  // is the fan-out §9 forbids — so the absence is stated instead.
   let heads = new Map();
   let journeyHeads = new Map();
   if (tags) {
-    heads = fetchHeadlines("lessons", tags);
-    if (list.some((c) => c.journey)) journeyHeads = fetchHeadlines("journeys", tags);
+    heads = fetchShards("lessons", tags);
+    if (list.some((c) => c.journey)) journeyHeads = fetchShards("journeys", tags);
   }
   let missing = 0;
   let missingDisplayId = 0;
@@ -671,16 +674,38 @@ function cmdView(args) {
     say(`ABNORMAL: ${missing} of ${list.length} rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
   }
   if (missingDisplayId) say(displayIdAbnormalLine(missingDisplayId, list.length));
+  return screen.join("\n");
+}
 
-  // §14.4.1 — the screen is DELIVERED as the artifact, not as this stdout.
-  // Printing stays for the terminal and for pipes; the artifact is what the
-  // hand-over names, and it is the same bytes either way.
-  const text = screen.join("\n");
-  console.log(text);
-  const path = writeScreen(args, text);
-  announceScreen(path);
-  // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
-  return path;
+// The PRE-SELECTION listing: the TAG ROWS — a tag name and its Lesson count,
+// and nothing else (§9's allowlist, transcribed into `tag_screen`'s grammar).
+//
+// EXTRACTED OUT OF `cmdSurvey`'s STDOUT, where this surface's own grammar
+// already named its emitter (`report-format.json` surfaces.tag_screen
+// `emitter_today`: "tagRow(), rendered at :506"). The state used to be wired
+// to the untagged half of `view` — a CANDIDATE-row listing, a different
+// surface — and the wiring was correct-looking because nothing enforced the
+// grammar on the write path. The stale `workflow.json` note that directed an
+// implementer there is criterion 5's second amendment and is corrected under
+// #666, which owns the table.
+//
+// The completeness, coverage, pin and record lines stay in `cmdSurvey`'s
+// stdout: they belong to the `survey` COMPUTE state, which writes no owner
+// artifact, and admitting them here would put four line classes into a
+// grammar §9 deliberately holds to two.
+function renderTagScreen(record) {
+  const out = ["The survey — screen 1. Navigation (narrows nothing): name a tag.", ""];
+  for (const s of record.sections) out.push(`  ${tagRow(s)}`);
+  out.push("");
+  out.push(NAVIGATION_HINT);
+  return out.join("\n");
+}
+
+// The candidate rows under ONE named tag — the conditional half, entered only
+// when the owner asks to browse rows and never scheduled by the flow (§6.3,
+// kogaki#162's fork half).
+function renderTagRowView(record, tag, family, fetchShards = fetchHeadlines) {
+  return composeScreenText(record, [String(tag)], family || null, fetchShards);
 }
 
 // --------------------------------------------------------------------------
@@ -2056,12 +2081,44 @@ function announceArtifacts(rendered, recordPath) {
 // invariant §12.2 v12 actually protects — no accumulation, no machine-register
 // naming on the owner surface — holds for both, which is why this is a scoping
 // and not a repeal.
+// THE NAVIGATION HINT, one literal shared by the emitter and asserted against
+// the grammar (kogaki#665). Its previous form named `view --survey <F> …` —
+// the entry point this issue REMOVES — so under REFUSE the emitter would have
+// had to print a removed subcommand or refuse. `report-format.json`'s
+// `navigation_hint` form is amended to match, deliberately and on this
+// issue's licence, never to make a refusal go away.
+export const NAVIGATION_HINT =
+  "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4).";
+
 export const SCREEN_RENDERING = "Screen.md";
 
 function writeScreen(args, text) {
   const path = join(renderingsDir(args), SCREEN_RENDERING);
   writeFileSync(path, text.endsWith("\n") ? text : text + "\n");
   return path;
+}
+
+// THE ONE PRIVATE SCREEN WRITER (§15.5, kogaki#665). Every state whose
+// `writes` field names the screen artifact goes through here, and the GRAMMAR
+// COMES FROM THE CALLING STATE rather than from the artifact path — three
+// states share one file, and `report-format.json` declares a separate surface
+// for each, so a writer that inferred the grammar from `Screen.md` could only
+// ever enforce one of the three.
+//
+// WHAT THIS REMOVES, which is the point rather than a tidy: `cmdView` used to
+// call `writeScreen` DIRECTLY, with no `emitOrRefuse` anywhere on its path —
+// so `tag_screen` and `tag_row_view` had declared grammars that nothing on the
+// write path enforced. §14.4.1 admitted two writers; §15.5 supersedes it with
+// one, and this is that one. The refusal gates the WRITE and not only a print,
+// because `emitOrRefuse` takes the write as a callback: there is no path here
+// that emits first.
+function writeScreenSurface(args, surface, text) {
+  let path = null;
+  emitOrRefuse(surface, text, (conformant) => {
+    path = writeScreen(args, conformant);
+  });
+  // Unreachable: `emitOrRefuse` either runs the callback or fails the process.
+  return path || fail(`${surface} produced no artifact path`);
 }
 
 // THE HAND-OVER'S FLOOR, and only its floor. Writing the artifact is NOT
@@ -3729,21 +3786,27 @@ const STATE_WORK = {
   // --tag is passed, deliberately — the per-tag row view is the separate
   // conditional state below, and collapsing the two is the defect
   // workflow.json v3 corrected (PR #626 round 2, finding 4).
-  tag_screen: (rec, st, args) => ({
-    artifact: cmdView({ ...args, survey: needSurvey(rec), tag: undefined }),
-  }),
+  tag_screen: (rec, st, args) => {
+    const text = renderTagScreen(readJson(needSurvey(rec)));
+    console.log(text);
+    const path = writeScreenSurface(args, st.id, text);
+    announceScreen(path);
+    return { artifact: path };
+  },
 
   // The OTHER half of the retired `view`: the candidate rows under one named
   // tag. Conditional — entered only when the owner asks to browse rows, and
   // never scheduled by the flow (§6.3, kogaki#162's fork half).
-  tag_row_view: (rec, st, args) => ({
-    artifact: cmdView({
-      ...args,
-      survey: needSurvey(rec),
-      tag: ownerInput(rec, "TAG_SELECTION")
-        || fail("tag_row_view needs a tag, and no wait has supplied one yet."),
-    }),
-  }),
+  tag_row_view: (rec, st, args) => {
+    const tag = ownerInput(rec, "TAG_SELECTION")
+      || fail("tag_row_view needs a tag, and no wait has supplied one yet.");
+    const text = renderTagRowView(readJson(needSurvey(rec)), tag,
+                                  args.family ? String(args.family) : null);
+    console.log(text);
+    const path = writeScreenSurface(args, st.id, text);
+    announceScreen(path);
+    return { artifact: path };
+  },
 
   compose_input: (rec, st, args) => {
     cmdComposeInput({
