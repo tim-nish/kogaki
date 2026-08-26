@@ -510,6 +510,10 @@ function cmdSurvey(args) {
   // the time `cotags` runs, so a pointer only on the co-tag screen would arrive
   // after the cost (kogaki#163 lever 3).
   console.log(`Before composing claims for a tag: compose-input --survey ${out} --tag T — ${COMPOSITION_INPUT_BOUND}. Composing from per-group material instead spends one read per PLACEMENT, which is what the 2026-08-07 architecture run measured at ~19 minutes.`);
+  // Returned so the §15 executor can record the survey record BY PATH (§15.3)
+  // without re-deriving the name. The record references it and copies nothing
+  // out of it — the ID->slug map stays §14.3's single carrier.
+  return out;
 }
 
 // ---- Figure rendering. Every emitted figure names the families it counted
@@ -673,7 +677,10 @@ function cmdView(args) {
   // hand-over names, and it is the same bytes either way.
   const text = screen.join("\n");
   console.log(text);
-  announceScreen(writeScreen(args, text));
+  const path = writeScreen(args, text);
+  announceScreen(path);
+  // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
+  return path;
 }
 
 // --------------------------------------------------------------------------
@@ -1034,10 +1041,15 @@ function cmdCotags(args) {
   // The refusal still gates the WRITE as well as the print — `emitOrRefuse`
   // validates before its callback runs, so a nonconformant screen reaches
   // neither the owner's terminal nor their artifact (§14.2, story 1.54 AC1).
+  let path = null;
   emitOrRefuse("cotag_screen", screen.join("\n"), (text) => {
     console.log(text);
-    announceScreen(writeScreen(args, text));
+    path = writeScreen(args, text);
+    announceScreen(path);
   });
+  // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
+  // Null is unreachable: emitOrRefuse either runs the callback or fails.
+  return path;
 }
 
 // The one emit path for both covered surfaces. It exists so the two callers
@@ -3522,6 +3534,429 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 // process.exit — so the module was unimportable and every composer in it was
 // reachable only through a subprocess. A mechanism no fixture can call is the
 // orphan shape one level in (`orphan-mechanisms-fail-the-suite`).
+// ==========================================================================
+// §15 — THE CONTROL PLANE: the workflow table, the run record, the executor.
+// (SPEC-terrain §15, v23; kogaki#625 acceptance items 1, 2, 5 and 6; story
+// 1.89 / kogaki#652.)
+//
+// WHERE THIS LIVES, stated rather than left implicit (story 1.89 SQ1). §15
+// does not decide whether the executor is a sibling module or part of this
+// file. Two things decided it here: kogaki#625's licensed artifact list names
+// `terrain/terrain.mjs` and no sibling, so a new module would be an artifact
+// no licence covers; and story 1.90 makes these same renderers PRIVATE to the
+// executor, which is a smaller and more reviewable edit when caller and
+// callee already share a file.
+//
+// WHAT "THE EXECUTOR HOLDS NO STATE LIST OF ITS OWN" MEANS, precisely —
+// because the claim is checkable only if it is stated (§15.1; #625 item 6):
+//
+//   Read from the table on EVERY run, and appearing nowhere in this file:
+//   the state ids, their ORDER, their KIND, which of them WAIT, which WRITE
+//   which artifact, under which GRAMMAR SURFACE, which are CONDITIONAL, which
+//   reach a JUDGMENT POINT, and which is TERMINAL.
+//
+//   Held here: what a KIND MEANS (`KIND_SEMANTICS`), which is interpretation
+//   and not sequencing; and the RENDERER HALF (`STATE_WORK`), which §15.1
+//   names in as many words — "a table row PLUS A RENDERER".
+//
+// The consequence is the testable one: moving a handoff, adding a wait, or
+// adding a terminal costs ZERO code here. Adding a `write` costs exactly its
+// renderer — the executor REFUSES a write state it has no renderer for,
+// naming it, rather than inventing one or silently skipping it.
+//
+// A RENDERER MAY NAME THE WAIT IT CONSUMES, and that is not a state list.
+// `compose_input` needs the tag the owner named; it reads it from the run
+// record by the id of the wait that supplied it. That binding is part of the
+// renderer, which is bound to its state by construction. What would breach
+// §15.1 is control code that knew the ORDER those states run in — and none
+// below does.
+// ==========================================================================
+
+// The kind vocabulary this executor interprets. The table's `state_kinds`
+// object is the prose for these; `stops` is the only CONTROL property a kind
+// carries, and it is why `terminal` had to be its own kind rather than a
+// `compute` at the end of the array (workflow.json v2, PR #626 round 1).
+const KIND_SEMANTICS = {
+  compute: { stops: false, needsRenderer: false },
+  write: { stops: false, needsRenderer: true },
+  judgment: { stops: false, needsRenderer: true },
+  wait: { stops: true, needsRenderer: false },
+  terminal: { stops: true, needsRenderer: false },
+};
+
+const WORKFLOW_TABLE = join(REPO, "specs/spec-terrain/workflow.json");
+const RUN_RECORD_FILE = "run-record.json";
+
+// Structural validation only. This reads the table's FORM — ids present and
+// unique, kinds interpretable, a write naming an artifact, a terminal
+// existing. It judges no semantic contract, because §15.1 makes the table
+// authoritative over sequencing and "authoritative over NOTHING ELSE".
+export function loadWorkflowTable(path) {
+  const table = readJson(path);
+  if (!Array.isArray(table.states) || table.states.length === 0) {
+    fail(`workflow table ${path} declares no states. §15.1 makes this artifact authoritative over sequencing; an empty array is not a flow.`);
+  }
+  const seen = new Set();
+  for (const s of table.states) {
+    if (!s || typeof s.id !== "string" || s.id === "") {
+      fail(`workflow table ${path}: a state carries no id.`);
+    }
+    if (seen.has(s.id)) fail(`workflow table ${path}: duplicate state id ${JSON.stringify(s.id)}.`);
+    seen.add(s.id);
+    if (!Object.prototype.hasOwnProperty.call(KIND_SEMANTICS, s.kind)) {
+      fail(`workflow table ${path}: state ${JSON.stringify(s.id)} declares kind ${JSON.stringify(s.kind)}, which this executor does not interpret. Known kinds: ${Object.keys(KIND_SEMANTICS).join(", ")}.`);
+    }
+    if (s.kind === "write" && !s.writes) {
+      fail(`workflow table ${path}: state ${JSON.stringify(s.id)} is kind "write" and names no artifact in its \`writes\` field.`);
+    }
+  }
+  if (!table.states.some((s) => s.kind === "terminal")) {
+    fail(`workflow table ${path} declares no terminal state. A generic executor reads the end of a run from the table and never from position (§15.1).`);
+  }
+  return table;
+}
+
+// The baseline, DERIVED from the states array rather than read from the
+// table's own `counted_baseline` object. Deriving is the point: it is what
+// lets acceptance item 2 compare a run against the table instead of against a
+// figure someone typed beside it. `counted_baseline` is then a second reading
+// of the same array, and `terrain.mjs run --status` renders both so a
+// disagreement between them is visible rather than resolved silently.
+export function derivedBaseline(table) {
+  const states = table.states;
+  const writing = states.filter((s) => s.kind === "write");
+  const artifacts = table.owner_artifacts || {};
+  const writerCounts = Object.values(artifacts)
+    .map((a) => (typeof a.writer === "string" && a.writer ? 1 : 0));
+  return {
+    waits: states.filter((s) => s.kind === "wait").length,
+    conditional_states: states.filter((s) => Boolean(s.conditional)).length,
+    owner_artifact_writes: writing.length,
+    judgment_points: states.filter((s) => s.kind === "judgment").length,
+    grammared_writing_states: writing.filter((s) => Boolean(s.grammar_surface)).length,
+    writers_per_artifact: writerCounts.length ? Math.max(...writerCounts) : 0,
+  };
+}
+
+// What a COMPLETED run actually did, counted from the run record alone
+// (#625 acceptance item 2). Conditional states are counted where entered, so
+// a run that never browsed rows legitimately writes fewer artifacts than the
+// table's unconditional maximum — which is why `--status` renders the
+// unconditional floor beside the table's total rather than asserting equality.
+export function runCounts(rec) {
+  return {
+    waits: rec.waits_reached.length,
+    owner_artifact_writes: rec.artifacts_written.length,
+    judgment_points: Object.keys(rec.judgments).length,
+    conditional_states_entered: rec.conditional_entered.length,
+  };
+}
+
+function runRecordPath(dir) { return join(dir, RUN_RECORD_FILE); }
+
+function readRunRecord(dir) {
+  const p = runRecordPath(dir);
+  return existsSync(p) ? readJson(p) : null;
+}
+
+function writeRunRecord(dir, rec) {
+  writeFileSync(runRecordPath(dir), JSON.stringify(rec, null, 2) + "\n");
+  return runRecordPath(dir);
+}
+
+// CONTROL STATE ONLY (§15.3). The survey record is referenced BY PATH and
+// nothing is copied out of it — copying the ID->slug map here would discharge
+// §15's one-record rule by breaching §14.3's single-carrier rule in the same
+// act, and the two are satisfiable together only this way. The standing
+// refusal this honours is the one at `cmdSurvey`'s own record write.
+function newRunRecord(tablePath, table) {
+  return {
+    workflow: { path: relFromRepo(tablePath), version: table.version ?? null },
+    survey_record: null,
+    completed: [],
+    waits_reached: [],
+    conditional_entered: [],
+    conditional_skipped: [],
+    awaiting: null,
+    owner_input: {},
+    artifacts_written: [],
+    judgments: {},
+    gate_declarations_owed: [],
+    done: false,
+  };
+}
+
+function stateById(table, id) {
+  return table.states.find((s) => s.id === id) || null;
+}
+
+// The path the table declares for the artifact a write state names. Read from
+// the table rather than held here, so renaming an owner artifact is a table
+// edit and not a code edit (§15.1's evolvability contract).
+function artifactPath(table, st) {
+  const decl = (table.owner_artifacts || {})[st.writes];
+  return (decl && decl.path)
+    || fail(`workflow table declares state ${JSON.stringify(st.id)} as writing ${JSON.stringify(st.writes)}, and its owner_artifacts map carries no path for that artifact.`);
+}
+
+// The owner input a named wait supplied. Renderers use this; control code
+// does not (see the header note on why naming a wait here is not a state
+// list).
+function ownerInput(rec, waitId) {
+  return Object.prototype.hasOwnProperty.call(rec.owner_input, waitId)
+    ? rec.owner_input[waitId] : null;
+}
+
+function needSurvey(rec) {
+  return rec.survey_record
+    || fail("this run has no survey record yet — the state that mints it has not run. Re-enter the executor without --input to advance the flow (§15.2).");
+}
+
+// ---- THE RENDERER HALF (§15.1: "a table row PLUS a renderer"). ------------
+// Keyed by state id. Each entry performs its state's work and returns either
+// null, or `{ artifact }` for a write state naming the path it wrote. The
+// executor never inspects these beyond that contract, and a state absent from
+// this map is an unrendered state — refused for `write` and `judgment`, and a
+// no-op advance for `compute`, which is what makes a pure-sequencing table
+// edit cost no code.
+const STATE_WORK = {
+  survey: (rec, st, args) => {
+    rec.survey_record = cmdSurvey({ ...args, "run-dir": rec._dir });
+    return null;
+  },
+
+  // The PRE-SELECTION tag listing: header and tag rows and nothing else. No
+  // --tag is passed, deliberately — the per-tag row view is the separate
+  // conditional state below, and collapsing the two is the defect
+  // workflow.json v3 corrected (PR #626 round 2, finding 4).
+  tag_screen: (rec, st, args) => ({
+    artifact: cmdView({ ...args, survey: needSurvey(rec), tag: undefined }),
+  }),
+
+  // The OTHER half of the retired `view`: the candidate rows under one named
+  // tag. Conditional — entered only when the owner asks to browse rows, and
+  // never scheduled by the flow (§6.3, kogaki#162's fork half).
+  tag_row_view: (rec, st, args) => ({
+    artifact: cmdView({
+      ...args,
+      survey: needSurvey(rec),
+      tag: ownerInput(rec, "TAG_SELECTION")
+        || fail("tag_row_view needs a tag, and no wait has supplied one yet."),
+    }),
+  }),
+
+  compose_input: (rec, st, args) => {
+    cmdComposeInput({
+      ...args,
+      survey: needSurvey(rec),
+      tag: ownerInput(rec, "TAG_SELECTION")
+        || fail("compose_input needs a tag, and no wait has supplied one yet."),
+    });
+    return null;
+  },
+
+  // JUDGMENT POINTS. The executor VALIDATES and never composes (§15.6): the
+  // typed record arrives as a file, and the refusals are the existing ones —
+  // this story adds no new judgment semantics and re-implements none.
+  J1_claims: (rec, st, args) => {
+    const path = String(args.claims
+      || fail(`${st.id} is a declared judgment point and needs its typed record: --claims <file>. ${st.refusal || ""}`.trim()));
+    const survey = readJson(needSurvey(rec));
+    const { claims, pin } = readClaimsRecord(readJson(path), survey);
+    const tag = ownerInput(rec, "TAG_SELECTION")
+      || fail("J1_claims needs a tag, and no wait has supplied one yet.");
+    const members = survey.candidates.filter((c) => (c.tags || []).includes(tag));
+    const outside = claimsOutsideBound(claims, pin, cotagGroups(members, tag));
+    if (outside.length) {
+      fail(`${st.id} refuses: ${outside.map((o) => `${o.group} (${o.reason}${o.members.length ? `: ${o.members.join(", ")}` : ""})`).join("; ")}`);
+    }
+    rec.judgments[st.id] = relFromRepo(resolve(path));
+    return null;
+  },
+
+  J2_subdivision: (rec, st, args) => {
+    const path = String(args.subdivisions
+      || fail(`${st.id} is a declared judgment point and needs its typed record: --subdivisions <file>. ${st.refusal || ""}`.trim()));
+    const raw = readJson(path);
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      fail(`${st.id} refuses a bare array or non-object --subdivisions record; ${st.input_shape || "one typed entry per composed group"}.`);
+    }
+    // Each entry is read by the EXISTING validator, which carries the judged
+    // flag, the judge pin and the leaf-condition rules (§8, §8.1, §12.1).
+    for (const name of Object.keys(raw)) readSubdivisionEntry(name, raw[name]);
+    rec.judgments[st.id] = relFromRepo(resolve(path));
+    return null;
+  },
+
+  cotag_screen: (rec, st, args) => ({
+    artifact: cmdCotags({
+      ...args,
+      survey: needSurvey(rec),
+      tag: ownerInput(rec, "TAG_SELECTION")
+        || fail("cotag_screen needs a tag, and no wait has supplied one yet."),
+    }),
+  }),
+
+  full_report: (rec, st, args, table) => {
+    cmdReport({
+      ...args,
+      survey: needSurvey(rec),
+      tag: ownerInput(rec, "TAG_SELECTION")
+        || fail("full_report needs a tag, and no wait has supplied one yet."),
+      ids: ownerInput(rec, "ID_SELECTION")
+        || fail("full_report needs the entered ID set, and no wait has supplied one yet."),
+    });
+    // The rendering is written by cmdReport's own renderer; its NAME is taken
+    // from the artifact the STATE declares it writes, never from a literal
+    // here — so a table that renames an artifact does not need this file
+    // edited to keep the ledger honest.
+    return { artifact: join(renderingsDir(args), basename(artifactPath(table, st))) };
+  },
+};
+
+// ---- THE EXECUTOR --------------------------------------------------------
+// ONE entry point, entered once per act (§15.2). It reads the run record,
+// executes table states until the next declared stop, writes that state's
+// artifact, and stops. It never blocks on input: every wait in this flow
+// spans a chat turn, `parseArgs` reads process.argv only, and supplying a
+// stdin path would turn a wait into a prompt — which §6.3's empty question
+// allowlist for that window forbids.
+function cmdRun(args) {
+  const dir = runDir(args);
+  const tablePath = args.workflow ? String(args.workflow) : WORKFLOW_TABLE;
+  const table = loadWorkflowTable(tablePath);
+
+  if (args.status) return reportRunStatus(dir, tablePath, table);
+
+  let rec = readRunRecord(dir);
+  if (!rec) {
+    rec = newRunRecord(tablePath, table);
+  } else if (rec.workflow.version !== (table.version ?? null)) {
+    // RESUMPTION REFUSES rather than guesses (#625 acceptance item 5). A
+    // record written against another version of the table cannot be resumed
+    // against this one: the position it names may not mean what it meant.
+    fail(`run record ${runRecordPath(dir)} was written against workflow table version ${rec.workflow.version} and this table is version ${table.version}. The run cannot be resumed across a table version change — start a fresh run directory.`);
+  }
+  rec._dir = dir;
+
+  // ---- Owner input, admitted by the WAIT and not by its own shape (AC5).
+  if (args.input !== undefined) {
+    if (!rec.awaiting) {
+      fail(`no wait is outstanding in ${runRecordPath(dir)}, so there is nothing for --input to answer. An owner input is admissible only at a declared wait — the wait is what makes it admissible, not the input's own shape (§15.2, §15.4).`);
+    }
+    if (args.at !== undefined && String(args.at) !== rec.awaiting) {
+      fail(`--input names state ${JSON.stringify(String(args.at))} and this run awaits ${JSON.stringify(rec.awaiting)}. Refused rather than applied to the awaited state: an input bound to the wrong wait is not the input that wait asked for.`);
+    }
+    rec.owner_input[rec.awaiting] = String(args.input);
+    rec.completed.push(rec.awaiting);
+    rec.awaiting = null;
+  }
+
+  // ---- The advance. Order, kind, conditionality and stopping all come from
+  // the table; nothing below names a state.
+  const entered = new Set([].concat(args.enter || []).filter((x) => x !== true).map(String));
+  let stopped = null;
+  for (const st of table.states) {
+    if (rec.completed.includes(st.id)) continue;
+    if (st.conditional && !entered.has(st.id)) {
+      if (!rec.conditional_skipped.includes(st.id)) rec.conditional_skipped.push(st.id);
+      continue;
+    }
+    if (st.conditional) {
+      // A conditional state skipped in an earlier act and entered in a later
+      // one must not remain on both lists: the record is what a resumption
+      // reads (AC4), and a record asserting a state was both skipped and
+      // entered cannot be resumed from without a second source to break the
+      // tie. Entering RETRACTS the skip.
+      rec.conditional_skipped = rec.conditional_skipped.filter((x) => x !== st.id);
+      if (!rec.conditional_entered.includes(st.id)) rec.conditional_entered.push(st.id);
+    }
+
+    const kind = KIND_SEMANTICS[st.kind];
+
+    if (st.kind === "wait") {
+      rec.awaiting = st.id;
+      rec.waits_reached.push(st.id);
+      // §15.4 / AC6: the executor renders NO gate declaration and NO question
+      // UI. For a wait the table marks `renders_gate_declaration: true` the
+      // obligation is RECORDED and named on stop; rendering it is not this
+      // story's, and inventing one here would put a declaration behind a
+      // runtime that §6.3's allowlist keeps empty for the other two waits.
+      if (st.renders_gate_declaration && !rec.gate_declarations_owed.includes(st.id)) {
+        rec.gate_declarations_owed.push(st.id);
+      }
+      stopped = st;
+      break;
+    }
+
+    if (st.kind === "terminal") {
+      rec.completed.push(st.id);
+      rec.done = true;
+      stopped = st;
+      break;
+    }
+
+    const work = STATE_WORK[st.id];
+    if (!work && kind.needsRenderer) {
+      fail(`workflow state ${JSON.stringify(st.id)} is kind ${JSON.stringify(st.kind)} and this runtime has no renderer bound to it. §15.1: a new state is a table row PLUS a renderer — the executor interprets the table and invents neither a renderer nor a judgment.`);
+    }
+    const outcome = work ? work(rec, st, args, table) : null;
+    if (st.kind === "write") {
+      const path = outcome && outcome.artifact;
+      if (!path) fail(`workflow state ${JSON.stringify(st.id)} is kind "write" and its renderer named no artifact.`);
+      rec.artifacts_written.push({ state: st.id, artifact: st.writes, path: relFromRepo(resolve(path)) });
+    }
+    rec.completed.push(st.id);
+  }
+
+  delete rec._dir;
+  const recPath = writeRunRecord(dir, rec);
+
+  console.log("");
+  if (stopped && stopped.kind === "wait") {
+    console.log(`Executor STOPPED at ${stopped.id} — a wait (§15.4). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
+    console.log(`Nothing is asked here: the executor stops and the owner speaks. Re-enter with what they said — run --run-dir ${dir} --input '<...>'`);
+    if (stopped.renders_gate_declaration) {
+      console.log(`This wait declares a gate (renders_gate_declaration: true); the declaration is recorded as owed on the run record and is not rendered by this runtime.`);
+    }
+  } else if (stopped && stopped.kind === "terminal") {
+    console.log(`Executor reached ${stopped.id} — terminal (§15.1). The run is over.`);
+  } else {
+    console.log("Executor advanced to the end of the table without reaching a stop, which a conformant table cannot do.");
+  }
+  console.log(`Run record: ${recPath}`);
+  return recPath;
+}
+
+// Counts, from the record and from the table, rendered side by side. This is
+// the read #625's acceptance item 2 asks for; story 1.91's registered check is
+// what REFUSES on a disagreement.
+function reportRunStatus(dir, tablePath, table) {
+  const rec = readRunRecord(dir)
+    || fail(`no run record at ${runRecordPath(dir)}. A run's counts are read from its record alone (§15.3).`);
+  const derived = derivedBaseline(table);
+  const declared = table.counted_baseline || {};
+  const counts = runCounts(rec);
+  console.log(`Run record: ${runRecordPath(dir)}`);
+  console.log(`Workflow table: ${relFromRepo(tablePath)} (version ${table.version})`);
+  console.log(`Position: ${rec.done ? "done" : rec.awaiting ? `awaiting ${rec.awaiting}` : "advancing"}; ${rec.completed.length} state(s) completed.`);
+  console.log(`Survey record (by path, §15.3): ${rec.survey_record || "not yet minted"}`);
+  console.log("");
+  console.log("counted from the RUN RECORD:");
+  for (const [k, v] of Object.entries(counts)) console.log(`  ${k.padEnd(28)} ${v}`);
+  console.log("");
+  console.log("derived from the TABLE's states array (the denominator acceptance item 2 counts against):");
+  for (const [k, v] of Object.entries(derived)) {
+    const d = Object.prototype.hasOwnProperty.call(declared, k) ? declared[k] : null;
+    const note = d === null ? " (not in counted_baseline)" : d === v ? "" : `  <- DISAGREES with counted_baseline: ${d}`;
+    console.log(`  ${k.padEnd(28)} ${v}${note}`);
+  }
+  console.log("");
+  console.log("A run that entered no conditional state legitimately writes fewer artifacts than the table's");
+  console.log("unconditional total; the check story 1.91 registers is what judges a disagreement, not this read.");
+  return rec;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
 
 function main() {
@@ -3547,6 +3982,10 @@ switch (cmd) {
   case "adopt": cmdAdopt(args); break;
   case "subdivide": cmdSubdivide(args); break;
   case "report": cmdReport(args); break;
+  // §15's ONE ENTRY POINT, entered once per act. Every case above it is a
+  // standalone owner-facing act that story 1.90 removes; `run` is what
+  // replaces them, and the two coexist only for the length of that story.
+  case "run": cmdRun(args); break;
   case "act": cmdAct(args); break;
   case "gate": cmdGate(args); break;
   case "capture": cmdCapture(args); break;
@@ -3567,6 +4006,78 @@ switch (cmd) {
       && composeIdentityCite("alpha", "lesson", "product-lab@") === null);
     ok("the positional form is not producible by this composer",
       !/ELEMENTS\.jsonl:\d/.test(composeIdentityCite("alpha", "lesson", "product-lab@aaaaaaa")));
+    // ---- §15 CONTROL PLANE (story 1.89). Seam-free: every case below either
+    // reads the shipped table or constructs a synthetic one, and no case
+    // reaches the gateway. AC8: this pass needs no run record and emits no
+    // owner surface.
+    const shipped = loadWorkflowTable(WORKFLOW_TABLE);
+    ok("the shipped workflow table loads under the structural rules",
+      Array.isArray(shipped.states) && shipped.states.length > 0);
+    {
+      // ACCEPTANCE ITEM 2's DENOMINATOR AGREES WITH ITSELF. The baseline this
+      // executor counts against is DERIVED from the states array; the table
+      // also carries a hand-written `counted_baseline`. They are two readings
+      // of one array and a disagreement is a defect in the table, so the
+      // fixture asserts they agree rather than trusting either alone.
+      const d = derivedBaseline(shipped);
+      const c = shipped.counted_baseline || {};
+      const disagree = Object.keys(d).filter((k) =>
+        Object.prototype.hasOwnProperty.call(c, k) && c[k] !== d[k]);
+      ok(`the table's counted_baseline agrees with the baseline derived from its own states array${disagree.length ? ` (disagrees on: ${disagree.map((k) => `${k} declared ${c[k]} derived ${d[k]}`).join(", ")})` : ""}`,
+        disagree.length === 0);
+    }
+    ok("run counts read from a record alone, with conditional entries counted separately",
+      (() => {
+        const c = runCounts({
+          waits_reached: ["A", "B"],
+          artifacts_written: [{ state: "x" }, { state: "y" }],
+          judgments: { J1: "p", J2: "q" },
+          conditional_entered: ["z"],
+        });
+        return c.waits === 2 && c.owner_artifact_writes === 2
+          && c.judgment_points === 2 && c.conditional_states_entered === 1;
+      })());
+
+    {
+      // THE REFUSING DIRECTIONS, each against a fixture that exists to fail.
+      // `fail()` exits the process, so these run as subprocesses — the same
+      // shape the registered checks use, and the only one that can observe an
+      // exit code from inside a fixture pass.
+      const selfPath = fileURLToPath(import.meta.url);
+      const scratch = join(tmpdir(), `terrain-selftest-${process.pid}`);
+      mkdirSync(scratch, { recursive: true });
+      const refuses = (name, table, extra = []) => {
+        const tp = join(scratch, `${name.replace(/[^a-z0-9]+/gi, "-")}.json`);
+        const rd = join(scratch, `rd-${name.replace(/[^a-z0-9]+/gi, "-")}`);
+        mkdirSync(rd, { recursive: true });
+        if (table !== null) writeFileSync(tp, JSON.stringify(table));
+        const r = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rd, "--workflow", table === null ? WORKFLOW_TABLE : tp, ...extra],
+          { encoding: "utf8" });
+        return r.status !== 0;
+      };
+      const terminal = { id: "done", kind: "terminal" };
+      ok("a table declaring no states is refused",
+        refuses("no-states", { version: 1, states: [] }));
+      ok("a duplicate state id is refused",
+        refuses("dup-id", { version: 1, states: [{ id: "a", kind: "compute" }, { id: "a", kind: "compute" }, terminal] }));
+      ok("a kind this executor does not interpret is refused, rather than skipped",
+        refuses("bad-kind", { version: 1, states: [{ id: "a", kind: "sideways" }, terminal] }));
+      ok("a write state naming no artifact is refused",
+        refuses("write-no-artifact", { version: 1, states: [{ id: "a", kind: "write" }, terminal] }));
+      ok("a table with no terminal state is refused — the end of a run is read from the table, never from position",
+        refuses("no-terminal", { version: 1, states: [{ id: "a", kind: "compute" }] }));
+      ok("a write state with no renderer bound to it is refused, never invented and never skipped",
+        refuses("write-no-renderer", {
+          version: 1,
+          owner_artifacts: { screen: { path: "reports/Screen.md", writer: "one" } },
+          states: [{ id: "not_a_shipped_state", kind: "write", writes: "screen" }, terminal],
+        }));
+      ok("an owner input arriving with no outstanding wait is refused — the WAIT is what admits it",
+        refuses("input-no-wait", null, ["--input", "claude-code-ops"]));
+      rmSync(scratch, { recursive: true, force: true });
+    }
+
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
     if (bad.length) process.exit(1);
     break;
@@ -3579,7 +4090,25 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <survey|view|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <run|survey|view|cotags|compose-input|act|gate|capture|validate> [--run-dir DIR] ...
+  run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
+      [--claims F] [--subdivisions F] [--judge-model M] [--judge-effort E]
+                                            THE §15 CONTROL PLANE. One entry point, entered once
+                                            per act: reads the run record, executes the states
+                                            specs/spec-terrain/workflow.json declares until the
+                                            next declared WAIT or the TERMINAL, writes that
+                                            state's artifact, and stops. It never asks — a wait is
+                                            the executor stopping and the owner speaking, so
+                                            re-enter with --input '<what they said>'. Order,
+                                            kinds, waits, write bindings, grammar surfaces,
+                                            conditionality and judgment placement are read from
+                                            the table on every run and are held nowhere in this
+                                            file. --workflow runs an alternate table (the
+                                            evolvability fixture). --enter STATE enters a
+                                            conditional state the flow never schedules.
+  run --status [--run-dir D] [--workflow F]  counts this run from its record alone, beside the
+                                            counts derived from the table's states array and the
+                                            table's own counted_baseline (#625 acceptance item 2).
   survey                                    compose the survey from the seam (element_survey)
   view --survey F [--tag T] [--family X]    navigation — narrows nothing
   compose-input --survey F --tag T          the BOUNDED input for the claim and subdivision
