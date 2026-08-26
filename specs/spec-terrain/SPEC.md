@@ -5294,6 +5294,108 @@ files. What this section adds is that they are reachable **only** from the
 states the table declares, so a session cannot supply a judgment at a moment
 the table does not ask for one.
 
+### 15.6.1 (v5) The claim re-offer is a WAIT beside J1, never part of it — kogaki#666
+
+§7 rules that a claim pinned to a member set is **recomposed and re-offered as
+a GATE EVENT** when the set becomes a subset, *"never a silent refresh"*. §15.6
+above puts the *composition* outside the runtime and the *validation* in
+`J1_claims`. What neither section said is **where the gate itself lives**, and
+`workflow.json` v3 recorded the gap without noticing it: `removed_entry_points`
+gave `adopt`'s destination as *"J1_claims' gate re-offer path"* — a path **no
+state in the table provided**.
+
+**The decision (owner selection 2026-08-26, arm A): a distinct conditional
+wait, `CLAIM_REOFFER`.** `J1_claims` stays a pure validator. When a validated
+claim is pinned to a **proper subset** of what the composition pin served for
+its group, the executor schedules `CLAIM_REOFFER` — `kind: wait`, `writes:
+null`, `renders_gate_declaration: true` — which composes the declaration
+carrying the origin block, **stops**, and resumes on the captured answer.
+Adoption is applying that answer.
+
+**Why a wait and not a second entry into J1.** A wait is *the executor
+stopping* (§15.4), and adoption is **the owner's act rather than a judgment**,
+so it does not belong behind the judgment fence this section draws. The table
+already spells a gate event exactly this way, twice — `TRIM_RATIFICATION` and
+`STRAND_SELECTION`.
+
+**Why the declaration and capture stay INSIDE the executor.** §7 says the
+re-offer *"routes through the gate carrier (manifest item 4), not through an
+affordance of Terrain's own"*, and that clause governs the **rendering** —
+`AskUserQuestion`, options verbatim, nothing pre-selected, free text always on.
+The declaration and the capture are the table's, which is the split
+`TRIM_RATIFICATION` already makes. Siting them outside re-creates precisely
+what `workflow.json` v3 removed `act`, `gate` and `capture` for: *a session
+could mint a declaration from outside the executor with no run record, which is
+what §15.5 claims is unwritable*.
+
+**Both declined arms, with their grounds, so neither is re-proposed as new:**
+
+- **Re-entry into `J1_claims`.** It buys an untouched `counted_baseline` and one
+  place a reader finds the whole claim lifecycle. It costs the §15.6 fence — a
+  `judgment`-kind state would render a gate — and it breaks on the record:
+  `rec.judgments[<state id>]` is **one slot per state**, so a second entry
+  overwrites the first and the origin the gate exists to show is lost. That is
+  §7's silent refresh arriving through the run record instead of through the
+  screen.
+- **The gate outside the executor.** Smallest table change, and §7's own
+  sentence appears to license it — but a gate event with no run-record trace is
+  invisible to §15.3's control state, and the adopted claim's provenance is then
+  attested by nothing in the run.
+
+> "Workflow orchestration (start, supervise, land, record, expose state) is
+> deterministic infrastructure and belongs in engine code, while a session
+> holds only the steps whose next action turns on an open question … a
+> judgment step is engine-scheduled but model-decided."
+
+`consulted: product-lab@0e00ef1af193220426d3aa680f3c5805520bcc6a LESSONS.md:32`
+
+> "a state only the actor can declare is not a state anyone can check."
+
+`consulted: product-lab@0e00ef1af193220426d3aa680f3c5805520bcc6a topics/claude-code-ops.md:39`
+
+  outcome: discriminating
+  query: "When a flow is encoded as a declared state table, where does an owner
+         gate event belong — as its own declared state, as a second entry into
+         the adjacent state, or outside the executor on the gate carrier?"
+
+**What the count does and does not move.** `counted_baseline` goes to `waits:
+5` and `conditional_states: 3`. §14.1's derived owner-surface figure does
+**not** move and stays 4 of 4 — a wait's `writes` is null, so it enters neither
+term of §15.7's rule. Stated because a figure that happens to agree and a
+figure that agrees *by the rule* are indistinguishable to a later reader.
+
+### 15.6.2 (v5) `subdivide` folds its COMPOSITION into J2, not only its validation
+
+`J2_subdivision` today reads a typed per-group record and validates it. The
+standalone `subdivide` did more: it placed the judge's subgroups over the
+parent's members, computed the three per-subgroup instruments, and **refused on
+`SUBDIVISION_COVER_INCOMPLETE`**. §2.1 makes completeness *a cover counted in
+placements* — a runtime refusal — so folding only the validation would move a
+ratified refusal out of the runtime and leave it to whatever composed the
+record. **The state accepts the classification record and composes under it**,
+keeping the cover refusal where §2.1 put it.
+
+This is also what discharges kogaki#165, and by construction rather than by
+repair: the standalone path raised `ReferenceError` on every invocation while
+every exercised path masked it. **One path cannot diverge from itself.**
+
+### 15.6.3 (v5) A removed entry point refuses with a pointer; a bound one does not
+
+The three cases do not simply disappear from the dispatcher. §13.2's
+`neighborhood` precedent binds — *a refusal naming the replacement, never a
+silent no-op* — so `claim`, `adopt` and `subdivide` survive as cases that
+`fail()` naming the state that now performs the work and the `run` invocation
+that reaches it. They emit no owner surface and carry no sequencing authority,
+which is why this is not a re-opening of §15.7's removal.
+
+**The tension with `view` is named rather than averaged.** kogaki#665 deleted
+`case "view"` outright with no stub, and that is correct for a **different**
+reason: `view` sits in `workflow.json`'s `bound_to_a_state`, not in
+`removed_entry_points`, and the two maps are disjoint by that file's
+`entry_point_accounting`. An entry point whose behaviour **is** a state has a
+live successor the usage line already names; a removed one has none, and
+without the stub its reader meets a bare unknown-command.
+
 ### 15.7 The standalone owner-facing subcommands are REMOVED, not flagged
 
 `view`, `claim`, `adopt` and `subdivide` cease to exist as entry points; their
@@ -5392,6 +5494,18 @@ record. Stated so their survival reads as a decision rather than an oversight.
   **rule** is executable over the array, and **no member executes it today**.
   Stated here rather than left for a third review round to find.
 
+- **THE v5 FOLDING IS TABLE-SIDE AND SPEC-SIDE ONLY AT THIS HEAD (kogaki#666).**
+  §15.6.1's `CLAIM_REOFFER` is a row in `workflow.json` and a decision recorded
+  here; **no executor code implements it**, `J2_subdivision` still validates
+  without composing (§15.6.2), and `claim`, `adopt` and `subdivide` are still
+  live dispatcher cases rather than the refusing stubs §15.6.3 requires. The
+  implementation is licensed by kogaki#625, whose open question (b) — *the
+  disposition of `view`/`claim`/`adopt`/`subdivide` as standalone commands* —
+  these three sections answer. Written here rather than left for a review round
+  to find: this repository's spec-ahead-of-code tense makes the sections true as
+  *decisions* and false as *descriptions of the tree*, and only the second half
+  is a defect if it goes unsaid.
+
 - **§15.5's unwritability claim is not true at this head.** `act`, `gate` and
   `capture` are still live dispatcher cases (`terrain/terrain.mjs:3550-3552`);
   their removal is table-side only in this act, so *"there is no callable
@@ -5407,3 +5521,8 @@ record. Stated so their survival reads as a decision rather than an oversight.
   they gate no code path.
 
 **deferred slots minted by this amendment: none.**
+
+**deferred slots minted by the v5 amendment (kogaki#666): none.** The three
+forks #666 named are each decided above — the re-offer's siting (§15.6.1),
+`subdivide`'s command path versus `J2_subdivision` (§15.6.2), and what replaces
+a removed entry point for a reader (§15.6.3).
