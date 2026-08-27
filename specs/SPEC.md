@@ -3948,12 +3948,42 @@ invariant: Gukan guarantees Unit schema, never data schema).
   repository §2 makes invisible here and is asserted nowhere in this file — the
   pointer is the obligation, not a claim about the other side's state.
 
-  **Compat is unchanged and nothing in git history changes meaning.** The
+  **THE TWO REFUSALS ARE PROSPECTIVE, AND SAYING SO IS WHAT KEEPS THEM
+  CONSISTENT WITH COMPAT.** They bind receipts written **after this clause
+  lands**; every receipt already in the tree stays valid unchanged. Without the
+  bound this section asserts two incompatible things about the same record —
+  the compat sentence below says a v2 receipt carrying none of the three new
+  keys stays valid, while the outcome-anchored rules above say a
+  negative-outcome receipt owes facet coverage and a re-framed one owes a
+  `tactic:`. In-tree specimens sit in exactly that gap and are **valid**:
+  `specs/SPEC.md:1591` carries `outcome: covered-after-reframing` with two
+  `query:` lines and no `tactic:`, and `policy/consultation-map.md:847` records
+  an `uncovered-after-1-framings` declaration with no facet lines.
+
+  **A WIDENING IS TAKEN HERE AND IS NAMED RATHER THAN ABSORBED.** kogaki#640
+  scopes the obligation to a receipt whose outcome is
+  `uncovered-after-N-framings` **resolving to no-carrier-found**. This clause
+  drops that qualifier, because the receipt carries no resolution field for a
+  carrier to read it from — so what is enforced is the necessary condition and
+  not the intended one, and **every** negative-outcome receipt written after
+  this clause owes facet coverage, which is stricter than #640 asked for. The
+  consequence worth seeing before it is met: a negative outcome that is a
+  *misdeclaration* rather than a no-carrier-found resolution is swept in too,
+  and `policy/consultation-map.md:847` is precisely that — PR #399's gate
+  declared `uncovered-after-1-framings` while the served line sat unchanged at
+  its pin, and the map keeps it as a counter-specimen. The prospectivity bound
+  is what stops the widening reaching it. Narrowing the rule back to its
+  intended scope needs a resolution field, which is a hub act and not a kit
+  edit; until then the widening stands, stated.
+
+  **Compat, and nothing in git history changes meaning.** The
   continuation-optional rule holds: a v1 receipt with no continuation lines
   stays valid, and a v2 receipt carrying none of the three new keys stays
-  valid. Once any `facet:` appears the block owes the full facet shape, and
-  once any `tactic:` appears its value is checked — the same
-  presence-implies-completeness discipline the check already enforces.
+  valid. For a receipt written after this clause, once any `facet:` appears the
+  block owes the full facet shape, and once any `tactic:` appears its value is
+  checked — the same presence-implies-completeness discipline the check already
+  enforces, now bounded prospectively so it cannot contradict the sentence
+  above it.
 
   **What the hub ratifies here is the property, not this format.** The served
   requirement is a receipt at the point of use with a **fixed token and a
