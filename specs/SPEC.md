@@ -3868,12 +3868,35 @@ invariant: Gukan guarantees Unit schema, never data schema).
     skip-by-writing-less escape this clause closes one key over for `tactic:`.
     Anchoring both refusals to the outcome tokens is what makes them the same
     mechanism rather than two rules that merely look alike.
+
+    **CONSEQUENCE, STATED BECAUSE IT MOVES A FLOOR: the effective minimum for
+    `uncovered-after-N-framings` becomes THREE.** Each query is one framing and
+    all three facets must carry at least one, so a prospective negative-outcome
+    receipt with two framings is unrecordable. This does not contradict
+    `MIN_FRAMINGS = 2` — three satisfies a floor of two — but the operative
+    number for this one outcome class is no longer two, and leaving that to be
+    derived is how a checker ends up with two refusals that disagree about
+    which of them rejected a receipt. **The facet-coverage refusal is
+    evaluated first and its message is the one returned**, because it is the
+    stricter and more specific of the pair; the `MIN_FRAMINGS` floor stays
+    exactly as it is for every other outcome and is not re-tuned to match.
     Lexical variation inside one facet is *one* framing: the count is over
     facets touched, never over wordings, because facets are orthogonal —
     varying one leaves the others fixed. That ground is recorded so the rule
     is not later "simplified" into a query count.
 
     `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c topics/knowledge-architecture.md:102`
+
+  - **`hit:` is owed wherever `facet:` appears, and `none` is a value that
+    must be TYPED.** A query line carrying a `facet:` and no `hit:` is
+    malformed. The field records what that framing returned, and the whole
+    point of the facet scheme is that a facet was *touched* and came back
+    empty — so an omitted `hit:` and a `hit: none` are the same silence to a
+    reader and different silences to a check, and only the second distinguishes
+    *this facet was queried and returned nothing* from *nobody recorded what
+    happened*. That distinction is the entire evidentiary content of a
+    no-carrier-found resolution: without it the token asserts an absence
+    nothing witnessed.
 
   - **The lexical-class discount (kogaki#669).** A re-framing whose `tactic:`
     falls in the lexical class does not discharge the `MIN_FRAMINGS = 2` floor.
@@ -3955,10 +3978,22 @@ invariant: Gukan guarantees Unit schema, never data schema).
   the compat sentence below says a v2 receipt carrying none of the three new
   keys stays valid, while the outcome-anchored rules above say a
   negative-outcome receipt owes facet coverage and a re-framed one owes a
-  `tactic:`. In-tree specimens sit in exactly that gap and are **valid**:
-  `specs/SPEC.md:1591` carries `outcome: covered-after-reframing` with two
-  `query:` lines and no `tactic:`, and `policy/consultation-map.md:847` records
-  an `uncovered-after-1-framings` declaration with no facet lines.
+  `tactic:`. Receipts sitting in exactly that gap are **valid**, and two in-tree
+  specimens show the shape: `specs/SPEC.md:1591` carries
+  `outcome: covered-after-reframing` with two `query:` lines and no `tactic:`,
+  and `policy/consultation-map.md:847` records an `uncovered-after-1-framings`
+  declaration with no facet lines.
+
+  **What the bound actually protects is narrower than those two specimens
+  suggest, and the difference is worth stating.** `checks/check-consult-receipts.sh`
+  scans the branch's own commit range (`merge-base..HEAD`) plus the PR body CI
+  supplies — *never a file on the default branch* — and `consult.mjs` is a
+  writer, so neither carrier ever reads either specimen. They illustrate the
+  gap rather than being at risk in it. The population the bound really covers
+  is **receipts in commit messages and PR bodies** written before this clause
+  lands, which is a real population and the reason the bound is kept; the two
+  file specimens are cited as the clearest available illustration of the shape
+  and not as things a carrier would have rejected.
 
   **A WIDENING IS TAKEN HERE AND IS NAMED RATHER THAN ABSORBED.** kogaki#640
   scopes the obligation to a receipt whose outcome is
