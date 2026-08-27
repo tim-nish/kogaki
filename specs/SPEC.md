@@ -3763,9 +3763,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
     disposition: auto-resolved-FYI | escalated   ← OPTIONAL; only a FORK GATE consult
     query: <framing 1, verbatim>
       axis: <axis>                               ← OPTIONAL; PER-QUERY, binds upward
-      facet: act | artifact | decision           ← PER-QUERY; owed by no-carrier-found
-      hit: <what the query returned, or none>    ← PER-QUERY; owed wherever facet: appears
-      tactic: <one of the adopted six>           ← PER-QUERY; owed by a RE-FRAMING
+      facet: act | artifact | decision           ← OPTIONAL; PER-QUERY, binds upward
+      hit: <what the query returned, or none>    ← OPTIONAL; PER-QUERY, binds upward
+      tactic: <one of the adopted six>           ← OPTIONAL; PER-QUERY, binds upward
     query: <framing 2, verbatim>
       axis: <axis>
       facet: …
@@ -3856,6 +3856,18 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
   - **Facet coverage (kogaki#640).** A `no-carrier-found` resolution is
     recordable only when **all three facets carry at least one query**.
+
+    **The trigger is the OUTCOME TOKEN, not the presence of a `facet:` line**,
+    and stating which is load-bearing rather than pedantic. The receipt has no
+    field naming a resolution, and `no-carrier-found` is the open world's
+    *unknown* — which in this grammar is `uncovered-after-N-framings`, the
+    token that says the surface holds no carrier for the claim. So **a receipt
+    whose outcome is `uncovered-after-N-framings` owes full facet coverage**,
+    and a keying on presence would be a different and weaker rule: a negative
+    resolution carrying zero `facet:` lines would satisfy it, which is the
+    skip-by-writing-less escape this clause closes one key over for `tactic:`.
+    Anchoring both refusals to the outcome tokens is what makes them the same
+    mechanism rather than two rules that merely look alike.
     Lexical variation inside one facet is *one* framing: the count is over
     facets touched, never over wordings, because facets are orthogonal —
     varying one leaves the others fixed. That ground is recorded so the rule
@@ -3922,6 +3934,19 @@ invariant: Gukan guarantees Unit schema, never data schema).
   The live specimen of not paying it is `axis:` itself, and it has its own
   carrier: `consult.mjs` enforces `RATIFIED_AXES` while the check stays
   shape-only on the same key, so the two disagree today (kogaki#673).
+
+  **AND THE SAME DISCIPLINE CROSSES THE SEAM, so the pointer is written here
+  rather than left to the next editor to reconstruct.** Gukan (product-lab) is
+  the reference implementation of the consultation experience and the kit
+  inherits from it; the two must not diverge. The hub-side mirrors of this
+  clause are **product-lab#198** (`/ask` executes the facet scheme) and
+  **product-lab#199** (`/ask` executes the Tactics classifier), and the owner
+  ruling of 2026-08-26 binds them to this side in both directions: kogaki#640
+  lands with or after #198 and kogaki#669 with or after #199, never before, and
+  **a shape change on either side names the other**. This block is such a
+  change, so it names them. Whether those issues have landed is a fact about a
+  repository §2 makes invisible here and is asserted nowhere in this file — the
+  pointer is the obligation, not a claim about the other side's state.
 
   **Compat is unchanged and nothing in git history changes meaning.** The
   continuation-optional rule holds: a v1 receipt with no continuation lines
