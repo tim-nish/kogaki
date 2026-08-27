@@ -3763,8 +3763,14 @@ invariant: Gukan guarantees Unit schema, never data schema).
     disposition: auto-resolved-FYI | escalated   ← OPTIONAL; only a FORK GATE consult
     query: <framing 1, verbatim>
       axis: <axis>                               ← OPTIONAL; PER-QUERY, binds upward
+      facet: act | artifact | decision           ← OPTIONAL; PER-QUERY, binds upward
+      hit: <what the query returned, or none>    ← OPTIONAL; PER-QUERY, binds upward
+      tactic: <one of the adopted six>           ← OPTIONAL; PER-QUERY, binds upward
     query: <framing 2, verbatim>
       axis: <axis>
+      facet: …
+      hit: …
+      tactic: …
   ```
 
   **`axis:` is the third key, and it is the first one that binds PER QUERY**
@@ -3804,6 +3810,215 @@ invariant: Gukan guarantees Unit schema, never data schema).
   **deferred slot: the `subject | conduct` value set.** Named here rather than
   filled — filling it is a decision act owed on its own licensing issue, and
   the one thing this clause must not do is mint it by accident.
+
+  **THE PER-QUERY FAMILY IS NOW FOUR KEYS, AND THE BINDING RULE ABOVE IS
+  STATED ONCE FOR THE FAMILY** (kogaki#640 and kogaki#669, owner selection
+  2026-08-28). `facet:`, `hit:` and `tactic:` join `axis:` as facts about a
+  *framing* rather than about the receipt, so each binds upward to the nearest
+  preceding `query:`, first declaration wins, and one appearing before any
+  query is orphaned and reported. Nothing about that rule is re-decided here —
+  it is generalized in scope, and the cost the `axis:` clause already names
+  (a position-dependent key makes a malformed receipt an ambiguous parse
+  rather than a missing field) is paid once more, three times over, rather
+  than being a new cost.
+
+  **NEITHER VALUE SET IS THIS REPOSITORY'S, AND BOTH ARE COPIED RATHER THAN
+  MINTED** — the same boundary-field rule quoted above for `axis:`, applied
+  unchanged. The hub ratified them and this repository fixes the keys:
+
+  - **`facet:` — `act | artifact | decision`.** The *search facets*: how a
+    recall query has been framed. Scoped to one class only — the queries
+    backing a `no-carrier-found` resolution.
+  - **`tactic:` — `SUPER | SUB | RELATE | NEIGHBOR | TRACE | VARY`.** Bates'
+    term tactics, adopted as the CLASSIFIER for a re-framing.
+
+  > "Bates' TERM TACTICS (SUPER, SUB, RELATE, NEIGHBOR, TRACE, VARY — Bates
+  > 1979) are adopted as the CLASSIFIER for a re-framing, bounded two ways:
+  > they are used as a NEGATIVE test (which kinds of query revision do not
+  > discharge the re-framing clause), and the 29-tactic set is NOT imported as
+  > a procedure."
+
+  `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c topics/knowledge-architecture.md:101`
+
+  **`facet:` is NOT `axis:` and neither imports the other** — the separation is
+  ratified and load-bearing, not an inconsistency to tidy. `axis:` answers
+  *what kind of thing is this consultation about*; `facet:` answers *how has
+  this recall query been framed*. Both are facets of different objects, which
+  is why served renderings name them "consultation facet (`subject | conduct`)"
+  and "search facets (`act | artifact | decision`)": one concept over two
+  objects, never two concepts. A future proposal to unify them answers that
+  line rather than treating the split as tidying.
+
+  `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c topics/knowledge-architecture.md:103`
+
+  **Two refusals follow from the keys, and both are COUNTED rather than
+  argued.**
+
+  - **Facet coverage (kogaki#640).** A `no-carrier-found` resolution is
+    recordable only when **all three facets carry at least one query**.
+
+    **The trigger is the OUTCOME TOKEN, not the presence of a `facet:` line**,
+    and stating which is load-bearing rather than pedantic. The receipt has no
+    field naming a resolution, and `no-carrier-found` is the open world's
+    *unknown* — which in this grammar is `uncovered-after-N-framings`, the
+    token that says the surface holds no carrier for the claim. So **a receipt
+    whose outcome is `uncovered-after-N-framings` owes full facet coverage**,
+    and a keying on presence would be a different and weaker rule: a negative
+    resolution carrying zero `facet:` lines would satisfy it, which is the
+    skip-by-writing-less escape this clause closes one key over for `tactic:`.
+    Anchoring both refusals to the outcome tokens is what makes them the same
+    mechanism rather than two rules that merely look alike.
+
+    **CONSEQUENCE, STATED BECAUSE IT MOVES A FLOOR: the effective minimum for
+    `uncovered-after-N-framings` becomes THREE.** Each query is one framing and
+    all three facets must carry at least one, so a prospective negative-outcome
+    receipt with two framings is unrecordable. This does not contradict
+    `MIN_FRAMINGS = 2` — three satisfies a floor of two — but the operative
+    number for this one outcome class is no longer two, and leaving that to be
+    derived is how a checker ends up with two refusals that disagree about
+    which of them rejected a receipt. **The facet-coverage refusal is
+    evaluated first and its message is the one returned**, because it is the
+    stricter and more specific of the pair; the `MIN_FRAMINGS` floor stays
+    exactly as it is for every other outcome and is not re-tuned to match.
+    Lexical variation inside one facet is *one* framing: the count is over
+    facets touched, never over wordings, because facets are orthogonal —
+    varying one leaves the others fixed. That ground is recorded so the rule
+    is not later "simplified" into a query count.
+
+    `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c topics/knowledge-architecture.md:102`
+
+  - **`hit:` is owed wherever `facet:` appears, and `none` is a value that
+    must be TYPED.** A query line carrying a `facet:` and no `hit:` is
+    malformed. The field records what that framing returned, and the whole
+    point of the facet scheme is that a facet was *touched* and came back
+    empty — so an omitted `hit:` and a `hit: none` are the same silence to a
+    reader and different silences to a check, and only the second distinguishes
+    *this facet was queried and returned nothing* from *nobody recorded what
+    happened*. That distinction is the entire evidentiary content of a
+    no-carrier-found resolution: without it the token asserts an absence
+    nothing witnessed.
+
+  - **The lexical-class discount (kogaki#669).** A re-framing whose `tactic:`
+    falls in the lexical class does not discharge the `MIN_FRAMINGS = 2` floor.
+    **`VARY` is the sole intersection of the adopted six and that class**, and
+    stating so is the whole of the rule's surface area: `FIX`, `REARRANGE`,
+    `RESPELL` and `RESPACE` are outside the adopted six and so are not writable
+    `tactic:` values at all. The value set and the refusal set are different
+    sets; conflating them would either admit four unratified tokens or refuse
+    five ratified ones.
+
+  This is the same shape the `axis:` floor already ships — two framings
+  carrying identical axis tokens are provably the same axis and are refused —
+  generalized one key over. A tactic gives that refusal a *name*, so "is this
+  a different axis?" is answered by naming the tactic instead of argued in
+  prose. The tactics classify; they never schedule, and no checklist is
+  imported.
+
+  **`tactic:` is owed by a RE-FRAMING, which is framings 2..N and not framing
+  one.** Framing one is not a revision of anything, so it has no tactic to
+  name. Where the outcome is `covered-after-reframing` or
+  `uncovered-after-N-framings`, every framing after the first owes one:
+  without that, the discount above is escapable by omitting the field, and a
+  refusal a caller can skip by writing less is not a refusal.
+
+  **WHERE THESE REFUSALS ARE COMPUTED, AND WHICH CARRIER IS AUTHORITATIVE**
+  (owner selection 2026-08-28, A1). Both are derived on demand from the
+  `facet:`/`tactic:` lines the receipt already carries. **No derived count and
+  no coverage set is written onto the receipt**, because a value recomputable
+  from primary capture that is stored beside it is the artifact that drifts
+  from its source and then has to be repaired, migrated or garbage-collected:
+
+  > "the no-second-ledger rule forbids storing the DERIVED COUNT, never the
+  > record written at the act. … a reader that recomputes on demand is not
+  > that artifact but the shape the rule PRESCRIBES"
+
+  `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c topics/knowledge-architecture.md:220`
+
+  The two carriers split by *reach*, not by seniority. `policy/kit/bin/consult.mjs`
+  refuses at compose time as an **affordance** — it is in front of the author,
+  so it can say what is owed while the consult is still being composed.
+  `checks/check-consult-receipts.sh` recomputes independently and is the
+  **authority**, because it is the only one of the two that reaches receipts no
+  writer mediated: a hand-composed receipt (an admissible, explicitly marked
+  path), a direct `gateway-query.mjs` call, or a receipt edited into a PR body.
+  A writer-side guard cannot see that population at all.
+
+  **Two carriers of one rule is a priced choice, not a free one, and the price
+  is that each must cite the other AT THE RULE SITE:**
+
+  > "When one rule is written into two carriers that do not name each other,
+  > they drift silently and the divergence surfaces only at the moment some act
+  > needs both to agree — so the repair is never just correcting the wrong
+  > side: each carrier must cite the other at the point of the rule, or the
+  > same drift recurs at the next edit of either"
+
+  `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c LESSONS.md:21`
+
+  The live specimen of not paying it is `axis:` itself, and it has its own
+  carrier: `consult.mjs` enforces `RATIFIED_AXES` while the check stays
+  shape-only on the same key, so the two disagree today (kogaki#673).
+
+  **AND THE SAME DISCIPLINE CROSSES THE SEAM, so the pointer is written here
+  rather than left to the next editor to reconstruct.** Gukan (product-lab) is
+  the reference implementation of the consultation experience and the kit
+  inherits from it; the two must not diverge. The hub-side mirrors of this
+  clause are **product-lab#198** (`/ask` executes the facet scheme) and
+  **product-lab#199** (`/ask` executes the Tactics classifier), and the owner
+  ruling of 2026-08-26 binds them to this side in both directions: kogaki#640
+  lands with or after #198 and kogaki#669 with or after #199, never before, and
+  **a shape change on either side names the other**. This block is such a
+  change, so it names them. Whether those issues have landed is a fact about a
+  repository §2 makes invisible here and is asserted nowhere in this file — the
+  pointer is the obligation, not a claim about the other side's state.
+
+  **THE TWO REFUSALS ARE PROSPECTIVE, AND SAYING SO IS WHAT KEEPS THEM
+  CONSISTENT WITH COMPAT.** They bind receipts written **after this clause
+  lands**; every receipt already in the tree stays valid unchanged. Without the
+  bound this section asserts two incompatible things about the same record —
+  the compat sentence below says a v2 receipt carrying none of the three new
+  keys stays valid, while the outcome-anchored rules above say a
+  negative-outcome receipt owes facet coverage and a re-framed one owes a
+  `tactic:`. Receipts sitting in exactly that gap are **valid**, and two in-tree
+  specimens show the shape: `specs/SPEC.md:1591` carries
+  `outcome: covered-after-reframing` with two `query:` lines and no `tactic:`,
+  and `policy/consultation-map.md:847` records an `uncovered-after-1-framings`
+  declaration with no facet lines.
+
+  **What the bound actually protects is narrower than those two specimens
+  suggest, and the difference is worth stating.** `checks/check-consult-receipts.sh`
+  scans the branch's own commit range (`merge-base..HEAD`) plus the PR body CI
+  supplies — *never a file on the default branch* — and `consult.mjs` is a
+  writer, so neither carrier ever reads either specimen. They illustrate the
+  gap rather than being at risk in it. The population the bound really covers
+  is **receipts in commit messages and PR bodies** written before this clause
+  lands, which is a real population and the reason the bound is kept; the two
+  file specimens are cited as the clearest available illustration of the shape
+  and not as things a carrier would have rejected.
+
+  **A WIDENING IS TAKEN HERE AND IS NAMED RATHER THAN ABSORBED.** kogaki#640
+  scopes the obligation to a receipt whose outcome is
+  `uncovered-after-N-framings` **resolving to no-carrier-found**. This clause
+  drops that qualifier, because the receipt carries no resolution field for a
+  carrier to read it from — so what is enforced is the necessary condition and
+  not the intended one, and **every** negative-outcome receipt written after
+  this clause owes facet coverage, which is stricter than #640 asked for. The
+  consequence worth seeing before it is met: a negative outcome that is a
+  *misdeclaration* rather than a no-carrier-found resolution is swept in too,
+  and `policy/consultation-map.md:847` is precisely that — PR #399's gate
+  declared `uncovered-after-1-framings` while the served line sat unchanged at
+  its pin, and the map keeps it as a counter-specimen. The prospectivity bound
+  is what stops the widening reaching it. Narrowing the rule back to its
+  intended scope needs a resolution field, which is a hub act and not a kit
+  edit; until then the widening stands, stated.
+
+  **Compat, and nothing in git history changes meaning.** The
+  continuation-optional rule holds: a v1 receipt with no continuation lines
+  stays valid, and a v2 receipt carrying none of the three new keys stays
+  valid. For a receipt written after this clause, once any `facet:` appears the
+  block owes the full facet shape, and once any `tactic:` appears its value is
+  checked — the same presence-implies-completeness discipline the check already
+  enforces, now bounded prospectively so it cannot contradict the sentence
+  above it.
 
   **What the hub ratifies here is the property, not this format.** The served
   requirement is a receipt at the point of use with a **fixed token and a
