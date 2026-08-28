@@ -226,6 +226,86 @@ policy/kit/bin/consult.mjs --consumer <name> --tool gloss_index \
   taxonomy and are **not** disposition values: a fork nobody consulted emits no
   receipt at all, and a degraded consult emits none by design, so neither is
   substantiable from receipts under any schema.
+- **A NEGATIVE standing claim is admissible in exactly two typed shapes, and
+  mechanical absence is neither** (kogaki#640). Asserting that the surface holds
+  no position on something is a claim, and it needs the same evidence any other
+  claim does:
+  - **decided-negative** — a verbatim quote at a pin of a record that itself
+    asserts the negative: a decision line, a spec clause, a named non-goal, a
+    declined alternative.
+  - **no-carrier-found** — the typed cannot-determine token, with queries
+    verbatim, **one query per search facet** across `act | artifact | decision`,
+    each carrying `facet:` and `hit:`. Rendered as an **open question, never a
+    conclusion**.
+
+  The two shapes and their grounds are the hub's, quoted at their pin rather
+  than restated: `consulted: product-lab@9b0ea254ff48d8ded999143f9325d4b12cc88eac
+  topics/knowledge-architecture.md:102,104` — `:104` for the open-world reading
+  that makes `no-carrier-found` the *unknown* and mechanical absence inadmissible,
+  `:102` for the orthogonality that makes coverage a count over facets rather
+  than over queries.
+
+  *No file, no runtime, a closed issue* grounds neither shape. Mechanical
+  absence may appear only as supporting context under a quote — deriving *not P*
+  from a failure to derive *P* is sound only over a complete database, and the
+  hub's corpus is not one.
+
+  **Coverage is counted over FACETS TOUCHED, never over wordings.** Facets are
+  orthogonal — varying one leaves the others fixed — so two same-facet queries
+  are one framing however differently they are worded. Three facets means three
+  framings, which is **more than the entry point's bound**, so a no-carrier-found
+  is composed through the transport:
+
+```
+policy/kit/bin/gateway-query.mjs --consumer <name> --tool policy_lookup \
+  --args '{"question":"<act framing>"}'      --question '<act framing>'      --facet act      --hit '<or none>' \
+  --args '{"question":"<artifact framing>"}' --question '<artifact framing>' --facet artifact --hit '<or none>' \
+  --args '{"question":"<decision framing>"}' --question '<decision framing>' --facet decision --hit '<or none>' \
+  --receipt --outcome uncovered-after-3-framings
+```
+
+  `consult.mjs` refuses this act with that route rather than asking for
+  something it cannot carry — the bound is not widened for it.
+
+  **`hit:` is owed wherever `facet:` appears, and `none` is a value you TYPE.**
+  An omitted `hit:` and a `hit: none` are the same silence to a reader and
+  different silences to a check, and only the second distinguishes *this facet
+  was queried and returned nothing* from *nobody recorded what happened* — which
+  is the whole evidentiary content of the token.
+
+  **An ordinary miss is NOT a no-carrier-found.** "I asked twice along different
+  axes and nothing discriminated" is `uncovered-after-2-framings` with no facets
+  at all, and it stays exactly as it was — the facet obligation attaches only
+  once a `facet:` appears.
+
+- **`facet:` is NOT `axis:`, and neither imports the other.** `axis:`
+  (`subject | conduct`) answers *what kind of thing is this consultation about*;
+  `facet:` (`act | artifact | decision`) answers *how has this recall query been
+  framed*. Two value sets, two jobs. Served renderings name them "consultation
+  facet" and "search facets" — one concept over two objects, never two concepts.
+
+- **A re-framing names the TACTIC that produced it** (kogaki#669;
+  `consulted: product-lab@9b0ea254ff48d8ded999143f9325d4b12cc88eac
+  topics/knowledge-architecture.md:101`). The six are
+  `SUPER | SUB | RELATE | NEIGHBOR | TRACE | VARY`, and they are a
+  **classifier**, not a procedure: naming one answers *"is this a different
+  axis?"* instead of arguing it in prose. There is no checklist here and no
+  order to work through — the 29-tactic catalogue is deliberately not imported,
+  and a searcher working through a list is the opposite of the bounded
+  fixed-count discipline this seam runs on.
+
+  `tactic:` is owed by the **re-framings** — framings 2..N — and not by framing
+  one, which is a revision of nothing. **Nothing enforces that**, and the reason
+  is compat: a receipt carrying no `tactic:` at all must stay valid, so omitting
+  the key skips both the obligation and the discount below. The obligation is
+  real and the escape is real; closing it would mean requiring the key on every
+  non-discriminating receipt, which is a change to the grammar and the hub's to
+  make. **`VARY` does not discharge the floor**:
+  it is lexical variation, a rewording of the same question, and it is the sole
+  member of §5.2's lexical class that is also one of the adopted six. `FIX`,
+  `REARRANGE`, `RESPELL` and `RESPACE` are outside the six and are not writable
+  values at all — the value set and the refusal set are different sets.
+
 - **A re-framed outcome carries *every* framing's query, not only the last.**
   The token says which cause was found; only the queries let a reader check
   that the re-framing varied the axis rather than rephrasing it.

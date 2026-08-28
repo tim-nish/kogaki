@@ -3851,8 +3851,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
   `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c topics/knowledge-architecture.md:103`
 
-  **Two refusals follow from the keys, and both are COUNTED rather than
-  argued.**
+  **Three obligations follow from the keys. Two are COUNTED rather than
+  argued; the third is a well-formedness rule and is marked as such**, so the
+  header names what its list actually holds.
 
   - **Facet coverage (kogaki#640).** A `no-carrier-found` resolution is
     recordable only when **all three facets carry at least one query**.
@@ -3869,10 +3870,14 @@ invariant: Gukan guarantees Unit schema, never data schema).
     Anchoring both refusals to the outcome tokens is what makes them the same
     mechanism rather than two rules that merely look alike.
 
-    **CONSEQUENCE, STATED BECAUSE IT MOVES A FLOOR: the effective minimum for
-    `uncovered-after-N-framings` becomes THREE.** Each query is one framing and
-    all three facets must carry at least one, so a prospective negative-outcome
-    receipt with two framings is unrecordable. This does not contradict
+    **CONSEQUENCE, STATED BECAUSE IT MOVES A FLOOR: the effective minimum for a
+    facet-scheme negative resolution becomes THREE.** Each **facet touched** is
+    one framing and all three must carry at least one, so such a receipt with
+    two framings is unrecordable. (The count is over facets touched rather than
+    over queries — the wording matters, because "each query is one framing" is
+    the first step of the simplification the orthogonality ground above exists
+    to forbid.) An ordinary miss carrying no facets is untouched by this and
+    keeps the floor of two. This does not contradict
     `MIN_FRAMINGS = 2` — three satisfies a floor of two — but the operative
     number for this one outcome class is no longer two, and leaving that to be
     derived is how a checker ends up with two refusals that disagree about
@@ -3917,9 +3922,21 @@ invariant: Gukan guarantees Unit schema, never data schema).
   **`tactic:` is owed by a RE-FRAMING, which is framings 2..N and not framing
   one.** Framing one is not a revision of anything, so it has no tactic to
   name. Where the outcome is `covered-after-reframing` or
-  `uncovered-after-N-framings`, every framing after the first owes one:
-  without that, the discount above is escapable by omitting the field, and a
-  refusal a caller can skip by writing less is not a refusal.
+  `uncovered-after-N-framings`, every framing after the first owes one.
+
+  **THAT OBLIGATION IS STATED AND NOT ENFORCED, and the gap is recorded rather
+  than papered over.** The discount fires only on a receipt that carries tactics
+  at all — the same conjunction the facet rule uses, and for the same reason: a
+  receipt carrying no `tactic:` must stay valid, because that is the
+  continuation-optional rule the whole grammar rests on and every receipt in git
+  history is one. So **a caller who omits the key entirely escapes both the
+  obligation and the discount.** An earlier form of this clause asserted the
+  opposite — that requiring the key on the re-framings is what makes the discount
+  unskippable — and the guard written for it in `consult.mjs` could never fire,
+  because the positional and per-item checks had already refused every input that
+  would have reached it. Closing the escape for real means requiring `tactic:` on
+  every non-discriminating receipt, which breaks compat outright; that is a change
+  to the grammar and the hub's to make, and it is not taken here.
 
   **WHERE THESE REFUSALS ARE COMPUTED, AND WHICH CARRIER IS AUTHORITATIVE**
   (owner selection 2026-08-28, A1). Both are derived on demand from the
@@ -3995,21 +4012,38 @@ invariant: Gukan guarantees Unit schema, never data schema).
   file specimens are cited as the clearest available illustration of the shape
   and not as things a carrier would have rejected.
 
-  **A WIDENING IS TAKEN HERE AND IS NAMED RATHER THAN ABSORBED.** kogaki#640
-  scopes the obligation to a receipt whose outcome is
-  `uncovered-after-N-framings` **resolving to no-carrier-found**. This clause
-  drops that qualifier, because the receipt carries no resolution field for a
-  carrier to read it from — so what is enforced is the necessary condition and
-  not the intended one, and **every** negative-outcome receipt written after
-  this clause owes facet coverage, which is stricter than #640 asked for. The
-  consequence worth seeing before it is met: a negative outcome that is a
-  *misdeclaration* rather than a no-carrier-found resolution is swept in too,
-  and `policy/consultation-map.md:847` is precisely that — PR #399's gate
-  declared `uncovered-after-1-framings` while the served line sat unchanged at
-  its pin, and the map keeps it as a counter-specimen. The prospectivity bound
-  is what stops the widening reaching it. Narrowing the rule back to its
-  intended scope needs a resolution field, which is a hub act and not a kit
-  edit; until then the widening stands, stated.
+  **THE TRIGGER IS A CONJUNCTION — a negative outcome AND at least one
+  `facet:` — and the second half was learned by implementing the first
+  (kogaki#640 story 1.93, owner selection 2026-08-28).** An earlier form of this
+  clause dropped kogaki#640's own `resolving to no-carrier-found` qualifier and
+  asked coverage of **every** `uncovered-after-N-framings` receipt. Written down
+  it read as a defensible widening; implemented, it **retired the ordinary
+  miss** — *"I asked twice along different axes and nothing discriminated"* —
+  which is exactly what the ratified triple's third token is for, has nothing to
+  do with the facet scheme, and is the common case. Three in-tree fixtures
+  encode it. So the qualifier is restored in the only form a carrier can read:
+
+  > "A receipt whose outcome is `uncovered-after-N-framings` **resolving to
+  > no-carrier-found** owes the facet fields … once any `facet:` appears, the
+  > block owes the full shape."
+
+  **Presence is the marker, and it is an APPROXIMATION that errs in the safe
+  direction.** The receipt carries no field saying *this resolution is a
+  no-carrier-found*, and minting one is the hub's act, not a kit edit — so
+  `facet:` presence stands in for the resolution, which never blocks a
+  legitimate miss and always fires on anything claiming the scheme. What that
+  approximation does **not** reach is a negative outcome that is a
+  *misdeclaration* carrying no facets: `policy/consultation-map.md:847` is
+  precisely that — PR #399's gate declared `uncovered-after-1-framings` while
+  the served line sat unchanged at its pin, and the map keeps it as a
+  counter-specimen. Nothing here detects that class, and a resolution field is
+  what would; recorded so the gap is known rather than assumed closed.
+
+  **Recorded as a correction rather than silently rewritten**, because the
+  earlier form shipped in `5564bb7` and a reader who met it there is owed the
+  reason it moved: the clause was falsified by its own implementation, which is
+  the trigger this repository's own §"A command earns a spec on demonstrated
+  defect" names.
 
   **Compat, and nothing in git history changes meaning.** The
   continuation-optional rule holds: a v1 receipt with no continuation lines
