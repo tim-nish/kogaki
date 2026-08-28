@@ -3435,18 +3435,20 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) 
 
   say(`${found} candidate(s) found, ${atTop.length} shown — all at the highest `
     + `level present (\`${top}\`).`);
-  // THE BATCH-SIDE RESOLUTION GAPS STILL RENDER, in one line rather than the
-  // deleted footnote. Disposition 4 deletes the unresolved section that
-  // reported the WALK's dangling links — and the enumerator still marks three
-  // gaps the walk never produced: a seed carrying no `source_batch`, a
-  // `source_batch` naming a batch nothing serves, and a batch member the served
-  // set does not carry. Those are §13.0's silent exclusion exactly, so they
-  // keep a surface; what they lose is the footnote's per-entry detail, which
-  // described a substrate that is gone.
-  if ((unresolved || []).length) {
-    say(`${unresolved.length} candidate(s) could not be resolved from the Batch join and are NAMED rather than dropped: `
-      + unresolved.map((u) => `${u.slug} (${u.why})`).join("; "));
-  }
+  // THE BATCH-SIDE RESOLUTION GAPS ARE NOT RENDERED HERE, AND THAT IS OWED TO
+  // kogaki#686 RATHER THAN SETTLED. The enumerator still marks three — a seed
+  // carrying no `source_batch`, a `source_batch` naming a batch nothing serves,
+  // and a batch member the served set does not carry — and none reaches a
+  // surface, so a resolution gap leaves no trace. That is §13.0's silent
+  // exclusion, and it is a real cost.
+  //
+  // A line for them was added at round 1 and is REMOVED here. Disposition 3
+  // rules "at most ten rows, from the highest level present, and NOTHING ELSE
+  // in the Report", and disposition 4 deletes the unresolved footnote by name.
+  // Reading §13.0's duty as outliving the walk is defensible and it is not the
+  // review's to license: restoring a rendering under a reviewer's authority is
+  // how a ruling acquires a clause nobody ratified. The question is carried on
+  // #686, which stays open.
   if (unjudged) say(`${unjudged} candidate(s) carry no level and are counted here, never shown.`);
   say();
 

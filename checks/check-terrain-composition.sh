@@ -3718,10 +3718,15 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
 // deleting them without replacement would drop the display from coverage
 // entirely. What follows covers the shape the ruling actually fixes.
 {
+  // THE FIXTURE SUPPLIES WHAT THE PIPELINE SUPPLIES, and no more. It used to
+  // set `gloss`, a field `cmdReport` cannot produce — so the four-fields case
+  // asserted a value the production path never builds, which is a case that
+  // cannot fail for the reason it claims to cover. `gloss: null` is what the
+  // pipeline actually hands the screen.
   const S = (n, level, extra = {}) => ({
     nid: `N${n}`, slug: `s${n}`, level,
     relation: "from the same Batch as the settled set (q_a/x)",
-    gloss: `gloss ${n}`, claim: `claim ${n}`, ...extra,
+    gloss: null, claim: `claim ${n}`, ...extra,
   });
   const screen = (suggestions) =>
     neighborhoodScreen({ tag: "T", gids: ["G1"], suggestions, unresolved: [], counts: {} });
@@ -3750,13 +3755,24 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
   {
     const lines = screen([S(1, "core")]).join("\n");
     for (const [what, frag] of [["the Strand ID", "N1"], ["the relation in plain words", "from the same Batch"],
-                                ["the Gloss", "gloss 1"], ["the claim", "claim 1"], ["the level", "[core]"]]) {
+                                ["the Gloss slot, disclosed as unfetched", "gloss unrecorded"],
+                                ["the claim", "claim 1"], ["the level", "[core]"]]) {
       if (!lines.includes(frag)) fails.push(`§13/686: the row does not carry ${what}`);
     }
     for (const gone of ["reached by:", "rendering(s)", "suggestion(s) of", "never a proposal", "Bound:"]) {
       if (lines.includes(gone)) {
         fails.push(`§13/686: a DELETED display element survived — ${JSON.stringify(gone)}. Disposition 4 deletes it rather than keeping it beside an exception`);
       }
+    }
+  }
+
+  // THE GLOSS SLOT IN BOTH DIRECTIONS. Absent it DISCLOSES; supplied it renders.
+  // Only the first is reachable on the shipped path today, which is why the
+  // second is asserted here rather than assumed to follow.
+  {
+    const withGloss = screen([S(1, "core", { gloss: "a served headline." })]).join("\n");
+    if (!withGloss.includes("a served headline.") || withGloss.includes("gloss unrecorded")) {
+      fails.push("§13/686: a SUPPLIED gloss did not render — the disclosure arm must not swallow the value arm");
     }
   }
 

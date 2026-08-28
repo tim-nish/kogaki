@@ -375,16 +375,21 @@
         },
         {
           "id": "neighborhood_suggestion_row",
-          "form": "a three-line row",
+          "form": "- <SuggestionID> — <relation in plain words>",
           "allowlist": [
             "SuggestionID"
           ],
-          "note": "v8, kogaki#686 (owner ruling 2026-08-28). Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. FOUR FIELDS, in the ruled order: Strand ID, the relation in plain words (\"from the same Batch as L88 (2026-08-13)\"), the Gloss, and the claim with its level. The relation is prose because the row is read by the owner, not parsed. DECLARED AS THE THREE LINES THE EMITTER PUSHES rather than as one form carrying \\n, for the reason `neighborhood_empty`'s note already records: the guard strips only a leading newline and matches per split line, so a form joined into one line matches no rendered line and the class silently covers nothing. THE GLOSS FIELD DECLARES ITS ABSENCE FORM. A suggestion sits outside the survey's candidates, so its served headline needs a shard read the report path does not make; rather than render the slug in a field the grammar calls a Gloss — an unquoted identifier standing in for a served rendering — the row states `gloss unrecorded`. Carried on kogaki#686 round 1; the fetch is a bounded-read decision the ruling does not make.",
-          "lines": [
-            "- <SuggestionID> — <relation in plain words>",
-            "  <Gloss> | gloss unrecorded",
-            "  <claim> [<level>]"
-          ]
+          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. This class is the row's FIRST line; the Gloss and claim lines have their own."
+        },
+        {
+          "id": "neighborhood_suggestion_gloss",
+          "form": "  <Gloss | gloss unrecorded>",
+          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The row's SECOND line. The alternation sits INSIDE the placeholder because `classMatchers` masks placeholders before splitting on a top-level `|` — a bare `<Gloss> | gloss unrecorded` would be read as two whole forms, one of them literal. A suggestion sits outside the survey's candidates, so its served headline needs a shard read the report path does not make; the absence is DECLARED rather than filled with the slug, which would put an unquoted identifier under a field the grammar calls a Gloss."
+        },
+        {
+          "id": "neighborhood_suggestion_claim",
+          "form": "  <claim> [<level>]",
+          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The row's THIRD line, carrying the LLM's free-form claim and its harness-fixed level."
         },
         {
           "id": "neighborhood_no_material",
@@ -393,12 +398,13 @@
         },
         {
           "id": "neighborhood_over_cap",
-          "form": "a two-line refusal",
-          "note": "v8, kogaki#686. The RULING reserved this arm for pickup; the arm itself was selected at the implementing sitting's gate and is grounded on the served lines below, not on the ruling. Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. THE REFUSAL ARM. Above the cap at the highest level the section renders NO rows and states the counts, rather than showing ten of them. Truncating would need a tie-break among equals, and a machine choosing which of N equally-recommended relations the owner may see is the shape the served record names as failing the second-proposer test (product-lab@b20d85ea topics/articles.md:125); silent truncation is refused one step earlier by the rule that a surface which must not drop its tail reports rather than truncates (topics/archive/knowledge-architecture.md:67). BOTH lines are declared, as `neighborhood_empty` declares its two: a note saying \"a second line states why\" describes a line the grammar does not cover, which is the class this surface's inert allowlist would never catch.",
-          "lines": [
-            "<n> candidate(s) found, 0 shown — <n> sit at the highest level present (`<level>`), above the display cap of 10.",
-            "No rows are rendered rather than ten of them: choosing which 10 of <n> equally-recommended candidates you see would be a tie-break this section has no ground to make, and a cut carrying no meaning reads as a ranking it is not."
-          ]
+          "form": "<n> candidate(s) found, 0 shown — <n> sit at the highest level present (`<level>`), above the display cap of 10.",
+          "note": "v8, kogaki#686. The RULING reserved this arm for pickup; the arm itself was selected at the implementing sitting's gate and is grounded on the served lines below, not on the ruling. Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. THE REFUSAL ARM. Above the cap at the highest level the section renders NO rows and states the counts, rather than showing ten of them. Truncating would need a tie-break among equals, and a machine choosing which of N equally-recommended relations the owner may see is the shape the served record names as failing the second-proposer test (product-lab@b20d85ea topics/articles.md:125); silent truncation is refused one step earlier by the rule that a surface which must not drop its tail reports rather than truncates (topics/archive/knowledge-architecture.md:67). THE SECOND LINE HAS ITS OWN CLASS rather than riding a `lines:` array: this form carries placeholders, and a `lines:` member carrying one matches nothing. The first attempt moved this line INTO such an array, which regressed a class that had been matching."
+        },
+        {
+          "id": "neighborhood_over_cap_reason",
+          "form": "No rows are rendered rather than ten of them: choosing which 10 of <n> equally-recommended candidates you see would be a tie-break this section has no ground to make, and a cut carrying no meaning reads as a ranking it is not.",
+          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The refusal's SECOND line, declared rather than described in a note — a note saying \"a second line states why\" covers no line at all."
         },
         {
           "id": "neighborhood_none_judged",
@@ -409,11 +415,6 @@
           "id": "neighborhood_unjudged",
           "form": "<n> candidate(s) carry no level and are counted here, never shown.",
           "note": "v8, kogaki#686 (owner ruling 2026-08-28). Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. An UNJUDGED candidate is a different state from one judged `background`: the mechanical layer ran and the judgment layer did not. Counted and named rather than silently dropped or silently shown."
-        },
-        {
-          "id": "neighborhood_unresolved_batch",
-          "form": "<n> candidate(s) could not be resolved from the Batch join and are NAMED rather than dropped: <slug> (<why>); …",
-          "note": "v8, kogaki#686 round 1. The unresolved FOOTNOTE is deleted with the walk it reported on; these three markers are not that. The enumerator still marks a seed carrying no `source_batch`, a `source_batch` naming a batch nothing serves, and a batch member the served set does not carry — §13.0's silent exclusion exactly — so they keep a surface. One line rather than a section: what they lose is the per-entry detail, which described a substrate that is gone."
         },
         {
           "id": "blank",
