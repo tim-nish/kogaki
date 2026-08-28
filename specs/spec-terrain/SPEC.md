@@ -4233,6 +4233,51 @@ nothing else in the report. The heading carries honest counts (`15 found, 8
 shown`). Each row carries exactly four fields: the Strand ID, the relation in
 plain words, the Gloss, and the claim with its level.
 
+**FIELD 2 NAMES THE SETTLED MEMBER, NOT THE SUBSTRATE'S INSTANCE KEY
+(kogaki#689, from PR #692 round 2).** The relation reads *"from the same Batch
+as L88 (2026-08-13)"* — the settled Strand the candidate shares a Batch with, by
+its display id, with the batch beside it. The row shipped rendering the batch
+key in the member's place, which is the substrate-internal token this field
+exists to spare the reader. Where the enumerator can name no member the row says
+*"the same Batch as the settled set"*, which is a **stated** absence and
+distinguishable from the naming form.
+
+**FIELD 3 IS FETCHED, BOUNDED BY THE ROWS THAT RENDER (kogaki#689, owner ruling
+2026-08-28).** This section promised four fields and the pipeline produced three:
+the report path made no shard read, so every row disclosed `gloss unrecorded` and
+the grammar declared a field nothing could fill. Two arms were open — make the
+read, or amend this paragraph to say the Gloss is unavailable by decision — and
+**the fetch arm was selected**, on the reading that the served position licensing
+a disclosed absence licenses it as the **fallback for a miss** and says nothing
+about declining to look:
+
+> "every enumerated class renders including its zero, and an empty class says so
+> rather than being omitted" — the failure named is *silence*, and silence is
+> indistinguishable from *not checked*.
+
+`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/archive/knowledge-architecture.md:57`
+
+**THE BOUND IS THE ROWS THAT RENDER, TWICE OVER.** The fetch runs over the
+display selection above — at most ten rows, and **none at all** on the empty,
+all-unjudged and over-cap arms, which render no row — and `resolveHeadlines`
+then bounds it again to the union of those rows' **own** tags. This is the bound
+kogaki#528 already ratified for the Brief lane and the one §9 binds `cmdView`
+to; the corpus-wide prefetch §9 forbids is unreachable from here, because the
+tag set is a function of ten records rather than of the corpus. **The bound is a
+COUNT OF READS and is verified as one** — at the server, from the stub's own
+call log, never from the run's accounting of itself.
+
+**The headline is quoted at its cite**, because it is a served rendering: a
+headline carried as bare prose is the paraphrase-standing-for-a-quote shape the
+verbatim rule refuses, which is the ground the slug substitution was refused on
+at #686 round 1. **A shard read that carries no rendering for the slug renders
+the abnormal marker** `⟨no served Gloss rendering — ABNORMAL, a fault to clear,
+never substituted⟩` — the same marker `cmdView` and the Brief lane render, so one
+vocabulary covers the state wherever it arises. The earlier `gloss unrecorded`
+literal is **deleted with the condition it disclosed**: it said *this path makes
+no fetch*, which is no longer true, and two vocabularies for one state is how a
+reader stops being able to tell them apart.
+
 **An UNJUDGED candidate is its own state**, counted and named. The judgment
 layer not having run is a different fact from a `background` verdict, and a
 section that showed them alike would report the second where the first is true.
