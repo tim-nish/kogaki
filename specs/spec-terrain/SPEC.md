@@ -3793,11 +3793,25 @@ assume its opposite.**
   enumeration is true again rather than widened, and §14.1's reopen trigger
   ("the first grammar edit that could have covered one and did not") is not
   fired, because the surface this edit would have covered no longer exists.
-- **It is still a report and still never a proposal.** Nothing above changes
-  what §2.3's residual clause governs; siting a widening view inside the
-  untruncated artifact makes it *more* obviously a rendering and not a choice,
-  since §12's own preamble already says the artifact "ranks nothing, narrows
-  nothing and hides nothing".
+- **It is still a report and still never a proposal — and since kogaki#686 it
+  DOES select, which is stated rather than smoothed over.** The section renders
+  only the highest recommendation level present and at most ten rows, so the
+  older reading of this clause — that it "ranks nothing, narrows nothing and
+  hides nothing", inherited from §12's preamble about the artifact as a whole —
+  is **false of this section** and is retired here rather than left to
+  contradict §13.4.
+
+  What survives is the distinction that clause was actually for. A **proposal**
+  asks the owner to act on a selection; this section reports a reading and names
+  what it withheld. The selection is disclosed in the same breath it is made —
+  honest counts (`15 found, 8 shown`), the level it rendered at, and a count of
+  unjudged candidates — so nothing is hidden even where much is not shown. That
+  is a narrower and truer claim than "narrows nothing", and it is the one the
+  rendering can actually keep.
+
+  The residual §2.3 governs is untouched: the section still proposes no act, and
+  a taken suggestion still enters through §14.3's assignor rather than by the
+  section having chosen it.
 
 **What grammar coverage of the section BUYS, and what it does not — stated here
 because "brought under the grammar" reads as more than it is.**
@@ -4169,167 +4183,62 @@ implementation that computes the full neighborhood and then drops members
 against **anything claim-shaped**, which v15 makes doubly refused — it builds
 the filter *and* reintroduces the dead input.
 
-### 13.4 Disclosure, denominator, and families that are never pooled
+### 13.4 The section's shape — four fields, ten rows, one level
 
-Four obligations on the rendering — three inherited, and one added at v17 by
-the measurement §13.3's own reopen trigger produced.
+**SUPERSEDED IN FULL BY THE OWNER RULING OF 2026-08-28 (kogaki#686), and the
+four disclosure obligations this section carried are DELETED rather than kept
+beside an exception.** They were substrate disclosure, the per-family
+denominator, the named unresolved reference, and the grouping by substrate
+instance — each a property of an enumeration over three substrates at up to two
+hops. Exploration is now fixed to the same Distill Batch and nothing else, so a
+per-family ratio and a substrate-grouping heading describe a shape the output
+cannot have, and a rule that cannot be violated is not a weaker rule but a
+different document's.
 
-**ALL FOUR BIND THE FULL REPORT SECTION, UNCHANGED IN SUBSTANCE (v20,
-kogaki#472).** The obligations were written when the rendering was a screen, and
-re-siting it is exactly the act at which an obligation quietly stops binding —
-so each is restated here against its new carrier rather than left to be inherited
-by implication:
+**Exploration.** For each Strand of the Group, the mechanical layer collects the
+other Units promoted from the same Distill Batch. The reference-link walk is
+removed on MEASUREMENT rather than taste: on the 2026-08-28 pull it added zero
+rows, all fifteen candidates arriving through Batch membership, and removing it
+bounds a worst case a depth-2 walk over a cyclic link graph does not.
 
-1. **Substrate disclosure** — every suggestion row in the section names the
-   substrate that reached it, or renders the explicit undisclosed form. A row
-   whose substrate is not stated is non-conformant in the section exactly as it
-   was on the screen.
-2. **The named enumeration and the family-keyed figure** — the section states
-   what it looked for and did not find, and every figure names its family. The
-   region is the **entered ID set** under v20 rather than the settled Strand
-   set; it is still supplied by the owner and still enumerated by the surface,
-   so the served coverage-claim rule quoted below is satisfied identically.
-3. **Populations are never pooled** — family sections are outermost in the
-   section, as they were on the screen.
-4. **Grouping by substrate instance inside each family**, with the
-   suggestion/rendering distinction stated at every figure.
+**The judgment layer, over the mechanical candidates only.** Per candidate the
+LLM supplies one free-form claim and one **recommendation level** from a
+harness-fixed three-label set — `core` (the GroupClaim's argument needs it),
+`useful` (strengthens or illustrates it), `background` (related, not
+load-bearing). The set is CLOSED; extending it is the owner's act. No model call
+happens inside the tool: the levels arrive as a file the session composed,
+exactly as `--classification` does for `J2_subdivision`, and
+`--judge-model`/`--judge-effort` remain the pin rather than an invocation.
 
-**And two properties of the section that the screen did not have to state.**
-**Complete enumeration is a rendering of the set, never a selection over it** —
-already obligation 4's words, and load-bearing here because §12's no-truncation
-rule now covers the section too: the section may be long, and it is in a file by
-design. **The §13.3 bound is untouched** — `source_batch` 1 hop, `cross_links` 2
-hops, shared carrier off, still fixed and declared and still read rather than
-chosen. Neither the re-siting nor the seed change is a licence to re-cut it.
+**Display.** At most **ten** rows, all from the **highest level present**, and
+nothing else in the report. The heading carries honest counts (`15 found, 8
+shown`). Each row carries exactly four fields: the Strand ID, the relation in
+plain words, the Gloss, and the claim with its level.
 
-The four, as originally written:
+**An UNJUDGED candidate is its own state**, counted and named. The judgment
+layer not having run is a different fact from a `background` verdict, and a
+section that showed them alike would report the second where the first is true.
 
-1. **Every suggestion discloses the substrate that reached it** — batch-mate,
-   cross-link, or shared carrier — and names it. This is §2.3's residual clause
-   ("surfaces it as unclassified **with its reason**") satisfied literally: the
-   substrate *is* the reason. A suggestion whose substrate is not stated is
-   non-conformant, not terse.
-2. **The view names its enumeration, and the figure names its family.** §2.1
-   binds every Terrain figure to state its denominator's family, and the
-   neighborhood owes it twice over, because a coverage claim over a
-   self-supplied denominator is the shape the hub refuses: "a coverage claim is
-   admissible only over an enumeration the claimant did NOT receive from the
-   party the claim is made to — so where scope must come from the human, the
-   human supplies a REGION and the phase does the enumerating"
-   (`consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:61`).
-   Here the owner supplies the region — the settled Strand set (v15) — and the
-   surface enumerates and **reports what it looked for and did not find**,
-   including the unresolved-`source_batch` markers of §13.3.
-3. **Populations are never pooled.** A batch-mate may be a Journey, a Decision,
-   or a Position rather than a Lesson. Such a suggestion renders in its **own
-   named family section** and never inside the Strand candidate list:
+**ABOVE THE CAP AT THE HIGHEST LEVEL THE SECTION RENDERS NOTHING AND STATES THE
+COUNTS** (owner selection 2026-08-28, the arm kogaki#686 item 5 reserved for
+pickup). Showing ten of eleven equally-recommended candidates needs a tie-break
+among equals, and a machine deciding which relation the owner may see is the act
+the served record names as failing the second-proposer test:
 
-   > "The facade converges the INVARIANT SPINE and must NEVER merge the
-   > POPULATIONS. … The 2026-07-28 ruling minted no umbrella term over Strand
-   > and thread-line DELIBERATELY, because a covering word is what let a
-   > 132-of-246 figure be measured over Lessons ∪ Decisions and quoted into
-   > decisions taken under a Lesson-or-Journey definition — so a facade offering
-   > one pooled selectable list would rebuild that hazard mechanically rather
-   > than verbally."
+`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:125`
 
-   `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:72`
+Silent truncation is refused one step earlier by the same corpus's rule that a
+surface which must not drop its tail reports rather than truncates
+(`topics/archive/knowledge-architecture.md:67`). The cap therefore binds as a
+REFUSAL, which is what makes an over-wide Neighborhood unrenderable rather than
+quietly abridged.
 
-   This is the obligation the surface is most likely to breach by convenience,
-   because the neighborhood's whole appeal is that it crosses boundaries — and
-   family is the one boundary it must not cross. §13.3's family-keyed `members`
-   is what makes compliance mechanical.
+**The empty enumeration keeps its two-line form**, unchanged: this ruling
+narrows what a POPULATED section renders and says nothing about an empty one,
+and the second line — that absence here is absence of a same-Batch sibling and
+never evidence that the settled set stands alone — is the half that refuses the
+strong reading.
 
-4. **The screen GROUPS BY SUBSTRATE INSTANCE; it never lists a flat run**
-   (v17, kogaki#385, owner selection 2026-08-12). Batch-mates render under
-   their **batch**, with that batch's count **within the family**;
-   cross-linked suggestions render under `cross_links` with theirs. Every
-   suggestion still appears, still carries its `N<n>` and its substrate, and
-   the per-family **suggestion** figures of obligation 2 are unchanged — **the
-   grouping is a rendering of the same complete enumeration, never a selection
-   over it.** The per-family *rendering* count is not unchanged and is not
-   claimed to be: a suggestion reached by two substrates renders twice inside
-   its own family section, which is the paragraph below.
-
-   **HOW 3 AND 4 COMPOSE: FAMILY IS OUTERMOST, ALWAYS.** The two are
-   orthogonal groupings over one set, and a mixed-family batch is the ordinary
-   case rather than an edge one, so the nesting is stated here rather than left
-   to the implementation to settle silently. **Obligation 3 is an invariant and
-   obligation 4 is a readability aid, and an aid never weakens an invariant** —
-   so the family sections come first and the batch headings sit *inside* them.
-   A batch holding three Lessons and a Journey therefore renders its batch
-   heading twice, once under each family, with each heading counting only its
-   own family's members. Batch-outermost was rejected for the reason obligation
-   3 exists: it places a Journey and a Lesson adjacent under one heading, which
-   is the pooling that obligation forbids, reintroduced by the layout rather
-   than by the list.
-
-   **A suggestion reached by two substrates renders under EACH**, which is what
-   keeps the disclosure of obligation 1 complete — a row appearing only under
-   the first substrate would silently drop the second reason it was reached. So
-   **rendering count and suggestion count differ by construction**, and any
-   figure over the screen states which of the two it is counting.
-
-**Why the remedy is here and NOT in §13.3's bound.** §13.3's reopen trigger
-fired on the first real run (kogaki#367's measurement over the whole served
-corpus): suggestions ran to a **median of 27 and a maximum of 217**, with **38
-of 126 co-tag groups over 50**, and `source_batch` supplying **5068** against
-`cross_links`' **330** — roughly 15:1. The starve arm never fired (6 of 126
-reached nothing).
-
-**The bound has no setting between flooding and off**, and that is a fact about
-the unit rather than about the values. `source_batch` at **one hop** is the
-smallest non-zero value that substrate has, so reducing inside the declared unit
-— substrates × depth — can only turn it **off**, removing the substrate that
-supplies 94% of what the neighborhood finds. Batch size is a property of how the
-corpus was written, not of the traversal.
-
-The served surface discriminates the fork, and is quoted whole at its pin:
-
-> "A grouping method concentrates the dimension it measures, so inside any group
-> its members are alike in exactly the way that method can see — and refining
-> the same method cannot separate them further; whatever distinguishes them sits
-> on an axis the method is blind to by construction, so the remedy is a
-> different method applied to the group, never a finer threshold on the
-> original."
-
-`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:51`
-
-`source_batch` concentrates by co-sitting; every member of a 43-member batch is
-alike in exactly that way, so no finer traversal separates them. What the reader
-needs is a **different method applied to the group** — and grouping the run
-under its batch is that method, applied at the layer where the difficulty
-actually is. The complete artifact stays beside the surface, which carries only
-what the artifact lacks
-(`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:50`).
-
-**Two alternatives declined, recorded so neither is re-proposed blind.**
-
-- **A per-batch traversal predicate** — "do not traverse into a batch above N
-  members". It looks like it stays inside the declared unit, and it is exactly
-  the finer threshold on the original method the served line refuses. Worse, it
-  **drops whole batches**, so a Grain in a large sitting silently gets no
-  batch-mates at all — the exclusion §13.0 exists to remove, reintroduced as a
-  configuration value.
-- **A surfacing threshold with full reachability.** Declined at kogaki#300 on
-  the ground that it **ranks**, which §13.5 forbids the bound from doing; that
-  decline noted adopting it "would have meant amending that clause rather than
-  filling this slot, which is a different act". This amendment **is** that act
-  and still declines it, on the narrower ground now available: grouping achieves
-  the same readability **without introducing a rank at all**, so re-cutting
-  §13.5's "may never score, rank, or drop an enumerated neighbor on relevance"
-  buys nothing and spends the clause that keeps the judged extension gated.
-
-**§13.3's values are UNCHANGED and its trigger is SPENT, not re-armed.** The
-measurement is what fired it, and this is the answer; a future run that finds
-grouping insufficient re-opens the bound with new evidence rather than this one.
-
-**Completeness is unaffected, and the reason is §2.1's own.** The count runs
-after composition over the **placements** of the set the owner adopted; a
-widening view upstream of adoption changes what *may* be adopted and not what
-was placed. A neighborhood suggestion the owner does not take is not a dropped
-Strand — it was never in the composed set. **Grouping does not touch this
-either**: obligation 4 changes the order and the headings of what renders, and
-never the membership.
 
 ### 13.5 The extend-or-discard gate
 

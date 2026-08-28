@@ -361,28 +361,8 @@
         },
         {
           "id": "neighborhood_counts",
-          "form": "<n> settled member(s); <n> suggestion(s) beside them, rendering as <n> row(s) — a suggestion reached by two substrates renders under each (§13.4 obligation 4)",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3292-3293. BOTH TOTALS ALWAYS, each naming its unit: suggestions and renderings differ by construction, and a screen stating one figure that silently means the other is the conflation story 1.61's AC2a refuses — so the rendering total is stated even where it equals the suggestion total, since a reader cannot tell a coincidence from a conflation by looking at one number."
-        },
-        {
-          "id": "neighborhood_report_not_proposal",
-          "form": "A REPORT, never a proposal (§13.1): nothing here narrows what reaches you, and the full population stays reachable.",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3295. Declared as its literal line. The §2.3 second-proposer boundary does not engage on a widening act, and the line is what says so on the surface."
-        },
-        {
-          "id": "neighborhood_bound",
-          "form": "Bound: source_batch <n> hop, cross_links <n> hops, shared carrier off — declared at §13.3 and read here, never chosen.",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3296. The values are FIXED AND DECLARED at §13.3; the line renders them and never sets them. An implementation deriving them from the settled set's content has reintroduced the input v15 withdrew."
-        },
-        {
-          "id": "neighborhood_family_figures_header",
-          "form": "Suggestions by family (§13.4 — per family, never pooled):",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3306."
-        },
-        {
-          "id": "neighborhood_family_figure",
-          "form": "  <family>: <n> suggestion(s) of <n> in the walked batches' members |   <family>: <n> suggestion(s) of <n> in the walked batches' members, plus <n> reached from outside those members (no denominator) |   <family>: <n> suggestion(s) — no denominator readable (no walked batch lists this family)",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3327-3331. THREE FORMS, declared as three because two of them exist precisely to avoid asserting a population nobody counted: a family reached only through cross_links has no `members` list behind it, so `of 0` would be a false denominator, and the outside count is stated SEPARATELY and never summed into the ratio. Declaring only the ratio form is the one-line-for-many defect `completeness_of_the_line_classes` records three times. FORM-NOTATION REPAIR (story 1.69, kogaki#473): the validator splits alternatives on the literal ' | ', which consumes one space each side — so an indented alternative owes ONE EXTRA leading space after the pipe, or its anchor loses a column and the alternative can never match its emitted line. Found by classifying a live render, not by a refusal, because the surface allowlist is inert (see line_class_allowlist_is_inert_on_full_report)."
+          "form": "<n> candidate(s) found, <n> shown — all at the highest level present (`<level>`).",
+          "note": "v8, kogaki#686 (owner ruling 2026-08-28). Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. The counts are HONEST rather than decorative: `found` is every candidate the mechanical layer produced and `shown` is what this section rendered, so a reader can always see what was withheld."
         },
         {
           "id": "neighborhood_empty",
@@ -394,56 +374,27 @@
           "note": "v6, kogaki#472, read off terrain/terrain.mjs:3339-3340. Declared as the TWO lines the emitter pushes, for the reason `preamble` and `judged_empty_notice` both had to be re-declared: a form joined into one line matches no rendered line, and under REFUSE that rejects every empty-neighborhood report — which is exactly the report §13.2 keeps distinguishable from a section that was never computed."
         },
         {
-          "id": "neighborhood_grouping_header",
-          "form": "Suggestions, grouped by family then by the batch or substrate that reached them (§13.4 obligation 4 — a rendering of the same complete enumeration, never a selection over it):",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3379."
-        },
-        {
-          "id": "neighborhood_family_section",
-          "form": "<family> — <n> suggestion(s), <n> rendering(s) | family unknown — <n> suggestion(s), <n> rendering(s)",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3387. FAMILY IS OUTERMOST, ALWAYS (§13.4, how 3 and 4 compose): obligation 3 is an invariant and obligation 4 a readability aid, and an aid never weakens an invariant. The `family unknown` form is declared rather than folded — an unknown family sorts LAST and keeps its own section, because folding it into a known one is the pooling obligation 3 forbids arriving one record at a time."
-        },
-        {
-          "id": "neighborhood_group_heading",
-          "form": "  <batch or substrate label> — <n> rendering(s) |   UNDISCLOSED — no substrate recorded — <n> rendering(s)",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3406. EVERY HEADING STATES ITS OWN COUNT, OVER RENDERINGS: the group counts within a family sum to that family's RENDERING total and never to its suggestion total. Same ' | ' separator repair as neighborhood_family_figure (story 1.69)."
-        },
-        {
           "id": "neighborhood_suggestion_row",
-          "form": "    <SuggestionID> — <slug> [<family>] — reached by: <substrate list, \", \"-joined> |     <SuggestionID> — <slug> [family unknown] — reached by: UNDISCLOSED — no substrate recorded; this row must not ship",
+          "form": "- <SuggestionID> — <relation in plain words>\n  <Gloss>\n  <claim> [<level>]",
           "allowlist": [
             "SuggestionID"
           ],
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3346-3352. §13.4 OBLIGATION 1 IS THIS LINE: a suggestion whose substrate is not stated is non-conformant, not terse. The UNDISCLOSED form is declared rather than left to render as `reached by: ` with nothing after it, which reads on the surface as a formatting slip rather than as the missing provenance it is. Same ' | ' separator repair as neighborhood_family_figure (story 1.69)."
-        },
-        {
-          "id": "neighborhood_unmapped",
-          "form": "<n> settled id(s) NAMED NO CANDIDATE in this survey — reported rather than counted as \"no neighbors\": <canonical id list>",
-          "allowlist": [
-            "GroupID",
-            "SubGroupID"
-          ],
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3412. An entered id that named nothing is REPORTED; folding it into a zero is the silent exclusion §13.0 removes."
-        },
-        {
-          "id": "neighborhood_unresolved_header",
-          "form": "<n> unresolved reference(s) — NAMED rather than dropped (§13.3). An empty result presented as \"no siblings\" is the silent exclusion §13.0 removes.",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3417."
-        },
-        {
-          "id": "neighborhood_unresolved_row",
-          "form": "  <slug>: <value> — <why>",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3419. §13.4 obligation 2's second half: the view reports WHAT IT LOOKED FOR AND DID NOT FIND, with the unresolved value named rather than elided. §13.5 is explicit that these markers are NOT relevance-miss evidence — an unresolved join is a mechanical defect to fix."
-        },
-        {
-          "id": "neighborhood_disjointness",
-          "form": "Suggestion ids are `N<n>` and are DISJOINT from the survey's `L<n>` (§14.6, filled kogaki#300 2026-08-12): a suggestion is not in the survey record, so §14.3's assignor does not reach it. Taking one assigns it an `L<n>` on the way in.",
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3422. DECLARED AS ITS LITERAL LINE, and added at PR #475 round 1: the first draft of v6 declared the classes as read off :3274-3420 and this line sits at :3422, pushed UNCONDITIONALLY after the unresolved block -- so it renders on every section, empty included, and no declared class covered it. Under `non_member_fallback: REFUSE` that is `completeness_of_the_line_classes`'s own defect arriving as its mirror image: not a declared form no rendered line matches, but a rendered line no declared form matches. It was masked only by the surface inertness this same version discloses, and kogaki#473 validates the section against v6 BEFORE the write -- so the mask was what stood between v6 and a report that refuses itself."
+          "note": "v8, kogaki#686 (owner ruling 2026-08-28). Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. FOUR FIELDS, in the ruled order: Strand ID, the relation in plain words (\"from the same Batch as L88 (2026-08-13)\"), the Gloss, and the claim with its level. The relation is prose because the row is read by the owner, not parsed."
         },
         {
           "id": "neighborhood_no_material",
           "form": "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (§13.4's disclosure discipline).",
           "note": "v7, kogaki#473 (PR #477 round 1). The pull-time degradation's own line: where element_survey serves nothing, the section renders this statement under its heading and Seeded-by line instead of the enumeration body, and the pull completes. DID-NOT-RUN and RAN-AND-FOUND-NOTHING are different states and each has its own class — this one, and neighborhood_empty — because a reader who cannot tell them apart holds exactly the ambiguity §13.2's empty-is-informative clause exists to remove."
+        },
+        {
+          "id": "neighborhood_over_cap",
+          "form": "<n> candidate(s) found, 0 shown — <n> sit at the highest level present (`<level>`), above the display cap of 10.",
+          "note": "v8, kogaki#686 (owner ruling 2026-08-28). Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. THE REFUSAL ARM. Above the cap at the highest level the section renders NO rows and states the counts, rather than showing ten of them. Truncating would need a tie-break among equals, and a machine choosing which of N equally-recommended relations the owner may see is the shape the served record names as failing the second-proposer test (product-lab@b20d85ea topics/articles.md:125); silent truncation is refused one step earlier by the rule that a surface which must not drop its tail reports rather than truncates (topics/archive/knowledge-architecture.md:67). A second line states why."
+        },
+        {
+          "id": "neighborhood_unjudged",
+          "form": "<n> candidate(s) carry no level and are counted here, never shown.",
+          "note": "v8, kogaki#686 (owner ruling 2026-08-28). Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. An UNJUDGED candidate is a different state from one judged `background`: the mechanical layer ran and the judgment layer did not. Counted and named rather than silently dropped or silently shown."
         },
         {
           "id": "blank",
