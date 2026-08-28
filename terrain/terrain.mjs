@@ -1613,13 +1613,16 @@ export function composeSubdivisionRecord(args, dir, record) {
 // would be two answers to one question, and the one that drifted would be the
 // one no report ever exercised.
 //
-// THE SECOND READER OF THE SAME ARTIFACT (§11 v10, kogaki#212). `cotags` and
-// `report` are handed the same `--claims` file, so migrating one and leaving
-// the other reading the flat map would put two encodings behind one file — the
-// defect §12.1 v9 fixed for `--subdivisions` by migrating both readers in one
-// change. Resolution runs against THE GROUPS THIS RUN COMPOSES (AC6): story
-// 1.56 AC11 makes an id valid for the run that printed it, so nothing here
-// caches, persists or reconstructs an earlier numbering.
+// Resolution runs against THE GROUPS THIS RUN COMPOSES (AC6): story 1.56 AC11
+// makes an id valid for the run that printed it — a pin advance may renumber —
+// so nothing here caches, persists or reconstructs an earlier numbering.
+//
+// IT RETURNS `subOf` RATHER THAN LEAVING ITS CALLER TO REBUILD ONE. Resolving a
+// SubGroup id already requires parsing `--subdivisions`, so handing the closure
+// back is what keeps one parse and one answer (PR #701 round 1). The §11 v10
+// claims-reader rationale does NOT live here: this function reads no claims
+// file, and a comment explaining `--claims` above a function that never opens
+// one is a pointer to the wrong artifact.
 function resolveReportTargets(record, tag, enteredIds, args) {
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
@@ -1629,7 +1632,7 @@ function resolveReportTargets(record, tag, enteredIds, args) {
     g.name,
     subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
   const resolved = resolveEnteredIds(enteredIds, groups, subOf);
-  return { members, groups, resolved, targets: resolved.targets };
+  return { members, groups, resolved, subOf, targets: resolved.targets };
 }
 
 // --------------------------------------------------------------------------
@@ -2567,13 +2570,20 @@ function cmdReport(args) {
     fail("report --ids was empty. An empty ID set is not a report of nothing: enter at least one Group or SubGroup ID from the screen.");
   }
 
-  const { groups, targets, resolved } = resolveReportTargets(record, tag, enteredIds, args);
+  const { groups, targets, resolved, subOf } = resolveReportTargets(record, tag, enteredIds, args);
+  // THE SECOND READER OF THE SAME ARTIFACT (§11 v10, kogaki#212). `cotags` and
+  // `report` are handed the same `--claims` file, so migrating one and leaving
+  // the other reading the flat map would put two encodings behind one file —
+  // the defect §12.1 v9 fixed for `--subdivisions` by migrating both readers in
+  // one change. `report` does not re-run the subset check (that is the screen's
+  // gate, and it has already refused there) but it MUST read the same shape, or
+  // a typed record would silently render every group's claim as absent.
   const { claims } = readClaimsRecord(
     args.claims ? readJson(String(args.claims)) : null, record);
-  const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
-  const subOf = (g) => readSubdivisionEntry(
-    g.name,
-    subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+  // `subOf` comes back from the resolver rather than being rebuilt here: it
+  // already parsed `--subdivisions` to resolve SubGroup ids, and a second parse
+  // with a second closure is the duplication the extraction exists to remove
+  // (PR #701 round 1).
   // The groups the entered set reaches — used by the judge-pin and
   // subdivision-completeness gates below, which are per-GROUP checks.
   const targetGroups = [...new Map(targets.map((t) => [t.group.gid, t.group])).values()];
@@ -4206,7 +4216,12 @@ const STATE_WORK = {
       || fail("neighborhood_input needs the entered ID set, and no wait has supplied one yet.");
     const tag = ownerInput(rec, "TAG_SELECTION")
       || fail("neighborhood_input needs a tag, and no wait has supplied one yet.");
-    const enteredIds = [].concat(ids).flatMap((x) => String(x).split(/[\s,]+/)).filter(Boolean);
+    // SPLIT THE WAY `report` SPLITS IT (PR #701 round 1). Two parsers over one
+    // owner input is two answers to one question: on a space-separated
+    // selection this enumerated two groups here and reached `full_report` as
+    // one, so the emitter's candidate list and the rendering's would have been
+    // computed over different sets.
+    const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
     const { targets } = resolveReportTargets(record, tag, enteredIds, args);
     const n = neighborhoodForTargets(record, targets);
     const path = join(rec._dir, "terrain-neighborhood-candidates.json");
@@ -4242,8 +4257,16 @@ const STATE_WORK = {
     const emitted = rec.neighborhood_candidates
       ? readJson(rec.neighborhood_candidates)
       : fail(`${st.id} has no candidate enumeration to judge against — enter neighborhood_input in the same act (\`--enter neighborhood_input --enter ${st.id}\`).`);
+    // SCOPED TO A NON-EMPTY ENUMERATION, exactly as `cmdReport`'s own orphan
+    // refusal is (PR #701 round 1). Where the mechanical layer returned no
+    // candidate at all there is nothing to join, and the section's empty
+    // arms are already the honest report — refusing the whole run there
+    // would turn a legitimate empty neighborhood into an error, and would
+    // make `report` render a settled set that `run` refuses. That is the
+    // second reading of one rule this state's own comment sets out to avoid,
+    // reproduced in the state that quotes it.
     const have = new Set((emitted.candidates || []).map((c) => c.slug));
-    const orphans = [...judgments.keys()].filter((k) => !have.has(k));
+    const orphans = have.size ? [...judgments.keys()].filter((k) => !have.has(k)) : [];
     if (orphans.length) {
       fail(`${st.id} refuses ${orphans.length} judgment key(s) no mechanical candidate carries: ${orphans.join(", ")}. `
         + "A judgment that joins nothing is silently dropped and the section then reports that the judgment layer did not run, which is false.");

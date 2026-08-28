@@ -367,6 +367,40 @@ else
   else
     echo "ok: a judged run through the EXECUTOR renders its row and level — the judged path is reachable by \`run\`, not only by invoking \`report\` with a fixture"
   fi
+  # ARM 4 — AN EMPTY ENUMERATION IS NOT AN ERROR. `cmdReport`'s own orphan
+  # refusal is scoped to a non-empty candidate set, because "refusing the whole
+  # pull there would turn a legitimate empty neighborhood into an error"; J3's
+  # was not, so a settled set whose neighborhood yields nothing was rendered
+  # honestly by `report` and REFUSED by `run` — the second reading of one rule
+  # that J3's own comment sets out to avoid (PR #701 round 1).
+  #
+  # The settled set is a SubGroup holding only the fixture's solo-batch member,
+  # which is the one selection whose neighborhood is empty against this stub.
+  # Without it the scope fix is unexercised: un-scoping the refusal again fails
+  # nothing, which is the assertion-that-cannot-fail shape.
+  RDJ_EMPTY="$WORK/judgment-empty"; mkdir -p "$RDJ_EMPTY"
+  EJ() { STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
+         node terrain/terrain.mjs run --run-dir "$RDJ_EMPTY" "$@" 2>&1; }
+  EJ >/dev/null 2>&1 || true
+  ESURVEY=$(ls "$RDJ_EMPTY"/*.terrain-survey.json 2>/dev/null | head -1)
+  python3 checks/lib/compose-judgment-claims.py "$ESURVEY" "$WORK/e-claims.json"
+  printf '%s\n' '{"testing × (no second served tag)":{"judged":true,"subgroups":[{"subgroup":"the solo batch","claim":"the solo-batch member alone","members":["lesson:delta"]}]}}' > "$WORK/e-subs.json"
+  printf '%s\n' '{"anything":{"level":"core","claim":"a key judged against an EMPTY enumeration"}}' > "$WORK/e-j.json"
+  ECOMMON=(--claims "$WORK/e-claims.json" --subdivisions "$WORK/e-subs.json" --judge-model claude-opus-5 --judge-effort high)
+  EJ --input testing "${ECOMMON[@]}" >/dev/null 2>&1 || true
+  EOUT=$(EJ --input G1-1 "${ECOMMON[@]}" --enter neighborhood_input --enter J3_neighborhood \
+    --neighborhood "$WORK/e-j.json" --report-dir "$WORK/e-records")
+  if ! python3 checks/lib/assert-empty-enumeration.py "$RDJ_EMPTY/terrain-neighborhood-candidates.json"; then
+    echo "FAIL: CANNOT-DETERMINE — the solo-batch selection did not produce an EMPTY enumeration, so the arm asserts nothing about the empty case; this is not a pass"
+    FAIL=1
+  elif grep -q "refuses .* judgment key" <<<"$EOUT"; then
+    echo "FAIL: J3_neighborhood refused against an EMPTY enumeration — \`report\` renders such a settled set honestly and \`run\` would reject it, which is two readings of one rule:"
+    sed 's|^|    |' <<<"$EOUT" | grep "refuses" | head -1
+    FAIL=1
+  else
+    echo "ok: an empty mechanical enumeration is not an error — J3 scopes its orphan refusal exactly as cmdReport scopes its own"
+  fi
+
 fi
 
 cat <<'EOF'
