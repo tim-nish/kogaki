@@ -58,7 +58,6 @@ Second body line for bravo under lessons/testing — a one-line row cannot carry
 
 *Seeded by:* G2
 
-
 3 candidate(s) found, 1 shown — all at the highest level present (`core`).
 
 - N1 — from the same Batch as the settled set (q_a/stub)

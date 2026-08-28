@@ -52,7 +52,8 @@
       "producer": "terrain/terrain.mjs NEIGHBOR_ID (:2828), minted over the sorted output at :2915",
       "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ (§14.6). §14.3 assigns a display_id ONCE, in the survey record; a suggestion is by construction NOT in that record, so nothing there assigns it one. The two spaces coexist and no owner surface renders both for one element. A taken suggestion is assigned an L<n> by §14.3's existing assignor on the way in, and its N<n> does not follow it.",
       "absence_is_abnormal": "There is no legacy case: the space is minted per pull over that pull's own output, so every suggestion in a rendered section carries one. A row in a SuggestionID position carrying anything else is a defect, not an abnormality to disclose — which is what distinguishes this token from LessonDisplayID, whose NO_DISPLAY_ID form exists for records that predate §14.3."
-    }
+    },
+    "NeighborhoodLevel": "core|useful|background"
   },
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (terrain/terrain.mjs:45-48) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
@@ -383,13 +384,13 @@
         },
         {
           "id": "neighborhood_suggestion_gloss",
-          "form": "  <Gloss | gloss unrecorded>",
-          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The row's SECOND line. The alternation sits INSIDE the placeholder because `classMatchers` masks placeholders before splitting on a top-level `|` — a bare `<Gloss> | gloss unrecorded` would be read as two whole forms, one of them literal. A suggestion sits outside the survey's candidates, so its served headline needs a shard read the report path does not make; the absence is DECLARED rather than filled with the slug, which would put an unquoted identifier under a field the grammar calls a Gloss."
+          "form": "  gloss unrecorded",
+          "note": "v8, kogaki#686. DECLARED AS THE LITERAL THAT SHIPS. The served arm was declared as `  <Gloss | gloss unrecorded>` and that placeholder names no token, so `placeholderFragment` returns FREE and the class compiled to `^  [\\\\s\\\\S]*?$` — admitting ANY two-space-indented line, the claim line included. A near-bare class is worse than no class: it covers everything and discriminates nothing, and it hid a stale claim form from the coverage case written to catch exactly that. The Gloss has no fetch (kogaki#689), so `gloss unrecorded` is the only line this field renders in production; the served arm is declared when that issue lands one, with a shape rather than a free placeholder."
         },
         {
           "id": "neighborhood_suggestion_claim",
-          "form": "  <claim> [<level>]",
-          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The row's THIRD line, carrying the LLM's free-form claim and its harness-fixed level."
+          "form": "  <claim> [<NeighborhoodLevel>]",
+          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The row's THIRD line, carrying the LLM's free-form claim and its harness-fixed level. The level is a DECLARED TOKEN rather than a free placeholder, so this class discriminates: a line matching it ends in one of the three harness-fixed labels in brackets, which a gloss line or a garbled body line does not."
         },
         {
           "id": "neighborhood_no_material",

@@ -2682,6 +2682,27 @@ function cmdReport(args) {
   // candidate with no judgment keeps none — `neighborhoodScreen` counts it as
   // unjudged and says so, rather than defaulting it to a level nobody assigned.
   const judgments = readNeighborhoodJudgments(args.neighborhood);
+  // A KEY MATCHING NO CANDIDATE IS REFUSED, NOT DROPPED. A typo, a stale file,
+  // or a slug from another Group would otherwise vanish — and where NO key
+  // matched, the screen took its all-unjudged arm and printed "the mechanical
+  // layer ran; the judgment layer did not", which is the one fact the reader is
+  // owed and the one fact that is false: the layer ran and joined nothing. The
+  // reader is careful about a level it cannot recognise and was silent about a
+  // slug it cannot place; both are the same class of unrecognised input.
+  // SCOPED TO A NON-EMPTY ENUMERATION. Where the mechanical layer returned no
+  // candidate at all, a judgment file has nothing to join and the section's
+  // empty-enumeration lines are already the honest report — refusing the whole
+  // pull there would turn a legitimate empty neighborhood into an error.
+  if (judgments.size && (neighborhood.suggestions || []).length) {
+    const have = new Set((neighborhood.suggestions || []).map((x) => x.slug));
+    const orphans = [...judgments.keys()].filter((k) => !have.has(k));
+    if (orphans.length) {
+      fail(`neighborhood judgment(s) name ${orphans.length} slug(s) no mechanical candidate carries: `
+        + `${orphans.join(", ")}. A judgment that joins nothing is silently dropped and the section `
+        + "then reports that the judgment layer did not run, which is false. Check the file is for "
+        + "this Group and this settled set.");
+    }
+  }
   for (const sug of neighborhood.suggestions || []) {
     const j = judgments.get(sug.slug);
     if (j) { sug.level = j.level; sug.claim = j.claim; }
@@ -2963,13 +2984,7 @@ function batchKey(sourceBatch) {
 // enumerator mints these pairs and the screen orders, labels and counts by
 // them; two definitions of "same group" is how a batch would render under one
 // heading and be counted under another.
-export function groupKeyOf({ substrate, instance }) {
-  return instance === null ? `substrate ${substrate}` : `instance ${substrate} ${instance}`;
-}
 
-export function groupLabelOf({ substrate, instance }) {
-  return instance === null ? substrate : `${substrate} ${instance}`;
-}
 
 // ORDER IS DECLARED AND MECHANICAL: instance-bearing groups first, by substrate
 // then by instance id, then the bare substrates by name. NEVER by size — a
@@ -2990,8 +3005,10 @@ export function compareGroups(a, b) {
 // suggestion with no substrate instance still renders, under an explicit
 // undisclosed heading, so it is ONE rendering and not zero: the alternative
 // reading made the family section and the headline disagree on the check's own
-// AC3/AC5 input, which is the two-definitions defect `groupKeyOf` warns about
-// one field over.
+// AC3/AC5 input, which was the two-definitions defect the grouping helpers
+// warned about one field over — those helpers went with the grouping headings
+// kogaki#686 deletes, and the reference is retired with them rather than left
+// pointing at a symbol the file no longer defines.
 export function renderingsOf(s) {
   return (s.reached_by || []).length || 1;
 }
@@ -3390,7 +3407,12 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
   const out = [];
   const say = (s = "") => out.push(s);
   say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
-  say();
+  // NO BLANK HERE. `neighborhoodSection` drops this function's first line and
+  // supplies its own blank after `*Seeded by:*`; a blank at index 1 survived
+  // that `slice(1)` and rendered two where the section had always rendered one.
+  // Harmless and admitted by the `blank` class — and a rendering change nobody
+  // ruled, which is the kind that lands unnoticed inside a specimen regenerated
+  // for other reasons.
 
   const found = suggestions.length;
   if (!found) {

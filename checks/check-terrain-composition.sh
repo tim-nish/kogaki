@@ -3701,13 +3701,15 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     if (counts.seeds !== 1) fails.push("§13/1.44 AC6: the seed count is not reported, so an empty result cannot be read as a result");
   }
 }
-console.log("provenance neighborhood (§13, story 1.44): the three substrates enumerate and each suggestion "
-  + "NAMES the substrate that reached it; the batch join holds through the batch key and is symmetric, so the "
-  + "12 legacy `q_a/N/answer.md` batches resolve where an equality join returns nothing; unresolved references "
-  + "are marked WITH THEIR VALUE and a resolvable-but-solitary Grain is NOT marked, which is what keeps the two "
-  + "apart; the declared bound is asserted in both directions (two hops reached, three refused) and shared "
-  + "carrier is proven OFF-as-a-value by turning it on; widening only ADDS, so a ranking implementation fails; "
-  + "and `N<n>` is disjoint from `L<n>` and stable across calls. Seam-free — every case injects its records.");
+console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerates — same Distill "
+  + "Batch, one hop — and each suggestion names it; the batch join holds through the batch key and is "
+  + "symmetric, so the 12 legacy `q_a/N/answer.md` batches resolve where an equality join returns "
+  + "nothing; batch-side resolution gaps are still MARKED with their value and a resolvable-but-"
+  + "solitary Grain is NOT marked, which is what keeps the two apart. The bound is asserted in the "
+  + "direction the ruling left: a reference-linked chain in OTHER batches surfaces nothing at any "
+  + "depth, and shared_carrier surfaces nothing EVEN WHEN ITS DEPTH IS SET — deleted rather than off, "
+  + "which is the inverse of what this block asserted before kogaki#686 and the reason the summary "
+  + "was rewritten with the cases rather than left describing them.");
 // ---------------------------------------------------------------------------
 // §13 THE NEIGHBORHOOD SECTION — kogaki#686 (owner ruling 2026-08-28).
 //
@@ -3748,30 +3750,50 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
   // bare-placeholder body class — which is what "falling through" looks like on
   // a surface whose allowlist cannot refuse.
   {
-    // THE BARE SET IS COMPUTED, NEVER LISTED. The first version of this case
-    // hand-wrote three ids from the grammar note's prose ("three
-    // bare-placeholder body classes"); there are FOUR that match, and one of the
-    // three named does not — so `real` was never empty and the case could not
-    // fail. It passed its own mutation. A class is bare exactly when it matches
-    // an arbitrary sentinel, which is a property of the grammar rather than a
-    // list somebody maintains.
+    // BARENESS IS COMPUTED PER LINE, AT THAT LINE'S OWN INDENTATION.
+    //
+    // Two earlier versions of this test were non-discriminating, and both are
+    // recorded because the second looked like the repair for the first. Version
+    // one hand-listed three class ids from a note's prose; four match, and one
+    // named does not. Version two computed the set — against a single
+    // UNINDENTED sentinel, which misses a class that is bare only BELOW an
+    // indent: `neighborhood_suggestion_gloss` declares `  <Gloss | gloss
+    // unrecorded>`, whose placeholder names no declared token, so
+    // `placeholderFragment` returns FREE and the class compiles to
+    // `^  [\s\S]*?$` — it admits ANY two-space-indented line, the claim line
+    // included. A stale claim class would have been caught by the gloss class
+    // and this case would have passed.
+    //
+    // So the sentinel wears the line's own leading whitespace. A class counts as
+    // REAL for a line only if it still refuses a sentinel indented exactly like
+    // it — which is what "this class actually describes this line" means.
     const SENTINEL = "zzq sentinel line no class should describe 4718";
-    const BARE = new Set(G.surfaces.full_report.line_classes
-      .filter((c) => classMatchers(c, G).some((rx) => rx.test(SENTINEL)))
-      .map((c) => c.id));
+    const bareFor = (line) => {
+      const indent = /^[ \t]*/.exec(line)[0];
+      const probe = indent + SENTINEL;
+      return new Set(G.surfaces.full_report.line_classes
+        .filter((c) => classMatchers(c, G).some((rx) => rx.test(probe)))
+        .map((c) => c.id));
+    };
     const states = {
       "judged rows": screen([S(1, "core"), S(2, "useful")]),
       "over the cap": screen(Array.from({ length: 11 }, (_, i) => S(i + 1, "core"))),
       "none judged": screen([{ nid: "N1", slug: "s1" }]),
       "empty enumeration": screen([]),
-      "a supplied gloss": screen([S(1, "core", { gloss: "a served headline." })]),
+      // NOT a state here: a SUPPLIED gloss. The fetch is unbuilt (kogaki#689),
+      // so that line never renders in production, and the grammar declares the
+      // literal that does rather than a free placeholder admitting anything at
+      // that indent. The screen's supplied-gloss behaviour is still asserted —
+      // by the unit case below, which reads the rendering rather than the
+      // grammar. When #689 lands a fetch it brings the class and this state.
     };
     for (const [what, lines] of Object.entries(states)) {
       for (const line of lines.slice(1)) {
         if (line === "") continue;
         const hits = G.surfaces.full_report.line_classes
           .filter((c) => classMatchers(c, G).some((rx) => rx.test(line)));
-        const real = hits.filter((c) => !BARE.has(c.id));
+        const bare = bareFor(line);
+        const real = hits.filter((c) => !bare.has(c.id));
         if (!real.length) {
           fails.push(`§13/686 grammar coverage: in the ${what} state the line ${JSON.stringify(line)} matches ${hits.length ? "only bare-placeholder body class(es) " + JSON.stringify(hits.map((c) => c.id)) : "NO declared class"} — a neighborhood line that falls through is exactly the defect this issue shipped three times, invisible to the suite because this surface's allowlist is inert`);
         }
