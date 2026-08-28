@@ -273,6 +273,102 @@ else
   echo "ok: a gate state with no bound option composer records its declaration owed-and-unwritten, refuses a capture by name, and still runs — which is what keeps acceptance item 6 true"
 fi
 
+# ---- Block 5: THE NEIGHBORHOOD JUDGMENT POINT, driven through the executor
+# (kogaki#690, owner ruling 2026-08-29).
+#
+# WHY IT IS HERE AND NOT IN THE COMPOSITION MEMBER. That member drives `report`
+# DIRECTLY with a fixture, which is exactly the reachability #690 was filed
+# about — a judged path reachable only by direct invocation is the state the
+# ruling ends. The property under test is that the EXECUTOR reaches it, so the
+# test has to be a run.
+#
+# THREE ARMS, and the middle one is the ruling's answer to "what is an
+# unjudged pull".
+#
+# THE RUN DIRS ARE NAMED `RDJ*`, NOT `RD5`. The gate-path block above already
+# holds `RD5`, and its EXIT trap removes `"$RD5"` — a second block reusing the
+# name makes the trap delete the wrong directory and leave the in-repo
+# `.gate-path-check-*` one standing forever, which turns check-gate-carrier.sh
+# red on a NEXT run over leftovers this member created. Found by running the
+# suite after this block landed, not by reading it.
+RDJ="$WORK/judgment"; mkdir -p "$RDJ"
+J() { STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
+      node terrain/terrain.mjs run --run-dir "$RDJ" "$@" 2>&1; }
+J >/dev/null 2>&1 || true
+JSURVEY=$(ls "$RDJ"/*.terrain-survey.json 2>/dev/null | head -1)
+if [[ -z "$JSURVEY" ]]; then
+  echo "FAIL: CANNOT-DETERMINE — the judgment-point block left no survey record, so nothing below could be driven; this is not a pass"
+  FAIL=1
+else
+  python3 checks/lib/compose-judgment-claims.py "$JSURVEY" "$WORK/j-claims.json"
+  printf '%s\n' '{"testing × (no second served tag)":{"judged":true,"subgroups":[]}}' > "$WORK/j-subs.json"
+  printf '%s\n' '{"foxtrot":{"level":"core","claim":"a journey-family neighbour reached through the same Batch"}}' > "$WORK/j-good.json"
+  printf '%s\n' '{"zzz-no-such-candidate":{"level":"core","claim":"orphan"}}' > "$WORK/j-orphan.json"
+  COMMON=(--claims "$WORK/j-claims.json" --subdivisions "$WORK/j-subs.json" --judge-model claude-opus-5 --judge-effort high)
+  J --input testing "${COMMON[@]}" >/dev/null 2>&1 || true
+
+  # ARM 1 — UNJUDGED. Both states are conditional, so a run naming neither
+  # SKIPS them and the record NAMES the skip. That is the ruling's answer to
+  # what an unjudged pull is: a legitimate terminal rather than a refusal — and
+  # no longer a silent absence, because a skipped conditional is recorded.
+  RDJ_UNJUDGED="$WORK/judgment-unjudged"; cp -r "$RDJ" "$RDJ_UNJUDGED"
+  STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
+    node terrain/terrain.mjs run --run-dir "$RDJ_UNJUDGED" --input G1 "${COMMON[@]}" >/dev/null 2>&1 || true
+  if ! python3 checks/lib/assert-judgment-skip.py "$RDJ_UNJUDGED/run-record.json"; then
+    echo "FAIL: an unjudged run did not SKIP the two judgment states and still complete full_report — the ruling makes an unjudged pull a legitimate terminal whose skip is NAMED, and a record that does not name it is the silent version the declaration removes"
+    FAIL=1
+  else
+    echo "ok: unjudged run — neighborhood_input and J3_neighborhood skipped and RECORDED as skipped, full_report still completed (the ruled terminal)"
+  fi
+
+  # ARM 2 — AN ORPHAN JUDGMENT KEY IS REFUSED BY NAME. The refusal needs the
+  # emitter's enumeration, which is why the emitter is its own state: a key
+  # naming no mechanical candidate is only detectable against it.
+  RDJ_ORPHAN="$WORK/judgment-orphan"; cp -r "$RDJ" "$RDJ_ORPHAN"
+  ORPH=$(STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
+    node terrain/terrain.mjs run --run-dir "$RDJ_ORPHAN" --input G1 "${COMMON[@]}" \
+    --enter neighborhood_input --enter J3_neighborhood --neighborhood "$WORK/j-orphan.json" 2>&1)
+  if ! grep -q "zzz-no-such-candidate" <<<"$ORPH"; then
+    echo "FAIL: J3_neighborhood did not refuse an orphan judgment key BY NAME — a judgment that joins nothing is silently dropped and the section then reports that the judgment layer did not run, which is false:"
+    sed 's|^|    |' <<<"$ORPH" | tail -3
+    FAIL=1
+  else
+    echo "ok: an orphan judgment key is refused by name, against the enumeration neighborhood_input wrote"
+  fi
+
+  # ARM 3 — A JUDGED RUN RENDERS ROWS THROUGH THE EXECUTOR. This is the whole
+  # of #690: before it, the judged path was reachable only by invoking `report`
+  # directly with a fixture.
+  #
+  # `--report-dir` IS FRESH, AND THAT IS NOT TEST HYGIENE — it is the finding
+  # this arm carries. §12.1's identity triple is (pin, query, judge) and does
+  # NOT include the judgment record, so a judged pull of a set already reported
+  # UNJUDGED replays the stored unjudged rendering through the idempotent-rerun
+  # branch. Without a fresh record dir this arm would pass or fail on which
+  # order the arms happened to run in, which is the assertion-that-cannot-fail
+  # shape. The defect itself is carried on its own issue, not repaired here:
+  # widening a ratified identity is not this sitting's to do.
+  RDJ_JUDGED="$WORK/judgment-judged"; cp -r "$RDJ" "$RDJ_JUDGED"
+  STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
+    node terrain/terrain.mjs run --run-dir "$RDJ_JUDGED" --input G1 "${COMMON[@]}" \
+    --enter neighborhood_input --enter J3_neighborhood --neighborhood "$WORK/j-good.json" \
+    --report-dir "$WORK/j-records" >/dev/null 2>&1 || true
+  JREND="$KOGAKI_REPORTS_DIR/FullReport.md"
+  if [[ ! -f "$JREND" ]]; then
+    echo "FAIL: CANNOT-DETERMINE — the judged run wrote no Full Report rendering, so no row could be read; this is not a pass"
+    FAIL=1
+  elif grep -q "the judgment layer did not" "$JREND"; then
+    echo "FAIL: a JUDGED run through the executor still rendered the all-unjudged line — the judgment point is declared and its record reaches nothing, which is the reader-with-no-writer state kogaki#690 exists to end:"
+    sed -n '/Provenance neighborhood/,+4p' "$JREND" | sed 's|^|    |'
+    FAIL=1
+  elif ! grep -q "\[core\]" "$JREND"; then
+    echo "FAIL: a judged run rendered no row carrying its level — the judgments validated at J3 and did not reach the rendering"
+    FAIL=1
+  else
+    echo "ok: a judged run through the EXECUTOR renders its row and level — the judged path is reachable by \`run\`, not only by invoking \`report\` with a fixture"
+  fi
+fi
+
 cat <<'EOF'
 reach of this check, stated rather than implied: it asserts the §15 control
 plane's COUNTS, its table-drivenness, and its GATE PATH. The evolvability fixture is seam-free

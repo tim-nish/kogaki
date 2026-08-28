@@ -142,6 +142,28 @@
       "note": "The owner SPEAKING. The ids are valid for the run that printed them; a pin advance may renumber, and the run record is what makes 'this run' nameable."
     },
     {
+      "id": "neighborhood_input",
+      "kind": "compute",
+      "does": "Enumerates the provenance-neighborhood's mechanical candidates for the entered set and writes them to the run workspace, so the judgment point below has something to judge.",
+      "writes": null,
+      "conditional": true,
+      "renders_gate_declaration": false,
+      "governing": "§13.2, §13.4",
+      "note": "Composes nothing and judges nothing — the shape `compose_input` already holds for J1_claims, applied a second time. It writes NO OWNER ARTIFACT, which is why it does not reopen kogaki#472's retirement of the owner-facing `neighborhood` subcommand: that retirement removed an owner surface, and this emits run-workspace material only. CONDITIONAL, with J3 below and for its sake: the enumeration needs batch records the survey record does not carry, so it makes a second `element_survey` read. An unconditional emitter would charge that read to every run including the ones that judge nothing. Entered together with J3, it is paid only by a run that is going to judge — bounded exactly as the report's own read is, one call and no fan-out."
+    },
+    {
+      "id": "J3_neighborhood",
+      "kind": "judgment",
+      "judgment_point": "provenance-neighborhood recommendation",
+      "input_shape": "typed record keyed by candidate slug, each carrying one free-form claim and one level from the harness-fixed set",
+      "refusal": "a level outside the closed set, a level with no claim, and a key no mechanical candidate carries are each refused, naming the offending slug",
+      "writes": null,
+      "conditional": true,
+      "renders_gate_declaration": false,
+      "governing": "§13.4",
+      "note": "CONDITIONAL, and that is the answer to what an unjudged pull is: a run supplying no `--neighborhood` record skips this state and `full_report` renders the all-unjudged line, which §13.4 already declares as its own state. An unjudged pull is a legitimate terminal rather than a refusal — refusing it would make the Report unobtainable without an LLM pass, which no ruling asked for. What the state removes is the SILENT version: with the point declared, an unjudged run is a skipped conditional the run record names, not an absent capability."
+    },
+    {
       "id": "full_report",
       "kind": "write",
       "does": "One Full Report over exactly the entered set, idempotent per §12.1's identity triple, carrying the provenance-neighborhood section.",
@@ -185,9 +207,9 @@
   ],
   "counted_baseline": {
     "waits": 5,
-    "conditional_states": 3,
+    "conditional_states": 5,
     "owner_artifact_writes": 4,
-    "judgment_points": 2,
+    "judgment_points": 3,
     "grammared_writing_states": 4
   },
   "non_flow_entry_points": {
