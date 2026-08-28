@@ -2693,7 +2693,15 @@ function cmdReport(args) {
     sug.relation = batch && batch.instance
       ? `from the same Batch as the settled set (${batch.instance})`
       : "from the same Batch as the settled set";
-    sug.gloss = sug.gloss || sug.slug;
+    // THE GLOSS IS OWED AND NOT YET FETCHABLE HERE, and it is DISCLOSED rather
+    // than substituted. A suggestion sits outside the survey's candidates, so
+    // its served headline needs a shard read this path does not make — and
+    // quietly rendering the slug in the Gloss field would put an unquoted
+    // identifier under a grammar declaring a served rendering, which is the
+    // paraphrase-for-a-quote shape the kit's verbatim rule refuses. Carried on
+    // kogaki#686 round 1; the fetch is a bounded-read decision the ruling does
+    // not make.
+    sug.gloss = sug.gloss || null;
   }
 
   const report = {
@@ -3372,7 +3380,12 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // one step earlier by the same record's rule that a surface which must not drop
 // its tail reports rather than truncates
 // (topics/archive/knowledge-architecture.md:67).
-export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts, unmapped = [] }) {
+// `counts` and `unmapped` are NO LONGER READ and are no longer accepted: the
+// denominator and the unmapped notice went with §13.4's obligations. Kept out of
+// the signature rather than destructured and ignored — a parameter a function
+// does not read is a claim on its caller it cannot honour. `unresolved` IS read,
+// for the batch-side markers above.
+export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) {
   const out = [];
   const say = (s = "") => out.push(s);
   say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
@@ -3422,6 +3435,18 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
 
   say(`${found} candidate(s) found, ${atTop.length} shown — all at the highest `
     + `level present (\`${top}\`).`);
+  // THE BATCH-SIDE RESOLUTION GAPS STILL RENDER, in one line rather than the
+  // deleted footnote. Disposition 4 deletes the unresolved section that
+  // reported the WALK's dangling links — and the enumerator still marks three
+  // gaps the walk never produced: a seed carrying no `source_batch`, a
+  // `source_batch` naming a batch nothing serves, and a batch member the served
+  // set does not carry. Those are §13.0's silent exclusion exactly, so they
+  // keep a surface; what they lose is the footnote's per-entry detail, which
+  // described a substrate that is gone.
+  if ((unresolved || []).length) {
+    say(`${unresolved.length} candidate(s) could not be resolved from the Batch join and are NAMED rather than dropped: `
+      + unresolved.map((u) => `${u.slug} (${u.why})`).join("; "));
+  }
   if (unjudged) say(`${unjudged} candidate(s) carry no level and are counted here, never shown.`);
   say();
 
@@ -4179,7 +4204,7 @@ switch (cmd) {
     fail("neighborhood is retired as a standalone act (SPEC-terrain §13.2 v20, kogaki#472): "
       + "the provenance-neighborhood section renders on every `report` pull, seeded by the "
       + "entered ID set, inside reports/FullReport.md. Pull the report — "
-      + "`report --survey <f> --tag <T> --ids <G…> --claims <f> --subdivisions <f> "
+      + "`report --survey <f> --tag <T> --ids <G…> --claims <f> --subdivisions <f> [--neighborhood <f>] "
       + "--judge-model <m> --judge-effort <e>` — and read the section there.");
     break;
   case "compose-input": cmdComposeInput(args); break;

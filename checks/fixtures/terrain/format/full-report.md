@@ -62,5 +62,5 @@ Second body line for bravo under lessons/testing — a one-line row cannot carry
 3 candidate(s) found, 1 shown — all at the highest level present (`core`).
 
 - N1 — from the same Batch as the settled set (q_a/stub)
-  charlie
+  gloss unrecorded
   prices a check by where in the loop it runs, which the GroupClaim's argument needs [core]

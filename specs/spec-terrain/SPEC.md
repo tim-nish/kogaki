@@ -183,10 +183,12 @@ file.
 
 ---
 
-**Status:** v16, amended 2026-08-12 (kogaki#300, owner selection) — **§13.3's
+**Status:** v16, amended 2026-08-12 (kogaki#300, owner selection); the SET
+amended again 2026-08-28 (kogaki#686, owner ruling) — **§13.3's
 `deferred-slot: the bound's unit` is DISCHARGED in both halves: the unit is
-traversal (substrates × depth) and its values are FIXED AND DECLARED —
-`source_batch` one hop, `cross_links` two, shared-carrier off.** These are the
+traversal (substrates × depth) and its values are FIXED AND DECLARED. Since
+2026-08-28 the set is ONE substrate — `source_batch`, one hop — with
+`cross_links` and the shared-carrier link deleted rather than zeroed.** These are the
 2026-08-09 fill's own numbers with their Thesis keying removed; v15 withdrew the
 key, and v16 keeps the values rather than inventing new ones, because the
 numbers were never the part that read a claim.
@@ -3957,16 +3959,20 @@ mentions nor guarantees that. **v20 does not move that boundary** — the
 neighborhood now renders *earlier* in the flow, at the report pull, and the
 owner's act of taking a suggestion is still the last thing Terrain does.
 
-### 13.3 The three substrates, and the join that does not hold by equality
+### 13.3 The substrate, and the join that does not hold by equality
 
-Three links, all served today, verified through the seam at this amendment's
-pin rather than quoted from the licensing issue:
+**ONE substrate since kogaki#686 (2026-08-28).** The table below records all
+three as they were verified through the seam at the v16 amendment's pin — kept
+because the verification is evidence about what the corpus serves, and deleting
+it would leave the surviving row's own verification unattributed. The two
+non-Batch rows are struck rather than removed: they are no longer walked, and a
+reader meeting them here must not read them as live.
 
 | substrate | link | verification |
 |---|---|---|
 | `source_batch` | same-sitting provenance | `gloss/ELEMENTS.jsonl:1,4,7-8,10,22-23,30,41,47-48,53-54,73,85,93,96,107,122-123,132,135,141,148` — present on every lesson record read |
-| `cross_links` | the `[[slug]]` graph | same records; e.g. five links at `gloss/ELEMENTS.jsonl:8`, and the empty list at `:4`, which is a value rather than an absence |
-| shared carrier issue | issue numbers in pins | consumer-side, read from the pins Terrain already holds |
+| ~~`cross_links`~~ (deleted 2026-08-28) | the `[[slug]]` graph | same records; e.g. five links at `gloss/ELEMENTS.jsonl:8`, and the empty list at `:4`, which is a value rather than an absence |
+| ~~shared carrier issue~~ (deleted 2026-08-28) | issue numbers in pins | consumer-side, read from the pins Terrain already holds |
 
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 gloss/ELEMENTS.jsonl:1,4,7-8,10,22-23,30,41,47-48,53-54,73,85,93,96,107,122-123,132,135,141,148`
 
@@ -4075,8 +4081,20 @@ declared here, identical on every run:
 | substrate | depth |
 |---|---|
 | `source_batch` (same-sitting batch-mates) | one hop |
-| `cross_links` (`[[slug]]`) | two hops |
-| shared carrier issue | off |
+
+**AMENDED BY THE OWNER RULING OF 2026-08-28 (kogaki#686): the table is now ONE
+ROW.** `cross_links` at two hops and the shared-carrier substrate are DELETED,
+not set to zero — the ruling's own doctrine removes a record kept beside its
+exception, and a `shared_carrier: 0` entry was exactly that. The removal is on
+MEASUREMENT: on the 2026-08-28 pull the reference-link walk contributed zero
+rows, all fifteen candidates arriving through Batch membership, and deleting it
+bounds a worst case a depth-2 walk over a cyclic link graph does not.
+
+**The clause below is unchanged in force and narrower in scope.** The values are
+still fixed and declared here rather than picked, and an implementation deriving
+them from the settled set's content still reintroduces the input v15 withdrew.
+What moved is the set they range over, and it moved by amendment — which is what
+this clause requires of a correction.
 
 **These are the 2026-08-09 fill's own numbers with their key removed.** That
 fill set them *per Thesis*; v15 withdrew the Thesis, and v16 keeps the values
@@ -4220,8 +4238,12 @@ layer not having run is a different fact from a `background` verdict, and a
 section that showed them alike would report the second where the first is true.
 
 **ABOVE THE CAP AT THE HIGHEST LEVEL THE SECTION RENDERS NOTHING AND STATES THE
-COUNTS** (owner selection 2026-08-28, the arm kogaki#686 item 5 reserved for
-pickup). Showing ten of eleven equally-recommended candidates needs a tie-break
+COUNTS.** kogaki#686 item 5 reserved this arm — *"Open arm, owner-reserved,
+decided at pickup"* — and **this is that pickup**: the arm was selected at the
+implementing sitting's gate on 2026-08-28, grounded on the served lines below,
+**not** by the ruling that reserved it. The distinction is recorded because the
+issue's own text says the tie-break is still open, and a clause citing the same
+date as an owner selection of the opposite would be read against later. Showing ten of eleven equally-recommended candidates needs a tie-break
 among equals, and a machine deciding which relation the owner may see is the act
 the served record names as failing the second-proposer test:
 
