@@ -677,6 +677,19 @@ export function resolveHeadlines(members) {
   return out;
 }
 
+// WHICH MARKER A ROW WITH NO RENDERABLE QUOTATION CARRIES (PR #694 round 1).
+// A row reaches here either because nothing was fetched for it or because what
+// was fetched carries no cite. The second is a served rendering the row CANNOT
+// ADDRESS, and a quotation without its address is the shape the verbatim rule
+// refuses — so it renders `NO_HEADLINE`, the read-and-carried-nothing marker,
+// which is true of it: a shard answered and what it returned is unusable here.
+// The never-carried marker stays reserved for rows no shard reached at all.
+function glossMarkerFor(x) {
+  if (x.gloss === NO_SHARD_ADDRESSED) return NO_SHARD_ADDRESSED;
+  if (x.gloss) return NO_HEADLINE;
+  return x.gloss || NO_SHARD_ADDRESSED;
+}
+
 // WHICH OF THE THREE GLOSS STATES A ROW IS IN (kogaki#689, PR #693 round 1).
 //
 // EXPORTED AND PURE BECAUSE THE INLINE FORM WAS UNASSERTABLE. This decision sat
@@ -3572,8 +3585,14 @@ export function neighborhoodDisplaySet(suggestions) {
   const found = list.length;
   const judged = list.filter((x) => NEIGHBORHOOD_LEVELS.includes(x.level));
   const unjudged = found - judged.length;
-  if (!found) return { state: "empty", found, unjudged, top: null, atTop: [] };
-  if (!judged.length) return { state: "none-judged", found, unjudged, top: null, atTop: [] };
+  // EVERY ARM CARRIES `shown` (PR #694 round 1). Two of the four omitted it, so
+  // a reader doing `.shown.length` threw on exactly the arms this helper exists
+  // to make safe — the one caller was written around it with `.shown || []`,
+  // which is the second reader compensating for the shape rather than the shape
+  // being right. A helper extracted so two computations cannot drift must not
+  // hand its arms different shapes.
+  if (!found) return { state: "empty", found, unjudged, top: null, atTop: [], shown: [] };
+  if (!judged.length) return { state: "none-judged", found, unjudged, top: null, atTop: [], shown: [] };
   const top = NEIGHBORHOOD_LEVELS.find((l) => judged.some((x) => x.level === l));
   const atTop = judged.filter((x) => x.level === top);
   if (atTop.length > NEIGHBORHOOD_DISPLAY_CAP) {
@@ -3662,8 +3681,18 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
   // state wherever it arises, and it is a fault to clear rather than prose.
   for (const x of atTop) {
     say(`- ${x.nid} — ${x.relation || "relation unrecorded"}`);
+    // A HEADLINE WITH NO CITE FALLS TO THE MARKER, NEVER TO BARE PROSE (PR #694
+    // round 1). The ternary's second arm used to print `x.gloss` when it was
+    // truthy, so a served headline arriving with a null cite rendered UNQUOTED
+    // and unaddressed — the paraphrase-standing-for-a-quote shape this section's
+    // own rule refuses, and the shape the slug substitution was refused under at
+    // #686 round 1. It is reachable from served data rather than hypothetical:
+    // `parseGlossShard` sets `cite: line.cite` with no guard, so a shard line
+    // returned without a cite yields exactly that entry. No grammar class is
+    // shaped for the resulting line either, so the outcome was an emit-time
+    // refusal of the whole report or an unclassed line.
     say(x.gloss && x.gloss_cite ? `  “${x.gloss}”  ${x.gloss_cite}`
-                                : `  ${x.gloss || NO_SHARD_ADDRESSED}`);
+                                : `  ${glossMarkerFor(x)}`);
     say(`  ${x.claim || "claim unrecorded"} [${x.level}]`);
   }
   return out;

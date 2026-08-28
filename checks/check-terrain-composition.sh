@@ -3340,7 +3340,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote, NO_HEADLINE, NO_SHARD_ADDRESSED, compareDisplayIds, glossFor } from "./terrain/terrain.mjs";
+import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote, NO_HEADLINE, NO_SHARD_ADDRESSED, compareDisplayIds, glossFor, neighborhoodDisplaySet } from "./terrain/terrain.mjs";
 import { loadGrammar, classMatchers } from "./terrain/format-guard.mjs";
 const G = loadGrammar("specs/spec-terrain/report-format.json");
 
@@ -3995,11 +3995,24 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     if (withGloss.includes("⟨no served Gloss")) {
       fails.push("§13/686/689: the disclosure arm swallowed the value arm");
     }
-    // A HEADLINE WITH NO CITE IS NOT QUOTED. Rendering it bare would assert a
-    // provenance the row cannot supply, so the marker stands instead.
+    // A HEADLINE WITH NO CITE FALLS TO A MARKER. Rendering it bare would assert
+    // a provenance the row cannot supply.
+    //
+    // ASSERTED AS THE MARKER'S PRESENCE, NEVER AS THE QUOTATION'S ABSENCE (PR
+    // #694 round 1). The first form of this case tested only
+    // `!includes("“a served headline.”")` — which PASSES on the bare unquoted
+    // rendering the comment above says cannot happen, and that rendering was
+    // exactly what shipped. A confirming assertion that its own comment
+    // contradicts is worse than none: it reads as covering the state.
     const citeless = screen([S(1, "core", { gloss: "a served headline." })]).join("\n");
     if (citeless.includes("“a served headline.”")) {
       fails.push("§13/686/689: a headline with NO cite rendered as a quotation — the quote form asserts an address the row does not have");
+    }
+    if (citeless.includes("  a served headline.")) {
+      fails.push("§13/689: a headline with NO cite rendered as BARE PROSE — a served rendering carried without its address is the paraphrase-standing-for-a-quote shape this section's own rule refuses, and it is reachable from served data: parseGlossShard sets `cite` with no guard");
+    }
+    if (!citeless.includes("⟨no served Gloss rendering")) {
+      fails.push("§13/689: a headline with NO cite carried no marker at all — the row renders the read-and-carried-nothing marker, which is true of it: a shard answered and what it returned is unusable here");
     }
     const noGloss = screen([S(1, "core", { gloss: NO_HEADLINE })]).join("\n");
     if (!noGloss.includes("⟨no served Gloss rendering — ABNORMAL")) {
@@ -4016,6 +4029,22 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     }
     if (unaddressed.includes("⟨no served Gloss rendering")) {
       fails.push("§13/689: the never-addressed row also carried the read-and-empty marker — one row, one state");
+    }
+  }
+
+  // EVERY ARM OF THE DISPLAY SELECTION CARRIES `shown` (PR #694 round 1). The
+  // one caller compensated with `.shown || []`, which is the second reader
+  // working around a shape rather than the shape being right.
+  {
+    const arms = [[[], "empty"], [[{ nid: "N1", slug: "s1" }], "none-judged"],
+                  [[S(1, "core")], "shown"],
+                  [Array.from({ length: 11 }, (_, i) => S(i + 1, "core")), "over-cap"]];
+    for (const [input, want] of arms) {
+      const r = neighborhoodDisplaySet(input);
+      if (r.state !== want) fails.push(`§13/689: display selection returned state ${JSON.stringify(r.state)} for the ${want} arm`);
+      if (!Array.isArray(r.shown)) {
+        fails.push(`§13/689: the ${want} arm returns no \`shown\` array — a reader doing .shown.length throws on exactly the arms this helper exists to make safe`);
+      }
     }
   }
 
