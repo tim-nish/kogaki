@@ -3922,9 +3922,21 @@ invariant: Gukan guarantees Unit schema, never data schema).
   **`tactic:` is owed by a RE-FRAMING, which is framings 2..N and not framing
   one.** Framing one is not a revision of anything, so it has no tactic to
   name. Where the outcome is `covered-after-reframing` or
-  `uncovered-after-N-framings`, every framing after the first owes one:
-  without that, the discount above is escapable by omitting the field, and a
-  refusal a caller can skip by writing less is not a refusal.
+  `uncovered-after-N-framings`, every framing after the first owes one.
+
+  **THAT OBLIGATION IS STATED AND NOT ENFORCED, and the gap is recorded rather
+  than papered over.** The discount fires only on a receipt that carries tactics
+  at all — the same conjunction the facet rule uses, and for the same reason: a
+  receipt carrying no `tactic:` must stay valid, because that is the
+  continuation-optional rule the whole grammar rests on and every receipt in git
+  history is one. So **a caller who omits the key entirely escapes both the
+  obligation and the discount.** An earlier form of this clause asserted the
+  opposite — that requiring the key on the re-framings is what makes the discount
+  unskippable — and the guard written for it in `consult.mjs` could never fire,
+  because the positional and per-item checks had already refused every input that
+  would have reached it. Closing the escape for real means requiring `tactic:` on
+  every non-discriminating receipt, which breaks compat outright; that is a change
+  to the grammar and the hub's to make, and it is not taken here.
 
   **WHERE THESE REFUSALS ARE COMPUTED, AND WHICH CARRIER IS AUTHORITATIVE**
   (owner selection 2026-08-28, A1). Both are derived on demand from the
