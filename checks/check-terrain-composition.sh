@@ -3195,6 +3195,8 @@ import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "n
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote } from "./terrain/terrain.mjs";
+import { loadGrammar, classMatchers } from "./terrain/format-guard.mjs";
+const G = loadGrammar("specs/spec-terrain/report-format.json");
 
 const fails = [];
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -3728,8 +3730,54 @@ console.log("provenance neighborhood (§13, story 1.44): the three substrates en
     relation: "from the same Batch as the settled set (q_a/x)",
     gloss: null, claim: `claim ${n}`, ...extra,
   });
-  const screen = (suggestions) =>
-    neighborhoodScreen({ tag: "T", gids: ["G1"], suggestions, unresolved: [], counts: {} });
+  const screen = (suggestions) => neighborhoodScreen({ tag: "T", gids: ["G1"], suggestions });
+
+  // EVERY RENDERED LINE IS CLASSIFIED, AND THIS IS THE CASE THE ISSUE EARNED.
+  //
+  // The unmatched-form defect shipped THREE times in kogaki#686: a form carrying
+  // a literal \n; the `lines:` array chosen to repair it, whose members are
+  // escaped whole so placeholders match nothing; and `neighborhood_empty`, whose
+  // literals went stale when the emitter's text was rewritten. Each was found by
+  // a reviewer reading the grammar beside the renderer, and none by the suite —
+  // because `full_report`'s allowlist is INERT (three bare-placeholder body
+  // classes admit any line), so a class matching nothing is invisible to a green
+  // run, and a sitting's manual `classMatchers` check is not coverage.
+  //
+  // This case is the difference. It renders each neighborhood state, classifies
+  // every line against the grammar, and fails on any line that matches only a
+  // bare-placeholder body class — which is what "falling through" looks like on
+  // a surface whose allowlist cannot refuse.
+  {
+    // THE BARE SET IS COMPUTED, NEVER LISTED. The first version of this case
+    // hand-wrote three ids from the grammar note's prose ("three
+    // bare-placeholder body classes"); there are FOUR that match, and one of the
+    // three named does not — so `real` was never empty and the case could not
+    // fail. It passed its own mutation. A class is bare exactly when it matches
+    // an arbitrary sentinel, which is a property of the grammar rather than a
+    // list somebody maintains.
+    const SENTINEL = "zzq sentinel line no class should describe 4718";
+    const BARE = new Set(G.surfaces.full_report.line_classes
+      .filter((c) => classMatchers(c, G).some((rx) => rx.test(SENTINEL)))
+      .map((c) => c.id));
+    const states = {
+      "judged rows": screen([S(1, "core"), S(2, "useful")]),
+      "over the cap": screen(Array.from({ length: 11 }, (_, i) => S(i + 1, "core"))),
+      "none judged": screen([{ nid: "N1", slug: "s1" }]),
+      "empty enumeration": screen([]),
+      "a supplied gloss": screen([S(1, "core", { gloss: "a served headline." })]),
+    };
+    for (const [what, lines] of Object.entries(states)) {
+      for (const line of lines.slice(1)) {
+        if (line === "") continue;
+        const hits = G.surfaces.full_report.line_classes
+          .filter((c) => classMatchers(c, G).some((rx) => rx.test(line)));
+        const real = hits.filter((c) => !BARE.has(c.id));
+        if (!real.length) {
+          fails.push(`§13/686 grammar coverage: in the ${what} state the line ${JSON.stringify(line)} matches ${hits.length ? "only bare-placeholder body class(es) " + JSON.stringify(hits.map((c) => c.id)) : "NO declared class"} — a neighborhood line that falls through is exactly the defect this issue shipped three times, invisible to the suite because this surface's allowlist is inert`);
+        }
+      }
+    }
+  }
 
   // THE HIGHEST LEVEL PRESENT, never a mix.
   {

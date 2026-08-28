@@ -368,10 +368,10 @@
           "id": "neighborhood_empty",
           "form": "a two-line notice",
           "lines": [
-            "No suggestion. The enumeration itself came back empty at the declared bound — which is a result about this settled set's provenance, not a failure.",
-            "Not asserted: that an empty neighborhood is informative in the STRONG sense. That claim rested on a Thesis and was withdrawn with it (§13.2, v15)."
+            "No suggestion. The enumeration ran over the settled set's Batches and returned nothing — a result about this settled set, not a failure.",
+            "Not asserted: that an empty neighborhood is informative in the STRONG sense. Absence here is absence of a same-Batch sibling, never evidence that the settled set stands alone."
           ],
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3339-3340. Declared as the TWO lines the emitter pushes, for the reason `preamble` and `judged_empty_notice` both had to be re-declared: a form joined into one line matches no rendered line, and under REFUSE that rejects every empty-neighborhood report — which is exactly the report §13.2 keeps distinguishable from a section that was never computed."
+          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3339-3340. Declared as the TWO lines the emitter pushes, for the reason `preamble` and `judged_empty_notice` both had to be re-declared: a form joined into one line matches no rendered line, and under REFUSE that rejects every empty-neighborhood report — which is exactly the report §13.2 keeps distinguishable from a section that was never computed. REWRITTEN AT kogaki#686: the emitter's two lines changed with the narrowing and this array kept the pre-#686 literals, so the class matched nothing and the rendered pair matched no class — the third occurrence of the unmatched-form defect in one issue, and the second inside its own diff. `lines:` members are escaped WHOLE, which is correct for this class (both lines are fully literal) and is exactly why a stale literal here is invisible: there is no placeholder whose absence would show. The coverage case that now classifies every rendered neighborhood line is what makes a fourth occurrence fail rather than ship."
         },
         {
           "id": "neighborhood_suggestion_row",

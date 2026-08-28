@@ -3380,12 +3380,13 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // one step earlier by the same record's rule that a surface which must not drop
 // its tail reports rather than truncates
 // (topics/archive/knowledge-architecture.md:67).
-// `counts` and `unmapped` are NO LONGER READ and are no longer accepted: the
-// denominator and the unmapped notice went with §13.4's obligations. Kept out of
-// the signature rather than destructured and ignored — a parameter a function
-// does not read is a claim on its caller it cannot honour. `unresolved` IS read,
-// for the batch-side markers above.
-export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) {
+// `counts`, `unmapped` and `unresolved` are NO LONGER READ and are no longer
+// accepted: the denominator, the unmapped notice and the unresolved footnote all
+// went with §13.4's obligations. Kept out of the signature rather than
+// destructured and ignored — a parameter a function does not read is a claim on
+// its caller it cannot honour, and an earlier revision of this comment claimed
+// `unresolved` was read after the line reading it had been removed.
+export function neighborhoodScreen({ tag, gids, suggestions }) {
   const out = [];
   const say = (s = "") => out.push(s);
   say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
@@ -3495,7 +3496,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
   return [...head,
     // Drop only the screen's heading line; the tag it carried already heads
     // the report's own title, and the set rides `*Seeded by:*` above.
-    ...neighborhoodScreen({ tag: "", gids, suggestions, unresolved, counts, unmapped }).slice(1),
+    ...neighborhoodScreen({ tag: "", gids, suggestions }).slice(1),
   ];
 }
 
@@ -4439,10 +4440,14 @@ switch (cmd) {
                                             --subdivisions are maps keyed by group name; a
                                             group missing a claim is MARKED, never substituted.
   report --survey F --tag T (--group G | --all-groups) [--claims F]
-         [--subdivisions F] [--judge-model M --judge-effort E] [--report-dir D]
+         [--subdivisions F] [--neighborhood F] [--judge-model M --judge-effort E]
+         [--report-dir D]
                                             the Full Report (§12) — untruncated Claims and
                                             Glosses, identified by the TRIPLE (substrate pin,
                                             co-tag query, judge pin). TWO ARTIFACTS (§12.2 v11):
+                                            --neighborhood carries the judgment layer: one
+                                            level (core|useful|background) and one claim per
+                                            candidate, keyed by slug (§13.4, kogaki#686).
                                             the machine RECORD in the run workspace, and the
                                             owner RENDERING — exactly ONE file,
                                             reports/FullReport.md, overwritten per pull
