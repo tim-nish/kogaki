@@ -151,19 +151,49 @@ CONT = re.compile(r'^[ \t]+(request_id|outcome|disposition|query|axis|facet|hit|
 # per-axis grounding obligation is the property the issue exists to install,
 # and a receipt-level key cannot express WHICH query grounded WHICH axis.
 #
-# THE VALUE SET IS NOT OURS AND IS NOT MINTED HERE. `subject | conduct` is the
-# hub's to ratify under the boundary-field rule — "a consumer owns the SHAPE of
-# its own record and NEVER the VALUES of a field that exists to join across the
-# boundary" (product-lab@4cc496b topics/knowledge-architecture.md:50). So this
-# check validates SHAPE ONLY: position, and a non-empty token. Any non-empty
-# value passes and unknown values are REPORTED, never denied (owner selection
-# 2026-08-11). There is deliberately no AXES set beside DISPOSITIONS below —
-# writing one would mint the boundary values this repository does not own,
-# which is the exact defect that pin names.
+# THE VALUE SET IS NOT OURS AND IS STILL NOT MINTED HERE — it is now COPIED,
+# which is a different act. `subject | conduct` was the hub's to ratify under
+# the boundary-field rule — "a consumer owns the SHAPE of its own record and
+# NEVER the VALUES of a field that exists to join across the boundary"
+# (product-lab@4cc496b topics/knowledge-architecture.md:50) — and the hub
+# RATIFIED it on 2026-08-13, which is the reopen trigger this comment used to
+# name as pending:
 #
-# The cost is stated rather than discovered: until the hub serves a value set,
-# a typo'd axis is indistinguishable from a real one. That window is the price
-# of not minting, and the reopen trigger is the hub ratifying the set.
+#   "The consultation seam's question-axis value set is RATIFIED as
+#    `subject | conduct`, closed, carried by the seam's two existing instruments
+#    and never by a third mechanism."
+#   product-lab@b20d85ea topics/knowledge-architecture.md:150
+#
+# and assigned the enforcement to this side by name:
+#
+#   "Enforcement (moving `check-consult-receipts.sh` from shape-only to
+#    value-checking) is the consumer's act."
+#   product-lab@b20d85ea topics/knowledge-architecture.md:103
+#
+# So an out-of-set token is now MALFORMED, not reported (kogaki#673, owner
+# selection 2026-08-28). Copying a ratified closed set is not minting: nothing
+# here decides what the values are, and a third value is the hub's act under
+# the growth rule that shipped with the ratification — a specimen of a rule that
+# provably existed, was served at the pin, and was missed on an axis neither
+# value covers. Catches never justify expansion.
+#
+# WHAT IS CHECKED IS THE TOKEN, NEVER THE CONTENT. The same ratification says
+# the key is "presence-checked per axis with content never judged … a check
+# judging whether a query is 'really' conduct-shaped would be judgment wearing a
+# check's clothes" (:150). Validating a token against a closed set is mechanical;
+# reading the query to decide whether its label fits is the judgment that line
+# forbids, and nothing below does it.
+#
+# WHAT THE SHAPE-ONLY WINDOW ACTUALLY PRODUCED, recorded because it is evidence
+# and not a hypothetical: of 26 `axis:` values in merged commit-message receipts,
+# 13 are out of set — and they are not typos. They are a DIFFERENT VOCABULARY,
+# naming the consultation-map entry ("record disposition — …", "check/CI
+# infrastructure — …") rather than the question axis, which is a field whose
+# purpose was mis-taught rather than mis-typed. All 13 predate or fall on the
+# ratification date; every axis written from 2026-08-14 onward is in set. The
+# practice converged the day after the hub served the set, which is why this
+# deny costs nothing measurable going forward — and the scan window below never
+# reaches those 13 in any case.
 AXIS_KEY = 'axis'
 # THE THREE PER-QUERY KEYS (kogaki#640 facets, kogaki#669 tactics). They bind
 # upward exactly as `axis:` does — first declaration wins, one before any query
@@ -182,6 +212,7 @@ AXIS_KEY = 'axis'
 PERQUERY_KEYS = ('axis', 'facet', 'hit', 'tactic')
 # COPIED from the hub, never minted here, under the boundary-field rule
 # specs/SPEC.md §4 quotes: a field read by both sides is the boundary's.
+RATIFIED_AXES = {'subject', 'conduct'}
 RATIFIED_FACETS = {'act', 'artifact', 'decision'}
 RATIFIED_TACTICS = {'SUPER', 'SUB', 'RELATE', 'NEIGHBOR', 'TRACE', 'VARY'}
 # `VARY` is the SOLE intersection of the adopted six and the lexical class §5.2
@@ -409,6 +440,24 @@ def scan(source):
         # branch by construction. The bound needs no clock and gets none.
         facets = [f for f in fields.get('facets', []) if f]
         tactics = [t for t in fields.get('tactics', []) if t]
+        # AXIS, value-checked beside its two siblings (kogaki#673). Until this
+        # landed `axis:` was the only member of the four-key family still
+        # shape-only, which made the asymmetry the family's own binding branch
+        # had already removed one level down: one parse for four keys, three
+        # vocabularies enforced and one not.
+        axes_seen = [a for a in fields.get('axes', []) if a]
+        bad_axis = [a for a in axes_seen if a not in RATIFIED_AXES]
+        if bad_axis:
+            malformed.append(
+                (pin, f'axis {bad_axis[0]!r} is not the ratified question-axis '
+                      'set (subject | conduct). The set is COPIED from the hub, '
+                      'never minted here, and a third value is the hub\'s act '
+                      'under its growth rule. Note this is NOT the `facet:` set '
+                      '(act | artifact | decision), and it does NOT name a '
+                      'consultation-map entry: the axis records what KIND OF '
+                      'THING the consultation is about, not which map row '
+                      'triggered it'))
+            continue
         bad_facet = [f for f in facets if f not in RATIFIED_FACETS]
         if bad_facet:
             malformed.append(
@@ -819,6 +868,26 @@ FIXTURES = [
      "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
      "  outcome: discriminating\n  query: q1\n    facet: act\n",
      1, 1, 1, ('discriminating',)),
+    ("an out-of-set axis is malformed (kogaki#673)",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: discriminating\n  query: q1\n    axis: zzz\n",
+     1, 1, 1, ('discriminating',)),
+    ("the free-text vocabulary the shape-only window produced is malformed",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: discriminating\n  query: q1\n"
+     "    axis: record disposition — adopting an issue thread as the live word\n",
+     1, 1, 1, ('discriminating',)),
+    ("a facet token in the axis slot is malformed — two value sets, two jobs",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: discriminating\n  query: q1\n    axis: act\n",
+     1, 1, 1, ('discriminating',)),
+    ("both ratified axes pass",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: covered-after-reframing\n"
+     "  query: q1\n    axis: subject\n  query: q2\n    axis: conduct\n",
+     1, 0, 2, ('covered-after-reframing',)),
+    ("an axis-less receipt is untouched — the key stays OPTIONAL",
+     V2_FULL, 1, 0, 1, ('discriminating',)),
     ("an out-of-set facet is malformed",
      "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
      "  outcome: discriminating\n  query: q1\n    facet: person\n    hit: x\n",
@@ -992,14 +1061,34 @@ for _label, _src, _want_axes, _want_orphan, _want_dup in _axcases:
     if (_axes_got, _orph, _dp) != (_want_axes, _want_orphan, _want_dup):
         _axfail.append(f"{_label}: got ({_axes_got}, orphan={_orph}, dup={_dp}), "
                        f"want ({_want_axes}, orphan={_want_orphan}, dup={_want_dup})")
-# The key must not gate. Asserted rather than assumed: the whole owner
-# selection is "shape only, any non-empty token passes", and a check that
-# quietly started denying unknown axes would mint the boundary values this
-# repository does not own — visible only here.
+# THE KEY NOW GATES, AND THE ASSERTION IS INVERTED RATHER THAN DELETED
+# (kogaki#673). The clause it replaces asserted the opposite — "shape only, any
+# non-empty token passes" — and it was correct for as long as the hub had not
+# served the set. It has (2026-08-13), and the same ratification assigned this
+# enforcement to this side by name, so the old assertion now encodes a contract
+# that no longer exists. Inverted rather than removed: a deleted assertion
+# leaves no record that the behaviour was chosen, and this is the one place a
+# reader can see that the shape-only window was closed deliberately.
 _g_unknown, _bad_unknown = scan(_AXBASE + "  query: q1\n  axis: zzz-not-ratified\n")
-if _bad_unknown:
-    _axfail.append("an unknown axis was reported MALFORMED — the value set is "
-                   "the hub's and this check owns shape only (kogaki#336)")
+if not _bad_unknown:
+    _axfail.append("an out-of-set axis was NOT reported malformed — the set is "
+                   "ratified (subject | conduct) and enforcing it is this "
+                   "check's act (kogaki#673)")
+# BOTH ratified values pass, asserted separately: a check that denied everything
+# would satisfy the clause above while being useless, and only naming each value
+# distinguishes "the set is enforced" from "the key is refused".
+for _ok in ("subject", "conduct"):
+    _g_ok, _bad_ok = scan(_AXBASE + f"  query: q1\n  axis: {_ok}\n")
+    if _bad_ok:
+        _axfail.append(f"the ratified axis {_ok!r} was reported malformed")
+# THE PARSE IS UNCHANGED. Binding is shape-level and stays so: an out-of-set
+# token still BINDS to its query exactly as a ratified one does, and is refused
+# afterwards by the value clause. Keeping the two apart is what lets the refusal
+# name the token it saw rather than silently dropping it.
+_g_bind, _ = scan(_AXBASE + "  query: q1\n  axis: zzz-not-ratified\n")
+if _g_bind and _g_bind[0][1].get('axes') != ['zzz-not-ratified']:
+    _axfail.append("an out-of-set axis failed to BIND — value-checking must not "
+                   "change the parse, or the refusal cannot name what it saw")
 if _axfail:
     print("FAIL axis fixture — the per-query binding does not discriminate:")
     for f in _axfail:
@@ -1008,10 +1097,11 @@ if _axfail:
 print(f"per-query binding pass: {len(_axcases)}/{len(_axcases)} cases over the "
       "four-key family (bound / two in order / a gap keeps its slot / absent "
       "invents nothing / orphaned before any query / first-declaration-wins / "
-      "an unknown token binds like a known one / empty is absent / a facet "
-      "binds and orphans exactly as an axis does), plus the never-gates "
-      "assertion. The denominator is COUNTED from the case list, never "
-      "asserted: it stood at a hardcoded 8 against a list of 10.")
+      "an out-of-set token binds like a ratified one / empty is absent / a "
+      "facet binds and orphans exactly as an axis does), plus the VALUE "
+      "assertions: an out-of-set axis is malformed, both ratified values pass, "
+      "and the parse is unchanged so the refusal can name what it saw. The "
+      "denominator is COUNTED from the case list, never asserted.")
 
 # ---------------------------------------------------------------------------
 # The real scan.
