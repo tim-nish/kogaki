@@ -4331,6 +4331,42 @@ literal is **deleted with the condition it disclosed**: it said *this path makes
 no fetch*, which is no longer true, and two vocabularies for one state is how a
 reader stops being able to tell them apart.
 
+**THE JUDGMENT LAYER HAS A PRODUCING OCCASION IN THE TABLE (kogaki#690, owner
+ruling 2026-08-29).** #686 disposition 2 ruled the layer and built its reader;
+nothing composed its input, so the judged path was reachable only by invoking
+`report` directly with a fixture — a reader with no writer. §15's table now
+carries two states before `full_report`, mirroring `compose_input → J1_claims`:
+a **compute** state that emits the mechanical candidates, and **`J3_neighborhood`**,
+which takes the typed record. The emitter writes no owner artifact, so kogaki#472's
+retirement of the owner-facing `neighborhood` subcommand is untouched — that
+retirement removed an owner surface, and this emits run-workspace material.
+
+**BOTH ARE CONDITIONAL, AND THAT IS THE ANSWER TO WHAT AN UNJUDGED PULL IS.** A
+run naming neither renders the all-unjudged line, which is a **legitimate
+terminal**: refusing it would make the Report unobtainable without an LLM pass,
+which no ruling asked for. What the declaration removes is the *silent* version —
+an unjudged run is now a skipped conditional the run record **names**, rather
+than a capability nothing in the table mentions.
+
+**J3's third refusal is why the emitter is a state rather than a step.** A
+judgment key naming no mechanical candidate is detectable only against the
+enumeration, and the enumeration is what the compute state wrote. The other two
+refusals — a level outside the closed set, and a level with no claim — are the
+existing ones: §15.6 makes the executor validate and never compose, and
+re-implementing a refusal that already ships is how two readings of one rule
+appear.
+
+**A JUDGED RERUN OF AN ALREADY-REPORTED IDENTITY REPLAYS THE STORED RENDERING,
+and that is DISCLOSED rather than repaired here (kogaki#690, found by driving
+the executor).** §12.1's identity triple is `(pin, query, judge)` and does not
+include the judgment record, so a judged pull of a set already reported
+**unjudged** takes the idempotent-rerun branch and re-renders the unjudged
+artifact — the judgment point's effect vanishes on the second pull. Whether the
+judgment record belongs in that triple is a change to a **ratified** identity
+and to §12.1's uniform arity, which this ruling does not make; it is carried on
+its own issue. Stated here so the next reader meets it as a known bound rather
+than as a rendering that mysteriously ignores their judgments.
+
 **An UNJUDGED candidate is its own state**, counted and named. The judgment
 layer not having run is a different fact from a `background` verdict, and a
 section that showed them alike would report the second where the first is true.

@@ -1606,6 +1606,35 @@ export function composeSubdivisionRecord(args, dir, record) {
   return path;
 }
 
+// THE ENTERED SET RESOLVED TO TARGETS, SHARED BY `report` AND THE EXECUTOR'S
+// `neighborhood_input` (kogaki#690). Both need the same answer to "which
+// Groups and SubGroups did the owner enter", and the emitter's whole job is to
+// enumerate the neighborhood of exactly that set — so a second resolver here
+// would be two answers to one question, and the one that drifted would be the
+// one no report ever exercised.
+//
+// Resolution runs against THE GROUPS THIS RUN COMPOSES (AC6): story 1.56 AC11
+// makes an id valid for the run that printed it — a pin advance may renumber —
+// so nothing here caches, persists or reconstructs an earlier numbering.
+//
+// IT RETURNS `subOf` RATHER THAN LEAVING ITS CALLER TO REBUILD ONE. Resolving a
+// SubGroup id already requires parsing `--subdivisions`, so handing the closure
+// back is what keeps one parse and one answer (PR #701 round 1). The §11 v10
+// claims-reader rationale does NOT live here: this function reads no claims
+// file, and a comment explaining `--claims` above a function that never opens
+// one is a pointer to the wrong artifact.
+function resolveReportTargets(record, tag, enteredIds, args) {
+  const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
+  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
+  const groups = cotagGroups(members, tag);
+  const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
+  const subOf = (g) => readSubdivisionEntry(
+    g.name,
+    subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+  const resolved = resolveEnteredIds(enteredIds, groups, subOf);
+  return { members, groups, resolved, subOf, targets: resolved.targets };
+}
+
 // --------------------------------------------------------------------------
 // report — the Full Report (SPEC.md §12).
 //
@@ -2541,9 +2570,7 @@ function cmdReport(args) {
     fail("report --ids was empty. An empty ID set is not a report of nothing: enter at least one Group or SubGroup ID from the screen.");
   }
 
-  const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
-  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
-  const groups = cotagGroups(members, tag);
+  const { groups, targets, resolved, subOf } = resolveReportTargets(record, tag, enteredIds, args);
   // THE SECOND READER OF THE SAME ARTIFACT (§11 v10, kogaki#212). `cotags` and
   // `report` are handed the same `--claims` file, so migrating one and leaving
   // the other reading the flat map would put two encodings behind one file —
@@ -2553,18 +2580,10 @@ function cmdReport(args) {
   // a typed record would silently render every group's claim as absent.
   const { claims } = readClaimsRecord(
     args.claims ? readJson(String(args.claims)) : null, record);
-  const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
-  const subOf = (g) => readSubdivisionEntry(
-    g.name,
-    subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
-
-  // Resolution runs against THE GROUPS THIS RUN COMPOSES (AC6). Story 1.56
-  // AC11 makes an id valid for the run that printed it — a pin advance may
-  // renumber — so nothing here caches, persists or reconstructs an earlier
-  // numbering. `cotagGroups` above is the only source, and `subOf` is what
-  // makes SubGroup ids resolvable, which is why this sits after it.
-  const resolved = resolveEnteredIds(enteredIds, groups, subOf);
-  const targets = resolved.targets;
+  // `subOf` comes back from the resolver rather than being rebuilt here: it
+  // already parsed `--subdivisions` to resolve SubGroup ids, and a second parse
+  // with a second closure is the duplication the extraction exists to remove
+  // (PR #701 round 1).
   // The groups the entered set reaches — used by the judge-pin and
   // subdivision-completeness gates below, which are per-GROUP checks.
   const targetGroups = [...new Map(targets.map((t) => [t.group.gid, t.group])).values()];
@@ -4176,6 +4195,83 @@ const STATE_WORK = {
       const composed = composeSubdivisionRecord(args, rec._dir, readJson(needSurvey(rec)));
       rec.judgments[`${st.id}:composed`] = relFromRepo(resolve(composed));
     }
+    return null;
+  },
+
+  // THE NEIGHBORHOOD'S EMITTER AND ITS JUDGMENT POINT (kogaki#690, owner
+  // ruling 2026-08-29). The reader existed and nothing produced its input —
+  // "a reader with no writer is dead code wearing enforcement's name". These
+  // two states are `compose_input → J1_claims` applied a second time, which is
+  // the shape this table already uses for exactly this problem.
+  //
+  // BOTH ARE CONDITIONAL, and that is the answer to what an unjudged pull is.
+  // A run naming neither renders the all-unjudged line §13.4 already declares,
+  // which is a legitimate terminal: refusing it would make the Report
+  // unobtainable without an LLM pass, which no ruling asked for. What the
+  // declaration removes is the SILENT version — an unjudged run is now a
+  // skipped conditional the run record names, not an absent capability.
+  neighborhood_input: (rec, st, args) => {
+    const record = readJson(needSurvey(rec));
+    const ids = ownerInput(rec, "ID_SELECTION")
+      || fail("neighborhood_input needs the entered ID set, and no wait has supplied one yet.");
+    const tag = ownerInput(rec, "TAG_SELECTION")
+      || fail("neighborhood_input needs a tag, and no wait has supplied one yet.");
+    // SPLIT THE WAY `report` SPLITS IT (PR #701 round 1). Two parsers over one
+    // owner input is two answers to one question: on a space-separated
+    // selection this enumerated two groups here and reached `full_report` as
+    // one, so the emitter's candidate list and the rendering's would have been
+    // computed over different sets.
+    const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
+    const { targets } = resolveReportTargets(record, tag, enteredIds, args);
+    const n = neighborhoodForTargets(record, targets);
+    const path = join(rec._dir, "terrain-neighborhood-candidates.json");
+    writeFileSync(path, JSON.stringify({
+      gids: n.gids,
+      // THE SLUGS THE JUDGE MAY KEY ON, and the only ones J3 admits. Written
+      // rather than recomputed at J3: two enumerations of "which candidates
+      // exist" is how the emitter and the refusal would disagree.
+      candidates: (n.suggestions || []).map((x) => ({ nid: x.nid, slug: x.slug, family: x.family, relation_substrates: x.substrates })),
+      no_material: n.no_material || false,
+    }, null, 2) + "\n");
+    // STORED ABSOLUTE, like `survey_record` beside it. `relFromRepo` leaves an
+    // outside-the-repo run dir as its own absolute path minus the leading
+    // slash, so re-joining it to REPO produced a path under the repository
+    // that never existed — found by driving the state rather than by reading
+    // it. A run workspace is routinely outside the tree, which is why the
+    // sibling field stores what the writer returned.
+    rec.neighborhood_candidates = path;
+    return null;
+  },
+
+  J3_neighborhood: (rec, st, args) => {
+    const path = String(args.neighborhood
+      || fail(`${st.id} is a declared judgment point and needs its typed record: --neighborhood <file>. ${st.refusal || ""}`.trim()));
+    // THE CLOSED-SET AND LEVEL-WITHOUT-CLAIM REFUSALS ARE THE EXISTING ONES.
+    // §15.6: the executor validates and never composes, and re-implementing a
+    // refusal that already ships is how two readings of one rule appear.
+    const judgments = readNeighborhoodJudgments(path);
+    // THE THIRD REFUSAL NEEDS THE EMITTER'S OUTPUT, which is why the emitter is
+    // a state rather than a step inside this one: a key naming no mechanical
+    // candidate is only detectable against the enumeration, and the enumeration
+    // is what `neighborhood_input` wrote.
+    const emitted = rec.neighborhood_candidates
+      ? readJson(rec.neighborhood_candidates)
+      : fail(`${st.id} has no candidate enumeration to judge against — enter neighborhood_input in the same act (\`--enter neighborhood_input --enter ${st.id}\`).`);
+    // SCOPED TO A NON-EMPTY ENUMERATION, exactly as `cmdReport`'s own orphan
+    // refusal is (PR #701 round 1). Where the mechanical layer returned no
+    // candidate at all there is nothing to join, and the section's empty
+    // arms are already the honest report — refusing the whole run there
+    // would turn a legitimate empty neighborhood into an error, and would
+    // make `report` render a settled set that `run` refuses. That is the
+    // second reading of one rule this state's own comment sets out to avoid,
+    // reproduced in the state that quotes it.
+    const have = new Set((emitted.candidates || []).map((c) => c.slug));
+    const orphans = have.size ? [...judgments.keys()].filter((k) => !have.has(k)) : [];
+    if (orphans.length) {
+      fail(`${st.id} refuses ${orphans.length} judgment key(s) no mechanical candidate carries: ${orphans.join(", ")}. `
+        + "A judgment that joins nothing is silently dropped and the section then reports that the judgment layer did not run, which is false.");
+    }
+    rec.judgments[st.id] = relFromRepo(resolve(path));
     return null;
   },
 
