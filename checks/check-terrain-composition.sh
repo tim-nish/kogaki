@@ -3300,7 +3300,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote } from "./terrain/terrain.mjs";
+import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote, NO_HEADLINE, NO_SHARD_ADDRESSED, compareDisplayIds, glossFor } from "./terrain/terrain.mjs";
 import { loadGrammar, classMatchers } from "./terrain/format-guard.mjs";
 const G = loadGrammar("specs/spec-terrain/report-format.json");
 
@@ -3931,7 +3931,7 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
   {
     const lines = screen([S(1, "core")]).join("\n");
     for (const [what, frag] of [["the Strand ID", "N1"], ["the relation in plain words", "from the same Batch"],
-                                ["the Gloss slot, disclosing an unfetched shard", "⟨no served Gloss rendering"],
+                                ["the Gloss slot, disclosing that no shard was addressed", "⟨no Gloss shard addressed"],
                                 ["the claim", "claim 1"], ["the level", "[core]"]]) {
       if (!lines.includes(frag)) fails.push(`§13/686: the row does not carry ${what}`);
     }
@@ -3961,9 +3961,71 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     if (citeless.includes("“a served headline.”")) {
       fails.push("§13/686/689: a headline with NO cite rendered as a quotation — the quote form asserts an address the row does not have");
     }
-    const noGloss = screen([S(1, "core")]).join("\n");
+    const noGloss = screen([S(1, "core", { gloss: NO_HEADLINE })]).join("\n");
     if (!noGloss.includes("⟨no served Gloss rendering — ABNORMAL")) {
-      fails.push("§13/686/689: an unfetched Gloss did not disclose — the miss arm is a fault to clear, not silence");
+      fails.push("§13/686/689: a shard that was READ and carried nothing did not disclose — the miss arm is a fault to clear, not silence");
+    }
+    // THE TWO MISS STATES ARE DISTINGUISHABLE (PR #693 round 1). "Read and
+    // empty" and "never addressed" were rendering as the same marker, so a row
+    // whose shard was never asked for asserted a read that did not happen. That
+    // is the state the ruling's own consulted line refuses, one namespace in
+    // from where the ruling looked.
+    const unaddressed = screen([S(1, "core")]).join("\n");
+    if (!unaddressed.includes("⟨no Gloss shard addressed")) {
+      fails.push("§13/689: a row whose shard was NEVER ADDRESSED rendered the read-and-empty marker — that asserts a read that did not happen, and the two states are different facts");
+    }
+    if (unaddressed.includes("⟨no served Gloss rendering")) {
+      fails.push("§13/689: the never-addressed row also carried the read-and-empty marker — one row, one state");
+    }
+  }
+
+  // FIELD 2 ORDERS ITS MEMBERS NUMERICALLY (PR #693 round 1). A display id's
+  // number is its meaning, and a bare `.sort()` puts L10 before L2 and the
+  // ruling's own example id L88 before L9. The specimen's two-member case
+  // cannot show it, which is why it is asserted over the comparator directly.
+  {
+    const got = ["L10", "L2", "L88", "L9", "L1"].slice().sort(compareDisplayIds).join(",");
+    if (got !== "L1,L2,L9,L10,L88") {
+      fails.push(`§13/689: display ids sort to ${JSON.stringify(got)} — lexicographic order puts L10 before L2, and every other surface in this file names members by an id whose numeric order is its meaning`);
+    }
+    // The abnormal marker has no number and must not be ordered as though it
+    // did; it sorts last rather than throwing or landing among the ids.
+    const withAbnormal = ["L2", "⟨no display_id⟩", "L1"].slice().sort(compareDisplayIds);
+    if (withAbnormal[withAbnormal.length - 1] !== "⟨no display_id⟩") {
+      fails.push("§13/689: the display-id comparator did not sort the abnormal marker last — a token carrying no number must not be ordered as though it carried one");
+    }
+  }
+
+  // A TAGGED NON-LESSON ROW REACHES NO SHARD, AND SAYS SO (PR #693 round 1).
+  // The stub fixture leaves its one journey record UNTAGGED, so no case in the
+  // suite ever put a TAGGED journey through the fetch — the gap was unexercised
+  // rather than caught. Asserted here over the renderer, where the state is a
+  // property of the row rather than of the seam.
+  {
+    // ASSERTED OVER `glossFor`, WHICH IS THE FETCH'S OWN DECISION. Driving the
+    // screen would exercise the EMITTER'S fallback instead and pass whatever the
+    // fetch assigned — the first version of this case did exactly that, and
+    // collapsing the two miss states back into one marker did not fail it.
+    const H = { headline: "a served headline.", cite: "gloss/lessons/testing.md:19@stubbed" };
+    const cases = [
+      ["a tagged lesson with a rendering", { family: "lesson", tags: ["testing"] }, H, "a served headline."],
+      ["a tagged lesson whose shard carried none", { family: "lesson", tags: ["testing"] }, null, NO_HEADLINE],
+      ["a TAGGED JOURNEY — a namespace this path never addresses", { family: "journey", tags: ["testing"] }, null, NO_SHARD_ADDRESSED],
+      ["an UNTAGGED lesson — no address can be formed", { family: "lesson", tags: [] }, null, NO_SHARD_ADDRESSED],
+    ];
+    for (const [what, sug, head, want] of cases) {
+      const got = glossFor(sug, head);
+      if (got !== want) {
+        fails.push(`§13/689: for ${what} the Gloss state is ${JSON.stringify(got.slice(0, 60))}, expected ${JSON.stringify(want.slice(0, 60))} — read-and-empty and never-addressed are different facts, and rendering the second as the first asserts a read that did not happen`);
+      }
+    }
+    if (NO_HEADLINE === NO_SHARD_ADDRESSED) {
+      fails.push("§13/689: the two miss markers are the same string — the cases above cannot tell the states apart");
+    }
+    // The renderer still has to carry it through, which the screen cases assert.
+    const journey = screen([S(1, "core", { gloss: glossFor({ family: "journey", tags: ["testing"] }, null) })]).join("\n");
+    if (!journey.includes("⟨no Gloss shard addressed")) {
+      fails.push("§13/689: the never-addressed marker did not reach the rendered row");
     }
   }
 

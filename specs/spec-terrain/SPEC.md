@@ -4267,6 +4267,31 @@ tag set is a function of ten records rather than of the corpus. **The bound is a
 COUNT OF READS and is verified as one** — at the server, from the stub's own
 call log, never from the run's accounting of itself.
 
+**THE NAMESPACE BOUND IS DISCLOSED, NOT WIDENED (PR #693 round 1).** The fetch
+addresses the `lessons/` shard namespace only, because `resolveHeadlines` was
+written for the Brief lane whose members are settled Lessons. The
+neighborhood's are not — the enumerator indexes every served record carrying a
+slug and stamps its family — so a `journey`-family suggestion reaches no shard.
+`cmdView` reads both namespaces (§9) and extending this path to match is a
+**read-budget decision of exactly the kind the 2026-08-28 gate exists for**; the
+ruling reached the `lessons/` fetch and no further, so it is **carried on
+kogaki#689** rather than settled by the implementing sitting.
+
+What lands instead costs no reads and asserts nothing false: **the row says no
+shard was addressed for it**, in its own marker. Three Gloss states, three
+renderings — a shard read and carrying a rendering; a shard **read** and
+carrying none for the slug; and **no shard addressed at all**, whether because
+the row carries no tag or because its family is outside the namespace read. The
+third rendered as the second asserts a read that never happened, which is the
+state the ruling's own consulted line refuses arriving one namespace in from
+where the ruling looked. The decision is `glossFor`, **exported and pure**: held
+inline it was unassertable, and every case about the markers was exercising the
+emitter's fallback while the state assignment went untested.
+
+**Field 2 orders its named members numerically**, because a display id's number
+is its meaning on every surface here; a lexicographic order puts `L10` before
+`L2` and this section's own example id `L88` before `L9`.
+
 **The headline is quoted at its cite**, because it is a served rendering: a
 headline carried as bare prose is the paraphrase-standing-for-a-quote shape the
 verbatim rule refuses, which is the ground the slug substitution was refused on

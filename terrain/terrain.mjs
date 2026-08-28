@@ -337,6 +337,19 @@ export function displayIdOf(id, candidates) {
   return c && c.display_id ? c.display_id : NO_DISPLAY_ID;
 }
 
+// DISPLAY IDS COMPARE NUMERICALLY (kogaki#689, PR #693 round 1). `L2` before
+// `L10`, and the abnormal marker last — a lexicographic sort orders "L1", "L10",
+// "L2" in that order, and a display id's number is its meaning on every surface
+// in this file.
+export function compareDisplayIds(a, b) {
+  const n = (x) => { const m = /^([A-Za-z]+)([0-9]+)$/.exec(String(x)); return m ? [m[1], Number(m[2])] : null; };
+  const na = n(a); const nb = n(b);
+  if (!na && !nb) return String(a).localeCompare(String(b));
+  if (!na) return 1;
+  if (!nb) return -1;
+  return na[0] === nb[0] ? na[1] - nb[1] : na[0].localeCompare(nb[0]);
+}
+
 // The plural form, plus the count of abnormal members so a surface can state
 // the fault ONCE beneath the rows rather than per row — the shape §9's
 // `missing` counter already uses at the candidate-row surface.
@@ -597,6 +610,31 @@ function fetchHeadlines(kind, tags, { soft = false } = {}) {
 
 export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
 
+// THE SECOND MISS STATE, WHICH `NO_HEADLINE` WAS RENDERING AS THE FIRST
+// (kogaki#689, PR #693 round 1). `NO_HEADLINE` says a shard was READ and
+// carried no rendering for the slug. A row whose shard was never ADDRESSED is a
+// different fact, and rendering it as the first asserts a read that did not
+// happen — which is the state the ruling's own consulted line refuses, arriving
+// one layer in from where the ruling looked:
+//
+//   "every enumerated class renders including its zero, and an empty class says
+//    so rather than being omitted" — the failure named is SILENCE, and silence
+//    is indistinguishable from NOT CHECKED.
+//   product-lab@b20d85ea topics/archive/knowledge-architecture.md:57
+//
+// Two ways a row addresses no shard, and this marker covers both because both
+// are the same fact to a reader: the record carries no tag, so there is no
+// shard address to form; or its family is not `lesson`, and the report path
+// reads the `lessons/` namespace only.
+//
+// WHETHER THAT NAMESPACE BOUND SHOULD WIDEN IS NOT DECIDED HERE. `cmdView`
+// reads both namespaces (§9), and extending the report path to match is a
+// READ-BUDGET decision of exactly the kind the 2026-08-28 gate was raised for —
+// the ruling reached the `lessons/` fetch and no further. So this DISCLOSES the
+// bound rather than quietly widening it, which costs no reads and settles
+// nothing that is the owner's.
+export const NO_SHARD_ADDRESSED = "⟨no Gloss shard addressed — this row's family or tags reach none, and the report path reads the lessons namespace only; a fault to clear, never substituted⟩";
+
 // THE BOUNDED RESOLVER THE BRIEF LANE CALLS (kogaki#528). Terrain is the one
 // component that reads served renderings through the seam (§3, §9), so the
 // Brief does not become a second substrate reader: it hands over the members
@@ -624,6 +662,29 @@ export function resolveHeadlines(members) {
                       : { headline: NO_HEADLINE, cite: null });
   }
   return out;
+}
+
+// WHICH OF THE THREE GLOSS STATES A ROW IS IN (kogaki#689, PR #693 round 1).
+//
+// EXPORTED AND PURE BECAUSE THE INLINE FORM WAS UNASSERTABLE. This decision sat
+// inside `cmdReport`'s fetch loop, and the neighborhood cases drive the screen
+// directly — so every assertion about the miss markers was exercising the
+// EMITTER'S fallback and none was reaching the state assignment. Collapsing the
+// two miss states back into one marker changed nothing any case could see, which
+// is the shape a mutation-verification cannot detect: an assertion that never
+// ran and an assertion that survived are the same silence.
+//
+// THREE STATES, THREE ANSWERS:
+//   * a shard was read and carried a rendering  → the headline;
+//   * a shard was READ and carried none for the slug → `NO_HEADLINE`;
+//   * NO SHARD WAS ADDRESSED — the row carries no tag, so no address can be
+//     formed, or its family is not `lesson` and this path reads the `lessons/`
+//     namespace only → `NO_SHARD_ADDRESSED`.
+// The third rendered as the second asserts a read that never happened.
+export function glossFor(sug, headline) {
+  if (headline) return headline.headline;
+  const addressed = ((sug && sug.tags) || []).length > 0 && sug && sug.family === "lesson";
+  return addressed ? NO_HEADLINE : NO_SHARD_ADDRESSED;
 }
 
 // THE TWO SCREEN RENDERERS, PRIVATE (§15.5, §15.1; kogaki#665). Each RETURNS
@@ -2727,10 +2788,13 @@ function cmdReport(args) {
     const named = (sug.seeds || []).map((sl) => {
       const c = (record.candidates || []).find((x) => x && x.slug === sl);
       return c && c.display_id ? c.display_id : NO_DISPLAY_ID;
-    }).sort();
+    }).sort(compareDisplayIds);
     // Sorted by the identifier the row PRINTS, not by the slug it was reached
     // under: the seed list is a set and its order carries no meaning, so the
-    // one the reader sees is the one that is stable across runs.
+    // one the reader sees is the one that is stable across runs — and ordered
+    // NUMERICALLY, because a display id's number is its meaning. A bare `.sort()`
+    // put L10 before L2 and the ruling's own example id L88 before L9 (PR #693
+    // round 1); the two-member specimen could not show it.
     // An unnamed seed set is a STATED absence, never a silent fallback to the
     // old wording: "the settled set" is what the row says when it can name no
     // member at all, and the reader can tell the two apart.
@@ -2770,7 +2834,7 @@ function cmdReport(args) {
     const heads = resolveHeadlines(shownRows.map((x) => ({ slug: x.slug, tags: x.tags || [] })));
     for (const sug of shownRows) {
       const h = heads.get(sug.slug);
-      sug.gloss = h ? h.headline : NO_HEADLINE;
+      sug.gloss = glossFor(sug, h);
       sug.gloss_cite = h ? h.cite : null;
     }
   }
@@ -3579,7 +3643,7 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
   for (const x of atTop) {
     say(`- ${x.nid} — ${x.relation || "relation unrecorded"}`);
     say(x.gloss && x.gloss_cite ? `  “${x.gloss}”  ${x.gloss_cite}`
-                                : `  ${x.gloss || NO_HEADLINE}`);
+                                : `  ${x.gloss || NO_SHARD_ADDRESSED}`);
     say(`  ${x.claim || "claim unrecorded"} [${x.level}]`);
   }
   return out;
