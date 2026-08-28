@@ -3890,8 +3890,10 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     gloss: null, claim: `claim ${n}`, ...extra,
   });
   const screen = (suggestions, unresolved = []) => neighborhoodScreen({ tag: "T", gids: ["G1"], suggestions, unresolved });
-  // A marked batch-side gap, in the shape `neighborhoodOf` pushes (kogaki#691).
-  const GAP = (slug, why, value = null) => ({ slug, why, value });
+  // A marked gap, in the shape `neighborhoodOf` pushes (kogaki#691). `kind` is
+  // carried because the two kinds mean different things and only one of them
+  // makes the empty form false (PR #697 round 1).
+  const GAP = (kind, slug, why, value = null) => ({ kind, slug, why, value });
 
   // EVERY RENDERED LINE IS CLASSIFIED, AND THIS IS THE CASE THE ISSUE EARNED.
   //
@@ -3951,12 +3953,17 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
       // THE BATCH-SIDE DISCLOSURE (kogaki#691). All three marker shapes, and
       // both the arm that DISPLACES the empty form and the arm that rides a
       // populated section.
-      "unresolved, displacing the empty form": screen([], [
-        GAP("seedA", "the record carries no source_batch"),
-        GAP("seedB", 'source_batch names a batch no served record carries (resolved to "q_a/ghost")', "q_a/ghost"),
-        GAP("q_a/3", 'the batch lists a member no served record carries (family "lesson")', "gone"),
+      "seed gaps, displacing the empty form": screen([], [
+        GAP("seed", "seedA", "the record carries no source_batch"),
+        GAP("seed", "seedB", 'source_batch names a batch no served record carries (resolved to "q_a/ghost")', "q_a/ghost"),
       ]),
-      "unresolved beside judged rows": screen([S(1, "core")], [GAP("seedA", "the record carries no source_batch")]),
+      "a member gap beside a surviving empty form": screen([], [
+        GAP("member", "q_a/3", 'the batch lists a member no served record carries (family "lesson")', "gone"),
+      ]),
+      "both kinds beside judged rows": screen([S(1, "core")], [
+        GAP("seed", "seedA", "the record carries no source_batch"),
+        GAP("member", "q_a/3", 'the batch lists a member no served record carries (family "lesson")', "gone"),
+      ]),
     };
     for (const [what, lines] of Object.entries(states)) {
       for (const line of lines.slice(1)) {
@@ -3979,9 +3986,9 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
   // rendered, asserting an enumeration that could not have run.
   {
     const gaps = [
-      GAP("seedA", "the record carries no source_batch"),
-      GAP("seedB", 'source_batch names a batch no served record carries (resolved to "q_a/ghost")', "q_a/ghost"),
-      GAP("q_a/3", 'the batch lists a member no served record carries (family "lesson")', "gone"),
+      GAP("seed", "seedA", "the record carries no source_batch"),
+      GAP("seed", "seedB", 'source_batch names a batch no served record carries (resolved to "q_a/ghost")', "q_a/ghost"),
+      GAP("member", "q_a/3", 'the batch lists a member no served record carries (family "lesson")', "gone"),
     ];
     const withGaps = screen([], gaps).join("\n");
 
@@ -4010,6 +4017,29 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
       fails.push("§13/691: the unserved member's value was dropped — the reason names only the family, so the member slug is the whole content of that row");
     }
 
+    // A MEMBER GAP DOES NOT DISPLACE, BECAUSE THE EMPTY FORM IS TRUE OF IT
+    // (PR #697 round 1). The batch resolved and the walk ran over it, so "the
+    // enumeration ran over the settled set's Batches" holds; only a SEED gap
+    // falsifies it. Rendering both under one header told the reader a settled
+    // reference had failed to resolve when it had not, and in this exact state
+    // replaced a true pair of lines with a false one — the defect this block
+    // exists to remove, one state in.
+    {
+      const memberOnly = screen([], [GAP("member", "q_a/3", 'the batch lists a member no served record carries (family "lesson")', "gone")]).join("\n");
+      if (!memberOnly.includes("The enumeration ran over the settled set's Batches")) {
+        fails.push("§13/691/697: a MEMBER gap displaced the empty form — the batch resolved and the walk ran, so that line is TRUE in this state and the one standing in its place would not be");
+      }
+      if (!memberOnly.includes("Not asserted:")) {
+        fails.push("§13/691/697: the empty form's second line was dropped on a member gap — §13.4 calls it the half that refuses the strong reading, and it is true unconditionally");
+      }
+      if (!memberOnly.includes("carried by no served record")) {
+        fails.push("§13/691/697: a member gap produced no disclosure at all — it renders BESIDE the empty form rather than instead of it");
+      }
+      if (memberOnly.includes("could not be resolved to a Batch")) {
+        fails.push("§13/691/697: a member gap rendered under the SEED header — it asserts that a settled reference failed to resolve, which is false of a batch whose walk ran");
+      }
+    }
+
     // AND THE EMPTY FORM SURVIVES WHERE IT IS TRUE. Without this the rule above
     // is satisfiable by deleting the empty form outright, which would lose the
     // one statement a genuinely empty enumeration owes.
@@ -4022,7 +4052,7 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     // resolving does not discharge the ones that did not: the counts are over
     // what the walk reached, and a reader cannot otherwise tell a small
     // neighborhood from a small fraction of the settled set having been walked.
-    const partial = screen([S(1, "core")], [GAP("seedA", "the record carries no source_batch")]).join("\n");
+    const partial = screen([S(1, "core")], [GAP("seed", "seedA", "the record carries no source_batch")]).join("\n");
     if (!partial.includes("could not be resolved to a Batch") || !partial.includes("[core]")) {
       fails.push("§13/691: a partial resolution failure beside rendered rows dropped one of the two — both the disclosure and the rows are owed");
     }

@@ -4371,8 +4371,24 @@ rendered** — asserting *"The enumeration ran over the settled set's Batches an
 returned nothing — a result about this settled set, not a failure."* That is
 **false** of a run that could not find the Batches: the surface stated a
 completed enumeration and a clean result. So this clause does not merely restore
-a disclosure, it **displaces a false one** — the empty form now renders only
-where the gap set is empty, and the two are mutually exclusive by construction.
+a disclosure, it **displaces a false one**.
+
+**THE TWO GAP KINDS PARTITION, AND ONLY ONE DISPLACES (PR #697 round 1).** The
+three markers are not one fact. A **seed** gap — no `source_batch`, or a
+`source_batch` naming a batch nothing serves — means no enumeration ran over
+that reference, which is what falsifies the empty form. A **member** gap is the
+opposite situation: the batch **resolved**, the walk ran over it, and one of its
+listed members is not served. Rendering both under one header told the reader a
+settled reference had failed to resolve when it had not — and where a member gap
+was the *only* gap it displaced an empty form that was **true**, replacing two
+true lines with a false one. That is this section's own defect one state in.
+
+So: a seed gap **displaces** the empty form; a member gap renders **beside** it,
+under its own header. The kind is typed on the marker at the point it is pushed
+and never recovered by string-matching the reason prose — a renderer
+reconstructing by text a fact the producer already knew is a join every wording
+change silently breaks. The empty form and the seed-gap disclosure are mutually
+exclusive by construction.
 
 > "A check anti-correlated with its need is worse than no check, because its
 > silence reads as a clean result."
