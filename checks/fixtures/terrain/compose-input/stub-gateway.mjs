@@ -71,13 +71,26 @@ const SLUGS = ["alpha", "bravo", "charlie", "delta", "echo"];
 //     NAMED with its value;
 //   - delta sits alone in batch `q_a/solo` with no links, so a delta-seeded
 //     pull enumerates EMPTY and must render the explicit empty lines.
+//
+// EVERY ELEMENT CARRIES ITS OWN TAGS (kogaki#689). The neighborhood's bounded
+// Gloss fetch is keyed on a suggestion record's tags, so a stub whose records
+// carried none served the MISS arm for every row — and a golden specimen
+// showing only the miss arm pins the shape nobody ships, which is the reason
+// this fixture already exercises the judged path rather than the unjudged one.
+// `foxtrot` IS TAGGED AND IS A JOURNEY, which is the pairing PR #693 round 2
+// named as unexercised: the report path reads the `lessons/` namespace only, so
+// a TAGGED journey is a row whose tags DO enter the shard union and whose slug
+// no `lessons/` shard can carry. Left untagged it addressed no shard for the
+// trivial reason and the namespace half was never reached. Its level is
+// `background` in the committed judgment file, so it renders in no golden
+// specimen; the case that needs it supplies its own judgments.
 const ELEMENTS = [
-  { slug: "alpha", kind: "lesson", source_batch: "q_a/stub", cross_links: ["golf"] },
-  { slug: "bravo", kind: "lesson", source_batch: "q_a/stub", cross_links: ["zulu-missing"] },
-  { slug: "charlie", kind: "lesson", source_batch: "q_a/stub" },
-  { slug: "delta", kind: "lesson", source_batch: "q_a/solo" },
-  { slug: "echo", kind: "lesson", source_batch: "q_a/stub" },
-  { slug: "foxtrot", kind: "journey", source_batch: "q_a/stub" },
+  { slug: "alpha", kind: "lesson", source_batch: "q_a/stub", cross_links: ["golf"], tags: ["testing"] },
+  { slug: "bravo", kind: "lesson", source_batch: "q_a/stub", cross_links: ["zulu-missing"], tags: ["testing"] },
+  { slug: "charlie", kind: "lesson", source_batch: "q_a/stub", tags: ["testing"] },
+  { slug: "delta", kind: "lesson", source_batch: "q_a/solo", tags: ["testing"] },
+  { slug: "echo", kind: "lesson", source_batch: "q_a/stub", tags: ["testing"] },
+  { slug: "foxtrot", kind: "journey", source_batch: "q_a/stub", tags: ["testing"] },
   { slug: "golf", kind: "lesson" },
   // THE CONFORMING ARM (kogaki#654, story 1.91), on the convention
   // STUB_ELEMENT_SURVEY_EMPTY already sets: an env-gated variant rather than a

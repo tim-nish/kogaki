@@ -53,7 +53,12 @@
       "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ (§14.6). §14.3 assigns a display_id ONCE, in the survey record; a suggestion is by construction NOT in that record, so nothing there assigns it one. The two spaces coexist and no owner surface renders both for one element. A taken suggestion is assigned an L<n> by §14.3's existing assignor on the way in, and its N<n> does not follow it.",
       "absence_is_abnormal": "There is no legacy case: the space is minted per pull over that pull's own output, so every suggestion in a rendered section carries one. A row in a SuggestionID position carrying anything else is a defect, not an abnormality to disclose — which is what distinguishes this token from LessonDisplayID, whose NO_DISPLAY_ID form exists for records that predate §14.3."
     },
-    "NeighborhoodLevel": "core|useful|background"
+    "NeighborhoodLevel": {
+      "shape": "^(?:core|useful|background)$",
+      "means": "one of the three harness-fixed recommendation levels a judgment may carry (§13.4, kogaki#686). The set is closed and extending it is the owner's act.",
+      "producer": "terrain/terrain.mjs NEIGHBORHOOD_LEVELS",
+      "note": "DECLARED AS AN OBJECT CARRYING AN ANCHORED `shape`, which is the only form `tokenFragment` can consume (terrain/format-guard.mjs:58). kogaki#686 first declared it as the bare string \"core|useful|background\"; `tokenFragment` reads `t.shape`, a string has none, and the token silently degraded to FREE — so `  <claim> [<NeighborhoodLevel>]` compiled to `^  [\\s\\S]*? \\[[\\s\\S]*?\\]$` and admitted `  anything [anything]`, while the class's own note asserted it discriminated the level. Found at PR #692 round 2 and repaired here (kogaki#689). The verification is a compiled-matcher assertion in checks/check-terrain-composition.sh — that the matcher REFUSES a bracketed non-level — never a reading of this declaration."
+    }
   },
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (terrain/terrain.mjs:45-48) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
@@ -384,13 +389,26 @@
         },
         {
           "id": "neighborhood_suggestion_gloss",
-          "form": "  gloss unrecorded",
-          "note": "v8, kogaki#686. DECLARED AS THE LITERAL THAT SHIPS. The served arm was declared as `  <Gloss | gloss unrecorded>` and that placeholder names no token, so `placeholderFragment` returns FREE and the class compiled to `^  [\\\\s\\\\S]*?$` — admitting ANY two-space-indented line, the claim line included. A near-bare class is worse than no class: it covers everything and discriminates nothing, and it hid a stale claim form from the coverage case written to catch exactly that. The Gloss has no fetch (kogaki#689), so `gloss unrecorded` is the only line this field renders in production; the served arm is declared when that issue lands one, with a shape rather than a free placeholder."
+          "form": "  “<served Gloss headline>”  <Cite>",
+          "allowlist": [
+            "Cite"
+          ],
+          "note": "v9, kogaki#689 (owner ruling 2026-08-28 — the fetch arm). §686 disposition 3's FOURTH field, now produced. The report path makes a bounded shard read over the rows the display cap already selected, through `resolveHeadlines` — the same bound kogaki#528 ratified and the same one §9 binds `cmdView` to — and the headline is QUOTED AT ITS CITE because it is a served rendering, never bare prose. v8 declared the literal `  gloss unrecorded` as the only line this field rendered, which was true while the path made no fetch; that literal is DELETED with the condition it disclosed rather than kept beside the served arm, because two vocabularies for one state is how a reader stops being able to tell them apart. The miss arm is `neighborhood_suggestion_gloss_absent`, which carries the same abnormal marker `cmdView` and the Brief lane already render."
+        },
+        {
+          "id": "neighborhood_suggestion_gloss_absent",
+          "form": "  ⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩",
+          "note": "v9, kogaki#689. THE MISS ARM, declared as the literal the emitter pushes. A shard that was read and carried no rendering for the slug is a FAULT TO CLEAR, not prose — the same `NO_HEADLINE` marker `cmdView` and the Brief lane render, so one vocabulary covers the state wherever it arises. Distinct from `neighborhood_no_material`, which is the seam returning no element records at all, and from `neighborhood_empty`, which is an enumeration that ran and found nothing: three different facts, three classes. ITS MEANING IS NOT TRUE OF A DEGRADED SEAM, and that is stated rather than papered over (PR #696 round 1, carried on kogaki#689): where the seam itself is unreachable no shard is read at all, every entry comes back unfound, and a tagged lesson row renders THIS class — asserting a read that never happened. The Gloss field has no seam-absent arm, though the check registry already gives one to its own members (CANNOT-DETERMINE rather than pass or fail). Deciding that arm is part of the read-budget fork on #689; until then this class over-claims in exactly one state, named here."
+        },
+        {
+          "id": "neighborhood_suggestion_gloss_unaddressed",
+          "form": "  ⟨no Gloss shard carries this row — its family is outside the lessons namespace this path reads, or it carries no tag; a fault to clear, never substituted⟩",
+          "note": "v10, kogaki#689 (PR #693 round 1). THE SECOND MISS STATE, split from `neighborhood_suggestion_gloss_absent` because the two are different facts and one marker was asserting the wrong one. `_absent` says a shard WAS READ and carried no rendering for the slug; this says no shard was ADDRESSED at all — the row carries no tag, so no address can be formed, or its family is not `lesson` and the report path reads the `lessons/` namespace only. Rendering the second as the first asserts a read that never happened, which is the state the ruling's own consulted line refuses (\"silence is indistinguishable from *not checked*\") arriving one namespace in from where the ruling looked. WHETHER THE NAMESPACE BOUND SHOULD WIDEN IS NOT DECIDED HERE: `cmdView` reads both namespaces (§9) and extending the report path to match is a read-budget decision of the kind the 2026-08-28 gate exists for. This class DISCLOSES the bound at no read cost and settles nothing that is the owner's; the fork is carried on kogaki#689."
         },
         {
           "id": "neighborhood_suggestion_claim",
           "form": "  <claim> [<NeighborhoodLevel>]",
-          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The row's THIRD line, carrying the LLM's free-form claim and its harness-fixed level. The level is a DECLARED TOKEN rather than a free placeholder, so this class discriminates: a line matching it ends in one of the three harness-fixed labels in brackets, which a gloss line or a garbled body line does not."
+          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The row's THIRD line, carrying the LLM's free-form claim and its harness-fixed level. The level is a DECLARED TOKEN rather than a free placeholder. That was ASSERTED here before it was true: kogaki#686 declared `NeighborhoodLevel` as a bare string, `tokenFragment` degraded it to FREE, and this class admitted `  anything [anything]` while this note said otherwise (PR #692 round 2). The token is re-declared with an anchored `shape` at kogaki#689 and the property is now verified by a compiled-matcher assertion — that the matcher REFUSES a bracketed non-level — rather than by reading either declaration."
         },
         {
           "id": "neighborhood_no_material",
