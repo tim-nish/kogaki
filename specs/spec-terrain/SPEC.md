@@ -4293,6 +4293,18 @@ journey slug. The distinction bears on the open fork rather than on wording
 alone: it means reading `journeys/` costs a second shard per tag **already in
 the union**, not a new tag.
 
+**A FOURTH STATE EXISTS AND IS NOT DISTINGUISHED — a DEGRADED SEAM** (PR #696
+round 1, carried on kogaki#689). Where the seam itself is unreachable, no shard
+is read at all and every entry comes back unfound, so a tagged lesson row
+renders the read-and-carried-nothing marker — asserting a read that never
+happened, which is this section's own conflation one layer further out. It is
+not repaired here because the repair is a **degradation contract**: this
+repository's check registry already gives its own members a seam-absent arm
+(CANNOT-DETERMINE rather than pass or fail), and deciding the Gloss field's
+equivalent belongs with the read-budget fork rather than with the sitting that
+noticed it. Stated here so the three-state claim below is read with its bound
+rather than as complete.
+
 **The state is decided at the resolver's own boundary, and that is the repair
 rather than a refinement.** `resolveHeadlines` stamped an entry for every member
 it was handed, miss included, so a caller could not tell a shard that answered

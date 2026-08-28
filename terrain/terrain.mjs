@@ -709,6 +709,20 @@ function glossMarkerFor(x) {
 // is the shape a mutation-verification cannot detect: an assertion that never
 // ran and an assertion that survived are the same silence.
 //
+// A FOURTH STATE EXISTS AND IS NOT DISTINGUISHED HERE — stated rather than left
+// for a reader to discover (PR #696 round 1, carried on kogaki#689). When the
+// SEAM ITSELF is unreachable, `gatewayQuery` returns null under `soft`,
+// `fetchHeadlines` continues past it, and every entry comes back `found: false`
+// — so a tagged lesson row renders `NO_HEADLINE`, whose declared meaning is
+// "a shard WAS READ and carried no rendering for the slug". That is false of a
+// read that never happened, and it is this function's own conflation one layer
+// further out. It is NOT repaired here because the repair is a degradation
+// contract — the registry already says a seam-absent member reports
+// CANNOT-DETERMINE rather than passing or failing, and deciding what the Gloss
+// field's equivalent arm is belongs with the read-budget fork on #689, not with
+// the sitting that noticed it. The rows it mismarks are abnormal on either
+// reading, which is why disclosing beats improvising a fourth marker.
+//
 // THREE STATES, THREE ANSWERS:
 //   * a shard was read and carried a rendering  → the headline;
 //   * a shard was READ and carried none for the slug → `NO_HEADLINE`;

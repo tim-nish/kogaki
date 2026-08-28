@@ -2966,7 +2966,18 @@ const JUDGED = JSON.parse(readFileSync(join(DIR, "neighborhood-judgments.json"),
   }
 }
 
-// 3. ABOVE THE CAP — eleven at the highest level render no row either.
+// 3. NON-VACUITY: A MULTI-ROW JUDGED PULL STILL FETCHES. This is NOT the
+// over-cap case and does not claim to be — an earlier header said it was, while
+// the body judged three slugs `core` and noted inline that three is UNDER the
+// cap, so the header asserted a bound the code never reached (PR #696 round 1).
+// The stub serves three mechanical candidates, so an eleven-row arm is not
+// constructible against it at all.
+//
+// WHERE THE OVER-CAP ZERO-FETCH IS ACTUALLY VERIFIED: at the unit, in the
+// display-selection case, which asserts that the `over-cap` and `none-judged`
+// arms return an EMPTY `shown`. `cmdReport` fetches over exactly `shown`, so
+// empty there IS zero reads here — the property, checked where it is decidable
+// rather than claimed where it is not.
 {
   const over = {};
   for (const s of ["charlie", "echo", "foxtrot"]) over[s] = { level: "core", claim: `claim for ${s}` };
@@ -4044,6 +4055,21 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
       if (r.state !== want) fails.push(`§13/689: display selection returned state ${JSON.stringify(r.state)} for the ${want} arm`);
       if (!Array.isArray(r.shown)) {
         fails.push(`§13/689: the ${want} arm returns no \`shown\` array — a reader doing .shown.length throws on exactly the arms this helper exists to make safe`);
+        continue;
+      }
+      // THE ZERO-FETCH HALF OF THE BOUND, VERIFIED HERE (PR #696 round 1).
+      // `cmdReport` fetches over exactly `shown`, so an empty `shown` on the
+      // no-row arms IS "none at all on the empty, all-unjudged and over-cap
+      // arms". The command-level case cannot reach the over-cap arm — the stub
+      // serves three candidates and the cap is ten — so the claim is asserted
+      // where it is decidable instead of being asserted nowhere and stated in
+      // a header.
+      const rendersRows = want === "shown";
+      if (!rendersRows && r.shown.length !== 0) {
+        fails.push(`§13/689: the ${want} arm renders no row but returns ${r.shown.length} row(s) in \`shown\` — the fetch runs over \`shown\`, so every entry here is a shard read buying material no reader sees`);
+      }
+      if (rendersRows && r.shown.length === 0) {
+        fails.push("§13/689: the shown arm returns an EMPTY `shown` — the zero-fetch assertions above would then hold vacuously on every arm");
       }
     }
   }
