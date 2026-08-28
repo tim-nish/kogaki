@@ -153,6 +153,26 @@ const GATE_CLASSIFICATIONS = {
 // no longer be declining to mint, it would be declining to read. A refusal
 // over free text invites respelling; a refusal over a closed set ends there.
 const RATIFIED_AXES = new Set(["subject", "conduct"]);
+// The SEARCH FACETS (kogaki#640) — the hub's `act | artifact | decision`,
+// COPIED and never minted here, under the same boundary-field rule the axis set
+// above is quoted under. This is NOT the axis set and neither imports the other:
+// `axis:` answers *what kind of thing is this consultation about*, `facet:`
+// answers *how has this recall query been framed*. Two value sets, two jobs
+// (product-lab@9b0ea254 topics/knowledge-architecture.md:103). Extension is the
+// hub's named observer, never a kit edit.
+const RATIFIED_FACETS = new Set(["act", "artifact", "decision"]);
+// Bates' TERM TACTICS (kogaki#669), adopted as the CLASSIFIER for a re-framing
+// and copied at their pin (product-lab@9b0ea254 topics/knowledge-architecture.md:101).
+// The 29-tactic catalogue is deliberately NOT imported: these classify, they
+// never schedule, so there is no checklist and no ordering anywhere below.
+const RATIFIED_TACTICS = new Set(["SUPER", "SUB", "RELATE", "NEIGHBOR", "TRACE", "VARY"]);
+// The LEXICAL CLASS that does not discharge a re-framing. §5.2 names
+// VARY/FIX/REARRANGE/RESPELL/RESPACE, and `VARY` is the SOLE INTERSECTION with
+// the adopted six — the other four are not writable `tactic:` values at all, so
+// this set is deliberately a subset of RATIFIED_TACTICS and not a peer of it.
+// The value set and the refusal set are different sets; conflating them would
+// either admit four unratified tokens or refuse five ratified ones.
+const LEXICAL_TACTICS = new Set(["VARY"]);
 // One re-framing, and one only. AC 4's "a fixed bound, never a search loop":
 // widening the read until something comes back is the failure mode the bounded
 // question exists to prevent, and a bound that lives in prose is a bound a
@@ -203,7 +223,8 @@ export function verdictShaped(text) {
 // or the refusal to print. Pure so the fixture pass below can fire every branch
 // without a gateway, a child process, or a temp directory: every property this
 // entry point adds is a property of the invocation, not of the wire.
-export function discipline({ framings, restatements = [], outcome, disposition, argsList = [], axisList = [] }) {
+export function discipline({ framings, restatements = [], outcome, disposition, argsList = [],
+                             axisList = [], facetList = [], hitList = [], tacticList = [] }) {
   const refuse = (code, ...lines) => ({ ok: false, code, message: lines.join("\n") });
 
   if (!framings.length)
@@ -257,6 +278,76 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
           "token is refused with the set rather than passed through.",
       );
   }
+
+  // --- the three per-query keys (kogaki#640, kogaki#669) ---------------------
+  //
+  // Each is positional against `--claim`, exactly as `--axis` and `--args` are,
+  // and each refuses a PARTIAL list with the count delta for the same reason:
+  // a prefix silently covers some framings and leaves the rest unmarked without
+  // anyone having chosen that.
+  //
+  // THE OTHER CARRIER OF THESE RULES IS `checks/check-consult-receipts.sh`,
+  // which recomputes every refusal below from the receipt's own lines and is
+  // AUTHORITATIVE — it reaches receipts no writer mediated (hand-composed ones,
+  // direct gateway-query.mjs calls, receipts edited into PR bodies) which this
+  // file cannot see. This citation is not decoration: two carriers of one rule
+  // that do not name each other drift silently, and the repair is a cite at the
+  // point of the rule on BOTH sides (product-lab@9b0ea254 LESSONS.md:21). The
+  // live specimen of not paying it is `axis:` itself — enforced here since
+  // kogaki#602 and shape-only in the checker to this day (kogaki#673).
+  for (const [flag, list] of [["facet", facetList], ["hit", hitList], ["tactic", tacticList]]) {
+    if (list.length && list.length !== framings.length)
+      return refuse(
+        2,
+        `--${flag} given ${list.length} time(s) for ${framings.length} framing(s); ` +
+          `\`--${flag}\` is positional against \`--claim\` — one per framing, in ` +
+          "order, or none at all.",
+      );
+    for (const [i, v] of list.entries()) {
+      if (typeof v !== "string" || !v.trim())
+        return refuse(2, `--${flag} ${i + 1} is empty; the \`${flag}:\` line carries a non-empty token`);
+      if (v.includes("\n"))
+        return refuse(2, `--${flag} ${i + 1} spans several lines; \`${flag}:\` is one line`);
+    }
+  }
+  for (const [i, f] of facetList.entries())
+    if (!RATIFIED_FACETS.has(f))
+      return refuse(
+        2,
+        `--facet ${i + 1} '${f}' is not the ratified facet scheme ` +
+          "(act | artifact | decision). The set is CLOSED and copied from the " +
+          "hub, never minted here — extension is the hub's named observer, not " +
+          "a kit edit. Note this is NOT the `--axis` set (subject | conduct): " +
+          "two value sets, two jobs, neither importing the other.",
+      );
+  for (const [i, t] of tacticList.entries())
+    if (!RATIFIED_TACTICS.has(t))
+      return refuse(
+        2,
+        `--tactic ${i + 1} '${t}' is not the adopted six ` +
+          "(SUPER | SUB | RELATE | NEIGHBOR | TRACE | VARY). The 29-tactic set " +
+          "is deliberately NOT imported: the tactics classify a re-framing, they " +
+          "never schedule one, so there is no checklist to work through.",
+      );
+
+  // `hit:` IS OWED WHEREVER `facet:` APPEARS, and `none` is a value that must be
+  // TYPED. An omitted `hit:` and a `hit: none` are the same silence to a reader
+  // and different silences to a check, and only the second distinguishes *this
+  // facet was queried and returned nothing* from *nobody recorded what
+  // happened* — which is the entire evidentiary content of a no-carrier-found
+  // resolution. Without it the token asserts an absence nothing witnessed.
+  if (facetList.length && !hitList.length)
+    return refuse(
+      2,
+      "every framing carries a `--facet` and none carries a `--hit`: a query " +
+        "line with a `facet:` and no `hit:` is malformed. Record what each " +
+        "framing returned, and type `none` where it returned nothing — an " +
+        "omitted `hit:` and a `hit: none` are the same silence to a reader and " +
+        "different silences to a check.",
+      "",
+      "Re-submit with one --hit per framing, in the same order:",
+      ...facetList.map((_, i) => `  --hit '<what framing ${i + 1} returned, or none>'`),
+    );
 
   // AC 2 — corrected at the POINT OF USE, before the gateway is reached. A
   // verdict-shaped question that is forwarded and then apologised for has
@@ -394,6 +485,119 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
     );
   }
 
+  // PLACED AFTER THE FLOOR, THE N-COUNT AND THE SAME-AXIS REFUSALS, AND THE
+  // ORDER IS LOAD-BEARING: each of those is a refusal this path can still
+  // usefully make about a negative-outcome invocation, and hoisting this one
+  // above them would make all three unreachable for the entire token class
+  // rather than merely changing what a well-formed invocation ends at.
+  // specs/SPEC.md §4 fixes the coverage refusal ahead of MIN_FRAMINGS; that
+  // clause bound the COVERAGE check, which no longer runs here at all, so it
+  // does not govern this routing refusal.
+  // THE NEGATIVE RESOLUTION DOES NOT FIT THIS ENTRY POINT, AND THE REFUSAL SAYS
+  // SO RATHER THAN ASKING FOR SOMETHING UNREACHABLE (kogaki#640, owner
+  // selection 2026-08-28).
+  //
+  // A `no-carrier-found` resolution — which in this grammar is the
+  // `uncovered-after-N-framings` token, the open world's *unknown* — owes one
+  // query per search facet across all three of act | artifact | decision. That
+  // is three framings, and this entry point carries exactly one re-framing
+  // (MAX_FRAMINGS = 2). The two obligations cannot both be met here, so the
+  // token is not recordable through this path at any count.
+  //
+  // THE BOUND IS NOT LOOSENED TO ADMIT IT, and that is the ruling rather than
+  // an oversight: "the remedy for a seam that keeps missing is never to loosen
+  // the bound into exploration ... the remedy is a better lookup plus an
+  // ESCALATION ROUTE" (product-lab@9b0ea254 topics/knowledge-architecture.md:148).
+  // The bound is adopted deliberately for cost and discipline, and a per-outcome
+  // exception is the first crack in a fixed-count discipline. So this refusal
+  // routes to the transport, which the skill already names as the path for more
+  // framings than this bound — an affordance, not a dead end.
+  //
+  // COVERAGE ITSELF IS NOT CHECKED HERE, because it cannot be satisfied here.
+  // `checks/check-consult-receipts.sh` recomputes it from the receipt's own
+  // `facet:` lines and is AUTHORITATIVE for it — the same split A1 fixes for
+  // every rule in this pair, and the reason this file does not duplicate a
+  // judgment it has no way to let the caller discharge.
+  // THE TRIGGER IS A CONJUNCTION: a negative outcome AND at least one
+  // `--facet`. The facet half is what separates a NO-CARRIER-FOUND resolution
+  // from the ORDINARY MISS — "I asked twice along different axes and nothing
+  // discriminated" — which is exactly what the ratified triple's third token is
+  // for and which owes no facets at all. Without it this refusal would retire a
+  // use the triple explicitly provides for. Presence is the only marker
+  // available: the receipt carries no field saying *this resolution is a
+  // no-carrier-found*, and minting one is a hub act, not a kit edit.
+  if (m && facetList.length)
+    return refuse(
+      4,
+      `outcome '${outcome}' is a NEGATIVE RESOLUTION, and this entry point ` +
+        "cannot carry one. It owes a query per search facet across all three of " +
+        `act | artifact | decision — three framings — and this path carries ` +
+        `exactly one re-framing (a bound of ${MAX_FRAMINGS}).`,
+      "",
+      "The bound is not widened for it. Compose the act through the transport, " +
+        "which takes as many framings as it is given:",
+      "",
+      "  policy/kit/bin/gateway-query.mjs --consumer <name> --tool policy_lookup \\",
+      "    --args '{\"question\":\"<act framing>\"}'      --question '<act framing>'      --facet act      --hit '<or none>' \\",
+      "    --args '{\"question\":\"<artifact framing>\"}' --question '<artifact framing>' --facet artifact --hit '<or none>' \\",
+      "    --args '{\"question\":\"<decision framing>\"}' --question '<decision framing>' --facet decision --hit '<or none>' \\",
+      "    --receipt --outcome uncovered-after-3-framings",
+      "",
+      "Coverage is counted over FACETS TOUCHED, never over wordings — two " +
+        "queries on one facet are one framing, because facets are orthogonal. " +
+        "`checks/check-consult-receipts.sh` recomputes that coverage from the " +
+        "receipt and is what enforces it; going around this entry point costs " +
+        "you its three rules, so say in the PR why the bound did not hold.",
+    );
+
+  // THE TACTIC CLASSIFIER (kogaki#669). A re-framing owes its tactic, and the
+  // lexical class does not discharge the floor. Both clauses are scoped exactly
+  // as the same-axis refusal above is — to the outcomes whose floor a re-framing
+  // claims to discharge — so a `discriminating` return is untouched.
+  //
+  // `tactic:` IS OWED BY FRAMINGS 2..N AND NOT BY FRAMING ONE: framing one is
+  // not a revision of anything, so it has no tactic to name. Requiring it on the
+  // re-framings is what makes the discount below unskippable — a refusal a
+  // caller can escape by writing less is not a refusal.
+  if (outcome !== "discriminating" && tacticList.length) {
+    for (let i = 1; i < applied.length; i++) {
+      if (!tacticList[i])
+        return refuse(
+          4,
+          `outcome '${outcome}' with no \`--tactic\` on framing ${i + 1}: a ` +
+            "re-framing owes the name of the tactic that produced it, so " +
+            '"is this a different axis?" is answered by naming the tactic ' +
+            "rather than argued in prose.",
+          "",
+          `Supply one of: ${[...RATIFIED_TACTICS].join(" | ")} — framing one owes ` +
+            "none, being a revision of nothing.",
+        );
+    }
+    // THE LEXICAL-CLASS DISCOUNT. A re-framing whose tactic is in the lexical
+    // class is a rewording, not a different axis, so it does not count toward
+    // the floor. `VARY` is the SOLE member of that class inside the adopted six.
+    const lexical = [];
+    for (let i = 1; i < applied.length; i++)
+      if (LEXICAL_TACTICS.has(tacticList[i])) lexical.push(i + 1);
+    if (lexical.length && applied.length - lexical.length < MIN_FRAMINGS) {
+      const discharging = [...RATIFIED_TACTICS].filter((t) => !LEXICAL_TACTICS.has(t));
+      return refuse(
+        4,
+        `outcome '${outcome}' with framing(s) ${lexical.join(", ")} on tactic ` +
+          "'VARY': the lexical class does not discharge the re-framing floor. " +
+          `Discounting it leaves ${applied.length - lexical.length} discharging ` +
+          `framing(s) against a floor of ${MIN_FRAMINGS}.`,
+        "",
+        "VARY is lexical variation — a rewording of the same question, which is " +
+          "the one revision kind §5.2 names as not discharging. Re-frame along a " +
+          `different axis and name the tactic that did it: ${discharging.join(" | ")}.`,
+        "",
+        "The tactics classify a re-framing; they never schedule one, so this is " +
+          "not a checklist to work through.",
+      );
+    }
+  }
+
   // THE SECOND AXIS (kogaki#268). Checked last because it is independent of
   // every clause above: the gate half neither constrains nor is constrained by
   // the framing count, and a consult that fails the floor has no disposition to
@@ -413,7 +617,8 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
     );
   }
 
-  return { ok: true, framings: applied, disposition, axes: axisList };
+  return { ok: true, framings: applied, disposition, axes: axisList,
+           facets: facetList, hits: hitList, tactics: tacticList };
 }
 
 // One `--args` per framing, in order — the transport's own contract, and the
@@ -433,7 +638,8 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
 // absent, the historical `policy_lookup` shape is unchanged. So a `gloss_index`
 // consult states the shard it read AND the question it was reading for, and
 // the receipt records the second.
-export function transportArgv({ consumer, framings, outcome, disposition, act, tool, gateway, argsList = [], axisList = [], ownerRender = false }) {
+export function transportArgv({ consumer, framings, outcome, disposition, act, tool, gateway, argsList = [],
+                                axisList = [], facetList = [], hitList = [], tacticList = [], ownerRender = false }) {
   const argv = ["--consumer", consumer];
   for (const [i, f] of framings.entries()) {
     argv.push("--tool", tool ?? "policy_lookup");
@@ -445,6 +651,13 @@ export function transportArgv({ consumer, framings, outcome, disposition, act, t
     // invocation's argv is byte-for-byte what it was before, which is what
     // keeps every existing fixture over this function exact.
     if (axisList[i] !== undefined) argv.push("--axis", axisList[i]);
+    // The three per-query keys ride in the same group, on the same principle:
+    // each is emitted only when supplied, so an invocation carrying none of
+    // them produces the argv it always produced and every existing fixture
+    // over this function keeps its exact expected string.
+    if (facetList[i] !== undefined) argv.push("--facet", facetList[i]);
+    if (hitList[i] !== undefined) argv.push("--hit", hitList[i]);
+    if (tacticList[i] !== undefined) argv.push("--tactic", tacticList[i]);
   }
   argv.push("--receipt", "--outcome", outcome);
   // Forwarded only when the caller supplied it, so a non-gate consult's argv is
@@ -640,6 +853,90 @@ function selfTest() {
     ["a distinct-token pair is accepted — the judgment half stays human",
      () => run({ framings: ["a", "b"], axisList: ["subject", "conduct"],
                  outcome: "covered-after-reframing" }).ok === true],
+    // --- the three per-query keys (kogaki#640, kogaki#669) -------------------
+    ["--facet is positional: a partial list is refused with the count delta",
+     () => { const r = run({ framings: ["a", "b"], facetList: ["act"], outcome: "covered-after-reframing" });
+             return r.code === 2 && r.message.includes("--facet given 1 time(s) for 2 framing(s)"); }],
+    ["--hit is positional too, same refusal shape",
+     () => run({ framings: ["a", "b"], hitList: ["x"], outcome: "covered-after-reframing" })
+             .message.includes("--hit given 1 time(s) for 2 framing(s)")],
+    ["--tactic is positional too, same refusal shape",
+     () => run({ framings: ["a", "b"], tacticList: ["SUPER"], outcome: "covered-after-reframing" })
+             .message.includes("--tactic given 1 time(s) for 2 framing(s)")],
+    ["an out-of-set facet is refused naming the ratified scheme",
+     () => { const r = run({ framings: ["a", "b"], facetList: ["act", "person"],
+                             hitList: ["x", "y"], outcome: "covered-after-reframing" });
+             return r.code === 2 && r.message.includes("act | artifact | decision"); }],
+    ["the facet refusal says it is NOT the axis set — two value sets, two jobs",
+     () => run({ framings: ["a", "b"], facetList: ["subject", "conduct"],
+                 hitList: ["x", "y"], outcome: "covered-after-reframing" })
+             .message.includes("NOT the `--axis` set")],
+    ["an out-of-set tactic is refused naming the adopted six",
+     () => { const r = run({ framings: ["a", "b"], tacticList: ["SUPER", "RESPELL"],
+                             outcome: "covered-after-reframing" });
+             return r.code === 2 && r.message.includes("SUPER | SUB | RELATE | NEIGHBOR | TRACE | VARY"); }],
+    ["FIX/REARRANGE/RESPELL/RESPACE are NOT writable values — the refusal set is not the value set",
+     () => ["FIX", "REARRANGE", "RESPELL", "RESPACE"].every((t) =>
+             run({ framings: ["a", "b"], tacticList: ["SUPER", t], outcome: "covered-after-reframing" }).code === 2)],
+    ["the tactic refusal states the 29-tactic set is not imported as a procedure",
+     () => run({ framings: ["a", "b"], tacticList: ["SUPER", "BOGUS"], outcome: "covered-after-reframing" })
+             .message.includes("never schedule")],
+    ["a facet with no hit anywhere is malformed, and the refusal says `none` must be TYPED",
+     () => { const r = run({ framings: ["a", "b"], facetList: ["act", "artifact"],
+                             outcome: "covered-after-reframing" });
+             return r.code === 2 && r.message.includes("type `none`"); }],
+    ["a facet with its hit is accepted",
+     () => run({ framings: ["a", "b"], facetList: ["act", "artifact"], hitList: ["found x", "none"],
+                 axisList: ["subject", "conduct"], outcome: "covered-after-reframing" }).ok === true],
+    ["a re-framing owes its tactic; framing one owes none",
+     () => { const r = run({ framings: ["a", "b"], tacticList: ["SUPER", ""],
+                             outcome: "covered-after-reframing" });
+             return r.code === 2 || r.code === 4; }],
+    ["framing one needs no tactic when the re-framings carry theirs",
+     () => run({ framings: ["a", "b"], tacticList: ["SUPER", "RELATE"],
+                 axisList: ["subject", "conduct"], outcome: "covered-after-reframing" }).ok === true],
+    ["VARY on the re-framing does not discharge the floor — the lexical class is refused",
+     () => { const r = run({ framings: ["a", "b"], tacticList: ["SUPER", "VARY"],
+                             axisList: ["subject", "conduct"], outcome: "covered-after-reframing" });
+             return r.code === 4 && r.message.includes("lexical class does not discharge"); }],
+    ["the VARY refusal names the discharging tactics and never a checklist",
+     () => { const r = run({ framings: ["a", "b"], tacticList: ["SUPER", "VARY"],
+                             outcome: "covered-after-reframing" });
+             return r.message.includes("SUPER | SUB | RELATE | NEIGHBOR | TRACE")
+                    && r.message.includes("never schedule"); }],
+    ["a discriminating return is untouched by the tactic rules — no floor was claimed",
+     () => run({ framings: ["a", "b"], tacticList: ["SUPER", "VARY"], outcome: "discriminating" }).ok === true],
+    ["a negative resolution CLAIMING THE FACET SCHEME is routed to the transport",
+     () => { const r = run({ framings: ["a", "b"], facetList: ["act", "artifact"],
+                             hitList: ["none", "none"], outcome: "uncovered-after-2-framings" });
+             return r.code === 4 && r.message.includes("gateway-query.mjs")
+                    && r.message.includes("act | artifact | decision"); }],
+    ["the route refusal does not loosen the bound — it names the bound it is keeping",
+     () => run({ framings: ["a", "b"], facetList: ["act", "artifact"], hitList: ["none", "none"],
+                 outcome: "uncovered-after-2-framings" })
+             .message.includes("The bound is not widened for it")],
+    // THE ORDINARY MISS SURVIVES, and this is the case the conjunction exists
+    // for: "I asked twice along different axes and nothing discriminated" is
+    // what the triple's third token is FOR, owes no facets, and must stay
+    // recordable on the primary path. A trigger keyed on the outcome alone
+    // would have retired it.
+    ["an ordinary miss with no facets is NOT routed away — it passes",
+     () => run({ framings: ["a", "b"], axisList: ["subject", "conduct"],
+                 outcome: "uncovered-after-2-framings" }).ok === true],
+    ["N still names the queries for an ordinary miss",
+     () => run({ framings: ["a", "b"], outcome: "uncovered-after-7-framings" })
+             .message.includes("N names the queries")],
+    ["three framings still hit the bound before anything else",
+     () => run({ framings: ["a", "b", "c"], outcome: "uncovered-after-3-framings" }).code === 2],
+    ["the three keys ride in their framing's own group in the transport argv",
+     () => transportArgv({ consumer: "k", framings: ["first", "second"], outcome: "covered-after-reframing",
+                           facetList: ["act", "artifact"], hitList: ["hx", "none"],
+                           tacticList: ["SUPER", "RELATE"] }).join(" ")
+             .includes("--question first --facet act --hit hx --tactic SUPER")],
+    ["omitting all three leaves the transport argv byte-for-byte unchanged",
+     () => transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating" }).join(" ")
+             === transportArgv({ consumer: "k", framings: ["q"], outcome: "discriminating",
+                                 facetList: [], hitList: [], tacticList: [] }).join(" ")],
     ["a discriminating return with same tokens is accepted — no floor was claimed",
      () => run({ framings: ["a", "b"], axisList: ["subject", "subject"],
                  outcome: "discriminating" }).ok === true],
@@ -770,6 +1067,9 @@ const verdict = discipline({
   disposition,
   argsList: opts("args"),
   axisList: opts("axis"),
+  facetList: opts("facet"),
+  hitList: opts("hit"),
+  tacticList: opts("tactic"),
 });
 if (!verdict.ok) {
   console.error(verdict.message);
@@ -806,6 +1106,9 @@ const child = spawnSync(
     gateway: opt("gateway"),
     argsList: opts("args"),
     axisList: verdict.axes,
+    facetList: verdict.facets,
+    hitList: verdict.hits,
+    tacticList: verdict.tactics,
     ownerRender: flagPresent("owner-render"),
   })],
   { stdio: "inherit" },

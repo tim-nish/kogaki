@@ -143,7 +143,7 @@ FENCE = re.compile(r'^[ \t]*(`{3,}|~{3,}).*?(?:^[ \t]*\1[ \t]*$|\Z)',
 # belonging to the `consulted:` line above them. Line one is unchanged from
 # v1, which is why every receipt already in git history still parses and why
 # PIN needed no change — the parsing that is new is association, not matching.
-CONT = re.compile(r'^[ \t]+(request_id|outcome|disposition|query|axis):[ \t]*(.*)$')
+CONT = re.compile(r'^[ \t]+(request_id|outcome|disposition|query|axis|facet|hit|tactic):[ \t]*(.*)$')
 # THE THIRD AXIS: `axis:` (kogaki#336). Unlike every other continuation key,
 # this one is PER-QUERY and binds UPWARD to the nearest preceding `query:`
 # (owner selection 2026-08-11). That makes it this grammar's first
@@ -165,6 +165,29 @@ CONT = re.compile(r'^[ \t]+(request_id|outcome|disposition|query|axis):[ \t]*(.*
 # a typo'd axis is indistinguishable from a real one. That window is the price
 # of not minting, and the reopen trigger is the hub ratifying the set.
 AXIS_KEY = 'axis'
+# THE THREE PER-QUERY KEYS (kogaki#640 facets, kogaki#669 tactics). They bind
+# upward exactly as `axis:` does — first declaration wins, one before any query
+# is orphaned — because they are facts about a FRAMING and not about the receipt.
+#
+# THE OTHER CARRIER OF THESE RULES IS `policy/kit/bin/consult.mjs`, which refuses
+# them at compose time as an AFFORDANCE. This file is AUTHORITATIVE: it is the
+# only one of the two that reaches receipts no writer mediated — hand-composed
+# ones (an admissible, explicitly marked path), direct gateway-query.mjs calls,
+# and receipts edited into PR bodies. The citation is not decoration: two
+# carriers of one rule that do not name each other drift silently, and the
+# repair is a cite at the point of the rule on BOTH sides
+# (product-lab@9b0ea254 LESSONS.md:21). The live specimen of not paying it is
+# `axis:` itself — value-checked in consult.mjs since kogaki#602 and shape-only
+# here to this day (kogaki#673).
+PERQUERY_KEYS = ('axis', 'facet', 'hit', 'tactic')
+# COPIED from the hub, never minted here, under the boundary-field rule
+# specs/SPEC.md §4 quotes: a field read by both sides is the boundary's.
+RATIFIED_FACETS = {'act', 'artifact', 'decision'}
+RATIFIED_TACTICS = {'SUPER', 'SUB', 'RELATE', 'NEIGHBOR', 'TRACE', 'VARY'}
+# `VARY` is the SOLE intersection of the adopted six and the lexical class §5.2
+# names (VARY/FIX/REARRANGE/RESPELL/RESPACE) — the other four are not writable
+# values at all. The value set and the refusal set are different sets.
+LEXICAL_TACTICS = {'VARY'}
 # The hub's ratified triple. A bare `miss` is INADMISSIBLE: it collapses the
 # distill-bug and query-defect causes the 2026-08-02 correction separated, in
 # the one field meant to make them harvestable
@@ -256,7 +279,7 @@ def scan(source):
             i += 1
             continue
         pin = m.group(1).strip()
-        fields = {'query': [], 'axes': []}
+        fields = {'query': [], 'axes': [], 'facets': [], 'hits': [], 'tactics': []}
         # ONE RULE FOR EMPTY VALUES, applied in the parse rather than inferred
         # later from truthiness. `saw_cont` records that a continuation line
         # was PRESENT — which is a fact about the text, not about what the
@@ -284,26 +307,40 @@ def scan(source):
                     # with `query` so the two lists are index-aligned by
                     # construction rather than by a later zip that could drift.
                     fields['axes'].append(None)
-                elif key == AXIS_KEY:
-                    # BINDS UPWARD to the nearest preceding `query:`. An
-                    # `axis:` before any query has nothing to bind to and is
+                    # Every per-query key opens its own slot in step with the
+                    # query, so all four lists stay index-aligned by
+                    # construction rather than by a later zip that could drift.
+                    fields['facets'].append(None)
+                    fields['hits'].append(None)
+                    fields['tactics'].append(None)
+                elif key in PERQUERY_KEYS:
+                    # BINDS UPWARD to the nearest preceding `query:`. One of
+                    # these before any query has nothing to bind to and is
                     # recorded as orphaned rather than silently dropped — the
                     # same discipline `before-any-report` already gets
                     # elsewhere in this file, because a key that binds to
                     # nothing and vanishes is indistinguishable from one that
                     # was never written.
-                    if fields['axes']:
+                    #
+                    # ONE BRANCH FOR ALL FOUR KEYS (kogaki#640, kogaki#669).
+                    # specs/SPEC.md §4 states the binding rule once for the
+                    # family rather than per key, so enforcing it once here is
+                    # the same choice: a fifth key is covered by adding its name
+                    # to PERQUERY_KEYS, never by copying this block.
+                    slot = {'axis': 'axes', 'facet': 'facets',
+                            'hit': 'hits', 'tactic': 'tactics'}[key]
+                    if fields[slot]:
                         # FIRST DECLARATION WINS, matching every other key in
                         # this grammar. A second `axis:` under one query is a
                         # respelling, not a second axis; two axes for one query
                         # would be the one-field-carrying-two shape the owner
                         # selection rejected by choosing one field per axis.
-                        if fields['axes'][-1] is None:
-                            fields['axes'][-1] = value
+                        if fields[slot][-1] is None:
+                            fields[slot][-1] = value
                         else:
-                            fields['axis_dup'] = fields.get('axis_dup', 0) + 1
+                            fields[f'{key}_dup'] = fields.get(f'{key}_dup', 0) + 1
                     else:
-                        fields['axis_orphan'] = fields.get('axis_orphan', 0) + 1
+                        fields[f'{key}_orphan'] = fields.get(f'{key}_orphan', 0) + 1
                 else:
                     fields[key] = value
             i += 1
@@ -353,6 +390,113 @@ def scan(source):
                                    '(discriminating | covered-after-reframing | '
                                    'uncovered-after-N-framings)'))
             continue
+        # --- the facet scheme and the tactic classifier (kogaki#640, #669) ---
+        #
+        # THIS FILE IS THE AUTHORITATIVE CARRIER of every rule below; the
+        # affordance half lives at `policy/kit/bin/consult.mjs`. The split is
+        # A1 (owner selection 2026-08-28, specs/SPEC.md §4): the writer refuses
+        # at compose time where it can, and this recomputes from the receipt's
+        # own lines because it is the only one of the two that reaches receipts
+        # no writer mediated. NOTHING DERIVED IS STORED — no `framings-counted:`,
+        # no `facets-covered:` — because a value recomputable from primary
+        # capture that is stored beside it drifts from its source
+        # (product-lab@9b0ea254 topics/knowledge-architecture.md:220).
+        #
+        # PROSPECTIVITY IS FREE HERE AND IS NOT DATE LOGIC. specs/SPEC.md §4
+        # binds these refusals to receipts written after the clause landed; this
+        # check scans `merge-base..HEAD` plus the CI-supplied PR body and never a
+        # file on the default branch, so every receipt it sees is new to the
+        # branch by construction. The bound needs no clock and gets none.
+        facets = [f for f in fields.get('facets', []) if f]
+        tactics = [t for t in fields.get('tactics', []) if t]
+        bad_facet = [f for f in facets if f not in RATIFIED_FACETS]
+        if bad_facet:
+            malformed.append(
+                (pin, f'facet {bad_facet[0]!r} is not the ratified search-facet '
+                      'scheme (act | artifact | decision). The set is COPIED from '
+                      'the hub and never minted here; extension is the hub\'s '
+                      'named observer. Note this is NOT the `axis:` set '
+                      '(subject | conduct) — two value sets, two jobs, neither '
+                      'importing the other'))
+            continue
+        bad_tactic = [t for t in tactics if t not in RATIFIED_TACTICS]
+        if bad_tactic:
+            malformed.append(
+                (pin, f'tactic {bad_tactic[0]!r} is not the adopted six '
+                      '(SUPER | SUB | RELATE | NEIGHBOR | TRACE | VARY). The '
+                      '29-tactic set is deliberately not imported: the tactics '
+                      'classify a re-framing, they never schedule one'))
+            continue
+        # `hit:` IS OWED WHEREVER `facet:` APPEARS, and `none` must be TYPED.
+        # An omitted `hit:` and a `hit: none` are the same silence to a reader
+        # and different silences to a check, and only the second distinguishes
+        # *this facet was queried and returned nothing* from *nobody recorded
+        # what happened* — the entire evidentiary content of a negative
+        # resolution. Checked per query line, because the pairing is per query.
+        _fl, _hl = fields.get('facets', []), fields.get('hits', [])
+        hitless = [i + 1 for i, f in enumerate(_fl)
+                   if f and not (_hl[i] if i < len(_hl) else None)]
+        if hitless:
+            malformed.append(
+                (pin, f'query line {hitless[0]} carries a `facet:` and no `hit:`. '
+                      'Record what the framing returned, and type `none` where it '
+                      'returned nothing — an omitted `hit:` and a `hit: none` are '
+                      'the same silence to a reader and different silences to a '
+                      'check'))
+            continue
+        # FACET COVERAGE. The trigger is the OUTCOME TOKEN, never the presence of
+        # a `facet:` line: `no-carrier-found` is the open world's *unknown*,
+        # which in this grammar is `uncovered-after-N-framings`. Keying on
+        # presence is the weaker rule a negative resolution with zero facet lines
+        # satisfies. Counted over FACETS TOUCHED and never over wordings —
+        # facets are orthogonal, so two same-facet queries are one framing
+        # (product-lab@9b0ea254 topics/knowledge-architecture.md:102). That
+        # ground is recorded because a rule whose ground is unrecorded gets
+        # "simplified" into a count later, which is why this is a set difference
+        # and not a length comparison.
+        # THE TRIGGER IS A CONJUNCTION: a negative outcome AND at least one
+        # `facet:`. Both halves are load-bearing. Dropping the outcome half
+        # would ask coverage of a `discriminating` receipt that happened to
+        # record a facet; dropping the facet half would sweep in the ORDINARY
+        # MISS — "I asked twice along different axes and nothing discriminated" —
+        # which is precisely what the ratified triple's third token is for and
+        # has nothing to do with the facet scheme. Presence is the only marker
+        # available: the receipt carries no field saying *this resolution is a
+        # no-carrier-found*, and minting one is a hub act, not a kit edit. So
+        # this is an approximation, and it errs in the safe direction — it never
+        # blocks a legitimate miss, and it always fires on anything claiming the
+        # scheme (kogaki#640's own "once any `facet:` appears, the block owes the
+        # full shape").
+        if got is not None and UNCOVERED.match(got) and facets:
+            missing = sorted(RATIFIED_FACETS - set(facets))
+            if missing:
+                malformed.append(
+                    (pin, f'outcome {got!r} is a negative resolution and covers '
+                          f'{len(set(facets))} of 3 search facets; no query was '
+                          f'framed on: {", ".join(missing)}. It is recordable only '
+                          'when all three carry at least one query. Coverage is '
+                          'counted over facets TOUCHED, never over wordings'))
+                continue
+        # THE LEXICAL-CLASS DISCOUNT. A re-framing whose tactic is in the lexical
+        # class is a rewording, not a different axis, so it does not discharge the
+        # floor. Scoped exactly as the floor is — to the non-discriminating
+        # outcomes a re-framing claims to discharge — and applied to framings
+        # 2..N, because framing one is a revision of nothing and owes no tactic.
+        if got is not None and got != 'discriminating' and tactics:
+            _tl = fields.get('tactics', [])
+            lexical = [i + 1 for i in range(1, len(_tl)) if _tl[i] in LEXICAL_TACTICS]
+            discharging = len(fields['query']) - len(lexical)
+            if lexical and discharging < MIN_FRAMINGS:
+                malformed.append(
+                    (pin, f'outcome {got!r} with query line(s) '
+                          f'{", ".join(str(i) for i in lexical)} on tactic VARY: the '
+                          'lexical class does not discharge the re-framing floor, so '
+                          f'{discharging} discharging framing(s) remain against a '
+                          f'floor of {MIN_FRAMINGS}. VARY is lexical variation — a '
+                          'rewording of the same question, the one revision kind that '
+                          'does not discharge'))
+                continue
+
         # THE SECOND AXIS, checked against the set it ADOPTED (kogaki#268).
         # Optional by construction: `disp is None` is a consult that was not
         # raised at a fork gate, which is most of them, and it is silent rather
@@ -658,6 +802,55 @@ FIXTURES = [
      V2_REFRAMED_ONE_QUERY, 1, 1, 1, ('covered-after-reframing',)),
     ("uncovered-after-N: N matching its queries and at or above the floor passes",
      V2_UNCOVERED, 1, 0, 2, ('uncovered-after-2-framings',)),
+    # --- the facet scheme and the tactic classifier (kogaki#640, #669) -------
+    ("a facet-scheme negative resolution covering all three facets passes",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: uncovered-after-3-framings\n"
+     "  query: q1\n    facet: act\n    hit: none\n"
+     "  query: q2\n    facet: artifact\n    hit: none\n"
+     "  query: q3\n    facet: decision\n    hit: found nothing\n",
+     1, 0, 3, ('uncovered-after-3-framings',)),
+    ("the SAME receipt missing one facet is malformed — coverage, not query count",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: uncovered-after-3-framings\n"
+     "  query: q1\n    facet: act\n    hit: none\n"
+     "  query: q2\n    facet: act\n    hit: none\n"
+     "  query: q3\n    facet: artifact\n    hit: none\n",
+     1, 1, 3, ('uncovered-after-3-framings',)),
+    ("an ORDINARY MISS carrying no facets still passes — the conjunction's whole point",
+     V2_UNCOVERED, 1, 0, 2, ('uncovered-after-2-framings',)),
+    ("a facet: with no hit: is malformed",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: discriminating\n  query: q1\n    facet: act\n",
+     1, 1, 1, ('discriminating',)),
+    ("an out-of-set facet is malformed",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: discriminating\n  query: q1\n    facet: person\n    hit: x\n",
+     1, 1, 1, ('discriminating',)),
+    ("an axis token in the facet slot is malformed — two value sets, two jobs",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: discriminating\n  query: q1\n    facet: subject\n    hit: x\n",
+     1, 1, 1, ('discriminating',)),
+    ("an out-of-set tactic is malformed",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: covered-after-reframing\n  query: q1\n  query: q2\n    tactic: RESPELL\n",
+     1, 1, 2, ('covered-after-reframing',)),
+    ("VARY on the re-framing does not discharge the floor",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: covered-after-reframing\n  query: q1\n    tactic: SUPER\n"
+     "  query: q2\n    tactic: VARY\n",
+     1, 1, 2, ('covered-after-reframing',)),
+    ("a discharging tactic on the re-framing passes",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: covered-after-reframing\n  query: q1\n    tactic: SUPER\n"
+     "  query: q2\n    tactic: RELATE\n",
+     1, 0, 2, ('covered-after-reframing',)),
+    ("VARY on a DISCRIMINATING receipt is untouched — no floor was claimed",
+     "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n"
+     "  outcome: discriminating\n  query: q1\n    tactic: VARY\n",
+     1, 0, 1, ('discriminating',)),
+    ("a v2 receipt carrying none of the three new keys stays valid — compat",
+     V2_FULL, 1, 0, 1, ('discriminating',)),
     ("two v2 receipts are two receipts, not one with merged fields",
      V2_FULL + V2_REFRAMED, 2, 0, 3,
      ('discriminating', 'covered-after-reframing')),
@@ -768,7 +961,7 @@ if fixture_failures:
 # dropped", which is the whole failure mode of a key that binds by position.
 _AXBASE = "consulted: product-lab@f918c515 LESSONS.md:40\n  request_id: x\n  outcome: discriminating\n"
 _axfail = []
-for _label, _src, _want_axes, _want_orphan, _want_dup in [
+_axcases = [
     ("one query, one axis -> bound to it",
      _AXBASE + "  query: q1\n  axis: subject\n", ['subject'], 0, 0),
     ("two queries, one axis each -> bound in order, not swapped",
@@ -779,6 +972,10 @@ for _label, _src, _want_axes, _want_orphan, _want_dup in [
      [None, 'conduct'], 0, 0),
     ("NO axis at all -> the key is optional and nothing is invented",
      _AXBASE + "  query: q1\n  query: q2\n", [None, None], 0, 0),
+    ("a facet binds upward exactly as an axis does",
+     _AXBASE + "  query: q1\n  facet: act\n  hit: h\n", [None], 0, 0),
+    ("a facet BEFORE any query is orphaned too — one branch, four keys",
+     _AXBASE + "  facet: act\n  query: q1\n", [None], 0, 0),
     ("an axis BEFORE any query is orphaned, not bound to a later one",
      _AXBASE + "  axis: subject\n  query: q1\n", [None], 1, 0),
     ("a SECOND axis under one query -> first wins, the respelling is counted",
@@ -790,7 +987,8 @@ for _label, _src, _want_axes, _want_orphan, _want_dup in [
      ['zzz-not-ratified'], 0, 0),
     ("an EMPTY axis value is absent, matching this grammar's one empty rule",
      _AXBASE + "  query: q1\n  axis:\n", [None], 0, 0),
-]:
+]
+for _label, _src, _want_axes, _want_orphan, _want_dup in _axcases:
     _g, _ = scan(_src)
     _axes_got = _g[0][1].get('axes') if _g else None
     _orph = sum(f.get('axis_orphan', 0) for _, f in _g)
@@ -811,10 +1009,13 @@ if _axfail:
     for f in _axfail:
         print(f"  {f}")
     sys.exit(1)
-print("axis pass: 8/8 per-query binding cases (bound / two in order / a "
-      "gap keeps its slot / absent invents nothing / orphaned before any "
-      "query / first-declaration-wins / an unknown token binds like a known "
-      "one / empty is absent), plus the never-gates assertion")
+print(f"per-query binding pass: {len(_axcases)}/{len(_axcases)} cases over the "
+      "four-key family (bound / two in order / a gap keeps its slot / absent "
+      "invents nothing / orphaned before any query / first-declaration-wins / "
+      "an unknown token binds like a known one / empty is absent / a facet "
+      "binds and orphans exactly as an axis does), plus the never-gates "
+      "assertion. The denominator is COUNTED from the case list, never "
+      "asserted: it stood at a hardcoded 8 against a list of 10.")
 
 # ---------------------------------------------------------------------------
 # The real scan.

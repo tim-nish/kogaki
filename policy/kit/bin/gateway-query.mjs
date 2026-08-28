@@ -168,6 +168,16 @@ const questionList = opts("question");
 // CARRIED, never judged — the set is the hub's to ratify, so this transport
 // passes any non-empty one-line token through and mints nothing.
 const axisList = opts("axis");
+// THE THREE PER-QUERY KEYS (kogaki#640 facets, kogaki#669 tactics; grammar at
+// specs/SPEC.md §4). Positional against `--args` exactly as `--axis` is, and
+// OPTIONAL on the same terms: none supplied composes the block byte-for-byte as
+// before. CARRIED, never judged — the value sets are the hub's and are enforced
+// at `consult.mjs`, which is where the discipline lives. Admitting them here
+// without judging them is what keeps exactly one receipt composer and exactly
+// one place each vocabulary is enforced.
+const facetList = opts("facet");
+const hitList = opts("hit");
+const tacticList = opts("tactic");
 const receiptMode = flag("receipt");
 // THE OWNER-REGISTER RENDERING (kogaki#320; specs/spec-client-kit/SPEC.md §8).
 // Independent of `--receipt` on purpose: §8 keeps the audit register and the
@@ -199,6 +209,9 @@ const framings = (rawArgsList.length ? rawArgsList : ["{}"]).map((raw, i) => ({
   args: JSON.parse(raw),
   question: questionList[i],
   axis: axisList[i],
+  facet: facetList[i],
+  hit: hitList[i],
+  tactic: tacticList[i],
 }));
 const toolArgs = framings[0].args;
 
@@ -314,6 +327,19 @@ if (receiptMode && questionList.length !== framings.length) {
 // passes — what refuses is a PARTIAL list, because `--axis` is positional
 // against `--args` and a wire that pairs by position cannot express a gap
 // without silently covering a prefix.
+// The same COUNT discipline for the three per-query keys, for the same reason:
+// each binds upward to its own `query:` line, so a partial list would bind a
+// key to a framing nobody paired it with.
+for (const [flagName, list] of [["facet", facetList], ["hit", hitList], ["tactic", tacticList]]) {
+  if (list.length && list.length !== framings.length) {
+    console.error(
+      `refusing ${list.length} --${flagName} for ${framings.length} framing(s): ` +
+        `\`--${flagName}\` is positional against \`--args\` — one per framing, in ` +
+        "the same order, or none at all.",
+    );
+    process.exit(2);
+  }
+}
 if (axisList.length && axisList.length !== framings.length) {
   console.error(
     `refusing ${axisList.length} --axis for ${framings.length} framing(s): ` +
@@ -658,6 +684,24 @@ function composeReceipt(observed, outcomeToken, dispositionToken) {
       throw new Error(`framing ${i + 1}'s axis spans several lines; \`axis:\` is one line`);
     return a.trim();
   });
+  // THE THREE PER-QUERY KEYS (kogaki#640, kogaki#669). Read off each framing's
+  // OWN record on exactly the axis-key's terms, and for exactly its reason: the
+  // key and the call it names are one value, so the composer cannot orphan one
+  // or bind it to a neighbour. Shape asserted, VALUE carried untouched — the
+  // vocabularies are the hub's and are enforced at `consult.mjs`.
+  const perQuery = (name) =>
+    observed.map((o, i) => {
+      const v = o.framing[name];
+      if (v === undefined) return undefined;
+      if (typeof v !== "string" || !v.trim())
+        throw new Error(`framing ${i + 1}'s ${name} is empty; \`${name}:\` carries a non-empty token`);
+      if (v.includes("\n"))
+        throw new Error(`framing ${i + 1}'s ${name} spans several lines; \`${name}:\` is one line`);
+      return v.trim();
+    });
+  const facets = perQuery("facet");
+  const hits = perQuery("hit");
+  const tactics = perQuery("tactic");
   // Line one: the gateway's own rendering when there is exactly one framing,
   // its union when there are several.
   let lineOne;
@@ -714,9 +758,19 @@ function composeReceipt(observed, outcomeToken, dispositionToken) {
     // not layout. Omitted for a framing that carried none: the key is
     // per-query and OPTIONAL, and an all-omitted invocation composes the
     // block byte-for-byte as before.
-    ...queries.flatMap((q, i) =>
-      axes[i] === undefined ? [`  query: ${q}`] : [`  query: ${q}`, `    axis: ${axes[i]}`],
-    ),
+    // Each per-query key sits DIRECTLY under its own `query:` line, indented
+    // one level deeper, in the fixed order the grammar block declares:
+    // axis, facet, hit, tactic. Adjacency is correctness (the keys bind
+    // upward to the nearest preceding query), and the ORDER is stability —
+    // a composer that varied it would churn every receipt's diff for nothing.
+    ...queries.flatMap((q, i) => {
+      const line = [`  query: ${q}`];
+      if (axes[i] !== undefined) line.push(`    axis: ${axes[i]}`);
+      if (facets[i] !== undefined) line.push(`    facet: ${facets[i]}`);
+      if (hits[i] !== undefined) line.push(`    hit: ${hits[i]}`);
+      if (tactics[i] !== undefined) line.push(`    tactic: ${tactics[i]}`);
+      return line;
+    }),
   ].join("\n");
 }
 
@@ -737,9 +791,9 @@ function selfTest() {
   // unchecked address form a refusal rather than a pass.
   const LOOKUP = new Set(["question", "topic_hints"]);
   const GLOSS = new Set(["tag"]);
-  const framing = (q, axis) => ({
+  const framing = (q, axis, extra = {}) => ({
     raw: JSON.stringify({ question: q }), args: { question: q }, question: q,
-    tool: "policy_lookup", axis,
+    tool: "policy_lookup", axis, ...extra,
   });
   const one = [{ framing: framing("first framing"), text: served("id-1", "LESSONS.md:31"), declared: LOOKUP }];
   const two = [
@@ -810,6 +864,36 @@ function selfTest() {
      () => !compose(two, "uncovered-after-2-framings").includes("axis:") &&
        compose(one, "discriminating").split("\n").slice(2).join("|") ===
          "  request_id: id-1|  outcome: discriminating|  query: first framing"],
+    // --- the three per-query keys (kogaki#640, kogaki#669) -------------------
+    ["facet/hit/tactic sit directly under their own query line, in grammar order",
+     () => compose([{ ...one[0], framing: framing("first framing", "subject",
+                       { facet: "act", hit: "none", tactic: "SUPER" }) }], "discriminating")
+       .split("\n").slice(-5).join("|") ===
+         "  query: first framing|    axis: subject|    facet: act|    hit: none|    tactic: SUPER"],
+    ["each key rides its OWN framing — no bleed onto a neighbour",
+     () => { const c = compose([
+               { ...one[0], framing: framing("first framing", undefined, { facet: "act", hit: "hx" }) },
+               { ...two[1], framing: framing("second framing, another axis", undefined,
+                            { facet: "decision", hit: "none" }) }], "uncovered-after-2-framings");
+             return c.includes("  query: first framing\n    facet: act\n    hit: hx\n")
+                 && c.includes("    facet: decision\n    hit: none"); }],
+    ["a framing carrying none of the three emits none of them, beside one that does",
+     () => { const c = compose([
+               { ...one[0], framing: framing("first framing", undefined, { facet: "act", hit: "hx" }) },
+               { ...two[1], framing: framing("second framing, another axis") }], "uncovered-after-2-framings");
+             return c.endsWith("  query: second framing, another axis"); }],
+    ["omitting all three composes the block byte-for-byte as before",
+     () => compose(one, "discriminating") ===
+           compose([{ ...one[0], framing: framing("first framing", undefined, {}) }], "discriminating")],
+    ["an EMPTY facet refuses rather than emitting a line the checker reads as absent",
+     () => compose([{ ...one[0], framing: framing("first framing", undefined, { facet: "  " }) }], "discriminating")
+       .startsWith("THREW: framing 1's facet is empty")],
+    ["an EMPTY hit refuses too — `none` is a value that must be TYPED",
+     () => compose([{ ...one[0], framing: framing("first framing", undefined, { hit: "" }) }], "discriminating")
+       .startsWith("THREW: framing 1's hit is empty")],
+    ["an unknown facet VALUE is carried untouched — the vocabulary is enforced at consult.mjs",
+     () => compose([{ ...one[0], framing: framing("first framing", undefined, { facet: "zzz" }) }], "discriminating")
+       .includes("    facet: zzz")],
     ["an EMPTY axis refuses rather than emitting a line the checker reads as absent",
      () => compose([{ ...one[0], framing: framing("first framing", "  ") }], "discriminating")
        .startsWith("THREW: framing 1's axis is empty")],
