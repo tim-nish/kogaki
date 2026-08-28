@@ -3889,7 +3889,9 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     relation: "from the same Batch as the settled set (q_a/x)",
     gloss: null, claim: `claim ${n}`, ...extra,
   });
-  const screen = (suggestions) => neighborhoodScreen({ tag: "T", gids: ["G1"], suggestions });
+  const screen = (suggestions, unresolved = []) => neighborhoodScreen({ tag: "T", gids: ["G1"], suggestions, unresolved });
+  // A marked batch-side gap, in the shape `neighborhoodOf` pushes (kogaki#691).
+  const GAP = (slug, why, value = null) => ({ slug, why, value });
 
   // EVERY RENDERED LINE IS CLASSIFIED, AND THIS IS THE CASE THE ISSUE EARNED.
   //
@@ -3937,12 +3939,24 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
       "over the cap": screen(Array.from({ length: 11 }, (_, i) => S(i + 1, "core"))),
       "none judged": screen([{ nid: "N1", slug: "s1" }]),
       "empty enumeration": screen([]),
-      // NOT a state here: a SUPPLIED gloss. The fetch is unbuilt (kogaki#689),
-      // so that line never renders in production, and the grammar declares the
-      // literal that does rather than a free placeholder admitting anything at
-      // that indent. The screen's supplied-gloss behaviour is still asserted —
-      // by the unit case below, which reads the rendering rather than the
-      // grammar. When #689 lands a fetch it brings the class and this state.
+      // THE GLOSS STATES ARE REAL STATES NOW. kogaki#689's fetch landed, so a
+      // quoted headline and both miss markers render in production and each
+      // has its own class. This comment previously said the fetch was unbuilt
+      // and that the supplied-gloss line never rendered — true when written,
+      // false the moment #696 merged, and a stale exclusion in a COVERAGE case
+      // silently narrows what the case covers.
+      "a fetched gloss, quoted at its cite": screen([S(1, "core", { gloss: "a served headline.", gloss_cite: "gloss/lessons/testing.md:19@stubbed" })]),
+      "a shard read that carried nothing": screen([S(1, "core", { gloss: NO_HEADLINE })]),
+      "no shard carrying the row": screen([S(1, "core")]),
+      // THE BATCH-SIDE DISCLOSURE (kogaki#691). All three marker shapes, and
+      // both the arm that DISPLACES the empty form and the arm that rides a
+      // populated section.
+      "unresolved, displacing the empty form": screen([], [
+        GAP("seedA", "the record carries no source_batch"),
+        GAP("seedB", 'source_batch names a batch no served record carries (resolved to "q_a/ghost")', "q_a/ghost"),
+        GAP("q_a/3", 'the batch lists a member no served record carries (family "lesson")', "gone"),
+      ]),
+      "unresolved beside judged rows": screen([S(1, "core")], [GAP("seedA", "the record carries no source_batch")]),
     };
     for (const [what, lines] of Object.entries(states)) {
       for (const line of lines.slice(1)) {
@@ -3955,6 +3969,62 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
           fails.push(`§13/686 grammar coverage: in the ${what} state the line ${JSON.stringify(line)} matches ${hits.length ? "only bare-placeholder body class(es) " + JSON.stringify(hits.map((c) => c.id)) : "NO declared class"} — a neighborhood line that falls through is exactly the defect this issue shipped three times, invisible to the suite because this surface's allowlist is inert`);
         }
       }
+    }
+  }
+
+  // THE BATCH-SIDE DISCLOSURE, AND THE FALSE LINE IT DISPLACES (kogaki#691,
+  // owner ruling 2026-08-29 — arm 1). §13.0's duty survives #686 disposition 4
+  // for these gaps, and the ruling turned on a fact neither review round had:
+  // where every seed fails to resolve, the empty form was the ONLY line
+  // rendered, asserting an enumeration that could not have run.
+  {
+    const gaps = [
+      GAP("seedA", "the record carries no source_batch"),
+      GAP("seedB", 'source_batch names a batch no served record carries (resolved to "q_a/ghost")', "q_a/ghost"),
+      GAP("q_a/3", 'the batch lists a member no served record carries (family "lesson")', "gone"),
+    ];
+    const withGaps = screen([], gaps).join("\n");
+
+    // THE DISPLACEMENT. This is the half that matters: an added disclosure
+    // beside a false statement leaves the false statement.
+    if (withGaps.includes("The enumeration ran over the settled set's Batches")) {
+      fails.push("§13/691: the empty form rendered BESIDE a batch-side resolution failure — it asserts that the enumeration ran over the settled set's Batches, which is false of a run that could not resolve them. The disclosure must DISPLACE that line, not accompany it");
+    }
+    if (!withGaps.includes("could not be resolved to a Batch")) {
+      fails.push("§13/691: a settled reference that could not be resolved produced no disclosure — that is §13.0's silent exclusion, the defect the section exists to remove");
+    }
+    // EACH GAP NAMES ITS SUBJECT. A bare count is a disclosure the reader
+    // cannot act on, which is the whole distinction §13.0 draws.
+    for (const g of gaps) {
+      if (!withGaps.includes(g.slug)) {
+        fails.push(`§13/691: the disclosure does not name ${JSON.stringify(g.slug)} — §13.0's point is that the excluded thing is NAMEABLE, so a count alone does not discharge it`);
+      }
+    }
+    // THE RAW VALUE RIDES ALONG ONLY WHERE THE REASON LACKS IT. Marker 2's
+    // reason embeds the RESOLVED key, which differs from the raw value on the
+    // twelve legacy records — informative when they differ, noise when not.
+    if (/\(q_a\/ghost\)/.test(withGaps)) {
+      fails.push("§13/691: the raw value was appended although the reason already carries it — the row duplicates one fact and reads as two");
+    }
+    if (!withGaps.includes("(gone)")) {
+      fails.push("§13/691: the unserved member's value was dropped — the reason names only the family, so the member slug is the whole content of that row");
+    }
+
+    // AND THE EMPTY FORM SURVIVES WHERE IT IS TRUE. Without this the rule above
+    // is satisfiable by deleting the empty form outright, which would lose the
+    // one statement a genuinely empty enumeration owes.
+    const noGaps = screen([]).join("\n");
+    if (!noGaps.includes("The enumeration ran over the settled set's Batches")) {
+      fails.push("§13/691: the empty form did not render where every seed RESOLVED — it is true in exactly that state and is the only thing said there");
+    }
+
+    // A PARTIAL FAILURE BESIDE RENDERED ROWS IS STILL OWED. Some seeds
+    // resolving does not discharge the ones that did not: the counts are over
+    // what the walk reached, and a reader cannot otherwise tell a small
+    // neighborhood from a small fraction of the settled set having been walked.
+    const partial = screen([S(1, "core")], [GAP("seedA", "the record carries no source_batch")]).join("\n");
+    if (!partial.includes("could not be resolved to a Batch") || !partial.includes("[core]")) {
+      fails.push("§13/691: a partial resolution failure beside rendered rows dropped one of the two — both the disclosure and the rows are owed");
     }
   }
 
