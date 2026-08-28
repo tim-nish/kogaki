@@ -1037,5 +1037,12 @@ set** naming the axes is the hub's to ratify, not this file's — the same
 boundary-field rule the grammar cites, and the reason nothing here enumerates
 the axes it requires one query for.
 
-**deferred slot: the `subject | conduct` value set**, and with it whether the
-axes are exactly two. Named, never filled here.
+**The `subject | conduct` value set is RATIFIED and the slot is FILLED**
+(hub 2026-08-13; consumer-side enforcement kogaki#673, landed `c44e2d8`
+2026-08-28). Whether the axes are exactly two is answered for now and remains
+the hub's to revisit under its growth rule; `checks/check-consult-receipts.sh`
+refuses a token outside the set, and judges no query's content.
+
+Recorded as filled rather than deleted: a slot that disappears is
+indistinguishable from one that was never declared, and this one is the reason
+`specs/SPEC.md` §4 carries its own correction.
