@@ -2882,6 +2882,152 @@ console.log(`emit-time refusal: ${cases.length}/${cases.length} rules fire on cr
 JS
 
 # --------------------------------------------------------------------------
+# THE NEIGHBORHOOD GLOSS FETCH IS BOUNDED, COUNTED AT THE SERVER (kogaki#689).
+#
+# Arm A's whole content is a BOUND, so the property under test is a COUNT OF
+# READS and the detector's unit has to be the read itself — the same ground
+# story 1.33's stub was built on: a run's own accounting of what it fetched is
+# an explanation, and an explanation is not evidence. Every `tools/call` the
+# stub serves lands in $STUB_GATEWAY_CALL_LOG and this counts the file.
+#
+# TWO DIRECTIONS, and the second is the one that would go missing. The judged
+# path must fetch — a bound that fetches nothing satisfies every read budget and
+# renders no Gloss. The arms that render NO ROW must fetch NOTHING: over the cap
+# and with nothing judged the section shows no row, so a shard read there is
+# paid for material no reader ever sees, which is exactly the fan-out §9 forbids
+# arriving as a rendering decision rather than as a prefetch.
+node --input-type=module - <<'JS'
+import { mkdtempSync, readFileSync, existsSync, writeFileSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+
+const fails = [];
+const STUB = "checks/fixtures/terrain/compose-input/stub-gateway.mjs";
+const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const DIR = "checks/fixtures/terrain/format";
+const dir = mkdtempSync(join(tmpdir(), "terrain-nbhd-bound-"));
+
+const pin = JSON.parse(readFileSync(SURVEY, "utf8")).pin;
+const claims = join(dir, "claims.json");
+writeFileSync(claims, JSON.stringify({
+  composition_pin: { tag: "testing", pin, groups: {
+    "testing × (no second served tag)": ["lesson:delta"],
+    "testing × architecture": ["lesson:alpha", "lesson:bravo"],
+    "testing × cost": ["lesson:charlie"],
+  } },
+  claims: {
+    "testing × architecture": "both hold that a guard is real only once something exercised it",
+    "testing × cost": "both price a check by where in the loop it runs",
+    "testing × (no second served tag)": "carries the selected tag and no other",
+  },
+}));
+const subs = join(dir, "subs.json");
+writeFileSync(subs, JSON.stringify({ "testing × architecture": { judged: true, subgroups: [] } }));
+
+// One pull, one judgment file, one call log. `n` labels the run.
+function pull(n, judgments) {
+  const jf = join(dir, `j${n}.json`);
+  writeFileSync(jf, JSON.stringify(judgments));
+  const log = join(dir, `log${n}.txt`);
+  const rdir = join(dir, `r${n}`); const gdir = join(dir, `g${n}`);
+  const run = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G2",
+     "--claims", claims, "--subdivisions", subs, "--neighborhood", jf,
+     "--judge-model", "claude-opus-5", "--judge-effort", "high",
+     "--report-dir", rdir, "--rendering-dir", gdir],
+    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB, STUB_GATEWAY_CALL_LOG: log } });
+  if (run.status !== 0) fails.push(`report exited ${run.status} on run ${n}: ${(run.stderr || "").trim().slice(-300)}`);
+  const served = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").filter(Boolean) : [];
+  return { served, gloss: served.filter((l) => l.startsWith("gloss_index ")) };
+}
+
+// The three mechanical candidates this settled set reaches are charlie, echo
+// and foxtrot; the committed judgment file levels them core / useful /
+// background, so exactly ONE row renders.
+const JUDGED = JSON.parse(readFileSync(join(DIR, "neighborhood-judgments.json"), "utf8"));
+
+// 1. THE JUDGED PATH FETCHES, and fetches the DISPLAYED row's own tag.
+{
+  const { gloss } = pull("judged", JUDGED);
+  if (!gloss.some((l) => l.includes('"tag":"lessons/testing"'))) {
+    fails.push(`§13/689: the judged pull made no lessons/testing shard read — the bound fetched NOTHING, which satisfies every read budget and renders no Gloss. served: ${JSON.stringify(gloss)}`);
+  }
+}
+
+// 2. NOTHING JUDGED — no row renders, so nothing is fetched for one.
+{
+  const base = pull("nojudge-base", {}).gloss.length;
+  const { gloss } = pull("nojudge", {});
+  if (gloss.length !== base) fails.push("§13/689: the two no-judgment runs disagree — the fixture is not deterministic");
+  const judgedGloss = pull("judged2", JUDGED).gloss.length;
+  if (judgedGloss <= gloss.length) {
+    fails.push(`§13/689: an all-unjudged pull read as many Gloss shards as a judged one (${gloss.length} vs ${judgedGloss}) — that arm renders NO row, so every read it makes buys material no reader sees. The assertion is a DIFFERENCE rather than a zero because the report path makes its own member reads on every pull, and a zero here would be asserting something else.`);
+  }
+}
+
+// 3. ABOVE THE CAP — eleven at the highest level render no row either.
+{
+  const over = {};
+  for (const s of ["charlie", "echo", "foxtrot"]) over[s] = { level: "core", claim: `claim for ${s}` };
+  const { gloss } = pull("overcap-shape", over);
+  // Three at one level is UNDER the cap of ten, so this run renders rows and
+  // must fetch. Asserted so the case above cannot pass by the fetch being dead
+  // on every path — which is the way a bound-shaped assertion goes vacuous.
+  if (!gloss.some((l) => l.includes('"tag":"lessons/testing"'))) {
+    fails.push("§13/689: a three-row judged pull made no shard read — the fetch is dead, and every bound assertion beside it is vacuous");
+  }
+}
+
+// 4. THE PAIRING, END TO END THROUGH `cmdReport` (PR #693 round 2). Every case
+// above and every screen case drives one side of the fetch: `glossFor` with
+// hand-built entries, or the renderer with a `gloss` passed in. NONE asserted
+// the value `cmdReport` actually hands `glossFor` — and that is exactly where
+// the defect was, because `resolveHeadlines` stamped an entry for every member
+// and the never-addressed branch was unreachable from the only caller that
+// matters. A branch that never runs and a branch that runs correctly are the
+// same silence to a suite, so this reads the RENDERED ARTIFACT.
+//
+// `foxtrot` is the tagged journey; judging it `core` and the two lessons below
+// it is what puts a non-`lessons/` row at the top level, which is the only way
+// a rendered row can reach this state.
+{
+  const jf = join(dir, "journey-top.json");
+  writeFileSync(jf, JSON.stringify({
+    foxtrot: { level: "core", claim: "a journey-family neighbour at the top level" },
+    charlie: { level: "useful", claim: "below it" },
+    echo: { level: "background", claim: "below it" },
+  }));
+  const gdir = join(dir, "gj");
+  const run = spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G2",
+     "--claims", claims, "--subdivisions", subs, "--neighborhood", jf,
+     "--judge-model", "claude-opus-5", "--judge-effort", "high",
+     "--report-dir", join(dir, "rj"), "--rendering-dir", gdir],
+    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
+  if (run.status !== 0) {
+    fails.push(`§13/689: the journey-top pull exited ${run.status}: ${(run.stderr || "").trim().slice(-300)}`);
+  } else {
+    const md = readdirSync(gdir).filter((f) => f.endsWith(".md"));
+    const text = md.length ? readFileSync(join(gdir, md[0]), "utf8") : "";
+    if (!text.includes("⟨no Gloss shard carries this row")) {
+      fails.push("§13/689: a rendered TAGGED-JOURNEY row did not carry the never-addressed marker. It is a row whose tags DO enter the shard union and whose slug no `lessons/` shard can carry, so rendering it as read-and-empty asserts a read that did not happen — this is the pairing no direct-call case could see");
+    }
+    if (text.includes("⟨no served Gloss rendering")) {
+      fails.push("§13/689: the rendered journey row carried the READ-AND-EMPTY marker — `resolveHeadlines` is resolving the miss itself and `glossFor` is never asked");
+    }
+  }
+}
+
+rmSync(dir, { recursive: true, force: true });
+if (fails.length) {
+  console.log("FAIL neighborhood Gloss fetch is bounded (kogaki#689):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("neighborhood Gloss fetch bound: PASS — counted at the SERVER via the stub's call log, never from the run's own accounting. The judged path fetches its displayed row's own tag; an all-unjudged pull, which renders no row, reads strictly fewer Gloss shards; and a multi-row judged pull still fetches, so the bound assertions are not passing on a dead fetch.");
+JS
+
 # THE GOLDEN SPECIMENS (SPEC-terrain §14.5, story 1.55, kogaki#347).
 #
 # One specimen per surface the grammar covers — two at v14. The point is to
@@ -3194,7 +3340,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote } from "./terrain/terrain.mjs";
+import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote, NO_HEADLINE, NO_SHARD_ADDRESSED, compareDisplayIds, glossFor, neighborhoodDisplaySet } from "./terrain/terrain.mjs";
 import { loadGrammar, classMatchers } from "./terrain/format-guard.mjs";
 const G = loadGrammar("specs/spec-terrain/report-format.json");
 
@@ -3825,7 +3971,7 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
   {
     const lines = screen([S(1, "core")]).join("\n");
     for (const [what, frag] of [["the Strand ID", "N1"], ["the relation in plain words", "from the same Batch"],
-                                ["the Gloss slot, disclosed as unfetched", "gloss unrecorded"],
+                                ["the Gloss slot, disclosing that no shard carries the row", "⟨no Gloss shard carries this row"],
                                 ["the claim", "claim 1"], ["the level", "[core]"]]) {
       if (!lines.includes(frag)) fails.push(`§13/686: the row does not carry ${what}`);
     }
@@ -3836,13 +3982,145 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     }
   }
 
-  // THE GLOSS SLOT IN BOTH DIRECTIONS. Absent it DISCLOSES; supplied it renders.
-  // Only the first is reachable on the shipped path today, which is why the
-  // second is asserted here rather than assumed to follow.
+  // THE GLOSS SLOT IN BOTH DIRECTIONS (kogaki#689 — the fetch arm). Supplied
+  // WITH ITS CITE it renders quoted at that cite; supplied without one, or not
+  // at all, it renders the abnormal marker. BOTH arms are reachable on the
+  // shipped path now that the report makes the fetch, so both are asserted
+  // here and neither is inferred from the other.
   {
-    const withGloss = screen([S(1, "core", { gloss: "a served headline." })]).join("\n");
-    if (!withGloss.includes("a served headline.") || withGloss.includes("gloss unrecorded")) {
-      fails.push("§13/686: a SUPPLIED gloss did not render — the disclosure arm must not swallow the value arm");
+    const withGloss = screen([S(1, "core", { gloss: "a served headline.", gloss_cite: "gloss/lessons/testing.md:19@stubbed" })]).join("\n");
+    if (!withGloss.includes("“a served headline.”  gloss/lessons/testing.md:19@stubbed")) {
+      fails.push("§13/686/689: a fetched Gloss did not render QUOTED AT ITS CITE — a served rendering carried as bare prose is the paraphrase-for-a-quote shape the verbatim rule refuses");
+    }
+    if (withGloss.includes("⟨no served Gloss")) {
+      fails.push("§13/686/689: the disclosure arm swallowed the value arm");
+    }
+    // A HEADLINE WITH NO CITE FALLS TO A MARKER. Rendering it bare would assert
+    // a provenance the row cannot supply.
+    //
+    // ASSERTED AS THE MARKER'S PRESENCE, NEVER AS THE QUOTATION'S ABSENCE (PR
+    // #694 round 1). The first form of this case tested only
+    // `!includes("“a served headline.”")` — which PASSES on the bare unquoted
+    // rendering the comment above says cannot happen, and that rendering was
+    // exactly what shipped. A confirming assertion that its own comment
+    // contradicts is worse than none: it reads as covering the state.
+    const citeless = screen([S(1, "core", { gloss: "a served headline." })]).join("\n");
+    if (citeless.includes("“a served headline.”")) {
+      fails.push("§13/686/689: a headline with NO cite rendered as a quotation — the quote form asserts an address the row does not have");
+    }
+    if (citeless.includes("  a served headline.")) {
+      fails.push("§13/689: a headline with NO cite rendered as BARE PROSE — a served rendering carried without its address is the paraphrase-standing-for-a-quote shape this section's own rule refuses, and it is reachable from served data: parseGlossShard sets `cite` with no guard");
+    }
+    if (!citeless.includes("⟨no served Gloss rendering")) {
+      fails.push("§13/689: a headline with NO cite carried no marker at all — the row renders the read-and-carried-nothing marker, which is true of it: a shard answered and what it returned is unusable here");
+    }
+    const noGloss = screen([S(1, "core", { gloss: NO_HEADLINE })]).join("\n");
+    if (!noGloss.includes("⟨no served Gloss rendering — ABNORMAL")) {
+      fails.push("§13/686/689: a shard that was READ and carried nothing did not disclose — the miss arm is a fault to clear, not silence");
+    }
+    // THE TWO MISS STATES ARE DISTINGUISHABLE (PR #693 round 1). "Read and
+    // empty" and "never addressed" were rendering as the same marker, so a row
+    // whose shard was never asked for asserted a read that did not happen. That
+    // is the state the ruling's own consulted line refuses, one namespace in
+    // from where the ruling looked.
+    const unaddressed = screen([S(1, "core")]).join("\n");
+    if (!unaddressed.includes("⟨no Gloss shard carries this row")) {
+      fails.push("§13/689: a row whose shard was NEVER ADDRESSED rendered the read-and-empty marker — that asserts a read that did not happen, and the two states are different facts");
+    }
+    if (unaddressed.includes("⟨no served Gloss rendering")) {
+      fails.push("§13/689: the never-addressed row also carried the read-and-empty marker — one row, one state");
+    }
+  }
+
+  // EVERY ARM OF THE DISPLAY SELECTION CARRIES `shown` (PR #694 round 1). The
+  // one caller compensated with `.shown || []`, which is the second reader
+  // working around a shape rather than the shape being right.
+  {
+    const arms = [[[], "empty"], [[{ nid: "N1", slug: "s1" }], "none-judged"],
+                  [[S(1, "core")], "shown"],
+                  [Array.from({ length: 11 }, (_, i) => S(i + 1, "core")), "over-cap"]];
+    for (const [input, want] of arms) {
+      const r = neighborhoodDisplaySet(input);
+      if (r.state !== want) fails.push(`§13/689: display selection returned state ${JSON.stringify(r.state)} for the ${want} arm`);
+      if (!Array.isArray(r.shown)) {
+        fails.push(`§13/689: the ${want} arm returns no \`shown\` array — a reader doing .shown.length throws on exactly the arms this helper exists to make safe`);
+      }
+    }
+  }
+
+  // FIELD 2 ORDERS ITS MEMBERS NUMERICALLY (PR #693 round 1). A display id's
+  // number is its meaning, and a bare `.sort()` puts L10 before L2 and the
+  // ruling's own example id L88 before L9. The specimen's two-member case
+  // cannot show it, which is why it is asserted over the comparator directly.
+  {
+    const got = ["L10", "L2", "L88", "L9", "L1"].slice().sort(compareDisplayIds).join(",");
+    if (got !== "L1,L2,L9,L10,L88") {
+      fails.push(`§13/689: display ids sort to ${JSON.stringify(got)} — lexicographic order puts L10 before L2, and every other surface in this file names members by an id whose numeric order is its meaning`);
+    }
+    // The abnormal marker has no number and must not be ordered as though it
+    // did; it sorts last rather than throwing or landing among the ids.
+    const withAbnormal = ["L2", "⟨no display_id⟩", "L1"].slice().sort(compareDisplayIds);
+    if (withAbnormal[withAbnormal.length - 1] !== "⟨no display_id⟩") {
+      fails.push("§13/689: the display-id comparator did not sort the abnormal marker last — a token carrying no number must not be ordered as though it carried one");
+    }
+  }
+
+  // A TAGGED NON-LESSON ROW REACHES NO SHARD, AND SAYS SO (PR #693 round 1).
+  // The stub fixture leaves its one journey record UNTAGGED, so no case in the
+  // suite ever put a TAGGED journey through the fetch — the gap was unexercised
+  // rather than caught. Asserted here over the renderer, where the state is a
+  // property of the row rather than of the seam.
+  {
+    // ASSERTED OVER `glossFor`, WHICH IS THE FETCH'S OWN DECISION. Driving the
+    // screen would exercise the EMITTER'S fallback instead and pass whatever the
+    // fetch assigned — the first version of this case did exactly that, and
+    // collapsing the two miss states back into one marker did not fail it.
+    // ENTRIES ARE BUILT THE WAY `resolveHeadlines` BUILDS THEM, `found` flag
+    // included. The first version of this case wrote them by hand without it,
+    // which is how it went on passing while the production pairing was broken.
+    const H = { headline: "a served headline.", cite: "gloss/lessons/testing.md:19@stubbed", found: true };
+    const MISS = { headline: NO_HEADLINE, cite: null, found: false };
+    const cases = [
+      ["a tagged lesson with a rendering", { family: "lesson", tags: ["testing"] }, H, "a served headline."],
+      ["a tagged lesson whose shard carried none", { family: "lesson", tags: ["testing"] }, MISS, NO_HEADLINE],
+      ["a TAGGED JOURNEY — a namespace this path never addresses", { family: "journey", tags: ["testing"] }, MISS, NO_SHARD_ADDRESSED],
+      ["an UNTAGGED lesson — no address can be formed", { family: "lesson", tags: [] }, MISS, NO_SHARD_ADDRESSED],
+    ];
+    for (const [what, sug, head, want] of cases) {
+      const got = glossFor(sug, head);
+      if (got !== want) {
+        fails.push(`§13/689: for ${what} the Gloss state is ${JSON.stringify(got.slice(0, 60))}, expected ${JSON.stringify(want.slice(0, 60))} — read-and-empty and never-addressed are different facts, and rendering the second as the first asserts a read that did not happen`);
+      }
+    }
+    if (NO_HEADLINE === NO_SHARD_ADDRESSED) {
+      fails.push("§13/689: the two miss markers are the same string — the cases above cannot tell the states apart");
+    }
+    // The renderer still has to carry it through, which the screen cases assert.
+    const journey = screen([S(1, "core", { gloss: glossFor({ family: "journey", tags: ["testing"] }, null) })]).join("\n");
+    if (!journey.includes("⟨no Gloss shard carries this row")) {
+      fails.push("§13/689: the never-addressed marker did not reach the rendered row");
+    }
+  }
+
+  // THE LEVEL TOKEN DISCRIMINATES, ASSERTED AGAINST THE COMPILED MATCHER
+  // (kogaki#689, from PR #692 round 2). `NeighborhoodLevel` shipped as a bare
+  // string where every other token is an object carrying `shape`;
+  // `tokenFragment` reads `t.shape`, a string has none, and the token degraded
+  // to FREE — so the claim class admitted `  anything [anything]` while its own
+  // note asserted it discriminated the level. The note was the only thing that
+  // ever said otherwise, which is why this asks the MATCHER what it compiled to
+  // rather than reading either declaration.
+  {
+    const claimClass = G.surfaces.full_report.line_classes.find((c) => c.id === "neighborhood_suggestion_claim");
+    const rx = classMatchers(claimClass, G);
+    const admits = (line) => rx.some((r) => r.test(line));
+    if (!admits("  some claim text [core]")) {
+      fails.push("§13/689: the claim class REFUSES a conformant row — the token shape is over-tight");
+    }
+    for (const bad of ["  some claim text [notalevel]", "  some claim text [CORE]", "  some claim text []"]) {
+      if (admits(bad)) {
+        fails.push(`§13/689: the claim class ADMITS ${JSON.stringify(bad)} — \`NeighborhoodLevel\` is not being read as a declared token, which is the FREE degradation that shipped at #686 with a note claiming the opposite`);
+      }
     }
   }
 
