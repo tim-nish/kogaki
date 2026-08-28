@@ -206,9 +206,12 @@ AXIS_KEY = 'axis'
 # and receipts edited into PR bodies. The citation is not decoration: two
 # carriers of one rule that do not name each other drift silently, and the
 # repair is a cite at the point of the rule on BOTH sides
-# (product-lab@9b0ea254 LESSONS.md:21). The live specimen of not paying it is
-# `axis:` itself — value-checked in consult.mjs since kogaki#602 and shape-only
-# here to this day (kogaki#673).
+# (product-lab@9b0ea254 LESSONS.md:21). `axis:` WAS the live specimen of not
+# paying it — value-checked in consult.mjs since kogaki#602 and shape-only here
+# — and kogaki#673 closed that gap on 2026-08-28: the value clause below now
+# enforces the ratified set on this side too. The specimen is kept in the past
+# tense rather than deleted, because the reason this file cites its counterpart
+# at every rule site is that the two DID disagree for two weeks.
 PERQUERY_KEYS = ('axis', 'facet', 'hit', 'tactic')
 # COPIED from the hub, never minted here, under the boundary-field rule
 # specs/SPEC.md §4 quotes: a field read by both sides is the boundary's.

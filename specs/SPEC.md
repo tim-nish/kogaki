@@ -4012,9 +4012,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
   `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c LESSONS.md:21`
 
-  The live specimen of not paying it is `axis:` itself, and it has its own
-  carrier: `consult.mjs` enforces `RATIFIED_AXES` while the check stays
-  shape-only on the same key, so the two disagree today (kogaki#673).
+  The live specimen of not paying it **was** `axis:` itself: `consult.mjs`
+  enforced `RATIFIED_AXES` while the check stayed shape-only on the same key,
+  and the two disagreed for two weeks. **kogaki#673 closed it on 2026-08-28** —
+  the check now enforces the ratified set on its side, and the deferred slot
+  above is FILLED. Kept in the past tense rather than deleted: the two-carrier
+  cite this paragraph demands is expensive, and the specimen is why it is
+  paid.
 
   **AND THE SAME DISCIPLINE CROSSES THE SEAM, so the pointer is written here
   rather than left to the next editor to reconstruct.** Gukan (product-lab) is

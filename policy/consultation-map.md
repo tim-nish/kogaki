@@ -1017,8 +1017,12 @@ checkable rather than aspirational". It is not checkable today: **no emitter
 writes an `axis:` line** — neither `policy/kit/bin/consult.mjs` nor
 `policy/kit/bin/gateway-query.mjs` produces one — so the key is **hand-written**
 and the per-axis obligation is carried by this prescription, not by an
-instrument. `checks/check-consult-receipts.sh` reads and reports axes where an
-author wrote them; nothing requires that an author did. The claim was written
+instrument. `checks/check-consult-receipts.sh` reads axes where an author wrote
+them and, since kogaki#673 (2026-08-28), **refuses one outside the ratified
+`subject | conduct` set**; nothing still requires that an author wrote one at
+all. The verb changed and the paragraph's load-bearing claims did not: there is
+no emitter, the key is hand-written, and the per-axis obligation remains a
+prescription rather than an instrument. The claim was written
 into the durable carrier while the acknowledgement lived only in a PR body,
 which is the split that makes an aspirational rule read as an enforced one.
 
