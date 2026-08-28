@@ -622,8 +622,10 @@ puts no instrument in force.
   the grammar", and §9 obeys it by putting the key in §4 and keeping only the
   delivery half in this spec.
 - **An emitter for `axis:`** — §9.3, named and deliberately not built here.
-- **The `subject | conduct` value set** — §9.2; the hub ratifies it, and no
-  consumer and no kit may mint it.
+- **The `subject | conduct` value set** — §9.2; **RATIFIED by the hub
+  2026-08-13 and enforced consumer-side 2026-08-28 (kogaki#673).** No consumer
+  and no kit may MINT it, which is unchanged and is a different act from copying
+  a set the hub has served.
 
 ## 7. Open — carried as questions, never as contract
 
@@ -819,8 +821,39 @@ The `axis:` key is an OPTIONAL per-query continuation line binding upward to
 the nearest preceding `query:`. Its shape is the consuming repository's §4; its
 **value set is the hub's to ratify** under the boundary-field rule — a consumer
 owns the shape of its own record and never the values of a field that exists to
-join across the boundary. So neither this kit nor any consumer enumerates the
-axes, and a check may validate position and non-emptiness only.
+join across the boundary.
+
+**THE HUB HAS RATIFIED IT, and the constraint this section carried is
+DISCHARGED rather than merely lapsed (kogaki#673, 2026-08-28).** The sentence
+that stood here — *"neither this kit nor any consumer enumerates the axes, and a
+check may validate position and non-emptiness only"* — was correct while the set
+was unserved, and it is retired now that it is:
+
+> "The consultation seam's question-axis value set is RATIFIED as
+> `subject | conduct`, closed, carried by the seam's two existing instruments
+> and never by a third mechanism."
+
+`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:150`
+
+and the same ratification assigns the discharging act to the consumer by name —
+*"Enforcement (moving `check-consult-receipts.sh` from shape-only to
+value-checking) is the consumer's act"*
+(`…topics/knowledge-architecture.md:103`). So a consumer check **validates the
+token against the ratified closed set**, and `checks/check-consult-receipts.sh`
+does.
+
+**The boundary-field rule above is untouched, because copying is not minting.**
+Nothing here decides what the values are; a third value is the hub's act under
+the growth rule that shipped with the ratification. What a consumer still may
+not do is judge **content** — whether a query is *really* conduct-shaped — which
+the same served line forbids as "judgment wearing a check's clothes". The token
+is checked; the query never is.
+
+**Why this sentence is corrected here and not only in the consuming
+repository.** This spec is the surface a *second* consumer installs the kit
+from, so a constraint left standing here is served to every consumer born after
+it stopped being true — which is the drift the two-carrier rule exists to
+prevent, at the one site where post-merge repair stops being cheap.
 
 ### 9.3 There is no emitter, and the absence is declared rather than implied
 
@@ -835,5 +868,8 @@ never gated — and because the alternative is the failure this section was
 partly written to repair: an obligation described in a durable carrier as
 though instrumented, with the acknowledgement living only in a PR body.
 
-**deferred slots:** the emitter (§9.3); the `subject | conduct` value set
-(§9.2).
+**deferred slots:** the emitter (§9.3). **The `subject | conduct` value set
+(§9.2) is FILLED** — the hub ratified it 2026-08-13 and the consumer-side
+enforcement landed 2026-08-28 (kogaki#673); it is listed as discharged rather
+than dropped, so a reader of an older revision can tell a filled slot from one
+that was quietly removed.

@@ -3799,17 +3799,58 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
   `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/knowledge-architecture.md:50`
 
-  So `checks/check-consult-receipts.sh` validates **shape only** — position and
-  a non-empty token — and any value passes. Unknown values are **reported and
-  denied nowhere**, and the report **names** them rather than only counting
-  them, because the window before ratification is exactly when somebody needs
-  to see what is being written. The cost is that a typo'd axis is
-  indistinguishable from a real one until the hub serves the set; that is the
-  price of not minting, and **the reopen trigger is the hub ratifying it**.
+  **`deferred-slot: the subject | conduct value set` is FILLED** (kogaki#673,
+  owner selection 2026-08-28). The clause this replaces said
+  `checks/check-consult-receipts.sh` validates **shape only**, that unknown
+  values are **reported and denied nowhere**, and that **the reopen trigger is
+  the hub ratifying the set**. All three were correct while they stood. The
+  trigger has fired:
 
-  **deferred slot: the `subject | conduct` value set.** Named here rather than
-  filled — filling it is a decision act owed on its own licensing issue, and
-  the one thing this clause must not do is mint it by accident.
+  > "The consultation seam's question-axis value set is RATIFIED as
+  > `subject | conduct`, closed, carried by the seam's two existing instruments
+  > and never by a third mechanism."
+
+  `consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:150`
+
+  — and the same ratification assigns the discharging act to this side by name:
+  *"Enforcement (moving `check-consult-receipts.sh` from shape-only to
+  value-checking) is the consumer's act"*
+  (`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:103`).
+  So **an out-of-set `axis:` token is malformed**, beside `facet:` and `tactic:`
+  and by the same rule.
+
+  **Copying a ratified closed set is not minting**, and the boundary-field rule
+  quoted above is untouched: nothing here decides what the values are, and a
+  third value is the hub's act under the growth rule that shipped with the
+  ratification — a specimen of a rule that provably existed, was served at the
+  pin, and was missed on an axis neither value covers. *Catches never justify
+  expansion.*
+
+  **The TOKEN is checked and the CONTENT never is.** The same ratified line
+  keeps the key *"presence-checked per axis with content never judged — a check
+  judging whether a query is 'really' conduct-shaped would be judgment wearing a
+  check's clothes"*. Validating a token against a closed set is mechanical;
+  reading the query to decide whether its label fits is the judgment that
+  forbids, and no carrier does it.
+
+  **What the shape-only window actually produced, recorded because it is
+  evidence rather than a hypothetical.** Of 26 `axis:` values in merged
+  commit-message receipts, **13 are out of set — and none is a typo.** They are
+  a *different vocabulary*, naming the consultation-map entry (`record
+  disposition — …`, `check/CI infrastructure — …`) instead of the question
+  axis. That is a field whose purpose was **mis-taught, not mis-typed**, which
+  a value check catches and a report evidently did not: the report ran for two
+  weeks over exactly these values and nobody acted on it. All 13 fall on or
+  before the ratification date, and **every axis written from 2026-08-14 onward
+  is in set** — the practice converged the day after the hub served it, which
+  is why this deny costs nothing measurable. The 13 are outside every future
+  scan window in any case, since the check reads `merge-base..HEAD` plus the PR
+  body and never the default branch.
+
+  **The cost this clause used to state is discharged rather than deleted.** It
+  said a typo'd axis was indistinguishable from a real one; that was the price
+  of not minting, it was paid for two weeks, and the 13 receipts above are what
+  it bought.
 
   **THE PER-QUERY FAMILY IS NOW FOUR KEYS, AND THE BINDING RULE ABOVE IS
   STATED ONCE FOR THE FAMILY** (kogaki#640 and kogaki#669, owner selection
@@ -3971,9 +4012,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
   `consulted: product-lab@e4f9bde2cf2fd4392292f439de8aa4e51578264c LESSONS.md:21`
 
-  The live specimen of not paying it is `axis:` itself, and it has its own
-  carrier: `consult.mjs` enforces `RATIFIED_AXES` while the check stays
-  shape-only on the same key, so the two disagree today (kogaki#673).
+  The live specimen of not paying it **was** `axis:` itself: `consult.mjs`
+  enforced `RATIFIED_AXES` while the check stayed shape-only on the same key,
+  and the two disagreed for two weeks. **kogaki#673 closed it on 2026-08-28** —
+  the check now enforces the ratified set on its side, and the deferred slot
+  above is FILLED. Kept in the past tense rather than deleted: the two-carrier
+  cite this paragraph demands is expensive, and the specimen is why it is
+  paid.
 
   **AND THE SAME DISCIPLINE CROSSES THE SEAM, so the pointer is written here
   rather than left to the next editor to reconstruct.** Gukan (product-lab) is
