@@ -3478,7 +3478,12 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
 // Exported and pure over its inputs for the same reason `neighborhoodScreen`
 // is: §13.4's obligations are properties of what RENDERS, so a fixture must
 // reach this without a seam.
-export function neighborhoodSection({ gids, no_material, suggestions, unresolved, counts, unmapped = [] }) {
+// The rule the callee's own comment states, kept HERE TOO. An earlier revision
+// dropped `unresolved`, `counts` and `unmapped` from `neighborhoodScreen` and
+// left this frame destructuring and forwarding them — the same claim on a
+// caller, one level up. The sole call site spreads `report.neighborhood`, so
+// they are not positionally load-bearing either.
+export function neighborhoodSection({ gids, no_material, suggestions }) {
   const head = [
     "## Provenance neighborhood",
     "",
