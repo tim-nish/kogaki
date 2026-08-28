@@ -444,16 +444,12 @@ def scan(source):
                       'the same silence to a reader and different silences to a '
                       'check'))
             continue
-        # FACET COVERAGE. The trigger is the OUTCOME TOKEN, never the presence of
-        # a `facet:` line: `no-carrier-found` is the open world's *unknown*,
-        # which in this grammar is `uncovered-after-N-framings`. Keying on
-        # presence is the weaker rule a negative resolution with zero facet lines
-        # satisfies. Counted over FACETS TOUCHED and never over wordings —
+        # FACET COVERAGE, counted over FACETS TOUCHED and never over wordings —
         # facets are orthogonal, so two same-facet queries are one framing
         # (product-lab@9b0ea254 topics/knowledge-architecture.md:102). That
         # ground is recorded because a rule whose ground is unrecorded gets
-        # "simplified" into a count later, which is why this is a set difference
-        # and not a length comparison.
+        # "simplified" into a count later, which is why the test below is a set
+        # difference and not a length comparison.
         # THE TRIGGER IS A CONJUNCTION: a negative outcome AND at least one
         # `facet:`. Both halves are load-bearing. Dropping the outcome half
         # would ask coverage of a `discriminating` receipt that happened to

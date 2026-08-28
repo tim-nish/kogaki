@@ -555,24 +555,29 @@ export function discipline({ framings, restatements = [], outcome, disposition, 
   // as the same-axis refusal above is — to the outcomes whose floor a re-framing
   // claims to discharge — so a `discriminating` return is untouched.
   //
-  // `tactic:` IS OWED BY FRAMINGS 2..N AND NOT BY FRAMING ONE: framing one is
-  // not a revision of anything, so it has no tactic to name. Requiring it on the
-  // re-framings is what makes the discount below unskippable — a refusal a
-  // caller can escape by writing less is not a refusal.
+  // `tactic:` IS OWED BY FRAMINGS 2..N AND NOT BY FRAMING ONE — framing one is
+  // not a revision of anything — and specs/SPEC.md §4 and the skill both state
+  // that obligation. THIS CARRIER DOES NOT ENFORCE IT, and the honest statement
+  // of why belongs here rather than a claim to the contrary.
+  //
+  // The clause below is entered only when tactics are supplied at all: the same
+  // CONJUNCTION the facet rule uses, and for the same reason. A receipt carrying
+  // no `tactic:` must stay valid — that is the continuation-optional rule the
+  // whole grammar rests on, and every receipt in git history is one — so a
+  // caller who omits `--tactic` entirely escapes both the obligation and the
+  // discount. That escape is real and is the price of compat.
+  //
+  // An earlier form of this comment claimed the requirement made the discount
+  // "unskippable — a refusal a caller can escape by writing less is not a
+  // refusal", and guarded it with a per-framing emptiness test that could never
+  // fire: the positional check above has already refused a length mismatch and
+  // the per-item check has already refused an empty token, so every entry is
+  // non-empty by the time control reaches here. The guard was dead code and the
+  // claim was false in the one direction that mattered. Closing the escape for
+  // real means requiring `tactic:` on every non-discriminating receipt, which
+  // breaks compat outright; that is a hub-shaped decision about the grammar, not
+  // a kit edit, and it is not taken here.
   if (outcome !== "discriminating" && tacticList.length) {
-    for (let i = 1; i < applied.length; i++) {
-      if (!tacticList[i])
-        return refuse(
-          4,
-          `outcome '${outcome}' with no \`--tactic\` on framing ${i + 1}: a ` +
-            "re-framing owes the name of the tactic that produced it, so " +
-            '"is this a different axis?" is answered by naming the tactic ' +
-            "rather than argued in prose.",
-          "",
-          `Supply one of: ${[...RATIFIED_TACTICS].join(" | ")} — framing one owes ` +
-            "none, being a revision of nothing.",
-        );
-    }
     // THE LEXICAL-CLASS DISCOUNT. A re-framing whose tactic is in the lexical
     // class is a rewording, not a different axis, so it does not count toward
     // the floor. `VARY` is the SOLE member of that class inside the adopted six.
@@ -888,10 +893,19 @@ function selfTest() {
     ["a facet with its hit is accepted",
      () => run({ framings: ["a", "b"], facetList: ["act", "artifact"], hitList: ["found x", "none"],
                  axisList: ["subject", "conduct"], outcome: "covered-after-reframing" }).ok === true],
-    ["a re-framing owes its tactic; framing one owes none",
+    // WITNESSES THE REAL BRANCH. An empty --tactic is refused by the per-item
+    // check with code 2, NOT by any "a re-framing owes its tactic" clause —
+    // there is no such clause, by the compat reasoning at the rule site. The
+    // earlier form of this case asserted `code === 2 || code === 4` and so
+    // passed without distinguishing them, which is what let a dead guard sit
+    // behind a comment claiming it was load-bearing.
+    ["an empty --tactic is refused as an empty token, code 2, not as an owed-tactic refusal",
      () => { const r = run({ framings: ["a", "b"], tacticList: ["SUPER", ""],
                              outcome: "covered-after-reframing" });
-             return r.code === 2 || r.code === 4; }],
+             return r.code === 2 && r.message.includes("--tactic 2 is empty"); }],
+    ["omitting --tactic entirely SKIPS the discount — the compat escape, asserted so it is not a surprise",
+     () => run({ framings: ["a", "b"], axisList: ["subject", "conduct"],
+                 outcome: "covered-after-reframing" }).ok === true],
     ["framing one needs no tactic when the re-framings carry theirs",
      () => run({ framings: ["a", "b"], tacticList: ["SUPER", "RELATE"],
                  axisList: ["subject", "conduct"], outcome: "covered-after-reframing" }).ok === true],

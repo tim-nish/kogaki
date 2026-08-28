@@ -238,6 +238,13 @@ policy/kit/bin/consult.mjs --consumer <name> --tool gloss_index \
     each carrying `facet:` and `hit:`. Rendered as an **open question, never a
     conclusion**.
 
+  The two shapes and their grounds are the hub's, quoted at their pin rather
+  than restated: `consulted: product-lab@9b0ea254ff48d8ded999143f9325d4b12cc88eac
+  topics/knowledge-architecture.md:102,104` — `:104` for the open-world reading
+  that makes `no-carrier-found` the *unknown* and mechanical absence inadmissible,
+  `:102` for the orthogonality that makes coverage a count over facets rather
+  than over queries.
+
   *No file, no runtime, a closed issue* grounds neither shape. Mechanical
   absence may appear only as supporting context under a quote — deriving *not P*
   from a failure to derive *P* is sound only over a complete database, and the
@@ -277,7 +284,9 @@ policy/kit/bin/gateway-query.mjs --consumer <name> --tool policy_lookup \
   framed*. Two value sets, two jobs. Served renderings name them "consultation
   facet" and "search facets" — one concept over two objects, never two concepts.
 
-- **A re-framing names the TACTIC that produced it** (kogaki#669). The six are
+- **A re-framing names the TACTIC that produced it** (kogaki#669;
+  `consulted: product-lab@9b0ea254ff48d8ded999143f9325d4b12cc88eac
+  topics/knowledge-architecture.md:101`). The six are
   `SUPER | SUB | RELATE | NEIGHBOR | TRACE | VARY`, and they are a
   **classifier**, not a procedure: naming one answers *"is this a different
   axis?"* instead of arguing it in prose. There is no checklist here and no
@@ -286,7 +295,12 @@ policy/kit/bin/gateway-query.mjs --consumer <name> --tool policy_lookup \
   fixed-count discipline this seam runs on.
 
   `tactic:` is owed by the **re-framings** — framings 2..N — and not by framing
-  one, which is a revision of nothing. **`VARY` does not discharge the floor**:
+  one, which is a revision of nothing. **Nothing enforces that**, and the reason
+  is compat: a receipt carrying no `tactic:` at all must stay valid, so omitting
+  the key skips both the obligation and the discount below. The obligation is
+  real and the escape is real; closing it would mean requiring the key on every
+  non-discriminating receipt, which is a change to the grammar and the hub's to
+  make. **`VARY` does not discharge the floor**:
   it is lexical variation, a rewording of the same question, and it is the sole
   member of §5.2's lexical class that is also one of the adopted six. `FIX`,
   `REARRANGE`, `RESPELL` and `RESPACE` are outside the six and are not writable
