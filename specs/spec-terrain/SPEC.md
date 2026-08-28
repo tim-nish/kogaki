@@ -4353,8 +4353,64 @@ surface which must not drop its tail reports rather than truncates
 REFUSAL, which is what makes an over-wide Neighborhood unrenderable rather than
 quietly abridged.
 
-**The empty enumeration keeps its two-line form**, unchanged: this ruling
-narrows what a POPULATED section renders and says nothing about an empty one,
+**§13.0's SILENT-EXCLUSION DUTY SURVIVES THIS RULING FOR THE BATCH-SIDE GAPS,
+and is discharged ON THE SURFACE (kogaki#691, owner ruling 2026-08-29).**
+Disposition 4 deleted the unresolved footnote, whose subject was the
+reference-link walk; the enumerator still marks three gaps that walk never
+produced — a seed carrying no `source_batch`, a `source_batch` naming a batch
+nothing serves, and a batch member the served set does not carry — and between
+#686 and this ruling they reached no surface. The section now renders them, one
+row per gap, **naming the subject rather than a count**: §13.0's point is that
+the excluded thing is nameable, and a bare count is a disclosure the reader
+cannot act on.
+
+**THE RULING TURNED ON A FACT NEITHER REVIEW ROUND HAD, and it is stronger than
+the omission the issue described.** Where every seed fails to resolve, the
+enumeration produces no candidate and **the empty form was the only line
+rendered** — asserting *"The enumeration ran over the settled set's Batches and
+returned nothing — a result about this settled set, not a failure."* That is
+**false** of a run that could not find the Batches: the surface stated a
+completed enumeration and a clean result. So this clause does not merely restore
+a disclosure, it **displaces a false one**.
+
+**THE TWO GAP KINDS PARTITION, AND ONLY ONE DISPLACES (PR #697 round 1).** The
+three markers are not one fact. A **seed** gap — no `source_batch`, or a
+`source_batch` naming a batch nothing serves — means no enumeration ran over
+that reference, which is what falsifies the empty form. A **member** gap is the
+opposite situation: the batch **resolved**, the walk ran over it, and one of its
+listed members is not served. Rendering both under one header told the reader a
+settled reference had failed to resolve when it had not — and where a member gap
+was the *only* gap it displaced an empty form that was **true**, replacing two
+true lines with a false one. That is this section's own defect one state in.
+
+So: a seed gap **displaces** the empty form; a member gap renders **beside** it,
+under its own header. The kind is typed on the marker at the point it is pushed
+and never recovered by string-matching the reason prose — a renderer
+reconstructing by text a fact the producer already knew is a join every wording
+change silently breaks. The empty form and the seed-gap disclosure are mutually
+exclusive by construction.
+
+> "A check anti-correlated with its need is worse than no check, because its
+> silence reads as a clean result."
+
+`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/archive/claude-code-ops.md:24`
+
+The reading, stated as a reading: the served line describes a **silence** that
+reads as a clean result; here the surface was louder than silence and said the
+clean result outright, which is the same defect one degree worse.
+
+**The two declined arms are recorded so neither is re-proposed blind.** *Stop
+computing the markers* — declined: the false empty line would remain and nothing
+in the system could then detect that the enumeration never ran, turning an
+undisclosed condition into an unobservable one. *Discharge in the machine record
+alone* — declined, and it was already the shipping state rather than a change:
+`neighborhood.unresolved` and `counts.unresolved` are written to the record
+today, so that arm ratified a surface that reads as clean while the record
+disagrees with it.
+
+**The empty enumeration keeps its two-line form**, unchanged **where every seed
+resolved**: this ruling narrows what a POPULATED section renders and says
+nothing about an empty one,
 and the second line — that absence here is absence of a same-Batch sibling and
 never evidence that the settled set stands alone — is the half that refuses the
 strong reading.

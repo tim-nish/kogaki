@@ -3257,7 +3257,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
       const raw = bySlug.get(s).source_batch;
       const k = batchKey(raw);
       if (!k) {
-        unresolved.push({ slug: s, value: raw === undefined ? null : raw,
+        unresolved.push({ kind: "seed", slug: s, value: raw === undefined ? null : raw,
           why: "the record carries no source_batch" });
         continue;
       }
@@ -3266,7 +3266,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
         // AC4's real case: the value is present and names a batch nothing
         // serves. An empty result here presented as "no same-sitting siblings"
         // is the silent exclusion §13.0 removes.
-        unresolved.push({ slug: s, value: raw,
+        unresolved.push({ kind: "seed", slug: s, value: raw,
           why: `source_batch names a batch no served record carries (resolved to ${JSON.stringify(k)})` });
         continue;
       }
@@ -3326,7 +3326,13 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
           // so nothing upstream reports anything.
           if (!bySlug.has(m)) {
             // The SUBJECT is the batch, which is why this is not a seed slug.
-            unresolved.push({ slug: k, value: m,
+            // KIND `member`, NOT `seed` (PR #697 round 1). The batch RESOLVED
+            // and this walk is running over it, so the enumeration DID run —
+            // the subject is a batch and the failure is one of its listed
+            // members. Typed at the push rather than inferred downstream from
+            // the `why` text: a renderer sniffing prose to recover a fact the
+            // producer knew is the join every wording change breaks.
+            unresolved.push({ kind: "member", slug: k, value: m,
               why: `the batch lists a member no served record carries (family ${JSON.stringify(family)})` });
             continue;
           }
@@ -3624,7 +3630,7 @@ export function neighborhoodDisplaySet(suggestions) {
   return { state: "shown", found, unjudged, top, atTop, shown: atTop };
 }
 
-export function neighborhoodScreen({ tag, gids, suggestions }) {
+export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) {
   const out = [];
   const say = (s = "") => out.push(s);
   say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
@@ -3637,16 +3643,89 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
 
   const sel = neighborhoodDisplaySet(suggestions);
   const { found, unjudged, top, atTop } = sel;
+
+  // THE BATCH-SIDE RESOLUTION DISCLOSURE (§13.0, kogaki#691, owner ruling
+  // 2026-08-29 — arm 1: the duty SURVIVES disposition 4 and is discharged on
+  // the surface). The enumerator marks three gaps — a seed carrying no
+  // `source_batch`, a `source_batch` naming a batch nothing serves, and a batch
+  // member the served set does not carry — and after #686 they reached no
+  // surface at all.
+  //
+  // THIS IS NOT MERELY A RESTORED OMISSION. Where every seed fails to resolve
+  // the enumeration produces no candidate, and the empty arm below then stated
+  // "The enumeration ran over the settled set's Batches and returned nothing —
+  // a result about this settled set, not a failure." That is FALSE of a run
+  // that could not find the Batches: the surface asserted a completed
+  // enumeration and a clean result. A silence that reads as a clean result is
+  // the served defect; stating the clean result outright is that defect one
+  // degree worse.
+  //   product-lab@b20d85ea topics/archive/claude-code-ops.md:24 —
+  //   "A check anti-correlated with its need is worse than no check, because
+  //    its silence reads as a clean result."
+  const gaps = Array.isArray(unresolved) ? unresolved : [];
+  // TWO KINDS, AND ONLY ONE OF THEM MAKES THE EMPTY FORM FALSE (PR #697 round
+  // 1). A `seed` gap is a settled reference that could not be resolved to a
+  // Batch, so no enumeration ran over it — that is what falsifies "the
+  // enumeration ran over the settled set's Batches". A `member` gap is the
+  // opposite situation: the batch RESOLVED, this walk ran over it, and one of
+  // its listed members is not served. Rendering both under one header told the
+  // reader a settled reference had failed to resolve when it had not, and — in
+  // the state where a member gap is the ONLY gap — displaced an empty form that
+  // was TRUE with a line that was false. That is the defect this section exists
+  // to remove, reproduced one state in.
+  //
+  // The kind is read from the marker, never sniffed out of its `why` prose: a
+  // renderer recovering by string-match a fact the producer already knew is a
+  // join that every wording change silently breaks.
+  const seedGaps = gaps.filter((g) => g.kind === "seed");
+  const memberGaps = gaps.filter((g) => g.kind !== "seed");
+  const sayRows = (list) => {
+    for (const g of list) {
+      // THE VALUE IS APPENDED ONLY WHERE THE REASON DOES NOT ALREADY CARRY IT.
+      // Marker 2's reason embeds the RESOLVED batch key, which differs from the
+      // raw `source_batch` on the twelve legacy records (`q_a/3/answer.md`
+      // against an id of `q_a/3`) — so both are informative when they differ
+      // and a duplication when they do not.
+      const v = g.value === null || g.value === undefined ? "" : String(g.value);
+      const dup = v !== "" && String(g.why).includes(v);
+      say(`  ${g.slug} — ${g.why}${v === "" || dup ? "" : ` (${v})`}`);
+    }
+  };
+  const saySeedGaps = () => {
+    say(`${seedGaps.length} settled reference(s) could not be resolved to a Batch, so no enumeration ran over them:`);
+    sayRows(seedGaps);
+  };
+  const sayMemberGaps = () => {
+    say(`${memberGaps.length} Batch member(s) reached by the walk are carried by no served record:`);
+    sayRows(memberGaps);
+  };
+  const sayGaps = () => {
+    if (seedGaps.length) saySeedGaps();
+    if (memberGaps.length) sayMemberGaps();
+  };
+
   if (sel.state === "empty") {
+    // A RESOLUTION FAILURE AND AN EMPTY RESULT ARE DIFFERENT FACTS, and only
+    // one of them may claim the enumeration ran. Where any gap exists the
+    // empty form is NOT rendered — it would assert an enumeration that did not
+    // happen — and the disclosure stands in its place.
+    // ONLY A SEED GAP DISPLACES. Where the batch resolved and the walk ran,
+    // the empty form's first line is TRUE and its second — "the half that
+    // refuses the strong reading" — is true unconditionally, so a member gap
+    // renders BESIDE them rather than deleting them.
+    if (seedGaps.length) { sayGaps(); return out; }
     // THE TWO-LINE FORM IS THE DECLARED CLASS (`neighborhood_empty`), kept
     // through kogaki#686 because the ruling narrows what a POPULATED section
     // renders and says nothing about the empty one. The second line is the
-    // load-bearing half: it refuses the strong reading of an empty result.
+    // load-bearing half: it refuses the strong reading of an empty result. It
+    // is true only when every seed RESOLVED and the walk genuinely found
+    // nothing, which is the condition guarded above.
     say("No suggestion. The enumeration ran over the settled set's Batches and "
       + "returned nothing — a result about this settled set, not a failure.");
     say("Not asserted: that an empty neighborhood is informative in the STRONG "
       + "sense. Absence here is absence of a same-Batch sibling, never evidence "
       + "that the settled set stands alone.");
+    if (memberGaps.length) sayMemberGaps();
     return out;
   }
 
@@ -3659,6 +3738,11 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
   if (sel.state === "none-judged") {
     say(`${found} candidate(s) found, 0 shown — none carries a recommendation `
       + `level. The mechanical layer ran; the judgment layer did not.`);
+    // A PARTIAL RESOLUTION FAILURE IS STILL OWED. Some seeds resolving does not
+    // discharge the ones that did not: the count above is over what the walk
+    // reached, and a reader cannot tell a small neighborhood from a small
+    // fraction of the settled set having been walked at all.
+    if (gaps.length) sayGaps();
     return out;
   }
 
@@ -3671,26 +3755,29 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
       + "candidates you see would be a tie-break this section has no ground to "
       + "make, and a cut carrying no meaning reads as a ranking it is not.");
     if (unjudged) say(`${unjudged} candidate(s) carry no level and are counted here, never shown.`);
+    if (gaps.length) sayGaps();
     return out;
   }
 
   say(`${found} candidate(s) found, ${atTop.length} shown — all at the highest `
     + `level present (\`${top}\`).`);
-  // THE BATCH-SIDE RESOLUTION GAPS ARE NOT RENDERED HERE, AND THAT IS OWED TO
-  // kogaki#686 RATHER THAN SETTLED. The enumerator still marks three — a seed
-  // carrying no `source_batch`, a `source_batch` naming a batch nothing serves,
-  // and a batch member the served set does not carry — and none reaches a
-  // surface, so a resolution gap leaves no trace. That is §13.0's silent
-  // exclusion, and it is a real cost.
+  // THE BATCH-SIDE RESOLUTION GAPS RENDER HERE (kogaki#691, owner ruling
+  // 2026-08-29 — §13.0's duty SURVIVES #686 disposition 4 and is discharged on
+  // the surface). Both kinds ride a populated section: a partial resolution
+  // failure is not discharged by the seeds that did resolve, because the counts
+  // above are over what the walk REACHED and a reader cannot otherwise tell a
+  // small neighborhood from a small fraction of the settled set having been
+  // walked at all.
   //
-  // A line for them was added at round 1 and is REMOVED here. Disposition 3
-  // rules "at most ten rows, from the highest level present, and NOTHING ELSE
-  // in the Report", and disposition 4 deletes the unresolved footnote by name.
-  // Reading §13.0's duty as outliving the walk is defensible and it is not the
-  // review's to license: restoring a rendering under a reviewer's authority is
-  // how a ruling acquires a clause nobody ratified. The question is carried on
-  // #686, which stays open.
+  // THIS COMMENT SAID THE OPPOSITE UNTIL PR #697 ROUND 1, in the same commit
+  // that added the rendering two lines below: that none of the three markers
+  // reaches a surface, that the round-1 line "is REMOVED here", and that the
+  // question was carried on #686 "which stays open" — #686 closed on
+  // 2026-08-28. A comment falsified by its own diff is the class this change's
+  // own description names against the coverage case, arriving inside the fix
+  // for it.
   if (unjudged) say(`${unjudged} candidate(s) carry no level and are counted here, never shown.`);
+  if (gaps.length) sayGaps();
   say();
 
   // FOUR FIELDS, in the ruled order. `relation` is plain words rather than a
@@ -3741,7 +3828,7 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
 // left this frame destructuring and forwarding them — the same claim on a
 // caller, one level up. The sole call site spreads `report.neighborhood`, so
 // they are not positionally load-bearing either.
-export function neighborhoodSection({ gids, no_material, suggestions }) {
+export function neighborhoodSection({ gids, no_material, suggestions, unresolved = [] }) {
   const head = [
     "## Provenance neighborhood",
     "",
@@ -3759,7 +3846,7 @@ export function neighborhoodSection({ gids, no_material, suggestions }) {
   return [...head,
     // Drop only the screen's heading line; the tag it carried already heads
     // the report's own title, and the set rides `*Seeded by:*` above.
-    ...neighborhoodScreen({ tag: "", gids, suggestions }).slice(1),
+    ...neighborhoodScreen({ tag: "", gids, suggestions, unresolved }).slice(1),
   ];
 }
 
