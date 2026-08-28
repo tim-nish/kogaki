@@ -337,6 +337,19 @@ export function displayIdOf(id, candidates) {
   return c && c.display_id ? c.display_id : NO_DISPLAY_ID;
 }
 
+// DISPLAY IDS COMPARE NUMERICALLY (kogaki#689, PR #693 round 1). `L2` before
+// `L10`, and the abnormal marker last — a lexicographic sort orders "L1", "L10",
+// "L2" in that order, and a display id's number is its meaning on every surface
+// in this file.
+export function compareDisplayIds(a, b) {
+  const n = (x) => { const m = /^([A-Za-z]+)([0-9]+)$/.exec(String(x)); return m ? [m[1], Number(m[2])] : null; };
+  const na = n(a); const nb = n(b);
+  if (!na && !nb) return String(a).localeCompare(String(b));
+  if (!na) return 1;
+  if (!nb) return -1;
+  return na[0] === nb[0] ? na[1] - nb[1] : na[0].localeCompare(nb[0]);
+}
+
 // The plural form, plus the count of abnormal members so a surface can state
 // the fault ONCE beneath the rows rather than per row — the shape §9's
 // `missing` counter already uses at the candidate-row surface.
@@ -597,6 +610,37 @@ function fetchHeadlines(kind, tags, { soft = false } = {}) {
 
 export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
 
+// THE SECOND MISS STATE, WHICH `NO_HEADLINE` WAS RENDERING AS THE FIRST
+// (kogaki#689, PR #693 round 1). `NO_HEADLINE` says a shard was READ and
+// carried no rendering for the slug. A row whose shard was never ADDRESSED is a
+// different fact, and rendering it as the first asserts a read that did not
+// happen — which is the state the ruling's own consulted line refuses, arriving
+// one layer in from where the ruling looked:
+//
+//   "every enumerated class renders including its zero, and an empty class says
+//    so rather than being omitted" — the failure named is SILENCE, and silence
+//    is indistinguishable from NOT CHECKED.
+//   product-lab@b20d85ea topics/archive/knowledge-architecture.md:57
+//
+// Two ways no shard carries a row, and this marker covers both because both are
+// the same fact to a reader: the record carries no tag, so there is no shard
+// address to form; or its family is outside the `lessons/` namespace this path
+// reads. THE WORDING IS PRECISE ABOUT WHICH (PR #693 round 2, nit). An earlier
+// form said the row's "family or tags reach none", which is FALSE for a tagged
+// journey: its tags DO enter the shard union and a `lessons/<tag>` shard IS
+// read for them — that shard simply cannot carry a journey slug. The
+// distinction bears on the open fork, because it means the incremental cost of
+// reading `journeys/` is a second shard per tag ALREADY in the union rather
+// than a new tag; that cost shape is recorded on kogaki#689.
+//
+// WHETHER THAT NAMESPACE BOUND SHOULD WIDEN IS NOT DECIDED HERE. `cmdView`
+// reads both namespaces (§9), and extending the report path to match is a
+// READ-BUDGET decision of exactly the kind the 2026-08-28 gate was raised for —
+// the ruling reached the `lessons/` fetch and no further. So this DISCLOSES the
+// bound rather than quietly widening it, which costs no reads and settles
+// nothing that is the owner's.
+export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — its family is outside the lessons namespace this path reads, or it carries no tag; a fault to clear, never substituted⟩";
+
 // THE BOUNDED RESOLVER THE BRIEF LANE CALLS (kogaki#528). Terrain is the one
 // component that reads served renderings through the seam (§3, §9), so the
 // Brief does not become a second substrate reader: it hands over the members
@@ -620,10 +664,47 @@ export function resolveHeadlines(members) {
   const out = new Map();
   for (const m of list) {
     const e = heads.get(m.slug);
-    out.set(m.slug, e ? { headline: e.headline, cite: e.cite }
-                      : { headline: NO_HEADLINE, cite: null });
+    // `found` SEPARATES A HIT FROM A MISS AT THIS BOUNDARY (kogaki#689, PR #693
+    // round 2). Every member got an entry and a miss got `NO_HEADLINE` stamped
+    // in, so a caller reading only the entry could not tell a shard that
+    // answered from one that did not — the miss was resolved HERE and the
+    // caller's own handling of it was dead code it could not detect. The
+    // headline field keeps the marker so the disclosure contract this function
+    // was built with is unchanged; the flag is added beside it.
+    out.set(m.slug, e ? { headline: e.headline, cite: e.cite, found: true }
+                      : { headline: NO_HEADLINE, cite: null, found: false });
   }
   return out;
+}
+
+// WHICH OF THE THREE GLOSS STATES A ROW IS IN (kogaki#689, PR #693 round 1).
+//
+// EXPORTED AND PURE BECAUSE THE INLINE FORM WAS UNASSERTABLE. This decision sat
+// inside `cmdReport`'s fetch loop, and the neighborhood cases drive the screen
+// directly — so every assertion about the miss markers was exercising the
+// EMITTER'S fallback and none was reaching the state assignment. Collapsing the
+// two miss states back into one marker changed nothing any case could see, which
+// is the shape a mutation-verification cannot detect: an assertion that never
+// ran and an assertion that survived are the same silence.
+//
+// THREE STATES, THREE ANSWERS:
+//   * a shard was read and carried a rendering  → the headline;
+//   * a shard was READ and carried none for the slug → `NO_HEADLINE`;
+//   * NO SHARD WAS ADDRESSED — the row carries no tag, so no address can be
+//     formed, or its family is not `lesson` and this path reads the `lessons/`
+//     namespace only → `NO_SHARD_ADDRESSED`.
+// The third rendered as the second asserts a read that never happened.
+export function glossFor(sug, headline) {
+  // READ `found`, NEVER TRUTHINESS OF THE ENTRY. `resolveHeadlines` returns an
+  // entry for every member it was handed, so `if (headline)` was true on every
+  // miss and this function's whole second half was unreachable from the report
+  // path — the branch existed, was asserted directly, and could not be reached
+  // by the one caller that matters (PR #693 round 2). That is the same silence
+  // one call site in from where round 1 looked: a branch that never ran and a
+  // branch that ran correctly are indistinguishable from the suite.
+  if (headline && headline.found) return headline.headline;
+  const addressed = ((sug && sug.tags) || []).length > 0 && sug && sug.family === "lesson";
+  return addressed ? NO_HEADLINE : NO_SHARD_ADDRESSED;
 }
 
 // THE TWO SCREEN RENDERERS, PRIVATE (§15.5, §15.1; kogaki#665). Each RETURNS
@@ -2710,19 +2791,72 @@ function cmdReport(args) {
     // exploration fixed to one substrate this is always Batch membership, so
     // the row names the batch rather than a substrate token a reader would
     // have to decode.
+    //
+    // IT NAMES THE SETTLED MEMBER, NOT THE BATCH INSTANCE (kogaki#689, carried
+    // from PR #692 round 2). Disposition 3's own example is "from the same
+    // Batch as L88 (2026-08-13)" — a member the owner can recognise, with the
+    // batch beside it. The row used to render the batch key in the member's
+    // place, which is the substrate-internal token this field exists to spare
+    // the reader. Seeds are named by their DISPLAY ID where the record carries
+    // one, because that is the identifier every other owner surface uses.
     const batch = (sug.reached_by || []).find((r) => r.substrate === "source_batch");
+    // Resolved BY SLUG, because that is the key the enumerator works in;
+    // `displayIdOf` addresses by candidate id and would match nothing here. A
+    // seed whose record carries no display_id renders `NO_DISPLAY_ID` rather
+    // than being dropped: omitting one of three named members would misname the
+    // relation, which is worse than disclosing the fault.
+    const named = (sug.seeds || []).map((sl) => {
+      const c = (record.candidates || []).find((x) => x && x.slug === sl);
+      return c && c.display_id ? c.display_id : NO_DISPLAY_ID;
+    }).sort(compareDisplayIds);
+    // Sorted by the identifier the row PRINTS, not by the slug it was reached
+    // under: the seed list is a set and its order carries no meaning, so the
+    // one the reader sees is the one that is stable across runs — and ordered
+    // NUMERICALLY, because a display id's number is its meaning. A bare `.sort()`
+    // put L10 before L2 and the ruling's own example id L88 before L9 (PR #693
+    // round 1); the two-member specimen could not show it.
+    // An unnamed seed set is a STATED absence, never a silent fallback to the
+    // old wording: "the settled set" is what the row says when it can name no
+    // member at all, and the reader can tell the two apart.
+    const who = named.length ? named.join(", ") : "the settled set";
     sug.relation = batch && batch.instance
-      ? `from the same Batch as the settled set (${batch.instance})`
-      : "from the same Batch as the settled set";
-    // THE GLOSS IS OWED AND NOT YET FETCHABLE HERE, and it is DISCLOSED rather
-    // than substituted. A suggestion sits outside the survey's candidates, so
-    // its served headline needs a shard read this path does not make — and
-    // quietly rendering the slug in the Gloss field would put an unquoted
-    // identifier under a grammar declaring a served rendering, which is the
-    // paraphrase-for-a-quote shape the kit's verbatim rule refuses. Carried on
-    // kogaki#686 round 1; the fetch is a bounded-read decision the ruling does
-    // not make.
-    sug.gloss = sug.gloss || null;
+      ? `from the same Batch as ${who} (${batch.instance})`
+      : `from the same Batch as ${who}`;
+  }
+
+  // THE BOUNDED GLOSS FETCH (kogaki#689, owner ruling 2026-08-28). §686
+  // disposition 3 rules four fields per row and this is the fourth; until this
+  // landed the report path fetched nothing and every row rendered its absence,
+  // so the grammar declared a field the pipeline could not fill.
+  //
+  // BOUNDED BY THE ROWS THAT RENDER, NEVER BY THE CANDIDATE SET. The fetch runs
+  // over `neighborhoodDisplaySet`'s own selection — at most `NEIGHBORHOOD_DISPLAY_CAP`
+  // rows, and none at all on the empty, none-judged and over-cap arms, which
+  // render no row. `resolveHeadlines` then bounds it a second time, to the union
+  // of those rows' OWN tags: this is the same bound kogaki#528 ratified for the
+  // Brief lane and the same one §9 binds `cmdView` to. The corpus-wide prefetch
+  // §9 forbids is not reachable from here, because the tag set is a function of
+  // ten records rather than of the corpus.
+  //
+  // A MISS IS DISCLOSED AND NEVER SUBSTITUTED. `resolveHeadlines` returns
+  // `NO_HEADLINE` where the shard carries no rendering, which is the same
+  // abnormal marker `cmdView` and the Brief lane render — a fault to clear
+  // rather than prose. The earlier `gloss unrecorded` literal is gone with the
+  // condition it disclosed: it said "this path makes no fetch", which is no
+  // longer true, and keeping it beside `NO_HEADLINE` would be two vocabularies
+  // for one state.
+  //
+  // THE HEADLINE IS QUOTED AT ITS CITE. It is a served rendering, so it travels
+  // with the address it was read from and never as bare prose — the verbatim
+  // rule the slug substitution was refused under at #686 round 1.
+  const shownRows = neighborhoodDisplaySet(neighborhood.suggestions || []).shown || [];
+  if (shownRows.length) {
+    const heads = resolveHeadlines(shownRows.map((x) => ({ slug: x.slug, tags: x.tags || [] })));
+    for (const sug of shownRows) {
+      const h = heads.get(sug.slug);
+      sug.gloss = glossFor(sug, h);
+      sug.gloss_cite = h ? h.cite : null;
+    }
   }
 
   const report = {
@@ -2980,11 +3114,6 @@ function batchKey(sourceBatch) {
 //
 // Returns { suggestions, unresolved, counts } — `suggestions` carry the
 // substrate that REACHED them (§13.4's disclosure), never a score.
-// §13.4 obligation 4's GROUP IDENTITY, defined once (story 1.61). The
-// enumerator mints these pairs and the screen orders, labels and counts by
-// them; two definitions of "same group" is how a batch would render under one
-// heading and be counted under another.
-
 
 // ORDER IS DECLARED AND MECHANICAL: instance-bearing groups first, by substrate
 // then by instance id, then the bare substrates by name. NEVER by size — a
@@ -3037,6 +3166,15 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // shape is the alternative story 1.61's Review Focus names, taken because the
   // other one is unavailable rather than because it is tidier.
   const reached = new Map();
+  // slug -> Set of the SEED slugs that reached it. §686 disposition 3's field 2
+  // names "the same Batch as L88 (2026-08-13)" — the settled MEMBER the
+  // candidate shares a Batch with, and the batch. `reached` above is keyed by
+  // substrate and instance and cannot hold it: two seeds in one batch collapse
+  // to one instance entry, which is exactly the value the row must not render
+  // in the member's place. Kept beside rather than folded in, because the
+  // relation is a fact about the settled set and not about the substrate
+  // (kogaki#689, carried from PR #692 round 2).
+  const reachedSeeds = new Map();
   const unresolved = [];
   // §13.4's DENOMINATOR POPULATION, family-keyed and read from the batch
   // records' own `members` rather than re-derived from the element set (story
@@ -3051,8 +3189,10 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // than a missing key, and it survives kogaki#686's narrowing because a
   // substrate that IS its own instance is still expressible:
   // the screen groups it under the substrate's own heading.
-  const note = (slug, substrate, instance = null) => {
+  const note = (slug, substrate, instance = null, seedsReaching = []) => {
     if (seedSet.has(slug) || !bySlug.has(slug)) return;
+    if (!reachedSeeds.has(slug)) reachedSeeds.set(slug, new Set());
+    for (const s of seedsReaching) reachedSeeds.get(slug).add(s);
     if (!reached.has(slug)) reached.set(slug, new Map());
     const bySubstrate = reached.get(slug);
     if (!bySubstrate.has(substrate)) bySubstrate.set(substrate, new Set());
@@ -3074,6 +3214,9 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // Seeds resolve to the DISTINCT batches they name; the member walk below
     // then visits each batch exactly once.
     const distinctBatches = new Map();
+    // batch key -> the seeds that named it, so the member walk below can say
+    // WHICH settled member a suggestion shares its Batch with.
+    const batchSeeds = new Map();
     for (const s of seeds) {
       const raw = bySlug.get(s).source_batch;
       const k = batchKey(raw);
@@ -3092,6 +3235,8 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
         continue;
       }
       distinctBatches.set(k, batch);
+      if (!batchSeeds.has(k)) batchSeeds.set(k, new Set());
+      batchSeeds.get(k).add(s);
     }
 
     // THE WALK IS PER BATCH, NOT PER SEED (kogaki#369). The two markers above
@@ -3154,7 +3299,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
           // same batch the join walked. The twelve legacy records whose
           // `source_batch` is `"q_a/3/answer.md"` against an id of `"q_a/3"`
           // would otherwise split one batch across two headings.
-          note(m, "source_batch", k);
+          note(m, "source_batch", k, batchSeeds.get(k) || []);
         }
       }
     }
@@ -3173,6 +3318,15 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // unknown family folded into a known one is the pooling AC3 forbids,
     // arriving one record at a time.
     family: bySlug.get(slug)?.kind ?? null,
+    // THE RECORD'S OWN TAGS, carried here for the same reason `family` is: the
+    // bounded Gloss fetch (kogaki#689) is keyed on them, and `bySlug` does not
+    // outlive this function. An absent `tags` yields `[]` rather than a guess —
+    // a row with no tag addresses no shard, and that is a stated absence.
+    tags: bySlug.get(slug)?.tags ?? [],
+    // THE SETTLED MEMBERS THIS CANDIDATE WAS REACHED FROM, sorted, named by
+    // slug here and resolved to display ids at the rendering. Field 2 names the
+    // member; the substrate instance is the parenthetical beside it.
+    seeds: [...(reachedSeeds.get(slug) || [])].sort(),
     // UNCHANGED IN SHAPE AND MEANING: the substrate NAMES, sorted. Story 1.45's
     // AC2 disclosure asserts over this field, so 1.61 adds beside it rather
     // than re-cutting it — a suggestion's disclosure line is the same sentence
@@ -3403,6 +3557,31 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // destructured and ignored — a parameter a function does not read is a claim on
 // its caller it cannot honour, and an earlier revision of this comment claimed
 // `unresolved` was read after the line reading it had been removed.
+// THE DISPLAY SELECTION, DEFINED ONCE (kogaki#689). Which rows a populated
+// section renders — the judged set, the highest level present, the cap — was
+// computed inside the screen alone, and the bounded Gloss fetch below has to
+// reach the SAME set: a fetch over more rows than render pays for rows nobody
+// sees, and a fetch over fewer leaves a rendered row unfilled. Two computations
+// of "which rows show" is how those two drift, so there is one.
+//
+// Pure over its input and states every arm rather than returning a bare list:
+// the screen renders a different sentence for each, and an arm collapsed here
+// would have to be re-derived there.
+export function neighborhoodDisplaySet(suggestions) {
+  const list = suggestions || [];
+  const found = list.length;
+  const judged = list.filter((x) => NEIGHBORHOOD_LEVELS.includes(x.level));
+  const unjudged = found - judged.length;
+  if (!found) return { state: "empty", found, unjudged, top: null, atTop: [] };
+  if (!judged.length) return { state: "none-judged", found, unjudged, top: null, atTop: [] };
+  const top = NEIGHBORHOOD_LEVELS.find((l) => judged.some((x) => x.level === l));
+  const atTop = judged.filter((x) => x.level === top);
+  if (atTop.length > NEIGHBORHOOD_DISPLAY_CAP) {
+    return { state: "over-cap", found, unjudged, top, atTop, shown: [] };
+  }
+  return { state: "shown", found, unjudged, top, atTop, shown: atTop };
+}
+
 export function neighborhoodScreen({ tag, gids, suggestions }) {
   const out = [];
   const say = (s = "") => out.push(s);
@@ -3414,8 +3593,9 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
   // ruled, which is the kind that lands unnoticed inside a specimen regenerated
   // for other reasons.
 
-  const found = suggestions.length;
-  if (!found) {
+  const sel = neighborhoodDisplaySet(suggestions);
+  const { found, unjudged, top, atTop } = sel;
+  if (sel.state === "empty") {
     // THE TWO-LINE FORM IS THE DECLARED CLASS (`neighborhood_empty`), kept
     // through kogaki#686 because the ruling narrows what a POPULATED section
     // renders and says nothing about the empty one. The second line is the
@@ -3431,20 +3611,16 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
   // A candidate carries its level and claim, or it is UNJUDGED. An unjudged
   // candidate is never silently dropped and never silently shown: it is counted
   // and named, because the LLM layer not having run is a different state from a
-  // candidate judged `background`.
-  const judged = suggestions.filter((x) => NEIGHBORHOOD_LEVELS.includes(x.level));
-  const unjudged = found - judged.length;
-
-  if (!judged.length) {
+  // candidate judged `background`. The selection itself is
+  // `neighborhoodDisplaySet`'s; this function renders its arms and computes
+  // none of them.
+  if (sel.state === "none-judged") {
     say(`${found} candidate(s) found, 0 shown — none carries a recommendation `
       + `level. The mechanical layer ran; the judgment layer did not.`);
     return out;
   }
 
-  const top = NEIGHBORHOOD_LEVELS.find((l) => judged.some((x) => x.level === l));
-  const atTop = judged.filter((x) => x.level === top);
-
-  if (atTop.length > NEIGHBORHOOD_DISPLAY_CAP) {
+  if (sel.state === "over-cap") {
     say(`${found} candidate(s) found, 0 shown — ${atTop.length} sit at the `
       + `highest level present (\`${top}\`), above the display cap of `
       + `${NEIGHBORHOOD_DISPLAY_CAP}.`);
@@ -3477,9 +3653,17 @@ export function neighborhoodScreen({ tag, gids, suggestions }) {
 
   // FOUR FIELDS, in the ruled order. `relation` is plain words rather than a
   // substrate token, because the row is read by the owner and not by a parser.
+  //
+  // THE GLOSS IS QUOTED AT ITS CITE (kogaki#689). It is a served rendering, so
+  // it travels with the address it was read from; a headline rendered bare is
+  // the paraphrase-standing-for-a-quote shape the verbatim rule refuses. A row
+  // whose shard carried no rendering gets `NO_HEADLINE` — the same abnormal
+  // marker `cmdView` and the Brief lane render, so one vocabulary covers the
+  // state wherever it arises, and it is a fault to clear rather than prose.
   for (const x of atTop) {
     say(`- ${x.nid} — ${x.relation || "relation unrecorded"}`);
-    say(`  ${x.gloss || "gloss unrecorded"}`);
+    say(x.gloss && x.gloss_cite ? `  “${x.gloss}”  ${x.gloss_cite}`
+                                : `  ${x.gloss || NO_SHARD_ADDRESSED}`);
     say(`  ${x.claim || "claim unrecorded"} [${x.level}]`);
   }
   return out;
