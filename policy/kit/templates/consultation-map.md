@@ -59,5 +59,14 @@ carried by this prescription and not yet by an instrument.
 **The value set naming the axes is the hub's to ratify, never this file's.**
 Nothing here enumerates the axes it requires one query for.
 
-**deferred slot: the axis value set**, and with it whether the axes are exactly
-two. Named, never filled here.
+**The axis value set is RATIFIED as `subject | conduct`** — closed, and the
+hub's, exactly as the sentence above says. It was ratified 2026-08-13 and the
+consumer-side enforcement landed 2026-08-28; a consumer's receipt check
+validates the **token** against that set and never the **content**, since
+judging whether a query is really conduct-shaped is judgment wearing a check's
+clothes.
+
+**This is not a slot a consumer fills.** A third value is the hub's act under
+its own growth rule — a specimen of a rule that provably existed, was served at
+the pin, and was missed on an axis neither value covers. Catches never justify
+expansion, and copying a served set is not minting it.
