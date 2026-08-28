@@ -2928,6 +2928,10 @@ for (const s of covered) {
 }
 const present = new Set(readdirSync(DIR).filter((f) => f !== "README.md"));
 for (const f of present) {
+  // The judgment-layer INPUT is not a specimen of a surface — it is a fixture
+  // the golden run consumes (kogaki#686). Named here so the corpus guard keeps
+  // its meaning: one specimen per covered surface, and inputs are not specimens.
+  if (f === "neighborhood-judgments.json") continue;
   if (!Object.values(SPECIMENS).includes(f)) {
     fails.push(`${DIR}/${f} is a specimen for no covered surface — AC6: a specimen, not a corpus. A format incident earns a grammar edit and a REGENERATED specimen, never an additional fixture`);
   }
@@ -2976,8 +2980,14 @@ try {
 
   const rdir = join(dir, "r"); const gdir = join(dir, "g");
   const rep = spawnSync(process.execPath,
+    // `--neighborhood` carries the JUDGMENT LAYER (kogaki#686): one level from
+    // the harness-fixed set and one claim per mechanical candidate. The
+    // specimen exercises the JUDGED path deliberately — the unjudged state is a
+    // real rendering and a legible one, but a golden specimen showing it would
+    // pin the shape nobody ships and leave the four ruled fields uncovered.
     ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", TAG, "--ids", "G2",
      "--claims", claims, "--subdivisions", subs,
+     "--neighborhood", join(DIR, "neighborhood-judgments.json"),
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", rdir, "--rendering-dir", gdir],
     { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
@@ -3184,7 +3194,9 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, settledSlugs, surveyEmptinessNote } from "./terrain/terrain.mjs";
+import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote } from "./terrain/terrain.mjs";
+import { loadGrammar, classMatchers } from "./terrain/format-guard.mjs";
+const G = loadGrammar("specs/spec-terrain/report-format.json");
 
 const fails = [];
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -3348,8 +3360,11 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     if (!bySlug.mate || !bySlug.mate.substrates.includes("source_batch")) {
       fails.push("§13/1.44 AC2: a same-batch member was not reached, or was reached without naming source_batch as the substrate that reached it");
     }
-    if (!bySlug.linked || !bySlug.linked.substrates.includes("cross_links")) {
-      fails.push("§13/1.44 AC2: a cross-linked member was not reached, or did not name cross_links");
+    // The cross-link half of this case retired with the substrate (kogaki#686).
+    // What replaces it is the NEGATIVE: a record reachable only by a reference
+    // link, in another batch, must NOT surface.
+    if (bySlug.linked) {
+      fails.push("§13/686 AC2: a reference-linked member in another batch surfaced — exploration is same-Batch only");
     }
     if (bySlug.far) fails.push("§13/1.44 AC2: an unrelated member was surfaced — the enumeration is not bounded by the substrates");
     if (bySlug.seed) fails.push("§13/1.44 AC2: the seed itself was surfaced as its own neighbor");
@@ -3442,25 +3457,14 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     }
   }
 
-  // UNRESOLVED IS A COUNT THE SCREEN PRINTS, so a reference reachable by two
-  // paths must not be counted twice. BOTH seeds link to `z`, so `z` enters the
-  // depth-2 frontier twice without an expanded-set, is walked twice, and the
-  // dangling `gone` it names lands twice. (A single seed cannot show this: one
-  // path puts `z` in the frontier once, which is why the first version of this
-  // case survived its own mutation.)
-  {
-    const records = [
-      rec("s1", "q_a/b", ["z"]),
-      rec("s2", "q_a/b", ["z"]),
-      rec("z", "q_a/b", ["gone"]),
-      batch("q_a/b", ["s1", "s2"]),
-    ];
-    const r = neighborhoodOf(records, ["s1", "s2"]);
-    const gone = r.unresolved.filter((u) => u.value === "gone");
-    if (gone.length !== 1) {
-      fails.push(`§13/1.44 AC4: the dangling reference "gone" was counted ${gone.length} time(s) — the traversal re-expands an already-expanded slug, so the screen's unresolved COUNT exceeds the number of distinct unresolved references`);
-    }
-  }
+  // REMOVED WITH THE WALK IT COVERED (kogaki#686). This case asserted that a
+  // dangling reference reachable by two cross_links paths is counted once — a
+  // property of the depth-2 frontier's expanded-set, which no longer exists.
+  // Deleted rather than left asserting over a traversal the ruling removed: a
+  // case whose subject is gone is not coverage, it is a fixture that cannot
+  // fail. The double-count property that SURVIVES — one unserved batch member
+  // shared by two seeds producing one unresolved reference — has its own case
+  // below and is untouched.
 
   // AC8 — DISJOINTNESS ASSERTED AGAINST AN `L` SPACE THAT IS ACTUALLY PRESENT.
   // The first version of this case tested the `nid` shape over output holding
@@ -3572,9 +3576,9 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     if (!unresolved.some((u) => u.why.includes("names a batch no served record carries"))) {
       fails.push("§13/1.44 AC4: a source_batch naming a batch nothing serves produced no marker — this is the case an element-side grouping cannot see, because it has no batch record to miss");
     }
-    if (!unresolved.some((u) => u.value === "ghost")) {
-      fails.push("§13/1.44 AC4: a cross_link naming an unserved slug was dropped silently rather than marked with its value");
-    }
+    // The dangling-cross_link marker retired with the walk (kogaki#686). The
+    // two batch-side markers above are the ones that survive, and they are the
+    // ones §13.0's silent-exclusion rule was written for.
     // The marker NAMES THE VALUE — a bare count would satisfy "marked" and
     // leave the reader unable to act, which is the disclosure AC4 asks for.
     for (const u of unresolved) {
@@ -3592,9 +3596,11 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     }
   }
 
-  // AC5 — THE DECLARED BOUND, read from the spec. cross_links is TWO hops, so
-  // a chain seed -> a -> b surfaces both and seed -> ... -> c at depth three
-  // does not. A one-hop implementation passes AC2 and fails here.
+  // AC5 — THE DECLARED BOUND, and after kogaki#686 the bound IS the substrate
+  // set. Exploration is same-Batch only, so what discriminates a correct
+  // implementation is no longer "two hops and not three" but "batch membership
+  // and nothing else": records linked to one another in DIFFERENT batches must
+  // surface none of them.
   {
     const records = [
       rec("s", "q_a/z", ["a"]), rec("a", "q_a/z2", ["b"]),
@@ -3603,13 +3609,11 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
       batch("q_a/z3", ["b"]), batch("q_a/z4", ["c"]),
     ];
     const got = neighborhoodOf(records, ["s"]).suggestions.map((x) => x.slug).sort();
-    if (!(got.includes("a") && got.includes("b"))) {
-      fails.push(`§13/1.44 AC5: cross_links did not reach two hops — got ${JSON.stringify(got)}, and §13.3 v16 declares two`);
-    }
-    if (got.includes("c")) {
-      fails.push("§13/1.44 AC5: cross_links reached THREE hops — the declared bound is two, and an implementation that runs further has settled a spec question silently");
+    if (got.length) {
+      fails.push(`§13/686: a reference-linked chain in OTHER batches surfaced ${JSON.stringify(got)} — exploration is fixed to the same Distill Batch and nothing else, so an implementation still walking links fails here`);
     }
   }
+
 
   // AC5 — shared carrier is OFF as a VALUE. Two records sharing a project and
   // nothing else must not surface at the declared setting; flipping the depth
@@ -3622,9 +3626,16 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     if (off.length !== 0) {
       fails.push("§13/1.44 AC5: shared carrier surfaced a member at the declared setting, where §13.3 v16 declares it OFF");
     }
-    const on = neighborhoodOf(records, ["p1"], { source_batch: 1, cross_links: 2, shared_carrier: 1 }).suggestions;
-    if (!on.some((x) => x.slug === "p2" && x.substrates.includes("shared_carrier"))) {
-      fails.push("§13/1.44 AC5: shared carrier is ABSENT from the code rather than off — turning its depth on surfaced nothing, so 'off' is not a value");
+    // THE INVERSE OF THE OLD ASSERTION, and the inversion is the point
+    // (kogaki#686). This case used to prove shared_carrier was OFF-as-a-value
+    // rather than absent, by turning its depth on and expecting a member. The
+    // ruling DELETES it — a record kept beside its exception is exactly what
+    // that doctrine removes — so the assertion now proves the substrate is
+    // unreachable at any setting, which is what "deleted" means and what
+    // "off" never did.
+    const on = neighborhoodOf(records, ["p1"], { source_batch: 1, shared_carrier: 1 }).suggestions;
+    if (on.some((x) => x.slug === "p2")) {
+      fails.push("§13/686: shared_carrier surfaced a member when its depth was set — the substrate is DELETED, not off, so no setting may reach it");
     }
   }
 
@@ -3666,9 +3677,13 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     // comparing them proves nothing. The seed links z-late BEFORE a-early, so
     // discovery order and sorted order disagree and only one puts N1 on
     // a-early.
+    // REBUILT ON BATCH MEMBERSHIP (kogaki#686). The discriminator was a seed
+    // linking z-late before a-early, so discovery and sorted order disagreed;
+    // with the walk gone the same disagreement is produced by a batch that
+    // LISTS its members z-late first.
     const ordered = neighborhoodOf(
-      [rec("root", "q_a/o", ["z-late", "a-early"]), rec("z-late", "q_a/o2"), rec("a-early", "q_a/o3"),
-       batch("q_a/o", ["root"]), batch("q_a/o2", ["z-late"]), batch("q_a/o3", ["a-early"])],
+      [rec("root", "q_a/o"), rec("z-late", "q_a/o"), rec("a-early", "q_a/o"),
+       batch("q_a/o", ["root", "z-late", "a-early"])],
       ["root"]).suggestions;
     const n1 = ordered.find((x) => x.nid === "N1");
     if (!n1 || n1.slug !== "a-early") {
@@ -3686,589 +3701,226 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     if (counts.seeds !== 1) fails.push("§13/1.44 AC6: the seed count is not reported, so an empty result cannot be read as a result");
   }
 }
-console.log("provenance neighborhood (§13, story 1.44): the three substrates enumerate and each suggestion "
-  + "NAMES the substrate that reached it; the batch join holds through the batch key and is symmetric, so the "
-  + "12 legacy `q_a/N/answer.md` batches resolve where an equality join returns nothing; unresolved references "
-  + "are marked WITH THEIR VALUE and a resolvable-but-solitary Grain is NOT marked, which is what keeps the two "
-  + "apart; the declared bound is asserted in both directions (two hops reached, three refused) and shared "
-  + "carrier is proven OFF-as-a-value by turning it on; widening only ADDS, so a ranking implementation fails; "
-  + "and `N<n>` is disjoint from `L<n>` and stable across calls. Seam-free — every case injects its records.");
-// §13.4's THREE CONFORMANCE PROPERTIES OVER THE RENDERED SCREEN — story 1.45
-// (kogaki#303, umbrella #300).
+console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerates — same Distill "
+  + "Batch, one hop — and each suggestion names it; the batch join holds through the batch key and is "
+  + "symmetric, so the 12 legacy `q_a/N/answer.md` batches resolve where an equality join returns "
+  + "nothing; batch-side resolution gaps are still MARKED with their value and a resolvable-but-"
+  + "solitary Grain is NOT marked, which is what keeps the two apart. The bound is asserted in the "
+  + "direction the ruling left: a reference-linked chain in OTHER batches surfaces nothing at any "
+  + "depth, and shared_carrier surfaces nothing EVEN WHEN ITS DEPTH IS SET — deleted rather than off, "
+  + "which is the inverse of what this block asserted before kogaki#686 and the reason the summary "
+  + "was rewritten with the cases rather than left describing them.");
+// ---------------------------------------------------------------------------
+// §13 THE NEIGHBORHOOD SECTION — kogaki#686 (owner ruling 2026-08-28).
 //
-// WHY THESE ARE NOT THE 1.44 CASES AGAIN. Story 1.44's block above exercises
-// `neighborhoodOf`, the ENUMERATOR. Every obligation below is a property of
-// what RENDERS: §13.4 governs the screen the owner reads, and an enumerator
-// returning a perfectly disclosed structure that the screen then prints without
-// its substrates satisfies 1.44's cases and ships the defect. So each case here
-// calls `neighborhoodScreen` and asserts over its LINES.
-//
-// AC5 IS THE SHAPE OF THE WHOLE BLOCK, not a case at the end. Each property is
-// asserted in BOTH directions — the conformant input passes, and a constructed
-// violating input FAILS — because a property whose failing path is never
-// exercised is not covered by this story, and a check that cannot fail is
-// theatre. The violating case is built by handing the screen a structure the
-// enumerator would not produce, which is exactly the point: the screen is a
-// separate carrier and is asserted as one.
-//
-// FIVE ASSERTIONS IN THIS BLOCK MOVED WITH STORY 1.61, and the move is
-// recorded here because loosening an assertion to make it pass is how a check
-// is defeated — the same class this block already guards against one case down
-// ("pick another specimen rather than weakening the assertion"). What changed
-// and why, so a reader can re-judge it rather than take it:
-//   - Three row anchors went from `/^N[0-9]+ — /` to `/^ *N[0-9]+ — /`. Story
-//     1.61 nests rows under a family section and a group heading, so a row is
-//     indented. The property asserted — that the row EXISTS and NAMES its
-//     substrate — is untouched; only the column moved. Property 4 below then
-//     asserts the nesting itself, so what this relaxation stops checking is
-//     checked there rather than nowhere.
-//   - Two ratio anchors gained `suggestion\(s\)`. These are STRICTER than what
-//     they replaced: they now also assert the per-family figure names its unit,
-//     which is story 1.61's AC2a. A bare `1 of 2` no longer passes.
-//
-// REMOVAL SIGNAL, DECLARED AT BIRTH (consultation-map entry 1; the served
-// kernel is "admission carries a removal signal" and "NO CURRENT MEMBER CARRIES
-// ONE"). These three retire when `report-format.json`'s grammar admits the
-// neighborhood screen as a third rendered surface and `emitOrRefuse` validates
-// it: at that point the disclosure obligations are refused at emit time by the
-// same constrain-generation path §14.2 already uses for `cotag_screen` and
-// `full_report`, and an after-the-fact assertion over lines is subsumed.
-// Bringing the neighborhood under the grammar is §14.1's own reopen trigger,
-// named on kogaki#300 and not this story's work — which is precisely why the
-// signal is recorded now rather than discovered later.
+// THIS BLOCK REPLACES stories 1.45 and 1.61's display cases WHOLESALE, and the
+// replacement is the honest move rather than an edit. Those cases asserted the
+// per-family ratios, the grouping headings, the two-totals headline, the
+// report-not-proposal line and the unresolved section — every one a
+// §13.0/§13.1/§13.4 disclosure obligation over an enumeration this section no
+// longer performs. Reshaping them would keep assertions whose subject is gone;
+// deleting them without replacement would drop the display from coverage
+// entirely. What follows covers the shape the ruling actually fixes.
 {
-  const rec = (slug, batch, links = [], kind = "lesson") =>
-    ({ slug, kind, source_batch: batch, cross_links: links });
-  const batch = (id, members) => ({ id, kind: "batch", members });
-  const screenOf = (records, seeds) => {
-    const r = neighborhoodOf(records, seeds);
-    return { lines: neighborhoodScreen({ tag: "T", gids: ["G1"], ...r, unmapped: [] }), r };
-  };
+  // THE FIXTURE SUPPLIES WHAT THE PIPELINE SUPPLIES, and no more. It used to
+  // set `gloss`, a field `cmdReport` cannot produce — so the four-fields case
+  // asserted a value the production path never builds, which is a case that
+  // cannot fail for the reason it claims to cover. `gloss: null` is what the
+  // pipeline actually hands the screen.
+  const S = (n, level, extra = {}) => ({
+    nid: `N${n}`, slug: `s${n}`, level,
+    relation: "from the same Batch as the settled set (q_a/x)",
+    gloss: null, claim: `claim ${n}`, ...extra,
+  });
+  const screen = (suggestions) => neighborhoodScreen({ tag: "T", gids: ["G1"], suggestions });
 
-  // ---- PROPERTY 1 (AC2) — SUBSTRATE DISCLOSURE PER SUGGESTION ----------------
-  // Every rendered suggestion names the substrate that reached it. A row
-  // without one must not read as an ordinary row.
+  // EVERY RENDERED LINE IS CLASSIFIED, AND THIS IS THE CASE THE ISSUE EARNED.
+  //
+  // The unmatched-form defect shipped THREE times in kogaki#686: a form carrying
+  // a literal \n; the `lines:` array chosen to repair it, whose members are
+  // escaped whole so placeholders match nothing; and `neighborhood_empty`, whose
+  // literals went stale when the emitter's text was rewritten. Each was found by
+  // a reviewer reading the grammar beside the renderer, and none by the suite —
+  // because `full_report`'s allowlist is INERT (three bare-placeholder body
+  // classes admit any line), so a class matching nothing is invisible to a green
+  // run, and a sitting's manual `classMatchers` check is not coverage.
+  //
+  // This case is the difference. It renders each neighborhood state, classifies
+  // every line against the grammar, and fails on any line that matches only a
+  // bare-placeholder body class — which is what "falling through" looks like on
+  // a surface whose allowlist cannot refuse.
   {
-    const records = [
-      rec("seed", "q_a/p1", ["linked"]), rec("mate", "q_a/p1"), rec("linked", "q_a/p1b"),
-      batch("q_a/p1", { lesson: ["seed", "mate"] }), batch("q_a/p1b", { lesson: ["linked"] }),
-    ];
-    const { lines } = screenOf(records, ["seed"]);
-    const rows = lines.filter((l) => /^ *N[0-9]+ — /.test(l));
-    if (rows.length !== 2) {
-      fails.push(`§13.4/1.45 AC2: expected two suggestion rows on the screen, got ${rows.length} — the render drops or invents rows`);
-    }
-    for (const row of rows) {
-      if (!/reached by: (source_batch|cross_links|shared_carrier)/.test(row)) {
-        fails.push(`§13.4/1.45 AC2: a rendered suggestion names no substrate — ${JSON.stringify(row)}`);
-      }
-    }
-    // AC5 — THE VIOLATING CASE. A suggestion carrying no substrate must render
-    // as an explicit undisclosed marker, never as a bare row that reads like a
-    // formatting slip. Built by hand because the enumerator cannot produce it:
-    // that is the point of asserting the screen separately.
-    const bad = neighborhoodScreen({
-      tag: "T", gids: ["G1"], unmapped: [],
-      suggestions: [{ nid: "N1", slug: "orphan", family: "lesson", substrates: [] }],
-      unresolved: [],
-      counts: { seeds: 1, suggested: 1, unresolved: 0, by_family: { lesson: { suggested: 1, population: 3 } } },
-    });
-    const badRow = bad.find((l) => /^ *N1 — orphan/.test(l));
-    if (!badRow || !/UNDISCLOSED/.test(badRow)) {
-      fails.push("§13.4/1.45 AC2/AC5: a suggestion with NO substrate rendered without an explicit undisclosed marker — the disclosure fails OPEN, and on screen an empty `reached by:` reads as a formatting slip rather than as missing provenance");
-    }
-  }
-
-  // ---- PROPERTY 2 (AC3) — PER-FAMILY DENOMINATOR, NEVER POOLED ---------------
-  // `members` is family-keyed, which is what makes the denominator mechanical.
-  // The screen states a ratio family by family; a single pooled ratio fails.
-  {
-    const records = [
-      rec("seed", "q_a/p2"), rec("mate", "q_a/p2"), rec("jour", "q_a/p2", [], "journey"),
-      batch("q_a/p2", { lesson: ["seed", "mate", "extra"], journey: ["jour"] }),
-    ];
-    const { lines, r } = screenOf(records, ["seed"]);
-    // TWO of the batch's three lesson members, because the seed is excluded:
-    // `members` lists seed, mate and extra, and a seed can never be suggested.
-    // `extra` is served by no record and is still counted — a member the
-    // corpus has lost is still in the batch, and dropping it would make the
-    // ratio climb as records disappear.
-    if (r.counts.by_family.lesson.population !== 2) {
-      fails.push(`§13.4/1.45 AC3: the lesson denominator is ${r.counts.by_family.lesson.population}, not the 2 the batch's family-keyed members list carries once the seed is excluded — either the population is re-derived from the served element set (which under-counts by exactly the records the corpus has lost) or the settled set is still counted in a population it can never be suggested from`);
-    }
-    if (r.counts.by_family.journey.population !== 1) {
-      fails.push("§13.4/1.45 AC3: the journey family got no denominator of its own — a family present in `members` was folded away");
-    }
-    const famLines = lines.filter((l) => /^ {2}(lesson|journey): /.test(l));
-    if (famLines.length !== 2) {
-      fails.push(`§13.4/1.45 AC3: the screen states ${famLines.length} per-family row(s) for two families present in \`members\``);
-    }
-    if (!famLines.some((l) => /^ {2}lesson: 1 suggestion\(s\) of 2 /.test(l))) {
-      fails.push(`§13.4/1.45 AC3: the lesson row does not state its own ratio — got ${JSON.stringify(famLines)}`);
-    }
-
-    // THE TWO SIDES RANGE OVER ONE SET (PR #383 round 1, finding 1). The
-    // shape assertions above all pass against a ratio whose numerator and
-    // denominator count DIFFERENT populations, which is what the first version
-    // shipped: `population` was the batch's members INCLUDING the seeds (which
-    // `note()` makes structurally unreachable as suggestions), while the
-    // numerator counted every suggestion of the family INCLUDING cross-link
-    // ones in no walked batch. It rendered `2 of 2` where one of the two
-    // members was the seed and one of the two suggestions was not among them.
+    // BARENESS IS COMPUTED PER LINE, AT THAT LINE'S OWN INDENTATION.
     //
-    // This is the reviewer's own worked case, and it is built to FAIL the old
-    // arithmetic: one seed, one batch-mate, and TWO cross-links out of an
-    // unwalked batch. Under the old code it renders `3 of 2` — an impossible
-    // fraction. An impossible ratio is worse than a pooled one: a reader can
-    // see that pooling hides something and cannot see that a well-formed
-    // fraction is measuring two populations.
-    {
-      const recs = [
-        rec("cseed", "q_a/p2b", ["x1", "x2"]), rec("cmate", "q_a/p2b"),
-        rec("x1", "q_a/elsewhere"), rec("x2", "q_a/elsewhere"),
-        batch("q_a/p2b", { lesson: ["cseed", "cmate"] }),
-      ];
-      const { lines, r } = screenOf(recs, ["cseed"]);
-      const f = r.counts.by_family.lesson;
-      if (f.population !== 1) {
-        fails.push(`§13.4/1.45 AC3: the denominator is ${f.population}, not 1 — the settled set is still being counted in the population it can never be suggested from`);
-      }
-      if (f.suggested !== 1) {
-        fails.push(`§13.4/1.45 AC3: the numerator is ${f.suggested}, not 1 — it is counting suggestions the denominator's set does not contain`);
-      }
-      if (f.outside_population !== 2) {
-        fails.push(`§13.4/1.45 AC3: the two cross-link suggestions are not reported as outside the walked membership (got ${f.outside_population}) — folded into the numerator, they make the fraction impossible`);
-      }
-      if (!lines.some((l) => /^ {2}lesson: 1 suggestion\(s\) of 1 .*plus 2 reached from outside those members/.test(l))) {
-        fails.push(`§13.4/1.45 AC3: the row does not separate the ratio from the outside count — got ${JSON.stringify(lines.filter((l) => /^ {2}lesson:/.test(l)))}`);
-      }
-      // The invariant itself, asserted over EVERY family rather than this one
-      // case, so a future substrate cannot reintroduce the defect elsewhere.
-      for (const [fam, v] of Object.entries(r.counts.by_family)) {
-        if (v.population !== null && v.suggested > v.population) {
-          fails.push(`§13.4/1.45 AC3: family ${fam} states ${v.suggested} of ${v.population} — a numerator exceeding its denominator, so the two sides are counting different sets`);
+    // Two earlier versions of this test were non-discriminating, and both are
+    // recorded because the second looked like the repair for the first. Version
+    // one hand-listed three class ids from a note's prose; four match, and one
+    // named does not. Version two computed the set — against a single
+    // UNINDENTED sentinel, which misses a class that is bare only BELOW an
+    // indent: `neighborhood_suggestion_gloss` declares `  <Gloss | gloss
+    // unrecorded>`, whose placeholder names no declared token, so
+    // `placeholderFragment` returns FREE and the class compiles to
+    // `^  [\s\S]*?$` — it admits ANY two-space-indented line, the claim line
+    // included. A stale claim class would have been caught by the gloss class
+    // and this case would have passed.
+    //
+    // So the sentinel wears the line's own leading whitespace. A class counts as
+    // REAL for a line only if it still refuses a sentinel indented exactly like
+    // it — which is what "this class actually describes this line" means.
+    const SENTINEL = "zzq sentinel line no class should describe 4718";
+    const bareFor = (line) => {
+      const indent = /^[ \t]*/.exec(line)[0];
+      const probe = indent + SENTINEL;
+      return new Set(G.surfaces.full_report.line_classes
+        .filter((c) => classMatchers(c, G).some((rx) => rx.test(probe)))
+        .map((c) => c.id));
+    };
+    const states = {
+      "judged rows": screen([S(1, "core"), S(2, "useful")]),
+      "over the cap": screen(Array.from({ length: 11 }, (_, i) => S(i + 1, "core"))),
+      "none judged": screen([{ nid: "N1", slug: "s1" }]),
+      "empty enumeration": screen([]),
+      // NOT a state here: a SUPPLIED gloss. The fetch is unbuilt (kogaki#689),
+      // so that line never renders in production, and the grammar declares the
+      // literal that does rather than a free placeholder admitting anything at
+      // that indent. The screen's supplied-gloss behaviour is still asserted —
+      // by the unit case below, which reads the rendering rather than the
+      // grammar. When #689 lands a fetch it brings the class and this state.
+    };
+    for (const [what, lines] of Object.entries(states)) {
+      for (const line of lines.slice(1)) {
+        if (line === "") continue;
+        const hits = G.surfaces.full_report.line_classes
+          .filter((c) => classMatchers(c, G).some((rx) => rx.test(line)));
+        const bare = bareFor(line);
+        const real = hits.filter((c) => !bare.has(c.id));
+        if (!real.length) {
+          fails.push(`§13/686 grammar coverage: in the ${what} state the line ${JSON.stringify(line)} matches ${hits.length ? "only bare-placeholder body class(es) " + JSON.stringify(hits.map((c) => c.id)) : "NO declared class"} — a neighborhood line that falls through is exactly the defect this issue shipped three times, invisible to the suite because this surface's allowlist is inert`);
         }
       }
     }
-    // AC5 — THE VIOLATING CASE, and it is the one a naive implementation
-    // actually writes: a single pooled ratio over every family at once. The
-    // screen must never emit one, so the assertion is that NO line states a
-    // ratio outside a family row.
-    const pooled = lines.filter((l) => / [0-9]+ of [0-9]+ /.test(l) && !/^ {2}[a-z]+: /.test(l));
-    if (pooled.length) {
-      fails.push(`§13.4/1.45 AC3/AC5: the screen states a POOLED denominator — ${JSON.stringify(pooled)}. A pooled ratio hides which family the neighborhood reached into, which is the whole of what the family-keyed \`members\` makes visible`);
+  }
+
+  // THE HIGHEST LEVEL PRESENT, never a mix.
+  {
+    const lines = screen([S(1, "core"), S(2, "useful"), S(3, "background")]).join("\n");
+    if (!lines.includes("3 candidate(s) found, 1 shown")) {
+      fails.push("§13/686: the counts are not honest — expected \"3 candidate(s) found, 1 shown\"");
     }
-    // AC5, second arm — a family with no readable denominator must say so
-    // rather than print `of 0`. Zero asserts a population nobody counted, and
-    // `n of 0` reads as a numerator bug.
-    const crossOnly = neighborhoodScreen({
-      tag: "T", gids: ["G1"], unmapped: [], suggestions: [], unresolved: [],
-      counts: { seeds: 1, suggested: 1, unresolved: 0,
-        // No walked batch lists this family, so there is no ratio to state and
-        // the one suggestion is by construction outside any counted
-        // population — which is what the null-denominator row renders.
-        by_family: { decision: { suggested: 0, population: null, outside_population: 1 } } },
-    });
-    if (!crossOnly.some((l) => /^ {2}decision: 1 suggestion\(s\) — no denominator readable/.test(l))) {
-      fails.push("§13.4/1.45 AC3/AC5: a family with no `members` list behind it did not render an explicit no-denominator note — printing `of 0` there asserts a population that was never counted");
-    }
-    if (crossOnly.some((l) => /of 0\b/.test(l))) {
-      fails.push("§13.4/1.45 AC3/AC5: the screen printed a zero denominator for a family whose population was never read");
+    if (lines.includes("[useful]") || lines.includes("[background]")) {
+      fails.push("§13/686: a row below the highest level present rendered — only the top level is shown");
     }
   }
 
-  // ---- PROPERTY 3 (AC4) — THE UNRESOLVED MARKER NAMES ITS VALUE --------------
-  // The live shape: the corpus carries 12 legacy numbered batches whose
-  // `source_batch` is `q_a/N/answer.md` against a batch id of `q_a/N`. 1.44
-  // made that JOIN hold. This asserts the other arm — when a reference does not
-  // resolve, the screen NAMES the value, and an empty result is a failure.
+  // FALLS TO THE NEXT LEVEL when the top one is empty — "highest level
+  // PRESENT", never "core".
   {
-    const records = [rec("seed", "q_a/vanished")];
-    const { lines, r } = screenOf(records, ["seed"]);
-    if (r.unresolved.length === 0) {
-      fails.push("§13.4/1.45 AC4: a source_batch naming a batch no served record carries produced NO unresolved entry — the screen would present a Grain with an unreadable provenance as one with no siblings");
-    }
-    if (!lines.some((l) => /unresolved reference\(s\)/.test(l))) {
-      fails.push("§13.4/1.45 AC4: the screen carries no unresolved section at all");
-    }
-    // THE VALUE IS ASSERTED ON A CASE WHOSE `why` DOES NOT CONTAIN IT, and
-    // that is the whole design of this case rather than an incidental choice.
-    // The obvious specimen — a `source_batch` naming an unserved batch — has
-    // the value inside its own `why` ("resolved to \"q_a/vanished\""), so an
-    // assertion matching the value anywhere on the line passes even when the
-    // render drops the value field entirely. That mutation SURVIVED while this
-    // block's summary claimed the value was asserted. The batch-member arm
-    // below has no such overlap: `value` is the member slug and `why` names
-    // only the family, so the slug can reach the line by exactly one route.
-    const orphanMember = screenOf([
-      rec("bseed", "q_a/haspart"),
-      batch("q_a/haspart", { lesson: ["bseed", "never-served"] }),
-    ], ["bseed"]);
-    const whyCarriesValue = orphanMember.r.unresolved.some(
-      (u) => String(u.why).includes(String(u.value)));
-    if (whyCarriesValue) {
-      fails.push("§13.4/1.45 AC4: this case's `why` now contains its own value, so the assertion below can no longer tell a rendered value from a rendered reason — pick another specimen rather than weakening the assertion");
-    }
-    if (!orphanMember.lines.some((l) => /^ {2}q_a\/haspart: .*never-served/.test(l))) {
-      fails.push("§13.4/1.45 AC4: the unresolved reference is not NAMED with its VALUE on the screen — a count without the value cannot be acted on, and `1 unresolved reference(s)` alone is indistinguishable from noise");
-    }
-    // The legacy shape itself, end to end through the SCREEN rather than the
-    // enumerator: `q_a/3/answer.md` must resolve and therefore must NOT appear
-    // as unresolved. This is what keeps property 3 from passing vacuously by
-    // marking everything.
-    const legacy = screenOf([
-      rec("legacy-seed", "q_a/3/answer.md"), rec("legacy-mate", "q_a/3"),
-      batch("q_a/3", { lesson: ["legacy-seed", "legacy-mate"] }),
-    ], ["legacy-seed"]);
-    if (legacy.r.unresolved.length !== 0) {
-      fails.push(`§13.4/1.45 AC4: the 12-legacy-batch shape was marked UNRESOLVED — ${JSON.stringify(legacy.r.unresolved)}. Marking everything is how this property passes vacuously`);
-    }
-    if (!legacy.lines.some((l) => /^ *N1 — legacy-mate/.test(l))) {
-      fails.push("§13.4/1.45 AC4: the legacy batch-mate did not reach the screen");
-    }
-    // AC5 — THE SECTION-EXISTS ARM, labelled for what it actually asserts.
-    // PR #383 round 1 found this case carrying a comment that claimed to
-    // discriminate a value dropped from the render while its only assertion
-    // was that the section header exists — which passes whether the value is
-    // rendered or not. Nothing was unprotected (the `orphanMember` arm above
-    // is what covers the value, and it is built so `why` cannot supply it),
-    // but a case whose comment claims a discrimination its assertion does not
-    // have is the kogaki#209 class inside a block written to refuse it. So the
-    // label now matches the assertion: this is the arm that fails when the
-    // unresolved SECTION is dropped entirely.
-    const sectionDropped = neighborhoodScreen({
-      tag: "T", gids: ["G1"], unmapped: [], suggestions: [],
-      unresolved: [{ slug: "s", value: "v", why: "unreadable" }],
-      counts: { seeds: 1, suggested: 0, unresolved: 1, by_family: {} },
-    });
-    if (!sectionDropped.some((l) => /unresolved reference\(s\)/.test(l))) {
-      fails.push("§13.4/1.45 AC4/AC5: an unresolved entry produced no unresolved section — an empty result standing in for a marked one is the silent exclusion §13.0 removes");
-    }
-    if (!sectionDropped.some((l) => /^ {2}s: "v" /.test(l))) {
-      fails.push("§13.4/1.45 AC4/AC5: the unresolved section rendered without the entry's value — asserted here too, so this arm cannot pass on a header alone");
+    const lines = screen([S(1, "useful"), S(2, "background")]).join("\n");
+    if (!lines.includes("`useful`") || lines.includes("[background]")) {
+      fails.push("§13/686: with no `core` candidate the section did not fall to `useful` as the highest level present");
     }
   }
 
-  // ---- AC1 — REPORT, NEVER PROPOSAL, AND THE POPULATION STAYS REACHABLE ------
-  // The screen must SAY it narrows nothing, and must not carry a narrowing
-  // vocabulary. A rank/trim/top-N word on this surface is the §2.3
-  // second-proposer boundary engaging on a surface that declares it does not.
+  // THE FOUR RULED FIELDS, and no deleted element beside them.
   {
-    const records = [
-      rec("seed", "q_a/a1", ["l1"]), rec("mate", "q_a/a1"), rec("l1", "q_a/a1b"),
-      batch("q_a/a1", { lesson: ["seed", "mate"] }), batch("q_a/a1b", { lesson: ["l1"] }),
-    ];
-    const { lines } = screenOf(records, ["seed"]);
-    if (!lines.some((l) => /A REPORT, never a proposal/.test(l) && /full population stays reachable/.test(l))) {
-      fails.push("§13.1/1.45 AC1: the screen does not state that it is a report and that the full population stays reachable — a widening surface that does not say so reads as a shortlist");
+    const lines = screen([S(1, "core")]).join("\n");
+    for (const [what, frag] of [["the Strand ID", "N1"], ["the relation in plain words", "from the same Batch"],
+                                ["the Gloss slot, disclosed as unfetched", "gloss unrecorded"],
+                                ["the claim", "claim 1"], ["the level", "[core]"]]) {
+      if (!lines.includes(frag)) fails.push(`§13/686: the row does not carry ${what}`);
     }
-    for (const w of ["top ", "ranked", "best ", "most relevant", "trimmed"]) {
-      if (lines.some((l) => l.toLowerCase().includes(w))) {
-        fails.push(`§13.1/1.45 AC1: the screen carries narrowing vocabulary (${JSON.stringify(w)}) — §13.1 widens and never narrows`);
+    for (const gone of ["reached by:", "rendering(s)", "suggestion(s) of", "never a proposal", "Bound:"]) {
+      if (lines.includes(gone)) {
+        fails.push(`§13/686: a DELETED display element survived — ${JSON.stringify(gone)}. Disposition 4 deletes it rather than keeping it beside an exception`);
       }
     }
   }
 
-  // ==== §13.4 OBLIGATION 4 — GROUPED BY SUBSTRATE INSTANCE (story 1.61) ======
-  //
-  // The fourth rendering obligation, added at v17 (kogaki#385). Same shape as
-  // the three above and for the same reason: these are properties of what
-  // RENDERS, so every case calls `neighborhoodScreen` and asserts over lines.
-  // AC5 is the shape of the block rather than a case at the end — each property
-  // is exercised in both directions, and the violating input is built by hand
-  // where the enumerator cannot produce it.
-  //
-  // ADMISSION ECONOMICS, DECLARED AT BIRTH (consultation-map entry 1). The
-  // served kernel: "each check enters with three things fixed: which stage of
-  // the workflow it runs at, what its budget there is, and what evidence would
-  // justify removing it later"
-  // (`gloss/lessons/testing.md:125@4cc496b`,
-  // `every-check-enters-with-a-budget-and-a-removal-signal`), beside
-  // "admission carries a removal signal" and the live context that NO CURRENT
-  // MEMBER CARRIES ONE (`topics/claude-code-ops.md:41,43@dec0d568`).
-  //
-  //   - LOOP POSITION: none new. These cases run inside `terrain-composition`,
-  //     an already-registered member, at the same pull_request/push stage. No
-  //     registry entry is added, so the suite's member count is unchanged and
-  //     the cost is marginal rather than a new position in the loop — which
-  //     matters because cost is measured as the time the whole set adds to one
-  //     delivery cycle, not as how many checks there are.
-  //   - BUDGET: below the check's own run-to-run variance. Measured over six
-  //     runs, three at this head and three in a worktree at the parent
-  //     (2b5569f): 9.1–11.9s either way, with no resolvable difference. The
-  //     block starts no process and reads no new fixture file — it calls two
-  //     already-imported composers in the node run the check already makes.
-  //     Stated as unresolvable rather than as a figure, because a number
-  //     inside the noise presented as a measurement is worse than the range.
-  //   - REMOVAL SIGNAL: the same one story 1.45's three properties carry, and
-  //     for the same reason — these retire when `report-format.json`'s grammar
-  //     admits the neighborhood screen as a third rendered surface and
-  //     `emitOrRefuse` validates it. At that point every obligation here is
-  //     refused at emit time by the constrain-generation path §14.2 already
-  //     uses, and an after-the-fact assertion over lines is subsumed. They
-  //     retire TOGETHER because they are the same class over the same surface;
-  //     a separate signal would be a second answer to one question.
-  //
-  // THE SPECIMEN IS A MIXED-FAMILY BATCH holding a two-substrate suggestion,
-  // because that single fixture is the one every criterion here discriminates
-  // on: it is the case where family-outermost differs from batch-outermost,
-  // where a batch heading must render twice, and where the rendering count
-  // exceeds the suggestion count.
+  // THE GLOSS SLOT IN BOTH DIRECTIONS. Absent it DISCLOSES; supplied it renders.
+  // Only the first is reachable on the shipped path today, which is why the
+  // second is asserted here rather than assumed to follow.
   {
-    const mixed = () => screenOf([
-      rec("g-seed", "q_a/g1", ["g-link"]),
-      rec("g-mate", "q_a/g1"),
-      rec("g-jour", "q_a/g1", [], "journey"),
-      rec("g-link", "q_a/g2", ["g-mate"]),
-      batch("q_a/g1", { lesson: ["g-seed", "g-mate"], journey: ["g-jour"] }),
-      batch("q_a/g2", { lesson: ["g-link"] }),
-    ], ["g-seed"]);
+    const withGloss = screen([S(1, "core", { gloss: "a served headline." })]).join("\n");
+    if (!withGloss.includes("a served headline.") || withGloss.includes("gloss unrecorded")) {
+      fails.push("§13/686: a SUPPLIED gloss did not render — the disclosure arm must not swallow the value arm");
+    }
+  }
 
-    // ---- AC1 — GROUPED, NOT FLAT, AND FAMILY IS OUTERMOST ------------------
-    {
-      const { lines, r } = mixed();
-      const idx = (re) => lines.findIndex((l) => re.test(l));
-      // Every row sits under a group heading, which sits under a family
-      // section. Asserted by POSITION rather than by presence: a screen can
-      // print all three kinds of line and still nest them the wrong way, and
-      // batch-outermost is precisely the tidier layout obligation 3 forbids.
-      // Anchored INSIDE the lesson section rather than by first occurrence:
-      // `journey` sorts first and carries its own `q_a/g1` heading, so a plain
-      // `findIndex` over the whole screen answers about the wrong section and
-      // reports a nesting violation on a conformant render.
-      const famAt = idx(/^lesson — /);
-      const after = (from, re) => {
-        const i = lines.slice(from + 1).findIndex((l) => re.test(l));
-        return i < 0 ? -1 : from + 1 + i;
+  // THE CAP AND ITS REFUSAL. At ten it renders; above ten at the highest level
+  // it renders nothing and states why — the tie-break among equals is the act
+  // it declines to make.
+  {
+    const ten = screen(Array.from({ length: 10 }, (_, i) => S(i + 1, "core"))).join("\n");
+    if (!ten.includes("10 candidate(s) found, 10 shown")) {
+      fails.push("§13/686: exactly ten at the highest level did not render — the cap is AT MOST ten, not fewer than ten");
+    }
+    const eleven = screen(Array.from({ length: 11 }, (_, i) => S(i + 1, "core"))).join("\n");
+    if (!eleven.includes("0 shown") || eleven.includes("[core]")) {
+      fails.push("§13/686: eleven at the highest level rendered rows — above the cap the section refuses rather than truncating, because choosing which ten the owner sees is a tie-break among equals it has no ground to make");
+    }
+    if (!eleven.includes("11 sit at the highest level")) {
+      fails.push("§13/686: the refusal does not state the count it refused over — a refusal hiding its denominator is the silent exclusion §13.0 removes");
+    }
+  }
+
+  // UNJUDGED IS ITS OWN STATE, counted and named.
+  {
+    const mixed = screen([S(1, "core"), { nid: "N2", slug: "s2" }]).join("\n");
+    if (!mixed.includes("1 candidate(s) carry no level")) {
+      fails.push("§13/686: an unjudged candidate was neither counted nor named — the judgment layer not having run is a different state from a `background` verdict");
+    }
+    const none = screen([{ nid: "N1", slug: "s1" }]).join("\n");
+    if (!none.includes("the judgment layer did not")) {
+      fails.push("§13/686: with no candidate judged the section did not say the judgment layer had not run");
+    }
+  }
+
+  // THE VOCABULARY IS CLOSED AT THE READER. An unrecognised level would sort as
+  // "unjudged", showing a judged candidate as unjudged — the silent exclusion
+  // one layer in — so it is refused rather than passed through.
+  //
+  // ASSERTED THROUGH A SUBPROCESS, because `fail` exits rather than throwing:
+  // an in-process try/catch cannot observe it and would kill this suite instead
+  // of recording a case. The refusal's own exit is the observable.
+  {
+    const f = mkdtempSync(join(tmpdir(), "neigh-judg-"));
+    try {
+      const probe = (obj) => {
+        const jf = join(f, "j.json");
+        writeFileSync(jf, JSON.stringify(obj));
+        return spawnSync(process.execPath, ["-e",
+          `import("./terrain/terrain.mjs").then(m => m.readNeighborhoodJudgments(${JSON.stringify(jf)}))`],
+          { encoding: "utf8" });
       };
-      const grpAt = after(famAt, /^ {2}source_batch q_a\/g1 — /);
-      const rowAt = after(grpAt, /^ {4}N[0-9]+ — g-mate/);
-      if (famAt < 0) {
-        fails.push(`§13.4/1.61 AC1: no lesson family section on the screen — got ${JSON.stringify(lines)}`);
-      } else if (!(famAt < grpAt && grpAt < rowAt)) {
-        fails.push(`§13.4/1.61 AC1: the nesting is not family → group → row (family at ${famAt}, group at ${grpAt}, row at ${rowAt}) — obligation 3 is an invariant and obligation 4 a readability aid, and an aid never weakens an invariant`);
+      const bad = probe({ s1: { level: "critical", claim: "x" } });
+      if (bad.status === 0) {
+        fails.push("§13/686: a level outside the harness-fixed set was accepted — the set is closed");
+      } else if (!/core \| useful \| background/.test(bad.stderr || "")) {
+        fails.push("§13/686: the out-of-set refusal does not name the set it enforces");
       }
-      // A mixed-family batch renders its heading once under EACH family,
-      // counting only that family's members.
-      const g1Headings = lines.filter((l) => /^ {2}source_batch q_a\/g1 — /.test(l));
-      if (g1Headings.length !== 2) {
-        fails.push(`§13.4/1.61 AC1: the mixed-family batch q_a/g1 rendered ${g1Headings.length} heading(s), not one per family — a batch heading that crosses a family section places a Journey beside a Lesson under one heading, which is the pooling obligation 3 forbids arriving as layout`);
+      const noClaim = probe({ s1: { level: "core" } });
+      if (noClaim.status === 0) {
+        fails.push("§13/686: a level with no claim was accepted — a rank with no reason has nothing to render");
       }
-      for (const h of g1Headings) {
-        if (!/— 1 rendering\(s\)$/.test(h)) {
-          fails.push(`§13.4/1.61 AC1/AC2: a mixed-family batch heading counts more than its own family's members — ${JSON.stringify(h)}`);
-        }
+      const ok = probe({ s1: { level: "core", claim: "a reason" } });
+      if (ok.status !== 0) {
+        fails.push(`§13/686: a WELL-FORMED judgment was refused (${(ok.stderr || "").trim()}) — the refusals must discriminate, not reject everything`);
       }
-      // No suggestion escapes the nesting: every row the screen prints is
-      // indented under a heading, and the id set is complete (AC3, below).
-      const bare = lines.filter((l) => /^N[0-9]+ — /.test(l));
-      if (bare.length) {
-        fails.push(`§13.4/1.61 AC1: ${bare.length} suggestion(s) rendered OUTSIDE any group heading — ${JSON.stringify(bare)}. A flat run is what obligation 4 replaces`);
-      }
-      if (r.counts.suggested !== 3) {
-        fails.push(`§13.4/1.61 AC1: the fixture stopped being the specimen — expected 3 suggestions, got ${r.counts.suggested}`);
-      }
-    }
-
-    // ---- AC2 — EVERY HEADING STATES ITS COUNT, OVER RENDERINGS --------------
-    // The sum of the group counts equals the number of RENDERINGS, not the
-    // number of suggestions. The two differ by construction here: g-mate is
-    // reached by both source_batch and cross_links.
-    {
-      const { lines, r } = mixed();
-      const groupCounts = lines
-        .filter((l) => /^ {2}\S.* — [0-9]+ rendering\(s\)$/.test(l))
-        .map((l) => Number(l.match(/— ([0-9]+) rendering\(s\)$/)[1]));
-      const rows = lines.filter((l) => /^ {4}N[0-9]+ — /.test(l)).length;
-      const sum = groupCounts.reduce((a, b) => a + b, 0);
-      if (sum !== rows) {
-        fails.push(`§13.4/1.61 AC2: the group counts sum to ${sum} against ${rows} rendered row(s) — a heading count that does not reconcile against the rendering total is a figure the screen states and does not hold to`);
-      }
-      if (sum !== r.counts.rendered) {
-        fails.push(`§13.4/1.61 AC2: the group counts sum to ${sum} against a rendering total of ${r.counts.rendered}`);
-      }
-      if (r.counts.rendered <= r.counts.suggested) {
-        fails.push(`§13.4/1.61 AC2: the specimen no longer discriminates — rendered ${r.counts.rendered} against suggested ${r.counts.suggested}, so a screen reconciling group counts against the SUGGESTION total would pass this case. The fixture must hold a two-substrate suggestion`);
-      }
-      // AC5 — THE VIOLATING CASE, and it is the one a naive implementation
-      // writes: reconcile the group counts against the suggestion total. Built
-      // by hand, because the enumerator cannot produce a screen whose headings
-      // undercount.
-      const bad = neighborhoodScreen({
-        tag: "T", gids: ["G1"], unmapped: [], unresolved: [],
-        suggestions: [{ nid: "N1", slug: "two", family: "lesson", substrates: ["cross_links", "source_batch"],
-          reached_by: [{ substrate: "source_batch", instance: "q_a/b" }, { substrate: "cross_links", instance: null }] }],
-        counts: { seeds: 1, suggested: 1, rendered: 2, unresolved: 0, by_family: {} },
-      });
-      const badRows = bad.filter((l) => /^ {4}N1 — two/.test(l));
-      if (badRows.length !== 2) {
-        fails.push(`§13.4/1.61 AC2/AC5: a suggestion reached by TWO substrates rendered ${badRows.length} time(s), not once under each — a row appearing only under the first substrate silently drops the second reason it was reached, which is obligation 1's disclosure failing inside obligation 4's layout`);
-      }
-    }
-
-    // ---- AC2a — THE TWO COUNTS ARE NEVER CONFLATED, AT EVERY SITE -----------
-    // Both totals are stated and each names its unit; the per-family figure is
-    // the SECOND site, and it is the one AC4's `suggested <= population`
-    // cannot discriminate (kogaki#390).
-    {
-      const { lines } = mixed();
-      // Same fallback discipline as the AC3 arm below: a MISSING headline is an
-      // instrument state and is said to be one. Without the guard,
-      // `/re/.test(undefined)` coerces to the string "undefined", returns
-      // false, and this check accuses the screen of stating one figure when in
-      // fact no headline was found at all.
-      const headline = lines.find((l) => /settled member\(s\)/.test(l));
-      if (!headline) {
-        fails.push("§13.4/1.61 AC2a: CANNOT-DETERMINE — no headline line on the screen, so the two totals were not evaluated. A fault in this check's anchor, reported as one rather than as a conflation finding");
-      } else if (!/[0-9]+ suggestion\(s\)/.test(headline) || !/[0-9]+ row\(s\)/.test(headline)) {
-        fails.push(`§13.4/1.61 AC2a: the headline states one figure where the suggestion and rendering counts differ — ${JSON.stringify(headline)}. A single total that silently means one of the two is the conflation this criterion refuses`);
-      }
-      for (const l of lines.filter((l) => /^ {2}[a-z]+: [0-9]+ /.test(l))) {
-        if (!/^ {2}[a-z]+: [0-9]+ suggestion\(s\) /.test(l)) {
-          fails.push(`§13.4/1.61 AC2a: a per-family figure names no unit — ${JSON.stringify(l)}. §13.4: any figure over the screen states which of the two it is counting`);
-        }
-      }
-      for (const l of lines.filter((l) => /^[a-z].* — [0-9]+ suggestion/.test(l))) {
-        if (!/[0-9]+ suggestion\(s\), [0-9]+ rendering\(s\)$/.test(l)) {
-          fails.push(`§13.4/1.61 AC2a: a family section states one count where two differ — ${JSON.stringify(l)}`);
-        }
-      }
-      // AC5 — THE VIOLATING CASE. A family whose suggestion and rendering
-      // counts differ, stated as one figure, must fail. The arithmetic AC4
-      // asserts is deliberately satisfied here — 5 suggestions rendering 8
-      // times against a population of 40 — so a check leaning on
-      // `suggested <= population` passes it while the figure is false.
-      const conflated = neighborhoodScreen({
-        tag: "T", gids: ["G1"], unmapped: [], unresolved: [],
-        suggestions: [], counts: { seeds: 1, suggested: 5, rendered: 8, unresolved: 0,
-          by_family: { lesson: { suggested: 5, population: 40, outside_population: 0 } } },
-      });
-      const famRow = conflated.find((l) => /^ {2}lesson: /.test(l));
-      if (!famRow || !/suggestion\(s\)/.test(famRow)) {
-        fails.push(`§13.4/1.61 AC2a/AC5: the per-family row states a bare figure — ${JSON.stringify(famRow)}. AC4's invariant holds on this input (5 <= 40) and does not discriminate it, which is exactly why the unit is asserted here rather than left to that inequality`);
-      }
-    }
-
-    // ---- AC3 — THE GROUPING SELECTS NOTHING --------------------------------
-    // The rendered `N<n>` id SET is identical to what the enumerator returned —
-    // same members, no additions, no omissions — and each suggestion is counted
-    // ONCE in the suggestion total however many headings it renders under.
-    // Asserted over the SET, never over a count: a count matches while the
-    // members differ, which is how a grouping quietly becomes the surfacing
-    // threshold §13.4 declines.
-    {
-      const { lines, r } = mixed();
-      const enumerated = new Set(r.suggestions.map((s) => s.nid));
-      const renderedIds = new Set(
-        lines.filter((l) => /^ {4}N[0-9]+ — /.test(l)).map((l) => l.trim().split(" ")[0]));
-      const missing = [...enumerated].filter((n) => !renderedIds.has(n));
-      const invented = [...renderedIds].filter((n) => !enumerated.has(n));
-      if (missing.length || invented.length) {
-        fails.push(`§13.4/1.61 AC3: the rendered id set differs from the enumeration — missing ${JSON.stringify(missing)}, invented ${JSON.stringify(invented)}. The grouping renders the same complete enumeration and selects nothing from it`);
-      }
-      const famTotals = lines
-        .filter((l) => /^[a-z].* — [0-9]+ suggestion\(s\)/.test(l))
-        .map((l) => Number(l.match(/— ([0-9]+) suggestion\(s\)/)[1]))
-        .reduce((a, b) => a + b, 0);
-      if (famTotals !== r.counts.suggested) {
-        fails.push(`§13.4/1.61 AC3: the family sections' suggestion counts sum to ${famTotals} against ${r.counts.suggested} enumerated — a suggestion counted twice in the suggestion total is the double-count AC2a refuses, arriving through the family sections instead of the headline`);
-      }
-      // AC5 — THE VIOLATING CASE: a screen that DROPS a group. Handed a
-      // suggestion whose `reached_by` is empty, the screen must still render
-      // it — under an explicit undisclosed heading — rather than let it fall
-      // out of the enumeration because it grouped under nothing. A suggestion
-      // lost to the grouping is invisible: there is no heading to notice the
-      // absence under.
-      const ungrouped = neighborhoodScreen({
-        tag: "T", gids: ["G1"], unmapped: [], unresolved: [],
-        suggestions: [{ nid: "N1", slug: "nogroup", family: "lesson", substrates: [], reached_by: [] }],
-        counts: { seeds: 1, suggested: 1, rendered: 0, unresolved: 0, by_family: {} },
-      });
-      if (!ungrouped.some((l) => /N1 — nogroup/.test(l))) {
-        fails.push("§13.4/1.61 AC3/AC5: a suggestion carrying no substrate instance was DROPPED by the grouping — it must render under an explicit undisclosed heading. A row that groups under nothing and is therefore not printed is the silent exclusion §13.0 removes, arriving as layout");
-      }
-      // ONE DEFINITION OF "A RENDERING", asserted on the input that separates
-      // the candidates (PR #392 round 1, finding 1). This case passes
-      // `rendered: 0` beside a suggestion the screen renders one row for — a
-      // figure a wrong enumerator would supply — so a screen that states the
-      // caller's number contradicts its own section and heading here while
-      // every other assertion in the block passes. The headline is asserted
-      // against the group counts rather than against a literal, because what
-      // is owed is agreement, not a particular total.
-      //
-      // THE FALLBACK IS REPORTED AS A FALLBACK, never as the finding. An
-      // absent headline or an unparseable one is an INSTRUMENT state, and
-      // phrasing it as "the headline states NaN rendered row(s)" would convert
-      // this check's own internal miss into a false accusation against the
-      // screen — `topics/claude-code-ops.md:60@4cc496b`, "guard the crash,
-      // report a crash AS a crash".
-      const uHead = ungrouped.find((l) => /settled member\(s\)/.test(l));
-      const uRows = ungrouped.filter((l) => /^ {4}N[0-9]+ — /.test(l)).length;
-      const uMatch = uHead && uHead.match(/rendering as ([0-9]+) row\(s\)/);
-      if (!uHead) {
-        fails.push("§13.4/1.61 AC2a: CANNOT-DETERMINE — no headline line on the screen, so the rendering-count agreement below was not evaluated. This is a fault in this check's own anchor, not a finding about the screen");
-      } else if (!uMatch) {
-        fails.push(`§13.4/1.61 AC2a: CANNOT-DETERMINE — the headline carries no parseable rendering count, so agreement was not evaluated: ${JSON.stringify(uHead)}. Reported as an unread state rather than as a disagreement`);
-      } else if (Number(uMatch[1]) !== uRows) {
-        const uStated = Number(uMatch[1]);
-        fails.push(`§13.4/1.61 AC2a/AC5: the headline states ${uStated} rendered row(s) while the screen printed ${uRows} — the screen took a rendering count on trust instead of counting what it rendered, so the headline, the family section and the group heading can disagree about one input`);
-      }
-    }
-
-    // ---- ORDERING CARRIES NO JUDGMENT --------------------------------------
-    // Groups render in a declared mechanical order — batch id, then substrate
-    // name — never by size. A size ordering is the ranking §13.1 refuses,
-    // arriving as layout rather than as a score, and it is invisible on any
-    // fixture where the mechanical order and the size order agree. So the
-    // fixture is built where they DISAGREE.
-    //
-    // WHICH TWO GROUPS ACTUALLY RENDER, stated correctly (PR #392 round 1
-    // found this account naming a group that never appears): only the SEEDS'
-    // own batches are walked, so `q_a/z` is never a heading — the headings are
-    // `source_batch q_a/a` (1 rendering) and `cross_links` (3, the three
-    // cross-linked slugs). `cross_links` is a bare substrate, so the declared
-    // order puts it LAST while it holds the MOST — which is the disagreement
-    // this fixture needs, reached by a different route than the comment
-    // claimed. The property was always discriminating; only the account was
-    // false, in a block that expressly asks the next reader to re-judge it
-    // rather than take it.
-    {
-      const { lines } = screenOf([
-        rec("o-seed", "q_a/a", ["o-x", "o-y", "o-z"]),
-        rec("o-mate", "q_a/a"),
-        rec("o-x", "q_a/z"), rec("o-y", "q_a/z"), rec("o-z", "q_a/z"),
-        batch("q_a/a", { lesson: ["o-seed", "o-mate"] }),
-        batch("q_a/z", { lesson: ["o-x", "o-y", "o-z"] }),
-      ], ["o-seed"]);
-      const headings = lines.filter((l) => /^ {2}\S.* — [0-9]+ rendering\(s\)$/.test(l));
-      const names = headings.map((l) => l.trim().replace(/ — .*$/, ""));
-      // The DECLARED order is "batch id, then substrate name": instance-bearing
-      // groups first, sorted among themselves, then the bare substrates. Not
-      // plain lexicographic sort over the labels — that would put `cross_links`
-      // ahead of `source_batch q_a/a` and fail a conformant screen.
-      const instanced = names.filter((n) => /\s/.test(n));
-      const bare = names.filter((n) => !/\s/.test(n));
-      const expected = [...[...instanced].sort(), ...[...bare].sort()];
-      if (JSON.stringify(names) !== JSON.stringify(expected)) {
-        fails.push(`§13.4/1.61: group headings are not in the declared mechanical order — got ${JSON.stringify(names)}, expected ${JSON.stringify(expected)}. Ordering by size is a rank, and a rank on this surface is the judgment §13.1 refuses arriving as layout`);
-      }
-      const counts = headings.map((l) => Number(l.match(/— ([0-9]+) rendering/)[1]));
-      if (counts.length > 1 && JSON.stringify(counts) === JSON.stringify([...counts].sort((a, b) => b - a))) {
-        fails.push(`§13.4/1.61: the group counts are in descending size order (${JSON.stringify(counts)}) — the fixture was built so the mechanical order and the size order DISAGREE, so this is a size ranking rather than a coincidence`);
-      }
-    }
+    } finally { rmSync(f, { recursive: true, force: true }); }
   }
 }
-console.log("neighborhood screen (§13.4, story 1.45): the three rendering properties are asserted over the "
-  + "COMPOSED LINES rather than the enumerator, because an enumerator returning a disclosed structure that the "
-  + "screen prints bare satisfies 1.44 and ships the defect. Each is asserted in BOTH directions: a suggestion "
-  + "with no substrate renders an explicit UNDISCLOSED marker rather than an empty `reached by:`; denominators "
-  + "are stated per family and a POOLED ratio anywhere on the screen fails, with a family lacking a `members` "
-  + "list rendering `no denominator readable` rather than `of 0`; and an unresolved reference is NAMED with its "
-  + "value while the 12-legacy-batch shape must NOT be marked, which is what stops the property passing "
-  + "vacuously by marking everything. AC1 asserts the report declaration is present and that no narrowing "
-  + "vocabulary reaches the surface. Seam-free — every case injects its records or hands the screen a structure "
-  + "directly.");
+
+console.log("neighborhood section (§13, kogaki#686): the display is asserted over the COMPOSED "
+  + "LINES rather than the enumerator, for the reason the block it replaces gave — an enumerator "
+  + "returning a structure the screen prints wrongly satisfies the enumeration cases and ships the "
+  + "defect. Asserted in both directions: only the HIGHEST level present renders and a lower one "
+  + "never does; the level falls to `useful` when no `core` is judged; the four ruled fields are "
+  + "each present and every DELETED element is absent; the cap renders AT ten and REFUSES above "
+  + "ten, stating the count it refused over rather than truncating; an unjudged candidate is "
+  + "counted and named as its own state, distinct from `background`; and the level vocabulary is "
+  + "closed at the reader, probed through a SUBPROCESS because the refusal exits rather than "
+  + "throwing, with a well-formed judgment accepted in the same pass so the refusals discriminate "
+  + "rather than reject everything.");
 
 
 if (fails.length) {
@@ -4711,7 +4363,7 @@ try {
   }));
   const pull = (ids, rdir, gdir) => spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", ids,
-     "--claims", claims, "--subdivisions", subs,
+     "--claims", claims, "--neighborhood", "checks/fixtures/terrain/format/neighborhood-judgments.json", "--subdivisions", subs,
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", join(dir, rdir), "--rendering-dir", join(dir, gdir)],
     { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
@@ -4724,9 +4376,15 @@ try {
   if (r1.status !== 0) fails.push(`(a) report exited ${r1.status}: ${(r1.stderr || "").trim()}`);
   const md1 = readFileSync(join(dir, "g1", "FullReport.md"), "utf8");
   if (!md1.includes("\n## Provenance neighborhood\n")) fails.push("(a) the pulled report carries no `## Provenance neighborhood` section — §13.1 v20 sites it in the report, once");
-  if (!/Suggestions by family \(§13\.4 — per family, never pooled\):/.test(md1)) fails.push("(a) the section states no per-family figures — §13.4 obligation 2");
-  if (!/reached by: /.test(md1)) fails.push("(a) no suggestion row discloses its substrate — §13.4 obligation 1");
-  if (!/unresolved reference\(s\) — NAMED rather than dropped/.test(md1)) fails.push("(a) the dangling cross_link the stub serves (bravo -> zulu-missing) produced no named unresolved reference — §13.4 obligation 2's second half");
+  // §13.4's per-family figures and substrate disclosure retired with the
+  // enumeration they described (kogaki#686). What the section owes now is the
+  // honest count and the level it rendered at.
+  if (!/candidate\(s\) found, [0-9]+ shown/.test(md1)) fails.push("(a) the section states no honest counts — kogaki#686 disposition 3");
+  if (/reached by: |Suggestions by family/.test(md1)) fails.push("(a) a DELETED display element survived into the report");
+  // The stub's dangling cross_link (bravo -> zulu-missing) is unreachable now:
+  // the walk that found it is deleted, so the unresolved section it fed has
+  // nothing to report and is deleted with it.
+  if (/unresolved reference\(s\)/.test(md1)) fails.push("(a) the unresolved section survived — it reported on a walk kogaki#686 deleted");
   if ((md1.match(/\n## Provenance neighborhood\n/g) || []).length !== 1) fails.push("(a) the section renders other than ONCE — §12 v8");
   if (md1.indexOf("## Provenance neighborhood") < md1.indexOf("## Served lines")) fails.push("(a) the section renders before `## Served lines` — §12 v8 puts it LAST");
 
@@ -4740,11 +4398,14 @@ try {
   if (md1 !== md2) fails.push("(b) two pulls under one identity rendered different artifacts — the section is not a pure function of the record");
 
   // (c) SUGGESTION IDS ARE N<n>, DISJOINT FROM L<n>, inside the report.
-  const nids = [...md1.matchAll(/^    (N[0-9]+) — /gm)].map((m) => m[1]);
+  const nids = [...md1.matchAll(/^- (N[0-9]+) — /gm)].map((m) => m[1]);
   if (nids.length === 0) fails.push("(c) no N<n> suggestion rows in the section");
   if (nids.some((id) => !/^N[0-9]+$/.test(id))) fails.push(`(c) a suggestion id is outside the N<n> space: ${JSON.stringify(nids)}`);
   if (!/^#### L[0-9]+$|^### L[0-9]+$/m.test(md1)) fails.push("(c) no L<n> member headings in the same report — the disjointness case needs both spaces present");
-  if (!/DISJOINT from the survey's `L<n>`/.test(md1)) fails.push("(c) the disjointness statement line is absent (§14.6)");
+  // The disjointness FOOTNOTE is deleted (disposition 4); the PROPERTY it
+  // asserted is unchanged and still asserted over the ids themselves above,
+  // which is where it was always checkable.
+  if (/DISJOINT from the survey's `L<n>`/.test(md1)) fails.push("(c) the disjointness footnote survived — the property is asserted over the ids, not restated in prose");
 
   // (d) An EMPTY enumeration renders the EXPLICIT empty lines, never an
   // absent section. G1 is delta, alone in batch q_a/solo with no links.
@@ -4752,7 +4413,7 @@ try {
   if (r3.status !== 0) fails.push(`(d) empty-set report exited ${r3.status}: ${(r3.stderr || "").trim()}`);
   const md3 = readFileSync(join(dir, "g3", "FullReport.md"), "utf8");
   if (!md3.includes("\n## Provenance neighborhood\n")) fails.push("(d) an empty enumeration rendered an ABSENT section — the silent exclusion §13.0 removes, §13.4's disclosure discipline");
-  if (!/No suggestion\. The enumeration itself came back empty at the declared bound/.test(md3)) fails.push("(d) the explicit empty-enumeration line is absent");
+  if (!/No suggestion\. The enumeration ran over the settled set's Batches/.test(md3)) fails.push("(d) the explicit empty-enumeration line is absent — an empty result rendered as an absent section is the silent exclusion §13.0 removes");
   if (!/Not asserted: that an empty neighborhood is informative in the STRONG sense/.test(md3)) fails.push("(d) the second empty-enumeration line is absent — the two-line form is the declared class");
 
   // (e) The standalone subcommand REFUSES, naming the replacement.

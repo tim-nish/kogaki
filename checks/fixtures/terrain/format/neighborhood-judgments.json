@@ -1,0 +1,5 @@
+{
+  "charlie": { "level": "core", "claim": "prices a check by where in the loop it runs, which the GroupClaim's argument needs" },
+  "echo": { "level": "useful", "claim": "illustrates the same pricing on a second surface" },
+  "foxtrot": { "level": "background", "claim": "related provenance, not load-bearing for the claim" }
+}

@@ -2678,6 +2678,52 @@ function cmdReport(args) {
   // unchanged identity renders. Computed after every refusal above, so a
   // refused pull pays no seam call.
   const neighborhood = neighborhoodForTargets(record, targets);
+  // THE JUDGMENT LAYER, joined onto the mechanical candidates by slug. A
+  // candidate with no judgment keeps none — `neighborhoodScreen` counts it as
+  // unjudged and says so, rather than defaulting it to a level nobody assigned.
+  const judgments = readNeighborhoodJudgments(args.neighborhood);
+  // A KEY MATCHING NO CANDIDATE IS REFUSED, NOT DROPPED. A typo, a stale file,
+  // or a slug from another Group would otherwise vanish — and where NO key
+  // matched, the screen took its all-unjudged arm and printed "the mechanical
+  // layer ran; the judgment layer did not", which is the one fact the reader is
+  // owed and the one fact that is false: the layer ran and joined nothing. The
+  // reader is careful about a level it cannot recognise and was silent about a
+  // slug it cannot place; both are the same class of unrecognised input.
+  // SCOPED TO A NON-EMPTY ENUMERATION. Where the mechanical layer returned no
+  // candidate at all, a judgment file has nothing to join and the section's
+  // empty-enumeration lines are already the honest report — refusing the whole
+  // pull there would turn a legitimate empty neighborhood into an error.
+  if (judgments.size && (neighborhood.suggestions || []).length) {
+    const have = new Set((neighborhood.suggestions || []).map((x) => x.slug));
+    const orphans = [...judgments.keys()].filter((k) => !have.has(k));
+    if (orphans.length) {
+      fail(`neighborhood judgment(s) name ${orphans.length} slug(s) no mechanical candidate carries: `
+        + `${orphans.join(", ")}. A judgment that joins nothing is silently dropped and the section `
+        + "then reports that the judgment layer did not run, which is false. Check the file is for "
+        + "this Group and this settled set.");
+    }
+  }
+  for (const sug of neighborhood.suggestions || []) {
+    const j = judgments.get(sug.slug);
+    if (j) { sug.level = j.level; sug.claim = j.claim; }
+    // The relation IN PLAIN WORDS (§686 disposition 3, field 2). With
+    // exploration fixed to one substrate this is always Batch membership, so
+    // the row names the batch rather than a substrate token a reader would
+    // have to decode.
+    const batch = (sug.reached_by || []).find((r) => r.substrate === "source_batch");
+    sug.relation = batch && batch.instance
+      ? `from the same Batch as the settled set (${batch.instance})`
+      : "from the same Batch as the settled set";
+    // THE GLOSS IS OWED AND NOT YET FETCHABLE HERE, and it is DISCLOSED rather
+    // than substituted. A suggestion sits outside the survey's candidates, so
+    // its served headline needs a shard read this path does not make — and
+    // quietly rendering the slug in the Gloss field would put an unquoted
+    // identifier under a grammar declaring a served rendering, which is the
+    // paraphrase-for-a-quote shape the kit's verbatim rule refuses. Carried on
+    // kogaki#686 round 1; the fetch is a bounded-read decision the ruling does
+    // not make.
+    sug.gloss = sug.gloss || null;
+  }
 
   const report = {
     id: `terrain-full-report-${identityDigest(identity)}`,
@@ -2879,7 +2925,7 @@ export function writeCapture(dir, decl, { toolUseId, option, freeText }) {
 //
 // THE BOUND IS DECLARED, NOT CHOSEN (§13.3 v16, owner selection 2026-08-12).
 // The unit is traversal — substrates x depth — and the values are fixed:
-// `source_batch` one hop, `cross_links` two, shared carrier OFF. They are read
+// `source_batch` one hop, and nothing else since kogaki#686. They are read
 // from the spec here rather than picked: an implementation choosing different
 // values settles a spec question silently, and one deriving them from the
 // settled set's CONTENT reintroduces the withdrawn input.
@@ -2888,10 +2934,23 @@ export function writeCapture(dir, decl, { toolUseId, option, freeText }) {
 // implemented and its depth is zero, so it enumerates nothing at the declared
 // setting and needs no code change if a later amendment turns it on. Writing it
 // out is what keeps §13.3's three substrates three.
+// EXPLORATION IS FIXED: SAME DISTILL BATCH, AND NOTHING ELSE (kogaki#686,
+// owner ruling 2026-08-28). The two other substrates are DELETED rather than
+// set to zero — per that ruling's own doctrine, a superseded behaviour is
+// deleted, not kept as a record beside its exception.
+//
+//   cross_links (the reference-link walk, two hops) — removed on MEASUREMENT,
+//     not on taste: on the 2026-08-28 pull it contributed zero rows, all 15
+//     candidates arriving through Batch membership. Removing it bounds the
+//     worst case, which a depth-2 walk over a cyclic [[slug]] graph does not.
+//   shared_carrier — was already inert at bound 0, which is precisely the
+//     "record kept beside its exception" shape the same ruling deletes.
+//
+// The object survives as a single-key freeze rather than becoming a bare
+// constant, so the substrate stays NAMED at its call site and a future
+// widening is a visible edit to a declared set rather than a new literal.
 const NEIGHBORHOOD_BOUND = Object.freeze({
   source_batch: 1,
-  cross_links: 2,
-  shared_carrier: 0,
 });
 
 // §14.6's slot, FILLED 2026-08-12 (owner selection, recorded on kogaki#300
@@ -2925,13 +2984,7 @@ function batchKey(sourceBatch) {
 // enumerator mints these pairs and the screen orders, labels and counts by
 // them; two definitions of "same group" is how a batch would render under one
 // heading and be counted under another.
-export function groupKeyOf({ substrate, instance }) {
-  return instance === null ? `substrate ${substrate}` : `instance ${substrate} ${instance}`;
-}
 
-export function groupLabelOf({ substrate, instance }) {
-  return instance === null ? substrate : `${substrate} ${instance}`;
-}
 
 // ORDER IS DECLARED AND MECHANICAL: instance-bearing groups first, by substrate
 // then by instance id, then the bare substrates by name. NEVER by size — a
@@ -2952,8 +3005,10 @@ export function compareGroups(a, b) {
 // suggestion with no substrate instance still renders, under an explicit
 // undisclosed heading, so it is ONE rendering and not zero: the alternative
 // reading made the family section and the headline disagree on the check's own
-// AC3/AC5 input, which is the two-definitions defect `groupKeyOf` warns about
-// one field over.
+// AC3/AC5 input, which was the two-definitions defect the grouping helpers
+// warned about one field over — those helpers went with the grouping headings
+// kogaki#686 deletes, and the reference is retired with them rather than left
+// pointing at a symbol the file no longer defines.
 export function renderingsOf(s) {
   return (s.reached_by || []).length || 1;
 }
@@ -2992,8 +3047,9 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
 
   // `instance` is the substrate's own identifying value where it has one — the
   // batch id for `source_batch` — and null where the substrate IS the instance
-  // (`cross_links`, `shared_carrier` reach a slug as themselves, with nothing
-  // finer to name). A null instance is a stated absence, never a missing key:
+  // batch id for `source_batch`. A null instance is a stated absence rather
+  // than a missing key, and it survives kogaki#686's narrowing because a
+  // substrate that IS its own instance is still expressible:
   // the screen groups it under the substrate's own heading.
   const note = (slug, substrate, instance = null) => {
     if (seedSet.has(slug) || !bySlug.has(slug)) return;
@@ -3083,7 +3139,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
             population.get(family).add(m);
           }
           // A LISTED MEMBER THE SERVED SET DOES NOT CARRY IS MARKED, not
-          // dropped — the same arm `cross_links` already has below. Dropping
+          // dropped. Dropping
           // it yields a quieter neighborhood with no disclosure, which is
           // §13.0's silent exclusion one layer further in: the batch resolved,
           // so nothing upstream reports anything.
@@ -3100,49 +3156,6 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
           // would otherwise split one batch across two headings.
           note(m, "source_batch", k);
         }
-      }
-    }
-  }
-
-  // ---- cross_links, two hops. Breadth-first to the declared depth. The
-  // frontier carries only slugs the records know; a link naming an unknown
-  // slug is a dangling reference and is marked, never silently skipped.
-  if (bound.cross_links > 0) {
-    let frontier = seeds;
-    // EXPANDED-SET, not a reached-set. Without it `next.push` is unconditional,
-    // so a slug already expanded — including a seed reached by a back-link — is
-    // walked again at the next depth. `reached` is a Map and survives that, but
-    // `unresolved` is an ARRAY: a dangling link reachable by two paths lands
-    // twice and the screen's "N unresolved reference(s)" overcounts. On a
-    // cyclic [[slug]] graph at depth 2 that is the ordinary case.
-    const expanded = new Set(seeds);
-    for (let depth = 1; depth <= bound.cross_links; depth++) {
-      const next = [];
-      for (const s of frontier) {
-        for (const link of bySlug.get(s)?.cross_links || []) {
-          if (!bySlug.has(link)) {
-            unresolved.push({ slug: s, value: link,
-              why: `cross_links names a slug no served record carries (depth ${depth})` });
-            continue;
-          }
-          note(link, "cross_links");
-          if (expanded.has(link)) continue;
-          expanded.add(link);
-          next.push(link);
-        }
-      }
-      frontier = next;
-    }
-  }
-
-  // ---- shared carrier: OFF at the declared setting. The branch is written so
-  // the substrate exists at depth zero rather than being absent from the code.
-  if (bound.shared_carrier > 0) {
-    for (const s of seeds) {
-      const mine = new Set(bySlug.get(s).projects || []);
-      for (const r of records) {
-        if (r.slug === s) continue;
-        if ((r.projects || []).some((p) => mine.has(p))) note(r.slug, "shared_carrier");
       }
     }
   }
@@ -3179,8 +3192,8 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // dropped as uninteresting — a zero numerator is a reading.
   //
   // `population: null` IS NOT ZERO, and the distinction is load-bearing. A
-  // family reached only through `cross_links` has no `members` list behind it,
-  // so no denominator is READABLE for it; printing 0 there would assert a
+  // family with no `members` list behind it has no denominator that is
+  // READABLE; printing 0 there would assert a
   // population that was never counted, and printing `n of 0` is arithmetic
   // nonsense that reads as a bug in the numerator. Null renders as an explicit
   // "no denominator readable" on the screen.
@@ -3261,6 +3274,39 @@ export function settledSlugs(candidates, memberIds) {
 // story 1.69, kogaki#473) so `cmdReport` computes it inside the pull. Reuse,
 // never re-derive: a second resolver is how the section and the screen it
 // replaced would drift.
+// THE JUDGMENT LAYER'S INPUT (kogaki#686). The LLM supplies, per mechanical
+// candidate, one free-form claim and one level from the harness-fixed set. It
+// arrives as a FILE the session composed, exactly as `--classification` does
+// for J2_subdivision: no model call happens inside this tool, and
+// `--judge-model`/`--judge-effort` remain the PIN rather than an invocation.
+//
+// The vocabulary is CLOSED and checked here. A level outside the set is refused
+// rather than passed through, because the display ranks by level and an
+// unrecognised token would sort as "no level" — showing a judged candidate as
+// unjudged, which is the silent-exclusion shape §13.0 exists to remove.
+export function readNeighborhoodJudgments(path) {
+  if (!path) return new Map();
+  const raw = readJson(String(path));
+  const out = new Map();
+  for (const [slug, v] of Object.entries(raw || {})) {
+    if (!v || typeof v !== "object") {
+      fail(`neighborhood judgment for ${JSON.stringify(slug)} is not an object: `
+        + `each entry is {"level": <one of ${NEIGHBORHOOD_LEVELS.join(" | ")}>, "claim": "<one sentence>"}`);
+    }
+    if (!NEIGHBORHOOD_LEVELS.includes(v.level)) {
+      fail(`neighborhood judgment for ${JSON.stringify(slug)} carries level `
+        + `${JSON.stringify(v.level)}, which is not the harness-fixed set `
+        + `(${NEIGHBORHOOD_LEVELS.join(" | ")}). The set is closed; extending it is the owner's act.`);
+    }
+    if (typeof v.claim !== "string" || !v.claim.trim()) {
+      fail(`neighborhood judgment for ${JSON.stringify(slug)} carries no claim. `
+        + "A level without a claim is a rank with no reason, which the row has no way to render.");
+    }
+    out.set(slug, { level: v.level, claim: v.claim.trim() });
+  }
+  return out;
+}
+
 function neighborhoodForTargets(record, targets) {
   // The settled set is the MEMBERS the entered ids reach. A SubGroup id brings
   // its SubGroup, a Group id brings the group — story 1.58's rule, reused.
@@ -3320,157 +3366,122 @@ function neighborhoodForTargets(record, targets) {
 // subprocess with a live seam, and a property whose failing path is never
 // exercised is not covered (AC5).
 //
-// Returns the lines; the caller prints. Nothing here narrows, sorts by rank, or
-// drops a member — §13.1 is a property of this function's output.
-export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts, unmapped = [] }) {
+// Returns the lines; the caller prints.
+//
+// THE RECOMMENDATION LEVELS, harness-fixed and closed (kogaki#686, owner ruling
+// 2026-08-28). Ordered strongest first — the order IS the level ranking, and it
+// is the only ranking in this file. Extending the set is the owner's act.
+export const NEIGHBORHOOD_LEVELS = Object.freeze(["core", "useful", "background"]);
+// The display cap. Ten rows, ruled; see the refusal below for what happens when
+// more than ten sit at the highest level.
+export const NEIGHBORHOOD_DISPLAY_CAP = 10;
+
+// THE NEIGHBORHOOD SECTION (kogaki#686). Four fields per row, at most ten rows,
+// all from the HIGHEST level present, and nothing else.
+//
+// WHAT WAS DELETED HERE, and why the deletions are not "kept beside their
+// exception": the per-family tallies, the walk-settings line, the "narrows
+// nothing" boilerplate, the per-Batch section headers, and the disjointness and
+// unresolved footnotes. Each existed to discharge a §13.0/§13.1/§13.4
+// disclosure obligation over an enumeration this section no longer performs —
+// with exploration fixed to one substrate at one hop, a per-family denominator
+// and a substrate-grouping heading describe a shape the output cannot have.
+//
+// THE REFUSAL, and it is the one place this section declines to render
+// (owner selection 2026-08-28). Above the cap AT THE HIGHEST LEVEL the section
+// renders NO ROWS and states the counts. Truncating instead would need a
+// tie-break among equals, and a machine choosing which of ten equally
+// recommended relations the owner may see is the shape the served record names
+// as failing the second-proposer test
+// (product-lab@b20d85ea topics/articles.md:125). Silent truncation is refused
+// one step earlier by the same record's rule that a surface which must not drop
+// its tail reports rather than truncates
+// (topics/archive/knowledge-architecture.md:67).
+// `counts`, `unmapped` and `unresolved` are NO LONGER READ and are no longer
+// accepted: the denominator, the unmapped notice and the unresolved footnote all
+// went with §13.4's obligations. Kept out of the signature rather than
+// destructured and ignored — a parameter a function does not read is a claim on
+// its caller it cannot honour, and an earlier revision of this comment claimed
+// `unresolved` was read after the line reading it had been removed.
+export function neighborhoodScreen({ tag, gids, suggestions }) {
   const out = [];
   const say = (s = "") => out.push(s);
   say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
-  // BOTH TOTALS, ALWAYS, AND EACH NAMES ITS UNIT (story 1.61, AC2a). They
-  // differ whenever a suggestion was reached by two substrates, and a screen
-  // stating one figure that silently means the other is the defect this line
-  // refuses — so the rendering total is stated even where it equals the
-  // suggestion total, since a reader cannot tell a coincidence from a
-  // conflation by looking at one number.
-  // COMPUTED FROM WHAT THIS FUNCTION RENDERS, never taken from the caller —
-  // even though `neighborhoodOf` supplies `counts.rendered` and the two agree
-  // on every structure it produces. The screen is the only thing that knows how
-  // many rows it emitted, so a figure it accepts on trust is a figure it can
-  // state falsely: round 1 of PR #392 found exactly that, a headline reading
-  // `rendering as 0 row(s)` above a section and a heading both counting 1.
-  // Recomputing makes the disagreement unrepresentable rather than detectable,
-  // which is the constrain-generation move rather than a second assertion.
-  const rendered = suggestions.reduce((n, s) => n + renderingsOf(s), 0);
-  say(`${counts.seeds} settled member(s); ${counts.suggested} suggestion(s) beside them, `
-    + `rendering as ${rendered} row(s) — a suggestion reached by two substrates renders under each (§13.4 obligation 4)`);
-  say("A REPORT, never a proposal (§13.1): nothing here narrows what reaches you, and the full population stays reachable.");
-  say(`Bound: source_batch ${NEIGHBORHOOD_BOUND.source_batch} hop, cross_links ${NEIGHBORHOOD_BOUND.cross_links} hops, shared carrier off — declared at §13.3 and read here, never chosen.`);
+  // NO BLANK HERE. `neighborhoodSection` drops this function's first line and
+  // supplies its own blank after `*Seeded by:*`; a blank at index 1 survived
+  // that `slice(1)` and rendered two where the section had always rendered one.
+  // Harmless and admitted by the `blank` class — and a rendering change nobody
+  // ruled, which is the kind that lands unnoticed inside a specimen regenerated
+  // for other reasons.
 
-  // §13.4's DENOMINATOR, STATED PER FAMILY AND NEVER POOLED (AC3). The counts
-  // line above carries totals; a total is not a denominator, and the moment a
-  // ratio is stated it is stated family by family. `members` being family-keyed
-  // is what makes this mechanical — the figures are read from the batch
-  // records' own statement of what they hold, never inferred from the element
-  // set.
-  const fams = Object.keys(counts.by_family || {});
-  if (fams.length) {
-    say();
-    say("Suggestions by family (§13.4 — per family, never pooled):");
-    for (const fam of fams) {
-      const { suggested, population, outside_population: outside } = counts.by_family[fam];
-      // The ratio and the outside count are stated SEPARATELY and never summed.
-      // The ratio's two sides range over one set — the walked batches' members
-      // of this family, minus the seeds — and the outside count is what this
-      // family reached by another substrate, which has no batch-membership
-      // denominator to sit over.
-      const extra = outside ? `, plus ${outside} reached from outside those members (no denominator)` : "";
-      // THE UNIT IS NAMED ON THE PER-FAMILY FIGURE TOO (story 1.61, AC2a).
-      // `suggested` counts SUGGESTIONS — the same figure it always was — and
-      // the per-family rendering count differs from it under the grouping,
-      // so a bare number here would be exactly the total-level conflation one
-      // level in. AC4's `suggested <= population` does not discriminate it:
-      // 5 suggestions rendering 8 times against a population of 40 satisfies
-      // the invariant while stating a false figure.
-      say(population === null
-        // Not "of 0": a family reached only through cross_links has no
-        // `members` list behind it, so no denominator was READ. Printing zero
-        // would assert a population nobody counted.
-        ? `  ${fam}: ${outside} suggestion(s) — no denominator readable (no walked batch lists this family)`
-        : `  ${fam}: ${suggested} suggestion(s) of ${population} in the walked batches' members${extra}`);
-    }
+  const found = suggestions.length;
+  if (!found) {
+    // THE TWO-LINE FORM IS THE DECLARED CLASS (`neighborhood_empty`), kept
+    // through kogaki#686 because the ruling narrows what a POPULATED section
+    // renders and says nothing about the empty one. The second line is the
+    // load-bearing half: it refuses the strong reading of an empty result.
+    say("No suggestion. The enumeration ran over the settled set's Batches and "
+      + "returned nothing — a result about this settled set, not a failure.");
+    say("Not asserted: that an empty neighborhood is informative in the STRONG "
+      + "sense. Absence here is absence of a same-Batch sibling, never evidence "
+      + "that the settled set stands alone.");
+    return out;
   }
+
+  // A candidate carries its level and claim, or it is UNJUDGED. An unjudged
+  // candidate is never silently dropped and never silently shown: it is counted
+  // and named, because the LLM layer not having run is a different state from a
+  // candidate judged `background`.
+  const judged = suggestions.filter((x) => NEIGHBORHOOD_LEVELS.includes(x.level));
+  const unjudged = found - judged.length;
+
+  if (!judged.length) {
+    say(`${found} candidate(s) found, 0 shown — none carries a recommendation `
+      + `level. The mechanical layer ran; the judgment layer did not.`);
+    return out;
+  }
+
+  const top = NEIGHBORHOOD_LEVELS.find((l) => judged.some((x) => x.level === l));
+  const atTop = judged.filter((x) => x.level === top);
+
+  if (atTop.length > NEIGHBORHOOD_DISPLAY_CAP) {
+    say(`${found} candidate(s) found, 0 shown — ${atTop.length} sit at the `
+      + `highest level present (\`${top}\`), above the display cap of `
+      + `${NEIGHBORHOOD_DISPLAY_CAP}.`);
+    say("No rows are rendered rather than ten of them: choosing which "
+      + `${NEIGHBORHOOD_DISPLAY_CAP} of ${atTop.length} equally-recommended `
+      + "candidates you see would be a tie-break this section has no ground to "
+      + "make, and a cut carrying no meaning reads as a ranking it is not.");
+    if (unjudged) say(`${unjudged} candidate(s) carry no level and are counted here, never shown.`);
+    return out;
+  }
+
+  say(`${found} candidate(s) found, ${atTop.length} shown — all at the highest `
+    + `level present (\`${top}\`).`);
+  // THE BATCH-SIDE RESOLUTION GAPS ARE NOT RENDERED HERE, AND THAT IS OWED TO
+  // kogaki#686 RATHER THAN SETTLED. The enumerator still marks three — a seed
+  // carrying no `source_batch`, a `source_batch` naming a batch nothing serves,
+  // and a batch member the served set does not carry — and none reaches a
+  // surface, so a resolution gap leaves no trace. That is §13.0's silent
+  // exclusion, and it is a real cost.
+  //
+  // A line for them was added at round 1 and is REMOVED here. Disposition 3
+  // rules "at most ten rows, from the highest level present, and NOTHING ELSE
+  // in the Report", and disposition 4 deletes the unresolved footnote by name.
+  // Reading §13.0's duty as outliving the walk is defensible and it is not the
+  // review's to license: restoring a rendering under a reviewer's authority is
+  // how a ruling acquires a clause nobody ratified. The question is carried on
+  // #686, which stays open.
+  if (unjudged) say(`${unjudged} candidate(s) carry no level and are counted here, never shown.`);
   say();
-  if (suggestions.length === 0) {
-    // §13.2's "empty is an informative outcome", in the form v16 leaves it.
-    // The STRONG form — empty as a result about the corpus — was discharged by
-    // an argument running through the Thesis and went with it, so this states
-    // what it can establish and no more (AC6a).
-    say("No suggestion. The enumeration itself came back empty at the declared bound — which is a result about this settled set's provenance, not a failure.");
-    say("Not asserted: that an empty neighborhood is informative in the STRONG sense. That claim rested on a Thesis and was withdrawn with it (§13.2, v15).");
-  }
-  // §13.4's SUBSTRATE DISCLOSURE, per suggestion (AC2), unchanged by the
-  // grouping: a suggestion whose substrate set is empty renders as an explicit
-  // unknown rather than as a bare row, because `reached by: ` with nothing
-  // after it is the disclosure failing open and reads on screen as a
-  // formatting slip rather than as the missing provenance it is.
-  const row = (s) => {
-    const disclosed = (s.substrates || []).length
-      ? s.substrates.join(", ")
-      : "UNDISCLOSED — no substrate recorded; this row must not ship";
-    return `${s.nid} — ${s.slug} [${s.family ?? "family unknown"}] — reached by: ${disclosed}`;
-  };
 
-  if (suggestions.length) {
-    // §13.4 OBLIGATION 4: GROUPED BY SUBSTRATE INSTANCE, FAMILY OUTERMOST
-    // (story 1.61). Obligation 3 is an invariant and obligation 4 a readability
-    // aid, and an aid never weakens an invariant — so family sections come
-    // first and the batch/substrate headings sit INSIDE them. Batch-outermost
-    // would place a Journey and a Lesson adjacent under one heading, which is
-    // the pooling obligation 3 forbids, reintroduced by the layout rather than
-    // by the list.
-    //
-    // NOTHING IS SELECTED HERE. Every suggestion handed in reaches a heading,
-    // and one reached by two substrates reaches two — the grouping renders the
-    // same complete enumeration, never a selection over it. A suggestion whose
-    // `reached_by` is empty is not dropped: it renders under an explicit
-    // undisclosed group, for the same reason a substrate-less row does not
-    // render bare.
-    const UNDISCLOSED = { substrate: "UNDISCLOSED — no substrate recorded", instance: null };
-    // Family key `null` sorts LAST and keeps its own section — an unknown
-    // family folded into a known one is the pooling obligation 3 forbids,
-    // arriving one record at a time.
-    const famKey = (s) => s.family ?? null;
-    const famOrder = [...new Set(suggestions.map(famKey))].sort((a, b) => {
-      if (a === null) return 1;
-      if (b === null) return -1;
-      return a < b ? -1 : a > b ? 1 : 0;
-    });
-
-    say("Suggestions, grouped by family then by the batch or substrate that reached them (§13.4 obligation 4 — a rendering of the same complete enumeration, never a selection over it):");
-    for (const fam of famOrder) {
-      const ofFamily = suggestions.filter((s) => famKey(s) === fam);
-      const famRendered = ofFamily.reduce((n, s) => n + renderingsOf(s), 0);
-      say();
-      // The family section states BOTH units for the same reason the headline
-      // does — this is the per-family site AC2a binds.
-      say(`${fam ?? "family unknown"} — ${ofFamily.length} suggestion(s), ${famRendered} rendering(s)`);
-
-      // One entry per (suggestion, group) pair within this family. A batch of
-      // mixed family therefore renders its heading once under EACH family,
-      // counting only that family's members: the pairs are built inside the
-      // family loop, so a heading can never reach across one.
-      const groups = new Map();
-      for (const s of ofFamily) {
-        const reachedBy = (s.reached_by || []).length ? s.reached_by : [UNDISCLOSED];
-        for (const g of reachedBy) {
-          const k = groupKeyOf(g);
-          if (!groups.has(k)) groups.set(k, { g, rows: [] });
-          groups.get(k).rows.push(s);
-        }
-      }
-      const ordered = [...groups.values()].sort((a, b) => compareGroups(a.g, b.g));
-      for (const { g, rows } of ordered) {
-        // EVERY HEADING STATES ITS OWN COUNT, OVER RENDERINGS (AC2): the sum of
-        // the group counts equals this family's rendering total, never its
-        // suggestion total.
-        say(`  ${groupLabelOf(g)} — ${rows.length} rendering(s)`);
-        for (const s of rows) say(`    ${row(s)}`);
-      }
-    }
+  // FOUR FIELDS, in the ruled order. `relation` is plain words rather than a
+  // substrate token, because the row is read by the owner and not by a parser.
+  for (const x of atTop) {
+    say(`- ${x.nid} — ${x.relation || "relation unrecorded"}`);
+    say(`  ${x.gloss || "gloss unrecorded"}`);
+    say(`  ${x.claim || "claim unrecorded"} [${x.level}]`);
   }
-  if (unmapped.length) {
-    say();
-    say(`${unmapped.length} settled id(s) NAMED NO CANDIDATE in this survey — reported rather than counted as "no neighbors": ${unmapped.join(", ")}`);
-  }
-  if (unresolved.length) {
-    say();
-    say(`${unresolved.length} unresolved reference(s) — NAMED rather than dropped (§13.3). An empty result presented as "no siblings" is the silent exclusion §13.0 removes.`);
-    for (const u of unresolved) {
-      say(`  ${u.slug}: ${JSON.stringify(u.value)} — ${u.why}`);
-    }
-  }
-  say();
-  say("Suggestion ids are `N<n>` and are DISJOINT from the survey's `L<n>` (§14.6, filled kogaki#300 2026-08-12): a suggestion is not in the survey record, so §14.3's assignor does not reach it. Taking one assigns it an `L<n>` on the way in.");
   return out;
 }
 
@@ -3489,7 +3500,12 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved, counts,
 // Exported and pure over its inputs for the same reason `neighborhoodScreen`
 // is: §13.4's obligations are properties of what RENDERS, so a fixture must
 // reach this without a seam.
-export function neighborhoodSection({ gids, no_material, suggestions, unresolved, counts, unmapped = [] }) {
+// The rule the callee's own comment states, kept HERE TOO. An earlier revision
+// dropped `unresolved`, `counts` and `unmapped` from `neighborhoodScreen` and
+// left this frame destructuring and forwarding them — the same claim on a
+// caller, one level up. The sole call site spreads `report.neighborhood`, so
+// they are not positionally load-bearing either.
+export function neighborhoodSection({ gids, no_material, suggestions }) {
   const head = [
     "## Provenance neighborhood",
     "",
@@ -3507,7 +3523,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
   return [...head,
     // Drop only the screen's heading line; the tag it carried already heads
     // the report's own title, and the set rides `*Seeded by:*` above.
-    ...neighborhoodScreen({ tag: "", gids, suggestions, unresolved, counts, unmapped }).slice(1),
+    ...neighborhoodScreen({ tag: "", gids, suggestions }).slice(1),
   ];
 }
 
@@ -4218,7 +4234,7 @@ switch (cmd) {
     fail("neighborhood is retired as a standalone act (SPEC-terrain §13.2 v20, kogaki#472): "
       + "the provenance-neighborhood section renders on every `report` pull, seeded by the "
       + "entered ID set, inside reports/FullReport.md. Pull the report — "
-      + "`report --survey <f> --tag <T> --ids <G…> --claims <f> --subdivisions <f> "
+      + "`report --survey <f> --tag <T> --ids <G…> --claims <f> --subdivisions <f> [--neighborhood <f>] "
       + "--judge-model <m> --judge-effort <e>` — and read the section there.");
     break;
   case "compose-input": cmdComposeInput(args); break;
@@ -4451,10 +4467,14 @@ switch (cmd) {
                                             --subdivisions are maps keyed by group name; a
                                             group missing a claim is MARKED, never substituted.
   report --survey F --tag T (--group G | --all-groups) [--claims F]
-         [--subdivisions F] [--judge-model M --judge-effort E] [--report-dir D]
+         [--subdivisions F] [--neighborhood F] [--judge-model M --judge-effort E]
+         [--report-dir D]
                                             the Full Report (§12) — untruncated Claims and
                                             Glosses, identified by the TRIPLE (substrate pin,
                                             co-tag query, judge pin). TWO ARTIFACTS (§12.2 v11):
+                                            --neighborhood carries the judgment layer: one
+                                            level (core|useful|background) and one claim per
+                                            candidate, keyed by slug (§13.4, kogaki#686).
                                             the machine RECORD in the run workspace, and the
                                             owner RENDERING — exactly ONE file,
                                             reports/FullReport.md, overwritten per pull
