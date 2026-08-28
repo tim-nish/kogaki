@@ -3593,12 +3593,24 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // one step earlier by the same record's rule that a surface which must not drop
 // its tail reports rather than truncates
 // (topics/archive/knowledge-architecture.md:67).
-// `counts`, `unmapped` and `unresolved` are NO LONGER READ and are no longer
-// accepted: the denominator, the unmapped notice and the unresolved footnote all
-// went with §13.4's obligations. Kept out of the signature rather than
-// destructured and ignored — a parameter a function does not read is a claim on
-// its caller it cannot honour, and an earlier revision of this comment claimed
-// `unresolved` was read after the line reading it had been removed.
+// A PARAMETER A FUNCTION DOES NOT READ IS A CLAIM ON ITS CALLER IT CANNOT
+// HONOUR, so the signature below carries exactly what is read and nothing else.
+//
+// IT NO LONGER ENUMERATES WHICH PARAMETERS THOSE ARE (kogaki#698, owner ruling
+// 2026-08-29). This comment held a list, and the list was a CONFORMANCE COPY of
+// the parameter declaration one line beneath it — with no declared precedence
+// and no check anywhere in `checks/` referencing it. It was wrong in both
+// directions about `unresolved` within two days: first claiming it was read
+// after the reading line was removed, then claiming it was neither read nor
+// accepted while kogaki#691 read it. The declaration was correct throughout.
+//
+//   "A stale `accepted` field is worse than no field … it ships only with
+//    declared precedence AND the mechanical mismatch check."
+//   product-lab@b20d85ea topics/archive/knowledge-architecture.md:97
+//
+// It shipped with neither, so the copy is removed rather than instrumented: a
+// parser over source comments, maintained forever, to check a fact the
+// declaration already states is the more expensive half of the same repair.
 // THE DISPLAY SELECTION, DEFINED ONCE (kogaki#689). Which rows a populated
 // section renders — the judged set, the highest level present, the cap — was
 // computed inside the screen alone, and the bounded Gloss fetch below has to
@@ -3823,11 +3835,12 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) 
 // Exported and pure over its inputs for the same reason `neighborhoodScreen`
 // is: §13.4's obligations are properties of what RENDERS, so a fixture must
 // reach this without a seam.
-// The rule the callee's own comment states, kept HERE TOO. An earlier revision
-// dropped `unresolved`, `counts` and `unmapped` from `neighborhoodScreen` and
-// left this frame destructuring and forwarding them — the same claim on a
-// caller, one level up. The sole call site spreads `report.neighborhood`, so
-// they are not positionally load-bearing either.
+// The rule the callee's comment states, holding HERE TOO: this frame forwards
+// exactly what the callee reads, so its own parameter list is the one statement
+// of that. It enumerated the same list and inherited the same defect
+// (kogaki#698) — including deferring to a callee comment that was itself false
+// at the time. The sole call site spreads `report.neighborhood`, so nothing
+// here is positionally load-bearing either.
 export function neighborhoodSection({ gids, no_material, suggestions, unresolved = [] }) {
   const head = [
     "## Provenance neighborhood",
