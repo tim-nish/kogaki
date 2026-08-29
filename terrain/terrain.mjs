@@ -1071,7 +1071,7 @@ function cmdCotags(args) {
   const shown = selected ? groups.filter((g) => g.name === selected || g.cotag === selected) : groups;
   if (selected && shown.length === 0) fail(`no co-tag group ${JSON.stringify(selected)} in ${tag}`);
 
-  say(`${tag} — the second navigation step. Grouped by co-tag; sort: ${COTAG_SORT}.\n`);
+  say(`${tag} — the second navigation step. Grouped by co-tag; sort: ${COTAG_SORT}.`);
   let claimless = 0;
   let suppressedSplits = 0;
   for (const g of shown) {
@@ -1117,6 +1117,37 @@ function cmdCotags(args) {
     let judged = null;
     if (subForHeading && subForHeading.length) {
       const { subgroups } = subgroupPlacement(g, subForHeading, SURVEY_SCHEMA.subdivision);
+      // THE SUM-TO-PARENT REFUSAL, PRE-RENDER (§6.2 rule 1; report-format.json
+      // v13, kogaki#684). Through v12 this was a decidable rule over the
+      // rendered text — the SubGroup counts against the parent count on the
+      // group heading — and disposition 2 removed the heading's count, so one
+      // side of that comparison is gone. It is carried here instead of being
+      // re-pointed at the sum of the SubGroup counts, which would compare the
+      // sum to itself and could never fail.
+      //
+      // WHAT THIS DOES NOT REPLACE, stated because the two are not equivalent:
+      // it reads the PLACEMENT and the withdrawn rule read the TEXT, and
+      // §14.2's own specimen is a renderer that dropped four of six member
+      // fields while every assertion about the data structure stayed green. A
+      // renderer that omits a whole SubGroup line still passes this. The
+      // grammar's `not_expressible` entry records that gap as a gap.
+      //
+      // WHICH DIRECTION IT CAN ACTUALLY FIRE IN, stated so the refusal is not
+      // read as covering more than it does. UNDER-placement is unreachable from
+      // here: `subgroupPlacement` sweeps every unplaced member into the
+      // catch-all, so the sum can never fall short. What IS reachable, and what
+      // nothing else in this runtime refuses, is DOUBLE placement — a judge
+      // record naming one member in two SubGroups, which makes the counts sum
+      // OVER the parent and renders that member twice. The withdrawn grammar
+      // rule caught both; this one catches the reachable one.
+      const placedCount = subgroups.reduce((n, sg) => n + sg.members.length, 0);
+      if (placedCount !== g.members.length) {
+        fail(`SUBGROUP_MEMBERS_DO_NOT_SUM — ${g.name} holds ${g.members.length} member Lesson(s) and its SubGroups place ${placedCount}. `
+          + "§6.2 rule 1 requires the SubGroup member counts to sum to the parent's total: over the total means a member was placed "
+          + "in more than one SubGroup and renders twice, under it means a member is hidden. Subdivision decides WHERE a member "
+          + "appears, never how many times "
+          + "(SPEC.md §6.2; report-format.json v13 carries this as a pre-render refusal, the heading no longer rendering a parent count).");
+      }
       for (const sg of subgroups) {
         sg.by_family = familySplit(sg.members, record.candidates);
         judgeSubgroup(sg, claim);
@@ -1149,20 +1180,42 @@ function cmdCotags(args) {
 
     // §6.1 v6 — FLUSH LEFT, and the GroupID is what says this is a Group.
     // The co-tag name follows the id; it is a label, not the carrier.
+    //
+    // A BLANK LINE OPENS EVERY GROUP BLOCK (§6.2 v31, kogaki#684 disposition 1).
+    // It is emitted here rather than trailing the previous block so that the
+    // first group is separated from the header by the same act as every other
+    // group is separated from its predecessor — a trailing newline on one
+    // emitter and a leading one on another is how the pre-v31 screen ended up
+    // spacing subdivided groups and running flat ones together.
+    say("");
+    // §6.2 v31 — A SUBDIVIDED GROUP'S HEADING CARRIES THE ID AND THE NAME AND
+    // NOTHING MORE. The count went with the member dump: the members render on
+    // the SubGroup lines, where they are read, and the count is read there too.
+    // The count that used to sit here was the denominator `catch_all_share`
+    // divided by and one side of `subgroup_members_sum_to_parent`; both are
+    // resolved in report-format.json v13 rather than left reading an absent
+    // token, and the pre-render refusal below is where the second one now lives.
     say(judged
-      ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
+      ? `${g.gid} — ${g.name}`
       : `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
     if (!judged && gShown.missing) {
       say(displayIdAbnormalLine(gShown.missing, g.members.length));
     }
 
-    // The GroupClaim FIRST, then the members (§6.1). A claim composed over a
-    // member set is PINNED to that set (§7), so the pinning is stated on the
-    // screen where the claim is: the owner reading a subset later gets a gate
-    // event, and that only means anything if they saw what it was pinned to.
+    // The GroupClaim FIRST, then the members (§6.1) — for EVERY group,
+    // subdivided ones included (§6.2 v31: the ruling's example block omits it
+    // and is a spacing sketch; §6.1 and §7 require it, and removing it would
+    // make what reaches the owner smaller than what exists).
+    //
+    // THE PINNING LINE IS DELETED (§6.2 v31, kogaki#684 disposition 4). §7's
+    // pinning RULE is untouched — what is gone is the sentence printed under
+    // every claim, which duplicated the heading's member count and announced a
+    // protection enforced at the claim re-offer, where it explains itself when
+    // it fires. Deleted rather than annotated: a superseded behaviour kept as a
+    // record in an operative carrier is what regenerates it, and kogaki#684 is
+    // the record.
     if (claim !== undefined && String(claim).trim() !== "") {
       say(`in common: ${claim}`);
-      say(`pinned to ${g.members.length} member(s) — a subset selection RECOMPOSES and re-offers it as a gate event (SPEC.md §7)`);
     } else {
       claimless++;
       say(`in common: ${NO_CLAIM}`);
@@ -1206,7 +1259,6 @@ function cmdCotags(args) {
         for (const d of sg.disclosures) say(`DISCLOSURE — ${d}`);
       }
       say(`\njudged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
-      say("");
     }
   }
   // A SUPPRESSED SPLIT IS DISCLOSED, never silent (§2.1; the `claimless`

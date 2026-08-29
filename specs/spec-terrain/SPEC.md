@@ -1,5 +1,28 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v31, amended 2026-08-30 (kogaki#684 — owner ruling 2026-08-28,
+with the three shape forks answered by owner selection at the /ship-cycle 684
+sitting) — **the co-tag screen's SHAPE is ruled.** A blank line separates every
+group block and every SubGroup block; a subdivided group's heading is
+`G<n> — <tag> × <co-tag>` and **nothing more**, its member dump and its count
+moving to the SubGroup lines where they are read, while a flat group keeps the
+full form; the coherence line renders under each SubGroupClaim (landed at v30,
+confirmed here); and the **claim-pinning line is deleted** from grammar and
+renderer with no residual record in the operative carriers — §7's pinning rule
+is untouched, kogaki#684 is the record.
+**Removing the heading's count removed a token two decidable rules read**, so
+all three are resolved in the same act rather than left pointing at it:
+`catch_all_share` is re-instrumented onto the summed `subgroup_heading` counts
+and stays on the text; `subgroup_members_sum_to_parent` is revoked into
+`not_expressible` and re-sited as a pre-render refusal, with what that costs
+named there and at §14.2; `subdivision_required_at_ten` narrows to its flat
+arm. `report-format.json` → v13.
+**The ruling's example block is a spacing sketch and not a fifth disposition**
+— `subgroup_heading` keeps its count and its SubGroup name, and a subdivided
+group still renders its own GroupClaim (§6.1, §7), both confirmed at the gate
+because the sketch omits both.
+**deferred slots minted by the v31 amendment: none.**
+
 **Status:** v30, amended 2026-08-29 (kogaki#683 — owner ruling 2026-08-28, with
 the disposition-1 boundary, the disposition-5 reconciliation and the label
 vocabulary all settled at pickup) — **the split decision is the ENGINE's: a
@@ -1324,11 +1347,10 @@ in common: <GroupClaim>
 - The **heading line** carries the GroupID, the Lesson count, and the member
   Lesson IDs. The count names its family (§9).
 - The **GroupClaim renders beneath the heading**, whole — a claim is never
-  clipped mid-text; where §7's pinning statement rides it, it follows the
-  claim.
+  clipped mid-text.
 - Where §8's conditions put SubGroups on the group, the members render as
   SubGroups per §6.2's form instead of on the heading line, and the heading
-  carries the count alone.
+  carries **the GroupID and the co-tag name alone** (v31, kogaki#684).
 
 **v6 — INDENTATION IS WITHDRAWN AS THE HIERARCHY CARRIER; THE GroupID CARRIES
 IT** (kogaki#317, owner decision 2026-08-09, executed 2026-08-11 coupled with
@@ -1438,7 +1460,11 @@ enumerates the first two as decidable; this section says what failing them
 
 1. **The SubGroup member counts sum to the parent's total.** Every member
    placed, nothing silently dropped. A screen violating it **does not render**
-   — `subgroup_members_sum_to_parent`, refused at emit time (§14.2).
+   — refused at emit time (§14.2). **The carrier moved at v31** (kogaki#684):
+   through v30 this was `subgroup_members_sum_to_parent`, a rule decidable on
+   the rendered text; the ruled heading no longer carries the parent count, so
+   the property is carried by a pre-render refusal in `cmdCotags` instead, and
+   the grammar entry sits in `not_expressible` with what the move costs named.
 2. **The `(fits no composed SubGroup)` remainder is at most 30% of the
    parent's members.** A judgment whose remainder exceeds it is re-run or
    recomposed; it does not render — `catch_all_share` (§14.2). The specimens
@@ -1581,6 +1607,102 @@ single GroupClaim-shaped paragraph with no IDs and no SubGroups — is the
 defect this form is stated against; the owner's "five", like kogaki#128's
 and WA's "~4", stays calibration evidence for where the
 undiscriminating-claim condition binds, and no member count enters the code.
+
+**v31 — THE SCREEN'S SHAPE IS RULED** (kogaki#684, owner ruling 2026-08-28;
+the three shape forks answered by owner selection at the /ship-cycle 684
+sitting, 2026-08-30). Four dispositions, and the ruled shape:
+
+```text
+G1 — agents × architecture
+in common: <GroupClaim>
+
+G1-1 — 3 Lessons: L1, L2, L3 — <SubGroup name>
+in common: <SubGroupClaim>
+coherence: tight — <why>
+
+G1-2 — 3 Lessons: L4, L5, L6 — <SubGroup name>
+in common: <SubGroupClaim>
+coherence: related — <why>
+
+G2 — agents × claude-code-ops — 9 Lessons: L7, L8, L9
+in common: <GroupClaim>
+```
+
+1. **A blank line separates every group block and every SubGroup block.**
+   Through v30 the separation was whatever the emitter's `\n`-prefixed strings
+   happened to produce, and flat groups ran together with no spacing at all.
+2. **A subdivided group's heading drops its member dump *and its count*** —
+   `G<n> — <tag> × <co-tag>` and nothing more. The members render on the
+   SubGroup lines, where they are read. **A flat group keeps the full form.**
+3. **The coherence line renders under each SubGroupClaim.** This landed at v30
+   with kogaki#683's label vocabulary; it is confirmed here rather than
+   re-landed, and the disposition is recorded because the ruling states it.
+4. **The claim-pinning line is DELETED** — from the grammar and from the
+   renderer, with **no residual record in the operative carriers**. §7's
+   pinning *rule* is untouched: what is deleted is the sentence the screen
+   printed under every claim, which duplicated the heading's member count and
+   announced a protection that is enforced at the claim re-offer and explains
+   itself when it fires. kogaki#684 is the record, on the ground kogaki#682
+   already established — a superseded behaviour kept as a record in an
+   operative carrier is what regenerates it.
+
+**Disposition 2 removed a token two decidable rules were reading, and that is
+the part of this ruling with consequences past the screen.** The count on
+`group_heading_subdivided` was the denominator `catch_all_share` divided by and
+one side of the comparison `subgroup_members_sum_to_parent` made. Dropping it
+silently would have left both rules declared, both running, and neither able to
+fire — a screen that could never be refused by either, with nothing saying so.
+The served position decides the shape of the repair rather than the repair:
+
+> "when a design change dissolves the unit a check counts, the check does not
+> become easier to satisfy — it stops being a check, and re-pointing it at
+> whatever occupies the same position preserves the ceremony and discards the
+> function."
+
+`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:55`
+
+  request_id: 04d2565c-5005-4446-ae2b-ba05a7bc267b
+  outcome: discriminating
+  query: A format-grammar decidable rule loses the token it reads because a ruled rendering drops a count from a heading. Should the rule be re-sited as a pre-render engine refusal over the data structure, or narrowed to what the rendered text can still decide, when a check that silently cannot evaluate reads as coverage?
+
+So each of the three rules is resolved in the same act, and none is left
+pointing at an absent token:
+
+- **`catch_all_share` is RE-INSTRUMENTED and stays on the text.** Its
+  denominator becomes the sum of the group's own `subgroup_heading` counts,
+  which are still rendered. The quantity measured is unchanged — the
+  remainder's share of the parent — and it is computable because rule 1 above
+  places every member in exactly one SubGroup.
+- **`subgroup_members_sum_to_parent` is REVOKED on this surface** and moved to
+  `not_expressible`, re-sited as a **pre-render refusal** in `cmdCotags`. It is
+  not re-pointed at the same summation, which would make it `sum == sum` — a
+  predicate that cannot fail. **The cost is stated rather than claimed away:**
+  the pre-render refusal reads the data and the withdrawn rule read the text,
+  and §14.2's own recorded specimen is a renderer that dropped four of six
+  member fields while every assertion about the data structure stayed green. A
+  renderer that silently omits a whole SubGroup line is now invisible to this
+  surface's refusal. The golden fixture (§14.5) and `catch_all_share`'s reading
+  of the same counts still bound it; neither is offered as an equivalent.
+  **Which direction the pre-render refusal can fire in is named too:**
+  under-placement is unreachable there, because the placement sweeps every
+  unplaced member into the catch-all, so what it actually catches is **double
+  placement** — one member named in two SubGroups, summing over the parent and
+  rendering twice — which nothing in the runtime refused before this.
+- **`subdivision_required_at_ten` is NARROWED to its flat arm.** A subdivided
+  heading carries no count to test, and the arm was already very nearly
+  vacuous — the renderer emits that form only when SubGroups follow. The live
+  arm is unchanged and is the one that bites.
+
+**The ruling's example block is a spacing sketch and not a fifth disposition,
+and both readings it invites were put to the owner rather than taken.** The
+sketch renders a SubGroup line as `G1-1 — L1, L2, L3` and shows no `in common:`
+under the subdivided group. **Neither is ruled**: `subgroup_heading` keeps its
+Lesson count and its SubGroup name (§6.2 v5/v6, and the count is what
+`catch_all_share` now reads), and **a subdivided group still renders its own
+GroupClaim** — §6.1 and §7 both require it for every group, and dropping it
+would make what reaches the owner smaller than what exists (§2.3). Recorded
+because an implementation following the sketch literally would have deleted
+both, and the deletion would have looked licensed.
 
 ### 6.3 The post-tag-selection window — exactly two acts, and no question
 
@@ -4957,11 +5079,24 @@ and the screen text have had neither.
 **The decidable set, enumerated because it is what the grammar must express.**
 Pin occurrences per file == 1; zero `lesson:` tokens and zero element names on
 an owner surface (§14.3); the G/SG ID grammar present; member lists carry
-display IDs; sum(SubGroup members) == parent count; catch-all ≤ 30%; a line
-class outside the surface's allowlist ⇒ refuse. Every one is mechanically
+display IDs; catch-all ≤ 30%; a group of ten or more rendered flat ⇒ refuse; a
+line class outside the surface's allowlist ⇒ refuse. Every one is mechanically
 decidable on the rendered text alone, which is why the refusal is possible at
 all — and a decision that is *not* mechanically decidable does not enter the
 grammar and stays prose.
+
+**`sum(SubGroup members) == parent count` LEFT this set at v31** (kogaki#684),
+and it is named as having left rather than quietly dropped. §6.2's disposition
+2 removes the parent count from the subdivided group heading, so one side of
+the comparison is no longer on the rendered text and the rule is not decidable
+there — which is the entry condition for this paragraph's own last sentence.
+It did **not** become prose: it is a pre-render refusal in `cmdCotags`, over
+the placement rather than the text, and `report-format.json`'s
+`not_expressible` entry carries the reopen trigger and the coverage that move
+costs. Re-pointing the rule at the sum of the SubGroup counts — the only parent
+quantity the surface still carries — was declined, because `sum == sum` is a
+predicate that cannot fail and a decidable set with such a member is exactly
+the coverage-shaped claim this section exists to make impossible.
 
 ### 14.3 No owner surface renders an element NAME — the display ID does
 
