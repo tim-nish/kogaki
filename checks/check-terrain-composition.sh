@@ -1882,7 +1882,7 @@ JS
 # Nothing here reaches the real substrate, so the block runs in CI identically.
 node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync, readdirSync, existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { composeInput, cotagGroups, COMPOSITION_INPUT_BOUND, NO_GLOSS_BODY }
@@ -2149,6 +2149,44 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
   rmSync(run, { recursive: true, force: true });
 }
 
+// THE kogaki#234 BLOCKS DRIVE THE EXECUTOR (kogaki#681, owner selection
+// 2026-08-29). They used to spawn `report` standalone into the repository's own
+// reports/FullReport.md. SPEC-terrain §15.5 v28 refuses that write — an owner
+// artifact is written only from a writing state — so the standalone form is no
+// longer a route to the DEFAULT location, which is the property these two
+// blocks exist to exercise and the one property no redirect can stand in for.
+//
+// SEEDING A RUN RECORD IS FIXTURE CONSTRUCTION, not a session minting run state
+// out of band. §15.5 governs an ACT; these blocks stand a record up so the
+// executor can be driven against a FIXTURE at all — which it otherwise cannot
+// be, because `STATE_WORK.survey` re-surveys LIVE and ignores a supplied
+// `--survey`. That finding is what refuted kogaki#680's "cease to exist as
+// entry points" disposition, and it is recorded here because this is where a
+// future reader meets its consequence.
+//
+// COMPLETED THROUGH `cotag_screen`, AWAITING `ID_SELECTION`. Seeding past the
+// judgment states is what keeps these blocks SEAM-FREE up to the report itself:
+// `compose_input` crosses the served-material seam and `J1_claims` refuses
+// without a claims record, so a run started from zero would spend real Gloss
+// fetches before reaching the write under test. The seam these blocks already
+// handle — cmdReport's own — is unchanged, and so are their CANNOT-DETERMINE
+// branches.
+const K681_TABLE = JSON.parse(readFileSync("specs/spec-terrain/workflow.json", "utf8"));
+function seedAtIdSelection(dir, tag = "testing") {
+  writeFileSync(join(dir, "run-record.json"), JSON.stringify({
+    workflow: { path: "specs/spec-terrain/workflow.json", version: K681_TABLE.version },
+    survey_record: resolve(FIXTURE),
+    completed: ["survey", "tag_screen", "TAG_SELECTION", "compose_input",
+                "J1_claims", "J2_subdivision", "cotag_screen"],
+    waits_reached: ["TAG_SELECTION"],
+    conditional_entered: [], conditional_skipped: [],
+    awaiting: "ID_SELECTION",
+    owner_input: { TAG_SELECTION: tag },
+    artifacts_written: [], judgments: {}, gate_declarations_owed: [], done: false,
+  }, null, 1));
+  return dir;
+}
+
 // THE DEFAULT LOCATION, EXERCISED (kogaki#234). The block above passes
 // `--rendering-dir`, so it proves the flag and says NOTHING about where a real
 // run writes — and a real run is what the owner ruling is about. Pointing the
@@ -2183,9 +2221,9 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
   delete env2.KOGAKI_REPORTS_DIR;
   const OWNER_MD2 = "reports/FullReport.md";
   const priorOwnerMd2 = existsSync(OWNER_MD2) ? readFileSync(OWNER_MD2) : null;
+  seedAtIdSelection(run2);
   const d = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
-     "--ids", "G2", "--subdivisions", subs2,
+    ["terrain/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs2,
      "--judge-model", "m", "--judge-effort", "high"],
     { encoding: "utf8", env: env2 });
   const dout = String(d.stdout) + String(d.stderr);
@@ -2291,9 +2329,18 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
   writeFileSync(subs3, JSON.stringify({
     "testing × architecture": { judged: true, subgroups: [] },
   }));
-  const argv = ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
-    "--ids", "G2", "--subdivisions", subs3,
+  const argv = ["terrain/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs3,
     "--judge-model", "m", "--judge-effort", "high"];
+  // RE-SEEDED BEFORE EVERY DRIVE, and that is not bookkeeping. A second `run`
+  // against a record whose states are all `completed` RESUMES and writes
+  // nothing — so a rerun assertion that reused one record would read an absent
+  // second write as idempotence and pass on a runtime that had stopped writing
+  // entirely. The idempotence under test is cmdReport's own, keyed on the
+  // REPORT record in run3, which re-seeding leaves untouched.
+  const drive = (extra = [], env = env3) => {
+    seedAtIdSelection(run3);
+    return spawnSync(process.execPath, argv.concat(extra), { encoding: "utf8", env });
+  };
   // NEITHER RENDERING LOCATION IS OVERRIDDEN. `--rendering-dir` would supply
   // the value under test, which is the class PR #240 round 1 finding 3 already
   // caught once in this file; the record is steered by KOGAKI_RUN_DIR, which is
@@ -2315,7 +2362,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
   const priorOwnerMd3 = existsSync("reports/FullReport.md")
     ? readFileSync("reports/FullReport.md") : null;
 
-  const r1 = spawnSync(process.execPath, argv, { encoding: "utf8", env: env3 });
+  const r1 = drive();
   if (seamAbsent3(r1)) {
     K234.material = "CANNOT-DETERMINE (seam unavailable)";
     K234.rerun = "CANNOT-DETERMINE (seam unavailable)";
@@ -2470,7 +2517,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       // in the same act" (§12.2 v11) and the whole block below cannot pass by
       // reading the FIRST run's leftovers.
       rmSync(md, { force: true });
-      const r2 = spawnSync(process.execPath, argv, { encoding: "utf8", env: env3 });
+      const r2 = drive();
       const out2 = String(r2.stdout);
       if (r2.status !== 0) {
         K234.rerun = `FAILED (exit ${r2.status})`;
@@ -2513,7 +2560,24 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
         // detected, and no carrier in this repository produces one — stated
         // rather than left for the next reader to discover the same way this
         // finding was discovered.
+        // SCOPED TO THE OWNER-SURFACE LINES, as block 2's twin already is
+        // (kogaki#681). This loop scanned EVERY line, which was right while the
+        // block spawned `report` — there every line printed IS the report's
+        // owner surface. Driving the executor puts its CONTROL-PLANE lines in
+        // the same stream: `Run record: <abs>` and the gate declaration's path
+        // are §15.3 run-workspace paths the executor names deliberately, at a
+        // stop directed to the session rather than to the owner (§14.4 puts the
+        // owner's reading on the artifact). Finding B is unchanged and still
+        // asserted — it is about the RENDERING and RECORD lines, which are the
+        // two this predicate now selects, exactly as block 2 selects them.
+        //
+        // WHAT THIS DOES NOT SETTLE, stated rather than absorbed: whether the
+        // executor's stop lines are themselves an owner surface under §2.5
+        // clause 3 is a real question this sitting did not open and does not
+        // decide. The behaviour is unchanged at this head; scoping the
+        // assertion is not a ruling that the lines are exempt.
         for (const line of out2.split("\n")) {
+          if (!/^(Full Report|machine record)/.test(line)) continue;
           const abs = line.split(/\s+/).filter((t) => /^~?\//.test(t) && t.length > 1);
           if (abs.length) {
             fails.push(`the RERUN prints an ABSOLUTE path on the owner surface (${abs[0]}): ${line.trim().slice(0, 140)} — §2.5 clause 3 keeps machine paths off the owner surface outside debugging`);
@@ -2526,8 +2590,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       // deleted the record line would satisfy every assertion above while
       // removing the operator's only way to find the file. Asserting only the
       // refusal cannot tell a guard from a deletion.
-      const r3 = spawnSync(process.execPath, argv,
-        { encoding: "utf8", env: Object.assign({}, env3, { KOGAKI_DEBUG: "1" }) });
+      const r3 = drive([], Object.assign({}, env3, { KOGAKI_DEBUG: "1" }));
       if (r3.status === 0) {
         if (!String(r3.stdout).includes(join(run3, recName))) {
           fails.push("with KOGAKI_DEBUG=1 the rerun does not print the machine record's full path — the clause excepts debugging, and a deleted line is not a guard");
@@ -2552,8 +2615,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
       // conjunction is split: the run must succeed, and then the flag must have
       // opted out.
       rmSync(md, { force: true });
-      const r4 = spawnSync(process.execPath, argv.concat(["--no-render"]),
-        { encoding: "utf8", env: env3 });
+      const r4 = drive(["--no-render"]);
       if (r4.status !== 0) {
         fails.push(`the \`--no-render\` rerun failed (exit ${r4.status}) — the opt-out was NOT asserted, and a run that did not complete is not evidence that a flag works: ${(String(r4.stdout) + String(r4.stderr)).trim().slice(0, 200)}`);
       } else if (existsSync(md)) {
@@ -4604,9 +4666,19 @@ function mutant(name, edit, expectRefusal = false) {
 // the print and the guard — which is what makes "whichever surface it reaches,
 // it reaches with the injected line in it" true.
 const INJECT = "!! INJECTED NONCONFORMANT LINE";
+//
+// ANCHORED ON THE SIGNATURE ALONE (kogaki#681). The anchor used to carry the
+// signature AND the `let path = null;` line beneath it, so adding ANY statement
+// at the top of the writer — §15.5 v28's write-authority refusal did exactly
+// that — silently stopped the pattern matching. The case then reported "could
+// not be constructed", which is the honest reading and is also a case that
+// asserts nothing, once per edit to a function this fixture does not own. A
+// signature is the one line the fixture may bind to: the injection's stated
+// requirement is only that it be UPSTREAM of both the print and the guard, and
+// the first line of the body satisfies that however the body grows.
 const inject = (s) => s.replace(
-  "function writeScreenSurface(args, surface, text) {\n  let path = null;\n",
-  `function writeScreenSurface(args, surface, text) {\n  text = text + "\\n${INJECT}";\n  let path = null;\n`);
+  "function writeScreenSurface(args, surface, text) {\n",
+  `function writeScreenSurface(args, surface, text) {\n  text = text + "\\n${INJECT}";\n`);
 
 const refused = mutant("nonconformant", inject, true);
 if (refused.skipped && refused.r === undefined) {

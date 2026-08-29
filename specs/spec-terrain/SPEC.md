@@ -1,5 +1,21 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v28, amended 2026-08-29 (kogaki#681, successor to #680, owner
+selections at the /ship-cycle 681 sitting) — **§15.5's write-authority claim is
+NARROWED to what a carrier can make true, and given that carrier.** The section
+title — *owner artifacts are written only from writing states* — is now enforced
+at the write: `writeScreen` and `cmdReport`'s rendering write refuse a
+destination that resolves to the repository's `reports/` unless the executor is
+inside a writing state. The sentence beneath the title, *"There is no callable
+surface by which an act can happen out of order"*, was WIDER than that and is
+corrected rather than left standing: `cotags` and `report` remain callable
+COMPOSITION routes. #680's disposition (both cease to exist as entry points) was
+**refuted by observation** — see §15.5's amendment for the three findings.
+`workflow.json` goes to v8 in the same act: `view` leaves `bound_to_a_state` as
+the phantom it has been since kogaki#665, and the two live entry points carry
+their write-authority clause where a reader of the map meets it.
+**deferred slots minted by the v28 amendment: none.**
+
 **Status:** v27, amended 2026-08-27 (kogaki#625 acceptance item 1, PR #671
 round 2 and PR #672 round 1) — **the IN-BAND half of the capture rule is recorded: a gate wait whose
 declaration was written is answered by a capture and never by a bare `--input`,
@@ -5387,6 +5403,79 @@ is the served position on this class rather than a preference of this section:
   query: "Is a remedy that constrains what the pipeline can produce preferred
          over an individual prohibition or forbidden-list entry?"
 
+**AND THE SENTENCE IS NARROWED, because a removal cannot make it true (v28,
+kogaki#681).** The claim above has two halves and only one of them has ever been
+carriable. The **title's** half — an owner artifact is written only from a
+writing state — is now enforced at the write itself. The **sentence's** half —
+no callable surface at all — is corrected: `cotags` and `report` stay callable
+as composition routes, and this section says so rather than asserting a property
+the code does not have.
+
+**#680's disposition was refuted by observation, not by preference.** It ruled
+that both commands cease to exist as entry points, the same repair the six
+subcommands above took. Executing it breaks 34 spawn sites in
+`checks/check-terrain-composition.sh`, and the sitting that tried to migrate
+them found three reasons they cannot move:
+
+- **`survey` re-surveys live.** `STATE_WORK.survey` calls `cmdSurvey`, which
+  *produces* a record; a `--survey <fixture>` handed to `run` is ignored. Every
+  fixture the composition check owns is unreachable through the executor.
+- **`compose_input` crosses the served-material seam.** A fixture drive through
+  `run` spends real Gloss fetches, so a check whose own header declares it
+  seam-free would become substrate-bound.
+- **`J1_claims` is non-conditional and refuses without `--claims`**, as is
+  `J2_subdivision`. The claimless co-tag screen §6.1 requires — the `NO_CLAIM`
+  ABNORMAL marker and its aggregate — is therefore **unreachable through the
+  executor at all**, in production as well as in the check.
+
+**So the refusal binds the WRITE.** The discriminator is the RESOLVED
+destination and never a flag: §15.7 forecloses a debug-only escape, and a route
+whose refusal could be switched off by an environment variable would be exactly
+that — which is why the check is written against the resolved path, so
+`--rendering-dir reports` is refused too. A caller rendering into a run-scoped
+location writes no owner artifact by §2.5.1's lifetime rule, which is why the
+check suite's throwaway-directory runs are unaffected rather than exempted.
+
+**The authority is held by the executor and released on the way out.** It is set
+for the duration of a `write`-kind state and restored in a `finally`, so a
+renderer that fails cannot leave it standing for whatever runs next in the same
+process.
+
+**What this does NOT claim, stated because the superseded prose overclaimed in
+exactly this direction.** The composition remains reachable out of order. A
+session can still render a co-tag screen into a temporary directory with no run
+record; what it cannot do is put one in front of the owner. The served position
+this narrowing answers to:
+
+> "An extraction, promotion, or generalization criterion is one-sided — it
+> measures what must NOT remain, so it is satisfied most cheaply by removing
+> behaviour, and checked alone it rewards the loss it exists to prevent; the
+> completeness criterion must be stated in the same act (an inventory of
+> behaviours that must survive, each with the test that fails if it stops
+> holding), with a behaviour leaving only under a recorded decline."
+
+`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 LESSONS.md:36`
+  outcome: discriminating
+  query: "When removing a CLI entry point makes an existing test suite unable to
+         reach the behaviour it verifies, is the remedy to migrate the tests to
+         the surviving driver, to narrow the prohibition to the harmful write,
+         or to extract a pure exported composer the fixture can call?"
+
+**The completeness criterion, stated in the same act as the purity one.** The
+behaviours that must survive this narrowing, each with the test that fails if it
+stops holding: the co-tag screen composes without claims (the `NO_CLAIM` marker
+and its aggregate, `check-terrain-composition.sh` §6.1 block); a Full Report
+renders at the DEFAULT owner location through the writer rather than through a
+supplied path (the kogaki#234 blocks, now driven through the executor on a
+seeded run record); and the screen artifact is written, overwritten and named
+(§14.4.1's five-mutant block). Nothing left under a decline.
+
+**And the caller set gains its carrier.** #681 names the hop that had none:
+`check-terrain-workflow.sh` counts run records against the table and
+`check-terrain-composition.sh` checks screen conformance, and **neither reads
+the caller set of the owner-artifact writers**, which is the one thing this
+section asserts. `checks/check-terrain-write-authority.sh` is that reader.
+
 **That sentence was FALSE when it was written, and making it true is a
 removal** — PR #626 round 2, finding 3. `act`, `gate` and `capture` were live
 CLI entry points (`terrain/terrain.mjs:3550-3552`), bound to no state and named
@@ -5742,8 +5831,26 @@ record. Stated so their survival reads as a decision rather than an oversight.
   `CLAIM_REOFFER` is a wait the executor enters, `J2_subdivision` composes under
   the classification, and all six standalone acts are refusing stubs.
 
-- **§15.5's unwritability claim IS true at this head, and this is the amendment
-  that makes it so.** From v23 to v25 this bullet recorded the opposite — `act`,
+- **§15.5's unwritability claim IS NARROWED at this head, and the bullet below
+  is corrected rather than deleted (v28, kogaki#681).** What that bullet records
+  is true of the six standalone acts it is about, and it was read — by #680's
+  own filing — as a claim about the WHOLE of §15.5. It is not. `cotags` and
+  `report` were live dispatcher cases the entire time, reaching the same
+  renderers, so the sentence *"there is no callable surface by which an act can
+  happen out of order"* stayed false for the two acts that write the owner's
+  artifacts. **What is true at this head is the section's TITLE**: an owner
+  artifact is written only from a writing state, refused at the write itself,
+  and read by `checks/check-terrain-write-authority.sh` rather than asserted.
+  The composition remains callable out of order, deliberately, because #680's
+  removal was refuted by observation — see §15.5.
+  **The correction is again the interesting half.** This is the fifth time this
+  chain has found a clause amended in effect and not by name, and the fourth
+  time in this very section, which is what the hop-with-no-carrier reading
+  predicts: three repairs each closed honestly against a different artifact
+  while nothing read the property they were all about.
+
+- **The v26 bullet, kept as written and read in its own scope.** From v23 to v25
+  this bullet recorded the opposite — `act`,
   `gate` and `capture` were live dispatcher cases and *"there is no callable
   surface by which an act can happen out of order"* was a property the executor
   *would* make true. It now holds: the six cases refuse with a pointer, and the

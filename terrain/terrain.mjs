@@ -2161,8 +2161,55 @@ export const NAVIGATION_HINT =
 
 export const SCREEN_RENDERING = "Screen.md";
 
+// WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain §15.5 v27, kogaki#681,
+// successor to #680). §15.5's title — "owner artifacts are written only from
+// writing states" — was carried by nothing: `cotags` and `report` stayed live
+// dispatcher cases calling the same renderers, so a session could mint
+// `reports/Screen.md` or `reports/FullReport.md` out of order, with no run
+// record. #680's disposition ("they cease to exist as entry points") was
+// REFUTED by observation at #681: the executor re-surveys live rather than
+// accepting a fixture, `compose_input` crosses the served-material seam, and
+// `J1_claims` is non-conditional — so the 34 composition-check sites that drive
+// these two commands could not be migrated, and the claimless screen §6.1
+// requires is unreachable through `run` at all.
+//
+// SO THE REFUSAL BINDS THE WRITE AND NOT THE ENTRY POINT. The commands survive
+// as COMPOSITION routes; what they cannot do is land an owner artifact. The
+// discriminator is the RESOLVED destination, never a flag and never an env
+// var's presence — §15.7 forecloses a debug-only escape ("a retained generator
+// regenerates what a ban forbids"), and a route whose refusal could be
+// switched off would be exactly that. A caller that redirects elsewhere writes
+// no owner artifact by §2.5's own lifetime rule, which is why the check suite's
+// throwaway-directory runs are unaffected rather than exempted.
+//
+// WHAT THIS DOES NOT CLAIM, stated because the superseded prose overclaimed in
+// exactly this direction: the composition remains callable out of order. The
+// property carried here is the one in the section's title, and §15.5 now says
+// that and no more.
+let WRITING_STATE = null;
+
+// The default owner location, as one expression. `renderingsDir` composes the
+// same default; a second literal here is how the two would drift.
+function ownerRenderingLocation() {
+  return join(repoRoot(), "reports");
+}
+
+// REFUSES BY DESTINATION, so a redirect that RESOLVES to the owner's tree is
+// refused too — comparing the override's presence rather than its value is the
+// hole a caller closes by passing `--rendering-dir reports`.
+function refuseUnauthorizedOwnerWrite(dir, artifact) {
+  if (WRITING_STATE !== null) return;
+  if (resolve(dir) !== resolve(ownerRenderingLocation())) return;
+  fail(`${artifact} is an OWNER ARTIFACT and is written only from a writing state of the workflow table (SPEC-terrain §15.5, kogaki#681). `
+    + `This call reaches ${relFromRepo(resolve(dir))} from outside the executor, so it would land an owner surface belonging to no run record. `
+    + "Drive it through the executor — `run --run-dir <D> …` — which reaches the same renderer from the state the table binds it to. "
+    + "The composition itself is not refused: render into a run-scoped location and the write proceeds, because a rendering whose lifetime is the run is not an owner artifact (§2.5.1).");
+}
+
 function writeScreen(args, text) {
-  const path = join(renderingsDir(args), SCREEN_RENDERING);
+  const dir = renderingsDir(args);
+  refuseUnauthorizedOwnerWrite(dir, SCREEN_RENDERING);
+  const path = join(dir, SCREEN_RENDERING);
   writeFileSync(path, text.endsWith("\n") ? text : text + "\n");
   return path;
 }
@@ -2193,6 +2240,16 @@ function writeScreen(args, text) {
 // structural property the code no longer has is how the next edit loses it for
 // real. One printer, one writer, one callback, one refusal.
 function writeScreenSurface(args, surface, text) {
+  // BEFORE THE PRINTER, NOT ONLY BEFORE THE WRITE (§15.5 v27, kogaki#681).
+  // `writeScreen` carries the same refusal as the writer's own guard, but the
+  // printer runs first inside the callback below — so siting the check only
+  // there put the refused screen on the owner's terminal and then declined to
+  // file it. That is the exact half-property PR #667 round 2 repaired for the
+  // grammar refusal ("a nonconformant screen reaches NEITHER the owner's
+  // terminal nor their artifact"), re-broken by a second refusal added at the
+  // wrong end of the same callback. Two call sites, one property: this one
+  // binds the printer, `writeScreen`'s binds any future caller of the writer.
+  refuseUnauthorizedOwnerWrite(renderingsDir(args), SCREEN_RENDERING);
   let path = null;
   emitOrRefuse(surface, text, (conformant) => {
     console.log(conformant);
@@ -2965,6 +3022,11 @@ function cmdReport(args) {
   let rendered = null;
   if (!args["no-render"]) {
     const rdir = renderingsDir(args);
+    // §15.5 v27 (kogaki#681) — the same write-authority refusal the screen
+    // writer carries, at the other owner artifact. Sited HERE rather than at
+    // `renderingsDir`, which also runs on read-shaped paths (the rerun branch
+    // reads `priorRendered` through it) and would refuse a lookup.
+    refuseUnauthorizedOwnerWrite(rdir, "FullReport.md");
     // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
     // pull. Identity stays in the record alone; the filename carries none.
     rendered = join(rdir, "FullReport.md");
@@ -4561,7 +4623,17 @@ function cmdRun(args) {
     if (!work && kind.needsRenderer) {
       fail(`workflow state ${JSON.stringify(st.id)} is kind ${JSON.stringify(st.kind)} and this runtime has no renderer bound to it. §15.1: a new state is a table row PLUS a renderer — the executor interprets the table and invents neither a renderer nor a judgment.`);
     }
-    const outcome = work ? work(rec, st, args, table) : null;
+    // THE AUTHORITY IS HELD FOR THE DURATION OF A WRITING STATE AND NO LONGER
+    // (§15.5 v27, kogaki#681). Scoped by `try/finally` rather than by setting
+    // and clearing around the call: a renderer that `fail`s would otherwise
+    // leave the authority standing for whatever ran next in the same process.
+    let outcome = null;
+    if (work) {
+      const held = WRITING_STATE;
+      if (st.kind === "write") WRITING_STATE = st.id;
+      try { outcome = work(rec, st, args, table); }
+      finally { WRITING_STATE = held; }
+    }
     if (st.kind === "write") {
       // A WRITE STATE THAT LEGITIMATELY WROTE NOTHING IS NOT A RENDERER THAT
       // NAMED NO ARTIFACT (PR #667 round 1 finding 2). The two were one branch,
