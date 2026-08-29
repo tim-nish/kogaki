@@ -2026,9 +2026,22 @@ function retireLegacyReportsDir() {
 // deliberate — the location must not depend on where the command was invoked
 // from, which would be the producing stage's convenience picking the location
 // again, one layer down.
-function renderingsDir(args) {
-  const dir = args["rendering-dir"] || process.env.KOGAKI_REPORTS_DIR
+// THE DESTINATION IS RESOLVED PURELY, and preparing it is a second act (PR
+// #702 round 1, finding 2). `renderingsDir` is not a resolver: it `mkdirSync`s
+// the destination and runs `retireIdentityNamedRenderings`, which DELETES files
+// in the owner's tree and announces it. A write-authority guard that called it
+// to learn where the write would land therefore created `reports/` and retired
+// owner-tree files BEFORE deciding the act was unauthorized — a refusal that
+// keeps the act off the owner surface in the write direction only. Splitting
+// the two makes the guard's input side-effect-free; `renderingsDir` composes
+// the same expression, so the default cannot drift between them.
+function renderingDestination(args) {
+  return args["rendering-dir"] || process.env.KOGAKI_REPORTS_DIR
     || join(repoRoot(), "reports");
+}
+
+function renderingsDir(args) {
+  const dir = renderingDestination(args);
   mkdirSync(dir, { recursive: true });
   retireIdentityNamedRenderings(dir);
   return dir;
@@ -2207,9 +2220,11 @@ function refuseUnauthorizedOwnerWrite(dir, artifact) {
 }
 
 function writeScreen(args, text) {
-  const dir = renderingsDir(args);
-  refuseUnauthorizedOwnerWrite(dir, SCREEN_RENDERING);
-  const path = join(dir, SCREEN_RENDERING);
+  // REFUSED BEFORE THE DESTINATION IS PREPARED, not after (PR #702 round 1,
+  // finding 2). `renderingsDir` mkdirs and retires; the guard reads the pure
+  // destination so an unauthorized act touches nothing at all.
+  refuseUnauthorizedOwnerWrite(renderingDestination(args), SCREEN_RENDERING);
+  const path = join(renderingsDir(args), SCREEN_RENDERING);
   writeFileSync(path, text.endsWith("\n") ? text : text + "\n");
   return path;
 }
@@ -2249,7 +2264,7 @@ function writeScreenSurface(args, surface, text) {
   // terminal nor their artifact"), re-broken by a second refusal added at the
   // wrong end of the same callback. Two call sites, one property: this one
   // binds the printer, `writeScreen`'s binds any future caller of the writer.
-  refuseUnauthorizedOwnerWrite(renderingsDir(args), SCREEN_RENDERING);
+  refuseUnauthorizedOwnerWrite(renderingDestination(args), SCREEN_RENDERING);
   let path = null;
   emitOrRefuse(surface, text, (conformant) => {
     console.log(conformant);
@@ -2838,6 +2853,17 @@ function cmdReport(args) {
       const priorText = renderReportMarkdown(prior, tag);
       let priorRendered = null;
       if (!args["no-render"]) {
+        // §15.5 v28 — THE RERUN IS A WRITE, so it carries the write authority
+        // (PR #702 round 1, finding 1). This branch's own header already warns
+        // that it "is the path a SECOND look always takes, and it is the path
+        // that shipped the last two clause-3 defects; a guard installed on the
+        // fresh write alone would be the same half-fix again" — and the first
+        // cut of #681 installed exactly that half-fix, one clause below the
+        // sentence saying not to. A standalone `report` repeated for an
+        // identity already on disk landed reports/FullReport.md from outside
+        // any writing state, which is #680's specimen at the artifact this
+        // amendment claims to have closed.
+        refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
         // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
         // pull. Identity stays in the record alone; the filename carries none.
         priorRendered = join(renderingsDir(args), "FullReport.md");
@@ -3021,12 +3047,22 @@ function cmdReport(args) {
   // is the opt-out and its absence is the default.
   let rendered = null;
   if (!args["no-render"]) {
-    const rdir = renderingsDir(args);
-    // §15.5 v27 (kogaki#681) — the same write-authority refusal the screen
-    // writer carries, at the other owner artifact. Sited HERE rather than at
+    // §15.5 v28 (kogaki#681) — the same write-authority refusal the screen
+    // writer carries, at the other owner artifact, and BEFORE the destination
+    // is prepared.
+    //
+    // THIS COMMENT SAID SOMETHING FALSE AND THE FALSEHOOD WAS THE DEFECT (PR
+    // #702 round 1, finding 1). It read: "sited HERE rather than at
     // `renderingsDir`, which also runs on read-shaped paths (the rerun branch
-    // reads `priorRendered` through it) and would refuse a lookup.
-    refuseUnauthorizedOwnerWrite(rdir, "FullReport.md");
+    // READS `priorRendered` through it)". The rerun branch does not read it —
+    // its own text says "THE RENDERING IS STILL WRITTEN IN THIS ACT", and it
+    // returns `priorRendered` as a real owner artifact. Mis-typing the sibling
+    // path as read-shaped is exactly what made guarding this one look
+    // sufficient, so the rerun branch shipped unguarded and §15.5 v28's central
+    // claim was false at the artifact the amendment was written to protect.
+    // The guard now sits on BOTH branches and this note is the record.
+    refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
+    const rdir = renderingsDir(args);
     // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
     // pull. Identity stays in the record alone; the filename carries none.
     rendered = join(rdir, "FullReport.md");

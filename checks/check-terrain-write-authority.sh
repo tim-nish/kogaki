@@ -41,6 +41,7 @@ import { readFileSync, writeFileSync, mkdtempSync, readdirSync, existsSync, mkdi
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
+import { cotagGroups } from "./terrain/terrain.mjs";
 
 const RUNTIME = process.env.RUNTIME;
 const FIXTURE = process.env.FIXTURE;
@@ -149,6 +150,77 @@ function block1(runtime, label) {
     local.push("the executor wrote no owner artifact — the authority it is supposed to hold for the duration of a writing state does not reach the writer");
   }
 
+  // (e) THE RERUN, STANDALONE, INTO THE OWNER LOCATION — refused. This is the
+  //     direction whose absence let PR #702's first cut ship: block 1 drove
+  //     `cotags` four ways and never a `report` rerun, so the member registered
+  //     as reading the caller set RE-ASSERTED the report half. cmdReport has TWO
+  //     write branches and the fresh one is not evidence about the other — the
+  //     rerun branch's own header says so ("a guard installed on the fresh write
+  //     alone would be the same half-fix again").
+  //
+  //     SEAM-AWARE, because a report pull reads served Gloss. A machine with no
+  //     gateway reads CANNOT-DETERMINE rather than a pass, per the three-part
+  //     reporting remedy this file's header declares.
+  const rootE = ownerRoot();
+  const runE = mkdtempSync(join(tmpdir(), "kogaki-rerun-"));
+  const subsE = join(runE, "subs.json");
+  // ONE ENTRY PER COMPOSED GROUP, derived rather than written out: §6.2 judges
+  // every group on the co-tag path, so a hand-listed subset fails setup on the
+  // first fixture whose grouping changes — and a failed setup asserts nothing.
+  {
+    const rec = JSON.parse(readFileSync(FIXTURE, "utf8"));
+    const members = rec.candidates.filter((c) => (c.tags || []).includes(TAG));
+    const entries = {};
+    for (const g of cotagGroups(members, TAG)) entries[g.name] = { judged: true, subgroups: [] };
+    writeFileSync(subsE, JSON.stringify(entries));
+  }
+  const reportArgv = ["report", "--survey", FIXTURE, "--tag", TAG, "--ids", "G1",
+                      "--subdivisions", subsE, "--judge-model", "m", "--judge-effort", "high"];
+  const redirE = mkdtempSync(join(tmpdir(), "kogaki-rerun-out-"));
+  // FIRST PULL, REDIRECTED — permitted, and it is what puts the identity record
+  // in the run dir so the SECOND pull takes the idempotent branch.
+  const e1 = drive(runtime, rootE, reportArgv, { KOGAKI_RUN_DIR: runE, KOGAKI_REPORTS_DIR: redirE });
+  const e1out = String(e1.stdout) + String(e1.stderr);
+  const seamAbsent = e1.status === 11 || (e1.status !== 0 && /policy_source unavailable|gateway/i.test(e1out));
+  if (seamAbsent) {
+    notes.push(`${label}: RERUN DIRECTION CANNOT-DETERMINE — the seam was unavailable, so the idempotent branch was never reached and no claim is made about it`);
+  } else if (e1.status !== 0) {
+    local.push(`the first (redirected) report pull failed (exit ${e1.status}): ${e1out.trim().slice(0, 200)} — the rerun direction reads an ABSENCE, and an absence produced by a failed setup asserts nothing`);
+  } else if (!readdirSync(runE).some((f) => f.startsWith("terrain-full-report-") && f.endsWith(".json"))) {
+    local.push("the first report pull wrote no identity record, so the second pull cannot take the idempotent branch and the direction below would pass vacuously");
+  } else {
+    // SECOND PULL, SAME RUN DIR, NO REDIRECT — the idempotent branch, aimed at
+    // the owner location.
+    const e2 = drive(runtime, rootE, reportArgv, { KOGAKI_RUN_DIR: runE });
+    const e2out = String(e2.stdout) + String(e2.stderr);
+    if (!/the rerun is IDEMPOTENT/.test(e2out) && !REFUSAL.test(e2out)) {
+      local.push(`the second pull neither refused nor reported the idempotent branch — it took the FRESH path, so this direction says nothing about the rerun write: ${e2out.trim().slice(0, 200)}`);
+    } else if (!REFUSAL.test(e2out)) {
+      local.push("the IDEMPOTENT RERUN wrote the owner artifact from outside a writing state — cmdReport has TWO write branches and only one carried the authority, which is the half-fix its own header warns against");
+    }
+    if (mds(join(rootE, "reports")).includes("FullReport.md")) {
+      local.push("the refused rerun landed reports/FullReport.md anyway");
+    }
+  }
+
+  // (f) A REFUSED ACT TOUCHES NOTHING. `renderingsDir` mkdirs its destination
+  //     and runs `retireIdentityNamedRenderings`, which DELETES owner-tree
+  //     files and announces it — so a guard reading the destination through it
+  //     retired the owner's files and then declined to write. Asserted on the
+  //     property rather than on the call: a stale identity-named rendering is
+  //     planted where the refused act would land, and it must survive.
+  const rootF = ownerRoot();
+  const ownerDirF = join(rootF, "reports");
+  mkdirSync(ownerDirF, { recursive: true });
+  const bystander = join(ownerDirF, "terrain-full-report-deadbeef.md");
+  writeFileSync(bystander, "# planted\n");
+  const f = drive(runtime, rootF, ["cotags", "--survey", FIXTURE, "--tag", TAG]);
+  if (!REFUSAL.test(String(f.stdout) + String(f.stderr))) {
+    local.push("the planted-bystander case did not reach a refusal, so its survival below asserts nothing");
+  } else if (!existsSync(bystander)) {
+    local.push("a REFUSED standalone act deleted an owner-tree file before refusing — the destination was prepared (mkdir + identity-named retirement) to decide whether the act was permitted, so the refusal keeps the act off the owner surface in the WRITE direction only");
+  }
+
   return local.map((m) => `${label}: ${m}`);
 }
 
@@ -176,8 +248,19 @@ for (const [fn, why] of [
     fails.push(`${fn} does not call refuseUnauthorizedOwnerWrite — ${why}`);
   }
 }
-if (!/refuseUnauthorizedOwnerWrite\(rdir, "FullReport\.md"\)/.test(SRC)) {
-  fails.push("cmdReport's rendering write does not carry the write-authority refusal — the screen half of §15.5 would be guarded and the report half open, which is exactly how the claim survived three repairs");
+// BOTH of cmdReport's write branches, counted. The fresh render and the
+// IDEMPOTENT RERUN each write reports/FullReport.md, and a guard on one is not
+// evidence about the other — PR #702 round 1 finding 1 is exactly that gap.
+const reportGuards = [...SRC.matchAll(/refuseUnauthorizedOwnerWrite\(renderingDestination\(args\), "FullReport\.md"\)/g)].length;
+if (reportGuards !== 2) {
+  fails.push(`cmdReport carries ${reportGuards} write-authority refusal(s); it has TWO write branches — the fresh render and the idempotent rerun — and each owes one. A guard on the fresh path alone is the half-fix that branch's own header warns against`);
+}
+// The guard's input is the PURE destination, never the prepared directory: a
+// guard that called `renderingsDir` to learn where the write would land created
+// the directory and retired owner-tree files before deciding the act was
+// unauthorized.
+if (/refuseUnauthorizedOwnerWrite\(renderingsDir\(/.test(SRC)) {
+  fails.push("a write-authority guard reads its destination through `renderingsDir`, which mkdirs and retires — so an unauthorized act mutates the owner's tree before being refused. The guard consumes `renderingDestination`, the side-effect-free resolver");
 }
 // The authority is the executor's, and it is RESTORED rather than cleared: a
 // renderer that fails must not leave it standing for whatever runs next in the
@@ -240,10 +323,14 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("§15.5 write authority: the owner-artifact writers' CALLER SET is read, not re-asserted — "
-  + "four behavioural directions over the shipped runtime (standalone into the owner location REFUSED, "
-  + "redirected ALLOWED, a redirect RESOLVING to the owner location REFUSED, the executor ALLOWED), the "
-  + "refusal asserted to precede the PRINTER as well as the write, and the structural caller set read "
-  + "(one caller of writeScreen, both writers guarded, cmdReport's rendering write guarded, the authority "
-  + "restored in a finally). Every case runs in a throwaway non-checkout root, so the repository's own "
-  + "reports/ is never a candidate destination and no save/restore of an owner rendering is performed.");
+  + "SIX behavioural directions over the shipped runtime (a) standalone into the owner location REFUSED, "
+  + "(b) redirected ALLOWED, (c) a redirect RESOLVING to the owner location REFUSED, (d) the executor "
+  + "ALLOWED, (e) cmdReport's IDEMPOTENT RERUN into the owner location REFUSED — its own write branch, "
+  + "seam-aware and CANNOT-DETERMINE where no gateway answers — and (f) a REFUSED act leaves a planted "
+  + "owner-tree file standing, so the destination is resolved without being prepared. The refusal is "
+  + "asserted to precede the PRINTER as well as the write. Structural caller set: one caller of "
+  + "writeScreen, both screen-writer entries guarded, BOTH of cmdReport's write branches guarded, every "
+  + "guard consuming the side-effect-free resolver, and the authority restored in a finally. Every case "
+  + "runs in a throwaway non-checkout root, so the repository's own reports/ is never a candidate "
+  + "destination and no save/restore of an owner rendering is performed.");
 JS
