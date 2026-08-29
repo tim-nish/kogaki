@@ -330,8 +330,8 @@ writeFileSync(SUBS, JSON.stringify({
     // outlives the deleted rule: the two measure opposite failures. The
     // threshold asks whether a group large enough to owe a split served one;
     // this cap bounds how much of a group a judgment that DID split swept into
-    // the remainder, and that is a defect at any size. So a 2-member group with one member in
-    // the remainder is 50% and is refused, arithmetically correct and a long
+    // the remainder, and that is a defect at any size. So a 2-member group with
+    // one member in the remainder is 50% and is refused, arithmetically correct and a long
     // way from the 29-of-35 specimen that settled the number. Recorded here
     // rather than worked around.
     { subgroup: "guards exercised by a real run", claim: "a check some run has actually made fail",

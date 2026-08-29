@@ -544,8 +544,10 @@ them is a contract violation and a FAILED run — which **discharges** §6.2's
 `deferred-slot: terrain-subdivision-offering-verdict` as §8.1's owner-verdict
 step delivered, **declines kogaki#163's never-default latency lever**, leaves
 §8's no-member-count-threshold rule and §8.1's co-tags-default rider
-untouched, and keeps the **hub-side** gate pointer named with its upstream
-proposal owed. The slot's discharge is grounded in the hub's own 2026-08-05
+untouched **as of v6** — that first rule was REVERSED by the owner at v30
+(kogaki#683) and this entry is dated provenance for what v6 did, not a
+statement of what stands — and keeps the **hub-side** gate pointer named with
+its upstream proposal owed. The slot's discharge is grounded in the hub's own 2026-08-05
 re-point of the offering measurement **to Kogaki** (`topics/articles.md:9`,
 read whole), whose condition — "fires when that ships" — is met.
 §8.1 additionally records a **currency finding** in two instances: the served
@@ -1519,7 +1521,8 @@ up the other.
 **The screen JUDGES its SubGroups; it does not merely render them** — v4,
 kogaki#133. v3's wording ("where §8's conjunctive leaf condition and its two
 disjunctive disclosures put them" — that condition is itself superseded at v30,
-and is quoted here as the wording this finding was about) was satisfied in the shipped screen by the
+and is quoted here as the wording this finding was about) was satisfied in the
+shipped screen by the
 caller's JSON alone: the runtime placed members and printed name, claim and
 ids, evaluating neither conjunct and emitting neither disclosure. Three
 requirements close that:
@@ -3351,7 +3354,8 @@ section introduced a floor, which is what it was written to say, and that
 remains true: the floor arrived later and by its own act. This section takes
 its disposition from the judgment-side obligation — SubGroups appear where the
 judge's coherence labels put them, *"judged, with the judge pin required"* —
-which is the only half §12 needs. So the conformant artifact for a judged-but-empty
+which is the only half §12 needs. So the conformant artifact for a
+judged-but-empty
 group is a report
 carrying **its judge pin and zero SubGroupClaims** — *not* a report carrying
 `none`. `none` and an empty SubGroupClaim set are not synonyms and never were:
