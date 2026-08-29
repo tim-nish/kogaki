@@ -5596,12 +5596,26 @@ paragraph opened by calling false **stays false until the executor lands**. What
 this amendment changes is that the falsity is now named, accounted and derivable
 from the table rather than invisible; §15.8 carries it as uncarried. `workflow.json` v3 accounts for them in `removed_entry_points`,
 and its `entry_point_accounting` note carries the property that actually
-matters — **every dispatcher case appears in exactly one of the four maps**, so
+matters — **every dispatcher case appears in exactly one of the maps — four at v3, FIVE from v9 (kogaki#682 adds `owner_executed_entry_points`), the totality being the property rather than the count**, so
 the next entry point is covered by the totality rather than by having been
 remembered. `neighborhood` moves to its own `retired_entry_points` map: it was
 retired before this table existed (kogaki#472/#473) and survives only to refuse
 with a pointer, so listing it beside four real removals is what made an
 interpreter read a phantom.
+
+**AMENDED AT v29 (kogaki#682) — THE THREE-STATE ARITHMETIC BELOW IS
+PROVENANCE, NOT A DESCRIPTION OF THE TABLE.** `tag_screen` and `tag_row_view`
+are gone; `reports/Screen.md` has exactly ONE writing state, `cotag_screen`,
+and the private writer has exactly one caller. The reasoning is kept because
+the RULING it settles is still live — grammar binds to the writing state and
+never to the artifact path — and because a reader meeting only the conclusion
+cannot tell a decision from a coincidence. It is marked here rather than
+rewritten for the same reason its §15.6 sibling is: rewriting history to match
+the present is how the record of *why* a rule exists is lost. **What must not
+survive is a statement a reader could act on**, which is what disposition 2
+requires and what this marking supplies (PR #704 round 1, finding 2 — the
+sibling was marked and this section was not, so a reader arriving at §15.5 read
+the superseded definition as current).
 
 **ONE WRITER and ONE GRAMMAR are different claims, and v2 conflated them** —
 PR #626 round 2, finding 2. `workflow.json` v2 bound the single `screen`
@@ -5619,8 +5633,9 @@ the amendment was written to close.
 **So grammar binds to the STATE, never to the artifact path.** Each writing
 state declares its own `grammar_surface`; the writer stays one private
 function, and it renders under the grammar the calling state names.
-`report-format.json` mints `tag_screen` and `tag_row_view` from §9's allowlist
-in the same act. The one-writer ruling below is untouched — it was never what
+`report-format.json` minted the two listing surfaces from §9's allowlist in the
+same act; at v11 they are `tag_listing` and `tag_row_listing`, and at v29 they
+are printed by owner-executed commands rather than written by states (§6.0). The one-writer ruling below is untouched — it was never what
 was wrong, and the defect it fixed (two producers, one conformance-checked) is
 still fixed.
 
@@ -5630,7 +5645,8 @@ both writing `reports/Screen.md`. The shipped code shows what the class cost:
 `cmdCotags` writes it through the format guard while `cmdView` writes the same
 file directly, bypassing the guard — so one artifact had two producers and only
 one of them was conformance-checked. Under this section there is **one screen
-writer**, a private function the tag-screen and co-tag-screen states both call.
+writer**, a private function; at v29 it has exactly one caller, the
+`cotag_screen` state.
 
 **The artifact NAME does not change, and per-state names were the declined
 arm.** §12.2 (v12) rules the tree holds one overwritten rendering per

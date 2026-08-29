@@ -5042,7 +5042,19 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <run|tags|tag-rows|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
+  tags --survey F                           THE OWNER RUNS THIS (SPEC-terrain §6.0). Prints the
+                                            pre-selection tag listing — a header and one tag row
+                                            per section — under the tag_listing grammar, and
+                                            WRITES NOTHING. It is the owner's to type because a
+                                            session's tool output is displayed to the session
+                                            rather than reliably to the owner; the executor names
+                                            this invocation at its TAG_SELECTION stop and neither
+                                            runs it nor relays its output.
+  tag-rows --survey F --tag T [--family F]  THE OWNER RUNS THIS TOO (§6.0, §6.3's browse-rows fork
+                                            half). The candidate rows under one named tag with
+                                            their Gloss headlines, under tag_row_listing. Writes
+                                            nothing. Never scheduled by the flow.
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
       [--capture-option ID | --capture-free-text S] [--tool-use-id ID]
       [--claims F] [--subdivisions F] [--classification F] [--judge-model M] [--judge-effort E]

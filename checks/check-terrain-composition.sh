@@ -3139,7 +3139,7 @@ const GROUP = "testing × architecture";
 // says two.
 const covered = Object.keys(G.surfaces || {});
 const SPECIMENS = { cotag_screen: "cotag-screen.txt", full_report: "full-report.md",
-                    tag_listing: "tag-screen.txt", tag_row_listing: "tag-row-view.txt" };
+                    tag_listing: "tag-listing.txt", tag_row_listing: "tag-row-listing.txt" };
 for (const s of covered) {
   if (!SPECIMENS[s]) {
     fails.push(`the grammar covers ${s} and ${DIR} holds no specimen for it — §14.5's count is ONE PER COVERED SURFACE, so covering a surface owes a specimen in the same sitting`);
