@@ -323,11 +323,15 @@ writeFileSync(SUBS, JSON.stringify({
     // refuses (kogaki#316 decision 2). The fixture encoded exactly the
     // judgment shape the owner decision was filed against.
     //
-    // THE CAP HAS NO FLOOR AND NONE CAN BE ADDED, which is why the fixture
-    // moved rather than the rule: a minimum-group-size before the cap applies
-    // IS a member-count threshold, and §8 forbids one — the same §8 clause
-    // kogaki#316 explicitly reaffirms. So a 2-member group with one member in
-    // the remainder is 50% and is refused, arithmetically correct and a long
+    // THE CAP HAS NO FLOOR, which is why the fixture moved rather than the
+    // rule. The ground was that a minimum-group-size before the cap applies is
+    // a member-count threshold and §8 forbade one; §8 acquired a threshold at
+    // v30 (kogaki#683) and the cap STILL has no floor, for a reason that
+    // outlives the deleted rule: the two measure opposite failures. The
+    // threshold asks whether a group large enough to owe a split served one;
+    // this cap bounds how much of a group a judgment that DID split swept into
+    // the remainder, and that is a defect at any size. So a 2-member group with
+    // one member in the remainder is 50% and is refused, arithmetically correct and a long
     // way from the 29-of-35 specimen that settled the number. Recorded here
     // rather than worked around.
     { subgroup: "guards exercised by a real run", claim: "a check some run has actually made fail",
@@ -1743,7 +1747,9 @@ const write = (dir, name, body) => {
 };
 
 // One invocation of the COMPOSER — the whole point of this block. Everything it
-// needs is supplied per run; no numeric constant enters the runtime (§8).
+// needs is supplied per run, the screen budget included, because a rendering
+// destination is a property of where a screen lands rather than of the
+// material (§8).
 //
 // RE-POINTED, NOT WEAKENED (kogaki#625 item 1). This drove `terrain.mjs
 // subdivide`, which §15.6.2 removes as an entry point; the composition did not
@@ -1987,9 +1993,11 @@ for (const g of testing.input.groups) {
 }
 // The bound is DECLARED in the artifact rather than left to the reader.
 eq("the artifact states its own bound", testing.input.bound, COMPOSITION_INPUT_BOUND);
-// UNTRUNCATED, because §8's leaf condition asks whether a SubGroupClaim is
-// TIGHTER THAN its parent's — a headline-only input would decide that conjunct
-// by what the bound withheld rather than by the material.
+// UNTRUNCATED, because §8's coherence label asks whether a SubGroup's members
+// share one MECHANISM — a headline-only input would decide that by what the
+// bound withheld rather than by the material. The reading is unchanged by v30's
+// re-cut: the conjunct this comment used to name asked a neighbouring question
+// of the same material.
 if (testing.input.material.some((m) => m.gloss !== NO_GLOSS_BODY && /…|\.\.\.$/.test(m.gloss))) {
   fails.push("a material entry is truncated — the bound is on the number of reads, never on what a read returns (§12 forbids truncation anywhere)");
 }
@@ -3285,7 +3293,8 @@ JS
 # The two criteria pull against each other on purpose: the group must render
 # WITHOUT SubGroups, and the command must still succeed. A refusal satisfies
 # the first and fails the second — and refusing would contradict §6.2's own
-# clause that a group whose leaf condition fails is FULLY CONFORMANT.
+# clause that such a group is FULLY CONFORMANT, which holds BELOW the split
+# threshold (§8 v30, kogaki#683). This block's fixture group is under it.
 #
 # Before this story the verdict was computed, printed as `NOT a leaf: … the
 # split bought nothing`, and read by nothing: the obligation was reported
