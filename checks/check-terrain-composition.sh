@@ -179,7 +179,8 @@ if (!/ABNORMAL: 3 of 3 group\(s\)/.test(String(run.stdout))) {
   fails.push("the claimless aggregate is not stated — a per-group marker with no total lets a screen be mostly claimless without saying so (§6.1)");
 }
 
-// Claims supplied: served FIRST, and the pinning stated where the claim is.
+// Claims supplied: served FIRST. The pinning LINE is gone (kogaki#684
+// disposition 4) and the assertion below is inverted to keep it gone.
 // §11 v10 typed claims record (kogaki#212): the composition pin travels WITH
 // the claims, carrying the member set `compose-input` served per group.
 const SURVEY_PIN = JSON.parse(readFileSync(FIXTURE, "utf8")).pin;
@@ -220,8 +221,16 @@ const heading = claimLines[groupAt] || "";
 if (!/^G[0-9]+ — .+ — 2 Lessons: L2, L1$/.test(heading)) {
   fails.push(`the group heading is not the §6.1 v6 flush-left form \`G<n> — <co-tag name> — N Lessons: ids\` — got ${JSON.stringify(heading)}`);
 }
-if (!String(withClaim.stdout).includes("pinned to 2 member(s)")) {
-  fails.push("a screen-composed claim does not state the member set it is pinned to — §7's pinning is what makes a later subset selection a gate event rather than a refresh");
+// THE PINNING LINE IS GONE, AND THE ASSERTION IS INVERTED RATHER THAN DELETED
+// (§6.2 v31, kogaki#684 disposition 4). Through v30 this asserted the line was
+// PRESENT. The owner ruled it carries no information at read time — the member
+// count duplicates the heading and the subset protection is enforced at
+// CLAIM_REOFFER, which explains itself when it fires — and ruled it deleted
+// from the operative carriers without a residual record. An assertion simply
+// removed leaves nothing that fails if the line comes back; this one does.
+// §7's pinning RULE is untouched and is asserted elsewhere, at the re-offer.
+if (/pinned to [0-9]+ member\(s\)/.test(String(withClaim.stdout))) {
+  fails.push("the deleted claim-pinning line is back on the co-tag screen — kogaki#684 disposition 4 removes it from the grammar and the renderer with no residual record, because a superseded behaviour kept in an operative carrier is what regenerates it (SPEC.md §6.2 v31)");
 }
 // A claim naming no composed group is refused: composition may attach text to
 // a group and may do nothing else.
@@ -648,7 +657,8 @@ console.log("cotags fixture: PASS — cases exercised (lone-tag group; declared 
   + "axes; group-name form; cover passing; cover DROPPED / ADDED / both, all "
   + "three fired; end-to-end subcommand wiring; ids without --group; absent-claim "
   + "marker per-group and in aggregate; claim beneath its heading; the v5 heading "
-  + "carries count + IDs; pinning stated; invented group refused; SubGroup line "
+  + "carries count + IDs; the deleted pinning line stays deleted; invented group refused; "
+  + "the sum-to-parent property refused PRE-RENDER on double placement with its conformant control; SubGroup line "
   + "carries count + IDs with its claim beneath; unplaced member named not dropped; "
   + "coherence verdict rendered in BOTH directions and a flipped label CHANGES it; judge pin recorded and "
   + "REFUSED when absent; degenerate-claim disclosure rendered; no slug dump on the "
@@ -2769,13 +2779,82 @@ const cases = [
   // measured the wrong catch-all through two stories and a review round. The
   // numbers are kogaki#316's own first specimen: a parent of 17 with 11 in the
   // remainder (65%).
+  //
+  // THE HEADING CARRIES NO COUNT AT v13 (kogaki#684 disposition 2), so this
+  // case is rebuilt in the shape the surface now produces and the denominator
+  // is SUMMED from the two SubGroup lines. Rebuilt rather than left standing:
+  // the old text still fired, because the countless heading form admits it —
+  // which is exactly how a case goes on passing while measuring a shape the
+  // emitter can no longer emit.
   { rule: "catch_all_share", surface: "cotag_screen",
-    text: "G1 — agents × knowledge-architecture — 17 Lessons\nG1-1 — 6 Lessons: L1, L2, L3, L4, L5, L6 — a real split\nG1-2 — 11 Lessons: L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17 — (fits no composed SubGroup)",
-    why: "kogaki#316's own specimen — 11 of 17 swept into the remainder, 65%, over the 30% §14.2 allows" },
-  { rule: "subgroup_members_sum_to_parent", surface: "cotag_screen",
-    text: "G1 — testing × architecture — 4 Lessons\nG1-1 — 1 Lesson: L1 — sg",
-    why: "a member placed in no SubGroup is hidden, and the screen cannot show it" },
+    text: "G1 — agents × knowledge-architecture\nG1-1 — 6 Lessons: L1, L2, L3, L4, L5, L6 — a real split\nG1-2 — 11 Lessons: L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17 — (fits no composed SubGroup)",
+    why: "kogaki#316's own specimen — 11 of 17 swept into the remainder, 65%, over the 30% §14.2 allows, with the parent SUMMED from the SubGroup lines now that the heading carries no count" },
 ];
+// THE SUM-TO-PARENT PROPERTY, RE-SITED (report-format.json v13, kogaki#684).
+// It was a grammar rule with a case in the list above until disposition 2 took
+// the parent count off the group heading; it is now a PRE-RENDER refusal in
+// `cmdCotags`, so its case moves here rather than being deleted with the rule.
+// A property whose rule is withdrawn and whose case goes with it is a property
+// nothing asserts, and the withdrawal would be indistinguishable from a drop.
+//
+// THE CASE CONSTRUCTS THE REACHABLE DIRECTION. Under-placement cannot be built:
+// `subgroupPlacement` sweeps unplaced members into the catch-all, so a case
+// keyed on hiding would be a case that cannot fail — the exact shape this whole
+// disposition was resolved to avoid. Double placement is the reachable one, and
+// nothing in the runtime refused it before v13.
+{
+  const dir = mkdtempSync(join(tmpdir(), "terrain-sum-"));
+  try {
+    const survey = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+    const pin = JSON.parse(readFileSync(survey, "utf8")).pin;
+    const claims = join(dir, "claims.json");
+    writeFileSync(claims, JSON.stringify({
+      composition_pin: { tag: "testing", pin, groups: {
+        "testing \u00d7 (no second served tag)": ["lesson:delta"],
+        "testing \u00d7 architecture": ["lesson:alpha", "lesson:bravo"],
+        "testing \u00d7 cost": ["lesson:charlie"],
+      } },
+      claims: { "testing \u00d7 architecture": "a claim" },
+    }));
+    const one = (name, members) => ({ subgroup: name, claim: "c", members,
+      coherence: "tight", coherence_why: "one mechanism", legible_at_a_glance: true });
+
+    // (a) DOUBLE PLACEMENT REFUSES, and nothing is written.
+    const dup = join(dir, "dup.json");
+    writeFileSync(dup, JSON.stringify({ "testing \u00d7 architecture": { judged: true, subgroups: [
+      one("one", ["lesson:alpha"]), one("two", ["lesson:alpha", "lesson:bravo"])] } }));
+    const outA = join(dir, "a");
+    const bad = spawnSync(process.execPath, ["terrain/terrain.mjs", "cotags",
+      "--survey", survey, "--tag", "testing", "--claims", claims, "--subdivisions", dup,
+      "--judge-model", "m", "--judge-effort", "e", "--rendering-dir", outA], { encoding: "utf8" });
+    if (bad.status === 0) {
+      fails.push("a SubGroup record placing one member in TWO SubGroups rendered — the counts sum OVER the parent and that member renders twice, which \u00a76.2 rule 1 forbids. The grammar rule that caught this was withdrawn at v13 with the heading's count; this refusal is what carries it now, and it did not fire");
+    }
+    if (!/SUBGROUP_MEMBERS_DO_NOT_SUM/.test(String(bad.stderr))) {
+      fails.push(`the refusal did not name SUBGROUP_MEMBERS_DO_NOT_SUM \u2014 got ${JSON.stringify(String(bad.stderr).trim().slice(0, 200))}`);
+    }
+    if (existsSync(outA) && readdirSync(outA).length) {
+      fails.push("the sum refusal wrote an artifact \u2014 it is a PRE-render refusal, so the owner's screen must not exist at all");
+    }
+
+    // (b) THE CONTROL. Without it, (a) is satisfied by a runtime that refuses
+    // every subdivided screen, which is the same green-that-cannot-go-red one
+    // polarity over.
+    const okp = join(dir, "ok.json");
+    writeFileSync(okp, JSON.stringify({ "testing \u00d7 architecture": { judged: true, subgroups: [
+      one("one", ["lesson:alpha"]), one("two", ["lesson:bravo"])] } }));
+    const outB = join(dir, "b");
+    const good = spawnSync(process.execPath, ["terrain/terrain.mjs", "cotags",
+      "--survey", survey, "--tag", "testing", "--claims", claims, "--subdivisions", okp,
+      "--judge-model", "m", "--judge-effort", "e", "--rendering-dir", outB], { encoding: "utf8" });
+    if (good.status !== 0) {
+      fails.push(`the CONTROL failed: a conformant subdivided screen was refused \u2014 ${String(good.stderr).trim().slice(0, 300)}`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // AC9's own negative: composer prose WITHOUT its marker must be refused, and
 // WITH it must be admitted. Asserted as a pair, because either half alone is
 // satisfiable by a grammar that got it wrong in the other direction — an

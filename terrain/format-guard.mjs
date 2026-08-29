@@ -263,9 +263,6 @@ export function validateSurface(surfaceName, text, grammar) {
           + "(§12: the report renders the shared substrate pin ONCE, in its identity)"));
       }
     }
-    if (rule.id === "subgroup_members_sum_to_parent") {
-      v.push(...sumRule(surfaceName, lines, classified, rule));
-    }
     if (rule.id === "catch_all_share") {
       v.push(...catchAllRule(surfaceName, lines, classified, rule));
     }
@@ -305,37 +302,21 @@ const countIn = (s) => {
   return m ? Number(m[1]) : null;
 };
 
-// subgroup_members_sum_to_parent — the SubGroup counts under a subdivided
-// group heading must sum to the heading's own count. A member that appears in
-// no SubGroup is the defect §8 forbids, and it is invisible on the screen.
-function sumRule(surfaceName, lines, classified, rule) {
-  const v = [];
-  let parent = null;
-  let parentLine = null;
-  let parentNo = null;
-  let sum = 0;
-  const close = () => {
-    if (parent !== null && sum !== parent) {
-      v.push(violation(surfaceName, rule.id, parentLine, parentNo,
-        `the SubGroup Lesson counts sum to ${sum}, the group heading says ${parent} — `
-        + "a member placed in no SubGroup is hidden, which §8 forbids and the screen cannot show"));
-    }
-    parent = null; sum = 0;
-  };
-  classified.forEach((id, i) => {
-    if (id === "group_heading_subdivided") {
-      close();
-      parent = countIn(lines[i]); parentLine = lines[i]; parentNo = i + 1; sum = 0;
-    } else if (id === "group_heading_flat") {
-      close();
-    } else if (id === "subgroup_heading" && parent !== null) {
-      const n = countIn(lines[i]);
-      if (n !== null) sum += n;
-    }
-  });
-  close();
-  return v;
-}
+// NO PREDICATE FOR `subgroup_members_sum_to_parent`, AND THE GRAMMAR SAYS WHY.
+//
+// It was one, over `cotag_screen`, through report-format.json v12: the SubGroup
+// counts under a subdivided group heading had to sum to that heading's own
+// count. kogaki#684 disposition 2 removed the count from the heading, so one
+// side of the comparison is gone and the rule is not decidable from the
+// rendered text. The entry moved to `not_expressible`, which is why no
+// predicate stands here — a predicate for a rule about artifacts nothing can
+// produce is a conformance category with no members, and reads as coverage.
+//
+// IT WAS NOT RE-POINTED at the sum of the SubGroup counts, which is the only
+// parent quantity the surface still carries: that comparison is `sum == sum`,
+// a predicate that cannot fail. The property is carried instead as a
+// PRE-RENDER refusal in `cmdCotags`, over the placement rather than the text —
+// weaker in exactly the way §14.2 records, and the grammar names the gap.
 
 // catch_all_share — the `(fits no composed SubGroup)` remainder's share of its
 // PARENT group's members (§14.2; kogaki#316 decision 2, owner 2026-08-09).
@@ -358,6 +339,15 @@ function sumRule(surfaceName, lines, classified, rule) {
 // remainder and its own denominator, so a screen with three groups gets three
 // independent judgements — a single screen-wide ratio would let one healthy
 // group mask another's 83%.
+//
+// THE DENOMINATOR IS SUMMED AT v13, NOT READ FROM THE HEADING (kogaki#684
+// disposition 2). The subdivided heading no longer carries a count, so the
+// parent quantity is the sum of the group's own `subgroup_heading` counts.
+// That is a re-instrumentation and not a re-pointing: the measured quantity is
+// unchanged — the remainder's share of the parent — and the sum IS the parent,
+// because §6.2 rule 1 places every member in exactly one SubGroup. What that
+// rule's own withdrawal costs is recorded at its `not_expressible` entry and
+// above; it is not compensated for here.
 function catchAllRule(surfaceName, lines, classified, rule) {
   const name = rule.catch_all_subgroup_name;
   const cap = 0.30;
@@ -383,11 +373,18 @@ function catchAllRule(surfaceName, lines, classified, rule) {
       // A new parent closes the previous one's accounting.
       close(remainder, remainderLine, remainderNo);
       remainder = null; remainderLine = null; remainderNo = null;
-      parent = id === "group_heading_subdivided" ? countIn(lines[i]) : null;
+      // `0` rather than `null` on a subdivided heading: the parent is now
+      // ACCUMULATED from the SubGroup lines that follow, and `null` would be
+      // indistinguishable from a flat group, which has no remainder to judge.
+      parent = id === "group_heading_subdivided" ? 0 : null;
       parentLine = lines[i]; parentNo = i + 1;
-    } else if (id === "subgroup_heading" && name && lines[i].includes(name)) {
-      remainder = countIn(lines[i]);
-      remainderLine = lines[i]; remainderNo = i + 1;
+    } else if (id === "subgroup_heading") {
+      const n = countIn(lines[i]);
+      if (parent !== null && n !== null) parent += n;
+      if (name && lines[i].includes(name)) {
+        remainder = countIn(lines[i]);
+        remainderLine = lines[i]; remainderNo = i + 1;
+      }
     }
   });
   close(remainder, remainderLine, remainderNo);
@@ -445,7 +442,13 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
   classified.forEach((id, i) => {
     if (id === "group_heading_subdivided" || id === "group_heading_flat") {
       close();
-      parent = countIn(lines[i]);
+      // THE SUBDIVIDED ARM IS DROPPED AT v13 (kogaki#684 disposition 2): that
+      // heading carries no count, so `countIn` would read `null` and the arm
+      // would evaluate nothing while still looking evaluated. It is narrowed
+      // deliberately rather than left reading an absent token — the grammar
+      // entry carries what the narrowing costs, which is close to nothing,
+      // since a heading of that form is emitted only when SubGroups follow it.
+      parent = id === "group_heading_flat" ? countIn(lines[i]) : null;
       parentLine = lines[i]; parentNo = i + 1; sawSubgroup = false;
     } else if (id === "subgroup_heading") {
       sawSubgroup = true;
