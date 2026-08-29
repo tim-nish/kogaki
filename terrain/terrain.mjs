@@ -1099,8 +1099,10 @@ function cmdCotags(args) {
     const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
 
     // THE SUBDIVISION IS JUDGED BEFORE ANYTHING IS EMITTED (§6.2 v7, kogaki#316
-    // decision 3). A split whose only named SubGroup is not tighter than its
-    // parent "does not discharge the subdivision obligation" — and that means
+    // decision 3, re-keyed at v30). A split whose only named SubGroup is
+    // labelled `forced` — grouped only to satisfy the requirement, so the
+    // split bought nothing — "does not discharge the subdivision obligation"
+    // — and that means
     // the group renders NO SubGroups, which is the fallback §6.2 already names
     // ("renders no SubGroups and is fully conformant"). It is NOT a refusal: a
     // judge's verdict must not be fatal to the surface, and refusing here would
@@ -1186,8 +1188,8 @@ function cmdCotags(args) {
       let sgIdx = 0;
       for (const sg of subgroups) {
         // The served SubGroup form (§6.2, v5): one line — SubGroupID, Lesson
-        // count, Lesson IDs — then the SubGroupClaim, then the leaf verdict
-        // and any disclosures.
+        // count, Lesson IDs — then the SubGroupClaim, then the coherence
+        // verdict and any disclosures.
         // §14.3 — SubGroup members render as display_ids, never as
         // `lesson:<slug>` tokens.
         const sgShown = displayIds(sg.members, record.candidates);
@@ -1521,7 +1523,7 @@ const LINES_PER_SUBGROUP_HEADER = 2;
 // The PLACEMENT half of subdivision, extracted so the co-tag screen (§6.2) and
 // `subdivide` (§8) share ONE composer rather than each carrying its own.
 //
-// It is this half — not the instruments and not the leaf verdicts — that owns
+// It is this half — not the instruments and not the coherence verdicts — that owns
 // the guarantee subdivision hides none: a member the judge invented is refused,
 // and a member the judge left unplaced lands in the EXPLICIT named SubGroup
 // rather than being dropped. Two copies of that would be two places for the
@@ -1654,7 +1656,7 @@ export function composeSubdivisionRecord(args, dir, record) {
   const block = SURVEY_SCHEMA.subdivision;
   const tag = String(args.tag || fail("J2_subdivision needs --tag <selected tag>"));
   const groupArg = String(args.group || fail("J2_subdivision needs --group <co-tag>"));
-  const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the subgroup claims are judged TIGHTER THAN"));
+  const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the SubGroup claims' coherence is judged against"));
   const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
   const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
   const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a screen lands, not of the material, so it is the caller's to state (SPEC.md §8)"));
@@ -2003,10 +2005,10 @@ export function composeInput(record, tag, groups, fetchShard) {
       return {
         id: c.id,
         cite: c.cite || null,
-        // Untruncated, exactly as §12 serves it: the composer judging whether a
-        // SubGroupClaim is TIGHTER THAN its parent's is the reader §8's leaf
-        // condition addresses, and a headline-only input would decide that
-        // conjunct by what the bound withheld. A missing rendering is MARKED
+        // Untruncated, exactly as §12 serves it: the composer judging a
+        // SubGroupClaim's coherence against its parent's is the reader §8
+        // addresses, and a headline-only input would decide that verdict by
+        // what the bound withheld. A missing rendering is MARKED
         // and never substituted (§9), at this layer as at every other.
         gloss: lg ? lg.body : NO_GLOSS_BODY,
         gloss_cite: lg ? lg.cite : null,
@@ -4404,7 +4406,7 @@ const STATE_WORK = {
       fail(`${st.id} refuses a bare array or non-object --subdivisions record; ${st.input_shape || "one typed entry per composed group"}.`);
     }
     // Each entry is read by the EXISTING validator, which carries the judged
-    // flag, the judge pin and the leaf-condition rules (§8, §8.1, §12.1).
+    // flag, the judge pin and the coherence rules (§8, §8.1, §12.1).
     for (const name of Object.keys(raw)) readSubdivisionEntry(name, raw[name]);
     rec.judgments[st.id] = relFromRepo(resolve(path));
 

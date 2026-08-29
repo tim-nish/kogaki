@@ -1527,8 +1527,8 @@ caller's JSON alone: the runtime placed members and printed name, claim and
 ids, evaluating neither conjunct and emitting neither disclosure. Three
 requirements close that:
 
-- **The screen renders each SubGroup's leaf verdict** — which conjunct held
-  and which failed — exactly as `subdivide` does over the same shape.
+- **The screen renders each SubGroup's coherence verdict** — the label and
+  its one-sentence why (v30) — exactly as `subdivide` does over the same shape.
 - **The screen emits both disclosures**, degenerate-claim and
   undiscriminating-claim, on the same disjunctive terms §8 states. Neither
   gates anything; both are disclosures.
@@ -1574,7 +1574,7 @@ own parent**, so a SubGroup line that wraps — or that a reader meets on its
 own, scrolled away from its group — still says where it belongs. With the
 level in the ID, two different punctuations for one shape is a difference that
 means nothing, so the SubGroup heading takes the same `— N Lessons: …` form as
-the Group heading. The leaf verdict and any disclosures follow the claim, per this
+the Group heading. The coherence verdict and any disclosures follow the claim, per this
 section's judging requirements, and the judge pin renders once for the
 screen. The 2026-08-06 dogfood specimen — a 27-member group served as a
 single GroupClaim-shaped paragraph with no IDs and no SubGroups — is the
@@ -1641,14 +1641,15 @@ strictly more, because act 2 no longer runs unattended at all.
 
 **§6.2's subdivision judgment is part of ACT 1 and is never a third act
 beside it.** kogaki#168 makes SubGroups **REQUIRED**, and "required" governs
-the judgment rather than the outcome: the run judges every group's leaf
-condition and renders the SubGroups §8 puts there, **inside** the screen act,
-carrying its judge pin. This is stated because an act allowlist drafted
+the judgment rather than the outcome: the run judges every group's
+subdivision — coherence labels, with the engine's threshold deciding where a
+split is required (v30) — and renders the SubGroups §8 puts there, **inside**
+the screen act, carrying its judge pin. This is stated because an act allowlist drafted
 without it fails in both directions — it would either exclude the judgment
 (making every run a §6.2 contract violation) or admit a third act (making the
-window three acts wide, which the ruling refuses). A group whose leaf
-condition fails renders no SubGroups and is fully conformant; what is refused
-is a run that **never asked**.
+window three acts wide, which the ruling refuses). A group below the
+threshold whose split is suppressed renders no SubGroups and is fully
+conformant (v30); what is refused is a run that **never asked**.
 
 **The ruling's conditional, resolved against the contract rather than left
 open.** The ruling states: *if* the contract required authorization before

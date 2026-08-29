@@ -3344,7 +3344,7 @@ if (r.status !== 0) {
   fails.push("AC6: cotags exited 0 and printed nothing — every AC5 assertion below would pass vacuously");
 } else {
   // AC5 — the group renders FLAT: heading carries its member ids, and no
-  // SubGroup line or leaf verdict appears for it.
+  // SubGroup line or coherence verdict appears for it.
   if (!/^G[0-9]+ — testing × architecture — 2 Lessons: L2, L1$/m.test(out)) {
     fails.push("AC5: the group did not fall back to the FLAT heading form with its member ids — a suppressed split leaves the group rendering exactly as an unjudged-empty one does (§6.2 v7)");
   }
@@ -3417,7 +3417,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("suppressed split: a split whose only named SubGroup is not tighter than its parent renders NO "
+console.log("suppressed split: a split whose only named SubGroup is labelled `forced` renders NO "
   + "SubGroups, the group falls back to its FLAT heading with member ids intact, no `NOT a leaf` line "
   + "survives, the suppression is DISCLOSED in aggregate rather than silently, and the command EXITS ZERO — "
   + "AC6 is asserted before AC5 so the must-not-appear assertions cannot pass on an empty screen.");
