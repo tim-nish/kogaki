@@ -1442,10 +1442,12 @@ enumerates the first two as decidable; this section says what failing them
 3. **A split whose only named SubGroup restates the parent's own commonality
    does not discharge the subdivision obligation** — and *that phrase means the
    group renders no SubGroups*, not that the screen refuses. This is **the
-   fallback this section already names**, not a new outcome: a group whose leaf
-   condition fails "renders no SubGroups and is fully conformant". So a split
-   that is not `tighter_than_parent` leaves the group rendering flat, with its
-   own claim and member ids, exactly as an unjudged-empty group does.
+   fallback this section already names**, not a new outcome. So a split whose
+   only named SubGroup the judge labels `forced` leaves the group rendering
+   flat, with its own claim and member ids, exactly as an unjudged-empty group
+   does — **and only below the split threshold** (v30, kogaki#683). At 10
+   members or more this fallback is unavailable, because the flat rendering it
+   produces is the outcome §8 refuses.
    **Why not a refusal like 1 and 2:** those are properties of the *rendered
    text* and a violation means the emitter produced something incoherent. This
    one is a *judge's verdict*, and refusing the whole screen over it would
@@ -1929,11 +1931,20 @@ invariant already permits — and it is **not a cap**:
 
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:66`
 
-**The leaf condition is CONJUNCTIVE.** A subgroup is a leaf when its claim
-**composes honestly AND is tighter than its parent's**. Failing the first
-means split further; failing the second means the split bought nothing —
-stated conjunctively because a stop condition checking only degeneration
-emits subgroups that merely restate the parent
+**The judgment is ONE COHERENCE LABEL, closed at three** (v30, kogaki#683
+disposition 5). The judge selects exactly one of `tight` (members share one
+mechanism), `related` (members share a theme, not one mechanism) or `forced`
+(grouped to satisfy the split requirement), and supplies one free-form sentence
+of why. Both render under the claim. The runtime refuses a value outside the set
+and refuses a label with no reason: the two are ONE INSTRUMENT, and a default
+would be the engine supplying the judgment the label exists to carry.
+
+**It replaces a conjunctive leaf condition, and the reading that survives is
+worth stating.** That condition asked whether a claim composed honestly and
+whether it was tighter than its parent's — the second failing meant "the split
+bought nothing", which is what `forced` now names, and the label additionally
+carries the honest-but-not-tighter middle the conjunction could only record as a
+bare failure
 (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:70`).
 
 **Two disclosures, disjunctive.** The **degenerate-claim** disclosure fires

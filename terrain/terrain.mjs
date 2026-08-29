@@ -1036,11 +1036,10 @@ function cmdCotags(args) {
       fail(`--claims names ${JSON.stringify(k)}, which is no composed group — a claim carries no selection authority and may not invent, merge or rename a group (SPEC.md §6.1)`);
     }
   }
-  // SubGroups, where §8's conditions bind (§6.2). The decision to subdivide is
-  // §8's CONJUNCTIVE leaf condition and its two disclosures, judged by the
-  // composer — never a member count. kogaki#128's "five or more" is calibration
-  // evidence for where the undiscriminating-claim condition binds, and there is
-  // deliberately no number here to be that threshold.
+  // SubGroups, where §8's conditions bind (§6.2). WHETHER to subdivide is the
+  // ENGINE's at `SUBDIVISION_REQUIRED_AT` members or more (§8 v30, kogaki#683);
+  // below it, the judge's coherence label and the two disclosures put SubGroups
+  // where they go. Membership assignment is the judge's at every size.
   const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
   for (const k of Object.keys(subdivisions)) {
     if (!groups.some((g) => g.name === k || g.cotag === k)) {
@@ -1518,7 +1517,7 @@ const LINES_PER_SUBGROUP_HEADER = 2;
 // and a member the judge left unplaced lands in the EXPLICIT named SubGroup
 // rather than being dropped. Two copies of that would be two places for the
 // cover to be wrong, and the second copy is the one nobody re-reads.
-// THE SPLIT DECISION IS THE ENGINE'S (SPEC-terrain §8 v?, kogaki#683, owner
+// THE SPLIT DECISION IS THE ENGINE'S (SPEC-terrain §8 v30, kogaki#683, owner
 // ruling 2026-08-28 with the disposition-1 boundary confirmed at pickup
 // 2026-08-29).
 //
@@ -2443,10 +2442,11 @@ export function renderReportMarkdown(report, tag) {
       // and neither is an absent judgment.
       if (sec.suppressed_split) {
         L.push("*The judgment produced a split and it was SUPPRESSED: its only named");
-        L.push("SubGroup was not tighter than the parent, so it bought nothing and does");
-        L.push("not discharge the subdivision obligation (SPEC-terrain §6.2 v7). This is");
-        L.push("neither a judged-empty outcome nor an absent judgment. Members are listed");
-        L.push("below, and none was dropped.*");
+        L.push("SubGroup was labelled `forced` — grouped only to satisfy the requirement —");
+        L.push("so it bought nothing and does not discharge the subdivision obligation");
+        L.push("(SPEC-terrain §6.2 v7, re-keyed and bounded at kogaki#683). This is neither");
+        L.push("a judged-empty outcome nor an absent judgment. Members are listed below,");
+        L.push("and none was dropped.*");
       } else {
         L.push("*The judgment produced NO split — this is a judged-empty outcome,");
         L.push("not an absent judgment. Members are listed below.*");
@@ -2928,6 +2928,36 @@ function cmdReport(args) {
   }
 
   for (const t of entered) sectionsOut.push(buildSection(t));
+
+  // THE SPLIT REQUIREMENT REACHES THIS SURFACE TOO (§8 v30, kogaki#683; PR #705
+  // round 1). Disposition 1 refuses a judged-empty outcome for a group at or
+  // above the threshold, and the `subdivision_required_at_ten` grammar rule
+  // carries that on `cotag_screen`. It cannot carry it here: `full_report`'s
+  // section heading renders no LessonCount, and that surface's line-class
+  // allowlist is INERT by the grammar's own record — three body classes are
+  // bare placeholders, so no line on it can be unadmitted. A rule declared over
+  // a surface that cannot refuse would be coverage in name only.
+  //
+  // So the carrier here is a PRE-RENDER refusal, which is the same class in the
+  // sense the disposition names — engine-side, at emit, no model discretion —
+  // reached by the route this surface actually has. The runtime's declining to
+  // suppress at the threshold closes the SUPPRESSION route; this closes the
+  // judge-supplied-empty route, which is the one a record can walk in with.
+  //
+  // SCOPED TO GROUP SECTIONS. A section keyed by a SubGroup id carries that
+  // SubGroup's members and `subgroups: null`; §8's requirement is on composed
+  // GROUPS, so the test reads the empty-array state that only a judged group
+  // reaches, and a suppressed split is excluded because suppression is already
+  // unavailable at this size.
+  for (const sec of sectionsOut) {
+    if (sec.subgroups && sec.subgroups.length === 0 && !sec.suppressed_split
+        && (sec.members || []).length >= SUBDIVISION_REQUIRED_AT) {
+      fail(`${sec.id} — ${sec.name} holds ${(sec.members || []).length} member Lessons and its judgment produced NO split. `
+        + `At ${SUBDIVISION_REQUIRED_AT} or more, serving SubGroups is the engine's requirement rather than the judge's `
+        + "discretion (SPEC-terrain §8 v30, kogaki#683), so a judged-empty outcome for such a group does not render. "
+        + "Recompose the subdivision for this group and pull the report again.");
+    }
+  }
 
   // §12.1 case 1: same identity, run twice -> ONE report. The rerun is
   // idempotent, not a duplicate, so an existing report with THIS identity is

@@ -247,16 +247,16 @@ whose ID set the owner enters. **Nothing on either line is optional.**
      as a FAILED run** — so a dogfood verdict taken on any *other* aspect of
      such a run is a verdict on a failed specimen. This is why
      `--subdivisions` is unbracketed everywhere it appears in this skill.
-   - **"Required" governs the JUDGMENT, never the OUTCOME.** You may not skip
-     the judgment; it does not follow that every group subdivides. SubGroups
-     appear exactly where §8 puts them: the CONJUNCTIVE leaf condition
-     (composes honestly AND tighter than its parent's) plus the two
-     disjunctive disclosures — **the screen judges and renders both**, and
-     **refuses without a judge pin**, because a judged surface that records
-     no judge cannot be seen to drift. A group whose leaf condition fails
-     renders no SubGroups and is **fully conformant**; what is refused is a
-     run that **never asked**. **Never a member count.**
-     A number in that decision is a defect against §8 — the owner's "five or
+   - **"Required" governs the JUDGMENT; above ten it governs the OUTCOME too**
+     (§8 v30, kogaki#683). You may not skip the judgment — that is unchanged,
+     and a run that never asked is still refused. **At 10 or more members the
+     split is not yours to decline**: such a group must serve SubGroups, and
+     `"subgroups": []` for one is refused at render. Below ten, a group whose
+     only named SubGroup you label `forced` renders no SubGroups and is fully
+     conformant. SubGroups otherwise appear where your **coherence label** and
+     §8's two disjunctive disclosures put them — **the screen judges and
+     renders both**, and **refuses without a judge pin**, because a judged
+     surface that records no judge cannot be seen to drift.
 
 ## Hard lines
 
