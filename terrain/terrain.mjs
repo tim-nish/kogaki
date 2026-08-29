@@ -881,9 +881,12 @@ export function renderTagRowView(record, tag, family, fetchShards = fetchHeadlin
 // navigation act wrapped as a proposal is a contract violation from the other
 // direction (record-schema.json acts).
 //
-// Nothing here is a member-count threshold. §8's three instruments are three
-// quantities and none of them is a count of members; a number appearing here
-// as one would be a defect against SPEC.md §8.
+// Nothing HERE is a member-count threshold, and that is now a statement about
+// this function rather than about the runtime. §8's three instruments are three
+// quantities, none of them a count of members, and they gate nothing — that is
+// unchanged at v30. The threshold the engine DOES carry is
+// `SUBDIVISION_REQUIRED_AT`, and it decides only WHETHER a group must split
+// (kogaki#683); it is not one of the instruments and none of them became one.
 // --------------------------------------------------------------------------
 export const NO_SECOND_TAG = "(no second served tag)";
 // A group with no composed claim is MARKED, never substituted — the same
@@ -1099,9 +1102,11 @@ function cmdCotags(args) {
     // decision 3). A split whose only named SubGroup is not tighter than its
     // parent "does not discharge the subdivision obligation" — and that means
     // the group renders NO SubGroups, which is the fallback §6.2 already names
-    // for a failed leaf condition ("renders no SubGroups and is fully
-    // conformant"). It is NOT a refusal: a judge's verdict must not be fatal to
-    // the surface, and refusing here would contradict that conformance clause.
+    // ("renders no SubGroups and is fully conformant"). It is NOT a refusal: a
+    // judge's verdict must not be fatal to the surface, and refusing here would
+    // contradict that conformance clause. BOUNDED BELOW THE THRESHOLD at v30
+    // (kogaki#683): at `SUBDIVISION_REQUIRED_AT` members or more the fallback
+    // is exactly the outcome §8 refuses, so it yields and the group renders.
     //
     // It has to happen here rather than at the render loop below, because the
     // heading form itself differs — a group serving SubGroups carries the count
@@ -1497,12 +1502,16 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 // consequential. So the classification and its verdicts arrive as input and
 // the record pins the judge that produced them. Terrain names no model.
 //
-// NO NUMERIC CONSTANT APPEARS IN THE SPLIT OR STOP LOGIC. §8's declared
-// reopen trigger is the first subdivision implementation reaching review with
-// one, and inventing a threshold to stand in for the judge's verdicts would
-// fire it. The leaf condition is the CONJUNCTION of the judge's two verdicts;
-// the three instruments are REPORTED quantities and gate nothing; the screen
-// budget arrives per run rather than as a constant here.
+// THE SPLIT DECISION CARRIES A CONSTANT AND THE JUDGMENT DOES NOT (§8 v30,
+// kogaki#683). `SUBDIVISION_REQUIRED_AT` decides WHETHER a group must serve
+// SubGroups; it stands in for no verdict. What the judge supplies is the
+// COHERENCE LABEL — one of a closed three, with one sentence of why — and no
+// number is compared against it. The three instruments remain REPORTED
+// quantities gating nothing, and the screen budget still arrives per run.
+//
+// The prohibition this comment used to state — no numeric constant anywhere in
+// split-or-stop logic — was reversed by the owner on 2026-08-28 on a specimen
+// it permitted. It is quoted at §8 as provenance and is not the rule here.
 // --------------------------------------------------------------------------
 // The SubGroup's own two rendered lines — its name and its claim. Rendering
 // arithmetic for the screen-budget instrument; it gates nothing and is not
@@ -1584,7 +1593,7 @@ export function subgroupPlacement(parent, classification, block) {
 // and printed name, claim and ids while evaluating neither conjunct and
 // emitting neither disclosure, so "where §8's conditions put them" was
 // satisfied by the caller's JSON alone. A second copy of these rules would be
-// a second place for the leaf condition to drift; the rule is enforced at the
+// a second place for the judgment to drift; the rule is enforced at the
 // layer where it can be broken, and both surfaces break it the same way.
 export function judgeSubgroup(sg, groupClaim) {
   const vd = sg.verdicts || {};
@@ -1648,7 +1657,7 @@ export function composeSubdivisionRecord(args, dir, record) {
   const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the subgroup claims are judged TIGHTER THAN"));
   const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
   const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
-  const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code, so no numeric constant enters this runtime (SPEC.md §8)"));
+  const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a screen lands, not of the material, so it is the caller's to state (SPEC.md §8)"));
   const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|forced) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
 
   const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
@@ -1968,7 +1977,7 @@ function fetchGlossBodies(kind, tag) {
 // display).
 //
 // It composes NOTHING and judges NOTHING. The claim wording stays the
-// composer's (§7 leaves it there) and the leaf condition stays the judge's
+// composer's (§7 leaves it there) and the coherence label stays the judge's
 // (§8); this hands over material and the group structure, and no verdict.
 // --------------------------------------------------------------------------
 export const COMPOSITION_INPUT_BOUND =
@@ -2077,7 +2086,7 @@ function cmdComposeInput(args) {
     console.log(`ABNORMAL: ${a.abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
   }
   console.log(`Compose EVERY GroupClaim and EVERY SubGroupClaim from this one artifact: \`material\` is keyed by member id and \`groups\` carry ids only, so a member in several groups is read once, and no group has per-group material to re-read.`);
-  console.log(`Classification: REPORT (SPEC.md §2.3) — it ranks nothing, narrows nothing and hides nothing. It composes no claim and judges no leaf condition: the claim wording stays the composer's (§7) and the leaf condition the judge's (§8).`);
+  console.log(`Classification: REPORT (SPEC.md §2.3) — it ranks nothing, narrows nothing and hides nothing. It composes no claim and judges nothing: the claim wording stays the composer's (§7) and the coherence label the judge's (§8).`);
   console.log(`Machine-local run workspace, never committed (founding spec rider 3).`);
   console.log(`\nNext: cotags --survey ${String(args.survey)} --tag ${tag} --claims <F> [--subdivisions <F> --judge-model M --judge-effort E]`);
 }

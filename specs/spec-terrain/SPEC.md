@@ -16,8 +16,10 @@ The conjunctive leaf condition is replaced by a closed three-value **coherence
 label** (`tight` / `related` / `forced`) plus one free-form sentence — one
 instrument, not two — while §8's three INSTRUMENTS are untouched, including
 `legible_at_a_glance`, which is not a conjunct of the leaf condition and is not
-folded in. `workflow.json` is unchanged; `report-format.json` → v12;
-`survey-schema.json` carries the label and drops `leaf_condition`.
+folded in. `report-format.json` → v12; `survey-schema.json` carries the label and drops
+`leaf_condition`; `workflow.json` → v10 (`J2_subdivision`'s declared input
+shape and refusal — no state added, moved or removed, and `counted_baseline`
+untouched).
 **deferred slots minted by the v30 amendment: none.**
 
 **Status:** v29, amended 2026-08-29 (kogaki#682 — owner ruling 2026-08-28, and
@@ -500,8 +502,8 @@ paragraph** are superseded in place, restated on the judge pin's *value*
 rather than its presence, with v4.2's prior wording quoted; v4.1's withdrawal
 paragraph gains a rider separating distinguishability (a property of the key)
 from conformance (a property of the artifact). **Idempotence is unchanged** —
-it never read the judge pin's value. **§8's no-member-count-threshold rule is
-untouched**, and a group whose leaf condition fails renders no SubGroups,
+it never read the judge pin's value. **§8's rule that a judgment may legitimately produce no split is untouched
+BELOW THE THRESHOLD** (v30, kogaki#683), and such a group renders no SubGroups,
 carries its judge pin, and is **fully conformant**. Alternative (2) — retain
 `none` for reports produced outside the co-tag path — is **DECLINED on a
 finding**: no such path exists (`report` requires `--tag` and resolves to a
@@ -1516,7 +1518,8 @@ up the other.
 
 **The screen JUDGES its SubGroups; it does not merely render them** — v4,
 kogaki#133. v3's wording ("where §8's conjunctive leaf condition and its two
-disjunctive disclosures put them") was satisfied in the shipped screen by the
+disjunctive disclosures put them" — that condition is itself superseded at v30,
+and is quoted here as the wording this finding was about) was satisfied in the shipped screen by the
 caller's JSON alone: the runtime placed members and printed name, claim and
 ids, evaluating neither conjunct and emitting neither disclosure. Three
 requirements close that:
@@ -3336,18 +3339,19 @@ judge pin, run twice → one report. That rule never read the judge pin's
 conformant report may carry cannot disturb it. Row 1 of the table above stands
 verbatim.
 
-**§8's rule that a group's leaf condition may fail is UNTOUCHED, and this is
-the clause most at risk of being over-read.** §6.2 states it, in the same
-paragraph that holds §8's threshold rule open: *"A group whose leaf condition
-fails renders no SubGroups and is fully conformant; what is refused is a run
-that **never asked**."* §8's **no-member-count-threshold** rule is likewise
-untouched — §6.2's *"No member-count threshold is introduced or implied"*
-stands exactly as written, nothing here introduces a floor on members, and a
-reading of this amendment that supplies one is a misreading, refused in
-advance. This section takes its disposition from the *other* half of that same
-paragraph — SubGroups appear where §8's leaf condition puts them, *"judged,
-with the judge pin required"* — which is the judgment-side obligation, and it
-is the only half §12 needs. So the conformant artifact for a judged-but-empty
+**§8's rule that a judgment may legitimately produce no split is UNTOUCHED
+BELOW THE THRESHOLD, and this is the clause most at risk of being over-read.**
+§6.2 states it: such a group renders no SubGroups and is fully conformant, and
+what is refused is a run that **never asked**. **AMENDED AT v30 (kogaki#683):**
+the sentences this paragraph used to quote — §6.2's *"No member-count threshold
+is introduced or implied"* and its companion — were DELETED by the owner's
+2026-08-28 reversal, so the quotations are gone rather than restated; at 10
+members or more a judged-empty outcome is refused at render. Nothing in THIS
+section introduced a floor, which is what it was written to say, and that
+remains true: the floor arrived later and by its own act. This section takes
+its disposition from the judgment-side obligation — SubGroups appear where the
+judge's coherence labels put them, *"judged, with the judge pin required"* —
+which is the only half §12 needs. So the conformant artifact for a judged-but-empty
 group is a report
 carrying **its judge pin and zero SubGroupClaims** — *not* a report carrying
 `none`. `none` and an empty SubGroupClaim set are not synonyms and never were:
@@ -5727,8 +5731,10 @@ Exactly two, and the existing refusals fence them unchanged:
   §11's subset refusal already makes a claim naming material outside the
   bounded read unproducible.
 - **J2 — subdivision judgment (§8).** Arriving as the typed per-group record
-  with its judge pin; §8's leaf condition is evaluated from the supplied
-  verdicts and never invented.
+  with its judge pin; §8's coherence label is read from the supplied record and
+  never invented, and a value outside the closed set is refused rather than
+  defaulted (v30, kogaki#683). WHETHER the group must split is the engine's at
+  the threshold and is not a judgment this state receives.
 
 **The salvage here is real rather than aspirational**: the runtime already
 contains no model client and no prompt, and both judgments already arrive as
