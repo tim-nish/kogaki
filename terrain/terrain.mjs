@@ -1120,8 +1120,23 @@ function cmdCotags(args) {
       // implemented. A wider reading — no named SubGroup is tighter — would be
       // this lane deciding more than kogaki#316 did.
       const named = subgroups.filter((sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
-      const boughtNothing = named.length === 1 && named[0].verdicts
-        && named[0].verdicts.tighter_than_parent !== true;
+      // §6.2 v7 RULE 3, RE-KEYED ON THE LABEL AND BOUNDED BY THE THRESHOLD
+      // (kogaki#683). The suppression tested `tighter_than_parent !== true`,
+      // which no longer exists; `forced` is the label that carries the same
+      // reading — a single named SubGroup grouped only to satisfy the
+      // requirement bought nothing.
+      //
+      // AND IT CANNOT FIRE AT OR ABOVE THE THRESHOLD, which is the collision
+      // this issue's own dispositions create and nothing else resolves. Rule 3
+      // says such a group "renders no SubGroups"; disposition 1 says a group of
+      // 10 or more that renders judged-empty is refused at render. For a ≥10
+      // group the two rules point opposite ways, so the suppression yields:
+      // the group RENDERS its split, labelled `forced`, which is the honest
+      // outcome and exactly what the label was minted for. Below the threshold
+      // rule 3 is untouched.
+      const bought = named.length === 1 && named[0].verdicts
+        && named[0].verdicts.coherence === "forced";
+      const boughtNothing = bought && g.members.length < SUBDIVISION_REQUIRED_AT;
       judged = boughtNothing ? null : subgroups;
       if (boughtNothing) suppressedSplits++;
     }
@@ -1181,7 +1196,7 @@ function cmdCotags(args) {
         say(`\n${sg.sgid} — ${lessonCount(sg.members.length)}: ${sgShown.rendered.join(", ")} — ${sg.name}`);
         if (sgShown.missing) say(displayIdAbnormalLine(sgShown.missing, sg.members.length));
         say(`in common: ${sg.claim || NO_CLAIM}`);
-        say(sg.leaf_reason);
+        say(sg.coherence_line);
         for (const d of sg.disclosures) say(`DISCLOSURE — ${d}`);
       }
       say(`\njudged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
@@ -1195,7 +1210,7 @@ function cmdCotags(args) {
   // cannot otherwise tell that from a group nobody judged. Aggregate rather
   // than per-group, because a per-group line is what AC5 removes.
   if (suppressedSplits) {
-    say(`\n${suppressedSplits} of ${shown.length} group(s) render flat because their only named SubGroup was not tighter than the parent — the split bought nothing, so it does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316). The groups are fully conformant; nothing was hidden and no member was dropped.`);
+    say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`forced\` — grouped only to satisfy the requirement, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
   }
   if (claimless) {
     say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
@@ -1503,6 +1518,35 @@ const LINES_PER_SUBGROUP_HEADER = 2;
 // and a member the judge left unplaced lands in the EXPLICIT named SubGroup
 // rather than being dropped. Two copies of that would be two places for the
 // cover to be wrong, and the second copy is the one nobody re-reads.
+// THE SPLIT DECISION IS THE ENGINE'S (SPEC-terrain §8 v?, kogaki#683, owner
+// ruling 2026-08-28 with the disposition-1 boundary confirmed at pickup
+// 2026-08-29).
+//
+// A NUMBER IN SPLIT-OR-STOP LOGIC WAS A DEFECT AND IS NOW THE RULE. §8 carried
+// "Terrain implements no member-count threshold. A number appearing in its code
+// as one is a defect against this paragraph", and kogaki#316 withdrew a numeric
+// trigger on 2026-08-09. The owner REVERSES their own recorded withdrawal,
+// dated 2026-08-28, on a specimen the old contract permitted: G1 (agents ×
+// architecture) served 40 members flat, judged-empty, violating nothing.
+//
+// THE BOUNDARY IS AT TEN AND THE ARITHMETIC IS THE GROUND: the catch-all cap
+// leaves 30% of the parent, and 30% of 10 is 3 Strands — the minimum article —
+// so the requirement works AT 10 rather than above it.
+export const SUBDIVISION_REQUIRED_AT = 10;
+
+// THE COHERENCE LABEL, closed at three (kogaki#683 disposition 5, vocabulary
+// confirmed as filed at pickup). Ordered by decreasing coherence, and `forced`
+// names exactly the outcome the threshold creates — a group that had to split
+// and whose split bought nothing still RENDERS, labelled honestly, rather than
+// silently rendering flat.
+//
+// CONSUMER-OWNED VALUES, and that is a ruling rather than an omission: a
+// consumer owns the SHAPE of its own record and never the VALUES of a field
+// that JOINS across a boundary. This label is rendered on kogaki's own screen
+// and read by nothing outside it, so no hub ratification is owed.
+// consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198
+export const COHERENCE_LABELS = Object.freeze(["tight", "related", "forced"]);
+
 export function subgroupPlacement(parent, classification, block) {
   const subgroups = [];
   const placedIds = new Set();
@@ -1520,7 +1564,14 @@ export function subgroupPlacement(parent, classification, block) {
       name: block.no_member_hidden_subgroup,
       claim: "These members fit none of the composed SubGroups. They are named rather than dropped.",
       members: unplaced.sort(),
-      verdicts: { composes_honestly: true, tighter_than_parent: false, legible_at_a_glance: true },
+      // THE CATCH-ALL IS `forced` BY CONSTRUCTION and says so rather than
+      // carrying a judge's verdict it never received: it exists to hold members
+      // that fit no composed SubGroup, which is the definition of the label.
+      verdicts: {
+        coherence: "forced",
+        coherence_why: "these members fit none of the composed SubGroups; the SubGroup exists so that none is dropped",
+        legible_at_a_glance: true,
+      },
     });
     unplaced.forEach((id) => placedIds.add(id));
   }
@@ -1539,15 +1590,34 @@ export function subgroupPlacement(parent, classification, block) {
 export function judgeSubgroup(sg, groupClaim) {
   const vd = sg.verdicts || {};
 
-  // The leaf condition, CONJUNCTIVE. Both conjuncts are the judge's own
-  // verdicts and neither is re-derived from a proxy.
-  const honest = vd.composes_honestly === true;
-  const tighter = vd.tighter_than_parent === true;
-  sg.leaf = honest && tighter;
-  sg.leaf_reason = honest
-    ? (tighter ? "leaf: the claim composes honestly AND is tighter than its parent's"
-               : "NOT a leaf: the claim composes honestly but is not tighter than its parent's — the split bought nothing")
-    : "NOT a leaf: the claim does not compose honestly — split further";
+  // THE COHERENCE LABEL REPLACES THE CONJUNCTIVE LEAF CONDITION (kogaki#683
+  // disposition 5, owner selection at pickup 2026-08-29). `composes_honestly`
+  // and `tighter_than_parent` are GONE — one instrument, not two — and the
+  // label carries what they carried: `tight` is what the conjunction admitted,
+  // `related` is the honest-but-not-tighter middle the conjunction collapsed
+  // into a bare failure, and `forced` is the split the threshold compelled.
+  //
+  // `legible_at_a_glance` IS NOT FOLDED IN, and the omission is deliberate: it
+  // is one of §8's three INSTRUMENTS rather than a conjunct of the leaf
+  // condition, so absorbing it would re-cut the three-quantity triple in the
+  // same act that deletes the paragraph's other text — two re-cuts of one
+  // paragraph with only one licensed by a disposition.
+  //
+  // THE VALUE IS THE JUDGE'S AND IS NOT INVENTED HERE. A record arriving with
+  // no label, or with a value outside the closed set, is REFUSED rather than
+  // defaulted: a default would be this layer supplying the judgment the label
+  // exists to carry.
+  const coherence = vd.coherence;
+  if (!COHERENCE_LABELS.includes(coherence)) {
+    fail(`SubGroup ${JSON.stringify(sg.name)} carries coherence ${JSON.stringify(coherence === undefined ? null : coherence)}; the closed set is ${COHERENCE_LABELS.join(" | ")} (SPEC-terrain §8, kogaki#683). The label is the judge's and is never defaulted here — a default would be this layer supplying the judgment the label exists to carry.`);
+  }
+  const why = String(vd.coherence_why || "").trim();
+  if (!why) {
+    fail(`SubGroup ${JSON.stringify(sg.name)} carries a coherence label with no \`coherence_why\`. The label and one free-form sentence of why are ONE instrument: a label with no reason is a verdict a reader cannot weigh.`);
+  }
+  sg.coherence = coherence;
+  sg.coherence_why = why;
+  sg.coherence_line = `coherence: ${coherence} — ${why}`;
 
   // The two disclosures, DISJUNCTIVE: each is evaluated independently and
   // neither gates the other, because the first alone does not detect the
@@ -1580,7 +1650,7 @@ export function composeSubdivisionRecord(args, dir, record) {
   const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
   const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
   const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code, so no numeric constant enters this runtime (SPEC.md §8)"));
-  const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own composes_honestly / tighter_than_parent / trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
+  const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|forced) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
 
   const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
   const parent = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
@@ -2809,8 +2879,11 @@ function cmdReport(args) {
     for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim);
     const namedSg = placed.subgroups.filter(
       (sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
+    // The record half of §6.2 v7 rule 3, re-keyed and bounded exactly as the
+    // screen's is — same input, same conclusion, one rule (kogaki#683).
     if (namedSg.length === 1 && namedSg[0].verdicts
-        && namedSg[0].verdicts.tighter_than_parent !== true) {
+        && namedSg[0].verdicts.coherence === "forced"
+        && group.members.length < SUBDIVISION_REQUIRED_AT) {
       // Rendered as judged-empty in SHAPE, and flagged so the renderer can
       // tell it from a genuine no-split. `[]` and not `null` — §12.1 v9 keeps
       // judged-empty distinguishable from unjudged, and this group WAS judged.

@@ -1,5 +1,25 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v30, amended 2026-08-29 (kogaki#683 — owner ruling 2026-08-28, with
+the disposition-1 boundary, the disposition-5 reconciliation and the label
+vocabulary all settled at pickup) — **the split decision is the ENGINE's: a
+composed group at 10 or more members must serve SubGroups, and a judged-empty
+outcome for one is refused at render.** §8's standing rule — *"Terrain
+implements no member-count threshold. A number appearing in its code as one is
+a defect against this paragraph"* — and §6.2's restatements of it are
+**deleted**, by explicit owner reversal of their own 2026-08-09 kogaki#316
+withdrawal, on a specimen the old contract PERMITTED: a 40-member group served
+flat and judged-empty, violating nothing. The contract permitted the outcome,
+so the contract changed.
+**Membership assignment stays the judge's; whether to split is the engine's.**
+The conjunctive leaf condition is replaced by a closed three-value **coherence
+label** (`tight` / `related` / `forced`) plus one free-form sentence — one
+instrument, not two — while §8's three INSTRUMENTS are untouched, including
+`legible_at_a_glance`, which is not a conjunct of the leaf condition and is not
+folded in. `workflow.json` is unchanged; `report-format.json` → v12;
+`survey-schema.json` carries the label and drops `leaf_condition`.
+**deferred slots minted by the v30 amendment: none.**
+
 **Status:** v29, amended 2026-08-29 (kogaki#682 — owner ruling 2026-08-28, and
 the disposition-3 selection taken at pickup in the /ship-cycle 682 sitting) —
 **a Screen is the rendering written AFTER a tag has been selected, and nothing
@@ -1391,19 +1411,21 @@ the reading under which kogaki#128 is a defect rather than a preference.
 
 ### 6.2 SubGroups on the screen, and the threshold that is NOT one
 
-**kogaki#128 asks for SubGroups "when a Group has many members (five or
-more)". That number is admitted as CALIBRATION EVIDENCE and refused as a
-threshold**, on §8's own standing rule — "Terrain implements no member-count
-threshold. A number appearing in its code as one is a defect against this
-paragraph." The issue's "five or more" is the same shape as the owner's
-"above ~4 members" that §8 already ruled on: evidence for *where the
-undiscriminating-claim condition binds*, never the condition itself.
+**kogaki#128 asked for SubGroups "when a Group has many members (five or
+more)". THE SCREEN NOW CARRIES A THRESHOLD, and it is TEN** (v30, kogaki#683,
+owner ruling 2026-08-28). §8 governs it and this section inherits it: a
+composed group at or above 10 members must serve SubGroups, and a judged-empty
+outcome for one is refused at render.
 
-So the screen serves SubGroups where **§8's conjunctive leaf condition and
-its two disjunctive disclosures** put them, and the implementation carries no
-`5`. This is recorded rather than silently corrected because the issue states
-the number as the rule, and a reader holding kogaki#128 must find the
-disposition rather than an absence.
+**kogaki#128's own number is still not the rule**, and that is worth keeping
+straight: the boundary is 10 and its ground is arithmetic — the catch-all cap
+leaves 30% of the parent, and 30% of 10 is 3 Strands, the minimum article. The
+issue's "five or more" was calibration evidence and remains so; it did not
+become correct, it was superseded by a different number reached a different
+way.
+
+Below the threshold, SubGroups appear where the judge's **coherence label**
+and §8's two disjunctive disclosures put them.
 
 **v7 — THREE GROUPING RULES, and what each one does when it fails**
 (kogaki#316, owner decision 2026-08-09, executed 2026-08-11). §14.2 already
@@ -1432,15 +1454,17 @@ enumerates the first two as decidable; this section says what failing them
    nothing`, and read by nothing — the obligation was reported rather than
    discharged.
 
-**THE NO-MEMBER-COUNT-THRESHOLD RULE IS UNTOUCHED BY ALL THREE, and this
-paragraph exists because kogaki#316 asked for it explicitly.** §8's rule — "a
-number appearing in its code as one is a defect against this paragraph" — and
-this section's conformant-failed-leaf clause both **stand unchanged**. The 30%
-cap is a bound on the catch-all's share of a judgment that **did** split; it is
-not a member-count trigger for **whether** to split. kogaki#316's first filing
-proposed such a trigger ("6+ members with no SubGroup is a defect") and the
-owner **withdrew it the same day**. Recorded so the withdrawal is not
-re-proposed as a finding.
+**THE THRESHOLD IS THE ENGINE'S AND THESE THREE ARE UNCHANGED** (v30,
+kogaki#683). Rules 1 and 2 are properties of the rendered text and bind
+exactly as before. Rule 3 is re-keyed and BOUNDED: its test was
+`tighter_than_parent`, which no longer exists, and `forced` is the coherence
+label carrying the same reading — a single named SubGroup grouped only to
+satisfy the requirement bought nothing. **It cannot fire at or above the
+threshold.** Rule 3 says such a group renders no SubGroups; §8 says a group of
+10 or more that renders judged-empty is refused. For a ≥10 group the two point
+opposite ways, so the suppression yields and the group RENDERS its split,
+labelled `forced` — which is the honest outcome and what the label was minted
+for. Below 10, rule 3 is untouched.
 
 **§8.1's ordering is unchanged by this section, and this section makes its
 gate DUE.** Subdivision ships dogfood-first — implemented → dogfooded →
@@ -1468,16 +1492,13 @@ run** — and a dogfood verdict taken on any *other* aspect of such a run is a
 verdict on a failed specimen, which is why kogaki#165 (the subdivide crash)
 and this ruling are upstream of every further Terrain dogfood round.
 
-**"Required" governs the JUDGMENT, never the outcome — §8's threshold rule is
-untouched.** A run may not **skip the subdivision judgment**; it does not
-follow that every group subdivides. SubGroups appear exactly where §8's
-conjunctive leaf condition and its two disjunctive disclosures put them,
-judged, with the judge pin required by the three requirements below. **No
-member-count threshold is introduced or implied** — §8's standing rule that a
-number appearing in the code as one is a defect stands unchanged, and this
-ruling must not be read as re-admitting kogaki#128's "five or more" through
-the word "required". A group whose leaf condition fails renders no SubGroups
-and is fully conformant; what is refused is a run that **never asked**.
+**"Required" governed the JUDGMENT and never the outcome; at v30 the OUTCOME
+is required too, above ten** (kogaki#683). A run may not skip the subdivision
+judgment — that is unchanged, and a run that never asked is still refused. What
+changed is that for a group of 10 or more members, asking and answering "no
+split" is no longer a conformant outcome: it is refused at render. Below the
+threshold the older reading holds exactly — a group whose judge labels its only
+named SubGroup `forced` renders no SubGroups and is fully conformant.
 
 **The alternative this ruling OVERRULES, named because another issue carries
 it and the two must not be read against each other.** kogaki#163 proposed
@@ -1930,18 +1951,41 @@ member-count threshold** — a count is a proxy for evidence, and the 20% cap
 not firing on the reported group was evidence that it measures something
 else, never that the group was fine
 (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:68`).
-Terrain implements no member-count threshold. A number appearing in its code
-as one is a defect against this paragraph.
+**The three instruments gate nothing and are REPORTED quantities, which is
+unchanged at v30.**
 
-**That prohibition is UNCARRIED, and this is its declaration rather than its
-enforcement.** The sentence above is prose one layer up from where it can be
-broken. `checks/check-terrain-composition.sh` declares three figure codes —
-`FIGURE_NOT_OVER_PLACEMENTS`, `FIGURE_FAMILY_UNNAMED`, `FIGURE_MISMATCH` —
-and **none of them observes a member-count threshold**. Nothing in this
-repository detects one. So the rule as written is **advisory**, and calling
-it a defect does not make it detectable: a prohibition stated in prose is
-advisory to a system whose job is to satisfy instructions, and a rule is
-enforced only at the layer where it can be broken.
+**THE SPLIT DECISION IS THE ENGINE'S AT TEN OR MORE** (v30, kogaki#683; owner
+ruling 2026-08-28, boundary confirmed at pickup). A composed group at or above
+**10 members** must serve SubGroups; a judged-empty outcome for such a group is
+**refused at render**, the same class as `catch_all_share` — engine-side, no
+model discretion. **Membership assignment stays the judge's; whether to split
+does not.**
+
+**This is a reversal, and it is recorded as one.** The specimen is the
+2026-08-28 run's G1 (agents × architecture): 40 members served flat and
+judged-empty, **violating nothing** — the 30% cap binds only the catch-all of a
+judgment that DID split, and the rule this section used to carry made a no-split
+outcome conformant at any size. The contract permitted the outcome, therefore
+the contract changed. The owner reverses their own recorded withdrawal of a
+numeric trigger (kogaki#316, 2026-08-09).
+
+**The boundary's ground is arithmetic rather than taste:** the catch-all cap
+leaves 30% of the parent, and 30% of 10 is 3 Strands — the minimum article — so
+the requirement works AT 10 rather than above it.
+
+**Two carriers, and they are checked against each other.**
+`SUBDIVISION_REQUIRED_AT` in the runtime decides whether a split may be
+suppressed; `subdivision_required_at_ten.threshold_members` in
+`report-format.json` is what the format guard refuses against. Between two
+disagreeing values a group is suppressed to flat and then refused, so it has no
+legal rendering at all — `checks/check-terrain-composition.sh` reads both and
+compares them.
+
+**What the deleted text said, and why nothing here records it.** Disposition 4
+rules that the superseded contract is deleted rather than marked: a superseded
+contract kept as a record in an operative carrier regenerates the defect, and
+kogaki#683 is the record. The dated Status block above is version provenance a
+reader needs to tell which version they hold, and is not an operative statement.
 
 **Why it is declared uncarried rather than given a check here.** The
 governing rule admits exactly three states, and the third is this one:
@@ -2081,7 +2125,10 @@ the other way:
   2026-08-07. The line names Kogaki as the actor owing the measurement and
   Kogaki's owner is who delivered it.
 - The **calibration data** the re-point exists to preserve is untouched by
-  this amendment — no member-count threshold enters, per §8's standing rule.
+  this amendment: it introduced no threshold of its own. §8 acquired one at
+  v30 (kogaki#683, owner ruling 2026-08-28) by a separate act with its own
+  ground, and the calibration data is unchanged by that too — it was never the
+  boundary and did not become it.
 
 So the slot is **discharged, not re-pointed a second time**. What remains
 owed upstream is the *record* of that discharge in the hub, which is a

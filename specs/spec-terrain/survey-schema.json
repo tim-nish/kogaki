@@ -24,17 +24,45 @@
     "records that correction; collapsing the duplication is not licensed."
   ],
   "version": "2",
-  "families": ["lesson", "journey"],
+  "families": [
+    "lesson",
+    "journey"
+  ],
   "family_label": "Strand (Lesson|Journey)",
   "candidate_family_must_be": "lesson",
   "candidate_family_rationale": "a candidate row is ONE Lesson and a Journey is a MARK on its Lesson's row, never a row of its own (SPEC.md §5); a journey-family candidate is the two-family row model arriving back as data",
   "survey": {
-    "required": ["id", "generated_by", "pin", "candidates", "journeys", "sections", "no_relation_section", "completeness"],
-    "candidate_required": ["id", "family", "tags", "cite", "display_id"],
+    "required": [
+      "id",
+      "generated_by",
+      "pin",
+      "candidates",
+      "journeys",
+      "sections",
+      "no_relation_section",
+      "completeness"
+    ],
+    "candidate_required": [
+      "id",
+      "family",
+      "tags",
+      "cite",
+      "display_id"
+    ],
     "candidate_display_id_pattern": "^L[0-9]+$",
     "candidate_display_id_rationale": "SPEC.md §14.3 — no owner surface renders an element name; the rendered token is `display_id`, assigned ONCE here in the survey record, which IS the ID→slug map. It is required rather than optional because an optional identifier has a fallback, and the only fallback available is the ~40-character slug the decision removed — so the field's absence must be an ABNORMAL condition a surface states, never a shape a surface silently accommodates. Uniqueness is checked within the record: two members sharing a display_id makes the join return the wrong Strand, which reads as a rename rather than as a collision",
-    "section_required": ["name", "members", "by_family"],
-    "narrowing_keys_forbidden": ["selected", "trimmed", "hidden", "excluded", "dropped"],
+    "section_required": [
+      "name",
+      "members",
+      "by_family"
+    ],
+    "narrowing_keys_forbidden": [
+      "selected",
+      "trimmed",
+      "hidden",
+      "excluded",
+      "dropped"
+    ],
     "narrowing_rationale": "sections gate nothing and a navigation step carries no selection authority (SPEC.md §2.2); a narrowing key in navigation state is the refused minimal-form bundling arriving as a field",
     "journey_mark_key": "journey",
     "journey_mark_rationale": "the mark reads by ABSENCE — a Lesson with no Journey is decorated, a Lesson with one is not (SPEC.md §5); the key is present on every candidate, null when the Lesson is thin",
@@ -45,71 +73,171 @@
       "counted": "lesson = member Lessons; journey = member Lessons carrying a Journey mark. The rendered section figure is their sum, which is the Strand count `agents (115 — 59 lessons + 56 journeys)` §9 names, never a bare 115"
     },
     "completeness": {
-      "required": ["placed", "of", "family", "by_family", "counted_over"],
+      "required": [
+        "placed",
+        "of",
+        "family",
+        "by_family",
+        "counted_over"
+      ],
       "counted_over_must_be": "placements",
       "counted_over_rationale": "the count runs AFTER composition; a figure computed over the candidate set reads as a pass while material is missing (SPEC.md §2.1)",
       "family_must_name": "Strand (Lesson|Journey)",
       "family_rationale": "every figure names which family it counted — a bare count is a defect, not a terse rendering (SPEC.md §2.1; GLOSSARY.md:248@924cce3)",
       "denominator_key": "of",
       "denominator_rationale": "`placed` and `of` are counted IN LESSONS — every screen showing candidate rows states its denominator in Lessons (SPEC.md §5); the load-bearing half of the design is the denominator rather than the mark, because it is what makes the next coverage inversion visible on-screen. `by_family` beside it carries the Strand split, so the figure names its families without the denominator drifting off Lessons",
-      "coverage_keys": ["thin_lessons", "coverage"],
+      "coverage_keys": [
+        "thin_lessons",
+        "coverage"
+      ],
       "coverage_rationale": "the coverage figure (thin Lessons / Lessons) rides beside the mark; falsifier 2's reversal trigger is coverage >= 99%, and SPEC.md §5.2 declares `instrument: none` for it — it is printed, never read by a check, and this schema does not supply the carrier that section deliberately withholds"
     }
   },
   "group_claim": {
     "note": "SPEC.md §7 — a claim composed over a member set is PINNED to that set. The record carries the member IDS, not only the claim text, because a derived expression's truth is relative to the set it was derived from.",
-    "required": ["id", "kind", "pin", "group", "claim", "members", "member_pins", "composed_over", "adopted"],
+    "required": [
+      "id",
+      "kind",
+      "pin",
+      "group",
+      "claim",
+      "members",
+      "member_pins",
+      "composed_over",
+      "adopted"
+    ],
     "kind_must_be": "group-claim",
     "composed_over_must_be": "members",
     "composed_over_rationale": "the claim is composed over the MEMBERS, so a change to the member set is a GATE EVENT rather than a refresh (SPEC.md §7)",
-    "member_pin_required": ["id", "cite"],
+    "member_pin_required": [
+      "id",
+      "cite"
+    ],
     "adopted_must_be": false,
     "adopted_rationale": "a group-claim record is a per-invocation RENDERING and is never itself the adopted claim; adoption is the owner's act at the gate and lands in an adopted-claim record",
-    "narrowing_keys_forbidden": ["selected", "trimmed", "hidden", "excluded", "dropped"],
+    "narrowing_keys_forbidden": [
+      "selected",
+      "trimmed",
+      "hidden",
+      "excluded",
+      "dropped"
+    ],
     "narrowing_rationale": "composing a claim over a group is PRESENTATION and narrows nothing on its own; a subset selection is the OWNER's act, and rank/trim/hide still route through the proposal contract (SPEC.md §2.3, §8.2)"
   },
   "adopted_claim": {
     "note": "SPEC.md §7 — the brief records the adopted claim TOGETHER WITH the members it was composed from, by member id and pin, never by a group id.",
-    "required": ["id", "kind", "pin", "claim", "claim_source", "members", "member_pins", "gate"],
+    "required": [
+      "id",
+      "kind",
+      "pin",
+      "claim",
+      "claim_source",
+      "members",
+      "member_pins",
+      "gate"
+    ],
     "kind_must_be": "adopted-claim",
-    "claim_sources": ["recomposed", "original-wording-kept", "free-text"],
+    "claim_sources": [
+      "recomposed",
+      "original-wording-kept",
+      "free-text"
+    ],
     "claim_source_rationale": "the recomposed claim is a PROPOSAL: the owner may keep the original wording, and the recorded member set is what makes the resulting mismatch LEGIBLE rather than forbidden (SPEC.md §7)",
-    "member_pin_required": ["id", "cite"],
-    "group_id_keys_forbidden": ["group", "group_id", "group_name", "cotag"],
+    "member_pin_required": [
+      "id",
+      "cite"
+    ],
+    "group_id_keys_forbidden": [
+      "group",
+      "group_id",
+      "group_name",
+      "cotag"
+    ],
     "group_id_rationale": "recorded by member id and pin and NEVER by a group id — a group id lets the member set change underneath the claim without the record moving, which is the provenance lie §7 refuses",
-    "gate_required": ["gate_id", "stop_id", "answer"],
+    "gate_required": [
+      "gate_id",
+      "stop_id",
+      "answer"
+    ],
     "gate_rationale": "adoption happens only at the gate carrier (manifest item 4): the recomposed claim is re-offered as a GATE EVENT, never a silent refresh, so an adopted claim with no gate row was never offered"
   },
   "subdivision": {
     "note": "SPEC.md §8 — semantic subdivision as a judged substrate one level down. Placement plus title-derivation, hiding none: a cap decides WHICH members appear, subdivision decides WHERE each appears and hides none, so it is inside the presentation-only invariant and is not the refused within-axis cap.",
-    "required": ["id", "kind", "pin", "judge", "group", "group_claim", "parent_members", "subgroups", "cover", "offered_by_default", "lessons_served"],
+    "required": [
+      "id",
+      "kind",
+      "pin",
+      "judge",
+      "group",
+      "group_claim",
+      "parent_members",
+      "subgroups",
+      "cover",
+      "offered_by_default",
+      "lessons_served"
+    ],
     "kind_must_be": "subdivision",
-    "judge_required": ["model_id", "effort_tier"],
+    "judge_required": [
+      "model_id",
+      "effort_tier"
+    ],
     "judge_rationale": "the fourth component on the existing pin discipline, ADOPTED for per-invocation judged surfaces and naming terrain screens, claims and groupings among them (topics/knowledge-architecture.md:84@f918c515). Where drift is undetectable, pin: a surface regenerated fresh by design lets `recomputed fresh` silently become `recomputed by a different judge` with nothing in the record distinguishing that from ordinary nondeterminism. The pin makes a judge change OBSERVABLE and the judge-migration tripwire (:85) makes it CONSEQUENTIAL; either alone leaves the loop open. WHICH model is therefore a per-invocation PINNED FACT, not a design decision this schema fixes — and this repository fixes none.",
     "no_member_hidden_subgroup": "(fits no composed SubGroup)",
     "no_member_hidden_rationale": "every member of the parent group appears in at least one SubGroup, and members that fit none appear in an EXPLICIT NAMED SubGroup rather than being dropped — completeness is a cover counted in placements, checked AFTER composition (SPEC.md §2.1, §8)",
-    "subgroup_required": ["name", "claim", "members", "by_family", "leaf", "leaf_reason", "disclosures", "instruments"],
-    "leaf_condition": {
-      "conjunctive": true,
-      "conjuncts": ["composes_honestly", "tighter_than_parent"],
-      "rationale": "a subgroup is a leaf when its claim composes honestly AND is tighter than its parent's. Failing the first means split further; failing the second means the split bought nothing. Stated conjunctively because a stop condition checking only degeneration emits subgroups that merely restate the parent (topics/articles.md:70@f918c515).",
-      "verdicts_are_the_judges": "both conjuncts are the serving judge's own verdicts, carried on the classification input and pinned with it. They are NOT re-derived here from a numeric proxy: §8's reopen trigger is the first subdivision implementation reaching review with a numeric constant in its SPLIT OR STOP logic, and inventing a threshold to stand in for a judgment would fire it."
-    },
+    "subgroup_required": [
+      "name",
+      "claim",
+      "coherence",
+      "coherence_why",
+      "members",
+      "by_family",
+      "disclosures",
+      "instruments"
+    ],
     "disclosures": {
       "disjunctive": true,
-      "codes": ["degenerate-claim", "undiscriminating-claim"],
+      "codes": [
+        "degenerate-claim",
+        "undiscriminating-claim"
+      ],
       "rationale": "the degenerate-claim disclosure fires when a claim trails into enumeration; it does NOT detect the reported condition on its own, which is why the second exists — the claim is honest but UNDISCRIMINATING at the size served, and an honest summary true of every member discriminates between none (topics/articles.md:67@f918c515). They are evaluated independently and neither gates the other.",
-      "degenerate_signals": ["the judge's own trails_into_enumeration verdict", "the claim text naming a member's slug — a claim that names its members is enumerating them, a unit-matching signal carrying no numeric constant"],
-      "undiscriminating_signals": ["the judge's own true_of_every_member verdict", "the claim being textually identical to its parent's, which is undiscriminating by construction"]
+      "degenerate_signals": [
+        "the judge's own trails_into_enumeration verdict",
+        "the claim text naming a member's slug — a claim that names its members is enumerating them, a unit-matching signal carrying no numeric constant"
+      ],
+      "undiscriminating_signals": [
+        "the judge's own true_of_every_member verdict",
+        "the claim being textually identical to its parent's, which is undiscriminating by construction"
+      ]
     },
     "instruments": {
-      "required": ["relative_share_of_placements", "screen_budget_lines", "legible_at_a_glance"],
+      "required": [
+        "relative_share_of_placements",
+        "screen_budget_lines",
+        "legible_at_a_glance"
+      ],
       "rationale": "THREE INSTRUMENTS, THREE QUANTITIES, NONE A THRESHOLD — 20% of placements (relative share), the screen budget (rendering destination), and at-a-glance legibility (absolute). The owner's `above ~4 members` is CALIBRATION EVIDENCE for where the undiscriminating-claim condition binds, never a member-count threshold: a count is a proxy for evidence, and the 20% cap not firing on the reported group was evidence that it measures something else, never that the group was fine (topics/articles.md:68@f918c515).",
-      "no_member_count_threshold": "Terrain implements no member-count threshold and none of these three gates anything — they are REPORTED quantities. A number appearing in split or stop logic as a threshold is a defect against SPEC.md §8 and fires that section's declared reopen trigger. The screen budget is supplied per run rather than constant in code, so this file and the runtime carry no such number either.",
-      "carrier_state": "§8 declares this prohibition DELIBERATELY CARRIER-LESS with a reopen trigger — state three of the served three-state rule. Nothing here converts it into a check, and the review lane remains its reader, which §8 names as exactly the weakness it is declaring."
+      "no_member_count_threshold": "THE SPLIT DECISION IS THE ENGINE'S, AND THE THRESHOLD IS 10 (kogaki#683, owner ruling 2026-08-28 reversing the 2026-08-09 kogaki#316 withdrawal). A composed group at or above 10 members must serve SubGroups; a judged-empty outcome for such a group is refused at render, the same class as `catch_all_share`. The three instruments here are UNCHANGED and still gate nothing — they remain REPORTED quantities, and the threshold is not one of them: it decides WHETHER TO SPLIT, which is now the engine's, while membership assignment stays the judge's. `legible_at_a_glance` in particular is untouched by disposition 5's reconciliation, which replaced the leaf condition and deliberately left this triple whole.",
+      "carrier_state": "The prohibition this field used to declare carrier-less is GONE — the owner reversed it. What IS carried: `subdivision_required_at_ten` in report-format.json refuses the rendered violation, and the runtime declines to suppress a split at or above the threshold so the refusable screen is not produced. The three instruments remain reported and ungated, which is unchanged and deliberate."
     },
     "offered_by_default_must_be": false,
-    "offering_rationale": "SPEC.md §8.1 — subdivision ships DOGFOOD-FIRST: implemented → dogfooded → owner-verdicted → offered. Co-tags stay the default for a run naming no substrate, and subdivision is reachable only by explicitly naming it. Merging this code ARRIVES at the offering gate rather than discharging it: merged code evidences existence, never the gate's standing (topics/articles.md:53@f918c515). The hub-side gate at product-lab:q_a/staging/2026-07-31-subdivision-offering-measurement-due.md is undischarged and this record does not discharge it."
+    "offering_rationale": "SPEC.md §8.1 — subdivision ships DOGFOOD-FIRST: implemented → dogfooded → owner-verdicted → offered. Co-tags stay the default for a run naming no substrate, and subdivision is reachable only by explicitly naming it. Merging this code ARRIVES at the offering gate rather than discharging it: merged code evidences existence, never the gate's standing (topics/articles.md:53@f918c515). The hub-side gate at product-lab:q_a/staging/2026-07-31-subdivision-offering-measurement-due.md is undischarged and this record does not discharge it.",
+    "coherence": {
+      "closed_set": [
+        "tight",
+        "related",
+        "forced"
+      ],
+      "meanings": {
+        "tight": "members share one mechanism",
+        "related": "members share a theme, not one mechanism",
+        "forced": "grouped to satisfy the split requirement"
+      },
+      "why_required": true,
+      "rationale": "ONE INSTRUMENT, NOT TWO (kogaki#683 disposition 5, owner selection at pickup 2026-08-29). This REPLACES the conjunctive leaf condition — `composes_honestly` and `tighter_than_parent` are removed, not kept beside it. The label carries what the conjuncts carried and one thing they could not: `tight` is what the conjunction admitted, `related` is the honest-but-not-tighter middle the conjunction collapsed into a bare failure, and `forced` names the split the 10-member requirement compels. The judge selects exactly one and supplies one free-form sentence of why; both render under the claim.",
+      "never_defaulted": "A record arriving with no label, or with a value outside the closed set, is REFUSED at `judgeSubgroup` rather than defaulted — a default would be the engine supplying the judgment the label exists to carry. A label with no `coherence_why` is refused for the same reason: the two are one instrument.",
+      "values_are_consumer_owned": "A consumer owns the SHAPE of its own record and never the VALUES of a field that JOINS across a boundary. This label is rendered on kogaki's own screen and read by nothing outside it, so the values are minted here. consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198"
+    }
   },
   "records_home": {
     "glob": "*.terrain-survey.json",

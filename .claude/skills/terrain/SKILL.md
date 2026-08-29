@@ -162,14 +162,28 @@ whose ID set the owner enters. **Nothing on either line is optional.**
 
    ```json
    {
-     "<tag> × architecture": { "judged": true, "subgroups": [ { "subgroup": "…", "claim": "…", "members": ["lesson:…"], "composes_honestly": true, "tighter_than_parent": true, "legible_at_a_glance": true } ] },
+     "<tag> × architecture": { "judged": true, "subgroups": [ { "subgroup": "…", "claim": "…", "members": ["lesson:…"], "coherence": "tight", "coherence_why": "one sentence", "legible_at_a_glance": true } ] },
      "<tag> × cost":         { "judged": true, "subgroups": [] }
    }
    ```
 
-   **`"subgroups": []` is the conformant record for a group whose judgment RAN
-   and found no leaf split** — it is not the same as omitting the group, and
-   the difference is the whole point. Omitting a group says *not judged*, which
+   **`coherence` IS THE JUDGMENT AND IT IS CLOSED AT THREE** (§8 v30,
+   kogaki#683). `tight` — the members share one mechanism. `related` — they
+   share a theme, not one mechanism. `forced` — grouped to satisfy the split
+   requirement. Select exactly one and supply `coherence_why`, ONE sentence.
+   The runtime **refuses** a value outside the set and refuses a label with no
+   reason: the two are one instrument, and a default would be the engine
+   supplying the judgment the label exists to carry. It REPLACES
+   `composes_honestly` / `tighter_than_parent`, which are gone.
+
+   **THE SPLIT DECISION IS NOT YOURS AT TEN OR MORE.** A composed group of 10+
+   members MUST serve SubGroups; `"subgroups": []` for such a group is refused
+   at render, engine-side. Membership assignment stays your judgment; whether
+   to split does not. Below ten, a judged-empty outcome is still conformant.
+
+   **`"subgroups": []` is the conformant record for a group UNDER TEN whose
+   judgment RAN and found no split** — it is not the same as omitting the
+   group, and the difference is the whole point. Omitting a group says *not judged*, which
    the co-tag path **refuses**: `report` will not mint a judge pin of `none`,
    because a report carrying `none` is indistinguishable from a run that never
    asked (§12.1 v9). **Write an entry for every composed group.**
