@@ -1,5 +1,26 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v29, amended 2026-08-29 (kogaki#682 — owner ruling 2026-08-28, and
+the disposition-3 selection taken at pickup in the /ship-cycle 682 sitting) —
+**a Screen is the rendering written AFTER a tag has been selected, and nothing
+else.** The pre-selection tag listing and the per-tag row view are not Screens:
+they cease to be states of the workflow table, write no owner artifact, and
+reach the owner through §6.0's channel — commands the OWNER runs. With
+`cotag_screen` the sole writing state of `reports/Screen.md`, owner-artifact
+writes per run are **two**. `workflow.json` → v9 (both states removed;
+`counted_baseline` moved; a fifth map, `owner_executed_entry_points`);
+`report-format.json` → v11 (`tag_screen` → `tag_listing`, `tag_row_view` →
+`tag_row_listing`, both re-mediumed off `reports/Screen.md`).
+**The superseded definition is deleted rather than annotated**, per the
+ruling's own disposition 2 — no "formerly `view`" prose, and no note restating
+what a Screen used to include. **One reading of that disposition is recorded
+because it was a judgment and not a transcription:** the dated version ledgers
+(this Status stack, `licensed_by`) keep their entries, because they are
+provenance a reader needs to tell which version they hold, and the carrier
+requires that of itself. What is deleted is every statement a reader could
+*act* on. Reverse the reading and the ledgers go too.
+**deferred slots minted by the v29 amendment: none.**
+
 **Status:** v28, amended 2026-08-29 (kogaki#681, successor to #680, owner
 selections at the /ship-cycle 681 sitting) — **§15.5's write-authority claim is
 NARROWED to what a carrier can make true, and given that carrier.** The section
@@ -1113,6 +1134,66 @@ the paragraph above is not to be read as supplying one.
 
 ## 6. Navigation — the co-tag second step
 
+### 6.0 The pre-selection listings are OWNER-EXECUTED, and write nothing
+
+**A Screen is the rendering written after a tag has been selected — nothing
+else** (owner ruling 2026-08-28, kogaki#682). The pre-selection tag listing the
+owner chooses a tag *from*, and the per-tag row view they may ask to browse, are
+therefore not Screens. They write no `reports/Screen.md`, and §6.3's two-act
+window is what `reports/Screen.md` is for.
+
+**How the collision happened, stated once because the shape recurs.** The
+two-file contract is §6.3's and has been re-corrected three times. The
+pre-selection listing entered the Screen artifact through a *different clause
+solving a different problem*: §14.4.1 repaired **delivery** by making every
+owner rendering an artifact, and admitted the listing into the same file and
+class as the co-tag screen. Two clauses collided on the word "screen", and
+§15.7's preservation doctrine — a removed entry point's behaviour lives on as a
+state — then carried the listing forward into the executor. **The preserved
+record of the removed surface is what re-installed it.**
+
+**The channel: the OWNER runs them.** `tags --survey <record>` prints the tag
+listing; `tag-rows --survey <record> --tag <T>` prints the per-tag row view.
+Both go through the format guard, both write nothing, and neither is a state —
+so §15.5's write authority never engages and §15.2's one-entry-point rule is
+untouched, because these are not acts of the flow. The executor names the
+invocation at its `TAG_SELECTION` stop, from the table's own `owner_reads`
+declaration, and **neither runs it nor relays its output**.
+
+**Why that answers §14.4.1's stdout finding rather than reopening it:**
+
+> "In the Claude Code harness a tool call's stdout is displayed to the MODEL,
+> not reliably to the OWNER … every conformant behavior renders nothing, and
+> the observed false claim ('the screen is above') is what an agent produces
+> when instructed to deliver through a channel that does not display."
+
+`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/claude-code-ops.md:69`
+  outcome: discriminating
+  query: "When a tool's output must reach a human owner but the harness
+         displays stdout to the model rather than to the person, what delivery
+         channel is correct — an artifact the session hands over, the model
+         relaying the text, or the owner executing the command themselves?"
+
+That finding is about **who invoked the tool**. A session's tool call prints to
+the session; an act the owner types prints to the owner. The channel here is
+not "stdout" in the abstract — it is the owner's own terminal.
+
+**Three arms declined at the 2026-08-29 selection, recorded so none is
+re-proposed blind.** *The session renders it in chat* — retyping, which
+§14.4.1 v19 replaced ("the artifact is handed over, never the rendering
+retyped into the reply") and which the finding above names as producing the
+agent's false "the screen is above". *No listing at all* — cheapest, and it
+removes vocabulary discovery, which under the completeness rule would owe a
+recorded decline. *Its own artifact under another name* — this keeps the
+artifact delivery the finding actually resolved to, and it was declined
+because it makes owner-artifact writes three where the ruling fixes two.
+
+**The per-tag row view travels with the listing**, on the same channel, decided
+in the same act: disposition 1 removes both as screen-writing states and
+disposition 3 named only the listing, so its channel would otherwise have been
+unstated — which is the unnamed-deferral shape DECIDE-OR-NAME refuses.
+
+
 Selecting a tag displays **the other tags its members carry, grouped by
 co-tag, with counts** (`agents × architecture (3)`). This is the second
 navigation step, and it is navigation in the full §2.3 sense: deterministic,
@@ -1473,6 +1554,14 @@ and WA's "~4", stays calibration evidence for where the
 undiscriminating-claim condition binds, and no member count enters the code.
 
 ### 6.3 The post-tag-selection window — exactly two acts, and no question
+
+**READ §6.0 FIRST (v29, kogaki#682).** This section governs the window that
+opens once a tag is named. What the owner reads *before* naming one — the tag
+listing, and the per-tag row view they may ask to browse — is not in this
+window and is not a Screen; §6.0 carries its channel. This section's own ruling
+is untouched: the window still bounds what runs unattended, its question
+allowlist is still empty, and `reports/Screen.md` is still written inside it —
+now by exactly one state.
 
 **THE ACT ENUMERATION IS SUPERSEDED BY §15's WORKFLOW TABLE; THE WINDOW'S
 AUTHORITY IS NOT** (v23, kogaki#625, owner selection 2026-08-23). What this
@@ -4666,10 +4755,12 @@ same route**, and the v23 form of this block asserted otherwise:
 - `cmdClaim`, `cmdAdopt` and `cmdSubdivide` are **removed** — they stop
   emitting owner text at all and leave the **denominator**.
 - `cmdView` is **not removed**. Its owner text does not stop: it becomes the
-  `tag_screen` and `tag_row_view` states, which still write
-  `reports/Screen.md`. It **stays in the denominator** and enters the numerator
-  by gaining grammar — two surfaces minted in `report-format.json` from §9's
-  allowlist.
+  `tag_listing` and `tag_row_listing` surfaces, printed by the owner-executed
+  `tags` and `tag-rows` (§6.0). It **stays in the denominator** and enters the
+  numerator by gaining grammar. **The coverage claim is about the grammar and
+  never about a medium** (v29): neither surface writes an artifact, and §14.2's
+  refusal binds what may be *emitted* rather than what may be written, so a
+  surface that writes nothing owes conformance exactly as much.
 
 **v23 said "the four surfaces … stop emitting owner text at all" and put the
 figure at TWO OF TWO. That was false when written**, and `report-format.json`
@@ -5124,8 +5215,8 @@ two tenses never coexist.
 
 **THE COUNT IS FOUR AT v24 (kogaki#636), and the two new specimens are asserted
 ONCE rather than twice.** §15.5 binds grammar to the writing STATE rather than
-to the artifact path, so `report-format.json` mints `tag_screen` and
-`tag_row_view` from §9's allowlist — and this section's per-covered-surface
+to the artifact path, so `report-format.json` mints `tag_listing` and
+`tag_row_listing` from §9's allowlist — and this section's per-covered-surface
 count does exactly what it was built to do: it failed the sitting that covered
 them until their specimens existed, rather than quietly still saying two.
 
@@ -5365,7 +5456,16 @@ standing as live text, inside the table §15.1 makes authoritative over
 sequencing. The table did not need a `conditional` key on an existing state; it
 was **missing a state**.
 
-**Why the conditional state does not breach §6.3's two-act window.** The window
+**AMENDED AT v29 (kogaki#682): BOTH STATES ARE GONE.** The paragraphs above
+record how the table came to hold a pre-selection listing and then a second
+state beside it; neither is a state any more. A Screen is the rendering written
+after a tag has been selected, so the listing and the row view are not Screens,
+write nothing, and reach the owner through §6.0's owner-executed channel. The
+reasoning below is kept as **provenance for the fork ruling it settles**, which
+is still live — §6.3's window still bounds what runs unattended, and browsing
+rows is still the owner speaking — and not as a description of the table.
+
+**Why the conditional state did not breach §6.3's two-act window.** The window
 bounds what runs **unattended** — §6.3 v7 says exactly that, and says the stop
 moving between the acts bounds *strictly more* rather than less. The owner
 asking to browse rows **is the owner speaking**, so the window has closed;
@@ -5496,12 +5596,26 @@ paragraph opened by calling false **stays false until the executor lands**. What
 this amendment changes is that the falsity is now named, accounted and derivable
 from the table rather than invisible; §15.8 carries it as uncarried. `workflow.json` v3 accounts for them in `removed_entry_points`,
 and its `entry_point_accounting` note carries the property that actually
-matters — **every dispatcher case appears in exactly one of the four maps**, so
+matters — **every dispatcher case appears in exactly one of the maps — four at v3, FIVE from v9 (kogaki#682 adds `owner_executed_entry_points`), the totality being the property rather than the count**, so
 the next entry point is covered by the totality rather than by having been
 remembered. `neighborhood` moves to its own `retired_entry_points` map: it was
 retired before this table existed (kogaki#472/#473) and survives only to refuse
 with a pointer, so listing it beside four real removals is what made an
 interpreter read a phantom.
+
+**AMENDED AT v29 (kogaki#682) — THE THREE-STATE ARITHMETIC BELOW IS
+PROVENANCE, NOT A DESCRIPTION OF THE TABLE.** `tag_screen` and `tag_row_view`
+are gone; `reports/Screen.md` has exactly ONE writing state, `cotag_screen`,
+and the private writer has exactly one caller. The reasoning is kept because
+the RULING it settles is still live — grammar binds to the writing state and
+never to the artifact path — and because a reader meeting only the conclusion
+cannot tell a decision from a coincidence. It is marked here rather than
+rewritten for the same reason its §15.6 sibling is: rewriting history to match
+the present is how the record of *why* a rule exists is lost. **What must not
+survive is a statement a reader could act on**, which is what disposition 2
+requires and what this marking supplies (PR #704 round 1, finding 2 — the
+sibling was marked and this section was not, so a reader arriving at §15.5 read
+the superseded definition as current).
 
 **ONE WRITER and ONE GRAMMAR are different claims, and v2 conflated them** —
 PR #626 round 2, finding 2. `workflow.json` v2 bound the single `screen`
@@ -5519,8 +5633,9 @@ the amendment was written to close.
 **So grammar binds to the STATE, never to the artifact path.** Each writing
 state declares its own `grammar_surface`; the writer stays one private
 function, and it renders under the grammar the calling state names.
-`report-format.json` mints `tag_screen` and `tag_row_view` from §9's allowlist
-in the same act. The one-writer ruling below is untouched — it was never what
+`report-format.json` minted the two listing surfaces from §9's allowlist in the
+same act; at v11 they are `tag_listing` and `tag_row_listing`, and at v29 they
+are printed by owner-executed commands rather than written by states (§6.0). The one-writer ruling below is untouched — it was never what
 was wrong, and the defect it fixed (two producers, one conformance-checked) is
 still fixed.
 
@@ -5530,7 +5645,8 @@ both writing `reports/Screen.md`. The shipped code shows what the class cost:
 `cmdCotags` writes it through the format guard while `cmdView` writes the same
 file directly, bypassing the guard — so one artifact had two producers and only
 one of them was conformance-checked. Under this section there is **one screen
-writer**, a private function the tag-screen and co-tag-screen states both call.
+writer**, a private function; at v29 it has exactly one caller, the
+`cotag_screen` state.
 
 **The artifact NAME does not change, and per-state names were the declined
 arm.** §12.2 (v12) rules the tree holds one overwritten rendering per
@@ -5747,10 +5863,11 @@ a reopen trigger.
   longer there to cover. `cmdSubdivide`'s hand-rendered lines, which §14.2's
   guard never saw, are removed with it.
 - **`cmdView` — NOT REMOVED. Its owner text does not stop.** It becomes the
-  `tag_screen` and `tag_row_view` states, and a state whose `writes` is
-  non-null writes an owner artifact by definition (§15.5). It therefore
-  **stays in the denominator and enters the numerator**, through two surfaces
-  minted in `report-format.json` from §9's allowlist.
+  `tag_listing` and `tag_row_listing` surfaces, printed by owner-executed
+  commands that write no artifact (§6.0, v29). It therefore **stays in the
+  denominator and enters the numerator**, through two surfaces minted in
+  `report-format.json` from §9's allowlist — coverage being a property of the
+  grammar rather than of the medium.
 
 **The earlier form of this clause said "those four stop emitting owner text at
 all" and asserted a replacement figure of TWO OF TWO. That was false at the

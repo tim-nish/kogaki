@@ -62,21 +62,60 @@ const ownerRoot = () => mkdtempSync(join(tmpdir(), "kogaki-write-authority-"));
 // one up so the executor can be driven at all. Without it the executor is
 // undrivable against a fixture, which is the finding that refuted #680's
 // disposition (kogaki#681).
-function seedRun(dir, completed = ["survey"], extra = {}) {
+function seedRun(dir, completed = SEED_TO_COTAG_SCREEN, extra = {}) {
   writeFileSync(join(dir, "run-record.json"), JSON.stringify({
     workflow: { path: "specs/spec-terrain/workflow.json", version: TABLE_VERSION },
     survey_record: FIXTURE,
     completed, waits_reached: [], conditional_entered: [], conditional_skipped: [],
-    awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+    awaiting: null,
+    // THE WAITS THE SEED CROSSES ARE ANSWERED, or the executor stops at the
+    // first of them and the direction below reads an absent artifact as a
+    // refusal that never happened.
+    owner_input: { TAG_SELECTION: TAG },
+    artifacts_written: [], judgments: {},
     gate_declarations_owed: [], done: false, ...extra,
   }, null, 1));
   return dir;
 }
+
+// The judgment records the seeded path's states require. Derived per fixture,
+// for the reason the rerun direction already states: §6.2 judges every group on
+// the co-tag path, so a hand-listed subset fails setup on the first fixture
+// whose grouping changes.
+function judgmentArgs(dir, tag) {
+  const rec = JSON.parse(readFileSync(FIXTURE, "utf8"));
+  const members = rec.candidates.filter((c) => (c.tags || []).includes(tag));
+  const groups = cotagGroups(members, tag);
+  const subs = join(dir, "subs.json");
+  const claims = join(dir, "claims.json");
+  const entries = {};
+  for (const g of groups) entries[g.name] = { judged: true, subgroups: [] };
+  writeFileSync(subs, JSON.stringify(entries));
+  writeFileSync(claims, JSON.stringify({
+    composition_pin: { tag, pin: rec.pin, groups: {} }, claims: {},
+  }));
+  return ["--claims", claims, "--subdivisions", subs, "--judge-model", "m", "--judge-effort", "high"];
+}
 // READ FROM THE TABLE, never pinned here: the executor refuses to resume a
 // record written against another version, so a literal would make this check
 // fail on the next table bump for a reason that is not the property.
-const TABLE_VERSION = JSON.parse(
-  readFileSync(join(process.cwd(), "specs/spec-terrain/workflow.json"), "utf8")).version;
+const TABLE = JSON.parse(readFileSync(join(process.cwd(), "specs/spec-terrain/workflow.json"), "utf8"));
+const TABLE_VERSION = TABLE.version;
+
+// SEEDED TO THE FIRST WRITING STATE, DERIVED FROM THE TABLE (kogaki#682). The
+// four-direction cut seeded `["survey"]` and let the executor reach the next
+// writing state on its own — which worked only while `tag_screen` was one. It
+// is not: kogaki#682 removes the pre-selection listing from the table entirely,
+// and `reports/Screen.md` now has exactly ONE writing state. So the seed is
+// computed rather than written out — every state up to the first `write`, with
+// the waits it crosses answered — and a table that moves the first write needs
+// no edit here.
+const FIRST_WRITE = TABLE.states.find((st) => st.kind === "write")
+  || (() => { throw new Error("the workflow table declares no write state — this check has nothing to assert against"); })();
+const SEED_TO_COTAG_SCREEN = TABLE.states
+  .slice(0, TABLE.states.findIndex((st) => st.id === FIRST_WRITE.id))
+  .filter((st) => !st.conditional)
+  .map((st) => st.id);
 
 const mds = (dir) => (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".md")) : []);
 const REFUSAL = /is an OWNER ARTIFACT and is written only from a writing state/;
@@ -143,7 +182,7 @@ function block1(runtime, label) {
   //     direction that makes the other three a narrowing rather than a ban.
   const rootD = ownerRoot();
   const runD = seedRun(mkdtempSync(join(tmpdir(), "kogaki-run-")));
-  const d = drive(runtime, rootD, ["run", "--run-dir", runD]);
+  const d = drive(runtime, rootD, ["run", "--run-dir", runD, ...judgmentArgs(runD, TAG)]);
   if (d.status !== 0) {
     local.push(`the executor failed writing the owner location (exit ${d.status}): ${(String(d.stderr)).trim().slice(0, 200)}`);
   } else if (!mds(join(rootD, "reports")).includes("Screen.md")) {
