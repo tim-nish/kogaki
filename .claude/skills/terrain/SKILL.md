@@ -22,14 +22,24 @@ never re-type it.
   file, read it, and write its contents into your reply; that is retyping with
   extra steps, and `cat`-ing it into a tool call is the same delivery through
   the same unreliable channel with an extra process.
-- **The screens: name `reports/Screen.md`.** The two screen states —
-  `tag_screen`/`tag_row_view` and `cotag_screen` — and no third (§14.4.1 v19; the neighborhood rides the Full Report
-  since §13.1 v20) — each write their rendering to `reports/Screen.md` and
-  print the line `Screen — READ THIS ONE (owner rendering, SPEC-terrain
-  §14.4.1): <path>`. That file is the rendering. **Do not treat the printed
-  screen text as the delivery** — a tool call's stdout is displayed to the
-  model, not reliably to the owner, which is the defect §14.4.1 (v18) was
-  ruled against.
+- **The Screen: name `reports/Screen.md`.** A Screen is the rendering written
+  AFTER a tag has been selected — nothing else (§6.0, owner ruling 2026-08-28,
+  kogaki#682) — so it has exactly ONE writing state, `cotag_screen`, and no
+  second (the neighborhood rides the Full Report since §13.1 v20). It writes its
+  rendering to `reports/Screen.md` and prints the line `Screen — READ THIS ONE
+  (owner rendering, SPEC-terrain §14.4.1): <path>`. That file is the rendering.
+  **Do not treat the printed screen text as the delivery** — a tool call's
+  stdout is displayed to the model, not reliably to the owner, which is the
+  defect §14.4.1 (v18) was ruled against.
+- **The pre-selection listings are the OWNER'S to run, and you do not run them
+  for them** (§6.0). The executor's `TAG_SELECTION` stop prints the invocation:
+  `node terrain/terrain.mjs tags --survey <record>`, and
+  `tag-rows --survey <record> --tag <T>` when the owner asks to browse rows.
+  **Hand the command over; do not execute it and do not relay its output.**
+  Running it yourself puts the rendering back on the channel this arm exists to
+  avoid — the same stdout defect one step down — and relaying it is the
+  retyping §14.4.1 v19 replaced. Neither command writes anything, so there is
+  no artifact to name for either.
 - **A runtime refusal is delivered the same way and is never swallowed.**
   `fail()` writes to stderr and exits non-zero. Relay that stream as it stands.
 - **Retyping, summarizing, re-formatting, tabulating or paraphrasing runtime

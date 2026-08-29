@@ -1462,17 +1462,17 @@ if (!text.includes(NO_HEADLINE)) {
 
 // 4. REFUSE-CONFORMANCE, which is the property the parameter exists for. The
 //    composed text goes through the guard under this state's own grammar.
-const verdict = validateSurface("tag_row_view", text, GRAMMAR);
+const verdict = validateSurface("tag_row_listing", text, GRAMMAR);
 if (verdict.length) {
-  fails.push(`the injected-fetcher render does not conform to the tag_row_view grammar: ${JSON.stringify(verdict.slice(0, 3))}`);
+  fails.push(`the injected-fetcher render does not conform to the tag_row_listing grammar: ${JSON.stringify(verdict.slice(0, 3))}`);
 }
 
 // 5. And the case is not vacuous: a line the grammar does not declare must be
 //    REFUSED by the same call, or assertion 4 would pass on a guard that admits
 //    anything.
-const bogus = validateSurface("tag_row_view", `${text}\n!! a line class this surface never declares`, GRAMMAR);
+const bogus = validateSurface("tag_row_listing", `${text}\n!! a line class this surface never declares`, GRAMMAR);
 if (!bogus.length) {
-  fails.push("the tag_row_view grammar ACCEPTED an undeclared line class, so assertion 4 above is not evidence of conformance — a guard that admits anything conforms everything");
+  fails.push("the tag_row_listing grammar ACCEPTED an undeclared line class, so assertion 4 above is not evidence of conformance — a guard that admits anything conforms everything");
 }
 
 if (fails.length) {
@@ -1482,7 +1482,7 @@ if (fails.length) {
 }
 console.log("injected-fetcher case: SEAM-FREE and RAN — the injected fetcher IS called and tag-scoped, "
   + "its material reaches the rows, a withheld rendering is MARKED rather than substituted, the "
-  + "composed text conforms to the tag_row_view grammar, and the same guard refuses an undeclared "
+  + "composed text conforms to the tag_row_listing grammar, and the same guard refuses an undeclared "
   + "line class so the conformance assertion is not vacuous");
 JS
 
@@ -1535,7 +1535,7 @@ if (/gloss\/ELEMENTS|a headline that must not render|\bx\b, ?\by\b/.test(rich)) 
 // RE-POINTED WITH THE EMITTER (kogaki#665, PR #667 round 1 finding 5). This
 // read `cmdSurvey`'s stdout loop, which was screen 1's emitter until that
 // issue EXTRACTED the listing into `renderTagScreen` — the surface's one
-// emitter, reached through the executor and written under `tag_screen`'s
+// emitter, printed by the owner-executed `tags` under the `tag_listing`
 // grammar. The property is unchanged and is the one this line always meant:
 // the tag rows are composed through the single constructor, never assembled
 // beside it. Only the function holding that loop moved, which is why this is a
@@ -2176,7 +2176,7 @@ function seedAtIdSelection(dir, tag = "testing") {
   writeFileSync(join(dir, "run-record.json"), JSON.stringify({
     workflow: { path: "specs/spec-terrain/workflow.json", version: K681_TABLE.version },
     survey_record: resolve(FIXTURE),
-    completed: ["survey", "tag_screen", "TAG_SELECTION", "compose_input",
+    completed: ["survey", "TAG_SELECTION", "compose_input",
                 "J1_claims", "J2_subdivision", "cotag_screen"],
     waits_reached: ["TAG_SELECTION"],
     conditional_entered: [], conditional_skipped: [],
@@ -3139,7 +3139,7 @@ const GROUP = "testing × architecture";
 // says two.
 const covered = Object.keys(G.surfaces || {});
 const SPECIMENS = { cotag_screen: "cotag-screen.txt", full_report: "full-report.md",
-                    tag_screen: "tag-screen.txt", tag_row_view: "tag-row-view.txt" };
+                    tag_listing: "tag-screen.txt", tag_row_listing: "tag-row-view.txt" };
 for (const s of covered) {
   if (!SPECIMENS[s]) {
     fails.push(`the grammar covers ${s} and ${DIR} holds no specimen for it — §14.5's count is ONE PER COVERED SURFACE, so covering a surface owes a specimen in the same sitting`);

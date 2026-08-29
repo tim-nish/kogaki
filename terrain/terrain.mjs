@@ -517,10 +517,10 @@ function cmdSurvey(args) {
   console.log(`Pin: ${record.pin}`);
   console.log(`Survey record: ${out}\n`);
   // THE TAG LISTING IS NOT EMITTED HERE ANY MORE (PR #667 round 1 findings 4
-  // and 5). It is `tag_screen`'s surface, and `renderTagScreen` is its one
+  // and 5). It is the `tag_listing` surface, and `renderTagScreen` is its one
   // emitter, reached through the executor and written under that surface's
   // grammar. While both existed a run emitted the listing TWICE — once from
-  // this compute state under no grammar, once from `tag_screen` through the
+  // this compute state under no grammar, once from the owner-executed `tags` through the
   // guard — and the two had already diverged, since only the guarded copy
   // carried the amended navigation hint. Two emitters of one surface with one
   // of them unguarded is the defect class kogaki#665 exists to close, arriving
@@ -804,10 +804,10 @@ function composeScreenText(record, tags, family, fetchShards) {
 }
 
 // The PRE-SELECTION listing: the TAG ROWS — a tag name and its Lesson count,
-// and nothing else (§9's allowlist, transcribed into `tag_screen`'s grammar).
+// and nothing else (§9's allowlist, transcribed into the `tag_listing` grammar).
 //
 // EXTRACTED OUT OF `cmdSurvey`'s STDOUT, where this surface's own grammar
-// already named its emitter (`report-format.json` surfaces.tag_screen
+// already named its emitter (`report-format.json` surfaces.tag_listing
 // `emitter_today`: "tagRow(), rendered at :506"). The state used to be wired
 // to the untagged half of `view` — a CANDIDATE-row listing, a different
 // surface — and the wiring was correct-looking because nothing enforced the
@@ -826,7 +826,7 @@ function composeScreenText(record, tags, family, fetchShards) {
 // exists to prevent — the inventory names what must SURVIVE and the test that
 // fails if it stops:
 //   · the header and one tag_row per section, and NOTHING else
-//       → `checks/check-terrain-composition.sh`'s tag_screen grammar case: the
+//       → `checks/check-terrain-composition.sh`'s tag_listing grammar case: the
 //         surface declares only `header` and `tag_row` under a REFUSE
 //         non_member_fallback, so a fourth line class fails at emit time.
 //   · ONE emitter for this surface — `cmdSurvey` no longer composes tag rows
@@ -858,7 +858,7 @@ function renderTagScreen(record) {
 //   · a MISSING served rendering is MARKED and never substituted (§9)
 //       → the same case, whose stub omits one slug and which fails unless the
 //         ABNORMAL marker renders in its place.
-//   · REFUSE-conformance under the `tag_row_view` grammar
+//   · REFUSE-conformance under the `tag_row_listing` grammar
 //       → the same case, which runs the composed text through the guard.
 //
 // `fetchShards` IS INJECTED FOR THAT CASE, and until kogaki#625 it had no
@@ -1264,6 +1264,39 @@ function emitOrRefuse(surfaceName, text, write) {
   }
   write(text);
   return text;
+}
+
+// THE OWNER-EXECUTED LISTING'S EMIT PATH (SPEC-terrain §6.0 v29, kogaki#682,
+// owner selection 2026-08-29).
+//
+// The pre-selection tag listing and the per-tag row view are NOT Screens: the
+// owner ruling of 2026-08-28 defines a Screen as the rendering written AFTER a
+// tag has been selected, and neither of these is. They therefore write no owner
+// artifact at all — `reports/Screen.md` has exactly one writing state,
+// `cotag_screen` — and they reach the owner by a channel the harness actually
+// displays: THE OWNER RUNS THEM.
+//
+// WHY NOT STDOUT FROM A SESSION-DRIVEN ACT, which is what this looks like:
+//
+//   "In the Claude Code harness a tool call's stdout is displayed to the MODEL,
+//   not reliably to the OWNER … every conformant behavior renders nothing, and
+//   the observed false claim ('the screen is above') is what an agent produces
+//   when instructed to deliver through a channel that does not display."
+//   consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/claude-code-ops.md:69
+//
+// That finding is about WHO INVOKED the tool. A session's tool call prints to
+// the session; an act the owner types prints to the owner. So the channel is
+// not "stdout" in the abstract — it is the owner's own terminal, which is the
+// one arm of kogaki#682's disposition 3 that answers the finding structurally
+// rather than hoping.
+//
+// THE GRAMMAR GUARD IS KEPT, and that is the point of routing through here
+// rather than calling `console.log`. §14.2's refusal is about what may be
+// EMITTED, never about what may be written, so a surface that writes no
+// artifact owes it exactly as much: one printer, one refusal, and a
+// nonconformant listing reaches neither the owner's terminal nor anything else.
+function emitOwnerListing(surfaceName, text) {
+  emitOrRefuse(surfaceName, text, (conformant) => console.log(conformant));
 }
 
 // --------------------------------------------------------------------------
@@ -2238,7 +2271,7 @@ function writeScreen(args, text) {
 //
 // WHAT THIS REMOVES, which is the point rather than a tidy: `cmdView` used to
 // call `writeScreen` DIRECTLY, with no `emitOrRefuse` anywhere on its path —
-// so `tag_screen` and `tag_row_view` had declared grammars that nothing on the
+// so the two listing surfaces had declared grammars that nothing on the
 // write path enforced. §14.4.1 admitted two writers; §15.5 supersedes it with
 // one, and this is that one. The refusal gates the WRITE and not only a print,
 // because `emitOrRefuse` takes the write as a callback: there is no path here
@@ -4212,29 +4245,15 @@ const STATE_WORK = {
     return null;
   },
 
-  // The PRE-SELECTION tag listing: header and tag rows and nothing else. No
-  // --tag is passed, deliberately — the per-tag row view is the separate
-  // conditional state below, and collapsing the two is the defect
-  // workflow.json v3 corrected (PR #626 round 2, finding 4).
-  tag_screen: (rec, st, args) => {
-    const text = renderTagScreen(readJson(needSurvey(rec)));
-    const path = writeScreenSurface(args, st.id, text);
-    announceScreen(path);
-    return { artifact: path };
-  },
-
-  // The OTHER half of the retired `view`: the candidate rows under one named
-  // tag. Conditional — entered only when the owner asks to browse rows, and
-  // never scheduled by the flow (§6.3, kogaki#162's fork half).
-  tag_row_view: (rec, st, args) => {
-    const tag = ownerInput(rec, "TAG_SELECTION")
-      || fail("tag_row_view needs a tag, and no wait has supplied one yet.");
-    const text = renderTagRowView(readJson(needSurvey(rec)), tag,
-                                  args.family ? String(args.family) : null);
-    const path = writeScreenSurface(args, st.id, text);
-    announceScreen(path);
-    return { artifact: path };
-  },
+  // `tag_screen` AND `tag_row_view` ARE GONE AS STATES (§6.0 v29, kogaki#682,
+  // owner ruling 2026-08-28 + owner selection 2026-08-29). Neither renders a
+  // Screen — a Screen is the rendering written AFTER a tag is selected — so
+  // neither writes `reports/Screen.md`, and with no artifact to write and no
+  // sequencing authority to carry there is nothing left for a state to do.
+  // Their renderings reach the owner through `tags` and `tag-rows`, which the
+  // OWNER runs. `reports/Screen.md` now has exactly one writing state,
+  // `cotag_screen`; with `full_report` the owner-artifact writes per run are
+  // TWO.
 
   compose_input: (rec, st, args) => {
     cmdComposeInput({
@@ -4701,6 +4720,28 @@ function cmdRun(args) {
   console.log("");
   if (stopped && stopped.kind === "wait") {
     console.log(`Executor STOPPED at ${stopped.id} — a wait (§15.4). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
+    // THE HAND-OVER IS DECLARED IN THE TABLE, never composed here (§6.0 v29,
+    // kogaki#682). A wait whose owner needs to READ something before answering
+    // names the invocation in `owner_reads`; the executor renders it with the
+    // survey record resolved and neither runs it nor relays its output. That
+    // split is what keeps the channel honest: the command prints to whoever
+    // types it, and the point of this arm is that the owner types it.
+    //
+    // DATA, NOT DRIVER CODE — the same property #625 acceptance item 6 asserts
+    // for every other field here: a table that moves the hand-over, or adds one
+    // to a second wait, needs no runtime change.
+    if (stopped.owner_reads) {
+      const rec2 = readRunRecord(dir);
+      const sr = rec2 && rec2.survey_record ? relFromRepo(resolve(REPO, rec2.survey_record)) : "<survey record>";
+      // ONE PLACEHOLDER, SUBSTITUTED; everything else is the table's own text.
+      // Composing the invocation here would put the command in two places and
+      // make the table advisory about its own hand-over.
+      const sub = (t) => String(t).replace(/<survey record>/g, sr);
+      const or = stopped.owner_reads;
+      console.log(`READ FIRST, and run it YOURSELF — ${or.why || ""}`);
+      console.log(`  ${sub(or.invocation)}`);
+      if (or.also) console.log(`  ${sub(or.also)}`);
+    }
     const owedHere = stopped.renders_gate_declaration
       ? rec.gate_declarations_owed.find((g) => g.state === stopped.id) : null;
     if (!stopped.renders_gate_declaration) {
@@ -4760,11 +4801,41 @@ function reportRunStatus(dir, tablePath, table) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
 
+// THE TWO OWNER-EXECUTED LISTINGS (SPEC-terrain §6.0 v29, kogaki#682).
+//
+// Each takes the survey record the executor already produced and PRINTS its
+// rendering. Neither writes anything, so §15.5's write authority never engages
+// — there is no owner artifact to be written from outside a writing state,
+// which is why this channel needs no grant and adds no third artifact to the
+// two the ruling fixes.
+//
+// TWO CASES AND NOT ONE, deliberately. Folding them into a single case
+// discriminated by `--tag` would re-create the removed `view`, whose collapse
+// of the listing and the row view into one surface is the defect
+// `workflow.json` v3 corrected (PR #626 round 2, finding 4) — two renderings
+// with two grammars are two entry points.
+function cmdTags(args) {
+  const record = readJson(String(args.survey || fail("tags needs --survey <file> — the survey record the executor wrote. The `run` stop that hands this over names the path.")));
+  emitOwnerListing("tag_listing", renderTagScreen(record));
+}
+
+function cmdTagRows(args) {
+  const record = readJson(String(args.survey || fail("tag-rows needs --survey <file> — the survey record the executor wrote.")));
+  const tag = String(args.tag || fail("tag-rows needs --tag <tag name> — this is the per-tag row view, and the tag is what scopes it."));
+  emitOwnerListing("tag_row_listing", renderTagRowView(record, tag, args.family ? String(args.family) : null));
+}
+
 function main() {
 const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 switch (cmd) {
   case "survey": cmdSurvey(args); break;
+  // OWNER-EXECUTED, and that is their whole channel (§6.0 v29, kogaki#682).
+  // The owner types these; the session does not drive them. They emit their
+  // rendering to the owner's own terminal under the format guard and write
+  // nothing, so they are neither Screens nor states of the flow.
+  case "tags": cmdTags(args); break;
+  case "tag-rows": cmdTagRows(args); break;
   case "cotags": cmdCotags(args); break;
   // RETIRED, LOUDLY (§13.2 v20, kogaki#473) — the same shape `--all-groups`
   // and `--group` took: a refusal naming the replacement, never a silent
@@ -4859,7 +4930,7 @@ switch (cmd) {
         try { refuseUnlessConformant(surface, emitted, grammar); return true; }
         catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
       };
-      for (const surface of ["cotag_screen", "tag_row_view"]) {
+      for (const surface of ["cotag_screen", "tag_row_listing"]) {
         ok(`${surface} admits the line displayIdAbnormalLine actually emits`, admits(surface));
       }
       // The control: an abbreviated form whose tail carries NO digit worked
