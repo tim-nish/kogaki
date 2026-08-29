@@ -269,6 +269,9 @@ export function validateSurface(surfaceName, text, grammar) {
     if (rule.id === "catch_all_share") {
       v.push(...catchAllRule(surfaceName, lines, classified, rule));
     }
+    if (rule.id === "subdivision_required_at_ten") {
+      v.push(...subdivisionRequiredRule(surfaceName, lines, classified, rule));
+    }
   }
   return v;
 }
@@ -388,6 +391,67 @@ function catchAllRule(surfaceName, lines, classified, rule) {
     }
   });
   close(remainder, remainderLine, remainderNo);
+  return v;
+}
+
+// subdivision_required_at_ten — a group at or above the threshold must serve
+// SubGroups (§8, kogaki#683 disposition 1; owner ruling 2026-08-28, boundary
+// confirmed at ten-or-more at pickup 2026-08-29).
+//
+// THE SAME REFUSAL CLASS AS `catch_all_share`, WHICH IS WHAT THE DISPOSITION
+// ASKS FOR: engine-side, at emit, no model discretion. The two are siblings and
+// deliberately measure opposite failures — `catch_all_share` bounds a judgment
+// that DID split and swept most of the parent into the remainder; this one
+// refuses a judgment that did not split a group large enough to owe one.
+//
+// THE THRESHOLD IS READ FROM THE GRAMMAR, never written here. `boundary_ground`
+// on the rule entry carries why it is ten; a second literal in this file would
+// be the two-carriers-of-one-rule shape, and the number is exactly the kind of
+// value that drifts silently when copied.
+//
+// WHY A GROUP HEADING PLUS ITS FOLLOWERS RATHER THAN A COUNT OF HEADINGS: the
+// property is per parent, so a screen with one conformant 12-member group and
+// one flat 40-member group must fail on the second alone — a screen-wide test
+// would let the first mask it, which is the scoping mistake `catch_all_share`
+// records having made once already.
+//
+// A GROUP BELOW THE THRESHOLD IS NOT EXAMINED. §6.2 v7 rule 3 still lets a
+// small group render flat when its only named SubGroup was labelled `forced`,
+// and that path stays legal below ten and is unavailable at or above it — the
+// runtime declines to suppress there, so this rule is the carrier for any other
+// route to the same rendered text.
+function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
+  const at = Number(rule.threshold_members);
+  const v = [];
+  if (!Number.isFinite(at)) {
+    // A rule whose threshold the grammar does not carry cannot be evaluated,
+    // and guessing one here would be this file inventing the boundary the
+    // owner set. Reported as a violation of the GRAMMAR rather than of the
+    // text, so it cannot pass silently.
+    v.push(violation(surfaceName, rule.id, null, null,
+      "the grammar entry declares no numeric `threshold_members`, so this rule cannot be evaluated; "
+      + "a threshold guessed in the guard would be the guard inventing the boundary the owner set"));
+    return v;
+  }
+  let parent = null, parentLine = null, parentNo = null, sawSubgroup = false;
+  const close = () => {
+    if (parent === null || parent < at || sawSubgroup) return;
+    v.push(violation(surfaceName, rule.id, parentLine, parentNo,
+      `the group holds ${parent} member Lessons and renders NO SubGroup — at ${at} or more, serving SubGroups is the `
+      + "engine's requirement rather than the judge's discretion (SPEC-terrain §8, kogaki#683). "
+      + `Recompose the subdivision for ${JSON.stringify(parentLine)}: the split decision is not the judge's at this size, `
+      + "and a judged-empty outcome for such a group does not render."));
+  };
+  classified.forEach((id, i) => {
+    if (id === "group_heading_subdivided" || id === "group_heading_flat") {
+      close();
+      parent = countIn(lines[i]);
+      parentLine = lines[i]; parentNo = i + 1; sawSubgroup = false;
+    } else if (id === "subgroup_heading") {
+      sawSubgroup = true;
+    }
+  });
+  close();
   return v;
 }
 

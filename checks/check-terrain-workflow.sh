@@ -376,6 +376,15 @@ else
   #
   # The settled set is a SubGroup holding only the fixture's solo-batch member,
   # which is the one selection whose neighborhood is empty against this stub.
+  #
+  # LABELLED `forced`, AND THE LABEL IS LOAD-BEARING HERE (kogaki#683). This
+  # SubGroup holds 1 of the parent's 5 members and the other 4 sweep into the
+  # remainder — 80%, far over the 30% `catch_all_share` allows — so the screen
+  # is renderable only because §6.2 v7 rule 3 SUPPRESSES the split and the group
+  # falls back to flat. Before kogaki#683 the fixture carried no verdicts at all
+  # and suppression fired on the absent `tighter_than_parent`; the label now
+  # carries that reading explicitly, which is also the honest one for a split
+  # that left most of its parent in the catch-all.
   # Without it the scope fix is unexercised: un-scoping the refusal again fails
   # nothing, which is the assertion-that-cannot-fail shape.
   RDJ_EMPTY="$WORK/judgment-empty"; mkdir -p "$RDJ_EMPTY"
@@ -384,7 +393,7 @@ else
   EJ >/dev/null 2>&1 || true
   ESURVEY=$(ls "$RDJ_EMPTY"/*.terrain-survey.json 2>/dev/null | head -1)
   python3 checks/lib/compose-judgment-claims.py "$ESURVEY" "$WORK/e-claims.json"
-  printf '%s\n' '{"testing × (no second served tag)":{"judged":true,"subgroups":[{"subgroup":"the solo batch","claim":"the solo-batch member alone","members":["lesson:delta"]}]}}' > "$WORK/e-subs.json"
+  printf '%s\n' '{"testing × (no second served tag)":{"judged":true,"subgroups":[{"subgroup":"the solo batch","claim":"the solo-batch member alone","members":["lesson:delta"],"coherence":"forced","coherence_why":"one named SubGroup holding one of five members; the rest sweep to the remainder, so the split was made only to satisfy the requirement"}]}}' > "$WORK/e-subs.json"
   printf '%s\n' '{"anything":{"level":"core","claim":"a key judged against an EMPTY enumeration"}}' > "$WORK/e-j.json"
   ECOMMON=(--claims "$WORK/e-claims.json" --subdivisions "$WORK/e-subs.json" --judge-model claude-opus-5 --judge-effort high)
   EJ --input testing "${ECOMMON[@]}" >/dev/null 2>&1 || true

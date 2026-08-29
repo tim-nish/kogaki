@@ -162,14 +162,28 @@ whose ID set the owner enters. **Nothing on either line is optional.**
 
    ```json
    {
-     "<tag> × architecture": { "judged": true, "subgroups": [ { "subgroup": "…", "claim": "…", "members": ["lesson:…"], "composes_honestly": true, "tighter_than_parent": true, "legible_at_a_glance": true } ] },
+     "<tag> × architecture": { "judged": true, "subgroups": [ { "subgroup": "…", "claim": "…", "members": ["lesson:…"], "coherence": "tight", "coherence_why": "one sentence", "legible_at_a_glance": true } ] },
      "<tag> × cost":         { "judged": true, "subgroups": [] }
    }
    ```
 
-   **`"subgroups": []` is the conformant record for a group whose judgment RAN
-   and found no leaf split** — it is not the same as omitting the group, and
-   the difference is the whole point. Omitting a group says *not judged*, which
+   **`coherence` IS THE JUDGMENT AND IT IS CLOSED AT THREE** (§8 v30,
+   kogaki#683). `tight` — the members share one mechanism. `related` — they
+   share a theme, not one mechanism. `forced` — grouped to satisfy the split
+   requirement. Select exactly one and supply `coherence_why`, ONE sentence.
+   The runtime **refuses** a value outside the set and refuses a label with no
+   reason: the two are one instrument, and a default would be the engine
+   supplying the judgment the label exists to carry. It REPLACES
+   `composes_honestly` / `tighter_than_parent`, which are gone.
+
+   **THE SPLIT DECISION IS NOT YOURS AT TEN OR MORE.** A composed group of 10+
+   members MUST serve SubGroups; `"subgroups": []` for such a group is refused
+   at render, engine-side. Membership assignment stays your judgment; whether
+   to split does not. Below ten, a judged-empty outcome is still conformant.
+
+   **`"subgroups": []` is the conformant record for a group UNDER TEN whose
+   judgment RAN and found no split** — it is not the same as omitting the
+   group, and the difference is the whole point. Omitting a group says *not judged*, which
    the co-tag path **refuses**: `report` will not mint a judge pin of `none`,
    because a report carrying `none` is indistinguishable from a run that never
    asked (§12.1 v9). **Write an entry for every composed group.**
@@ -233,16 +247,16 @@ whose ID set the owner enters. **Nothing on either line is optional.**
      as a FAILED run** — so a dogfood verdict taken on any *other* aspect of
      such a run is a verdict on a failed specimen. This is why
      `--subdivisions` is unbracketed everywhere it appears in this skill.
-   - **"Required" governs the JUDGMENT, never the OUTCOME.** You may not skip
-     the judgment; it does not follow that every group subdivides. SubGroups
-     appear exactly where §8 puts them: the CONJUNCTIVE leaf condition
-     (composes honestly AND tighter than its parent's) plus the two
-     disjunctive disclosures — **the screen judges and renders both**, and
-     **refuses without a judge pin**, because a judged surface that records
-     no judge cannot be seen to drift. A group whose leaf condition fails
-     renders no SubGroups and is **fully conformant**; what is refused is a
-     run that **never asked**. **Never a member count.**
-     A number in that decision is a defect against §8 — the owner's "five or
+   - **"Required" governs the JUDGMENT; above ten it governs the OUTCOME too**
+     (§8 v30, kogaki#683). You may not skip the judgment — that is unchanged,
+     and a run that never asked is still refused. **At 10 or more members the
+     split is not yours to decline**: such a group must serve SubGroups, and
+     `"subgroups": []` for one is refused at render. Below ten, a group whose
+     only named SubGroup you label `forced` renders no SubGroups and is fully
+     conformant. SubGroups otherwise appear where your **coherence label** and
+     §8's two disjunctive disclosures put them — **the screen judges and
+     renders both**, and **refuses without a judge pin**, because a judged
+     surface that records no judge cannot be seen to drift.
 
 ## Hard lines
 

@@ -316,7 +316,7 @@ writeFileSync(SUBS, JSON.stringify({
   // from an array's truthiness.
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
-      members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+      members: ["lesson:alpha"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
     // BOTH members are placed, and that is a CHANGE story 1.57 forced rather
     // than a tidy-up. This fixture used to place `alpha` and leave `bravo` in
     // the remainder — 1 of 2, a 50% catch-all — which `catch_all_share` now
@@ -331,7 +331,7 @@ writeFileSync(SUBS, JSON.stringify({
     // way from the 29-of-35 specimen that settled the number. Recorded here
     // rather than worked around.
     { subgroup: "guards exercised by a real run", claim: "a check some run has actually made fail",
-      members: ["lesson:bravo"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+      members: ["lesson:bravo"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
   ] },
 }));
 const withSubs = spawnSync(process.execPath,
@@ -360,7 +360,7 @@ if (!/^G[0-9]+-[0-9]+ — 1 Lesson: L2 — guards that cannot fail$/m.test(Strin
   const parent = { name: "p", gid: "G1", members: ["lesson:alpha", "lesson:bravo"] };
   const placed = subgroupPlacement(parent,
     [{ subgroup: "only alpha", claim: "c", members: ["lesson:alpha"],
-       composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }],
+       coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true }],
     JSON.parse(readFileSync("specs/spec-terrain/survey-schema.json", "utf8")).subdivision);
   const catchAll = placed.subgroups.find((sg) => sg.name === "(fits no composed SubGroup)");
   if (!catchAll) {
@@ -370,66 +370,79 @@ if (!/^G[0-9]+-[0-9]+ — 1 Lesson: L2 — guards that cannot fail$/m.test(Strin
   }
 }
 
-// 8. The prohibition §8 states and §6.2 inherits: no member-count threshold.
-//    Read against the source, because the property is the ABSENCE of a number
-//    and no run can observe an absence by executing.
-// The unit is EVERY function the split decision passes through, not one source
-// slice. kogaki#133's finding 5: the earlier guard read only `cmdCotags`, so a
-// threshold in `subgroupPlacement` — where the split logic actually lives —
-// was outside the slice it claimed to cover.
+// 8. THE THRESHOLD AND ITS TWO CARRIERS AGREE (kogaki#683).
+//    This block used to assert the OPPOSITE — §8's "Terrain implements no
+//    member-count threshold. A number appearing in its code as one is a defect
+//    against this paragraph" — and it is replaced rather than deleted, because
+//    the owner reversed that rule on 2026-08-28 and the number is now the
+//    contract. A check still enforcing a deleted contract is worse than none;
+//    a check removed with nothing in its place loses the coverage the new rule
+//    owes.
+//
+//    WHAT THE NEW RULE OWES IS AGREEMENT. The threshold lives in TWO carriers:
+//    `SUBDIVISION_REQUIRED_AT` in the runtime, which decides whether to suppress
+//    a split, and `threshold_members` on report-format.json's
+//    `subdivision_required_at_ten` rule, which the format guard refuses against.
+//    Two carriers of one number that cannot see each other drift silently, and
+//    the divergence surfaces only when some act needs both to agree — here, a
+//    runtime that suppressed at 10 while the guard refused at 12 would produce a
+//    screen it then refused, with no legal rendering for the group at all.
 const SRC = readFileSync("terrain/terrain.mjs", "utf8");
-const sliceOf = (fn) => {
-  const i = SRC.indexOf(fn);
-  if (i < 0) { fails.push(`the no-threshold guard cannot find ${fn} — its unit has drifted from the code`); return ""; }
-  const rest = SRC.slice(i + fn.length);
-  const end = rest.indexOf("\n// ---");
-  return rest.slice(0, end < 0 ? rest.length : end);
-};
-for (const fn of ["function cmdCotags(", "export function subgroupPlacement(", "export function judgeSubgroup("]) {
-  const src = sliceOf(fn);
-  const m = src.match(/\.length\s*[<>]=?\s*\d+|\d+\s*[<>]=?\s*[a-zA-Z_$][\w$]*\.length/);
-  if (m) fails.push(`${fn.trim()} compares a member count against a numeric constant (${m[0]}) — kogaki#128's "five or more" is calibration evidence, and a threshold here is a defect against §8 and §6.2`);
+const declared = SRC.match(/export const SUBDIVISION_REQUIRED_AT\s*=\s*(\d+)/);
+if (!declared) {
+  fails.push("the runtime declares no `SUBDIVISION_REQUIRED_AT` — the split decision is the engine's (kogaki#683 disposition 1) and the boundary must be a named constant this check can read against the grammar");
+} else {
+  const grammarRule = (JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8"))
+    .decidable_rules.expressible || []).find((r) => r.id === "subdivision_required_at_ten");
+  if (!grammarRule) {
+    fails.push("report-format.json declares no `subdivision_required_at_ten` rule — the runtime's suppression bound then has no refusing sibling, and a group reaching the render by any other route is unrefused");
+  } else if (Number(grammarRule.threshold_members) !== Number(declared[1])) {
+    fails.push(`the threshold disagrees across its two carriers: the runtime suppresses below ${declared[1]} and the grammar refuses at ${grammarRule.threshold_members}. Between the two numbers a group is suppressed to flat AND then refused, so it has no legal rendering at all`);
+  }
 }
-// WHAT THIS GUARD CANNOT SEE, stated rather than implied. §8 declares the
-// member-count prohibition deliberately carrier-less with a reopen trigger, so
-// this narrows the gap and does not close it: a threshold written as a NAMED
-// CONSTANT, or compared against a variable holding the count, passes the
-// pattern above. A guard silently narrower than the property it names is the
-// appearance half of "a check that cannot fail is theatre".
-console.log("no-threshold guard: covers literal `<count> <op> <digits>` comparisons in "
-  + "cmdCotags, subgroupPlacement and judgeSubgroup. NOT covered: a named constant, or a "
-  + "comparison against a variable holding the count — §8's prohibition stays "
-  + "declared carrier-less, and this narrows the gap rather than closing it.");
+console.log("split threshold: the runtime's `SUBDIVISION_REQUIRED_AT` and report-format.json's "
+  + "`subdivision_required_at_ten.threshold_members` are read and compared — two carriers of one number, "
+  + "and between two disagreeing values a group is suppressed to flat and then refused, with no legal "
+  + "rendering at all. REPLACES the no-member-count-threshold guard, which enforced the contract the owner "
+  + "reversed on 2026-08-28 (kogaki#683).");
 
-// The fixture's verdict fields are READ by the code under test (finding 4).
-// Written the other way, a case supplying composes_honestly / tighter_than_parent
-// that nothing reads presents as covering the leaf condition while covering
-// only rendering — so the assertion flips a verdict and requires the output to
-// change with it.
+// The fixture's coherence label is READ by the code under test (finding 4).
+// Written the other way, a case supplying a label nothing reads presents as
+// covering the judgment while covering only rendering — so the assertion flips
+// the label and requires the output to change with it. Migrated at kogaki#683
+// from the conjunctive leaf condition the label replaces; the case's shape and
+// its reason are unchanged, only the field it flips.
 const SUBS_NOT_LEAF = join(tmpdir(), `cotags-subs-notleaf-${process.pid}.json`);
 writeFileSync(SUBS_NOT_LEAF, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
-      members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: false, legible_at_a_glance: true },
+      members: ["lesson:alpha"], coherence: "forced", coherence_why: "grouped only to satisfy the split requirement", legible_at_a_glance: true },
   ] },
 }));
 const notLeaf = spawnSync(process.execPath,
   ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
    "--subdivisions", SUBS_NOT_LEAF, "--judge-model", "m", "--judge-effort", "high"],
   { encoding: "utf8" });
-if (!String(withSubs.stdout).includes("leaf: the claim composes honestly AND is tighter")) {
-  fails.push("the screen does not render the SubGroup's LEAF VERDICT — §6.2 requires the screen to judge, not merely render");
+if (!String(withSubs.stdout).includes("coherence: tight — the members share one mechanism")) {
+  fails.push("the screen does not render the SubGroup's COHERENCE VERDICT — §6.2 requires the screen to judge, not merely render");
 }
-// Asserted on the string UNIQUE to the judge-supplied SubGroup, not on
-// "the split bought nothing". `subgroupPlacement` appends the unplaced-members
-// SubGroup with `tighter_than_parent: false`, so that phrase is present
-// whatever the flipped verdict says — an assertion that could not fail, added
-// while closing the class of assertions that cannot fail.
-if (!String(withSubs.stdout).includes("leaf: the claim composes honestly AND is tighter")) {
-  fails.push("the judge-supplied SubGroup's LEAF verdict does not render when both conjuncts hold (§6.2)");
+// Asserted on the string UNIQUE to the judge-supplied SubGroup, not on the bare
+// label. `subgroupPlacement` appends the unplaced-members SubGroup carrying
+// `coherence: "forced"` by construction, so `forced` alone is present whatever
+// the flipped label says — an assertion that could not fail, and the class of
+// assertions that cannot fail is what this case was written to close.
+if (String(notLeaf.stdout).includes("coherence: tight — the members share one mechanism")) {
+  fails.push("flipping the judge's coherence label did NOT change the screen's verdict — the fixture supplies a label the code does not read, which presents as covering the judgment while covering only rendering");
 }
-if (String(notLeaf.stdout).includes("leaf: the claim composes honestly AND is tighter")) {
-  fails.push("flipping tighter_than_parent to false did NOT change the screen's verdict — the fixture supplies verdicts the code does not read, which presents as covering the leaf condition while covering only rendering");
+// BOTH DIRECTIONS, and the positive one is the SUPPRESSION the label drives.
+// The flipped case renders no coherence line at all, and that is correct rather
+// than a gap: a single named SubGroup labelled `forced` on a group under the
+// threshold is §6.2 v7 rule 3, so the group renders FLAT. Asserting the absence
+// alone would pass on a runtime that emitted no verdict for any reason, so the
+// case asserts the DISCLOSURE the suppression owes — which exists only if the
+// label was read and acted on.
+if (!/render flat because their only named SubGroup was labelled `forced`/.test(String(notLeaf.stdout))) {
+  fails.push("the flipped label did not drive §6.2 v7 rule 3's suppression, or the suppression rendered no disclosure — the absence assertion above then shows only that a line is missing, which a runtime emitting NO verdict would also satisfy");
 }
 if (!String(withSubs.stdout).includes("judged by m / high")) {
   fails.push("the screen does not record its judge pin (§6.2)");
@@ -445,13 +458,13 @@ const SUBS_DEGEN = join(tmpdir(), `cotags-subs-degen-${process.pid}.json`);
 writeFileSync(SUBS_DEGEN, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "sg", claim: "this claim names alpha outright", members: ["lesson:alpha"],
-      composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+      coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
     // Both members placed, for the same reason as the block above: a 1-of-2
     // remainder is a 50% catch-all and `catch_all_share` refuses the screen,
     // so a fixture exercising a DISCLOSURE could no longer reach the surface
     // it discloses on.
     { subgroup: "sg2", claim: "a second claim that names nobody", members: ["lesson:bravo"],
-      composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+      coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
   ] },
 }));
 const degen = spawnSync(process.execPath,
@@ -633,15 +646,14 @@ console.log("cotags fixture: PASS — cases exercised (lone-tag group; declared 
   + "marker per-group and in aggregate; claim beneath its heading; the v5 heading "
   + "carries count + IDs; pinning stated; invented group refused; SubGroup line "
   + "carries count + IDs with its claim beneath; unplaced member named not dropped; "
-  + "leaf verdict rendered; a flipped verdict CHANGES it; judge pin recorded and "
+  + "coherence verdict rendered in BOTH directions and a flipped label CHANGES it; judge pin recorded and "
   + "REFUSED when absent; degenerate-claim disclosure rendered; no slug dump on the "
   + "screen; AC7's boundary pair — the skill teaches the v9 typed record and its "
   + "judged-empty form, and a judged-EMPTY group runs END TO END with a real judge "
   + "pin, ZERO SubGroupClaims and its members intact (seam-aware: CANNOT-DETERMINE "
   + "where no gateway is configured) — plus the withdrawn bare array refused BY NAME; "
   + "the skill names the co-tag step, the pull-on-entered-ids report form, and the "
-  + "serve-verbatim rule; no member-count threshold across cmdCotags, "
-  + "subgroupPlacement and judgeSubgroup)");
+  + "serve-verbatim rule; the split threshold agrees across its two carriers)");
 JS
 
 python3 - <<'EOF'
@@ -1133,7 +1145,7 @@ eq("case 3 — same pin, DIFFERENT query is two reports", count(), 2);
 const SUBS = join(RD, "subs.json");
 writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: { judged: true, subgroups: [
   { subgroup: "sg", claim: "a tighter claim", members: ["lesson:alpha"],
-    composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }] }}));
+    coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true }] }}));
 // The judge-pin refusal, exercised WITHOUT the conformant default the helper
 // injects — otherwise this case would assert a refusal it had just prevented.
 const noPin = spawnSync(process.execPath,
@@ -1599,7 +1611,7 @@ if (seamAbsent) {
   const SUBS = join(RD2, "subs.json");
   writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "sg", claim: "c", members: ["lesson:alpha"],
-      composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true }] }}));
+      coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true }] }}));
   const partial = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--report-dir", RD2, "--ids", "G1,G2,G3", "--subdivisions", SUBS], { encoding: "utf8" });
@@ -1757,8 +1769,8 @@ const sg = (name, extra) => ({
   subgroup: name,
   claim: "a line narrower than the parent's, composed over the placed members",
   members: ["lesson:alpha"],
-  composes_honestly: true,
-  tighter_than_parent: true,
+  coherence: "tight",
+  coherence_why: "the members share one mechanism",
   ...extra,
 });
 
@@ -3299,13 +3311,13 @@ writeFileSync(claims, JSON.stringify({
   claims: { [`${TAG} × architecture`]: "both are guards of some kind" },
 }));
 
-// The only named SubGroup restates the parent: `tighter_than_parent: false`.
+// The only named SubGroup was grouped only to satisfy the requirement: `coherence: "forced"`.
 const subs = join(tmpdir(), `ac5-subs-${process.pid}.json`);
 writeFileSync(subs, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards of some kind", claim: "both are guards of some kind",
       members: ["lesson:alpha", "lesson:bravo"],
-      composes_honestly: true, tighter_than_parent: false, legible_at_a_glance: true },
+      coherence: "forced", coherence_why: "grouped only to satisfy the split requirement", legible_at_a_glance: true },
   ] },
 }));
 
@@ -3330,12 +3342,12 @@ if (r.status !== 0) {
   if (/^G[0-9]+-[0-9]+ — /m.test(out)) {
     fails.push("AC5: a SubGroup line rendered for a split that bought nothing — the split does not discharge the subdivision obligation, so it renders as no split at all");
   }
-  if (out.includes("NOT a leaf")) {
-    fails.push("AC5: the `NOT a leaf` verdict line still renders — that line IS the reported-rather-than-discharged state kogaki#316 decision 3 replaces");
+  if (/^coherence: /m.test(out)) {
+    fails.push("AC5: a coherence verdict line still renders for a suppressed split — the verdict IS the reported-rather-than-discharged state kogaki#316 decision 3 replaces, and kogaki#683 only changed which field carries it");
   }
   // The suppression is DISCLOSED, never silent (§2.1). A flat group is
   // otherwise indistinguishable from one nobody judged.
-  if (!/render flat because their only named SubGroup was not tighter than the parent/.test(out)) {
+  if (!/render flat because their only named SubGroup was labelled `forced`/.test(out)) {
     fails.push("AC5: the suppression is SILENT — a judgment ran, produced a split and had it suppressed, and the screen says nothing. §2.1 states an absence rather than leaving it, and the `claimless` aggregate is the shape this follows");
   }
   // And the fallback must not have eaten the members.
@@ -3509,9 +3521,9 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
   writeFileSync(subs, JSON.stringify({
     "testing × architecture": { judged: true, subgroups: [
       { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
-        members: ["lesson:alpha"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+        members: ["lesson:alpha"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
       { subgroup: "guards exercised by a real run", claim: "a check some run has made fail",
-        members: ["lesson:bravo"], composes_honestly: true, tighter_than_parent: true, legible_at_a_glance: true },
+        members: ["lesson:bravo"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
     ] },
   }));
   const out = join(dir, "o");
@@ -4933,4 +4945,145 @@ console.log("neighborhood section: 6/6 cases — (a) present and conformant with
   + "`report.neighborhood` failed (a)/(c)/(d) across seven assertions; (b) and (e) assert their direction on "
   + "every run, and no mutation for (b) is demonstrable against a deterministic stub. Case (f) exercises the "
   + "no-material degradation: an empty element_survey renders the explicit did-not-run line and the pull completes.");
+JS
+
+# --- the split decision is the ENGINE's at ten or more (kogaki#683) ----------
+# Disposition 1 moves the split decision from the judge to the engine: a
+# composed group at or above 10 members MUST serve SubGroups, and a judged-empty
+# outcome for such a group is refused at render — the same class as
+# `catch_all_share`, engine-side, no model discretion.
+#
+# THREE DIRECTIONS, and the third is the one the dispositions collide on.
+# Asserting only the refusal would pass on a runtime that refused every group,
+# which would take every small flat group with it; and asserting only the two
+# rendering directions would pass on a runtime that had no threshold at all.
+#
+# The wide record is built HERE rather than committed as a fixture: `cmdCotags`
+# does not call `validateSurvey`, so the record needs only the fields the co-tag
+# path reads, and a committed 12-member survey would be a second fixture to keep
+# in step with the schema for one property.
+node --input-type=module - <<'JS'
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { cotagGroups } from "./terrain/terrain.mjs";
+
+const fails = [];
+const BASE = JSON.parse(readFileSync("checks/fixtures/terrain/cotags/lone-tag-member.json", "utf8"));
+const TAG = "testing";
+const CO = "architecture";
+
+// 12 members under `testing × architecture` — two over the boundary, so a
+// failure cannot be read as an off-by-one at the threshold itself.
+const wide = JSON.parse(JSON.stringify(BASE));
+const wideIds = [];
+for (let i = 0; i < 10; i += 1) {
+  const id = `lesson:wide${i}`;
+  wideIds.push(id);
+  wide.candidates.push({
+    id, slug: `wide${i}`, family: "lesson", tags: [TAG, CO],
+    // `L<n>` and not `W<n>`: the LessonDisplayID token has a shape, and a
+    // fixture inventing one outside it fails the allowlist for a reason that
+    // is not the property under test.
+    cite: `gloss/ELEMENTS.jsonl:${100 + i}@16a6dbf6`, display_id: `L${100 + i}`,
+  });
+}
+const RECORD = join(tmpdir(), `k683-wide-${process.pid}.json`);
+writeFileSync(RECORD, JSON.stringify(wide));
+const members = wide.candidates.filter((c) => (c.tags || []).includes(TAG));
+const group = `${TAG} × ${CO}`;
+const groupMembers = members.filter((c) => (c.tags || []).includes(CO)).map((c) => c.id).sort();
+
+// The composition pin records the member set `compose-input` served per group,
+// and a claim outside it is refused (§11). Derived from `cotagGroups` rather
+// than written out: a hand-listed pin is a second author's belief about the
+// grouping, which is the class this check already refuses one block over.
+const COMPOSED = cotagGroups(members, TAG);
+const CLAIMS = join(tmpdir(), `k683-claims-${process.pid}.json`);
+writeFileSync(CLAIMS, JSON.stringify({
+  composition_pin: {
+    tag: TAG, pin: wide.pin,
+    groups: Object.fromEntries(COMPOSED.map((g) => [g.name, g.members])),
+  },
+  claims: { [group]: "a claim over the wide group" },
+}));
+
+const run = (subsPath) => spawnSync(process.execPath,
+  ["terrain/terrain.mjs", "cotags", "--survey", RECORD, "--tag", TAG, "--claims", CLAIMS,
+   ...(subsPath ? ["--subdivisions", subsPath, "--judge-model", "m", "--judge-effort", "high"] : [])],
+  { encoding: "utf8" });
+
+const subs = (entries) => {
+  const p = join(tmpdir(), `k683-subs-${process.pid}-${Math.random().toString(36).slice(2)}.json`);
+  writeFileSync(p, JSON.stringify(entries));
+  return p;
+};
+// §6.2 judges every composed group, so a subdivision record naming only the
+// wide one fails setup on the first group the fixture happens to add.
+const others = (extra) => Object.fromEntries(
+  COMPOSED.filter((g) => g.name !== group).map((g) => [g.name, { judged: true, subgroups: [] }])
+    .concat([[group, extra]]));
+
+if (groupMembers.length < 10) {
+  fails.push(`the wide record composed ${groupMembers.length} members under ${JSON.stringify(group)} — the case needs at least 10 and asserts nothing below the boundary`);
+}
+
+// (a) NO SUBDIVISION AT ALL — the group renders flat at 12 and is REFUSED.
+const flat = run(null);
+const flatOut = String(flat.stdout) + String(flat.stderr);
+if (!/subdivision_required_at_ten/.test(flatOut)) {
+  fails.push(`a ${groupMembers.length}-member group rendering flat was NOT refused — disposition 1 moves the split decision to the engine, and an unrefused flat group at this size is the 2026-08-28 specimen the ruling was taken on: ${flatOut.trim().slice(0, 220)}`);
+}
+if (flat.status === 0) {
+  fails.push("the flat wide-group run exited 0 — the refusal is generation-time and must stop the emit, not report afterwards");
+}
+
+// (b) A CONFORMANT SPLIT RENDERS. Without this the refusal above could be a
+//     runtime that refuses every group of this size whatever it carries.
+const named9 = groupMembers.slice(0, 9);
+const ok = run(subs(others({ judged: true, subgroups: [
+  { subgroup: "the nine", claim: "these nine share one mechanism", members: named9,
+    coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
+] })));
+const okOut = String(ok.stdout) + String(ok.stderr);
+if (/subdivision_required_at_ten/.test(okOut)) {
+  fails.push(`a ${groupMembers.length}-member group that DID serve SubGroups was refused anyway — the rule fires on size rather than on the absent split: ${okOut.trim().slice(0, 220)}`);
+}
+if (!/^G[0-9]+-1 — /m.test(String(ok.stdout))) {
+  fails.push("the conformant split rendered no SubGroup line, so direction (a)'s refusal is not discriminating between split and unsplit");
+}
+
+// (c) THE SUPPRESSION PATH IS UNAVAILABLE AT THE THRESHOLD, which is where this
+//     issue's own dispositions collide. §6.2 v7 rule 3 says a group whose only
+//     named SubGroup bought nothing renders FLAT; disposition 1 says a flat
+//     group at 10+ does not render at all. The runtime declines to suppress at
+//     or above the threshold, so the group renders its split labelled `forced`
+//     rather than falling into a shape the guard would then refuse.
+const forced = run(subs(others({ judged: true, subgroups: [
+  { subgroup: "one batch", claim: "grouped to satisfy the requirement", members: named9,
+    coherence: "forced", coherence_why: "grouped only to satisfy the split requirement", legible_at_a_glance: true },
+] })));
+const forcedOut = String(forced.stdout) + String(forced.stderr);
+if (/render flat because their only named SubGroup was labelled `forced`/.test(forcedOut)) {
+  fails.push(`the suppression fired on a ${groupMembers.length}-member group — §6.2 v7 rule 3's fallback is exactly the judged-empty outcome disposition 1 refuses, so at or above the threshold the group must render its split instead`);
+}
+if (!/coherence: forced — grouped only to satisfy the split requirement/.test(String(forced.stdout))) {
+  fails.push("the forced split at or above the threshold did not render its coherence line — the group must render, labelled honestly, rather than silently falling back to flat");
+}
+if (/subdivision_required_at_ten/.test(forcedOut)) {
+  fails.push("the forced split at or above the threshold was refused — declining to suppress is what keeps this screen renderable, and refusing it here would leave the group with no legal rendering at all");
+}
+
+if (fails.length) {
+  console.log("FAIL the split decision is the engine's at ten or more (kogaki#683):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("split-at-ten: 3 direction(s) — a 12-member group rendering FLAT is refused at emit "
+  + "(subdivision_required_at_ten, the catch_all_share class); the same group WITH SubGroups renders, so the "
+  + "refusal discriminates split from unsplit rather than firing on size; and §6.2 v7 rule 3's suppression is "
+  + "UNAVAILABLE at the threshold — a single `forced` SubGroup renders its split, labelled, instead of falling "
+  + "back to the flat shape the guard would then refuse. Below the threshold rule 3 is untouched and its own "
+  + "block asserts it.");
 JS
