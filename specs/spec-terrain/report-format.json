@@ -426,7 +426,11 @@
         },
         {
           "id": "neighborhood_suggestion_gloss_unaddressed",
-          "form": "  ⟨no Gloss shard carries this row — its family is outside the lessons namespace this path reads, or it carries no tag; a fault to clear, never substituted⟩"
+          "form": "  ⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩"
+        },
+        {
+          "id": "neighborhood_suggestion_gloss_no_seam",
+          "form": "  ⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩"
         },
         {
           "id": "neighborhood_suggestion_claim",
