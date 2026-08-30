@@ -8,6 +8,26 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
+# EVERY install RUNS UNDER A SANDBOXED HOME (kogaki#638). install.sh step 5
+# registers the gateway with `claude mcp add -s local`, which writes to
+# `$HOME/.claude.json` keyed by project path — and step 0 RESOLVES a gateway
+# out of that same file when `--gateway` is absent, so a bare install finds the
+# operator's own gateway and registers it against the throwaway repo. Every run
+# of this test therefore left a project entry naming a directory it then
+# deleted. Measured at the repair on the authoring machine: 1030 orphaned
+# entries, 84% of the file.
+#
+# A sandboxed HOME fixes both halves at once and changes no product behaviour:
+# the resolution finds nothing (so a bare install takes the honest
+# not-configured branch it is supposed to take under test), and an explicit
+# `--gateway` still registers — into the sandbox.
+export HOME="$TMP/home"
+mkdir -p "$HOME"
+# The sandbox is asserted at the act, not assumed: an install running under the
+# operator's real HOME writes a project entry naming a directory this test then
+# deletes, and nothing downstream would fail.
+[[ "$HOME" == "$TMP/home" ]] || fail "the install sandbox HOME is not set — installs would write to the operator's own ~/.claude.json (kogaki#638)"
+
 # 1. Fresh install.
 mkdir -p "$TMP/repo"
 "$KIT_DIR/install.sh" --repo "$TMP/repo" --consumer kit-test >"$TMP/out1" 2>&1 || fail "install exited non-zero"
