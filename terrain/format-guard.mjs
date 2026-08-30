@@ -68,7 +68,7 @@ function placeholderFragment(inner, grammar) {
     return `${one}(?:, ${one})*`;
   }
   // A placeholder naming a declared token gets that token's shape; anything
-  // else — claim text, composer prose, a leaf reason, `<n>` — is free text.
+  // else — claim text, composer prose, a coherence rationale, `<n>` — is free text.
   // Permissiveness here is deliberate and is NOT a hole: the rules that carry
   // real weight (no element names, display ids in member positions, pin once)
   // are checked as their own predicates below, over the whole rendered text,

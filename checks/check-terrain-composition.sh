@@ -423,6 +423,7 @@ console.log("split threshold: the runtime's `SUBDIVISION_REQUIRED_AT` and report
 // Written the other way, a case supplying a label nothing reads presents as
 // covering the judgment while covering only rendering — so the assertion flips
 // the label and requires the output to change with it. Migrated at kogaki#683
+// retired-vocab-ok: names the replacement.
 // from the conjunctive leaf condition the label replaces; the case's shape and
 // its reason are unchanged, only the field it flips.
 const SUBS_NOT_LEAF = join(tmpdir(), `cotags-subs-notleaf-${process.pid}.json`);
@@ -542,7 +543,7 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
 }
 
 // The consumer half, exercised END TO END on the case v9 exists to make
-// expressible: a group whose judgment RAN and found no leaf split.
+// expressible: a group whose judgment RAN and found no subdivision.
 {
   const RDJE = mkdtempSync(join(tmpdir(), "terrain-judged-empty-"));
   const SJE = join(RDJE, "subs.json");
@@ -3492,6 +3493,7 @@ JS
 # clause that such a group is FULLY CONFORMANT, which holds BELOW the split
 # threshold (§8 v30, kogaki#683). This block's fixture group is under it.
 #
+# retired-vocab-ok: dated provenance.
 # Before this story the verdict was computed, printed as `NOT a leaf: … the
 # split bought nothing`, and read by nothing: the obligation was reported
 # rather than discharged.
@@ -3614,6 +3616,7 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("suppressed split: a split whose only named SubGroup is labelled `forced` renders NO "
+  // retired-vocab-ok: must-not-appear tripwire assertion.
   + "SubGroups, the group falls back to its FLAT heading with member ids intact, no `NOT a leaf` line "
   + "survives, the suppression is DISCLOSED in aggregate rather than silently, and the command EXITS ZERO — "
   + "AC6 is asserted before AC5 so the must-not-appear assertions cannot pass on an empty screen.");
