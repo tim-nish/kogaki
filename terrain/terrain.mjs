@@ -2814,7 +2814,10 @@ function identityDigest(identity) {
 // The cost is stated: a whitespace-only reformat of an input refuses a rerun that
 // would have rendered identically. That is a false refusal and never a false
 // render, and the record cannot know the edit was insignificant.
-export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood"];
+// `neighborhood-candidates` joined the set with kogaki#700: once the pull
+// consumes the emitter's persisted enumeration, that file decides what the
+// artifact says exactly as the three original inputs do.
+export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood", "neighborhood-candidates"];
 export function composedInputDigests(args) {
   const out = {};
   for (const flag of COMPOSED_INPUT_FLAGS) {
@@ -2830,6 +2833,13 @@ export function composedInputDigests(args) {
 // only THAT something changed leaves them diffing three files to find out which.
 export function composedInputDelta(prior, current) {
   if (!prior || typeof prior !== "object") return null;
+  // A PRIOR RECORD MISSING A FLAG PREDATES THAT FLAG (kogaki#700). The
+  // record-level rule already recomputes where the whole field is absent;
+  // a per-flag absence is the same situation one key down — a record written
+  // before the flag existed cannot be shown idempotent against it, and
+  // refusing would fail a rerun that has done nothing wrong. Null means
+  // recompute, exactly as it does for the record-level absence.
+  if (COMPOSED_INPUT_FLAGS.some((f) => prior[f] === undefined)) return null;
   return COMPOSED_INPUT_FLAGS.filter((f) => prior[f] !== current[f]);
 }
 
@@ -3233,14 +3243,28 @@ function cmdReport(args) {
   }
 
 
-  // THE PROVENANCE NEIGHBORHOOD, computed INSIDE the pull (§13.2 v20,
-  // kogaki#473): the trigger is the report pull's ID entry, and the section
-  // is seeded by the entered set. Stored IN THE RECORD, so the rendering
-  // stays a pure function of the record (§12.1) — a section recomputed from
-  // the live seam at render time would let a moved serving change what an
-  // unchanged identity renders. Computed after every refusal above, so a
-  // refused pull pays no seam call.
-  const neighborhood = neighborhoodForTargets(record, targets);
+  // THE PROVENANCE NEIGHBORHOOD — ONE ENUMERATION (kogaki#700). Where the
+  // run's emitter (`neighborhood_input`) persisted the enumeration, the pull
+  // CONSUMES it rather than calling `neighborhoodForTargets` again: the
+  // emitter's file is what J3 admitted judgment keys against, and a second
+  // live read here is how a key admitted against enumeration A could be
+  // absent from enumeration B and silently dropped, the section then
+  // reporting the judgment layer as not having run. Only a pull with no
+  // emitted enumeration — the unjudged flow, which has no admitted keys to
+  // stay consistent with — computes fresh, inside the pull, seeded by the
+  // entered set (§13.2), after every refusal above so a refused pull pays no
+  // seam call. Either way the result is stored IN THE RECORD, so the
+  // rendering stays a pure function of the record (§12.1) — a section
+  // recomputed from the live seam at render time would let a moved serving
+  // change what an unchanged identity renders.
+  const candPath = args["neighborhood-candidates"];
+  const neighborhood = candPath
+    ? (readJson(String(candPath)).neighborhood
+        || fail("the candidate record at " + String(candPath) + " predates the full-enumeration "
+          + "field (kogaki#700) and cannot supply the pull's mechanical layer. Re-enter "
+          + "neighborhood_input so the emitter writes the enumeration the pull consumes; "
+          + "recomputing here would be the second enumeration this field exists to remove."))
+    : neighborhoodForTargets(record, targets);
   // THE JUDGMENT LAYER, joined onto the mechanical candidates by slug. A
   // candidate with no judgment keeps none — `neighborhoodScreen` counts it as
   // unjudged and says so, rather than defaulting it to a level nobody assigned.
@@ -4664,6 +4688,15 @@ const STATE_WORK = {
       // exist" is how the emitter and the refusal would disagree.
       candidates: (n.suggestions || []).map((x) => ({ nid: x.nid, slug: x.slug, family: x.family, relation_substrates: x.substrates })),
       no_material: n.no_material || false,
+      // THE FULL ENUMERATION, persisted so the pull CONSUMES it (kogaki#700).
+      // Three independent calls to `neighborhoodForTargets` — here, and (before
+      // this landed) again inside `cmdReport` — were three reads of the served
+      // surface where the reasoning assumed one: a key J3 admitted against THIS
+      // enumeration could be absent from the pull's own re-read and silently
+      // dropped, the section then reporting the judgment layer as not having
+      // run. The pull's mechanical layer is THIS object; `candidates` above
+      // stays the projection J3 keys on, unchanged.
+      neighborhood: n,
     }, null, 2) + "\n");
     // STORED ABSOLUTE, like `survey_record` beside it. `relFromRepo` leaves an
     // outside-the-repo run dir as its own absolute path minus the leading
@@ -4724,6 +4757,10 @@ const STATE_WORK = {
         || fail("full_report needs a tag, and no wait has supplied one yet."),
       ids: ownerInput(rec, "ID_SELECTION")
         || fail("full_report needs the entered ID set, and no wait has supplied one yet."),
+      // THE EMITTER'S ENUMERATION, passed so the pull consumes it (kogaki#700).
+      // Absent where no emitter ran — the unjudged flow — and cmdReport then
+      // computes inside the pull as §13.2 always said.
+      ...(rec.neighborhood_candidates ? { "neighborhood-candidates": rec.neighborhood_candidates } : {}),
     });
     // OBSERVED, NOT CONSTRUCTED (PR #655 round 1). `cmdSurvey`, the two screen
     // renderers and `cmdCotags` each return the path they actually wrote; this

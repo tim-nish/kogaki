@@ -1,6 +1,6 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v32 (kogaki#685). This file carries the **current contract only**.
+**Status:** v33 (kogaki#700). This file carries the **current contract only**.
 Superseded behaviour, defect specimens, version ledgers and withdrawn proposals
 are not recorded here: history lives in git and in the issues, reachable by
 `git log` and by the issue threads. A removed owner-facing behaviour is gone —
@@ -1087,8 +1087,12 @@ narrowing the set of values a conformant report may carry does not disturb it.
 
 **THE RECORD CARRIES A DIGEST OF THE COMPOSED INPUTS IT WAS RENDERED FROM, AND A
 RERUN WHOSE INPUTS DIFFER IS REFUSED.** The composed inputs — the claims record,
-the subdivision record and the neighborhood judgment record — decide what the
+the subdivision record, the neighborhood judgment record and the emitter's
+candidate record (§13, kogaki#700) — decide what the
 artifact says and are **not** part of the identity, which is the clause above.
+A prior record carrying digests but predating a later-added input flag is
+**recomputed**, exactly as a record predating the whole field is: per-flag
+absence and record-level absence are one situation at two grains.
 Without this, a rerun supplying different ones matched on identity and the
 idempotent-rerun branch **replayed the stored rendering while reporting
 success**: measured on all three, a changed claims record re-rendered the first
@@ -1362,10 +1366,23 @@ it, and quietly licenses the judged layer §13.5 gates.
 (`[[an-input-the-substrate-cannot-read-is-dead]]`)
 
 **THE TRIGGER IS AN EXPLICIT OWNER ACT NAMING A BOUNDED SET** — the report pull's
-ID entry. The neighborhood is computed **inside `report`**, seeded by the entered
-Group/SubGroup IDs, on every pull. There is no standalone invocation. §6.3's
-two-act window is unchanged, because the neighborhood is computed inside **act 2**
-and never as a third act.
+ID entry. There is no standalone invocation. §6.3's two-act window is unchanged,
+because the neighborhood belongs to **act 2** and never to a third act.
+
+**ONE ENUMERATION PER RUN (kogaki#700).** The mechanical candidate set is
+enumerated **once**, by the emitter state (`neighborhood_input`), which persists
+the full enumeration in its candidate record. `J3_neighborhood` admits judgment
+keys against that record, and the pull **consumes the same record** as its
+mechanical layer — it does not re-enumerate. A judged pull re-reading the served
+surface would be a second enumeration: a key admitted against the emitter's set
+and absent from the re-read is silently dropped, and the section then reports the
+judgment layer as not having run, which is the falsehood the orphan refusal
+exists to prevent. Only a pull in the **unjudged flow** — no emitter ran, so no
+admitted keys exist to stay consistent with — computes the neighborhood inside
+`report`, seeded by the entered Group/SubGroup IDs. The candidate record is a
+composed input under §12.1's digest rule exactly as the claims, subdivision and
+judgment records are: not part of the identity, recorded beside it, compared
+before any replay.
 
 Expansion must not fire on an unsettled screen: a purely mechanical expansion is
 **just as noisy fired too early**, so noise is a property of **trigger timing**,
