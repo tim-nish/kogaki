@@ -77,11 +77,13 @@ const SLUGS = ["alpha", "bravo", "charlie", "delta", "echo"];
 // carried none served the MISS arm for every row — and a golden specimen
 // showing only the miss arm pins the shape nobody ships, which is the reason
 // this fixture already exercises the judged path rather than the unjudged one.
-// `foxtrot` IS TAGGED AND IS A JOURNEY, which is the pairing PR #693 round 2
-// named as unexercised: the report path reads the `lessons/` namespace only, so
-// a TAGGED journey is a row whose tags DO enter the shard union and whose slug
-// no `lessons/` shard can carry. Left untagged it addressed no shard for the
-// trivial reason and the namespace half was never reached. Its level is
+// `foxtrot` IS TAGGED AND IS A JOURNEY, which is the pairing the namespace fork
+// turned on: it is a row whose tags enter the shard union and whose slug only a
+// `journeys/` shard can carry. Since kogaki#689 the fetch addresses that
+// namespace, so the shard below carries `foxtrot` and the row resolves to a
+// served headline — which is what makes the widening observable rather than a
+// marker swap. Left untagged it would address no shard for the trivial reason
+// and the namespace half would go unexercised. Its level is
 // `background` in the committed judgment file, so it renders in no golden
 // specimen; the case that needs it supplies its own judgments.
 const ELEMENTS = [
@@ -118,7 +120,12 @@ function result(name, args) {
     // here, so a caller that dropped the kind fails rather than silently
     // reading something.
     if (!/^(lessons|journeys)\//.test(tag)) return { miss: true, pin: PIN, request_id: "stub-miss", consulted: `consulted: ${PIN} gloss/INDEX.md:1` };
-    return shard(tag, tag.startsWith("journeys/") ? ["alpha"] : SLUGS);
+    // `foxtrot` JOINS THE JOURNEYS SHARD (kogaki#689). The neighborhood fetch
+    // now addresses both namespaces, so a tagged journey row resolves to a
+    // SERVED HEADLINE rather than to a marker — and a shard that carried no
+    // entry for it would leave the widening indistinguishable from a marker
+    // swap, since the row would render read-and-empty either way.
+    return shard(tag, tag.startsWith("journeys/") ? ["alpha", "foxtrot"] : SLUGS);
   }
   if (name === "element_survey") {
     // The no-material arm (story 1.69, PR #477 round 1): with this env set the

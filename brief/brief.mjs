@@ -524,7 +524,11 @@ function cmdEnter(args) {
   // Terrain resolves the settled members' served renderings — bounded by
   // their own tags, never the corpus (kogaki#528). This lane performs no seam
   // read of its own; it hands over the set it has already closed.
-  const headlines = resolveHeadlines(r.strands);
+  // ONE NAMESPACE HERE, DELIBERATELY (kogaki#689). This lane's members are
+  // settled Lessons by construction, so the neighborhood's `journeys/` widening
+  // buys nothing here and would spend a shard per tag; `resolveHeadlines`
+  // defaults to `lessons` and this call takes the default.
+  const { headlines } = resolveHeadlines(r.strands);
   const candidates = composeThesisCandidates(r.strands, headlines);
   const runPath = typeof args["run-state"] === "string" && args["run-state"] !== ""
     ? args["run-state"] : defaultRunState();

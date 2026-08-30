@@ -1441,13 +1441,22 @@ the tag set is a function of ten records rather than of the corpus. **The bound 
 a COUNT OF READS and is verified as one** — at the server, from the stub's own call
 log, never from the run's accounting of itself.
 
-**THE NAMESPACE BOUND IS DISCLOSED, NOT WIDENED.** The fetch addresses the
-`lessons/` shard namespace only, so a `journey`-family suggestion reaches no shard.
-Extending this path is a read-budget decision and is carried rather than settled
-here.
+**THE FETCH ADDRESSES BOTH GLOSS NAMESPACES** — `lessons/<tag>` and
+`journeys/<tag>`, as `cmdView` does. The neighborhood's members are not all
+Lessons: the enumerator indexes every served record carrying a slug and stamps
+its family, so a journey-family suggestion reached no shard while its tags were
+already in the union a `lessons/` read was spending. **The incremental cost is a
+second shard per tag ALREADY in the union, not a new tag**, which is the shape
+§9 already binds `cmdView` to, and the bound above is untouched: the tag union is
+still a function of the rows that render.
 
-**Three Gloss states, three renderings**, because collapsing them asserts a read
-that never happened:
+**The Brief lane keeps ONE namespace, and that is a scoping rather than an
+oversight.** Its members are settled Lessons by construction, so a `journeys/`
+read there buys nothing and spends a shard per tag. The widening belongs to the
+surface that needed it and is declared at that surface's call site.
+
+**Four Gloss states, four renderings**, because collapsing any two asserts
+something that did not happen:
 
 - a shard **read** and carrying a rendering — the headline, **quoted at its cite**,
   because it is a served rendering and a headline carried as bare prose is the
@@ -1457,14 +1466,28 @@ that never happened:
   marker every other surface renders, so one vocabulary covers the state wherever
   it arises;
 - **no shard carrying the row at all**, whether because it has no tag or because
-  its family is outside the namespace read — its own marker, naming which.
+  its family is outside the namespaces read — its own marker, naming which;
+- **the seam itself unreachable**, so no shard was read at all — its own marker.
+  Rendering this as read-and-carried-nothing asserts a read that never happened,
+  which is the conflation the other three markers exist to prevent, one layer
+  further out.
 
-**A FOURTH STATE EXISTS AND IS NOT DISTINGUISHED — a DEGRADED SEAM.** Where the
-seam itself is unreachable, no shard is read at all and every entry comes back
-unfound, so a tagged lesson row renders the read-and-carried-nothing marker,
-asserting a read that never happened. It is **not repaired here** because the
-repair is a degradation contract, and it is stated so the three-state claim above
-is read with its bound rather than as complete.
+**Addressability is a property of the ROW and is decided first.** A row with no
+address has nothing to attribute to the seam however the seam behaved, so the
+no-shard marker wins over the seam marker rather than the other way round.
+
+**THE SEAM STATE IS DECLARED UNOBSERVABLE FROM THIS PATH, with its reopen
+trigger.** The marker and its arm exist and are asserted, and the state they
+name **cannot arise from the report pull**: member Gloss bodies are read
+NON-softly and that read runs before the neighborhood's soft fetch, so a down
+seam exits and the pull renders nothing at all. Stated rather than left as an
+implied capability — an orphaned verification is re-pointed or declared
+unobservable at the sitting that finds it, never left carrying a discharging act
+nothing can perform
+(`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/claude-code-ops.md:128`).
+**Reopen trigger:** the first Gloss caller on this path that reads softly, at
+which point a down seam renders rather than exiting and the state becomes
+reachable.
 
 **The state is decided at the resolver's own boundary.** The resolver returns a
 `found` flag beside each entry rather than stamping an entry for every member it was

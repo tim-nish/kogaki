@@ -3161,8 +3161,15 @@ const JUDGED = JSON.parse(readFileSync(join(DIR, "neighborhood-judgments.json"),
 // same silence to a suite, so this reads the RENDERED ARTIFACT.
 //
 // `foxtrot` is the tagged journey; judging it `core` and the two lessons below
-// it is what puts a non-`lessons/` row at the top level, which is the only way
-// a rendered row can reach this state.
+// it is what puts a journey-family row at the top level, which is the only way
+// a rendered row can reach the namespace state at all.
+//
+// SINCE kogaki#689 THE ASSERTION IS INVERTED, and inverted rather than deleted.
+// The fetch addresses `journeys/` as well, so the row resolves to a SERVED
+// HEADLINE — and the case that used to prove the bound now proves the widening,
+// counted at the SERVER from the stub's own call log rather than from the run's
+// account of itself. A deleted case would leave nothing failing if the second
+// namespace stopped being read.
 {
   const jf = join(dir, "journey-top.json");
   writeFileSync(jf, JSON.stringify({
@@ -3171,25 +3178,54 @@ const JUDGED = JSON.parse(readFileSync(join(DIR, "neighborhood-judgments.json"),
     echo: { level: "background", claim: "below it" },
   }));
   const gdir = join(dir, "gj");
+  const jlogPath = join(dir, "journey-top.log");
   const run = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G2",
      "--claims", claims, "--subdivisions", subs, "--neighborhood", jf,
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", join(dir, "rj"), "--rendering-dir", gdir],
-    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
+    { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB,
+                               STUB_GATEWAY_CALL_LOG: jlogPath } });
   if (run.status !== 0) {
     fails.push(`§13/689: the journey-top pull exited ${run.status}: ${(run.stderr || "").trim().slice(-300)}`);
   } else {
     const md = readdirSync(gdir).filter((f) => f.endsWith(".md"));
     const text = md.length ? readFileSync(join(gdir, md[0]), "utf8") : "";
-    if (!text.includes("⟨no Gloss shard carries this row")) {
-      fails.push("§13/689: a rendered TAGGED-JOURNEY row did not carry the never-addressed marker. It is a row whose tags DO enter the shard union and whose slug no `lessons/` shard can carry, so rendering it as read-and-empty asserts a read that did not happen — this is the pairing no direct-call case could see");
+    const jlog = existsSync(jlogPath) ? readFileSync(jlogPath, "utf8") : "";
+    if (!jlog.includes('"tag":"journeys/testing"')) {
+      fails.push("§13/689: the journey-top pull addressed NO `journeys/` shard — the namespace widening is not being spent, and every assertion below it would pass on the `lessons/` read alone");
     }
-    if (text.includes("⟨no served Gloss rendering")) {
-      fails.push("§13/689: the rendered journey row carried the READ-AND-EMPTY marker — `resolveHeadlines` is resolving the miss itself and `glossFor` is never asked");
+    if (!text.includes("Stub journeys/testing rendering for foxtrot")) {
+      fails.push("§13/689: the rendered TAGGED-JOURNEY row carries no served headline from the `journeys/` shard. The fetch addresses both namespaces since kogaki#689, so this row resolves; a marker here means the widening reached the call log and not the row");
+    }
+    if (text.includes("⟨no Gloss shard carries this row")) {
+      fails.push("§13/689: the rendered journey row still carries the NEVER-ADDRESSED marker — that marker's remaining subjects are rows with no tag or a family outside both namespaces, and a tagged journey is neither");
     }
   }
 }
+
+// 5. THE SEAM-UNREACHABLE ARM IS DECLARED UNOBSERVABLE FROM THIS PATH, and
+// that is a finding rather than a gap (kogaki#689, owner selection at the
+// /ship-cycle 689 sitting). `NO_SEAM` and its `glossFor` arm ship and are
+// asserted at the unit above; what CANNOT be driven end to end is the state
+// itself, because the report path reads member Gloss bodies through a NON-soft
+// `fetchGlossBodies` BEFORE the neighborhood's soft fetch — so a down seam exits
+// 11 at the member read and the pull renders nothing at all. The two sites are
+// named by FUNCTION rather than by line, because a reopen trigger is only as
+// good as the pointers a future reader follows and line numbers drift: the
+// non-soft read is `fetchGlossBodies`, reached from `fetchBodies()` inside
+// `cmdReport`; the soft one is the `resolveHeadlines` call in the same function. An end-to-end case here would assert against an artifact the
+// runtime cannot produce.
+//
+// Stated rather than left silent, on the served line for exactly this shape:
+// "An orphaned verification is RE-POINTED or declared UNOBSERVABLE at the
+// sitting that finds it, and never left carrying a discharging act nothing can
+// perform."
+// consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/claude-code-ops.md:128
+//
+// REOPEN TRIGGER: the first Gloss caller on the report path that reads SOFTLY.
+// At that point a down seam renders rather than exiting, the state becomes
+// reachable, and this block owes the end-to-end case it cannot write today.
 
 rmSync(dir, { recursive: true, force: true });
 if (fails.length) {
@@ -3197,7 +3233,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("neighborhood Gloss fetch bound: PASS — counted at the SERVER via the stub's call log, never from the run's own accounting. The judged path fetches its displayed row's own tag; an all-unjudged pull, which renders no row, reads strictly fewer Gloss shards; and a multi-row judged pull still fetches, so the bound assertions are not passing on a dead fetch.");
+console.log("neighborhood Gloss fetch bound: PASS — counted at the SERVER via the stub's call log, never from the run's own accounting. The `journeys/` namespace is addressed and its row resolves to a served headline (kogaki#689), so the widening is asserted at the read AND at the row. NOT ASSERTED END TO END, stated rather than implied: the seam-unreachable state cannot arise from this path, because a non-soft member read exits before the neighborhood fetch runs — the marker and its arm are unit-asserted and the state is declared unobservable with its reopen trigger. The judged path fetches its displayed row's own tag; an all-unjudged pull, which renders no row, reads strictly fewer Gloss shards; and a multi-row judged pull still fetches, so the bound assertions are not passing on a dead fetch.");
 JS
 
 # THE GOLDEN SPECIMENS (SPEC-terrain §14.5, story 1.55, kogaki#347).
@@ -3513,7 +3549,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote, NO_HEADLINE, NO_SHARD_ADDRESSED, compareDisplayIds, glossFor, neighborhoodDisplaySet } from "./terrain/terrain.mjs";
+import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote, NO_HEADLINE, NO_SHARD_ADDRESSED, NO_SEAM, compareDisplayIds, glossFor, neighborhoodDisplaySet } from "./terrain/terrain.mjs";
 import { loadGrammar, classMatchers } from "./terrain/format-guard.mjs";
 const G = loadGrammar("specs/spec-terrain/report-format.json");
 
@@ -4353,11 +4389,14 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     }
   }
 
-  // A TAGGED NON-LESSON ROW REACHES NO SHARD, AND SAYS SO (PR #693 round 1).
-  // The stub fixture leaves its one journey record UNTAGGED, so no case in the
-  // suite ever put a TAGGED journey through the fetch — the gap was unexercised
-  // rather than caught. Asserted here over the renderer, where the state is a
-  // property of the row rather than of the seam.
+  // WHICH OF THE FOUR STATES A ROW IS IN, asserted over `glossFor` because that
+  // is the fetch's own decision — driving the screen exercises the EMITTER'S
+  // fallback and passes whatever the fetch assigned.
+  //
+  // THE FAMILY SET WIDENED AT kogaki#689 and the cases move with it: a tagged
+  // JOURNEY is now addressable, so its miss is read-and-empty like any other
+  // addressable row, and the never-addressed marker keeps only the subjects it
+  // is true of — a row with no tag, or a family outside both namespaces.
   {
     // ASSERTED OVER `glossFor`, WHICH IS THE FETCH'S OWN DECISION. Driving the
     // screen would exercise the EMITTER'S fallback instead and pass whatever the
@@ -4368,25 +4407,44 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     // which is how it went on passing while the production pairing was broken.
     const H = { headline: "a served headline.", cite: "gloss/lessons/testing.md:19@stubbed", found: true };
     const MISS = { headline: NO_HEADLINE, cite: null, found: false };
+    const BOTH = ["lessons", "journeys"];
     const cases = [
-      ["a tagged lesson with a rendering", { family: "lesson", tags: ["testing"] }, H, "a served headline."],
-      ["a tagged lesson whose shard carried none", { family: "lesson", tags: ["testing"] }, MISS, NO_HEADLINE],
-      ["a TAGGED JOURNEY — a namespace this path never addresses", { family: "journey", tags: ["testing"] }, MISS, NO_SHARD_ADDRESSED],
-      ["an UNTAGGED lesson — no address can be formed", { family: "lesson", tags: [] }, MISS, NO_SHARD_ADDRESSED],
+      ["a tagged lesson with a rendering", { family: "lesson", tags: ["testing"] }, H, "answered", BOTH, "a served headline."],
+      ["a tagged lesson whose shard carried none", { family: "lesson", tags: ["testing"] }, MISS, "answered", BOTH, NO_HEADLINE],
+      ["a TAGGED JOURNEY whose shard carried none — addressable since #689", { family: "journey", tags: ["testing"] }, MISS, "answered", BOTH, NO_HEADLINE],
+      ["a tagged journey WITH a rendering — the widening's whole point", { family: "journey", tags: ["testing"] }, H, "answered", BOTH, "a served headline."],
+      ["an UNTAGGED lesson — no address can be formed", { family: "lesson", tags: [] }, MISS, "answered", BOTH, NO_SHARD_ADDRESSED],
+      ["a tagged DECISION — a family outside both namespaces", { family: "decision", tags: ["testing"] }, MISS, "answered", BOTH, NO_SHARD_ADDRESSED],
+      ["an addressable row when the SEAM never answered", { family: "lesson", tags: ["testing"] }, MISS, "unreachable", BOTH, NO_SEAM],
+      ["an UNADDRESSABLE row when the seam never answered — the row wins", { family: "lesson", tags: [] }, MISS, "unreachable", BOTH, NO_SHARD_ADDRESSED],
+      ["a caller that passes no seam state keeps the pre-#689 answer", { family: "lesson", tags: ["testing"] }, MISS, undefined, BOTH, NO_HEADLINE],
+      // ADDRESSABILITY FOLLOWS THE NAMESPACES THE FETCH WAS GIVEN (PR #711
+      // round 1). Under the ONE-namespace default a tagged journey addressed no
+      // shard, so calling its miss read-and-empty would assert a read that never
+      // happened — the same conflation one caller in. A hard-coded family list
+      // could not tell these two rows apart.
+      ["a tagged journey under the ONE-namespace default — nothing addressed it", { family: "journey", tags: ["testing"] }, MISS, "answered", ["lessons"], NO_SHARD_ADDRESSED],
+      ["a tagged lesson under the one-namespace default is still addressable", { family: "lesson", tags: ["testing"] }, MISS, "answered", ["lessons"], NO_HEADLINE],
     ];
-    for (const [what, sug, head, want] of cases) {
-      const got = glossFor(sug, head);
+    for (const [what, sug, head, seam, nss, want] of cases) {
+      const got = glossFor(sug, head, seam, nss);
       if (got !== want) {
         fails.push(`§13/689: for ${what} the Gloss state is ${JSON.stringify(got.slice(0, 60))}, expected ${JSON.stringify(want.slice(0, 60))} — read-and-empty and never-addressed are different facts, and rendering the second as the first asserts a read that did not happen`);
       }
     }
-    if (NO_HEADLINE === NO_SHARD_ADDRESSED) {
-      fails.push("§13/689: the two miss markers are the same string — the cases above cannot tell the states apart");
+    if (new Set([NO_HEADLINE, NO_SHARD_ADDRESSED, NO_SEAM]).size !== 3) {
+      fails.push("§13/689: two of the three miss markers are the same string — the cases above cannot tell those states apart");
     }
-    // The renderer still has to carry it through, which the screen cases assert.
-    const journey = screen([S(1, "core", { gloss: glossFor({ family: "journey", tags: ["testing"] }, null) })]).join("\n");
-    if (!journey.includes("⟨no Gloss shard carries this row")) {
+    // The renderer still has to carry them through, which the screen cases
+    // assert. Both remaining marker states are driven, because a renderer that
+    // carried one and dropped the other would pass a single-marker case.
+    const unaddressed = screen([S(1, "core", { gloss: glossFor({ family: "decision", tags: ["testing"] }, null, "answered", BOTH) })]).join("\n");
+    if (!unaddressed.includes("⟨no Gloss shard carries this row")) {
       fails.push("§13/689: the never-addressed marker did not reach the rendered row");
+    }
+    const down = screen([S(1, "core", { gloss: glossFor({ family: "lesson", tags: ["testing"] }, null, "unreachable", BOTH) })]).join("\n");
+    if (!down.includes("the served seam was unreachable for this pull")) {
+      fails.push("§13/689: the seam-unreachable marker did not reach the rendered row");
     }
   }
 
