@@ -2420,7 +2420,7 @@ export const NAVIGATION_HINT =
 
 export const SCREEN_RENDERING = "Screen.md";
 
-// WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain §15.5 v27, kogaki#681,
+// WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain §15.5 v28, kogaki#681,
 // successor to #680). §15.5's title — "owner artifacts are written only from
 // writing states" — was carried by nothing: `cotags` and `report` stayed live
 // dispatcher cases calling the same renderers, so a session could mint
@@ -2501,7 +2501,7 @@ function writeScreen(args, text) {
 // structural property the code no longer has is how the next edit loses it for
 // real. One printer, one writer, one callback, one refusal.
 function writeScreenSurface(args, surface, text) {
-  // BEFORE THE PRINTER, NOT ONLY BEFORE THE WRITE (§15.5 v27, kogaki#681).
+  // BEFORE THE PRINTER, NOT ONLY BEFORE THE WRITE (§15.5 v28, kogaki#681).
   // `writeScreen` carries the same refusal as the writer's own guard, but the
   // printer runs first inside the callback below — so siting the check only
   // there put the refused screen on the owner's terminal and then declined to
@@ -5031,7 +5031,7 @@ function cmdRun(args) {
       fail(`workflow state ${JSON.stringify(st.id)} is kind ${JSON.stringify(st.kind)} and this runtime has no renderer bound to it. §15.1: a new state is a table row PLUS a renderer — the executor interprets the table and invents neither a renderer nor a judgment.`);
     }
     // THE AUTHORITY IS HELD FOR THE DURATION OF A WRITING STATE AND NO LONGER
-    // (§15.5 v27, kogaki#681). Scoped by `try/finally` rather than by setting
+    // (§15.5 v28, kogaki#681). Scoped by `try/finally` rather than by setting
     // and clearing around the call: a renderer that `fail`s would otherwise
     // leave the authority standing for whatever ran next in the same process.
     let outcome = null;
