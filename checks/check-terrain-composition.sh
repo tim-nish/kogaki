@@ -3209,9 +3209,12 @@ const JUDGED = JSON.parse(readFileSync(join(DIR, "neighborhood-judgments.json"),
 // /ship-cycle 689 sitting). `NO_SEAM` and its `glossFor` arm ship and are
 // asserted at the unit above; what CANNOT be driven end to end is the state
 // itself, because the report path reads member Gloss bodies through a NON-soft
-// `fetchGlossBodies` (terrain.mjs:2938) BEFORE the neighborhood's soft fetch
-// (:3268) — so a down seam exits 11 at the member read and the pull renders
-// nothing at all. An end-to-end case here would assert against an artifact the
+// `fetchGlossBodies` BEFORE the neighborhood's soft fetch — so a down seam exits
+// 11 at the member read and the pull renders nothing at all. The two sites are
+// named by FUNCTION rather than by line, because a reopen trigger is only as
+// good as the pointers a future reader follows and line numbers drift: the
+// non-soft read is `fetchGlossBodies`, reached from `fetchBodies()` inside
+// `cmdReport`; the soft one is the `resolveHeadlines` call in the same function. An end-to-end case here would assert against an artifact the
 // runtime cannot produce.
 //
 // Stated rather than left silent, on the served line for exactly this shape:
@@ -4404,19 +4407,27 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     // which is how it went on passing while the production pairing was broken.
     const H = { headline: "a served headline.", cite: "gloss/lessons/testing.md:19@stubbed", found: true };
     const MISS = { headline: NO_HEADLINE, cite: null, found: false };
+    const BOTH = ["lessons", "journeys"];
     const cases = [
-      ["a tagged lesson with a rendering", { family: "lesson", tags: ["testing"] }, H, "answered", "a served headline."],
-      ["a tagged lesson whose shard carried none", { family: "lesson", tags: ["testing"] }, MISS, "answered", NO_HEADLINE],
-      ["a TAGGED JOURNEY whose shard carried none — addressable since #689", { family: "journey", tags: ["testing"] }, MISS, "answered", NO_HEADLINE],
-      ["a tagged journey WITH a rendering — the widening's whole point", { family: "journey", tags: ["testing"] }, H, "answered", "a served headline."],
-      ["an UNTAGGED lesson — no address can be formed", { family: "lesson", tags: [] }, MISS, "answered", NO_SHARD_ADDRESSED],
-      ["a tagged DECISION — a family outside both namespaces", { family: "decision", tags: ["testing"] }, MISS, "answered", NO_SHARD_ADDRESSED],
-      ["an addressable row when the SEAM never answered", { family: "lesson", tags: ["testing"] }, MISS, "unreachable", NO_SEAM],
-      ["an UNADDRESSABLE row when the seam never answered — the row wins", { family: "lesson", tags: [] }, MISS, "unreachable", NO_SHARD_ADDRESSED],
-      ["a caller that passes no seam state keeps the pre-#689 answer", { family: "lesson", tags: ["testing"] }, MISS, undefined, NO_HEADLINE],
+      ["a tagged lesson with a rendering", { family: "lesson", tags: ["testing"] }, H, "answered", BOTH, "a served headline."],
+      ["a tagged lesson whose shard carried none", { family: "lesson", tags: ["testing"] }, MISS, "answered", BOTH, NO_HEADLINE],
+      ["a TAGGED JOURNEY whose shard carried none — addressable since #689", { family: "journey", tags: ["testing"] }, MISS, "answered", BOTH, NO_HEADLINE],
+      ["a tagged journey WITH a rendering — the widening's whole point", { family: "journey", tags: ["testing"] }, H, "answered", BOTH, "a served headline."],
+      ["an UNTAGGED lesson — no address can be formed", { family: "lesson", tags: [] }, MISS, "answered", BOTH, NO_SHARD_ADDRESSED],
+      ["a tagged DECISION — a family outside both namespaces", { family: "decision", tags: ["testing"] }, MISS, "answered", BOTH, NO_SHARD_ADDRESSED],
+      ["an addressable row when the SEAM never answered", { family: "lesson", tags: ["testing"] }, MISS, "unreachable", BOTH, NO_SEAM],
+      ["an UNADDRESSABLE row when the seam never answered — the row wins", { family: "lesson", tags: [] }, MISS, "unreachable", BOTH, NO_SHARD_ADDRESSED],
+      ["a caller that passes no seam state keeps the pre-#689 answer", { family: "lesson", tags: ["testing"] }, MISS, undefined, BOTH, NO_HEADLINE],
+      // ADDRESSABILITY FOLLOWS THE NAMESPACES THE FETCH WAS GIVEN (PR #711
+      // round 1). Under the ONE-namespace default a tagged journey addressed no
+      // shard, so calling its miss read-and-empty would assert a read that never
+      // happened — the same conflation one caller in. A hard-coded family list
+      // could not tell these two rows apart.
+      ["a tagged journey under the ONE-namespace default — nothing addressed it", { family: "journey", tags: ["testing"] }, MISS, "answered", ["lessons"], NO_SHARD_ADDRESSED],
+      ["a tagged lesson under the one-namespace default is still addressable", { family: "lesson", tags: ["testing"] }, MISS, "answered", ["lessons"], NO_HEADLINE],
     ];
-    for (const [what, sug, head, seam, want] of cases) {
-      const got = glossFor(sug, head, seam);
+    for (const [what, sug, head, seam, nss, want] of cases) {
+      const got = glossFor(sug, head, seam, nss);
       if (got !== want) {
         fails.push(`§13/689: for ${what} the Gloss state is ${JSON.stringify(got.slice(0, 60))}, expected ${JSON.stringify(want.slice(0, 60))} — read-and-empty and never-addressed are different facts, and rendering the second as the first asserts a read that did not happen`);
       }
@@ -4427,11 +4438,11 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     // The renderer still has to carry them through, which the screen cases
     // assert. Both remaining marker states are driven, because a renderer that
     // carried one and dropped the other would pass a single-marker case.
-    const unaddressed = screen([S(1, "core", { gloss: glossFor({ family: "decision", tags: ["testing"] }, null, "answered") })]).join("\n");
+    const unaddressed = screen([S(1, "core", { gloss: glossFor({ family: "decision", tags: ["testing"] }, null, "answered", BOTH) })]).join("\n");
     if (!unaddressed.includes("⟨no Gloss shard carries this row")) {
       fails.push("§13/689: the never-addressed marker did not reach the rendered row");
     }
-    const down = screen([S(1, "core", { gloss: glossFor({ family: "lesson", tags: ["testing"] }, null, "unreachable") })]).join("\n");
+    const down = screen([S(1, "core", { gloss: glossFor({ family: "lesson", tags: ["testing"] }, null, "unreachable", BOTH) })]).join("\n");
     if (!down.includes("the served seam was unreachable for this pull")) {
       fails.push("§13/689: the seam-unreachable marker did not reach the rendered row");
     }

@@ -639,21 +639,10 @@ export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault t
 //
 // Two ways no shard carries a row, and this marker covers both because both are
 // the same fact to a reader: the record carries no tag, so there is no shard
-// address to form; or its family is outside the `lessons/` namespace this path
-// reads. THE WORDING IS PRECISE ABOUT WHICH (PR #693 round 2, nit). An earlier
-// form said the row's "family or tags reach none", which is FALSE for a tagged
-// journey: its tags DO enter the shard union and a `lessons/<tag>` shard IS
-// read for them — that shard simply cannot carry a journey slug. The
-// distinction bears on the open fork, because it means the incremental cost of
-// reading `journeys/` is a second shard per tag ALREADY in the union rather
-// than a new tag; that cost shape is recorded on kogaki#689.
-//
-// WHETHER THAT NAMESPACE BOUND SHOULD WIDEN IS NOT DECIDED HERE. `cmdView`
-// reads both namespaces (§9), and extending the report path to match is a
-// READ-BUDGET decision of exactly the kind the 2026-08-28 gate was raised for —
-// the ruling reached the `lessons/` fetch and no further. So this DISCLOSES the
-// bound rather than quietly widening it, which costs no reads and settles
-// nothing that is the owner's.
+// address to form; or its family is outside every namespace the fetch was given.
+// A TAGGED JOURNEY IS NO LONGER ONE OF THEM (kogaki#689): the neighborhood fetch
+// addresses `journeys/` as well, so such a row is addressable and its miss is
+// read-and-empty like any other addressable row's.
 export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
 
 // THE FOURTH STATE, DISTINGUISHED (kogaki#689, owner selection at the
@@ -680,9 +669,17 @@ export const NO_SEAM = "⟨no Gloss shard was read — the served seam was unrea
 // is the neighborhood's, so it is declared at the neighborhood's call site.
 export const NEIGHBORHOOD_GLOSS_NAMESPACES = ["lessons", "journeys"];
 
-// The families a Gloss shard can carry a rendering for, under the namespaces
-// above. A suggestion of any other family has no shard to be addressed in.
-const GLOSS_FAMILIES = ["lesson", "journey"];
+// WHICH FAMILY EACH SHARD NAMESPACE CARRIES. Addressability is derived from the
+// namespaces a fetch was ACTUALLY GIVEN rather than from a second hard-coded
+// list: `resolveHeadlines` takes its namespace set as a parameter, so a list
+// here would let the two drift and would tell a caller resolving with the
+// default that a tagged journey's miss was read-and-empty — a read that never
+// happened, which is the conflation these markers exist to prevent (PR #711
+// round 1).
+const NAMESPACE_FAMILY = { lessons: "lesson", journeys: "journey" };
+export function familiesFor(namespaces) {
+  return (namespaces || []).map((ns) => NAMESPACE_FAMILY[ns]).filter(Boolean);
+}
 
 // THE BOUNDED RESOLVER THE BRIEF LANE CALLS (kogaki#528). Terrain is the one
 // component that reads served renderings through the seam (§3, §9), so the
@@ -741,7 +738,9 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
   const seam = stats.calls === 0 ? "not-attempted"
              : stats.answered > 0 ? "answered"
              : "unreachable";
-  return { headlines: out, seam };
+  // THE NAMESPACE SET TRAVELS WITH THE RESULT, so `glossFor` decides
+  // addressability against what was read rather than against a second list.
+  return { headlines: out, seam, namespaces };
 }
 
 // WHICH MARKER A ROW WITH NO RENDERABLE QUOTATION CARRIES (PR #694 round 1).
@@ -781,28 +780,22 @@ function glossMarkerFor(x) {
 // is the shape a mutation-verification cannot detect: an assertion that never
 // ran and an assertion that survived are the same silence.
 //
-// A FOURTH STATE EXISTS AND IS NOT DISTINGUISHED HERE — stated rather than left
-// for a reader to discover (PR #696 round 1, carried on kogaki#689). When the
-// SEAM ITSELF is unreachable, `gatewayQuery` returns null under `soft`,
-// `fetchHeadlines` continues past it, and every entry comes back `found: false`
-// — so a tagged lesson row renders `NO_HEADLINE`, whose declared meaning is
-// "a shard WAS READ and carried no rendering for the slug". That is false of a
-// read that never happened, and it is this function's own conflation one layer
-// further out. It is NOT repaired here because the repair is a degradation
-// contract — the registry already says a seam-absent member reports
-// CANNOT-DETERMINE rather than passing or failing, and deciding what the Gloss
-// field's equivalent arm is belongs with the read-budget fork on #689, not with
-// the sitting that noticed it. The rows it mismarks are abnormal on either
-// reading, which is why disclosing beats improvising a fourth marker.
-//
-// THREE STATES, THREE ANSWERS:
-//   * a shard was read and carried a rendering  → the headline;
+// FOUR STATES, FOUR ANSWERS (kogaki#689):
+//   * a shard was read and carried a rendering → the headline;
 //   * a shard was READ and carried none for the slug → `NO_HEADLINE`;
-//   * NO SHARD WAS ADDRESSED — the row carries no tag, so no address can be
-//     formed, or its family is not `lesson` and this path reads the `lessons/`
-//     namespace only → `NO_SHARD_ADDRESSED`.
-// The third rendered as the second asserts a read that never happened.
-export function glossFor(sug, headline, seam) {
+//   * NO SHARD COULD BE ADDRESSED — the row carries no tag, so no address can
+//     be formed, or its family is outside every namespace the fetch was given
+//     → `NO_SHARD_ADDRESSED`;
+//   * NO SHARD WAS READ AT ALL — the seam itself never answered → `NO_SEAM`.
+// Any of the last three rendered as another asserts something that did not
+// happen, which is the whole reason they are separate strings.
+//
+// THE SEAM STATE CANNOT ARISE FROM THE REPORT PATH, and that is declared rather
+// than implied. `cmdReport` reads member Gloss bodies through a NON-soft
+// `fetchGlossBodies` before the neighborhood's soft fetch runs, so a down seam
+// exits and the pull renders nothing. The arm is correct and prospective; its
+// reopen trigger is the first Gloss caller on this path that reads SOFTLY.
+export function glossFor(sug, headline, seam, namespaces = ["lessons"]) {
   // READ `found`, NEVER TRUTHINESS OF THE ENTRY. `resolveHeadlines` returns an
   // entry for every member it was handed, so `if (headline)` was true on every
   // miss and this function's whole second half was unreachable from the report
@@ -815,7 +808,7 @@ export function glossFor(sug, headline, seam) {
   // with no address has nothing to attribute to the seam however the seam
   // behaved. The family set is the one the namespaces above can carry.
   const addressable = ((sug && sug.tags) || []).length > 0
-    && sug && GLOSS_FAMILIES.includes(sug.family);
+    && sug && familiesFor(namespaces).includes(sug.family);
   if (!addressable) return NO_SHARD_ADDRESSED;
   // THE SEAM ARM SITS BETWEEN THE TWO READ STATES. `unreachable` means no shard
   // answered at all, so `NO_HEADLINE` — which asserts a shard was read — would
@@ -3270,12 +3263,12 @@ function cmdReport(args) {
   // rule the slug substitution was refused under at #686 round 1.
   const shownRows = neighborhoodDisplaySet(neighborhood.suggestions || []).shown || [];
   if (shownRows.length) {
-    const { headlines: heads, seam } = resolveHeadlines(
+    const { headlines: heads, seam, namespaces: ns } = resolveHeadlines(
       shownRows.map((x) => ({ slug: x.slug, tags: x.tags || [] })),
       { namespaces: NEIGHBORHOOD_GLOSS_NAMESPACES });
     for (const sug of shownRows) {
       const h = heads.get(sug.slug);
-      sug.gloss = glossFor(sug, h, seam);
+      sug.gloss = glossFor(sug, h, seam, ns);
       sug.gloss_cite = h ? h.cite : null;
     }
   }
