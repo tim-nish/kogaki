@@ -976,6 +976,7 @@ INSTALLED=(
   "$TMP/repo/policy/CAPABILITIES.md"
   "$TMP/repo/policy/emissions/README.md"
   "$TMP/repo/policy/consultation-map.md"
+  "$TMP/repo/policy/source.yaml"
 )
 for f in "${INSTALLED[@]}"; do
   [[ -f "$f" ]] || fail "the installed-artifact list names $f, which the install did not produce (kogaki#639)"
