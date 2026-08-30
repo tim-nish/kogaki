@@ -1156,6 +1156,87 @@ eq("case 1b — SAME identity run twice is ONE report (idempotent, not a duplica
 run(["--ids", "G3"]);
 eq("case 3 — same pin, DIFFERENT query is two reports", count(), 2);
 
+// THE COMPOSED-INPUT MISMATCH REFUSES RATHER THAN REPLAYING (§12.1, kogaki#700).
+//
+// The identity is the triple and the composed inputs are NOT in it, so a rerun
+// supplying different ones matched on identity and replayed the stored
+// rendering — measured on all three inputs before the repair. The record now
+// carries a per-input digest and the rerun refuses on mismatch, naming which
+// input changed.
+//
+// ASSERTED IN THREE DIRECTIONS, because any one alone is satisfied by a runtime
+// that got the others wrong: an identical rerun must STILL be idempotent (a
+// blanket refusal would pass a mismatch case while breaking §12.1 case 1), a
+// changed input must REFUSE, and the refusal must NAME the input (a bare
+// refusal leaves an operator diffing every composed input).
+//
+// SELF-CONTAINED — its own report dir and its own claims files, because the
+// property under test is what a SECOND pull into the SAME dir does, and sharing
+// the block's dir would make it depend on how many reports ran before it.
+{
+  const MD = mkdtempSync(join(tmpdir(), "terrain-mismatch-"));
+  const pin = JSON.parse(readFileSync(FIXTURE, "utf8")).pin;
+  const groups = {
+    [`${TAG} × (no second served tag)`]: ["lesson:delta"],
+    [`${TAG} × architecture`]: ["lesson:alpha", "lesson:bravo"],
+    [`${TAG} × cost`]: ["lesson:charlie"],
+  };
+  const claimsFile = (name, claim) => {
+    const f = join(MD, name);
+    writeFileSync(f, JSON.stringify({
+      composition_pin: { tag: TAG, pin, groups },
+      claims: { [`${TAG} × architecture`]: claim, [`${TAG} × cost`]: "c",
+                [`${TAG} × (no second served tag)`]: "d" },
+    }));
+    return f;
+  };
+  const A = claimsFile("claims-a.json", "the claim this identity was reported from");
+  const B = claimsFile("claims-b.json", "a DIFFERENT composed claim");
+  // Every group on the co-tag path is judged (§6.2), so the pull carries a
+  // judged-empty subdivision record — held CONSTANT across all three pulls, so
+  // the only thing that varies is the input under test.
+  const SUB = join(MD, "subs.json");
+  writeFileSync(SUB, JSON.stringify({ [`${TAG} × architecture`]: { judged: true, subgroups: [] } }));
+  const pull = (claims) => spawnSync(process.execPath,
+    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG, "--ids", "G2",
+     "--claims", claims, "--subdivisions", SUB, "--judge-model", "m", "--judge-effort", "e",
+     "--report-dir", join(MD, "rep"), "--rendering-dir", join(MD, "ren")],
+    { encoding: "utf8" });
+
+  const first = pull(A);
+  if (first.status !== 0) {
+    fails.push(`§12.1/700: CANNOT-DETERMINE — the first pull exited ${first.status}, so no stored record exists for the rerun cases to compare against: ${(first.stderr || "").trim().slice(-200)}`);
+  } else {
+    const again = pull(A);
+    if (again.status !== 0) {
+      fails.push(`§12.1/700: an IDENTICAL rerun refused (exit ${again.status}) — the guard is firing on inputs that did not change, which breaks §12.1 case 1's idempotence`);
+    }
+    const changed = pull(B);
+    if (changed.status === 0) {
+      fails.push("§12.1/700: a rerun with a CHANGED --claims exited 0 — it replayed the stored rendering while reporting success, rendering material the invocation did not supply");
+    }
+    const msg = String(changed.stderr) + String(changed.stdout);
+    if (!/COMPOSED_INPUT_MISMATCH/.test(msg)) {
+      fails.push(`§12.1/700: the mismatch refusal did not name COMPOSED_INPUT_MISMATCH — got ${JSON.stringify(msg.trim().slice(0, 200))}`);
+    }
+    if (!/\bclaims\b/.test(msg)) {
+      fails.push("§12.1/700: the refusal did not NAME the input that changed, so an operator is left diffing every composed input");
+    }
+    // THE RECORD CARRIES THE DIGESTS, which is what makes the comparison
+    // possible at all — a guard reading a field nothing writes never fires.
+    const rec = readdirSync(join(MD, "rep")).filter((f) => f.startsWith("terrain-full-report-") && f.endsWith(".json"))[0];
+    if (!rec) {
+      fails.push("§12.1/700: the first pull wrote no record");
+    } else {
+      const parsed = JSON.parse(readFileSync(join(MD, "rep", rec), "utf8"));
+      if (!parsed.composed_inputs || typeof parsed.composed_inputs !== "object") {
+        fails.push("§12.1/700: the stored record carries no `composed_inputs` digest — the rerun guard compares against a field nothing writes, so it can never fire");
+      }
+    }
+  }
+  rmSync(MD, { recursive: true, force: true });
+}
+
 const SUBS = join(RD, "subs.json");
 writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: { judged: true, subgroups: [
   { subgroup: "sg", claim: "a tighter claim", members: ["lesson:alpha"],

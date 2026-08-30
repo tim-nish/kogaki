@@ -2793,6 +2793,46 @@ function identityDigest(identity) {
     .digest("hex").slice(0, 16);
 }
 
+// THE COMPOSED-INPUT DIGEST (§12.1, kogaki#700). The identity names the substrate
+// pin, the query and the judge pin — and NOT the composed inputs, which §12.1
+// ratifies in as many words ("Nothing else enters the key: not the composed
+// claims, not the run"). Those inputs nonetheless decide what the artifact says,
+// so a rerun supplying different ones had the same identity and a different
+// rendering, and the idempotent-rerun branch replayed the stored one. Measured on
+// all three: a changed `--claims` re-rendered the first claim, a changed
+// `--subdivisions` rendered no SubGroup, and a judged `--neighborhood` pull of a
+// set already reported unjudged rendered the unjudged form.
+//
+// THE DIGEST IS RECORDED, NOT KEYED, which is the served discipline rather than a
+// compromise between the two arms: a rendering is pinned to the sha of the content
+// it was made from, and a mismatch RE-SURFACES rather than silently re-rendering.
+// consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:118
+//
+// FILE BYTES RATHER THAN A PARSE, deliberately. It is literally "the content it
+// was made from", it adds no second parse of an artifact the run already read
+// through its own reader, and it cannot drift from whatever those readers accept.
+// The cost is stated: a whitespace-only reformat of an input refuses a rerun that
+// would have rendered identically. That is a false refusal and never a false
+// render, and the record cannot know the edit was insignificant.
+export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood"];
+export function composedInputDigests(args) {
+  const out = {};
+  for (const flag of COMPOSED_INPUT_FLAGS) {
+    const path = args[flag];
+    out[flag] = path
+      ? createHash("sha256").update(readFileSync(String(path))).digest("hex").slice(0, 16)
+      : NO_JUDGE;
+  }
+  return out;
+}
+
+// WHICH INPUTS DIFFER, named rather than counted — a refusal telling an operator
+// only THAT something changed leaves them diffing three files to find out which.
+export function composedInputDelta(prior, current) {
+  if (!prior || typeof prior !== "object") return null;
+  return COMPOSED_INPUT_FLAGS.filter((f) => prior[f] !== current[f]);
+}
+
 export function sameIdentity(a, b) {
   return JSON.stringify(reportIdentityKey(a)) === JSON.stringify(reportIdentityKey(b));
 }
@@ -2954,6 +2994,9 @@ function cmdReport(args) {
   // entered id becomes one SECTION, and the identity block, Counted and
   // Served lines appear once for the file.
   const identity = reportIdentity(record.pin, tag, resolved.canonical, suppliedJudge);
+  // Computed BESIDE the identity and never inside it (§12.1, kogaki#700): the
+  // triple is ratified and untouched; this rides the record.
+  const composedInputs = composedInputDigests(args);
   const sectionsOut = [];
   let abnormalTotal = 0;
   const allMemberIds = [];
@@ -3110,6 +3153,26 @@ function cmdReport(args) {
   if (existsSync(out)) {
     const prior = readJson(out);
     if (sameIdentity(prior.identity, identity)) {
+      // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (§12.1, kogaki#700).
+      // Same identity is not the same artifact when the inputs it was rendered
+      // from differ: the identity is ratified as the triple, so the mismatch
+      // surfaces here rather than by widening the key.
+      const delta = composedInputDelta(prior.composed_inputs, composedInputs);
+      if (delta === null) {
+        // A RECORD WRITTEN BEFORE THIS FIELD EXISTED CANNOT BE SHOWN IDEMPOTENT,
+        // so it is RECOMPUTED rather than replayed or refused. Replaying would
+        // be the defect this clause removes, on exactly the records most likely
+        // to predate the inputs in hand; refusing would fail a rerun that has
+        // done nothing wrong. Recomputing is safe because §12.1 case 1 is a
+        // claim about the report, not about the write: one identity, one file,
+        // rewritten in place.
+      } else if (delta.length) {
+        fail(`COMPOSED_INPUT_MISMATCH — this identity was already reported from different composed input(s): `
+          + `${delta.join(", ")}. The identity is the substrate pin, the query and the judge pin (SPEC-terrain §12.1), `
+          + "and the composed inputs are NOT part of it — so replaying the stored rendering would render material this "
+          + "invocation did not supply, while reporting success. Re-run against a fresh --report-dir to render the new "
+          + "inputs as their own report, or restore the inputs this identity was reported from.");
+      } else {
       // IDEMPOTENT ON THE RECORD, AND THE RENDERING IS STILL WRITTEN IN THIS
       // ACT (§12.2 v11: "Both are written in the same act"). Idempotence is a
       // claim about the RECORD — one identity, one report — and the rendering
@@ -3165,6 +3228,7 @@ function cmdReport(args) {
       // facing the other way. Under `--no-render` `priorRendered` is null, which
       // is the genuine wrote-nothing case and still reports as one.
       return priorRendered;
+      }
     }
   }
 
@@ -3281,6 +3345,8 @@ function cmdReport(args) {
 
   const report = {
     id: `terrain-full-report-${identityDigest(identity)}`,
+    // RECORDED BESIDE THE IDENTITY, never inside it (§12.1, kogaki#700).
+    composed_inputs: composedInputs,
     kind: "full-report",
     identity,
     // §12 v7 — the entered set, canonical, recorded in the identity block.

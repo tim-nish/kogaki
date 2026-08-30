@@ -1085,6 +1085,46 @@ binds the *artifact*; it does not touch the *key space*:
 **Idempotence is keyed on the triple** and never read the judge pin's *value*, so
 narrowing the set of values a conformant report may carry does not disturb it.
 
+**THE RECORD CARRIES A DIGEST OF THE COMPOSED INPUTS IT WAS RENDERED FROM, AND A
+RERUN WHOSE INPUTS DIFFER IS REFUSED.** The composed inputs — the claims record,
+the subdivision record and the neighborhood judgment record — decide what the
+artifact says and are **not** part of the identity, which is the clause above.
+Without this, a rerun supplying different ones matched on identity and the
+idempotent-rerun branch **replayed the stored rendering while reporting
+success**: measured on all three, a changed claims record re-rendered the first
+claim, a changed subdivision record rendered no SubGroup, and a judged pull of a
+set already reported unjudged rendered the unjudged form.
+
+So the record stores a per-input digest beside its identity, and a rerun compares
+before replaying:
+
+| stored digests | act |
+|---|---|
+| match | the rerun is idempotent, exactly as case 1 above |
+| differ | **refused**, naming which input changed |
+| absent (a record written before the field existed) | **recomputed** — a record that cannot be shown idempotent is neither replayed nor refused |
+
+**The digest is RECORDED, never KEYED, and that is the decision.** Widening the
+identity was the alternative and is declined: §12.1 ratifies that nothing else
+enters the key, and a fourth component would make a requester hash the inputs to
+form an identity by hand. The served discipline asks for the other shape
+directly — a rendering is pinned to the sha of the content it was made from, and
+a mismatch **re-surfaces rather than silently re-rendering**:
+
+> "a derived expression's truth is relative to the set it was derived from, so
+> the derivation carries that set and a change to the set is a GATE EVENT rather
+> than a refresh"
+
+`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:118`
+
+**The cost is stated rather than discovered.** Re-pulling a set with better
+claims is now a refusal the operator clears deliberately — by pulling into a
+fresh report directory, which renders the new inputs as their own report. That
+is what a gate event is, and it is the price of the artifact never rendering
+material the invocation did not supply. A whitespace-only reformat of an input
+refuses a rerun that would have rendered identically: a **false refusal, never a
+false render**, and the record cannot know the edit was insignificant.
+
 **THE SUBDIVISION INPUT IS A TYPED PER-GROUP RECORD:**
 
     {"Group": {"judged": true, "subgroups": [ … ]}}   judged, with a split

@@ -340,14 +340,16 @@ else
   # of #690: before it, the judged path was reachable only by invoking `report`
   # directly with a fixture.
   #
-  # `--report-dir` IS FRESH, AND THAT IS NOT TEST HYGIENE — it is the finding
-  # this arm carries. §12.1's identity triple is (pin, query, judge) and does
-  # NOT include the judgment record, so a judged pull of a set already reported
-  # UNJUDGED replays the stored unjudged rendering through the idempotent-rerun
-  # branch. Without a fresh record dir this arm would pass or fail on which
-  # order the arms happened to run in, which is the assertion-that-cannot-fail
-  # shape. The defect itself is carried on its own issue, not repaired here:
-  # widening a ratified identity is not this sitting's to do.
+  # `--report-dir` IS FRESH, AND THAT IS NOT TEST HYGIENE. §12.1's identity
+  # triple is (pin, query, judge) and does NOT include the composed inputs, so a
+  # judged pull of a set already reported UNJUDGED shares an identity with it.
+  # Since kogaki#700 that pull REFUSES rather than replaying — the record carries
+  # a digest of the inputs it was rendered from — so without a fresh record dir
+  # this arm would refuse or pass on which order the arms happened to run in,
+  # which is the assertion-that-cannot-fail shape wearing a different outcome.
+  # The refusal itself is asserted where it belongs, in
+  # check-terrain-composition.sh's §12.1 block; this arm asserts the judged
+  # rendering and takes a fresh dir so that it can.
   RDJ_JUDGED="$WORK/judgment-judged"; cp -r "$RDJ" "$RDJ_JUDGED"
   STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
     node terrain/terrain.mjs run --run-dir "$RDJ_JUDGED" --input G1 "${COMMON[@]}" \
