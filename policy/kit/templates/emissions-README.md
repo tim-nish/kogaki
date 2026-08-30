@@ -1,6 +1,6 @@
 # Emissions — staging candidates from this repository's own sittings
 
-Written by `policy/kit/bin/emit.mjs`, under `specs/spec-client-kit/SPEC.md` §4.
+Written by `policy/kit/bin/emit.mjs`, under kogaki's `specs/spec-client-kit/SPEC.md` §4.
 
 **The duty.** Any sitting here that produces a durable learning — an
 investigation finding, a reversal, a correction, a design decision — writes ONE

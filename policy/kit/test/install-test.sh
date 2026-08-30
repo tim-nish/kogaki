@@ -950,24 +950,54 @@ printf '%s
 echo "ok: an explicitly empty declared set still refuses an argued call, truthfully (kogaki#373)"
 
 # 11. NO INSTALLED ARTIFACT CITES A PATH THAT RESOLVES ONLY AT THE HOME
-#     (kogaki#639). The kit's shipped skill cited a bare `specs/SPEC.md` four
-#     times; that path exists at kogaki and at no other consumer, so the one
-#     artifact a consumer session actually loads sent it to a contract its
-#     repository does not hold. The citations are now QUALIFIED — they name
-#     whose repository holds the contract — so they stay true anywhere.
+#     (kogaki#639). The kit's shipped artifacts cited bare repo-relative spec
+#     paths; those resolve at kogaki and at no other consumer, so the artifacts
+#     a consumer session loads sent it to contracts its repository does not
+#     hold. The citations are now QUALIFIED — they name whose repository holds
+#     the contract — so they stay true anywhere.
 #
-#     THE ASSERTION BINDS THE INSTALLED TREE, not the kit source, because the
-#     installed copy is what a consumer reads and is the only thing the
-#     acceptance is stated over.
+#     THE PATTERN MATCHES THE CLASS, NEVER ONE LITERAL. PR #718 round 1 found
+#     the first cut matching only `specs/SPEC.md`, which sees nothing in
+#     `specs/spec-client-kit/SPEC.md` — two survivors of the same class sat in
+#     the same two files the diff was repairing. A detector written from the
+#     hits its author happened to find encodes that author's blind spot.
 #
+#     THE SCOPE IS THE INSTALLED ARTIFACTS, ENUMERATED. `$TMP/repo` also holds
+#     what earlier sections wrote — `policy/shape.md` from the stub-gateway
+#     run, emitted candidates, `.gitignore` — so grepping the whole tree turns
+#     green red the first time a digest merely mentions a path, with nothing
+#     installed having regressed.
+#     NON-MEMBER FALLBACK, chosen rather than inherited: an artifact
+#     `install.sh` starts placing and this list does not name is NOT covered.
+#     The list is kept beside the `cp` lines it mirrors (install.sh 75, 84, 96,
+#     112, 160) and a sixth destination owes a sixth entry here.
+INSTALLED=(
+  "$TMP/repo/.claude/skills/consult-first/SKILL.md"
+  "$TMP/repo/policy/CAPABILITIES.md"
+  "$TMP/repo/policy/emissions/README.md"
+  "$TMP/repo/policy/consultation-map.md"
+)
+for f in "${INSTALLED[@]}"; do
+  [[ -f "$f" ]] || fail "the installed-artifact list names $f, which the install did not produce (kogaki#639)"
+done
+#     QUALIFICATION IS READ PER OCCURRENCE, NOT PER LINE. A line-scoped
+#     `grep -v` lets one line carrying a qualified and an unqualified citation
+#     together escape the assertion entirely (PR #718 round 1).
+BARE=""
+QUALIFIED=0
+for f in "${INSTALLED[@]}"; do
+  while IFS= read -r hit; do
+    [[ -n "$hit" ]] || continue
+    if [[ "$hit" == *"kogaki's "* ]]; then QUALIFIED=$((QUALIFIED + 1)); else BARE="$BARE
+  $f: $hit"; fi
+  done < <(grep -oE ".{0,10}specs/[A-Za-z0-9/._-]*SPEC\.md" "$f" 2>/dev/null || true)
+done
+[[ -z "$BARE" ]] || fail "an installed artifact cites a repo-relative spec path unqualified — it resolves only at the Home (kogaki#639):$BARE"
 #     BOTH DIRECTIONS, because either alone is empty: an unqualified citation
 #     must FAIL, and the qualified form must still be PRESENT — an
 #     absence-only assertion passes just as well on a tree with every citation
 #     deleted, which is a different repository from the one this guards.
-BARE="$(grep -rn 'specs/SPEC\.md' "$TMP/repo" 2>/dev/null | grep -v "kogaki's" || true)"
-[[ -z "$BARE" ]] || fail "an installed artifact cites specs/SPEC.md unqualified — that path resolves only at the Home (kogaki#639): $BARE"
-QUALIFIED="$(grep -rl "kogaki's \+.\?\+specs/SPEC\.md" "$TMP/repo" 2>/dev/null | wc -l)"
-[[ "$QUALIFIED" -ge 3 ]] || fail "only $QUALIFIED installed artifact(s) carry a QUALIFIED specs/SPEC.md citation, want 3 — the absence assertion above would pass on a tree with the pointers simply deleted (kogaki#639)"
-echo "ok: no installed artifact cites a Home-only path, and the qualified citation stands in $QUALIFIED file(s) (kogaki#639)"
+[[ "$QUALIFIED" -ge 9 ]] || fail "only $QUALIFIED qualified spec citations survive in the installed artifacts, want 9 — the absence assertion above would pass on a tree with the pointers simply deleted (kogaki#639)"
+echo "ok: no installed artifact cites a Home-only spec path, and $QUALIFIED qualified citations stand across ${#INSTALLED[@]} artifacts (kogaki#639)"
 
 echo "ALL PASS"

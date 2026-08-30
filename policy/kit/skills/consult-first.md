@@ -76,7 +76,7 @@ author's judgment and is attributed as such.
 `policy/consultation-map.md` — trigger terms, the served quote at its pin,
 and the miss that earned the entry. That is the only way the map grows.
 
-**What the OWNER sees — and it is not the receipt** (`specs/spec-client-kit/SPEC.md`
+**What the OWNER sees — and it is not the receipt** (kogaki's `specs/spec-client-kit/SPEC.md`
 §8, kogaki#320). A pin block tells the owner exactly one thing, *that a
 consultation happened*, and nothing they can act on. So run the consult with
 `--owner-render` and relay the block the kit emits:
