@@ -26,13 +26,13 @@ sensitivity, not file kind**:
 
 | artifact | derives from | committed |
 |---|---|---|
-| `policy/shape.md` | **hub**, owner-realm material | **no** — committing into a public repository would be a declassification act, and `specs/SPEC.md` §2.5.2 grants no grounds for one |
+| `policy/shape.md` | **hub**, owner-realm material | **no** — committing into a public repository would be a declassification act, and kogaki's `specs/SPEC.md` §2.5.2 grants no grounds for one |
 | `policy/emissions/*` | **this repository's own** experience, in plain register | **yes** — already at this repository's own sensitivity, so committing declassifies nothing |
 
 Committing also buys two things a run workspace cannot: survival of workspace
 cleanup, and visibility in the pull request that carried the work. The served
 position rules out only one location outright — the hub's own intake — and
-between the two it permits, `specs/SPEC.md` §2.5.1's **lifetime** discriminator
+between the two it permits, kogaki's `specs/SPEC.md` §2.5.1's **lifetime** discriminator
 decides: an emission awaits a sweep that may be days away, so its lifetime is
 the owner's and not the run's.
 

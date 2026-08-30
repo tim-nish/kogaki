@@ -949,4 +949,25 @@ printf '%s
 ' "$OUT" | grep -q 'it declares no arguments'   || fail "the zero-argument refusal does not say the declared set is empty: $OUT"
 echo "ok: an explicitly empty declared set still refuses an argued call, truthfully (kogaki#373)"
 
+# 11. NO INSTALLED ARTIFACT CITES A PATH THAT RESOLVES ONLY AT THE HOME
+#     (kogaki#639). The kit's shipped skill cited a bare `specs/SPEC.md` four
+#     times; that path exists at kogaki and at no other consumer, so the one
+#     artifact a consumer session actually loads sent it to a contract its
+#     repository does not hold. The citations are now QUALIFIED — they name
+#     whose repository holds the contract — so they stay true anywhere.
+#
+#     THE ASSERTION BINDS THE INSTALLED TREE, not the kit source, because the
+#     installed copy is what a consumer reads and is the only thing the
+#     acceptance is stated over.
+#
+#     BOTH DIRECTIONS, because either alone is empty: an unqualified citation
+#     must FAIL, and the qualified form must still be PRESENT — an
+#     absence-only assertion passes just as well on a tree with every citation
+#     deleted, which is a different repository from the one this guards.
+BARE="$(grep -rn 'specs/SPEC\.md' "$TMP/repo" 2>/dev/null | grep -v "kogaki's" || true)"
+[[ -z "$BARE" ]] || fail "an installed artifact cites specs/SPEC.md unqualified — that path resolves only at the Home (kogaki#639): $BARE"
+QUALIFIED="$(grep -rl "kogaki's \+.\?\+specs/SPEC\.md" "$TMP/repo" 2>/dev/null | wc -l)"
+[[ "$QUALIFIED" -ge 3 ]] || fail "only $QUALIFIED installed artifact(s) carry a QUALIFIED specs/SPEC.md citation, want 3 — the absence assertion above would pass on a tree with the pointers simply deleted (kogaki#639)"
+echo "ok: no installed artifact cites a Home-only path, and the qualified citation stands in $QUALIFIED file(s) (kogaki#639)"
+
 echo "ALL PASS"

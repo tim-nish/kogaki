@@ -13,7 +13,7 @@ moment the question forms — the tool is in your list precisely so this is
 not a remembered ceremony.
 
 **How to consult:** through the entry point, which carries the discipline
-below so it is not a memory test (`specs/SPEC.md` §4, kogaki#66):
+below so it is not a memory test (kogaki's `specs/SPEC.md` §4, kogaki#66):
 
 ```
 policy/kit/bin/consult.mjs --consumer <name> \
@@ -106,7 +106,7 @@ tells you how to use an emission that exists without it.
 
 **The receipt — how a consultation leaves its record.** The act produces no
 artifact anyone can see, so the record *is* the act: a fixed token at a fixed
-position, whose absence is greppable. Shape (`specs/SPEC.md` §4, kogaki#28):
+position, whose absence is greppable. Shape (kogaki's `specs/SPEC.md` §4, kogaki#28):
 
 ```
 consult-receipt: tool-emitted
@@ -118,7 +118,7 @@ consulted: <repo>@<sha> <file:line[,line][, file:line…]>
   query: <framing 2, verbatim>
 ```
 
-**Do not compose this by hand when the transport can emit it** (`specs/SPEC.md`
+**Do not compose this by hand when the transport can emit it** (kogaki's `specs/SPEC.md`
 §4, kogaki#66). `consult.mjs` above prints the block after the tool results;
 the transport underneath it is callable directly when you need a tool other
 than `policy_lookup` in a shape the entry point does not carry, or more
@@ -169,7 +169,7 @@ policy/kit/bin/consult.mjs --consumer <name> --tool gloss_index \
 - **`--outcome` is required and no tool here ever guesses it.** The token is a
   *reading* of whether the answer discriminated, and **the operator supplies
   it** — `deferred-slot: consult-outcome-token-assignment` is FILLED (owner
-  decision 2026-08-06, `specs/SPEC.md` §4, kogaki#66). The tools emit only what
+  decision 2026-08-06, kogaki's `specs/SPEC.md` §4, kogaki#66). The tools emit only what
   they observed as fact — the `request_id`, every `query:` line, the framing
   count — and fail rather than guessing the rest. Without `--outcome` both the
   entry point and the transport refuse with exit 2 rather than choosing. A
