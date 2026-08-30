@@ -76,7 +76,9 @@
 # THE ALLOW CONDITION IS AN ANCHORED MARKER, NEVER PROSE THIS CHECK RE-JUDGES.
 # A legitimate occurrence — dated provenance, an explicit replacement
 # statement, a must-not-appear tripwire assertion — carries `retired-vocab-ok`
-# on its own line or within two lines of it. Sniffing for words like
+# leading its block: on the hit's own line, or on one of the ten lines above
+# it (the marker exempts its own line and the ten lines following it — the
+# asymmetric forward window L5 names). Sniffing for words like
 # "replaces" or "before" would make the check re-judge English, and a survivor
 # in a paragraph that happens to contain "replaced" would pass.
 set -euo pipefail
