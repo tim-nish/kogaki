@@ -174,7 +174,7 @@ whose ID set the owner enters. **Nothing on either line is optional.**
    The runtime **refuses** a value outside the set and refuses a label with no
    reason: the two are one instrument, and a default would be the engine
    supplying the judgment the label exists to carry. It REPLACES
-   `composes_honestly` / `tighter_than_parent`, which are gone.
+   `composes_honestly` / `tighter_than_parent`, which are gone. <!-- retired-vocab-ok: states they are gone. -->
 
    **THE SPLIT DECISION IS NOT YOURS AT TEN OR MORE.** A composed group of 10+
    members MUST serve SubGroups; `"subgroups": []` for such a group is refused

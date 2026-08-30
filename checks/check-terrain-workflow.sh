@@ -382,6 +382,7 @@ else
   # LABELLED `forced`, AND THE LABEL IS LOAD-BEARING HERE (kogaki#683). This
   # SubGroup holds 1 of the parent's 5 members and the other 4 sweep into the
   # remainder — 80%, far over the 30% `catch_all_share` allows — so the screen
+  # retired-vocab-ok: provenance, the label now carries it.
   # is renderable only because §6.2 v7 rule 3 SUPPRESSES the split and the group
   # falls back to flat. Before kogaki#683 the fixture carried no verdicts at all
   # and suppression fired on the absent `tighter_than_parent`; the label now

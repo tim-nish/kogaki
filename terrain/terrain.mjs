@@ -1239,6 +1239,7 @@ function cmdCotags(args) {
       // this lane deciding more than kogaki#316 did.
       const named = subgroups.filter((sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
       // §6.2 v7 RULE 3, RE-KEYED ON THE LABEL AND BOUNDED BY THE THRESHOLD
+      // retired-vocab-ok: provenance, past tense.
       // (kogaki#683). The suppression tested `tighter_than_parent !== true`,
       // which no longer exists; `forced` is the label that carries the same
       // reading — a single named SubGroup grouped only to satisfy the
@@ -1733,6 +1734,7 @@ export function subgroupPlacement(parent, classification, block) {
 export function judgeSubgroup(sg, groupClaim) {
   const vd = sg.verdicts || {};
 
+  // retired-vocab-ok: the three lines here name the replacement.
   // THE COHERENCE LABEL REPLACES THE CONJUNCTIVE LEAF CONDITION (kogaki#683
   // disposition 5, owner selection at pickup 2026-08-29). `composes_honestly`
   // and `tighter_than_parent` are GONE — one instrument, not two — and the
@@ -1903,7 +1905,7 @@ export const NO_JUDGE = "none";
 //
 // WHAT IT REPLACES, and why the old shape had to go rather than be tolerated.
 // The entry used to be a bare array and its presence was tested for truthiness,
-// so `[]` — a judged group with no leaf split — was TRUTHY and took the
+// so `[]` — a judged group with no subdivision — was TRUTHY and took the
 // judged branch by accident, while an absent key and `{}` took the unjudged
 // one. Three inputs, three different conformance outcomes, and NONE of them
 // was the artifact §12.1 names as conformant: `subgroupPlacement(group, [], …)`
@@ -1914,7 +1916,7 @@ export const NO_JUDGE = "none";
 // The distinction is now STATED rather than inferred from a language
 // property nothing documents:
 //
-//   {"G": {"judged": true, "subgroups": [ … ]}}   judged, with a leaf split
+//   {"G": {"judged": true, "subgroups": [ … ]}}   judged, with a subdivision
 //   {"G": {"judged": true, "subgroups": []}}      judged, EMPTY — conformant
 //   key absent                                    not judged — refused on the co-tag path
 //
@@ -2981,7 +2983,7 @@ function cmdReport(args) {
   if (unjudged.length) {
     fail(`--subdivisions carries no entry for ${unjudged.join(", ")}. On the co-tag path `
       + `every group is judged (§6.2), so a missing entry cannot be recorded: write `
-      + `{"judged": true, "subgroups": []} for a group whose judgment found no leaf split`);
+      + `{"judged": true, "subgroups": []} for a group whose judgment found no subdivision`);
   }
 
   // One shard fetch for the whole invocation — tag-scoped and bounded (§9),
