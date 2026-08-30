@@ -710,10 +710,16 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
     for (const ns of namespaces) {
       for (const [slug, e] of fetchHeadlines(ns, tags, { soft: true, stats })) {
         // FIRST NAMESPACE WINS on a slug present in both, which is the same
-        // first-wins rule `fetchHeadlines` already applies across tags. Slugs
-        // are family-scoped in the served corpus, so the case is not expected;
-        // stating the rule costs nothing and leaves nothing for an
-        // implementation to settle silently.
+        // first-wins rule `fetchHeadlines` already applies across tags.
+        //
+        // STATED AND UNEXERCISED, and said so rather than left to read as
+        // covered (PR #711 round 1, out-of-dimension). Slugs are family-scoped
+        // in the served corpus, so no served record can reach this branch and
+        // no case drives it — a fixture built to reach it would be asserting
+        // against material the substrate cannot produce. What the statement
+        // buys is that an implementation meeting the case cannot settle it
+        // silently; what it does not buy is a check, and a reader counting this
+        // as covered would be counting a comment.
         if (!heads.has(slug)) heads.set(slug, e);
       }
     }
