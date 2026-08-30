@@ -422,8 +422,8 @@ console.log("split threshold: the runtime's `SUBDIVISION_REQUIRED_AT` and report
 // The fixture's coherence label is READ by the code under test (finding 4).
 // Written the other way, a case supplying a label nothing reads presents as
 // covering the judgment while covering only rendering — so the assertion flips
-// the label and requires the output to change with it. Migrated at kogaki#683
 // retired-vocab-ok: names the replacement.
+// the label and requires the output to change with it. Migrated at kogaki#683
 // from the conjunctive leaf condition the label replaces; the case's shape and
 // its reason are unchanged, only the field it flips.
 const SUBS_NOT_LEAF = join(tmpdir(), `cotags-subs-notleaf-${process.pid}.json`);

@@ -41,28 +41,36 @@
 #   rather than inherited from the matcher."
 #   consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 LESSONS.md:41
 #
-#   (a) A SIXTH NOUN IS ADMITTED UNTIL SOMEONE ADDS IT. That is the standing
+#   L1. A SIXTH NOUN IS ADMITTED UNTIL SOMEONE ADDS IT. That is the standing
 #       condition, not a defect of this cut: the class is open, and no grep
 #       over a closed list can be complete against it. What changes is the
 #       COST — one line here, versus a hand census — and the fact that the
 #       five known nouns can no longer come back silently.
-#   (b) `which conjunct` IS DELIBERATELY NOT A TERM. #708 lists it, and it is
+#   L2. `which conjunct` IS DELIBERATELY NOT A TERM. #708 lists it, and it is
 #       excluded because the retired mechanism's conjuncts are
 #       `composes_honestly` and `tighter_than_parent`, both listed here by
 #       name, so the phrase adds no coverage — while §13 uses "which conjunct"
 #       in an unrelated reachability sense, which would force an allow marker
 #       into spec prose that is not about this vocabulary at all.
-#   (c) THIS FILE IS NOT SCANNED. A check cannot police the data list it
+#   L3. THIS FILE IS NOT SCANNED. A check cannot police the data list it
 #       carries; the terms below would match themselves. A survivor written
 #       into this file is invisible to it.
-#   (e) `checks/registry.json` IS NOT SCANNED, for the same reason as (c) one
-#       level out: this member's OWN admission record has to quote the
-#       vocabulary it guards, and so may any other check's. It was found
-#       passing by ACCIDENTAL ADJACENCY at this admission — three of its lines
-#       carry terms and were exempted only because the contract prose nearby
-#       happens to quote the marker token — which is a guard passing for the
-#       wrong reason, so the exclusion is stated rather than left to luck.
-#   (d) IT READS TEXT. A term inside a string, a variable name, or generated
+#   L4. `checks/registry.json` IS NOT SCANNED, for L3's reason one level out:
+#       this member's OWN admission record has to quote the vocabulary it
+#       guards, and so may any other check's. It was found passing there by
+#       ACCIDENTAL ADJACENCY at this admission — three of its lines carry
+#       terms and were exempted only because the contract prose nearby happens
+#       to quote the marker token — which is a guard passing for the wrong
+#       reason, so the exclusion is stated rather than left to luck. The SAME
+#       exclusion is owed by the registry's `removal_instrument` probe, which
+#       PR #715 round 1 found unreachable without it.
+#   L5. THE TEN-LINE FORWARD WINDOW EXEMPTS BY PROXIMITY, NOT BY REFERENCE. A
+#       marker leading one block also covers a hit in the next ten lines even
+#       when it was never written about it. L4 fixes the one instance that was
+#       actually biting; this is the residual general case, named rather than
+#       left for a reader to find. It is the price of an anchor that does not
+#       re-judge prose, and it is bounded: ten lines, forward only.
+#   L6. IT READS TEXT. A term inside a string, a variable name, or generated
 #       output is indistinguishable from one in prose.
 #
 # THE ALLOW CONDITION IS AN ANCHORED MARKER, NEVER PROSE THIS CHECK RE-JUDGES.
@@ -105,8 +113,13 @@ scan() {
       f="${hit%%:*}"; hit="${hit#*:}"; l="${hit%%:*}"
       case "$f" in *"$self") continue;; esac
       [ "$f" = "$skip_registry" ] && continue
-      # The marker may sit on the line or within two lines either side.
-      if sed -n "$(( l > 2 ? l - 2 : 1 )),$(( l + 2 ))p" "$tree/$f" 2>/dev/null \
+      # THE MARKER LEADS ITS BLOCK: it exempts hits on its own line and on the
+      # ten lines FOLLOWING it. Asymmetric and forward-looking on purpose — a
+      # symmetric window tight enough to be safe cannot reach every hit in a
+      # multi-line comment, so the marker ends up inside the sentence it
+      # annotates. Leading the block keeps prose intact and keeps the span
+      # bounded and declared.
+      if sed -n "$(( l > 10 ? l - 10 : 1 )),${l}p" "$tree/$f" 2>/dev/null \
            | grep -qF "retired-vocab-ok"; then continue; fi
       printf '%s:%s\n' "$f" "$l"
     done < <(cd "$tree" && git grep -inF -- "$term" -- "${ROOTS[@]}" 2>/dev/null || true)

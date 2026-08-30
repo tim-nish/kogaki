@@ -1734,9 +1734,9 @@ export function subgroupPlacement(parent, classification, block) {
 export function judgeSubgroup(sg, groupClaim) {
   const vd = sg.verdicts || {};
 
+  // retired-vocab-ok: the three lines here name the replacement.
   // THE COHERENCE LABEL REPLACES THE CONJUNCTIVE LEAF CONDITION (kogaki#683
   // disposition 5, owner selection at pickup 2026-08-29). `composes_honestly`
-  // retired-vocab-ok: the three lines here name the replacement.
   // and `tighter_than_parent` are GONE — one instrument, not two — and the
   // label carries what they carried: `tight` is what the conjunction admitted,
   // `related` is the honest-but-not-tighter middle the conjunction collapsed
