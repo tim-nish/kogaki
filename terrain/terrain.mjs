@@ -3173,61 +3173,61 @@ function cmdReport(args) {
           + "invocation did not supply, while reporting success. Re-run against a fresh --report-dir to render the new "
           + "inputs as their own report, or restore the inputs this identity was reported from.");
       } else {
-      // IDEMPOTENT ON THE RECORD, AND THE RENDERING IS STILL WRITTEN IN THIS
-      // ACT (§12.2 v11: "Both are written in the same act"). Idempotence is a
-      // claim about the RECORD — one identity, one report — and the rendering
-      // is a pure function of that record, so re-deriving it is the same
-      // artifact rather than a second one. Writing it rather than skipping it
-      // is what makes a rerun self-healing: the rendering's lifetime is the
-      // OWNER's (§2.5.1), so it can be deleted, be stale from an older
-      // renderer, or never have existed because the first run passed
-      // `--no-render`, and none of those are states a second run should leave
-      // standing while reporting success.
-      // §14.2 — the rerun path refuses on exactly the same grammar as the fresh
-      // one. It is the path a SECOND look always takes, and it is the path that
-      // shipped the last two clause-3 defects; a guard installed on the fresh
-      // write alone would be the same half-fix again.
-      //
-      // VALIDATED OUTSIDE the `--no-render` branch, symmetrically with the
-      // fresh path (PR #352 round 1). The asymmetry was against this change's
-      // own stated ground: the rendering is a pure function of the record, so a
-      // record that renders nonconformantly IS one, and whether the owner asked
-      // for the file cannot be what decides if it is checked.
-      const priorText = renderReportMarkdown(prior, tag);
-      let priorRendered = null;
-      if (!args["no-render"]) {
-        // §15.5 v28 — THE RERUN IS A WRITE, so it carries the write authority
-        // (PR #702 round 1, finding 1). This branch's own header already warns
-        // that it "is the path a SECOND look always takes, and it is the path
-        // that shipped the last two clause-3 defects; a guard installed on the
-        // fresh write alone would be the same half-fix again" — and the first
-        // cut of #681 installed exactly that half-fix, one clause below the
-        // sentence saying not to. A standalone `report` repeated for an
-        // identity already on disk landed reports/FullReport.md from outside
-        // any writing state, which is #680's specimen at the artifact this
-        // amendment claims to have closed.
-        refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
-        // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
-        // pull. Identity stays in the record alone; the filename carries none.
-        priorRendered = join(renderingsDir(args), "FullReport.md");
-      }
-      emitOrRefuse("full_report", priorText,
-        (text) => { if (priorRendered) writeFileSync(priorRendered, text); });
-      console.log("Full Report already exists for this identity — the rerun is IDEMPOTENT, "
-        + "not a duplicate (SPEC.md §12.1).");
-      announceArtifacts(priorRendered, out);
-      console.log(`Identity: pin=${identity.pin} query=(${tag}, ${identity.query.ids.join(", ")}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
-      // RETURNS WHAT THIS BRANCH WROTE (PR #667 round 2, carried to kogaki#625).
-      // It `return`ed undefined after writing `reports/FullReport.md`, so the
-      // executor's `written || null` mapped a real owner artifact to
-      // `{ artifact: null }` and `classifyWriteOutcome` reported `wrote-nothing`
-      // — the run record skipped its `artifacts_written` push for a state that
-      // did write. §12.1's idempotence is a claim about the RECORD, and the
-      // branch's own text says so ("the rendering is STILL WRITTEN IN THIS
-      // ACT"); under-reporting the write is the same defect as asserting one,
-      // facing the other way. Under `--no-render` `priorRendered` is null, which
-      // is the genuine wrote-nothing case and still reports as one.
-      return priorRendered;
+        // IDEMPOTENT ON THE RECORD, AND THE RENDERING IS STILL WRITTEN IN THIS
+        // ACT (§12.2 v11: "Both are written in the same act"). Idempotence is a
+        // claim about the RECORD — one identity, one report — and the rendering
+        // is a pure function of that record, so re-deriving it is the same
+        // artifact rather than a second one. Writing it rather than skipping it
+        // is what makes a rerun self-healing: the rendering's lifetime is the
+        // OWNER's (§2.5.1), so it can be deleted, be stale from an older
+        // renderer, or never have existed because the first run passed
+        // `--no-render`, and none of those are states a second run should leave
+        // standing while reporting success.
+        // §14.2 — the rerun path refuses on exactly the same grammar as the fresh
+        // one. It is the path a SECOND look always takes, and it is the path that
+        // shipped the last two clause-3 defects; a guard installed on the fresh
+        // write alone would be the same half-fix again.
+        //
+        // VALIDATED OUTSIDE the `--no-render` branch, symmetrically with the
+        // fresh path (PR #352 round 1). The asymmetry was against this change's
+        // own stated ground: the rendering is a pure function of the record, so a
+        // record that renders nonconformantly IS one, and whether the owner asked
+        // for the file cannot be what decides if it is checked.
+        const priorText = renderReportMarkdown(prior, tag);
+        let priorRendered = null;
+        if (!args["no-render"]) {
+          // §15.5 v28 — THE RERUN IS A WRITE, so it carries the write authority
+          // (PR #702 round 1, finding 1). This branch's own header already warns
+          // that it "is the path a SECOND look always takes, and it is the path
+          // that shipped the last two clause-3 defects; a guard installed on the
+          // fresh write alone would be the same half-fix again" — and the first
+          // cut of #681 installed exactly that half-fix, one clause below the
+          // sentence saying not to. A standalone `report` repeated for an
+          // identity already on disk landed reports/FullReport.md from outside
+          // any writing state, which is #680's specimen at the artifact this
+          // amendment claims to have closed.
+          refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
+          // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
+          // pull. Identity stays in the record alone; the filename carries none.
+          priorRendered = join(renderingsDir(args), "FullReport.md");
+        }
+        emitOrRefuse("full_report", priorText,
+          (text) => { if (priorRendered) writeFileSync(priorRendered, text); });
+        console.log("Full Report already exists for this identity — the rerun is IDEMPOTENT, "
+          + "not a duplicate (SPEC.md §12.1).");
+        announceArtifacts(priorRendered, out);
+        console.log(`Identity: pin=${identity.pin} query=(${tag}, ${identity.query.ids.join(", ")}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
+        // RETURNS WHAT THIS BRANCH WROTE (PR #667 round 2, carried to kogaki#625).
+        // It `return`ed undefined after writing `reports/FullReport.md`, so the
+        // executor's `written || null` mapped a real owner artifact to
+        // `{ artifact: null }` and `classifyWriteOutcome` reported `wrote-nothing`
+        // — the run record skipped its `artifacts_written` push for a state that
+        // did write. §12.1's idempotence is a claim about the RECORD, and the
+        // branch's own text says so ("the rendering is STILL WRITTEN IN THIS
+        // ACT"); under-reporting the write is the same defect as asserting one,
+        // facing the other way. Under `--no-render` `priorRendered` is null, which
+        // is the genuine wrote-nothing case and still reports as one.
+        return priorRendered;
       }
     }
   }
