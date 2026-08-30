@@ -1,42 +1,37 @@
 {
-  "note": "SPEC-terrain §14.1 — the single carrier of the RENDERED FORM of kogaki's owner surfaces. Where SPEC.md's prose and this artifact disagree about the rendered form, THIS ARTIFACT WINS (§14.1), from the moment it exists and not before. It governs the rendered form and nothing else: not which members are placed, not what a claim says, not whether a figure is honest, not §2.1's family-naming duty. Those remain SPEC.md's prose.",
-  "version": 13,
-  "licensed_by": "kogaki#344 (story 1.52), under kogaki#319 and kogaki#318; v2 amended by kogaki#345 (story 1.53) — the §14.3 display-id producer landed and the owner answered SQ2, so the LessonDisplayID token, the member heading, the removed per-member served-line row and the trailing map are recorded here rather than left for story 1.54's first run to discover; the v2 amendment left four decidable_rules fields still saying `pending_producer: story 1.53` and the cite case still open — PR #351 round 1 finding 3, repaired on the story-1.54 branch, which is where those fields are READ; v3 by kogaki#317 (hierarchy carrier — indentation replaced by G/SG IDs) coupled with kogaki#315 (the format contract, enumerated), owner decisions 2026-08-11; v4 by kogaki#316 (SubGroup grouping rules) — catch_all_share re-bound to the SubGroup remainder it was always meant to measure, and the unratified co-tag bound removed; v5 by kogaki#314 (the multi-section Full Report — one identity, one Counted, one merged Served-lines map, sections per entered id), owner decision 2026-08-11 at the re-triage the story-1.58 stop earned; v6 by kogaki#472 (SPEC-terrain §13.1/§13.2 v20 — the provenance neighborhood re-sites from a standalone screen to a SECTION of the Full Report, computed inside the report pull and seeded by the entered ID set), owner decision 2026-08-16 at the /ship-cycle 472 sitting — the section's line classes and the SuggestionID token are admitted here, which brings the neighborhood rendering under grammar coverage for the FIRST time (it was a seventh, unenumerated owner surface until v20 removed it as a surface); the classes are read off the neighborhoodScreen renderer (terrain/terrain.mjs:3274-3420) with headings lifted to Markdown levels, since the carrier is now a Markdown file rather than a plain-text screen; the read range is :3274-3422 and `neighborhood_disjointness` was added at PR #475 round 1, the first draft having stopped at :3420 and missed the unconditional closing line; v7 by kogaki#473 (story 1.69, PR #477 round 1) — two amendments, each a repair the implementation surfaced rather than a re-cut: (1) a FORM-NOTATION repair to the three multi-alternative neighborhood classes (neighborhood_family_figure, neighborhood_group_heading, neighborhood_suggestion_row) — the validator splits alternatives on the literal ' | ', consuming one space each side, so an indented alternative owed one extra leading space after the pipe or its anchor lost a column and the alternative could never match its emitted line; found by classifying a live render line-by-line, invisible to the refusal because the allowlist is inert on this surface; and (2) the neighborhood_no_material class — the report pull DEGRADES where the seam serves no element records, rendering the section with an explicit did-not-run statement instead of aborting the whole report (the standalone act's refusal was right for an act the owner invoked for exactly that enumeration, and wrong for a pull whose other seam read already degrades to declared abnormalities). Version bumped and recorded HERE because this field is the ledger of every form change back to v2, and two byte-states sharing one version number is a reader being unable to tell which v6 they hold — PR #477 round 1 finding 4 | v8, kogaki#636, owner selection 2026-08-25 (alternative A, riders R1 and R2). Mints `tag_screen` and `tag_row_view` as real surfaces from §9's allowlist, and amends `uncovered_surfaces` in the SAME ACT as SPEC §15.7's figure. PR #626 round 2, finding 1: #626 amended §15.7 to claim TWO OF TWO coverage while this file — untouched by that PR — still carried cmdView as an uncovered surface with a live reopen_trigger, so the tree held a spec saying two-of-two and its own authoritative form carrier saying two-of-six. The denominator moved for cmdClaim, cmdAdopt and cmdSubdivide and did NOT move for cmdView, because cmdView's owner text does not stop: it becomes two writing states. | v9, kogaki#653, owner selection 2026-08-26 at the /ship-cycle 653 sitting (fork B, recommended arm). `tag_row_view` gains the two ABNORMAL line classes its emitter produces: `abnormal_gloss`, declared as the literal line `terrain/terrain.mjs::rows in view have no served Gloss rendering` emits, and `abnormal_display_id`, carried across from `cotag_screen` verbatim with its rationale because `displayIdAbnormalLine` is ONE function reaching BOTH surfaces. The defect: v8 minted this surface from cmdView's tagged half and carried neither class, and `non_member_fallback` here is REFUSE — so routing the renderer through `emitOrRefuse` (story 1.90 criterion 6) would have made the runtime REFUSE exactly the runs §9 obliges it to MARK. cotag_screen's own `abnormal_display_id` note had already recorded that failure shape for its surface: 'a refusal that admitted only ^L[0-9]+$ in a LessonDisplayID position would reject exactly the legacy record this line exists to make visible.' Ratified as reading THIS COMPONENT'S OWN BASELINE rather than as new policy, on the served position consulted at the gate: product-lab@4739e746f04a565e57eb4ba92927c97f3e691acc topics/knowledge-architecture.md:207 — 'the hub answers what does portfolio policy say and the baseline clause answers what did this component already decide — and neither can answer the other's question.' DECLINED, recorded so neither is re-proposed blind: moving the ABNORMAL lines off the surface (to stderr or folded into another class), which is a content decision wearing a format fix's clothes and puts the mark beside the surface §9 requires it on; and leaving the grammar untouched, which accepts the refusal above.; v10 by kogaki#665 (owner selection 2026-08-26) — `cmdView`'s entry below asserted that its owner text splits into TWO states and is thereby fully accounted. That is true of two of its three behaviours and FALSE of the third: the UNTAGGED CANDIDATE-ROW listing is admitted by neither surface — `tag_screen` declares a TAG listing (a tag name and its Lesson count, §9's allowlist) and `tag_row_view` declares rows under a NAMED tag. The third behaviour is DECLARED OUT OF SCOPE here rather than left to die silently, which is the fallback the served rule requires. `navigation_hint`'s form was amended in the same issue, for the separate reason that it named a removed entry point.\n\nv11, kogaki#682 (owner ruling 2026-08-28, owner selection at the /ship-cycle 682 sitting 2026-08-29). The two pre-selection surfaces are RENAMED and RE-MEDIUMED. `tag_screen` becomes `tag_listing` and `tag_row_view` becomes `tag_row_listing`; both take `medium: \"the owner's terminal (owner-executed)\"` in place of `reports/Screen.md`. A Screen is the rendering written AFTER a tag has been selected — nothing else — so a surface named `*_screen` for a pre-selection rendering restated the superseded definition in the name itself, which disposition 2 forbids (\"deleted, not annotated\"). No compatibility alias is left behind and no note records the former names: this file is an operative carrier, and the ruling's own ground is that a superseded behaviour kept as a record in an operative carrier is what regenerates it. kogaki#682 is the record.\n\nv12, kogaki#683 (owner ruling 2026-08-28; disposition-5 reconciliation, disposition-1 boundary and the label vocabulary all confirmed at pickup 2026-08-29). `subgroup_leaf_reason` becomes `subgroup_coherence`: the conjunctive leaf condition is replaced by a closed three-value coherence label plus one free-form sentence, so the class's two literal openings become one form over a closed set. And a new decidable rule, `subdivision_required_at_ten`, refuses a rendered group of 10 or more members that carries no SubGroup heading — the same refusal class as `catch_all_share`, engine-side, no model discretion.\n\nv13, kogaki#684 (owner ruling 2026-08-28; the three shape forks answered by owner selection at the /ship-cycle 684 sitting 2026-08-30). THE CO-TAG SCREEN'S SHAPE. Four dispositions: blank-line separation between every group block and every SubGroup block; a subdivided group's heading drops its member dump and its count, becoming `G<n> — <tag> × <co-tag>` and nothing more, while a flat group keeps the full form; the coherence line renders under each SubGroupClaim (already landed at v12 with kogaki#683 and confirmed here rather than re-landed); and `group_claim_pinning` is DELETED from the grammar and the renderer with no residual record in the operative carriers, the ruling's own ground being that a superseded behaviour kept as a record in an operative carrier is what regenerates it — kogaki#684 is the record. THE HEADING COUNT WAS LOAD-BEARING FOR TWO DECIDABLE RULES and the disposition is what surfaced that: `catch_all_share` is re-instrumented onto the summed `subgroup_heading` counts and stays live on the text; `subgroup_members_sum_to_parent` is revoked into `not_expressible` and re-sited as a pre-render refusal, with its coverage loss named there; `subdivision_required_at_ten` is narrowed to its flat arm. Each entry carries its own reasoning. THE RULING'S EXAMPLE BLOCK IS A SPACING SKETCH AND NOT A FIFTH DISPOSITION — the owner confirmed at the gate that `subgroup_heading` keeps its count and its SubGroup name, and that a subdivided group still renders its own GroupClaim (§6.1, §7); both readings are recorded because the sketch omits both and an implementation following it literally would have deleted them.",
+  "version": 14,
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
-  "encoding_choice": {
-    "chosen": "a line-class grammar expressed in JSON",
-    "why": "Every rule §14.2 makes decidable is a statement about a LINE — its class, its token shapes, and whether its class is admitted on the surface at all. A JSON Schema describes a data structure; the artifact these emitters produce is text, and the thing being constrained is the text. Expressing line classes directly means an emitter validates what it is about to print rather than a model of it, which is the distinction §14.2's own AC3 rests on.",
-    "declined": "JSON Schema — checkable by tooling already present in this repository (checks/check-terrain-composition.sh validates survey records against survey-schema.json), but it would require modelling rendered Markdown and terminal text as a document tree first, and that model would itself be an unchecked restatement of the format.",
-    "recorded_here_because": "SPEC.md §14.1 names this file and its duties and deliberately does not decide the encoding (story 1.52 SQ1). A choice made in implementation and left unwritten is one the next editor re-derives."
+  "licensed_by": "kogaki#685 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
+  "refusal_text_boundary": {
+    "fact": "No text raised through fail() (terrain/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
+    "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
+    "stated_by_mechanism_not_enumeration": "The boundary names the FUNCTION, not a list of messages. A list goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against.",
+    "reopen_trigger": "the first owner-facing refusal text written to stdout, or into the report file, rather than raised through fail() — that one is on a surface and owes a line class"
   },
   "tokens": {
     "LessonDisplayID": {
       "shape": "^L[0-9]+$",
       "means": "a member's owner-facing display id, assigned once in the survey record (§14.3)",
-      "producer": "terrain/terrain.mjs cmdSurvey — minted ONCE per candidate in the survey record (§14.3), resolved at render time by displayIdOf(); story 1.53, kogaki#345",
-      "absence_is_abnormal": "A member whose survey record predates §14.3 carries no display_id. The surfaces render NO_DISPLAY_ID and state the abnormality; they NEVER substitute the slug, because the slug is what §14.3 removes and a silent fallback would undo the decision while looking like robustness. So an owner surface may carry the NO_DISPLAY_ID token in a LessonDisplayID position, and a refusal built to admit only ^L[0-9]+$ there would reject exactly the legacy record the abnormality exists to make visible."
+      "producer": "terrain/terrain.mjs cmdSurvey — minted ONCE per candidate in the survey record (§14.3), resolved at render time by displayIdOf(); story 1.53, kogaki#345"
     },
     "GroupID": {
       "shape": "^G[0-9]+$",
       "means": "a Group's owner-facing display id, assigned once per composed screen in co-tag sort order (§6.1)",
-      "producer": "terrain/terrain.mjs cmdCotags — minted over the composed group list; kogaki#317 (story 1.56)",
-      "carries_the_hierarchy": "THE LEVEL IS IN THE TOKEN. This is the whole point of the mint: `G1` is a Group and `G1-1` is one of its SubGroups, so a line that WRAPS still says which it is. Indentation could not do that — a wrapped continuation starts at column 0 and the hierarchy vanishes exactly where the claim text is longest, which is the 2026-08-09 hands-on finding this replaces."
+      "producer": "terrain/terrain.mjs cmdCotags — minted over the composed group list; kogaki#317 (story 1.56)"
     },
     "SubGroupID": {
       "shape": "^G[0-9]+-[0-9]+$",
       "means": "a SubGroup's display id, prefixed by its parent GroupID (§6.2)",
-      "producer": "terrain/terrain.mjs cmdCotags / cmdSubdivide; kogaki#317 (story 1.56)",
-      "parent_is_readable_from_the_id": "`G1-2` names its parent without a lookup, which is what lets a SubGroup line stand alone after a wrap."
+      "producer": "terrain/terrain.mjs cmdCotags / cmdSubdivide; kogaki#317 (story 1.56)"
     },
     "LessonCount": {
       "shape": "^[0-9]+ Lessons?$",
-      "producer": "terrain/terrain.mjs:398 lessonCount()",
+      "producer": "lessonCount() (terrain/terrain.mjs)",
       "means": "a count of Lessons, family-named per §9"
     },
     "Cite": {
       "shape": "a served-surface citation string, rendered inside backticks",
-      "means": "provenance — the address a served rendering was quoted at",
-      "status_under_14_3": "Recorded here, DECIDED on kogaki#345 (story 1.53 SQ2, owner, 2026-08-11) — that issue is the authority on what was decided and this line is a pointer to it, per precedence_is_per_axis above. What it records: a served CITE is an ADDRESS rather than an element name, so §14.3 does not remove it; the PER-MEMBER `*Served line:*` row was nonetheless removed on kogaki#318's 'two name-shaped rows' ground, and the member → served-line map moved to the report's end, the siting §12 line 805 and the WA baseline (wa#1115/#1116) already named. A prior draft of this entry wrote the ruling as though this file had made it."
+      "means": "provenance — the address a served rendering was quoted at"
     },
     "SubstratePin": {
       "shape": "a substrate pin string, rendered inside backticks",
@@ -50,21 +45,13 @@
       "shape": "^N[0-9]+$",
       "means": "a provenance-neighborhood suggestion's owner-facing display id, minted over the neighborhood's own ordered output (§14.6, filled by owner selection on kogaki#300)",
       "producer": "terrain/terrain.mjs NEIGHBOR_ID (:2828), minted over the sorted output at :2915",
-      "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ (§14.6). §14.3 assigns a display_id ONCE, in the survey record; a suggestion is by construction NOT in that record, so nothing there assigns it one. The two spaces coexist and no owner surface renders both for one element. A taken suggestion is assigned an L<n> by §14.3's existing assignor on the way in, and its N<n> does not follow it.",
-      "absence_is_abnormal": "There is no legacy case: the space is minted per pull over that pull's own output, so every suggestion in a rendered section carries one. A row in a SuggestionID position carrying anything else is a defect, not an abnormality to disclose — which is what distinguishes this token from LessonDisplayID, whose NO_DISPLAY_ID form exists for records that predate §14.3."
+      "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ (§14.6). §14.3 assigns a display_id ONCE, in the survey record; a suggestion is by construction NOT in that record, so nothing there assigns it one. The two spaces coexist and no owner surface renders both for one element. A taken suggestion is assigned an L<n> by §14.3's existing assignor on the way in, and its N<n> does not follow it."
     },
     "NeighborhoodLevel": {
       "shape": "^(?:core|useful|background)$",
       "means": "one of the three harness-fixed recommendation levels a judgment may carry (§13.4, kogaki#686). The set is closed and extending it is the owner's act.",
-      "producer": "terrain/terrain.mjs NEIGHBORHOOD_LEVELS",
-      "note": "DECLARED AS AN OBJECT CARRYING AN ANCHORED `shape`, which is the only form `tokenFragment` can consume (terrain/format-guard.mjs:58). kogaki#686 first declared it as the bare string \"core|useful|background\"; `tokenFragment` reads `t.shape`, a string has none, and the token silently degraded to FREE — so `  <claim> [<NeighborhoodLevel>]` compiled to `^  [\\s\\S]*? \\[[\\s\\S]*?\\]$` and admitted `  anything [anything]`, while the class's own note asserted it discriminated the level. Found at PR #692 round 2 and repaired here (kogaki#689). The verification is a compiled-matcher assertion in checks/check-terrain-composition.sh — that the matcher REFUSES a bracketed non-level — never a reading of this declaration."
+      "producer": "terrain/terrain.mjs NEIGHBORHOOD_LEVELS"
     }
-  },
-  "refusal_text_boundary": {
-    "fact": "No text raised through fail() (terrain/terrain.mjs:45-48) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
-    "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
-    "stated_by_mechanism_not_enumeration": "The boundary names the FUNCTION, not a list of messages. A list goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against.",
-    "reopen_trigger": "the first owner-facing refusal text written to stdout, or into the report file, rather than raised through fail() — that one is on a surface and owes a line class"
   },
   "surfaces": {
     "tag_listing": {
@@ -83,23 +70,17 @@
           "allowlist": [
             "tag name",
             "Lesson count"
-          ],
-          "and_nothing_else": true,
-          "emitter_today": "terrain/terrain.mjs:547 tagRow(), rendered at :506",
-          "source": "SPEC-terrain §9 (v5, kogaki#147), transcribed verbatim in meaning: 'Permitted on a tag row: the tag name, and the tag's Lesson count. Nothing else is permitted until this allowlist is amended.' §9's scope clause binds the reading — the Journey half rides the CANDIDATE rows, never the tag row."
+          ]
         },
         {
           "id": "navigation_hint",
-          "form": "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4).",
-          "amended_because": "kogaki#665. The previous form named `view --survey <F> [--tag T] …` — the standalone entry point that issue removes — so once the write path went through the format guard the emitter had to either print a removed subcommand or refuse. Amended deliberately on that issue's licence, which is the only ground §14.1 admits: the grammar wins on divergence, so it is the grammar that moves, never the refusal that is silenced."
+          "form": "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4)."
         },
         {
           "id": "blank",
           "form": ""
         }
-      ],
-      "bound_by": "the owner-executed command that prints this surface, through `emitOwnerListing` (SPEC §6.0 v29). Grammar binds to the EMITTER, never to an artifact path — this surface writes no artifact at all, and §14.2's refusal binds what may be emitted rather than what may be written.",
-      "minted_because": "This surface is what makes the tag listing emittable UNDER A GUARD rather than around one. Its `non_member_fallback` is REFUSE and its line classes are §9's allowlist, so the listing is checked at the moment it is printed. v11 (kogaki#682): it writes no artifact — the owner runs `tags` and reads the rendering in their own terminal — and the guard is unchanged by that, because §14.2 binds what may be EMITTED rather than what may be written."
+      ]
     },
     "tag_row_listing": {
       "emitter": "renderTagRowView, printed by the owner-executed `tag-rows` command through the format guard (emitOwnerListing)",
@@ -113,19 +94,15 @@
         },
         {
           "id": "candidate_row",
-          "form": "  <LessonDisplayID>  (<tags>)  <cite>",
-          "emitter_today": "terrain/terrain.mjs:651 in cmdView"
+          "form": "  <LessonDisplayID>  (<tags>)  <cite>"
         },
         {
           "id": "candidate_row_thin",
-          "form": "  <LessonDisplayID>  (<tags>)  <cite>  ○ thin (no Journey)",
-          "the_mark_reads_by_absence": "§5 — the Journey half is carried here, by the coverage mark's own count, never on a tag row."
+          "form": "  <LessonDisplayID>  (<tags>)  <cite>  ○ thin (no Journey)"
         },
         {
           "id": "gloss_headline",
-          "form": "      “<headline>”  <cite>",
-          "served_renderings_only": true,
-          "source": "§9 — quoted at the pin the seam returned, never re-parsed (§3)."
+          "form": "      “<headline>”  <cite>"
         },
         {
           "id": "gloss_headline_journey",
@@ -133,8 +110,7 @@
         },
         {
           "id": "gloss_absent",
-          "form": "      <NO_HEADLINE>",
-          "abnormal_not_a_gap": "§9 — a missing Gloss rendering is ABNORMAL, marked and never substituted."
+          "form": "      <NO_HEADLINE>"
         },
         {
           "id": "in_view_figure",
@@ -142,29 +118,23 @@
         },
         {
           "id": "abnormal_gloss",
-          "form": "ABNORMAL: <n> of <m> rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).",
-          "at": "`terrain/terrain.mjs::rows in view have no served Gloss rendering`, in the per-tag row view",
-          "note": "DECLARED AS THE LITERAL LINE THE EMITTER EMITS, which is this file's standing practice wherever a prose description would match no rendered line — the defect `preamble`, `judged_empty_notice` and `neighborhood_empty` each had to be re-declared for. This surface was minted at v8 from cmdView's tagged half and did not carry the abnormal classes across, so under `non_member_fallback: REFUSE` a run whose served Gloss rendering was missing would have REFUSED THE WHOLE SCREEN rather than marking the fault. §9 requires the opposite in as many words: a missing Gloss rendering is ABNORMAL, MARKED and never substituted. Minted at v9 rather than by widening `gloss_absent`, which is the per-row `<NO_HEADLINE>` marker and a different class: one marks the row, this states the count over the screen."
+          "form": "ABNORMAL: <n> of <m> rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9)."
         },
         {
           "id": "abnormal_display_id",
-          "form": "ABNORMAL: <n> of <m> member(s) on this surface carry no display_id. … Re-run `terrain survey` to regenerate the record (§12.2 v11).",
-          "at": "`terrain/terrain.mjs::export function displayIdAbnormalLine`, called for this surface from the per-tag row view",
-          "note": "CARRIED ACROSS FROM `cotag_screen` VERBATIM, rationale included, because it is the same emitter reaching a second surface: `displayIdAbnormalLine` is one function called from both. Its cotag_screen note states the ground and it is unchanged here — 'Emitted at whatever indent its surface uses, so the class is matched on the ABNORMAL: prefix and its text rather than on leading whitespace. Declared because §14.3's absence case reaches the owner surface: a refusal that admitted only ^L[0-9]+$ in a LessonDisplayID position would reject exactly the legacy record this line exists to make visible.' That the class sat on one of the two surfaces its emitter reaches is the omission v9 repairs, not a scope decision v8 made."
+          "form": "ABNORMAL: <n> of <m> member(s) on this surface carry no display_id. … Re-run `terrain survey` to regenerate the record (§12.2 v11)."
         },
         {
           "id": "blank",
           "form": ""
         }
-      ],
-      "bound_by": "the owner-executed command that prints this surface, through `emitOwnerListing` (SPEC §6.0 v29). Grammar binds to the EMITTER, never to an artifact path — this surface writes no artifact at all, and §14.2's refusal binds what may be emitted rather than what may be written.",
-      "minted_because": "cmdView carried TWO renderings — the tag listing and `view --tag`'s per-tag row view — with different line classes. §6.3 makes only the second conditional (kogaki#162's fork half). Two renderings under one grammar is the same one-grammar-many-states defect one level down, so they are minted as two surfaces.",
-      "abnormal_classes_minted_at_v9": "v9 adds the two ABNORMAL classes this surface's emitter produces and v8 did not declare. BOTH ABNORMAL STATES REACH THIS SURFACE and §9 requires each to be MARKED rather than substituted, so under REFUSE their absence was not a gap in coverage but a refusal of the very runs the marks exist for. Found by the /ship-cycle 653 sitting while implementing story 1.90 (kogaki#653), before the renderer was routed through the guard — so the refusal was reasoned about rather than observed in a live run."
+      ]
     },
     "cotag_screen": {
-      "emitter": "terrain/terrain.mjs:574 cmdCotags",
+      "emitter": "cmdCotags (terrain/terrain.mjs), through emitOrRefuse",
       "medium": "terminal text",
       "governing_prose": "specs/spec-terrain/SPEC.md §6.1, §6.2",
+      "stream": "stdout",
       "non_member_fallback": "REFUSE — a line whose class is not in line_classes is not rendered and the emitter refuses to print (§14.2). The fallback is refuse and never admit, because an enumerated prohibition's non-member fallback is admit and that is the shape §9 chose against.",
       "line_classes": [
         {
@@ -176,10 +146,7 @@
           "form": "<GroupID> — <co-tag name>",
           "allowlist": [
             "GroupID"
-          ],
-          "the_count_is_GONE_and_two_rules_moved_with_it": "v13, kogaki#684 disposition 2, owner ruling 2026-08-28: a subdivided group's heading is `G<n> — <tag> × <co-tag>` and NOTHING MORE — the members render on the SubGroup lines, where they are read, and the count goes with them. THE COUNT WAS A TOKEN TWO DECIDABLE RULES READ, and dropping it silently would have left both declared, both running, and neither able to fire — the shape the served line refuses: 'when a design change dissolves the unit a check counts, the check does not become easier to satisfy — it stops being a check, and re-pointing it at whatever occupies the same position preserves the ceremony and discards the function' (consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:55). So the two are resolved rather than left: `catch_all_share` RE-DERIVES its denominator from the sum of the group's own `subgroup_heading` counts, which are still on the surface, and `subgroup_members_sum_to_parent` is REVOKED here and moved to `not_expressible` with the coverage it loses named. Re-pointing the second at the same summation was the declined alternative and is why it is revoked rather than rewritten: `sum == sum` is a tautology, green that can never go red.",
-          "the_form_is_LOW_SPECIFICITY_and_that_widens_the_surface": "Stated rather than discovered. `specificity()` counts literal non-space characters outside the placeholders, and this form now pins exactly one — the em-dash — so it sorts LAST and matches any `G<n> — <anything>`. `group_heading_flat` still wins on a well-formed flat heading (three literals to this one's one), but a MALFORMED flat heading — one that lost its colon, say — no longer falls to `line_class_allowlist` and is admitted here instead. That is a real narrowing of what this surface refuses, caused by the ruled form and not by an implementation choice, and it is recorded because an unadmitted line is the only thing this surface's REFUSE fallback can act on.",
-          "reopen_trigger_for_the_widening": "the first line observed reaching this surface that `line_class_allowlist` would have refused before v13 and this class now admits — a malformed flat heading is the shape to watch, since it is then read as a subdivided parent by `catch_all_share`. Declared because the sibling coverage loss on this branch (`subgroup_members_sum_to_parent` in `not_expressible`) carries one and this one did not, and two losses recorded with only one way back is the asymmetry PR #709 round 1 named. THE TRIGGER IS NOT A LICENCE TO TIGHTEN THE FORM: the heading's shape is the owner's ruling, so what reopens is the CLASS'S DISCRIMINATOR — a `lines:` declaration, a tightened `<co-tag name>` token, or a specificity note — and never the ruled text."
+          ]
         },
         {
           "id": "group_heading_flat",
@@ -188,8 +155,7 @@
             "GroupID",
             "LessonCount",
             "LessonDisplayID list"
-          ],
-          "the_name_stays_and_here_is_why": "Through v5 `<GroupID>` RENDERED AS the co-tag name, because no id space existed — the heading was `testing × architecture — 2 Lessons: …`. v6 mints a real id, and the name stays BESIDE it rather than being replaced by it: kogaki#317 rules the change 'presentation only … content is untouched', and the co-tag name is content that was already on the screen. A heading reading `G1 — 2 Lessons: L2, L1` would leave the owner unable to tell what G1 is about, on the surface whose whole job is showing which co-tag groups exist. Order is id, then meaning, then counts and members: the id leads because it is the carrier, and the member ids sit last at a predictable position because they are what gets copied."
+          ]
         },
         {
           "id": "group_claim",
@@ -197,8 +163,7 @@
         },
         {
           "id": "group_prose",
-          "form": "> <composer prose>",
-          "marker_is_what_makes_this_class_decidable": "The `> ` prefix is not decoration. Through v2 this class was `      <composer prose>` and the six-space indent was the only thing distinguishing it; v3's flush-left change removed the indent and the class silently began matching EVERY line, which took `line_class_allowlist` inert on this surface. The marker restores the distinction without restoring the layout — it carries no level, so it does not re-introduce the defect kogaki#317 fixed. Owner decision 2026-08-11 on kogaki#317, chosen over declaring the rule inapplicable here (which full_report already has to do) and over dropping the class, which would have been a content decision wearing a format fix's clothes since §6 admits machine-composed connective prose."
+          "form": "> <composer prose>"
         },
         {
           "id": "subgroup_heading",
@@ -207,8 +172,7 @@
             "SubGroupID",
             "LessonCount",
             "LessonDisplayID list"
-          ],
-          "form_note": "The SubGroup form changed from `(N Lessons: …)` in parentheses to the same `— N Lessons: …` dash form the Group heading uses. Parentheses were carrying part of the level distinction; with the level now in the SubGroupID, two different punctuations for one shape is a difference that means nothing."
+          ]
         },
         {
           "id": "subgroup_claim",
@@ -220,9 +184,7 @@
           "allowlist": [
             "coherence label",
             "one free-form sentence"
-          ],
-          "form_note": "Declared as its three literal openings rather than as `coherence: <label>`, for the reason the class it replaces already records: a bare placeholder describes nothing, and the emitter emits exactly three shapes. The set is CLOSED at three (`tight` members share one mechanism, `related` members share a theme but not one mechanism, `forced` grouped to satisfy the split requirement) and the runtime REFUSES a value outside it rather than defaulting — a default would be the engine supplying the judgment the label exists to carry. The label and its sentence are ONE instrument: a label with no reason is a verdict a reader cannot weigh, so the runtime refuses that too.",
-          "values_are_consumer_owned": "A consumer owns the SHAPE of its own record and never the VALUES of a field that JOINS across a boundary; this label is rendered on kogaki's own screen and read by nothing outside it, so the values are minted here and no hub ratification is owed. consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198"
+          ]
         },
         {
           "id": "subgroup_disclosure",
@@ -238,14 +200,11 @@
         },
         {
           "id": "suppressed_split_disclosure",
-          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `forced` — grouped only to satisfy the requirement, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). …",
-          "note": "§6.2 v7 / kogaki#316 decision 3. The group renders flat and is fully conformant, so this is a DISCLOSURE and not an abnormality — but a judgment ran, produced a split and had it suppressed, and a flat group is otherwise indistinguishable from one nobody judged. Aggregate rather than per-group: a per-group line is precisely what decision 3 removes."
+          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `forced` — grouped only to satisfy the requirement, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). …"
         },
         {
           "id": "abnormal_display_id",
-          "form": "ABNORMAL: <n> of <m> member(s) on this surface carry no display_id. … Re-run `terrain survey` to regenerate the record (§12.2 v11).",
-          "at": "terrain/terrain.mjs displayIdAbnormalLine",
-          "note": "Emitted at whatever indent its surface uses, so the class is matched on the ABNORMAL: prefix and its text rather than on leading whitespace. Declared because §14.3's absence case reaches the owner surface: a refusal that admitted only ^L[0-9]+$ in a LessonDisplayID position would reject exactly the legacy record this line exists to make visible."
+          "form": "ABNORMAL: <n> of <m> member(s) on this surface carry no display_id. … Re-run `terrain survey` to regenerate the record (§12.2 v11)."
         },
         {
           "id": "compose_remedy",
@@ -269,38 +228,20 @@
         },
         {
           "id": "blank",
-          "form": "",
-          "disposition_1_makes_the_separation_RULED_rather_than_incidental": "v13, kogaki#684 disposition 1: a blank line separates every group block and every SubGroup block. Through v12 the separation was whatever the emitter's `\\n`-prefixed strings happened to produce, and flat groups ran together with no spacing at all. NO NEW DECIDABLE RULE IS MINTED FOR IT and that is deliberate: a check enters with a budget and a removal signal declared at birth, and the property is already carried twice — the golden specimen (§14.5) is byte-equal to the renderer's output, and this class admits the blank lines so REFUSE does not reject them. A third carrier here would be a member the family has no shrink lever for.",
-          "note": "The emitters separate blocks with empty lines — a trailing \\n on the header (:661), the post-judge-pin blank (:725), and the \\n-prefixed subgroup and cover lines. A grammar that admitted no blank line would, under REFUSE, reject every screen the emitter produces."
+          "form": ""
         }
-      ],
-      "stream": "stdout",
-      "not_on_this_surface": {
-        "see": "refusal_text_boundary — the fact is global; this entry is its application to this surface",
-        "class": "every text raised through fail() (terrain/terrain.mjs:45-48)",
-        "why": "fail() writes to STDERR and exits. This surface grammars the screen cmdCotags prints on stdout, so a refusal text is never a line of it. A first draft admitted COTAG_COVER_INCOMPLETE (terrain/terrain.mjs:742) and COTAG_COVER_INVENTED (:745) as line classes; both were describing text the grammar never sees, and the same draft omitted the other fail() texts on the identical path — nine of them by count at this pin. Story 1.54 would have had to pick a reading, and the artifact stated both.",
-        "stated_by_mechanism_not_enumeration": "The boundary is named as `raised through fail()` rather than as a list of messages, deliberately. An enumeration here goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against. A construction-level statement covers every message the function can carry.",
-        "reopen_trigger": "the first owner-facing refusal text written to STDOUT rather than raised through fail(), which would put it on this surface and owe it a line class"
-      },
-      "indentation_is_not_a_carrier": "v3, kogaki#317. NO LINE CLASS ON THIS SURFACE ENCODES LEADING WHITESPACE, and that is a contract rather than a formatting preference. Indentation was the sole carrier of subordination through v2, and the 2026-08-09 hands-on round found it unreadable for the reason it cannot fix: claim lines are long prose, they wrap at the terminal edge, and a wrapped continuation begins at column 0 — so the hierarchy disappears exactly where the text is longest. The level now rides tokens.GroupID and tokens.SubGroupID, which survive wrapping because they are content. A future edit re-introducing leading spaces to signal level is re-introducing the defect.",
-      "line_class_allowlist_went_inert_here_in_v3": "RESOLVED in the same v3, and kept as a record rather than deleted. The flush-left change removed the six-space indent that was `group_prose`'s only constraint, so the class began admitting every line and `decidable_rules.expressible.line_class_allowlist` — LIVE on this surface through v2 — had no unadmitted line left to find. It was found by the suite going red on the spec diff alone, not by review of the change, and the alternative preview shown at the deciding gate described the new appearance without naming this cost. The repair is `group_prose`'s `> ` marker above (owner decision 2026-08-11). The general shape is worth keeping: a layout convention is often ALSO a discriminator some rule leans on, and removing it changes the appearance on purpose while disarming the rule by accident — the rule keeps running and stops finding anything, which reads as a clean result. full_report's own inertness (reader_notes) is the same class arriving by a different route and is NOT repaired by this."
+      ]
     },
     "full_report": {
-      "emitter": "terrain/terrain.mjs:2016 renderReportMarkdown, written by cmdReport (:2331). POINTERS CORRECTED at v6 (kogaki#472): this field read `:1652 renderReportMarkdown` and `cmdReport (:1788)`, and both had drifted -- `:1788` is inside cmdComposeInput (:1783), the one function §13.7's surrounding paragraph exists to hold the neighborhood apart from. Corrected here rather than left, because v6 extends this very entry and a pointer known to be wrong in the entry being amended is not a pre-existing condition. The OTHER stale pointers this sitting found -- §14.6's NEIGHBOR_ID `:2728` (actual :2828) and §14.1's cmdView `:447` / cmdCotags `:574` (actual :558, :723) -- are NOT corrected here: they sit in clauses this amendment does not touch, and they are carried to the observation register as a count rather than repaired one instance at a time (PR #475 round 1, nit).",
+      "emitter": "renderReportMarkdown, written by cmdReport (terrain/terrain.mjs)",
       "medium": "Markdown, the owner rendering of §12.2 v11",
-      "stream": "a written file under reports/ in the working tree (§12.2 v11), never stdout",
-      "not_on_this_surface": {
-        "see": "refusal_text_boundary",
-        "class": "every text raised through fail() (terrain/terrain.mjs:45-48)",
-        "why": "fail() writes to stderr and exits; this surface is a file. The boundary is stated on both surfaces rather than on one, so a story-1.54 predicate reading them uniformly finds it declared in both places instead of declared once and silent once."
-      },
       "governing_prose": "specs/spec-terrain/SPEC.md §12, §12.1, §12.2 (v11), and §13 for the provenance-neighborhood section (v6, kogaki#472)",
+      "stream": "a written file under reports/ in the working tree (§12.2 v11), never stdout",
       "non_member_fallback": "REFUSE",
       "line_classes": [
         {
           "id": "title",
-          "form": "# Full Report — <co-tag name>",
-          "form_note": "v5, kogaki#314 — the title names the SELECTED TAG and never an id. A report may span several entered ids, so no single GroupID identifies it; the entered set rides `selections` in the identity block instead. Kept short deliberately: five ids in a title wrap, on the surface whose recent history is entirely about wrapping destroying structure (kogaki#317). Declined: ids in the title, and a count in the title (two different two-id reports would share one)."
+          "form": "# Full Report — <co-tag name>"
         },
         {
           "id": "selected_tag",
@@ -312,13 +253,11 @@
           "allowlist": [
             "GroupID",
             "SubGroupID"
-          ],
-          "note": "v5, kogaki#314. The entered ID set, canonical (numeric-aware sort, deduped), recorded in the identity block where §12.1 already puts the recorded components. This is the query component §12 v6 made `{ tag, ids }`."
+          ]
         },
         {
           "id": "substrate_pin",
-          "form": "*Substrate pin:* `<SubstratePin>`",
-          "occurrences_per_file": 1
+          "form": "*Substrate pin:* `<SubstratePin>`"
         },
         {
           "id": "judge",
@@ -332,9 +271,7 @@
             "> nothing (SPEC-terrain §2.3, §12). It is a RENDERING, not an address:",
             "> article material is quoted from served renderings at pins, never",
             "> from a report."
-          ],
-          "at": "terrain/terrain.mjs:1662-1665",
-          "note": "Declared as its four rendered lines. The earlier form — prose with an ellipsis and a parenthetical — matched none of them, so under REFUSE and §14.1's precedence a literal read rejected every Full Report. That is the same defect judged_empty_notice carried, one entry up, and it survived the fix that named it because that fix cited THIS entry as its precedent."
+          ]
         },
         {
           "id": "h2_section",
@@ -342,13 +279,11 @@
           "allowlist": [
             "GroupID",
             "SubGroupID"
-          ],
-          "note": "v5, kogaki#314 — ONE SECTION PER ENTERED ID, keyed by the id so an owner can match a section to what they typed. Replaces the singular `## Group claim`, which assumed one group per file. Sections REPEAT; the identity block, Counted and Served lines do not."
+          ]
         },
         {
           "id": "group_claim_body",
-          "form": "<claim text | *(none composed)*>",
-          "note": "Renders under a section heading now, one per entered id (v5, kogaki#314). Unchanged in form."
+          "form": "<claim text | *(none composed)*>"
         },
         {
           "id": "judged_empty_notice",
@@ -356,14 +291,11 @@
           "lines": [
             "*The judgment produced NO split — this is a judged-empty outcome,",
             "not an absent judgment. Members are listed below.*"
-          ],
-          "at": "terrain/terrain.mjs:1687-1688",
-          "note": "Declared as the TWO lines the emitter pushes. A first draft declared it as one joined line, which no rendered line matches — so under REFUSE and §14.1's precedence a literal read rejected every judged-empty report, which is exactly the report §12.1 v9 exists to keep distinguishable from an unjudged one."
+          ]
         },
         {
           "id": "h3_subgroup",
-          "form": "### <SubGroupID> — <SubGroup name>",
-          "form_note": "v3, kogaki#317 — the report carries the same `G<n>-<m>` the screen showed, which is what lets an owner copy an id from one and find it in the other. Amended with `title` by PR #354 round 1 finding 2."
+          "form": "### <SubGroupID> — <SubGroup name>"
         },
         {
           "id": "subgroup_claim_body",
@@ -384,14 +316,11 @@
               "level": 3,
               "when": "directly under a section heading, on the flat and judged-empty paths"
             }
-          ],
-          "levels_note": "Two cases at v6 (kogaki#314), not three. The pre-v6 third case — 'under ## SubGroups on the JUDGED-EMPTY path' — named a heading that no longer renders: v7 puts members straight under their section heading. Re-cut with the headings it describes, rather than left naming a shape nothing produces.",
-          "form_note": "The backticks are GONE (story 1.53, AC5): the heading is the plain display id. `L1` in code font read as a machine token where the whole point of §14.3 is that it is the owner's name for the member."
+          ]
         },
         {
           "id": "member_gloss_cite",
-          "form": "**Lesson Gloss** — `<Cite>` | **Lesson Gloss** — *no served cite recorded*",
-          "pin_is_not_repeated_here": "v3, kogaki#315 — the Gloss cite renders bare. Three pin-bearing Gloss rows per member is what made `pin_once_per_file` pass while the pin appeared six times in a two-member report: the registered rule counts occurrences of the `substrate_pin` LINE CLASS, so it reads 1 and is silent about pins embedded in other classes."
+          "form": "**Lesson Gloss** — `<Cite>` | **Lesson Gloss** — *no served cite recorded*"
         },
         {
           "id": "member_gloss_body",
@@ -403,8 +332,7 @@
         },
         {
           "id": "member_journey_cite",
-          "form": "**Journey Gloss** — `<Cite>` | **Journey Gloss** — *no served cite recorded*",
-          "pin_is_not_repeated_here": "v3, kogaki#315 — the Gloss cite renders bare. Three pin-bearing Gloss rows per member is what made `pin_once_per_file` pass while the pin appeared six times in a two-member report: the registered rule counts occurrences of the `substrate_pin` LINE CLASS, so it reads 1 and is silent about pins embedded in other classes."
+          "form": "**Journey Gloss** — `<Cite>` | **Journey Gloss** — *no served cite recorded*"
         },
         {
           "id": "member_journey_body",
@@ -412,8 +340,7 @@
         },
         {
           "id": "h2_counted",
-          "form": "## Counted",
-          "note": "ONCE per file, AGGREGATED over the entered set (v5, kogaki#314). The stated cost: a per-section count is not shown. Per-section Counted was declined with per-section Served lines, below."
+          "form": "## Counted"
         },
         {
           "id": "counted_family",
@@ -425,9 +352,7 @@
         },
         {
           "id": "h2_served_lines",
-          "form": "## Served lines",
-          "at": "terrain/terrain.mjs servedLinesBlock",
-          "note": "§12 (line 805, line 2366) requires the report to carry the member → served-line map, and the WA baseline sites it AT THE REPORT'S END. Until story 1.53 the renderer satisfied §12 with a per-member `*Served line:*` row instead; kogaki#318 called that the second name-shaped row and the owner removed it. The duty did not go away with the row — it moved here. v5, kogaki#314: ONCE per file, MERGED across sections and DEDUPED — a member entered under both `G5` and `G5-1` appears once. A repeated map is the class kogaki#315 named unjustified, and the dedupe is what keeps the merge honest rather than merely shorter."
+          "form": "## Served lines"
         },
         {
           "id": "served_lines_table_header",
@@ -435,8 +360,7 @@
           "lines": [
             "| Member | Served line |",
             "|---|---|"
-          ],
-          "note": "Declared as its two rendered lines rather than as prose, per the defect preamble and judged_empty_notice both carried: a class declared as a description matches no rendered line, and under REFUSE that rejects every conformant file."
+          ]
         },
         {
           "id": "served_lines_row",
@@ -444,44 +368,35 @@
           "allowlist": [
             "LessonDisplayID",
             "Cite"
-          ],
-          "note": "A member with no display_id or no cite is NAMED here with its abnormal token rather than omitted — a map that silently skips its unmappable rows is the shape §2.1 forbids.",
-          "pin_is_not_repeated_here": "v3, kogaki#315. The cite renders BARE — `file:line`, no `@<pin>` — because the substrate pin is stated ONCE, in the identity block (§12; #315's own phrasing: 'pin once in the identity and a bare file:line map, sited once'). The v2 form repeated the pin per row, which is the same clause violated in a new place: story 1.53 removed the per-member `*Served line:*` row and re-sited the map here, carrying the pin with it. Same count, different siting — recorded because a relocation reads as a fix and is not one."
+          ]
         },
         {
           "id": "served_lines_empty",
-          "form": "*No members in this report — the map is empty, stated rather than omitted.*",
-          "note": "The empty case renders. An omitted section and an empty one are the same silence to a reader and different ones to a grep."
+          "form": "*No members in this report — the map is empty, stated rather than omitted.*"
         },
         {
           "id": "h2_neighborhood",
-          "form": "## Provenance neighborhood",
-          "note": "v6, kogaki#472. ONCE per file, at the tier §12's multi-section form defines beside `## Counted` and `## Served lines`, and LAST. Seeded by the entered ID set and aggregated over it — never one per entered id, since the traversal walks the union and a per-section neighborhood would render the same suggestion under several headings (§12 v8)."
+          "form": "## Provenance neighborhood"
         },
         {
           "id": "neighborhood_seeded_by",
-          "form": "*Seeded by:* <canonical id list, \", \"-joined>",
-          "note": "v6, kogaki#472. The entered set the neighborhood was seeded from, in the same canonical form `selections` carries. Stated in the section rather than left to the identity block because §13.4 obligation 2 requires the view to NAME ITS ENUMERATION at the point the figures are read, and a denominator whose region sits forty lines up is a denominator the reader has to reconstruct."
+          "form": "*Seeded by:* <canonical id list, \", \"-joined>"
         },
         {
           "id": "neighborhood_counts",
-          "form": "<n> candidate(s) found, <n> shown — all at the highest level present (`<level>`).",
-          "note": "v8, kogaki#686 (owner ruling 2026-08-28). Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. The counts are HONEST rather than decorative: `found` is every candidate the mechanical layer produced and `shown` is what this section rendered, so a reader can always see what was withheld."
+          "form": "<n> candidate(s) found, <n> shown — all at the highest level present (`<level>`)."
         },
         {
           "id": "neighborhood_unresolved_seed_header",
-          "form": "<n> settled reference(s) could not be resolved to a Batch, so no enumeration ran over them:",
-          "note": "v11, kogaki#691 (owner ruling 2026-08-29 — arm 1). §13.0's silent-exclusion duty SURVIVES kogaki#686 disposition 4 for the batch-side gaps, and is discharged HERE rather than in the machine record alone. #686 deleted the unresolved footnote, whose subject was the reference-link walk; the enumerator still marks three gaps that walk never produced — a seed carrying no `source_batch`, a `source_batch` naming a batch nothing serves, and a batch member the served set does not carry — and between #686 and this ruling they reached no surface. THE RULING TURNED ON A FACT NEITHER REVIEW ROUND HAD: where every seed fails to resolve, `neighborhood_empty` was the only line rendered, and it asserts \"The enumeration ran over the settled set's Batches and returned nothing — a result about this settled set, not a failure\" — FALSE of a run that could not find the Batches. A silence reading as a clean result is the served defect (product-lab@b20d85ea topics/archive/claude-code-ops.md:24); stating the clean result outright is that defect one degree worse. So this class does not merely add a disclosure, it DISPLACES a false one: `neighborhood_empty` renders only where the gap set is empty. SCOPED TO SEED GAPS AT PR #697 round 1. This header was rendered over EVERY marked gap, including the batch-member marker — but that marker is pushed after its batch RESOLVED and while the member walk is running over it, so the enumeration DID run and the subject is a batch rather than a settled reference. The header was false of it, and in the state where a member gap is the only gap it displaced an empty form that was TRUE. The kind is typed on the marker itself (`kind: \"seed\" | \"member\"`), never recovered by string-matching the reason prose."
+          "form": "<n> settled reference(s) could not be resolved to a Batch, so no enumeration ran over them:"
         },
         {
           "id": "neighborhood_unresolved_row",
-          "form": "  <gap subject> — <reason, with the raw value appended where the reason does not carry it>",
-          "note": "v11, kogaki#691. One row per marked gap. IT NAMES ITS SUBJECT, never a bare count: §13.0's whole point is that the excluded thing is nameable, and a count alone is a disclosure the reader cannot act on. The raw value is appended only where the reason does not already contain it — marker 2's reason embeds the RESOLVED batch key, which differs from the raw `source_batch` on the twelve legacy records (`q_a/3/answer.md` against an id of `q_a/3`), so both are informative when they differ and a duplication when they do not. THE FORM CARRIES ONE PLACEHOLDER PER FIELD AND NEVER TWO ADJACENT ONES: `<a><b>` is read as a single placeholder named `a><b`, which compiles to a fragment matching neither — found by asking `classMatchers` what it produced rather than by reading the declaration, the discipline kogaki#689 installed for `NeighborhoodLevel`."
+          "form": "  <gap subject> — <reason, with the raw value appended where the reason does not carry it>"
         },
         {
           "id": "neighborhood_unresolved_member_header",
-          "form": "<n> Batch member(s) reached by the walk are carried by no served record:",
-          "note": "v12, kogaki#691 (PR #697 round 1). THE OTHER GAP KIND, and it is a different fact: the batch resolved, the walk ran over it, and one of its listed members is not served. It NEVER displaces `neighborhood_empty` — that class's first line is true in this state (the enumeration did run over the settled set's Batches) and its second is true unconditionally — so this header renders BESIDE them. Splitting the two headers is the same partition discipline the empty form's own scoping records: one header covering two facts is a message whose truth conditions differ per row."
+          "form": "<n> Batch member(s) reached by the walk are carried by no served record:"
         },
         {
           "id": "neighborhood_empty",
@@ -489,113 +404,77 @@
           "lines": [
             "No suggestion. The enumeration ran over the settled set's Batches and returned nothing — a result about this settled set, not a failure.",
             "Not asserted: that an empty neighborhood is informative in the STRONG sense. Absence here is absence of a same-Batch sibling, never evidence that the settled set stands alone."
-          ],
-          "note": "v6, kogaki#472, read off terrain/terrain.mjs:3339-3340. Declared as the TWO lines the emitter pushes, for the reason `preamble` and `judged_empty_notice` both had to be re-declared: a form joined into one line matches no rendered line, and under REFUSE that rejects every empty-neighborhood report — which is exactly the report §13.2 keeps distinguishable from a section that was never computed. REWRITTEN AT kogaki#686: the emitter's two lines changed with the narrowing and this array kept the pre-#686 literals, so the class matched nothing and the rendered pair matched no class — the third occurrence of the unmatched-form defect in one issue, and the second inside its own diff. `lines:` members are escaped WHOLE, which is correct for this class (both lines are fully literal) and is exactly why a stale literal here is invisible: there is no placeholder whose absence would show. The coverage case that now classifies every rendered neighborhood line is what makes a fourth occurrence fail rather than ship. SCOPED AT kogaki#691: this class renders ONLY where the batch-side gap set is EMPTY. Its first line asserts that the enumeration ran over the settled set's Batches, which is false where a seed's Batch could not be resolved — in that state `neighborhood_unresolved_header` and its rows stand in its place. The two are mutually exclusive by construction rather than by convention."
+          ]
         },
         {
           "id": "neighborhood_suggestion_row",
           "form": "- <SuggestionID> — <relation in plain words>",
           "allowlist": [
             "SuggestionID"
-          ],
-          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. This class is the row's FIRST line; the Gloss and claim lines have their own."
+          ]
         },
         {
           "id": "neighborhood_suggestion_gloss",
           "form": "  “<served Gloss headline>”  <Cite>",
           "allowlist": [
             "Cite"
-          ],
-          "note": "v9, kogaki#689 (owner ruling 2026-08-28 — the fetch arm). §686 disposition 3's FOURTH field, now produced. The report path makes a bounded shard read over the rows the display cap already selected, through `resolveHeadlines` — the same bound kogaki#528 ratified and the same one §9 binds `cmdView` to — and the headline is QUOTED AT ITS CITE because it is a served rendering, never bare prose. v8 declared the literal `  gloss unrecorded` as the only line this field rendered, which was true while the path made no fetch; that literal is DELETED with the condition it disclosed rather than kept beside the served arm, because two vocabularies for one state is how a reader stops being able to tell them apart. The miss arm is `neighborhood_suggestion_gloss_absent`, which carries the same abnormal marker `cmdView` and the Brief lane already render."
+          ]
         },
         {
           "id": "neighborhood_suggestion_gloss_absent",
-          "form": "  ⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩",
-          "note": "v9, kogaki#689. THE MISS ARM, declared as the literal the emitter pushes. A shard that was read and carried no rendering for the slug is a FAULT TO CLEAR, not prose — the same `NO_HEADLINE` marker `cmdView` and the Brief lane render, so one vocabulary covers the state wherever it arises. Distinct from `neighborhood_no_material`, which is the seam returning no element records at all, and from `neighborhood_empty`, which is an enumeration that ran and found nothing: three different facts, three classes. ITS MEANING IS NOT TRUE OF A DEGRADED SEAM, and that is stated rather than papered over (PR #696 round 1, carried on kogaki#689): where the seam itself is unreachable no shard is read at all, every entry comes back unfound, and a tagged lesson row renders THIS class — asserting a read that never happened. The Gloss field has no seam-absent arm, though the check registry already gives one to its own members (CANNOT-DETERMINE rather than pass or fail). Deciding that arm is part of the read-budget fork on #689; until then this class over-claims in exactly one state, named here."
+          "form": "  ⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩"
         },
         {
           "id": "neighborhood_suggestion_gloss_unaddressed",
-          "form": "  ⟨no Gloss shard carries this row — its family is outside the lessons namespace this path reads, or it carries no tag; a fault to clear, never substituted⟩",
-          "note": "v10, kogaki#689 (PR #693 round 1). THE SECOND MISS STATE, split from `neighborhood_suggestion_gloss_absent` because the two are different facts and one marker was asserting the wrong one. `_absent` says a shard WAS READ and carried no rendering for the slug; this says no shard was ADDRESSED at all — the row carries no tag, so no address can be formed, or its family is not `lesson` and the report path reads the `lessons/` namespace only. Rendering the second as the first asserts a read that never happened, which is the state the ruling's own consulted line refuses (\"silence is indistinguishable from *not checked*\") arriving one namespace in from where the ruling looked. WHETHER THE NAMESPACE BOUND SHOULD WIDEN IS NOT DECIDED HERE: `cmdView` reads both namespaces (§9) and extending the report path to match is a read-budget decision of the kind the 2026-08-28 gate exists for. This class DISCLOSES the bound at no read cost and settles nothing that is the owner's; the fork is carried on kogaki#689."
+          "form": "  ⟨no Gloss shard carries this row — its family is outside the lessons namespace this path reads, or it carries no tag; a fault to clear, never substituted⟩"
         },
         {
           "id": "neighborhood_suggestion_claim",
-          "form": "  <claim> [<NeighborhoodLevel>]",
-          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The row's THIRD line, carrying the LLM's free-form claim and its harness-fixed level. The level is a DECLARED TOKEN rather than a free placeholder. That was ASSERTED here before it was true: kogaki#686 declared `NeighborhoodLevel` as a bare string, `tokenFragment` degraded it to FREE, and this class admitted `  anything [anything]` while this note said otherwise (PR #692 round 2). The token is re-declared with an anchored `shape` at kogaki#689 and the property is now verified by a compiled-matcher assertion — that the matcher REFUSES a bracketed non-level — rather than by reading either declaration."
+          "form": "  <claim> [<NeighborhoodLevel>]"
         },
         {
           "id": "neighborhood_no_material",
-          "form": "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (§13.4's disclosure discipline).",
-          "note": "v7, kogaki#473 (PR #477 round 1). The pull-time degradation's own line: where element_survey serves nothing, the section renders this statement under its heading and Seeded-by line instead of the enumeration body, and the pull completes. DID-NOT-RUN and RAN-AND-FOUND-NOTHING are different states and each has its own class — this one, and neighborhood_empty — because a reader who cannot tell them apart holds exactly the ambiguity §13.2's empty-is-informative clause exists to remove."
+          "form": "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (§13.4's disclosure discipline)."
         },
         {
           "id": "neighborhood_over_cap",
-          "form": "<n> candidate(s) found, 0 shown — <n> sit at the highest level present (`<level>`), above the display cap of 10.",
-          "note": "v8, kogaki#686. The RULING reserved this arm for pickup; the arm itself was selected at the implementing sitting's gate and is grounded on the served lines below, not on the ruling. Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. THE REFUSAL ARM. Above the cap at the highest level the section renders NO rows and states the counts, rather than showing ten of them. Truncating would need a tie-break among equals, and a machine choosing which of N equally-recommended relations the owner may see is the shape the served record names as failing the second-proposer test (product-lab@b20d85ea topics/articles.md:125); silent truncation is refused one step earlier by the rule that a surface which must not drop its tail reports rather than truncates (topics/archive/knowledge-architecture.md:67). THE SECOND LINE HAS ITS OWN CLASS rather than riding a `lines:` array: this form carries placeholders, and a `lines:` member carrying one matches nothing. The first attempt moved this line INTO such an array, which regressed a class that had been matching."
+          "form": "<n> candidate(s) found, 0 shown — <n> sit at the highest level present (`<level>`), above the display cap of 10."
         },
         {
           "id": "neighborhood_over_cap_reason",
-          "form": "No rows are rendered rather than ten of them: choosing which 10 of <n> equally-recommended candidates you see would be a tie-break this section has no ground to make, and a cut carrying no meaning reads as a ranking it is not.",
-          "note": "v8, kogaki#686, CORRECTED at the re-land. Declared as a `form` per rendered line, never as a `lines:` array: `classMatchers` escapes every `lines:` member WHOLE (terrain/format-guard.mjs:92), so a member carrying `<placeholders>` or a `|` alternation matches nothing — the four pre-existing users of that notation are all fully literal text. The first attempt at this class used `lines:` to repair a `\\n`-in-one-form defect and traded it for a silent no-match, which the surface's inert allowlist would never surface. The refusal's SECOND line, declared rather than described in a note — a note saying \"a second line states why\" covers no line at all."
+          "form": "No rows are rendered rather than ten of them: choosing which 10 of <n> equally-recommended candidates you see would be a tie-break this section has no ground to make, and a cut carrying no meaning reads as a ranking it is not."
         },
         {
           "id": "neighborhood_none_judged",
-          "form": "<n> candidate(s) found, 0 shown — none carries a recommendation level. The mechanical layer ran; the judgment layer did not.",
-          "note": "v8, kogaki#686. The ALL-UNJUDGED state, distinct from `neighborhood_unjudged` (which counts a judged section's unjudged remainder) and from `neighborhood_empty` (where the enumeration itself returned nothing). Three different facts, three classes: a section that rendered nothing because no candidate exists is not one that rendered nothing because none was judged, and a reader owed the difference cannot get it from a shared form."
+          "form": "<n> candidate(s) found, 0 shown — none carries a recommendation level. The mechanical layer ran; the judgment layer did not."
         },
         {
           "id": "neighborhood_unjudged",
-          "form": "<n> candidate(s) carry no level and are counted here, never shown.",
-          "note": "v8, kogaki#686 (owner ruling 2026-08-28). Exploration is fixed to the same Distill Batch and nothing else; the section renders at most ten rows, all at the highest recommendation level present, and nothing beyond the four ruled fields. The eleven classes this version DELETES — the report-not-proposal line, the bound line, the per-family figures and their header, the grouping header, the family and batch section headings, the unmapped notice, the unresolved header and row, and the disjointness footnote — discharged §13.0/§13.1/§13.4 disclosure obligations over an enumeration this section no longer performs. They are deleted rather than kept beside an exception. An UNJUDGED candidate is a different state from one judged `background`: the mechanical layer ran and the judgment layer did not. Counted and named rather than silently dropped or silently shown."
+          "form": "<n> candidate(s) carry no level and are counted here, never shown."
         },
         {
           "id": "blank",
-          "form": "",
-          "note": "renderReportMarkdown interleaves L.push(\"\") between every block (terrain/terrain.mjs:1652-1702). Admitted for the same reason as the screen's: under REFUSE, a grammar with no blank-line class rejects every report the emitter writes."
+          "form": ""
         }
-      ],
-      "retired_in_v6": "`h2_subgroups` (`## SubGroups`) and `h2_members` (`## Members`) are RETIRED (kogaki#314). The v7 renderer emits neither: `### <SubGroupID>` goes straight under its section heading, and the flat and judged-empty paths push members with no intervening heading. They are removed rather than kept as dead entries because §14.1 makes this file authoritative over the RENDERED form, so a class nothing produces is a claim about artifacts that do not exist — the shape `not_expressible` spent its life avoiding. FOUND BY REVIEW, NOT BY THE SUITE: `full_report`'s `line_class_allowlist` is inert (three bare body classes admit any line), so a declared-but-unproduced class raises nothing here. Commit c1263b1 warned about that inertness in the other direction — spec ahead of emitter — and this is the same gap with the emitter ahead of the spec."
+      ]
     }
   },
-  "uncovered_surfaces": {
-    "note": "SPEC-terrain §14.1 defines an OWNER SURFACE as any text this runtime prints or writes for the owner to read, and enumerated six. THIS LIST IS NOW EMPTY, and it is kept rather than deleted so a reader can see WHICH surfaces left it and BY WHICH ROUTE — the two routes are not interchangeable and a bare empty list would hide the difference.",
-    "members": [],
-    "how_each_of_the_six_left_this_list": {
-      "_rider": "RIDER R1 of the owner's 2026-08-25 selection: name the moved denominator explicitly — which surfaces moved, which did not, and why cmdView stays. The rule this issue itself cites: a clause amended in effect but not by name is a live figure a later reader counts against. #626 applied that rule and then asserted a replacement figure it had not checked.",
-      "cmdClaim": "REMOVED (SPEC §15.7). Its behaviour becomes part of J1_claims; it emits no owner surface at all. Leaves the DENOMINATOR.",
-      "cmdAdopt": "REMOVED (SPEC §15.7). Becomes J1_claims' gate re-offer path. Leaves the DENOMINATOR.",
-      "cmdSubdivide": "REMOVED (SPEC §15.7). Becomes J2_subdivision; its hand-rendered lines, which §14.2's guard never saw, are removed with it. Leaves the DENOMINATOR.",
-      "cmdView": "NOT REMOVED — GRAMMARED. Its owner text does not stop: it splits into the `tag_listing` and `tag_row_listing` surfaces above, each printed by an owner-executed command through the format guard. It therefore STAYS IN THE DENOMINATOR and sits in the NUMERATOR, via those two surfaces. Three of the four named surfaces were discharged by removal; the fourth is discharged by grammar.\n\nTHE COVERAGE CLAIM IS ABOUT THE GRAMMAR AND NOT ABOUT A MEDIUM (v11, kogaki#682). Neither surface writes an artifact: they reach the owner through the owner's own terminal, and §14.2's refusal binds what may be EMITTED rather than what may be written, so a surface that writes nothing owes conformance exactly as much. The denominator is unmoved by the channel.\n\nSTILL OUT OF SCOPE AT v10 AND UNCHANGED: `cmdView`'s UNTAGGED candidate-row listing is a third behaviour no surface admits — `tag_listing` is the TAG listing (a tag name and its Lesson count, §9's allowlist) and `tag_row_listing` is rows under a NAMED tag. See `cmdView_untagged_rows` below for the declaration and its two declined alternatives.",
-      "cmdCotags": "Already covered at v1 — the `cotag_screen` surface. Never a member of this list.",
-      "full_report": "Already covered at v1 — the `full_report` surface. Never a member of this list.",
-      "cmdView_untagged_rows": "DECLARED OUT OF SCOPE (kogaki#665, owner selection 2026-08-26). NOT a surface, and never becomes one: it is removed with `view` and no grammar is minted for it.\n\nWHY THIS IS DECLARED RATHER THAN LEFT SILENT. An enumeration of admissible kinds is load-bearing at its NON-MEMBER FALLBACK rather than at its completeness — `consulted: product-lab@f95a9980552f519ab67e39414d599521b6045846 LESSONS.md:178`, \"surface anything outside the list as report-only with its reason, OR DECLARE IT OUT OF SCOPE\", and `topics/archive/claude-code-ops.md:42`, \"the enumeration either covers a venue or STATES it as owner territory, and the guard is the report-only fallback — the half that must never be traded\". Deleting the emitter and saying nothing would trade exactly that half.\n\nTWO ALTERNATIVES DECLINED, recorded so neither is re-proposed blind. Minting a THIRD listing surface: declined — a third grammar to maintain, for output no named consumer asks for. Widening `tag_row_listing` to admit an absent tag: declined on §6.1's own ground, since unfiltered candidate rows ARE the flat slug listing the co-tag screen replaced — \"it lets no image of a possible Thesis form, which is the purpose Terrain exists to serve\" — so that arm re-admits what a ratified section removed.\n\nHOW IT WENT UNSEEN. `cmdView`'s emitter reached the owner with no `emitOrRefuse` anywhere on its path, so both listing grammars were DECLARED and enforced by nothing. The listing became visible the moment kogaki#665 routed the emit through the format guard — the same shape as kogaki#653 one surface over, where a class the emitter produced was admitted by no surface declaring it."
-    },
-    "reopen_trigger": "DISCHARGED for the four former members and re-pointed, not deleted: the first owner surface that is written by a state whose `grammar_surface` names no surface present in `surfaces`, or the first writing state added to workflow.json with no `grammar_surface` at all. The trigger now reads the STATE TABLE rather than a prose enumeration, per rider R2 — an enumerated trigger could only name yesterday's uncovered surface.",
-    "the_figure_is_not_stated_here": "Deliberately. §14.1's coverage figure is DERIVED from workflow.json's `owner_surface_coverage.rule` over its own states array, and transcribing it here would recreate exactly the two-carrier desynchronization finding 1 reports.",
-    "emitter_attribution_corrected_at_v8": "FOUND WHILE EXECUTING kogaki#636's repair, and recorded rather than silently fixed. Through v7 this list said §9's allowlist 'governs SCREEN 1's tag rows — which cmdView renders, not cmdCotags', and §14.1 described cmdView as rendering 'tag rows, candidate rows, Gloss headlines'. BOTH ARE WRONG ABOUT THE EMITTER: cmdView renders candidate rows and Gloss headlines only; the TAG ROWS are `renderTagScreen`'s, composed from `tagRow()`. The allowlist and its verbatim reading are untouched — only the attribution moves. This is why the two surfaces are split by RENDERING rather than by subcommand: `tag_listing` and `tag_row_listing` name what is emitted, and the emitter each one has is recorded per line class rather than assumed from §14.1's enumeration."
-  },
   "decidable_rules": {
-    "note": "SPEC-terrain §14.2's enumeration. Each is decidable on the rendered text alone, which is what makes the emit-time refusal possible. A rule that is not mechanically decidable does not enter this artifact and stays prose.",
     "expressible": [
       {
         "id": "pin_once_per_file",
         "rule": "occurrences of line class `substrate_pin` == 1",
         "surfaces": [
           "full_report"
-        ],
-        "rule_counts_a_line_class_not_occurrences": "STATED LIMITATION, v3, kogaki#315. This rule counts lines of class `substrate_pin` and nothing else, so it cannot see a pin embedded in a Gloss cite or a map row. It read 1 and passed on a specimen carrying six. v3 removes the other five by making those classes render bare, so the rule and the contract now agree ON THIS SURFACE — but they agree because the emitters were changed, not because the rule was widened. A future class that embeds a pin re-opens the gap silently."
+        ]
       },
       {
         "id": "no_element_names",
         "rule": "zero `lesson:` tokens and zero element names on an owner surface",
-        "transcribed_from": "specs/spec-terrain/SPEC.md §14.2, verbatim",
         "surfaces": [
           "cotag_screen",
           "full_report"
-        ],
-        "narrowing_withdrawn": "Two drafts narrowed this rule — first by asserting in tokens.Cite that a cite is not an element name, then by re-scoping the rule itself to MEMBER-NAMING positions. The second was the first relocated, not removed: either way this artifact decided the reach of a ratified owner duty (§14.3, kogaki#318) in the file §14.1 makes authoritative over the very text it transcribes, with no §14.2 or §14.3 amendment and no record on the licensing issue. The rule is now §14.2's own wording and the residue is a named open question. Story 1.54 implements the wide rule. The cite case was resolved where this entry said it would be — on kogaki#345, by the owner — and not here; see open_question_resolved above.",
-        "producer_landed": "story 1.53 (kogaki#345). The token has a producer, so this rule is LIVE rather than pending; story 1.54's refusal enables it.",
-        "open_question_resolved": "Recorded here, DECIDED on kogaki#345 (story 1.53 SQ2, owner) — see tokens.Cite.status_under_14_3 and precedence_is_per_axis. A served cite is an address, not an element name, so this rule does not reach it; the predicate looks for element names only."
+        ]
       },
       {
         "id": "member_lists_carry_display_ids",
@@ -603,8 +482,7 @@
         "surfaces": [
           "cotag_screen",
           "full_report"
-        ],
-        "producer_landed": "story 1.53 (kogaki#345)."
+        ]
       },
       {
         "id": "catch_all_share",
@@ -613,11 +491,7 @@
           "cotag_screen"
         ],
         "producer_of_the_name": "specs/spec-terrain/survey-schema.json subdivision.no_member_hidden_subgroup",
-        "catch_all_subgroup_name": "(fits no composed SubGroup)",
-        "licensed_by": "kogaki#316 decision 2, owner 2026-08-09; enumerated at SPEC.md §14.2 (\"catch-all <= 30%\")",
-        "re_bound_in_v4_because_it_measured_the_wrong_catch_all": "THIS RULE EXISTED SINCE v1 AND CAPPED A DIFFERENT QUANTITY. Story 1.52 read §14.2's \"catch-all <= 30%\" and bound it to `(no second served tag)` — the CO-TAG group, for Lessons carrying the selected tag and no other — over the Cover line's corpus denominator. kogaki#316's decision 2 is about `(fits no composed SubGroup)`, the SUBGROUP remainder, over the parent group's own member count. Different numerator, different denominator, same name and same number. The issue's own specimens are all the second kind — 11 of 17, 20 of 28, 29 of 35 — and nothing in the tree measured it, so decision 2 read as shipped and was not. THE CO-TAG BOUND IS REMOVED RATHER THAN RENAMED (owner decision 2026-08-11): no owner decision ever asked for it, a tagless group over 30% is a fact about the CORPUS rather than a composition defect, and refusing a screen over it would punish the substrate for its own tag distribution. It was also a number in code that nobody ratified, which is the shape §8's standing rule is pointed at.",
-        "the_denominator_is_RE_DERIVED_at_v13": "kogaki#684 disposition 2 removes `<LessonCount>` from `group_heading_subdivided`, which is where this rule read its denominator through v12. The denominator is now the SUM of the group's own `subgroup_heading` counts — tokens still on the surface — so the rule stays a TEXT-LEVEL check and keeps the property it was ratified for: a judgment that swept most of a group into the remainder discriminated almost nothing. This is a re-instrumentation and not a re-pointing: the quantity measured is unchanged (the remainder's share of the parent), and it is computable because §6.2 rule 1 places every member in exactly one SubGroup, so the SubGroup counts sum to the parent by construction. What is LOST is the ability to detect that fact failing on the surface, which is why `subgroup_members_sum_to_parent` is revoked here rather than re-pointed at the same sum — see `not_expressible`. Owner selection at the /ship-cycle 684 sitting, 2026-08-30.",
-      "surfaces_is_cotag_screen_only_and_that_is_checked": "The share needs a per-SubGroup count and a parent count. `cotag_screen`'s `subgroup_heading` carries `<LessonCount>` and the parent count is summed from those, so it is decidable there. `full_report`'s `h3_subgroup` is `### <SubGroupID> — <SubGroup name>` and carries NO count, so the rule is NOT decidable on that surface and does not claim it. Stated rather than listing both — the sibling entry `group_subgroup_id_grammar` had to be narrowed for exactly this reason in v3, and a rule naming a surface it cannot decide is the 'reads as coverage' shape."
+        "catch_all_subgroup_name": "(fits no composed SubGroup)"
       },
       {
         "id": "line_class_allowlist",
@@ -632,11 +506,7 @@
         "rule": "every Group heading carries a GroupID matching tokens.GroupID, and every SubGroup heading a SubGroupID matching tokens.SubGroupID",
         "surfaces": [
           "cotag_screen"
-        ],
-        "moved_from_not_expressible": "2026-08-11, kogaki#317 + kogaki#315. THIS ENTRY IS ITS OWN REOPEN TRIGGER DISCHARGED, verbatim: \"the sitting that mints the G/SG ID space adds tokens.GroupID and tokens.SubGroupID here and moves this entry into `expressible`.\" It was previously not expressible because no G/SG identifier existed to give a shape to — a token shape asserted then would have been a rule about artifacts nothing could produce, which reads as coverage. The mint is what changed, not the judgement.",
-        "declared_without_a_predicate_at_first": "PR #354 round 1 finding 1: this entry moved out of `not_expressible` and no predicate was written, so it was declared and could never fire — which is the exact condition the entry was in `not_expressible` to avoid, since a rule with no members 'reads as coverage'. The property was in fact tested, by heading regexes in check-terrain-composition.sh, so the guarantee existed and this artifact's claim about WHERE it lives was what was false. Repaired by writing the predicate rather than by pointing at the check, because §14.1 makes this file the carrier of the rendered form and a rule enforced only in a test is a rule the emitters do not carry.",
-        "discharged_by": "`line_class_allowlist` plus the `<GroupID>`/`<SubGroupID>` fragments embedded in the heading forms — a heading opening with anything else is unadmitted, and the surface refuses. NOT a standalone predicate: one was written for PR #354 round 1 finding 1 and deleted by its own test, because keying on a line's CLASSIFICATION is tautological — a bad id means the line never classifies as a heading at all.",
-        "surfaces_narrowed_from_both_to_one": "v3 first declared this over cotag_screen AND full_report. It is carried on cotag_screen only. full_report's allowlist is inert — three body classes are bare placeholders — so `# Full Report — testing × architecture` is admitted by a body class and nothing refuses it; that is precisely how round 1 finding 2's divergence survived review of the sitting that created it. Narrowed rather than left claiming both, because a rule listing a surface it cannot decide is the 'reads as coverage' shape this entry spent its whole life in `not_expressible` avoiding. The full_report half is owed and is NOT filed here: it needs that surface's body classes constrained, which is a decision about the artifact and belongs on its own issue."
+        ]
       },
       {
         "id": "subdivision_required_at_ten",
@@ -644,42 +514,23 @@
         "threshold_members": 10,
         "surfaces": [
           "cotag_screen"
-        ],
-        "licensed_by": "kogaki#683 disposition 1, owner ruling 2026-08-28; boundary confirmed at 10-or-more at pickup 2026-08-29",
-        "threshold_is_the_rule_now": "§8 carried \"Terrain implements no member-count threshold. A number appearing in its code as one is a defect against this paragraph\", and kogaki#316 withdrew a numeric trigger on 2026-08-09. The owner REVERSES that withdrawal on a specimen the old contract PERMITTED: a 40-member group served flat and judged-empty, violating nothing. The contract permitted the outcome, so the contract changed.",
-        "boundary_ground": "The catch-all cap leaves 30% of the parent, and 30% of 10 is 3 Strands — the minimum article — so the requirement works AT 10 rather than above it.",
-        "narrowed_to_the_FLAT_heading_at_v13": "kogaki#684 disposition 2 removes `<LessonCount>` from `group_heading_subdivided`, so the subdivided arm of this rule has no count to read and is DROPPED rather than left pointing at an absent token. The loss is small and is named rather than waved past: the subdivided arm was very nearly vacuous already — a heading classified `group_heading_subdivided` is one the renderer emits only when SubGroups follow it, so `sawSubgroup` was true on that arm in every run this repository has produced. What it did cover is a heading of that shape reaching the surface by some OTHER route with no SubGroups under it, and after v13 such a line carries no member count, so nothing on the surface can say whether it owed a split. THE LIVE ARM IS UNCHANGED and is the one that bites: a flat heading still carries its count, and a group of ten or more rendered flat is exactly what this rule refuses.",
-        "same_class_as_catch_all_share": "Engine-side, at emit, no model discretion — the disposition names that class explicitly. The runtime ALSO declines to suppress a split at or above the threshold, so a screen destined for this refusal is not produced in the first place; the rule here is the carrier at the layer where the property can be broken by any other route.",
-        "surfaces_is_cotag_screen_only_and_that_is_carried_elsewhere": "THE RULE IS DECLARED OVER `cotag_screen` ALONE, and the other surface is carried rather than left (PR #705 round 1). `full_report` renders subdivisions too, but its section heading carries NO LessonCount and its line-class allowlist is INERT — `reader_notes.line_class_allowlist_is_inert_on_full_report` records that three body classes are bare placeholders, so no line on that surface can be unadmitted. Declaring this rule over it would be coverage in name only. The requirement reaches that surface as a PRE-RENDER refusal in `cmdReport`, which is the same class in the sense the disposition names — engine-side, at emit, no model discretion — by the route the surface actually has."
+        ]
       }
     ],
     "not_expressible": [
       {
         "id": "subgroup_members_sum_to_parent",
         "rule": "sum of LessonCount over a group's `subgroup_heading` lines == that group's own member count",
-        "was_expressible_until": "v12, over `cotag_screen`",
-        "why_it_is_not_expressible_now": "v13, kogaki#684 disposition 2. The rule compared two independently rendered quantities — the SubGroup counts and the parent count on `group_heading_subdivided` — and the ruled heading form carries no parent count. WITH ONE SIDE OF THE COMPARISON GONE THE RULE IS NOT DECIDABLE FROM THE RENDERED TEXT, and that is stated here rather than repaired by re-pointing it at the sum of the SubGroup counts, which would make it `sum == sum`: a predicate that cannot fail, declared as coverage. The served position is quoted at its pin because it decides exactly this fork: 'when a design change dissolves the unit a check counts, the check does not become easier to satisfy — it stops being a check, and re-pointing it at whatever occupies the same position preserves the ceremony and discards the function' (consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:55). Owner selection at the /ship-cycle 684 sitting, 2026-08-30, over the alternative of keeping the count on the heading.",
-        "where_the_property_is_carried_instead": "A PRE-RENDER refusal in `cmdCotags` (terrain/terrain.mjs), over the placement the renderer is about to print — the same route `subdivision_required_at_ten` already declares for `full_report`, and the same class the disposition names: engine-side, at emit, no model discretion.",
-        "which_direction_it_can_fire_in": "Named so the refusal is not read as covering more than it does. UNDER-placement is unreachable from that site: `subgroupPlacement` sweeps every unplaced member into the catch-all, so the sum cannot fall short and a refusal keyed only on hiding would be a predicate that never fires. What IS reachable, and what nothing else in the runtime refused before v13, is DOUBLE placement — a judge record naming one member in two SubGroups, which sums OVER the parent and renders that member twice. The withdrawn grammar rule caught both directions from the text; this one catches the reachable one from the data, and the check suite constructs exactly that case.",
-        "what_that_costs_stated_rather_than_claimed_away": "The pre-render refusal reads the DATA and the withdrawn rule read the TEXT, and §14.2's own recorded specimen is a renderer that dropped four of six member fields while every assertion about the data structure stayed green. So a renderer that silently omits a whole `subgroup_heading` line is now invisible to this surface's refusal, where through v12 it was caught. Two things still bound it and neither is offered as an equivalent: the golden specimen (§14.5) is byte-equal to the renderer's output over committed input, and `catch_all_share` still reads the SubGroup counts, so a dropped remainder line moves that ratio. The gap is real and is recorded as a gap.",
+        "why_not_expressible": "The rendered text no longer carries one side of the comparison: the subdivided group heading carries no parent count. Re-pointing the rule at the sum of the SubGroup counts would compare a quantity to itself, which is a predicate that cannot fail.",
+        "carried_instead": "A pre-render refusal in `cmdCotags`, over the placement rather than the rendered text. It fires on DOUBLE placement — one member named in two SubGroups — which is the reachable direction; under-placement cannot occur, because the placement sweeps unplaced members into the catch-all.",
+        "what_the_siting_costs": "The refusal reads the DATA and the withdrawn rule read the TEXT, so a renderer that omits a whole `subgroup_heading` line is invisible to this surface's refusal. The golden specimen and `catch_all_share`'s reading of the same counts still bound it; neither is an equivalent.",
         "reopen_trigger": "the first `cotag_screen` line class that carries a group's own member count again — a re-ruled heading, a per-group footer, or any other line the parent count reaches — at which point this entry moves back into `expressible` with its predicate restored"
       }
     ]
   },
-  "reader_notes": {
-    "ac2_surface_mismatch": "Story 1.52 AC2 asks that `the grammar's cotag_screen tag-row entry` match SPEC.md §9's allowlist. The co-tag screen renders NO tag rows: §9's allowlist governs SCREEN 1's tag rows, produced by tagRow() at terrain/terrain.mjs:407 and printed by the survey/view path — which §14.1 lists as `cmdView`, an UNCOVERED surface. The allowlist is therefore transcribed against cmdView above, where it actually binds, rather than attached to a surface that has no such line class. Transcribing it onto `cotag_screen` would have satisfied the AC's letter by reinterpreting the rule, which is the one thing AC2 forbids. Reported on kogaki#344.",
-    "completeness_of_the_line_classes": "The classes were read off the emitters, and three reviews have found the same defect class three times: a declared form that no rendered line matches, which under REFUSE and §14.1's precedence rejects every artifact the emitter produces. Round 1 of kogaki#349 found no blank-line class; round 2 found judged_empty_notice declared as one line where two are pushed, and found the two COTAG_COVER classes describing stderr text this surface never sees; round 1 of kogaki#350 found preamble carrying the same one-line-for-four defect — in the entry the previous fix had cited as its own precedent. `blank` is a class on both surfaces; the refusal classes are removed and replaced by refusal_text_boundary; preamble and judged_empty_notice now declare their literal lines. The general hazard stands and is stated rather than claimed away: this enumeration is only as complete as the read that produced it, and a class discovered missing is found by story 1.54's refusal rejecting a valid render. Story 1.55's golden fixture is what converts that from a live-run discovery into a CI one.",
-    "what_this_artifact_is_not": "Not a second carrier beside the golden fixture (§14.5) -- the fixture never wins against this file; precedence is one-way. Not an enforcement mechanism -- story 1.54 installs the emit-time refusal that reads this. \n\nCORRECTED AT v6 (kogaki#472). This note previously read 'Not a description of §13's provenance neighborhood, which is unimplemented and whose display-id question is a named deferred slot'. Both halves were false by 2026-08-12 and neither was corrected when it became so: §13 was implemented at kogaki#302/#303, and the display-id slot was FILLED by owner selection on kogaki#300 (§14.6, the N<n> space). As of v6 this file DOES describe the neighborhood -- as a section of full_report, not as a surface of its own -- so the sentence is removed rather than merely re-dated. Kept as a correction rather than deleted, because a note asserting a thing is undescribed is exactly the shape that survives the thing being described.",
-    "form_notation_tolerances": "Three tolerances the story-1.54 predicate applies when reading a `form`, declared here because a reader comparing the grammar to the code would otherwise find them only in terrain/format-guard.mjs. (1) A LEADING `\\n` denotes the blank line before the class, not two characters of it — the emitters separate blocks with `\\n`-prefixed strings and this file transcribes them as written; the blank itself is the `blank` class. (2) A form containing `…` is matched as a PREFIX, because the ellipsis abbreviates the rest of a long fixed line; anchoring the tail would make the abbreviation STRICTER than the text it abbreviates, which is the `preamble` and `judged_empty_notice` defect in another costume. (3) TRAILING whitespace is admitted, because a Markdown hard break is two trailing spaces and this notation cannot write them; the identity block emits three such lines. None of the three admits a token, class or line this file does not already admit.",
-    "line_class_allowlist_is_inert_on_full_report": "Found while firing the refusal in its refusing direction (story 1.54, kogaki#346). `group_claim_body`, `subgroup_claim_body` and `member_gloss_body` each have a bare placeholder as their whole form, so each admits ANY line; on full_report there is therefore no line that can be unadmitted, and `decidable_rules.expressible.line_class_allowlist` is inert there. It is live on cotag_screen, whose classes are constrained. Recorded rather than repaired: constraining a claim body is a decision about this artifact, owed its own licensing issue, and story 1.54 narrowing it from the emitter side would be the shape `narrowing_withdrawn` already names twice. \n\nWIDENED, NOT REPAIRED, AT v6 (kogaki#472). The neighborhood section's classes land on this surface and most are CONSTRAINED — the suggestion row's three lines, the counts line, the over-cap refusal's two. (Refreshed at kogaki#686: the earlier example set named the bound line and the per-family figures, two classes that ruling deletes, in the one note a reader consults to learn what the green suite does NOT cover.) They inherit the inertness anyway, and the mechanism is `class_matching_is_by_specificity`: a MALFORMED neighborhood row fails its own specific class, falls through to `group_claim_body`, and is admitted. So the exemption is a property of the SURFACE, caused by three classes and reaching every class on it, including classes added long after the three were written. \n\nSTATED AT THE WIDENING RATHER THAN DISCOVERED LATER, because that is what the served position asks of exactly this act: 'When a rule carries an exception justified by one member's genuine constraint and the rule's scope is later widened, the exception travels with it onto members that never had the constraint -- and because an exception exists precisely in order to skip a check, its wrongful inheritance emits no error, no warning and no failing test, so re-derive every exception at every widening and withdraw it unless the new member can state the original justification in its own terms.' (consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 LESSONS.md:64, an-inherited-exemption-signals-nothing). The neighborhood classes CANNOT state the original justification in their own terms -- they are not claim bodies and nothing about them needs a free-form form -- so by that line the exemption is owed a withdrawal, and this note records that it was NOT withdrawn here. What blocks the withdrawal is unchanged and is the note's own first paragraph: constraining the three body classes is a decision about this artifact and belongs on its own issue, and kogaki#472's licence names the amendment, not that decision. \n\nWhat v6 buys anyway, so the coverage claim is not read as empty: the classes are DECLARED, so `no_element_names` and `pin_once_per_file` reach the section, the golden fixture (SPEC §14.5) exercises its forms — the specimen landed with kogaki#473 (story 1.69), discharging the owed tense this phrase carried across the spec-ahead-of-code interval, and a renderer edit that changes a form now diverges from a written contract instead of from nothing at all. What is missing is only the emit-time REFUSAL of a line that matches no class. \n\nSee `deferred_slot_full_report_allowlist` below for the fork, which is named and not decided.",
-    "class_matching_is_by_specificity": "Classes are matched most-specific-first, specificity being the count of literal non-space characters a form pins outside its placeholders — not declaration order. `group_prose` (`      <composer prose>`) admits every six-space-indented line including every `subgroup_heading`, so first-match-wins classified subgroup headings as prose and `subgroup_members_sum_to_parent` summed zero and refused a conformant screen. Order would have fixed that case and left the next one silent: a class added in the wrong place shadows another and nothing says so."
-  },
-  "precedence_is_per_axis": "THIS FILE WINS ON THE RENDERED FORM AND ON NOTHING ELSE. §14.1 makes it authoritative over what an owner surface's text may look like — the BUILT axis. It is NOT authoritative over what was DECIDED: where an entry records an owner ruling, the ruling's home is the issue named beside it and this file carries a POINTER, not the verdict. Written down because the two halves are answered by different systems and one rule for both hands this file the last word on facts it cannot observe (consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 gloss/lessons/knowledge-architecture.md:227 — 'Say which system decides which half'). Added after PR #352 round 1 recorded consultation-map entry 3 UNCOVERED for the second consecutive PR on this chain; the consult that entry prescribes is what produced this paragraph, and the first thing it found was that the entries below had been written in the wrong voice.",
   "deferred_slot_full_report_allowlist": {
     "slot": "full-report-body-classes-constrained",
     "named_by": "kogaki#472, at the /ship-cycle 472 sitting 2026-08-16",
-    "what_is_owed": "A decision on whether full_report's three bare-placeholder body classes (`group_claim_body`, `subgroup_claim_body`, `member_gloss_body`) are constrained, so that `line_class_allowlist` becomes live on this surface -- or whether a SECTIONED allowlist is admitted instead, refusing only lines under a heading whose section declares a closed class set. The second shape would make the rule live for the neighborhood section without touching the claim bodies at all.",
-    "why_it_is_a_decision_and_not_a_fix": "Both shapes change what the emit-time refusal REJECTS, which is the artifact's contract with every producer and every fixture. Constraining a claim body decides what a composer may write; a sectioned allowlist introduces a second scoping axis to a file whose whole precedence argument rests on one. Neither is settled by reading the code, so it is owed on its own licensing issue with alternatives and a receipt BEFORE any predicate embeds an answer.",
-    "not_filed_here": "Filing it now would be `conditional-on:` shaped -- its validity turns on which shape a future sitting takes -- and SPEC-issue-creation refuses that filing, folding it into the deciding issue's acceptance items instead. Named here so the slot is visible rather than rediscovered."
+    "what_is_owed": "A decision on whether full_report's three bare-placeholder body classes (`group_claim_body`, `subgroup_claim_body`, `member_gloss_body`) are constrained, so that `line_class_allowlist` becomes live on this surface -- or whether a SECTIONED allowlist is admitted instead, refusing only lines under a heading whose section declares a closed class set. The second shape would make the rule live for the neighborhood section without touching the claim bodies at all."
   }
 }
