@@ -204,22 +204,32 @@ echo "ok: a degraded consult emits neither register"
 #     unreachable gateway produces that. The stub speaks the same stdio JSON-RPC
 #     the transport speaks and serves fixed payloads; it is a test double for the
 #     WIRE, and it asserts nothing about the real gateway's content.
+PIN_1111="product-lab@1111111111111111111111111111111111111111"
 cat > "$TMP/stub-gw.js" <<'STUB'
 const PIN = process.env.STUB_PIN || "product-lab@1111111111111111111111111111111111111111";
 const SHA = PIN.split("@")[1];
 const send = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+// THE PAYLOADS ARE PRETTY-PRINTED BECAUSE THE REAL GATEWAY IS (kogaki#638).
+// `gateway-query.mjs` writes the server's body VERBATIM, so the STUB's
+// serialisation is what the composer parses — a compact stub is a fixture
+// built to differ from production. It made the pin assertion below unable to
+// fail: shape.mjs took the first line starting with `{`, which is the whole
+// body when compact and a bare brace when pretty, so the suite stayed green
+// about a digest that recorded `pin: unknown` against every live gateway.
+// Measured both ways at the repair: pretty payloads + the old parse FAIL,
+// compact payloads + the old parse PASS.
 const payload = (name) => {
   if (name === "gloss_index")
-    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `LESSONS.md:1@${SHA}`, text: "projects: kit-test — a served headline" }] });
+    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `LESSONS.md:1@${SHA}`, text: "projects: kit-test — a served headline" }] }, null, 2);
   if (name === "surface_names")
-    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `GLOSSARY.md:1@${SHA}`, text: "Zarvox" }] });
+    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `GLOSSARY.md:1@${SHA}`, text: "Zarvox" }] }, null, 2);
   // A body the composer cannot parse — the per-term drop, on the wire. This is
   // the case §3.1's denominator clause binds and the one `if (e.soft) continue;`
   // used to erase.
   if (name === "glossary_entry") return "<html>not a served body</html>";
   if (name === "policy_lookup")
-    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `topics/x.md:1@${SHA}`, text: "kit-test owes a role-assigned obligation" }] });
-  return JSON.stringify({ pin: PIN, lines: [] });
+    return JSON.stringify({ pin: PIN, request_id: "stub", lines: [{ cite: `topics/x.md:1@${SHA}`, text: "kit-test owes a role-assigned obligation" }] }, null, 2);
+  return JSON.stringify({ pin: PIN, lines: [] }, null, 2);
 };
 let buf = "";
 process.stdin.on("data", (d) => {
@@ -1000,5 +1010,23 @@ done
 #     deleted, which is a different repository from the one this guards.
 [[ "$QUALIFIED" -ge 9 ]] || fail "only $QUALIFIED qualified spec citations survive in the installed artifacts, want 9 — the absence assertion above would pass on a tree with the pointers simply deleted (kogaki#639)"
 echo "ok: no installed artifact cites a Home-only spec path, and $QUALIFIED qualified citations stand across ${#INSTALLED[@]} artifacts (kogaki#639)"
+
+# 12. THE INSTALL'S ROUND-TRIP LINE RENDERS THE PIN IT REACHED (kogaki#638).
+#     That line is the install's one piece of evidence that the seam is real
+#     rather than stubbed, and the pin is the only falsifiable part of it. The
+#     old extraction required `"pin":"…"` with no space, which the gateway
+#     never emits, so every install printed `round-trip: OK ` — the same line
+#     whatever pin it reached, or none.
+#
+#     NO CASE REACHED THIS BRANCH BEFORE: every install above runs without
+#     `--gateway`, so the round-trip is skipped and the defect had no cover at
+#     all. This case installs against the stub so the branch actually runs.
+mkdir -p "$TMP/rt"
+RT=$("$KIT_DIR/install.sh" --repo "$TMP/rt" --consumer kit-test --gateway "$TMP/stub-gw.js" 2>&1)
+printf '%s\n' "$RT" | grep -q 'round-trip: OK' \
+  || fail "the round-trip check did not reach a served answer against the stub: $RT"
+printf '%s\n' "$RT" | grep -q "round-trip: OK ($PIN_1111)" \
+  || fail "the round-trip line does not carry the pin it reached (kogaki#638) — want 'round-trip: OK ($PIN_1111)', got: $(printf '%s\n' "$RT" | grep 'round-trip' || echo '<no round-trip line>')"
+echo "ok: the install's round-trip line renders the pin it reached (kogaki#638)"
 
 echo "ALL PASS"

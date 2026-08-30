@@ -100,7 +100,15 @@ function served(consumer, tool, args, gateway) {
   const text = (r.stdout || "").trim();
   if (!text) return { fatal: `empty response from ${tool}` };
   try {
-    return { data: JSON.parse(text.split("\n").find((l) => l.startsWith("{")) || text) };
+    // PARSE FROM THE FIRST BRACE TO THE END, never one line (kogaki#638). The
+    // gateway PRETTY-PRINTS, so its first line starting with `{` is the bare
+    // `{` — the old form handed that alone to JSON.parse, which threw, so
+    // EVERY element degraded to a soft absence and the digest recorded
+    // `pin: unknown` against a live seam. Slicing keeps the property the old
+    // form was reaching for (tolerate a log line before the body) while
+    // admitting a multi-line body, which is what the transport emits.
+    const brace = text.indexOf("{");
+    return { data: JSON.parse(brace >= 0 ? text.slice(brace) : text) };
   } catch {
     // A non-JSON body is not a degradation — the seam answered, unreadably.
     // Reported as a per-element absence so one bad tool cannot empty the digest.
