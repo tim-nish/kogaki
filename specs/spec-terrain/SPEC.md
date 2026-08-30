@@ -2201,7 +2201,7 @@ covered by the totality rather than by having been remembered.
   order, that a wait belongs where it sits, and that a judgment point is placed where
   judgment is actually owed are judgments and route to the review lane. What is
   mechanically checkable is conformance to the table, never the table's fitness.
-- **§15.7's derived owner-surface coverage figure is not executed.** Its **rule** is
+- **§14.1's derived owner-surface coverage figure is not executed.** Its **rule** is
   executable over `owner_surface_coverage` and **no registered member executes it**, so
   `at_this_version` stays a convenience for a human reader carrying no authority, exactly
   as that field says of itself. What *is* executed: the table's `counted_baseline` against

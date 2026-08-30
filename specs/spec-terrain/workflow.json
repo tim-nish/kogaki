@@ -7,15 +7,15 @@
     "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (§15.5) and renders under the grammar_surface THIS STATE declares, never one bound to the artifact path.",
     "judgment": "Reaches a declared judgment point. The judgment arrives as a typed record; the executor validates and never composes it (SPEC §15.6).",
     "wait": "The executor stops. Nothing further runs until the owner speaks and the session re-enters (SPEC §15.2, §15.4).",
-    "terminal": "The run is over. Runs nothing, writes nothing, and the executor stops without awaiting an owner. Distinct from `compute` because a generic interpreter holds no state list of its own (SPEC §15.1) and must read the end from the table rather than from position (PR #626 round 1, finding 4)."
+    "terminal": "The run is over. Runs nothing, writes nothing, and the executor stops without awaiting an owner. Distinct from `compute` because a generic interpreter holds no state list of its own (SPEC §15.1) and must read the end from the table rather than from position."
   },
   "field_semantics": {
-    "renders_gate_declaration": "Required on every state. true only where the state renders a gate declaration for AskUserQuestion. v6, kogaki#625: true is what SCHEDULES the executor's composition of that state's declaration. It remains a statement about the table and never about the runtime asking — §6.3's question allowlist for the post-tag window is empty and stays empty; the executor writes a file and stops.",
+    "renders_gate_declaration": "Required on every state. `true` only where the state renders a gate declaration for AskUserQuestion, and `true` is what SCHEDULES the executor's composition of that state's declaration. It is a statement about the table and never about the runtime asking — §6.3's question allowlist for the post-tag window is empty and stays empty; the executor writes a file and stops.",
     "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states.",
     "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
-    "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. This is the per-state binding v3 introduces.",
-    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the gates/registry.json gate the state declares. PR #668 round 1: kogaki#666 introduced this key on CLAIM_REOFFER alone, leaving a reader unable to tell whether TRIM_RATIFICATION and STRAND_SELECTION have no gate id or the key was forgotten — which is this block's own rule (a property the table exists to carry may not be read off a missing key) failing on the key that was just added. Declared and applied to all three in the same act. v6, kogaki#625: this key is now READ rather than only declared — the executor resolves it to compose the declaration the wait owes. A state whose `renders_gate_declaration` is true and that this runtime binds an option composer to must name it; one with no composer runs and records its declaration as owed-and-unwritten.",
-    "owner_reads": "Declared on a WAIT whose owner must READ something before answering. Three keys: `invocation`, the command as the owner types it, with `<survey record>` the one placeholder the executor substitutes; `why`, the ground; and `also`, an optional second invocation the same channel carries. The executor RENDERS it at the stop and neither runs it nor relays its output — rendering the command is the hand-over, and running it would put the output back on the channel the arm exists to avoid. Data rather than driver code: a table that moves the hand-over, or adds one to a second wait, needs no runtime change (kogaki#682 v9, #625 acceptance item 6)."
+    "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. The binding is per state, never per artifact path (SPEC §15.5).",
+    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the gates/registry.json gate the state declares. A property this table exists to carry may not be read off a missing key, so the key is present on all three gate states or on none.",
+    "owner_reads": "Declared on a WAIT whose owner must READ something before answering. Three keys: `invocation`, the command as the owner types it, with `<survey record>` the one placeholder the executor substitutes; `why`, the ground; and `also`, an optional second invocation the same channel carries. The executor RENDERS it at the stop and neither runs it nor relays its output — rendering the command is the hand-over, and running it would put the output back on the channel the arm exists to avoid. Data rather than driver code: a table that moves the hand-over, or adds one to a second wait, needs no runtime change."
   },
   "states": [
     {
@@ -37,7 +37,7 @@
       "governing": "§6.3",
       "owner_reads": {
         "invocation": "node terrain/terrain.mjs tags --survey <survey record>",
-        "why": "the owner chooses a tag from this listing, and a session's tool output is displayed to the session rather than reliably to the owner — so the act is the owner's to run (§6.0 v29, kogaki#682)",
+        "why": "the owner chooses a tag from this listing, and a session's tool output is displayed to the session rather than reliably to the owner — so the act is the owner's to run (§6.0)",
         "also": "node terrain/terrain.mjs tag-rows --survey <survey record> --tag <T> — the per-tag row view, run when the owner asks to browse rows (§6.3's fork half). Never scheduled."
       }
     },
@@ -68,7 +68,7 @@
       "writes": null,
       "conditional": "entered ONLY when a claim validated at J1_claims is pinned to a PROPER SUBSET of the member set its composition_pin served for that group. A full-group claim reaches no gate: §7 makes the full-group rendering per-invocation and not an adopted claim, so there is nothing to re-offer.",
       "renders_gate_declaration": true,
-      "governing": "§7, §7 v4 (the origin travels as an argument), §7 v5.1 (a derived origin member set announces itself), §15.4",
+      "governing": "§7, §7 (the origin travels as an argument), §7.1 (a derived origin member set announces itself), §15.4",
       "gate_id": "terrain-claim-reoffer"
     },
     {
@@ -76,7 +76,7 @@
       "kind": "judgment",
       "judgment_point": "semantic subdivision",
       "input_shape": "typed per-group record, judged: true, one entry per composed group, carrying the judge pin; each SubGroup carries a `coherence` label from the closed set tight | related | forced and a `coherence_why` sentence",
-      "refusal": "a missing group entry, a bare array, or an absent judge pin is refused; a SubGroup whose `coherence` is outside the closed set, or that carries no `coherence_why`, is refused — the label is the judge's and is never defaulted here; and a judged-EMPTY outcome for a group at or above the split threshold is refused, because at that size WHETHER to split is the engine's decision rather than the judge's (§8 v30, kogaki#683)",
+      "refusal": "a missing group entry, a bare array, or an absent judge pin is refused; a SubGroup whose `coherence` is outside the closed set, or that carries no `coherence_why`, is refused — the label is the judge's and is never defaulted here; and a judged-EMPTY outcome for a group at or above the split threshold is refused, because at that size WHETHER to split is the engine's decision rather than the judge's (§8)",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
@@ -99,7 +99,7 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§6.3 v7"
+      "governing": "§6.3"
     },
     {
       "id": "neighborhood_input",
@@ -128,7 +128,7 @@
       "writes": "full_report",
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§12, §12.1, §12.2 v12, §13",
+      "governing": "§12, §12.1, §12.2, §13",
       "grammar_surface": "full_report in report-format.json"
     },
     {
@@ -171,9 +171,8 @@
   "owner_artifacts": {
     "screen": {
       "path": "reports/Screen.md",
-      "writer": "one private screen renderer, called by every state whose writes field names it",
-      "rule": "overwritten on every render; ONE writer (SPEC §15.5, superseding §14.4.1's two-writer class)",
-      "grammar_surface_is_per_state": "REMOVED FROM THIS OBJECT in v3, and that removal is the repair rather than a tidy. Through v2 this artifact declared `grammar_surface: cotag_screen in report-format.json` — ONE grammar for an artifact THREE states write. cotag_screen's non_member_fallback is REFUSE and its line_classes declare no tag row, no candidate row and no Gloss headline, so a tag_screen render either refused every line it emitted — killing the run before TAG_SELECTION, the flow's first wait — or bypassed the guard, reinstating the unguarded second write §15.5 exists to remove. ONE WRITER and ONE GRAMMAR are different claims: the writer is one private function (§15.5, unchanged), and it selects the grammar the CALLING STATE declares. Each writing state now carries its own `grammar_surface`."
+      "writer": "one private screen renderer, called by the writing state the table binds it to",
+      "rule": "overwritten on every render; ONE writer, private to the executor (SPEC §15.5)"
     },
     "full_report": {
       "path": "reports/FullReport.md",
@@ -185,24 +184,24 @@
   "owner_surface_coverage": {
     "rule": "DENOMINATOR = the states in this file whose `writes` is non-null (every surviving owner surface, since §15.5 makes a writing state the only thing that may write one). NUMERATOR = those of them whose `grammar_surface` names a surface present in report-format.json's `surfaces`. A removed subcommand contributes to NEITHER term: it is not a surviving surface, so removal moves the denominator and never the numerator.",
     "at_this_version": "2 of 2",
-    "recomputed_never_transcribed": "`at_this_version` is a convenience for a human reader and carries no authority. On any disagreement the rule wins and the field is repaired — the precedence report-format.json's own reader_notes already set for figures beside their rules. AND IT WENT STALE EXACTLY THAT WAY (PR #704 round 1, finding 1). v9 halved the denominator — `tag_screen` and `tag_row_view` left the table, so the states whose `writes` is non-null are `cotag_screen` and `full_report` — and this field went on reading \"4 of 4\" through the same edit. No check reads this object, so CI could not catch it; the `_note` above names this class in its own words and the field reproduced it one version later. The figure is repaired to the rule's own output rather than the rule to the figure."
+    "recomputed_never_transcribed": "`at_this_version` is a convenience for a human reader and carries no authority. On any disagreement the rule above wins and the field is repaired — never the rule to the figure. No registered check executes the rule (SPEC §15.8)."
   },
   "bound_to_a_state": {
     "survey": "the survey state",
-    "cotags": "the cotag_screen state. CALLABLE for composition, REFUSED at the owner artifact: a standalone invocation whose rendering destination resolves to the repository's `reports/` fails rather than writing Screen.md (§15.5 v27, kogaki#681). Redirect it and the composition proceeds — a rendering whose lifetime is the run is not an owner artifact (§2.5.1), which is why the check suite's throwaway-directory runs are unaffected rather than exempted.",
+    "cotags": "the cotag_screen state. CALLABLE for composition, REFUSED at the owner artifact: a standalone invocation whose rendering destination resolves to the repository's `reports/` fails rather than writing Screen.md (§15.5). Redirect it and the composition proceeds — a rendering whose lifetime is the run is not an owner artifact (specs/SPEC.md §2.5.1).",
     "compose-input": "the compose_input state",
-    "report": "the full_report state. Same write authority as `cotags` above: callable for composition, and refused where the destination resolves to the repository's `reports/`, so FullReport.md is written only from the writing state the table binds the renderer to (§15.5 v27, kogaki#681)."
+    "report": "the full_report state. Same write authority as `cotags`: callable for composition, and refused where the destination resolves to the repository's `reports/`, so FullReport.md is written only from the writing state the table binds the renderer to (§15.5)."
   },
   "removed_entry_points": {
-    "claim": "becomes J1_claims. The claims record is composed OUTSIDE the runtime and arrives as a file carrying its `composition_pin` (§15.6); the state validates it and refuses claims naming material outside the bounded read. kogaki#666 sharpens v3's bare \"becomes part of J1_claims\": the composition does not move into the state, only the validation and the record does.",
-    "adopt": "becomes CLAIM_REOFFER's captured answer, applied on resume. v3 named this destination as \"J1_claims' gate re-offer path\" while no state in this array rendered a gate — kogaki#666 supplies the state the pointer already assumed.",
-    "subdivide": "becomes J2_subdivision, INCLUDING the composition the standalone command performed — subgroup placement from the judge's classification, the per-subgroup instruments, and the SUBDIVISION_COVER_INCOMPLETE refusal. kogaki#666: §2.1 makes completeness a cover COUNTED IN PLACEMENTS, which is a runtime refusal; leaving it to the outside composer would move a ratified refusal out of the runtime, so the state accepts the classification record and composes under it. kogaki#165 is discharged by there being ONE path rather than two — the standalone path raised ReferenceError on every invocation while every exercised path masked it.",
-    "act": "becomes TRIM_RATIFICATION's proposal record, composed by the executor when that wait is entered (`composeTrimProposal`). REMOVED IN v3 table-side; the dispatcher case became a refusing stub in v6. While it stood, a session could mint a trim proposal from outside the executor with no run record, which is precisely what §15.5 claims is unwritable — and from v6 that claim is true.",
-    "gate": "becomes the declaration the executor composes at any wait declaring `renders_gate_declaration: true`, through the option composer bound to that state. REMOVED IN v3 table-side, stubbed in v6, same ground as `act`. Composing is engine work; RENDERING the declaration through AskUserQuestion is the judgment step and stays the session's.",
-    "capture": "becomes the answer the executor records at the wait that declared the gate. REMOVED IN v3 table-side, stubbed in v6, same ground as `act`. The refusal the retired command carried — an answer to an option that was never offered — is unchanged, now read against the declaration THIS run wrote rather than one a caller named."
+    "claim": "becomes J1_claims. The claims record is composed OUTSIDE the runtime and arrives as a file carrying its `composition_pin` (§15.6); the state validates it and refuses claims naming material outside the bounded read. The composition does not move into the state — only the validation does.",
+    "adopt": "becomes CLAIM_REOFFER's captured answer, applied on resume (§15.6.1).",
+    "subdivide": "becomes J2_subdivision, INCLUDING the composition the standalone command performed — subgroup placement from the judge's classification, the per-subgroup instruments, and the SUBDIVISION_COVER_INCOMPLETE refusal. §2.1 makes completeness a cover COUNTED IN PLACEMENTS, which is a runtime refusal; leaving it to the outside composer would move a ratified refusal out of the runtime, so the state accepts the classification record and composes under it (§15.6.2).",
+    "act": "becomes TRIM_RATIFICATION's proposal record, composed by the executor when that wait is entered (`composeTrimProposal`).",
+    "gate": "becomes the declaration the executor composes at any wait declaring `renders_gate_declaration: true`, through the option composer bound to that state.",
+    "capture": "becomes the answer the executor records at the wait that declared the gate."
   },
   "retired_entry_points": {
-    "neighborhood": "retired at kogaki#472/#473 (SPEC §13.2 v20); the section rides every `report` pull. The case survives to fail with that pointer and emits no owner surface."
+    "neighborhood": "retired (SPEC §13.2); the section rides every `report` pull. The case survives to fail with that pointer and emits no owner surface."
   },
   "non_flow_entry_points": {
     "self-test": "seam-free identity-cite fixture pass; emits no owner surface, carries no sequencing authority",

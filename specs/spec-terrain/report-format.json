@@ -12,17 +12,17 @@
     "LessonDisplayID": {
       "shape": "^L[0-9]+$",
       "means": "a member's owner-facing display id, assigned once in the survey record (§14.3)",
-      "producer": "terrain/terrain.mjs cmdSurvey — minted ONCE per candidate in the survey record (§14.3), resolved at render time by displayIdOf(); story 1.53, kogaki#345"
+      "producer": "terrain/terrain.mjs cmdSurvey — minted ONCE per candidate in the survey record (§14.3), resolved at render time by displayIdOf()"
     },
     "GroupID": {
       "shape": "^G[0-9]+$",
       "means": "a Group's owner-facing display id, assigned once per composed screen in co-tag sort order (§6.1)",
-      "producer": "terrain/terrain.mjs cmdCotags — minted over the composed group list; kogaki#317 (story 1.56)"
+      "producer": "terrain/terrain.mjs cmdCotags — minted over the composed group list"
     },
     "SubGroupID": {
       "shape": "^G[0-9]+-[0-9]+$",
       "means": "a SubGroup's display id, prefixed by its parent GroupID (§6.2)",
-      "producer": "terrain/terrain.mjs cmdCotags / cmdSubdivide; kogaki#317 (story 1.56)"
+      "producer": "terrain/terrain.mjs cmdCotags / cmdSubdivide"
     },
     "LessonCount": {
       "shape": "^[0-9]+ Lessons?$",
@@ -43,13 +43,13 @@
     },
     "SuggestionID": {
       "shape": "^N[0-9]+$",
-      "means": "a provenance-neighborhood suggestion's owner-facing display id, minted over the neighborhood's own ordered output (§14.6, filled by owner selection on kogaki#300)",
+      "means": "a provenance-neighborhood suggestion's owner-facing display id, minted over the neighborhood's own ordered output (§14.6)",
       "producer": "terrain/terrain.mjs NEIGHBOR_ID (:2828), minted over the sorted output at :2915",
       "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ (§14.6). §14.3 assigns a display_id ONCE, in the survey record; a suggestion is by construction NOT in that record, so nothing there assigns it one. The two spaces coexist and no owner surface renders both for one element. A taken suggestion is assigned an L<n> by §14.3's existing assignor on the way in, and its N<n> does not follow it."
     },
     "NeighborhoodLevel": {
       "shape": "^(?:core|useful|background)$",
-      "means": "one of the three harness-fixed recommendation levels a judgment may carry (§13.4, kogaki#686). The set is closed and extending it is the owner's act.",
+      "means": "one of the three harness-fixed recommendation levels a judgment may carry (§13.4). The set is closed and extending it is the owner's act.",
       "producer": "terrain/terrain.mjs NEIGHBORHOOD_LEVELS"
     }
   },
@@ -200,7 +200,7 @@
         },
         {
           "id": "suppressed_split_disclosure",
-          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `forced` — grouped only to satisfy the requirement, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). …"
+          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `forced` — grouped only to satisfy the requirement, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2). …"
         },
         {
           "id": "abnormal_display_id",
@@ -235,7 +235,7 @@
     "full_report": {
       "emitter": "renderReportMarkdown, written by cmdReport (terrain/terrain.mjs)",
       "medium": "Markdown, the owner rendering of §12.2 v11",
-      "governing_prose": "specs/spec-terrain/SPEC.md §12, §12.1, §12.2 (v11), and §13 for the provenance-neighborhood section (v6, kogaki#472)",
+      "governing_prose": "specs/spec-terrain/SPEC.md §12, §12.1, §12.2, and §13 for the provenance-neighborhood section",
       "stream": "a written file under reports/ in the working tree (§12.2 v11), never stdout",
       "non_member_fallback": "REFUSE",
       "line_classes": [
@@ -530,7 +530,7 @@
   },
   "deferred_slot_full_report_allowlist": {
     "slot": "full-report-body-classes-constrained",
-    "named_by": "kogaki#472, at the /ship-cycle 472 sitting 2026-08-16",
+    "named_by": "kogaki#472",
     "what_is_owed": "A decision on whether full_report's three bare-placeholder body classes (`group_claim_body`, `subgroup_claim_body`, `member_gloss_body`) are constrained, so that `line_class_allowlist` becomes live on this surface -- or whether a SECTIONED allowlist is admitted instead, refusing only lines under a heading whose section declares a closed class set. The second shape would make the rule live for the neighborhood section without touching the claim bodies at all."
   }
 }
