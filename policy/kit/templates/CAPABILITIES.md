@@ -43,7 +43,7 @@ block after the tool results — one `--args` per framing, one `query:` line per
 framing actually run. `--outcome` has no default: the token is a reading rather
 than an observation and **the operator supplies it** — the
 `consult-outcome-token-assignment` fill (owner decision 2026-08-06,
-specs/SPEC.md §4) — so both tools refuse (exit 2) rather than guessing, and
+kogaki's specs/SPEC.md §4) — so both tools refuse (exit 2) rather than guessing, and
 refuse a token contradicting an observed fact rather than repairing it.
 **`--question` is required in receipt mode, one per `--args` and in the same
 order** (kogaki#160 finding 4): the `query:` line is the question verbatim, and
