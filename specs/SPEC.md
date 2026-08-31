@@ -1057,9 +1057,10 @@ invariant: Gukan guarantees Unit schema, never data schema).
      unknown key — **read from the engine on 2026-08-31 and recorded as a read
      rather than as a pointer**, because the engine is machine-local and no
      line number in it resolves from this tree, so a citation here would be an
-     inference wearing a citation's clothes in the sense §"THE BOUND HAS ONE
-     DEFINITION" already uses. So the file itself cannot carry this record; it
-     lands here, at the clause that already governs `review_rounds_max`.
+     inference wearing a citation's clothes — the sense §4's clause withdrawing
+     every `act` typing to `upstream` already uses, of this same engine. So the
+     file itself cannot carry this record; it lands here, at the clause that
+     already governs `review_rounds_max`.
 
      **The site is a TRACKED file, and that is load-bearing rather than
      housekeeping** (owner selection 2026-08-09). kogaki#305's remedy design
@@ -4067,7 +4068,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
   keys stays valid, while the outcome-anchored rules above say a
   negative-outcome receipt owes facet coverage and a re-framed one owes a
   `tactic:`. Receipts sitting in exactly that gap are **valid**, and two in-tree
-  specimens show the shape: `specs/SPEC.md:1617` carries
+  specimens show the shape: `specs/SPEC.md:1618` carries
   `outcome: covered-after-reframing` with two `query:` lines and no `tactic:`,
   and `policy/consultation-map.md:847` records an `uncovered-after-1-framings`
   declaration with no facet lines.
