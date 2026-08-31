@@ -74,7 +74,7 @@ policy/shape.md
 
 # SPEC.md §4's no-owner-override clause grounds the review rounds-bound on this
 # site being TRACKED — "the same edit to a machine-local file would leave
-# nothing to review" (specs/SPEC.md:1183-1188) — and the Review lane's
+# nothing to review" (specs/SPEC.md:1205-1210) — and the Review lane's
 # mechanism declaration landed here as a tracked declaration (PR #617). A
 # machine-local copy would make the bound unraisable-by-diff, which is the one
 # property the clause exists to guarantee.
