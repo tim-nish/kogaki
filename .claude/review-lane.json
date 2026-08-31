@@ -2,7 +2,7 @@
   "review_rounds_max": 2,
   "review": {
     "mechanisms": [
-      "bash -c 'for c in checks/check-*.sh; do bash \"$c\" || exit 1; done'"
+      "bash tools/run-registered-checks.sh"
     ],
     "trigger": true
   }

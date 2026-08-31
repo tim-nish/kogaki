@@ -201,4 +201,54 @@ else
   say "round-trip: $OUT"
   say "(degraded install is a valid install — the seam is an enhancer)"
 fi
+# 7. The seam checks the kit vendors, and the registry entries they owe.
+#
+# THE KIT DOES NOT COPY THESE INTO THE CONSUMER'S `checks/` (kogaki#724). A
+# copy under a path the consumer tracks is an undeclared duplicate of a
+# centrally-managed artifact, and it drifts silently the moment the kit moves;
+# the registry NAMES the kit's own file instead, so there is one copy of each
+# check and nothing that can disagree with it.
+#
+# WHICH IS WHY THIS BLOCK EXISTS RATHER THAN BEING LEFT IMPLICIT. A check the
+# kit vendors and the consumer never registers is installed on ZERO occasions
+# — present, correct, and executed by nothing — and the served position is
+# that this is strictly WORSE than an absent check, because the file's
+# existence is what stops anyone asking whether it runs. So the installer
+# ENUMERATES what it vendored and states the entry each one owes, and the
+# kit's install test asserts this list against the vendored directory, so a
+# check added to the kit and not announced here fails rather than passing.
+say "--- seam checks ---"
+if [ -d "$KIT_DIR/checks" ]; then
+  COUNT=0
+  for CHK in "$KIT_DIR/checks"/check-*.sh; do
+    [ -e "$CHK" ] || continue
+    COUNT=$((COUNT + 1))
+    say "vendored: policy/kit/checks/$(basename "$CHK")"
+  done
+  if [ "$COUNT" -gt 0 ]; then
+    say "$COUNT seam check(s) vendored, and NOT copied into $REPO/checks/."
+    say "They run only once this repository's check registry names them, by"
+    say "the path above — a vendored check nothing registers never executes."
+    # NAMING WHAT IS OWED IS NOT DELIVERING IT. Telling a consumer to author
+    # four admission records by hand is the advisory form the served test
+    # refuses: a rule needing someone to remember or supervise it is not in
+    # force, and its apparent coverage is an enumeration of the places
+    # somebody happened to act. So the entries ship WITH the kit, ready to
+    # merge, and their agreement with the consumer's registry is checked
+    # rather than hoped for.
+    if [ -f "$KIT_DIR/registry-entries.json" ]; then
+      say "the entries they owe ship with the kit, ready to merge into"
+      say "  <repo>/checks/registry.json  <-  policy/kit/registry-entries.json"
+      say "the kit is the SOURCE for them: on divergence the registry"
+      say "conformance check fails naming the id, so the copy cannot drift."
+    else
+      say "NO registry-entries.json ships with this kit — the entries these"
+      say "checks owe must be authored by hand, which is the advisory form"
+      say "this kit otherwise refuses."
+    fi
+  fi
+else
+  say "no seam checks vendored with this kit"
+fi
+
 say "install complete for consumer '$CONSUMER' at $REPO"
