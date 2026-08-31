@@ -2988,7 +2988,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
       **AND THAT GATE'S LAYER IS NOT IN THIS REPOSITORY, WHICH THE SAME SERVED
       LINE ALREADY GOVERNS.** The merge boundary this pipeline actually passes
       through is actor-level — `~/.claude/hooks/lint-pr-merge.py`, registered
-      by `story-sync install-hooks`, both of which live in
+      by `issue-sync install-hooks`, both of which live in
       `tim-nish/claude-toolkit` and neither of which this repository can
       change. The quoted line's final clause is the ruling for exactly that
       case: **the carrier goes at the last boundary you control.** So kogaki
@@ -3603,7 +3603,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
       **WHY A TOKEN AND NOT A BETTER PARSE, which is measured rather than
       argued.** A reader for this relation already exists —
-      `_successor_from_closing_comment` in `~/.claude/tools/story-sync`, used by
+      `_successor_from_closing_comment` in `~/.claude/tools/issue-sync`, used by
       `register-append` to refuse an append to a closed register — and it
       scrapes the closing comment for `successor|superseded by … #N`. Run
       against **#269 it returns #269**: it matches an argumentative sentence
