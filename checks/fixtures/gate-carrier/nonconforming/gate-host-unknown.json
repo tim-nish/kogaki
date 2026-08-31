@@ -1,6 +1,6 @@
 {
   "id": "terrain-direction",
-  "raised_by": "specs/spec-terrain/SPEC.md:76-86 — the owner's chosen direction",
+  "raised_by": "`specs/spec-terrain/SPEC.md::becomes a **proposal** exactly when` — the owner's chosen direction",
   "host": "some-other-agent-ui",
   "medium": "selector",
   "question": "Which direction should the brief take?",
