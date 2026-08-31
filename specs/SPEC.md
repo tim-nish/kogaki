@@ -5259,3 +5259,93 @@ in consults, gate declarations and issue receipts — is the **hub's** boundary
 field and is untouched. It changes only if Gukan rules on its own carrier
 question. This section governs this repository's internal cross-artifact
 pointers only.
+
+## 21. The observation register is per-item records, never an issue (kogaki#624)
+
+**Owner ruling 2026-08-23.** The review lane's observation register — typed
+observations with a lifecycle and a named reading gate — lives in
+`reviews/register/`, one file per observation. `kogaki#246`, the issue that
+carried it, is eliminated by a one-time migration and closed. A **periodic
+issue→file drain is refused**: a permanent drain preserves the wrong primary.
+
+The ground is served and quoted rather than paraphrased:
+
+> "Lifecycle state lives in PER-ITEM TYPED RECORDS in the repository … under
+> four refinements: one record per item rather than a shared ledger, the
+> transition set enumerated in governing text with FORM validated mechanically
+> and TRUTH left human, the record's own stable ID as identity with commit shas
+> as FIELDS, and every summary view DERIVED and never authored."
+> — `product-lab@c2f4650f6a3f4fa39c562c2538ddbd01c68dd7b0 topics/knowledge-architecture.md:53`
+
+### The transition set, enumerated here because that is what makes it a set
+
+    pending  →  promoted    the observation became work: an issue, a spec
+                            change, or a check. The record names what it became.
+    pending  →  dismissed   the observation was judged not to warrant work.
+                            The record says why.
+
+`pending` is the birth state. **There are no other states and no other
+transitions**, and both terminal states are absorbing: a promoted or dismissed
+record is not reopened, it is superseded by a new record naming it. A reader
+meeting a `status` outside this set has met a malformed record, which the form
+check refuses.
+
+**FORM is mechanical and TRUTH is human**, and the split is the whole design.
+`checks/check-observation-records.sh` validates that a record HAS a status in
+the set, a well-formed issued id matching its filename, and unique identity
+across the directory. Whether `promoted` is the *right* disposition for a given
+observation is a judgment, is never gated, and is never inferred from prose.
+
+### Identity is ISSUED, never borrowed
+
+Each record's `id` is a kogaki-issued `reg-NNNN`, assigned once and never
+reused. The originating GitHub comment is kept as the **field**
+`source_comment`, and it is deliberately not the identity:
+
+> "A proof that binds a record to a subject can only be as strong as the
+> namespace the subject's identity comes from, so borrowing an identity from a
+> foreign namespace (a tracker's issue ID, the filesystem's path, version
+> control's content hash) fails wherever the record travels outside that
+> namespace's reach; identity for such a binding is ISSUED by the guaranteeing
+> party rather than observed from context."
+> — `product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d LESSONS.md:40`
+
+Commit shas are fields for the same reason: `observed_at_pr` and
+`observed_at_head` record where the observation was made, and neither
+identifies the record.
+
+### Every migrated row is `pending`, and that is a reading rather than a default
+
+The 185 rows migrated from `kogaki#246` on 2026-08-31 carry `status: pending`
+**without exception**, because **no row carried a machine-readable
+disposition**: an anchored disposition line appears in zero of the 185. Fifty-three
+mention the word "disposition" in prose, which is discussion *about* dispositions
+and not a recorded one.
+
+Reading a disposition out of that prose is exactly the judgment this section
+assigns to a human, so it was not done. The alternative — marking rows
+`promoted` or `dismissed` on a machine's reading of their text — would have
+produced a register whose dispositions look recorded and were inferred, which
+is worse than one that is honestly all-pending.
+
+### The summary view is derived
+
+Any roll-up of this directory is regenerated from the records and never
+authored beside them. An authored summary is a second store that drifts, which
+is the defect the migration exists to end.
+
+### What this repository does NOT own
+
+The writer `issue-sync register-append` appends to an **issue** and lives in
+`~/.claude/tools/`, outside this repository. Re-pointing it to emit records is
+a claude-toolkit act and is not this section's to make. What holds here without
+it: the tool **refuses an append to a closed register**, so with `kogaki#246`
+closed no further observation can land in the old carrier — the straddle is
+closed from this side even though the writer is not.
+
+**Stated rather than left implicit**, because the obligation has two halves and
+only one has a committable carrier here:
+`consulted: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/claude-code-ops.md:82`
+— "when an obligation has two halves and only one has a committable carrier,
+the issue closes on that half, because the closable half is the only one
+producing evidence of closure."
