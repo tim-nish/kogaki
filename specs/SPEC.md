@@ -4063,7 +4063,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
   keys stays valid, while the outcome-anchored rules above say a
   negative-outcome receipt owes facet coverage and a re-framed one owes a
   `tactic:`. Receipts sitting in exactly that gap are **valid**, and two in-tree
-  specimens show the shape: `specs/SPEC.md:1591` carries
+  specimens show the shape: `specs/SPEC.md:1613` carries
   `outcome: covered-after-reframing` with two `query:` lines and no `tactic:`,
   and `policy/consultation-map.md:847` records an `uncovered-after-1-framings`
   declaration with no facet lines.
