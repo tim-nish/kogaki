@@ -2108,10 +2108,21 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **THE REGISTER IS AN ADMISSIBLE CARRIER, so this clause does not mint one
      issue per nit.** `carried: register` names the review lane's register,
-     **kogaki#246** — the carrier kogaki#191 split out; kogaki#13 is the lane's
-     *deliverable* record and is not its register. This clause **names** that
-     carrier and asserts nothing about its state; the register's own semantics
-     and lifecycle are resolved at kogaki#246 rather than restated here. It is
+     which is **`reviews/register/`** — the per-item record directory §21
+     governs. **§21 is this carrier's definition and this clause defers to it**;
+     the register's own semantics, lifecycle and transition set are resolved
+     there rather than restated here, and where the two could be read as
+     disagreeing §21 wins. A precedence rule is stated rather than left to a
+     reader because two sites naming one carrier with no precedence is the
+     conformance-copy defect this document names elsewhere in its own words.
+
+     **THE CARRIER WAS `kogaki#246` UNTIL 2026-08-31** (kogaki#624), an issue
+     that declared itself a ledger; the owner ruled it eliminated by a one-time
+     migration. It is named here in the past tense on purpose: a reader meeting
+     a `carried: register` disposition written before that date is reading a
+     pointer into the old carrier, and needs to know the pointer moved rather
+     than to find this clause silent about where it went. kogaki#13 is the
+     lane's *deliverable* record and is not its register, then or now. It is
      the right home for an **accretion-class**
      finding — a mechanical observation whose value is the count rather than
      the instance, the class the lane's `out-of-dimension:` line already routes
@@ -5265,8 +5276,16 @@ pointers only.
 **Owner ruling 2026-08-23.** The review lane's observation register — typed
 observations with a lifecycle and a named reading gate — lives in
 `reviews/register/`, one file per observation. `kogaki#246`, the issue that
-carried it, is eliminated by a one-time migration and closed. A **periodic
-issue→file drain is refused**: a permanent drain preserves the wrong primary.
+carried it, is eliminated by a one-time migration. A **periodic issue→file
+drain is refused**: a permanent drain preserves the wrong primary.
+
+**#246's CLOSE IS OWED AND IS NOT ASSERTED HERE.** The migration lands the
+records; closing the old carrier is a tracker act performed after this text
+merges, so until it happens this section describes a directory that exists and
+an issue that is still open. Governing text that narrated the close in the
+perfect tense would assert a guarantee the tree does not have — and the
+guarantee below, that no observation can reach the old carrier, is exactly the
+one that depends on it.
 
 The ground is served and quoted rather than paraphrased:
 
@@ -5339,9 +5358,12 @@ is the defect the migration exists to end.
 The writer `issue-sync register-append` appends to an **issue** and lives in
 `~/.claude/tools/`, outside this repository. Re-pointing it to emit records is
 a claude-toolkit act and is not this section's to make. What holds here without
-it: the tool **refuses an append to a closed register**, so with `kogaki#246`
-closed no further observation can land in the old carrier — the straddle is
-closed from this side even though the writer is not.
+it: the tool **refuses an append to a closed register** — so **once**
+`kogaki#246` is closed, no further observation can land in the old carrier and
+the straddle is shut from this side even though the writer is not. **That
+guarantee is conditional on the close, which is owed rather than done** (see
+above); while it is outstanding both carriers accept writes, and this section
+says so rather than describing the state it expects to reach.
 
 **Stated rather than left implicit**, because the obligation has two halves and
 only one has a committable carrier here:

@@ -29,7 +29,14 @@ ID_RE = re.compile(r'^reg-\d{4}$')
 
 def transition_set(spec_text):
     """The states §21 enumerates, read from the spec rather than copied here."""
-    m = re.search(r'^## 21\..*?^### The transition set.*?\n(.*?)^`pending` is the birth state',
+    # TERMINATED ON A STRUCTURAL MARKER, NEVER ON A SENTENCE. An earlier form
+    # ended the match at the literal prose "`pending` is the birth state",
+    # which bound the whole suite to one sentence's wording: rewording it in an
+    # otherwise valid §21 would have turned every run red with "transition set
+    # is unreadable". The block ends at the first blank line after the
+    # indented rows, or at the next heading — both are structure the block
+    # itself has, rather than prose someone may edit.
+    m = re.search(r'^## 21\..*?^### The transition set[^\n]*\n+((?:[ \t]+\S[^\n]*\n|\s*\n)+?)(?=\S|^###)',
                   spec_text, re.S | re.M)
     if not m:
         return None
