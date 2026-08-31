@@ -646,7 +646,7 @@ else
   # named, which is the reporting defect this check refuses elsewhere.
   #
   # `refs` IS IN THE LIST BECAUSE TWO OF THIS REPOSITORY'S CONTROLS DISAGREED
-  # WITHOUT IT (kogaki#69). `story-sync lint-commit-msg` DENIES a close keyword
+  # WITHOUT IT (kogaki#69). `issue-sync lint-commit-msg` DENIES a close keyword
   # not backed by an approved-closes receipt, so authors write `Refs kogaki#N`
   # — measured over the 25 commits before this one, `Refs` appears 13 times
   # against `Closes` 4 and `License:` 6, making it the MOST COMMON licensing

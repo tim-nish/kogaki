@@ -8,7 +8,7 @@ included (kogaki#9) — it separates into its own repository when a second
 consumer installs it.
 
 **Issue-first.** Implementation work begins only after its Issue exists.
-Issues are filed through the typed path (`story-sync file-issue`), carry
+Issues are filed through the typed path (`issue-sync file-issue`), carry
 their policy pins, and are re-checked against the served surface at pickup.
 
 **Boundary.** Repositories are invisible to Kogaki — article material is

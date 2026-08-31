@@ -42,7 +42,7 @@
     },
     {
       "id": "merge-eligibility-pretooluse-deny",
-      "capability": "the merge-eligibility PreToolUse deny installed in the actor's own Claude Code settings (`~/.claude/settings.json`), written by `~/.claude/tools/story-sync install-hooks`",
+      "capability": "the merge-eligibility PreToolUse deny installed in the actor's own Claude Code settings (`~/.claude/settings.json`), written by `~/.claude/tools/issue-sync install-hooks`",
       "needed_by": [
         "the merge-eligibility rule's enforcement half — the deny is what refuses a `gh pr merge` that no approved-closes receipt covers",
         "any lane that treats the merge layer as guarded rather than as advice; with the hook uninstalled the rule is a document nobody is required to read"
