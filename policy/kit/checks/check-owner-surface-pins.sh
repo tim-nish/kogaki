@@ -37,11 +37,22 @@
 # SLOT, not an omission. Filling it is its own decision act.
 set -uo pipefail
 # REPO ROOT, RESOLVED BY GIT RATHER THAN BY DEPTH (kogaki#724). This check is
-# kit-held and a consumer may vendor the kit at a path of its own choosing, so
-# a `dirname "$0"/..` hop would bind the file to one layout. `--show-toplevel`
-# is depth-independent and is the only resolution that survives relocation.
-cd "$(git rev-parse --show-toplevel)" || {
-  echo "FAIL: not inside a git repository — this check resolves the repo root with git"
+# kit-held, so a `dirname "$0"/..` hop would bind it to one directory depth
+# and break the moment the kit sits anywhere but one level below the root.
+#
+# ANCHORED AT THE SCRIPT, NOT THE CALLER. A bare `git rev-parse
+# --show-toplevel` resolves from the CWD, which would trade a depth
+# assumption for a worse one: invoked from inside another repository it
+# would resolve THAT repository's root and check the wrong tree. `git -C
+# "$(dirname "$0")"` keeps the script-relative anchor the old hop had, while
+# dropping the fixed depth — the property being repaired, and nothing wider.
+#
+# WHAT THIS DOES NOT BUY, stated because the narrower claim is the true one:
+# kit material below is still addressed at the conventional `policy/kit/`
+# path, so this makes the check depth-independent and NOT free of the kit's
+# own location convention.
+cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || {
+  echo "FAIL: cannot resolve the repository root from this script's location"
   exit 1
 }
 
