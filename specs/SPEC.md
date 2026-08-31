@@ -1016,12 +1016,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
      FORM:** `.claude/review-lane.json`'s `review_rounds_max`. This clause
      stays the authority; the declaration is its projection, and this
      sentence is what stops the two being independently editable in ignorance
-     of each other. `tools/review-sweep.sh` **binds** that value rather than
-     defining it — no numeric assignment to `MAX_ROUNDS` survives that file
-     after kogaki#305 — which is the whole point of the item: the old literal
+     of each other. `tools/review-sweep.sh` **bound** that value rather than
+     defining it — no numeric assignment to `MAX_ROUNDS` survived that file
+     after kogaki#305 — which was the whole point of the item: the old literal
      was a copy of this clause, and a second copy in the toolkit would have
-     made three. **`checks/check-review-report.sh` binds it too**, and that
-     is load-bearing rather than tidiness: clause 10's record-side rounds
+     made three. **`checks/check-review-report.sh` bound it too**, and that
+     was load-bearing rather than tidiness: clause 10's record-side rounds
      observation is named below as "the backstop that sees a crossed bound
      whoever produced it", and it carried its own `bound=2` default until
      kogaki#305 — so raising the declaration would have left the declared
@@ -1034,6 +1034,28 @@ invariant: Gukan guarantees Unit schema, never data schema).
      user-level hook would impose this repository's clause on every
      repository the actor touches, including those with no reviewer-round
      contract, and no literal can express "this repo ratified no bound".
+
+     **BOTH BINDERS NAMED ABOVE ARE RETIRED, AND THE CLAUSE IS WRITTEN IN THE
+     PAST TENSE BECAUSE OF IT** (kogaki#630, swept at kogaki#632).
+     `tools/review-sweep.sh` and `checks/check-review-report.sh` went with the
+     parallel reviewer stack. **This clause stays the authority regardless** —
+     it was the authority while they bound it, and an authority does not lapse
+     when a projection of it is deleted. What changed is that the value now has
+     exactly one reader, the engine, so the two-copy hazard the paragraph above
+     argues against is not merely avoided but currently unreachable.
+
+     **WHICH SIDE CONSUMES EACH KEY, stated because the file is tracked so its
+     declarations are raisable by diff** (kogaki#632, item 7). Every key in
+     `.claude/review-lane.json` is read by the **engine**
+     (`~/.claude/tools/review-lane`, machine-local per kogaki#9's rule that a
+     tool's location is never a committed path), and by nothing in this tree.
+     That includes `"trigger"` — the opt-in to the engine's push/pr-create
+     trigger adapter — which is worth naming because **both kogaki-side trigger
+     carriers were deleted by kogaki#630**, so a reader meeting a live `true`
+     here at this head could take it for a local carrier that no longer exists.
+     The engine's declaration grammar closes both key sets and refuses an
+     unknown key, so the file itself cannot carry this record; it lands here,
+     at the clause that already governs the file's other key.
 
      **The site is a TRACKED file, and that is load-bearing rather than
      housekeeping** (owner selection 2026-08-09). kogaki#305's remedy design
