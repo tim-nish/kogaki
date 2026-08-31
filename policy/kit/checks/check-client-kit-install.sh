@@ -22,7 +22,14 @@
 # consumer's tree, which breaks exactly when the kit separates into its own
 # repository — this member's own removal signal.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# REPO ROOT, RESOLVED BY GIT RATHER THAN BY DEPTH (kogaki#724). This check is
+# kit-held and a consumer may vendor the kit at a path of its own choosing, so
+# a `dirname "$0"/..` hop would bind the file to one layout. `--show-toplevel`
+# is depth-independent and is the only resolution that survives relocation.
+cd "$(git rev-parse --show-toplevel)" || {
+  echo "FAIL: not inside a git repository — this check resolves the repo root with git"
+  exit 1
+}
 
 # --- The kit source and this repository's installed copy are byte-identical.
 #

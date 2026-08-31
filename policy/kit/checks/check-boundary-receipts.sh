@@ -303,7 +303,14 @@ set -euo pipefail
 # Captured BEFORE the cd, because the span fixture's end-to-end arm re-runs
 # this same file inside a scratch repository (kogaki#264).
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-cd "$(dirname "$0")/.."
+# REPO ROOT, RESOLVED BY GIT RATHER THAN BY DEPTH (kogaki#724). This check is
+# kit-held and a consumer may vendor the kit at a path of its own choosing, so
+# a `dirname "$0"/..` hop would bind the file to one layout. `--show-toplevel`
+# is depth-independent and is the only resolution that survives relocation.
+cd "$(git rev-parse --show-toplevel)" || {
+  echo "FAIL: not inside a git repository — this check resolves the repo root with git"
+  exit 1
+}
 
 MAP="policy/consultation-map.md"
 

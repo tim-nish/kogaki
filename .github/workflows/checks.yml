@@ -53,7 +53,13 @@ jobs:
               sys.exit(0)
           failed = []
           for entry in entries:
-              path = pathlib.Path("checks") / entry["file"]
+              # A `file` carrying a separator is REPO-ROOT-RELATIVE; a bare
+              # name resolves under checks/ as it always has (kogaki#724).
+              # The four seam checks are kit-held, and the registry NAMES the
+              # kit's own file rather than a copy of it, so there is one copy
+              # of each and nothing that can drift from it.
+              path = (pathlib.Path(entry["file"]) if "/" in entry["file"]
+                      else pathlib.Path("checks") / entry["file"])
               print(f"== {entry['id']} ({path})", flush=True)
               result = subprocess.run(["bash", str(path)])
               # The catch ledger's primary capture (kogaki#113): one line per

@@ -138,6 +138,19 @@ def resolve_efficacy_case(payload, opener=None):
     return True, f"{path} carries {label[:50]!r} exactly once"
 
 
+def entry_path(entry):
+    """Display path for an entry, under either `file` form (kogaki#724).
+
+    A `file` carrying a separator is repo-root-relative and is already the
+    path; a bare name lives under checks/. Prefixing unconditionally is what
+    produced `checks/policy/kit/checks/...` in the first run after the move —
+    a label that names no file, in a check whose whole subject is whether a
+    registry entry and a tree agree.
+    """
+    f = entry["file"]
+    return f if "/" in f else f"checks/{f}"
+
+
 def validate_entries(entries, opener=None):
     """Shape validation over registry data. Returns a list of failure lines."""
     failures = []
@@ -152,17 +165,17 @@ def validate_entries(entries, opener=None):
                 missing.append(field)
         if missing:
             failures.append(
-                f"FAIL admission record incomplete: checks/{entry['file']} "
+                f"FAIL admission record incomplete: {entry_path(entry)} "
                 f"missing {', '.join(missing)}")
         instrument = str(admission.get("removal_instrument", ""))
         if not instrument.strip():
             failures.append(
                 f"FAIL removal signal has no observing instrument: "
-                f"checks/{entry['file']} — declare `act: …`, `none: <why>`, "
+                f"{entry_path(entry)} — declare `act: …`, `none: <why>`, "
                 f"or `probe: <predicate>` (kogaki#113)")
         elif not INSTRUMENT.match(instrument):
             failures.append(
-                f"FAIL removal_instrument malformed: checks/{entry['file']} "
+                f"FAIL removal_instrument malformed: {entry_path(entry)} "
                 f"— must start `act: `, `none: `, or `probe: `, "
                 f"got {instrument[:40]!r}")
         # Efficacy evidence (kogaki#243). Same strictness as the field above:
@@ -172,12 +185,12 @@ def validate_entries(entries, opener=None):
         if not efficacy.strip():
             failures.append(
                 f"FAIL admission record has no efficacy evidence: "
-                f"checks/{entry['file']} — declare "
+                f"{entry_path(entry)} — declare "
                 f"`case: <path>::<verbatim label>` or `none: <why>` "
                 f"(kogaki#243)")
         elif not EFFICACY.match(efficacy):
             failures.append(
-                f"FAIL efficacy malformed: checks/{entry['file']} "
+                f"FAIL efficacy malformed: {entry_path(entry)} "
                 f"— must start `case: ` or `none: `, "
                 f"got {efficacy[:40]!r}")
         elif efficacy.startswith("case: "):
@@ -185,7 +198,7 @@ def validate_entries(entries, opener=None):
             if not ok:
                 failures.append(
                     f"FAIL efficacy case does not resolve: "
-                    f"checks/{entry['file']} — {detail}")
+                    f"{entry_path(entry)} — {detail}")
     return failures
 
 
@@ -208,7 +221,7 @@ def validate_case_floor(entries, file_reader=None):
     for entry in entries:
         admission = entry.get("admission") or {}
         floor = admission.get("case_floor")
-        path = f"checks/{entry['file']}"
+        path = entry_path(entry)
         try:
             delegates = bool(DELEGATES.search(file_reader(path)))
         except OSError:
@@ -294,7 +307,7 @@ def check_floor_decrements(entries, base_reader=None):
         if not note:
             failures.append(
                 f"FAIL case_floor lowered without a retirement note: "
-                f"checks/{entry['file']} {before} -> {now} — lowering a floor "
+                f"{entry_path(entry)} {before} -> {now} — lowering a floor "
                 f"is an admission-class change and owes a `case_floor_note` "
                 f"naming the case(s) retired (kogaki#661, owner ruling "
                 f"2026-08-26). Without the pairing this field is the "
@@ -302,7 +315,7 @@ def check_floor_decrements(entries, base_reader=None):
         elif stale:
             failures.append(
                 f"FAIL case_floor lowered against an UNCHANGED retirement "
-                f"note: checks/{entry['file']} {before} -> {now} — the "
+                f"note: {entry_path(entry)} {before} -> {now} — the "
                 f"`case_floor_note` is byte-identical to the one already at "
                 f"the base, so it pairs with the PREVIOUS retirement and not "
                 f"with this one. Each decrement owes its own (kogaki#661)")
@@ -746,15 +759,29 @@ checks_dir = pathlib.Path("checks")
 registry = json.loads((checks_dir / "registry.json").read_text())
 entries = registry["checks"]
 
-registered = {entry["file"] for entry in entries}
-present = {p.name for p in checks_dir.iterdir()
+# THE BOTH-WAYS SCAN SPANS EVERY DIRECTORY A CHECK MAY LIVE IN (kogaki#724).
+# A `file` carrying a separator is repo-root-relative; a bare name resolves
+# under checks/. Both forms normalise to a repo-root-relative path here, so
+# the two directions below compare like with like.
+#
+# THE SECOND DIRECTORY IS NOT OPTIONAL, and that is the whole point of
+# widening rather than exempting. Scanning only checks/ would leave the kit's
+# own directory admit-by-default: a check file added there and never
+# registered would be dead code no instrument could see, which is the
+# non-member-fallback defect this check exists to refuse one level down.
+SCAN_DIRS = (pathlib.Path("checks"), pathlib.Path("policy/kit/checks"))
+
+registered = {entry_path(entry) for entry in entries}
+present = {f"{d.as_posix()}/{p.name}"
+           for d in SCAN_DIRS if d.is_dir()
+           for p in d.iterdir()
            if p.is_file() and p.name != "registry.json"}
 
 failures = []
 for name in sorted(present - registered):
-    failures.append(f"FAIL unregistered check file (dead code): checks/{name}")
+    failures.append(f"FAIL unregistered check file (dead code): {name}")
 for name in sorted(registered - present):
-    failures.append(f"FAIL dangling registry entry (no such file): checks/{name}")
+    failures.append(f"FAIL dangling registry entry (no such file): {name}")
 
 # Admission-shape validation (widened under kogaki#6, story 1.2; instrument
 # grammar added under kogaki#113): an empty record passed the filename

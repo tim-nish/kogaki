@@ -1049,4 +1049,43 @@ printf '%s\n' "$RT" | grep -q "round-trip: OK ($PIN_1111)" \
   || fail "the round-trip line does not carry the pin it reached (kogaki#638) — want 'round-trip: OK ($PIN_1111)', got: $(printf '%s\n' "$RT" | grep 'round-trip' || echo '<no round-trip line>')"
 echo "ok: the install's round-trip line renders the pin it reached (kogaki#638)"
 
+# 13. THE INSTALL ANNOUNCES EVERY SEAM CHECK IT VENDORS (kogaki#724).
+#     The kit vendors these and does NOT copy them into the consumer's
+#     checks/, so the only thing that makes one execute is a registry entry
+#     naming its path. A vendored check the install never mentions is
+#     installed on zero occasions — present, correct, run by nothing — which
+#     the served position holds is strictly worse than an absent check,
+#     because the file's existence is what stops anyone asking whether it
+#     runs.
+#
+#     THE ASSERTION IS PER-FILE AND OVER THE DIRECTORY, never against a list
+#     written here. A hardcoded list is the enumeration whose non-member
+#     fallback is admit: a fifth check added to the kit would pass it by
+#     saying nothing. Deriving the expected set from the vendored directory
+#     is what makes "added to the kit and not announced" a failure rather
+#     than a silence.
+VENDORED=$(ls "$KIT_DIR/checks"/check-*.sh 2>/dev/null | wc -l | tr -d ' ')
+[ "$VENDORED" -gt 0 ] \
+  || fail "the kit vendors no seam checks — this case asserts the announcement of a set that must not be empty (kogaki#724)"
+
+mkdir -p "$TMP/seam"
+SEAM=$("$KIT_DIR/install.sh" --repo "$TMP/seam" --consumer kit-test 2>&1)
+
+for CHK in "$KIT_DIR/checks"/check-*.sh; do
+  BASE=$(basename "$CHK")
+  printf '%s\n' "$SEAM" | grep -qF "vendored: policy/kit/checks/$BASE" \
+    || fail "the install does not announce the vendored seam check '$BASE' (kogaki#724) — a check the install never names is one a consumer never registers, and an unregistered check executes on zero occasions"
+done
+
+printf '%s\n' "$SEAM" | grep -qF "$VENDORED seam check(s) vendored" \
+  || fail "the install does not state how many seam checks it vendored (want $VENDORED) — got: $(printf '%s\n' "$SEAM" | grep 'seam check' || echo '<no seam-check line>')"
+
+#     AND IT MUST NOT COPY THEM. The whole ground for naming the kit's file
+#     from the registry is that no second copy exists to drift; an install
+#     that quietly wrote them into checks/ would satisfy every assertion
+#     above while reintroducing the duplicate.
+[ ! -e "$TMP/seam/checks" ] \
+  || fail "the install created $TMP/seam/checks — the kit must NOT copy seam checks into the consumer's tree (kogaki#724): the registry names the kit's own file so that exactly one copy exists"
+echo "ok: the install announces every seam check it vendors, and copies none ($VENDORED check(s), kogaki#724)"
+
 echo "ALL PASS"

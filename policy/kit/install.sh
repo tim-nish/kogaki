@@ -201,4 +201,37 @@ else
   say "round-trip: $OUT"
   say "(degraded install is a valid install — the seam is an enhancer)"
 fi
+# 7. The seam checks the kit vendors, and the registry entries they owe.
+#
+# THE KIT DOES NOT COPY THESE INTO THE CONSUMER'S `checks/` (kogaki#724). A
+# copy under a path the consumer tracks is an undeclared duplicate of a
+# centrally-managed artifact, and it drifts silently the moment the kit moves;
+# the registry NAMES the kit's own file instead, so there is one copy of each
+# check and nothing that can disagree with it.
+#
+# WHICH IS WHY THIS BLOCK EXISTS RATHER THAN BEING LEFT IMPLICIT. A check the
+# kit vendors and the consumer never registers is installed on ZERO occasions
+# — present, correct, and executed by nothing — and the served position is
+# that this is strictly WORSE than an absent check, because the file's
+# existence is what stops anyone asking whether it runs. So the installer
+# ENUMERATES what it vendored and states the entry each one owes, and the
+# kit's install test asserts this list against the vendored directory, so a
+# check added to the kit and not announced here fails rather than passing.
+say "--- seam checks ---"
+if [ -d "$KIT_DIR/checks" ]; then
+  COUNT=0
+  for CHK in "$KIT_DIR/checks"/check-*.sh; do
+    [ -e "$CHK" ] || continue
+    COUNT=$((COUNT + 1))
+    say "vendored: policy/kit/checks/$(basename "$CHK")"
+  done
+  if [ "$COUNT" -gt 0 ]; then
+    say "$COUNT seam check(s) vendored, and NOT copied into $REPO/checks/."
+    say "They run only once this repository's check registry names them, by"
+    say "the path above — a vendored check nothing registers never executes."
+  fi
+else
+  say "no seam checks vendored with this kit"
+fi
+
 say "install complete for consumer '$CONSUMER' at $REPO"
