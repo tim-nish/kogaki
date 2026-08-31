@@ -100,7 +100,20 @@ function served(consumer, tool, args, gateway) {
   const text = (r.stdout || "").trim();
   if (!text) return { fatal: `empty response from ${tool}` };
   try {
-    return { data: JSON.parse(text.split("\n").find((l) => l.startsWith("{")) || text) };
+    // PARSE FROM THE FIRST `{`-PREFIXED LINE TO THE END (kogaki#638). The old
+    // form took that line ALONE, and the gateway PRETTY-PRINTS, so the line was
+    // the bare `{` — JSON.parse threw, the catch returned a soft absence, EVERY
+    // element degraded, and the digest recorded `pin: unknown` against a live
+    // seam. Slicing to the end admits the multi-line body the transport emits.
+    //
+    // The line-START test is kept rather than replaced by the first brace
+    // ANYWHERE (PR #720 round 1): a diagnostic line that merely CONTAINS a
+    // brace would poison an indexOf-based slice, where the old form skipped it.
+    // This form is the union of both properties — skip whatever precedes the
+    // body, then take all of it — rather than a trade of one for the other.
+    const lines = text.split("\n");
+    const first = lines.findIndex((l) => l.startsWith("{"));
+    return { data: JSON.parse(first >= 0 ? lines.slice(first).join("\n") : text) };
   } catch {
     // A non-JSON body is not a degradation — the seam answered, unreadably.
     // Reported as a per-element absence so one bad tool cannot empty the digest.

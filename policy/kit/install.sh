@@ -179,9 +179,23 @@ fi
 
 # 6. Round-trip check — degrades honestly, never fails the install.
 say "--- seam check ---"
+# THE ROUND-TRIP READS THE GATEWAY THIS INSTALL WAS POINTED AT (kogaki#638).
+# `--gateway` was resolved into GATEWAY_JS and passed at the capability read
+# above, and omitted here — so an operator naming a gateway got a round-trip
+# against whatever ambient resolution found instead, and the pin on the next
+# line described a seam nobody asked about. That is the same defect as the
+# unmatched pattern one level out: the line reported something true of a
+# gateway, and not of THIS one.
 if OUT=$(node "$KIT_DIR/bin/gateway-query.mjs" --consumer "$CONSUMER" --tool policy_lookup \
+      ${GATEWAY_JS:+--gateway "$GATEWAY_JS"} \
       --args '{"question":"client-kit install round-trip check"}' 2>/dev/null); then
-  PIN=$(printf '%s' "$OUT" | grep -o '"pin":"[^"]*"' | head -1 || true)
+  # THE GATEWAY PRETTY-PRINTS, so the pattern tolerates JSON spacing and the
+  # capture is the PIN ITSELF rather than the key-value pair (kogaki#638).
+  # The old pattern required `"pin":"…"` with no space and therefore never
+  # matched: every install printed `round-trip: OK ` with a trailing space,
+  # whatever pin it reached, so the one falsifiable part of the seam's
+  # evidence was always absent.
+  PIN=$(printf '%s' "$OUT" | sed -n 's/.*"pin"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1 || true)
   say "round-trip: OK ${PIN:+($PIN)}"
 else
   say "round-trip: $OUT"
