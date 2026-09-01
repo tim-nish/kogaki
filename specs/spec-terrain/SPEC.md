@@ -525,7 +525,22 @@ in common: <GroupClaim>
   clipped mid-text. It renders for **every** group, subdivided ones included.
 - Where §8's conditions put SubGroups on the group, the members render as
   SubGroups per §6.2's form instead of on the heading line, and the heading
-  carries **the GroupID and the co-tag name alone**.
+  carries **the GroupID, the co-tag name, and the group's own Lesson count** —
+  everything the flat form carries except the member list, in the same order,
+  with the count naming its family under §9:
+
+  ```text
+  G<n> — <co-tag name> — N Lessons
+  in common: <GroupClaim>
+  ```
+
+  **Only the member list moves to the SubGroups; the parent total does not.**
+  kogaki#684 disposition 2 took the whole tail off on the ground that the
+  members are read on the SubGroup lines — true of the members, and false of
+  the total, which no line then carried. The owner ruling of 2026-09-01
+  restores it, and `report-format.json` v15 restores
+  `subgroup_members_sum_to_parent` with it (kogaki#739), because that count is
+  one side of the comparison.
 - **A blank line separates every group block and every SubGroup block.**
 
 **INDENTATION IS NOT THE HIERARCHY CARRIER; THE GroupID IS.** Claim lines are
@@ -574,11 +589,22 @@ Below the threshold, SubGroups appear where the judge's **coherence label** and
 1. **The SubGroup member counts sum to the parent's total, and an UNPLACED
    MEMBER IS A REFUSAL NAMING IT** (kogaki#738, ruling 1). Every member placed,
    nothing silently dropped and **nothing swept**. A screen violating it **does
-   not render** — a pre-render refusal in `cmdCotags`, over the placement rather
-   than the rendered text, because the subdivided heading carries no parent count
-   for a text-level rule to read. `report-format.json`'s `not_expressible` entry
-   — `subgroup_members_sum_to_parent` — carries what that siting costs and its
-   reopen trigger.
+   not render**, and **two carriers enforce it at two altitudes** (kogaki#739):
+   a pre-render refusal in `cmdCotags` over the **placement record**, naming a
+   member placed twice or left unplaced before any text exists; and
+   `report-format.json`'s `subgroup_members_sum_to_parent`, a decidable rule
+   over the **rendered text**, restored to `expressible` at v15 when the
+   subdivided heading began carrying the parent count again.
+
+   **Neither subsumes the other, and keeping both is the point.** The pre-render
+   refusal reads data and cannot see a renderer that drops or miscounts a
+   `subgroup_heading` line on a record that placed correctly; the text rule sees
+   exactly that and cannot see an unplaced member, which never reaches the text.
+   The grammar rule was withdrawn at v13 — not re-pointed — precisely because
+   the count it compared against had left the screen, and re-aiming it at the
+   sum of the SubGroup counts would have compared a quantity to itself. Its
+   entry declared the event that would bring it back and that event has
+   happened.
 
    **THE SWEEP IS DELETED, AND THE FALLBACK IS CHOSEN RATHER THAN INHERITED.**
    Until kogaki#738 the placement swept every unplaced member into a
@@ -699,7 +725,7 @@ it belongs.
 **The ruled shape, whole:**
 
 ```text
-G1 — agents × architecture
+G1 — agents × architecture — 6 Lessons
 in common: <GroupClaim>
 
 G1-1 — 3 Lessons: L1, L2, L3 — <SubGroup name>
@@ -710,9 +736,17 @@ G1-2 — 3 Lessons: L4, L5, L6 — <SubGroup name>
 in common: <SubGroupClaim>
 coherence: related — <why>
 
-G2 — agents × claude-code-ops — 9 Lessons: L7, L8, L9
+G2 — agents × claude-code-ops — 3 Lessons: L7, L8, L9
 in common: <GroupClaim>
 ```
+
+**Read the two group headings against each other.** `G1` is subdivided and `G2`
+is flat, and since v15 (kogaki#739) they carry the same three elements in the
+same order — id, co-tag name, family-named count — differing only in the `:
+<ids>` tail the flat one appends because its members have nowhere else to
+render. The subdivided heading's count is the sum of its SubGroups' counts, and
+`report-format.json`'s `subgroup_members_sum_to_parent` checks exactly that over
+the rendered text: 3 + 3 = 6 here.
 
 **A suppressed split is DISCLOSED, never silent.** A group rendering flat because
 its only named SubGroup was labelled `other` (kogaki#738; `forced` until then) is

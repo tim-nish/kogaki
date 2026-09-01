@@ -2945,6 +2945,23 @@ const cases = [
   // before a screen is composed. That refusal is asserted twice above — at the
   // unit and at the `subdivide` command — which is where a pre-render property
   // is decidable.
+  //
+  // `subgroup_members_sum_to_parent` IS BACK, AND SO IS ITS CASE (kogaki#739,
+  // report-format.json v15). It left `expressible` at v13 when the subdivided
+  // heading stopped carrying the parent count, and its case left this list with
+  // it. The heading carries the count again, so the rule is restored — and a
+  // rule restored to `expressible` with nothing exercising it is exactly the
+  // finding PR #757 round 1 made about `subgroup_member_cap`, which is why the
+  // rule and this case land in one act.
+  //
+  // THE CRAFTED TEXT IS THE ONLY WAY TO REACH THIS DIRECTION. The runtime
+  // refuses a record whose placement does not sum, so the emitter cannot be
+  // driven to produce a non-summing screen — the failure this rule catches is a
+  // RENDERER that loses or miscounts a `subgroup_heading` line on a record that
+  // placed correctly, which has no input that provokes it. Text is the input.
+  { rule: "subgroup_members_sum_to_parent", surface: "cotag_screen",
+    text: "G1 — testing × architecture — 3 Lessons\nin common: a claim\n\nG1-1 — 1 Lesson: L1 — one\n\nG1-2 — 1 Lesson: L2 — two",
+    why: "a subdivided group heading naming 3 members whose two SubGroup lines sum to 2 — a dropped `subgroup_heading` line, which the pre-render placement refusal cannot see because the record it read placed every member" },
 ];
 // THE SUM-TO-PARENT PROPERTY, RE-SITED (report-format.json v13, kogaki#684).
 // It was a grammar rule with a case in the list above until disposition 2 took
@@ -3015,6 +3032,53 @@ const cases = [
       "--judge-model", "m", "--judge-effort", "e", "--rendering-dir", outB], { encoding: "utf8" });
     if (good.status !== 0) {
       fails.push(`the CONTROL failed: a conformant subdivided screen was refused \u2014 ${String(good.stderr).trim().slice(0, 300)}`);
+    }
+
+    // THE PUBLISHER SIDE OF THE RESTORED RULE (kogaki#739). The crafted case in
+    // `cases` above asserts the GRAMMAR refuses a non-summing screen; this
+    // asserts the EMITTER actually renders the token that rule compares
+    // against. Neither half alone is worth much — a grammar that demands a
+    // count the renderer never prints refuses every real screen, and a renderer
+    // printing one no rule reads is the state v13 through v14 was in — which is
+    // the pairing the specimens' own README quotes a served line for.
+    //
+    // ASSERTED HERE RATHER THAN ON THE GOLDEN SPECIMEN, and the reason is a
+    // gap rather than a preference: the committed `cotag-screen.txt` is
+    // generated with no `--subdivisions`, so every group in it is flat and it
+    // exercises `group_heading_subdivided` not at all. This block is the only
+    // place a real subdivided screen is produced.
+    //
+    // WHICH DIRECTION EACH ARM ACTUALLY CATCHES, measured rather than assumed
+    // — three mutations were run against this block when it was written:
+    //   - the count REMOVED from the heading: caught UPSTREAM, by the grammar's
+    //     own `line_class_allowlist` refusal at emit, because `G2 — testing ×
+    //     architecture` then matches no line class and `cotags` exits non-zero
+    //     before this block reads anything. The count arm below is therefore a
+    //     BACKSTOP and not the carrier of that direction; it is kept because it
+    //     names the property in the file that asserts it, and it becomes the
+    //     carrier the moment a future class admits a countless heading again.
+    //   - the MEMBER LIST left on the subdivided heading: NOT caught upstream.
+    //     `G2 — … — 2 Lessons: L2, L1` is a perfectly good `group_heading_flat`
+    //     line, so the grammar admits it and the screen renders with the member
+    //     dump v31 removed. That is this block's own direction, and it is the
+    //     one the tail arm carries.
+    //   - the PREDICATE neutered in `format-guard.mjs`: caught by the crafted
+    //     `subgroup_members_sum_to_parent` case in `cases` above, by name.
+    //
+    // THE COUNT ARM IS DELIBERATELY UNANCHORED. An anchored `$` here would fail
+    // FIRST on the member-list mutation and report it as a missing count, which
+    // is a true failure with a false cause — and it would make the tail arm
+    // unreachable, a never-fires member in the block admitting it. Found by
+    // running the mutation rather than by reading the code.
+    const gsdir = readdirSync(outB).filter((f) => f.endsWith(".md"));
+    const gs = gsdir.includes("Screen.md") ? readFileSync(join(outB, "Screen.md"), "utf8") : "";
+    const sub = gs.split("\n").find((l) => /^G[0-9]+ \u2014 testing \u00d7 architecture/.test(l));
+    if (!sub) {
+      fails.push(`the conformant subdivided screen rendered no group heading for the subdivided group \u2014 got ${JSON.stringify(gs.slice(0, 300))}`);
+    } else if (!/ \u2014 [0-9]+ Lessons? *$| \u2014 [0-9]+ Lessons?[^0-9]/.test(sub)) {
+      fails.push(`\u00a76.2/kogaki#739: the SUBDIVIDED group heading does not carry the parent's family-named Lesson count \u2014 got ${JSON.stringify(sub)}. That count is one side of \`subgroup_members_sum_to_parent\`, restored to \`expressible\` at report-format.json v15; without it the rule reads null and cannot fail`);
+    } else if (/:/.test(sub)) {
+      fails.push(`\u00a76.2/kogaki#739: the subdivided heading carries a MEMBER LIST as well as the count \u2014 got ${JSON.stringify(sub)}. ONLY the count returned at v15; the members render on the SubGroup lines. This line is admitted by the grammar as a \`group_heading_flat\`, so nothing upstream refuses it and this assertion is the only carrier of the direction`);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
