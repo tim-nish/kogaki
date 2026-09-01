@@ -2781,7 +2781,19 @@ export function renderReportMarkdown(report, tag) {
   L.push("## Counted");
   L.push("");
   for (const [fam, n] of Object.entries(report.counted || {})) L.push(`- ${fam}: ${n}`);
-  L.push(`- lessons served: ${report.lessons_served}`);
+  // THE `- lessons served: <n>` LINE IS GONE (kogaki#761, owner ruling
+  // 2026-09-01; report-format.json v16 retires its `counted_served` class in
+  // the same act). It rendered the full served denominator — every candidate
+  // in the survey record, not the members of this report — and the owner ruled
+  // it must not be displayed.
+  //
+  // THE RECORD FIELD STAYS, and the split is the whole of why this is safe:
+  // `report.lessons_served` is still written by both record builders — grep
+  // `lessons_served:` for the pair; they are named by the FIELD rather than by
+  // a line number, which this very edit would have shifted — so nothing
+  // reading the machine record breaks. What is withdrawn is one line of the
+  // OWNER SURFACE. A reader looking for the denominator finds it on the record
+  // and not on the report, which is the state the ruling asks for.
   L.push("");
   L.push(...servedLinesBlock(report));
   // §13.1 v20 / §12 v8 (kogaki#473) — the provenance neighborhood, ONCE and

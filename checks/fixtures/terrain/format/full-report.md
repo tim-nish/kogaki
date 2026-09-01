@@ -44,7 +44,6 @@ Second body line for bravo under lessons/testing — a one-line row cannot carry
 
 - lesson: 2
 - journey: 1
-- lessons served: 5
 
 ## Served lines
 
