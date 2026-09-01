@@ -384,7 +384,6 @@
           "form": "- <family>: <n>",
           "_counted_served_was_RETIRED_AT_v16": "kogaki#761, owner ruling 2026-09-01. A sibling class `- lessons served: <n>` stood here, rendering the full served denominator (`record.candidates.length`). The owner ruled it unnecessary and it must not be displayed. RETIRED WITH ITS SUBJECT, never re-pointed at another denominator — a class kept in this carrier after the line it admits is gone would admit nothing, which is a conformance category with no members and reads as coverage. The machine record keeps `lessons_served` (terrain/terrain.mjs writes it at two sites); only the DISPLAY is withdrawn, so nothing reading the record breaks. This note sits on the class that survives rather than on the one that left, because a deleted entry leaves no place to write."
         },
-
         {
           "id": "h2_served_lines",
           "form": "## Served lines"
