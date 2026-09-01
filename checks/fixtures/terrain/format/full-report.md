@@ -58,8 +58,14 @@ Second body line for bravo under lessons/testing — a one-line row cannot carry
 
 *Seeded by:* G2
 
-3 candidate(s) found, 1 shown — all at the highest level present (`core`).
+showing 3 of 3 — 1 core, then 1 useful, then 1 background
 
 - N1 — from the same Batch as L1, L2 (q_a/stub)
   “Stub lessons/testing rendering for charlie.”  gloss/lessons/testing.md:19@stubbed
   prices a check by where in the loop it runs, which the GroupClaim's argument needs [core]
+- N2 — from the same Batch as L1, L2 (q_a/stub)
+  “Stub lessons/testing rendering for echo.”  gloss/lessons/testing.md:33@stubbed
+  illustrates the same pricing on a second surface [useful]
+- N3 — from the same Batch as L1, L2 (q_a/stub)
+  “Stub journeys/testing rendering for foxtrot.”  gloss/journeys/testing.md:12@stubbed
+  related provenance, not load-bearing for the claim [background]

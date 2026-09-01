@@ -384,7 +384,9 @@
         },
         {
           "id": "neighborhood_counts",
-          "form": "<n> candidate(s) found, <n> shown — all at the highest level present (`<level>`)."
+          "form": "showing <n> of <n> — all <NeighborhoodLevel> | showing <n> of <n> — <n> <NeighborhoodLevel>, then <n> <NeighborhoodLevel>",
+          "governing": "SPEC-terrain §13.4 (kogaki#741 ruling 3) — a FIXED grammar class; no part is LLM-controlled",
+          "superseded": "<n> candidate(s) found, <n> shown — all at the highest level present (`<level>`)."
         },
         {
           "id": "neighborhood_unresolved_seed_header",
@@ -441,20 +443,8 @@
           "form": "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (§13.4's disclosure discipline)."
         },
         {
-          "id": "neighborhood_over_cap",
-          "form": "<n> candidate(s) found, 0 shown — <n> sit at the highest level present (`<level>`), above the display cap of 10."
-        },
-        {
-          "id": "neighborhood_over_cap_reason",
-          "form": "No rows are rendered rather than ten of them: choosing which 10 of <n> equally-recommended candidates you see would be a tie-break this section has no ground to make, and a cut carrying no meaning reads as a ranking it is not."
-        },
-        {
           "id": "neighborhood_none_judged",
           "form": "<n> candidate(s) found, 0 shown — none carries a recommendation level. The mechanical layer ran; the judgment layer did not."
-        },
-        {
-          "id": "neighborhood_unjudged",
-          "form": "<n> candidate(s) carry no level and are counted here, never shown."
         },
         {
           "id": "blank",

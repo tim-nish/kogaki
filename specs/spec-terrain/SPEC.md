@@ -1769,9 +1769,22 @@ reachable.
 handed, because a caller that cannot tell a shard that answered from one that did
 not resolves the miss in the wrong place.
 
-**An UNJUDGED candidate is its own state**, counted and named. The judgment layer
-not having run is a different fact from a `background` verdict, and a section that
-showed them alike would report the second where the first is true.
+**AN UNJUDGED CANDIDATE IS NO LONGER A STATE** (kogaki#741, implemented at
+kogaki#754). This clause read: "**An UNJUDGED candidate is its own state**,
+counted and named. The judgment layer not having run is a different fact from a
+`background` verdict, and a section that showed them alike would report the
+second where the first is true." Its distinction stands and its state does not:
+the two facts are still different, and neither reaches the display, because
+**J3 refuses a judgment record that leaves any mechanical candidate uncovered**
+and `full_report` refuses a non-empty enumeration carrying no record at all.
+There is no COMMAND path on which the judgment layer has not run and a section
+renders, so the per-candidate remainder has no arm to be counted in. **The
+`neighborhood_unjudged` line class is retired with it** — `report-format.json`
+declares no form for it. **`neighborhood_none_judged` is NOT retired**, and the
+difference is stated rather than left to be inferred: the renderer is called on
+a selection it does not compute, so its all-unjudged arm is kept as a
+**defensive** one, unreachable from any command and named rather than silently
+rendered as `background` if a caller ever hands it an unjudged set.
 
 **THE JUDGMENT LAYER HAS A PRODUCING OCCASION IN THE TABLE.** §15's table carries
 two states before `full_report`, mirroring `compose_input → J1_claims`: a
