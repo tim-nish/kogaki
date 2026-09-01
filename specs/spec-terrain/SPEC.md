@@ -921,12 +921,33 @@ reliance on the LLM following them implicitly":
 | `subgroup_member_cap.tight` | 5 | a `tight` SubGroup over it, naming group and cap |
 | `subgroup_member_cap.related` | 7 | a `related` SubGroup over it, naming group and cap |
 | `subgroup_member_cap.loose` | 7 | a `loose` SubGroup over it, naming group and cap |
-| `min_subgroup_members` (M) | 3 | an **affinity** SubGroup under it, naming group and minimum |
+| `min_subgroup_members` (M) | 3 | an **affinity** SubGroup under it, naming group and minimum — **except one holding the whole parent group** |
 | `max_residual_members` (N) | 5 | a classification whose residual exceeds it, naming the remainder count against N |
 
-**M does not bind the residual**, and that is deliberate rather than an omission:
-a shrinking residual is the outcome the design wants, so a floor on it would
-refuse exactly the classifications that did best. **N does not bind an affinity
+**M EXEMPTS A SubGroup HOLDING THE WHOLE PARENT GROUP** (owner selection
+2026-09-01, at kogaki#738's pickup gate). M refuses a **splinter** — a SubGroup
+too small to be a real division of its parent — and a SubGroup holding the entire
+group divided nothing, so there is no splinter for it to refuse. **Without the
+exemption a group under M has no conformant affinity classification at all**: the
+residual is the only path left, and it asserts the judge found no loose-or-better
+affinity among the members, which the harness would then be forcing the judge to
+assert whether or not it is true. That is the served line this section's own
+unplaced-member refusal rests on, firing the other way —
+
+> "when the actor must still dispose of the item in front of it, a fail-closed
+> refusal prevents nothing and merely removes one option, making whatever remains
+> the only path that works"
+
+`consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:38`
+
+**Keyed on a structural fact, never on a size.** The exemption reads "the
+SubGroup's members ARE the group's members". A threshold like "parents of 2M or
+more" would be a second derived number nobody ruled, and it would still refuse a
+judge who honestly found one relationship across a small group.
+
+**M does not bind the residual either**, and that is deliberate rather than an
+omission: a shrinking residual is the outcome the design wants, so a floor on it
+would refuse exactly the classifications that did best. **N does not bind an affinity
 SubGroup**, for the mirror reason — a large `related` group is bounded by its own
 cap, and reading N over it would double-count one quantity.
 

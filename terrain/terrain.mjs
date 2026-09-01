@@ -1353,7 +1353,7 @@ function cmdCotags(args) {
   // cannot otherwise tell that from a group nobody judged. Aggregate rather
   // than per-group, because a per-group line is what AC5 removes.
   if (suppressedSplits) {
-    say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`other\` — the judge found no 2+ subset at related-or-better affinity among its members, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
+    say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`other\` — the residual, so the judge found no subset of ${subdivisionLimits().min} or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
   }
   if (claimless) {
     say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
@@ -2737,8 +2737,9 @@ export function renderReportMarkdown(report, tag) {
       // and neither is an absent judgment.
       if (sec.suppressed_split) {
         L.push("*The judgment produced a split and it was SUPPRESSED: its only named");
-        L.push("SubGroup was labelled `other` — the judge found no 2+ subset at");
-        L.push("related-or-better affinity among its members — so it bought nothing and");
+        L.push("SubGroup was labelled `other` — the residual, so the judge found no");
+        L.push("subset of M or more members at loose-or-better affinity among them —");
+        L.push("so it bought nothing and");
         L.push("does not discharge the subdivision obligation (SPEC-terrain §6.2 v7,");
         L.push("re-keyed and bounded at kogaki#683, relabelled at kogaki#738). This is neither");
         L.push("a judged-empty outcome nor an absent judgment. Members are listed below,");

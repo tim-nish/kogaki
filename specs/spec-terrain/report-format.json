@@ -201,7 +201,7 @@
         },
         {
           "id": "suppressed_split_disclosure",
-          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `other` — the judge found no 2+ subset at related-or-better affinity among its members, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2). …",
+          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `other` — the residual, so the judge found no subset of <M> or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2). …",
           "superseded": "… was labelled `forced` — grouped only to satisfy the requirement … (kogaki#738: the reason clause moved with the label, from what the engine compelled to what the judge found)"
         },
         {
@@ -470,7 +470,7 @@
       "_residual_is_not_here": "`other` is NOT an affinity label and carries no entry in this map. It is the RESIDUAL, bounded by `max_residual_members` below — a different quantity with a different purpose, and giving it a row here would let a reader treat the residual as a fourth affinity."
     },
     "min_subgroup_members": 3,
-    "_why_min": "A composed SubGroup under M is refused (amendment 1 ruling 3, M initial 3). It binds the AFFINITY labels only: the residual has no floor, because the residual shrinking toward zero is the outcome the whole design wants, and a floor on it would refuse exactly the classifications that did best.",
+    "_why_min": "A composed SubGroup under M is refused (amendment 1 ruling 3, M initial 3). TWO EXEMPTIONS, both stated rather than left to the code: the residual has no floor, because a residual shrinking toward zero is the outcome the whole design wants and a floor would refuse exactly the classifications that did best; and a SubGroup holding the WHOLE parent group is exempt (owner selection 2026-09-01), because M refuses a splinter and a SubGroup that divided nothing produced none. Without the second, a group under M has no conformant affinity classification at all and the residual becomes its only path, which would force the judge to assert an absence of affinity that may be false.",
     "max_residual_members": 5,
     "_why_residual_cap": "`other` = unlimited is an ANTI-PATTERN (owner amendment 1, superseding the body's '`other` is unbounded'). Until the residual falls to N the harness refuses the classification and forces the creation of additional SubGroups, naming the remainder count against N. This is the share cap's replacement: the deleted `catch_all_share` bounded a bucket the ENGINE filled as a fraction of its parent; this bounds a bucket the JUDGE fills as an absolute count, which is what stops Lessons disappearing into a black-box residual."
   },
@@ -516,7 +516,7 @@
       },
       {
         "id": "subgroup_member_cap",
-        "rule": "a `subgroup_heading` line whose coherence label is `tight`, `related` or `loose` carries at most limits.subgroup_member_cap.<label> members and at least limits.min_subgroup_members; the residual `other` SubGroup carries at most limits.max_residual_members",
+        "rule": "a `subgroup_heading` line whose coherence label is `tight`, `related` or `loose` carries at most limits.subgroup_member_cap.<label> members, and at least limits.min_subgroup_members UNLESS its members are the whole parent group; the residual `other` SubGroup carries at most limits.max_residual_members and has no floor",
         "surfaces": [
           "cotag_screen"
         ],

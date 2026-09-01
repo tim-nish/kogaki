@@ -454,7 +454,7 @@ writeFileSync(SUBS_NOT_LEAF, JSON.stringify({
       // and let the sweep take `bravo`. With the sweep deleted that classification
       // refuses, so both members ride the one SubGroup — which is also what makes
       // it the SINGLE named SubGroup rule 3's suppression keys on.
-      members: ["lesson:alpha", "lesson:bravo"], coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
+      members: ["lesson:alpha", "lesson:bravo"], coherence: "other", coherence_why: "no subset of three or more holds together at loose or better", legible_at_a_glance: true },
   ] },
 }));
 const notLeaf = spawnSync(process.execPath,
@@ -3617,7 +3617,7 @@ writeFileSync(subs, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards of some kind", claim: "both are guards of some kind",
       members: ["lesson:alpha", "lesson:bravo"],
-      coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
+      coherence: "other", coherence_why: "no subset of three or more holds together at loose or better", legible_at_a_glance: true },
   ] },
 }));
 

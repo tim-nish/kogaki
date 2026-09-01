@@ -198,7 +198,9 @@ whose ID set the owner enters. **Nothing on either line is optional.**
 
    **FIVE LIMITS, ALL ENFORCED** (§8, kogaki#738): a per-label member cap for
    `tight`, `related` and `loose`; a minimum SubGroup size M below which an
-   affinity SubGroup is refused; and a maximum residual size N. **The numbers
+   affinity SubGroup is refused — **unless it holds the whole group, which is
+   exempt**, so a small group can still carry one honest affinity claim rather
+   than being forced into the residual; and a maximum residual size N. **The numbers
    are NOT reproduced here** — they live in
    `specs/spec-terrain/report-format.json`'s `limits` block, which is the one
    place they can be edited, and a copy in this file would be a second carrier
