@@ -441,15 +441,36 @@ structurally. Nothing in this section names the disclosure lines as forbidden,
 because that rule would be an enumerated prohibition whose non-member fallback
 is admit.
 
-**The declared class list is exactly `marker`, `tag_count_row`, `intent` and
-`blank`, under `non_member_fallback: REFUSE`** — the three content blocks above
-plus the separator class every owner surface in the carrier already declares
-(`tag_listing` carries `header`, `tag_row`, `navigation_hint`, `blank`). A
-*fifth* class fails at emit time. The list is written out rather than left as
-"the three blocks above", because a layout with blank separators would otherwise
-either refuse at emit or land a class the prose says must fail, and an
-implementer would have to guess which was meant — the defect the 200-not-~200
-paragraph declines to ship one clause earlier.
+**The declared class list is exactly `marker`, `table_header`,
+`tag_count_row`, `row_continuation`, `intent` and `blank`, under
+`non_member_fallback: REFUSE`.** A *seventh* class fails at emit time.
+
+**The list has six members because the layout above needs six lines, and an
+earlier form of this clause declared four — which made the ruled layout
+unrenderable under its own grammar** (found at implementation, 2026-09-01, and
+recorded as the Blocker that licensed this amendment). Block 2 is a table with
+**family-named columns**, so a `table_header` line naming Lessons and Journeys
+is what makes them named; and a tag name that **wraps onto a second line** needs
+a class admitting that second line. Under the four-member list both were
+non-members, and `non_member_fallback: REFUSE` means the emitter would have
+refused the very layout this section requires two paragraphs earlier. A contract
+that forbids its own ruled output is worse than one that under-specifies it: the
+first fails at emit with no reading that satisfies both halves.
+
+**The defect is stated rather than quietly corrected, because of how it
+survived.** The four-member list was itself a repair — PR #746 round 1 found the
+list saying "exactly the three classes above" while the implementing issue
+planned four, and the fix reconciled the count against *that issue's plan*
+instead of against **this section's own layout requirement**. A count checked
+against one of its two readers is checked against neither.
+`consulted: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/knowledge-architecture.md:197`
+— "a committed instance disagreeing with its class is a VIOLATION, never an
+exemption", which is why the resolution had to move the declaration or the
+layout and could not excuse the rendering.
+
+`blank` is the separator class every owner surface in the carrier already
+declares (`tag_listing` carries `header`, `tag_row`, `navigation_hint`,
+`blank`).
 
 **Why this is a surface of its own and not a widening of `tag_listing`.** That
 surface is a two-class allowlist whose completeness inventory names *"the header
