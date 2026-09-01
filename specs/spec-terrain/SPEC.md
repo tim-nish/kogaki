@@ -1167,24 +1167,73 @@ So a Brief, a proposal, or a recommendation **may never cite a report id**. They
 cite members and pins. A report id addresses a rendering for the owner's own
 re-reading and nothing downstream resolves one.
 
-### 12.1 Identity — the triple (substrate pin, co-tag query, judge pin)
+### 12.1 Identity — the quadruple (substrate pin, co-tag query, judge pin, neighborhood judgment)
 
 A Full Report is identified by the **substrate pin** in effect when it was
-generated, the **co-tag query** that produced it, and the **judge pin** under which
-its material was judged.
+generated, the **co-tag query** that produced it, the **judge pin** under which
+its material was judged, and the **neighborhood judgment record** it was rendered
+from (kogaki#741, owner selection 2026-09-01).
 
 | act | result |
 |---|---|
-| same pin, same query, same judge pin, run twice | **one** report — the rerun is idempotent, not a duplicate |
+| same pin, same query, same judge pin, **same judgment record**, run twice | **one** report — the rerun is idempotent, not a duplicate |
 | pin advances, rest unchanged | **two** reports, one per pin |
-| same pin, different query, judge pin held fixed or not | **two** reports, one per query — a differing query is two reports whatever the judge pin |
+| same pin, different query, judge pin and judgment held fixed or not | **two** reports, one per query — a differing query is two reports whatever the rest |
 | same pin, same query, **different judge pin** | **two** reports, one per judge pin — coexisting; neither collides nor supersedes |
+| same pin, same query, same judge pin, **different neighborhood judgment record** | **two** reports, one per judgment — coexisting; neither collides nor supersedes (kogaki#741) |
 
-**This table is the normative form.**
+**This table is the normative form**, and the fourth component is in it rather
+than only in the prose above. A consumer implementing idempotency from this table
+alone must reach the quadruple, because a table declaring the triple beside prose
+declaring the quadruple would reproduce the very replay #741 was filed for.
 
 **The co-tag query is the pair (selected tag, entered id set).** Two reports are
-the same report when both components match, and different otherwise. Nothing else
-enters the key: not the composed claims, not the run.
+the same report when both components match, and different otherwise.
+
+**THE FOURTH COMPONENT IS THE NEIGHBORHOOD JUDGMENT RECORD, and the composed
+claims and subdivisions stay OUT of the key** (kogaki#741). The key is the
+quadruple and nothing more: not the composed claims, not the subdivisions, not
+the run.
+
+**The discriminator is WHO IS IN THE REPORT, not what it says.** A claims record
+changes what a group *says* about members the query already fixed; the
+neighborhood judgment record decides **which candidates are displayed at all** —
+§13.4's fill is level-ordered, so two runs over one `(pin, query, judge pin)`
+with different judgments render different member sets. That is the same property
+the co-tag query is keyed for, arriving through a second input, so it is keyed
+for the same reason rather than by analogy.
+
+**THE ARITY ARGUMENT SURVIVES, and it is why this component is admissible where
+the composed claims are not.** A requester holds the judgment record it is about
+to render from, so it can form the key without already holding the report — the
+test §"The arity is UNIFORM" states. Its digest is over the record's file bytes,
+the same reading `composed_input_digests` already takes.
+
+**THIS SUPERSEDES kogaki#700's ARM, and #700's reasoning is re-homed rather than
+dropped.** #700 measured exactly this symptom — *"a judged `--neighborhood` pull
+of a set already reported unjudged rendered the unjudged form"* — and chose to
+RECORD the composed-input digest rather than KEY on it, so a mismatch
+re-surfaces as `COMPOSED_INPUT_MISMATCH` instead of the key widening. Its ground
+was the served refusal of **silent re-resolution**:
+
+> "An artifact that will be ACTED ON after it is computed carries the state it
+> was computed against, and acting on it **RE-VERIFIES rather than re-resolves**
+> … The shared failure is **silent re-resolution**, which converts a stale
+> artifact into a *confident wrong action* — worse than an error, because the
+> mechanism reports success."
+> `consulted: product-lab@c8e06394d911863c41cc1fbff574080b8ce29d6a topics/archive/knowledge-architecture.md:161`
+
+**That ground is satisfied by the widening rather than defeated by it.** A
+differing judgment now yields a **different identity**, so the stored report is
+never replaced and never replayed under inputs it was not made from — there is
+no re-resolution, silent or otherwise, because there is nothing to re-resolve.
+The widening removes the possibility the refusal existed to detect, which is the
+constrain-shaped form of the same protection.
+
+**What #700 keeps.** The composed-input digest stays RECORDED for the claims and
+subdivisions, and `COMPOSED_INPUT_MISMATCH` still fires for them. Only the
+judgment record moves from recorded to keyed, and only because it selects
+membership.
 
 **Why (selected tag, …) and not the group name alone.** §6's groups are composed
 *per selected tag* and the same unordered pair is reachable from either side.
@@ -1218,8 +1267,9 @@ binds the *artifact*; it does not touch the *key space*:
 - **judge pin `none`** = no judgment is attested. **Non-conformant on the co-tag
   path**, because it is indistinguishable from a run that never asked.
 
-**Idempotence is keyed on the triple** and never read the judge pin's *value*, so
-narrowing the set of values a conformant report may carry does not disturb it.
+**Idempotence is keyed on the quadruple** (kogaki#741) and never read the judge
+pin's *value*, so narrowing the set of values a conformant report may carry does
+not disturb it.
 
 **THE RECORD CARRIES A DIGEST OF THE COMPOSED INPUTS IT WAS RENDERED FROM, AND A
 RERUN WHOSE INPUTS DIFFER IS REFUSED.** The composed inputs — the claims record,
@@ -1244,12 +1294,28 @@ before replaying:
 | differ | **refused**, naming which input changed |
 | absent (a record written before the field existed) | **recomputed** — a record that cannot be shown idempotent is neither replayed nor refused |
 
-**The digest is RECORDED, never KEYED, and that is the decision.** Widening the
-identity was the alternative and is declined: §12.1 ratifies that nothing else
-enters the key, and a fourth component would make a requester hash the inputs to
-form an identity by hand. The served discipline asks for the other shape
-directly — a rendering is pinned to the sha of the content it was made from, and
-a mismatch **re-surfaces rather than silently re-rendering**:
+**THE DIGEST IS RECORDED, NEVER KEYED — FOR THE CLAIMS AND THE SUBDIVISIONS.**
+The neighborhood judgment record is the exception and is **keyed**, per §12.1's
+quadruple (kogaki#741).
+
+**This clause previously declined the widening outright**, and the superseded
+text is kept rather than deleted: *"The digest is RECORDED, never KEYED, and that
+is the decision. Widening the identity was the alternative and is declined: §12.1
+ratifies that nothing else enters the key, and a fourth component would make a
+requester hash the inputs to form an identity by hand."* Its arity objection is
+answered rather than waived — a requester **holds the judgment record it is about
+to render from**, so it forms the key from an input in hand and never by hashing
+the report it is trying to address.
+
+**The discriminator is membership.** A claims or subdivisions record changes what
+a group *says* about members the query already fixed; the judgment record decides
+**which candidates are displayed at all**, because §13.4's fill is level-ordered.
+Keying the one and recording the other is that difference, not an exception to a
+rule.
+
+For the claims and the subdivisions the served discipline still asks for the
+recorded shape directly — a rendering is pinned to the sha of the content it was
+made from, and a mismatch **re-surfaces rather than silently re-rendering**:
 
 > "a derived expression's truth is relative to the set it was derived from, so
 > the derivation carries that set and a change to the set is a GATE EVENT rather
@@ -1319,16 +1385,18 @@ something they did not.
 
 ### 12.2 Location and naming
 
-**A report is RESOLVED by §12.1's identity TRIPLE, and the machine record is NAMED
-by whatever filename the emitter chooses.** These are two jobs, not one:
+**A report is RESOLVED by §12.1's identity QUADRUPLE, and the machine record is
+NAMED by whatever filename the emitter chooses.** These are two jobs, not one:
 
-- **Identity is normative.** A request for the report of `(pin, query, judge pin)`
-  must resolve to exactly the report that identity identifies, and to a new one
-  when any component differs.
+- **Identity is normative.** A request for the report of
+  `(pin, query, judge pin, neighborhood judgment record)` must resolve to exactly
+  the report that identity identifies, and to a new one when any component
+  differs.
 - **The machine record's filename is implementer-owned and carries no authority.**
-  Nothing may read meaning out of it, parse it to recover the triple, or key on it
-  — the report's own recorded pin, query and judge pin are the only source of
-  that. A filename is at most a convenience for a human listing a directory.
+  Nothing may read meaning out of it, parse it to recover the quadruple, or key on
+  it — the report's own recorded pin, query, judge pin and judgment record are the
+  only source of that. A filename is at most a convenience for a human listing a
+  directory.
 
 A filename derived from the triple looks like a key, is not one, and drifts
 silently the first time an emitter changes how it renders a group name
@@ -1344,9 +1412,9 @@ silently the first time an emitter changes how it renders a group name
 | lifetime | the RUN | the OWNER's |
 | committed | no | **no — but repo-VISIBLE** |
 
-- **The machine record keeps everything §12.1 says.** The identity triple, the
-  idempotence claim across invocations, the stable home that makes a rerun collide
-  rather than duplicate — all of it binds the JSON.
+- **The machine record keeps everything §12.1 says.** The identity **quadruple**
+  (kogaki#741), the idempotence claim across invocations, the stable home that
+  makes a rerun collide rather than duplicate — all of it binds the JSON.
 - **The owner rendering is generated by DEFAULT on a terrain run**, with an opt-out
   (`--no-render`) for the explicit-request case.
 - **Both are written in the same act.**
@@ -1441,8 +1509,8 @@ tier §12's multi-section form defines. §12.2's rules govern it wholly.
 - **§14.1's owner-surface enumeration does not gain a member for it.** The section
   has no emitter of its own; it is part of the Full Report's.
 - **It is still a report and still never a proposal — and it DOES select.** The
-  section renders only the highest recommendation level present and at most ten
-  rows, so it does not "narrow nothing". What survives is the distinction that
+  section fills up to ten rows in level order `core → useful → background`
+  (§13.4, kogaki#741), so it does not "narrow nothing". What survives is the distinction that
   matters: a **proposal** asks the owner to act on a selection; this section
   reports a reading and names what it withheld. The selection is disclosed in the
   same breath it is made — honest counts (`15 found, 8 shown`), the level it
@@ -1527,10 +1595,15 @@ delivered after the set is settled, acting on one requires re-opening a decision
 already made. Riding the report, the owner reads Glosses and neighbors together and
 takes ONE informed act at the gate.
 
-**Identity is unchanged.** §12.1's triple already covers everything the
-neighborhood reads (the entered set rides the query component, and the substrate
-pin is the same one), so idempotence needs no new component and a re-pull under the
-same identity renders the same section.
+**IDENTITY GAINED A COMPONENT FOR EXACTLY THIS SECTION** (kogaki#741). This
+clause previously read *"Identity is unchanged. §12.1's triple already covers
+everything the neighborhood reads … so idempotence needs no new component"*, and
+that is now false: the **neighborhood judgment record** is §12.1's fourth
+component. The entered set still rides the query and the substrate pin is still
+the same one — what those did not cover is the judgment, which decides which
+candidates this section displays at all. A re-pull under the same quadruple
+renders the same section; a re-pull under a different judgment is a different
+report.
 
 **What trigger timing does NOT cover.** Trigger timing decides *when* the expansion
 fires and nothing about *how far* it runs; the bound is §13.3's traversal bound. An
@@ -1613,9 +1686,9 @@ is CLOSED; extending it is the owner's act. **No model call happens inside the
 tool**: the levels arrive as a file the session composed, and
 `--judge-model`/`--judge-effort` remain the pin rather than an invocation.
 
-**Display.** At most **ten** rows, all from the **highest level present**, and
-nothing else in the report. The heading carries honest counts (`15 found, 8
-shown`). Each row carries exactly four fields: the Strand ID, the relation in plain
+**Display.** Up to **ten** rows, filled in level order
+`core → useful → background` (see §"THE DISPLAY FILLS TO TEN" below), and nothing
+else in the report. The heading carries honest counts (`15 found, 8 shown`). Each row carries exactly four fields: the Strand ID, the relation in plain
 words, the Gloss, and the claim with its level.
 
 **FIELD 2 NAMES THE SETTLED MEMBER, NOT THE SUBSTRATE'S INSTANCE KEY.** The
@@ -1627,8 +1700,9 @@ set"*, which is a **stated** absence and distinguishable from the naming form.
 its meaning on every surface here.
 
 **FIELD 3 IS FETCHED, BOUNDED BY THE ROWS THAT RENDER.** The fetch runs over the
-display selection — at most ten rows, and **none at all** on the empty,
-all-unjudged and over-cap arms — and is bounded again to the union of those rows'
+display selection — at most ten rows, and **none at all** on the empty arm; the
+all-unjudged and over-cap arms no longer exist, the first refused and the second
+filled (kogaki#741) — and is bounded again to the union of those rows'
 **own** tags. The corpus-wide prefetch §9 forbids is unreachable from here, because
 the tag set is a function of ten records rather than of the corpus. **The bound is
 a COUNT OF READS and is verified as one** — at the server, from the stub's own call
@@ -1696,25 +1770,75 @@ two states before `full_report`, mirroring `compose_input → J1_claims`: a
 **compute** state that emits the mechanical candidates, and **`J3_neighborhood`**,
 which takes the typed record. The emitter writes no owner artifact.
 
-**BOTH ARE CONDITIONAL.** A run naming neither renders the all-unjudged line, which
-is a **legitimate terminal**: refusing it would make the Report unobtainable
-without an LLM pass. What the declaration removes is the *silent* version — an
-unjudged run is a skipped conditional the run record **names**.
+**BOTH ARE UNCONDITIONAL** (kogaki#741, owner ruling 2026-09-01). The workflow is
+one continuous harness-controlled pass from enumeration through judgment to
+rendering, and **no LLM-controlled skip exists**. The LLM controls exactly two
+things: the level label per candidate (`core | useful | background`) and the
+claim for candidates that are displayed. Nothing else.
+
+**`full_report` REFUSES to render an unjudged neighborhood**, and **the judgment
+record joins from the RUN RECORD** rather than from the rendering act's own argv
+— so deleting the judgment file after J3 and re-rendering fails loudly instead
+of rendering an unjudged section.
+
+**THE SUPERSEDED GROUND IS NAMED RATHER THAN DELETED.** This section previously
+read: *"A run naming neither renders the all-unjudged line, which is a legitimate
+terminal: refusing it would make the Report unobtainable without an LLM pass."*
+That premise is withdrawn by the ruling, not refuted by it — **the Report now
+requires the judgment pass, by design**, so "unobtainable without an LLM pass" is
+the intended state rather than a cost to avoid.
+
+**What the old design produced, kept as the specimen.** Both states were
+`conditional: true` and entered only on an explicit `--enter`, while
+`full_report` was unconditional and rendered anyway — so a run could skip the
+judgment and still emit a report reading *"50 candidate(s) found, 0 shown — none
+carries a recommendation level. The mechanical layer ran; the judgment layer did
+not."* Four wiring properties composed to it, three of them a divergence from how
+`J1_claims` and `J2_subdivision` are wired: unconditional, with the renderer
+refusing without them.
 
 **J3 refuses three ways:** a judgment key naming no mechanical candidate (detectable
 only against the enumeration the compute state wrote), a level outside the closed
 set, and a level with no claim.
 
-**ABOVE THE CAP AT THE HIGHEST LEVEL THE SECTION RENDERS NOTHING AND STATES THE
-COUNTS.** Showing ten of eleven equally-recommended candidates needs a tie-break
-among equals, and a machine deciding which relation the owner may see is the act
-the served record names as failing the second-proposer test
-(`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:125`).
-Silent truncation is refused by the rule that a surface which must not drop its tail
-reports rather than truncates
-(`topics/archive/knowledge-architecture.md:67`). **The cap binds as a REFUSAL**,
-which is what makes an over-wide neighborhood unrenderable rather than quietly
-abridged.
+**THE DISPLAY FILLS TO TEN, DETERMINISTICALLY, IN THE HARNESS** (kogaki#741,
+owner ruling 2026-09-01). Rows fill up to **ten** in level order
+`core → useful → background`. Where a level boundary crosses the cap, take ten in
+the **declared slug sort**, with no further prioritization. The counts line and
+every rendered form are **fixed grammar classes** — `showing 10 of 23 — all core`,
+`showing 10 of 23 — 7 core, then 3 useful` — and **no aspect of the format is
+LLM-controlled**.
+
+**THE CAP NO LONGER BINDS AS A REFUSAL, and the ground that made it one is
+recorded rather than deleted.** This section previously read: *"ABOVE THE CAP AT
+THE HIGHEST LEVEL THE SECTION RENDERS NOTHING AND STATES THE COUNTS … a machine
+deciding which relation the owner may see is the act the served record names as
+failing the second-proposer test"*, citing
+`product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/articles.md:125`,
+with silent truncation refused by
+`topics/archive/knowledge-architecture.md:67`.
+
+**Both cited lines survive; what changes is whether this act is an instance of
+them.** The ruling's ground is that **the slug sort carries no judgment**: the
+harness applies a declared, deterministic order rather than ranking relations by
+relevance, so no machine decides *which relation is worth seeing* — it decides
+only *where an arbitrary but reproducible line falls*. The second-proposer
+boundary is about narrowing by judgment (rank, trim, hide); a judgment-free order
+over an already-judged level is enumeration inside a stated cap.
+
+**The truncation line is answered by the counts, not by the sort.** The surface
+does not drop its tail silently: the counts line states the denominator and the
+level composition on every capped render, which is exactly what
+`archive/knowledge-architecture.md:67` asks of a surface that must not drop its
+tail. That clause is satisfied, not superseded.
+
+**The record conflict is surfaced rather than adjudicated.** kogaki#686 reserved
+the over-cap tie-break to the owner ("owner-reserved, decided at pickup"); PR
+#692's record states the fork "was taken at pickup as the refusal arm", and this
+section attributed render-nothing to the implementing sitting's gate. The owner's
+2026-09-01 recollection is the opposite arm. The ruling above supersedes either
+way; the discrepancy between the pickup record and the recollection is recorded
+here and not resolved.
 
 **§13.0's SILENT-EXCLUSION DUTY IS DISCHARGED ON THE SURFACE.** The enumerator marks
 three gaps — a seed carrying no `source_batch`, a `source_batch` naming a batch
@@ -1743,14 +1867,21 @@ enumeration ran and returned nothing, and — the half that refuses the strong
 reading — absence here is absence of a same-Batch sibling and never evidence that
 the settled set stands alone.
 
-**A JUDGED RERUN OF AN ALREADY-REPORTED IDENTITY REPLAYS THE STORED RENDERING, and
-that is DISCLOSED rather than repaired.** §12.1's identity triple does not include
-the judgment record, so a judged pull of a set already reported **unjudged** takes
-the idempotent-rerun branch and re-renders the unjudged artifact. Whether the
-judgment record belongs in that triple is a change to a ratified identity and to
-§12.1's uniform arity; it is carried on its own issue. Stated so the next reader
-meets it as a known bound rather than as a rendering that mysteriously ignores their
-judgments.
+**THAT BOUND IS DISCHARGED (kogaki#741).** This clause read: *"A JUDGED RERUN OF AN
+ALREADY-REPORTED IDENTITY REPLAYS THE STORED RENDERING, and that is DISCLOSED
+rather than repaired … Whether the judgment record belongs in that triple is a
+change to a ratified identity and to §12.1's uniform arity; it is carried on its
+own issue."* That issue was kogaki#741 and it is decided: **the judgment record IS
+a component of the identity**, so a judged pull of a set reported under a
+different judgment is a **different report** rather than a replay. §12.1's uniform
+arity survives, because a requester holds the judgment record it is about to
+render from and can form the key without already holding the report.
+
+**The replay it disclosed was also fixed before this, and by a different
+mechanism.** kogaki#700 added the composed-input comparison ahead of the
+idempotent-rerun branch, so the stale form failed loudly as
+`COMPOSED_INPUT_MISMATCH` rather than re-rendering. That refusal stays for the
+claims and subdivisions; only the judgment record moves from recorded to keyed.
 
 ### 13.5 The extend-or-discard gate
 
@@ -2177,8 +2308,8 @@ and never a second authority.
       → J2 subdivision judgment  (judgment point)
       → co-tag screen            (writes a screen)
       → ID-SELECTION             (wait)
-      → neighborhood compute     (conditional)
-      → J3 neighborhood judgment (judgment point, conditional)
+      → neighborhood compute     (unconditional)
+      → J3 neighborhood judgment (judgment point, unconditional)
       → full report              (writes the report)
       → TRIM-RATIFICATION        (wait, conditional — entered only on a trim)
       → STRAND-SELECTION         (wait, gate + capture)
@@ -2279,7 +2410,9 @@ executor's inputs and hands over its outputs, and retyping remains prohibited.
   and a value outside the closed set is refused rather than defaulted. WHETHER the group
   must split is the engine's at the threshold and is not a judgment this state receives.
 - **J3 — neighborhood judgment (§13.4).** Arriving as the typed per-candidate record;
-  conditional, and a run naming none renders the all-unjudged line.
+  **unconditional** (kogaki#741), and `full_report` refuses rather than rendering an
+  all-unjudged line. The judgment joins from the run record, so a run reaching
+  `full_report` has necessarily passed J3.
 
 The runtime contains no model client and no prompt, and every judgment arrives as a file.
 What this section adds is that they are reachable **only** from the states the table
