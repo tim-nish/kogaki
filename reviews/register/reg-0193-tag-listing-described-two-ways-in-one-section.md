@@ -1,6 +1,6 @@
 ---
 id: reg-0193
-status: pending
+status: promoted
 observed_at_pr: 746
 observed_at_head: 8f89013
 class: in-diff
@@ -28,9 +28,25 @@ transferable shape: **a count is only unambiguous beside the set it counts**,
 and a paraphrase that drops the qualifier inherits the ambiguity without
 inheriting the context that resolved it.
 
-**Why it is here rather than fixed on the branch or carried to an issue.** The
-two-round bound was spent when it was found, so `specs/SPEC.md` §4 clause 8's
-reachability floor applies. **Reachability, stated as the claim clause 8 asks
+**PROMOTED 2026-09-01 — it became a spec change.** The spec half was repaired in
+PR #748 (merged `da51786`), which added the clause naming which set each count
+is over: `tag_listing`'s **declared** `line_classes` array holds four, its
+**content**-class guarantee is two, and the bare "two-class allowlist" phrasing
+is gone from the comparison sentence. That repair was available because #748
+edited the same section under a live cycle and #737's licence — not because
+anything detected the divergence, which is why the reachability claim below
+stands exactly as written.
+
+**THE CODE HALF REMAINS, and naming it is what keeps this promotion honest.**
+`terrain/terrain.mjs:900-912`'s completeness inventory — *"declares only
+`header` and `tag_row` … so a fourth line class fails at emit time"* — is the
+**origin** of the ambiguity and is inside **#745's** licence, not #737's. It is
+carried there, not here. A promoted record whose remainder is unnamed would
+assert a discharge it does not have.
+
+**Why it was recorded here in the first place, kept as the record of that
+state.** The two-round bound of PR #746 was spent when it was found, so
+`specs/SPEC.md` §4 clause 8's reachability floor applied. **Reachability, stated as the claim clause 8 asks
 for: NOT reachable.** No check reads spec prose for internal consistency, no
 input makes it fire, and the normative class list for `cotag_selection` itself
 is unambiguous — nothing downstream is blocked. A successor PR and two further
