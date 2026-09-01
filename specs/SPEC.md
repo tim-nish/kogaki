@@ -2116,6 +2116,17 @@ invariant: Gukan guarantees Unit schema, never data schema).
      reader because two sites naming one carrier with no precedence is the
      conformance-copy defect this document names elsewhere in its own words.
 
+     **THE CHEAPNESS THIS CLAUSE ADVERTISES IS A CLAIM ABOUT A WRITE PATH, and
+     that path is §21's too** (kogaki#735). "Does not mint one issue per nit"
+     is false unless writing the record is cheaper than filing the issue, and
+     the kogaki#624 migration made it briefly untrue — a record had to be
+     committed and landed through a pull request, so recording a nit required
+     the issue this sentence promises it does not. §21 §"The write path" is
+     what makes the sentence true again: a diff touching only
+     `reviews/register/` lands on `master` directly, no branch, no pull
+     request, no licensing issue. A reader meeting this clause and finding the
+     write path expensive is reading a broken promise, not a nuance.
+
      **THE CARRIER WAS `kogaki#246` UNTIL 2026-08-31** (kogaki#624), an issue
      that declared itself a ledger; the owner ruled it eliminated by a one-time
      migration. It is named here in the past tense on purpose: a reader meeting
@@ -5371,3 +5382,92 @@ only one has a committable carrier here:
 — "when an obligation has two halves and only one has a committable carrier,
 the issue closes on that half, because the closable half is the only one
 producing evidence of closure."
+
+### The write path: a register-only diff lands on `master` directly (kogaki#735)
+
+**Owner selection 2026-09-01.** A diff touching **only** `reviews/register/`
+is committed on `master` and pushed. **No branch, no pull request, no
+licensing issue, and no review round.** The commit message names the issue or
+pull request the observation was made at — the record's own
+`observed_at_pr` / `source_comment` provenance, never a licence borrowed for
+the occasion.
+
+**Why this section exists at all.** The kogaki#624 migration closed the
+straddle it set out to close and changed what an append **costs**, in a
+direction nobody chose. Before it, `issue-sync register-append` posted a
+comment: no branch, no commit, no pull request, no licensing issue. After it,
+a record had to be committed and landed through a pull request — so recording
+an accretion-class finding required exactly the issue that §4 clause 8 admits
+`carried: register` in order to avoid. The cheap carrier had come to cost the
+thing it was built to prevent.
+
+The ground is served and quoted rather than paraphrased:
+
+> "A bounded process whose every exit path costs another full cycle of itself
+> cannot converge — **termination requires at least one exit whose cost does
+> not reproduce the process**, and the tell is a finding class carried at the
+> same price as a reachable defect."
+> — `product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/claude-code-ops.md:78`
+
+The register **is** that exit. A write path costing a branch, a pull request,
+two required checks and — because `.claude/review-lane.json` declares
+`"trigger": true` — a review round, is the exit reproducing the process, which
+is the shape the served line rules against. One commit is not.
+
+**A RECORD WRITE IS AN OBSERVATION, NEVER AN IMPLEMENTATION, and that is why
+the licence invariant does not reach it.** The licence contract is
+**claude-toolkit-sited** and is cited with its repository the way every served
+line in this section is —
+`tim-nish/claude-toolkit@6d322421c28c615efa010b73bd2dabb5ff68f400 specs/spec-implementation-license/SPEC.md`,
+whose actor-level `PreToolUse` deny is the carrier. An unqualified `specs/…`
+path would read as local and resolve to nothing here. It
+governs what **authorizes a change**; a register record authorizes nothing,
+changes no behaviour, and is read by no consumer as a contract. Routing it
+through a licensing issue was never the licence rule binding — it was this
+repository's default routing applied outside its domain:
+
+> "A review finding's carrier is selected by WHERE THE DEFECT LIVES, never by
+> the repository's default routing… **Location selects, never severity.**"
+> — `product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/claude-code-ops.md:124`
+
+**WHAT IS GIVEN UP IS STATED, not discovered.** `master` carries two required
+status checks, and a direct push does not **gate** on them. It does not skip
+them: `.github/workflows/checks.yml` runs on `push: branches: [master]`, so
+both jobs run against the pushed head and a malformed record shows red — after
+the fact rather than before it. The mitigation is part of the path and not
+advice beside it: **run `bash checks/check-observation-records.sh` locally
+before pushing.** Form is mechanical and truth is human, exactly as the
+transition set above already says; what moves is when the form check runs, not
+whether it does.
+
+**The SECOND required job is accounted for here too, because the first
+paragraph of this section is what keeps it green.** `license-assertion`
+(`.github/workflows/checks.yml:56`) also fires on `push: branches: [master]`,
+and on a push event it greps the **head commit message** for `#[0-9]+` and
+exits 1 without one. So "the commit message names the issue or pull request
+the observation was made at" is not a provenance nicety — it is load-bearing
+for a required check, and a record pushed under a message naming no number
+turns `master` red. Stating it in one place and relying on it in another is
+exactly the split this paragraph exists to close.
+
+**THE ENVIRONMENTAL PREMISE, stated because a path that depends on one and
+does not name it reads as unconditional.** This works because `master`'s
+protection carries `enforce_admins: false` (read live 2026-09-01), so the
+required checks do not bind the repository's administrator. **If that flips to
+`true`, this path stops working** — the push is refused, and the remedy is a
+decision to be made then, not a fallback to be assumed now. The signature is a
+refused push and nothing else, which is loud rather than silent, and that is
+the property that makes stating the premise sufficient here.
+
+**SCOPE IS THE DIFF, NEVER THE INTENT.** The path is available to a commit
+whose every changed path is under `reviews/register/`. A commit touching one
+other file is an ordinary change and takes the ordinary route, with no
+partial credit and no judgment call about which half dominated. A reader
+looking for the boundary reads `git show --stat`, not a rationale.
+
+**WHAT THIS DOES NOT CHANGE.** The transition set is untouched; identity is
+still issued; the summary view is still derived; the writer
+`issue-sync register-append` still lives outside this repository and still
+appends to an issue rather than emitting records — §"What this repository does
+NOT own" stands unamended. This section governs how a record **lands**, and
+nothing else.
