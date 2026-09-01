@@ -100,7 +100,18 @@ where a reader cannot tell from the text alone that nothing was ranked, trimmed
 or hidden. A surface that **enumerates its population completely** discharges
 the boundary structurally: there is no subset to disclose, so a disclosure line
 would assert as a fact about the act what the act's own shape already
-guarantees. `tag_listing` has always worked this way and carries neither line.
+guarantees.
+
+**The nearest existing surface is a partial exemplar and is named as one.**
+`tag_listing` enumerates completely and carries neither disclosure line — but it
+*also* says it narrows nothing, in prose, in two of its four line classes (its
+header and its `navigation_hint`). So it demonstrates the rule and something
+more, and a reader taking it as the worked example would conclude that a prose
+assurance is part of the discharge. It is not: **the structural half alone
+discharges the boundary**, and a prose line saying so is admissible on a surface
+that wants one, never required. Stated because the one precedent available
+carries both halves, and an exemplar richer than its rule silently raises the
+rule.
 
 **The carrier is the surface's own allowlist, never a per-surface prohibition.**
 A complete-enumeration surface declares the line classes it renders, with
@@ -419,15 +430,26 @@ the owner types prints to the owner.
 
 **The bound is 200 and not "about 200".** A spec cannot ship an approximation
 its emitter must then guess at; the refusal is the emitter's own `fail()` rather
-than a lint, per §2.6.3.
+than a lint. The judgment-class rule is the **root spec's** —
+`specs/SPEC.md` §2.6.3 — and it is named with its document because this spec has
+no §2.6 of its own, so a bare number would resolve here to nothing.
 
 **§2.3's disclosure lines do not render here, and the reason is the grammar
 rather than a prohibition.** Block 2 enumerates *all* served tags, so this is a
 complete enumeration and §2.3's amended clause discharges the boundary
-structurally. The surface declares exactly the three classes above under
-`non_member_fallback: REFUSE`; a fourth line class fails at emit time. Nothing
-in this section names the disclosure lines as forbidden, because that rule would
-be an enumerated prohibition whose non-member fallback is admit.
+structurally. Nothing in this section names the disclosure lines as forbidden,
+because that rule would be an enumerated prohibition whose non-member fallback
+is admit.
+
+**The declared class list is exactly `marker`, `tag_count_row`, `intent` and
+`blank`, under `non_member_fallback: REFUSE`** — the three content blocks above
+plus the separator class every owner surface in the carrier already declares
+(`tag_listing` carries `header`, `tag_row`, `navigation_hint`, `blank`). A
+*fifth* class fails at emit time. The list is written out rather than left as
+"the three blocks above", because a layout with blank separators would otherwise
+either refuse at emit or land a class the prose says must fail, and an
+implementer would have to guess which was meant — the defect the 200-not-~200
+paragraph declines to ship one clause earlier.
 
 **Why this is a surface of its own and not a widening of `tag_listing`.** That
 surface is a two-class allowlist whose completeness inventory names *"the header
