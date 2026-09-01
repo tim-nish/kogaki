@@ -5724,6 +5724,10 @@ const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const STUB = "checks/fixtures/terrain/compose-input/stub-gateway.mjs";
 const DIR = "checks/fixtures/terrain/format";
 const dir = mkdtempSync(join(tmpdir(), "terrain-tc-"));
+// Hoisted so the summary line can DERIVE its figure rather than carry a
+// literal: a hand-written "5/5" beside a list that grew is the
+// figure-asserted-rather-than-derived defect this file names elsewhere.
+let caseCount = 0;
 const want = JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8")).limits.thesis_candidates;
 
 try {
@@ -5774,6 +5778,9 @@ try {
     { why: `${want + 1} candidates against a limit of ${want}`,
       tc: [...good, { claim: "one too many", strands: ok2 }],
       token: "limits.thesis_candidates" },
+    { why: `${want - 1} candidates against a limit of ${want} — the count is EXACT, so BELOW refuses too`,
+      tc: good.slice(0, want - 1),
+      token: "limits.thesis_candidates" },
     { why: "a strands list of ONE — below the 2-8 arity",
       tc: good.map((c, i) => (i === 0 ? { claim: c.claim, strands: ["L2"] } : c)),
       token: "2 to 8" },
@@ -5788,6 +5795,7 @@ try {
       token: "more than one line" },
   ];
 
+  caseCount = cases.length;
   for (const c of cases) {
     const { r, wrote } = run(c.tc);
     if (r.status === 0) {
@@ -5801,6 +5809,70 @@ try {
     // written the rendering would be a partial pass presenting as one.
     if (wrote) {
       fails.push(`§12.3: ${c.why} refused AFTER writing a rendering — the check is a pre-write refusal`);
+    }
+  }
+
+  // THE MEMBER SET IS THE TARGET'S, NOT ITS PARENT'S (PR #763 round 1, blocking).
+  //
+  // WHY THIS CASE EXISTS AND WHY IT NEEDS ITS OWN RECORD. Every case above
+  // enters `--ids G2`, a GROUP, so each passes identically whether the member
+  // set is computed from the target or from its parent — the shipped code read
+  // a field the resolver never sets (`t.subgroup` rather than `t.sg`), so a
+  // SubGroup target validated against the WHOLE PARENT and none of those five
+  // cases could go red on it. The committed fixture cannot express the case at
+  // all: `limits.min_subgroup_members` is 3 and its group holds two members, so
+  // the only legal split is one whole-parent SubGroup, where target and parent
+  // are the same set by construction. A wider record is built here for the same
+  // reason the split-at-ten block builds one.
+  {
+    const W = JSON.parse(readFileSync(SURVEY, "utf8"));
+    W.candidates = [];
+    for (let i = 0; i < 8; i += 1) {
+      W.candidates.push({ id: `lesson:tc${i}`, slug: `tc${i}`, family: "lesson",
+        tags: ["testing", "architecture"],
+        cite: `gloss/ELEMENTS.jsonl:${200 + i}@16a6dbf6`, display_id: `L${200 + i}` });
+    }
+    const wrec = join(dir, "wide.json");
+    writeFileSync(wrec, JSON.stringify(W));
+    const all = W.candidates.map((c) => c.id);
+    const wclaims = join(dir, "wclaims.json");
+    writeFileSync(wclaims, JSON.stringify({
+      composition_pin: { tag: "testing", pin: W.pin, groups: { "testing × architecture": all } },
+      claims: { "testing × architecture": "a claim" } }));
+    const wsubs = join(dir, "wsubs.json");
+    writeFileSync(wsubs, JSON.stringify({ "testing × architecture": { judged: true, subgroups: [
+      { subgroup: "first", claim: "c", members: all.slice(0, 4),
+        coherence: "tight", coherence_why: "one mechanism", legible_at_a_glance: true },
+      { subgroup: "second", claim: "c", members: all.slice(4),
+        coherence: "tight", coherence_why: "one mechanism", legible_at_a_glance: true }] } }));
+    const runW = (strands, ids) => {
+      const out = join(dir, `w${++n}`);
+      const f = join(dir, `wtc${n}.json`);
+      writeFileSync(f, JSON.stringify(Array.from({ length: want }, () => ({ claim: "c", strands }))));
+      return spawnSync(process.execPath, ["terrain/terrain.mjs", "report",
+        "--survey", wrec, "--tag", "testing", "--ids", ids, "--claims", wclaims,
+        "--subdivisions", wsubs, "--neighborhood", join(DIR, "neighborhood-judgments.json"),
+        "--thesis-candidates", f, "--judge-model", "m", "--judge-effort", "e",
+        "--report-dir", join(out, "r"), "--rendering-dir", join(out, "g")],
+        { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
+    };
+    const inFirst = ["L200", "L201"];
+    const inSecond = ["L204", "L205"];
+
+    // THE CONTROL FIRST: strands drawn from G2-1's OWN members must be accepted
+    // on a SubGroup target, or the discrimination below is satisfied by a build
+    // that refuses every strand whenever the target is a SubGroup.
+    const ctl = runW(inFirst, "G1-1");
+    if (ctl.status !== 0) {
+      fails.push(`§12.3 refusal 3 CONTROL: a SubGroup target whose strands are all its own members was refused — ${String(ctl.stderr).trim().slice(0, 250)}`);
+    }
+    // THE DISCRIMINATION: ids that belong to the SIBLING SubGroup are in the
+    // PARENT and are not rendered by this report, so they must refuse.
+    const bad = runW(inSecond, "G1-1");
+    if (bad.status === 0) {
+      fails.push("§12.3 refusal 3: a SubGroup-target report ACCEPTED strands naming members of a SIBLING SubGroup — ids its own rendering never carries. The member set is being read from the parent group rather than from the target, so the refusal reads as coverage while admitting exactly what it names");
+    } else if (!/not a member of THIS report/.test(String(bad.stderr))) {
+      fails.push(`§12.3 refusal 3: the SubGroup-target case refused, but not under the membership refusal — got ${JSON.stringify(String(bad.stderr).trim().slice(0, 220))}`);
     }
   }
 
@@ -5833,5 +5905,5 @@ if (fails.length) {
   for (const f of fails) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log(`thesis-candidates: 5/5 refusals fire and name their own token, each writing NOTHING; the conformant control renders; and the disclosed-absence path renders the section, says it is empty, and invents no rows. The count is read from report-format.json (${want}) rather than written here.`);
+console.log(`thesis-candidates: ${caseCount}/${caseCount} refusals fire and name their own token, each writing NOTHING; the conformant control renders; and the disclosed-absence path renders the section, says it is empty, and invents no rows. The count is read from report-format.json (${want}) rather than written here.`);
 JS

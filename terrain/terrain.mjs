@@ -3329,8 +3329,18 @@ function cmdReport(args) {
   // the three bounds are checked while nothing has been written. The member set
   // is THIS report's rendered display ids, which is why it is computed from the
   // resolved targets rather than from the survey record.
+  // KEYED ON `t.kind`, LIKE THE TWO OTHER READERS OF THIS SHAPE. The first
+  // version tested `t.subgroup`, a field `resolveEnteredIds` never sets — the
+  // resolver puts the SubGroup on `t.sg` — so the ternary was always false and
+  // a `--ids G5-1` report validated candidates against the WHOLE PARENT GROUP.
+  // The refusal then admitted display ids the rendering does not carry, which
+  // is the coverage-shaped failure this very section cites
+  // `product-lab@ed0873dc topics/claude-code-ops.md:142` against, produced by
+  // the code that cites it. Caught by PR #763 round 1; the refusal block below
+  // gains a SubGroup-target case, because all five of its original cases ran
+  // `--ids G2` and none could have gone red on this.
   const reportMemberIds = [...new Set(
-    targets.flatMap((t) => (t.subgroup ? t.subgroup.members : t.group.members)))]
+    targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
     // `displayIdOf` returns the ABNORMAL sentinel rather than a falsy value
     // for a record predating §14.3, so it is excluded by NAME. A `filter(Boolean)`
     // would keep it and the sentinel would then read as an admissible strand id.
