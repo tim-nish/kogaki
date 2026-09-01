@@ -1,7 +1,7 @@
 {
-  "version": 15,
+  "version": 16,
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
-  "licensed_by": "kogaki#739 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
+  "licensed_by": "kogaki#761 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (terrain/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
     "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
@@ -349,12 +349,10 @@
         },
         {
           "id": "counted_family",
-          "form": "- <family>: <n>"
+          "form": "- <family>: <n>",
+          "_counted_served_was_RETIRED_AT_v16": "kogaki#761, owner ruling 2026-09-01. A sibling class `- lessons served: <n>` stood here, rendering the full served denominator (`record.candidates.length`). The owner ruled it unnecessary and it must not be displayed. RETIRED WITH ITS SUBJECT, never re-pointed at another denominator — a class kept in this carrier after the line it admits is gone would admit nothing, which is a conformance category with no members and reads as coverage. The machine record keeps `lessons_served` (terrain/terrain.mjs writes it at two sites); only the DISPLAY is withdrawn, so nothing reading the record breaks. This note sits on the class that survives rather than on the one that left, because a deleted entry leaves no place to write."
         },
-        {
-          "id": "counted_served",
-          "form": "- lessons served: <n>"
-        },
+
         {
           "id": "h2_served_lines",
           "form": "## Served lines"
