@@ -10,6 +10,17 @@
 > article material is quoted from served renderings at pins, never
 > from a report.
 
+## Thesis candidates
+
+*Non-binding: this section does not constrain the Brief's Thesis.*
+
+- TC1 — A guard counts as real only once something has exercised it.
+  strands: L2, L1
+- TC2 — Evidence of existence and evidence of standing are different reads.
+  strands: L2, L1
+- TC3 — A check's position in the loop prices it more than its content does.
+  strands: L1, L2
+
 
 ## G2 — testing × architecture
 

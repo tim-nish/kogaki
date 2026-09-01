@@ -3524,6 +3524,11 @@ for (const f of present) {
   // the golden run consumes (kogaki#686). Named here so the corpus guard keeps
   // its meaning: one specimen per covered surface, and inputs are not specimens.
   if (f === "neighborhood-judgments.json") continue;
+  // §12.3's judgment-layer INPUT (kogaki#760), excluded on exactly the ground
+  // the line above states: an input the golden run CONSUMES is not a specimen
+  // of a surface. Named rather than pattern-matched, so a third input is a
+  // deliberate act here and not something a glob absorbs silently.
+  if (f === "thesis-candidates.json") continue;
   if (!Object.values(SPECIMENS).includes(f)) {
     fails.push(`${DIR}/${f} is a specimen for no covered surface — AC6: a specimen, not a corpus. A format incident earns a grammar edit and a REGENERATED specimen, never an additional fixture`);
   }
@@ -3580,6 +3585,18 @@ try {
     ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", TAG, "--ids", "G2",
      "--claims", claims, "--subdivisions", subs,
      "--neighborhood", join(DIR, "neighborhood-judgments.json"),
+     // §12.3 (kogaki#760) — the specimen exercises the POPULATED path
+     // deliberately, on the same ground the `--neighborhood` line above gives:
+     // the disclosed-absence rendering is real and legible, but a golden
+     // specimen showing it would pin the shape nobody ships and leave the
+     // section's four ruled classes uncovered.
+     //
+     // WHAT THIS FIXTURE CANNOT EXERCISE, stated rather than left to be
+     // inferred: G2 carries exactly two members, so every candidate's
+     // `strands:` list is the same pair. The section's FORM, its id minting
+     // and its count are covered; strand-set VARIATION between candidates is
+     // not, and no assertion here claims it is.
+     "--thesis-candidates", join(DIR, "thesis-candidates.json"),
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", rdir, "--rendering-dir", gdir],
     { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
@@ -5682,4 +5699,139 @@ console.log("split-at-ten: 3 direction(s) — a 12-member group rendering FLAT i
   + "split as this line used to report. The case asserts WHICH refusal arrives first, which is what "
   + "makes rule 3's threshold collision dead code; raising N above the threshold revives it and fails "
   + "here. Below N rule 3 is untouched and its own block asserts it.");
+JS
+
+# =========================================================================
+# §12.3 — the Thesis-candidates refusals FIRE (kogaki#760).
+#
+# THE BOUNDS ARE RUNTIME REFUSALS AND ARE ASSERTED AS SUCH. `full_report`'s
+# `line_class_allowlist` is inert, so the grammar cannot police the count, the
+# arity or the membership — which means a case driving `validateSurface` over
+# crafted text would assert nothing about them. Every case below drives the
+# REAL `report` command and reads its exit status and its stderr.
+#
+# EACH CASE NAMES ITS OWN TOKEN so a case that starts passing for the wrong
+# reason — some other refusal in the same run — is caught.
+echo "== thesis-candidates refusals (checks/check-terrain-composition.sh)"
+node --input-type=module - <<'JS'
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+
+const fails = [];
+const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const STUB = "checks/fixtures/terrain/compose-input/stub-gateway.mjs";
+const DIR = "checks/fixtures/terrain/format";
+const dir = mkdtempSync(join(tmpdir(), "terrain-tc-"));
+const want = JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8")).limits.thesis_candidates;
+
+try {
+  const pin = JSON.parse(readFileSync(SURVEY, "utf8")).pin;
+  const claims = join(dir, "claims.json");
+  writeFileSync(claims, JSON.stringify({
+    composition_pin: { tag: "testing", pin, groups: {
+      "testing × (no second served tag)": ["lesson:delta"],
+      "testing × architecture": ["lesson:alpha", "lesson:bravo"],
+      "testing × cost": ["lesson:charlie"],
+    } },
+    claims: { "testing × architecture": "a claim" },
+  }));
+  const subs = join(dir, "subs.json");
+  writeFileSync(subs, JSON.stringify({ "testing × architecture": { judged: true, subgroups: [] } }));
+
+  let n = 0;
+  const run = (candidates) => {
+    const out = join(dir, `o${++n}`);
+    const argv = ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing",
+      "--ids", "G2", "--claims", claims, "--subdivisions", subs,
+      "--neighborhood", join(DIR, "neighborhood-judgments.json"),
+      "--judge-model", "m", "--judge-effort", "e",
+      "--report-dir", join(out, "r"), "--rendering-dir", join(out, "g")];
+    if (candidates !== null) {
+      const f = join(dir, `tc${n}.json`);
+      writeFileSync(f, JSON.stringify(candidates));
+      argv.push("--thesis-candidates", f);
+    }
+    const r = spawnSync(process.execPath, argv,
+      { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
+    const gdir = join(out, "g");
+    return { r, wrote: existsSync(gdir) && readdirSync(gdir).length > 0 };
+  };
+
+  const ok2 = ["L2", "L1"];
+  const good = Array.from({ length: want }, (_, i) => ({ claim: `c${i}`, strands: ok2 }));
+
+  // A REFUSING CASE PLUS ITS CONTROL. Without the control every case below is
+  // satisfied by a runtime that refuses every report, which is the
+  // green-that-cannot-go-red one polarity over.
+  const control = run(good);
+  if (control.r.status !== 0) {
+    fails.push(`the CONTROL failed: a conformant ${want}-candidate report was refused — ${String(control.r.stderr).trim().slice(0, 300)}`);
+  }
+
+  const cases = [
+    { why: `${want + 1} candidates against a limit of ${want}`,
+      tc: [...good, { claim: "one too many", strands: ok2 }],
+      token: "limits.thesis_candidates" },
+    { why: "a strands list of ONE — below the 2-8 arity",
+      tc: good.map((c, i) => (i === 0 ? { claim: c.claim, strands: ["L2"] } : c)),
+      token: "2 to 8" },
+    { why: "an unknown display id, well-formed but not a member of THIS report",
+      tc: good.map((c, i) => (i === 0 ? { claim: c.claim, strands: ["L2", "L9"] } : c)),
+      token: "L9" },
+    { why: "a repeated strand inside one candidate",
+      tc: good.map((c, i) => (i === 0 ? { claim: c.claim, strands: ["L2", "L2"] } : c)),
+      token: "more than once" },
+    { why: "a multi-line claim, which would emit a line no class admits",
+      tc: good.map((c, i) => (i === 0 ? { claim: "line one\nline two", strands: ok2 } : c)),
+      token: "more than one line" },
+  ];
+
+  for (const c of cases) {
+    const { r, wrote } = run(c.tc);
+    if (r.status === 0) {
+      fails.push(`§12.3: ${c.why} was ACCEPTED — the refusal did not fire`);
+      continue;
+    }
+    if (!String(r.stderr).includes(c.token)) {
+      fails.push(`§12.3: ${c.why} refused, but the message does not name ${JSON.stringify(c.token)} — got ${JSON.stringify(String(r.stderr).trim().slice(0, 220))}`);
+    }
+    // THE REFUSAL PRECEDES BOTH WRITES (§14.2). A refusal that had already
+    // written the rendering would be a partial pass presenting as one.
+    if (wrote) {
+      fails.push(`§12.3: ${c.why} refused AFTER writing a rendering — the check is a pre-write refusal`);
+    }
+  }
+
+  // THE DISCLOSED ABSENCE IS A RENDERING, NOT A REFUSAL, and it is asserted in
+  // both directions: the section is present AND says it is empty. Asserting
+  // only the exit status would pass on a build that dropped the section.
+  const absent = run(null);
+  if (absent.r.status !== 0) {
+    fails.push(`§12.3: a report with NO --thesis-candidates was refused — the chosen fallback is a disclosure, not a refusal: ${String(absent.r.stderr).trim().slice(0, 200)}`);
+  } else {
+    const gdir = join(dir, "o" + n, "g");
+    const md = readdirSync(gdir).filter((f) => f.endsWith(".md"));
+    const text = md.length ? readFileSync(join(gdir, md[0]), "utf8") : "";
+    if (!text.includes("## Thesis candidates")) {
+      fails.push("§12.3: the absent case rendered NO section at all — omitting it makes 'none were composed' and 'this section does not exist' the same silence, which is the fallback that was declined");
+    }
+    if (!text.includes("empty rather than absent")) {
+      fails.push("§12.3: the absent case rendered the section with no disclosure line");
+    }
+    if (/^- TC[0-9]+ /m.test(text)) {
+      fails.push("§12.3: the absent case rendered candidate rows from nothing");
+    }
+  }
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}
+
+if (fails.length) {
+  console.error("FAIL thesis-candidates refusals (SPEC-terrain §12.3, kogaki#760):");
+  for (const f of fails) console.error(`  - ${f}`);
+  process.exit(1);
+}
+console.log(`thesis-candidates: 5/5 refusals fire and name their own token, each writing NOTHING; the conformant control renders; and the disclosed-absence path renders the section, says it is empty, and invents no rows. The count is read from report-format.json (${want}) rather than written here.`);
 JS

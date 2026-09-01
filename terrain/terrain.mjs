@@ -2713,6 +2713,43 @@ function announceScreen(path) {
 // The owner register (§12.2 v11). Markdown, because the artifact's whole job is
 // to be READ — the JSON beside it keeps every machine property, so nothing here
 // is load-bearing for identity and nothing may parse it back.
+// §12.3 — the Thesis candidates section (kogaki#760).
+//
+// THE ABSENT CASE RENDERS THE SECTION AND SAYS IT IS EMPTY, which is the
+// fallback CHOSEN at the gate rather than inherited from the code. The three
+// candidates were: refuse the render, omit the section, or disclose. Omitting
+// makes "no candidates were composed" and "this section does not exist"
+// indistinguishable to the owner, which is the silence §13.4 already refuses
+// for the neighborhood — "an empty result renders its explicit lines, never an
+// absent section" — and this follows that precedent in the same file. Refusing
+// was the stronger reading of "fixed section" and was declined at the gate for
+// its blast radius: eighteen `report` invocations supply no such file.
+//
+// The count, the arity and the membership are NOT checked here. They are
+// runtime refusals in `cmdReport`, sited before anything is written, because
+// `full_report`'s `line_class_allowlist` is inert — three of its body classes
+// are bare placeholders admitting any line — so a grammar class on this
+// surface carries FORM and can police nothing else.
+export function thesisCandidatesSection(candidates) {
+  const L = ["## Thesis candidates", ""];
+  L.push("*Non-binding: this section does not constrain the Brief's Thesis.*");
+  L.push("");
+  if (!candidates || candidates.length === 0) {
+    L.push("*No Thesis candidates were composed for this pull — the section is empty rather than absent.*");
+    L.push("");
+    return L;
+  }
+  candidates.forEach((c, i) => {
+    // THE ID IS MINTED HERE, POSITIONALLY, and is never read from the input.
+    // A supplied id would be a second carrier for a number the list already
+    // fixes, and the two would drift the first time a candidate was reordered.
+    L.push(`- TC${i + 1} — ${c.claim}`);
+    L.push(`  strands: ${c.strands.join(", ")}`);
+  });
+  L.push("");
+  return L;
+}
+
 export function renderReportMarkdown(report, tag) {
   const L = [];
   const i = report.identity;
@@ -2734,6 +2771,24 @@ export function renderReportMarkdown(report, tag) {
   L.push("> article material is quoted from served renderings at pins, never");
   L.push("> from a report.");
   L.push("");
+  // §12.3 — THE THESIS CANDIDATES SECTION (kogaki#760, owner ruling
+  // 2026-09-01). The early image, so it is the first CONTENT the owner reads.
+  //
+  // SITED BELOW THE PREAMBLE, and the choice is stated rather than left as an
+  // accident of where the push landed. The ruling says "immediately after the
+  // report header"; the preamble is the boundary notice governing how
+  // everything under it is read ("It is a RENDERING, not an address"), and a
+  // section whose claims a judge composed belongs under that notice rather
+  // than above it. Everything the ruling's own ground asks for is still
+  // satisfied — nothing but the identity and the boundary precedes it.
+  //
+  // NON-BINDING, AND THE LINE SAYS SO ON THE SURFACE. Brief cannot yet select
+  // or discard Strands, so the desired combination must be completable inside
+  // Terrain; this section serves that and constrains the Brief's eventual
+  // Thesis not at all. A reader who meets three candidate claims at the top of
+  // a report will otherwise take them for a narrowing, which is the one thing
+  // §2.3 promises this surface never does.
+  L.push(...thesisCandidatesSection(report.thesis_candidates));
   // The singular `## Group claim` block is GONE (§12 v7): a report may span
   // several ids, so there is no one group whose claim heads the file. Each
   // section carries its own claim under its own heading.
@@ -3119,6 +3174,89 @@ function resolveEnteredIds(entered, groups, subOf) {
   return { canonical: canon, targets: canon.map((id) => byId.get(id)) };
 }
 
+// §12.3 — reading and REFUSING the Thesis-candidate input (kogaki#760).
+//
+// EVERY BOUND IS A RUNTIME REFUSAL, and that siting is the finding rather than
+// a preference. `full_report`'s `line_class_allowlist` is INERT — three of its
+// body classes (`group_claim_body`, `subgroup_claim_body`, `member_gloss_body`)
+// are bare placeholders admitting any line, which the grammar's own reader
+// notes record — so a grammar class declared for this section polices its FORM
+// and cannot carry the count, the arity or the membership. A class asserted as
+// their carrier would read as coverage while checking nothing:
+//
+//   "the load-bearing half of an enumerated prohibition is its NON-MEMBER
+//    FALLBACK: a carrier keyed to the DECLARED instance bounds ARITY while
+//    leaving KIND admit-by-default, and because the carrier visibly works the
+//    enumeration reads as coverage."
+//   consulted: product-lab@ed0873dc topics/claude-code-ops.md:142
+//
+// THE COUNT IS EXACT, NOT A MAXIMUM. `limits.thesis_candidates` is read from
+// the grammar and never written here — a second literal would be the
+// two-carriers-of-one-number shape, and the number is exactly the kind of
+// value that drifts silently when copied.
+//
+// THE MEMBER SET IS THIS REPORT'S, not the survey's. A candidate may only
+// point at Strands the owner is actually reading in this file; an id that is a
+// perfectly good display id elsewhere in the record is still a refusal here,
+// because the section exists to let the owner combine what is in front of them.
+export function readThesisCandidates(raw, memberDisplayIds, limits) {
+  const want = Number((limits || {}).thesis_candidates);
+  if (raw === null || raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    fail("--thesis-candidates must be a JSON array of {claim, strands} objects (SPEC.md §12.3)");
+  }
+  if (!Number.isFinite(want)) {
+    // A bound the grammar does not carry cannot be evaluated, and guessing one
+    // here would be this file inventing a number the owner sets.
+    fail("report-format.json declares no numeric `limits.thesis_candidates`, so the Thesis-candidate "
+      + "count cannot be evaluated; a count guessed in the runtime would be the runtime inventing the "
+      + "boundary the owner set");
+  }
+  if (raw.length !== want) {
+    fail(`--thesis-candidates carries ${raw.length} candidate(s) and \`limits.thesis_candidates\` is ${want}. `
+      + "The count is EXACT rather than a maximum (SPEC.md §12.3): a section whose length varies run to run "
+      + "cannot be read as a fixed early image. Compose exactly " + want + ", or amend the limit in "
+      + "specs/spec-terrain/report-format.json on its own licensing issue.");
+  }
+  const members = new Set(memberDisplayIds);
+  return raw.map((c, i) => {
+    const at = `--thesis-candidates[${i}]`;
+    if (!c || typeof c !== "object" || Array.isArray(c)) {
+      fail(`${at} must be an object carrying "claim" and "strands" (SPEC.md §12.3)`);
+    }
+    const claim = c.claim;
+    if (typeof claim !== "string" || claim.trim() === "") {
+      fail(`${at} carries no "claim" text (SPEC.md §12.3: one sentence per candidate)`);
+    }
+    if (/\n/.test(claim)) {
+      // One RENDERED line per claim: a newline would emit a line no class
+      // admits, and the emit-time refusal would then report the surface rather
+      // than the input that caused it.
+      fail(`${at}'s claim spans more than one line. §12.3 renders one line per candidate, so a `
+        + "multi-line claim would emit a line no grammar class admits and the refusal would name the "
+        + "surface rather than this input.");
+    }
+    const strands = c.strands;
+    if (!Array.isArray(strands) || strands.length < 2 || strands.length > 8) {
+      fail(`${at} carries ${Array.isArray(strands) ? strands.length : "no"} strand(s); §12.3 requires 2 to 8. `
+        + "One strand is not a combination and nine is not an early image.");
+    }
+    const unknown = strands.filter((x) => !members.has(x));
+    if (unknown.length) {
+      fail(`${at} names ${unknown.join(", ")}, which ${unknown.length === 1 ? "is" : "are"} not a member of THIS report. `
+        + `The display ids this report carries are: ${[...members].join(", ")}. `
+        + "A candidate may only combine Strands the owner is reading in this file (SPEC.md §12.3) — an id that "
+        + "resolves elsewhere in the survey record is still refused here.");
+    }
+    const dup = strands.filter((x, j) => strands.indexOf(x) !== j);
+    if (dup.length) {
+      fail(`${at} names ${[...new Set(dup)].join(", ")} more than once. A repeated strand inflates the `
+        + "combination without adding to it.");
+    }
+    return { claim, strands: [...strands] };
+  });
+}
+
 function cmdReport(args) {
   retireLegacyReportsDir();
   const dir = reportsDir(args);
@@ -3186,6 +3324,21 @@ function cmdReport(args) {
       + `every group is judged (§6.2), so a missing entry cannot be recorded: write `
       + `{"judged": true, "subgroups": []} for a group whose judgment found no subdivision`);
   }
+
+  // §12.3 (kogaki#760) — READ AND REFUSED HERE, before any generation runs, so
+  // the three bounds are checked while nothing has been written. The member set
+  // is THIS report's rendered display ids, which is why it is computed from the
+  // resolved targets rather than from the survey record.
+  const reportMemberIds = [...new Set(
+    targets.flatMap((t) => (t.subgroup ? t.subgroup.members : t.group.members)))]
+    // `displayIdOf` returns the ABNORMAL sentinel rather than a falsy value
+    // for a record predating §14.3, so it is excluded by NAME. A `filter(Boolean)`
+    // would keep it and the sentinel would then read as an admissible strand id.
+    .map((mid) => displayIdOf(mid, record.candidates))
+    .filter((d) => d && d !== NO_DISPLAY_ID);
+  const thesisCandidates = readThesisCandidates(
+    args["thesis-candidates"] ? readJson(String(args["thesis-candidates"])) : null,
+    reportMemberIds, loadGrammar(REPORT_FORMAT).limits || {});
 
   // One shard fetch for the whole invocation — tag-scoped and bounded (§9),
   // shared across every target group.
@@ -3640,6 +3793,10 @@ function cmdReport(args) {
     // under both G5 and G5-1 is one Lesson, not two.
     counted: familySplit([...new Set(allMemberIds)], record.candidates),
     lessons_served: record.candidates.length,
+    // §12.3 (kogaki#760) — validated ABOVE, before this object exists, so a
+    // refusal precedes both writes exactly as §14.2 requires of the emit-time
+    // guard. An empty array is the DISCLOSED absence and not a missing field.
+    thesis_candidates: thesisCandidates,
     // §13.1 v20 — ONCE per file, rendered LAST by `renderReportMarkdown`.
     neighborhood,
   };
