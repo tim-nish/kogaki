@@ -27,7 +27,7 @@ set -euo pipefail
 cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
 exec python3 - "$@" <<'PY'
-import json, pathlib, subprocess, sys
+import json, pathlib, subprocess, sys, time
 
 registry = json.loads(pathlib.Path("checks/registry.json").read_text())
 entries = registry["checks"]
@@ -42,14 +42,21 @@ for entry in entries:
     path = (pathlib.Path(entry["file"]) if "/" in entry["file"]
             else pathlib.Path("checks") / entry["file"])
     print(f"== {entry['id']} ({path})", flush=True)
+    started = time.monotonic()
     result = subprocess.run(["bash", str(path)])
+    elapsed_ms = round((time.monotonic() - started) * 1000)
     # The catch ledger's primary capture (kogaki#113): one line per check per
     # exercised run, in the run log — assembled on demand, never a stored
     # second ledger (owner decision 2026-08-06). A "fail" is a catch: the
     # check found what it guards against. Flushed per line so a cancelled run
     # does not lose the catches already made.
+    # `ms=` is the measured cost per run (kogaki#20): the static `runtime_ms`
+    # declared at admission rots, and retention weighs measured cost. Lines
+    # predating this field simply lack it; the digest counts timed runs as
+    # their own denominator rather than guessing.
     print(f"catch: {entry['id']} outcome="
-          f"{'pass' if result.returncode == 0 else 'fail'}", flush=True)
+          f"{'pass' if result.returncode == 0 else 'fail'} ms={elapsed_ms}",
+          flush=True)
     if result.returncode != 0:
         failed.append(entry["id"])
 
