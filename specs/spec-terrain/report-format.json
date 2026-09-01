@@ -1,7 +1,7 @@
 {
-  "version": 16,
+  "version": 17,
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
-  "licensed_by": "kogaki#761 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
+  "licensed_by": "kogaki#760 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (terrain/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
     "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
@@ -23,6 +23,12 @@
       "shape": "^G[0-9]+-[0-9]+$",
       "means": "a SubGroup's display id, prefixed by its parent GroupID (§6.2)",
       "producer": "terrain/terrain.mjs cmdCotags / cmdSubdivide"
+    },
+      "ThesisCandidateID": {
+      "shape": "^TC[0-9]+$",
+      "means": "a Thesis candidate's owner-facing display id, minted over the composed candidate list for one report (\u00a712.3)",
+      "producer": "terrain/terrain.mjs cmdReport \u2014 minted positionally over the supplied candidates, never carried in the input",
+      "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ and from ^N[0-9]+$. A candidate is not an element and is never assigned a display_id by \u00a714.3; the three spaces coexist and a `strands:` list carries LessonDisplayIDs only."
     },
     "LessonCount": {
       "shape": "^[0-9]+ Lessons?$",
@@ -279,6 +285,32 @@
           ]
         },
         {
+          "id": "h2_thesis_candidates",
+          "form": "## Thesis candidates"
+        },
+        {
+          "id": "thesis_candidates_disclaimer",
+          "form": "*Non-binding: this section does not constrain the Brief's Thesis.*"
+        },
+        {
+          "id": "thesis_candidate_row",
+          "form": "- <ThesisCandidateID> \u2014 <one-sentence claim>",
+          "allowlist": [
+            "ThesisCandidateID"
+          ]
+        },
+        {
+          "id": "thesis_candidate_strands",
+          "form": "  strands: <LessonDisplayID list, \", \"-joined>",
+          "allowlist": [
+            "LessonDisplayID list"
+          ]
+        },
+        {
+          "id": "thesis_candidates_absent",
+          "form": "*No Thesis candidates were composed for this pull \u2014 the section is empty rather than absent.*"
+        },
+        {
           "id": "h2_section",
           "form": "## <GroupID> — <co-tag name> | ## <SubGroupID> — <SubGroup name>",
           "allowlist": [
@@ -352,7 +384,6 @@
           "form": "- <family>: <n>",
           "_counted_served_was_RETIRED_AT_v16": "kogaki#761, owner ruling 2026-09-01. A sibling class `- lessons served: <n>` stood here, rendering the full served denominator (`record.candidates.length`). The owner ruled it unnecessary and it must not be displayed. RETIRED WITH ITS SUBJECT, never re-pointed at another denominator — a class kept in this carrier after the line it admits is gone would admit nothing, which is a conformance category with no members and reads as coverage. The machine record keeps `lessons_served` (terrain/terrain.mjs writes it at two sites); only the DISPLAY is withdrawn, so nothing reading the record breaks. This note sits on the class that survives rather than on the one that left, because a deleted entry leaves no place to write."
         },
-
         {
           "id": "h2_served_lines",
           "form": "## Served lines"
@@ -470,6 +501,8 @@
       "_why_asymmetric": "Brief consumes a `tight` group WHOLE and cannot yet filter Strands, so an oversized tight group lands entirely in a consumer with no way to narrow it — the harder cap follows the consumer's inability rather than the label's seniority. `related` and `loose` are browse material a reader scans and selects from.",
       "_residual_is_not_here": "`other` is NOT an affinity label and carries no entry in this map. It is the RESIDUAL, bounded by `max_residual_members` below — a different quantity with a different purpose, and giving it a row here would let a reader treat the residual as a fourth affinity."
     },
+      "thesis_candidates": 3,
+    "_why_thesis_candidates": "How many Thesis candidates the Full Report's \u00a712.3 section carries (kogaki#760, owner ruling 2026-09-01 that this is configurable like the member caps). ENFORCED MECHANICALLY at the runtime, per this block's own `_why`: a supplied candidate list whose length is not this number REFUSES the render, naming both figures. It is not a maximum and not a default the emitter pads toward \u2014 the count is exact, because a section whose length varies run to run cannot be read as a fixed early image.",
     "min_subgroup_members": 3,
     "_why_min": "A composed SubGroup under M is refused (amendment 1 ruling 3, M initial 3). TWO EXEMPTIONS, both stated rather than left to the code: the residual has no floor, because a residual shrinking toward zero is the outcome the whole design wants and a floor would refuse exactly the classifications that did best; and a SubGroup holding the WHOLE parent group is exempt (owner selection 2026-09-01), because M refuses a splinter and a SubGroup that divided nothing produced none. Without the second, a group under M has no conformant affinity classification at all and the residual becomes its only path, which would force the judge to assert an absence of affinity that may be false.",
     "max_residual_members": 5,

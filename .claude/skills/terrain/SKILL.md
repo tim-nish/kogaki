@@ -154,8 +154,36 @@ is the table's; the rendering is the runtime's. The invocation forms below are
 the ones the judgment states consume — `cotags --survey <record> --tag <T>
 --claims <F> --subdivisions <F> --judge-model <M> --judge-effort <E>` for the
 co-tag screen, and `report --survey <record> --tag <T> --ids <G…> --claims <F>
---subdivisions <F> --judge-model <M> --judge-effort <E>` for the Full Report,
-whose ID set the owner enters. **Nothing on either line is optional.**
+--subdivisions <F> --judge-model <M> --judge-effort <E>
+[--thesis-candidates <F>]` for the Full Report, whose ID set the owner enters.
+**Nothing on either line is optional, with ONE declared exception**, bracketed
+above rather than left for you to discover.
+
+   **`--thesis-candidates` IS THE EXCEPTION, and omitting it is a DECISION you
+   are making on the owner's behalf** (§12.3, kogaki#760). Absence is legal and
+   renders the section carrying an explicit *no Thesis candidates were composed
+   for this pull* line — it is disclosed, never silent, so an owner can always
+   tell a pull you composed none for from one where the section does not apply.
+   That is the fallback and not an invitation: the section exists to give the
+   owner an early image of the Theses this Strand set supports, and **compose it
+   unless you have a reason not to.**
+
+   Compose it as a JSON array of exactly `limits.thesis_candidates` objects
+   (initially 3, read from `specs/spec-terrain/report-format.json` — the count
+   is EXACT, and a different length refuses the render):
+
+   ```json
+   [
+     { "claim": "<one sentence>", "strands": ["L6", "L32", "L173"] }
+   ]
+   ```
+
+   Each `strands:` list holds **2 to 8** display ids and **every one must be a
+   member of the report you are generating** — an id that resolves elsewhere in
+   the survey record is refused by name. You do not supply `TC<n>` ids; the
+   runtime mints them positionally. **The claims are yours and the design is
+   not**: every rendered line is a fixed grammar class, and the section
+   constrains the Brief's eventual Thesis not at all.
 
    **THE SUBDIVISION FILE IS A TYPED RECORD PER GROUP** (§12.1 v9,
    kogaki#199). Compose it as:

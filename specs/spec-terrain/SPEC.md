@@ -1674,6 +1674,101 @@ never from a report. Moving a file into the tree does not make it evidence.
 **Count scoping.** This section's count governs **Full Report renderings**;
 §14.4.1's governs the screen, and on disagreement each wins for its own artifact.
 
+### 12.3 Thesis candidates — the early image, and it binds nothing
+
+**THE REPORT CARRIES A FIXED THESIS-CANDIDATES SECTION** (owner ruling
+2026-09-01, kogaki#760). It renders below the preamble and above the first
+entered-id section, so it is the first *content* the owner reads:
+
+```text
+## Thesis candidates
+
+*Non-binding: this section does not constrain the Brief's Thesis.*
+
+- TC1 — <one-sentence claim>
+  strands: L6, L32, L173
+- TC2 — …
+- TC3 — …
+```
+
+**What it is for.** It lets the owner form an early image of the Theses this
+report's Strand set could support. That is a **different question** from the
+provenance neighborhood's (§13): the neighborhood asks what else is adjacent to
+this set, and this asks what this set already says.
+
+**Why the non-binding line is on the surface and not only in this spec.** Brief
+cannot yet select or discard Strands, so the desired combination has to be
+completable *inside* Terrain — and a reader who meets three claims at the top of
+a report will otherwise take them for a narrowing, which is the one thing §2.3
+promises this surface never does. The disclaimer is a rendered line class, not a
+convention.
+
+**Harness-fixed form, judge-supplied content.** Every rendered line is a declared
+grammar class; what the judge controls is claim text and strand picks, never the
+design. That split is the ratified shape for a section like this:
+
+> "A COVERAGE CLAIM IS A CLAIM ABOUT DECLARED CLASSES: where a member's content
+> is computed per run, the class is declared in the enumeration and the instance
+> is recorded with the run, completeness is unaffected, and a committed instance
+> disagreeing with its class is a VIOLATION, never an exemption."
+
+`consulted: product-lab@ed0873dcc73dbec3b3c80a075a51bc172c69a14a topics/knowledge-architecture.md:289`
+
+**THE BOUNDS ARE RUNTIME REFUSALS, AND THE SITING IS THE FINDING.** Input
+arrives as `--thesis-candidates <file>` and is validated before anything is
+written, exactly as §14.2 requires. Four refusals, each naming what it read:
+
+1. **The count is EXACT** — `limits.thesis_candidates` (initially 3), read from
+   `report-format.json` and never written in the runtime. Not a maximum and not
+   a floor the emitter pads toward: a section whose length varies run to run
+   cannot be read as a fixed early image.
+2. **Each `strands:` list holds 2 to 8 display ids.** One strand is not a
+   combination; nine is not an early image.
+3. **Every strand is a member of THIS report.** An id that resolves elsewhere in
+   the survey record is still refused — the section exists to let the owner
+   combine what is in front of them.
+4. **Each claim is one rendered line, and no strand repeats within a candidate.**
+
+**None of these can live in the grammar, and that is why they are here.**
+`full_report`'s `line_class_allowlist` is **inert**: three of its body classes
+are bare placeholders admitting any line, which `report-format.json`'s own
+reader notes record. A class declared for this section therefore carries its
+FORM and can police nothing else, so a bound asserted there would read as
+coverage while checking nothing.
+
+> "the load-bearing half of an enumerated prohibition is its NON-MEMBER
+> FALLBACK: a carrier keyed to the DECLARED instance bounds ARITY while leaving
+> KIND admit-by-default, and because the carrier visibly works the enumeration
+> reads as coverage. The question that decides whether such a rule is a control
+> is not \"does it catch what it names?\" but \"what happens to what it does not
+> name?\", and that answer must be CHOSEN rather than inherited from the matcher."
+
+`consulted: product-lab@ed0873dcc73dbec3b3c80a075a51bc172c69a14a topics/claude-code-ops.md:142`
+
+**THE ABSENT INPUT RENDERS THE SECTION AND SAYS IT IS EMPTY** — the chosen
+fallback, owner selection 2026-09-02, and the direct application of that line to
+this section's own non-member case:
+
+```text
+*No Thesis candidates were composed for this pull — the section is empty rather than absent.*
+```
+
+Two alternatives were declined and are recorded so neither is re-proposed blind.
+**Omitting the section** makes *no candidates were composed* and *this section
+does not exist* the same silence to the owner — the silence §13.4 already
+refuses for the neighborhood, in the words "an empty result renders its explicit
+lines, never an absent section". **Refusing the render** is the strongest
+reading of "fixed section" and was declined for blast radius: eighteen `report`
+invocations across the registered checks supply no such file, and a fixed
+section is not worth making every existing caller unmintable.
+
+**The TC ids are minted positionally by the emitter and never read from the
+input.** A supplied id would be a second carrier for a number the list already
+fixes, and the two would drift the first time a candidate was reordered.
+`tokens.ThesisCandidateID` (`^TC[0-9]+$`) is declared **disjoint** from
+`LessonDisplayID` and `SuggestionID`: a candidate is not an element, §14.3
+assigns it no display id, and a `strands:` list carries LessonDisplayIDs only.
+
 ## 13. The provenance neighborhood — a widening of the settled Strand set
 
 This section designs the mechanical layer and its judgment layer. §13.5 is the
