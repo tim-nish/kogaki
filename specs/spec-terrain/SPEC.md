@@ -445,7 +445,7 @@ is admit.
 `tag_count_row`, `row_continuation`, `intent` and `blank`, under
 `non_member_fallback: REFUSE`.** A *seventh* class fails at emit time.
 
-**The list has six members because the layout above needs six lines, and an
+**The list has six members because the layout above needs six line CLASSES, and an
 earlier form of this clause declared four — which made the ruled layout
 unrenderable under its own grammar** (found at implementation, 2026-09-01, and
 recorded as the Blocker that licensed this amendment). Block 2 is a table with
@@ -472,11 +472,21 @@ layout and could not excuse the rendering.
 declares (`tag_listing` carries `header`, `tag_row`, `navigation_hint`,
 `blank`).
 
+**TWO COUNTS OF `tag_listing` ARE BOTH TRUE, and saying which is which is owed
+here** (kogaki#737, PR #748 round 1; the observation stands as `reg-0193`). Its
+**declared** `line_classes` array holds **four** — `header`, `tag_row`,
+`navigation_hint`, `blank`. Its **content**-class guarantee, the one §9 chose
+and `terrain/terrain.mjs`'s completeness inventory records, is **two**: the
+header and one `tag_row` per section, *and nothing else*. A sentence naming
+"two" is about the guarantee; a sentence naming "four" is about the array.
+Written down because this section quotes both within a few paragraphs, and a
+reader deriving a class model from it met the same surface twice with different
+arithmetic and nothing saying they were counting different sets.
+
 **Why this is a surface of its own and not a widening of `tag_listing`.** That
-surface is a two-class allowlist whose completeness inventory names *"the header
-and one tag_row per section, and NOTHING else"*, with a check that fails on a
-fourth line class; widening it would delete the guarantee and the test
-enforcing it, and would carry an exemption justified by `tag_listing`'s
+surface's completeness inventory names *"the header and one tag_row per section,
+and NOTHING else"*, with a check that fails on a fourth line class; widening it
+would delete the guarantee and the test enforcing it, and would carry an exemption justified by `tag_listing`'s
 constraint onto a member that never had it — silently, since an exception exists
 in order to skip a check.
 `consulted: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d LESSONS.md:123`
