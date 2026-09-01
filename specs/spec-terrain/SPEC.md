@@ -93,6 +93,25 @@ Stated as an enumeration with both sides named rather than as a principle. **An
 act not in either list is a report, not a choice** — Terrain surfaces it as
 unclassified with its reason and takes no narrowing action.
 
+**WHERE THE DISCLOSURE IS OWED, and where its absence is the discharge**
+(kogaki#737). The `Classification:` and `Narrows nothing:` lines are owed by a
+surface that **selects** — one whose rendering is a subset of something larger,
+where a reader cannot tell from the text alone that nothing was ranked, trimmed
+or hidden. A surface that **enumerates its population completely** discharges
+the boundary structurally: there is no subset to disclose, so a disclosure line
+would assert as a fact about the act what the act's own shape already
+guarantees. `tag_listing` has always worked this way and carries neither line.
+
+**The carrier is the surface's own allowlist, never a per-surface prohibition.**
+A complete-enumeration surface declares the line classes it renders, with
+`non_member_fallback: REFUSE`; the disclosure lines are then absent because
+nothing but the declared classes may render, not because they were named and
+forbidden. Written this way deliberately — an enumerated prohibition's
+non-member fallback is admit, which is the shape §9 already chose against, and
+a rule that reads *these two lines do not render here* would be that shape
+arriving one surface later.
+`consulted: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/articles.md:149`
+
 ### 2.4 The WA baseline — Terrain design only, divergences declared
 
 **Kogaki's Terrain reproduces WA's Terrain design by default**:
@@ -364,6 +383,70 @@ arrives with the invariants binding *harder*, not softer:
 > [[grouping-upstream-of-selection-is-a-gate]] arriving again, wearing prose."
 
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:110`
+
+### 6.0.1 The co-tag SELECTION display — owner-executed, and it writes nothing (kogaki#737)
+
+**Owner ruling 2026-09-01.** At the co-tag selection moment the display is
+**guaranteed by the harness as screen output — never a file**. Fixed blocks; the
+LLM controls exactly one sentence; it writes nothing.
+
+**THE SCREEN DEFINITION IS SHARPENED, and that is this section's load-bearing
+half.** §6.0 says *"a Screen is the rendering written after a tag has been
+selected — nothing else."* Read on its key alone that admits this display, which
+comes after a tag is selected and must write no file — so the key was **when**
+where it meant **what**. A Screen is the rendering of the **co-tag groups**, the
+surface §6.3's two-act window operates on and the one state that writes
+`reports/Screen.md`. The selection display precedes it, on the same side of the
+line as §6.0's listings, and `reports/Screen.md` keeps exactly one writing state
+(`cotag_screen`) as it always had.
+
+**The channel is §6.0's, unchanged and not re-argued: the owner runs it.** The
+executor names the invocation at the selection stop, intent placeholder
+included, and **neither runs it nor relays its output** — the same clause, for
+the same reason, since a session's tool call prints to the session and an act
+the owner types prints to the owner.
+
+**Three blocks, and the surface's grammar admits nothing else.**
+
+1. **Marker** — `CO-TAGS — selecting co-tags for: <tag>`, a fixed literal.
+2. **Counts table** over **all** served tags, family-named columns
+   (Lessons / Journeys), count descending. A tag name longer than its column
+   wraps onto at most two lines, breaking at hyphens or spaces, never mid-word;
+   the table may widen.
+3. **`intent: <one sentence>`** — the LLM's sole contribution, supplied at the
+   invocation and **refused** if it is multi-line, longer than 200 characters,
+   or carries table or marker syntax.
+
+**The bound is 200 and not "about 200".** A spec cannot ship an approximation
+its emitter must then guess at; the refusal is the emitter's own `fail()` rather
+than a lint, per §2.6.3.
+
+**§2.3's disclosure lines do not render here, and the reason is the grammar
+rather than a prohibition.** Block 2 enumerates *all* served tags, so this is a
+complete enumeration and §2.3's amended clause discharges the boundary
+structurally. The surface declares exactly the three classes above under
+`non_member_fallback: REFUSE`; a fourth line class fails at emit time. Nothing
+in this section names the disclosure lines as forbidden, because that rule would
+be an enumerated prohibition whose non-member fallback is admit.
+
+**Why this is a surface of its own and not a widening of `tag_listing`.** That
+surface is a two-class allowlist whose completeness inventory names *"the header
+and one tag_row per section, and NOTHING else"*, with a check that fails on a
+fourth line class; widening it would delete the guarantee and the test
+enforcing it, and would carry an exemption justified by `tag_listing`'s
+constraint onto a member that never had it — silently, since an exception exists
+in order to skip a check.
+`consulted: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d LESSONS.md:123`
+It is also the wrong moment: `tag_listing` is pre-selection, and this display is
+after a tag is chosen.
+
+**What the display exists to remove is a generator, not an act.** The 2026-08-31
+dogfooding run wrote `reports/Screen.md` at this moment by hand, and the run's
+own write ledger records exactly one legitimate screen write, at `cotag_screen`.
+A session that wants to show the owner the tag counts was squeezed between
+§6.0's refusal to relay stdout and the delivery rule requiring an artifact;
+manufacturing a file is what that squeeze generates. Banning the write without
+supplying the surface would leave the generator in place.
 
 ### 6.1 What the co-tag screen SERVES — the compact GroupClaim-first form
 
