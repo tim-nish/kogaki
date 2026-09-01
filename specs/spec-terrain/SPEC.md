@@ -1398,7 +1398,7 @@ NAMED by whatever filename the emitter chooses.** These are two jobs, not one:
   only source of that. A filename is at most a convenience for a human listing a
   directory.
 
-A filename derived from the triple looks like a key, is not one, and drifts
+A filename derived from the quadruple looks like a key, is not one, and drifts
 silently the first time an emitter changes how it renders a group name
 (`consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/knowledge-architecture.md:171`).
 
@@ -1513,9 +1513,14 @@ tier §12's multi-section form defines. §12.2's rules govern it wholly.
   (§13.4, kogaki#741), so it does not "narrow nothing". What survives is the distinction that
   matters: a **proposal** asks the owner to act on a selection; this section
   reports a reading and names what it withheld. The selection is disclosed in the
-  same breath it is made — honest counts (`15 found, 8 shown`), the level it
-  rendered at, and a count of unjudged candidates — so nothing is hidden even where
-  much is not shown. The section proposes no act, and a taken suggestion enters
+  same breath it is made — the declared counts line, which states what was shown
+  of what was found **and the level composition of the rows** (`showing 10 of
+  23 — 7 core, then 3 useful`) — so nothing is hidden even where much is not
+  shown. **Two premises of the earlier wording are retired** (kogaki#741): "the
+  level it rendered at" assumed a single level, which the level-ordered fill
+  replaces with a composition; and "a count of unjudged candidates" names a
+  quantity that no longer exists, since `full_report` refuses an unjudged
+  neighborhood rather than counting one. The section proposes no act, and a taken suggestion enters
   through §14.3's assignor rather than by the section having chosen it.
 
 **What grammar coverage of the section BUYS, and what it does not.**
@@ -1688,7 +1693,10 @@ tool**: the levels arrive as a file the session composed, and
 
 **Display.** Up to **ten** rows, filled in level order
 `core → useful → background` (see §"THE DISPLAY FILLS TO TEN" below), and nothing
-else in the report. The heading carries honest counts (`15 found, 8 shown`). Each row carries exactly four fields: the Strand ID, the relation in plain
+else in the report. The heading carries the counts line in its declared form
+(`showing 10 of 23 — all core`, `showing 10 of 23 — 7 core, then 3 useful`; see
+§"THE DISPLAY FILLS TO TEN" below, which owns the grammar). Each row carries
+exactly four fields: the Strand ID, the relation in plain
 words, the Gloss, and the claim with its level.
 
 **FIELD 2 NAMES THE SETTLED MEMBER, NOT THE SUBSTRATE'S INSTANCE KEY.** The
