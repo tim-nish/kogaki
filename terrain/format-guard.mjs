@@ -263,9 +263,6 @@ export function validateSurface(surfaceName, text, grammar) {
           + "(§12: the report renders the shared substrate pin ONCE, in its identity)"));
       }
     }
-    if (rule.id === "catch_all_share") {
-      v.push(...catchAllRule(surfaceName, lines, classified, rule));
-    }
     if (rule.id === "subdivision_required_at_ten") {
       v.push(...subdivisionRequiredRule(surfaceName, lines, classified, rule));
     }
@@ -318,88 +315,38 @@ const countIn = (s) => {
 // PRE-RENDER refusal in `cmdCotags`, over the placement rather than the text —
 // weaker in exactly the way §14.2 records, and the grammar names the gap.
 
-// catch_all_share — the `(fits no composed SubGroup)` remainder's share of its
-// PARENT group's members (§14.2; kogaki#316 decision 2, owner 2026-08-09).
+// catch_all_share IS DELETED (kogaki#738 ruling 4, owner rulings 2026-09-01).
 //
-// IT USED TO MEASURE A DIFFERENT CATCH-ALL, and that is why this comment is
-// long. v1 of the grammar read §14.2's "catch-all <= 30%" and bound it to
-// `(no second served tag)` — the CO-TAG group, for Lessons carrying the
-// selected tag and no other — over the Cover line's corpus denominator. The
-// owner decision means the SUBGROUP remainder over the parent's own member
-// count. Same name, same number, different numerator AND different
-// denominator; the specimens that settle it (11 of 17, 20 of 28, 29 of 35)
-// are all the second kind, and nothing measured them.
+// It bounded the `(fits no composed SubGroup)` remainder at 30% of its parent —
+// a cap on a bucket the ENGINE filled, since `subgroupPlacement` swept every
+// member the judge left unplaced into it. That sweep is deleted: a classification
+// leaving any member unplaced is now REFUSED, naming the members, so there is no
+// engine-filled remainder for a share cap to bound. Applying the cap to the
+// judged `other` label instead was the declined alternative — it would be the
+// engine second-guessing a verdict §8 assigns to the judge, and `other` is safe
+// precisely because it is judged rather than swept.
 //
-// The co-tag bound is GONE rather than renamed (owner decision 2026-08-11):
-// a tagless group over 30% is a fact about the corpus, not a composition
-// defect, and refusing a screen over it would punish the substrate for its own
-// tag distribution.
+// DELETED RATHER THAN LEFT DECLARED. A rule kept in the carrier after its
+// subject is gone is a predicate that cannot fail, which reads as coverage. Its
+// entry leaves `report-format.json` in the same act.
 //
-// SCOPED PER PARENT, not per screen. Each subdivided group has its own
-// remainder and its own denominator, so a screen with three groups gets three
-// independent judgements — a single screen-wide ratio would let one healthy
-// group mask another's 83%.
-//
-// THE DENOMINATOR IS SUMMED AT v13, NOT READ FROM THE HEADING (kogaki#684
-// disposition 2). The subdivided heading no longer carries a count, so the
-// parent quantity is the sum of the group's own `subgroup_heading` counts.
-// That is a re-instrumentation and not a re-pointing: the measured quantity is
-// unchanged — the remainder's share of the parent — and the sum IS the parent,
-// because §6.2 rule 1 places every member in exactly one SubGroup. What that
-// rule's own withdrawal costs is recorded at its `not_expressible` entry and
-// above; it is not compensated for here.
-function catchAllRule(surfaceName, lines, classified, rule) {
-  const name = rule.catch_all_subgroup_name;
-  const cap = 0.30;
-  const v = [];
-  let parent = null;
-  let parentLine = null;
-  let parentNo = null;
-  const close = (remainder, remainderLine, remainderNo) => {
-    if (parent === null || remainder === null || !parent) return;
-    const share = remainder / parent;
-    if (share > cap) {
-      v.push(violation(surfaceName, rule.id, remainderLine, remainderNo,
-        `the ${JSON.stringify(name)} SubGroup holds ${remainder} of the parent's ${parent} member Lessons `
-        + `(${(share * 100).toFixed(1)}%), over the ${(cap * 100).toFixed(0)}% §14.2 allows — `
-        + "a judgment that swept most of a group into the remainder discriminated almost nothing. "
-        + `Re-run or recompose the subdivision for ${JSON.stringify(parentLine)}; `
-        + "the bound is on a judgment that DID split and is not a member-count trigger for whether to split (§8)"));
-    }
-  };
-  let remainder = null, remainderLine = null, remainderNo = null;
-  classified.forEach((id, i) => {
-    if (id === "group_heading_subdivided" || id === "group_heading_flat") {
-      // A new parent closes the previous one's accounting.
-      close(remainder, remainderLine, remainderNo);
-      remainder = null; remainderLine = null; remainderNo = null;
-      // `0` rather than `null` on a subdivided heading: the parent is now
-      // ACCUMULATED from the SubGroup lines that follow, and `null` would be
-      // indistinguishable from a flat group, which has no remainder to judge.
-      parent = id === "group_heading_subdivided" ? 0 : null;
-      parentLine = lines[i]; parentNo = i + 1;
-    } else if (id === "subgroup_heading") {
-      const n = countIn(lines[i]);
-      if (parent !== null && n !== null) parent += n;
-      if (name && lines[i].includes(name)) {
-        remainder = countIn(lines[i]);
-        remainderLine = lines[i]; remainderNo = i + 1;
-      }
-    }
-  });
-  close(remainder, remainderLine, remainderNo);
-  return v;
-}
+// WHAT IT ALSO CARRIED, and where that went: this rule read the same
+// `subgroup_heading` counts that `subgroup_members_sum_to_parent` cannot read
+// from the text, and its `not_expressible` entry named it as one of two things
+// still bounding that gap. The entry is updated in the same commit to say the
+// golden specimen is now the only one — the cost is stated rather than left for
+// a reader to infer from a rule that is simply absent.
 
 // subdivision_required_at_ten — a group at or above the threshold must serve
 // SubGroups (§8, kogaki#683 disposition 1; owner ruling 2026-08-28, boundary
 // confirmed at ten-or-more at pickup 2026-08-29).
 //
-// THE SAME REFUSAL CLASS AS `catch_all_share`, WHICH IS WHAT THE DISPOSITION
-// ASKS FOR: engine-side, at emit, no model discretion. The two are siblings and
-// deliberately measure opposite failures — `catch_all_share` bounds a judgment
-// that DID split and swept most of the parent into the remainder; this one
-// refuses a judgment that did not split a group large enough to owe one.
+// ENGINE-SIDE, AT EMIT, NO MODEL DISCRETION, which is what the disposition asks
+// for. It had a sibling measuring the opposite failure — `catch_all_share`
+// bounded a judgment that DID split and swept most of the parent into the
+// remainder — and that sibling is deleted at kogaki#738 with the sweep it
+// measured. THIS RULE IS NOW ALONE IN ITS CLASS on this surface, stated rather
+// than left as a comment naming a rule a reader cannot find.
 //
 // THE THRESHOLD IS READ FROM THE GRAMMAR, never written here. `boundary_ground`
 // on the rule entry carries why it is ten; a second literal in this file would
@@ -409,11 +356,12 @@ function catchAllRule(surfaceName, lines, classified, rule) {
 // WHY A GROUP HEADING PLUS ITS FOLLOWERS RATHER THAN A COUNT OF HEADINGS: the
 // property is per parent, so a screen with one conformant 12-member group and
 // one flat 40-member group must fail on the second alone — a screen-wide test
-// would let the first mask it, which is the scoping mistake `catch_all_share`
-// records having made once already.
+// would let the first mask it — the scoping mistake the deleted `catch_all_share`
+// recorded having made once already, kept here because the lesson outlived the
+// rule that learned it.
 //
 // A GROUP BELOW THE THRESHOLD IS NOT EXAMINED. §6.2 v7 rule 3 still lets a
-// small group render flat when its only named SubGroup was labelled `forced`,
+// small group render flat when its only named SubGroup was labelled `other`,
 // and that path stays legal below ten and is unavailable at or above it — the
 // runtime declines to suppress there, so this rule is the carrier for any other
 // route to the same rendered text.

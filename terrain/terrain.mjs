@@ -1180,9 +1180,10 @@ function cmdCotags(args) {
     const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
 
     // THE SUBDIVISION IS JUDGED BEFORE ANYTHING IS EMITTED (§6.2 v7, kogaki#316
-    // decision 3, re-keyed at v30). A split whose only named SubGroup is
-    // labelled `forced` — grouped only to satisfy the requirement, so the
-    // split bought nothing — "does not discharge the subdivision obligation"
+    // decision 3, re-keyed at v30 and relabelled at kogaki#738). A split whose
+    // only named SubGroup is labelled `other` — the judge found no coherent
+    // subset among its members, so the split bought nothing — "does not
+    // discharge the subdivision obligation"
     // — and that means
     // the group renders NO SubGroups, which is the fallback §6.2 already names
     // ("renders no SubGroups and is fully conformant"). It is NOT a refusal: a
@@ -1214,13 +1215,17 @@ function cmdCotags(args) {
       // grammar's `not_expressible` entry records that gap as a gap.
       //
       // WHICH DIRECTION IT CAN ACTUALLY FIRE IN, stated so the refusal is not
-      // read as covering more than it does. UNDER-placement is unreachable from
-      // here: `subgroupPlacement` sweeps every unplaced member into the
-      // catch-all, so the sum can never fall short. What IS reachable, and what
-      // nothing else in this runtime refuses, is DOUBLE placement — a judge
-      // record naming one member in two SubGroups, which makes the counts sum
-      // OVER the parent and renders that member twice. The withdrawn grammar
-      // rule caught both; this one catches the reachable one.
+      // read as covering more than it does — AND BOTH DIRECTIONS ARE NOW LIVE
+      // (kogaki#738). This read "UNDER-placement is unreachable from here:
+      // `subgroupPlacement` sweeps every unplaced member into the catch-all, so
+      // the sum can never fall short", which was true of the sweep and false the
+      // moment it was deleted. Under-placement is now refused one function
+      // earlier, by SUBDIVISION_COVER_INCOMPLETE, naming the members it left —
+      // so this refusal never sees it, which is a different fact from it being
+      // unreachable. What it catches is DOUBLE placement — a judge record naming
+      // one member in two SubGroups, which makes the counts sum OVER the parent
+      // and renders that member twice. The withdrawn grammar rule caught both;
+      // between this and the cover refusal, both are caught again.
       const placedCount = subgroups.reduce((n, sg) => n + sg.members.length, 0);
       if (placedCount !== g.members.length) {
         fail(`SUBGROUP_MEMBERS_DO_NOT_SUM — ${g.name} holds ${g.members.length} member Lesson(s) and its SubGroups place ${placedCount}. `
@@ -1231,30 +1236,32 @@ function cmdCotags(args) {
       }
       for (const sg of subgroups) {
         sg.by_family = familySplit(sg.members, record.candidates);
-        judgeSubgroup(sg, claim);
+        judgeSubgroup(sg, claim, g.members.length);
       }
-      // "Only named SubGroup" is the decision's own wording, so the catch-all
-      // is excluded from the count and the literal singular case is what is
-      // implemented. A wider reading — no named SubGroup is tighter — would be
-      // this lane deciding more than kogaki#316 did.
-      const named = subgroups.filter((sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
+      // "Only named SubGroup" is the decision's own wording, and since
+      // kogaki#738 EVERY SubGroup is named by the judge — the catch-all this
+      // filter excluded is deleted, so the filter is gone rather than left
+      // testing a name nothing composes. The literal singular case is still what
+      // is implemented; a wider reading — no named SubGroup is tighter — would
+      // be this lane deciding more than kogaki#316 did.
+      const named = subgroups;
       // §6.2 v7 RULE 3, RE-KEYED ON THE LABEL AND BOUNDED BY THE THRESHOLD
       // retired-vocab-ok: provenance, past tense.
-      // (kogaki#683). The suppression tested `tighter_than_parent !== true`,
-      // which no longer exists; `forced` is the label that carries the same
-      // reading — a single named SubGroup grouped only to satisfy the
-      // requirement bought nothing.
+      // (kogaki#683, re-keyed again at kogaki#738). The suppression tested
+      // `tighter_than_parent !== true`, which no longer exists; then `forced`,
+      // which named the engine's compulsion; now `other`, which names the
+      // judge's finding. What it keys on is the OUTCOME — one SubGroup that
+      // discriminates nothing — and that outcome is unchanged by the relabel.
       //
       // AND IT CANNOT FIRE AT OR ABOVE THE THRESHOLD, which is the collision
       // this issue's own dispositions create and nothing else resolves. Rule 3
       // says such a group "renders no SubGroups"; disposition 1 says a group of
       // 10 or more that renders judged-empty is refused at render. For a ≥10
       // group the two rules point opposite ways, so the suppression yields:
-      // the group RENDERS its split, labelled `forced`, which is the honest
-      // outcome and exactly what the label was minted for. Below the threshold
-      // rule 3 is untouched.
+      // the group RENDERS its split, labelled `other`, which is the honest
+      // outcome. Below the threshold rule 3 is untouched.
       const bought = named.length === 1 && named[0].verdicts
-        && named[0].verdicts.coherence === "forced";
+        && named[0].verdicts.coherence === "other";
       const boughtNothing = bought && g.members.length < SUBDIVISION_REQUIRED_AT;
       judged = boughtNothing ? null : subgroups;
       if (boughtNothing) suppressedSplits++;
@@ -1350,7 +1357,7 @@ function cmdCotags(args) {
   // cannot otherwise tell that from a group nobody judged. Aggregate rather
   // than per-group, because a per-group line is what AC5 removes.
   if (suppressedSplits) {
-    say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`forced\` — grouped only to satisfy the requirement, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
+    say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`other\` — the residual, so the judge found no subset of ${subdivisionLimits().min} or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
   }
   if (claimless) {
     say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
@@ -1673,23 +1680,45 @@ const LINES_PER_SUBGROUP_HEADER = 2;
 // dated 2026-08-28, on a specimen the old contract permitted: G1 (agents ×
 // architecture) served 40 members flat, judged-empty, violating nothing.
 //
-// THE BOUNDARY IS AT TEN AND THE ARITHMETIC IS THE GROUND: the catch-all cap
-// leaves 30% of the parent, and 30% of 10 is 3 Strands — the minimum article —
-// so the requirement works AT 10 rather than above it.
+// THE BOUNDARY IS AT TEN, AND ITS DERIVATION OUTLIVED ITS INPUT (kogaki#738).
+// This read: "the catch-all cap leaves 30% of the parent, and 30% of 10 is 3
+// Strands — the minimum article — so the requirement works AT 10". That cap is
+// deleted with the sweep, so the calculation has no second term. The number is
+// unchanged — it is an owner ruling in its own right — and now stands on that
+// ruling rather than on arithmetic whose input is gone.
 export const SUBDIVISION_REQUIRED_AT = 10;
 
 // THE COHERENCE LABEL, closed at three (kogaki#683 disposition 5, vocabulary
-// confirmed as filed at pickup). Ordered by decreasing coherence, and `forced`
-// names exactly the outcome the threshold creates — a group that had to split
-// and whose split bought nothing still RENDERS, labelled honestly, rather than
-// silently rendering flat.
+// confirmed as filed at pickup). Ordered by decreasing coherence.
+//
+// THE SET IS THREE AFFINITY LABELS PLUS A RESIDUAL (kogaki#738, owner rulings
+// 2026-09-01 and owner amendments 1 and 2 the same day). It was `tight | related
+// | forced`, where `forced` — "grouped to satisfy the split requirement" — named
+// a fact about the ENGINE: the threshold compelled a split that bought nothing.
+// The tell is right below — the placement used to STAMP `forced` on a bucket it
+// composed itself, which is a label with no judgment behind it.
+//
+// `loose` is the third AFFINITY label, below `related`. `other` is the RESIDUAL
+// and is a different kind of thing: it holds what the judge could place nowhere,
+// it carries no affinity claim, and it is bounded by its own limit rather than by
+// a per-label cap. Keeping them in one closed set is what the runtime validates
+// against; keeping them DISTINCT is why `RESIDUAL_LABEL` is named separately and
+// why `limits.subgroup_member_cap` has no `other` row.
+//
+// `other` IS NOT UNLIMITED, and that reverses this issue's own body. The body
+// ruled it unbounded, "safe only because it is judged"; owner amendment 1 ruled
+// that `other` = unlimited is an ANTI-PATTERN, because what actually went wrong
+// was member counts implicitly assumed and never enforced. A judged bucket with
+// no bound is still a black hole with a verdict attached.
 //
 // CONSUMER-OWNED VALUES, and that is a ruling rather than an omission: a
 // consumer owns the SHAPE of its own record and never the VALUES of a field
 // that JOINS across a boundary. This label is rendered on kogaki's own screen
 // and read by nothing outside it, so no hub ratification is owed.
 // consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198
-export const COHERENCE_LABELS = Object.freeze(["tight", "related", "forced"]);
+export const COHERENCE_LABELS = Object.freeze(["tight", "related", "loose", "other"]);
+// The residual, named once so no reader has to infer it from the cap map's gaps.
+export const RESIDUAL_LABEL = "other";
 
 export function subgroupPlacement(parent, classification, block) {
   const subgroups = [];
@@ -1702,22 +1731,55 @@ export function subgroupPlacement(parent, classification, block) {
     members.forEach((id) => placedIds.add(id));
     subgroups.push({ name, claim: String(sg.claim || ""), members, verdicts: sg });
   }
+  // AN UNPLACED MEMBER IS A REFUSAL NAMING IT (§6.2 rule 1, kogaki#738 ruling 1).
+  // This branch used to SWEEP: every member the judge left out was pushed into a
+  // `(fits no composed SubGroup)` SubGroup carrying `coherence: "forced"` "by
+  // construction" — a verdict the judge never reached, on a bucket the engine
+  // composed. The cover property is unchanged and is now stronger: every member
+  // still appears, and it appears because the judge placed it.
+  //
+  // THE FALLBACK IS CHOSEN RATHER THAN INHERITED. The sweep was never decided;
+  // it was whatever the code did with the members it had left over.
+  // consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:82
+  //
+  // AND THE REFUSAL NAMES THE IDS, which is load-bearing rather than a message
+  // preference: the judge must still dispose of every member, so a refusal that
+  // reported only a count would remove the sweep and hand back nothing to act on.
+  // consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:38
   const unplaced = parent.members.filter((id) => !placedIds.has(id));
   if (unplaced.length) {
-    subgroups.push({
-      name: block.no_member_hidden_subgroup,
-      claim: "These members fit none of the composed SubGroups. They are named rather than dropped.",
-      members: unplaced.sort(),
-      // THE CATCH-ALL IS `forced` BY CONSTRUCTION and says so rather than
-      // carrying a judge's verdict it never received: it exists to hold members
-      // that fit no composed SubGroup, which is the definition of the label.
-      verdicts: {
-        coherence: "forced",
-        coherence_why: "these members fit none of the composed SubGroups; the SubGroup exists so that none is dropped",
-        legible_at_a_glance: true,
-      },
-    });
-    unplaced.forEach((id) => placedIds.add(id));
+    fail(`SUBDIVISION_COVER_INCOMPLETE — the classification of ${parent.name} leaves `
+      + `${unplaced.length} member(s) unplaced: ${unplaced.sort().join(", ")}. Every member is `
+      + `placed by the JUDGE, never swept: place each of these in a composed SubGroup, or in one `
+      + `labelled \`other\` — the residual, which asserts you found no subset of `
+      + `${subdivisionLimits().min} or more members at loose-or-better affinity among them `
+      + `(SPEC-terrain §8, kogaki#738). The engine no longer composes a catch-all, `
+      + `because a bucket it fills carries a verdict nobody reached.`);
+  }
+
+  // THE RESIDUAL IS BOUNDED (owner amendment 1 ruling 2, kogaki#738). Until the
+  // residual falls to N the classification is REFUSED and further SubGroups are
+  // forced — the refusal names the remainder count against N. It sits here
+  // rather than in `judgeSubgroup` because it is a property of the WHOLE
+  // classification: the residual is whatever the judge put in the `other`
+  // SubGroup(s), and one SubGroup at a time cannot see the total.
+  //
+  // THIS REVERSES THE ISSUE BODY, and the reversal is the point. The body ruled
+  // `other` unbounded, "safe only because it is judged"; the owner superseded
+  // that the same day — `other` = unlimited is an ANTI-PATTERN. A judged bucket
+  // with no bound still lets Lessons disappear into it, which is the instability
+  // the issue was filed over.
+  const { maxResidual } = subdivisionLimits();
+  const residual = subgroups
+    .filter((sg) => (sg.verdicts || {}).coherence === RESIDUAL_LABEL)
+    .reduce((n, sg) => n + sg.members.length, 0);
+  if (residual > maxResidual) {
+    fail(`SUBDIVISION_RESIDUAL_OVER_LIMIT — the classification of ${parent.name} leaves `
+      + `${residual} member(s) in the residual \`other\`, over the limit of ${maxResidual} `
+      + `(report-format.json limits.max_residual_members, SPEC-terrain §8, kogaki#738 owner `
+      + `amendment 1). Compose additional SubGroups until the residual falls to ${maxResidual} `
+      + `or fewer. The residual exists so an absence of relationships is EXPLICIT, not so that `
+      + `members can be parked in it.`);
   }
   return { subgroups, placedIds };
 }
@@ -1731,7 +1793,55 @@ export function subgroupPlacement(parent, classification, block) {
 // satisfied by the caller's JSON alone. A second copy of these rules would be
 // a second place for the judgment to drift; the rule is enforced at the
 // layer where it can be broken, and both surfaces break it the same way.
-export function judgeSubgroup(sg, groupClaim) {
+// THE LIMITS' ONE READER (§8, kogaki#738 ruling 5 and owner amendment 2's five
+// config keys). Every number the subdivision judgment enforces comes from here,
+// and NONE is restated in this file — unlike `SUBDIVISION_REQUIRED_AT`, which is
+// duplicated and cross-checked, these have one carrier and so cannot disagree
+// with it.
+//
+// A MISSING BLOCK FAILS LOUDLY rather than returning a permissive default.
+// Amendment 2 requires the harness to enforce every key mechanically; a default
+// here would delete a ruled refusal silently, which is the same
+// engine-supplies-the-judgment defect ruling 1 is about, one layer down.
+export const CAPPED_LABELS = Object.freeze(COHERENCE_LABELS.filter((l) => l !== RESIDUAL_LABEL));
+
+export function subdivisionLimits(grammarPath = REPORT_FORMAT) {
+  const limits = readJson(grammarPath).limits;
+  const caps = limits && limits.subgroup_member_cap;
+  // EVERY PER-LABEL KEY IS CHECKED, not just the map's presence (PR #758 round
+  // 1). `subgroupMemberCap` returns `null` for a label the map does not carry,
+  // and `null` is this design's own signal for "deliberately uncapped, this is
+  // the residual" — so an owner who deletes or misspells `loose` in an
+  // owner-editable file would silently lose that cap's refusal, with an
+  // oversized `loose` SubGroup admitted and indistinguishable from the residual
+  // convention. That is the outcome this function's header says it exists to
+  // prevent, reachable through the one case the block-level guard missed.
+  const missingCap = caps ? CAPPED_LABELS.filter(
+    (l) => !Object.prototype.hasOwnProperty.call(caps, l)) : [];
+  if (!caps || missingCap.length || limits.min_subgroup_members === undefined
+      || limits.max_residual_members === undefined) {
+    fail("report-format.json declares no complete `limits` block, so §8's subdivision limits "
+      + "cannot be read (kogaki#738 ruling 5, owner amendment 2)"
+      + (missingCap.length ? `; no cap is declared for ${missingCap.join(", ")}` : "")
+      + ". The five keys live in the carrier by design — a cap for each of "
+      + `${CAPPED_LABELS.join(", ")}, plus \`min_subgroup_members\` and \`max_residual_members\` — `
+      + "and defaulting any of them here would silently delete a ruled refusal.");
+  }
+  return {
+    caps,
+    min: Number(limits.min_subgroup_members),
+    maxResidual: Number(limits.max_residual_members),
+  };
+}
+
+// The per-label cap, or `null` for the residual, which is bounded by
+// `max_residual_members` instead and deliberately carries no row in the cap map.
+export function subgroupMemberCap(label, grammarPath = REPORT_FORMAT) {
+  const { caps } = subdivisionLimits(grammarPath);
+  return Object.prototype.hasOwnProperty.call(caps, label) ? Number(caps[label]) : null;
+}
+
+export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   const vd = sg.verdicts || {};
 
   // retired-vocab-ok: the three lines here name the replacement.
@@ -1740,7 +1850,8 @@ export function judgeSubgroup(sg, groupClaim) {
   // and `tighter_than_parent` are GONE — one instrument, not two — and the
   // label carries what they carried: `tight` is what the conjunction admitted,
   // `related` is the honest-but-not-tighter middle the conjunction collapsed
-  // into a bare failure, and `forced` is the split the threshold compelled.
+  // into a bare failure, and the third label — `forced` until kogaki#738, `other`
+  // since — carries the residue.
   //
   // `legible_at_a_glance` IS NOT FOLDED IN, and the omission is deliberate: it
   // is one of §8's three INSTRUMENTS rather than a conjunct of the leaf
@@ -1763,6 +1874,61 @@ export function judgeSubgroup(sg, groupClaim) {
   sg.coherence = coherence;
   sg.coherence_why = why;
   sg.coherence_line = `coherence: ${coherence} — ${why}`;
+
+  // THE SIZE LIMITS, READ FROM THE CARRIER (§8, kogaki#738 ruling 3 and owner
+  // amendments 1 and 2). Three refusals, and they bind different populations:
+  //
+  //   - an AFFINITY SubGroup over its label's cap — `tight` 5, `related` 7,
+  //     `loose` 7. The asymmetry is the consumer's: Brief consumes a `tight`
+  //     group WHOLE and cannot yet filter Strands, while `related` and `loose`
+  //     are browse material a reader selects from.
+  //   - an AFFINITY SubGroup under `min_subgroup_members` (M). A SubGroup of one
+  //     or two is a claim about a relationship too small to be one.
+  //   - the RESIDUAL over `max_residual_members` (N), which is handled at the
+  //     placement rather than here, because it is a property of the whole
+  //     classification and this function sees one SubGroup at a time.
+  //
+  // THE FLOOR DOES NOT BIND THE RESIDUAL. A shrinking residual is the outcome
+  // the whole design wants, so a floor on it would refuse exactly the
+  // classifications that did best.
+  //
+  // READ, NEVER RESTATED. The numbers live in `report-format.json`'s `limits`
+  // block so an owner edits them without a code change — unlike
+  // `SUBDIVISION_REQUIRED_AT`, which is duplicated and cross-checked, these have
+  // one carrier and so cannot disagree with it.
+  const { min } = subdivisionLimits();
+  const cap = subgroupMemberCap(coherence);
+  if (cap !== null && sg.members.length > cap) {
+    fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
+      + `${sg.members.length} members, over the cap of ${cap} `
+      + `(report-format.json limits.subgroup_member_cap.${coherence}, SPEC-terrain §8, kogaki#738). `
+      + `Compose a tighter SubGroup, or judge these members at a label whose cap admits them.`);
+  }
+  // THE FLOOR EXEMPTS A WHOLE-GROUP SubGroup (owner selection 2026-09-01, at the
+  // pickup gate for amendment 1). M refuses a SPLINTER — a SubGroup too small to
+  // be a real division of its parent — and a SubGroup holding the entire parent
+  // divided nothing, so there is no splinter for M to police. Without the
+  // exemption a group under M has NO conformant affinity classification at all:
+  // the residual is the only path left, and it asserts the judge found no
+  // loose-or-better affinity among them, which the harness would then be forcing
+  // the judge to assert whether or not it is true. That is the same served line
+  // this issue's own refusal was built on, firing the other way —
+  // consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:38
+  // ("when the actor must still dispose of the item in front of it, a fail-closed
+  // refusal prevents nothing and merely removes one option").
+  //
+  // KEYED ON A STRUCTURAL FACT, never on a size. `parentSize === members.length`
+  // says the SubGroup IS the group; a threshold like "2M or more" would be a
+  // second derived number nobody ruled.
+  const wholeGroup = parentSize !== null && sg.members.length === parentSize;
+  if (coherence !== RESIDUAL_LABEL && sg.members.length < min && !wholeGroup) {
+    fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
+      + `${sg.members.length} member(s), under the minimum of ${min} `
+      + `(report-format.json limits.min_subgroup_members, SPEC-terrain §8, kogaki#738 owner `
+      + `amendment 1). A SubGroup below the minimum asserts a relationship too small to be one; `
+      + `merge it into a SubGroup it belongs with, or let its members fall to the residual. `
+      + `(A SubGroup holding the WHOLE parent group is exempt: it divided nothing.)`);
+  }
 
   // The two disclosures, DISJUNCTIVE: each is evaluated independently and
   // neither gates the other, because the first alone does not detect the
@@ -1795,7 +1961,7 @@ export function composeSubdivisionRecord(args, dir, record) {
   const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
   const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
   const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a screen lands, not of the material, so it is the caller's to state (SPEC.md §8)"));
-  const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|forced) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
+  const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|other) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
 
   const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
   const parent = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
@@ -1807,7 +1973,7 @@ export function composeSubdivisionRecord(args, dir, record) {
 
   for (const sg of subgroups) {
     sg.by_family = familySplit(sg.members, record.candidates);
-    judgeSubgroup(sg, groupClaim);
+    judgeSubgroup(sg, groupClaim, parent.members.length);
 
     // Three instruments, three quantities, none a threshold, none gating.
     sg.instruments = {
@@ -2588,9 +2754,11 @@ export function renderReportMarkdown(report, tag) {
       // and neither is an absent judgment.
       if (sec.suppressed_split) {
         L.push("*The judgment produced a split and it was SUPPRESSED: its only named");
-        L.push("SubGroup was labelled `forced` — grouped only to satisfy the requirement —");
-        L.push("so it bought nothing and does not discharge the subdivision obligation");
-        L.push("(SPEC-terrain §6.2 v7, re-keyed and bounded at kogaki#683). This is neither");
+        L.push("SubGroup was labelled `other` — the residual, so the judge found no");
+        L.push("subset of M or more members at loose-or-better affinity among them —");
+        L.push("so it bought nothing and");
+        L.push("does not discharge the subdivision obligation (SPEC-terrain §6.2 v7,");
+        L.push("re-keyed and bounded at kogaki#683, relabelled at kogaki#738). This is neither");
         L.push("a judged-empty outcome nor an absent judgment. Members are listed below,");
         L.push("and none was dropped.*");
       } else {
@@ -3082,12 +3250,13 @@ function cmdReport(args) {
     };
   });
 
-  // JUDGED-EMPTY IS ZERO SubGroupClaims, and the catch-all must NOT fire for it
-  // (§12.1 v9). `subgroupPlacement` places nothing on an empty list and then
-  // sweeps every member into `no_member_hidden_subgroup` — correct when a
-  // judgment produced a split that missed some members, wrong when it produced
-  // no split at all, because it manufactures a SubGroup the judgment did not
-  // make.
+  // JUDGED-EMPTY IS ZERO SubGroupClaims, and it is still handled before
+  // `subgroupPlacement` (§12.1 v9). The reason CHANGED at kogaki#738 and the
+  // branch did not: the placement used to sweep every member into a catch-all on
+  // an empty list, manufacturing a SubGroup the judgment never made; now it
+  // REFUSES on an empty list, naming every member of the group. Judged-empty is
+  // a legitimate outcome and must reach neither, so the guard stays exactly
+  // where it was.
   let subgroups = null;
   // §6.2 v7 / §12.1 v9's THIRD state. Set where the suppression is decided and
   // read by the renderer — PR #356 round 1 finding 2 found the read with no
@@ -3112,13 +3281,15 @@ function cmdReport(args) {
     // the two surfaces share the subdivision record and nothing else — reading
     // the screen's verdict would be a second carrier. Same input, same
     // `judgeSubgroup`, same conclusion.
-    for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim);
-    const namedSg = placed.subgroups.filter(
-      (sg) => sg.name !== SURVEY_SCHEMA.subdivision.no_member_hidden_subgroup);
+    for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim, group.members.length);
+    // EVERY SubGroup IS NAMED BY THE JUDGE (kogaki#738): the catch-all filter
+    // that stood here excluded a bucket the engine composed, and that bucket is
+    // deleted.
+    const namedSg = placed.subgroups;
     // The record half of §6.2 v7 rule 3, re-keyed and bounded exactly as the
-    // screen's is — same input, same conclusion, one rule (kogaki#683).
+    // screen's is — same input, same conclusion, one rule (kogaki#683, #738).
     if (namedSg.length === 1 && namedSg[0].verdicts
-        && namedSg[0].verdicts.coherence === "forced"
+        && namedSg[0].verdicts.coherence === "other"
         && group.members.length < SUBDIVISION_REQUIRED_AT) {
       // Rendered as judged-empty in SHAPE, and flagged so the renderer can
       // tell it from a genuine no-split. `[]` and not `null` — §12.1 v9 keeps

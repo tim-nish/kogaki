@@ -180,7 +180,8 @@
         },
         {
           "id": "subgroup_coherence",
-          "form": "coherence: tight — <why> | coherence: related — <why> | coherence: forced — <why>",
+          "form": "coherence: tight — <why> | coherence: related — <why> | coherence: loose — <why> | coherence: other — <why>",
+          "superseded": "coherence: forced — <why> (kogaki#738: the third label named a fact about the engine. The set became `tight | related | loose` as AFFINITY labels plus the residual `other` at owner amendment 2, 2026-09-01)",
           "allowlist": [
             "coherence label",
             "one free-form sentence"
@@ -200,7 +201,8 @@
         },
         {
           "id": "suppressed_split_disclosure",
-          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `forced` — grouped only to satisfy the requirement, so the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2). …"
+          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `other` — the residual, so the judge found no subset of <M> or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2). …",
+          "superseded": "… was labelled `forced` — grouped only to satisfy the requirement … (kogaki#738: the reason clause moved with the label, from what the engine compelled to what the judge found)"
         },
         {
           "id": "abnormal_display_id",
@@ -458,6 +460,20 @@
       ]
     }
   },
+  "limits": {
+    "_why": "OWNER-EDITABLE NUMBERS, in the carrier the grammar already lives in (kogaki#738 ruling 5, extended by owner amendment 2 of 2026-09-01). A second config file would be a second place for a number to drift from the surface that renders it, so no new carrier is minted: the runtime reads these exactly as it reads decidable_rules.subdivision_required_at_ten.threshold_members. THE HARNESS ENFORCES EVERY KEY MECHANICALLY — amendment 2 ruling 2's own words, 'refusals, never reliance on the LLM following them implicitly' — so a key declared here with no refusal reading it is a defect rather than a default.",
+    "subgroup_member_cap": {
+      "tight": 5,
+      "related": 7,
+      "loose": 7,
+      "_why_asymmetric": "Brief consumes a `tight` group WHOLE and cannot yet filter Strands, so an oversized tight group lands entirely in a consumer with no way to narrow it — the harder cap follows the consumer's inability rather than the label's seniority. `related` and `loose` are browse material a reader scans and selects from.",
+      "_residual_is_not_here": "`other` is NOT an affinity label and carries no entry in this map. It is the RESIDUAL, bounded by `max_residual_members` below — a different quantity with a different purpose, and giving it a row here would let a reader treat the residual as a fourth affinity."
+    },
+    "min_subgroup_members": 3,
+    "_why_min": "A composed SubGroup under M is refused (amendment 1 ruling 3, M initial 3). TWO EXEMPTIONS, both stated rather than left to the code: the residual has no floor, because a residual shrinking toward zero is the outcome the whole design wants and a floor would refuse exactly the classifications that did best; and a SubGroup holding the WHOLE parent group is exempt (owner selection 2026-09-01), because M refuses a splinter and a SubGroup that divided nothing produced none. Without the second, a group under M has no conformant affinity classification at all and the residual becomes its only path, which would force the judge to assert an absence of affinity that may be false.",
+    "max_residual_members": 5,
+    "_why_residual_cap": "`other` = unlimited is an ANTI-PATTERN (owner amendment 1, superseding the body's '`other` is unbounded'). Until the residual falls to N the harness refuses the classification and forces the creation of additional SubGroups, naming the remainder count against N. This is the share cap's replacement: the deleted `catch_all_share` bounded a bucket the ENGINE filled as a fraction of its parent; this bounds a bucket the JUDGE fills as an absolute count, which is what stops Lessons disappearing into a black-box residual."
+  },
   "decidable_rules": {
     "expressible": [
       {
@@ -482,15 +498,6 @@
           "cotag_screen",
           "full_report"
         ]
-      },
-      {
-        "id": "catch_all_share",
-        "rule": "the Lesson count of a group's `(fits no composed SubGroup)` SubGroup divided by the SUM of that group's `subgroup_heading` LessonCounts <= 0.30",
-        "surfaces": [
-          "cotag_screen"
-        ],
-        "producer_of_the_name": "specs/spec-terrain/survey-schema.json subdivision.no_member_hidden_subgroup",
-        "catch_all_subgroup_name": "(fits no composed SubGroup)"
       },
       {
         "id": "line_class_allowlist",
@@ -518,11 +525,20 @@
     ],
     "not_expressible": [
       {
+        "id": "subgroup_member_cap",
+        "rule": "a SubGroup labelled `tight`, `related` or `loose` carries at most limits.subgroup_member_cap.<label> members, and at least limits.min_subgroup_members unless its members are the whole parent group; the residual `other` carries at most limits.max_residual_members and has no floor",
+        "why_not_expressible": "The rendered text does not carry the two sides together. A `subgroup_heading` line carries the member count; the coherence label is on the SEPARATE `subgroup_coherence` line, so no single line class holds both, and the residual's total spans every `other` SubGroup in the group rather than sitting on one line at all. A rule keyed on `a subgroup_heading line whose coherence label is …` describes a line the grammar cannot produce.",
+        "carried_instead": "Three refusals in the runtime, at J2_subdivision — over the label's cap, under M, and a residual over N — each naming the SubGroup and the limit it crossed (SPEC.md §8, kogaki#738 ruling 3 and owner amendments 1 and 2, 2026-09-01). They read `limits.subgroup_member_cap`, `limits.min_subgroup_members` and `limits.max_residual_members` directly.",
+        "what_the_siting_costs": "The refusals read the DATA and never the TEXT, so a renderer that emits a conformant record's SubGroup with a wrong count on the heading line is invisible to them. The golden specimen bounds that, as it does for `subgroup_members_sum_to_parent` beside this entry.",
+        "reopen_trigger": "the first `cotag_screen` line class that carries a SubGroup's member count and its coherence label TOGETHER — at which point the per-label cap becomes decidable over the text and this entry moves into `expressible` with a predicate and a crafted case",
+        "_sited_here_deliberately": "It was in `expressible` at PR #757 (kogaki#738), where `validateSurface` dispatches on `rule.id` and an id with no arm is silently skipped — so the rule was considered and dropped on every screen, which is the conformance-category-with-no-members shape this section's own header warns about. Moved rather than given an arm, because the predicate is not writable over the current line forms."
+      },
+      {
         "id": "subgroup_members_sum_to_parent",
         "rule": "sum of LessonCount over a group's `subgroup_heading` lines == that group's own member count",
         "why_not_expressible": "The rendered text no longer carries one side of the comparison: the subdivided group heading carries no parent count. Re-pointing the rule at the sum of the SubGroup counts would compare a quantity to itself, which is a predicate that cannot fail.",
-        "carried_instead": "A pre-render refusal in `cmdCotags`, over the placement rather than the rendered text. It fires on DOUBLE placement — one member named in two SubGroups — which is the reachable direction; under-placement cannot occur, because the placement sweeps unplaced members into the catch-all.",
-        "what_the_siting_costs": "The refusal reads the DATA and the withdrawn rule read the TEXT, so a renderer that omits a whole `subgroup_heading` line is invisible to this surface's refusal. The golden specimen and `catch_all_share`'s reading of the same counts still bound it; neither is an equivalent.",
+        "carried_instead": "A pre-render refusal in `cmdCotags`, over the placement rather than the rendered text. It fires on DOUBLE placement — one member named in two SubGroups — AND, since kogaki#738, on UNDER-placement: a member the judge left unplaced is refused by name rather than swept. The clause here read \"under-placement cannot occur, because the placement sweeps unplaced members into the catch-all\" — true of the sweep and false without it, so deleting the sweep without this sentence would have left the refusal covering one direction while its own carrier claimed the other was unreachable.",
+        "what_the_siting_costs": "The refusal reads the DATA and the withdrawn rule read the TEXT, so a renderer that omits a whole `subgroup_heading` line is invisible to this surface's refusal. The golden specimen still bounds it, and it is now the ONLY thing that does: `catch_all_share` read the same counts and was deleted with the sweep at kogaki#738, so this siting costs strictly more than it did — stated rather than left for a reader to infer from a rule that is simply gone.",
         "reopen_trigger": "the first `cotag_screen` line class that carries a group's own member count again — a re-ruled heading, a per-group footer, or any other line the parent count reaches — at which point this entry moves back into `expressible` with its predicate restored"
       }
     ]
