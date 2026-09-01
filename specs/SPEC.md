@@ -5415,7 +5415,12 @@ two required checks and — because `.claude/review-lane.json` declares
 is the shape the served line rules against. One commit is not.
 
 **A RECORD WRITE IS AN OBSERVATION, NEVER AN IMPLEMENTATION, and that is why
-the licence invariant does not reach it.** `specs/spec-implementation-license/SPEC.md`
+the licence invariant does not reach it.** The licence contract is
+**claude-toolkit-sited** and is cited with its repository the way every served
+line in this section is —
+`tim-nish/claude-toolkit@6d322421c28c615efa010b73bd2dabb5ff68f400 specs/spec-implementation-license/SPEC.md`,
+whose actor-level `PreToolUse` deny is the carrier. An unqualified `specs/…`
+path would read as local and resolve to nothing here. It
 governs what **authorizes a change**; a register record authorizes nothing,
 changes no behaviour, and is read by no consumer as a contract. Routing it
 through a licensing issue was never the licence rule binding — it was this
@@ -5434,6 +5439,16 @@ advice beside it: **run `bash checks/check-observation-records.sh` locally
 before pushing.** Form is mechanical and truth is human, exactly as the
 transition set above already says; what moves is when the form check runs, not
 whether it does.
+
+**The SECOND required job is accounted for here too, because the first
+paragraph of this section is what keeps it green.** `license-assertion`
+(`.github/workflows/checks.yml:56`) also fires on `push: branches: [master]`,
+and on a push event it greps the **head commit message** for `#[0-9]+` and
+exits 1 without one. So "the commit message names the issue or pull request
+the observation was made at" is not a provenance nicety — it is load-bearing
+for a required check, and a record pushed under a message naming no number
+turns `master` red. Stating it in one place and relying on it in another is
+exactly the split this paragraph exists to close.
 
 **THE ENVIRONMENTAL PREMISE, stated because a path that depends on one and
 does not name it reads as unconditional.** This works because `master`'s
