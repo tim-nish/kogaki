@@ -1316,12 +1316,12 @@ if (fails.length) {
 }
 if (seamAbsent) {
   console.log("Full Report fixture: PASS — seam-free cases exercised (whole-body reader vs headline "
-    + "reader; uniform triple with `none` typed; judged vs unjudged do not collide; "
+    + "reader; uniform quadruple with `none` typed (kogaki#741); judged vs unjudged do not collide; "
     + "identical identities compare equal) — the 8 artifact-counting cases are "
     + "CANNOT-DETERMINE here, stated above.");
 } else {
   console.log("Full Report fixture: PASS — cases exercised (whole-body reader vs headline reader; "
-    + "uniform triple with `none` typed; judged vs unjudged do not collide; identical "
+    + "uniform quadruple with `none` typed (kogaki#741); judged vs unjudged do not collide; identical "
     + "identities compare equal; the four §12.1 cases counted over real artifacts, "
     + "including judge-pin refusal writing nothing; identity recorded, classification "
     + "and untruncated asserted per artifact)");
@@ -2335,7 +2335,16 @@ function seedAtIdSelection(dir, tag = "testing") {
   const priorOwnerMd2 = existsSync(OWNER_MD2) ? readFileSync(OWNER_MD2) : null;
   seedAtIdSelection(run2);
   const njud2 = join(run2, "neighborhood.json");
-  writeFileSync(njud2, "{}\n");
+  // COVERS THE STUB'S THREE CANDIDATES, like every other judgment fixture here.
+  // An empty `{}` satisfied J3 only while the seam was absent and the block read
+  // CANNOT-DETERMINE — with a seam it is exactly what J3's coverage refusal
+  // refuses, so the fixture would have been a fixture that cannot run wherever
+  // the property is decidable (PR #756 round 1).
+  writeFileSync(njud2, JSON.stringify({
+    charlie: { level: "core", claim: "a same-Batch neighbour of the settled set" },
+    echo: { level: "useful", claim: "reached through the same Batch, one hop out" },
+    foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
+  }, null, 2) + "\n");
   const d = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs2,
      "--neighborhood", njud2,
@@ -4605,6 +4614,46 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     for (const bad of ["  some claim text [notalevel]", "  some claim text [CORE]", "  some claim text []"]) {
       if (admits(bad)) {
         fails.push(`§13/689: the claim class ADMITS ${JSON.stringify(bad)} — \`NeighborhoodLevel\` is not being read as a declared token, which is the FREE degradation that shipped at #686 with a note claiming the opposite`);
+      }
+    }
+  }
+
+  // THE COUNTS LINE IS A FIXED GRAMMAR CLASS, ASSERTED IN THE REFUSING
+  // DIRECTION (#754's completeness inventory item 1, PR #756 round 1). Every
+  // other counts-line case here asserts the form POSITIVELY, and a positive
+  // case cannot tell a fixed class from a free one — the `NeighborhoodLevel`
+  // degradation two blocks up is that exact failure, caught only because
+  // something asked the matcher what it admits. `line_class_allowlist` is INERT
+  // on `full_report` (checks/registry.json), so the refusal is not reachable
+  // end-to-end there; it is asserted where it IS decidable, at the compiled
+  // matcher, rather than claimed where it is not.
+  {
+    const countsClass = G.surfaces.full_report.line_classes.find((c) => c.id === "neighborhood_counts");
+    const rx = classMatchers(countsClass, G);
+    const admits = (line) => rx.some((r) => r.test(line));
+    for (const good of ["showing 10 of 23 — all core",
+                        "showing 10 of 23 — 7 core, then 3 useful",
+                        "showing 3 of 3 — 1 core, then 1 useful, then 1 background"]) {
+      if (!admits(good)) {
+        fails.push(`§13.4/741: the counts class REFUSES the conformant line ${JSON.stringify(good)} — the declaration does not cover what the fill renders`);
+      }
+    }
+    // THE SUPERSEDED FORM IS AMONG THE REFUSALS, which is what makes this a
+    // supersession assertion rather than a spelling one: the pre-#741 line must
+    // be unemittable under the current grammar.
+    //
+    // NOT ASSERTED, stated rather than left to be found: that `<n>` refuses a
+    // spelled-out number. `showing ten of 23 — all core` is ADMITTED, because
+    // `<n>` is the grammar's own shared placeholder and every class using it
+    // admits the same thing. Tightening it is the grammar's act across every
+    // surface, not this class's, so the looseness is named here instead of
+    // being asserted away at one site.
+    for (const bad of ["23 candidate(s) found, 10 shown — all at the highest level present (`core`)",
+                       "showing 10 of 23 — mostly core",
+                       "showing 10 of 23 — all CORE",
+                       "showing 10 of 23"]) {
+      if (admits(bad)) {
+        fails.push(`§13.4/741: the counts class ADMITS ${JSON.stringify(bad)} — the class is declared FIXED and no part of it is LLM-controlled, so a divergent line must be refused rather than rendered`);
       }
     }
   }

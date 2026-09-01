@@ -384,8 +384,8 @@
         },
         {
           "id": "neighborhood_counts",
-          "form": "showing <n> of <n> — all <NeighborhoodLevel> | showing <n> of <n> — <n> <NeighborhoodLevel>, then <n> <NeighborhoodLevel>",
-          "governing": "SPEC-terrain §13.4 (kogaki#741 ruling 3) — a FIXED grammar class; no part is LLM-controlled",
+          "form": "showing <n> of <n> — all <NeighborhoodLevel> | showing <n> of <n> — <n> <NeighborhoodLevel>, then <n> <NeighborhoodLevel> | showing <n> of <n> — <n> <NeighborhoodLevel>, then <n> <NeighborhoodLevel>, then <n> <NeighborhoodLevel>",
+          "governing": "SPEC-terrain §13.4 (kogaki#741 ruling 3) — a FIXED grammar class; no part is LLM-controlled. THREE alternatives, not two (PR #756 round 1): the level set is closed at three, so the fill can compose one, two or three of them and a two-part declaration left the three-level line — which the golden specimen itself ships — undeclared.",
           "superseded": "<n> candidate(s) found, <n> shown — all at the highest level present (`<level>`)."
         },
         {
@@ -441,6 +441,11 @@
         {
           "id": "neighborhood_no_material",
           "form": "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (§13.4's disclosure discipline)."
+        },
+        {
+          "id": "neighborhood_unjudged",
+          "form": "<n> candidate(s) carry no level and are counted here, never shown.",
+          "governing": "SPEC-terrain §13.4 — DEFENSIVE since kogaki#741/#754, exactly as `neighborhood_none_judged` is: J3 refuses a record leaving any mechanical candidate uncovered and `full_report` refuses a non-empty enumeration carrying no record, so no command path emits this line. The renderer is called on a selection it does not compute, and naming an unjudged entry beats rendering it as `background`, so the class stays DECLARED rather than being retired while its emitter stands (PR #756 round 1)."
         },
         {
           "id": "neighborhood_none_judged",

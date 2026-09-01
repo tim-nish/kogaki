@@ -3201,11 +3201,24 @@ function cmdReport(args) {
   const out = join(dir, `terrain-full-report-${identityDigest(identity)}.json`);
   if (existsSync(out)) {
     const prior = readJson(out);
-    if (sameIdentity(prior.identity, identity)) {
+    // A PRE-#741 RECORD IS NEVER REPLAYED (PR #756 round 1). `reportIdentityKey`
+    // hashes an ABSENT fourth component as `NO_JUDGE`, which is what it meant —
+    // but it makes a stored record written under the superseded design match a
+    // pull carrying no judgment, and its stored rendering may hold the very
+    // unjudged section §13.4 now has no path to. Falling through RECOMPUTES,
+    // which reaches the refuse-unjudged guard below and refuses exactly when the
+    // enumeration is non-empty; it is the same treatment `composedInputDelta`
+    // gives a record predating ITS field, for the same reason — a record that
+    // cannot be shown idempotent is recomputed rather than replayed.
+    const priorPredatesJudgmentKey = prior.identity
+      && prior.identity.neighborhood_judgment === undefined;
+    if (sameIdentity(prior.identity, identity) && !priorPredatesJudgmentKey) {
       // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (§12.1, kogaki#700).
       // Same identity is not the same artifact when the inputs it was rendered
-      // from differ: the identity is ratified as the triple, so the mismatch
-      // surfaces here rather than by widening the key.
+      // from differ: the CLAIMS and SUBDIVISIONS stay recorded rather than keyed
+      // (the neighborhood judgment left this list at kogaki#741 and is now part
+      // of the identity), so their mismatch surfaces here rather than by
+      // widening the key further.
       const delta = composedInputDelta(prior.composed_inputs, composedInputs);
       if (delta === null) {
         // A RECORD WRITTEN BEFORE THIS FIELD EXISTED CANNOT BE SHOWN IDEMPOTENT,
@@ -3217,7 +3230,9 @@ function cmdReport(args) {
         // rewritten in place.
       } else if (delta.length) {
         fail(`COMPOSED_INPUT_MISMATCH — this identity was already reported from different composed input(s): `
-          + `${delta.join(", ")}. The identity is the substrate pin, the query and the judge pin (SPEC-terrain §12.1), `
+          + `${delta.join(", ")}. The identity is the substrate pin, the query, the judge pin and the neighborhood `
+          + "judgment record (SPEC-terrain §12.1, widened at kogaki#741), "
+
           + "and the composed inputs are NOT part of it — so replaying the stored rendering would render material this "
           + "invocation did not supply, while reporting success. Re-run against a fresh --report-dir to render the new "
           + "inputs as their own report, or restore the inputs this identity was reported from.");
