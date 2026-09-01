@@ -5611,7 +5611,11 @@ if (fails.length) {
 console.log("split-at-ten: 3 direction(s) — a 12-member group rendering FLAT is refused at emit "
   + "(subdivision_required_at_ten, an engine-side emit-time refusal); the same group WITH SubGroups renders, so the "
   + "refusal discriminates split from unsplit rather than firing on size; and §6.2 v7 rule 3's suppression is "
-  + "UNAVAILABLE at the threshold — a single `other` SubGroup renders its split, labelled, instead of falling "
-  + "back to the flat shape the guard would then refuse. Below the threshold rule 3 is untouched and its own "
-  + "block asserts it.");
+  + "UNREACHABLE at the threshold, and for a stronger reason than the collision clause gives since "
+  + "kogaki#738: the suppression needs the group's ONLY SubGroup to be the residual, and "
+  + "`max_residual_members` refuses an all-residual group over N — so an all-residual 12-member group "
+  + "REFUSES on SUBDIVISION_RESIDUAL_OVER_LIMIT and renders nothing at all, rather than rendering its "
+  + "split as this line used to report. The case asserts WHICH refusal arrives first, which is what "
+  + "makes rule 3's threshold collision dead code; raising N above the threshold revives it and fails "
+  + "here. Below N rule 3 is untouched and its own block asserts it.");
 JS

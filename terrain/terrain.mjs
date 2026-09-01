@@ -1215,13 +1215,17 @@ function cmdCotags(args) {
       // grammar's `not_expressible` entry records that gap as a gap.
       //
       // WHICH DIRECTION IT CAN ACTUALLY FIRE IN, stated so the refusal is not
-      // read as covering more than it does. UNDER-placement is unreachable from
-      // here: `subgroupPlacement` sweeps every unplaced member into the
-      // catch-all, so the sum can never fall short. What IS reachable, and what
-      // nothing else in this runtime refuses, is DOUBLE placement — a judge
-      // record naming one member in two SubGroups, which makes the counts sum
-      // OVER the parent and renders that member twice. The withdrawn grammar
-      // rule caught both; this one catches the reachable one.
+      // read as covering more than it does — AND BOTH DIRECTIONS ARE NOW LIVE
+      // (kogaki#738). This read "UNDER-placement is unreachable from here:
+      // `subgroupPlacement` sweeps every unplaced member into the catch-all, so
+      // the sum can never fall short", which was true of the sweep and false the
+      // moment it was deleted. Under-placement is now refused one function
+      // earlier, by SUBDIVISION_COVER_INCOMPLETE, naming the members it left —
+      // so this refusal never sees it, which is a different fact from it being
+      // unreachable. What it catches is DOUBLE placement — a judge record naming
+      // one member in two SubGroups, which makes the counts sum OVER the parent
+      // and renders that member twice. The withdrawn grammar rule caught both;
+      // between this and the cover refusal, both are caught again.
       const placedCount = subgroups.reduce((n, sg) => n + sg.members.length, 0);
       if (placedCount !== g.members.length) {
         fail(`SUBGROUP_MEMBERS_DO_NOT_SUM — ${g.name} holds ${g.members.length} member Lesson(s) and its SubGroups place ${placedCount}. `
@@ -1799,16 +1803,29 @@ export function subgroupPlacement(parent, classification, block) {
 // Amendment 2 requires the harness to enforce every key mechanically; a default
 // here would delete a ruled refusal silently, which is the same
 // engine-supplies-the-judgment defect ruling 1 is about, one layer down.
+export const CAPPED_LABELS = Object.freeze(COHERENCE_LABELS.filter((l) => l !== RESIDUAL_LABEL));
+
 export function subdivisionLimits(grammarPath = REPORT_FORMAT) {
   const limits = readJson(grammarPath).limits;
   const caps = limits && limits.subgroup_member_cap;
-  if (!caps || limits.min_subgroup_members === undefined
+  // EVERY PER-LABEL KEY IS CHECKED, not just the map's presence (PR #758 round
+  // 1). `subgroupMemberCap` returns `null` for a label the map does not carry,
+  // and `null` is this design's own signal for "deliberately uncapped, this is
+  // the residual" — so an owner who deletes or misspells `loose` in an
+  // owner-editable file would silently lose that cap's refusal, with an
+  // oversized `loose` SubGroup admitted and indistinguishable from the residual
+  // convention. That is the outcome this function's header says it exists to
+  // prevent, reachable through the one case the block-level guard missed.
+  const missingCap = caps ? CAPPED_LABELS.filter(
+    (l) => !Object.prototype.hasOwnProperty.call(caps, l)) : [];
+  if (!caps || missingCap.length || limits.min_subgroup_members === undefined
       || limits.max_residual_members === undefined) {
     fail("report-format.json declares no complete `limits` block, so §8's subdivision limits "
-      + "cannot be read (kogaki#738 ruling 5, owner amendment 2). The five keys live in the "
-      + "carrier by design — the per-label caps, `min_subgroup_members` and "
-      + "`max_residual_members` — and defaulting any of them here would silently delete a "
-      + "ruled refusal.");
+      + "cannot be read (kogaki#738 ruling 5, owner amendment 2)"
+      + (missingCap.length ? `; no cap is declared for ${missingCap.join(", ")}` : "")
+      + ". The five keys live in the carrier by design — a cap for each of "
+      + `${CAPPED_LABELS.join(", ")}, plus \`min_subgroup_members\` and \`max_residual_members\` — `
+      + "and defaulting any of them here would silently delete a ruled refusal.");
   }
   return {
     caps,

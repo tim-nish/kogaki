@@ -964,7 +964,7 @@ seniority. `related` is browse material a reader scans and selects from, so it
 carries the looser one.
 
 **The numbers live in the FORMAT CARRIER, not in code** — `report-format.json`'s
-`limits` block, `subgroup_member_cap: { tight, related }` — so changing them is
+`limits` block, `subgroup_member_cap: { tight, related, loose }` — so changing them is
 an owner edit rather than a code change, and the runtime reads them from there
 exactly as it reads `subdivision_required_at_ten.threshold_members`. No new
 carrier is minted for them: a second config file would be a second place for a

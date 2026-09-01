@@ -515,15 +515,6 @@
         ]
       },
       {
-        "id": "subgroup_member_cap",
-        "rule": "a `subgroup_heading` line whose coherence label is `tight`, `related` or `loose` carries at most limits.subgroup_member_cap.<label> members, and at least limits.min_subgroup_members UNLESS its members are the whole parent group; the residual `other` SubGroup carries at most limits.max_residual_members and has no floor",
-        "surfaces": [
-          "cotag_screen"
-        ],
-        "enforced_at": "J2_subdivision, as three refusals — over the label's cap, under M, and a residual over N — each naming the SubGroup and the limit it crossed (SPEC.md §8, kogaki#738 ruling 3 and owner amendments 1 and 2, 2026-09-01). Named here because the numbers live in `limits` and a rule reading them belongs beside the rules that read `subdivision_required_at_ten.threshold_members`.",
-        "reads": "limits.subgroup_member_cap, limits.min_subgroup_members, limits.max_residual_members"
-      },
-      {
         "id": "subdivision_required_at_ten",
         "rule": "a `group_heading_flat` line whose LessonCount is >= 10 must be followed by at least one `subgroup_heading` line before the next group heading",
         "threshold_members": 10,
@@ -533,6 +524,15 @@
       }
     ],
     "not_expressible": [
+      {
+        "id": "subgroup_member_cap",
+        "rule": "a SubGroup labelled `tight`, `related` or `loose` carries at most limits.subgroup_member_cap.<label> members, and at least limits.min_subgroup_members unless its members are the whole parent group; the residual `other` carries at most limits.max_residual_members and has no floor",
+        "why_not_expressible": "The rendered text does not carry the two sides together. A `subgroup_heading` line carries the member count; the coherence label is on the SEPARATE `subgroup_coherence` line, so no single line class holds both, and the residual's total spans every `other` SubGroup in the group rather than sitting on one line at all. A rule keyed on `a subgroup_heading line whose coherence label is …` describes a line the grammar cannot produce.",
+        "carried_instead": "Three refusals in the runtime, at J2_subdivision — over the label's cap, under M, and a residual over N — each naming the SubGroup and the limit it crossed (SPEC.md §8, kogaki#738 ruling 3 and owner amendments 1 and 2, 2026-09-01). They read `limits.subgroup_member_cap`, `limits.min_subgroup_members` and `limits.max_residual_members` directly.",
+        "what_the_siting_costs": "The refusals read the DATA and never the TEXT, so a renderer that emits a conformant record's SubGroup with a wrong count on the heading line is invisible to them. The golden specimen bounds that, as it does for `subgroup_members_sum_to_parent` beside this entry.",
+        "reopen_trigger": "the first `cotag_screen` line class that carries a SubGroup's member count and its coherence label TOGETHER — at which point the per-label cap becomes decidable over the text and this entry moves into `expressible` with a predicate and a crafted case",
+        "_sited_here_deliberately": "It was in `expressible` at PR #757 (kogaki#738), where `validateSurface` dispatches on `rule.id` and an id with no arm is silently skipped — so the rule was considered and dropped on every screen, which is the conformance-category-with-no-members shape this section's own header warns about. Moved rather than given an arm, because the predicate is not writable over the current line forms."
+      },
       {
         "id": "subgroup_members_sum_to_parent",
         "rule": "sum of LessonCount over a group's `subgroup_heading` lines == that group's own member count",

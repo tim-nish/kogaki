@@ -483,7 +483,7 @@ else
   # refuses. The solo SubGroup is unchanged (the arm below selects G1-1 and needs
   # it to hold delta alone); the other four ride a second SubGroup, so the cover
   # is complete because the judge placed them rather than because the engine did.
-  printf '%s\n' '{"testing × (no second served tag)":{"judged":true,"subgroups":[{"subgroup":"the solo batch","claim":"the solo-batch member alone","members":["lesson:delta"],"coherence":"other","coherence_why":"no 2+ subset among these members holds together at related or better"},{"subgroup":"the rest","claim":"the members that are not the solo-batch one","members":["lesson:alpha","lesson:bravo","lesson:charlie","lesson:echo"],"coherence":"related","coherence_why":"the members share a theme, not one mechanism"}]}}' > "$WORK/e-subs.json"
+  printf '%s\n' '{"testing × (no second served tag)":{"judged":true,"subgroups":[{"subgroup":"the solo batch","claim":"the solo-batch member alone","members":["lesson:delta"],"coherence":"other","coherence_why":"no subset of three or more holds together at loose or better"},{"subgroup":"the rest","claim":"the members that are not the solo-batch one","members":["lesson:alpha","lesson:bravo","lesson:charlie","lesson:echo"],"coherence":"related","coherence_why":"the members share a theme, not one mechanism"}]}}' > "$WORK/e-subs.json"
   printf '%s\n' '{"anything":{"level":"core","claim":"a key judged against an EMPTY enumeration"}}' > "$WORK/e-j.json"
   ECOMMON=(--claims "$WORK/e-claims.json" --subdivisions "$WORK/e-subs.json" --judge-model claude-opus-5 --judge-effort high)
   EJ --input testing "${ECOMMON[@]}" >/dev/null 2>&1 || true
