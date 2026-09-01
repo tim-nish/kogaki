@@ -332,17 +332,14 @@ writeFileSync(SUBS, JSON.stringify({
     // refuses (kogaki#316 decision 2). The fixture encoded exactly the
     // judgment shape the owner decision was filed against.
     //
-    // THE CAP HAS NO FLOOR, which is why the fixture moved rather than the
-    // rule. The ground was that a minimum-group-size before the cap applies is
-    // a member-count threshold and §8 forbade one; §8 acquired a threshold at
-    // v30 (kogaki#683) and the cap STILL has no floor, for a reason that
-    // outlives the deleted rule: the two measure opposite failures. The
-    // threshold asks whether a group large enough to owe a split served one;
-    // this cap bounds how much of a group a judgment that DID split swept into
-    // the remainder, and that is a defect at any size. So a 2-member group with
-    // one member in the remainder is 50% and is refused, arithmetically correct and a long
-    // way from the 29-of-35 specimen that settled the number. Recorded here
-    // rather than worked around.
+    // AND SINCE kogaki#738 IT IS THE ONLY CONFORMANT SHAPE, for a stronger
+    // reason than the cap gave. The paragraph here used to argue from
+    // `catch_all_share`'s 30% bound — a 2-member group leaving one in the
+    // remainder is 50% and refused, arithmetically correct and a long way from
+    // the 29-of-35 specimen that settled the number. That cap is DELETED with
+    // the sweep it guarded (ruling 4), and the fixture does not revert: leaving
+    // `bravo` unplaced now refuses outright, at any size and any share, because
+    // an unplaced member is a refusal naming it rather than a bucket to bound.
     { subgroup: "guards exercised by a real run", claim: "a check some run has actually made fail",
       members: ["lesson:bravo"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
   ] },
@@ -364,22 +361,40 @@ if (!String(withSubs.stdout).includes("in common: a check whose inputs make fail
 if (!/^G[0-9]+-[0-9]+ — 1 Lesson: L2 — guards that cannot fail$/m.test(String(withSubs.stdout))) {
   fails.push("the SubGroup line is not the §6.2 v6 form `G<n>-<m> — N Lessons: ids — <name>` — the SubGroupID must name its parent, which is what lets a wrapped line still say where it belongs");
 }
-// The unplaced-member-is-NAMED property moved off this end-to-end run and onto
-// `subgroupPlacement` directly, because the fixture can no longer leave a
-// member unplaced without violating the 30% cap (see the note above). Same
-// property, asserted at the unit that owns it rather than through a screen
-// that must now be conformant to render at all.
+// AN UNPLACED MEMBER IS A REFUSAL NAMING IT (§6.2 rule 1, kogaki#738 ruling 1).
+// THIS BLOCK ASSERTED THE OPPOSITE until #738 — that the placement composed an
+// explicit `(fits no composed SubGroup)` catch-all holding the unplaced member —
+// and it is INVERTED rather than deleted, because the cover property it was
+// protecting is unchanged and is now stronger: every member still appears, and
+// it appears because the JUDGE placed it. What is gone is the engine composing a
+// SubGroup and stamping it `forced` with no verdict behind it.
+//
+// ASSERTED THROUGH A SUBPROCESS, because the refusal EXITS rather than throwing,
+// and asserted on the MESSAGE rather than the exit code alone: §6.2 rule 1's
+// ground is that the refusal reaches the judge with the ids it must act on, so a
+// refusal reporting only a count would pass an exit-code assertion and fail the
+// rule (`consulted: product-lab@652f47da LESSONS.md:38`).
 {
-  const parent = { name: "p", gid: "G1", members: ["lesson:alpha", "lesson:bravo"] };
-  const placed = subgroupPlacement(parent,
-    [{ subgroup: "only alpha", claim: "c", members: ["lesson:alpha"],
-       coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true }],
-    JSON.parse(readFileSync("specs/spec-terrain/survey-schema.json", "utf8")).subdivision);
-  const catchAll = placed.subgroups.find((sg) => sg.name === "(fits no composed SubGroup)");
-  if (!catchAll) {
-    fails.push("a member the judge left unplaced produced NO explicit catch-all SubGroup — subdivision decides WHERE a member appears and hides none (§8)");
-  } else if (!catchAll.members.includes("lesson:bravo")) {
-    fails.push("the unplaced member was DROPPED rather than named in the explicit catch-all SubGroup (§8)");
+  const probe = `
+    import { subgroupPlacement } from "./terrain/terrain.mjs";
+    import { readFileSync } from "node:fs";
+    const parent = { name: "p", gid: "G1", members: ["lesson:alpha", "lesson:bravo"] };
+    subgroupPlacement(parent,
+      [{ subgroup: "only alpha", claim: "c", members: ["lesson:alpha"],
+         coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true }],
+      JSON.parse(readFileSync("specs/spec-terrain/survey-schema.json", "utf8")).subdivision);
+    console.log("NO REFUSAL");
+  `;
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", probe], { encoding: "utf8" });
+  const out = String(r.stdout) + String(r.stderr);
+  if (r.status === 0) {
+    fails.push("§6.2/738: a member the judge left unplaced did NOT refuse — the sweep is still composing a catch-all the judgment never made, which is the label-with-no-verdict shape ruling 1 deletes");
+  } else if (!/SUBDIVISION_COVER_INCOMPLETE/.test(out)) {
+    fails.push(`§6.2/738: the unplaced member refused under some other name: ${JSON.stringify(out.slice(0, 200))}`);
+  } else if (!/lesson:bravo/.test(out)) {
+    fails.push("§6.2/738: the refusal does not NAME the unplaced member — a refusal reporting only a count removes the sweep and hands the judge nothing to act on, which is the half of rule 1 its served ground is about");
+  } else if (!/\bother\b/.test(out)) {
+    fails.push("§6.2/738: the refusal names no remaining path — the judge must still dispose of every member, so the message owes the `other` label it can place them in");
   }
 }
 
@@ -430,7 +445,11 @@ const SUBS_NOT_LEAF = join(tmpdir(), `cotags-subs-notleaf-${process.pid}.json`);
 writeFileSync(SUBS_NOT_LEAF, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
-      members: ["lesson:alpha"], coherence: "forced", coherence_why: "grouped only to satisfy the split requirement", legible_at_a_glance: true },
+      // EVERY MEMBER PLACED (kogaki#738): the fixture used to place `alpha` alone
+      // and let the sweep take `bravo`. With the sweep deleted that classification
+      // refuses, so both members ride the one SubGroup — which is also what makes
+      // it the SINGLE named SubGroup rule 3's suppression keys on.
+      members: ["lesson:alpha", "lesson:bravo"], coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
   ] },
 }));
 const notLeaf = spawnSync(process.execPath,
@@ -441,21 +460,23 @@ if (!String(withSubs.stdout).includes("coherence: tight — the members share on
   fails.push("the screen does not render the SubGroup's COHERENCE VERDICT — §6.2 requires the screen to judge, not merely render");
 }
 // Asserted on the string UNIQUE to the judge-supplied SubGroup, not on the bare
-// label. `subgroupPlacement` appends the unplaced-members SubGroup carrying
-// `coherence: "forced"` by construction, so `forced` alone is present whatever
-// the flipped label says — an assertion that could not fail, and the class of
-// assertions that cannot fail is what this case was written to close.
+// label. THE REASON CHANGED AT kogaki#738 AND THE ASSERTION DID NOT: the
+// placement used to append an unplaced-members SubGroup carrying
+// `coherence: "forced"` by construction, so the bare label was present whatever
+// the flipped label said — an assertion that could not fail. That sweep is gone,
+// so the bare label would now be discriminating; the unique string stays because
+// it asserts the same thing without depending on which construction is live.
 if (String(notLeaf.stdout).includes("coherence: tight — the members share one mechanism")) {
   fails.push("flipping the judge's coherence label did NOT change the screen's verdict — the fixture supplies a label the code does not read, which presents as covering the judgment while covering only rendering");
 }
 // BOTH DIRECTIONS, and the positive one is the SUPPRESSION the label drives.
 // The flipped case renders no coherence line at all, and that is correct rather
-// than a gap: a single named SubGroup labelled `forced` on a group under the
+// than a gap: a single named SubGroup labelled `other` on a group under the
 // threshold is §6.2 v7 rule 3, so the group renders FLAT. Asserting the absence
 // alone would pass on a runtime that emitted no verdict for any reason, so the
 // case asserts the DISCLOSURE the suppression owes — which exists only if the
 // label was read and acted on.
-if (!/render flat because their only named SubGroup was labelled `forced`/.test(String(notLeaf.stdout))) {
+if (!/render flat because their only named SubGroup was labelled `other`/.test(String(notLeaf.stdout))) {
   fails.push("the flipped label did not drive §6.2 v7 rule 3's suppression, or the suppression rendered no disclosure — the absence assertion above then shows only that a line is missing, which a runtime emitting NO verdict would also satisfy");
 }
 if (!String(withSubs.stdout).includes("judged by m / high")) {
@@ -473,10 +494,11 @@ writeFileSync(SUBS_DEGEN, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "sg", claim: "this claim names alpha outright", members: ["lesson:alpha"],
       coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
-    // Both members placed, for the same reason as the block above: a 1-of-2
-    // remainder is a 50% catch-all and `catch_all_share` refuses the screen,
-    // so a fixture exercising a DISCLOSURE could no longer reach the surface
-    // it discloses on.
+    // Both members placed, for the same reason as the block above — and since
+    // kogaki#738 for a stronger one: leaving `bravo` unplaced no longer produces
+    // a 50% catch-all for `catch_all_share` to refuse, it produces an outright
+    // refusal, so a fixture exercising a DISCLOSURE could not reach the surface
+    // it discloses on at all.
     { subgroup: "sg2", claim: "a second claim that names nobody", members: ["lesson:bravo"],
       coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
   ] },
@@ -578,8 +600,11 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
       + `${written.length} written): ${(je.stderr || "").trim().slice(0, 200)}`);
   } else {
     const rec = JSON.parse(readFileSync(join(RDJE, written[0]), "utf8"));
-    // AC3: the judge pin is real, the SubGroupClaims are ZERO, the catch-all
-    // did NOT fire, and the members survived.
+    // AC3: the judge pin is real, the SubGroupClaims are ZERO, and the members
+    // survived. "The catch-all did NOT fire" was the third property until
+    // kogaki#738 deleted the catch-all; what a judged-empty group must now avoid
+    // is the REFUSAL, and the exit-status assertion above already carries that —
+    // an empty classification would refuse over every member of the group.
     if (rec.identity.judge_pin === "none") {
       fails.push("a judged-empty group minted a judge pin of `none` — the conformant case recorded as the violation (§12.1 v9)");
     }
@@ -592,7 +617,7 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
     } else {
       if (!Array.isArray(sec.subgroups) || sec.subgroups.length !== 0) {
         fails.push(`a judged-empty section carries ${JSON.stringify(sec.subgroups)} rather than ZERO SubGroupClaims `
-          + "— the no_member_hidden_subgroup catch-all manufactured a SubGroup the judgment did not make");
+          + "— a judged-empty outcome must reach neither the deleted catch-all nor its replacement refusal (kogaki#738), and a SubGroup here means something manufactured one the judgment did not make");
       }
       if (!Array.isArray(sec.members) || sec.members.length !== 2) {
         fails.push("a judged-empty section lost its MEMBERS — they are not in `subgroups`, so nulling them drops the whole membership from the artifact");
@@ -1239,8 +1264,12 @@ eq("case 3 — same pin, DIFFERENT query is two reports", count(), 2);
 }
 
 const SUBS = join(RD, "subs.json");
+// BOTH MEMBERS PLACED (kogaki#738). This fixture placed `alpha` alone and let
+// the deleted sweep take `bravo`; with the sweep gone that classification
+// refuses, and every §12.1 identity case downstream would then be counting
+// reports a refused run never wrote.
 writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: { judged: true, subgroups: [
-  { subgroup: "sg", claim: "a tighter claim", members: ["lesson:alpha"],
+  { subgroup: "sg", claim: "a tighter claim", members: ["lesson:alpha", "lesson:bravo"],
     coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true }] }}));
 // The judge-pin refusal, exercised WITHOUT the conformant default the helper
 // injects — otherwise this case would assert a refusal it had just prevented.
@@ -1806,10 +1835,11 @@ JS
 # the instrument: `legible_at_a_glance: false` (or `: true`) as a literal also
 # stops the ReferenceError and reports a quantity that no longer reads the
 # judge's verdict. So the third instrument is asserted to DISCRIMINATE over two
-# otherwise-identical runs, and the PLACEMENT-COMPOSED `(fits no composed SubGroup)`
-# SubGroup — whose verdicts are composed by placement rather than supplied by
-# the judge — is asserted to carry it too, that being the one SubGroup no
-# judge input can set.
+# otherwise-identical runs. Case 3 asserted the PLACEMENT-COMPOSED
+# `(fits no composed SubGroup)` SubGroup — "the one SubGroup no judge input can
+# set" — and at kogaki#738 that is precisely what was deleted: a SubGroup the
+# engine composed carrying a verdict no judge reached. It now asserts the
+# REFUSAL that replaced it, at the same command path and for the same reason.
 #
 # Seam-free by construction: `subdivide` reads the survey record and the
 # classification file and never reaches the gateway, so this block runs
@@ -1830,7 +1860,9 @@ const fails = [];
 // single carrier, never restated here — the same discipline the blocks above
 // hold for the survey field lists.
 const INSTRUMENTS = SCHEMA.instruments.required;
-const NO_FIT = SCHEMA.no_member_hidden_subgroup;
+// `SCHEMA.no_member_hidden_subgroup` IS GONE (kogaki#738): the placement no
+// longer composes a fallback SubGroup, so the schema declares no name for one.
+// Case 3 below asserts the refusal that replaced it.
 
 const write = (dir, name, body) => {
   const p = join(dir, name);
@@ -1863,10 +1895,15 @@ const subdivide = (classification) => {
   return { r, dir, record: f ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null };
 };
 
+// BOTH PARENT MEMBERS (kogaki#738). The helper placed `lesson:alpha` alone and
+// relied on the sweep to name `lesson:bravo`; that sweep is deleted and the
+// classification now refuses, so the conformant fixture places both. The
+// unplaced case moves to case 3 below, where it is the assertion rather than
+// the setup.
 const sg = (name, extra) => ({
   subgroup: name,
   claim: "a line narrower than the parent's, composed over the placed members",
-  members: ["lesson:alpha"],
+  members: ["lesson:alpha", "lesson:bravo"],
   coherence: "tight",
   coherence_why: "the members share one mechanism",
   ...extra,
@@ -1920,25 +1957,33 @@ if (legible.record && illegible.record && strip(legible) !== strip(illegible)) {
   fails.push("the legible and illegible runs differ outside the instruments block, so the pair no longer isolates the verdict");
 }
 
-// Case 3 — THE PLACEMENT-COMPOSED SUBGROUP. `lesson:bravo` is placed by no judge
-// SubGroup above, so it lands in the EXPLICIT named SubGroup whose verdicts
-// placement composes. No judge input can set its instrument, which is why it
-// is the one SubGroup a judge-supplied fixture would never cover.
-const placementComposed = legible.record
-  && legible.record.subgroups.find((s) => s.name === NO_FIT);
-if (!placementComposed) {
-  fails.push(`no ${JSON.stringify(NO_FIT)} SubGroup in the record — lesson:bravo was placed by no judge SubGroup and must be NAMED rather than dropped`);
-} else {
-  if (!placementComposed.members.includes("lesson:bravo")) {
-    fails.push(`the ${JSON.stringify(NO_FIT)} SubGroup does not hold the unplaced member: ${JSON.stringify(placementComposed.members)}`);
-  }
-  const missing = INSTRUMENTS.filter((k) => placementComposed.instruments === undefined || placementComposed.instruments[k] === undefined);
-  if (missing.length) {
-    fails.push(`the ${JSON.stringify(NO_FIT)} SubGroup is missing instrument(s) ${missing.join(", ")} — its verdicts are composed by placement, so no classification fixture can supply them and only the command path reaches it`);
-  }
-  if (legible.record.cover.placed !== legible.record.cover.of) {
-    fails.push(`the cover is incomplete: ${legible.record.cover.placed} of ${legible.record.cover.of}`);
-  }
+// Case 3 — AN UNPLACED MEMBER REFUSES AT THE COMMAND (§6.2 rule 1, kogaki#738
+// ruling 1). THIS CASE ASSERTED THE OPPOSITE and is inverted rather than
+// deleted: it required a `(fits no composed SubGroup)` SubGroup holding
+// `lesson:bravo`, carrying instruments the PLACEMENT composed — "the one
+// SubGroup a judge-supplied fixture would never cover". That is exactly the
+// defect ruling 1 names: a SubGroup the engine composed, stamped with a verdict
+// no judge reached.
+//
+// IT STAYS AT THE COMMAND, which is the coverage the old case bought and this
+// one keeps: the screen reaches subdivision through `subgroupPlacement` +
+// `judgeSubgroup`, so only this path exercises the refusal inside the composer
+// that writes the record.
+const unplaced = subdivide([sg("only alpha", { members: ["lesson:alpha"] })]);
+if (unplaced.r.status === 0) {
+  fails.push("a classification leaving `lesson:bravo` unplaced did NOT refuse at the command — the sweep is still composing a SubGroup the judgment never made");
+} else if (!/SUBDIVISION_COVER_INCOMPLETE/.test(String(unplaced.r.stderr))) {
+  fails.push(`the unplaced member refused under some other name: ${JSON.stringify(String(unplaced.r.stderr).slice(0, 200))}`);
+} else if (!/lesson:bravo/.test(String(unplaced.r.stderr))) {
+  fails.push("the command's refusal does not NAME the unplaced member — the judge must still dispose of it, so a refusal reporting only a count removes the sweep and hands back nothing to act on");
+}
+if (unplaced.record) {
+  fails.push("the refused run still WROTE a subdivision record — a refusal that leaves its artifact standing is a refusal a later reader cannot tell from a pass");
+}
+// The cover is complete on the conformant run, and it is complete because the
+// JUDGE placed every member rather than because a sweep closed the gap.
+if (legible.record && legible.record.cover.placed !== legible.record.cover.of) {
+  fails.push(`the cover is incomplete: ${legible.record.cover.placed} of ${legible.record.cover.of}`);
 }
 
 if (fails.length) {
@@ -1948,9 +1993,10 @@ if (fails.length) {
 }
 console.log("subdivide command fixture: PASS — cases exercised (the COMMAND runs end to end "
   + "and writes its record past the instruments loop, no ReferenceError; the third instrument "
-  + "discriminates a true from a false verdict over an otherwise-identical run; the "
-  + `${JSON.stringify(NO_FIT)} SubGroup names the unplaced member and carries all three `
-  + "instruments, the list read from the schema)");
+  + "discriminates a true from a false verdict over an otherwise-identical run; and an unplaced "
+  + "member REFUSES at the command, naming the member and writing no record — inverted at "
+  + "kogaki#738 from the placement-composed catch-all this case used to require, which was a "
+  + "SubGroup the engine composed and stamped with a verdict no judge reached)");
 JS
 
 # --- compose-input BOUNDED-READ fixture (kogaki#163, story 1.33) -------------
@@ -2883,20 +2929,18 @@ const cases = [
   { rule: "line_class_allowlist", surface: "cotag_screen",
     text: "testing × architecture — 2 Lessons: L2, L1",
     why: "the v5 group heading, opening with the co-tag NAME instead of a GroupID — v6 replaced it because a name cannot carry the level through a wrap, and this is where group_subgroup_id_grammar is actually enforced on this surface" },
-  // AC3 — `catch_all_share` has NEVER had a crafted case, which is how it
-  // measured the wrong catch-all through two stories and a review round. The
-  // numbers are kogaki#316's own first specimen: a parent of 17 with 11 in the
-  // remainder (65%).
+  // AC3's `catch_all_share` CASE IS DELETED WITH ITS RULE (kogaki#738 ruling 4).
+  // It crafted kogaki#316's own specimen — a parent of 17 with 11 swept into the
+  // `(fits no composed SubGroup)` remainder, 65% against a 30% cap — and the
+  // rule it exercised is gone, because the sweep that filled that remainder is
+  // gone. A case kept here would assert a refusal nothing can raise, which is
+  // the never-fires member this file's own admission discipline refuses.
   //
-  // THE HEADING CARRIES NO COUNT AT v13 (kogaki#684 disposition 2), so this
-  // case is rebuilt in the shape the surface now produces and the denominator
-  // is SUMMED from the two SubGroup lines. Rebuilt rather than left standing:
-  // the old text still fired, because the countless heading form admits it —
-  // which is exactly how a case goes on passing while measuring a shape the
-  // emitter can no longer emit.
-  { rule: "catch_all_share", surface: "cotag_screen",
-    text: "G1 — agents × knowledge-architecture\nG1-1 — 6 Lessons: L1, L2, L3, L4, L5, L6 — a real split\nG1-2 — 11 Lessons: L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17 — (fits no composed SubGroup)",
-    why: "kogaki#316's own specimen — 11 of 17 swept into the remainder, 65%, over the 30% §14.2 allows, with the parent SUMMED from the SubGroup lines now that the heading carries no count" },
+  // WHAT COVERS THE PROPERTY NOW is not another entry in this list: an unplaced
+  // member never reaches the text at all, because `subgroupPlacement` refuses
+  // before a screen is composed. That refusal is asserted twice above — at the
+  // unit and at the `subdivide` command — which is where a pre-render property
+  // is decidable.
 ];
 // THE SUM-TO-PARENT PROPERTY, RE-SITED (report-format.json v13, kogaki#684).
 // It was a grammar rule with a case in the list above until disposition 2 took
@@ -2905,11 +2949,13 @@ const cases = [
 // A property whose rule is withdrawn and whose case goes with it is a property
 // nothing asserts, and the withdrawal would be indistinguishable from a drop.
 //
-// THE CASE CONSTRUCTS THE REACHABLE DIRECTION. Under-placement cannot be built:
-// `subgroupPlacement` sweeps unplaced members into the catch-all, so a case
-// keyed on hiding would be a case that cannot fail — the exact shape this whole
-// disposition was resolved to avoid. Double placement is the reachable one, and
-// nothing in the runtime refused it before v13.
+// THE CASE CONSTRUCTS THE REACHABLE DIRECTION, and BOTH directions are now
+// reachable. Under-placement could not be built while `subgroupPlacement` swept
+// unplaced members into the catch-all — a case keyed on hiding would have been a
+// case that cannot fail — and kogaki#738 deletes that sweep, so under-placement
+// is a refusal asserted at the unit and at the `subdivide` command above. Double
+// placement is the direction this case keeps, and nothing in the runtime refused
+// it before v13.
 {
   const dir = mkdtempSync(join(tmpdir(), "terrain-sum-"));
   try {
@@ -3123,8 +3169,14 @@ try {
     "Cover: 10 of 10 member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: 10 — 10 lessons + 0 journeys; 10 of 10 Lessons.",
   ].join("\n");
   const v = validateSurface("cotag_screen", bigTagless, G);
-  if (v.some((x) => x.rule === "catch_all_share")) {
-    fails.push("AC2: `catch_all_share` fired on the CO-TAG group (9 of 10 tagless). That bound was removed — it was never an owner decision, and a tagless group over 30% is a fact about the corpus, not a composition defect. A renamed survivor is the unratified number kept under a new label");
+  // THE CO-TAG BOUND STAYS REFUSED, AND THE ASSERTION OUTLIVES ITS RULE.
+  // `catch_all_share` itself is deleted at kogaki#738, so this can no longer
+  // fire under that name — but the case it guards against is a NUMBER returning
+  // under a new label, and deleting the assertion with the rule would remove the
+  // only thing watching for that. It is re-pointed at the property: NO rule may
+  // refuse this screen over a tagless group's share.
+  if (v.length) {
+    fails.push(`AC2: a rule fired on the CO-TAG group (9 of 10 tagless): ${v.map((x) => x.rule).join(", ")}. That bound was removed — it was never an owner decision, and a tagless group over 30% is a fact about the corpus, not a composition defect. A renamed survivor is the unratified number kept under a new label`);
   }
 }
 
@@ -3546,13 +3598,14 @@ writeFileSync(claims, JSON.stringify({
   claims: { [`${TAG} × architecture`]: "both are guards of some kind" },
 }));
 
-// The only named SubGroup was grouped only to satisfy the requirement: `coherence: "forced"`.
+// The only named SubGroup discriminates nothing: `coherence: "other"` — the
+// judge found no coherent subset among its members (`forced` until kogaki#738).
 const subs = join(tmpdir(), `ac5-subs-${process.pid}.json`);
 writeFileSync(subs, JSON.stringify({
   [`${TAG} × architecture`]: { judged: true, subgroups: [
     { subgroup: "guards of some kind", claim: "both are guards of some kind",
       members: ["lesson:alpha", "lesson:bravo"],
-      coherence: "forced", coherence_why: "grouped only to satisfy the split requirement", legible_at_a_glance: true },
+      coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
   ] },
 }));
 
@@ -3582,7 +3635,7 @@ if (r.status !== 0) {
   }
   // The suppression is DISCLOSED, never silent (§2.1). A flat group is
   // otherwise indistinguishable from one nobody judged.
-  if (!/render flat because their only named SubGroup was labelled `forced`/.test(out)) {
+  if (!/render flat because their only named SubGroup was labelled `other`/.test(out)) {
     fails.push("AC5: the suppression is SILENT — a judgment ran, produced a split and had it suppressed, and the screen says nothing. §2.1 states an absence rather than leaving it, and the `claimless` aggregate is the shape this follows");
   }
   // And the fallback must not have eaten the members.
@@ -3655,7 +3708,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("suppressed split: a split whose only named SubGroup is labelled `forced` renders NO "
+console.log("suppressed split: a split whose only named SubGroup is labelled `other` renders NO "
   // retired-vocab-ok: must-not-appear tripwire assertion.
   + "SubGroups, the group falls back to its FLAT heading with member ids intact, no `NOT a leaf` line "
   + "survives, the suppression is DISCLOSED in aggregate rather than silently, and the command EXITS ZERO — "
@@ -5314,7 +5367,8 @@ JS
 # Disposition 1 moves the split decision from the judge to the engine: a
 # composed group at or above 10 members MUST serve SubGroups, and a judged-empty
 # outcome for such a group is refused at render — the same class as
-# `catch_all_share`, engine-side, no model discretion.
+# an engine-side emit-time refusal, no model discretion (`catch_all_share` was
+# its sibling until kogaki#738 deleted it with the sweep it measured).
 #
 # THREE DIRECTIONS, and the third is the one the dispositions collide on.
 # Asserting only the refusal would pass on a runtime that refused every group,
@@ -5402,12 +5456,67 @@ if (flat.status === 0) {
   fails.push("the flat wide-group run exited 0 — the refusal is generation-time and must stop the emit, not report afterwards");
 }
 
+// (b0) THE MEMBER CAPS REFUSE PAST THEIR BOUNDARY, AND THE NUMBERS COME FROM THE
+//      CARRIER (§8, kogaki#738 ruling 3). Asserted in BOTH directions and in the
+//      same block as (b), which admits at exactly 5 and 7: without the refusing
+//      direction a cap read as `Infinity` would pass every case here, and without
+//      (b)'s admitting one a cap of zero would too.
+//
+//      THE EXPECTED NUMBERS ARE READ FROM `report-format.json`, never written
+//      here. A literal `5` in this file would be a second carrier of a number
+//      whose whole point is being owner-editable in one place — the defect the
+//      threshold block two hundred lines up exists to catch, reproduced in the
+//      check that catches it.
+{
+  const caps = JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8"))
+    .limits.subgroup_member_cap;
+  for (const [label, cap] of [["tight", caps.tight], ["related", caps.related]]) {
+    const over = groupMembers.slice(0, cap + 1);
+    const spill = groupMembers.slice(cap + 1);
+    const r = run(subs(others({ judged: true, subgroups: [
+      { subgroup: "over the cap", claim: "these share one mechanism", members: over,
+        coherence: label, coherence_why: "the members share one mechanism", legible_at_a_glance: true },
+      { subgroup: "the remainder", claim: "these share a theme rather than a mechanism", members: spill,
+        coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
+    ] })));
+    const out = String(r.stdout) + String(r.stderr);
+    if (r.status === 0) {
+      fails.push(`§8/738: a \`${label}\` SubGroup of ${over.length} members was ACCEPTED over its cap of ${cap} — the cap is declared in report-format.json and enforced nowhere`);
+    } else if (!new RegExp(`over the cap of ${cap}`).test(out)) {
+      fails.push(`§8/738: the \`${label}\` cap refused without naming the cap it read (${cap}): ${out.trim().slice(0, 200)}`);
+    } else if (!/over the cap/.test(out) || !/"over the cap"/.test(out)) {
+      fails.push(`§8/738: the \`${label}\` cap refusal does not name the SubGroup — acceptance asks for group and cap, so a refusal naming only the number leaves a judge with several SubGroups guessing which: ${out.trim().slice(0, 200)}`);
+    }
+  }
+  // `other` IS UNCAPPED, asserted rather than assumed. This is the arm that
+  // makes the two above a CAP rather than a blanket size limit, and it is the
+  // whole of ruling 1's safety argument in one case: the unbounded bucket is
+  // legitimate exactly when the judge names its members.
+  const all = run(subs(others({ judged: true, subgroups: [
+    { subgroup: "everything", claim: "the judge divided none of these", members: groupMembers,
+      coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
+  ] })));
+  if (all.status !== 0) {
+    fails.push(`§8/738: an \`other\` SubGroup of ${groupMembers.length} members was refused — \`other\` carries no cap, and capping it would be the engine second-guessing the verdict §8 assigns to the judge: ${(String(all.stdout) + String(all.stderr)).trim().slice(0, 200)}`);
+  }
+}
+
 // (b) A CONFORMANT SPLIT RENDERS. Without this the refusal above could be a
 //     runtime that refuses every group of this size whatever it carries.
-const named9 = groupMembers.slice(0, 9);
+//
+//     TWO SubGroups COVERING ALL TWELVE MEMBERS, and both changes are
+//     kogaki#738's. It placed nine in one `tight` SubGroup and let the deleted
+//     sweep take the other three — which now refuses — and nine in a `tight`
+//     SubGroup is over §8's cap of five anyway. The split is 5 `tight` + 7
+//     `related`, at both caps exactly, which is also what makes this fixture
+//     assert the caps ADMIT their own boundary rather than only refusing past it.
+const named5 = groupMembers.slice(0, 5);
+const rest7 = groupMembers.slice(5);
 const ok = run(subs(others({ judged: true, subgroups: [
-  { subgroup: "the nine", claim: "these nine share one mechanism", members: named9,
+  { subgroup: "the five", claim: "these five share one mechanism", members: named5,
     coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
+  { subgroup: "the rest", claim: "these share a theme rather than a mechanism", members: rest7,
+    coherence: "related", coherence_why: "the members share a theme, not one mechanism", legible_at_a_glance: true },
 ] })));
 const okOut = String(ok.stdout) + String(ok.stderr);
 if (/subdivision_required_at_ten/.test(okOut)) {
@@ -5421,17 +5530,21 @@ if (!/^G[0-9]+-1 — /m.test(String(ok.stdout))) {
 //     issue's own dispositions collide. §6.2 v7 rule 3 says a group whose only
 //     named SubGroup bought nothing renders FLAT; disposition 1 says a flat
 //     group at 10+ does not render at all. The runtime declines to suppress at
-//     or above the threshold, so the group renders its split labelled `forced`
-//     rather than falling into a shape the guard would then refuse.
+//     or above the threshold, so the group renders its split labelled `other`
+//     (`forced` until kogaki#738) rather than falling into a shape the guard
+//     would then refuse.
 const forced = run(subs(others({ judged: true, subgroups: [
-  { subgroup: "one batch", claim: "grouped to satisfy the requirement", members: named9,
-    coherence: "forced", coherence_why: "grouped only to satisfy the split requirement", legible_at_a_glance: true },
+  // ALL TWELVE, and `other` is the one label whose cap admits them — which is
+  // §8's asymmetry doing exactly what it is for: the uncapped label is the one
+  // that carries a group the judge could not divide.
+  { subgroup: "one batch", claim: "grouped to satisfy the requirement", members: groupMembers,
+    coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
 ] })));
 const forcedOut = String(forced.stdout) + String(forced.stderr);
-if (/render flat because their only named SubGroup was labelled `forced`/.test(forcedOut)) {
+if (/render flat because their only named SubGroup was labelled `other`/.test(forcedOut)) {
   fails.push(`the suppression fired on a ${groupMembers.length}-member group — §6.2 v7 rule 3's fallback is exactly the judged-empty outcome disposition 1 refuses, so at or above the threshold the group must render its split instead`);
 }
-if (!/coherence: forced — grouped only to satisfy the split requirement/.test(String(forced.stdout))) {
+if (!/coherence: other — no 2\+ subset among these members holds together at related or better/.test(String(forced.stdout))) {
   fails.push("the forced split at or above the threshold did not render its coherence line — the group must render, labelled honestly, rather than silently falling back to flat");
 }
 if (/subdivision_required_at_ten/.test(forcedOut)) {
@@ -5444,9 +5557,9 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("split-at-ten: 3 direction(s) — a 12-member group rendering FLAT is refused at emit "
-  + "(subdivision_required_at_ten, the catch_all_share class); the same group WITH SubGroups renders, so the "
+  + "(subdivision_required_at_ten, an engine-side emit-time refusal); the same group WITH SubGroups renders, so the "
   + "refusal discriminates split from unsplit rather than firing on size; and §6.2 v7 rule 3's suppression is "
-  + "UNAVAILABLE at the threshold — a single `forced` SubGroup renders its split, labelled, instead of falling "
+  + "UNAVAILABLE at the threshold — a single `other` SubGroup renders its split, labelled, instead of falling "
   + "back to the flat shape the guard would then refuse. Below the threshold rule 3 is untouched and its own "
   + "block asserts it.");
 JS

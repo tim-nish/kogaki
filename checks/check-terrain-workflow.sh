@@ -452,24 +452,38 @@ else
   # The settled set is a SubGroup holding only the fixture's solo-batch member,
   # which is the one selection whose neighborhood is empty against this stub.
   #
-  # LABELLED `forced`, AND THE LABEL IS LOAD-BEARING HERE (kogaki#683). This
-  # SubGroup holds 1 of the parent's 5 members and the other 4 sweep into the
-  # remainder — 80%, far over the 30% `catch_all_share` allows — so the screen
+  # LABELLED `other`, AND THE LABEL IS LOAD-BEARING HERE (kogaki#683, relabelled
+  # at kogaki#738). The solo SubGroup holds 1 of the parent's 5 members; the
+  # other 4 are PLACED IN A SECOND SubGroup rather than swept, because kogaki#738
+  # deletes the sweep and refuses a classification that leaves any member
+  # unplaced. The `catch_all_share` bound this comment used to compute against —
+  # 4 of 5 is 80%, far over its 30% — is deleted with that sweep and is named
+  # here as provenance rather than as a live rule.
   # retired-vocab-ok: provenance, the label now carries it.
-  # is renderable only because §6.2 v7 rule 3 SUPPRESSES the split and the group
-  # falls back to flat. Before kogaki#683 the fixture carried no verdicts at all
-  # and suppression fired on the absent `tighter_than_parent`; the label now
-  # carries that reading explicitly, which is also the honest one for a split
-  # that left most of its parent in the catch-all.
-  # Without it the scope fix is unexercised: un-scoping the refusal again fails
-  # nothing, which is the assertion-that-cannot-fail shape.
+  #
+  # The screen is renderable because §6.2 v7 rule 3 SUPPRESSES the split... no
+  # longer: with TWO named SubGroups the suppression's single-SubGroup condition
+  # does not hold, so the group renders its split. That is a change in WHY the
+  # screen renders and not in WHAT this arm asserts — the arm is about an empty
+  # neighborhood enumeration, and the subdivision is its precondition.
+  # Before kogaki#683 the fixture carried no verdicts at all and suppression
+  # fired on the absent `tighter_than_parent`; the label now carries the reading
+  # explicitly.
+  # Without a conformant subdivision the scope fix is unexercised: un-scoping the
+  # refusal again fails nothing, which is the assertion-that-cannot-fail shape.
   RDJ_EMPTY="$WORK/judgment-empty"; mkdir -p "$RDJ_EMPTY"
   EJ() { STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
          node terrain/terrain.mjs run --run-dir "$RDJ_EMPTY" "$@" 2>&1; }
   EJ >/dev/null 2>&1 || true
   ESURVEY=$(ls "$RDJ_EMPTY"/*.terrain-survey.json 2>/dev/null | head -1)
   python3 checks/lib/compose-judgment-claims.py "$ESURVEY" "$WORK/e-claims.json"
-  printf '%s\n' '{"testing × (no second served tag)":{"judged":true,"subgroups":[{"subgroup":"the solo batch","claim":"the solo-batch member alone","members":["lesson:delta"],"coherence":"forced","coherence_why":"one named SubGroup holding one of five members; the rest sweep to the remainder, so the split was made only to satisfy the requirement"}]}}' > "$WORK/e-subs.json"
+  # EVERY MEMBER PLACED, AND THAT IS kogaki#738 (ruling 1). This fixture placed
+  # `lesson:delta` alone and said so in its own reason — "the rest sweep to the
+  # remainder" — which is exactly the sweep #738 deletes; the classification now
+  # refuses. The solo SubGroup is unchanged (the arm below selects G1-1 and needs
+  # it to hold delta alone); the other four ride a second SubGroup, so the cover
+  # is complete because the judge placed them rather than because the engine did.
+  printf '%s\n' '{"testing × (no second served tag)":{"judged":true,"subgroups":[{"subgroup":"the solo batch","claim":"the solo-batch member alone","members":["lesson:delta"],"coherence":"other","coherence_why":"no 2+ subset among these members holds together at related or better"},{"subgroup":"the rest","claim":"the members that are not the solo-batch one","members":["lesson:alpha","lesson:bravo","lesson:charlie","lesson:echo"],"coherence":"related","coherence_why":"the members share a theme, not one mechanism"}]}}' > "$WORK/e-subs.json"
   printf '%s\n' '{"anything":{"level":"core","claim":"a key judged against an EMPTY enumeration"}}' > "$WORK/e-j.json"
   ECOMMON=(--claims "$WORK/e-claims.json" --subdivisions "$WORK/e-subs.json" --judge-model claude-opus-5 --judge-effort high)
   EJ --input testing "${ECOMMON[@]}" >/dev/null 2>&1 || true

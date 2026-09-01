@@ -571,27 +571,78 @@ Below the threshold, SubGroups appear where the judge's **coherence label** and
 
 **THREE GROUPING RULES, and what each one does when it fails.**
 
-1. **The SubGroup member counts sum to the parent's total.** Every member placed,
-   nothing silently dropped. A screen violating it **does not render** — a
-   pre-render refusal in `cmdCotags`, over the placement rather than the rendered
-   text, because the subdivided heading carries no parent count for a text-level
-   rule to read. `report-format.json`'s `not_expressible` entry —
-   `subgroup_members_sum_to_parent` — carries what that siting costs and its
+1. **The SubGroup member counts sum to the parent's total, and an UNPLACED
+   MEMBER IS A REFUSAL NAMING IT** (kogaki#738, ruling 1). Every member placed,
+   nothing silently dropped and **nothing swept**. A screen violating it **does
+   not render** — a pre-render refusal in `cmdCotags`, over the placement rather
+   than the rendered text, because the subdivided heading carries no parent count
+   for a text-level rule to read. `report-format.json`'s `not_expressible` entry
+   — `subgroup_members_sum_to_parent` — carries what that siting costs and its
    reopen trigger.
-2. **The `(fits no composed SubGroup)` remainder is at most 30% of the parent's
-   members.** The name is the schema's — `survey-schema.json`'s
-   `subdivision.no_member_hidden_subgroup` — and is read from there, never
-   restated in a renderer. A judgment whose remainder exceeds it is re-run or recomposed; it
-   does not render — `catch_all_share` (§14.2), whose denominator is the sum of
-   the group's own `subgroup_heading` counts.
+
+   **THE SWEEP IS DELETED, AND THE FALLBACK IS CHOSEN RATHER THAN INHERITED.**
+   Until kogaki#738 the placement swept every unplaced member into a
+   `(fits no composed SubGroup)` SubGroup stamped `forced`. That fallback was
+   never decided; it was whatever the code did with the members it had left over.
+
+   > "When a rule is carried by matching declared instances, the carrier bounds
+   > the instances it recognises and leaves everything else admit-by-default, and
+   > because it visibly works on what it matches, the enumeration reads as
+   > coverage; the decisive question is not 'does it catch what it names?' but
+   > 'what happens to what it does not name?', and that fallback must be chosen
+   > rather than inherited from the matcher."
+
+   `consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:82`
+
+   **The refusal NAMES the unplaced members**, and that is load-bearing rather
+   than a message-quality preference. A refusal is safe only where its report
+   reaches whoever must pick the remaining path, at the moment they pick it:
+
+   > "Refusing to act on a misconfiguration is safe only where the refused thing
+   > is allowed to simply stop — when the actor must still dispose of the item in
+   > front of it, a fail-closed refusal prevents nothing and merely removes one
+   > option … so check that the refusal's report reaches whoever picks the
+   > fallback, at the moment they pick it."
+
+   `consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:38`
+
+   The judge here **must** still dispose of every member, so the refusal would be
+   empty theatre if it left no path — and it does not: `other` is that path, and
+   the refusal hands back the exact ids so the judge can place them in it. A
+   refusal reporting only a count would satisfy this rule's letter and defeat its
+   ground.
+2. **DELETED with the sweep it guarded (kogaki#738, ruling 4).** This rule read:
+   "The `(fits no composed SubGroup)` remainder is at most 30% of the parent's
+   members … A judgment whose remainder exceeds it is re-run or recomposed; it
+   does not render — `catch_all_share` (§14.2)". It bounded a bucket the ENGINE
+   filled. With the sweep gone there is no engine-filled remainder to bound, and
+   a share cap over a judged label would be the engine second-guessing the
+   judgment §8 assigns to the judge. `catch_all_share` and its guard leave
+   `report-format.json` and `format-guard.mjs` in the same act — a rule kept in a
+   carrier after its subject is deleted is a predicate that cannot fail.
+
+   **What is NOT deleted with it:** the arithmetic ground the 10-member threshold
+   rests on. §8 derived that threshold from "30% of 10 is 3 Strands — the minimum
+   article"; the threshold stands on its own owner ruling and is not reopened
+   here, but the sentence deriving it from a cap that no longer exists is
+   repaired at §8 rather than left pointing at a deleted rule.
 3. **A split whose only named SubGroup restates the parent's own commonality does
    not discharge the subdivision obligation** — and *that phrase means the group
    renders no SubGroups*, not that the screen refuses. A split whose only named
-   SubGroup the judge labels `forced` leaves the group rendering flat, with its
+   SubGroup the judge labels `other` leaves the group rendering flat, with its
    own claim and member ids, exactly as an unjudged-empty group does — **and only
    below the split threshold**. At 10 members or more this fallback is
    unavailable, because the flat rendering it produces is the outcome §8 refuses,
-   so the suppression yields and the group RENDERS its split, labelled `forced`.
+   so the suppression yields and the group RENDERS its split, labelled `other`.
+
+   **THE LABEL MOVED AND THE RULE DID NOT (kogaki#738).** This clause read
+   `forced` at both sites. The mapping is not a rename passed through: under
+   `forced` the trigger was *the threshold compelled a split that bought
+   nothing*; under `other` it is *the judge composed one SubGroup and judged its
+   members mutually unrelated*, which is the same observable — a split that
+   discriminates nothing — reached by a judgment rather than by the engine. The
+   suppression survives because what it keys on is the OUTCOME, and the outcome
+   is unchanged.
    **Why not a refusal like 1 and 2:** those are properties of the *rendered text*
    and a violation means the emitter produced something incoherent. This one is a
    *judge's verdict*, and refusing the whole screen over it would contradict this
@@ -652,7 +703,8 @@ in common: <GroupClaim>
 ```
 
 **A suppressed split is DISCLOSED, never silent.** A group rendering flat because
-its only named SubGroup was labelled `forced` is fully conformant, but a judgment
+its only named SubGroup was labelled `other` (kogaki#738; `forced` until then) is
+fully conformant, but a judgment
 did run and did produce a split; an owner who sees a flat group cannot otherwise
 tell that from a group nobody judged. The disclosure is aggregate rather than
 per-group.
@@ -784,11 +836,55 @@ and it is **not a cap**:
 
 **The judgment is ONE COHERENCE LABEL, closed at three.** The judge selects
 exactly one of `tight` (members share one mechanism), `related` (members share a
-theme, not one mechanism) or `forced` (grouped to satisfy the split requirement),
-and supplies one free-form sentence of why. Both render under the claim. The
-runtime refuses a value outside the set and refuses a label with no reason: the
-two are ONE INSTRUMENT, and a default would be the engine supplying the judgment
-the label exists to carry.
+theme, not one mechanism) or `other` (the judge found no 2+ subset at
+related-or-better affinity among these members), and supplies one free-form
+sentence of why. Both render under the claim. The runtime refuses a value outside
+the set and refuses a label with no reason: the two are ONE INSTRUMENT, and a
+default would be the engine supplying the judgment the label exists to carry.
+
+**THE THIRD LABEL WAS `forced` AND IS NOW `other` (kogaki#738, owner rulings
+2026-09-01).** It read "`forced` (grouped to satisfy the split requirement)",
+which named a fact about the ENGINE — the threshold compelled a split — rather
+than a fact about the MEMBERS. `other` names the members: the judge looked and
+found no coherent subset among them. The two are not spellings of one label. A
+`forced` SubGroup could be produced with no judgment at all, and was: the
+placement swept every unplaced member into a catch-all and stamped it `forced`
+"by construction", so the label carried a verdict nobody reached.
+
+**`other` IS UNBOUNDED, AND THAT IS SAFE ONLY BECAUSE IT IS JUDGED.** No share
+cap governs it. What replaces the cap is that membership in `other` is an
+explicit assignment at the same semantic level as `tight` and `related` — the
+judge names each member into it — rather than a structural leftover the engine
+computes. An unbounded bucket the engine fills is a hiding place; an unbounded
+bucket the judge fills is a verdict.
+
+**The judge duty for `other`, stated as a duty the harness cannot verify.**
+Assigning members to `other` asserts the judge found no 2+ subset at
+related-or-better affinity among them. The ground is an observed incident: in
+2026-08 roughly thirty members landed in the catch-all with no `tight` or
+`related` group composed at all, and nothing in the mechanism could distinguish
+*no related pair exists* from *the judgment never tried*. What the harness DOES
+enforce is the reachable half — **no member reaches `other` without appearing in
+the judge's own classification** — which is §6.2 rule 1's refusal below.
+
+**MEMBER CAPS PER LABEL, READ FROM CONFIG (kogaki#738, ruling 3).** A `tight`
+SubGroup carries at most **5** members and a `related` SubGroup at most **7**;
+`other` is uncapped, per the clause above. A SubGroup over its cap is **refused
+at J2**, naming the group and the cap it exceeded.
+
+**The asymmetry is not arbitrary and is stated so it is not "tidied" later.**
+Brief consumes a `tight` group WHOLE and cannot yet filter Strands, so an
+oversized `tight` group lands entirely in a downstream consumer that has no way
+to narrow it — the harder cap follows the consumer's inability, not the label's
+seniority. `related` is browse material a reader scans and selects from, so it
+carries the looser one.
+
+**The numbers live in the FORMAT CARRIER, not in code** — `report-format.json`'s
+`limits` block, `subgroup_member_cap: { tight, related }` — so changing them is
+an owner edit rather than a code change, and the runtime reads them from there
+exactly as it reads `subdivision_required_at_ten.threshold_members`. No new
+carrier is minted for them: a second config file would be a second place for a
+number to drift from the grammar that renders it.
 
 **Two disclosures, disjunctive.** The **degenerate-claim** disclosure fires when a
 claim trails into enumeration. It does **not** detect the reported condition on
@@ -804,13 +900,21 @@ quantities.**
 
 **THE SPLIT DECISION IS THE ENGINE'S AT TEN OR MORE.** A composed group at or
 above **10 members** must serve SubGroups; a judged-empty outcome for such a group
-is **refused at render**, the same class as `catch_all_share` — engine-side, no
-model discretion. **Membership assignment stays the judge's; whether to split does
+is **refused at render** — engine-side, no model discretion. (It was "the same
+class as `catch_all_share`"; that sibling was deleted at kogaki#738 with the
+sweep it measured, so this refusal is now alone in its class on this surface.) **Membership assignment stays the judge's; whether to split does
 not.**
 
-**The boundary's ground is arithmetic rather than taste:** the catch-all cap
-leaves 30% of the parent, and 30% of 10 is 3 Strands — the minimum article — so
-the requirement works AT 10 rather than above it.
+**The boundary's ground is arithmetic rather than taste, and its arithmetic
+OUTLIVED ITS INPUT (kogaki#738).** This read: "the catch-all cap leaves 30% of
+the parent, and 30% of 10 is 3 Strands — the minimum article — so the requirement
+works AT 10 rather than above it." The cap it computes from is deleted with the
+sweep at §6.2 rule 2, so the derivation no longer has a second term. **The
+threshold of ten is unchanged** — it is an owner ruling in its own right and
+nothing here reopens it — but it now stands on that ruling rather than on a
+calculation whose input is gone. Recorded this way rather than silently dropped:
+a reader who finds a bare threshold cannot tell a ruled number from a forgotten
+one.
 
 **Two carriers, and they are checked against each other.**
 `SUBDIVISION_REQUIRED_AT` in the runtime decides whether a split may be

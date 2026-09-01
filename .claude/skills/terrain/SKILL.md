@@ -79,7 +79,7 @@ re-create the producer it removes in order to have something to check.
 
 **THE SPECIMEN THIS REPLACES.** The 2026-08-09 hands-on transcript carried two
 lines fused **mid-token** — a SubGroup header claiming `(6 Lessons: …)` spliced
-into the catch-all's 19-member list, and a claim line splicing into a different
+into a 19-member SubGroup's list, and a claim line splicing into a different
 group's claim. A runtime cannot fuse two lines mid-word. A model retyping a
 screen can, and the 2026-08-06 run lost three merged contracts (member IDs,
 SubGroup verdicts, ABNORMAL markers) the same way. The earlier form of this
@@ -168,13 +168,32 @@ whose ID set the owner enters. **Nothing on either line is optional.**
    ```
 
    **`coherence` IS THE JUDGMENT AND IT IS CLOSED AT THREE** (§8 v30,
-   kogaki#683). `tight` — the members share one mechanism. `related` — they
-   share a theme, not one mechanism. `forced` — grouped to satisfy the split
-   requirement. Select exactly one and supply `coherence_why`, ONE sentence.
+   kogaki#683; third label relabelled at kogaki#738). `tight` — the members
+   share one mechanism. `related` — they share a theme, not one mechanism.
+   `other` — you found no 2+ subset at related-or-better affinity among these
+   members. Select exactly one and supply `coherence_why`, ONE sentence.
    The runtime **refuses** a value outside the set and refuses a label with no
    reason: the two are one instrument, and a default would be the engine
    supplying the judgment the label exists to carry. It REPLACES
    `composes_honestly` / `tighter_than_parent`, which are gone. <!-- retired-vocab-ok: states they are gone. -->
+
+   **`other` IS A CLAIM YOU ARE MAKING, not a bin for the leftovers.** Putting
+   members there asserts you looked and found no coherent pair. Nothing can
+   check that — it is your duty, stated so you know you are making it. What the
+   runtime DOES enforce is that **every member appears in a SubGroup you
+   composed**: a classification leaving any member unplaced is refused, naming
+   the members it left. There is no catch-all; the engine composed one until
+   kogaki#738 and stamped it with a verdict nobody reached.
+
+   **COMPOSE `tight` FIRST, then `related`, and let the residue go to `other`
+   explicitly.** `related` is permitted and never required. A single pass —
+   there is no iterative regrouping and none is coming.
+
+   **MEMBER CAPS** (§8, kogaki#738): a `tight` SubGroup holds at most **5**
+   members, a `related` one at most **7**; `other` is uncapped. Over the cap is
+   refused, naming the SubGroup and the cap. The numbers live in
+   `specs/spec-terrain/report-format.json`'s `limits` block — read them there
+   rather than from this sentence if the two ever disagree.
 
    **THE SPLIT DECISION IS NOT YOURS AT TEN OR MORE.** A composed group of 10+
    members MUST serve SubGroups; `"subgroups": []` for such a group is refused
@@ -252,7 +271,7 @@ whose ID set the owner enters. **Nothing on either line is optional.**
      and a run that never asked is still refused. **At 10 or more members the
      split is not yours to decline**: such a group must serve SubGroups, and
      `"subgroups": []` for one is refused at render. Below ten, a group whose
-     only named SubGroup you label `forced` renders no SubGroups and is fully
+     only named SubGroup you label `other` renders no SubGroups and is fully
      conformant. SubGroups otherwise appear where your **coherence label** and
      §8's two disjunctive disclosures put them — **the screen judges and
      renders both**, and **refuses without a judge pin**, because a judged

@@ -182,8 +182,7 @@
       "effort_tier"
     ],
     "judge_rationale": "the fourth component on the existing pin discipline, ADOPTED for per-invocation judged surfaces and naming terrain screens, claims and groupings among them (topics/knowledge-architecture.md:84@f918c515). Where drift is undetectable, pin: a surface regenerated fresh by design lets `recomputed fresh` silently become `recomputed by a different judge` with nothing in the record distinguishing that from ordinary nondeterminism. The pin makes a judge change OBSERVABLE and the judge-migration tripwire (:85) makes it CONSEQUENTIAL; either alone leaves the loop open. WHICH model is therefore a per-invocation PINNED FACT, not a design decision this schema fixes — and this repository fixes none.",
-    "no_member_hidden_subgroup": "(fits no composed SubGroup)",
-    "no_member_hidden_rationale": "every member of the parent group appears in at least one SubGroup, and members that fit none appear in an EXPLICIT NAMED SubGroup rather than being dropped — completeness is a cover counted in placements, checked AFTER composition (SPEC.md §2.1, §8)",
+    "no_member_hidden_retired": "RETIRED at kogaki#738 (owner rulings 2026-09-01). This block declared `no_member_hidden_subgroup: \"(fits no composed SubGroup)\"` and the rationale \"every member of the parent group appears in at least one SubGroup, and members that fit none appear in an EXPLICIT NAMED SubGroup rather than being dropped\". The COVER PROPERTY is untouched and is stronger now: every member still appears, and it appears because the JUDGE placed it. What is gone is the engine-composed SubGroup that held whatever the judge left over — a classification leaving any member unplaced is now REFUSED, naming the members (SPEC.md §6.2 rule 1), so there is no leftover for a named bucket to hold. The name is retired rather than kept unused: a declared name nothing composes is a name a later reader will compose against.",
     "subgroup_required": [
       "name",
       "claim",
@@ -198,16 +197,17 @@
       "closed_set": [
         "tight",
         "related",
-        "forced"
+        "other"
       ],
       "meanings": {
         "tight": "members share one mechanism",
         "related": "members share a theme, not one mechanism",
-        "forced": "grouped to satisfy the split requirement"
+        "other": "the judge found no 2+ subset at related-or-better affinity among these members"
       },
+      "third_label_supersession": "`forced` (\"grouped to satisfy the split requirement\") until kogaki#738, owner rulings 2026-09-01. It named a fact about the ENGINE rather than about the members, and the placement's unplaced-members sweep could stamp it with no judgment behind it at all. `other` names what the judge found; membership in it is an explicit assignment at the same semantic level as the other two, which is why it needs no share cap (SPEC.md §8).",
       "why_required": true,
       "_retired_vocab_ok": "retired-vocab-ok (kogaki#708): the retired terms quoted in the next value are there to say what the coherence label REPLACED, never as current contract.",
-      "rationale": "ONE INSTRUMENT, NOT TWO (kogaki#683 disposition 5, owner selection at pickup 2026-08-29). This REPLACES the conjunctive leaf condition — `composes_honestly` and `tighter_than_parent` are removed, not kept beside it. The label carries what the conjuncts carried and one thing they could not: `tight` is what the conjunction admitted, `related` is the honest-but-not-tighter middle the conjunction collapsed into a bare failure, and `forced` names the split the 10-member requirement compels. The judge selects exactly one and supplies one free-form sentence of why; both render under the claim.",
+      "rationale": "ONE INSTRUMENT, NOT TWO (kogaki#683 disposition 5, owner selection at pickup 2026-08-29). This REPLACES the conjunctive leaf condition — `composes_honestly` and `tighter_than_parent` are removed, not kept beside it. The label carries what the conjuncts carried and one thing they could not: `tight` is what the conjunction admitted, `related` is the honest-but-not-tighter middle the conjunction collapsed into a bare failure, and `other` names the split the 10-member requirement compels. The judge selects exactly one and supplies one free-form sentence of why; both render under the claim.",
       "never_defaulted": "A record arriving with no label, or with a value outside the closed set, is REFUSED at `judgeSubgroup` rather than defaulted — a default would be the engine supplying the judgment the label exists to carry. A label with no `coherence_why` is refused for the same reason: the two are one instrument.",
       "values_are_consumer_owned": "A consumer owns the SHAPE of its own record and never the VALUES of a field that JOINS across a boundary. This label is rendered on kogaki's own screen and read by nothing outside it, so the values are minted here. consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198"
     },
