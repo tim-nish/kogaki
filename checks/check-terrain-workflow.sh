@@ -282,8 +282,11 @@ fi
 # ruling ends. The property under test is that the EXECUTOR reaches it, so the
 # test has to be a run.
 #
-# THREE ARMS, and the middle one is the ruling's answer to "what is an
-# unjudged pull".
+# SIX ARMS. The first was the ruling's answer to "what is an unjudged pull" —
+# a skip that completed — and kogaki#741 inverted it: the states are
+# unconditional, so an unjudged run REFUSES. Arms 3b and 3c are that ruling's
+# other two acceptance items, the record join observed through a deleted file
+# and the widened identity observed as two reports where the triple wrote one.
 #
 # THE RUN DIRS ARE NAMED `RDJ*`, NOT `RD5`. The gate-path block above already
 # holds `RD5`, and its EXIT trap removes `"$RD5"` — a second block reusing the
@@ -307,18 +310,20 @@ else
   COMMON=(--claims "$WORK/j-claims.json" --subdivisions "$WORK/j-subs.json" --judge-model claude-opus-5 --judge-effort high)
   J --input testing "${COMMON[@]}" >/dev/null 2>&1 || true
 
-  # ARM 1 — UNJUDGED. Both states are conditional, so a run naming neither
-  # SKIPS them and the record NAMES the skip. That is the ruling's answer to
-  # what an unjudged pull is: a legitimate terminal rather than a refusal — and
-  # no longer a silent absence, because a skipped conditional is recorded.
+  # ARM 1 — UNJUDGED, AND IT NOW REFUSES (§13.4, kogaki#741 ruling 1/2).
+  # Both states are UNCONDITIONAL, so a run naming no judgment does not skip
+  # them: it enters J3, which has no record to validate, and never reaches a
+  # Full Report. This arm asserted the opposite until kogaki#754 — that the two
+  # states were skipped and `full_report` completed anyway — which is the design
+  # #741 superseded, so the assertion is inverted rather than deleted.
   RDJ_UNJUDGED="$WORK/judgment-unjudged"; cp -r "$RDJ" "$RDJ_UNJUDGED"
   STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
     node terrain/terrain.mjs run --run-dir "$RDJ_UNJUDGED" --input G1 "${COMMON[@]}" >/dev/null 2>&1 || true
-  if ! python3 checks/lib/assert-judgment-skip.py "$RDJ_UNJUDGED/run-record.json"; then
-    echo "FAIL: an unjudged run did not SKIP the two judgment states and still complete full_report — the ruling makes an unjudged pull a legitimate terminal whose skip is NAMED, and a record that does not name it is the silent version the declaration removes"
+  if ! python3 checks/lib/assert-judgment-refusal.py "$RDJ_UNJUDGED/run-record.json"; then
+    echo "FAIL: an unjudged run reached a Full Report, or still records the neighborhood states as skipped conditionals — §13.4 makes both states unconditional and the Report REQUIRE the judgment pass, so there is no path to an unjudged neighborhood rendering"
     FAIL=1
   else
-    echo "ok: unjudged run — neighborhood_input and J3_neighborhood skipped and RECORDED as skipped, full_report still completed (the ruled terminal)"
+    echo "ok: unjudged run — no Full Report written and neither neighborhood state recorded as skipped (§13.4's refusal, kogaki#741)"
   fi
 
   # ARM 2 — AN ORPHAN JUDGMENT KEY IS REFUSED BY NAME. The refusal needs the
@@ -340,13 +345,14 @@ else
   # of #690: before it, the judged path was reachable only by invoking `report`
   # directly with a fixture.
   #
-  # `--report-dir` IS FRESH, AND THAT IS NOT TEST HYGIENE. §12.1's identity
-  # triple is (pin, query, judge) and does NOT include the composed inputs, so a
-  # judged pull of a set already reported UNJUDGED shares an identity with it.
-  # Since kogaki#700 that pull REFUSES rather than replaying — the record carries
-  # a digest of the inputs it was rendered from — so without a fresh record dir
-  # this arm would refuse or pass on which order the arms happened to run in,
-  # which is the assertion-that-cannot-fail shape wearing a different outcome.
+  # `--report-dir` IS FRESH, AND THAT IS NOT TEST HYGIENE. §12.1's identity is
+  # (pin, query, judge, judgment record) since kogaki#741 — it was the triple
+  # (pin, query, judge) when this comment was written, and the composed CLAIMS
+  # and SUBDIVISIONS are still recorded rather than keyed, so a pull differing
+  # from a stored report only in those REFUSES with the kogaki#700 mismatch
+  # rather than replaying. Without a fresh record dir this arm would refuse or
+  # pass on which order the arms happened to run in, which is the
+  # assertion-that-cannot-fail shape wearing a different outcome.
   # The refusal itself is asserted where it belongs, in
   # check-terrain-composition.sh's §12.1 block; this arm asserts the judged
   # rendering and takes a fresh dir so that it can.
@@ -369,6 +375,73 @@ else
   else
     echo "ok: a judged run through the EXECUTOR renders its row and level — the judged path is reachable by \`run\`, not only by invoking \`report\` with a fixture"
   fi
+  # ARM 3b — THE JUDGMENT IS JOINED FROM THE RUN RECORD, AND A RECORD WHOSE
+  # FILE IS GONE REFUSES BY NAME (§13.4, kogaki#741 acceptance 2). Two halves,
+  # and neither carries the property alone: the run record must NAME the
+  # judgment file (the join is from the record, not from the render's argv), and
+  # rendering from that named path once the file is gone must refuse rather than
+  # render an unjudged section.
+  #
+  # THE SECOND HALF IS DRIVEN AT `report`, AND THE SCOPE IS STATED. The executor
+  # parks at the next gate wait once the run is complete, and answering a gate
+  # to re-render is a capture this arm has no business minting — so the render
+  # is invoked directly with THE PATH READ OUT OF THE RUN RECORD, which is the
+  # value `run` itself hands the renderer. What is NOT asserted here: that the
+  # executor passes that value rather than its own argv. That half is the first
+  # one, above, plus ARM 3's judged render, and it is named rather than implied.
+  RDJ_GONE="$WORK/judgment-gone"; cp -r "$RDJ" "$RDJ_GONE"
+  cp "$WORK/j-good.json" "$WORK/j-gone.json"
+  STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
+    node terrain/terrain.mjs run --run-dir "$RDJ_GONE" --input G1 "${COMMON[@]}" \
+    --enter neighborhood_input --enter J3_neighborhood --neighborhood "$WORK/j-gone.json" \
+    --report-dir "$WORK/j-gone-records" >/dev/null 2>&1 || true
+  NAMED=$(python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("judgments") or {}).get("J3_neighborhood",""))' "$RDJ_GONE/run-record.json")
+  if [[ -z "$NAMED" ]]; then
+    echo "FAIL: the run record names no J3_neighborhood judgment file — the join has nothing to be from, and a render would fall back to whatever its own argv carried"
+    FAIL=1
+  else
+    rm -f "$WORK/j-gone.json"
+    GONE=$(STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
+      node terrain/terrain.mjs report --survey "$JSURVEY" --tag testing --ids G1 \
+      "${COMMON[@]}" --neighborhood "$NAMED" \
+      --report-dir "$WORK/j-gone-records-2" --rendering-dir "$WORK/j-gone-rend" 2>&1)
+    if grep -q "judgment record this pull joins is gone" <<<"$GONE"; then
+      echo "ok: the run record NAMES the judgment file, and rendering from that named path once the file is deleted REFUSES by name — §13.4 acceptance 2"
+    elif grep -qi "ENOENT" <<<"$GONE"; then
+      echo "FAIL: the deleted judgment record surfaced as an uncaught ENOENT — loud, but naming neither the state nor the repair; §13.4 acceptance 2 asks for a typed refusal:"
+      sed 's|^|    |' <<<"$GONE" | tail -3
+      FAIL=1
+    else
+      echo "FAIL: rendering from a judgment path the run record names, with the file deleted, did not refuse — an unjudged section is what §13.4 has no path to:"
+      sed 's|^|    |' <<<"$GONE" | tail -3
+      FAIL=1
+    fi
+  fi
+
+  # ARM 3c — TWO JUDGMENT RECORDS OVER ONE (pin, query, judge) ARE TWO REPORTS
+  # (§12.1's discriminator row, kogaki#741 ruling 2, acceptance 3). This is the
+  # whole reason the identity was widened: under the triple the re-judged pull
+  # shared an identity with the first and replayed it, so a rerun after
+  # re-judging rendered the OLD levels. Asserted over the machine records, whose
+  # filenames carry the identity digest — two files is the widening holding, one
+  # file is the replay it removed.
+  printf '%s\n' '{"foxtrot":{"level":"useful","claim":"the same neighbour, judged one level down"}}' > "$WORK/j-good2.json"
+  RDJ_REJUDGE="$WORK/judgment-rejudge"; cp -r "$RDJ" "$RDJ_REJUDGE"
+  for JF in "$WORK/j-good.json" "$WORK/j-good2.json"; do
+    RDJ_ONE="$WORK/judgment-rejudge-$(basename "$JF" .json)"; cp -r "$RDJ" "$RDJ_ONE"
+    STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
+      node terrain/terrain.mjs run --run-dir "$RDJ_ONE" --input G1 "${COMMON[@]}" \
+      --enter neighborhood_input --enter J3_neighborhood --neighborhood "$JF" \
+      --report-dir "$WORK/j-rejudge-records" >/dev/null 2>&1 || true
+  done
+  NREC=$(ls "$WORK/j-rejudge-records"/terrain-full-report-*.json 2>/dev/null | wc -l)
+  if [[ "$NREC" == 2 ]]; then
+    echo "ok: two judgment records over one (pin, query, judge) wrote TWO reports — the judgment record is KEYED, so a re-judged rerun renders rather than replaying"
+  else
+    echo "FAIL: re-judging the same pull wrote $NREC report record(s), not 2 — under §12.1's quadruple the judgment record is part of the identity, so a re-judged pull is a different report and not a replay of the first"
+    FAIL=1
+  fi
+
   # ARM 4 — AN EMPTY ENUMERATION IS NOT AN ERROR. `cmdReport`'s own orphan
   # refusal is scoped to a non-empty candidate set, because "refusing the whole
   # pull there would turn a legitimate empty neighborhood into an error"; J3's

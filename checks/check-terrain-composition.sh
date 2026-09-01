@@ -1085,8 +1085,8 @@ eq("the full reader carries the body's first cite",
 const idNone = reportIdentity("product-lab@aaa", TAG, "testing × architecture", null);
 eq("an unjudged report's judge component is the typed value, not absent",
    idNone.judge_pin, NO_JUDGE);
-eq("identity carries all three components",
-   Object.keys(idNone).sort(), ["identity_placeholder"].slice(0,0).concat(["judge_pin","pin","query"]));
+eq("identity carries all FOUR components (\u00a712.1's quadruple, kogaki#741)",
+   Object.keys(idNone).sort(), ["judge_pin","neighborhood_judgment","pin","query"]);
 const idJudged = reportIdentity("product-lab@aaa", TAG, "testing × architecture",
   { model_id: "m", effort_tier: "high" });
 if (sameIdentity(idNone, idJudged)) {
@@ -1316,12 +1316,12 @@ if (fails.length) {
 }
 if (seamAbsent) {
   console.log("Full Report fixture: PASS — seam-free cases exercised (whole-body reader vs headline "
-    + "reader; uniform triple with `none` typed; judged vs unjudged do not collide; "
+    + "reader; uniform quadruple with `none` typed (kogaki#741); judged vs unjudged do not collide; "
     + "identical identities compare equal) — the 8 artifact-counting cases are "
     + "CANNOT-DETERMINE here, stated above.");
 } else {
   console.log("Full Report fixture: PASS — cases exercised (whole-body reader vs headline reader; "
-    + "uniform triple with `none` typed; judged vs unjudged do not collide; identical "
+    + "uniform quadruple with `none` typed (kogaki#741); judged vs unjudged do not collide; identical "
     + "identities compare equal; the four §12.1 cases counted over real artifacts, "
     + "including judge-pin refusal writing nothing; identity recorded, classification "
     + "and untruncated asserted per artifact)");
@@ -2334,8 +2334,20 @@ function seedAtIdSelection(dir, tag = "testing") {
   const OWNER_MD2 = "reports/FullReport.md";
   const priorOwnerMd2 = existsSync(OWNER_MD2) ? readFileSync(OWNER_MD2) : null;
   seedAtIdSelection(run2);
+  const njud2 = join(run2, "neighborhood.json");
+  // COVERS THE STUB'S THREE CANDIDATES, like every other judgment fixture here.
+  // An empty `{}` satisfied J3 only while the seam was absent and the block read
+  // CANNOT-DETERMINE — with a seam it is exactly what J3's coverage refusal
+  // refuses, so the fixture would have been a fixture that cannot run wherever
+  // the property is decidable (PR #756 round 1).
+  writeFileSync(njud2, JSON.stringify({
+    charlie: { level: "core", claim: "a same-Batch neighbour of the settled set" },
+    echo: { level: "useful", claim: "reached through the same Batch, one hop out" },
+    foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
+  }, null, 2) + "\n");
   const d = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs2,
+     "--neighborhood", njud2,
      "--judge-model", "m", "--judge-effort", "high"],
     { encoding: "utf8", env: env2 });
   const dout = String(d.stdout) + String(d.stderr);
@@ -2441,7 +2453,21 @@ function seedAtIdSelection(dir, tag = "testing") {
   writeFileSync(subs3, JSON.stringify({
     "testing × architecture": { judged: true, subgroups: [] },
   }));
+  // THE NEIGHBORHOOD JUDGMENT IS NOW REQUIRED (kogaki#741/#754). J3 is
+  // UNCONDITIONAL, so every fixture that drives a whole `run` supplies its
+  // typed record or the run refuses at that state — and the record must cover
+  // EVERY candidate the stub enumeration writes, which is J3's fourth refusal.
+  // The three slugs below are that enumeration; a record short of them is the
+  // LLM-controlled skip ruling 1 removes, and the fixture would refuse rather
+  // than render a candidate nobody judged.
+  const njud3 = join(run3, "neighborhood.json");
+  writeFileSync(njud3, JSON.stringify({
+    charlie: { level: "core", claim: "a same-Batch neighbour of the settled set" },
+    echo: { level: "useful", claim: "reached through the same Batch, one hop out" },
+    foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
+  }, null, 2) + "\n");
   const argv = ["terrain/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs3,
+    "--neighborhood", njud3,
     "--judge-model", "m", "--judge-effort", "high"];
   // RE-SEEDED BEFORE EVERY DRIVE, and that is not bookkeeping. A second `run`
   // against a record whose states are all `completed` RESUMES and writes
@@ -3216,11 +3242,13 @@ const JUDGED = JSON.parse(readFileSync(join(DIR, "neighborhood-judgments.json"),
 // The stub serves three mechanical candidates, so an eleven-row arm is not
 // constructible against it at all.
 //
-// WHERE THE OVER-CAP ZERO-FETCH IS ACTUALLY VERIFIED: at the unit, in the
-// display-selection case, which asserts that the `over-cap` and `none-judged`
-// arms return an EMPTY `shown`. `cmdReport` fetches over exactly `shown`, so
-// empty there IS zero reads here — the property, checked where it is decidable
-// rather than claimed where it is not.
+// WHERE THE ZERO-FETCH IS ACTUALLY VERIFIED: at the unit, in the
+// display-selection case, which asserts that the `empty` and `none-judged` arms
+// return an EMPTY `shown`. `cmdReport` fetches over exactly `shown`, so empty
+// there IS zero reads here — the property, checked where it is decidable rather
+// than claimed where it is not. The `over-cap` arm was a third member of that
+// list until kogaki#754; it now fills to the cap and fetches over exactly the
+// ten rows it renders, which is the same bound rather than an exception to it.
 {
   const over = {};
   for (const s of ["charlie", "echo", "foxtrot"]) over[s] = { level: "core", claim: `claim for ${s}` };
@@ -3570,9 +3598,21 @@ if (r.status !== 0) {
 // `report` reads served Gloss renderings.
 {
   const dir = mkdtempSync(join(tmpdir(), "ac5-report-"));
+  // A NEIGHBORHOOD JUDGMENT IS NOW REQUIRED (kogaki#741/#754). This case is
+  // about §6.2's suppressed split and says nothing about the neighborhood — but
+  // `cmdReport` refuses a non-empty enumeration carrying no judgment, so the
+  // fixture supplies one covering the stub's three candidates. Judging them is
+  // not the assertion here; reaching the Full Report at all is its precondition.
+  const njudAc5 = join(dir, "neighborhood.json");
+  writeFileSync(njudAc5, JSON.stringify({
+    charlie: { level: "core", claim: "a same-Batch neighbour of the settled set" },
+    echo: { level: "useful", claim: "reached through the same Batch, one hop out" },
+    foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
+  }, null, 2) + "\n");
   const r2 = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--ids", "G2", "--claims", claims, "--subdivisions", subs,
+     "--neighborhood", njudAc5,
      "--judge-model", "m", "--judge-effort", "high",
      "--report-dir", dir, "--rendering-dir", dir],
     { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: "checks/fixtures/terrain/compose-input/stub-gateway.mjs" } });
@@ -3735,9 +3775,21 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     ] },
   }));
   const out = join(dir, "o");
+  // A NEIGHBORHOOD JUDGMENT IS NOW REQUIRED (kogaki#741/#754). AC7 is about the
+  // entered ID SET and says nothing about the neighborhood, but `cmdReport`
+  // refuses a non-empty enumeration carrying no judgment — so the fixture
+  // supplies one covering the stub's three candidates. It is a precondition of
+  // reaching the Report, never the assertion under test here.
+  const njudAc7 = join(dir, "neighborhood.json");
+  writeFileSync(njudAc7, JSON.stringify({
+    charlie: { level: "core", claim: "a same-Batch neighbour of the settled set" },
+    echo: { level: "useful", claim: "reached through the same Batch, one hop out" },
+    foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
+  }, null, 2) + "\n");
   const r = spawnSync(process.execPath,
     ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
      "--ids", "G2,G2-1", "--claims", claims, "--subdivisions", subs,
+     "--neighborhood", njudAc7,
      "--judge-model", "m", "--judge-effort", "high", "--report-dir", out, "--rendering-dir", out],
     { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: "checks/fixtures/terrain/compose-input/stub-gateway.mjs" } });
   const seamAbsent = r.status === 11
@@ -4340,23 +4392,28 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     }
   }
 
-  // THE HIGHEST LEVEL PRESENT, never a mix.
+  // THE FILL SPANS LEVELS (§13.4, kogaki#741 ruling 3). This block asserted the
+  // opposite until kogaki#754 — "the highest level present, never a mix", with
+  // a `3 candidate(s) found, 1 shown` counts line and no row below the top
+  // level. That is the design ruling 3 superseded: under the cap the section
+  // now renders EVERY judged candidate in level order, so the two lower rows
+  // that used to be dropped are exactly what must appear.
   {
     const lines = screen([S(1, "core"), S(2, "useful"), S(3, "background")]).join("\n");
-    if (!lines.includes("3 candidate(s) found, 1 shown")) {
-      fails.push("§13/686: the counts are not honest — expected \"3 candidate(s) found, 1 shown\"");
+    if (!lines.includes("showing 3 of 3 — 1 core, then 1 useful, then 1 background")) {
+      fails.push("§13.4/741: the counts line is not the declared form — expected \"showing 3 of 3 — 1 core, then 1 useful, then 1 background\"");
     }
-    if (lines.includes("[useful]") || lines.includes("[background]")) {
-      fails.push("§13/686: a row below the highest level present rendered — only the top level is shown");
+    if (!lines.includes("[useful]") || !lines.includes("[background]")) {
+      fails.push("§13.4/741: a judged candidate below the top level did not render — under the cap the fill spans levels rather than stopping at the highest present");
     }
   }
 
-  // FALLS TO THE NEXT LEVEL when the top one is empty — "highest level
-  // PRESENT", never "core".
+  // ONE LEVEL RENDERS THE `all <level>` FORM, which is the other arm of the
+  // same grammar class and the reason it carries an alternation.
   {
-    const lines = screen([S(1, "useful"), S(2, "background")]).join("\n");
-    if (!lines.includes("`useful`") || lines.includes("[background]")) {
-      fails.push("§13/686: with no `core` candidate the section did not fall to `useful` as the highest level present");
+    const lines = screen([S(1, "useful"), S(2, "useful")]).join("\n");
+    if (!lines.includes("showing 2 of 2 — all useful")) {
+      fails.push("§13.4/741: a single-level selection did not render the `all <level>` arm of the counts line");
     }
   }
 
@@ -4429,9 +4486,14 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
   // one caller compensated with `.shown || []`, which is the second reader
   // working around a shape rather than the shape being right.
   {
+    // THE `over-cap` ARM IS GONE (§13.4, kogaki#741 ruling 3, kogaki#754).
+    // Eleven at one level now returns `shown` with the cap's ten rows rather
+    // than a no-row refusal, so that input is kept in the table under its new
+    // expected state instead of being dropped — a removed row could not tell a
+    // retired arm from an untested one.
     const arms = [[[], "empty"], [[{ nid: "N1", slug: "s1" }], "none-judged"],
                   [[S(1, "core")], "shown"],
-                  [Array.from({ length: 11 }, (_, i) => S(i + 1, "core")), "over-cap"]];
+                  [Array.from({ length: 11 }, (_, i) => S(i + 1, "core")), "shown"]];
     for (const [input, want] of arms) {
       const r = neighborhoodDisplaySet(input);
       if (r.state !== want) fails.push(`§13/689: display selection returned state ${JSON.stringify(r.state)} for the ${want} arm`);
@@ -4441,12 +4503,14 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
       }
       // THE ZERO-FETCH HALF OF THE BOUND, VERIFIED HERE (PR #696 round 1).
       // `cmdReport` fetches over exactly `shown`, so an empty `shown` on the
-      // no-row arms IS "none at all on the empty, all-unjudged and over-cap
-      // arms". The command-level case cannot reach the over-cap arm — the stub
-      // serves three candidates and the cap is ten — so the claim is asserted
-      // where it is decidable instead of being asserted nowhere and stated in
-      // a header.
+      // no-row arms IS "none at all on the empty and all-unjudged arms". The
+      // over-cap arm left that list at kogaki#741: it now fills to the cap and
+      // fetches over exactly the ten rows it renders, which is the same bound
+      // rather than an exception to it.
       const rendersRows = want === "shown";
+      if (rendersRows && r.shown.length > 10) {
+        fails.push(`§13.4/741: the shown arm returned ${r.shown.length} row(s) — the fill is bounded at the cap`);
+      }
       if (!rendersRows && r.shown.length !== 0) {
         fails.push(`§13/689: the ${want} arm renders no row but returns ${r.shown.length} row(s) in \`shown\` — the fetch runs over \`shown\`, so every entry here is a shard read buying material no reader sees`);
       }
@@ -4554,24 +4618,86 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
     }
   }
 
-  // THE CAP AND ITS REFUSAL. At ten it renders; above ten at the highest level
-  // it renders nothing and states why — the tie-break among equals is the act
-  // it declines to make.
+  // THE COUNTS LINE IS A FIXED GRAMMAR CLASS, ASSERTED IN THE REFUSING
+  // DIRECTION (#754's completeness inventory item 1, PR #756 round 1). Every
+  // other counts-line case here asserts the form POSITIVELY, and a positive
+  // case cannot tell a fixed class from a free one — the `NeighborhoodLevel`
+  // degradation two blocks up is that exact failure, caught only because
+  // something asked the matcher what it admits. `line_class_allowlist` is INERT
+  // on `full_report` (checks/registry.json), so the refusal is not reachable
+  // end-to-end there; it is asserted where it IS decidable, at the compiled
+  // matcher, rather than claimed where it is not.
   {
-    const ten = screen(Array.from({ length: 10 }, (_, i) => S(i + 1, "core"))).join("\n");
-    if (!ten.includes("10 candidate(s) found, 10 shown")) {
-      fails.push("§13/686: exactly ten at the highest level did not render — the cap is AT MOST ten, not fewer than ten");
+    const countsClass = G.surfaces.full_report.line_classes.find((c) => c.id === "neighborhood_counts");
+    const rx = classMatchers(countsClass, G);
+    const admits = (line) => rx.some((r) => r.test(line));
+    for (const good of ["showing 10 of 23 — all core",
+                        "showing 10 of 23 — 7 core, then 3 useful",
+                        "showing 3 of 3 — 1 core, then 1 useful, then 1 background"]) {
+      if (!admits(good)) {
+        fails.push(`§13.4/741: the counts class REFUSES the conformant line ${JSON.stringify(good)} — the declaration does not cover what the fill renders`);
+      }
     }
-    const eleven = screen(Array.from({ length: 11 }, (_, i) => S(i + 1, "core"))).join("\n");
-    if (!eleven.includes("0 shown") || eleven.includes("[core]")) {
-      fails.push("§13/686: eleven at the highest level rendered rows — above the cap the section refuses rather than truncating, because choosing which ten the owner sees is a tie-break among equals it has no ground to make");
-    }
-    if (!eleven.includes("11 sit at the highest level")) {
-      fails.push("§13/686: the refusal does not state the count it refused over — a refusal hiding its denominator is the silent exclusion §13.0 removes");
+    // THE SUPERSEDED FORM IS AMONG THE REFUSALS, which is what makes this a
+    // supersession assertion rather than a spelling one: the pre-#741 line must
+    // be unemittable under the current grammar.
+    //
+    // NOT ASSERTED, stated rather than left to be found: that `<n>` refuses a
+    // spelled-out number. `showing ten of 23 — all core` is ADMITTED, because
+    // `<n>` is the grammar's own shared placeholder and every class using it
+    // admits the same thing. Tightening it is the grammar's act across every
+    // surface, not this class's, so the looseness is named here instead of
+    // being asserted away at one site.
+    for (const bad of ["23 candidate(s) found, 10 shown — all at the highest level present (`core`)",
+                       "showing 10 of 23 — mostly core",
+                       "showing 10 of 23 — all CORE",
+                       "showing 10 of 23"]) {
+      if (admits(bad)) {
+        fails.push(`§13.4/741: the counts class ADMITS ${JSON.stringify(bad)} — the class is declared FIXED and no part of it is LLM-controlled, so a divergent line must be refused rather than rendered`);
+      }
     }
   }
 
-  // UNJUDGED IS ITS OWN STATE, counted and named.
+  // THE CAP FILLS RATHER THAN REFUSING (§13.4, kogaki#741 ruling 3). This block
+  // asserted the refusal until kogaki#754 — ten rendered, eleven rendered NO
+  // rows and stated "11 sit at the highest level". That arm is superseded: the
+  // section now fills to ten and states the composition, on the ground that the
+  // declared slug sort CARRIES NO JUDGMENT, so the harness fixes where an
+  // arbitrary reproducible line falls rather than ranking relations.
+  {
+    const ten = screen(Array.from({ length: 10 }, (_, i) => S(i + 1, "core"))).join("\n");
+    if (!ten.includes("showing 10 of 10 — all core")) {
+      fails.push("§13.4/741: exactly ten at one level did not render the `all <level>` counts line — the cap is AT MOST ten, not fewer than ten");
+    }
+    const eleven = screen(Array.from({ length: 11 }, (_, i) => S(i + 1, "core"))).join("\n");
+    if (!eleven.includes("showing 10 of 11 — all core")) {
+      fails.push("§13.4/741: eleven at one level did not fill to ten — the cap now FILLS and states the denominator, rather than refusing over a tie-break among equals");
+    }
+    if ((eleven.match(/\[core\]/g) || []).length !== 10) {
+      fails.push("§13.4/741: the over-cap fill did not render exactly ten rows");
+    }
+  }
+
+  // THE BOUNDARY CROSSING — the case ruling 3 names explicitly. Seven `core`
+  // and five `useful` fill to ten as 7 + 3, and the counts line states the
+  // composition rather than a single level.
+  {
+    const crossing = screen([
+      ...Array.from({ length: 7 }, (_, i) => S(i + 1, "core")),
+      ...Array.from({ length: 5 }, (_, i) => S(i + 8, "useful")),
+    ]).join("\n");
+    if (!crossing.includes("showing 10 of 12 — 7 core, then 3 useful")) {
+      fails.push("§13.4/741: a level boundary crossing the cap did not render the composed counts line — expected \"showing 10 of 12 — 7 core, then 3 useful\"");
+    }
+    if ((crossing.match(/\[useful\]/g) || []).length !== 3) {
+      fails.push("§13.4/741: the boundary crossing did not take exactly three `useful` rows after the seven `core` ones");
+    }
+  }
+
+  // UNJUDGED IS ITS OWN STATE at the SCREEN, and J3's fourth refusal is what
+  // keeps the flow from reaching it (kogaki#754). The screen is pure and still
+  // renders the state; what changed is that a run can no longer produce it,
+  // because a judgment record short of the enumeration is refused at J3.
   {
     const mixed = screen([S(1, "core"), { nid: "N2", slug: "s2" }]).join("\n");
     if (!mixed.includes("1 candidate(s) carry no level")) {
@@ -4621,11 +4747,14 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
 console.log("neighborhood section (§13, kogaki#686): the display is asserted over the COMPOSED "
   + "LINES rather than the enumerator, for the reason the block it replaces gave — an enumerator "
   + "returning a structure the screen prints wrongly satisfies the enumeration cases and ships the "
-  + "defect. Asserted in both directions: only the HIGHEST level present renders and a lower one "
-  + "never does; the level falls to `useful` when no `core` is judged; the four ruled fields are "
-  + "each present and every DELETED element is absent; the cap renders AT ten and REFUSES above "
-  + "ten, stating the count it refused over rather than truncating; an unjudged candidate is "
-  + "counted and named as its own state, distinct from `background`; and the level vocabulary is "
+  + "defect. Asserted in both directions: the display FILLS IN LEVEL ORDER and the counts line "
+  + "states the composition it filled with — a single-level pull reading `all <level>` and a "
+  + "boundary-crossing one `<n> core, then <n> useful` (kogaki#741 ruling 3, which retired the "
+  + "highest-level-only render this block asserted until kogaki#754); the level falls to `useful` "
+  + "when no `core` is judged; the four ruled fields are "
+  + "each present and every DELETED element is absent; the cap FILLS AT ten rather than refusing "
+  + "above ten, and the fill crossing a level boundary is asserted separately from the "
+  + "single-level cap so the two cannot pass on each other; and the level vocabulary is "
   + "closed at the reader, probed through a SUBPROCESS because the refusal exits rather than "
   + "throwing, with a well-formed judgment accepted in the same pass so the refusals discriminate "
   + "rather than reject everything.");
@@ -5096,8 +5225,12 @@ try {
   if (!md1.includes("\n## Provenance neighborhood\n")) fails.push("(a) the pulled report carries no `## Provenance neighborhood` section — §13.1 v20 sites it in the report, once");
   // §13.4's per-family figures and substrate disclosure retired with the
   // enumeration they described (kogaki#686). What the section owes now is the
-  // honest count and the level it rendered at.
-  if (!/candidate\(s\) found, [0-9]+ shown/.test(md1)) fails.push("(a) the section states no honest counts — kogaki#686 disposition 3");
+  // counts line in its declared form. THE FORM MOVED (kogaki#741 ruling 3):
+  // it was `<n> candidate(s) found, <n> shown` plus the level it rendered at,
+  // which assumed one level; the fill can cross a level boundary, so the form
+  // is `showing <n> of <n> — all <level>` or `showing <n> of <n> — <n> <level>,
+  // then <n> <level>`, and the composition carries what the level line did.
+  if (!/showing [0-9]+ of [0-9]+ — (all [a-z]+|[0-9]+ [a-z]+(, then [0-9]+ [a-z]+)+)$/m.test(md1)) fails.push("(a) the section states no counts line in §13.4's declared form — kogaki#686 disposition 3, kogaki#741 ruling 3");
   if (/reached by: |Suggestions by family/.test(md1)) fails.push("(a) a DELETED display element survived into the report");
   // The stub's dangling cross_link (bravo -> zulu-missing) is unreachable now:
   // the walk that found it is deleted, so the unresolved section it fed has

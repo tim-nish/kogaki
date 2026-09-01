@@ -2746,8 +2746,8 @@ export function memberBlock(m, level) {
   // 1.53 SQ2 rather than an omission. kogaki#318 called the heading and this
   // row "two name-shaped rows where the owner ruled one plain ID suffices",
   // and the pair reading is the one that was chosen. Nothing is lost: the cite
-  // stays in the machine record beside the full identity triple (AC6, §12.2
-  // v11), which is where a reader who needs the address goes. The Gloss cite
+  // stays in the machine record beside the full identity quadruple (AC6,
+  // §12.2 v11, widened at kogaki#741), which is where a reader who needs the address goes. The Gloss cite
   // rows below are a different thing — they address the served GLOSS rendering
   // rather than naming the element — and they stay.
   L.push(m.gloss_cite ? `**Lesson Gloss** — \`${bareCite(m.gloss_cite)}\`` : "**Lesson Gloss** — *no served cite recorded*");
@@ -2767,20 +2767,27 @@ export function memberBlock(m, level) {
   return L;
 }
 
-// The identity TRIPLE (§12.1): substrate pin, co-tag query (selected tag,
-// named group), judge pin — the last typed `none` where no judged material is
-// present. UNIFORM ARITY: `none` is a value that must be present, never an
+// The identity QUADRUPLE (§12.1, widened from the triple at kogaki#741):
+// substrate pin, co-tag query (selected tag, named group), judge pin, and the
+// neighborhood judgment record — the last two typed `none` where no judged
+// material is present. UNIFORM ARITY: `none` is a value that must be present, never an
 // omitted component, because a key whose shape depends on the report's own
 // content is one a request cannot construct.
 // §12 v6 (kogaki#314) — the query component is `{ tag, ids }`, the ids
 // CANONICAL. Idempotence is set-based: two typings of the same set in
 // different orders are ONE artifact, which is what makes a re-request return
 // the same report rather than a second one.
-export function reportIdentity(pin, tag, ids, judgePin) {
+export function reportIdentity(pin, tag, ids, judgePin, neighborhoodJudgment) {
   return {
     pin,
     query: { tag, ids: canonicalIds(ids) },
     judge_pin: judgePin || NO_JUDGE,
+    // THE FOURTH COMPONENT (§12.1, kogaki#741). The digest of the neighborhood
+    // judgment record this report was rendered from, or the typed `NO_JUDGE`
+    // where none was supplied. Typed-and-present rather than omitted, exactly
+    // as `judge_pin` is: §12.1's uniform arity means a requester forms the key
+    // from inputs it holds, never by hashing the report it is addressing.
+    neighborhood_judgment: neighborhoodJudgment || NO_JUDGE,
   };
 }
 
@@ -2789,9 +2796,7 @@ export function reportIdentity(pin, tag, ids, judgePin) {
 // of identity, and this hash is not parsed back anywhere.
 function identityDigest(identity) {
   return createHash("sha256")
-    .update(JSON.stringify([identity.pin, identity.query.tag, identity.query.ids,
-      identity.judge_pin === NO_JUDGE ? NO_JUDGE
-        : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`]))
+    .update(JSON.stringify(reportIdentityKey(identity)))
     .digest("hex").slice(0, 16);
 }
 
@@ -2819,7 +2824,13 @@ function identityDigest(identity) {
 // `neighborhood-candidates` joined the set with kogaki#700: once the pull
 // consumes the emitter's persisted enumeration, that file decides what the
 // artifact says exactly as the three original inputs do.
-export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood", "neighborhood-candidates"];
+// `neighborhood` LEFT THIS SET at kogaki#741 and is now KEYED, per §12.1's
+// quadruple. The rest stay RECORDED — kogaki#700's arm is untouched for them,
+// and `COMPOSED_INPUT_MISMATCH` still fires on a changed `--claims`. The
+// discriminator is membership: a claims or subdivisions record changes what a
+// group SAYS about members the query already fixed, while the judgment record
+// decides WHICH CANDIDATES ARE DISPLAYED AT ALL.
+export const COMPOSED_INPUT_FLAGS = ["claims", "subdivisions", "neighborhood-candidates"];
 export function composedInputDigests(args) {
   const out = {};
   for (const flag of COMPOSED_INPUT_FLAGS) {
@@ -2851,7 +2862,11 @@ export function sameIdentity(a, b) {
 function reportIdentityKey(i) {
   return [i.pin, i.query.tag, i.query.ids,
     i.judge_pin === NO_JUDGE ? NO_JUDGE
-      : `${i.judge_pin.model_id}/${i.judge_pin.effort_tier}`];
+      : `${i.judge_pin.model_id}/${i.judge_pin.effort_tier}`,
+    // §12.1's fourth component (kogaki#741). A record written before the field
+    // existed carries `undefined` here and hashes as `NO_JUDGE`, which is what
+    // it meant: no neighborhood judgment entered its identity.
+    i.neighborhood_judgment === undefined ? NO_JUDGE : i.neighborhood_judgment];
 }
 
 // THE ENTERED ID SET, RESOLVED AND CANONICALISED (§12 v6, kogaki#314).
@@ -3005,9 +3020,31 @@ function cmdReport(args) {
   // §12 v7 — ONE report over the entered set. The identity is the set; each
   // entered id becomes one SECTION, and the identity block, Counted and
   // Served lines appear once for the file.
-  const identity = reportIdentity(record.pin, tag, resolved.canonical, suppliedJudge);
+  // THE NEIGHBOURHOOD JUDGMENT IS THE FOURTH COMPONENT (§12.1, kogaki#741), so
+  // it is hashed INTO the identity rather than beside it. Same reading as
+  // `composedInputDigests` takes — the record's file bytes — so the two cannot
+  // disagree about what "this input" is.
+  // A RECORD-JOINED PATH THAT NO LONGER RESOLVES REFUSES BY NAME (§13.4,
+  // kogaki#741 acceptance 2). The run record stores the judgment file's PATH,
+  // so a rerun reads the file again — and deleting it between J3 and the render
+  // must fail loudly rather than render an unjudged section. Left to the digest read below or to `readJson`
+  // this surfaces as an uncaught ENOENT, which is loud but names neither the
+  // state nor the repair, so the check is made HERE — ahead of the
+  // digest read, which is the first line that touches the file — and typed.
+  if (args.neighborhood && !existsSync(String(args.neighborhood))) {
+    fail(`the neighborhood judgment record this pull joins is gone: ${String(args.neighborhood)} `
+      + "does not exist. The run record names it, so J3_neighborhood ran and its file was removed "
+      + "afterwards. Re-enter J3_neighborhood rather than re-rendering — §13.4 has no path to an "
+      + "unjudged neighborhood rendering, and joining nothing here would be one.");
+  }
+  const neighborhoodJudgmentDigest = args.neighborhood
+    ? createHash("sha256").update(readFileSync(String(args.neighborhood))).digest("hex").slice(0, 16)
+    : NO_JUDGE;
+  const identity = reportIdentity(record.pin, tag, resolved.canonical, suppliedJudge,
+    neighborhoodJudgmentDigest);
   // Computed BESIDE the identity and never inside it (§12.1, kogaki#700): the
-  // triple is ratified and untouched; this rides the record.
+  // claims and subdivisions ride the record. The neighborhood judgment no
+  // longer does — it moved into the key above.
   const composedInputs = composedInputDigests(args);
   const sectionsOut = [];
   let abnormalTotal = 0;
@@ -3164,11 +3201,24 @@ function cmdReport(args) {
   const out = join(dir, `terrain-full-report-${identityDigest(identity)}.json`);
   if (existsSync(out)) {
     const prior = readJson(out);
-    if (sameIdentity(prior.identity, identity)) {
+    // A PRE-#741 RECORD IS NEVER REPLAYED (PR #756 round 1). `reportIdentityKey`
+    // hashes an ABSENT fourth component as `NO_JUDGE`, which is what it meant —
+    // but it makes a stored record written under the superseded design match a
+    // pull carrying no judgment, and its stored rendering may hold the very
+    // unjudged section §13.4 now has no path to. Falling through RECOMPUTES,
+    // which reaches the refuse-unjudged guard below and refuses exactly when the
+    // enumeration is non-empty; it is the same treatment `composedInputDelta`
+    // gives a record predating ITS field, for the same reason — a record that
+    // cannot be shown idempotent is recomputed rather than replayed.
+    const priorPredatesJudgmentKey = prior.identity
+      && prior.identity.neighborhood_judgment === undefined;
+    if (sameIdentity(prior.identity, identity) && !priorPredatesJudgmentKey) {
       // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (§12.1, kogaki#700).
       // Same identity is not the same artifact when the inputs it was rendered
-      // from differ: the identity is ratified as the triple, so the mismatch
-      // surfaces here rather than by widening the key.
+      // from differ: the CLAIMS and SUBDIVISIONS stay recorded rather than keyed
+      // (the neighborhood judgment left this list at kogaki#741 and is now part
+      // of the identity), so their mismatch surfaces here rather than by
+      // widening the key further.
       const delta = composedInputDelta(prior.composed_inputs, composedInputs);
       if (delta === null) {
         // A RECORD WRITTEN BEFORE THIS FIELD EXISTED CANNOT BE SHOWN IDEMPOTENT,
@@ -3180,7 +3230,9 @@ function cmdReport(args) {
         // rewritten in place.
       } else if (delta.length) {
         fail(`COMPOSED_INPUT_MISMATCH — this identity was already reported from different composed input(s): `
-          + `${delta.join(", ")}. The identity is the substrate pin, the query and the judge pin (SPEC-terrain §12.1), `
+          + `${delta.join(", ")}. The identity is the substrate pin, the query, the judge pin and the neighborhood `
+          + "judgment record (SPEC-terrain §12.1, widened at kogaki#741), "
+
           + "and the composed inputs are NOT part of it — so replaying the stored rendering would render material this "
           + "invocation did not supply, while reporting success. Re-run against a fresh --report-dir to render the new "
           + "inputs as their own report, or restore the inputs this identity was reported from.");
@@ -3270,6 +3322,17 @@ function cmdReport(args) {
   // THE JUDGMENT LAYER, joined onto the mechanical candidates by slug. A
   // candidate with no judgment keeps none — `neighborhoodScreen` counts it as
   // unjudged and says so, rather than defaulting it to a level nobody assigned.
+  // `full_report` REFUSES AN UNJUDGED NEIGHBORHOOD (§13.4, kogaki#741 ruling 2).
+  // Scoped to a NON-EMPTY enumeration, mirroring the orphan refusal below: where
+  // the mechanical layer returned no candidate there is nothing to judge, and
+  // refusing would turn a legitimate empty neighborhood into an error.
+  if (!args.neighborhood && (neighborhood.suggestions || []).length) {
+    fail("full_report refuses: this pull carries "
+      + `${(neighborhood.suggestions || []).length} mechanical candidate(s) and no neighborhood `
+      + "judgment record. §13.4 makes the judgment pass UNCONDITIONAL and the Report REQUIRES it "
+      + "by design — there is no path to an unjudged neighborhood rendering. Enter J3_neighborhood "
+      + "so the run record names the judgment this pull joins.");
+  }
   const judgments = readNeighborhoodJudgments(args.neighborhood);
   // A KEY MATCHING NO CANDIDATE IS REFUSED, NOT DROPPED. A typo, a stale file,
   // or a slug from another Group would otherwise vanish — and where NO key
@@ -3339,8 +3402,9 @@ function cmdReport(args) {
   //
   // BOUNDED BY THE ROWS THAT RENDER, NEVER BY THE CANDIDATE SET. The fetch runs
   // over `neighborhoodDisplaySet`'s own selection — at most `NEIGHBORHOOD_DISPLAY_CAP`
-  // rows, and none at all on the empty, none-judged and over-cap arms, which
-  // render no row. `resolveHeadlines` then bounds it a second time, to the union
+  // rows, and none at all on the empty and none-judged arms, which render no
+  // row. The over-cap arm left that list at kogaki#741: it fills to the cap and
+  // is fetched over like any other rendering arm. `resolveHeadlines` then bounds it a second time, to the union
   // of those rows' OWN tags: this is the same bound kogaki#528 ratified for the
   // Brief lane and the same one §9 binds `cmdView` to. The corpus-wide prefetch
   // §9 forbids is not reachable from here, because the tag set is a function of
@@ -4060,11 +4124,13 @@ function neighborhoodForTargets(record, targets) {
 // is the only ranking in this file. Extending the set is the owner's act.
 export const NEIGHBORHOOD_LEVELS = Object.freeze(["core", "useful", "background"]);
 // The display cap. Ten rows, ruled; see the refusal below for what happens when
-// more than ten sit at the highest level.
+// more than ten are judged; the fill takes the first ten in level order.
 export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 
-// THE NEIGHBORHOOD SECTION (kogaki#686). Four fields per row, at most ten rows,
-// all from the HIGHEST level present, and nothing else.
+// THE NEIGHBORHOOD SECTION (kogaki#686). Four fields per row, and up to ten
+// rows FILLED IN LEVEL ORDER `core -> useful -> background` (§13.4, kogaki#741
+// ruling 3) — it was "all from the HIGHEST level present" until kogaki#754, a
+// single-level premise the fill retires.
 //
 // WHAT WAS DELETED HERE, and why the deletions are not "kept beside their
 // exception": the per-family tallies, the walk-settings line, the "narrows
@@ -4103,7 +4169,7 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // parser over source comments, maintained forever, to check a fact the
 // declaration already states is the more expensive half of the same repair.
 // THE DISPLAY SELECTION, DEFINED ONCE (kogaki#689). Which rows a populated
-// section renders — the judged set, the highest level present, the cap — was
+// section renders — the judged set, the level-ordered fill, the cap — was
 // computed inside the screen alone, and the bounded Gloss fetch below has to
 // reach the SAME set: a fetch over more rows than render pays for rows nobody
 // sees, and a fetch over fewer leaves a rendered row unfilled. Two computations
@@ -4123,14 +4189,40 @@ export function neighborhoodDisplaySet(suggestions) {
   // which is the second reader compensating for the shape rather than the shape
   // being right. A helper extracted so two computations cannot drift must not
   // hand its arms different shapes.
-  if (!found) return { state: "empty", found, unjudged, top: null, atTop: [], shown: [] };
-  if (!judged.length) return { state: "none-judged", found, unjudged, top: null, atTop: [], shown: [] };
-  const top = NEIGHBORHOOD_LEVELS.find((l) => judged.some((x) => x.level === l));
-  const atTop = judged.filter((x) => x.level === top);
-  if (atTop.length > NEIGHBORHOOD_DISPLAY_CAP) {
-    return { state: "over-cap", found, unjudged, top, atTop, shown: [] };
+  if (!found) return { state: "empty", found, unjudged, shown: [], composition: [] };
+  // UNREACHABLE FROM `cmdReport` SINCE kogaki#754 — that caller refuses a
+  // non-empty enumeration carrying no judgment, so this arm cannot be reached
+  // through the flow. It is kept because this function is exported and pure,
+  // and an arm removed from a pure helper is one its own fixture can no longer
+  // state.
+  if (!judged.length) return { state: "none-judged", found, unjudged, shown: [], composition: [] };
+  // `top` AND `atTop` ARE DELETED (kogaki#741 ruling 3, kogaki#754). The
+  // selection carried the highest level present and the entries at it; with the
+  // fill spanning levels neither describes what renders, and a field that no
+  // longer describes the selection is one a caller can still read — which is
+  // exactly how this implementation first rendered one row under a counts line
+  // saying three. What replaced them is `composition`, computed below over the
+  // rows that actually show.
+  // THE FILL, DETERMINISTIC IN THE HARNESS (§13.4, kogaki#741 ruling 3). Rows
+  // fill to the cap in level order `core -> useful -> background`; within a
+  // level the DECLARED SLUG SORT orders them, and that sort CARRIES NO
+  // JUDGMENT — which is the whole ground on which this replaced the refusal.
+  // The harness fixes where an arbitrary reproducible line falls; it does not
+  // rank relations by relevance, so no machine decides which relation the owner
+  // may see.
+  const ordered = [];
+  for (const l of NEIGHBORHOOD_LEVELS) {
+    ordered.push(...judged.filter((x) => x.level === l)
+      .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0)));
   }
-  return { state: "shown", found, unjudged, top, atTop, shown: atTop };
+  const shown = ordered.slice(0, NEIGHBORHOOD_DISPLAY_CAP);
+  // THE COMPOSITION IS COMPUTED HERE, not at the render site, for the reason
+  // this helper exists at all: the counts line and the rows must describe one
+  // selection, and two computations of "which rows show" is how those drift.
+  const composition = NEIGHBORHOOD_LEVELS
+    .map((l) => [l, shown.filter((x) => x.level === l).length])
+    .filter(([, n]) => n > 0);
+  return { state: "shown", found, unjudged, shown, composition };
 }
 
 export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) {
@@ -4145,7 +4237,12 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) 
   // for other reasons.
 
   const sel = neighborhoodDisplaySet(suggestions);
-  const { found, unjudged, top, atTop } = sel;
+  // THE ROWS ARE `shown` (kogaki#741 ruling 3, kogaki#754). This destructure
+  // took `atTop` while the display set filled `shown`, so the fill spanned
+  // levels and the renderer still emitted only the top one — the counts line
+  // said three and the rows showed one. The field it read is deleted rather
+  // than left beside its replacement.
+  const { found, unjudged, shown } = sel;
 
   // THE BATCH-SIDE RESOLUTION DISCLOSURE (§13.0, kogaki#691, owner ruling
   // 2026-08-29 — arm 1: the duty SURVIVES disposition 4 and is discharged on
@@ -4232,12 +4329,15 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) 
     return out;
   }
 
-  // A candidate carries its level and claim, or it is UNJUDGED. An unjudged
-  // candidate is never silently dropped and never silently shown: it is counted
-  // and named, because the LLM layer not having run is a different state from a
-  // candidate judged `background`. The selection itself is
-  // `neighborhoodDisplaySet`'s; this function renders its arms and computes
-  // none of them.
+  // A candidate carries its level and claim, or it is UNJUDGED. The unjudged
+  // arms are DEFENSIVE from kogaki#741 on: J3 refuses a record leaving any
+  // mechanical candidate uncovered and `cmdReport` refuses a non-empty
+  // enumeration carrying no record, so no command path reaches them. They are
+  // kept rather than deleted because this renderer is called on a selection it
+  // does not compute — an unjudged entry arriving here is a caller's defect,
+  // and naming it beats rendering `background` in its place. The selection
+  // itself is `neighborhoodDisplaySet`'s; this function renders its arms and
+  // computes none of them.
   if (sel.state === "none-judged") {
     say(`${found} candidate(s) found, 0 shown — none carries a recommendation `
       + `level. The mechanical layer ran; the judgment layer did not.`);
@@ -4249,21 +4349,21 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) 
     return out;
   }
 
-  if (sel.state === "over-cap") {
-    say(`${found} candidate(s) found, 0 shown — ${atTop.length} sit at the `
-      + `highest level present (\`${top}\`), above the display cap of `
-      + `${NEIGHBORHOOD_DISPLAY_CAP}.`);
-    say("No rows are rendered rather than ten of them: choosing which "
-      + `${NEIGHBORHOOD_DISPLAY_CAP} of ${atTop.length} equally-recommended `
-      + "candidates you see would be a tie-break this section has no ground to "
-      + "make, and a cut carrying no meaning reads as a ranking it is not.");
-    if (unjudged) say(`${unjudged} candidate(s) carry no level and are counted here, never shown.`);
-    if (gaps.length) sayGaps();
-    return out;
-  }
+  // THE OVER-CAP REFUSAL IS GONE (§13.4, kogaki#741 ruling 3). It rendered no
+  // rows and stated the counts; the section now fills to the cap in level order
+  // and states the composition. `neighborhoodDisplaySet` no longer returns an
+  // `over-cap` state, so there is no arm here to take.
 
-  say(`${found} candidate(s) found, ${atTop.length} shown — all at the highest `
-    + `level present (\`${top}\`).`);
+  // THE COUNTS LINE IS A FIXED GRAMMAR CLASS, and no part of it is
+  // LLM-controlled: `showing 10 of 23 — all core`, or
+  // `showing 10 of 23 — 7 core, then 3 useful`. The composition comes from the
+  // display set rather than being recomputed, so the line and the rows cannot
+  // disagree about which selection they describe.
+  const comp = sel.composition || [];
+  const desc = comp.length === 1
+    ? `all ${comp[0][0]}`
+    : comp.map(([l, n]) => `${n} ${l}`).join(", then ");
+  say(`showing ${sel.shown.length} of ${found} — ${desc}`);
   // THE BATCH-SIDE RESOLUTION GAPS RENDER HERE (kogaki#691, owner ruling
   // 2026-08-29 — §13.0's duty SURVIVES #686 disposition 4 and is discharged on
   // the surface). Both kinds ride a populated section: a partial resolution
@@ -4292,7 +4392,7 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) 
   // whose shard carried no rendering gets `NO_HEADLINE` — the same abnormal
   // marker `cmdView` and the Brief lane render, so one vocabulary covers the
   // state wherever it arises, and it is a fault to clear rather than prose.
-  for (const x of atTop) {
+  for (const x of shown) {
     say(`- ${x.nid} — ${x.relation || "relation unrecorded"}`);
     // A HEADLINE WITH NO CITE FALLS TO THE MARKER, NEVER TO BARE PROSE (PR #694
     // round 1). The ternary's second arm used to print `x.gloss` when it was
@@ -4738,6 +4838,26 @@ const STATE_WORK = {
       fail(`${st.id} refuses ${orphans.length} judgment key(s) no mechanical candidate carries: ${orphans.join(", ")}. `
         + "A judgment that joins nothing is silently dropped and the section then reports that the judgment layer did not run, which is false.");
     }
+    // THE FOURTH REFUSAL — COVERAGE (kogaki#741 ruling 1, kogaki#754). The three
+    // above refuse a key naming no candidate, a level outside the closed set,
+    // and a level with no claim; none of them refuses a record that judges only
+    // SOME candidates. That omission IS an LLM-controlled skip: ruling 1 removes
+    // every such skip and states that the LLM controls "the level label ... PER
+    // CANDIDATE", so a record leaving a candidate unlabelled has not supplied
+    // what the ruling requires. Without this the candidate silently never
+    // displays, which is the same silence the orphan refusal exists to end,
+    // arriving from the other direction.
+    //
+    // The partial arm is therefore closed BY CONSTRUCTION rather than counted:
+    // `neighborhoodScreen` no longer needs an unjudged tally, because after this
+    // refusal there is nothing for it to count.
+    const uncovered = [...have].filter((slug) => !judgments.has(slug));
+    if (uncovered.length) {
+      fail(`${st.id} refuses: ${uncovered.length} mechanical candidate(s) carry no judgment — `
+        + `${uncovered.join(", ")}. §13.4 makes this pass unconditional and the LLM supplies the `
+        + "level label PER CANDIDATE, so a record that judges only some of them is the "
+        + "LLM-controlled skip kogaki#741 removes. Judge every candidate the enumeration wrote.");
+    }
     rec.judgments[st.id] = relFromRepo(resolve(path));
     return null;
   },
@@ -4763,6 +4883,16 @@ const STATE_WORK = {
       // Absent where no emitter ran — the unjudged flow — and cmdReport then
       // computes inside the pull as §13.2 always said.
       ...(rec.neighborhood_candidates ? { "neighborhood-candidates": rec.neighborhood_candidates } : {}),
+      // THE JUDGMENT JOINS FROM THE RUN RECORD, never from this act's argv
+      // (§13.4, kogaki#741 ruling 2). J3 wrote the path it validated; reading
+      // it back here is what makes "deleting the judgment file after J3 and
+      // re-rendering fails loudly" true — the record still names the path, and
+      // the read fails at the missing file rather than silently rendering an
+      // unjudged section. An argv `--neighborhood` cannot substitute: the
+      // record is the only source, so a stale flag can neither supply nor
+      // override the judgment this run actually validated.
+      ...(rec.judgments && rec.judgments.J3_neighborhood
+        ? { neighborhood: rec.judgments.J3_neighborhood } : {}),
     });
     // OBSERVED, NOT CONSTRUCTED (PR #655 round 1). `cmdSurvey`, the two screen
     // renderers and `cmdCotags` each return the path they actually wrote; this

@@ -106,7 +106,7 @@
       "kind": "compute",
       "does": "Enumerates the provenance-neighborhood's mechanical candidates for the entered set and writes them to the run workspace, so the judgment point below has something to judge.",
       "writes": null,
-      "conditional": true,
+      "conditional": false,
       "renders_gate_declaration": false,
       "governing": "§13.2, §13.4"
     },
@@ -117,14 +117,14 @@
       "input_shape": "typed record keyed by candidate slug, each carrying one free-form claim and one level from the harness-fixed set",
       "refusal": "a level outside the closed set, a level with no claim, and a key no mechanical candidate carries are each refused, naming the offending slug",
       "writes": null,
-      "conditional": true,
+      "conditional": false,
       "renders_gate_declaration": false,
       "governing": "§13.4"
     },
     {
       "id": "full_report",
       "kind": "write",
-      "does": "One Full Report over exactly the entered set, idempotent per §12.1's identity triple, carrying the provenance-neighborhood section.",
+      "does": "One Full Report over exactly the entered set, idempotent per §12.1's identity quadruple, carrying the provenance-neighborhood section.",
       "writes": "full_report",
       "conditional": false,
       "renders_gate_declaration": false,
@@ -163,7 +163,7 @@
   ],
   "counted_baseline": {
     "waits": 5,
-    "conditional_states": 4,
+    "conditional_states": 2,
     "owner_artifact_writes": 2,
     "judgment_points": 3,
     "grammared_writing_states": 2
@@ -177,7 +177,7 @@
     "full_report": {
       "path": "reports/FullReport.md",
       "writer": "one private report renderer",
-      "rule": "overwritten per pull; identity is §12.1's triple",
+      "rule": "overwritten per pull; identity is §12.1's quadruple (pin, query, judge pin, neighborhood judgment record)",
       "grammar_surface": "full_report in report-format.json"
     }
   },
