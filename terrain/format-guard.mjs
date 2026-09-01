@@ -302,21 +302,35 @@ const countIn = (s) => {
   return m ? Number(m[1]) : null;
 };
 
-// NO PREDICATE FOR `subgroup_members_sum_to_parent`, AND THE GRAMMAR SAYS WHY.
+// THE WITHDRAWAL OF `subgroup_members_sum_to_parent`, AND ITS RETURN.
 //
-// It was one, over `cotag_screen`, through report-format.json v12: the SubGroup
-// counts under a subdivided group heading had to sum to that heading's own
-// count. kogaki#684 disposition 2 removed the count from the heading, so one
-// side of the comparison is gone and the rule is not decidable from the
-// rendered text. The entry moved to `not_expressible`, which is why no
-// predicate stands here — a predicate for a rule about artifacts nothing can
-// produce is a conformance category with no members, and reads as coverage.
+// KEPT AS HISTORY, NOT AS A STATEMENT ABOUT THIS FILE. This block read "NO
+// PREDICATE FOR `subgroup_members_sum_to_parent`, AND THE GRAMMAR SAYS WHY"
+// until v15 (kogaki#739), and by then it was false in its own file: the
+// predicate stands at `sumToParentRule()` below and the entry is back in
+// `expressible`. A reader arriving here first was told the predicate does not
+// exist — the same defect the restored rule's own comment names one function
+// along, left standing on the withdrawal side because the repair looked
+// forward and nobody re-read what it made stale (PR #759 round 1, finding 2).
 //
-// IT WAS NOT RE-POINTED at the sum of the SubGroup counts, which is the only
-// parent quantity the surface still carries: that comparison is `sum == sum`,
-// a predicate that cannot fail. The property is carried instead as a
-// PRE-RENDER refusal in `cmdCotags`, over the placement rather than the text —
-// weaker in exactly the way §14.2 records, and the grammar names the gap.
+// WHAT ACTUALLY HAPPENED, in order. There was a predicate, over `cotag_screen`,
+// through report-format.json v12: the SubGroup counts under a subdivided group
+// heading had to sum to that heading's own count. kogaki#684 disposition 2
+// removed the count from the heading, so one side of the comparison went away
+// and the rule stopped being decidable from the rendered text; the entry moved
+// to `not_expressible` and the predicate left with it, because a predicate for
+// a rule about artifacts nothing can produce is a conformance category with no
+// members and reads as coverage. kogaki#739 put the count back and the entry
+// and its predicate returned together.
+//
+// IT WAS NEVER RE-POINTED, in either direction, and that is the part worth
+// keeping. The available substitute was the sum of the SubGroup counts — the
+// only parent quantity the surface carried while the heading had none — and
+// that comparison is `sum == sum`, a predicate that cannot fail. The property
+// was carried through the withdrawal by the PRE-RENDER refusal in `cmdCotags`,
+// over the placement rather than the text, which is weaker in exactly the way
+// §14.2 records; that refusal is not withdrawn now the rule is back, because
+// the two read different things.
 
 // catch_all_share IS DELETED (kogaki#738 ruling 4, owner rulings 2026-09-01).
 //
@@ -454,21 +468,31 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
   classified.forEach((id, i) => {
     if (id === "group_heading_subdivided" || id === "group_heading_flat") {
       close();
-      // THE SUBDIVIDED ARM IS RESTORED AT v15 (kogaki#739). It was dropped at
-      // v13 because that heading carried no count, so `countIn` read `null` and
-      // the arm evaluated nothing while still looking evaluated; the heading
-      // carries `<LessonCount>` again, so the premise of the narrowing is gone
-      // and leaving it would be a comment asserting something false about the
-      // grammar one file away.
+      // THE SUBDIVIDED ARM STAYS NARROWED, AND ITS ORIGINAL REASON NO LONGER
+      // HOLDS. v13 dropped it because that heading carried no count, so
+      // `countIn` read `null` and the arm evaluated nothing while still looking
+      // evaluated. kogaki#739 puts the count back, so that premise is spent —
+      // and the narrowing is kept anyway, deliberately, with the spent premise
+      // recorded rather than left to read as current.
       //
-      // IT BUYS ALMOST NOTHING HERE, AND THAT IS SAID RATHER THAN IMPLIED: a
-      // line only classifies `group_heading_subdivided` when the emitter is
-      // rendering SubGroups, so `sawSubgroup` is set before `close()` reads it
-      // in every screen this emitter produces. What it removes is the asymmetry
-      // — the rule now reads the same token on both heading classes, so a
-      // future line form that carries a count without its SubGroups is caught
-      // rather than skipped by a narrowing nobody re-examined.
-      parent = countIn(lines[i]);
+      // WHY KEPT: widening it changes what `subdivision_required_at_ten`
+      // evaluates, and #739 licenses no clause of that rule. Its obligations
+      // are enumerated closed — the heading form, the sum-to-parent entry and
+      // its predicate, the `catch_all_share` determination, and the §6.1/§6.2
+      // text — and none of them names this rule. It was widened in this PR's
+      // first push and reverted at round 1, which found it out of scope and
+      // found the widened arm diverging from the entry's own `rule` string
+      // ("a `group_heading_flat` line whose LessonCount is >= 10 …"), where
+      // §14.1 makes `report-format.json` win. Adjacency is not authorization.
+      //
+      // WHAT WIDENING WOULD BUY, so the next reader can price it rather than
+      // rediscover it: almost nothing today. A line classifies
+      // `group_heading_subdivided` only when the emitter is rendering
+      // SubGroups, so `sawSubgroup` is set before `close()` reads it in every
+      // screen this emitter produces. It would remove an asymmetry, and it
+      // would need its own issue and a matching amendment to the entry's rule
+      // text — both, or the divergence returns.
+      parent = id === "group_heading_flat" ? countIn(lines[i]) : null;
       parentLine = lines[i]; parentNo = i + 1; sawSubgroup = false;
     } else if (id === "subgroup_heading") {
       sawSubgroup = true;
