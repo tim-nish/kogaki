@@ -167,33 +167,42 @@ whose ID set the owner enters. **Nothing on either line is optional.**
    }
    ```
 
-   **`coherence` IS THE JUDGMENT AND IT IS CLOSED AT THREE** (§8 v30,
-   kogaki#683; third label relabelled at kogaki#738). `tight` — the members
-   share one mechanism. `related` — they share a theme, not one mechanism.
-   `other` — you found no 2+ subset at related-or-better affinity among these
-   members. Select exactly one and supply `coherence_why`, ONE sentence.
+   **`coherence` IS THE JUDGMENT: THREE AFFINITIES AND A RESIDUAL** (§8 v30,
+   kogaki#683; reworked at kogaki#738). `tight` — the members share one
+   mechanism. `related` — they share a theme, not one mechanism. `loose` — an
+   affinity weaker than a shared theme, and still a real one. `other` — the
+   RESIDUAL, the members you could place nowhere. Select exactly one and supply
+   `coherence_why`, ONE sentence.
    The runtime **refuses** a value outside the set and refuses a label with no
    reason: the two are one instrument, and a default would be the engine
    supplying the judgment the label exists to carry. It REPLACES
    `composes_honestly` / `tighter_than_parent`, which are gone. <!-- retired-vocab-ok: states they are gone. -->
 
    **`other` IS A CLAIM YOU ARE MAKING, not a bin for the leftovers.** Putting
-   members there asserts you looked and found no coherent pair. Nothing can
-   check that — it is your duty, stated so you know you are making it. What the
-   runtime DOES enforce is that **every member appears in a SubGroup you
-   composed**: a classification leaving any member unplaced is refused, naming
-   the members it left. There is no catch-all; the engine composed one until
-   kogaki#738 and stamped it with a verdict nobody reached.
+   members there asserts you looked and found no subset of M or more at
+   loose-or-better affinity among them. Nothing can check that — it is your
+   duty, stated so you know you are making it. What the runtime DOES enforce is
+   that **every member appears in a SubGroup you composed**: a classification
+   leaving any member unplaced is refused, naming the members it left. There is
+   no catch-all; the engine composed one until kogaki#738 and stamped it with a
+   verdict nobody reached.
 
-   **COMPOSE `tight` FIRST, then `related`, and let the residue go to `other`
-   explicitly.** `related` is permitted and never required. A single pass —
-   there is no iterative regrouping and none is coming.
+   **AND THE RESIDUAL IS CAPPED.** `other` is not somewhere to park members: a
+   classification whose residual exceeds N is refused, naming the remainder
+   count against N, and you compose more SubGroups until it fits.
 
-   **MEMBER CAPS** (§8, kogaki#738): a `tight` SubGroup holds at most **5**
-   members, a `related` one at most **7**; `other` is uncapped. Over the cap is
-   refused, naming the SubGroup and the cap. The numbers live in
-   `specs/spec-terrain/report-format.json`'s `limits` block — read them there
-   rather than from this sentence if the two ever disagree.
+   **COMPOSE `tight` FIRST, then `related`, then `loose`, and let what is left
+   go to `other` explicitly.** The weaker labels are permitted and never
+   required. A single pass — there is no iterative regrouping and none is
+   coming.
+
+   **FIVE LIMITS, ALL ENFORCED** (§8, kogaki#738): a per-label member cap for
+   `tight`, `related` and `loose`; a minimum SubGroup size M below which an
+   affinity SubGroup is refused; and a maximum residual size N. **The numbers
+   are NOT reproduced here** — they live in
+   `specs/spec-terrain/report-format.json`'s `limits` block, which is the one
+   place they can be edited, and a copy in this file would be a second carrier
+   for an owner-editable number. Read them there.
 
    **THE SPLIT DECISION IS NOT YOURS AT TEN OR MORE.** A composed group of 10+
    members MUST serve SubGroups; `"subgroups": []` for such a group is refused

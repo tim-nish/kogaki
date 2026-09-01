@@ -324,8 +324,15 @@ writeFileSync(SUBS, JSON.stringify({
   // §12.1 v9 typed record (kogaki#199): the judgment is STATED, never inferred
   // from an array's truthiness.
   [`${TAG} × architecture`]: { judged: true, subgroups: [
+    // ONE WHOLE-GROUP SubGroup (kogaki#738 owner amendment 1, scoped at the
+    // pickup gate). This was two 1-member SubGroups; `min_subgroup_members` is 3,
+    // so that is a split into two splinters and is refused. A 2-member parent
+    // cannot be divided at all under M — what it CAN carry is one SubGroup
+    // holding the whole group, which divided nothing and is exempt. The block's
+    // subject is unchanged: the screen renders a SubGroup, its claim, its ids and
+    // its verdict, and none of that turns on how many SubGroups there are.
     { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
-      members: ["lesson:alpha"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
+      members: ["lesson:alpha", "lesson:bravo"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
     // BOTH members are placed, and that is a CHANGE story 1.57 forced rather
     // than a tidy-up. This fixture used to place `alpha` and leave `bravo` in
     // the remainder — 1 of 2, a 50% catch-all — which `catch_all_share` now
@@ -340,8 +347,6 @@ writeFileSync(SUBS, JSON.stringify({
     // the sweep it guarded (ruling 4), and the fixture does not revert: leaving
     // `bravo` unplaced now refuses outright, at any size and any share, because
     // an unplaced member is a refusal naming it rather than a bucket to bound.
-    { subgroup: "guards exercised by a real run", claim: "a check some run has actually made fail",
-      members: ["lesson:bravo"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
   ] },
 }));
 const withSubs = spawnSync(process.execPath,
@@ -358,7 +363,7 @@ if (!String(withSubs.stdout).includes("in common: a check whose inputs make fail
 // §6.2 v5's line form: `<SubGroupID> (N Lessons: ids)`, claim on the next line.
 // §6.2 v6 — `G<n>-<m> — N Lessons: ids — <name>`; the parenthesised count form
 // went with the indentation, since the level is in the id now.
-if (!/^G[0-9]+-[0-9]+ — 1 Lesson: L2 — guards that cannot fail$/m.test(String(withSubs.stdout))) {
+if (!/^G[0-9]+-[0-9]+ — 2 Lessons: L2, L1 — guards that cannot fail$/m.test(String(withSubs.stdout))) {
   fails.push("the SubGroup line is not the §6.2 v6 form `G<n>-<m> — N Lessons: ids — <name>` — the SubGroupID must name its parent, which is what lets a wrapped line still say where it belongs");
 }
 // AN UNPLACED MEMBER IS A REFUSAL NAMING IT (§6.2 rule 1, kogaki#738 ruling 1).
@@ -491,15 +496,14 @@ if (noPin.status === 0) {
 // A disclosure fires and is rendered (§6.2, §8) — disjunctive, gating nothing.
 const SUBS_DEGEN = join(tmpdir(), `cotags-subs-degen-${process.pid}.json`);
 writeFileSync(SUBS_DEGEN, JSON.stringify({
+  // ONE WHOLE-GROUP SubGroup, for the reason the block above gives: at
+  // `min_subgroup_members` 3 a 2-member parent cannot be split into two
+  // conformant SubGroups, and leaving a member unplaced refuses outright
+  // (kogaki#738). The DISCLOSURE this block is about fires on the claim, not on
+  // the number of SubGroups, so the subject is untouched — the claim still names
+  // `alpha` outright and must still be disclosed as degenerate.
   [`${TAG} × architecture`]: { judged: true, subgroups: [
-    { subgroup: "sg", claim: "this claim names alpha outright", members: ["lesson:alpha"],
-      coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
-    // Both members placed, for the same reason as the block above — and since
-    // kogaki#738 for a stronger one: leaving `bravo` unplaced no longer produces
-    // a 50% catch-all for `catch_all_share` to refuse, it produces an outright
-    // refusal, so a fixture exercising a DISCLOSURE could not reach the surface
-    // it discloses on at all.
-    { subgroup: "sg2", claim: "a second claim that names nobody", members: ["lesson:bravo"],
+    { subgroup: "sg", claim: "this claim names alpha outright", members: ["lesson:alpha", "lesson:bravo"],
       coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
   ] },
 }));
@@ -2994,9 +2998,17 @@ const cases = [
     // (b) THE CONTROL. Without it, (a) is satisfied by a runtime that refuses
     // every subdivided screen, which is the same green-that-cannot-go-red one
     // polarity over.
+    //
+    // ONE WHOLE-GROUP SubGroup (kogaki#738): the control was two 1-member
+    // SubGroups, which `min_subgroup_members` 3 now refuses as a split into
+    // splinters — so the control would have been failing for a reason that has
+    // nothing to do with (a)'s property, which is exactly the confound a control
+    // exists to remove. A single SubGroup holding the whole parent is exempt from
+    // the floor (it divided nothing) and still exercises the sum: two members in,
+    // two placed, no double placement.
     const okp = join(dir, "ok.json");
     writeFileSync(okp, JSON.stringify({ "testing \u00d7 architecture": { judged: true, subgroups: [
-      one("one", ["lesson:alpha"]), one("two", ["lesson:bravo"])] } }));
+      one("one", ["lesson:alpha", "lesson:bravo"])] } }));
     const outB = join(dir, "b");
     const good = spawnSync(process.execPath, ["terrain/terrain.mjs", "cotags",
       "--survey", survey, "--tag", "testing", "--claims", claims, "--subdivisions", okp,
@@ -3817,14 +3829,16 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
       "testing × cost": ["lesson:charlie"] } },
     claims: { "testing × architecture": "both are guards of some kind" },
   }));
-  // A real split, so G2 has a G2-1.
+  // A SubGroup exists, so G2 has a G2-1 — which is all this block needs. It was
+  // TWO 1-member SubGroups until kogaki#738; `min_subgroup_members` 3 refuses
+  // that as a split into splinters, and a 2-member parent cannot be divided at
+  // all. One SubGroup holding the whole group is exempt from the floor and still
+  // gives G2 its G2-1.
   const subs = join(dir, "s.json");
   writeFileSync(subs, JSON.stringify({
     "testing × architecture": { judged: true, subgroups: [
       { subgroup: "guards that cannot fail", claim: "a check whose inputs make failure unreachable",
-        members: ["lesson:alpha"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
-      { subgroup: "guards exercised by a real run", claim: "a check some run has made fail",
-        members: ["lesson:bravo"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
+        members: ["lesson:alpha", "lesson:bravo"], coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true },
     ] },
   }));
   const out = join(dir, "o");
@@ -5468,16 +5482,22 @@ if (flat.status === 0) {
 //      threshold block two hundred lines up exists to catch, reproduced in the
 //      check that catches it.
 {
-  const caps = JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8"))
-    .limits.subgroup_member_cap;
-  for (const [label, cap] of [["tight", caps.tight], ["related", caps.related]]) {
+  const LIMITS = JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8")).limits;
+  const caps = LIMITS.subgroup_member_cap;
+  // THE SPILL RIDES AN AFFINITY LABEL, NEVER THE RESIDUAL. `max_residual_members`
+  // is 5, so parking the spill in `other` would refuse on N before the cap under
+  // test could fire — the case would pass on the wrong refusal, which is the
+  // assertion-that-cannot-fail shape wearing a green tick.
+  for (const [label, cap, spillLabel] of [["tight", caps.tight, "related"],
+                                          ["related", caps.related, "tight"],
+                                          ["loose", caps.loose, "tight"]]) {
     const over = groupMembers.slice(0, cap + 1);
     const spill = groupMembers.slice(cap + 1);
     const r = run(subs(others({ judged: true, subgroups: [
       { subgroup: "over the cap", claim: "these share one mechanism", members: over,
         coherence: label, coherence_why: "the members share one mechanism", legible_at_a_glance: true },
       { subgroup: "the remainder", claim: "these share a theme rather than a mechanism", members: spill,
-        coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
+        coherence: spillLabel, coherence_why: "the members share one mechanism", legible_at_a_glance: true },
     ] })));
     const out = String(r.stdout) + String(r.stderr);
     if (r.status === 0) {
@@ -5488,16 +5508,37 @@ if (flat.status === 0) {
       fails.push(`§8/738: the \`${label}\` cap refusal does not name the SubGroup — acceptance asks for group and cap, so a refusal naming only the number leaves a judge with several SubGroups guessing which: ${out.trim().slice(0, 200)}`);
     }
   }
-  // `other` IS UNCAPPED, asserted rather than assumed. This is the arm that
-  // makes the two above a CAP rather than a blanket size limit, and it is the
-  // whole of ruling 1's safety argument in one case: the unbounded bucket is
-  // legitimate exactly when the judge names its members.
+  // THE RESIDUAL IS BOUNDED BY N, NOT BY A PER-LABEL CAP — and this arm asserted
+  // the OPPOSITE until the owner amendments were read: "`other` IS UNCAPPED …
+  // the unbounded bucket is legitimate exactly when the judge names its
+  // members". Owner amendment 1 superseded that the same day — `other` =
+  // unlimited is an anti-pattern — so the arm is inverted to the bound that
+  // replaced it, and it is the arm that makes N a real refusal rather than a
+  // number in a config file.
+  const N = Number(LIMITS.max_residual_members);
   const all = run(subs(others({ judged: true, subgroups: [
     { subgroup: "everything", claim: "the judge divided none of these", members: groupMembers,
-      coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
+      coherence: "other", coherence_why: "no subset of three or more holds together at loose or better", legible_at_a_glance: true },
   ] })));
-  if (all.status !== 0) {
-    fails.push(`§8/738: an \`other\` SubGroup of ${groupMembers.length} members was refused — \`other\` carries no cap, and capping it would be the engine second-guessing the verdict §8 assigns to the judge: ${(String(all.stdout) + String(all.stderr)).trim().slice(0, 200)}`);
+  const allOut = String(all.stdout) + String(all.stderr);
+  if (all.status === 0) {
+    fails.push(`§8/738: a residual of ${groupMembers.length} members was ACCEPTED over the limit of ${N} — until the residual falls to N the classification is refused and further SubGroups are forced (owner amendment 1 ruling 2)`);
+  } else if (!/SUBDIVISION_RESIDUAL_OVER_LIMIT/.test(allOut)) {
+    fails.push(`§8/738: the over-N residual refused under some other name: ${allOut.trim().slice(0, 200)}`);
+  } else if (!new RegExp(`${groupMembers.length} member\\(s\\) in the residual`).test(allOut)
+             || !new RegExp(`limit of ${N}`).test(allOut)) {
+    fails.push(`§8/738: the residual refusal does not name the remainder count against N — amendment 1 ruling 2 asks for exactly that, so the judge knows how many more it must place: ${allOut.trim().slice(0, 200)}`);
+  }
+  // AND A RESIDUAL AT N IS ADMITTED, which is what keeps the arm above a BOUND
+  // rather than a prohibition on residuals.
+  const atN = run(subs(others({ judged: true, subgroups: [
+    { subgroup: "the placed", claim: "these share one mechanism", members: groupMembers.slice(0, groupMembers.length - N),
+      coherence: "related", coherence_why: "the members share a theme, not one mechanism", legible_at_a_glance: true },
+    { subgroup: "the residual", claim: "the judge placed these nowhere", members: groupMembers.slice(groupMembers.length - N),
+      coherence: "other", coherence_why: "no subset of three or more holds together at loose or better", legible_at_a_glance: true },
+  ] })));
+  if (atN.status !== 0) {
+    fails.push(`§8/738: a residual of exactly ${N} was refused — N is a maximum, and refusing AT it would make the limit unsatisfiable by one: ${(String(atN.stdout) + String(atN.stderr)).trim().slice(0, 200)}`);
   }
 }
 
@@ -5526,30 +5567,41 @@ if (!/^G[0-9]+-1 — /m.test(String(ok.stdout))) {
   fails.push("the conformant split rendered no SubGroup line, so direction (a)'s refusal is not discriminating between split and unsplit");
 }
 
-// (c) THE SUPPRESSION PATH IS UNAVAILABLE AT THE THRESHOLD, which is where this
-//     issue's own dispositions collide. §6.2 v7 rule 3 says a group whose only
-//     named SubGroup bought nothing renders FLAT; disposition 1 says a flat
-//     group at 10+ does not render at all. The runtime declines to suppress at
-//     or above the threshold, so the group renders its split labelled `other`
-//     (`forced` until kogaki#738) rather than falling into a shape the guard
-//     would then refuse.
+// (c) THE SUPPRESSION PATH IS UNAVAILABLE AT THE THRESHOLD, and since the owner
+//     amendments of 2026-09-01 it is unreachable well BELOW it — which is a
+//     stronger fact than this case used to assert and is recorded rather than
+//     quietly enjoyed.
+//
+//     WHAT THIS ASSERTED: §6.2 v7 rule 3 says a group whose only named SubGroup
+//     bought nothing renders FLAT; disposition 1 says a flat group at 10+ does
+//     not render at all; so the runtime declines to suppress at or above the
+//     threshold and the group renders its split labelled `other`. The case built
+//     that state by putting all twelve members in one `other` SubGroup.
+//
+//     WHY IT CANNOT BE BUILT NOW: `max_residual_members` is 5 (kogaki#738 owner
+//     amendment 1), so an all-residual group of twelve REFUSES on N before rule
+//     3 is consulted at all. Rule 3's suppression needs the only SubGroup to be
+//     the residual, so it is reachable only for groups of N or fewer — and the
+//     threshold is 10. THE TWO CLAUSES CAN NO LONGER COLLIDE.
+//
+//     So the case asserts the unreachability by its cause, which is what keeps
+//     it honest: the collision clause in §6.2 rule 3 and in the runtime is now
+//     dead code, and a case that simply disappeared would leave nothing saying
+//     so. If N is ever raised above the threshold the collision returns, and
+//     this assertion is what fires.
 const forced = run(subs(others({ judged: true, subgroups: [
-  // ALL TWELVE, and `other` is the one label whose cap admits them — which is
-  // §8's asymmetry doing exactly what it is for: the uncapped label is the one
-  // that carries a group the judge could not divide.
   { subgroup: "one batch", claim: "grouped to satisfy the requirement", members: groupMembers,
-    coherence: "other", coherence_why: "no 2+ subset among these members holds together at related or better", legible_at_a_glance: true },
+    coherence: "other", coherence_why: "no subset of three or more holds together at loose or better", legible_at_a_glance: true },
 ] })));
 const forcedOut = String(forced.stdout) + String(forced.stderr);
-if (/render flat because their only named SubGroup was labelled `other`/.test(forcedOut)) {
-  fails.push(`the suppression fired on a ${groupMembers.length}-member group — §6.2 v7 rule 3's fallback is exactly the judged-empty outcome disposition 1 refuses, so at or above the threshold the group must render its split instead`);
+if (forced.status === 0) {
+  fails.push(`an all-residual group of ${groupMembers.length} members RENDERED — \`max_residual_members\` bounds the residual, so this classification must refuse on N; if it renders, either N is unenforced or it has been raised above the split threshold and rule 3's collision clause is live again`);
+} else if (!/SUBDIVISION_RESIDUAL_OVER_LIMIT/.test(forcedOut)) {
+  fails.push(`the all-residual group at the threshold refused under some other name: ${forcedOut.trim().slice(0, 200)} — the point of this case is WHICH refusal arrives first, because that is what makes rule 3's threshold-collision clause unreachable`);
 }
-if (!/coherence: other — no 2\+ subset among these members holds together at related or better/.test(String(forced.stdout))) {
-  fails.push("the forced split at or above the threshold did not render its coherence line — the group must render, labelled honestly, rather than silently falling back to flat");
-}
-if (/subdivision_required_at_ten/.test(forcedOut)) {
-  fails.push("the forced split at or above the threshold was refused — declining to suppress is what keeps this screen renderable, and refusing it here would leave the group with no legal rendering at all");
-}
+// AND THE SUPPRESSION ITSELF STILL WORKS below N, which is what stops the case
+// above from passing on a runtime where rule 3 has simply stopped existing. The
+// suppressed-split block earlier in this file exercises it on a 2-member group.
 
 if (fails.length) {
   console.log("FAIL the split decision is the engine's at ten or more (kogaki#683):");

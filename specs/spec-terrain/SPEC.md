@@ -635,6 +635,18 @@ Below the threshold, SubGroups appear where the judge's **coherence label** and
    unavailable, because the flat rendering it produces is the outcome §8 refuses,
    so the suppression yields and the group RENDERS its split, labelled `other`.
 
+   **AND THE COLLISION CLAUSE IS NOW UNREACHABLE (kogaki#738 owner amendment 1).**
+   The sentence above resolves a collision between rule 3 and §8's threshold: at
+   10 members or more the suppression yields. That state can no longer be built.
+   The suppression needs the group's ONLY SubGroup to be the residual, and
+   `limits.max_residual_members` (N, initially 5) refuses an all-residual group
+   larger than N — so the suppression is reachable only at N members or fewer,
+   and the threshold is 10. **The clause is kept rather than deleted**: it is
+   correct, it is dead only while N stays below the threshold, and raising N
+   above 10 revives it silently if nothing here says so. `check-terrain-composition.sh`
+   asserts the unreachability by its cause, so a change to N fails there rather
+   than reopening the collision unobserved.
+
    **THE LABEL MOVED AND THE RULE DID NOT (kogaki#738).** This clause read
    `forced` at both sites. The mapping is not a rename passed through: under
    `forced` the trigger was *the threshold compelled a split that bought
@@ -834,16 +846,30 @@ and it is **not a cap**:
 
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:66`
 
-**The judgment is ONE COHERENCE LABEL, closed at three.** The judge selects
-exactly one of `tight` (members share one mechanism), `related` (members share a
-theme, not one mechanism) or `other` (the judge found no 2+ subset at
-related-or-better affinity among these members), and supplies one free-form
-sentence of why. Both render under the claim. The runtime refuses a value outside
-the set and refuses a label with no reason: the two are ONE INSTRUMENT, and a
-default would be the engine supplying the judgment the label exists to carry.
+**The judgment is ONE COHERENCE LABEL, over THREE AFFINITY VALUES AND A
+RESIDUAL.** The judge selects exactly one of `tight` (members share one
+mechanism), `related` (members share a theme, not one mechanism), `loose` (an
+affinity weaker than a shared theme, and still a real one) or the residual
+`other`, and supplies one free-form sentence of why. Both render under the claim.
+The runtime refuses a value outside the set and refuses a label with no reason:
+the two are ONE INSTRUMENT, and a default would be the engine supplying the
+judgment the label exists to carry.
 
-**THE THIRD LABEL WAS `forced` AND IS NOW `other` (kogaki#738, owner rulings
-2026-09-01).** It read "`forced` (grouped to satisfy the split requirement)",
+**`other` IS NOT A FOURTH AFFINITY, and the distinction carries weight.** The
+three affinity labels each assert a relationship. `other` asserts the absence of
+one: it holds the members the judge could place nowhere. That is why it carries
+no per-label cap in `limits.subgroup_member_cap`, why the minimum SubGroup size
+does not bind it, and why it has a limit of its own instead.
+
+**THE SET MOVED TWICE IN ONE DAY, AND BOTH MOVES ARE RECORDED (kogaki#738:
+owner rulings, then owner amendments 1 and 2, all 2026-09-01).** First `forced`
+became `other`; then `loose` was adopted as a third affinity label and `other`
+was re-read as the residual it had always behaved like. The first move is
+recorded below because the second does not supersede it — `forced` is gone for
+the reason stated there, and `other` is not an affinity label for the reason
+stated above.
+
+**THE LABEL `forced` AND WHY IT WENT (kogaki#738, owner rulings 2026-09-01).** It read "`forced` (grouped to satisfy the split requirement)",
 which named a fact about the ENGINE — the threshold compelled a split — rather
 than a fact about the MEMBERS. `other` names the members: the judge looked and
 found no coherent subset among them. The two are not spellings of one label. A
@@ -851,26 +877,63 @@ found no coherent subset among them. The two are not spellings of one label. A
 placement swept every unplaced member into a catch-all and stamped it `forced`
 "by construction", so the label carried a verdict nobody reached.
 
-**`other` IS UNBOUNDED, AND THAT IS SAFE ONLY BECAUSE IT IS JUDGED.** No share
-cap governs it. What replaces the cap is that membership in `other` is an
-explicit assignment at the same semantic level as `tight` and `related` — the
-judge names each member into it — rather than a structural leftover the engine
-computes. An unbounded bucket the engine fills is a hiding place; an unbounded
-bucket the judge fills is a verdict.
+**`other` IS BOUNDED AT N, AND THE UNBOUNDED READING IS SUPERSEDED (owner
+amendment 1, 2026-09-01).** This section read: "**`other` IS UNBOUNDED, AND THAT
+IS SAFE ONLY BECAUSE IT IS JUDGED.** No share cap governs it … An unbounded
+bucket the engine fills is a hiding place; an unbounded bucket the judge fills is
+a verdict." The owner superseded it the same day: **`other` = unlimited is an
+anti-pattern.** A judged bucket with no bound still lets Lessons disappear into
+it, and what was unstable was never the judging — it was member counts implicitly
+assumed and never enforced.
+
+**So the residual carries a maximum, `limits.max_residual_members` (N, initially
+5).** Until the residual falls to N the harness **refuses the classification and
+forces the creation of additional SubGroups**, naming the remainder count against
+N. That refusal is the deleted share cap's replacement: `catch_all_share` bounded
+a bucket the ENGINE filled as a fraction of its parent, and this bounds a bucket
+the JUDGE fills as an absolute count.
+
+**What survives from the superseded reading:** membership in `other` is still an
+explicit assignment the judge makes, never a structural leftover the engine
+computes. That was correct and is untouched. What was wrong was the inference
+that being judged is *sufficient* — the bound and the judgment are both required,
+and the design was never able to tell "the judge placed these here after looking"
+from "the judge placed these here instead of looking".
 
 **The judge duty for `other`, stated as a duty the harness cannot verify.**
-Assigning members to `other` asserts the judge found no 2+ subset at
-related-or-better affinity among them. The ground is an observed incident: in
+Assigning members to the residual asserts the judge found **no subset of M or
+more members at loose-or-better affinity** among them, where M is
+`limits.min_subgroup_members` (owner amendment 1 ruling 5; the body's form was
+"no 2+ subset at related-or-better affinity", superseded by the arrival of
+`loose` below `related` and of M as the floor a SubGroup must clear). The ground is an observed incident: in
 2026-08 roughly thirty members landed in the catch-all with no `tight` or
 `related` group composed at all, and nothing in the mechanism could distinguish
 *no related pair exists* from *the judgment never tried*. What the harness DOES
 enforce is the reachable half — **no member reaches `other` without appearing in
 the judge's own classification** — which is §6.2 rule 1's refusal below.
 
-**MEMBER CAPS PER LABEL, READ FROM CONFIG (kogaki#738, ruling 3).** A `tight`
-SubGroup carries at most **5** members and a `related` SubGroup at most **7**;
-`other` is uncapped, per the clause above. A SubGroup over its cap is **refused
-at J2**, naming the group and the cap it exceeded.
+**FIVE CONFIG KEYS, EVERY ONE ENFORCED MECHANICALLY (kogaki#738 ruling 3, owner
+amendment 2 ruling 2).** The harness reads and refuses on each — "refusals, never
+reliance on the LLM following them implicitly":
+
+| key | initial | refusal |
+|---|---|---|
+| `subgroup_member_cap.tight` | 5 | a `tight` SubGroup over it, naming group and cap |
+| `subgroup_member_cap.related` | 7 | a `related` SubGroup over it, naming group and cap |
+| `subgroup_member_cap.loose` | 7 | a `loose` SubGroup over it, naming group and cap |
+| `min_subgroup_members` (M) | 3 | an **affinity** SubGroup under it, naming group and minimum |
+| `max_residual_members` (N) | 5 | a classification whose residual exceeds it, naming the remainder count against N |
+
+**M does not bind the residual**, and that is deliberate rather than an omission:
+a shrinking residual is the outcome the design wants, so a floor on it would
+refuse exactly the classifications that did best. **N does not bind an affinity
+SubGroup**, for the mirror reason — a large `related` group is bounded by its own
+cap, and reading N over it would double-count one quantity.
+
+**A key declared here with no refusal reading it is a DEFECT, not a default.**
+Amendment 2's own wording makes enforcement the requirement; a number sitting in
+config that nothing enforces is the implicitly-assumed count this issue exists to
+end, wearing a config key's clothes.
 
 **The asymmetry is not arbitrary and is stated so it is not "tidied" later.**
 Brief consumes a `tight` group WHOLE and cannot yet filter Strands, so an

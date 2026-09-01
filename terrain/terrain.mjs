@@ -1232,7 +1232,7 @@ function cmdCotags(args) {
       }
       for (const sg of subgroups) {
         sg.by_family = familySplit(sg.members, record.candidates);
-        judgeSubgroup(sg, claim);
+        judgeSubgroup(sg, claim, g.members.length);
       }
       // "Only named SubGroup" is the decision's own wording, and since
       // kogaki#738 EVERY SubGroup is named by the judge — the catch-all this
@@ -1687,21 +1687,34 @@ export const SUBDIVISION_REQUIRED_AT = 10;
 // THE COHERENCE LABEL, closed at three (kogaki#683 disposition 5, vocabulary
 // confirmed as filed at pickup). Ordered by decreasing coherence.
 //
-// THE THIRD LABEL IS `other` SINCE kogaki#738 (owner rulings 2026-09-01). It was
-// `forced` — "grouped to satisfy the split requirement" — which named a fact
-// about the ENGINE: the threshold compelled a split that bought nothing. `other`
-// names a fact about the MEMBERS: the judge found no 2+ subset at
-// related-or-better affinity among them. The swap is not a rename, and the tell
-// is right below — the placement used to STAMP `forced` on a bucket it composed
-// itself, which is a label with no judgment behind it. Nothing can stamp `other`,
-// because nothing but the judge places a member now.
+// THE SET IS THREE AFFINITY LABELS PLUS A RESIDUAL (kogaki#738, owner rulings
+// 2026-09-01 and owner amendments 1 and 2 the same day). It was `tight | related
+// | forced`, where `forced` — "grouped to satisfy the split requirement" — named
+// a fact about the ENGINE: the threshold compelled a split that bought nothing.
+// The tell is right below — the placement used to STAMP `forced` on a bucket it
+// composed itself, which is a label with no judgment behind it.
+//
+// `loose` is the third AFFINITY label, below `related`. `other` is the RESIDUAL
+// and is a different kind of thing: it holds what the judge could place nowhere,
+// it carries no affinity claim, and it is bounded by its own limit rather than by
+// a per-label cap. Keeping them in one closed set is what the runtime validates
+// against; keeping them DISTINCT is why `RESIDUAL_LABEL` is named separately and
+// why `limits.subgroup_member_cap` has no `other` row.
+//
+// `other` IS NOT UNLIMITED, and that reverses this issue's own body. The body
+// ruled it unbounded, "safe only because it is judged"; owner amendment 1 ruled
+// that `other` = unlimited is an ANTI-PATTERN, because what actually went wrong
+// was member counts implicitly assumed and never enforced. A judged bucket with
+// no bound is still a black hole with a verdict attached.
 //
 // CONSUMER-OWNED VALUES, and that is a ruling rather than an omission: a
 // consumer owns the SHAPE of its own record and never the VALUES of a field
 // that JOINS across a boundary. This label is rendered on kogaki's own screen
 // and read by nothing outside it, so no hub ratification is owed.
 // consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198
-export const COHERENCE_LABELS = Object.freeze(["tight", "related", "other"]);
+export const COHERENCE_LABELS = Object.freeze(["tight", "related", "loose", "other"]);
+// The residual, named once so no reader has to infer it from the cap map's gaps.
+export const RESIDUAL_LABEL = "other";
 
 export function subgroupPlacement(parent, classification, block) {
   const subgroups = [];
@@ -1734,9 +1747,35 @@ export function subgroupPlacement(parent, classification, block) {
     fail(`SUBDIVISION_COVER_INCOMPLETE — the classification of ${parent.name} leaves `
       + `${unplaced.length} member(s) unplaced: ${unplaced.sort().join(", ")}. Every member is `
       + `placed by the JUDGE, never swept: place each of these in a composed SubGroup, or in one `
-      + `labelled \`other\` — which asserts you found no 2+ subset at related-or-better affinity `
-      + `among them (SPEC-terrain §8, kogaki#738). The engine no longer composes a catch-all, `
+      + `labelled \`other\` — the residual, which asserts you found no subset of `
+      + `${subdivisionLimits().min} or more members at loose-or-better affinity among them `
+      + `(SPEC-terrain §8, kogaki#738). The engine no longer composes a catch-all, `
       + `because a bucket it fills carries a verdict nobody reached.`);
+  }
+
+  // THE RESIDUAL IS BOUNDED (owner amendment 1 ruling 2, kogaki#738). Until the
+  // residual falls to N the classification is REFUSED and further SubGroups are
+  // forced — the refusal names the remainder count against N. It sits here
+  // rather than in `judgeSubgroup` because it is a property of the WHOLE
+  // classification: the residual is whatever the judge put in the `other`
+  // SubGroup(s), and one SubGroup at a time cannot see the total.
+  //
+  // THIS REVERSES THE ISSUE BODY, and the reversal is the point. The body ruled
+  // `other` unbounded, "safe only because it is judged"; the owner superseded
+  // that the same day — `other` = unlimited is an ANTI-PATTERN. A judged bucket
+  // with no bound still lets Lessons disappear into it, which is the instability
+  // the issue was filed over.
+  const { maxResidual } = subdivisionLimits();
+  const residual = subgroups
+    .filter((sg) => (sg.verdicts || {}).coherence === RESIDUAL_LABEL)
+    .reduce((n, sg) => n + sg.members.length, 0);
+  if (residual > maxResidual) {
+    fail(`SUBDIVISION_RESIDUAL_OVER_LIMIT — the classification of ${parent.name} leaves `
+      + `${residual} member(s) in the residual \`other\`, over the limit of ${maxResidual} `
+      + `(report-format.json limits.max_residual_members, SPEC-terrain §8, kogaki#738 owner `
+      + `amendment 1). Compose additional SubGroups until the residual falls to ${maxResidual} `
+      + `or fewer. The residual exists so an absence of relationships is EXPLICIT, not so that `
+      + `members can be parked in it.`);
   }
   return { subgroups, placedIds };
 }
@@ -1750,22 +1789,42 @@ export function subgroupPlacement(parent, classification, block) {
 // satisfied by the caller's JSON alone. A second copy of these rules would be
 // a second place for the judgment to drift; the rule is enforced at the
 // layer where it can be broken, and both surfaces break it the same way.
-// THE CAPS' ONE READER (§8, kogaki#738). Returns the cap for a label, or `null`
-// where the label carries none — `other`, deliberately. A MISSING `limits` block
-// is a defect in the carrier rather than a licence to skip the rule, so it fails
-// loudly here instead of returning `null` and reading as "uncapped".
-export function subgroupMemberCap(label, grammarPath = REPORT_FORMAT) {
-  const limits = (readJson(grammarPath).limits || {}).subgroup_member_cap;
-  if (!limits) {
-    fail("report-format.json declares no `limits.subgroup_member_cap`, so §8's member caps "
-      + "cannot be read (kogaki#738 ruling 5). The numbers live in the carrier by design; an "
-      + "absent block is a carrier defect, and defaulting to uncapped here would silently "
-      + "delete a ruled refusal.");
+// THE LIMITS' ONE READER (§8, kogaki#738 ruling 5 and owner amendment 2's five
+// config keys). Every number the subdivision judgment enforces comes from here,
+// and NONE is restated in this file — unlike `SUBDIVISION_REQUIRED_AT`, which is
+// duplicated and cross-checked, these have one carrier and so cannot disagree
+// with it.
+//
+// A MISSING BLOCK FAILS LOUDLY rather than returning a permissive default.
+// Amendment 2 requires the harness to enforce every key mechanically; a default
+// here would delete a ruled refusal silently, which is the same
+// engine-supplies-the-judgment defect ruling 1 is about, one layer down.
+export function subdivisionLimits(grammarPath = REPORT_FORMAT) {
+  const limits = readJson(grammarPath).limits;
+  const caps = limits && limits.subgroup_member_cap;
+  if (!caps || limits.min_subgroup_members === undefined
+      || limits.max_residual_members === undefined) {
+    fail("report-format.json declares no complete `limits` block, so §8's subdivision limits "
+      + "cannot be read (kogaki#738 ruling 5, owner amendment 2). The five keys live in the "
+      + "carrier by design — the per-label caps, `min_subgroup_members` and "
+      + "`max_residual_members` — and defaulting any of them here would silently delete a "
+      + "ruled refusal.");
   }
-  return Object.prototype.hasOwnProperty.call(limits, label) ? Number(limits[label]) : null;
+  return {
+    caps,
+    min: Number(limits.min_subgroup_members),
+    maxResidual: Number(limits.max_residual_members),
+  };
 }
 
-export function judgeSubgroup(sg, groupClaim) {
+// The per-label cap, or `null` for the residual, which is bounded by
+// `max_residual_members` instead and deliberately carries no row in the cap map.
+export function subgroupMemberCap(label, grammarPath = REPORT_FORMAT) {
+  const { caps } = subdivisionLimits(grammarPath);
+  return Object.prototype.hasOwnProperty.call(caps, label) ? Number(caps[label]) : null;
+}
+
+export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   const vd = sg.verdicts || {};
 
   // retired-vocab-ok: the three lines here name the replacement.
@@ -1799,23 +1858,59 @@ export function judgeSubgroup(sg, groupClaim) {
   sg.coherence_why = why;
   sg.coherence_line = `coherence: ${coherence} — ${why}`;
 
-  // THE MEMBER CAP PER LABEL, READ FROM THE CARRIER (§8, kogaki#738 ruling 3).
-  // `tight` <= 5 and `related` <= 7; `other` is uncapped, and that is the whole
-  // of the asymmetry: Brief consumes a `tight` group WHOLE and cannot yet filter
-  // Strands, so an oversized one lands entirely in a consumer with no way to
-  // narrow it, while `related` is browse material a reader selects from.
+  // THE SIZE LIMITS, READ FROM THE CARRIER (§8, kogaki#738 ruling 3 and owner
+  // amendments 1 and 2). Three refusals, and they bind different populations:
+  //
+  //   - an AFFINITY SubGroup over its label's cap — `tight` 5, `related` 7,
+  //     `loose` 7. The asymmetry is the consumer's: Brief consumes a `tight`
+  //     group WHOLE and cannot yet filter Strands, while `related` and `loose`
+  //     are browse material a reader selects from.
+  //   - an AFFINITY SubGroup under `min_subgroup_members` (M). A SubGroup of one
+  //     or two is a claim about a relationship too small to be one.
+  //   - the RESIDUAL over `max_residual_members` (N), which is handled at the
+  //     placement rather than here, because it is a property of the whole
+  //     classification and this function sees one SubGroup at a time.
+  //
+  // THE FLOOR DOES NOT BIND THE RESIDUAL. A shrinking residual is the outcome
+  // the whole design wants, so a floor on it would refuse exactly the
+  // classifications that did best.
   //
   // READ, NEVER RESTATED. The numbers live in `report-format.json`'s `limits`
-  // block so an owner edits them without a code change — the same relationship
-  // `subdivision_required_at_ten.threshold_members` already has with
-  // `SUBDIVISION_REQUIRED_AT`, except that this one is not duplicated here at
-  // all, so the two carriers cannot disagree.
+  // block so an owner edits them without a code change — unlike
+  // `SUBDIVISION_REQUIRED_AT`, which is duplicated and cross-checked, these have
+  // one carrier and so cannot disagree with it.
+  const { min } = subdivisionLimits();
   const cap = subgroupMemberCap(coherence);
   if (cap !== null && sg.members.length > cap) {
     fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
       + `${sg.members.length} members, over the cap of ${cap} `
       + `(report-format.json limits.subgroup_member_cap.${coherence}, SPEC-terrain §8, kogaki#738). `
       + `Compose a tighter SubGroup, or judge these members at a label whose cap admits them.`);
+  }
+  // THE FLOOR EXEMPTS A WHOLE-GROUP SubGroup (owner selection 2026-09-01, at the
+  // pickup gate for amendment 1). M refuses a SPLINTER — a SubGroup too small to
+  // be a real division of its parent — and a SubGroup holding the entire parent
+  // divided nothing, so there is no splinter for M to police. Without the
+  // exemption a group under M has NO conformant affinity classification at all:
+  // the residual is the only path left, and it asserts the judge found no
+  // loose-or-better affinity among them, which the harness would then be forcing
+  // the judge to assert whether or not it is true. That is the same served line
+  // this issue's own refusal was built on, firing the other way —
+  // consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:38
+  // ("when the actor must still dispose of the item in front of it, a fail-closed
+  // refusal prevents nothing and merely removes one option").
+  //
+  // KEYED ON A STRUCTURAL FACT, never on a size. `parentSize === members.length`
+  // says the SubGroup IS the group; a threshold like "2M or more" would be a
+  // second derived number nobody ruled.
+  const wholeGroup = parentSize !== null && sg.members.length === parentSize;
+  if (coherence !== RESIDUAL_LABEL && sg.members.length < min && !wholeGroup) {
+    fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
+      + `${sg.members.length} member(s), under the minimum of ${min} `
+      + `(report-format.json limits.min_subgroup_members, SPEC-terrain §8, kogaki#738 owner `
+      + `amendment 1). A SubGroup below the minimum asserts a relationship too small to be one; `
+      + `merge it into a SubGroup it belongs with, or let its members fall to the residual. `
+      + `(A SubGroup holding the WHOLE parent group is exempt: it divided nothing.)`);
   }
 
   // The two disclosures, DISJUNCTIVE: each is evaluated independently and
@@ -1861,7 +1956,7 @@ export function composeSubdivisionRecord(args, dir, record) {
 
   for (const sg of subgroups) {
     sg.by_family = familySplit(sg.members, record.candidates);
-    judgeSubgroup(sg, groupClaim);
+    judgeSubgroup(sg, groupClaim, parent.members.length);
 
     // Three instruments, three quantities, none a threshold, none gating.
     sg.instruments = {
@@ -3168,7 +3263,7 @@ function cmdReport(args) {
     // the two surfaces share the subdivision record and nothing else — reading
     // the screen's verdict would be a second carrier. Same input, same
     // `judgeSubgroup`, same conclusion.
-    for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim);
+    for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim, group.members.length);
     // EVERY SubGroup IS NAMED BY THE JUDGE (kogaki#738): the catch-all filter
     // that stood here excluded a bucket the engine composed, and that bucket is
     // deleted.

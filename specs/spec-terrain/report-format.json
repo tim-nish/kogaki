@@ -180,8 +180,8 @@
         },
         {
           "id": "subgroup_coherence",
-          "form": "coherence: tight — <why> | coherence: related — <why> | coherence: other — <why>",
-          "superseded": "coherence: forced — <why> (kogaki#738: the third label named a fact about the engine; `other` names what the judge found)",
+          "form": "coherence: tight — <why> | coherence: related — <why> | coherence: loose — <why> | coherence: other — <why>",
+          "superseded": "coherence: forced — <why> (kogaki#738: the third label named a fact about the engine. The set became `tight | related | loose` as AFFINITY labels plus the residual `other` at owner amendment 2, 2026-09-01)",
           "allowlist": [
             "coherence label",
             "one free-form sentence"
@@ -461,13 +461,18 @@
     }
   },
   "limits": {
-    "_why": "OWNER-EDITABLE NUMBERS, in the carrier the grammar already lives in (kogaki#738 ruling 5). A second config file would be a second place for a number to drift from the surface that renders it, so no new carrier is minted: the runtime reads these exactly as it reads decidable_rules.subdivision_required_at_ten.threshold_members.",
+    "_why": "OWNER-EDITABLE NUMBERS, in the carrier the grammar already lives in (kogaki#738 ruling 5, extended by owner amendment 2 of 2026-09-01). A second config file would be a second place for a number to drift from the surface that renders it, so no new carrier is minted: the runtime reads these exactly as it reads decidable_rules.subdivision_required_at_ten.threshold_members. THE HARNESS ENFORCES EVERY KEY MECHANICALLY — amendment 2 ruling 2's own words, 'refusals, never reliance on the LLM following them implicitly' — so a key declared here with no refusal reading it is a defect rather than a default.",
     "subgroup_member_cap": {
       "tight": 5,
       "related": 7,
-      "_why_asymmetric": "Brief consumes a `tight` group WHOLE and cannot yet filter Strands, so an oversized tight group lands entirely in a consumer with no way to narrow it — the harder cap follows the consumer's inability rather than the label's seniority. `related` is browse material a reader scans and selects from.",
-      "_other_is_uncapped": "`other` carries no cap and that is deliberate (SPEC.md §8). Its safety comes from being a JUDGED assignment at the same semantic level as the other two, not from a share bound: an unbounded bucket the engine fills is a hiding place, an unbounded bucket the judge fills is a verdict. The 30% `catch_all_share` cap bounded the engine-filled version and was deleted with it."
-    }
+      "loose": 7,
+      "_why_asymmetric": "Brief consumes a `tight` group WHOLE and cannot yet filter Strands, so an oversized tight group lands entirely in a consumer with no way to narrow it — the harder cap follows the consumer's inability rather than the label's seniority. `related` and `loose` are browse material a reader scans and selects from.",
+      "_residual_is_not_here": "`other` is NOT an affinity label and carries no entry in this map. It is the RESIDUAL, bounded by `max_residual_members` below — a different quantity with a different purpose, and giving it a row here would let a reader treat the residual as a fourth affinity."
+    },
+    "min_subgroup_members": 3,
+    "_why_min": "A composed SubGroup under M is refused (amendment 1 ruling 3, M initial 3). It binds the AFFINITY labels only: the residual has no floor, because the residual shrinking toward zero is the outcome the whole design wants, and a floor on it would refuse exactly the classifications that did best.",
+    "max_residual_members": 5,
+    "_why_residual_cap": "`other` = unlimited is an ANTI-PATTERN (owner amendment 1, superseding the body's '`other` is unbounded'). Until the residual falls to N the harness refuses the classification and forces the creation of additional SubGroups, naming the remainder count against N. This is the share cap's replacement: the deleted `catch_all_share` bounded a bucket the ENGINE filled as a fraction of its parent; this bounds a bucket the JUDGE fills as an absolute count, which is what stops Lessons disappearing into a black-box residual."
   },
   "decidable_rules": {
     "expressible": [
@@ -511,12 +516,12 @@
       },
       {
         "id": "subgroup_member_cap",
-        "rule": "a `subgroup_heading` line whose coherence label is `tight` carries at most limits.subgroup_member_cap.tight members, and one labelled `related` at most limits.subgroup_member_cap.related; `other` is uncapped",
+        "rule": "a `subgroup_heading` line whose coherence label is `tight`, `related` or `loose` carries at most limits.subgroup_member_cap.<label> members and at least limits.min_subgroup_members; the residual `other` SubGroup carries at most limits.max_residual_members",
         "surfaces": [
           "cotag_screen"
         ],
-        "enforced_at": "J2_subdivision, as a refusal naming the SubGroup and the cap it exceeded (SPEC.md §8, kogaki#738 ruling 3). Named here because the numbers live in `limits` below and a rule reading them belongs beside the rules that read `subdivision_required_at_ten.threshold_members`.",
-        "reads": "limits.subgroup_member_cap"
+        "enforced_at": "J2_subdivision, as three refusals — over the label's cap, under M, and a residual over N — each naming the SubGroup and the limit it crossed (SPEC.md §8, kogaki#738 ruling 3 and owner amendments 1 and 2, 2026-09-01). Named here because the numbers live in `limits` and a rule reading them belongs beside the rules that read `subdivision_required_at_ten.threshold_members`.",
+        "reads": "limits.subgroup_member_cap, limits.min_subgroup_members, limits.max_residual_members"
       },
       {
         "id": "subdivision_required_at_ten",
