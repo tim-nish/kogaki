@@ -1,7 +1,7 @@
 {
-  "version": 14,
+  "version": 15,
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
-  "licensed_by": "kogaki#685 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
+  "licensed_by": "kogaki#739 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (terrain/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
     "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
@@ -143,10 +143,13 @@
         },
         {
           "id": "group_heading_subdivided",
-          "form": "<GroupID> — <co-tag name>",
+          "form": "<GroupID> — <co-tag name> — <LessonCount>",
           "allowlist": [
-            "GroupID"
-          ]
+            "GroupID",
+            "LessonCount"
+          ],
+          "_the_count_returned_at_v15": "kogaki#739, on the owner ruling of 2026-09-01. It was taken off at v13 (kogaki#684 disposition 2) on the ground that the members render on the SubGroup lines and the count is read there — true of the MEMBERS and false of the PARENT TOTAL, which no line then carried. The order matches `group_heading_flat`'s and the count is family-named per §9, so the two heading classes differ only in the member list the flat one appends.",
+          "_why_this_class_stays_less_specific_than_the_flat_one": "`specificity()` counts literal non-space characters outside placeholders, so `group_heading_flat` (two em dashes and a colon) still sorts ahead of this class (two em dashes) and is tried first. A flat line cannot fall through to this class either way: this form anchors its tail after `<LessonCount>`, and a flat line continues past it with `: <LessonDisplayID list>`."
         },
         {
           "id": "group_heading_flat",
@@ -515,6 +518,17 @@
         ]
       },
       {
+        "id": "subgroup_members_sum_to_parent",
+        "rule": "sum of LessonCount over a group's `subgroup_heading` lines == the LessonCount on that group's own `group_heading_subdivided` line",
+        "surfaces": [
+          "cotag_screen"
+        ],
+        "_restored_at_v15": "kogaki#739. This entry sat in `not_expressible` from v13, under a reopen trigger it wrote for itself — \"the first `cotag_screen` line class that carries a group's own member count again … at which point this entry moves back into `expressible` with its predicate restored\". The trigger has FIRED: `group_heading_subdivided` carries `<LessonCount>` again on the owner ruling of 2026-09-01. The entry moves rather than being re-pointed, which is the same discipline the withdrawal obeyed — a rule aimed at a quantity the text no longer carries is a predicate that cannot fail, and re-pointing it at the sum of the SubGroup counts would have compared a quantity to itself.",
+        "_the_pre_render_refusal_is_NOT_withdrawn_with_the_restoration": "`cmdCotags` still refuses DOUBLE placement and UNDER-placement over the placement record, by name, before a screen is composed (SPEC.md §6.2 rule 1). The two carriers read different things and neither subsumes the other: the pre-render refusal reads the DATA and catches a member placed twice or left unplaced; this rule reads the TEXT and catches a renderer that drops or miscounts a `subgroup_heading` line on data that placed correctly. That second failure is exactly what the withdrawn entry's `what_the_siting_costs` named as uncovered, and it is what returns to cover.",
+        "_the_re_executable_case": "checks/check-terrain-composition.sh — a crafted `validateSurface` case whose SubGroup counts do not reach the parent's, asserted to fire under this rule id, plus the emitter-side control that a conformant subdivided screen still renders. A rule restored to this category with nothing exercising it is the finding PR #757 round 1 made, one polarity over.",
+        "_removal_signal": "the parent count leaving `group_heading_subdivided` again — the same event, read the other way, that put this entry in `not_expressible` at v13. Event-shaped and mechanically decidable from this file alone: no line class carrying a group's own member count means no side of the comparison, and the entry returns to `not_expressible` with its cost restated rather than being re-pointed."
+      },
+      {
         "id": "subdivision_required_at_ten",
         "rule": "a `group_heading_flat` line whose LessonCount is >= 10 must be followed by at least one `subgroup_heading` line before the next group heading",
         "threshold_members": 10,
@@ -529,17 +543,9 @@
         "rule": "a SubGroup labelled `tight`, `related` or `loose` carries at most limits.subgroup_member_cap.<label> members, and at least limits.min_subgroup_members unless its members are the whole parent group; the residual `other` carries at most limits.max_residual_members and has no floor",
         "why_not_expressible": "The rendered text does not carry the two sides together. A `subgroup_heading` line carries the member count; the coherence label is on the SEPARATE `subgroup_coherence` line, so no single line class holds both, and the residual's total spans every `other` SubGroup in the group rather than sitting on one line at all. A rule keyed on `a subgroup_heading line whose coherence label is …` describes a line the grammar cannot produce.",
         "carried_instead": "Three refusals in the runtime, at J2_subdivision — over the label's cap, under M, and a residual over N — each naming the SubGroup and the limit it crossed (SPEC.md §8, kogaki#738 ruling 3 and owner amendments 1 and 2, 2026-09-01). They read `limits.subgroup_member_cap`, `limits.min_subgroup_members` and `limits.max_residual_members` directly.",
-        "what_the_siting_costs": "The refusals read the DATA and never the TEXT, so a renderer that emits a conformant record's SubGroup with a wrong count on the heading line is invisible to them. The golden specimen bounds that, as it does for `subgroup_members_sum_to_parent` beside this entry.",
+        "what_the_siting_costs": "The refusals read the DATA and never the TEXT, so a renderer that emits a conformant record's SubGroup with a wrong count on its own `subgroup_heading` line is invisible to them. What bounds that is now NARROWER THAN IT READS, and the narrowing is stated rather than left: `subgroup_members_sum_to_parent` left this section at v15 (kogaki#739) and constrains the SubGroup counts only in AGGREGATE — it catches a wrong count that moves the sum, and admits two wrong counts that cancel. The golden specimen bounds the rest, and at v15 it is still a screen with no subdivided group in it, so for THIS entry the specimen bounds the per-SubGroup count not at all. Stated here because the sibling entry's restoration reads, from outside, like coverage this entry gained.",
         "reopen_trigger": "the first `cotag_screen` line class that carries a SubGroup's member count and its coherence label TOGETHER — at which point the per-label cap becomes decidable over the text and this entry moves into `expressible` with a predicate and a crafted case",
         "_sited_here_deliberately": "It was in `expressible` at PR #757 (kogaki#738), where `validateSurface` dispatches on `rule.id` and an id with no arm is silently skipped — so the rule was considered and dropped on every screen, which is the conformance-category-with-no-members shape this section's own header warns about. Moved rather than given an arm, because the predicate is not writable over the current line forms."
-      },
-      {
-        "id": "subgroup_members_sum_to_parent",
-        "rule": "sum of LessonCount over a group's `subgroup_heading` lines == that group's own member count",
-        "why_not_expressible": "The rendered text no longer carries one side of the comparison: the subdivided group heading carries no parent count. Re-pointing the rule at the sum of the SubGroup counts would compare a quantity to itself, which is a predicate that cannot fail.",
-        "carried_instead": "A pre-render refusal in `cmdCotags`, over the placement rather than the rendered text. It fires on DOUBLE placement — one member named in two SubGroups — AND, since kogaki#738, on UNDER-placement: a member the judge left unplaced is refused by name rather than swept. The clause here read \"under-placement cannot occur, because the placement sweeps unplaced members into the catch-all\" — true of the sweep and false without it, so deleting the sweep without this sentence would have left the refusal covering one direction while its own carrier claimed the other was unreachable.",
-        "what_the_siting_costs": "The refusal reads the DATA and the withdrawn rule read the TEXT, so a renderer that omits a whole `subgroup_heading` line is invisible to this surface's refusal. The golden specimen still bounds it, and it is now the ONLY thing that does: `catch_all_share` read the same counts and was deleted with the sweep at kogaki#738, so this siting costs strictly more than it did — stated rather than left for a reader to infer from a rule that is simply gone.",
-        "reopen_trigger": "the first `cotag_screen` line class that carries a group's own member count again — a re-ruled heading, a per-group footer, or any other line the parent count reaches — at which point this entry moves back into `expressible` with its predicate restored"
       }
     ]
   },

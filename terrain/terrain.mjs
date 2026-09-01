@@ -1277,15 +1277,21 @@ function cmdCotags(args) {
     // emitter and a leading one on another is how the pre-v31 screen ended up
     // spacing subdivided groups and running flat ones together.
     say("");
-    // §6.2 v31 — A SUBDIVIDED GROUP'S HEADING CARRIES THE ID AND THE NAME AND
-    // NOTHING MORE. The count went with the member dump: the members render on
-    // the SubGroup lines, where they are read, and the count is read there too.
-    // The count that used to sit here was the denominator `catch_all_share`
-    // divided by and one side of `subgroup_members_sum_to_parent`; both are
-    // resolved in report-format.json v13 rather than left reading an absent
-    // token, and the pre-render refusal below is where the second one now lives.
+    // §6.2 — A SUBDIVIDED GROUP'S HEADING CARRIES THE PARENT'S LESSON COUNT
+    // AGAIN (kogaki#739, owner ruling 2026-09-01; report-format.json v15).
+    //
+    // WHAT THE MEMBER DUMP TOOK WITH IT AND WHAT IT DID NOT. v31 removed the
+    // whole tail on the ground that the members render on the SubGroup lines
+    // and are read there — true of the MEMBERS, false of the PARENT TOTAL.
+    // No line then carried it, which is why `subgroup_members_sum_to_parent`
+    // had to leave `expressible`: one side of its comparison was gone.
+    //
+    // ONLY THE COUNT RETURNS, not the member list. The two heading classes
+    // therefore differ by exactly the `: <ids>` tail, and the count sits in
+    // the same position on both, family-named per §9 — a subdivided screen and
+    // a flat one are read left to right the same way.
     say(judged
-      ? `${g.gid} — ${g.name}`
+      ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
       : `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
     if (!judged && gShown.missing) {
       say(displayIdAbnormalLine(gShown.missing, g.members.length));

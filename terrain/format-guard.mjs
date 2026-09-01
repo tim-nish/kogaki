@@ -266,6 +266,9 @@ export function validateSurface(surfaceName, text, grammar) {
     if (rule.id === "subdivision_required_at_ten") {
       v.push(...subdivisionRequiredRule(surfaceName, lines, classified, rule));
     }
+    if (rule.id === "subgroup_members_sum_to_parent") {
+      v.push(...sumToParentRule(surfaceName, lines, classified));
+    }
   }
   return v;
 }
@@ -330,12 +333,73 @@ const countIn = (s) => {
 // subject is gone is a predicate that cannot fail, which reads as coverage. Its
 // entry leaves `report-format.json` in the same act.
 //
-// WHAT IT ALSO CARRIED, and where that went: this rule read the same
-// `subgroup_heading` counts that `subgroup_members_sum_to_parent` cannot read
-// from the text, and its `not_expressible` entry named it as one of two things
-// still bounding that gap. The entry is updated in the same commit to say the
-// golden specimen is now the only one — the cost is stated rather than left for
-// a reader to infer from a rule that is simply absent.
+// WHAT IT ALSO CARRIED, and where that went — RESTATED AT v15 (kogaki#739),
+// because the gap it named has since closed from the other side. This rule read
+// the same `subgroup_heading` counts that `subgroup_members_sum_to_parent` could
+// not read from the text, and at v13 that left the golden specimen as the only
+// thing bounding them. `subgroup_members_sum_to_parent` is now back in
+// `expressible` and reads those counts directly, so the gap this paragraph
+// recorded is covered IN AGGREGATE and the paragraph is no longer the live
+// statement of the cost. What is still uncovered is narrower and is named where
+// it belongs — `subgroup_member_cap`'s own entry in `report-format.json` — since
+// a sum constrains the total and admits two per-SubGroup errors that cancel.
+
+// subgroup_members_sum_to_parent — the SubGroup counts under a subdivided
+// group heading must add up to the count on that heading (§6.2 rule 1,
+// kogaki#739; report-format.json v15).
+//
+// RESTORED, NOT WRITTEN. The rule existed as a grammar entry until v13 took the
+// parent count off the heading, at which point one side of its comparison
+// stopped being rendered and the entry moved to `not_expressible` under a
+// reopen trigger naming exactly this event. The trigger fired; this is the
+// predicate coming back, and it is deliberately the SAME comparison rather
+// than a re-aimed one — a rule re-pointed at the sum of the SubGroup counts
+// would compare a quantity to itself and could not fail.
+//
+// IT DOES NOT SUBSUME THE PRE-RENDER REFUSAL AND IS NOT SUBSUMED BY IT.
+// `cmdCotags` refuses double placement and under-placement over the PLACEMENT
+// RECORD before any text exists; this reads the TEXT. A renderer handed a
+// perfectly placed record that drops a `subgroup_heading` line, or prints the
+// wrong number on one, produces data-conformant input and non-conformant
+// output — invisible to the first carrier and caught here. Both are kept.
+//
+// A GROUP WITH NO SUBGROUP LINES IS NOT EXAMINED. `group_heading_subdivided`
+// is emitted only when SubGroups follow, so a subdivided heading with none
+// after it is already a defect — but it is `subdivision_required_at_ten`'s
+// defect when the group is large enough, and nothing's when it is not. Summing
+// zero against a positive parent here would refuse on behalf of a rule that
+// has its own arm and its own threshold, and would fire on the small-group
+// case that rule deliberately declines to examine.
+function sumToParentRule(surfaceName, lines, classified) {
+  const v = [];
+  let parent = null, parentLine = null, parentNo = null, sum = 0, seen = 0;
+  const close = () => {
+    if (parent === null || seen === 0) return;
+    if (sum !== parent) {
+      v.push(violation(surfaceName, "subgroup_members_sum_to_parent", parentLine, parentNo,
+        `the group heading names ${parent} member Lesson(s) and its ${seen} SubGroup heading(s) sum to ${sum} `
+        + "— §6.2 rule 1: every member is placed and nothing is silently dropped. The placement refusal in "
+        + "`cmdCotags` reads the record and this rule reads the rendered text, so a disagreement here means the "
+        + "RENDERER lost or miscounted a `subgroup_heading` line on a record that placed correctly"));
+    }
+  };
+  classified.forEach((id, i) => {
+    if (id === "group_heading_subdivided" || id === "group_heading_flat") {
+      close();
+      // A FLAT heading opens a group with no SubGroups under it, so it closes
+      // the previous group and starts nothing this rule examines. Tracking it
+      // as `null` rather than skipping it is what stops a flat group's absent
+      // SubGroups from being attributed to the subdivided group above it.
+      parent = id === "group_heading_subdivided" ? countIn(lines[i]) : null;
+      parentLine = lines[i]; parentNo = i + 1; sum = 0; seen = 0;
+    } else if (id === "subgroup_heading") {
+      const n = countIn(lines[i]);
+      if (n !== null) { sum += n; seen += 1; }
+    }
+  });
+  close();
+  return v;
+}
 
 // subdivision_required_at_ten — a group at or above the threshold must serve
 // SubGroups (§8, kogaki#683 disposition 1; owner ruling 2026-08-28, boundary
@@ -390,13 +454,21 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
   classified.forEach((id, i) => {
     if (id === "group_heading_subdivided" || id === "group_heading_flat") {
       close();
-      // THE SUBDIVIDED ARM IS DROPPED AT v13 (kogaki#684 disposition 2): that
-      // heading carries no count, so `countIn` would read `null` and the arm
-      // would evaluate nothing while still looking evaluated. It is narrowed
-      // deliberately rather than left reading an absent token — the grammar
-      // entry carries what the narrowing costs, which is close to nothing,
-      // since a heading of that form is emitted only when SubGroups follow it.
-      parent = id === "group_heading_flat" ? countIn(lines[i]) : null;
+      // THE SUBDIVIDED ARM IS RESTORED AT v15 (kogaki#739). It was dropped at
+      // v13 because that heading carried no count, so `countIn` read `null` and
+      // the arm evaluated nothing while still looking evaluated; the heading
+      // carries `<LessonCount>` again, so the premise of the narrowing is gone
+      // and leaving it would be a comment asserting something false about the
+      // grammar one file away.
+      //
+      // IT BUYS ALMOST NOTHING HERE, AND THAT IS SAID RATHER THAN IMPLIED: a
+      // line only classifies `group_heading_subdivided` when the emitter is
+      // rendering SubGroups, so `sawSubgroup` is set before `close()` reads it
+      // in every screen this emitter produces. What it removes is the asymmetry
+      // — the rule now reads the same token on both heading classes, so a
+      // future line form that carries a count without its SubGroups is caught
+      // rather than skipped by a narrowing nobody re-examined.
+      parent = countIn(lines[i]);
       parentLine = lines[i]; parentNo = i + 1; sawSubgroup = false;
     } else if (id === "subgroup_heading") {
       sawSubgroup = true;
