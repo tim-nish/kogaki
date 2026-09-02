@@ -5,13 +5,13 @@
 //
 // THE ORDER IS THE CONTRACT (v9, owner ruling 2026-08-17): entry resolves
 // the settled Strand set → the thesis-determination gate → the mint. Nothing
-// lands under briefs/ before a Thesis is adopted — pre-Thesis state is a
+// lands under theses/ before a Thesis is adopted — pre-Thesis state is a
 // MACHINE-LOCAL RUN RECORD, legitimately machine-local per the served
 // artifacts-live-where-human-works split (topics/knowledge-architecture.md:28
 // at pin 8906f207). The owner artifact begins exactly when the first piece of
 // substantive owner judgment — the Thesis — exists. A pre-Thesis Brief file
 // is UNPRODUCIBLE here, not prohibited: no code path below writes into
-// briefs/ except `mint`, and `mint` refuses without an adopted Thesis.
+// theses/ except `mint`, and `mint` refuses without an adopted Thesis.
 //
 // Three commands, one per block of the re-sequenced flow:
 //   enter  — resolves LessonDisplayIDs against the survey record (refusals
@@ -25,7 +25,7 @@
 //            and the slug it is paired with, or an override slug the owner
 //            named in the same answer. Emits no ask of its own.
 //   mint   — consumes the adopted (Thesis, slug) PAIR from the run state and
-//            creates briefs/<slug>/brief.md with `thesis` FILLED AT MINT BY
+//            creates theses/<slug>/brief.md with `thesis` FILLED AT MINT BY
 //            CONSTRUCTION and every downstream §5.1 field a typed unfilled
 //            slot. Idempotence by slug; a collision refuses (creator, never
 //            an editor).
@@ -38,7 +38,7 @@
 // constraint §5.3 v11 binds it by — a gate may carry a second decision class
 // only if that class is SEPARATELY RENDERED and SEPARATELY DECLINABLE — so
 // each option renders its slug as its own element of the option body (the
-// bare slug, never a `briefs/` path), and `adopt --slug` declines that half
+// bare slug, never a `theses/` path), and `adopt --slug` declines that half
 // without restating the Thesis or abandoning the option.
 //
 // OUTSIDE TERRAIN, by the 2026-08-09 boundary correction: this runtime never
@@ -228,7 +228,7 @@ export function composeBrief({ slug, pin, strands, thesis }) {
       throw new Error(
         `the minted Brief leaks spec-internal vocabulary: ${leak.kind} `
         + `${JSON.stringify(leak.token)} in composer-authored text — `
-        + `${JSON.stringify(line.trim().slice(0, 80))}. briefs/<slug>/brief.md is a tracked `
+        + `${JSON.stringify(line.trim().slice(0, 80))}. theses/<slug>/brief.md is a tracked `
         + `document the owner reads directly, so an internal key or a pointer into a spec they `
         + `do not hold has no rendering path here (kogaki#526). This REFUSES rather than `
         + `rewrites, as the gate's own tripwire does. The adopted Thesis and the Strand `
@@ -506,8 +506,8 @@ function readRunState(args) {
 }
 
 // ---- enter: resolve the set, compose candidates, write run state. ----
-// WRITES NOTHING under briefs/ or any tracked path (story 1.72 AC1) — the
-// run state is machine-local by default and the command has no briefs-dir
+// WRITES NOTHING under theses/ or any tracked path (story 1.72 AC1) — the
+// run state is machine-local by default and the command has no theses-dir
 // concept at all.
 function cmdEnter(args) {
   const record = JSON.parse(readFileSync(
@@ -546,7 +546,7 @@ function cmdEnter(args) {
   // option carries its Thesis AND the name that Thesis derives. The slug
   // rides the option's `rendering` — the same body surface the composition
   // gate uses (kogaki#520) — so it is SEPARATELY RENDERED rather than hidden
-  // inside the Thesis text, and it shows the BARE slug, never a `briefs/`
+  // inside the Thesis text, and it shows the BARE slug, never a `theses/`
   // path (owner rendering ruling 2026-08-18; the option body is already
   // dense). Placement in the body rather than the label is a try-one-first
   // instruction: moving it to the label needs no amendment (§5.3 v11).
@@ -570,7 +570,7 @@ function cmdEnter(args) {
       // label, set off by a dash and named, rather than folded into the Thesis
       // prose where it would read as part of the claim. SEPARATELY DECLINABLE is
       // untouched — the owner keeps the option and renames in the same answer.
-      // The BARE name, never a `briefs/` path, exactly as the body entry carried
+      // The BARE name, never a `theses/` path, exactly as the body entry carried
       // it.
       ...candidates.map((c) => ({
         id: c.id,
@@ -602,7 +602,7 @@ function cmdEnter(args) {
   };
   writeFileSync(runPath, JSON.stringify(state, null, 2) + "\n");
   console.log(JSON.stringify({ run_state: runPath, gate }, null, 2));
-  console.log(`# entry resolved ${r.strands.length} member(s); nothing written under briefs/ — pre-Thesis state is machine-local (§5.3 v9).`);
+  console.log(`# entry resolved ${r.strands.length} member(s); nothing written under theses/ — pre-Thesis state is machine-local (§5.3 v9).`);
 }
 
 // ---- adopt: record the owner's answer at THE ONE GATE — the pair. ----
@@ -676,7 +676,7 @@ function cmdAdopt(args) {
     adopted: { thesis, slug, thesis_via: state.adopted_via, slug_via: via },
   }, null, 2));
   console.log("# The (Thesis, name) pair is adopted into machine-local run state — one gate, already answered. "
-    + "Nothing exists under briefs/ until `mint` runs; no further question is raised (§5.3 v11, kogaki#518).");
+    + "Nothing exists under theses/ until `mint` runs; no further question is raised (§5.3 v11, kogaki#518).");
 }
 
 // ---- mint: consume the adopted (Thesis, slug) PAIR. ----
@@ -686,7 +686,7 @@ function cmdMint(args) {
     // THE GATE BLOCKS (story 1.72 AC6): no adopted Thesis, no writes — a
     // pre-Thesis Brief is unproducible, not prohibited (kogaki#494 remedy).
     fail("no Thesis has been adopted in this run — the thesis-determination "
-      + "gate blocks and nothing is written under briefs/ (§5.3 v9; "
+      + "gate blocks and nothing is written under theses/ (§5.3 v9; "
       + "kogaki#494: a pre-Thesis Brief is unproducible).");
   }
   // THE MINT CONSUMES THE ADOPTED PAIR (§5.3 v11, kogaki#518). The owner's
@@ -707,13 +707,13 @@ function cmdMint(args) {
       + "slug ask to answer).");
   }
 
-  const briefsDir = resolve(typeof args["briefs-dir"] === "string" && args["briefs-dir"] !== "" ? args["briefs-dir"] : "briefs");
-  const home = join(briefsDir, slug);
+  const thesesDir = resolve(typeof args["theses-dir"] === "string" && args["theses-dir"] !== "" ? args["theses-dir"] : "theses");
+  const home = join(thesesDir, slug);
   // IDEMPOTENCE IS BY SLUG, AND A COLLISION REFUSES (§5.3): a Brief is owner
   // state from the moment it exists, and this runtime is a creator, never an
   // editor.
   if (existsSync(home)) {
-    fail(`briefs/${slug}/ already exists. The entry point creates and never `
+    fail(`theses/${slug}/ already exists. The entry point creates and never `
       + "overwrites — resume that Brief by opening its document, or re-answer "
       + "the thesis-determination gate naming a different name (`adopt "
       + "--thesis <id|text> --slug <name>`, SPEC-draft-pipeline §5.3 v11).");
@@ -745,6 +745,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         + "re-sequenced at v9 (kogaki#494): entry → thesis-determination "
         + "gate → mint. Run `enter`, then `adopt`, then `mint`.");
       break;
-    default: fail("usage: brief.mjs enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | adopt --run-state <path> --thesis <id|text> [--slug <override>] | mint --run-state <path> [--briefs-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
+    default: fail("usage: brief.mjs enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | adopt --run-state <path> --thesis <id|text> [--slug <override>] | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
   }
 }

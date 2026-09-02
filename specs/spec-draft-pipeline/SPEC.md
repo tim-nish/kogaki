@@ -221,7 +221,7 @@ durable home and its entry point**, discharging the absence §2 declared
 deliberately ("manifest item 5's and is not decided here") on the first
 run-surfaced demand (the owner attempting a Brief for a pulled report's
 G1-1 and finding no entry point — the promotion condition kogaki#127's close
-named). The home is a **directory per Brief** (`briefs/<slug>/brief.md`,
+named). The home is a **directory per Brief** (`theses/<slug>/brief.md`,
 tracked); the entry point is a **new `brief` skill fronting a runtime**,
 outside Terrain, whose input unit is the `LessonDisplayID` and nothing else.
 §2's durable-home paragraph is re-pointed rather than edited away.
@@ -1145,7 +1145,12 @@ path names any of the three. The reading is therefore **zero writers beside
 three declarations**, which is the precise shape of the defect: the fields are
 announced by the document and authored by nothing. The dogfooded Brief
 `briefs/derived-artifacts-inherit-source/brief.md` completed adoption with all
-three still rendering `*(awaiting composition)*`.
+three still rendering `*(awaiting composition)*` — **named at the path it had
+when the observation was made, and NOT IN THE TREE**: it is the record of a
+dogfood run rather than a pointer to a document, and the directory it names has
+never been tracked. Left at its original `briefs/` spelling for the same reason
+(kogaki#766): the rename moved the durable home, and rewriting a past
+observation's path would make the record false about the run it describes.
 
 **This is §4.3's own rule failing inside this spec.** §4.3 states it without
 qualification — *"a MUST with no named judge is a rule with no occasion, and
@@ -1258,7 +1263,7 @@ licensing issue.
 
 #### 5.1.2 The vocabulary guard's reach (v15, kogaki#537)
 
-`briefs/<slug>/brief.md` is a tracked document the owner reads directly, and
+`theses/<slug>/brief.md` is a tracked document the owner reads directly, and
 kogaki#526 installed a guard refusing spec-internal vocabulary in it — an
 internal identifier or a pointer into a spec the owner does not hold. That guard
 read **every line**. This clause decides **whose text it governs**.
@@ -1540,7 +1545,7 @@ with only the first actually asked:
 So both conditions bind this section, and neither is presentation polish:
 
 - **Separately rendered.** The slug appears as its own visible element of the
-  option — the **bare slug**, never the `briefs/<slug>` path, **since the option
+  option — the **bare slug**, never the `theses/<slug>` path, **since the option
   is already dense** (owner rendering ruling 2026-08-18). Placement in the body
   rather than the label was a **try-one-first instruction, not a settled
   placement**: if it reads badly in use, it moves to the label, and that move
@@ -1600,7 +1605,7 @@ runs: **entry resolves the settled Strand set** (LessonDisplayIDs against the
 survey record, every refusal below unchanged) → **the thesis-determination
 gate** (kogaki#488) → **the mint**. The slug is **one candidate derived from
 the adopted Thesis**, presented through the question UI for approval, with
-free-form override; the approved slug names `briefs/<slug>/`. Two grains of
+free-form override; the approved slug names `theses/<slug>/`. Two grains of
 v7 are superseded, stated rather than absorbed:
 
 - *"the slug is owner-chosen **at entry**"* → the slug is **owner-approved at
@@ -1633,7 +1638,7 @@ and the home** that demand instance names — and only those: the live
 composition workflow, the Step record and the path-review agent remain
 uncarried, each still awaiting its own surfacing run.
 
-**The durable home is a DIRECTORY PER BRIEF: `briefs/<slug>/brief.md`,
+**The durable home is a DIRECTORY PER BRIEF: `theses/<slug>/brief.md`,
 tracked in the repository.** The class was settled by the hub and is applied,
 not re-decided:
 
@@ -1656,7 +1661,7 @@ the kogaki#482 gate, 2026-08-16): a directory, because manifest item 5's
 remaining future — checkpoints and resume — then lands **beside the
 document** with no re-siting decision, which is the same one-decision-now
 shape §2's gate table already prefers. The declined arm is recorded so it is
-not re-proposed blind: **one file per Brief** (`briefs/<slug>.md`) is the
+not re-proposed blind: **one file per Brief** (`theses/<slug>.md`) is the
 flattest enumeration and was declined because checkpoints would then either
 ride inside the document or reopen the home question this section exists to
 close. **The cost is stated:** a directory holding one file today. Tracked
@@ -1694,7 +1699,7 @@ The refusal says exactly that, and points at the report's member headings
 where the `L<n>` ids stand beside the grouping the owner navigated by.
 
 **What the entry point MINTS is the §5.1 structure, empty where composition
-owes it.** `briefs/<slug>/brief.md` opens with the reader-facing definition
+owes it.** `theses/<slug>/brief.md` opens with the reader-facing definition
 of "brief" — coining an owner-facing term obliges a reader-facing definition
 in the same act (`consulted:
 product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:132`)
@@ -1759,7 +1764,7 @@ discriminates it yet`. One does — not the rule's truth, its edge:
 `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 gloss/lessons/knowledge-architecture.md:203`
 
 The test it supplies is **does the workflow write past a gate its owner owns**,
-and this one does not: each gate blocks, nothing under `briefs/` exists before
+and this one does not: each gate blocks, nothing under `theses/` exists before
 the thesis is adopted, and `adopt-candidate` refuses without a recorded owner
 answer. Completing the Brief is therefore one completing action on **one** side
 of no ratification boundary. Were a second party's gate ever added to this arc,
@@ -1827,7 +1832,7 @@ moment (PR #483 round 1).** §7.2's first measured ground reads "No Brief or
 Draft carrier ships here today … there is no run to sign, so there is
 nothing for a ledger to accumulate", beside §7's dated corpus measurement.
 The entry point's landing (story 1.71) falsifies the **carrier half** of
-that premise going forward: `briefs/` will exist and hold documents. It does
+that premise going forward: `theses/` will exist and hold documents. It does
 **not** by itself falsify the ground's conclusion — a minted Brief with
 every composition field an unfilled slot is still **no signed run**, and the
 cross-run signature ledger the trigger names still does not exist — so the

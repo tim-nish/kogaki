@@ -495,7 +495,7 @@ function cmdAssemble(args) {
   const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
     "assemble needs --reviewed <json> — src/review.mjs attach's output"), "utf8"));
   const doc = readFileSync(argString(args, "brief",
-    "assemble needs --brief <briefs/<slug>/brief.md> — the composed Brief whose ledger state and placement count are part of the evidence"), "utf8");
+    "assemble needs --brief <theses/<slug>/brief.md> — the composed Brief whose ledger state and placement count are part of the evidence"), "utf8");
   const out = argString(args, "out",
     "assemble needs --out <path> — the machine-local file the selection payload rides in (never a tree *.proposal.json — §6 registers no new record class)");
   const r = assembleSelection(reviewed, doc);
@@ -506,7 +506,7 @@ function cmdAssemble(args) {
 }
 
 function cmdAdopt(args) {
-  const briefPath = argString(args, "brief", "adopt-candidate needs --brief <briefs/<slug>/brief.md>");
+  const briefPath = argString(args, "brief", "adopt-candidate needs --brief <theses/<slug>/brief.md>");
   const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
     "adopt-candidate needs --reviewed <json> — the reviewed Candidates the gate offered"), "utf8"));
   const id = argString(args, "candidate",

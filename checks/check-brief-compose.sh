@@ -30,15 +30,15 @@ import { REVIEW_AREAS } from "./src/review.mjs";
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const fails = [];
 const dir = mkdtempSync(join(tmpdir(), "brief-compose-"));
-const briefs = join(dir, "briefs");
+const theses = join(dir, "theses");
 const run = (argv) => spawnSync(process.execPath, argv, { encoding: "utf8" });
 
 // Mint a real Brief through the v9 flow (L2 has a journey; L1 does not).
 const rs = join(dir, "run.json");
 run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", rs]);
 run(["src/brief.mjs", "adopt", "--run-state", rs, "--thesis", "thesis-1"]);
-run(["src/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--briefs-dir", briefs]);
-const briefPath = join(briefs, "compose-case", "brief.md");
+run(["src/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--theses-dir", theses]);
+const briefPath = join(theses, "compose-case", "brief.md");
 
 const step1 = {
   // §4.1 v18 (kogaki#642): every Step binds a Move — the State component.

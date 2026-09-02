@@ -6,7 +6,7 @@
 #
 # Seam-free: every case runs against the committed terrain survey fixture
 # (checks/fixtures/terrain/cotags/lone-tag-member.json, display ids L1-L5)
-# with the run state and the briefs dir both in temporary directories. The
+# with the run state and the theses dir both in temporary directories. The
 # composed document is asserted through the exported composer AND through
 # the command path, so a wiring break between them fails here rather than
 # shipping.
@@ -27,7 +27,7 @@ const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const record = JSON.parse(readFileSync(SURVEY, "utf8"));
 const fails = [];
 const dir = mkdtempSync(join(tmpdir(), "brief-entry-"));
-const briefs = join(dir, "briefs");
+const theses = join(dir, "theses");
 const rs = (name) => join(dir, `${name}.run.json`);
 const run = (argv) => spawnSync(process.execPath,
   ["src/brief.mjs", ...argv], { encoding: "utf8" });
@@ -36,8 +36,8 @@ const adopt = (state, thesis, slug) => run(slug === undefined
   ? ["adopt", "--run-state", state, "--thesis", thesis]
   : ["adopt", "--run-state", state, "--thesis", thesis, "--slug", slug]);
 // The mint takes NO name of its own at v11 — it consumes the adopted pair.
-const mint = (state) => run(["mint", "--run-state", state, "--briefs-dir", briefs]);
-const briefsEmpty = () => !existsSync(briefs) || readdirSync(briefs).length === 0;
+const mint = (state) => run(["mint", "--run-state", state, "--theses-dir", theses]);
+const thesesEmpty = () => !existsSync(theses) || readdirSync(theses).length === 0;
 // The strand phrases the fixture's set can contribute — the vocabulary a
 // composed candidate may draw content from (plus plain-register frame words).
 const setPhrases = (ids) => ids.map((id) =>
@@ -68,19 +68,19 @@ const mkHeads = (ids) => new Map(ids.map((id) => {
 }));
 
 try {
-  // (a) ENTRY WRITES NOTHING UNDER briefs/ (AC1): pre-Thesis state is
+  // (a) ENTRY WRITES NOTHING UNDER theses/ (AC1): pre-Thesis state is
   // machine-local run state; the mint is the only producer of the home.
-  // Observed BOTH where the check points the mint (the tmp briefs dir) and
-  // at the repository's own briefs/ (a read-only listing snapshot), because
-  // `enter` takes no briefs-dir at all and a mutated enter would write
+  // Observed BOTH where the check points the mint (the tmp theses dir) and
+  // at the repository's own theses/ (a read-only listing snapshot), because
+  // `enter` takes no theses-dir at all and a mutated enter would write
   // relative to cwd.
-  const repoBriefs = () => existsSync("briefs") ? readdirSync("briefs").sort().join(",") : "(absent)";
-  const repoBefore = repoBriefs();
+  const repoTheses = () => existsSync("theses") ? readdirSync("theses").sort().join(",") : "(absent)";
+  const repoBefore = repoTheses();
   const s1 = rs("case-a");
   const r1 = enter("L2,L1", s1);
   if (r1.status !== 0) fails.push(`(a) enter exited ${r1.status}: ${(r1.stderr || "").trim()}`);
-  if (!briefsEmpty()) fails.push("(a) enter created something under the briefs dir — a pre-Thesis Brief must be UNPRODUCIBLE (§5.3 v9, kogaki#494)");
-  if (repoBriefs() !== repoBefore) fails.push("(a) enter changed the repository's briefs/ — a pre-Thesis Brief must be UNPRODUCIBLE (§5.3 v9, kogaki#494)");
+  if (!thesesEmpty()) fails.push("(a) enter created something under the theses dir — a pre-Thesis Brief must be UNPRODUCIBLE (§5.3 v9, kogaki#494)");
+  if (repoTheses() !== repoBefore) fails.push("(a) enter changed the repository's theses/ — a pre-Thesis Brief must be UNPRODUCIBLE (§5.3 v9, kogaki#494)");
   if (!existsSync(s1)) fails.push("(a) enter wrote no machine-local run state");
   const st1 = existsSync(s1) ? JSON.parse(readFileSync(s1, "utf8")) : {};
 
@@ -423,10 +423,10 @@ try {
       fails.push(`(d) option ${c.id} renders its name TWICE — the body element is retired by kogaki#567, and two sites for one value is what a half-finished move leaves behind`);
     }
   }
-  // AC2: the BARE slug — `briefs/` appears in NO option's rendering.
+  // AC2: the BARE slug — `theses/` appears in NO option's rendering.
   for (const o of st1.gate?.options || []) {
     const surfaces = [o.label, ...(o.rendering || []).flatMap((r) => [r.label, r.text])];
-    for (const t of surfaces) if (String(t).includes("briefs/")) fails.push(`(d) option ${o.id} renders a briefs/ path — the owner reads the BARE name (owner rendering ruling 2026-08-18)`);
+    for (const t of surfaces) if (String(t).includes("theses/")) fails.push(`(d) option ${o.id} renders a theses/ path — the owner reads the BARE name (owner rendering ruling 2026-08-18)`);
   }
   // AC3, half one: with no override, the ADOPTED CANDIDATE'S OWN paired slug
   // is what the run carries forward.
@@ -492,7 +492,7 @@ try {
   const r4 = mint(sNoName);
   if (r4.status === 0) fails.push("(e) mint invented a name for a run whose adopted pair carries none");
   if (!/no adopted name/.test(r4.stderr || "")) fails.push(`(e) the nameless refusal does not name what is missing: ${JSON.stringify((r4.stderr || "").slice(0, 160))}`);
-  if (!briefsEmpty()) fails.push("(e) a blocked gate left something under briefs/");
+  if (!thesesEmpty()) fails.push("(e) a blocked gate left something under theses/");
 
   // (f) THE MINT (AC5): thesis FILLED at mint by construction — the adopted
   // text, never a slot — and every DOWNSTREAM §5.1 field a typed unfilled
@@ -500,7 +500,7 @@ try {
   // command path byte-equal to the exported composer.
   const r5 = mint(s1);
   if (r5.status !== 0) fails.push(`(f) mint exited ${r5.status}: ${(r5.stderr || "").trim()}`);
-  const home = join(briefs, st2.adopted_slug);
+  const home = join(theses, st2.adopted_slug);
   const doc = existsSync(join(home, "brief.md")) ? readFileSync(join(home, "brief.md"), "utf8") : "";
   if (!/A \*\*brief\*\* is the working plan/.test(doc)) fails.push("(f) the reader-facing definition of 'brief' is absent — coining an owner-facing term obliges a definition in the same act");
   if (!/### L2 — alpha/.test(doc) || !/### L1 — bravo/.test(doc)) fails.push("(f) a resolved Strand heading is absent");
@@ -616,13 +616,13 @@ try {
     const a = spawnSync(process.execPath, ["src/brief.mjs", "adopt", "--run-state", ds, "--thesis", "thesis-1", "--slug", "uncited-case"], { encoding: "utf8" });
     if (a.status !== 0) fails.push(`(k) adopt over the derived survey exited ${a.status}: ${(a.stderr || "").trim()}`);
     const st = JSON.parse(readFileSync(ds, "utf8"));
-    const m = spawnSync(process.execPath, ["src/brief.mjs", "mint", "--run-state", ds, "--briefs-dir", briefs], { encoding: "utf8" });
+    const m = spawnSync(process.execPath, ["src/brief.mjs", "mint", "--run-state", ds, "--theses-dir", theses], { encoding: "utf8" });
     if (m.status !== 0) fails.push(`(k) mint over the derived survey exited ${m.status}: ${(m.stderr || "").trim()}`);
     // GUARDED: (k) mints under the name the owner OVERRODE at the one gate,
     // so a broken override strands this case with no document. Report that
     // as (k)'s own finding rather than crashing the whole check — a crash
     // here would hide every case after it.
-    const docPath = join(briefs, "uncited-case", "brief.md");
+    const docPath = join(theses, "uncited-case", "brief.md");
     if (!existsSync(docPath)) {
       fails.push("(k) no Brief was minted under the overriding name — the derived run has no document to assert against");
       throw new Error("__k_skipped__");
@@ -660,7 +660,7 @@ try {
 }
 
 // (m) THE MINTED BRIEF CARRIES NO INTERNAL KEY AND NO SECTION REFERENCE
-// (kogaki#526). `briefs/<slug>/brief.md` is a TRACKED document the owner reads
+// (kogaki#526). `theses/<slug>/brief.md` is a TRACKED document the owner reads
 // directly. kogaki#520 removed spec-internal vocabulary from the gate payload
 // and installed a tripwire there; that tripwire reads the payload and had no
 // reach into the minted document, which is why #526 is its own carrier.
@@ -857,7 +857,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/ (pre-Thesis "
+console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under theses/ (pre-Thesis "
   + "state is machine-local, §5.3 v9); (b) 2-3 Thesis candidates composed from the settled "
   + "set only, each carrying its round-trip concession AS PROSE \u2014 no field label opens either "
   + "half the owner reads, no doubled period, and no supporting member spliced into the lead "
@@ -866,14 +866,14 @@ console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/
   + "(d) THE ONE GATE CARRIES THE (THESIS, SLUG) PAIR AND THE SECOND ASK IS GONE, NOT SKIPPED "
   + "(kogaki#518, §5.3 v11): every candidate carries a slug DERIVED FROM ITS OWN Thesis through the "
   + "one exported derivation, each option renders that slug as its own labelled element of the option "
-  + "BODY (separately RENDERED) as the BARE name with no `briefs/` path on any option surface, the "
+  + "BODY (separately RENDERED) as the BARE name with no `theses/` path on any option surface, the "
   + "owner's `--slug` override in the SAME one answer becomes the adopted name while the listed Thesis "
   + "and the option itself are kept and a malformed override refuses (separately DECLINABLE), and the "
   + "retired ask is ABSENT — no slug_gate or slug_candidate in the run state, no such live path in "
   + "src/brief.mjs, no brief-slug-approval row in gates/registry.json, and brief-thesis-adoption's "
   + "dynamic_options declaring the pair with both of its conditions; "
   + "(e) the gate blocks — mint refuses without an adopted Thesis, and INVENTS NO NAME for a run whose "
-  + "adopted pair carries none, leaving briefs/ empty; (f) the mint fills thesis BY CONSTRUCTION and "
+  + "adopted pair carries none, leaving theses/ empty; (f) the mint fills thesis BY CONSTRUCTION and "
   + "every downstream §5.1 "
   + "field is a typed unfilled slot, with the command path byte-equal to the exported "
   + "composer; (g) an unknown id refuses naming both sides; (h) a G-id refuses by name "
@@ -962,7 +962,7 @@ console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/
   + "Then the earlier "
   + "mutations, each run once and restored surgically — story 1.76's six, all against §5.3 v11's "
   + "paired gate: dropping each option's slug element failed (d)'s separately-RENDERED assertion; "
-  + "putting the `briefs/<slug>` path into that element failed (d)'s bare-name assertion; leaving the "
+  + "putting the `theses/<slug>` path into that element failed (d)'s bare-name assertion; leaving the "
   + "candidates unpaired failed (d)'s per-candidate slug assertion; making adopt ignore `--slug` failed "
   + "(d)'s separately-DECLINABLE assertion AND stranded (k), which is the direct evidence that the "
   + "override is load-bearing rather than decorative; making mint derive a name when the adopted pair "
