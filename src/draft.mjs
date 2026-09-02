@@ -317,6 +317,170 @@ function cmdMaterial(args) {
   for (const g of grounds) process.stdout.write(`ground: ${g[1]}\n`);
 }
 
+// ---------------------------------------------------------------------------
+// THE SECTION PACKET (§4.14, kogaki#749; owner rulings 2026-09-01).
+//
+// The harness-assembled input from which the model realizes ONE Step's prose —
+// the one LLM judgment of the Draft lane. `packet --step <id>` renders it
+// DETERMINISTICALLY from the template plus the Brief plus the Move record plus
+// the workspace's realized Sections plus the derived ledger; the session
+// realizes the prose; `section` validates it as before.
+//
+// THE PACKET IS THE MODEL'S ENTIRE INPUT. Nothing outside it is read, which is
+// why every block opens with a fixed usage header saying what the block is FOR:
+// a block whose use is not stated gets used for whatever it resembles, and the
+// Move exemplar is the one that fails worst — read as content rather than as
+// form, it hands the article another article's subject matter.
+//
+// DETERMINISTIC means the same inputs render the same bytes. No timestamp, no
+// run id, no ordering that depends on a directory read: the Sections come in
+// the Brief's recorded order and the ledger is recomputed from the path.
+
+// `requires`/`effect` are EXCLUDED from the rendered Move contract, and the
+// exclusion is the ruling rather than an omission: the Step's own
+// `reader_state_before`/`after` are the instance forms of exactly those two
+// fields (§4.12), so rendering both would put the general and the specialized
+// statement of one thing side by side and leave the model to pick. The Step's
+// instantiated states win.
+const MOVE_FIELDS_RENDERED = ["intent", "constraints", "failure_modes"];
+
+// Read one field out of a Move record's folded-scalar form. The store is the
+// same one §4.12's resolver reads, and this reads VALUES where that one reads
+// only ids — the split is deliberate (§4.12.1: a resolver that parsed these
+// would be one edit from comparing them), so this is a second reader with its
+// own purpose rather than a widening of the first.
+function moveField(text, field) {
+  const m = text.match(new RegExp(`^${field}:\\s*(>-)?[ \\t]*\\n((?:[ \\t]+.*\\n?)*)`, "m"));
+  if (m) return m[2].split("\\n").map((l) => l.trim()).filter(Boolean).join(" ").trim();
+  const inline = text.match(new RegExp(`^${field}:[ \\t]*(.+)$`, "m"));
+  return inline ? inline[1].trim() : null;
+}
+
+// A Brief's global anchors, verbatim from the document. Read from the heading
+// rather than re-derived, because "verbatim from the Brief" is the ruling.
+function briefSection(text, heading) {
+  const re = new RegExp(`^## ${heading}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`, "m");
+  const m = text.match(re);
+  return m ? m[1].trim() : null;
+}
+
+// The step block's fields, read off the recorded form `renderStep` writes.
+function stepField(body, field) {
+  const m = body.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
+  return m ? m[1].trim() : null;
+}
+
+export function renderPacket({ template, brief, step, moveText, priorSections, ledgerRow }) {
+  const missing = [];
+  const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
+
+  const grounds = step.body.split("\n").filter((l) => l.startsWith("ground ")).join("\n");
+  const intro = (step.introduces || []);
+  const known = (ledgerRow?.reader_already_knows || []);
+
+  const fields = {
+    thesis: need("the Brief's Thesis", briefSection(brief.text, "Thesis")),
+    reader_start: need("the Brief's Reader start", briefSection(brief.text, "Reader start")),
+    reader_target: need("the Brief's Reader target", briefSection(brief.text, "Reader target")),
+    opening_question: need("the Brief's Opening question", briefSection(brief.text, "Opening question")),
+    move_id: step.move,
+    move_intent: need(`${step.move}'s intent`, moveField(moveText, "intent")),
+    move_constraints: need(`${step.move}'s constraints`, moveField(moveText, "constraints")),
+    move_failure_modes: need(`${step.move}'s failure_modes`, moveField(moveText, "failure_modes")),
+    // The exemplar renders its own STATED ABSENCE rather than a substitute
+    // (§4.13.1) — an empty excerpt is not a missing input, it is a record that
+    // cannot serve as an exemplar, and the Packet says so where the passage
+    // would have gone.
+    move_excerpt: moveField(moveText, "excerpt")
+      || `(none — this Move record carries no excerpt, so it cannot serve as an exemplar. Perform the Move from its contract above.)`,
+    step_id: step.step_id,
+    purpose: need(`step ${step.step_id}'s purpose`, stepField(step.body, "purpose")),
+    reader_state_before: need(`step ${step.step_id}'s reader_state_before`, stepField(step.body, "reader_state_before")),
+    reader_state_after: need(`step ${step.step_id}'s reader_state_after`, stepField(step.body, "reader_state_after")),
+    materials: stepField(step.body, "materials") || "(none)",
+    rationale: need(`step ${step.step_id}'s rationale`, stepField(step.body, "rationale")),
+    grounds: grounds || "(none recorded)",
+    reader_already_knows: known.length
+      ? known.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
+      : "(nothing — this is the first Section to introduce anything, or the path introduces no terms)",
+    introduces: intro.length ? intro.map((e) => `- ${e}`).join("\n") : "(nothing new)",
+    prior_sections: priorSections.length
+      ? priorSections.map((p) => p.text).join("\n\n")
+      : "(nothing yet — this is the article's first Section)",
+  };
+  if (missing.length) {
+    return { error: `the Packet for ${step.step_id} cannot be rendered: ${missing[0]} is absent. `
+      + `A Packet is the model's entire input, so a missing block is a hole the model fills by invention — `
+      + `it refuses by NAME rather than rendering an empty slot (§4.14).` };
+  }
+  let out = template;
+  for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
+  // The HTML comment is authoring guidance for the template's maintainer and
+  // is NOT part of the model's input — stripped here so the rendered Packet is
+  // exactly what the ruling describes and nothing more.
+  out = out.replace(/^<!--[\s\S]*?-->\n*/, "");
+  const left = out.match(/\{\{(\w+)\}\}/);
+  if (left) return { error: `the template slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (§4.14)` };
+  return { packet: out };
+}
+
+function cmdPacket(args) {
+  const brief = loadBrief(args);
+  const id = argString(args, "step", "packet needs --step <step_id>");
+  const step = brief.steps.find((s) => s.step_id === id);
+  if (!step) {
+    fail(`no step "${id}" in this Brief's Reader Path (${brief.steps.map((s) => s.step_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`);
+  }
+  const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
+  let moveText;
+  try { moveText = readFileSync(join(movesDir, `${step.move}.md`), "utf8"); }
+  catch (e) {
+    fail(`step ${id} binds move "${step.move}" and its record cannot be read from ${movesDir} (${e.message}) — `
+      + `resolve refuses a dangling id before this point (§4.12.1), so this is the store rather than the Brief`);
+  }
+  const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
+  let template;
+  try { template = readFileSync(tplPath, "utf8"); }
+  catch (e) { fail(`the Packet template at ${tplPath} cannot be read (${e.message}) — it is a runtime-read carrier and the command has no built-in fallback, deliberately: a fallback template would be a second copy nobody maintains`); }
+
+  const ws = workspaceFor(args, brief.slug);
+  // PRIOR SECTIONS IN THE BRIEF'S RECORDED ORDER, never a directory read —
+  // the order is the Reader Path's and a readdir would make the Packet's bytes
+  // depend on the filesystem.
+  const prior = [];
+  for (const s of brief.steps) {
+    if (s.step_id === id) break;
+    const f = join(ws, "sections", `${s.step_id}.md`);
+    if (existsSync(f)) prior.push({ step_id: s.step_id, text: readFileSync(f, "utf8").trim() });
+  }
+  const ledger = readerKnowledgeLedger(brief.steps);
+  const row = ledger.find((r) => r.step_id === id);
+
+  const r = renderPacket({ template, brief, step, moveText, priorSections: prior, ledgerRow: row });
+  if (r.error) fail(r.error);
+
+  // RETENTION: stored EXACTLY AS SERVED, overwritten on re-render, with the
+  // path and sha announced beside the Section it will produce.
+  //
+  // THE PATH IS THE RUN WORKSPACE, NOT runs/ (kogaki#750). #749 routes this to
+  // `runs/draft/<slug>/packets/` per that issue, which is UNBUILT — there is no
+  // runs/ tree at this head. Writing to a directory that does not exist as a
+  // declared home would have minted #750's design as a side effect of this
+  // command. The workspace is where every other machine-local draft artifact
+  // already lives (run record, snapshots, sections), so the Packet joins them
+  // and MOVES when runs/ lands.
+  const dir = join(ws, "packets");
+  mkdirSync(dir, { recursive: true });
+  const out = join(dir, `${id}.md`);
+  writeFileSync(out, r.packet);
+  const sha = sha256(r.packet);
+  process.stdout.write(r.packet);
+  process.stderr.write(`\npacket ${id}: ${out}\n`);
+  process.stderr.write(`packet sha256: ${sha}\n`);
+  process.stderr.write(`stored exactly as served — the file above is byte-identical to what was printed (§4.14)\n`);
+  process.stderr.write(`retention home is the run workspace; runs/draft/<slug>/packets/ is owed to kogaki#750 and this path moves when it lands\n`);
+}
+
 function cmdSection(args) {
   const brief = loadBrief(args);
   const id = argString(args, "step", "section needs --step <step_id>");
@@ -409,9 +573,28 @@ async function runSelfTest() {
     "### L1 — first-strand", "",
     "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
     "## Thesis", "", "The fixture claim.", "",
+    // §4.14's global anchors (kogaki#749). The fixture carried a Thesis and
+    // none of the other three, so the Packet refused by name — correctly, and
+    // the fixture is what was short. Added here rather than defaulted in the
+    // renderer: a default would be the renderer inventing an anchor, which is
+    // exactly the hole the refusal exists to keep open.
+    "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+    "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
+    "## Opening question", "", "What makes the fixture claim worth stating?", "",
     "## Sequence", "",
-    "```step", "step_id: s1", "move: open_the_claim", "purpose: open", "```", "",
-    "```step", "step_id: s2", "move: close_the_claim", "purpose: close", "```", "",
+    // The step blocks carry the fields §4.14 RENDERS, not only the two earlier
+    // cases parse. Same correction as the anchors above: the Packet refused by
+    // name and the fixture was what was short.
+    "```step", "step_id: s1", "move: open_the_claim", "purpose: open",
+    "reader_state_before: the reader has not met the claim.",
+    "reader_state_after: the reader can state the claim.",
+    "materials: L1", "rationale: the claim opens the article.",
+    "ground (strand L1): the material states the claim.", "```", "",
+    "```step", "step_id: s2", "move: close_the_claim", "purpose: close",
+    "reader_state_before: the reader can state the claim.",
+    "reader_state_after: the reader can say why it holds.",
+    "materials: L1", "rationale: the close is what the opening owes.",
+    "ground (step_effect s1): s1 leaves the claim stated.", "```", "",
   ].join("\n");
   writeFileSync(join(briefDir, "brief.md"), goodBrief);
 
@@ -427,7 +610,18 @@ async function runSelfTest() {
   const movesDir = join(root, "moves");
   mkdirSync(movesDir, { recursive: true });
   for (const id of ["open_the_claim", "close_the_claim"]) {
-    writeFileSync(join(movesDir, `${id}.md`), `id: ${id}\nstatus: observed\n`);
+    // §4.14 renders intent/constraints/failure_modes and the excerpt, so the
+    // fixture records carry them — a store holding ids alone was enough for
+    // §4.12's membership test and is not enough for a Packet.
+    writeFileSync(join(movesDir, `${id}.md`), [
+      `id: ${id}`, "status: observed",
+      "intent: >-", `  what ${id} does to the reader.`,
+      "requires: >-", "  the state this move depends on.",
+      "effect: >-", "  the state this move produces.",
+      "constraints: >-", "  what a correct performance must not do.",
+      "failure_modes: >-", "  how it goes wrong when imitated badly.",
+      "excerpt: >-", "  the author's account of the movement they observed.",
+    ].join("\n") + "\n");
   }
 
   // 1 — a template is not an input: the refusal names the field.
@@ -505,6 +699,135 @@ async function runSelfTest() {
       rr.status === 0 && /reader-knowledge ledger: 2 term\(s\)/.test(rr.stdout));
     ok("resolve states the ledger it derived, including the empty reading",
       r0.status === 0 && /reader-knowledge ledger: 0 term\(s\)/.test(r0.stdout) && /not an error/.test(r0.stdout));
+  }
+
+  // 4a3 — §4.14's SECTION PACKET (kogaki#749). The Packet is the model's
+  // ENTIRE input for one Step, so every property below is about what reaches
+  // the model: determinism, byte-identity with what was stored, a refusal by
+  // NAME rather than an empty slot, and the two exclusions the rulings make.
+  {
+    const pk = (step, extra = []) => spawnSync(process.execPath,
+      [self, "packet", "--brief", join(briefDir, "brief.md"), "--workspace", ws, "--moves-dir", movesDir, "--step", step, ...extra],
+      { encoding: "utf8" });
+    const p1 = pk("s1");
+    ok("packet renders", p1.status === 0 && p1.stdout.length > 0);
+    // DETERMINISTIC: same inputs, same bytes. No timestamp, no run id, and the
+    // prior Sections come in the Brief's recorded order rather than from a
+    // directory read — a readdir would make the Packet depend on the filesystem.
+    ok("packet is deterministic across renders", pk("s1").stdout === p1.stdout);
+    // STORED EXACTLY AS SERVED, and asserted as BYTES rather than as a claim.
+    // The runtime nests the workspace under the Brief's SLUG
+    // (`workspaceFor(args, brief.slug)`), and `ws` here is the BASE the flag
+    // names — so the assertion reads the same path the command writes rather
+    // than the one the flag looks like it names. Found by the case failing:
+    // a byte-identity assertion pointed at a file that was never written
+    // reports a difference it never actually compared.
+    const wsSlug = join(ws, "fixture-brief");
+    const stored = join(wsSlug, "packets", "s1.md");
+    ok("the stored packet is byte-identical to what was printed",
+      existsSync(stored) && readFileSync(stored, "utf8") === p1.stdout);
+    // THE TEMPLATE POINTS AT NO SPEC (acceptance 3), asserted against the
+    // RENDERED packet as well as the template file: a slot could carry one in.
+    const tpl = readFileSync(join(dirname(self), "packet-template.md"), "utf8");
+    const pointer = /specs\/|SPEC\.md|SPEC-|\u00a7[0-9]/;
+    ok("the template carries no pointer to any spec", !pointer.test(tpl));
+    ok("the rendered packet carries no pointer to any spec", !pointer.test(p1.stdout));
+    // THE AUTHORING COMMENT IS NOT THE MODEL'S INPUT.
+    ok("the template's authoring comment is stripped from the packet",
+      tpl.startsWith("<!--") && !p1.stdout.includes("<!--"));
+    // requires/effect EXCLUDED: the Step's instantiated states win, and
+    // rendering both would put the general and the specialized statement of one
+    // thing side by side for the model to choose between.
+    // ASSERTED AGAINST THE MOVE RECORD'S OWN VALUES, not against a label. The
+    // first form tested for the strings `**requires.**` / `**effect.**`, which
+    // only a template edit could produce — so a renderer that leaked the values
+    // under any other label passed. The fixture's requires/effect texts are
+    // distinctive, and their ABSENCE from the rendered bytes is the property.
+    const reqText = "the state this move depends on";
+    const effText = "the state this move produces";
+    ok("the Move's requires/effect values are excluded from the packet",
+      !p1.stdout.includes(reqText) && !p1.stdout.includes(effText));
+    ok("the fixture's requires/effect are non-empty, so the exclusion is not vacuous",
+      readFileSync(join(movesDir, "open_the_claim.md"), "utf8").includes(reqText));
+    ok("the Step's instantiated states ARE present",
+      /reader_state_before/.test(p1.stdout) && /reader_state_after/.test(p1.stdout));
+    // The exemplar's FORM-ONLY header is what stops the passage being read as
+    // content — the block whose absence fails worst.
+    ok("the exemplar carries its form-only usage header",
+      /FORM ONLY/.test(p1.stdout) && /do not reuse its/i.test(p1.stdout));
+    // A DANGLING INPUT REFUSES BY NAME rather than rendering an empty slot: a
+    // hole in the model's entire input is a hole it fills by invention.
+    const bad = pk("nope");
+    ok("a step not in the path refuses naming it", bad.status !== 0 && /nope/.test(bad.stderr));
+    // A MISSING BLOCK refuses BY NAME — the case the guard exists for, which
+    // the complete fixture cannot reach. Driven against a Brief with one
+    // anchor removed, because with nothing missing the guard never fires and
+    // deleting it changes no output at all.
+    {
+      const holedDir = join(root, "theses", "holed"); mkdirSync(holedDir, { recursive: true });
+      writeFileSync(join(holedDir, "brief.md"),
+        goodBrief.replace(/## Reader target\n\n.*\n/, ""));
+      const holed = spawnSync(process.execPath,
+        [self, "packet", "--brief", join(holedDir, "brief.md"), "--workspace", join(root, "ws-holed"),
+         "--moves-dir", movesDir, "--step", "s1"], { encoding: "utf8" });
+      ok("a Brief missing an anchor refuses BY NAME rather than rendering an empty slot",
+        holed.status !== 0 && /Reader target/.test(holed.stderr) && /is absent/.test(holed.stderr));
+      ok("the refusal says why an empty slot would be worse",
+        /fills by invention/.test(holed.stderr));
+    }
+    // The ledger and the prior Sections both reach the packet.
+    // A SEPARATE WORKSPACE for the prior-Sections case. Writing s1.md into the
+    // shared one landed a realized Section before the later emit case ran, and
+    // that case's whole premise is that emit refuses SHORT of completion — so
+    // this block silently discharged the condition a downstream assertion
+    // exists to test. Found by that case going red. A fixture that mutates
+    // shared state is a defect in the fixture, not in the case it breaks.
+    const ws2 = join(root, "ws-packet");
+    mkdirSync(join(ws2, "fixture-brief", "sections"), { recursive: true });
+    writeFileSync(join(ws2, "fixture-brief", "sections", "s1.md"), "The already-written opening.");
+    const p2 = spawnSync(process.execPath,
+      [self, "packet", "--brief", join(briefDir, "brief.md"), "--workspace", ws2, "--moves-dir", movesDir, "--step", "s2"],
+      { encoding: "utf8" });
+    ok("prior Sections reach the packet verbatim", p2.stdout.includes("The already-written opening."));
+    // IN THE BRIEF'S RECORDED ORDER, and this needs THREE Steps whose path
+    // order differs from their filename order. With two, the single prior
+    // Section is the same set either way — the orders coincide and a readdir
+    // implementation passes. Found by running exactly that mutation twice:
+    // the first fixture had two Steps and stayed green.
+    //
+    // Path order is c, a, b; filename sort is a, b, c. Rendering for `b`, the
+    // recorded order gives [c, a] and a directory read gives [a, c], so the
+    // RELATIVE POSITION of the two texts is what separates them.
+    {
+      const ws3 = join(root, "ws-order");
+      // The slug comes from the Brief's own `# Brief — <slug>` line, which this
+      // fixture inherits from goodBrief's head — NOT from the directory the file
+      // sits in. Pointing at the directory name wrote the sections where the
+      // runtime never looks, and the case failed unmutated.
+      const secs = join(ws3, "fixture-brief", "sections");
+      mkdirSync(secs, { recursive: true });
+      writeFileSync(join(secs, "a.md"), "AAA-section.");
+      writeFileSync(join(secs, "c.md"), "CCC-section.");
+      const mk = (id) => ["```step", `step_id: ${id}`, "move: open_the_claim", `purpose: p${id}`,
+        `reader_state_before: before ${id}.`, `reader_state_after: after ${id}.`,
+        "materials: L1", `rationale: r${id}.`, "ground (strand L1): g.", "```", ""].join("\n");
+      const head = goodBrief.split("## Sequence")[0];
+      const b3 = head + "## Sequence\n\n" + mk("c") + mk("a") + mk("b");
+      const od = join(root, "theses", "ordered"); mkdirSync(od, { recursive: true });
+      writeFileSync(join(od, "brief.md"), b3);
+      const p3 = spawnSync(process.execPath,
+        [self, "packet", "--brief", join(od, "brief.md"), "--workspace", ws3, "--moves-dir", movesDir, "--step", "b"],
+        { encoding: "utf8" });
+      const body = (p3.stdout || "").split("article so far")[1] || "";
+      const ic = body.indexOf("CCC-section."), ia = body.indexOf("AAA-section.");
+      ok("both prior Sections reach the packet", p3.status === 0 && ic !== -1 && ia !== -1);
+      ok("prior Sections render in the BRIEF's recorded order, not the directory's",
+        ic !== -1 && ia !== -1 && ic < ia);
+    }
+    ok("a first Section states the absence of prior ones rather than rendering empty",
+      /nothing yet/.test(p1.stdout));
+    ok("the derived reader-knowledge ledger reaches the packet",
+      /already knows/.test(p2.stdout));
   }
 
   // 4b — §4.12's MECHANICAL HALF at the realization entry (kogaki#747).
@@ -591,8 +914,9 @@ if (args["self-test"]) {
   switch (args._cmd) {
     case "resolve": cmdResolve(args); break;
     case "material": cmdMaterial(args); break;
+    case "packet": cmdPacket(args); break;
     case "section": cmdSection(args); break;
     case "emit": cmdEmit(args); break;
-    default: fail("usage: draft.mjs resolve|material|section|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> --file <f>] | --self-test");
+    default: fail("usage: draft.mjs resolve|material|packet|section|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> [--file <f>]] | --self-test");
   }
 }

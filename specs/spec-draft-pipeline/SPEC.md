@@ -1,5 +1,19 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v25, amended 2026-09-02 (kogaki#749) — **§4.14, the Section
+Packet**: the harness-assembled input from which the model realizes one Step,
+rendered deterministically from a runtime-read template that points at no
+specification. `requires`/`effect` are excluded because §4.12 makes the Step's
+instantiated states their instance forms; a missing input refuses BY NAME
+because a hole in the model's entire input is one it fills by invention; prior
+Sections render in the Brief's recorded order rather than the directory's.
+**§4.14.2 records what is NOT built**: spec-style-contract's deletion waits on
+kogaki#752, and the Packet's retention path waits on kogaki#750 — the two
+operational clauses ARE harvested and that spec's §4 is reduced to a pointer,
+so no duplicate stands.
+**deferred slots minted by this amendment: none** — both remainders are unbuilt
+halves with named blockers, not undecided forks.
+
 **Status:** v24, amended 2026-09-02 (kogaki#751, owner ruling 2026-09-02) —
 **the Move record's evidence field is `excerpt`, and an excerpt is the author's
 own account of the reader movement, never a verbatim quotation.** Two
@@ -1569,6 +1583,94 @@ two files had to agree on.
 > what remains is an act requiring material this repository does not hold. It is
 > an unbuilt half with a named blocker, and calling it a fork would misfile it as
 > a question when it is an errand.
+
+### 4.14 The Section Packet (v25, kogaki#749)
+
+The **harness-assembled input from which the model realizes one Step's prose** —
+the one LLM judgment of the Draft lane. `draft.mjs packet --step <id>` renders
+it deterministically; the session realizes the prose; `section` validates it as
+before.
+
+**The Packet is the model's ENTIRE input.** Nothing outside it is read, which
+is why every block opens with a **fixed usage header** saying what the block is
+for: a block whose use is not stated gets used for whatever it resembles. The
+exemplar is the one that fails worst — read as content rather than as form, it
+hands this article another article's subject matter, which is why its header
+says so in the imperative.
+
+**Block order is fixed**, heavy prose late and the instruction last: global
+anchors (Thesis, Reader start, Reader target, Opening question, verbatim from
+the Brief) → the Move's contract → the Step's fields → the §4.13 ledger →
+every previously realized Section verbatim in recorded order → the write
+instruction.
+
+**`requires`/`effect` are EXCLUDED, and the exclusion is the ruling rather than
+an omission.** §4.12 makes the Step's `reader_state_before`/`after` the
+**instance forms** of exactly those two fields, so rendering both would put the
+general and the specialized statement of one thing side by side and leave the
+model to choose. The Step's instantiated states win.
+
+**Deterministic** means the same inputs render the same bytes: no timestamp, no
+run id, and prior Sections in the **Brief's recorded order** rather than from a
+directory read — a `readdir` would make the Packet's bytes depend on the
+filesystem.
+
+**A missing input refuses BY NAME rather than rendering an empty slot.** In an
+input that is the model's whole world, a hole is not a gap the model notices —
+it is a hole the model fills by invention.
+
+**Stored exactly as served**, overwritten on re-render, with path and sha
+announced beside the Section it produces.
+
+#### 4.14.1 The template is a runtime-read carrier, and it points at no spec
+
+`src/packet-template.md`, read at generation like `report-format.json` and
+`workflow.json`. **Template content is operational text only** — rules that
+change model behaviour at generation, kept minimal, a rule entering only with
+demonstrated runtime effect.
+
+**It carries no pointer to any specification**, which is #749's acceptance
+criterion 3 and is asserted against **both** the template and the rendered
+Packet, because a filled slot could carry one in. Design principles about the
+template live in the Brief/Draft design record (kogaki#752), never here.
+
+**Two clauses are harvested into it from the style contract** — the operational
+plain-register definition (no unexplained term of art, one relation per
+sentence, a concrete subject acting; never audience impersonation) and the
+round-trip instruction (the original claim recoverable, losses explicitly
+conceded). Those are **operational**, so the file the model reads is where they
+belong.
+
+#### 4.14.2 What is NOT built here, and why the deletion waits
+
+#749 also rules `specs/spec-style-contract/` **deleted** with its obligations
+re-homed. **That half is not executed**, and the reason is the sequencing rather
+than the ruling:
+
+- the two operational clauses **are** harvested, and that spec's §4 is reduced
+  to a pointer at the template — so no second carrier for them exists;
+- the **three prohibitions** and §4's normative ground re-home into the
+  Brief/Draft design record, which is **kogaki#752 and unbuilt**. Deleting now
+  would either drop them or decide #752's shape as a side effect of a
+  construction act.
+
+An eviction judgment folded into a build is one a gate cannot ratify
+separately — `consulted:
+product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
+topics/knowledge-architecture.md:341`. And what the harvest performs is the
+**removal of a copy** rather than a relocation for want of a destination —
+`consulted: product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
+topics/knowledge-architecture.md:331`.
+
+**Retention names its own substitution.** #749 routes the stored Packet to
+`runs/draft/<slug>/packets/`, per **kogaki#750, also unbuilt** — there is no
+`runs/` tree. The Packet is written to the run workspace where every other
+machine-local draft artifact already lives, and the command **says so on every
+render**, naming the owed path. It moves when `runs/` lands.
+
+**The next act is named:** kogaki#752 gives the three prohibitions a home, and
+kogaki#750 gives the Packet its retention path; #749 closes when both have
+landed and the deletion is executed against them.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 
