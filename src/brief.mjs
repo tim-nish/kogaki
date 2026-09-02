@@ -307,16 +307,19 @@ export function resolveStrandIds(record, entered) {
 // becomes terrain's own NO_HEADLINE marker, which is loud at the gate and is
 // the convention `cmdView` already follows. Composing around the gap would
 // hide a fault the owner is the one who can clear. The candidates differ in which member LEADS, because that is a real
-// composition fork the set itself carries; each is in plain register per
-// Plain register's operational definition is carried by src/packet-template.md
-// (kogaki#749) and its ground by specs/spec-brief-draft-design/DESIGN.md §4.
-// NOT RESTATED HERE (kogaki#749, reg-0220): this comment used to spell the
-// definition out inline, which was a second carrier for a rule with one — the
-// same shape the design record struck from its own §4 one PR earlier.
-// (was: SPEC-style-contract §4, deleted; the parenthetical listed
-// sentence, a concrete subject acting) and carries its round-trip
-// CONCESSION explicitly — a concession is part of the output, never a
-// silent omission. Exported for the check's compose-from-settled-set case.
+// composition fork the set itself carries; each is in plain register and
+// carries its round-trip CONCESSION explicitly — a concession is part of the
+// output, never a silent omission.
+//
+// PLAIN REGISTER'S DEFINITION IS NOT RESTATED HERE (kogaki#749, reg-0220).
+// Its carrier is src/packet-template.md, which the model reads at generation,
+// and its ground is specs/spec-brief-draft-design/DESIGN.md §4. This comment
+// used to spell the definition out inline beside a citation to
+// SPEC-style-contract §4 — a second carrier for a rule with one, and the same
+// shape the design record struck from its own §4 one PR earlier. The spec is
+// deleted; the restatement went with it rather than being repointed.
+//
+// Exported for the check's compose-from-settled-set case.
 //
 // PROSE AT THE SURFACE, SCHEMA IN THE RECORD (§5.1.3 v20, kogaki#566). What
 // this function returns is a RECORD and keeps its fields; what the owner reads

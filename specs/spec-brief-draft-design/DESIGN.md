@@ -274,12 +274,21 @@ authored" — so it governs an artifact with no instances, and an operative
 document holding a superseded or unexercised protocol reinstalls it for the
 next reader. It lives in version control and on kogaki#426's thread.
 
-**Twenty referrers were repointed in the same act**, found by sweeping the
-deleted file's name over the whole tree *before* deleting rather than after:
-`specs/SPEC.md` ×2, `spec-draft-pipeline` ×11, `spec-draft-command` ×2,
-`gates/registry.json`, `src/brief.mjs` ×2, `src/draft.mjs`, and this record.
-Three earlier review rounds had between them found five of the twenty, one file
-at a time, because each round swept only what its own diff touched.
+**Twenty-one referrers were repointed**, found by sweeping the deleted file's
+name over the whole tree *before* deleting rather than after: `specs/SPEC.md`
+×2, `spec-draft-pipeline` ×11, `spec-draft-command` ×2, `gates/registry.json`,
+`src/brief.mjs` ×2, `src/draft.mjs`, and this record. Three earlier review
+rounds had between them found five of them, one file at a time, because each
+round swept only what its own diff touched.
+
+**This paragraph first said TWENTY and named `gates/registry.json` among them
+while that file was not in the diff at all** (PR #782 round 1). The sweep had
+counted it and the repointing had skipped it, so the completeness record
+asserted an act that was not performed — which is worse than the omission,
+because a reader checking the claim would have stopped at the list. Recorded
+rather than silently corrected: a paragraph whose subject is completeness is
+the one place an unverified count does the most damage, and the count here was
+written from the sweep rather than from the diff.
 
 **deferred slot: the spec-draft-pipeline re-cut.** Owed on its own licensing
 issue, with the criteria applied section by section.

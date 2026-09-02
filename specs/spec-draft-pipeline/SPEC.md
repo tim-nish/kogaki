@@ -7,10 +7,11 @@ specification. `requires`/`effect` are excluded because §4.12 makes the Step's
 instantiated states their instance forms; a missing input refuses BY NAME
 because a hole in the model's entire input is one it fills by invention; prior
 Sections render in the Brief's recorded order rather than the directory's.
-**§4.14.2 records what is NOT built**: retention waits on
-kogaki#752, and the Packet's retention path waits on kogaki#750 — the two
-operational clauses ARE harvested and that spec's §4 is reduced to a pointer,
-so no duplicate stands.
+**§4.14.2 records what remains**: the Packet's retention path waits on
+kogaki#750, and nothing else does — spec-style-contract was DELETED at #749's
+second pass with its obligations re-homed and twenty-one referrers repointed,
+so the "reduced to a pointer" state that sentence used to describe no longer
+exists in either direction.
 **deferred slots minted by this amendment: none** — both remainders are unbuilt
 halves with named blockers, not undecided forks.
 
@@ -1647,23 +1648,37 @@ round-trip instruction (the original claim recoverable, losses explicitly
 conceded). Those are **operational**, so the file the model reads is where they
 belong.
 
-#### 4.14.2 What is NOT built here, and why the deletion waits
+#### 4.14.2 The deletion is EXECUTED; retention is what remains
 
-#749 rules `specs/spec-style-contract/` **deleted** — EXECUTED at kogaki#749's second pass — with its obligations
-re-homed. **That half is not executed**, and the reason is the sequencing rather
-than the ruling:
+#749 rules `specs/spec-style-contract/` **deleted with its obligations
+re-homed**, and **that half is done** — executed at #749's second pass, once
+kogaki#752 landed the destination. The section is rewritten rather than
+annotated: a parenthetical saying "executed" under a heading saying "waits"
+leaves a reader of the operative spec unable to tell whether the file exists,
+which is the defect this repository records against preserving superseded text
+inside an operative document.
 
-- the two operational clauses **are** harvested, and that spec's §4 is reduced
-  to a pointer at the template — so no second carrier for them exists;
-- the **three prohibitions** and §4's normative ground re-home into the
-  Brief/Draft design record, which is **kogaki#752 and unbuilt**. Deleting now
-  would either drop them or decide #752's shape as a side effect of a
-  construction act.
+Where each obligation went:
 
-An eviction judgment folded into a build is one a gate cannot ratify
-separately — `consulted:
-product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
-topics/knowledge-architecture.md:341`. And what the harvest performs is the
+- the two **operational clauses** are in `src/packet-template.md`, read by the
+  model at generation;
+- §4's **ground and its pinned served quote**, §3's prohibition and its quote,
+  and the three standing prohibitions are in
+  `specs/spec-brief-draft-design/DESIGN.md` §4/§5;
+- the round-trip concession's **mechanical refusal** is
+  `checks/check-brief-compose.sh` case (o);
+- **twenty-one referrers** were repointed in the deleting act, found by
+  sweeping the file's name over the whole tree *before* deleting;
+- everything else the spec held — the carrier sort, exemplar slots, the record
+  format, the admission register, its open questions — was **declined and
+  recorded as declined** at DESIGN.md §7. It governed an owner-authored
+  document no instance of which was ever created.
+
+**The sequencing was the reason it waited, not the ruling.** An eviction
+judgment folded into a build is one a gate cannot ratify separately —
+`consulted: product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
+topics/knowledge-architecture.md:341` — so the Packet shipped first, the
+destination second, and the deletion third. What the harvest performed was the
 **removal of a copy** rather than a relocation for want of a destination —
 `consulted: product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
 topics/knowledge-architecture.md:331`.

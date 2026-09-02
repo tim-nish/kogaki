@@ -212,8 +212,10 @@ never renders as visible structure in the article body.**
 
 **LLM — judgment, contract-bound, unharnessed.** The prose: realizing each
 Step's declared `reader_state_before → reader_state_after` transition, written
-from that Step's stated grounds. Register per `src/packet-template.md`, grounded at `specs/spec-brief-draft-design/DESIGN.md` §4 (was `specs/spec-style-contract/SPEC.md`, deleted at kogaki#749)
-§4. A claim widened beyond its quoted scope is the author's judgment and is
+from that Step's stated grounds. Register per `src/packet-template.md`,
+grounded at `specs/spec-brief-draft-design/DESIGN.md` §4 — the carrier was
+`specs/spec-style-contract/SPEC.md` §4, deleted at kogaki#749. A claim widened
+beyond its quoted scope is the author's judgment and is
 attributed as such.
 
 **The surface is prose.** `specs/spec-draft-pipeline/SPEC.md` §5.1.3 binds here
