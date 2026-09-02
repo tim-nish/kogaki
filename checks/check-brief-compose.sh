@@ -750,9 +750,18 @@ try {
       { id: "L1", display_id: "L1", slug: "alpha", claim: "the alpha claim, stated plainly" },
       { id: "L2", display_id: "L2", slug: "bravo", claim: "the bravo claim, stated plainly" },
     ];
-    const cands = composeThesisCandidates(strands);
-    if (!Array.isArray(cands) || cands.length < 2) {
-      fails.push("(o) the composer produced fewer than two Thesis candidates — the concession assertion has nothing to run against");
+    // BOTH BRANCHES (PR #781 round 1). `composeThesisCandidates` splits on
+    // `strands.length === 1`, and the one-Strand branch builds its candidates
+    // through a POSITIONAL helper `one(id, claim, extra, concession)` — so
+    // dropping the fourth argument at either push site leaves a multi-Strand
+    // fixture green while `enter` renders `<thesis> undefined` to the owner.
+    // The recorded mutation attacks the shared constructor and cannot see it.
+    // Fourth time this suite family has met the fixture-too-small class; the
+    // fix is a case that enters the branch, not a stronger assertion.
+    const oneStrand = [{ id: "L1", display_id: "L1", slug: "alpha", claim: "the lone claim, stated plainly" }];
+    const cands = [...composeThesisCandidates(strands), ...composeThesisCandidates(oneStrand)];
+    if (!Array.isArray(cands) || cands.length < 4) {
+      fails.push(`(o) the composer produced ${cands.length} candidate(s) across both branches — the concession assertion cannot reach the one-Strand branch`);
     } else {
       for (const c of cands) {
         if (!(c.concession || "").trim()) {

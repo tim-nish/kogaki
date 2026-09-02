@@ -129,20 +129,27 @@ before changing the wording.*
 
 Plain register is defined **operationally** and derived by **translation with a
 round-trip test**, because audience impersonation is a prompt that produces
-condescension rather than a constraint anything can hold. Three controls replace
-it:
+condescension rather than a constraint anything can hold.
 
-1. an **operational definition** — no unexplained term of art, one relation per
-   sentence, a concrete subject acting;
-2. a **round-trip test** — the original claim must be recoverable from the plain
-   version, with anything lost either restored or **explicitly conceded**; a
-   concession is part of the output, never a silent omission;
-3. **candidates rather than a single rendering**, selected at a gate that
-   already exists.
+**The three controls are named here and their TEXT is not.** Two of them —
+the operational definition and the round-trip test — are **operational**, so
+their carrier is `src/packet-template.md`, which the model reads at generation.
+The third, candidates rather than a single rendering, is discharged by the
+selection gate that already exists.
 
-**Clauses 1 and 2 are operational and their carrier is `src/packet-template.md`**,
-which the model reads at generation. This section does not restate them; it
-holds their ground.
+**This section holds their GROUND**, which is the half a template cannot carry:
+*why* impersonation was replaced rather than abbreviated. Writing for an
+imagined audience is not a weaker version of the same instruction — it is a
+different instruction, and it produces condescension, which is why the three
+controls replace it rather than refining it. A later editor changing the
+template's wording needs that reason and will not find it in the template.
+
+**The restatement was made and removed in the same PR** (#781 round 1), and the
+correction is recorded because it is this section's own subject: the first draft
+stated both clauses in full and then declared four paragraphs later that it did
+not restate them. That would have put the operational text in **three** places
+and is exactly what §5's third prohibition forbids — a document ratifying a
+prohibition while breaching it is the sharpest form of the drift it names.
 
 **The concession's mechanical carrier is `checks/check-brief-compose.sh` case
 (o)**, and its history is recorded because the gap it closes was real: the
