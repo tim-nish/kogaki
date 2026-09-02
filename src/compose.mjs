@@ -30,8 +30,8 @@
 // artifact and is carried by the §4.5 grounds test, judged at review.
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { laneDir } from "./runs.mjs";
 
 function fail(msg) {
   process.stderr.write(`compose: ${msg}\n`);
@@ -41,7 +41,7 @@ function fail(msg) {
 // ---- per-block Brief snapshots (kogaki#523) ----
 // Machine-local debugging trace with the run's lifetime, NEVER owner state:
 // each command that lands a block in the Brief snapshots the FULL document
-// into the run workspace (~/.kogaki/brief-runs/<slug>/snapshots/) before and
+// into the run workspace (runs/brief/<slug>/snapshots/, kogaki#750) before and
 // after its landing write, so a later sitting can inspect what a block
 // changed and trace a defect backward. FULL snapshots rather than per-block
 // diffs: a diff is derivable from two adjacent snapshots, while
@@ -58,7 +58,7 @@ function fail(msg) {
 export function snapshotBrief(briefPath, stage, phase, content, seq = null) {
   try {
     const slug = basename(dirname(resolve(briefPath)));
-    const dir = join(homedir(), ".kogaki", "brief-runs", slug, "snapshots");
+    const dir = join(laneDir("brief"), slug, "snapshots");
     mkdirSync(dir, { recursive: true });
     if (seq === null) {
       let max = 0;

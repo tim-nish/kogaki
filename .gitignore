@@ -125,3 +125,16 @@ policy/shape.md
 # tree, which is the class this file's own preamble is written against. The
 # ignore closes the window rather than trusting the trap.
 /.gate-path-check-*
+
+# RUN INTERMEDIATES (kogaki#750, owner rulings 2026-09-01). Every lane's
+# machine state — survey and proposal records, gate declarations, captures,
+# Brief and Draft workspaces, snapshots, packets, run records — lands under
+# `runs/<lane>/` instead of accumulating unread under `~/.kogaki`. Repo-VISIBLE
+# so a contributor reads it where they work; NOT committed, because it is
+# machine-facing state deriving from uncommitted survey records, which is the
+# same reading `reports/` two blocks up already carries. `runs/README.md` is
+# re-included because it is the statement of purpose, layout and lifetime the
+# ruling requires the directory to carry — a directory whose contents are all
+# ignored has nowhere else to say what it is for.
+/runs/*
+!/runs/README.md

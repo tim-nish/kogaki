@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "governing_text": "specs/SPEC.md §4 rider 3 — run intermediates are machine state, never owner material",
+  "licensed_by": "kogaki#750 — this carrier holds the CURRENT run-retention bound only. It is not a ledger of past bounds: those live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision, landed here, and recorded by bumping `version` and replacing this line. Ratification is a human act: nothing denies an edit no issue licensed.",
+  "lanes": {
+    "terrain": { "keep_last": 10 },
+    "brief": { "keep_last": 10 },
+    "draft": { "keep_last": 10 }
+  }
+}

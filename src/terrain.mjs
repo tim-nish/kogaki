@@ -17,15 +17,19 @@
 // then detect what generation cannot promise.
 //
 // Run state (survey records, proposal records, gate declarations, captures)
-// lives in the machine-local run workspace (default ~/.kogaki/runs/...),
-// never in the repository (specs/SPEC.md §4 rider 3).
+// lives in the run workspace — `runs/terrain/<timestamp>/` in the working tree
+// since kogaki#750, `~/.kogaki/runs/...` before it. It is still machine state
+// and still uncommitted (specs/SPEC.md §4 rider 3, `.gitignore`); what the move
+// changes is that it is legible where a contributor works and bounded by the
+// in-band prune, rather than accumulating unread in a hidden home directory.
 import { spawnSync, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, readdirSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { loadGrammar, refuseUnlessConformant, FormatRefusal } from "./format-guard.mjs";
+import { enterRun, laneDir, terrainRunEntry } from "./runs.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..");
@@ -74,12 +78,23 @@ function parseArgs(argv) {
   return args;
 }
 
+// The run workspace. An explicit `--run-dir` and `KOGAKI_RUN_DIR` are unchanged
+// — the flow drives several states through ONE workspace and that is how it
+// says which — and only the DEFAULT moves, from the hidden home directory to
+// this lane's own directory in the tree (kogaki#750).
+//
+// The default path is also the only one that PRUNES, and deliberately: pruning
+// is a lane's act over the entries it owns, and a caller who named a directory
+// named it because they hold it. `enterRun` prunes before it creates, so the
+// bound is enforced as the run's first act rather than after the write it was
+// supposed to bound.
 function runDir(args) {
-  const dir = args["run-dir"]
-    || process.env.KOGAKI_RUN_DIR
-    || join(homedir(), ".kogaki", "runs", `terrain-${new Date().toISOString().replace(/[:.]/g, "-")}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  if (args["run-dir"] || process.env.KOGAKI_RUN_DIR) {
+    const dir = args["run-dir"] || process.env.KOGAKI_RUN_DIR;
+    mkdirSync(dir, { recursive: true });
+    return dir;
+  }
+  return enterRun("terrain", terrainRunEntry());
 }
 
 // `soft` callers get a NULL instead of a process exit when the seam is
@@ -2540,19 +2555,41 @@ function cmdComposeInput(args) {
 // because §12.1's first case — same identity, run twice, ONE report — is a
 // claim across invocations and a timestamped directory would make every rerun
 // a duplicate by construction.
+// PURE, and split from the preparing call for the same reason
+// `renderingDestination` is (PR #702 round 1, finding 2): a caller that wants
+// to know WHERE the record store is must not create it, and a fixture case
+// asserting the default must not leave a directory behind in the tree.
+function reportsDestination(args) {
+  return args["report-dir"] || process.env.KOGAKI_RUN_DIR
+    || join(laneDir("terrain"), "reports");
+}
+
 function reportsDir(args) {
   // §12.2 v11's own table gives the record's home as the RUN WORKSPACE, and
   // kogaki#234 acceptance 4 retires `~/.kogaki/reports/` outright. The v11
   // amendment moved the RENDERING and left this default naming the directory
   // the issue removes — so with no KOGAKI_RUN_DIR a real run still wrote the
   // retired path (PR #240 review round 1, finding 1).
-  const dir = args["report-dir"] || process.env.KOGAKI_RUN_DIR
-    || join(homedir(), ".kogaki", "runs", "reports");
+  //
+  // kogaki#750 moves the default again, out of the home directory entirely and
+  // into `runs/terrain/reports/`. It stays a STABLE home and is the one entry
+  // the lane's prune never removes — §12.1's same-identity-run-twice-is-ONE-
+  // report claim is a claim ACROSS runs, and an entry inside a keep-last-K
+  // window would falsify it on the K+1th run rather than at a review point.
+  const dir = reportsDestination(args);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
 // The retired directory, disposed of rather than left to rot (acceptance 4).
+//
+// kogaki#750 retires the PARENT — no lane writes anywhere under `~/.kogaki` any
+// more — and widening this `rmSync` to that parent was DECLINED rather than
+// overlooked: #234 licensed removing one directory this repository had written,
+// and removing a whole home-directory tree on every survey run is a larger act
+// than the one licensed, on a path no check of this repository can see. The
+// owner deleted the legacy contents by hand on 2026-09-01, so the widening
+// would also have nothing left to remove on the machine that motivated it.
 // Reports are idempotently regenerable (§12.1), so there is nothing to migrate
 // — the honest act is to remove it and SAY SO ONCE, never to leave an invalid
 // location on disk looking authoritative. Silent removal is not on the table:
@@ -6016,6 +6053,36 @@ switch (cmd) {
       ok("an owner input arriving with no outstanding wait is refused — the WAIT is what admits it",
         refuses("input-no-wait", null, ["--input", "claude-code-ops"]));
       rmSync(scratch, { recursive: true, force: true });
+    }
+
+    // THE LANE BINDING (kogaki#750). Every case above drives an explicit
+    // `--run-dir`, which is the path the relocation did NOT touch, so on their
+    // own they are green about a runtime still writing to the retired home
+    // directory. These read the DEFAULTS.
+    {
+      const laneRoot = laneDir("terrain");
+      ok("the report record store defaults into the terrain lane",
+        reportsDestination({}) === join(laneRoot, "reports"), reportsDestination({}));
+      ok("the terrain lane resolves under the repository's runs/ directory",
+        laneRoot === join(REPO, "runs", "terrain"), laneRoot);
+      ok("no default record destination resolves under a home directory",
+        !reportsDestination({}).includes(`${sep}.kogaki${sep}`));
+      ok("an explicit --report-dir still wins over the lane default",
+        reportsDestination({ "report-dir": "/tmp/elsewhere" }) === "/tmp/elsewhere");
+      // NOT ASSERTED HERE, stated rather than left to look covered: `runDir`'s
+      // DEFAULT branch. Exercising it calls `enterRun`, which prunes this
+      // repository's own terrain lane — a fixture pass that evicts a
+      // developer's run workspaces reports a defect by causing one. The
+      // arithmetic it delegates to is asserted in `src/runs.mjs --self-test`
+      // against a scratch root; what is unasserted here is one expression
+      // naming the lane, and that is the honest size of the gap.
+      ok("an explicit --run-dir is honoured and creates exactly it", (() => {
+        const d = join(tmpdir(), `terrain-rundir-${process.pid}`);
+        const got = runDir({ "run-dir": d });
+        const fine = got === d && existsSync(d);
+        rmSync(d, { recursive: true, force: true });
+        return fine;
+      })());
     }
 
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);

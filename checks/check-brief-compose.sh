@@ -18,8 +18,8 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
+import { join, sep, resolve as resolvePath } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
@@ -30,6 +30,12 @@ import { resolveMoveIds, validateSpecialization, loadMoveIds,
 import { composeThesisCandidates } from "./src/brief.mjs";
 import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./src/assemble.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
+import { snapshotBrief } from "./src/compose.mjs";
+import { laneDir } from "./src/runs.mjs";
+
+// The repository root as THIS check resolves it — the check `cd`s to it above,
+// so cwd is the honest reading and it is named once rather than at each use.
+const REPO_ROOT = resolvePath(".");
 
 // RE-HOMED at kogaki#770. This survey record is the input the Brief mint reads
 // through the real §5.3 flow, and it lived under checks/fixtures/terrain/
@@ -775,6 +781,46 @@ try {
     }
   }
 
+  // (p) THE BRIEF LANE'S SNAPSHOT DESTINATION (kogaki#750). `snapshotBrief` is
+  // the one write in this lane whose home was `~/.kogaki/brief-runs/<slug>/`,
+  // and every other case here drives paths that never changed — so without this
+  // the member is green about a lane still writing to the retired directory.
+  //
+  // DRIVEN, not asserted against the expression: the destination is computed
+  // inside `snapshotBrief` from the Brief path, so the only honest way to learn
+  // where it lands is to land one. It writes and creates; it does not PRUNE, so
+  // this case cannot evict a real workspace. The fixture slug is its own, and
+  // the whole entry is removed afterwards.
+  {
+    const slug = `brief-compose-lane-case-${process.pid}`;
+    const briefDir = join(dir, slug);
+    mkdirSync(briefDir, { recursive: true });
+    const bp = join(briefDir, "brief.md");
+    writeFileSync(bp, "# fixture\n");
+    const laneEntry = join(laneDir("brief"), slug);
+    try {
+      const seq = snapshotBrief(bp, "mint", "before", "the assembled state");
+      const landed = join(laneEntry, "snapshots");
+      if (!existsSync(landed)) {
+        fails.push(`(p) the Brief snapshot did not land under the brief lane — expected ${landed}`);
+      } else if (readdirSync(landed).length === 0) {
+        fails.push("(p) the brief lane's snapshot directory exists but holds nothing — the trace warns and continues, so an empty directory is a silent skip");
+      }
+      if (seq === null) fails.push("(p) snapshotBrief returned no sequence number, which is how a paired after-call loses its before");
+      // The CONTROL that this is about a MOVE and not about any path that
+      // happens to exist: the destination resolves under the repository's runs/
+      // directory and under no home directory.
+      if (!laneEntry.startsWith(join(REPO_ROOT, "runs") + sep)) {
+        fails.push(`(p) the brief lane resolves outside the repository's runs/ directory: ${laneEntry}`);
+      }
+      if (laneEntry.includes(`${sep}.kogaki${sep}`)) {
+        fails.push(`(p) the brief lane still resolves under a home directory: ${laneEntry}`);
+      }
+    } finally {
+      rmSync(laneEntry, { recursive: true, force: true });
+    }
+  }
+
   // (h) JOURNEY COVERAGE (§6.1 MUST 1, kogaki#501): journey material is a
   // DISTINCT material (§4.1's "which Journeys"), carried as `<L-id>.journey`,
   // PLACED OR ITS OMISSION DISCLOSED — derived from the composed steps, never
@@ -1023,6 +1069,32 @@ try {
 
 } finally {
   rmSync(dir, { recursive: true, force: true });
+  // THE LANE ENTRIES THIS CHECK CREATES ARE REMOVED (kogaki#750). The Briefs
+  // minted above are real, so `snapshotBrief` writes real workspaces under
+  // `runs/brief/`, keyed on each Brief's own directory name — and NOTHING
+  // prunes them, because pruning is a lane's first act and this check never
+  // takes it (it drives `--run-state`). Left alone, every suite run would add
+  // an entry forever, which is the unbounded accumulation the whole change
+  // exists to end, re-created by the check that asserts it ended.
+  //
+  // THE SWEEP IS BY SHAPE, NOT BY THIS RUN'S TWO NAMES (PR #783 round 1). The
+  // first form removed exactly `compose-case` and this run's temp basename and
+  // then failed if any entry of either shape survived — so the only way it
+  // could fire was an entry left by an EARLIER crashed or interrupted run, and
+  // it would then go red on every run afterwards until somebody deleted the
+  // directory by hand. A check that reports another run's litter as this run's
+  // failure is a fallback worded as a finding. Sweeping the shape clears the
+  // stale one; the assertion below is the post-condition that the sweep worked.
+  const laneEntries = () => (existsSync(laneDir("brief"))
+    ? readdirSync(laneDir("brief")).filter((e) => e === "compose-case" || e.startsWith("brief-compose-"))
+    : []);
+  for (const slug of laneEntries()) {
+    rmSync(join(laneDir("brief"), slug), { recursive: true, force: true });
+  }
+  const leftovers = laneEntries();
+  if (leftovers.length) {
+    fails.push(`the brief lane still holds ${leftovers.length} entr(y|ies) of this member's shape after its own sweep: ${leftovers.join(", ")} — a check that accumulates run state is the defect kogaki#750 removed`);
+  }
 }
 
 // (k) A COMPOSED BODY IS WRITTEN LITERALLY (kogaki#539). `replaceSlot` is the
@@ -1172,7 +1244,7 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
-console.log("brief compose: 15/15 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 16/16 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -1225,7 +1297,21 @@ console.log("brief compose: 15/15 cases — (a) §4.1 Step shape refused per mis
   + "only carrier with the arc table alone: the composer emits a concession per Thesis candidate and the gate "
   + "registry requires each option to state one, so the rule was live and carried by nothing in between. "
   + "Carrier-less BY OMISSION is the defect. Its normative home is the design record, and this is the "
-  + "mechanical half that document cannot be; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
+  + "mechanical half that document cannot be; "
+  + "(p) THE BRIEF LANE'S SNAPSHOT DESTINATION (kogaki#750) — `snapshotBrief` lands under "
+  + "`runs/brief/<slug>/snapshots/` in the working tree, DRIVEN rather than read off the "
+  + "expression, because the destination is computed inside the function from the Brief path. "
+  + "The case is here because every other case in this member drives a path the move did not "
+  + "touch, so without it the member would be green about a lane still writing to the retired "
+  + "home directory — the completeness half of a relocation, whose contamination half (nothing "
+  + "under ~/.kogaki) is satisfied most cheaply by writing nowhere at all. It asserts the "
+  + "sequence number comes back, since a paired after-call loses its before without one, and it "
+  + "carries two controls: the destination resolves under the repository's runs/ directory, and "
+  + "under no home directory. It creates and never PRUNES, so it cannot evict a live workspace; "
+  + "the fixture entry is its own and is removed, as are the lane entries the minted Briefs "
+  + "leave behind — nothing prunes those, since pruning is a lane's first act and this member "
+  + "never takes it, so an uncleaned member would re-create the unbounded accumulation it "
+  + "asserts is over. (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
   + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "
   + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "
