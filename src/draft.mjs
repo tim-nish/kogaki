@@ -178,7 +178,8 @@ export function foreignStrandRefusal(id, strands) {
 // Scan LLM-authored prose for Strand tokens outside the closed set (AC2's
 // assertion shape: a run whose material names a foreign Strand refuses by
 // name). In-set tokens pass — whether internal vocabulary belongs in reader
-// prose at all is the style contract's question, not the closed set's.
+// prose at all is a register question — carried by src/packet-template.md and
+// grounded at specs/spec-brief-draft-design/DESIGN.md §4 — not the closed set's.
 export function scanForeignStrands(content, strands) {
   const set = new Set(strands.map((s) => s.id));
   const seen = new Set();

@@ -7,10 +7,11 @@ specification. `requires`/`effect` are excluded because §4.12 makes the Step's
 instantiated states their instance forms; a missing input refuses BY NAME
 because a hole in the model's entire input is one it fills by invention; prior
 Sections render in the Brief's recorded order rather than the directory's.
-**§4.14.2 records what is NOT built**: spec-style-contract's deletion waits on
-kogaki#752, and the Packet's retention path waits on kogaki#750 — the two
-operational clauses ARE harvested and that spec's §4 is reduced to a pointer,
-so no duplicate stands.
+**§4.14.2 records what remains**: the Packet's retention path waits on
+kogaki#750, and nothing else does — spec-style-contract was DELETED at #749's
+second pass with its obligations re-homed and twenty-one referrers repointed,
+so the "reduced to a pointer" state that sentence used to describe no longer
+exists in either direction.
 **deferred slots minted by this amendment: none** — both remainders are unbuilt
 halves with named blockers, not undecided forks.
 
@@ -93,7 +94,7 @@ and the frame then rode the adopted Thesis into the minted Brief. Every
 owner-facing rendering this pipeline emits is ordinary prose; a schema-style
 presentation that does reach a surface carries at most three fields; the mint
 records the adopted CLAIM and strips the gate's framing. Sited here rather than
-in `specs/spec-style-contract/SPEC.md` §4 because that spec binds the protocol
+in the style contract's §4 (DELETED at kogaki#749) because that spec bound the protocol
 of an owner-authored document and binds no authored clause. §4's three clauses (numbering as of v1; clauses 1 and 2 moved to `src/packet-template.md` at kogaki#749 — see §4.14.1)
 reach this composer unchanged and are not restated. **deferred slots minted by
 this amendment: none.**
@@ -310,7 +311,7 @@ prior ruling is reopened. **deferred slots minted by this amendment: none.**
 v5, amended 2026-08-13 (kogaki#426) — §2's item-2 gate table row 4
 (plain register with round-trip concessions) moves from **not bound** to
 **bound**: manifest item 6's carrier landed as
-`specs/spec-style-contract/SPEC.md` (v1), and the row's v1 reading is kept
+the style contract (v1, DELETED at kogaki#749), and the row's v1 reading is kept
 beside the table rather than edited away. v4, amended 2026-08-08 (kogaki#223) — **Move ingestion is
 CONSTRUCTED against its first real input**: §6.9.0 binds the input grammar to
 what the owner actually authored, §6.9.1 gains the file interior, filename and
@@ -369,7 +370,7 @@ is countable rather than assumed:
 | thesis | **bound** as design — §3 |
 | journey incorporation | **bound** — Journeys are admissible step materials (§4), §4.8 binds arc integrity, and the **register choice rides Candidate differentiation** at §6, whose composition MUSTs carry the 2026-07-31 frozen requirements (v10, kogaki#492). **No incorporation gate is registered, and none is owed.** At v8 this row read "… §4.10 binds the incorporation gate itself"; at v1–v7 it read "**partial** — … the incorporation gate itself is owed". Both prior readings are kept here rather than edited away |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
-| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 — **§4's clause numbering MOVED at kogaki#749** and this reference is repointed rather than left dangling: clauses 1 and 2 (the operational definition, the round-trip test) are OPERATIONAL and their carrier is now `src/packet-template.md`, which the model reads at generation; that spec's §4 keeps only their GROUND and clause 3. A reference to "§4 clause 2" therefore resolves to the template's round-trip instruction, and a composer that needs the text reads the template rather than the spec. **The SURFACE-SHAPE half is §5.1.3** (v20, kogaki#566): §4 binds the protocol of an owner-authored document and has no standing to say what this repository's composers may emit, so a reader tracing this gate reads both |
+| plain register with round-trip concessions | **bound** — `src/packet-template.md` for the instruction and `specs/spec-brief-draft-design/DESIGN.md` §4 for its ground; the former carrier was the style contract's §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 — **§4's clause numbering MOVED at kogaki#749** and this reference is repointed rather than left dangling: clauses 1 and 2 (the operational definition, the round-trip test) are OPERATIONAL and their carrier is now `src/packet-template.md`, which the model reads at generation; that spec's §4 keeps only their GROUND and clause 3. A reference to "§4 clause 2" therefore resolves to the template's round-trip instruction, and a composer that needs the text reads the template rather than the spec. **The SURFACE-SHAPE half is §5.1.3** (v20, kogaki#566): §4 binds the protocol of an owner-authored document and has no standing to say what this repository's composers may emit, so a reader tracing this gate reads both |
 
 **Row 4 was re-assessed at v5 and again at v20, and row 2 at v8 and again at v10. Rows 1 and 3 carry
 their v1 judgments unchanged and were not re-checked at either head** — the
@@ -386,7 +387,7 @@ away (kogaki#426).** At v1 it read:
 
 That reading was correct for its own sitting: the row was blocked on an
 absent carrier, and it named which one. kogaki#426 supplied the carrier —
-`specs/spec-style-contract/SPEC.md` (v1) — so the row's stated precondition
+the style contract (v1, DELETED at kogaki#749) — so the row's stated precondition
 is discharged and nothing about v1's judgment is retracted. #127's "No new
 style artifact" is a prohibition on **proliferation**, never on the one
 contract existing; the new spec ships **no authored style clause and no
@@ -1647,23 +1648,37 @@ round-trip instruction (the original claim recoverable, losses explicitly
 conceded). Those are **operational**, so the file the model reads is where they
 belong.
 
-#### 4.14.2 What is NOT built here, and why the deletion waits
+#### 4.14.2 The deletion is EXECUTED; retention is what remains
 
-#749 also rules `specs/spec-style-contract/` **deleted** with its obligations
-re-homed. **That half is not executed**, and the reason is the sequencing rather
-than the ruling:
+#749 rules `specs/spec-style-contract/` **deleted with its obligations
+re-homed**, and **that half is done** — executed at #749's second pass, once
+kogaki#752 landed the destination. The section is rewritten rather than
+annotated: a parenthetical saying "executed" under a heading saying "waits"
+leaves a reader of the operative spec unable to tell whether the file exists,
+which is the defect this repository records against preserving superseded text
+inside an operative document.
 
-- the two operational clauses **are** harvested, and that spec's §4 is reduced
-  to a pointer at the template — so no second carrier for them exists;
-- the **three prohibitions** and §4's normative ground re-home into the
-  Brief/Draft design record, which is **kogaki#752 and unbuilt**. Deleting now
-  would either drop them or decide #752's shape as a side effect of a
-  construction act.
+Where each obligation went:
 
-An eviction judgment folded into a build is one a gate cannot ratify
-separately — `consulted:
-product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
-topics/knowledge-architecture.md:341`. And what the harvest performs is the
+- the two **operational clauses** are in `src/packet-template.md`, read by the
+  model at generation;
+- §4's **ground and its pinned served quote**, §3's prohibition and its quote,
+  and the three standing prohibitions are in
+  `specs/spec-brief-draft-design/DESIGN.md` §4/§5;
+- the round-trip concession's **mechanical refusal** is
+  `checks/check-brief-compose.sh` case (o);
+- **twenty-one referrers** were repointed in the deleting act, found by
+  sweeping the file's name over the whole tree *before* deleting;
+- everything else the spec held — the carrier sort, exemplar slots, the record
+  format, the admission register, its open questions — was **declined and
+  recorded as declined** at DESIGN.md §7. It governed an owner-authored
+  document no instance of which was ever created.
+
+**The sequencing was the reason it waited, not the ruling.** An eviction
+judgment folded into a build is one a gate cannot ratify separately —
+`consulted: product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
+topics/knowledge-architecture.md:341` — so the Packet shipped first, the
+destination second, and the deletion third. What the harvest performed was the
 **removal of a copy** rather than a relocation for want of a destination —
 `consulted: product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
 topics/knowledge-architecture.md:331`.
@@ -1940,7 +1955,7 @@ survive the mint. The Brief's Thesis section holds the adopted claim in plain
 prose, and the settled members stay derivable from the Brief's own Strands
 section rather than restated inline.
 
-**Why here and not in `specs/spec-style-contract/SPEC.md` §4**, where §2 row 4
+**Why here and not in the style contract's §4** (DELETED at kogaki#749), where §2 row 4
 points register. That spec binds the **protocol** of an owner-authored document
 and says so:
 
@@ -1948,7 +1963,7 @@ and says so:
 > at the owner's drafts destination, and **nothing in this repository creates
 > that file.**"
 
-`specs/spec-style-contract/SPEC.md:42-45`
+*(the style contract, §1 — the file was DELETED at kogaki#749 and the quote above is retained here as the record; a line-number citation cannot survive its file, and this is the one referrer of the twenty that had no surviving target at all)*
 
 A rule about what **this repository's** composers may emit is not a clause of
 the owner's style contract. §4's three clauses (numbering as of v1; clauses 1 and 2 moved to `src/packet-template.md` at kogaki#749 — see §4.14.1) — the operational definition, the
