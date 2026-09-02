@@ -30,7 +30,14 @@ import { resolveMoveIds, validateSpecialization, loadMoveIds,
 import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./src/assemble.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 
-const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+// RE-HOMED at kogaki#770. This survey record is the input the Brief mint reads
+// through the real §5.3 flow, and it lived under checks/fixtures/terrain/
+// because Terrain's own members were its other readers. Those members are gone,
+// so the path named an owner that no longer exists — and the issue's update
+// surface asserted the whole directory was "read only by the four (verified by
+// grep)", which was FALSE of exactly this line. Kept, moved, and named for what
+// it is: a survey record, read here.
+const SURVEY = "checks/fixtures/survey/lone-tag-member.json";
 const fails = [];
 let exemplarLine = "the Move library was not read";
 const dir = mkdtempSync(join(tmpdir(), "brief-compose-"));
@@ -620,6 +627,101 @@ try {
     }
   }
 
+  // (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v19, kogaki#522).
+  // The rule "/brief completes the Brief" has exactly one carrier — the skill
+  // file — and a rule whose only carrier is prose is advisory. The 2026-08-18
+  // dogfood run is the specimen: the flow stopped at the mint, every composition
+  // field an unfilled slot, and nothing but the owner noticed. Terrain's skill is
+  // asserted the same way — WAS, until kogaki#770 removed that member too; the
+  // terrain skill's conduct assertions went with it and this one did not.
+  //
+  // RE-HOMED HERE FROM check-brief-entry.sh AT kogaki#770. That member was
+  // removed under the 2026-09-02 retention rule (0 catches in 120 exercised
+  // runs, 4.2 s local), and it was the SOLE reader of the brief skill — so
+  // deleting it whole would have taken this table with it. The table is not
+  // what made that member heavy: its 4.2 s was seven subprocess mints, and
+  // everything below is a file read and a regex loop. Moving it costs no
+  // measurable time and keeps the properties #747 and #751 landed hours
+  // before the removal was proposed.
+  //
+  // THE ARGUMENT FOR KEEPING IT IS THE RULE'S OWN, not an exemption from it:
+  // zero fires is ambiguous, since a working deterrent and an extinct defect
+  // class are indistinguishable in the count, and removal stays a judgment
+  // (consulted: product-lab@f8794c6454cb475b4f835dc7c9db0eab3525441c
+  // topics/claude-code-ops.md:202). The owner made that judgment at the gate.
+  {
+    const SKILL = readFileSync(".claude/skills/brief/SKILL.md", "utf8");
+  
+    // Each stage names the runtime act that performs it, so a stage cannot be
+    // satisfied by a passing mention in prose.
+    // PATH COMPOSITION IS FIRST IN THE TABLE BECAUSE IT IS THE STAGE THE
+    // SPECIMEN FAILED AT (PR #547 round 1). The 2026-08-18 dogfood run stopped
+    // after the mint and never composed a path; a table that omitted step 7
+    // would go green on the exact regression it exists to catch. It has no CLI
+    // act of its own — the composer authors the Step records — so it is asserted
+    // through the §4.1 fields it must produce, which prose about "composition"
+    // does not contain.
+    const ARC = [
+      ["path composition", /Compose 2.3 Reader Paths/],
+      ["the §4.1 Step record composition must author", /depends_on[\s\S]{0,80}rationale|rationale[\s\S]{0,80}depends_on/],
+      ["entry", /brief\.mjs enter /],
+      // ANCHORED, not an alternation: `a|b` binds looser than the surrounding
+      // context, so the earlier two-branch form reduced to a bare
+      // `brief-thesis-adoption` and any prose mention satisfied it (round 1).
+      ["thesis gate", /gates\/registry\.json:\s*\n?\s*brief-thesis-adoption/],
+      ["adopt", /brief\.mjs adopt /],
+      ["mint", /brief\.mjs mint /],
+      ["path review", /review\.mjs attach /],
+      ["assembly", /assemble\.mjs assemble /],
+      // §4.12's judgment occasion (kogaki#747) is an ARC STAGE, so it is
+      // asserted here rather than left to the runtime alone. The runtime makes
+      // it unskippable — adoption refuses without the record — but a skill that
+      // never mentions it sends a sitting into a refusal it has no instruction
+      // for, and the arc table exists exactly so a stage cannot vanish from the
+      // prose while the flow still needs it. Two rows: the JUDGMENT the sitting
+      // performs, and the INPUT that carries it to the runtime, because a skill
+      // could name the flag while dropping the instruction to judge.
+      // §4.13's authored field (kogaki#751). The runtime accepts a Step without
+      // it — the field is optional by design — so nothing REFUSES a skill that
+      // stops mentioning it, and the prose is the only carrier the composer
+      // reads. That asymmetry is exactly why this row exists: an optional field
+      // dropped from the instructions is simply never authored again, silently.
+      ["§4.13 introduces authoring", /introduces[\s\S]{0,300}meaning anchor/],
+      ["§4.12 specialization judgment", /reader_state_before[\s\S]{0,200}(specialization|consistent)|specialization[\s\S]{0,200}reader_state_before/],
+      ["§4.12 verdict vocabulary", /cannot-determine/],
+      ["adoption", /assemble\.mjs adopt-candidate /],
+      ["specialization record reaching adoption", /adopt-candidate[^\n]*--specialization/],
+    ];
+    for (const [stage, re] of ARC) {
+      if (!re.test(SKILL)) fails.push(`(n) the skill does not drive the ${stage} stage — the arc §5.3 v19 requires ends before the Brief is filled`);
+    }
+  
+    // The abolished default stop. The old text ended the flow at the mint with
+    // "Hand over the artifact and stop"; that exact shape must not return.
+    if (/\*\*Hand over the artifact\*\* and stop/.test(SKILL)) {
+      fails.push("(n) the skill still ends at the mint — the default mid-workflow stop §5.3 v19 abolished");
+    }
+    if (!/ENDS AT A FILLED BRIEF/.test(SKILL)) {
+      fails.push("(n) the skill does not state that the invocation ends at a FILLED Brief — the rule has no carrier");
+    }
+    // A stop is legitimate only NAMED, on an inspection-need. The skill must
+    // record which it is: this flow has none, and saying so is what stops the
+    // finding being re-derived every sitting.
+    if (!/inspection-need/.test(SKILL)) {
+      fails.push("(n) the skill does not name the inspection-need rule — the only legitimate mid-workflow stop is unstated, so any stop reads as licensed");
+    }
+  
+    // The pre-mint bound. v11's "exactly one owner question" is TRUE of the
+    // pre-mint segment and FALSE of the arc — the completed flow raises two
+    // gates. An unqualified claim here would forbid §6's selection gate.
+    if (/\*\*the only owner\s*\n?\s*question in this flow\*\*/.test(SKILL)) {
+      fails.push("(n) the skill claims the thesis gate is the only owner question IN THIS FLOW — false once the arc runs through §6's selection gate");
+    }
+    if (!/ONE OWNER QUESTION BEFORE THE MINT/.test(SKILL)) {
+      fails.push("(n) the skill dropped v11's pre-mint bound — kogaki#518's ruling has no carrier");
+    }
+  }
+
   // (h) JOURNEY COVERAGE (§6.1 MUST 1, kogaki#501): journey material is a
   // DISTINCT material (§4.1's "which Journeys"), carried as `<L-id>.journey`,
   // PLACED OR ITS OMISSION DISCLOSED — derived from the composed steps, never
@@ -1017,7 +1119,7 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
-console.log("brief compose: 13/13 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 14/14 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -1058,7 +1160,15 @@ console.log("brief compose: 13/13 cases — (a) §4.1 Step shape refused per mis
   + "Step declaring a term and to the BRIEF (null) when none does, a re-declaration moving nothing; the "
   + "render/parse round trip is asserted at both ends. §4.13.1 (as amended 2026-09-02 — the field is `excerpt` and holds the author's account of the reader movement, never a verbatim quotation): a record carrying an account is an exemplar, the retired `Excerpt:` marker is read as plain text and confers nothing, an EMPTY excerpt is the one absence and is reported as such rather than as a short exemplar, the Packet's block STATES the absence naming the Move and the repairing act while SUBSTITUTING nothing, and a `sources` field surviving in any library record FAILS this member by name. Accumulation is computed and never stored. The "
   + "library's own exemplar count is DISCLOSED and never asserted — a count that failed when it moved would go "
-  + "red exactly when the re-extraction is performed; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
+  + "red exactly when the re-extraction is performed; (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v19), RE-HOMED HERE from the retired "
+  + "brief-entry member at kogaki#770 — the arc table naming, per stage, the runtime act that performs it "
+  + "(path composition and the §4.1 fields it authors, entry, the thesis gate's registry row, adopt, mint, "
+  + "path review, assembly, §4.13's `introduces` authoring and its three-valued vocabulary, §4.12's specialization "
+  + "judgment, adoption, and the `--specialization` input that carries the record to it), plus the abolished default "
+  + "stop, the ends-at-a-FILLED-Brief carrier, the named-inspection-need rule and v11's pre-mint bound. The §4.13 "
+  + "row is the one with NO RUNTIME FALLBACK: the field is optional by design, so nothing refuses a skill that "
+  + "stops mentioning it. Moved rather than deleted because brief-entry was its SOLE reader and the table is not "
+  + "what made that member heavy; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
   + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "
   + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "
