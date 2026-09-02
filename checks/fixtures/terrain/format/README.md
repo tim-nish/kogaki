@@ -2,13 +2,28 @@
 
 **FOUR at v24 (kogaki#636)** — `tag-listing.txt` and `tag-row-listing.txt` join
 the two below, because `report-format.json` mints the two pre-selection surfaces
-from §9's allowlist. **Both carry assertion 1 only.** Assertion 2 needs a
-renderer that writes the surface's artifact, and these two write none: they are
-printed by the owner-executed `tags` and `tag-rows` (§6.0 v29, kogaki#682), so
-there is no artifact for a second assertion to read. The check's green line
-reports that split (`2 of them asserted TWICE and 2 ONCE`) rather than averaging
-it — claiming TWICE for a surface asserted ONCE is exactly the defect kogaki#636
-was filed over.
+from §9's allowlist. **Both carry assertion 1 only**, and the check's green line
+reports that split rather than averaging it — claiming TWICE for a surface
+asserted ONCE is exactly the defect kogaki#636 was filed over.
+
+**FIVE at v18 (kogaki#745)** — `cotag-selection.txt` joins them, the golden
+specimen for §6.0.1's co-tag SELECTION display. It carries **both** assertions.
+
+**WHAT THAT CORRECTS, because this file stated it wrongly.** The paragraph above
+used to explain the split by saying *"assertion 2 needs a renderer that writes
+the surface's artifact, and these two write none"*. That is **false**, and
+`cotag-selection.txt` is the counter-example: it writes no artifact and is
+asserted twice. The real discriminator is whether the check can obtain the
+surface's **delivered bytes** — read from the artifact where one is written, and
+from **stdout** where the surface is owner-executed and stdout *is* the
+delivery. The two listings are still asserted once for a different and simpler
+reason: this check does not invoke them.
+
+The distinction matters beyond bookkeeping. Under the old wording, an
+artifact-less surface was *unassertable* by construction and nobody would look
+for a second assertion; under the corrected one, a surface asserted once owes a
+reason, and "this check does not invoke it" is a reason a later sitting can act
+on.
 
 **RENAMED AT v29 (kogaki#682, PR #704 round 1).** The specimens were
 `tag-screen.txt` and `tag-row-view.txt`. A Screen is the rendering written AFTER

@@ -1,7 +1,7 @@
 {
-  "version": 11,
+  "version": 12,
   "governing_text": "specs/spec-terrain/SPEC.md §15",
-  "licensed_by": "kogaki#685 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
+  "licensed_by": "kogaki#745 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
     "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (§15.5) and renders under the grammar_surface THIS STATE declares, never one bound to the artifact path.",
@@ -38,7 +38,8 @@
       "owner_reads": {
         "invocation": "node src/terrain.mjs tags --survey <survey record>",
         "why": "the owner chooses a tag from this listing, and a session's tool output is displayed to the session rather than reliably to the owner — so the act is the owner's to run (§6.0)",
-        "also": "node src/terrain.mjs tag-rows --survey <survey record> --tag <T> — the per-tag row view, run when the owner asks to browse rows (§6.3's fork half). Never scheduled."
+        "also": "node src/terrain.mjs tag-rows --survey <survey record> --tag <T> — the per-tag row view, run when the owner asks to browse rows (§6.3's fork half). Never scheduled.",
+        "then": "node src/terrain.mjs cotag-selection --survey <survey record> --tag <T> --intent \"<one sentence: why these co-tags, from the model>\" — §6.0.1's co-tag SELECTION display, named here once the owner has supplied the tag this stop waits for. THE INTENT PLACEHOLDER IS PART OF THE NAMED INVOCATION: it is the model's sole contribution to that surface, the executor supplies it at the invocation rather than printing it separately, and the emitter refuses it when multi-line, over 200 characters, or carrying table or marker syntax. Sited at this stop on the table's own precedent — `tag-rows` is the other owner-executed act taking `--tag <T>`, and it is named here for the same reason: both become runnable exactly when this stop's `owner_supplies` has been supplied."
       }
     },
     {
@@ -209,7 +210,8 @@
   },
   "owner_executed_entry_points": {
     "tags": "the pre-selection tag listing — a header and one tag row per section, under the `tag_listing` grammar. Takes `--survey <record>`; the executor names the invocation at its TAG_SELECTION stop.",
-    "tag-rows": "the per-tag row view — candidate rows under one named tag with their Gloss headlines, under the `tag_row_listing` grammar. Takes `--survey <record> --tag <T>`, and `--family <f>` to mark. Run when the owner asks to browse rows; never scheduled."
+    "tag-rows": "the per-tag row view — candidate rows under one named tag with their Gloss headlines, under the `tag_row_listing` grammar. Takes `--survey <record> --tag <T>`, and `--family <f>` to mark. Run when the owner asks to browse rows; never scheduled.",
+    "cotag-selection": "the co-tag SELECTION display (§6.0.1) — three blocks under the `cotag_selection` grammar: the fixed marker, a counts table over ALL served tags with family-named columns, and the model's one `intent:` sentence. Takes `--survey <record> --tag <T> --intent <one sentence>`. Writes NOTHING, so §15.5's write authority never engages and it is not a state; it PRECEDES the Screen and `reports/Screen.md` keeps exactly one writing state (`cotag_screen`). The executor names the invocation at its `TAG_SELECTION` stop, intent placeholder included, and neither runs it nor relays its output."
   },
   "entry_point_accounting": "EVERY case in src/terrain.mjs's dispatcher appears in exactly one of the 5 maps above (bound_to_a_state, removed_entry_points, retired_entry_points, non_flow_entry_points, owner_executed_entry_points), and THAT TOTALITY is the property rather than the count: the next entry point is covered by the totality rather than by having been remembered. A case in none of them, or in two, is a defect against this file."
 }
