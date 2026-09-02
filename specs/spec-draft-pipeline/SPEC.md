@@ -1253,6 +1253,33 @@ answered by inference from this section.
 its own licensing issue with choice, alternatives and receipt before any flow
 embeds an order.
 
+#### 4.12.4 Receipts
+
+Three consultations, one per fork this amendment turned on. Each is recorded
+with what it discriminated, because a receipt that does not say what it settled
+is evidence that someone asked and nothing more.
+
+**Where the judgment record lives** — inside the artifact it judges, or beside
+it as a separate typed input. Settled for the second: judgment belongs at
+declared seams where the order is already fixed, supplying a value between two
+steps whose sequence is determined, rather than as a layer wrapping them; and a
+context that both authors an artifact and then judges it re-checks the framing
+that produced it.
+`consulted: product-lab@ded20f50ab341da7017375db08a4796166f47890 LESSONS.md:13`
+`consulted: product-lab@ded20f50ab341da7017375db08a4796166f47890 LESSONS.md:43`
+
+**Whether the cases earn a new registered member.** Settled against: the typed
+improvement loop routes a missed mechanical property to the merge carrier and a
+missed judgment to the consultation's inputs, and constrain-generation is the
+design's move rather than a member per property.
+`consulted: product-lab@f3947495a753371d4777f82e87e490debc5f9cb7 topics/knowledge-architecture.md:329`
+
+**Superseding §7.5's rider in place rather than deleting it.** The convention is
+the served one — a superseded clause keeps its text and gains the amendment, so
+a reader arriving at an older rendering meets the correction rather than a live
+claim.
+`consulted: product-lab@f3947495a753371d4777f82e87e490debc5f9cb7 GLOSSARY.md:242`
+
 ## 5. The Brief's centre, and the obligations ledger inside it
 
 ### 5.1 The settled structure section
