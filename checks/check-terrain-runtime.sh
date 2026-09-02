@@ -33,10 +33,20 @@
 # trace of having been missing.
 #
 # NOT CARRIED HERE, stated rather than implied: survey/cover/figure/navigation
-# composition over records in the tree — that is check-terrain-composition.sh,
-# whose admission record and removal signal are about that contract, and
-# widening it to also carry runtime fixtures would put two contracts behind one
-# removal signal. And every judgment about whether a case is a GOOD
+# composition over records in the tree. That WAS check-terrain-composition.sh,
+# whose admission record and removal signal were about that contract, and
+# widening this member to also carry runtime fixtures would have put two
+# contracts behind one removal signal.
+#
+# THAT MEMBER IS GONE (kogaki#770): removed under the 2026-09-02 retention rule
+# with 0 catches over 120 exercised runs at 20.5 s local. So the contract named
+# above is now carried by NOBODY, and this paragraph says so rather than
+# continuing to point at a file that is not in the tree — a boundary stated by
+# naming its other side stops being legible the moment that side is deleted.
+# This member is NOT widened to absorb it: the reason the split existed is
+# unchanged, and absorbing a contract because its carrier was removed for
+# having no catches would re-admit the cost the removal took, behind a member
+# whose own removal signal is about something else. And every judgment about whether a case is a GOOD
 # counterfactual, which the registry's own note puts outside every gate.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."

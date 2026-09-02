@@ -1119,7 +1119,7 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
-console.log("brief compose: 13/13 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 14/14 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -1160,7 +1160,15 @@ console.log("brief compose: 13/13 cases — (a) §4.1 Step shape refused per mis
   + "Step declaring a term and to the BRIEF (null) when none does, a re-declaration moving nothing; the "
   + "render/parse round trip is asserted at both ends. §4.13.1 (as amended 2026-09-02 — the field is `excerpt` and holds the author's account of the reader movement, never a verbatim quotation): a record carrying an account is an exemplar, the retired `Excerpt:` marker is read as plain text and confers nothing, an EMPTY excerpt is the one absence and is reported as such rather than as a short exemplar, the Packet's block STATES the absence naming the Move and the repairing act while SUBSTITUTING nothing, and a `sources` field surviving in any library record FAILS this member by name. Accumulation is computed and never stored. The "
   + "library's own exemplar count is DISCLOSED and never asserted — a count that failed when it moved would go "
-  + "red exactly when the re-extraction is performed; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
+  + "red exactly when the re-extraction is performed; (n) THE SKILL CONTRACT NAMES THE WHOLE ARC (§5.3 v19), RE-HOMED HERE from the retired "
+  + "brief-entry member at kogaki#770 — the arc table naming, per stage, the runtime act that performs it "
+  + "(path composition and the §4.1 fields it authors, entry, the thesis gate's registry row, adopt, mint, "
+  + "path review, assembly, §4.13's `introduces` authoring and its three-valued vocabulary, §4.12's specialization "
+  + "judgment, adoption, and the `--specialization` input that carries the record to it), plus the abolished default "
+  + "stop, the ends-at-a-FILLED-Brief carrier, the named-inspection-need rule and v11's pre-mint bound. The §4.13 "
+  + "row is the one with NO RUNTIME FALLBACK: the field is optional by design, so nothing refuses a skill that "
+  + "stops mentioning it. Moved rather than deleted because brief-entry was its SOLE reader and the table is not "
+  + "what made that member heavy; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
   + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "
   + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "
