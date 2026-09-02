@@ -1,0 +1,59 @@
+{
+  "note": [
+    "The Step-to-Move specialization verdict record, machine-readable",
+    "(SPEC-draft-pipeline §4.12 is the prose half; kogaki#747, owner rulings",
+    "2026-09-01). src/compose.mjs READS these lists rather than restating",
+    "them, and checks/check-brief-compose.sh reads them too — this file is",
+    "the single carrier, so amending the vocabulary is one edit and never a",
+    "three-copy divergence. Same arrangement as src/record-schema.json and",
+    "src/gate-schema.json, deliberately.",
+    "",
+    "WHAT THE HARNESS DOES WITH THIS FILE, stated here because the",
+    "distinction is the whole design: it VALIDATES a record against these",
+    "lists and it NEVER COMPOSES one. No default verdict exists, no verdict",
+    "is inferred from a Step's fields, and a missing record is a refusal",
+    "rather than a blank to fill. The judgment is the composing sitting's;",
+    "the mechanism owns only the record's shape and the refusal."
+  ],
+  "version": "1",
+  "record": {
+    "required": ["version", "candidate_id", "verdicts"],
+    "version_must_be": "1",
+    "candidate_id": {
+      "must_equal_adopted_candidate": true,
+      "rationale": "a record composed against one Candidate cannot certify another — without this key a sitting could judge the Candidate it liked and adopt the one it wanted"
+    }
+  },
+  "verdict": {
+    "required": ["step_id", "move", "verdict", "why"],
+    "move_must_equal_step_move": true,
+    "why_min_words": 4,
+    "one_per_step_exactly": true,
+    "one_per_step_rationale": "a missing verdict and an extra verdict are both refusals, because a per-Step obligation that tolerates a short list is skippable one Step at a time"
+  },
+  "vocabulary": {
+    "values": ["consistent", "contradicts", "cannot-determine"],
+    "passing": ["consistent"],
+    "closed": true,
+    "why_three_and_not_two": [
+      "`cannot-determine` is a first-class value and not an escape hatch: a",
+      "two-valued read forces an honest non-answer to render as one of the",
+      "two answers, and the value that absorbs it is the passing one.",
+      "The served position is the same finding one domain over — a",
+      "two-valued exists→accepted read where the ratified rule is",
+      "three-valued and the honest value was cannot-determine",
+      "(product-lab topics/archive/knowledge-architecture.md:95).",
+      "It does not weaken the gate: `passing` holds one member, so a",
+      "`cannot-determine` refuses exactly as `contradicts` does. What it buys",
+      "is that the refusal says WHICH — an unjudgeable Move contract and a",
+      "contradicted one need different repairs, and a two-valued record",
+      "would have rendered them identically."
+    ]
+  },
+  "refusal": {
+    "deterministic": true,
+    "names_first_failing_step": true,
+    "quotes_the_why": true,
+    "rationale": "the record's `why` is the one sentence the composing sitting wrote about that Step, so the refusal hands it back rather than paraphrasing it"
+  }
+}

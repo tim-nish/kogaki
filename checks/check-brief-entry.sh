@@ -820,7 +820,18 @@ try {
     ["mint", /brief\.mjs mint /],
     ["path review", /review\.mjs attach /],
     ["assembly", /assemble\.mjs assemble /],
+    // §4.12's judgment occasion (kogaki#747) is an ARC STAGE, so it is
+    // asserted here rather than left to the runtime alone. The runtime makes
+    // it unskippable — adoption refuses without the record — but a skill that
+    // never mentions it sends a sitting into a refusal it has no instruction
+    // for, and the arc table exists exactly so a stage cannot vanish from the
+    // prose while the flow still needs it. Two rows: the JUDGMENT the sitting
+    // performs, and the INPUT that carries it to the runtime, because a skill
+    // could name the flag while dropping the instruction to judge.
+    ["§4.12 specialization judgment", /reader_state_before[\s\S]{0,200}(specialization|consistent)|specialization[\s\S]{0,200}reader_state_before/],
+    ["§4.12 verdict vocabulary", /cannot-determine/],
     ["adoption", /assemble\.mjs adopt-candidate /],
+    ["specialization record reaching adoption", /adopt-candidate[^\n]*--specialization/],
   ];
   for (const [stage, re] of ARC) {
     if (!re.test(SKILL)) fails.push(`(n) the skill does not drive the ${stage} stage — the arc §5.3 v19 requires ends before the Brief is filled`);

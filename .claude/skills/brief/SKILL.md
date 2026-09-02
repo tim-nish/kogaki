@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19, §4.12 v22): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → the §4.12 specialization judgment → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -126,12 +126,34 @@ kogaki#494).
     entries and nothing else, per the rendering contract below. Carry the
     premise's negation as a first-class option ("none of these — the Thesis or
     the settled set is what should change", §6), and free text.
-11. **Adopt the owner's Candidate** —
-    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id>`.
+11. **Judge the adopted path's Step↔Move instantiation** (§4.12) — a
+    MANDATORY occasion with no skip, and yours: for **every** Step of the
+    Candidate the owner chose, read its Move's `requires`/`effect` in
+    `moves/<id>.md` and judge whether that Step's `reader_state_before` and
+    `reader_state_after` are consistent **specializations** of them for this
+    reader and these Strands. Record one verdict per Step — `consistent`,
+    `contradicts`, or `cannot-determine`, with one sentence of why — in the
+    shape `src/specialization-schema.json` declares. `cannot-determine` is a
+    real answer and not a way past the gate: it refuses exactly as
+    `contradicts` does, and saying so is better than a `consistent` you did not
+    reach. **The runtime composes no verdict here and fills no default** — it
+    validates your record and refuses without one, so there is nothing to
+    inherit by leaving the flag off.
+12. **Adopt the owner's Candidate** —
+    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json>`.
     Its Reader Path becomes the Brief's sequence; `thesis_closure` and
     `tradeoffs` fill from its reasoning. **With no owner answer nothing lands**
-    — the runtime refuses.
-12. **Hand over the filled Brief** and stop. This is the end of the arc: name
+    — the runtime refuses. It also refuses a Step whose `move` resolves to no
+    record in `moves/` (§4.12), naming the Step and the id: bind an admitted
+    Move, or admit the Move to the library first — the library grows by an
+    admission act, never by a Brief naming an id. Relay either refusal and fix
+    it at source; nothing is written to the Brief.
+    The library is `moves/` **relative to the working directory**; add
+    `--moves-dir <dir>` when driving from anywhere but the repository root, and
+    note that `draft.mjs` takes the same flag for the same reason. A store it
+    cannot read refuses as a store fault naming no Step — that is a wrong
+    working directory, not a wrong Brief.
+13. **Hand over the filled Brief** and stop. This is the end of the arc: name
     `theses/<slug>/brief.md` to the owner and never retype, summarize or
     restate it. The run's per-block Brief snapshots (before/after each
     landing write) sit machine-local at `~/.kogaki/brief-runs/<slug>/snapshots/`.
