@@ -36,6 +36,12 @@ cited at its own home:
 
 ## 0. The declared design baseline
 
+`specs/SPEC.md` §4.5.1 requires a baseline to be declared in the spec that owns
+its subject, and makes **no inherited baseline** the default where nothing is
+declared. This spec inherits and then diverges, so the declaration is **owed
+here** rather than optional, and a divergence is declared in the amendment that
+creates it.
+
 **The baseline is kogaki#127's inheritance whitelist, items 3 and 4 — and
 nothing else.** Item 3 is Draft creation driven by questions in a UI; item 4 is
 the CanonicalDraft and Variant concepts. **The scope limit is part of this
@@ -148,6 +154,7 @@ the run workspace. A CanonicalDraft is the thing the owner reads and reviews, so
 it crosses onto the human's surface; **an identity-digest filename would defeat
 the ruling that placed it there.**
 `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/claude-code-ops.md:12`
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/archive/articles.md:53`
 
 Its frontmatter carries the Brief it realizes (path and pin), the survey pin,
 and an immutable `generated_by` birth record written at creation.
@@ -209,6 +216,12 @@ against it is an argument rather than a configuration.
   supplements either.
 - **It does not amend `specs/spec-draft-pipeline/SPEC.md`.**
 
-`necessity:` an enumeration of what was decided against. Absence of code is not
-evidence of a decision, and each of these has been proposed or assumed at least
-once.
+**deferred slots minted by this spec: none.**
+`consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 LESSONS.md:97`
+
+`necessity:` an enumeration of what was decided against, plus a live
+absence-declaration. Absence of code is not evidence of a decision, and each of
+these has been proposed or assumed at least once; "no deferred slots" is a claim
+a reader cannot recover from anything else in the tree — an unnamed deferral is
+the defect, so the declaration that there is none has to be made rather than
+inferred.

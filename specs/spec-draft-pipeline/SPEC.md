@@ -456,7 +456,7 @@ asserts**.
 | judged | are the instantiated states consistent specializations? | the composing sitting | a typed record the runtime validates and never composes |
 
 `necessity:` that the contract HAS two halves, and that which half a property
-belongs to is not a matter of convenience. The table below is the division;
+belongs to is not a matter of convenience. The table above is the division;
 §4.12.1 and §4.12.2 each state why their own half sits where it does.
 
 #### 4.12.1 The mechanical half — move id resolution
