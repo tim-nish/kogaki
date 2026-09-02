@@ -212,7 +212,7 @@ never renders as visible structure in the article body.**
 
 **LLM — judgment, contract-bound, unharnessed.** The prose: realizing each
 Step's declared `reader_state_before → reader_state_after` transition, written
-from that Step's stated grounds. Register per `specs/spec-style-contract/SPEC.md`
+from that Step's stated grounds. Register per `src/packet-template.md`, grounded at `specs/spec-brief-draft-design/DESIGN.md` §4 (was `specs/spec-style-contract/SPEC.md`, deleted at kogaki#749)
 §4. A claim widened beyond its quoted scope is the author's judgment and is
 attributed as such.
 
@@ -254,8 +254,8 @@ the judgment realizing it, and neither is reachable by a check over cites.
   reaches the Move substrate.
 - **It adds no second style artifact.** Register is **operational text in
   `src/packet-template.md`**, which the model reads at generation — the carrier
-  moved at kogaki#749, from `specs/spec-style-contract/SPEC.md` §4, whose
-  clauses 1 and 2 no longer stand there. Its GROUND is
+  moved at kogaki#749, from `specs/spec-style-contract/SPEC.md` §4, which is
+  DELETED at kogaki#749. Its GROUND is
   `specs/spec-brief-draft-design/DESIGN.md` §4. This spec neither restates nor
   supplements either.
 - **It does not amend `specs/spec-draft-pipeline/SPEC.md`.** That spec's §2

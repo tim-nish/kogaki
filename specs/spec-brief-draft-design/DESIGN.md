@@ -137,6 +137,23 @@ their carrier is `src/packet-template.md`, which the model reads at generation.
 The third, candidates rather than a single rendering, is discharged by the
 selection gate that already exists.
 
+**The served position this rests on, carried here at kogaki#749** when
+`specs/spec-style-contract/` was deleted — a ground with no receipt is an
+assertion, and the spec that held the pin is gone:
+
+> "**Plain register is defined OPERATIONALLY and derived by TRANSLATION WITH A
+> ROUND-TRIP TEST, because audience impersonation is a prompt that produces
+> condescension rather than a constraint a check can hold.** … Three controls
+> replace impersonation with something checkable: an OPERATIONAL definition
+> (no unexplained term of art, one relation per sentence, a concrete subject
+> acting), a ROUND-TRIP test requiring the original claim be recoverable from
+> the plain version with anything lost restored or explicitly conceded — the
+> property that stops simplification becoming loss — and 2–3 candidates
+> emitted onto the Brief for owner selection, reusing the existing human gate
+> rather than adding ceremony."
+
+`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:41`
+
 **This section holds their GROUND**, which is the half a template cannot carry:
 *why* impersonation was replaced rather than abbreviated. Writing for an
 imagined audience is not a weaker version of the same instruction — it is a
@@ -173,7 +190,18 @@ This document is their normative home.
 2. **No syntax metrics anywhere in a run.** Sentence lengths, word counts,
    readability indices: a syntax metric added anywhere in this pipeline has
    **failed** this design rather than extended it, because it measures a proxy
-   for the property the round trip measures directly.
+   for the property the round trip measures directly. The served position,
+   carried here at kogaki#749 with the deletion:
+
+   > "**Syntax profile carries NO instrument, and is named as the contract
+   > section most likely to grow a bad one.** Sentence-length distribution and
+   > hedging density are the only style properties a machine can measure
+   > cheaply, which is exactly why they will attract enforcement — and a
+   > distribution check is a proxy for voice, not voice. An instrument that
+   > measures the measurable NEIGHBOUR of a property teaches conformance to
+   > the neighbour."
+
+   `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:69`
 3. **No second style-constitution artifact.** One carrier for the operational
    rules — the Packet template — and this record for their ground. A third
    document restating either is the conformance copy that drifts.
@@ -218,6 +246,40 @@ numbered contract a runtime cites, the numbered contract governs.
 work encounters them"). Re-extracting a 3,839-line pre-implementation document
 is its own act with its own licence, and folding it into this one would put an
 eviction judgment behind a writing act.
+
+### The style contract's deletion, and what was DECLINED with it
+
+`specs/spec-style-contract/` was **deleted at kogaki#749**. The ruling was
+"deleted, with its obligations re-homed, **not preserved**", and the
+completeness criterion is stated here rather than left to the deletion's own
+one-sided purity test — a criterion that measures what must NOT remain is
+satisfied most cheaply by removing behaviour.
+
+**What survived, and where:**
+
+| held | fate |
+|---|---|
+| §4 clauses 1–2 (the operational definition, the round-trip test) | `src/packet-template.md` — operational, read at generation |
+| §4's ground + its pinned served quote | §4 above |
+| §3's prohibition + its pinned served quote | §5 prohibition 2 above |
+| §1's no-per-run-style-questions, the no-second-artifact rule | §5 prohibitions 1 and 3 above |
+| the round-trip concession's mechanical refusal | `checks/check-brief-compose.sh` case (o) |
+
+**What was DECLINED, named rather than dropped silently:** §2 (sections sort by
+carrier), §5 (exemplar slots declared and empty), §6 (the record format), §7
+(the admission register), §8 (open questions), §9 (out of scope), and §10's
+remaining reads. All of it is **protocol for an owner-authored document that
+was never authored** — the issue's own search recorded "no instance ever
+authored" — so it governs an artifact with no instances, and an operative
+document holding a superseded or unexercised protocol reinstalls it for the
+next reader. It lives in version control and on kogaki#426's thread.
+
+**Twenty referrers were repointed in the same act**, found by sweeping the
+deleted file's name over the whole tree *before* deleting rather than after:
+`specs/SPEC.md` ×2, `spec-draft-pipeline` ×11, `spec-draft-command` ×2,
+`gates/registry.json`, `src/brief.mjs` ×2, `src/draft.mjs`, and this record.
+Three earlier review rounds had between them found five of the twenty, one file
+at a time, because each round swept only what its own diff touched.
 
 **deferred slot: the spec-draft-pipeline re-cut.** Owed on its own licensing
 issue, with the criteria applied section by section.

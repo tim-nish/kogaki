@@ -308,7 +308,12 @@ export function resolveStrandIds(record, entered) {
 // the convention `cmdView` already follows. Composing around the gap would
 // hide a fault the owner is the one who can clear. The candidates differ in which member LEADS, because that is a real
 // composition fork the set itself carries; each is in plain register per
-// SPEC-style-contract §4 (no unexplained term of art, one relation per
+// Plain register's operational definition is carried by src/packet-template.md
+// (kogaki#749) and its ground by specs/spec-brief-draft-design/DESIGN.md §4.
+// NOT RESTATED HERE (kogaki#749, reg-0220): this comment used to spell the
+// definition out inline, which was a second carrier for a rule with one — the
+// same shape the design record struck from its own §4 one PR earlier.
+// (was: SPEC-style-contract §4, deleted; the parenthetical listed
 // sentence, a concrete subject acting) and carries its round-trip
 // CONCESSION explicitly — a concession is part of the output, never a
 // silent omission. Exported for the check's compose-from-settled-set case.
@@ -318,7 +323,7 @@ export function resolveStrandIds(record, entered) {
 // is prose composed from them, and it carries NO FIELD LABEL. The three frames
 // that shipped before — "The article's spine is this claim:", "The article makes
 // one claim:", "Concedes:" — handed the owner labelled fields at the one surface
-// SPEC-style-contract §4 promises plain register to, so they are gone rather
+// the design record's §4 promises plain register to, so they are gone rather
 // than reworded: the colon-framed shape was the defect, not the words inside it.
 //
 // AND `claim` IS SEPARATE FROM `thesis`, WHICH IS THE HALF THE MINT NEEDS.

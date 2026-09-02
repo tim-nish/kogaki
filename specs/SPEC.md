@@ -5146,10 +5146,13 @@ subsystem per PR through the gate above:
    `src/packet-template.md`, which the model reads at generation; their GROUND
    and the three standing prohibitions live in
    `specs/spec-brief-draft-design/DESIGN.md`; and
-   `specs/spec-style-contract/SPEC.md` (v1, kogaki#426) keeps the pinned served
-   quotes both rest on, pending its deletion. The protocol it bound — the
-   carrier sort, the syntax profile's deliberate absence of an instrument,
-   exemplar slots declared and empty — is unchanged, and
+   `specs/spec-style-contract/SPEC.md` (v1, kogaki#426) is **DELETED** at
+   kogaki#749 — the pinned served quotes both halves rest on were carried into
+   the design record with it, and the protocol it bound (the carrier sort,
+   exemplar slots declared and empty, the record format, the admission
+   register) was **declined rather than dropped silently**: it governed an
+   owner-authored document no instance of which was ever created, and the
+   decline is recorded at DESIGN.md §7. And
    binds **no authored style clause**: the contract instance is
    owner-authored and nothing here creates it.
 7. **Review** — findings-only, one dimension: conformance to the named
