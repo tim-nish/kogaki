@@ -39,3 +39,8 @@ topics/claude-code-ops.md:154`. Routed here rather than to kogaki#749, which
 closed at this merge.
 
 Sixteenth instance in this sitting of that composition; see reg-0206 to reg-0221.
+
+**REPAIRED at kogaki#750** (merge `8e928a7`, 2026-09-03). `specs/SPEC.md`
+manifest item 6 now reads *"This pipeline binds no authored style clause"* — the
+sentence rewritten rather than the conjunction patched, which is this record's
+own prescription.

@@ -47,3 +47,12 @@ topics/claude-code-ops.md:154`. Routed here rather than to kogaki#749, which
 **closed at this merge** and could not carry it.
 
 Fifteenth instance in this sitting of that composition; see reg-0206 to reg-0220.
+
+**REPAIRED at kogaki#750** (merge `8e928a7`, 2026-09-03). The headline reads
+twenty in all three places, re-derived from the tree at the deletion's base
+commit rather than edited, and the derivation's two exclusions are written out
+as runnable commands in `specs/spec-brief-draft-design/DESIGN.md`. PR #783
+round 1 found the first form of that recipe did not reproduce — it gave the
+figure after the exclusions while stating the command without them — which is
+the third instance of this record's own class, inside the paragraph installed
+against it.
