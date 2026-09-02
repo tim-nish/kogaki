@@ -43,10 +43,10 @@ own PRs.
 
 <!-- The sentence beginning "Terrain's screens" is a resolvable ANCHOR cited by
 the gate-carrier fixtures. Two constraints, both invisible at the sentence
-itself: it must stay on ONE line, because a rewrap breaks the citation without
+itself: it must stay on ONE line, because a rewrap breaks every citation without
 changing a word; and the phrase must occur ONCE in this file, because an anchor
-appearing twice identifies nothing. Do not quote it back in a note — the first
-version of this comment did, and the duplicate broke the resolve. -->
+appearing twice identifies nothing — so do not quote it back, here or anywhere
+in this file. -->
 
 **The refusal is a boundary, not a preference:** a Terrain implementation that
 grows its own proposal-rendering or gate-payload affordance has built the refused
@@ -138,13 +138,10 @@ an absent number is a divergence that no longer exists.
    journey, which live in the Full Report (§12). The cost is real: an owner
    reading the screen sees Lesson IDs and a claim with no per-Strand headline
    until they open the report.
-5. **Co-tag group ordering** (kogaki#743, 2026-09-02) — the served surface orders
-   groups by descending member count; Kogaki ships `COTAG_SORT`, "co-tag name
-   ascending, then member id ascending", declared and printed on the screen. Both
-   are deterministic and both are navigation under §2.3, so neither violates the
-   boundary. **This was carried at §11 as undecided while the code shipped the
-   decision** — a spec claiming a question is open while the runtime answers it
-   every run. Recorded here as what it is: a shipped divergence.
+5. **Co-tag group ordering** — the served surface orders groups by descending
+   member count; Kogaki ships `COTAG_SORT`, "co-tag name ascending, then member
+   id ascending", declared and printed on the screen. Both are deterministic and
+   both are navigation under §2.3, so neither violates the boundary.
 
 An entry lands here **in the same amendment that creates the divergence**.
 `consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/knowledge-architecture.md:121`
@@ -534,12 +531,8 @@ by asserting it; a subset relation makes composing outside the bounded read
   Whether a stable sort over a truncated view narrows the candidate set is
   undecided.
 
-**The co-tag group ordering is no longer carried here** (kogaki#743): the runtime
-ships a declared sort and prints it every run, so the question was answered by
-the code while this section called it open. It is recorded as §2.4 register
-entry 5.
-
-`deferred slots:` none.
+The co-tag group ordering is **not** an open question: the runtime ships a
+declared sort. It is §2.4 register entry 5.
 
 `necessity:` open questions are, by definition, not in any carrier. Carrying them
 here is what stops a later sitting re-deciding them silently.
@@ -775,8 +768,8 @@ read.**
 
 **The coverage figure is DERIVED and is not stated in prose, here or anywhere.**
 Its rule lives at `workflow.json`'s `owner_surface_coverage` and is **not
-restated here** — a sentence forbidding a prose statement, followed by the prose
-statement, is the drift surface this clause exists to close (kogaki#743).
+restated here**. A restatement beside the prohibition would be the drift surface
+this clause exists to close.
 
 **Precedence is declared, not left to the reader.** Where this file's prose and
 the grammar disagree about rendered form, **the grammar wins** and the prose is
@@ -921,20 +914,18 @@ whose owner text **does not stop** — because it becomes an owner-executed list
 (§6.0) — keeps emitting.
 
 **Which term of the coverage figure each lands in is `workflow.json`'s to
-compute** and is not asserted here (kogaki#743): the carrier's denominator is the
-**states** whose `writes` is non-null, and an owner-executed entry point is not a
-state, so it enters neither term. This file previously claimed such a subcommand
-"stays in the denominator and enters the numerator", which the carrier's own rule
-contradicts; per §14.1 the carrier wins.
+compute** and is not asserted here: the carrier's denominator is the **states**
+whose `writes` is non-null, and an owner-executed entry point is not a state, so
+it enters neither term. Per §14.1 the carrier wins.
 
 **`self-test` and `validate` survive** as non-flow utilities: no owner surface,
 no sequencing authority, reachable without a run record.
 
 ### 15.8 What is NOT carried — the honest list
 
-Stated **once, here**, for the whole spec. §14.4.1 previously carried a duplicate
-of the first bullet with no declared precedence between the two copies
-(kogaki#743).
+Stated **once, here**, for the whole spec. This section holds the file's only
+not-carried list and its only slot declaration; a second copy of either would be
+a surface that can disagree with this one.
 
 - **The hand-over floor has no mechanical carrier.** That a session named the
   artifact to the owner is a property of the relay's behaviour, and nothing here

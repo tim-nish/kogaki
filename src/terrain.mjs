@@ -2988,7 +2988,7 @@ export function renderReportMarkdown(report, tag) {
   // §13.1 v20 / §12 v8 (kogaki#473) — the provenance neighborhood, ONCE and
   // LAST. Conditional on the record carrying one: a record written before
   // this section existed renders without it — the ordinary
-  // spec-ahead-of-code interval §13.7 names, read here from the record's own
+  // spec-ahead-of-code interval §12.1 names, read here from the record's own
   // shape rather than guessed. A NEW pull always carries the field, empty
   // enumeration included (§13.4's disclosure: an empty result renders its
   // explicit lines, never an absent section).
@@ -4169,7 +4169,7 @@ const NEIGHBORHOOD_BOUND = Object.freeze({
 });
 
 // §14.6's slot, FILLED 2026-08-12 (owner selection, recorded on kogaki#300
-// before this code was written, which is what §13.7 requires). A suggestion is
+// before this code was written). A suggestion is
 // by construction NOT in the survey record, so §14.3's assignor does not reach
 // it. The neighborhood mints its own space, `N<n>`, DECLARED DISJOINT from
 // `L<n>` — §14.3 is untouched, and a taken suggestion is assigned an `L<n>` by
