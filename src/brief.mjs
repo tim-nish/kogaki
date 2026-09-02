@@ -51,7 +51,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "./terrain.mjs";
 import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
 import { snapshotBrief } from "./compose.mjs";
-import { enterRun } from "./runs.mjs";
+import { enterSubRun, BRIEF_ENTRIES } from "./runs.mjs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -498,18 +498,25 @@ const STOP = new Set(["the", "article", "articles", "makes", "one", "claim",
 // (the slug names a directory the owner enumerates).
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
-// Pre-Thesis run state, in the Brief lane's own directory (kogaki#750). There
-// is no slug yet — the slug is what the thesis-determination gate decides — so
-// the entry is timestamped, and `enterRun` prunes the lane back to keep-last-K
-// before creating it. That prune is `enter`'s first act by construction: this
-// is the first thing the command writes.
+// Pre-Thesis run state, in the Brief lane's own `entries/` directory
+// (kogaki#750). There is no slug yet — the slug is what the
+// thesis-determination gate decides — so the entry is timestamped, and one
+// arrives per `enter`. `enterSubRun` prunes to keep-last-K before creating it,
+// which is `enter`'s first act by construction: this is the first thing the
+// command writes.
+//
+// A SUB-DIRECTORY RATHER THAN THE LANE ROOT (PR #783 round 1, finding 3): the
+// lane's other entries are slug workspaces that live as long as their Brief is
+// being worked, and these die when their run adopts or is abandoned. Sharing a
+// budget, ten invocations of the front door — the cheapest command to re-run
+// after an abandoned start — would delete every Brief's snapshot trace.
 //
 // `--run-state` is unchanged and does NOT prune. A caller naming a path holds
 // it, and a lane that pruned around a directory somebody else chose would be
 // deleting entries it does not own.
 function defaultRunState() {
   const entry = `entry-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-  return join(enterRun("brief", entry), "run.json");
+  return join(enterSubRun("brief", BRIEF_ENTRIES, entry), "run.json");
 }
 
 function readRunState(args) {

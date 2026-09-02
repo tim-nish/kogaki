@@ -303,12 +303,26 @@ membership is answered by the enumeration beside it — so the headline is
 **re-derived, never edited**, and an edit to it is the move that produced both
 defects.
 
-Re-derived at kogaki#750, from the tree rather than from either headline: at
-the deletion's base commit `3840ba6`, `git grep -o -i "style.contract"` returns
-**23** occurrences, of which **3** are register records — historical records of
-what a round found, never repointed — leaving **20** across the seven files the
-enumeration above names. The paragraph confessing the first miscount is where
-the second one landed, one commit later.
+Re-derived at kogaki#750, from the tree rather than from either headline. At
+the deletion's base commit `3840ba6`:
+
+    git grep -o -i "style.contract" 3840ba6 -- . ':!specs/spec-style-contract' | wc -l   # 23
+    git grep -o -i "style.contract" 3840ba6 -- . ':!specs/spec-style-contract' \
+        ':!reviews/register' | wc -l                                                     # 20
+
+The bare command returns **38**; the first exclusion drops the 15 occurrences
+inside the deleted spec's own directory, which are not referrers to it, and the
+second drops **3** register records — historical records of what a round found,
+never repointed. **20** remain, across the seven files the enumeration above
+names.
+
+**The commands are written out because the first form of this paragraph gave
+the count without the exclusions** (PR #783 round 1) — it said 23 where the
+command as stated returns 38. The headline was right and the derivation a
+reader was invited to re-run was not, in the paragraph whose whole subject is
+that the enumeration is the evidence. The paragraph confessing the first
+miscount is where the second one landed, one commit later; the recipe that
+could not reproduce is the third instance of the same act.
 
 **deferred slot: the spec-draft-pipeline re-cut.** Owed on its own licensing
 issue, with the criteria applied section by section.

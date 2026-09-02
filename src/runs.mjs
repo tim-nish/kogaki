@@ -49,7 +49,21 @@ export const LANES = Object.freeze(["terrain", "brief", "draft"]);
 // than beside it because the ruling names three lane directories and no fourth
 // sibling, so the exemption is stated here rather than the layout bent to
 // avoid stating it.
-const ALWAYS_EXEMPT = Object.freeze({ terrain: ["reports"], brief: [], draft: [] });
+// `runs/brief/entries/` holds the PRE-THESIS run records, which have no slug to
+// key on — the slug is what the thesis-determination gate decides — so they are
+// timestamped and one arrives per `brief enter`. They are exempt from the lane
+// prune and bounded INSIDE their own directory, because the two kinds share a
+// lane and not a lifetime: a slug workspace lives as long as its Brief is being
+// worked, while an entry record is dead the moment its run adopts or is
+// abandoned. Under one budget, ten entries — the front door, and the cheapest
+// command to re-run after an abandoned start — evict every Brief's snapshot
+// trace (PR #783 round 1, finding 3).
+const ALWAYS_EXEMPT = Object.freeze({ terrain: ["reports"], brief: ["entries"], draft: [] });
+
+// The one sub-directory carrying its own bound, named here rather than passed
+// by a caller: a caller that could name any sub-directory could exempt any
+// entry from its lane's prune by writing into it.
+export const BRIEF_ENTRIES = "entries";
 
 const CONFIG = join(REPO, "src/runs.json");
 
@@ -93,10 +107,29 @@ export function laneDir(lane, root = RUNS_ROOT) {
 // Draft lanes, a timestamp for Terrain, which has no identity to overwrite in
 // place.
 export function runDestination(lane, entry, root = RUNS_ROOT) {
-  if (typeof entry !== "string" || entry === "" || entry.includes("/") || entry.includes("\\")) {
+  requireEntryName(entry);
+  return join(laneDir(lane, root), entry);
+}
+
+// THE GUARD IS THE CONTRACT ITS OWN REFUSAL STATES (PR #783 round 1). The first
+// form rejected the empty string and the two separators, so `.` and `..` passed
+// a check whose message reads "a single path segment" — and `..` resolves to the
+// lane root's PARENT, which `removeWithin` would then have to catch on the way
+// out rather than this refusing on the way in.
+//
+// AND IT IS CALLED BEFORE THE PRUNE, not after. `enterRun` used to prune with
+// the entry as the exempt name and validate only when composing the
+// destination, so a malformed entry matched nothing, pruned the lane to K-1,
+// and only then refused: the refusal was real and so was the deletion. Neither
+// half is reachable today — terrain and brief entries are generated timestamps
+// and a draft slug is validated by SLUG_RE before it arrives — which is exactly
+// the condition under which a guard's absence leaves no trace.
+function requireEntryName(entry) {
+  if (typeof entry !== "string" || entry === "" || entry === "." || entry === ".."
+      || entry.includes("/") || entry.includes("\\")) {
     refuse(`a run entry name must be a single path segment — got \`${entry}\``);
   }
-  return join(laneDir(lane, root), entry);
+  return entry;
 }
 
 export function terrainRunEntry(now = new Date()) {
@@ -188,16 +221,24 @@ export function removeWithin(laneRoot, name) {
 // the owner to notice a directory gone.
 export function pruneLaneForRun(lane, entry, { keep = null, configPath = CONFIG, root = RUNS_ROOT } = {}) {
   requireLane(lane);
+  if (entry !== null && entry !== undefined) requireEntryName(entry);
   const k = keep === null ? keepLast(lane, configPath) : keep;
-  if (!Number.isInteger(k) || k < 1) {
-    refuse(`keep-last must be a positive integer — got ${k}`);
+  return pruneWithin(laneDir(lane, root), entry, k, ALWAYS_EXEMPT[lane]);
+}
+
+// The prune, over ONE directory. Split out because the Brief lane holds two
+// kinds of entry with two lifetimes (PR #783 round 1, finding 3) and each needs
+// its own budget: a shared one lets ten `brief enter` invocations evict the
+// snapshot workspaces of Briefs being actively worked.
+export function pruneWithin(dir, entry, keep, alwaysExempt = []) {
+  if (!Number.isInteger(keep) || keep < 1) {
+    refuse(`keep-last must be a positive integer — got ${keep}`);
   }
-  const dir = laneDir(lane, root);
-  const exempt = new Set([...ALWAYS_EXEMPT[lane], ...(entry ? [entry] : [])]);
+  const exempt = new Set([...alwaysExempt, ...(entry ? [entry] : [])]);
   const candidates = entriesByAge(dir).filter((e) => !exempt.has(e.name));
   // The run's own entry occupies one of the K slots, so K-1 remain for the
   // others. This is what makes the K+1th run's start remove exactly the oldest.
-  const room = entry ? k - 1 : k;
+  const room = entry ? keep - 1 : keep;
   const doomed = candidates.slice(Math.max(room, 0));
   for (const e of doomed) removeWithin(dir, e.name);
   return doomed.map((e) => e.name);
@@ -207,6 +248,7 @@ export function pruneLaneForRun(lane, entry, { keep = null, configPath = CONFIG,
 // point, in the order the ruling gives: pruning is the run's FIRST act, before
 // anything is written.
 export function enterRun(lane, entry, opts = {}) {
+  requireEntryName(entry);
   const removed = pruneLaneForRun(lane, entry, opts);
   if (removed.length) {
     // The DIRECTORY, not the string `runs/<lane>/`: a fixture pass drives this
@@ -216,6 +258,32 @@ export function enterRun(lane, entry, opts = {}) {
       + `${laneDir(lane, opts.root || RUNS_ROOT)} (${removed.join(", ")})\n`);
   }
   const dest = runDestination(lane, entry, opts.root || RUNS_ROOT);
+  mkdirSync(dest, { recursive: true });
+  return dest;
+}
+
+// The same act one level down: prune and create inside a lane's own bounded
+// sub-directory. `sub` is not free — only the names this module declares can be
+// used, since an arbitrary sub-directory would be a way to hold entries the
+// lane's prune never sees.
+export function enterSubRun(lane, sub, entry, opts = {}) {
+  requireLane(lane);
+  requireEntryName(entry);
+  if (!ALWAYS_EXEMPT[lane].includes(sub)) {
+    refuse(`\`${sub}\` is not a bounded sub-directory of the ${lane} lane — `
+      + `the declared ones are ${ALWAYS_EXEMPT[lane].join(", ") || "(none)"}`);
+  }
+  const root = opts.root || RUNS_ROOT;
+  const dir = join(laneDir(lane, root), sub);
+  mkdirSync(dir, { recursive: true });
+  const k = opts.keep === undefined || opts.keep === null
+    ? keepLast(lane, opts.configPath || CONFIG) : opts.keep;
+  const removed = pruneWithin(dir, entry, k);
+  if (removed.length) {
+    process.stderr.write(`runs: pruned ${removed.length} run(s) beyond keep-last from `
+      + `${dir} (${removed.join(", ")})\n`);
+  }
+  const dest = join(dir, entry);
   mkdirSync(dest, { recursive: true });
   return dest;
 }
@@ -299,6 +367,26 @@ function selfTest() {
       () => runDestination("draft", "a/b", virgin), "single path segment");
     refuses("(c) an empty entry name refuses",
       () => runDestination("draft", "", virgin), "single path segment");
+    // `.` and `..` PASSED the first form of this guard while its own refusal
+    // said "a single path segment" (PR #783 round 1): `..` resolves to the lane
+    // root's parent, so the containment check had to catch on the way out what
+    // this refuses on the way in.
+    refuses("(c) a dot entry name refuses",
+      () => runDestination("draft", ".", virgin), "single path segment");
+    refuses("(c) a dot-dot entry name refuses",
+      () => runDestination("draft", "..", virgin), "single path segment");
+    // AND THE VALIDATION PRECEDES THE PRUNE. `enterRun` used to prune with the
+    // entry as the exempt name and validate only when composing the
+    // destination, so a malformed entry matched nothing, pruned the lane to
+    // K-1, and only then refused — a real deletion behind a real refusal. The
+    // discriminator is the TREE after the refusal, not the refusal itself.
+    {
+      const c2 = fixture("draft", ["x1", "x2", "x3"]);
+      refuses("(c) a malformed entry refuses at enterRun",
+        () => enterRun("draft", "a/b", { keep: 2, root: c2.root }), "single path segment");
+      ok("(c) and nothing was pruned before the refusal",
+        JSON.stringify(names(c2.dir)) === JSON.stringify(["x1", "x2", "x3"]), JSON.stringify(names(c2.dir)));
+    }
 
     // (d) KEEP-LAST, the arithmetic: five entries, K=3, one new entry — the
     // three oldest go, because the run's own entry occupies one of the slots.
@@ -366,6 +454,37 @@ function selfTest() {
     const removed5 = pruneLaneForRun("brief", "w3", { keep: 1, root: i2.root });
     ok("(i) `reports` outside the terrain lane is prunable", removed5.includes("reports"), JSON.stringify(removed5));
     ok("(i) and it is gone", !names(i2.dir).includes("reports"), JSON.stringify(names(i2.dir)));
+
+    // (n) THE BRIEF LANE'S TWO ENTRY KINDS DO NOT COMPETE (PR #783 round 1,
+    // finding 3). Pre-Thesis run records have no slug to key on, so they are
+    // timestamped and one arrives per `brief enter`; slug workspaces live as
+    // long as their Brief is worked. Under one budget the front door evicts the
+    // work — ten entries and every Brief's snapshot trace is gone. The entries
+    // live in their own bounded sub-directory, exempt from the lane prune.
+    {
+      const nf = fixture("brief", ["slug-a", "slug-b", "slug-c"]);
+      const e1 = enterSubRun("brief", BRIEF_ENTRIES, "entry-1", { keep: 2, root: nf.root });
+      ok("(n) the entry lands under the lane's entries directory",
+        e1 === join(nf.dir, BRIEF_ENTRIES, "entry-1"), e1);
+      for (const e of ["entry-2", "entry-3", "entry-4"]) {
+        enterSubRun("brief", BRIEF_ENTRIES, e, { keep: 2, root: nf.root });
+      }
+      ok("(n) four entries did not evict a single slug workspace",
+        JSON.stringify(names(nf.dir)) === JSON.stringify(["entries", "slug-a", "slug-b", "slug-c"]),
+        JSON.stringify(names(nf.dir)));
+      ok("(n) and the entries are bounded inside their own directory",
+        JSON.stringify(names(join(nf.dir, BRIEF_ENTRIES))) === JSON.stringify(["entry-3", "entry-4"]),
+        JSON.stringify(names(join(nf.dir, BRIEF_ENTRIES))));
+      // THE CONTROL: `entries` is a declared sub-directory of the Brief lane
+      // and not a free parameter — a caller able to name any sub-directory
+      // could park entries where the lane's prune never looks.
+      refuses("(n) an undeclared sub-directory refuses",
+        () => enterSubRun("draft", "somewhere", "e", { keep: 2, root: nf.root }),
+        "is not a bounded sub-directory");
+      // And a slug workspace prune still ignores the entries directory.
+      const rm = pruneLaneForRun("brief", "slug-d", { keep: 2, root: nf.root });
+      ok("(n) the lane prune never removes the entries directory", !rm.includes(BRIEF_ENTRIES), JSON.stringify(rm));
+    }
 
     // (j) THE CONTAINMENT GUARD, reached directly: every name it sees in
     // production comes from readdir, which cannot express either of these, so

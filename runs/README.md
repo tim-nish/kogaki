@@ -12,11 +12,20 @@ was measured, in directory families no contributor knew existed.
     runs/terrain/terrain-<timestamp>/   one run workspace per invocation
     runs/terrain/reports/               report records, keyed by identity digest
     runs/brief/<slug>/                  one workspace per Brief, overwritten in place
+    runs/brief/entries/<timestamp>/     pre-Thesis run records, bounded separately
     runs/draft/<slug>/                  one workspace per Draft, overwritten in place
 
 Terrain mints a new directory per run because a survey has no identity to
 overwrite; Brief and Draft key on the slug, so a re-run of the same Brief
-replaces its own workspace rather than adding one. `runs/terrain/reports/` is
+replaces its own workspace rather than adding one.
+
+`runs/brief/entries/` is the exception, and it exists because the Brief lane
+holds two kinds of thing with two lifetimes. Before a Thesis is adopted there is
+no slug to key on, so `brief enter` writes a timestamped record and one arrives
+per invocation; a slug workspace, by contrast, lives as long as its Brief is
+being worked. Under one budget the front door would evict the work — ten entries
+and every Brief in flight loses its snapshot trace — so the entries sit in their
+own directory, exempt from the lane's prune and bounded inside it. `runs/terrain/reports/` is
 the one entry pruning never touches — a report is identified by its digest, and
 running the same identity twice is ONE report (SPEC-terrain §12.1), which a
 pruned-and-timestamped home would make false.

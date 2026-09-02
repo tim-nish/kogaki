@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
-import { join, sep, basename, resolve as resolvePath } from "node:path";
+import { join, sep, resolve as resolvePath } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
@@ -1075,16 +1075,25 @@ try {
   // prunes them, because pruning is a lane's first act and this check never
   // takes it (it drives `--run-state`). Left alone, every suite run would add
   // an entry forever, which is the unbounded accumulation the whole change
-  // exists to end, re-created by the check that asserts it ended. The slugs are
-  // derived from the same two names the mint used, never guessed.
-  for (const slug of ["compose-case", basename(dir)]) {
+  // exists to end, re-created by the check that asserts it ended.
+  //
+  // THE SWEEP IS BY SHAPE, NOT BY THIS RUN'S TWO NAMES (PR #783 round 1). The
+  // first form removed exactly `compose-case` and this run's temp basename and
+  // then failed if any entry of either shape survived — so the only way it
+  // could fire was an entry left by an EARLIER crashed or interrupted run, and
+  // it would then go red on every run afterwards until somebody deleted the
+  // directory by hand. A check that reports another run's litter as this run's
+  // failure is a fallback worded as a finding. Sweeping the shape clears the
+  // stale one; the assertion below is the post-condition that the sweep worked.
+  const laneEntries = () => (existsSync(laneDir("brief"))
+    ? readdirSync(laneDir("brief")).filter((e) => e === "compose-case" || e.startsWith("brief-compose-"))
+    : []);
+  for (const slug of laneEntries()) {
     rmSync(join(laneDir("brief"), slug), { recursive: true, force: true });
   }
-  const leftovers = existsSync(laneDir("brief"))
-    ? readdirSync(laneDir("brief")).filter((e) => e === "compose-case" || e.startsWith("brief-compose-"))
-    : [];
+  const leftovers = laneEntries();
   if (leftovers.length) {
-    fails.push(`this member left ${leftovers.length} entr(y|ies) in the brief lane: ${leftovers.join(", ")} — a check that accumulates run state is the defect kogaki#750 removed`);
+    fails.push(`the brief lane still holds ${leftovers.length} entr(y|ies) of this member's shape after its own sweep: ${leftovers.join(", ")} — a check that accumulates run state is the defect kogaki#750 removed`);
   }
 }
 

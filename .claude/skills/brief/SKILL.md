@@ -43,7 +43,7 @@ refusal is relayed as it stands, never swallowed.
 
 **NOTHING EXISTS UNDER `theses/` BEFORE A THESIS IS ADOPTED.** Pre-Thesis
 state is a machine run record the runtime writes (default under
-`runs/brief/`, gitignored — kogaki#750); the owner artifact begins exactly when the first
+`runs/brief/entries/`, gitignored — kogaki#750); the owner artifact begins exactly when the first
 piece of substantive owner judgment — the Thesis — exists (§5.3 v9,
 kogaki#494).
 
