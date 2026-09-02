@@ -29,7 +29,7 @@
 //   emit     — assemble the CanonicalDraft: body = the sections in the
 //              Reader Path's recorded order, prose only; frontmatter = the
 //              record half (§5). Repo-visible under a fixed human name
-//              derived from the Brief — briefs/<slug>/draft.md — one per
+//              derived from the Brief — theses/<slug>/draft.md — one per
 //              Brief, overwritten on re-run, `generated_by` immutable across
 //              overwrites. Machine identity stays in the run workspace.
 //
@@ -198,7 +198,7 @@ function snapshotDraft(ws, phase, seq, content) {
 }
 
 function loadBrief(args) {
-  const path = argString(args, "brief", "this command needs --brief <path to briefs/<slug>/brief.md>");
+  const path = argString(args, "brief", "this command needs --brief <path to theses/<slug>/brief.md>");
   let text;
   try { text = readFileSync(path, "utf8"); }
   catch (e) { fail(`the Brief at ${path} cannot be read (${e.message})`); }
@@ -332,7 +332,7 @@ async function runSelfTest() {
   const { mkdtempSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const root = mkdtempSync(join(tmpdir(), "draft-selftest-"));
-  const briefDir = join(root, "briefs", "fixture-brief");
+  const briefDir = join(root, "theses", "fixture-brief");
   mkdirSync(briefDir, { recursive: true });
   const ws = join(root, "ws");
   let passed = 0; const failures = [];

@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates briefs/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -37,11 +37,11 @@ settled a set yet, that is Terrain's flow, not this one's.
 
 **THE RUNTIME IS THE PRODUCER; you compose inputs and hand over its
 artifact.** Never retype, summarize, or restate the minted document — name
-`briefs/<slug>/brief.md` to the owner as the first act after the mint
+`theses/<slug>/brief.md` to the owner as the first act after the mint
 returns, exactly as the Terrain skill hands over its artifacts. A runtime
 refusal is relayed as it stands, never swallowed.
 
-**NOTHING EXISTS UNDER `briefs/` BEFORE A THESIS IS ADOPTED.** Pre-Thesis
+**NOTHING EXISTS UNDER `theses/` BEFORE A THESIS IS ADOPTED.** Pre-Thesis
 state is a machine-local run record the runtime writes (default under
 `~/.kogaki/brief-runs/`); the owner artifact begins exactly when the first
 piece of substantive owner judgment — the Thesis — exists (§5.3 v9,
@@ -73,7 +73,7 @@ kogaki#494).
    question before the mint** — offering exactly what the runtime declared:
    the composed candidates, each with its name **in the option label**, set
    off and named as the runtime writes it (the **bare** name, never a
-   `briefs/…` path — render it where the runtime put it and add no body entry
+   `theses/…` path — render it where the runtime put it and add no body entry
    of your own, so the name renders once; the site moved there at kogaki#567,
    which is where that move's standing is read); the premise's negation as a
    first-class option ("the settled set is what should change — back through
@@ -82,7 +82,7 @@ kogaki#494).
    that the name can be changed in the same answer: an owner who wants a
    listed Thesis under a different name says which option and what name,
    and keeps the option. **No owner answer, no next step** — the gate blocks
-   and nothing exists under `briefs/`.
+   and nothing exists under `theses/`.
 4. **Adopt the pair** —
    `node src/brief.mjs adopt --run-state <path> --thesis <candidate id | the owner's free text> [--slug <the owner's name>]`.
    Pass `--slug` only when the owner named a different one at the gate;
@@ -94,10 +94,10 @@ kogaki#494).
    **Never pass it a name** — the owner's name is already settled, and a name
    supplied here would be a decision the owner was not asked for. The runtime refuses without an adopted
    Thesis, refuses a collision (a creator, never an editor), and writes
-   `briefs/<slug>/brief.md`: the Strands with their cites, **`thesis` filled
+   `theses/<slug>/brief.md`: the Strands with their cites, **`thesis` filled
    at mint by construction**, and every downstream §5.1 composition field as
    a typed unfilled slot.
-6. **Name the minted artifact** — `briefs/<slug>/brief.md` — and **keep
+6. **Name the minted artifact** — `theses/<slug>/brief.md` — and **keep
    going**. The mint is the middle of this invocation, not its end.
 7. **Compose 2–3 Reader Paths** over the settled set: for each, the §4.1 Step
    records with their materials, purposes, reader states, `depends_on`,
@@ -118,7 +118,7 @@ kogaki#494).
    `node src/review.mjs attach --candidates <json> --review <json> --out <reviewed.json>`.
    Review does **not** fail a Candidate — see the revise routing below.
 9. **Assemble the selection payload** —
-   `node src/assemble.mjs assemble --reviewed <reviewed.json> --brief briefs/<slug>/brief.md --out <selection.json>`.
+   `node src/assemble.mjs assemble --reviewed <reviewed.json> --brief theses/<slug>/brief.md --out <selection.json>`.
    The runtime refuses a payload whose rendering leaks an internal identifier
    or a section reference; relay that refusal and fix the wording at source.
 10. **Raise the Candidate-selection gate** through AskUserQuestion — the
@@ -127,12 +127,12 @@ kogaki#494).
     premise's negation as a first-class option ("none of these — the Thesis or
     the settled set is what should change", §6), and free text.
 11. **Adopt the owner's Candidate** —
-    `node src/assemble.mjs adopt-candidate --brief briefs/<slug>/brief.md --reviewed <reviewed.json> --candidate <id>`.
+    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id>`.
     Its Reader Path becomes the Brief's sequence; `thesis_closure` and
     `tradeoffs` fill from its reasoning. **With no owner answer nothing lands**
     — the runtime refuses.
 12. **Hand over the filled Brief** and stop. This is the end of the arc: name
-    `briefs/<slug>/brief.md` to the owner and never retype, summarize or
+    `theses/<slug>/brief.md` to the owner and never retype, summarize or
     restate it. The run's per-block Brief snapshots (before/after each
     landing write) sit machine-local at `~/.kogaki/brief-runs/<slug>/snapshots/`.
 
@@ -235,6 +235,6 @@ a human ever sees.
 - **No second ask exists.** A slug-approval question is not merely skipped
   here: nothing registers it and nothing emits it, so raising one would be
   inventing a gate rather than relaying one.
-- **`briefs/` holds Briefs and nothing else** — the durable home §5.3
+- **`theses/` holds Briefs and nothing else** — the durable home §5.3
   declares: a directory per Brief, tracked in the repository, the one
   product class this pipeline adds to the tree.
