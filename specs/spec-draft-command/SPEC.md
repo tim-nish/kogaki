@@ -235,7 +235,7 @@ thin:
 
 **No content conformance is checked mechanically beyond it.** When a Draft
 comes out strange the first suspect is recorded and is not this command: every
-Step field is LLM-authored with no harness, stated at `brief/path-review-agent.md`
+Step field is LLM-authored with no harness, stated at `src/path-review-agent.md`
 (kogaki#549). A defect in the prose is a defect in the Step it realized, or in
 the judgment realizing it, and neither is reachable by a check over cites.
 

@@ -3,7 +3,7 @@
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
   "licensed_by": "kogaki#760 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "refusal_text_boundary": {
-    "fact": "No text raised through fail() (terrain/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
+    "fact": "No text raised through fail() (src/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
     "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
     "stated_by_mechanism_not_enumeration": "The boundary names the FUNCTION, not a list of messages. A list goes stale on the next fail() added and leaves message N+1 uncovered by default — the shape §14.1 and §9 both chose against.",
     "reopen_trigger": "the first owner-facing refusal text written to stdout, or into the report file, rather than raised through fail() — that one is on a surface and owes a line class"
@@ -12,27 +12,27 @@
     "LessonDisplayID": {
       "shape": "^L[0-9]+$",
       "means": "a member's owner-facing display id, assigned once in the survey record (§14.3)",
-      "producer": "terrain/terrain.mjs cmdSurvey — minted ONCE per candidate in the survey record (§14.3), resolved at render time by displayIdOf()"
+      "producer": "src/terrain.mjs cmdSurvey — minted ONCE per candidate in the survey record (§14.3), resolved at render time by displayIdOf()"
     },
     "GroupID": {
       "shape": "^G[0-9]+$",
       "means": "a Group's owner-facing display id, assigned once per composed screen in co-tag sort order (§6.1)",
-      "producer": "terrain/terrain.mjs cmdCotags — minted over the composed group list"
+      "producer": "src/terrain.mjs cmdCotags — minted over the composed group list"
     },
     "SubGroupID": {
       "shape": "^G[0-9]+-[0-9]+$",
       "means": "a SubGroup's display id, prefixed by its parent GroupID (§6.2)",
-      "producer": "terrain/terrain.mjs cmdCotags / cmdSubdivide"
+      "producer": "src/terrain.mjs cmdCotags / cmdSubdivide"
     },
       "ThesisCandidateID": {
       "shape": "^TC[0-9]+$",
       "means": "a Thesis candidate's owner-facing display id, minted over the composed candidate list for one report (\u00a712.3)",
-      "producer": "terrain/terrain.mjs cmdReport \u2014 minted positionally over the supplied candidates, never carried in the input",
+      "producer": "src/terrain.mjs cmdReport \u2014 minted positionally over the supplied candidates, never carried in the input",
       "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ and from ^N[0-9]+$. A candidate is not an element and is never assigned a display_id by \u00a714.3; the three spaces coexist and a `strands:` list carries LessonDisplayIDs only."
     },
     "LessonCount": {
       "shape": "^[0-9]+ Lessons?$",
-      "producer": "lessonCount() (terrain/terrain.mjs)",
+      "producer": "lessonCount() (src/terrain.mjs)",
       "means": "a count of Lessons, family-named per §9"
     },
     "Cite": {
@@ -50,13 +50,13 @@
     "SuggestionID": {
       "shape": "^N[0-9]+$",
       "means": "a provenance-neighborhood suggestion's owner-facing display id, minted over the neighborhood's own ordered output (§14.6)",
-      "producer": "terrain/terrain.mjs NEIGHBOR_ID (:2828), minted over the sorted output at :2915",
+      "producer": "src/terrain.mjs NEIGHBOR_ID (:2828), minted over the sorted output at :2915",
       "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ (§14.6). §14.3 assigns a display_id ONCE, in the survey record; a suggestion is by construction NOT in that record, so nothing there assigns it one. The two spaces coexist and no owner surface renders both for one element. A taken suggestion is assigned an L<n> by §14.3's existing assignor on the way in, and its N<n> does not follow it."
     },
     "NeighborhoodLevel": {
       "shape": "^(?:core|useful|background)$",
       "means": "one of the three harness-fixed recommendation levels a judgment may carry (§13.4). The set is closed and extending it is the owner's act.",
-      "producer": "terrain/terrain.mjs NEIGHBORHOOD_LEVELS"
+      "producer": "src/terrain.mjs NEIGHBORHOOD_LEVELS"
     }
   },
   "surfaces": {
@@ -137,7 +137,7 @@
       ]
     },
     "cotag_screen": {
-      "emitter": "cmdCotags (terrain/terrain.mjs), through emitOrRefuse",
+      "emitter": "cmdCotags (src/terrain.mjs), through emitOrRefuse",
       "medium": "terminal text",
       "governing_prose": "specs/spec-terrain/SPEC.md §6.1, §6.2",
       "stream": "stdout",
@@ -244,7 +244,7 @@
       ]
     },
     "full_report": {
-      "emitter": "renderReportMarkdown, written by cmdReport (terrain/terrain.mjs)",
+      "emitter": "renderReportMarkdown, written by cmdReport (src/terrain.mjs)",
       "medium": "Markdown, the owner rendering of §12.2 v11",
       "governing_prose": "specs/spec-terrain/SPEC.md §12, §12.1, §12.2, and §13 for the provenance-neighborhood section",
       "stream": "a written file under reports/ in the working tree (§12.2 v11), never stdout",
@@ -382,7 +382,7 @@
         {
           "id": "counted_family",
           "form": "- <family>: <n>",
-          "_counted_served_was_RETIRED_AT_v16": "kogaki#761, owner ruling 2026-09-01. A sibling class `- lessons served: <n>` stood here, rendering the full served denominator (`record.candidates.length`). The owner ruled it unnecessary and it must not be displayed. RETIRED WITH ITS SUBJECT, never re-pointed at another denominator — a class kept in this carrier after the line it admits is gone would admit nothing, which is a conformance category with no members and reads as coverage. The machine record keeps `lessons_served` (terrain/terrain.mjs writes it at two sites); only the DISPLAY is withdrawn, so nothing reading the record breaks. This note sits on the class that survives rather than on the one that left, because a deleted entry leaves no place to write."
+          "_counted_served_was_RETIRED_AT_v16": "kogaki#761, owner ruling 2026-09-01. A sibling class `- lessons served: <n>` stood here, rendering the full served denominator (`record.candidates.length`). The owner ruled it unnecessary and it must not be displayed. RETIRED WITH ITS SUBJECT, never re-pointed at another denominator — a class kept in this carrier after the line it admits is gone would admit nothing, which is a conformance category with no members and reads as coverage. The machine record keeps `lessons_served` (src/terrain.mjs writes it at two sites); only the DISPLAY is withdrawn, so nothing reading the record breaks. This note sits on the class that survives rather than on the one that left, because a deleted entry leaves no place to write."
         },
         {
           "id": "h2_served_lines",

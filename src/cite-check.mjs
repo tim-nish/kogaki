@@ -137,7 +137,7 @@ export function tally(results) {
 // Transport — the live half, and the only code that touches the seam.
 //
 // THE CAPTURE IS A PIPE, AND THE FORK IS RECORDED (kogaki#597, from PR #591
-// round 2): terrain/terrain.mjs captures the same ~500KB element_survey
+// round 2): src/terrain.mjs captures the same ~500KB element_survey
 // through a file descriptor and says why — a file write is synchronous
 // whatever the other side does. This file takes the pipe deliberately: the
 // kit drains stdout before exiting (kogaki#23), terrain's own comment states
@@ -161,7 +161,7 @@ export function parseSurveyPayload(stdoutText) {
   // A payload with no lines ARRAY is the gateway's miss shape (or noise), not
   // a survey of zero elements — reading it as ok would render every cite
   // resolves-nowhere, the loud wrong answer kogaki#597 names and terrain met
-  // at the same seam tool (terrain/terrain.mjs, kogaki#368). Refuse at the
+  // at the same seam tool (src/terrain.mjs, kogaki#368). Refuse at the
   // shape, so the caller degrades to CANNOT-DETERMINE.
   const start = stdoutText.indexOf("{");
   if (start < 0) {

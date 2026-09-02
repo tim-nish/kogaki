@@ -61,7 +61,7 @@ two artifacts. The registry is currently **empty**, and the check renders
 that zero explicitly rather than passing silently: the carrier ports ahead of
 its first consumer, Terrain (`specs/SPEC.md:109-112`).
 
-The machine-readable shape is `specs/spec-gate-carrier/gate-schema.json`.
+The machine-readable shape is `src/gate-schema.json`.
 `checks/check-gate-carrier.sh` reads its field lists rather than restating
 them, so amending the contract is one edit.
 

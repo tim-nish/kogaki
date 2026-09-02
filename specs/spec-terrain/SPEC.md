@@ -15,10 +15,10 @@ restatement of what it used to do. A superseded behaviour kept as a record in an
 operative carrier is material a later re-cut or implementer reads back in, which is how
 a removed surface returns.
 
-**Carriers with precedence over this prose.** `specs/spec-terrain/report-format.json`
-wins on the **rendered form** (§14.1); `specs/spec-terrain/workflow.json` wins on
+**Carriers with precedence over this prose.** `src/report-format.json`
+wins on the **rendered form** (§14.1); `src/workflow.json` wins on
 **sequencing, waits, write bindings and judgment-point placement** (§15.1);
-`specs/spec-terrain/survey-schema.json` carries the survey record's shape. This
+`src/survey-schema.json` carries the survey record's shape. This
 file governs intent and the semantic contracts, and stops being the contract
 wherever one of those artifacts speaks.
 
@@ -476,7 +476,7 @@ declares (`tag_listing` carries `header`, `tag_row`, `navigation_hint`,
 here** (kogaki#737, PR #748 round 1; the observation stands as `reg-0193`). Its
 **declared** `line_classes` array holds **four** — `header`, `tag_row`,
 `navigation_hint`, `blank`. Its **content**-class guarantee, the one §9 chose
-and `terrain/terrain.mjs`'s completeness inventory records, is **two**: the
+and `src/terrain.mjs`'s completeness inventory records, is **two**: the
 header and one `tag_row` per section, *and nothing else*. A sentence naming
 "two" is about the guarantee; a sentence naming "four" is about the array.
 Written down because this section quotes both within a few paragraphs, and a
@@ -551,7 +551,7 @@ its SubGroups (§6.2), and every line renders **flush left**.
 
 **The ID space is registered rather than implicit:** `tokens.GroupID`
 (`^G[0-9]+$`) and `tokens.SubGroupID` (`^G[0-9]+-[0-9]+$`) in
-`specs/spec-terrain/report-format.json`.
+`src/report-format.json`.
 
 The compact all-groups form is the ratified shape:
 
@@ -1089,7 +1089,7 @@ it is relied on**, and expect line numbers to have moved.
 Grouping, claims and subdivision are **presentation** — placement plus
 title-derivation. **Rank, trim and hide still route through manifest item 3's
 proposal contract**, and the >3-option trim guard at the selection gate stands
-(`terrain/terrain.mjs` `MAX_STRAND_OPTIONS`). §2.3 is not weakened by anything in
+(`src/terrain.mjs` `MAX_STRAND_OPTIONS`). §2.3 is not weakened by anything in
 §§5–9; a subdivision that ranked, trimmed or hid would have committed §1's refused
 alternative under a new name.
 
@@ -1131,19 +1131,19 @@ mark's own count per §5, never on the tag row. The completeness figure stays
 counted over placements and family-named (§2.1), and the survey RECORD keeps its
 placement counts and per-section `by_family`.
 
-**Where the recomputation lives.** `terrain/terrain.mjs` recomputes `by_family`
+**Where the recomputation lives.** `src/terrain.mjs` recomputes `by_family`
 from the placements the figure claims to be counted over, and **refuses to write a
 record whose stored figure disagrees** (`FIGURE_MISMATCH`). The refusal stays
 **generation-time**: constrain generation, then detect what generation cannot
 promise.
 
 **The per-section family split lives in the RECORD.**
-`specs/spec-terrain/survey-schema.json` carries a per-section `by_family`; the
+`src/survey-schema.json` carries a per-section `by_family`; the
 section figure is recomputed from the placements it claims to be counted over and
 refused on mismatch exactly as `completeness.by_family` is.
 `checks/check-terrain-composition.sh` reads those field lists rather than
 restating them. **The recompute algorithm is written twice** —
-`terrain/terrain.mjs` (JS, generation-time) and
+`src/terrain.mjs` (JS, generation-time) and
 `checks/check-terrain-composition.sh` (Python, merge-layer) — and both are
 extended together; collapsing that duplication is not licensed here and is named
 so the next reader meets it in the spec rather than in the diff.
@@ -2278,7 +2278,7 @@ dependency this section exists to preserve.
 
 ### 13.7 What this binds in the implementation
 
-- **`terrain/terrain.mjs`** — the enumeration (`neighborhoodOf`) and the rendering
+- **`src/terrain.mjs`** — the enumeration (`neighborhoodOf`) and the rendering
   (`neighborhoodScreen`) are computed inside `cmdReport` and emitted as a section of
   the Full Report. Nothing writes `reports/Screen.md` for this rendering and nothing
   dispatches it by name. A widening view must not perturb `cotags` or
@@ -2304,7 +2304,7 @@ dependency this section exists to preserve.
 
 **This section adds no format rule to this file. It moves the rules out of it.**
 
-### 14.1 The carrier is `specs/spec-terrain/report-format.json`, and it wins
+### 14.1 The carrier is `src/report-format.json`, and it wins
 
 **One machine-readable grammar is the single carrier of the rendered form** — the
 line classes admissible on each owner surface, the token shape of each field, and
@@ -2415,7 +2415,7 @@ and these names are information the machine wants to display, not information th
 owner wants to read.
 
 **The rendered token is the `display_id`, assigned ONCE in the survey record.**
-`specs/spec-terrain/survey-schema.json` carries a per-candidate `display_id`
+`src/survey-schema.json` carries a per-candidate `display_id`
 matching `^L[0-9]+$`, assigned at survey time. **The survey record is the ID→slug
 map**; there is no second carrier and no per-artifact mint.
 
@@ -2423,7 +2423,7 @@ map**; there is no second carrier and no per-artifact mint.
 slug=<slug> kind=<lesson|journey> @<pin-sha>` — composed at survey time from the
 served record's own `slug`/`kind` plus the response pin. The gateway's positional
 cite is never copied into the record, so Brief and Draft transport identity
-addresses by construction and the resolve check (`draft/cite-check.mjs`) receives
+addresses by construction and the resolve check (`src/cite-check.mjs`) receives
 the only form it resolves.
 
 **Why once rather than per artifact.** The display ID is a **join key**: the co-tag
@@ -2582,7 +2582,7 @@ was one, and an owner copying an id has to know which space it came from.
 Workflow orchestration is deterministic engine code, and an LLM session holds only
 steps whose next action turns on an open question.
 
-### 15.1 The workflow table is DATA, and its carrier is `specs/spec-terrain/workflow.json`
+### 15.1 The workflow table is DATA, and its carrier is `src/workflow.json`
 
 The states, their order, which of them **wait** for the owner, which of them **write**
 which artifact, and which of them reach a **judgment point** are declared in one

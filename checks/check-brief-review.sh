@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { attachReview, REVIEW_AREAS } from "./brief/review.mjs";
+import { attachReview, REVIEW_AREAS } from "./src/review.mjs";
 
 const fails = [];
 const dir = mkdtempSync(join(tmpdir(), "brief-review-"));
@@ -66,7 +66,7 @@ try {
   // carries the attached reasoning (the artifact the selection gate reads).
   const cf = join(dir, "cands.json"); const rf = join(dir, "review.json"); const of = join(dir, "reviewed.json");
   writeFileSync(cf, JSON.stringify(cands)); writeFileSync(rf, JSON.stringify(review));
-  const p = spawnSync(process.execPath, ["brief/review.mjs", "attach", "--candidates", cf, "--review", rf, "--out", of], { encoding: "utf8" });
+  const p = spawnSync(process.execPath, ["src/review.mjs", "attach", "--candidates", cf, "--review", rf, "--out", of], { encoding: "utf8" });
   if (p.status !== 0) fails.push(`(d) attach exited ${p.status}: ${(p.stderr || "").trim()}`);
   const disk = JSON.parse(readFileSync(of, "utf8"));
   if (JSON.stringify(disk.candidates) !== JSON.stringify(attachReview(cands, review).candidates)) {

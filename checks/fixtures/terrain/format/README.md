@@ -20,7 +20,7 @@ layer out.
 Historically, and the per-covered-surface rule that produced the change:
 one specimen per surface the grammar covers. Two at v14 —
 `cotag-screen.txt` and `full-report.md` — because
-`specs/spec-terrain/report-format.json` covers `cotag_screen` and `full_report`
+`src/report-format.json` covers `cotag_screen` and `full_report`
 and marks the other four owner surfaces uncovered under their own reopen
 trigger. **This is a per-covered-surface count, not a flat number**: the sitting
 that brings a third surface under the grammar adds its specimen here and does
@@ -101,7 +101,7 @@ pre-#234 defect this file exists downstream of.
 
 ## AC5 — the fixture never wins
 
-`specs/spec-terrain/report-format.json` is authoritative (§14.1, §14.5). Where
+`src/report-format.json` is authoritative (§14.1, §14.5). Where
 a specimen and the grammar disagree, **the specimen is what is reported stale**,
 and the check says so in those words. A fixture that could ratify a shape would
 be the second carrier this decomposition removes.

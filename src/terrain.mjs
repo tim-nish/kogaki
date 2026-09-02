@@ -29,14 +29,14 @@ import { loadGrammar, refuseUnlessConformant, FormatRefusal } from "./format-gua
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..");
-const SURVEY_SCHEMA = readJson(join(REPO, "specs/spec-terrain/survey-schema.json"));
-const RECORD_SCHEMA = readJson(join(REPO, "specs/spec-proposal-contract/record-schema.json"));
-const GATE_SCHEMA = readJson(join(REPO, "specs/spec-gate-carrier/gate-schema.json"));
+const SURVEY_SCHEMA = readJson(join(REPO, "src/survey-schema.json"));
+const RECORD_SCHEMA = readJson(join(REPO, "src/record-schema.json"));
+const GATE_SCHEMA = readJson(join(REPO, "src/gate-schema.json"));
 const GATES_REGISTRY = readJson(join(REPO, "gates/registry.json"));
 // §14.1's single carrier of the RENDERED FORM. Resolved from this module's own
 // location, like every schema above it — the emit-time refusal must not depend
 // on the cwd a run happens to start in.
-const REPORT_FORMAT = join(REPO, "specs/spec-terrain/report-format.json");
+const REPORT_FORMAT = join(REPO, "src/report-format.json");
 
 const NO_RELATION_SECTION = "No relation (no served tag)";
 // The selector affordance (AskUserQuestion) holds at most 4 options; one is
@@ -393,7 +393,7 @@ export function surveyEmptinessNote(servedLines, lessonCount) {
 // artifact — Brief and Draft transport this composed form verbatim, so the
 // positional form is unproducible downstream by construction. The pin's sha
 // segment is taken as the response serves it; judging its shape belongs to
-// the resolve check (draft/cite-check.mjs), not to the producer.
+// the resolve check (src/cite-check.mjs), not to the producer.
 export function composeIdentityCite(slug, kind, pin) {
   const sha = String(pin ?? "").split("@").pop();
   if (!sha) return null;
@@ -486,7 +486,7 @@ function cmdSurvey(args) {
   const id = `terrain-survey-${Date.now()}`;
   const record = {
     id,
-    generated_by: "terrain/terrain.mjs",
+    generated_by: "src/terrain.mjs",
     pin: resp.pin,
     candidates: lessons,
     journeys,
@@ -943,7 +943,7 @@ function renderTagScreen(record) {
 //       → the same case, which runs the composed text through the guard.
 //
 // `fetchShards` IS INJECTED FOR THAT CASE, and until kogaki#625 it had no
-// injecting caller anywhere in `terrain/` or `checks/` — the affordance existed
+// injecting caller anywhere in `src/` or `checks/` — the affordance existed
 // and the test it exists for was not written, which is an extraction criterion
 // satisfied by the cheap half. Both call sites still take the default, so the
 // seam path is unchanged.
@@ -3216,7 +3216,7 @@ export function readThesisCandidates(raw, memberDisplayIds, limits) {
     fail(`--thesis-candidates carries ${raw.length} candidate(s) and \`limits.thesis_candidates\` is ${want}. `
       + "The count is EXACT rather than a maximum (SPEC.md §12.3): a section whose length varies run to run "
       + "cannot be read as a fixed early image. Compose exactly " + want + ", or amend the limit in "
-      + "specs/spec-terrain/report-format.json on its own licensing issue.");
+      + "src/report-format.json on its own licensing issue.");
   }
   const members = new Set(memberDisplayIds);
   return raw.map((c, i) => {
@@ -4824,7 +4824,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 // WHERE THIS LIVES, stated rather than left implicit (story 1.89 SQ1). §15
 // does not decide whether the executor is a sibling module or part of this
 // file. Two things decided it here: kogaki#625's licensed artifact list names
-// `terrain/terrain.mjs` and no sibling, so a new module would be an artifact
+// `src/terrain.mjs` and no sibling, so a new module would be an artifact
 // no licence covers; and story 1.90 makes these same renderers PRIVATE to the
 // executor, which is a smaller and more reviewable edit when caller and
 // callee already share a file.
@@ -4866,7 +4866,7 @@ const KIND_SEMANTICS = {
   terminal: { stops: true, needsRenderer: false },
 };
 
-const WORKFLOW_TABLE = join(REPO, "specs/spec-terrain/workflow.json");
+const WORKFLOW_TABLE = join(REPO, "src/workflow.json");
 const RUN_RECORD_FILE = "run-record.json";
 
 // Structural validation only. This reads the table's FORM — ids present and
@@ -5900,7 +5900,7 @@ switch (cmd) {
       [--claims F] [--subdivisions F] [--classification F] [--judge-model M] [--judge-effort E]
                                             THE §15 CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
-                                            specs/spec-terrain/workflow.json declares until the
+                                            src/workflow.json declares until the
                                             next declared WAIT or the TERMINAL, writes that
                                             state's artifact, and stops. It never asks — a wait is
                                             the executor stopping and the owner speaking, so

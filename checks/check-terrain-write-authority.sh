@@ -30,8 +30,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-RUNTIME="$(pwd)/terrain/terrain.mjs"
-SRC_PATH="$(pwd)/terrain/terrain.mjs"
+RUNTIME="$(pwd)/src/terrain.mjs"
+SRC_PATH="$(pwd)/src/terrain.mjs"
 FIXTURE="$(pwd)/checks/fixtures/terrain/conforming/survey-two-strands.json"
 TAG="architecture"
 export RUNTIME SRC_PATH FIXTURE TAG
@@ -41,7 +41,7 @@ import { readFileSync, writeFileSync, mkdtempSync, readdirSync, existsSync, mkdi
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { cotagGroups } from "./terrain/terrain.mjs";
+import { cotagGroups } from "./src/terrain.mjs";
 
 const RUNTIME = process.env.RUNTIME;
 const FIXTURE = process.env.FIXTURE;
@@ -64,7 +64,7 @@ const ownerRoot = () => mkdtempSync(join(tmpdir(), "kogaki-write-authority-"));
 // disposition (kogaki#681).
 function seedRun(dir, completed = SEED_TO_COTAG_SCREEN, extra = {}) {
   writeFileSync(join(dir, "run-record.json"), JSON.stringify({
-    workflow: { path: "specs/spec-terrain/workflow.json", version: TABLE_VERSION },
+    workflow: { path: "src/workflow.json", version: TABLE_VERSION },
     survey_record: FIXTURE,
     completed, waits_reached: [], conditional_entered: [], conditional_skipped: [],
     awaiting: null,
@@ -99,7 +99,7 @@ function judgmentArgs(dir, tag) {
 // READ FROM THE TABLE, never pinned here: the executor refuses to resume a
 // record written against another version, so a literal would make this check
 // fail on the next table bump for a reason that is not the property.
-const TABLE = JSON.parse(readFileSync(join(process.cwd(), "specs/spec-terrain/workflow.json"), "utf8"));
+const TABLE = JSON.parse(readFileSync(join(process.cwd(), "src/workflow.json"), "utf8"));
 const TABLE_VERSION = TABLE.version;
 
 // SEEDED TO THE FIRST WRITING STATE, DERIVED FROM THE TABLE (kogaki#682). The
@@ -326,10 +326,20 @@ if (!/finally\s*\{\s*WRITING_STATE\s*=\s*held;\s*\}/.test(SRC)) {
 // shipped runtime resolves. Re-deriving this would have paid for the same
 // finding twice.
 const mutantDir = mkdtempSync(join(tmpdir(), "kogaki-write-authority-mutant-"));
-mkdirSync(join(mutantDir, "terrain"), { recursive: true });
-copyFileSync(join(process.cwd(), "terrain/format-guard.mjs"), join(mutantDir, "terrain", "format-guard.mjs"));
+mkdirSync(join(mutantDir, "src"), { recursive: true });
+copyFileSync(join(process.cwd(), "src/format-guard.mjs"), join(mutantDir, "src", "format-guard.mjs"));
 for (const dd of ["specs", "gates"]) symlinkSync(resolve(process.cwd(), dd), join(mutantDir, dd), "dir");
-const mutantPath = join(mutantDir, "terrain", "terrain.mjs");
+// The runtime-read carriers moved into `src/` beside the code at kogaki#765, so
+// the copied module is no longer all this directory owes the mutant. Linked by
+// READING the real `src/` rather than from a list written here — an enumeration
+// would leave a fourth carrier admit-by-default and the mutant would die at
+// import, reporting CANNOT-DETERMINE while asserting nothing. That is exactly
+// what this arm did on the pre-repair tree.
+for (const f of readdirSync(resolve(process.cwd(), "src"))) {
+  if (!f.endsWith(".json")) continue;
+  symlinkSync(resolve(process.cwd(), "src", f), join(mutantDir, "src", f));
+}
+const mutantPath = join(mutantDir, "src", "terrain.mjs");
 // THE MUTATION IS THE GUARD'S BODY, not its call sites. Deleting the calls
 // would be caught by block 2 alone, which would make this case evidence about
 // the text read rather than about the behaviour — the mutant must survive

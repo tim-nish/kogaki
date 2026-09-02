@@ -3,7 +3,7 @@
 // kogaki#490, story 1.74).
 //
 // THE JUDGE IS THE AGENT, NOT THIS FILE. The path-review agent
-// (brief/path-review-agent.md) applies every MUST of §§4.4-4.8 as judgment,
+// (src/path-review-agent.md) applies every MUST of §§4.4-4.8 as judgment,
 // per Candidate, machine-side. This runtime carries the agent's output ONTO
 // the Candidates so it rides into the Candidate-selection gate (§4.6: the
 // three evaluation levels survive only as reasoning surfaced on Candidates)
@@ -81,7 +81,7 @@ export function attachReview(candidates, review) {
       if (!(area in r)) {
         return { error: `candidate ${c.candidate_id}: review lacks ${JSON.stringify(area)} — `
           + `every MUST of §§4.4-4.8 is applied per Candidate, and an absent area is an `
-          + `unapplied one (brief/path-review-agent.md declares the shape)` };
+          + `unapplied one (src/path-review-agent.md declares the shape)` };
       }
     }
     out.push({ ...c, review: r });
@@ -114,7 +114,7 @@ function cmdAttach(args) {
     "attach needs --candidates <json> — the assembled Candidates (machine-local run state)"), "utf8"));
   const review = JSON.parse(readFileSync(argString(args, "review",
     "attach needs --review <json> — the path-review agent's per-Candidate reasoning "
-    + "(brief/path-review-agent.md declares the shape)"), "utf8"));
+    + "(src/path-review-agent.md declares the shape)"), "utf8"));
   const out = argString(args, "out",
     "attach needs --out <path> — the machine-local file the reviewed Candidates ride "
     + "to the selection gate in");

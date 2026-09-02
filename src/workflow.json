@@ -36,9 +36,9 @@
       "renders_gate_declaration": false,
       "governing": "§6.3",
       "owner_reads": {
-        "invocation": "node terrain/terrain.mjs tags --survey <survey record>",
+        "invocation": "node src/terrain.mjs tags --survey <survey record>",
         "why": "the owner chooses a tag from this listing, and a session's tool output is displayed to the session rather than reliably to the owner — so the act is the owner's to run (§6.0)",
-        "also": "node terrain/terrain.mjs tag-rows --survey <survey record> --tag <T> — the per-tag row view, run when the owner asks to browse rows (§6.3's fork half). Never scheduled."
+        "also": "node src/terrain.mjs tag-rows --survey <survey record> --tag <T> — the per-tag row view, run when the owner asks to browse rows (§6.3's fork half). Never scheduled."
       }
     },
     {
@@ -211,5 +211,5 @@
     "tags": "the pre-selection tag listing — a header and one tag row per section, under the `tag_listing` grammar. Takes `--survey <record>`; the executor names the invocation at its TAG_SELECTION stop.",
     "tag-rows": "the per-tag row view — candidate rows under one named tag with their Gloss headlines, under the `tag_row_listing` grammar. Takes `--survey <record> --tag <T>`, and `--family <f>` to mark. Run when the owner asks to browse rows; never scheduled."
   },
-  "entry_point_accounting": "EVERY case in terrain/terrain.mjs's dispatcher appears in exactly one of the 5 maps above (bound_to_a_state, removed_entry_points, retired_entry_points, non_flow_entry_points, owner_executed_entry_points), and THAT TOTALITY is the property rather than the count: the next entry point is covered by the totality rather than by having been remembered. A case in none of them, or in two, is a defect against this file."
+  "entry_point_accounting": "EVERY case in src/terrain.mjs's dispatcher appears in exactly one of the 5 maps above (bound_to_a_state, removed_entry_points, retired_entry_points, non_flow_entry_points, owner_executed_entry_points), and THAT TOTALITY is the property rather than the count: the next entry point is covered by the totality rather than by having been remembered. A case in none of them, or in two, is a defect against this file."
 }

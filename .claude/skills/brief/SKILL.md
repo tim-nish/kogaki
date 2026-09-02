@@ -15,7 +15,7 @@ defined where the owner reads it.)
 Governing spec: `specs/spec-draft-pipeline/SPEC.md` §5.3 (v7, kogaki#482;
 **re-sequenced v9, kogaki#494** — entry → thesis-determination gate → mint;
 **slug paired into the one gate at v11, kogaki#518**); runtime:
-`brief/brief.mjs`. Everything below is that contract driven through the
+`src/brief.mjs`. Everything below is that contract driven through the
 harness — none of it is discretion.
 
 **THERE IS EXACTLY ONE OWNER QUESTION BEFORE THE MINT** (§5.3 v11,
@@ -55,7 +55,7 @@ kogaki#494).
    and the runtime refuses them by name: they are per-report-identity tokens,
    at most how the owner *found* the members on the report.
 2. **Enter** —
-   `node brief/brief.mjs enter --survey <survey record> --ids L…,L…`.
+   `node src/brief.mjs enter --survey <survey record> --ids L…,L…`.
    **The survey record is the machine-local run-workspace JSON the Terrain
    survey wrote** (default under `~/.kogaki/runs/…` — the terrain runtime
    prints its path at survey time; set `KOGAKI_DEBUG=1` there to see it).
@@ -84,12 +84,12 @@ kogaki#494).
    and keeps the option. **No owner answer, no next step** — the gate blocks
    and nothing exists under `briefs/`.
 4. **Adopt the pair** —
-   `node brief/brief.mjs adopt --run-state <path> --thesis <candidate id | the owner's free text> [--slug <the owner's name>]`.
+   `node src/brief.mjs adopt --run-state <path> --thesis <candidate id | the owner's free text> [--slug <the owner's name>]`.
    Pass `--slug` only when the owner named a different one at the gate;
    with it omitted, the adopted candidate's own paired name stands, and a
    free-form Thesis derives its name from the owner's words. The runtime
    raises no ask here and none follows.
-5. **Mint** — `node brief/brief.mjs mint --run-state <path>`.
+5. **Mint** — `node src/brief.mjs mint --run-state <path>`.
    The mint consumes the adopted **(Thesis, name) pair** from the run state.
    **Never pass it a name** — the owner's name is already settled, and a name
    supplied here would be a decision the owner was not asked for. The runtime refuses without an adopted
@@ -112,13 +112,13 @@ kogaki#494).
    The Candidates differ in **reader experience** (§6), Journey register
    included (§6.1). Write them to the run workspace as the composed-Candidates
    JSON.
-8. **Review each path** across the six areas `brief/review.mjs` names
+8. **Review each path** across the six areas `src/review.mjs` names
    (`grounds_test`, `entailment`, `prohibitions`, `semantic_economy`,
    `arc_integrity`, `evaluation_levels`), then
-   `node brief/review.mjs attach --candidates <json> --review <json> --out <reviewed.json>`.
+   `node src/review.mjs attach --candidates <json> --review <json> --out <reviewed.json>`.
    Review does **not** fail a Candidate — see the revise routing below.
 9. **Assemble the selection payload** —
-   `node brief/assemble.mjs assemble --reviewed <reviewed.json> --brief briefs/<slug>/brief.md --out <selection.json>`.
+   `node src/assemble.mjs assemble --reviewed <reviewed.json> --brief briefs/<slug>/brief.md --out <selection.json>`.
    The runtime refuses a payload whose rendering leaks an internal identifier
    or a section reference; relay that refusal and fix the wording at source.
 10. **Raise the Candidate-selection gate** through AskUserQuestion — the
@@ -127,7 +127,7 @@ kogaki#494).
     premise's negation as a first-class option ("none of these — the Thesis or
     the settled set is what should change", §6), and free text.
 11. **Adopt the owner's Candidate** —
-    `node brief/assemble.mjs adopt-candidate --brief briefs/<slug>/brief.md --reviewed <reviewed.json> --candidate <id>`.
+    `node src/assemble.mjs adopt-candidate --brief briefs/<slug>/brief.md --reviewed <reviewed.json> --candidate <id>`.
     Its Reader Path becomes the Brief's sequence; `thesis_closure` and
     `tradeoffs` fill from its reasoning. **With no owner answer nothing lands**
     — the runtime refuses.
@@ -158,7 +158,7 @@ with every composition field an unfilled slot, and the owner typed "keep going".
 **When a Draft comes out strange, the first suspect is recorded** (kogaki#549).
 Every Step field is LLM-authored with no harness — `validateSteps` checks shape
 only, and no content conformance is checked outside path review's judgment. The
-statement lives at the top of `brief/path-review-agent.md`, which is where a
+statement lives at the top of `src/path-review-agent.md`, which is where a
 sitting diagnosing a Draft defect is already reading.
 
 **Where a path review's finding goes** (SPEC §4.11, kogaki#524). Path review
@@ -211,7 +211,7 @@ a human ever sees.
   use?", one plain question per item (kogaki#520).
 - **Never show a section reference.** A pointer into a spec (`§6.1`) is a
   term of art to a reader who does not hold the spec.
-- **The runtime denies a leak; it does not repair one.** `brief/assemble.mjs`
+- **The runtime denies a leak; it does not repair one.** `src/assemble.mjs`
   refuses to emit a selection payload whose rendering carries an internal
   identifier or a section reference, and names what leaked. Relay that
   refusal as it stands and fix the wording at its source — the deny exists

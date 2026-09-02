@@ -70,7 +70,7 @@ authority.
          where the disputed field is the definition of the object rather than
          a candidate carrier for a property?"
 
-**The carrier is `validateSteps` in `brief/compose.mjs`, cited here and restated
+**The carrier is `validateSteps` in `src/compose.mjs`, cited here and restated
 nowhere** (rider R1, owner selection 2026-08-25). The requirement binds at
 composition, where a Move-less Step becomes **unwritable rather than
 discouraged**; this spec names the seat and does not reproduce the check.
@@ -420,7 +420,7 @@ article's private property and every step a library entry, which is neither.
   `reader_state_before` / `reader_state_after` plus path review still carry it.
   v18 adds a second, independent requirement rather than re-homing that one.
 
-  **The carrier is `validateSteps` in `brief/compose.mjs`** — cited, restated
+  **The carrier is `validateSteps` in `src/compose.mjs`** — cited, restated
   nowhere. It binds at composition, so a Move-less Step is **unwritable rather
   than discouraged**, and this clause names the seat instead of reproducing the
   check.
@@ -1049,7 +1049,7 @@ Step or discloses the gap as a §5.2 ledger entry. The revised Candidate is
 disclosed and rides to the gate — never re-looped.
 
 **WHERE THE FINDING COMES FROM, named precisely (kogaki#524's label correction).**
-Path review has **six** areas (`brief/review.mjs`) and none is called
+Path review has **six** areas (`src/review.mjs`) and none is called
 "transition continuity". That level is observed inside the **`evaluation_levels`**
 area — §4.6's "three levels, observed and never scored", enumerated at §4.6
 above as local Move validity, transition continuity and Thesis closure. A reader
@@ -1131,14 +1131,14 @@ and stand unchanged under v2.
 
 #### 5.1.1 The three reader fields get their authoring block (v12, kogaki#521)
 
-**The defect, as found.** §5.1 binds nine fields. `brief/compose.mjs fill`
+**The defect, as found.** §5.1 binds nine fields. `src/compose.mjs fill`
 writes three of them (`sequence`, `strand_coverage`, the §5.2 ledger);
-`brief/assemble.mjs adopt-candidate` writes two (`thesis_closure`,
+`src/assemble.mjs adopt-candidate` writes two (`thesis_closure`,
 `tradeoffs`); `thesis` is filled at mint by construction (§5.3 v9). The
 remaining three — `reader_start`, `reader_target`, `opening_question` — were
 written by **no runtime at all**. Measured 2026-08-19: grepping all four
 `brief/*.mjs` for the three field names returns **three hits, every one of
-them in `brief/brief.mjs:93-95` and every one a DECLARATION rather than a
+them in `src/brief.mjs:93-95` and every one a DECLARATION rather than a
 write** — the `FIELDS` slot table that renders each name as
 `*(awaiting composition)*`. No assignment, no `replaceSlot` call and no fill
 path names any of the three. The reading is therefore **zero writers beside
@@ -1208,7 +1208,7 @@ disciplinary one:
 
 **The runtime binding has a carrier, and it has LANDED.** This clause binds a
 refusal in `adopt-candidate`; the act that landed it is **PR #532, merged as
-`0d008c8`**, which also reconciled `brief/brief.mjs:95` with the
+`0d008c8`**, which also reconciled `src/brief.mjs:95` with the
 `opening_question` clause §5.1 carries. The spec's own v10 precedent
 (kogaki#501) refuses the shape where an obligation's carrier is a mention in a
 report rather than a named act, and that refusal binds this amendment too — so
@@ -1349,7 +1349,7 @@ issue": an unnamed deferral is the defect the portfolio rule names —
 `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/knowledge-architecture.md:94`
 
 The binding lands here at v20 and its discharge is that issue's; nothing in this
-amendment's own story touches `brief/assemble.mjs`. It binds the composer
+amendment's own story touches `src/assemble.mjs`. It binds the composer
 and not the material — a served Gloss rendering quoted at its pin arrives as
 prose already, and the owner's free-form Thesis is the owner's, exactly as
 §5.1.2 scopes the guard.
@@ -1780,7 +1780,7 @@ carried since v1.
 the same property by a better mechanism, the text supports two equally honest
 readings."
 
-**deferred slot: `single-path-fill-route`.** `brief/compose.mjs fill` writes a
+**deferred slot: `single-path-fill-route`.** `src/compose.mjs fill` writes a
 sequence from one composed path, bypassing assembly and the selection gate. The
 arc above always routes through §6, so `fill` is not on it. Whether it is a
 legitimate second route or a pre-§6 remnant is a decision act owed on its own
@@ -1910,14 +1910,14 @@ none do, these MUSTs bind nothing and a Candidate set that differentiates on
 other axes alone is fully conformant — the contingency §4.10 states, applied.
 
 **Judged as judgment, never as a lint.** Conformance is read at **path
-review** (§4.8's arc-integrity clauses, per Candidate, as `brief/review.mjs`
+review** (§4.8's arc-integrity clauses, per Candidate, as `src/review.mjs`
 already runs them), and surfaced to the owner as reasoning on the Candidate
 per §6's evidence rule. Nothing here becomes a check: §4.6 clause 3 and §6's
 "no check is registered by this spec" both reach this section unchanged.
 
 **The runtime binding is owed and CARRIED, not deferred namelessly.** The
-Candidate composer shipped after §4.10 was written (`brief/assemble.mjs`,
-`brief/compose.mjs`, `brief/review.mjs`; kogaki#489/#490/#491), so these MUSTs
+Candidate composer shipped after §4.10 was written (`src/assemble.mjs`,
+`src/compose.mjs`, `src/review.mjs`; kogaki#489/#490/#491), so these MUSTs
 have a live target this spec does not bind in this sitting. **kogaki#501** is
 that carrier.
 

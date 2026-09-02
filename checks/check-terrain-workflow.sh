@@ -77,14 +77,14 @@ done
 RD1="$WORK/shipped"; mkdir -p "$RD1"
 OUT1=$(STUB_ELEMENT_SURVEY_CONFORMING=1 STUB_GATEWAY_CALL_LOG="$WORK/calls.log" \
   TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-  node terrain/terrain.mjs run --run-dir "$RD1" 2>&1)
+  node src/terrain.mjs run --run-dir "$RD1" 2>&1)
 if [[ ! -f "$RD1/run-record.json" ]]; then
   echo "FAIL: CANNOT-DETERMINE — the shipped table left no run record, so no count could be read; this is not a pass"
   printf '%s\n' "$OUT1" | tail -5
   FAIL=1
 else
   ST1=$(STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-    node terrain/terrain.mjs run --run-dir "$RD1" --status 2>&1)
+    node src/terrain.mjs run --run-dir "$RD1" --status 2>&1)
   # AN OMITTED KEY IS A DISABLED COMPARISON, NOT A PASS (PR #664 round 1).
   # `reportRunStatus` emits DISAGREES only for keys the table DECLARES, and
   # renders `(not in counted_baseline)` for the rest — so deleting a key from
@@ -100,7 +100,7 @@ else
   # surviving inside it for a fifth of the denominator. A longer list would
   # repair the instance and keep the shape; reading the set from the runtime
   # removes the list.
-  python3 checks/lib/assert-baseline-keys.py specs/spec-terrain/workflow.json "the shipped table" || FAIL=1
+  python3 checks/lib/assert-baseline-keys.py src/workflow.json "the shipped table" || FAIL=1
   if grep -q "DISAGREES with counted_baseline" <<<"$ST1"; then
     echo "FAIL: the shipped table's counted_baseline disagrees with the baseline derived from its own states array — a denominator asserting a shape the table no longer has:"
     grep "DISAGREES" <<<"$ST1" | sed 's/^/    /'
@@ -112,7 +112,7 @@ fi
 
 # ---- Block 2: the EVOLVABILITY fixture, driven end to end.
 RD2="$WORK/evolved"; mkdir -p "$RD2"
-step() { node terrain/terrain.mjs run --run-dir "$RD2" --workflow "$EVOLVED" "$@" 2>&1; }
+step() { node src/terrain.mjs run --run-dir "$RD2" --workflow "$EVOLVED" "$@" 2>&1; }
 E0=$(step)
 # The record AT THE FIRST STOP, kept before the next act overwrites it: the
 # moved-handoff property is a fact about that moment and is unreadable later.
@@ -192,7 +192,7 @@ fi
 # writes declarations" from "the executor writes a declaration for every gate
 # state", and the second is what acceptance item 6 forbids.
 RD3="$WORK/gated"; mkdir -p "$RD3"
-g() { node terrain/terrain.mjs run --run-dir "$RD3" --workflow "$GATED" "$@" 2>&1; }
+g() { node src/terrain.mjs run --run-dir "$RD3" --workflow "$GATED" "$@" 2>&1; }
 
 STOP=$(g --ids a,b)
 DECL=$(sed -n 's|.*Its run declaration is WRITTEN: ||p' <<<"$STOP")
@@ -242,8 +242,8 @@ fi
 # not, and the pre-existing one then always did.
 RD5="$(mktemp -d "$PWD/.gate-path-check-XXXXXX")"; trap 'rm -rf "$WORK" "$RD5"' EXIT
 REL5="${RD5#"$PWD"/}"
-( cd checks && node ../terrain/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --ids a,b ) >/dev/null 2>&1
-CAP5=$( cd checks && node ../terrain/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --capture-option "strand:a" --tool-use-id tu_5 2>&1 )
+( cd checks && node ../src/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --ids a,b ) >/dev/null 2>&1
+CAP5=$( cd checks && node ../src/terrain.mjs run --run-dir "../$REL5" --workflow "../$GATED" --capture-option "strand:a" --tool-use-id tu_5 2>&1 )
 if grep -q "ERR_INVALID_ARG_TYPE\|ENOENT\|no such file" <<<"$CAP5"; then
   echo "FAIL: a capture with an IN-REPO run dir, driven from a subdirectory, died resolving its own declaration — the declaration is recorded repo-root-relative and must be read the same way, or the write and the read are two conventions that agree only where the path happens to be absolute:"
   sed 's|^|    |' <<<"$CAP5" | head -3
@@ -260,7 +260,7 @@ fi
 # capture must REFUSE naming that state while a bare --input stays admissible.
 # Without this the carve-out is a comment.
 RD4="$WORK/unwritten"; mkdir -p "$RD4"
-e() { node terrain/terrain.mjs run --run-dir "$RD4" --workflow "$EVOLVED" "$@" 2>&1; }
+e() { node src/terrain.mjs run --run-dir "$RD4" --workflow "$EVOLVED" "$@" 2>&1; }
 e >/dev/null 2>&1 || true
 e --input "opening" >/dev/null 2>&1 || true
 e >/dev/null 2>&1 || true
@@ -296,7 +296,7 @@ fi
 # suite after this block landed, not by reading it.
 RDJ="$WORK/judgment"; mkdir -p "$RDJ"
 J() { STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-      node terrain/terrain.mjs run --run-dir "$RDJ" "$@" 2>&1; }
+      node src/terrain.mjs run --run-dir "$RDJ" "$@" 2>&1; }
 J >/dev/null 2>&1 || true
 JSURVEY=$(ls "$RDJ"/*.terrain-survey.json 2>/dev/null | head -1)
 if [[ -z "$JSURVEY" ]]; then
@@ -318,7 +318,7 @@ else
   # #741 superseded, so the assertion is inverted rather than deleted.
   RDJ_UNJUDGED="$WORK/judgment-unjudged"; cp -r "$RDJ" "$RDJ_UNJUDGED"
   STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-    node terrain/terrain.mjs run --run-dir "$RDJ_UNJUDGED" --input G1 "${COMMON[@]}" >/dev/null 2>&1 || true
+    node src/terrain.mjs run --run-dir "$RDJ_UNJUDGED" --input G1 "${COMMON[@]}" >/dev/null 2>&1 || true
   if ! python3 checks/lib/assert-judgment-refusal.py "$RDJ_UNJUDGED/run-record.json"; then
     echo "FAIL: an unjudged run reached a Full Report, or still records the neighborhood states as skipped conditionals — §13.4 makes both states unconditional and the Report REQUIRE the judgment pass, so there is no path to an unjudged neighborhood rendering"
     FAIL=1
@@ -331,7 +331,7 @@ else
   # naming no mechanical candidate is only detectable against it.
   RDJ_ORPHAN="$WORK/judgment-orphan"; cp -r "$RDJ" "$RDJ_ORPHAN"
   ORPH=$(STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-    node terrain/terrain.mjs run --run-dir "$RDJ_ORPHAN" --input G1 "${COMMON[@]}" \
+    node src/terrain.mjs run --run-dir "$RDJ_ORPHAN" --input G1 "${COMMON[@]}" \
     --enter neighborhood_input --enter J3_neighborhood --neighborhood "$WORK/j-orphan.json" 2>&1)
   if ! grep -q "zzz-no-such-candidate" <<<"$ORPH"; then
     echo "FAIL: J3_neighborhood did not refuse an orphan judgment key BY NAME — a judgment that joins nothing is silently dropped and the section then reports that the judgment layer did not run, which is false:"
@@ -358,7 +358,7 @@ else
   # rendering and takes a fresh dir so that it can.
   RDJ_JUDGED="$WORK/judgment-judged"; cp -r "$RDJ" "$RDJ_JUDGED"
   STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-    node terrain/terrain.mjs run --run-dir "$RDJ_JUDGED" --input G1 "${COMMON[@]}" \
+    node src/terrain.mjs run --run-dir "$RDJ_JUDGED" --input G1 "${COMMON[@]}" \
     --enter neighborhood_input --enter J3_neighborhood --neighborhood "$WORK/j-good.json" \
     --report-dir "$WORK/j-records" >/dev/null 2>&1 || true
   JREND="$KOGAKI_REPORTS_DIR/FullReport.md"
@@ -392,7 +392,7 @@ else
   RDJ_GONE="$WORK/judgment-gone"; cp -r "$RDJ" "$RDJ_GONE"
   cp "$WORK/j-good.json" "$WORK/j-gone.json"
   STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-    node terrain/terrain.mjs run --run-dir "$RDJ_GONE" --input G1 "${COMMON[@]}" \
+    node src/terrain.mjs run --run-dir "$RDJ_GONE" --input G1 "${COMMON[@]}" \
     --enter neighborhood_input --enter J3_neighborhood --neighborhood "$WORK/j-gone.json" \
     --report-dir "$WORK/j-gone-records" >/dev/null 2>&1 || true
   NAMED=$(python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("judgments") or {}).get("J3_neighborhood",""))' "$RDJ_GONE/run-record.json")
@@ -402,7 +402,7 @@ else
   else
     rm -f "$WORK/j-gone.json"
     GONE=$(STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-      node terrain/terrain.mjs report --survey "$JSURVEY" --tag testing --ids G1 \
+      node src/terrain.mjs report --survey "$JSURVEY" --tag testing --ids G1 \
       "${COMMON[@]}" --neighborhood "$NAMED" \
       --report-dir "$WORK/j-gone-records-2" --rendering-dir "$WORK/j-gone-rend" 2>&1)
     if grep -q "judgment record this pull joins is gone" <<<"$GONE"; then
@@ -430,7 +430,7 @@ else
   for JF in "$WORK/j-good.json" "$WORK/j-good2.json"; do
     RDJ_ONE="$WORK/judgment-rejudge-$(basename "$JF" .json)"; cp -r "$RDJ" "$RDJ_ONE"
     STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-      node terrain/terrain.mjs run --run-dir "$RDJ_ONE" --input G1 "${COMMON[@]}" \
+      node src/terrain.mjs run --run-dir "$RDJ_ONE" --input G1 "${COMMON[@]}" \
       --enter neighborhood_input --enter J3_neighborhood --neighborhood "$JF" \
       --report-dir "$WORK/j-rejudge-records" >/dev/null 2>&1 || true
   done
@@ -473,7 +473,7 @@ else
   # refusal again fails nothing, which is the assertion-that-cannot-fail shape.
   RDJ_EMPTY="$WORK/judgment-empty"; mkdir -p "$RDJ_EMPTY"
   EJ() { STUB_ELEMENT_SURVEY_CONFORMING=1 TSUREZURE_GATEWAY_JS="$PWD/$STUB" \
-         node terrain/terrain.mjs run --run-dir "$RDJ_EMPTY" "$@" 2>&1; }
+         node src/terrain.mjs run --run-dir "$RDJ_EMPTY" "$@" 2>&1; }
   EJ >/dev/null 2>&1 || true
   ESURVEY=$(ls "$RDJ_EMPTY"/*.terrain-survey.json 2>/dev/null | head -1)
   python3 checks/lib/compose-judgment-claims.py "$ESURVEY" "$WORK/e-claims.json"

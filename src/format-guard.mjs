@@ -1,7 +1,7 @@
 // THE EMIT-TIME REFUSAL (SPEC-terrain §14.2, story 1.54, kogaki#346).
 //
 // The emitters validate the text they are ABOUT TO EMIT against
-// `specs/spec-terrain/report-format.json` and refuse to write or print on
+// `src/report-format.json` and refuse to write or print on
 // failure. A nonconformant artifact is unmintable rather than detectable one
 // incident later by a check suite growing at roughly one member per round.
 //
@@ -235,7 +235,7 @@ export function validateSurface(surfaceName, text, grammar) {
         `no line class in ${surfaceName}.line_classes admits this line, and the surface's `
         + `non_member_fallback is ${JSON.stringify(surface.non_member_fallback || "REFUSE")}. `
         + "Either the emitter changed shape, or the grammar owes a new class — "
-        + "specs/spec-terrain/report-format.json wins on divergence (§14.1), so the grammar is amended deliberately, never to make a refusal go away"));
+        + "src/report-format.json wins on divergence (§14.1), so the grammar is amended deliberately, never to make a refusal go away"));
     }
   });
 
@@ -512,7 +512,7 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
 // 2026-08-06 defect specimen from the other side.
 export class FormatRefusal extends Error {
   constructor(surfaceName, violations) {
-    super(`refusing to emit ${surfaceName}: the rendered text violates specs/spec-terrain/report-format.json`
+    super(`refusing to emit ${surfaceName}: the rendered text violates src/report-format.json`
       + ` (SPEC.md §14.2 — the refusal is generation-time)\n  `
       + violations.map((x) => `- ${x}`).join("\n  ")
       + "\n  The grammar is authoritative over the rendered form (§14.1). Fix the emitter, "

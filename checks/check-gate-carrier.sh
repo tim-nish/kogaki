@@ -4,7 +4,7 @@
 #
 # Validates the declared gate registry (gates/registry.json) and every gate
 # capture file (*.gate-capture.json, anywhere in the tree) against
-# specs/spec-gate-carrier/gate-schema.json — the single carrier, whose field
+# src/gate-schema.json — the single carrier, whose field
 # lists this check READS rather than restates.
 #
 # Three properties are this check's alone and overlap nothing in
@@ -31,7 +31,7 @@ import json, pathlib, sys
 from collections import Counter
 
 root = pathlib.Path(".")
-schema = json.loads((root / "specs/spec-gate-carrier/gate-schema.json").read_text())
+schema = json.loads((root / "src/gate-schema.json").read_text())
 fixtures = root / "checks/fixtures/gate-carrier"
 
 # Every violation code this validator can emit. Each one owes a fixture.

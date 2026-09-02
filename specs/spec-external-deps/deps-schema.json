@@ -5,8 +5,8 @@
     "checks/check-external-deps.sh READS these lists rather than restating",
     "them — this file is the single carrier, so amending the contract is one",
     "edit and never a two-copy divergence. Same arrangement as",
-    "specs/spec-gate-carrier/gate-schema.json and",
-    "specs/spec-proposal-contract/record-schema.json, deliberately.",
+    "src/gate-schema.json and",
+    "src/record-schema.json, deliberately.",
     "",
     "The enumeration itself lives in deps/registry.json. This file says what",
     "an entry must LOOK like; it never says which capabilities exist."

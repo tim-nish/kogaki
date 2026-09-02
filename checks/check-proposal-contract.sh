@@ -3,7 +3,7 @@
 # specs/SPEC.md:97-98; kogaki#15, umbrella kogaki#14).
 #
 # Validates every proposal record (*.proposal.json, anywhere in the tree)
-# against specs/spec-proposal-contract/record-schema.json — the single
+# against src/record-schema.json — the single
 # carrier, whose field lists this check READS rather than restates.
 #
 # The fixtures under checks/fixtures/proposal-contract/ are this check's
@@ -24,7 +24,7 @@ python3 - <<'EOF'
 import json, pathlib, re, sys
 
 root = pathlib.Path(".")
-schema_path = root / "specs/spec-proposal-contract/record-schema.json"
+schema_path = root / "src/record-schema.json"
 schema = json.loads(schema_path.read_text())
 
 fixtures = root / "checks/fixtures/proposal-contract"

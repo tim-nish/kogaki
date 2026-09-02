@@ -26,7 +26,7 @@
 # OUTPUT of the survey, not a heading you supply" — so narrowing the move would
 # trade the one property it exists for.
 #
-# WHY HERE AND NOT AT THE SEAM. `terrain/terrain.mjs` has read this same surface
+# WHY HERE AND NOT AT THE SEAM. `src/terrain.mjs` has read this same surface
 # without trouble since it shipped, because the kit's transport captures to a
 # FILE and never crosses the harness's result boundary. The reviewer cannot use
 # that path: its executable grant is DERIVED over `tools/` and `checks/`, and

@@ -12,7 +12,7 @@
 // deliberately does not add); the skill raises it through AskUserQuestion.
 //
 // Two commands:
-//   assemble — takes the REVIEWED Candidates (brief/review.mjs attach
+//   assemble — takes the REVIEWED Candidates (src/review.mjs attach
 //     output: each Candidate already carrying its per-Candidate reasoning,
 //     which is what makes an unreviewed Candidate unpresentable) plus the
 //     Brief, requires 2-3 Candidates DIFFERING IN READER EXPERIENCE, and
@@ -54,7 +54,7 @@ const REASONING_FIELDS = ["step_validity", "transition_continuity", "thesis_clos
 // One label per key, in the order the owner reads them.
 // The three §5.1 fields whose authoring block is PATH COMPOSITION (v12,
 // kogaki#521). Each pairs its record key with the Brief slot heading it
-// lands in; brief/brief.mjs's FIELDS table owns those headings, and this is
+// lands in; src/brief.mjs's FIELDS table owns those headings, and this is
 // the join to them. ONE declaration: the evidence, the rendering, the
 // adoption fill and the adoption refusal all read this list, so a fourth
 // reader field is added here and nowhere else.
@@ -79,7 +79,7 @@ export const EVIDENCE_LABELS = [
 
 // The path-review reasoning rides the same gate and is read by the same
 // owner, so it renders under plain labels on the same rule. The areas are
-// brief/review.mjs's REVIEW_AREAS; the labels are theirs here because this
+// src/review.mjs's REVIEW_AREAS; the labels are theirs here because this
 // file owns the gate's rendering.
 export const REVIEW_LABELS = {
   grounds_test: "Does each step's reason survive without its Move name?",
@@ -91,7 +91,7 @@ export const REVIEW_LABELS = {
 };
 
 // Spec-internal vocabulary, refused wherever it would reach the owner —
-// modelled on brief/review.mjs's verdict-shaped-key refusal, and a DENY for
+// modelled on src/review.mjs's verdict-shaped-key refusal, and a DENY for
 // the same reason: a layer that rewrote the leak would let the leak keep
 // being written, and the next term of art would arrive unlabelled. Two
 // shapes are refused, both mechanical, neither a judgment about prose:
@@ -269,7 +269,7 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
 // Pure; exported for the check. Returns { error } or { payload }.
 export function assembleSelection(reviewed, doc) {
   const cands = reviewed?.candidates;
-  if (!Array.isArray(cands)) return { error: "input is the attach output: { candidates: [...] } (brief/review.mjs)" };
+  if (!Array.isArray(cands)) return { error: "input is the attach output: { candidates: [...] } (src/review.mjs)" };
   // 2-3 CANDIDATES PER ARTICLE (§6): the count is the contract, refused
   // naming what arrived — one Candidate is a default in disguise, four is
   // the selector affordance overrun.
@@ -311,7 +311,7 @@ export function assembleSelection(reviewed, doc) {
     // because an unreviewed Candidate is unpresentable at this gate.
     for (const a of REVIEW_AREAS) {
       if (typeof c.review?.[a] !== "string" || c.review[a] === "") {
-        return { error: `candidate ${c.candidate_id}: review area ${JSON.stringify(a)} absent — an unreviewed Candidate cannot be presented (§4.6; run brief/review.mjs attach first)` };
+        return { error: `candidate ${c.candidate_id}: review area ${JSON.stringify(a)} absent — an unreviewed Candidate cannot be presented (§4.6; run src/review.mjs attach first)` };
       }
     }
     for (const f of REASONING_FIELDS) {
@@ -493,7 +493,7 @@ function parseArgs(argv) {
 
 function cmdAssemble(args) {
   const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
-    "assemble needs --reviewed <json> — brief/review.mjs attach's output"), "utf8"));
+    "assemble needs --reviewed <json> — src/review.mjs attach's output"), "utf8"));
   const doc = readFileSync(argString(args, "brief",
     "assemble needs --brief <briefs/<slug>/brief.md> — the composed Brief whose ledger state and placement count are part of the evidence"), "utf8");
   const out = argString(args, "out",

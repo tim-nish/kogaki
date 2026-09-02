@@ -25,7 +25,7 @@ label = sys.argv[2]
 # the property named; so does this.
 run = subprocess.run(
     [ "node", "--input-type=module", "-e",
-      'import { derivedBaseline } from "./terrain/terrain.mjs";'
+      'import { derivedBaseline } from "./src/terrain.mjs";'
       'import { readFileSync } from "node:fs";'
       f'process.stdout.write(JSON.stringify(derivedBaseline(JSON.parse(readFileSync({json.dumps(table_path)}, "utf8")))));' ],
     capture_output=True, text=True)

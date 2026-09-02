@@ -23,9 +23,9 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
-         journeyBearingStrands, journeyPlacements, replaceSlot } from "./brief/compose.mjs";
-import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./brief/assemble.mjs";
-import { REVIEW_AREAS } from "./brief/review.mjs";
+         journeyBearingStrands, journeyPlacements, replaceSlot } from "./src/compose.mjs";
+import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./src/assemble.mjs";
+import { REVIEW_AREAS } from "./src/review.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const fails = [];
@@ -35,9 +35,9 @@ const run = (argv) => spawnSync(process.execPath, argv, { encoding: "utf8" });
 
 // Mint a real Brief through the v9 flow (L2 has a journey; L1 does not).
 const rs = join(dir, "run.json");
-run(["brief/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", rs]);
-run(["brief/brief.mjs", "adopt", "--run-state", rs, "--thesis", "thesis-1"]);
-run(["brief/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--briefs-dir", briefs]);
+run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", rs]);
+run(["src/brief.mjs", "adopt", "--run-state", rs, "--thesis", "thesis-1"]);
+run(["src/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--briefs-dir", briefs]);
 const briefPath = join(briefs, "compose-case", "brief.md");
 
 const step1 = {
@@ -173,7 +173,7 @@ try {
   // The retirement is asserted rather than assumed, because a removed
   // subcommand and a subcommand that still works are indistinguishable to a
   // suite that stops calling it.
-  const r1 = run(["brief/compose.mjs", "fill", "--brief", briefPath, "--path", join(dir, "nonexistent.json")]);
+  const r1 = run(["src/compose.mjs", "fill", "--brief", briefPath, "--path", join(dir, "nonexistent.json")]);
   if (r1.status === 0) fails.push("(d) `fill` still succeeds — the ungated route §6's selection gate exists to replace is still reachable");
   const r1err = `${r1.stderr || ""}${r1.stdout || ""}`;
   if (!/no longer exists/.test(r1err)) fails.push(`(d) \`fill\` does not name itself retired: ${r1err.trim().slice(0, 120)}`);
@@ -182,7 +182,7 @@ try {
   // The COMPOSER is untouched: what retired is the CLI entry point, never the
   // composition. NO ASSERTION IS WRITTEN FOR THAT HERE, and the omission is
   // deliberate — a `typeof fillBrief !== "function"` line was written, run as a
-  // mutation, and found UNREACHABLE: `brief/assemble.mjs` imports `fillBrief`,
+  // mutation, and found UNREACHABLE: `src/assemble.mjs` imports `fillBrief`,
   // so un-exporting it fails this suite at MODULE LOAD with a SyntaxError,
   // before any case executes. The import is the carrier; a line that can never
   // fire would have claimed the coverage the import already supplies.
@@ -313,11 +313,11 @@ try {
   const rvf = join(dir, "reviewed.json"); const ouf = join(dir, "payload.json");
   writeFileSync(rvf, JSON.stringify({ candidates: [candA, candB] }));
   const bp2 = join(dir, "brief-adopt.md"); writeFileSync(bp2, doc0);
-  const p1 = spawnSync(process.execPath, ["brief/assemble.mjs", "assemble", "--reviewed", rvf, "--brief", briefPath, "--out", ouf], { encoding: "utf8" });
+  const p1 = spawnSync(process.execPath, ["src/assemble.mjs", "assemble", "--reviewed", rvf, "--brief", briefPath, "--out", ouf], { encoding: "utf8" });
   if (p1.status !== 0) fails.push(`(g) assemble exited ${p1.status}: ${(p1.stderr || "").trim()}`);
   else if (JSON.stringify(JSON.parse(readFileSync(ouf, "utf8"))) !== JSON.stringify(pay)) fails.push("(g) the command's payload differs from the exported function's — two producers");
   if (!/never a verdict/.test(p1.stdout || "")) fails.push("(g) assemble does not state the no-verdict property in its own output");
-  const p2 = spawnSync(process.execPath, ["brief/assemble.mjs", "adopt-candidate", "--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2"], { encoding: "utf8" });
+  const p2 = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2"], { encoding: "utf8" });
   if (p2.status !== 0) fails.push(`(g) adopt-candidate exited ${p2.status}: ${(p2.stderr || "").trim()}`);
   else if (readFileSync(bp2, "utf8") !== doc3) fails.push("(g) the command's adopted document differs from the exported function's — two producers");
 
@@ -599,7 +599,7 @@ try {
   // the body, and this would pass. The behavioural cases above are what carry
   // the property; this reads the shape so that a body-escaping implementation
   // covering only today's patterns cannot satisfy them by accident.
-  const src = readFileSync("brief/compose.mjs", "utf8");
+  const src = readFileSync("src/compose.mjs", "utf8");
   if (!/doc\.replace\(re, \(\) =>/.test(src)) {
     fails.push("(k) replaceSlot does not use a replacer function — a replacement string reinterprets the body, and escaping enumerates patterns instead of removing the possibility");
   }
@@ -820,7 +820,7 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "the text. kogaki#551's two, both against the retirement: restoring the `fill` route "
   + "failed (d)'s retirement assertion, and refusing without naming the replacement failed "
   + "(d)'s replacement assertion. A THIRD was run and its assertion WITHDRAWN rather than "
-  + "kept: un-exporting `fillBrief` fails this suite at MODULE LOAD, because brief/assemble.mjs "
+  + "kept: un-exporting `fillBrief` fails this suite at MODULE LOAD, because src/assemble.mjs "
   + "imports it, so a `typeof fillBrief` line could never fire and would have claimed coverage "
   + "the import already supplies — recorded because a dropped mutation and an invented one read "
   + "identically. Then the earlier "
