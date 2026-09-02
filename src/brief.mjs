@@ -713,7 +713,13 @@ function cmdMint(args) {
   // state from the moment it exists, and this runtime is a creator, never an
   // editor.
   if (existsSync(home)) {
-    fail(`theses/${slug}/ already exists. The entry point creates and never `
+    // THE REFUSAL NAMES THE PATH THAT ACTUALLY COLLIDED, not the default root
+    // (PR #771 round 1). `home` honours `--theses-dir`, so under a check that
+    // points the mint at a tmpdir the old message named a path that did not
+    // collide — a refusal whose text is about a different file than the one it
+    // refused over. Pre-existing shape, carried in at the rename and repaired
+    // here rather than renamed forward.
+    fail(`${home}/ already exists. The entry point creates and never `
       + "overwrites — resume that Brief by opening its document, or re-answer "
       + "the thesis-determination gate naming a different name (`adopt "
       + "--thesis <id|text> --slug <name>`, SPEC-draft-pipeline §5.3 v11).");
