@@ -1,6 +1,6 @@
 ---
 id: reg-0213
-status: pending  # subject RETIRED at PR #777 — see the closing note
+status: pending
 observed_at_pr: 775
 observed_at_head: 4aedf31
 class: in-diff
