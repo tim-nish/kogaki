@@ -19,7 +19,7 @@
     "2026-08-06, SPEC.md §9).",
     "The single-carrier clause covers these FIELD LISTS. It does NOT cover",
     "the recompute ALGORITHM, which is written twice on purpose —",
-    "terrain/terrain.mjs (generation-time refusal) and",
+    "src/terrain.mjs (generation-time refusal) and",
     "check-terrain-composition.sh (merge-layer detection). SPEC.md §9",
     "records that correction; collapsing the duplication is not licensed."
   ],

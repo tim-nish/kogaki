@@ -48,7 +48,7 @@
 // at the same pin) — which is why the thesis gate's premise-negation option
 // routes BACK THROUGH TERRAIN and never re-opens the set here.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "../terrain/terrain.mjs";
+import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "./terrain.mjs";
 import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
 import { snapshotBrief } from "./compose.mjs";
 import { join, resolve, dirname } from "node:path";

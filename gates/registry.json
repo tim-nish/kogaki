@@ -16,14 +16,14 @@
     "optional, and an optional admission field is exactly the gap kogaki#6",
     "was filed to close. Same coverage discipline, different admission",
     "economics, so two artifacts.",
-    "Shape: specs/spec-gate-carrier/gate-schema.json. Contract:",
+    "Shape: src/gate-schema.json. Contract:",
     "specs/spec-gate-carrier/SPEC.md."
   ],
   "version": "1",
   "gates": [
     {
       "id": "terrain-strand-selection",
-      "raised_by": "terrain/terrain.mjs gate + .claude/skills/terrain — the selection screen (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
+      "raised_by": "src/terrain.mjs gate + .claude/skills/terrain — the selection screen (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which Strand does the article take as material?",
@@ -39,7 +39,7 @@
     },
     {
       "id": "terrain-trim-ratification",
-      "raised_by": "terrain/terrain.mjs gate --proposal + .claude/skills/terrain — a rank/trim/hide proposal record presented for ratification (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
+      "raised_by": "src/terrain.mjs gate --proposal + .claude/skills/terrain — a rank/trim/hide proposal record presented for ratification (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
       "host": "claude-code",
       "medium": "selector",
       "question": "The machine proposes narrowing the candidate set — apply it?",
@@ -55,7 +55,7 @@
     },
     {
       "id": "terrain-claim-reoffer",
-      "raised_by": "terrain/terrain.mjs claim (subset path) + .claude/skills/terrain — a GroupClaim recomposed over a subset of the set it was pinned to, re-offered (specs/spec-terrain/SPEC.md §7; kogaki#106, story 1.24)",
+      "raised_by": "src/terrain.mjs claim (subset path) + .claude/skills/terrain — a GroupClaim recomposed over a subset of the set it was pinned to, re-offered (specs/spec-terrain/SPEC.md §7; kogaki#106, story 1.24)",
       "host": "claude-code",
       "medium": "selector",
       "question": "The group's members changed, so the claim was recomposed over the subset — which wording is adopted?",
@@ -71,7 +71,7 @@
     },
     {
       "id": "brief-thesis-adoption",
-      "raised_by": "brief/brief.mjs enter + .claude/skills/brief — the thesis-determination gate, THE ONE OWNER QUESTION before the mint (specs/spec-draft-pipeline/SPEC.md §5.3 v11, kogaki#518; re-sequenced v9, kogaki#494; kogaki#488, story 1.72)",
+      "raised_by": "src/brief.mjs enter + .claude/skills/brief — the thesis-determination gate, THE ONE OWNER QUESTION before the mint (specs/spec-draft-pipeline/SPEC.md §5.3 v11, kogaki#518; re-sequenced v9, kogaki#494; kogaki#488, story 1.72)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which Thesis does the Brief adopt, and under what name?",

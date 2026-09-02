@@ -5,7 +5,7 @@
 # A THIN INVOKER, HOLDING NO ASSERTIONS OF ITS OWN — the same arrangement
 # check-owner-surface-pins.sh and check-client-kit-install.sh use, and for
 # the same reason: the cases live with the runtime they cover, in
-# `draft/draft.mjs --self-test`, because they are functions of the runtime's
+# `src/draft.mjs --self-test`, because they are functions of the runtime's
 # own refusal surfaces and drive it end to end in a temp directory. Seam-free
 # by construction: no gateway, no network, no home-directory write.
 #
@@ -28,7 +28,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "== draft runtime fixture pass (kogaki#587)"
 
-OUT=$(node draft/draft.mjs --self-test 2>&1); RC=$?
+OUT=$(node src/draft.mjs --self-test 2>&1); RC=$?
 printf '%s\n' "$OUT"
 if [[ $RC -ne 0 ]] || ! grep -q "draft self-test:" <<<"$OUT"; then
   echo "FAIL: the runtime's fixture pass did not run clean — the cases live with the runtime and this member only invokes them"

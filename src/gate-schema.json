@@ -5,7 +5,7 @@
     "checks/check-gate-carrier.sh READS these lists rather than restating",
     "them — this file is the single carrier, so amending the contract is",
     "one edit and never a two-copy divergence. Same arrangement as",
-    "specs/spec-proposal-contract/record-schema.json, deliberately: item 3",
+    "src/record-schema.json, deliberately: item 3",
     "and item 4 are adjacent contracts and share no machinery."
   ],
   "version": "1",

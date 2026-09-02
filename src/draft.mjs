@@ -292,7 +292,7 @@ function cmdEmit(args) {
   // artifact's original one, and this run's identity goes to the workspace.
   let generatedBy = {
     at: new Date().toISOString(),
-    by: "draft/draft.mjs (story 1.80, kogaki#587)",
+    by: "src/draft.mjs (story 1.80, kogaki#587)",
     brief_sha: sha256(brief.text),
   };
   if (existsSync(outPath)) {

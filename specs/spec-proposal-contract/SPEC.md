@@ -30,7 +30,7 @@ Its first consumer is Terrain: `specs/spec-terrain/SPEC.md:76-86` types
 
 ## 2. The record
 
-The machine-readable carrier is `specs/spec-proposal-contract/record-schema.json`.
+The machine-readable carrier is `src/record-schema.json`.
 It is the single carrier: `checks/check-proposal-contract.sh` reads its field
 lists rather than re-stating them, so a change to the contract is a change to
 one file. A record is a **proposal** or a **report**; there is no third kind.

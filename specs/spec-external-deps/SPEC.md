@@ -78,7 +78,7 @@ exists to keep.
 The machine-readable shape is `specs/spec-external-deps/deps-schema.json`.
 `checks/check-external-deps.sh` reads its field lists rather than restating
 them, so amending the contract is one edit and never a two-copy divergence —
-the same arrangement `specs/spec-gate-carrier/gate-schema.json` uses.
+the same arrangement `src/gate-schema.json` uses.
 
 Each entry declares:
 

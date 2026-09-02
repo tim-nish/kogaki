@@ -18,10 +18,10 @@ import { readFileSync, writeFileSync, mkdtempSync, existsSync, readdirSync, rmSy
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { composeBrief, resolveStrandIds, composeThesisCandidates, deriveSlugCandidate } from "./brief/brief.mjs";
-import { NO_HEADLINE } from "./terrain/terrain.mjs";
-import { findInternalVocabulary, SLOT_CAPTIONS } from "./brief/assemble.mjs";
-import { journeyBearingStrands, fillBrief } from "./brief/compose.mjs";
+import { composeBrief, resolveStrandIds, composeThesisCandidates, deriveSlugCandidate } from "./src/brief.mjs";
+import { NO_HEADLINE } from "./src/terrain.mjs";
+import { findInternalVocabulary, SLOT_CAPTIONS } from "./src/assemble.mjs";
+import { journeyBearingStrands, fillBrief } from "./src/compose.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const record = JSON.parse(readFileSync(SURVEY, "utf8"));
@@ -30,7 +30,7 @@ const dir = mkdtempSync(join(tmpdir(), "brief-entry-"));
 const briefs = join(dir, "briefs");
 const rs = (name) => join(dir, `${name}.run.json`);
 const run = (argv) => spawnSync(process.execPath,
-  ["brief/brief.mjs", ...argv], { encoding: "utf8" });
+  ["src/brief.mjs", ...argv], { encoding: "utf8" });
 const enter = (ids, state) => run(["enter", "--survey", SURVEY, "--ids", ids, "--run-state", state]);
 const adopt = (state, thesis, slug) => run(slug === undefined
   ? ["adopt", "--run-state", state, "--thesis", thesis]
@@ -462,9 +462,9 @@ try {
   const rBad = adopt(sOv, "thesis-2", "Not A Slug");
   if (rBad.status === 0) fails.push("(d) a malformed override was accepted as the Brief's name");
   // AC4: the retired ask is ABSENT FROM THE TREE, not merely unraised.
-  const runtimeSrc = readFileSync("brief/brief.mjs", "utf8");
+  const runtimeSrc = readFileSync("src/brief.mjs", "utf8");
   for (const token of ["slug_gate", "brief-slug-approval"]) {
-    if (new RegExp(`"${token}"|'${token}'|\\b${token}:`).test(runtimeSrc)) fails.push(`(d) brief/brief.mjs still carries ${token} as a live path — kogaki#518 retires the ask, it does not leave it unraised`);
+    if (new RegExp(`"${token}"|'${token}'|\\b${token}:`).test(runtimeSrc)) fails.push(`(d) src/brief.mjs still carries ${token} as a live path — kogaki#518 retires the ask, it does not leave it unraised`);
   }
   const gatesRegistry = JSON.parse(readFileSync("gates/registry.json", "utf8"));
   if ((gatesRegistry.gates || []).some((g) => g.id === "brief-slug-approval")) fails.push("(d) gates/registry.json still declares brief-slug-approval — a registered gate nothing raises is the uncovered-by-default shape");
@@ -608,15 +608,15 @@ try {
     const dsurvey = join(dir, "uncited-journey.json");
     writeFileSync(dsurvey, JSON.stringify(derived));
     const ds = rs("uncited");
-    const e = spawnSync(process.execPath, ["brief/brief.mjs", "enter", "--survey", dsurvey, "--ids", "L2,L1", "--run-state", ds], { encoding: "utf8" });
+    const e = spawnSync(process.execPath, ["src/brief.mjs", "enter", "--survey", dsurvey, "--ids", "L2,L1", "--run-state", ds], { encoding: "utf8" });
     if (e.status !== 0) fails.push(`(k) enter over the derived survey exited ${e.status}: ${(e.stderr || "").trim()}`);
     // The override half of the one gate, driven end to end: this run adopts
     // the SAME listed Thesis as (f) and names the Brief differently in the
     // same answer, which is also what keeps the two runs from colliding.
-    const a = spawnSync(process.execPath, ["brief/brief.mjs", "adopt", "--run-state", ds, "--thesis", "thesis-1", "--slug", "uncited-case"], { encoding: "utf8" });
+    const a = spawnSync(process.execPath, ["src/brief.mjs", "adopt", "--run-state", ds, "--thesis", "thesis-1", "--slug", "uncited-case"], { encoding: "utf8" });
     if (a.status !== 0) fails.push(`(k) adopt over the derived survey exited ${a.status}: ${(a.stderr || "").trim()}`);
     const st = JSON.parse(readFileSync(ds, "utf8"));
-    const m = spawnSync(process.execPath, ["brief/brief.mjs", "mint", "--run-state", ds, "--briefs-dir", briefs], { encoding: "utf8" });
+    const m = spawnSync(process.execPath, ["src/brief.mjs", "mint", "--run-state", ds, "--briefs-dir", briefs], { encoding: "utf8" });
     if (m.status !== 0) fails.push(`(k) mint over the derived survey exited ${m.status}: ${(m.stderr || "").trim()}`);
     // GUARDED: (k) mints under the name the owner OVERRODE at the one gate,
     // so a broken override strands this case with no document. Report that
@@ -870,7 +870,7 @@ console.log("brief entry: 15/15 cases — (a) entry writes NOTHING under briefs/
   + "owner's `--slug` override in the SAME one answer becomes the adopted name while the listed Thesis "
   + "and the option itself are kept and a malformed override refuses (separately DECLINABLE), and the "
   + "retired ask is ABSENT — no slug_gate or slug_candidate in the run state, no such live path in "
-  + "brief/brief.mjs, no brief-slug-approval row in gates/registry.json, and brief-thesis-adoption's "
+  + "src/brief.mjs, no brief-slug-approval row in gates/registry.json, and brief-thesis-adoption's "
   + "dynamic_options declaring the pair with both of its conditions; "
   + "(e) the gate blocks — mint refuses without an adopted Thesis, and INVENTS NO NAME for a run whose "
   + "adopted pair carries none, leaving briefs/ empty; (f) the mint fills thesis BY CONSTRUCTION and "

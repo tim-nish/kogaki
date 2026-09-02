@@ -104,7 +104,52 @@ TERMS=(
   "NOT a leaf"
 )
 
-ROOTS=(specs/spec-terrain terrain checks .claude/skills/terrain)
+ROOTS=(specs/spec-terrain src checks .claude/skills/terrain)
+
+# roots_missing <tree> — prints every declared ROOT that resolves to no tracked
+# file in <tree>.
+#
+# THE ROOTS FALLBACK IS CHOSEN TOO (kogaki#765). The paragraph at the head of
+# this file chooses the non-member fallback for the TERM list and left the ROOT
+# list inheriting one. `git grep` accepts a pathspec whose member matches no
+# tracked file WITHOUT error — exit 0, empty stderr, results from the surviving
+# members only — so a root that stops resolving is silently dropped and every
+# term goes unsearched THERE while the check reports the same ok line it reports
+# on a clean tree.
+#
+# MEASURED, not reasoned (2026-09-02). kogaki#765 moved `terrain/` to `src/`,
+# one of the four roots below. The pre-repair check run against the post-move
+# tree printed `ok: … 11 terms, no operative carrier states them as current`
+# while `src/` carried FOUR live hits it never looked at.
+#
+# The earlier draft of this comment said git grep fails on the WHOLE pathspec
+# when one member is bad, and that the move would silence every term for every
+# root at once. That is FALSE — it was written from plausibility and not from a
+# run, which is the defect this member exists to catch, one level up. The true
+# mechanism is narrower and worse: the loss is silent and PARTIAL, so the check
+# keeps working on its surviving roots and nothing about its output changes.
+#
+# WHY (b) COULD NOT CATCH THIS, which is the whole argument for (c). The
+# discrimination arm plants its specimen into its OWN throwaway tree, so it
+# asserts that the scanner works and never that the scanner is aimed at the
+# repository. On the post-move tree (b) passed. An arm admitted because "this
+# member's failure mode is silence" was itself silent about this failure.
+#
+#   "A system that periodically hunts for problems fails silently, because
+#   'found nothing' and 'never ran' look identical from outside … make the fact
+#   that it ran visible — not just what it found."
+#   consulted: product-lab@82b8908197ff6f9251448e94a09abd90f7699757 gloss/lessons/testing.md:149
+#
+# So a declared root resolving to nothing FAILS here rather than passing
+# quietly, and the ok line names what was actually scanned.
+roots_missing() {
+  local tree="$1" r
+  for r in "${ROOTS[@]}"; do
+    if [ -z "$(cd "$tree" && git ls-files -- "$r" 2>/dev/null | head -1)" ]; then
+      printf '%s\n' "$r"
+    fi
+  done
+}
 
 # scan <tree> — prints "file:line:text" for every unmarked survivor.
 scan() {
@@ -142,21 +187,67 @@ fi
 # that matched nothing at all would read identically to a clean tree.
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/terrain" "$tmp/specs/spec-terrain" "$tmp/checks" "$tmp/.claude/skills/terrain"
+mkdir -p "$tmp/src" "$tmp/specs/spec-terrain" "$tmp/checks" "$tmp/.claude/skills/terrain"
 ( cd "$tmp" && git init -q . && git config user.email c@e && git config user.name c )
+# EVERY declared root carries a tracked file, so the mutant tree is a faithful
+# model of a well-formed repository and can serve as (c)'s control arm. git
+# tracks no empty directory, so mkdir alone would leave three of the four roots
+# unresolvable and (c) would fire on its own fixture.
+for r in "${ROOTS[@]}"; do
+  mkdir -p "$tmp/$r"
+  printf '// root placeholder — no retired vocabulary here.\n' > "$tmp/$r/.root-present"
+done
 printf '// the group is a leaf when composes_honestly and tighter_than_parent hold.\n' \
-  > "$tmp/terrain/planted.mjs"
+  > "$tmp/src/planted.mjs"
 ( cd "$tmp" && git add -A >/dev/null 2>&1 )
 planted="$(scan "$tmp" || true)"
-if ! grep -q "terrain/planted.mjs" <<< "$planted"; then
+if ! grep -q "src/planted.mjs" <<< "$planted"; then
   fails+=("(b) THE CHECK DOES NOT DISCRIMINATE: a planted line stating the retired condition as current was not reported. Every (a) pass is therefore unevidenced — a check that matches nothing reads exactly like a clean tree.")
 fi
 printf '// composes_honestly and tighter_than_parent are GONE. retired-vocab-ok\n' \
-  > "$tmp/terrain/planted.mjs"
+  > "$tmp/src/planted.mjs"
 ( cd "$tmp" && git add -A >/dev/null 2>&1 )
 marked="$(scan "$tmp" || true)"
-if grep -q "terrain/planted.mjs" <<< "$marked"; then
+if grep -q "src/planted.mjs" <<< "$marked"; then
   fails+=("(b) THE MARKER DOES NOT EXEMPT: a planted line carrying \`retired-vocab-ok\` was still reported, so every legitimate provenance and tripwire site would fail and the check would be unusable.")
+fi
+
+# ---- (c) EVERY DECLARED ROOT RESOLVES (kogaki#765).
+# (a)'s pass means "no survivor was found in the roots that were searched". This
+# asserts the second half: that the roots searched are the roots declared. An
+# empty root is a FAIL and never a quiet pass — see roots_missing above.
+missing_roots="$(roots_missing "$root" || true)"
+if [ -n "$missing_roots" ]; then
+  while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    fails+=("(c) the declared scan root \`$r\` resolves to no tracked file, so every term in (a) was searched in a tree that does not contain it and (a)'s pass is unevidenced for that root. Repoint ROOTS at the carrier's current location, or drop the root deliberately — never leave it declared and empty.")
+  done <<< "$missing_roots"
+fi
+
+# (c) IS ASSERTED IN BOTH DIRECTIONS ON EVERY RUN, for the reason (b) already
+# gives about itself: an arm that only ever confirms the healthy state cannot be
+# told from one that stopped working. #765's acceptance asks for the positive
+# direction as a standing case rather than a mutation someone ran once and
+# described in a PR body, and a description is not executable by the next run.
+#
+# NEGATIVE direction — the guard does not fire on a well-formed tree. The mutant
+# tree carries a tracked file under every declared root, so roots_missing must
+# come back empty. A guard that fired here would be unusable.
+if [ -n "$(roots_missing "$tmp" || true)" ]; then
+  fails+=("(c) THE ROOT GUARD MISFIRES: the mutant tree populates every declared root and roots_missing still reported one, so the guard cannot distinguish a moved carrier from a well-formed tree.")
+fi
+
+# POSITIVE direction — the guard DOES fire on a root that resolves to nothing.
+# Asserted by removing one root from a tree that is otherwise well-formed, which
+# is the exact shape kogaki#765 produced by moving `terrain/` to `src/`. Without
+# this, roots_missing could be edited to always return empty and every arm above
+# would still pass.
+absent_root="a-root-no-tree-carries-$$"
+ROOTS+=("$absent_root")
+guard_fired="$(roots_missing "$tmp" || true)"
+unset 'ROOTS[-1]'
+if ! grep -qF "$absent_root" <<< "$guard_fired"; then
+  fails+=("(c) THE ROOT GUARD DOES NOT FIRE: a declared root that no tree carries was not reported, so the negative direction above is unevidenced and a root silently dropped from the scan would read exactly like a clean one — the failure this arm exists to make loud.")
 fi
 
 if [ ${#fails[@]} -gt 0 ]; then
@@ -164,4 +255,4 @@ if [ ${#fails[@]} -gt 0 ]; then
   printf '  - %s\n' "${fails[@]}"
   exit 1
 fi
-printf 'ok: check-terrain-retired-vocabulary — %d terms, no operative carrier states them as current; discrimination asserted both ways\n' "${#TERMS[@]}"
+printf 'ok: check-terrain-retired-vocabulary — %d terms over %d roots (%s), all resolving; no operative carrier states them as current; discrimination and the root guard asserted both ways\n' "${#TERMS[@]}" "${#ROOTS[@]}" "${ROOTS[*]}"

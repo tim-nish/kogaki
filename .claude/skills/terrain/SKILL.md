@@ -7,12 +7,12 @@ description: Survey the served material and let the owner select article Strands
 
 Terrain is the entry point for browsing served material when the owner
 cannot yet name a story. Governing spec: `specs/spec-terrain/SPEC.md`;
-runtime: `terrain/terrain.mjs`. Everything below is that spec's three
+runtime: `src/terrain.mjs`. Everything below is that spec's three
 contracts driven through the harness — none of it is discretion.
 
 **DELIVER THE ARTIFACT THE RUNTIME WROTE, NEVER A QUOTATION OF IT**
 (SPEC.md §14.4; kogaki#319, kogaki#347). There is exactly ONE producer of
-owner-facing text, and it is `terrain/terrain.mjs`. You compose the runtime's
+owner-facing text, and it is `src/terrain.mjs`. You compose the runtime's
 *inputs* — the claims, the subdivisions — and you **hand over its output**. You
 never re-type it.
 
@@ -33,7 +33,7 @@ never re-type it.
   defect §14.4.1 (v18) was ruled against.
 - **The pre-selection listings are the OWNER'S to run, and you do not run them
   for them** (§6.0). The executor's `TAG_SELECTION` stop prints the invocation:
-  `node terrain/terrain.mjs tags --survey <record>`, and
+  `node src/terrain.mjs tags --survey <record>`, and
   `tag-rows --survey <record> --tag <T>` when the owner asks to browse rows.
   **Hand the command over; do not execute it and do not relay its output.**
   Running it yourself puts the rendering back on the channel this arm exists to
@@ -98,15 +98,15 @@ this sentence is here.
 **There is ONE entry point, and the ORDER IS NOT HERE** (SPEC.md §15;
 kogaki#625, kogaki#654). The flow's sequencing — which state runs when, where
 the run stops, which states are conditional, what ends a run — is read from
-`specs/spec-terrain/workflow.json` on every run and is held **nowhere in this
+`src/workflow.json` on every run and is held **nowhere in this
 file**. This section is how to invoke the executor; it is not a description of
 what the executor will do, and a reader who wants that reads the table.
 
 ```
-node terrain/terrain.mjs run [--run-dir D] [--workflow F]
-node terrain/terrain.mjs run --run-dir D --input '<what the owner said>'
-node terrain/terrain.mjs run --run-dir D --enter <STATE>
-node terrain/terrain.mjs run --run-dir D --status
+node src/terrain.mjs run [--run-dir D] [--workflow F]
+node src/terrain.mjs run --run-dir D --input '<what the owner said>'
+node src/terrain.mjs run --run-dir D --enter <STATE>
+node src/terrain.mjs run --run-dir D --status
 ```
 
 - **The executor stops; the owner speaks; you re-enter.** At a wait the
@@ -169,7 +169,7 @@ above rather than left for you to discover.
    unless you have a reason not to.**
 
    Compose it as a JSON array of exactly `limits.thesis_candidates` objects
-   (initially 3, read from `specs/spec-terrain/report-format.json` — the count
+   (initially 3, read from `src/report-format.json` — the count
    is EXACT, and a different length refuses the render):
 
    ```json
@@ -230,7 +230,7 @@ above rather than left for you to discover.
    exempt**, so a small group can still carry one honest affinity claim rather
    than being forced into the residual; and a maximum residual size N. **The numbers
    are NOT reproduced here** — they live in
-   `specs/spec-terrain/report-format.json`'s `limits` block, which is the one
+   `src/report-format.json`'s `limits` block, which is the one
    place they can be edited, and a copy in this file would be a second carrier
    for an owner-editable number. Read them there.
 

@@ -3,7 +3,7 @@
 # specs/SPEC.md §5; kogaki#14 umbrella, kogaki#17 story 1.8).
 #
 # Validates every Terrain survey record (*.terrain-survey.json, anywhere in
-# the tree) against specs/spec-terrain/survey-schema.json — the single
+# the tree) against src/survey-schema.json — the single
 # carrier, whose field lists this check READS rather than restates:
 #   1. completeness is a COVER counted in placements — every Strand placed,
 #      no-relation Strands in an explicit named section, nothing silently
@@ -29,7 +29,7 @@
 #     EXISTING FIGURE_MISMATCH path (the fill of
 #     `deferred-slot: terrain-family-split-carrier` with alternative (a),
 #     owner decision 2026-08-06, SPEC.md §9).
-# The recompute algorithm below is the SECOND copy — terrain/terrain.mjs
+# The recompute algorithm below is the SECOND copy — src/terrain.mjs
 # familySplit is the first. §9 records that the single-carrier clause covers
 # survey-schema.json's field lists and NOT this algorithm, and that (a)
 # extends both halves; collapsing them is not licensed.
@@ -39,7 +39,7 @@
 # whether a proposal's narrowing was worth ratifying are JUDGMENTS and route
 # to the review lane (kogaki#13, story 1.5). An unstated omission reads as
 # coverage. Terrain's runtime applies these same rules BEFORE writing
-# (terrain/terrain.mjs validateSurvey) — this check is the detection half
+# (src/terrain.mjs validateSurvey) — this check is the detection half
 # behind that constrained generation, and the fixture pass is the evidence
 # both halves discriminate.
 #
@@ -94,7 +94,7 @@ import { readFileSync, writeFileSync, mkdtempSync, readdirSync, rmSync, existsSy
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { cotagGroups, cotagCover, NO_SECOND_TAG, COTAG_SORT, NO_CLAIM, subgroupPlacement }
-  from "./terrain/terrain.mjs";
+  from "./src/terrain.mjs";
 import { spawnSync } from "node:child_process";
 
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -148,7 +148,7 @@ eq("a composition that dropped one and gained one is caught on BOTH counts",
 // 5. The wiring, end to end: the composers above are what the subcommand runs.
 //    A unit that passes while nothing invokes it is the orphan shape.
 const run = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG],
   { encoding: "utf8" });
 if (run.status !== 0) fails.push(`cotags --tag ${TAG} exited ${run.status}: ${(run.stderr || "").trim()}`);
 for (const want of [NO_SECOND_TAG, `Cover: ${members.length} of ${members.length}`, "counted AFTER composition"]) {
@@ -198,7 +198,7 @@ writeFileSync(CLAIMS, JSON.stringify({
   },
 }));
 const withClaim = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS],
   { encoding: "utf8" });
 if (withClaim.status !== 0) fails.push(`cotags --claims exited ${withClaim.status}: ${(withClaim.stderr || "").trim()}`);
 const claimLines = String(withClaim.stdout).split("\n");
@@ -244,7 +244,7 @@ writeFileSync(BADCLAIMS, JSON.stringify({
   claims: { "testing × nonesuch": "invented" },
 }));
 const badClaim = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", BADCLAIMS],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", BADCLAIMS],
   { encoding: "utf8" });
 if (badClaim.status === 0) {
   fails.push("a --claims entry naming no composed group was ACCEPTED — a claim carries no selection authority and may not invent a group (§6.1)");
@@ -267,7 +267,7 @@ writeFileSync(SUBSETCLAIMS, JSON.stringify({
   claims: { [`${TAG} × cost`]: "a claim over one of the served groups" },
 }));
 const subsetOk = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", SUBSETCLAIMS],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", SUBSETCLAIMS],
   { encoding: "utf8" });
 if (subsetOk.status !== 0) {
   fails.push(`a claim over a SUBSET of the served groups was refused — subset is legitimate composition, and an equality check would forbid it: ${String(subsetOk.stderr).trim().slice(0, 160)}`);
@@ -282,7 +282,7 @@ writeFileSync(OUTSIDECLAIMS, JSON.stringify({
   claims: { [`${TAG} × architecture`]: "composed over a member the bounded read never served" },
 }));
 const outside = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", OUTSIDECLAIMS],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", OUTSIDECLAIMS],
   { encoding: "utf8" });
 if (outside.status === 0) {
   fails.push("a claim composed OUTSIDE the bounded read was accepted — the subset relation is what makes composing from the whole survey unproducible (§11 v10)");
@@ -295,7 +295,7 @@ if (outside.status === 0) {
 const BAREMAP = join(tmpdir(), `cotags-baremap-${process.pid}.json`);
 writeFileSync(BAREMAP, JSON.stringify({ [`${TAG} × cost`]: "no provenance at all" }));
 const bare = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", BAREMAP],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", BAREMAP],
   { encoding: "utf8" });
 if (bare.status === 0) {
   fails.push("a BARE {group: claim} map was accepted — the withdrawn pre-v10 form must be refused by name (§11 v10)");
@@ -311,7 +311,7 @@ writeFileSync(STALEPIN, JSON.stringify({
   claims: { [`${TAG} × cost`]: "composed against a different survey" },
 }));
 const stale = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", STALEPIN],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", STALEPIN],
   { encoding: "utf8" });
 if (stale.status === 0) {
   fails.push("a composition pin computed against a DIFFERENT survey was accepted — a stale pin must not become a confident wrong acceptance (§11 v10 AC4)");
@@ -350,7 +350,7 @@ writeFileSync(SUBS, JSON.stringify({
   ] },
 }));
 const withSubs = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
    "--subdivisions", SUBS, "--judge-model", "m", "--judge-effort", "high"],
   { encoding: "utf8" });
 if (withSubs.status !== 0) fails.push(`cotags --subdivisions exited ${withSubs.status}: ${(withSubs.stderr || "").trim()}`);
@@ -381,13 +381,13 @@ if (!/^G[0-9]+-[0-9]+ — 2 Lessons: L2, L1 — guards that cannot fail$/m.test(
 // rule (`consulted: product-lab@652f47da LESSONS.md:38`).
 {
   const probe = `
-    import { subgroupPlacement } from "./terrain/terrain.mjs";
+    import { subgroupPlacement } from "./src/terrain.mjs";
     import { readFileSync } from "node:fs";
     const parent = { name: "p", gid: "G1", members: ["lesson:alpha", "lesson:bravo"] };
     subgroupPlacement(parent,
       [{ subgroup: "only alpha", claim: "c", members: ["lesson:alpha"],
          coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true }],
-      JSON.parse(readFileSync("specs/spec-terrain/survey-schema.json", "utf8")).subdivision);
+      JSON.parse(readFileSync("src/survey-schema.json", "utf8")).subdivision);
     console.log("NO REFUSAL");
   `;
   const r = spawnSync(process.execPath, ["--input-type=module", "-e", probe], { encoding: "utf8" });
@@ -420,12 +420,12 @@ if (!/^G[0-9]+-[0-9]+ — 2 Lessons: L2, L1 — guards that cannot fail$/m.test(
 //    the divergence surfaces only when some act needs both to agree — here, a
 //    runtime that suppressed at 10 while the guard refused at 12 would produce a
 //    screen it then refused, with no legal rendering for the group at all.
-const SRC = readFileSync("terrain/terrain.mjs", "utf8");
+const SRC = readFileSync("src/terrain.mjs", "utf8");
 const declared = SRC.match(/export const SUBDIVISION_REQUIRED_AT\s*=\s*(\d+)/);
 if (!declared) {
   fails.push("the runtime declares no `SUBDIVISION_REQUIRED_AT` — the split decision is the engine's (kogaki#683 disposition 1) and the boundary must be a named constant this check can read against the grammar");
 } else {
-  const grammarRule = (JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8"))
+  const grammarRule = (JSON.parse(readFileSync("src/report-format.json", "utf8"))
     .decidable_rules.expressible || []).find((r) => r.id === "subdivision_required_at_ten");
   if (!grammarRule) {
     fails.push("report-format.json declares no `subdivision_required_at_ten` rule — the runtime's suppression bound then has no refusing sibling, and a group reaching the render by any other route is unrefused");
@@ -458,7 +458,7 @@ writeFileSync(SUBS_NOT_LEAF, JSON.stringify({
   ] },
 }));
 const notLeaf = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
    "--subdivisions", SUBS_NOT_LEAF, "--judge-model", "m", "--judge-effort", "high"],
   { encoding: "utf8" });
 if (!String(withSubs.stdout).includes("coherence: tight — the members share one mechanism")) {
@@ -488,7 +488,7 @@ if (!String(withSubs.stdout).includes("judged by m / high")) {
   fails.push("the screen does not record its judge pin (§6.2)");
 }
 const noPin = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS, "--subdivisions", SUBS],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS, "--subdivisions", SUBS],
   { encoding: "utf8" });
 if (noPin.status === 0) {
   fails.push("the screen served SubGroups with NO judge pin — a judged surface that records no judge cannot be seen to drift (§6.2)");
@@ -508,7 +508,7 @@ writeFileSync(SUBS_DEGEN, JSON.stringify({
   ] },
 }));
 const degen = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG, "--claims", CLAIMS,
    "--subdivisions", SUBS_DEGEN, "--judge-model", "m", "--judge-effort", "high"],
   { encoding: "utf8" });
 if (!String(degen.stdout).includes("DISCLOSURE — degenerate-claim")) {
@@ -577,7 +577,7 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
     [`${TAG} × architecture`]: { judged: true, subgroups: [] },
   }));
   const je = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+    ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--report-dir", RDJE, "--ids", "G2", "--subdivisions", SJE,
      "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
   // SEAM-AWARE, exactly as every other report-running block in this file
@@ -639,7 +639,7 @@ if (!/"judged"\s*:\s*true/.test(SKILL) || !/"subgroups"\s*:\s*\[\s*\]/.test(SKIL
   const SLEGACY = join(RDJE, "legacy.json");
   writeFileSync(SLEGACY, JSON.stringify({ [`${TAG} × architecture`]: [] }));
   const legacy = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+    ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--report-dir", RDJE, "--ids", "G2", "--subdivisions", SLEGACY,
      "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
   // SEAM-FREE BY CONSTRUCTION, and that is why it stays a hard assertion:
@@ -705,7 +705,7 @@ import json, pathlib, re, sys
 from collections import Counter
 
 root = pathlib.Path(".")
-schema = json.loads((root / "specs/spec-terrain/survey-schema.json").read_text())
+schema = json.loads((root / "src/survey-schema.json").read_text())
 fixtures = root / "checks/fixtures/terrain"
 
 # Every violation code this validator can emit. Each one owes a fixture.
@@ -747,7 +747,7 @@ def empty(x):
 def family_split(ids, candidates):
     """The family split over a set of placed ids.
 
-    The SECOND copy of this algorithm — terrain/terrain.mjs familySplit is the
+    The SECOND copy of this algorithm — src/terrain.mjs familySplit is the
     first (generation-time). SPEC.md §9 records the correction that the
     single-carrier clause covers survey-schema.json's FIELD LISTS and not this
     recompute, which alternative (a) extends in BOTH halves. Collapsing the
@@ -774,7 +774,7 @@ def family_split(ids, candidates):
 
 def validate_survey(record):
     """Return a list of (code, detail). Empty list = conforming.
-    Mirrors terrain/terrain.mjs validateSurvey — the generation half."""
+    Mirrors src/terrain.mjs validateSurvey — the generation half."""
     v = []
     s = schema["survey"]
     for f in s["required"]:
@@ -1083,7 +1083,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { parseGlossFull, reportIdentity, sameIdentity, NO_JUDGE }
-  from "./terrain/terrain.mjs";
+  from "./src/terrain.mjs";
 
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const TAG = "testing";
@@ -1148,7 +1148,7 @@ const withDefaults = (extra) => {
     ...(hasPin ? [] : JUDGE)];
 };
 const run = (extra) => spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+  ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
    "--report-dir", RD, ...withDefaults(extra)], { encoding: "utf8" });
 // Counted over REPORTS only. The subdivision input below lives in the same
 // directory and also ends `.json`; counting by extension would have made the
@@ -1228,7 +1228,7 @@ eq("case 3 — same pin, DIFFERENT query is two reports", count(), 2);
   const SUB = join(MD, "subs.json");
   writeFileSync(SUB, JSON.stringify({ [`${TAG} × architecture`]: { judged: true, subgroups: [] } }));
   const pull = (claims) => spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG, "--ids", "G2",
+    ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG, "--ids", "G2",
      "--claims", claims, "--subdivisions", SUB, "--judge-model", "m", "--judge-effort", "e",
      "--report-dir", join(MD, "rep"), "--rendering-dir", join(MD, "ren")],
     { encoding: "utf8" });
@@ -1278,7 +1278,7 @@ writeFileSync(SUBS, JSON.stringify({ [`${TAG} × architecture`]: { judged: true,
 // The judge-pin refusal, exercised WITHOUT the conformant default the helper
 // injects — otherwise this case would assert a refusal it had just prevented.
 const noPin = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+  ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
    "--report-dir", RD, "--ids", "G2", "--subdivisions", SUBS],
   { encoding: "utf8" });
 if (noPin.status === 0) {
@@ -1292,7 +1292,7 @@ eq("the refusal wrote nothing", count(), 2);
 // runtime had no way to say `judged, empty`, so it said `none` and called the
 // conformant case a violation.
 const noEntry = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+  ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
    "--report-dir", RD, "--ids", "G2",
    "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
 if (noEntry.status === 0) {
@@ -1398,7 +1398,7 @@ import { readFileSync, writeFileSync, mkdtempSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { composeClaimReoffer, emitGateDeclaration } from "./terrain/terrain.mjs";
+import { composeClaimReoffer, emitGateDeclaration } from "./src/terrain.mjs";
 
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const TAG = "testing";
@@ -1509,7 +1509,7 @@ if (new Set(sources).size !== sources.length) {
 // never running — a guard untested by its own happy path.
 const d4 = mkdtempSync(join(tmpdir(), "claim-full-"));
 const fullGroup = spawnSync(process.execPath, ["--input-type=module", "-e",
-  `import { composeClaimReoffer } from "./terrain/terrain.mjs";
+  `import { composeClaimReoffer } from "./src/terrain.mjs";
    import { readFileSync } from "node:fs";
    composeClaimReoffer({ tag: ${JSON.stringify(TAG)}, group: ${JSON.stringify(GROUP)},
      text: "the recomposed wording", members: "lesson:alpha,lesson:bravo" },
@@ -1526,7 +1526,7 @@ if (fullGroup.status === 0) {
 // every assertion above would pass just as well with the commands still live,
 // which is precisely the defect item 1 closes.
 for (const cmd of ["claim", "adopt", "subdivide", "act", "gate", "capture"]) {
-  const r = spawnSync(process.execPath, ["terrain/terrain.mjs", cmd], { encoding: "utf8" });
+  const r = spawnSync(process.execPath, ["src/terrain.mjs", cmd], { encoding: "utf8" });
   const said = `${r.stdout || ""}${r.stderr || ""}`;
   if (r.status === 0) {
     fails.push(`\`${cmd}\` still succeeds as an entry point — §15.7 removes it, and while it stands a session can mint run state from outside the executor (#625 acceptance item 1)`);
@@ -1562,9 +1562,9 @@ JS
 # stub IS the seam, so this case runs on a machine with no gateway at all.
 node --input-type=module - <<'JS'
 import { readFileSync } from "node:fs";
-import { renderTagRowView, NO_HEADLINE } from "./terrain/terrain.mjs";
-import { validateSurface, loadGrammar } from "./terrain/format-guard.mjs";
-const GRAMMAR = loadGrammar("specs/spec-terrain/report-format.json");
+import { renderTagRowView, NO_HEADLINE } from "./src/terrain.mjs";
+import { validateSurface, loadGrammar } from "./src/format-guard.mjs";
+const GRAMMAR = loadGrammar("src/report-format.json");
 
 const FIXTURE = "checks/fixtures/terrain/conforming/survey-two-strands.json";
 const record = JSON.parse(readFileSync(FIXTURE, "utf8"));
@@ -1644,7 +1644,7 @@ import { readFileSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { tagRow } from "./terrain/terrain.mjs";
+import { tagRow } from "./src/terrain.mjs";
 
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const TAG = "testing";
@@ -1682,7 +1682,7 @@ if (/gloss\/ELEMENTS|a headline that must not render|\bx\b, ?\by\b/.test(rich)) 
 // beside it. Only the function holding that loop moved, which is why this is a
 // re-binding and not a weakening — the assertion still fails if any emitter
 // builds a tag row by hand.
-if (!/for \(const s of record\.sections\) out\.push\(`  \$\{tagRow\(s\)\}`\)/.test(readFileSync("terrain/terrain.mjs", "utf8"))) {
+if (!/for \(const s of record\.sections\) out\.push\(`  \$\{tagRow\(s\)\}`\)/.test(readFileSync("src/terrain.mjs", "utf8"))) {
   fails.push("renderTagScreen no longer composes its tag rows through tagRow — the allowlist's single construction constraint is bypassed, which no assertion over tagRow itself can see");
 }
 
@@ -1697,7 +1697,7 @@ writeFileSync(JUDGED_EMPTY2, JSON.stringify({
   [`${TAG} × cost`]: { judged: true, subgroups: [] },
 }));
 const run = (extra) => spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+  ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
    "--report-dir", RD,
    ...(extra.includes("--subdivisions") ? [] : ["--subdivisions", JUDGED_EMPTY2]),
    ...(extra.includes("--judge-model") ? [] : ["--judge-model", "m", "--judge-effort", "high"]),
@@ -1742,7 +1742,7 @@ if (seamAbsent) {
     { subgroup: "sg", claim: "c", members: ["lesson:alpha"],
       coherence: "tight", coherence_why: "the members share one mechanism", legible_at_a_glance: true }] }}));
   const partial = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+    ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--report-dir", RD2, "--ids", "G1,G2,G3", "--subdivisions", SUBS], { encoding: "utf8" });
   if (partial.status === 0) {
     fails.push("--ids with SubGroupClaims and no judge pin was ACCEPTED — the pin is §12.1's third identity component");
@@ -1759,7 +1759,7 @@ if (seamAbsent) {
 // composition, reachable only from the `CLAIM_REOFFER` state. Spawned rather
 // than imported so a refusal is observable — the runtime's refusals exit.
 const claimRun = (dir, extra) => spawnSync(process.execPath, ["--input-type=module", "-e",
-  `import { composeClaimReoffer, emitGateDeclaration } from "./terrain/terrain.mjs";
+  `import { composeClaimReoffer, emitGateDeclaration } from "./src/terrain.mjs";
    import { readFileSync } from "node:fs";
    const a = { tag: ${JSON.stringify(TAG)}, group: "architecture", text: "recomposed",
                members: "lesson:alpha", ...${JSON.stringify(extra)} };
@@ -1857,7 +1857,7 @@ import { spawnSync } from "node:child_process";
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const TAG = "testing";
 const GROUP = "architecture";  // parent members: lesson:alpha, lesson:bravo
-const SCHEMA = JSON.parse(readFileSync("specs/spec-terrain/survey-schema.json", "utf8")).subdivision;
+const SCHEMA = JSON.parse(readFileSync("src/survey-schema.json", "utf8")).subdivision;
 const fails = [];
 
 // The instrument list and the fallback SubGroup's name are READ from the
@@ -1888,7 +1888,7 @@ const subdivide = (classification) => {
   const dir = mkdtempSync(join(tmpdir(), "subdivide-"));
   const cls = write(dir, "classification.json", classification);
   const r = spawnSync(process.execPath, ["--input-type=module", "-e",
-    `import { composeSubdivisionRecord } from "./terrain/terrain.mjs";
+    `import { composeSubdivisionRecord } from "./src/terrain.mjs";
      import { readFileSync } from "node:fs";
      composeSubdivisionRecord({ tag: ${JSON.stringify(TAG)}, group: ${JSON.stringify(GROUP)},
        "group-claim": "the parent group's line", "judge-model": "fixture-judge",
@@ -2046,7 +2046,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { composeInput, cotagGroups, COMPOSITION_INPUT_BOUND, NO_GLOSS_BODY }
-  from "./terrain/terrain.mjs";
+  from "./src/terrain.mjs";
 
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const STUB = "checks/fixtures/terrain/compose-input/stub-gateway.mjs";
@@ -2174,7 +2174,7 @@ const SURVEY = join(dir, "multi.terrain-survey.json");
 writeFileSync(SURVEY, JSON.stringify(multi, null, 2) + "\n");
 
 const run = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "compose-input", "--survey", SURVEY, "--tag", "testing", "--run-dir", dir],
+  ["src/terrain.mjs", "compose-input", "--survey", SURVEY, "--tag", "testing", "--run-dir", dir],
   { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB, STUB_GATEWAY_CALL_LOG: LOG } });
 if (run.status !== 0) {
   fails.push(`compose-input exited ${run.status}: ${(run.stderr || "").trim() || String(run.stdout).slice(-400)}`);
@@ -2207,7 +2207,7 @@ if (!artifact) {
 // per group is exactly what the ~19 minutes bought. Seam-free: `cotags` makes
 // no gateway call.
 const claimless = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", "testing"],
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", "testing"],
   { encoding: "utf8" });
 if (!/compose-input --survey .* --tag testing/.test(String(claimless.stdout))) {
   fails.push("the claimless ABNORMAL block does not name `compose-input` — the bounded input is reachable only if the surface that needs it says so, and a mechanism nothing points at is the orphan shape one layer up");
@@ -2243,7 +2243,7 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
     "testing × architecture": { judged: true, subgroups: [] },
   }));
   const r = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
+    ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
      "--ids", "G2", "--subdivisions", subs,
      "--report-dir", run, "--rendering-dir", join(tree, "reports"),
      "--judge-model", "m", "--judge-effort", "high"], { encoding: "utf8" });
@@ -2333,10 +2333,10 @@ const K234 = { split: "NOT REACHED", defaults: "NOT REACHED", gitignore: "NOT RE
 // fetches before reaching the write under test. The seam these blocks already
 // handle — cmdReport's own — is unchanged, and so are their CANNOT-DETERMINE
 // branches.
-const K681_TABLE = JSON.parse(readFileSync("specs/spec-terrain/workflow.json", "utf8"));
+const K681_TABLE = JSON.parse(readFileSync("src/workflow.json", "utf8"));
 function seedAtIdSelection(dir, tag = "testing") {
   writeFileSync(join(dir, "run-record.json"), JSON.stringify({
-    workflow: { path: "specs/spec-terrain/workflow.json", version: K681_TABLE.version },
+    workflow: { path: "src/workflow.json", version: K681_TABLE.version },
     survey_record: resolve(FIXTURE),
     completed: ["survey", "TAG_SELECTION", "compose_input",
                 "J1_claims", "J2_subdivision", "cotag_screen"],
@@ -2396,7 +2396,7 @@ function seedAtIdSelection(dir, tag = "testing") {
     foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
   }, null, 2) + "\n");
   const d = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs2,
+    ["src/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs2,
      "--neighborhood", njud2,
      "--judge-model", "m", "--judge-effort", "high"],
     { encoding: "utf8", env: env2 });
@@ -2446,7 +2446,7 @@ function seedAtIdSelection(dir, tag = "testing") {
     // it removes — so a whole-file scan reports the disposal code as the
     // defect. Same scoping trap the sweep's blocking-literal tripwire hit; the
     // fix is the same and the comment survives as the record.
-    const src = readFileSync("terrain/terrain.mjs", "utf8");
+    const src = readFileSync("src/terrain.mjs", "utf8");
     const body = (src.split("function reportsDir(args) {")[1] || "").split("\n}")[0];
     if (!body) {
       fails.push("could not locate reportsDir's body — this assertion is scoped to that function and cannot report a pass it did not earn");
@@ -2516,7 +2516,7 @@ function seedAtIdSelection(dir, tag = "testing") {
     echo: { level: "useful", claim: "reached through the same Batch, one hop out" },
     foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
   }, null, 2) + "\n");
-  const argv = ["terrain/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs3,
+  const argv = ["src/terrain.mjs", "run", "--input", "G2", "--subdivisions", subs3,
     "--neighborhood", njud3,
     "--judge-model", "m", "--judge-effort", "high"];
   // RE-SEEDED BEFORE EVERY DRIVE, and that is not bookkeeping. A second `run`
@@ -2897,10 +2897,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { loadGrammar, validateSurface, refuseUnlessConformant, FormatRefusal }
-  from "./terrain/format-guard.mjs";
+  from "./src/format-guard.mjs";
 
 const fails = [];
-const G = loadGrammar("specs/spec-terrain/report-format.json");
+const G = loadGrammar("src/report-format.json");
 
 // Each case names the RULE it must fire, so a case that starts passing for the
 // wrong reason — some other violation in the same string — is caught.
@@ -2999,7 +2999,7 @@ const cases = [
     writeFileSync(dup, JSON.stringify({ "testing \u00d7 architecture": { judged: true, subgroups: [
       one("one", ["lesson:alpha"]), one("two", ["lesson:alpha", "lesson:bravo"])] } }));
     const outA = join(dir, "a");
-    const bad = spawnSync(process.execPath, ["terrain/terrain.mjs", "cotags",
+    const bad = spawnSync(process.execPath, ["src/terrain.mjs", "cotags",
       "--survey", survey, "--tag", "testing", "--claims", claims, "--subdivisions", dup,
       "--judge-model", "m", "--judge-effort", "e", "--rendering-dir", outA], { encoding: "utf8" });
     if (bad.status === 0) {
@@ -3027,7 +3027,7 @@ const cases = [
     writeFileSync(okp, JSON.stringify({ "testing \u00d7 architecture": { judged: true, subgroups: [
       one("one", ["lesson:alpha", "lesson:bravo"])] } }));
     const outB = join(dir, "b");
-    const good = spawnSync(process.execPath, ["terrain/terrain.mjs", "cotags",
+    const good = spawnSync(process.execPath, ["src/terrain.mjs", "cotags",
       "--survey", survey, "--tag", "testing", "--claims", claims, "--subdivisions", okp,
       "--judge-model", "m", "--judge-effort", "e", "--rendering-dir", outB], { encoding: "utf8" });
     if (good.status !== 0) {
@@ -3148,8 +3148,10 @@ try {
 // concurrent reader would have seen — or left behind — a deliberately broken
 // copy of the repository's own authoritative artifact. It now mutates a COPY:
 // `terrain.mjs` resolves every schema from its own location (`REPO = resolve(
-// HERE, "..")`), so a temp tree holding `terrain/`, `specs/` and `gates/` gives
-// a real end-to-end run with nothing tracked touched. No override flag was
+// HERE, "..")`), so a temp tree holding `src/`, `specs/`, `gates/` and
+// `policy/` — the four the loop below copies, and the schemas now live under
+// `src/` since kogaki#765 — gives a real end-to-end run with nothing tracked
+// touched. No override flag was
 // added to the runtime for this; a test needing one is not a reason to open a
 // second path to the grammar.
 let e2eRan = false;
@@ -3167,10 +3169,10 @@ try {
   // counted when the copy was simply incomplete. An incomplete fixture tree
   // reports as an absent environment, and the two are indistinguishable from
   // the exit code alone.
-  for (const d of ["terrain", "specs", "gates", "policy"]) {
+  for (const d of ["src", "specs", "gates", "policy"]) {
     cpSync(d, join(tree, d), { recursive: true });
   }
-  const grammarPath = join(tree, "specs/spec-terrain/report-format.json");
+  const grammarPath = join(tree, "src/report-format.json");
   const g2 = JSON.parse(readFileSync(grammarPath, "utf8"));
   // Remove the `substrate_pin` class, so `pin_once_per_file` counts 0 where it
   // requires exactly 1.
@@ -3193,7 +3195,7 @@ try {
   writeFileSync(subsPath, JSON.stringify({ "testing \u00d7 architecture": { judged: true, subgroups: [] } }));
 
   const out = join(dir, "out");
-  const r = spawnSync(process.execPath, [join(tree, "terrain/terrain.mjs"), "report",
+  const r = spawnSync(process.execPath, [join(tree, "src/terrain.mjs"), "report",
     "--survey", survey, "--tag", "testing", "--ids", "G2",
     "--judge-model", "m", "--judge-effort", "e", "--subdivisions", subsPath,
     "--report-dir", out, "--rendering-dir", out], { encoding: "utf8" });
@@ -3329,7 +3331,7 @@ function pull(n, judgments) {
   const log = join(dir, `log${n}.txt`);
   const rdir = join(dir, `r${n}`); const gdir = join(dir, `g${n}`);
   const run = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G2",
+    ["src/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G2",
      "--claims", claims, "--subdivisions", subs, "--neighborhood", jf,
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", rdir, "--rendering-dir", gdir],
@@ -3418,7 +3420,7 @@ const JUDGED = JSON.parse(readFileSync(join(DIR, "neighborhood-judgments.json"),
   const gdir = join(dir, "gj");
   const jlogPath = join(dir, "journey-top.log");
   const run = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G2",
+    ["src/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G2",
      "--claims", claims, "--subdivisions", subs, "--neighborhood", jf,
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", join(dir, "rj"), "--rendering-dir", gdir],
@@ -3496,10 +3498,10 @@ import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "n
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { loadGrammar, validateSurface } from "./terrain/format-guard.mjs";
+import { loadGrammar, validateSurface } from "./src/format-guard.mjs";
 
 const fails = [];
-const G = loadGrammar("specs/spec-terrain/report-format.json");
+const G = loadGrammar("src/report-format.json");
 const DIR = "checks/fixtures/terrain/format";
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const STUB = "checks/fixtures/terrain/compose-input/stub-gateway.mjs";
@@ -3566,7 +3568,7 @@ try {
   // they are beside the surface, exactly as the report's have always been.
   const sdir = join(dir, "s");
   const screen = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "cotags", "--survey", SURVEY, "--tag", TAG, "--claims", claims,
+    ["src/terrain.mjs", "cotags", "--survey", SURVEY, "--tag", TAG, "--claims", claims,
      "--rendering-dir", sdir],
     { encoding: "utf8" });
   if (screen.status !== 0) fails.push(`cotags exited ${screen.status}: ${(screen.stderr || "").trim()}`);
@@ -3582,7 +3584,7 @@ try {
     // specimen exercises the JUDGED path deliberately — the unjudged state is a
     // real rendering and a legible one, but a golden specimen showing it would
     // pin the shape nobody ships and leave the four ruled fields uncovered.
-    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", TAG, "--ids", "G2",
+    ["src/terrain.mjs", "report", "--survey", SURVEY, "--tag", TAG, "--ids", "G2",
      "--claims", claims, "--subdivisions", subs,
      "--neighborhood", join(DIR, "neighborhood-judgments.json"),
      // §12.3 (kogaki#760) — the specimen exercises the POPULATED path
@@ -3618,7 +3620,7 @@ try {
     // the grammar. §14.1's precedence is one-way (AC5).
     const v = validateSurface(surface, specimen, G);
     if (v.length) {
-      fails.push(`THE SPECIMEN IS STALE — ${path} does not conform to specs/spec-terrain/report-format.json, which is authoritative (§14.1, §14.5). Regenerate the specimen; do NOT amend the grammar to admit it:\n      ` + v.map(String).join("\n      "));
+      fails.push(`THE SPECIMEN IS STALE — ${path} does not conform to src/report-format.json, which is authoritative (§14.1, §14.5). Regenerate the specimen; do NOT amend the grammar to admit it:\n      ` + v.map(String).join("\n      "));
     }
 
     // (2) EQUAL to what the renderer produces. This is the assertion that
@@ -3632,7 +3634,7 @@ try {
       const detail = at < 0
         ? `the specimen has ${a.length} lines and the rendering ${b.length}`
         : `first divergence at line ${at + 1}:\n        specimen:  ${JSON.stringify(a[at])}\n        rendering: ${JSON.stringify(b[at] === undefined ? null : b[at])}`;
-      fails.push(`THE RENDERED SHAPE MOVED — ${surface} no longer matches ${path}.\n      ${detail}\n      If the new shape is correct, amend specs/spec-terrain/report-format.json on its own licensing issue FIRST and regenerate the specimen; the grammar decides, never the fixture (§14.1, §14.5, AC5).`);
+      fails.push(`THE RENDERED SHAPE MOVED — ${surface} no longer matches ${path}.\n      ${detail}\n      If the new shape is correct, amend src/report-format.json on its own licensing issue FIRST and regenerate the specimen; the grammar decides, never the fixture (§14.1, §14.5, AC5).`);
     }
   }
 } finally {
@@ -3703,7 +3705,7 @@ writeFileSync(subs, JSON.stringify({
 }));
 
 const r = spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG,
+  ["src/terrain.mjs", "cotags", "--survey", FIXTURE, "--tag", TAG,
    "--claims", claims, "--subdivisions", subs, "--judge-model", "m", "--judge-effort", "high"],
   { encoding: "utf8" });
 const out = String(r.stdout);
@@ -3756,7 +3758,7 @@ if (r.status !== 0) {
     foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
   }, null, 2) + "\n");
   const r2 = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
+    ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", TAG,
      "--ids", "G2", "--claims", claims, "--subdivisions", subs,
      "--neighborhood", njudAc5,
      "--judge-model", "m", "--judge-effort", "high",
@@ -3819,9 +3821,9 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote, NO_HEADLINE, NO_SHARD_ADDRESSED, NO_SEAM, compareDisplayIds, glossFor, neighborhoodDisplaySet } from "./terrain/terrain.mjs";
-import { loadGrammar, classMatchers } from "./terrain/format-guard.mjs";
-const G = loadGrammar("specs/spec-terrain/report-format.json");
+import { canonicalIds, idSortKey, neighborhoodOf, neighborhoodScreen, readNeighborhoodJudgments, settledSlugs, surveyEmptinessNote, NO_HEADLINE, NO_SHARD_ADDRESSED, NO_SEAM, compareDisplayIds, glossFor, neighborhoodDisplaySet } from "./src/terrain.mjs";
+import { loadGrammar, classMatchers } from "./src/format-guard.mjs";
+const G = loadGrammar("src/report-format.json");
 
 const fails = [];
 const FIXTURE = "checks/fixtures/terrain/cotags/lone-tag-member.json";
@@ -3860,7 +3862,7 @@ if (idSortKey("nonsense")[0] !== Number.MAX_SAFE_INTEGER) {
 }
 
 const report = (extra) => spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
+  ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
    "--judge-model", "m", "--judge-effort", "high", ...extra], { encoding: "utf8" });
 
 // AC1 — the superseded flags are GONE, and the refusal SAYS WHAT TO DO. A
@@ -3935,7 +3937,7 @@ for (const flag of [["--all-groups"], ["--group", "architecture"]]) {
     foxtrot: { level: "background", claim: "a journey-family neighbour in the same Batch" },
   }, null, 2) + "\n");
   const r = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
+    ["src/terrain.mjs", "report", "--survey", FIXTURE, "--tag", "testing",
      "--ids", "G2,G2-1", "--claims", claims, "--subdivisions", subs,
      "--neighborhood", njudAc7,
      "--judge-model", "m", "--judge-effort", "high", "--report-dir", out, "--rendering-dir", out],
@@ -4871,7 +4873,7 @@ console.log("provenance neighborhood (§13, kogaki#686): ONE substrate enumerate
         const jf = join(f, "j.json");
         writeFileSync(jf, JSON.stringify(obj));
         return spawnSync(process.execPath, ["-e",
-          `import("./terrain/terrain.mjs").then(m => m.readNeighborhoodJudgments(${JSON.stringify(jf)}))`],
+          `import("./src/terrain.mjs").then(m => m.readNeighborhoodJudgments(${JSON.stringify(jf)}))`],
           { encoding: "utf8" });
       };
       const bad = probe({ s1: { level: "critical", claim: "x" } });
@@ -4934,7 +4936,7 @@ node --input-type=module - <<'JS'
 import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { retireIdentityNamedRenderings } from "./terrain/terrain.mjs";
+import { retireIdentityNamedRenderings } from "./src/terrain.mjs";
 
 const fails = [];
 const dir = mkdtempSync(join(tmpdir(), "kogaki-v12-retire-"));
@@ -5073,13 +5075,13 @@ const mds = (dir) => readdirSync(dir).filter((f) => f.endsWith(".md"));
 const TEMPS = [];
 const temp = (p) => { const d = mkdtempSync(join(tmpdir(), p)); TEMPS.push(d); return d; };
 const dir = temp("kogaki-screen-artifact-");
-const r1 = render("terrain/terrain.mjs", dir, A);
+const r1 = render("src/terrain.mjs", dir, A);
 if (r1.status !== 0) fails.push(`the first screen render failed (exit ${r1.status}): ${(r1.stderr || "").trim().slice(0, 200)}`);
 const after1 = mds(dir);
 if (!after1.includes("Screen.md")) {
   fails.push(`no screen artifact was written — the tree holds ${JSON.stringify(after1)} and §14.4.1 names reports/Screen.md. A screen delivered only to stdout is the state kogaki#434 was filed against, because stdout is displayed to the model and not reliably to the owner`);
 }
-const r2 = render("terrain/terrain.mjs", dir, B);
+const r2 = render("src/terrain.mjs", dir, B);
 if (r2.status !== 0) fails.push(`the second screen render failed (exit ${r2.status}): ${(r2.stderr || "").trim().slice(0, 200)}`);
 const after2 = mds(dir);
 if (after2.length !== 1) {
@@ -5122,8 +5124,8 @@ if (!/Screen — READ THIS ONE/.test(r1.stdout || "")) {
 // weakened for everyone.
 function mutant(name, edit, expectRefusal = false) {
   const md = temp(`kogaki-screen-mutant-${name}-`);
-  mkdirSync(join(md, "terrain"), { recursive: true });
-  copyFileSync("terrain/format-guard.mjs", join(md, "terrain", "format-guard.mjs"));
+  mkdirSync(join(md, "src"), { recursive: true });
+  copyFileSync("src/format-guard.mjs", join(md, "src", "format-guard.mjs"));
   // `terrain.mjs` resolves its schemas from ITS OWN location (`REPO =
   // resolve(HERE, "..")`), never from the cwd — so a mutant that copies only
   // the two modules dies at import, before reaching the behaviour it mutates.
@@ -5133,12 +5135,22 @@ function mutant(name, edit, expectRefusal = false) {
   // written to prevent it. The sibling directories are linked so the mutant
   // resolves exactly what the shipped runtime resolves.
   for (const d of ["specs", "gates"]) symlinkSync(resolve(d), join(md, d), "dir");
-  const src = readFileSync("terrain/terrain.mjs", "utf8");
+  // The runtime-read carriers live in `src/` beside the code since kogaki#765,
+  // so the two copied modules are no longer the whole of what `REPO`-relative
+  // resolution needs from this directory. Linked by READING the real `src/`
+  // rather than from a list written here: an enumeration would leave a fourth
+  // carrier admit-by-default and this mutant would die at import again, which
+  // is the failure the paragraph above already describes.
+  for (const f of readdirSync(resolve("src"))) {
+    if (!f.endsWith(".json")) continue;
+    symlinkSync(resolve("src", f), join(md, "src", f));
+  }
+  const src = readFileSync("src/terrain.mjs", "utf8");
   const out = edit(src);
   if (out === src) return { skipped: true };
-  writeFileSync(join(md, "terrain", "terrain.mjs"), out);
+  writeFileSync(join(md, "src", "terrain.mjs"), out);
   const rdir = temp(`kogaki-screen-mutant-${name}-out-`);
-  const r = render(join(md, "terrain", "terrain.mjs"), rdir, A);
+  const r = render(join(md, "src", "terrain.mjs"), rdir, A);
   // THE MUTANT MUST HAVE RUN. Every assertion below reads an ABSENCE, and an
   // absence produced by a crash is indistinguishable from one produced by the
   // removed behaviour. Asserting the exit first is what makes the kill mean
@@ -5146,7 +5158,7 @@ function mutant(name, edit, expectRefusal = false) {
   if (r.status !== 0 && expectRefusal) {
     // The refusal IS the run. Returned whole so the caller reads the exit and
     // the streams itself.
-    return { r, rdir, runtime: join(md, "terrain", "terrain.mjs"), skipped: false, refused: true };
+    return { r, rdir, runtime: join(md, "src", "terrain.mjs"), skipped: false, refused: true };
   }
   if (r.status !== 0) {
     fails.push(`the ${name} mutant did not RUN (exit ${r.status}): ${(r.stderr || "").trim().split("\n")[0].slice(0, 200)} — an absent artifact from a crashed mutant asserts nothing about the behaviour that was removed`);
@@ -5158,7 +5170,7 @@ function mutant(name, edit, expectRefusal = false) {
     // finding 1).
     return { r, skipped: true };
   }
-  return { r, rdir, runtime: join(md, "terrain", "terrain.mjs"), skipped: false };
+  return { r, rdir, runtime: join(md, "src", "terrain.mjs"), skipped: false };
 }
 
 // ---- THE REFUSAL'S REACH, bound rather than asserted (PR #667 round 2,
@@ -5357,7 +5369,7 @@ try {
     "testing × cost": { judged: true, subgroups: [] },
   }));
   const pull = (ids, rdir, gdir) => spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", ids,
+    ["src/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", ids,
      "--claims", claims, "--neighborhood", "checks/fixtures/terrain/format/neighborhood-judgments.json", "--subdivisions", subs,
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", join(dir, rdir), "--rendering-dir", join(dir, gdir)],
@@ -5417,7 +5429,7 @@ try {
 
   // (e) The standalone subcommand REFUSES, naming the replacement.
   const r4 = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "neighborhood", "--survey", SURVEY, "--tag", "testing", "--ids", "G2"],
+    ["src/terrain.mjs", "neighborhood", "--survey", SURVEY, "--tag", "testing", "--ids", "G2"],
     { encoding: "utf8" });
   if (r4.status === 0) fails.push("(e) `neighborhood` exited 0 — the retirement must refuse, never no-op (§13.2 v20)");
   if (!/retired/.test(r4.stderr) || !/FullReport\.md/.test(r4.stderr)) fails.push(`(e) the refusal does not name the replacement: ${JSON.stringify((r4.stderr || "").slice(0, 200))}`);
@@ -5427,7 +5439,7 @@ try {
   // report completes (PR #477 round 1's should, carried on kogaki#473). The
   // env flag flips the same stub, so this is the same transport as (a)-(d).
   const r5 = spawnSync(process.execPath,
-    ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G3",
+    ["src/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing", "--ids", "G3",
      "--claims", claims, "--subdivisions", subs,
      "--judge-model", "claude-opus-5", "--judge-effort", "high",
      "--report-dir", join(dir, "r5"), "--rendering-dir", join(dir, "g5")],
@@ -5479,7 +5491,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { cotagGroups } from "./terrain/terrain.mjs";
+import { cotagGroups } from "./src/terrain.mjs";
 
 const fails = [];
 const BASE = JSON.parse(readFileSync("checks/fixtures/terrain/cotags/lone-tag-member.json", "utf8"));
@@ -5522,7 +5534,7 @@ writeFileSync(CLAIMS, JSON.stringify({
 }));
 
 const run = (subsPath) => spawnSync(process.execPath,
-  ["terrain/terrain.mjs", "cotags", "--survey", RECORD, "--tag", TAG, "--claims", CLAIMS,
+  ["src/terrain.mjs", "cotags", "--survey", RECORD, "--tag", TAG, "--claims", CLAIMS,
    ...(subsPath ? ["--subdivisions", subsPath, "--judge-model", "m", "--judge-effort", "high"] : [])],
   { encoding: "utf8" });
 
@@ -5563,7 +5575,7 @@ if (flat.status === 0) {
 //      threshold block two hundred lines up exists to catch, reproduced in the
 //      check that catches it.
 {
-  const LIMITS = JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8")).limits;
+  const LIMITS = JSON.parse(readFileSync("src/report-format.json", "utf8")).limits;
   const caps = LIMITS.subgroup_member_cap;
   // THE SPILL RIDES AN AFFINITY LABEL, NEVER THE RESIDUAL. `max_residual_members`
   // is 5, so parking the spill in `other` would refuse on N before the cap under
@@ -5728,7 +5740,7 @@ const dir = mkdtempSync(join(tmpdir(), "terrain-tc-"));
 // literal: a hand-written "5/5" beside a list that grew is the
 // figure-asserted-rather-than-derived defect this file names elsewhere.
 let caseCount = 0;
-const want = JSON.parse(readFileSync("specs/spec-terrain/report-format.json", "utf8")).limits.thesis_candidates;
+const want = JSON.parse(readFileSync("src/report-format.json", "utf8")).limits.thesis_candidates;
 
 try {
   const pin = JSON.parse(readFileSync(SURVEY, "utf8")).pin;
@@ -5747,7 +5759,7 @@ try {
   let n = 0;
   const run = (candidates) => {
     const out = join(dir, `o${++n}`);
-    const argv = ["terrain/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing",
+    const argv = ["src/terrain.mjs", "report", "--survey", SURVEY, "--tag", "testing",
       "--ids", "G2", "--claims", claims, "--subdivisions", subs,
       "--neighborhood", join(DIR, "neighborhood-judgments.json"),
       "--judge-model", "m", "--judge-effort", "e",
@@ -5849,7 +5861,7 @@ try {
       const out = join(dir, `w${++n}`);
       const f = join(dir, `wtc${n}.json`);
       writeFileSync(f, JSON.stringify(Array.from({ length: want }, () => ({ claim: "c", strands }))));
-      return spawnSync(process.execPath, ["terrain/terrain.mjs", "report",
+      return spawnSync(process.execPath, ["src/terrain.mjs", "report",
         "--survey", wrec, "--tag", "testing", "--ids", ids, "--claims", wclaims,
         "--subdivisions", wsubs, "--neighborhood", join(DIR, "neighborhood-judgments.json"),
         "--thesis-candidates", f, "--judge-model", "m", "--judge-effort", "e",

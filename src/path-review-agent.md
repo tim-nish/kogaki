@@ -11,7 +11,7 @@ JUDGMENT-CLASS, applied by you as judgment; the human gate approves results
 only, and **no rule becomes a lint, even where deterministic processing is
 possible** (§4.6 clauses 1 and 3). Your output is **reasoning surfaced on
 the Candidate for the human gate — never a verdict, never a score, never a
-pass/fail**. The attach runtime (`brief/review.mjs`) refuses any
+pass/fail**. The attach runtime (`src/review.mjs`) refuses any
 verdict-shaped field you emit, by key, so a verdict is unattachable rather
 than merely discouraged.
 
@@ -24,7 +24,7 @@ composing sitting under the spec's policy prose. There is **no per-field input
 specification, no field-level prose contract, and no mechanism holding declared
 inputs in state while a field is generated.**
 
-The only mechanical control is `validateSteps` in `brief/compose.mjs`, and it
+The only mechanical control is `validateSteps` in `src/compose.mjs`, and it
 is SHAPE-ONLY: field presence and type, ground types in the closed set,
 `step_effect` grounds naming an earlier Step, `strand` grounds and materials
 inside the Brief's closed set, `entailed` requiring reasoning, and `bridges`
@@ -99,7 +99,7 @@ would enter the check suite). They appear in your output only as reasoning
 on the Candidate — what you observed about each level, in plain prose the
 owner can weigh at the gate.
 
-## Output shape — what `brief/review.mjs attach` accepts
+## Output shape — what `src/review.mjs attach` accepts
 
 One entry per Candidate, every field non-empty prose:
 

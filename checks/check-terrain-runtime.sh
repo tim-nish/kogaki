@@ -3,7 +3,7 @@
 #
 # A THIN INVOKER, HOLDING NO ASSERTIONS OF ITS OWN — the same arrangement the
 # registered sibling check-draft-runtime.sh uses, and for the same reason: the
-# cases live with the runtime they cover, in `terrain/terrain.mjs self-test`,
+# cases live with the runtime they cover, in `src/terrain.mjs self-test`,
 # because they are functions of the runtime's own composers, grammar and
 # executor and drive them end to end. Seam-free by construction: every case
 # constructs its own inputs, so the pass reaches no gateway and no network,
@@ -43,7 +43,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "== terrain runtime fixture pass (kogaki#659)"
 
-OUT=$(node terrain/terrain.mjs self-test 2>&1); RC=$?
+OUT=$(node src/terrain.mjs self-test 2>&1); RC=$?
 printf '%s\n' "$OUT"
 if [[ $RC -ne 0 ]] || ! grep -q "terrain self-test:" <<<"$OUT"; then
   echo "FAIL: the runtime's fixture pass did not run clean — the cases live with the runtime and this member only invokes them"
