@@ -937,12 +937,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
      approval naming the PR and round, denied fail-closed by the PreToolUse
      carrier `claude-toolkit#283` installs — and **observed at the record** by
      the merge gate's reported, never-gating rounds line
-     (`checks/check-review-report.sh` `_rounds_observation`). The gate does
-     not deny on rounds, deliberately: producer identity is instrument-none
-     at the record, so an owner-authorized round is indistinguishable there
-     from an unauthorized one; authorization is readable only at the session
-     layer, which is where the deny lives. Non-convergence in one round is an
-     ABNORMAL CONDITION — a stop-and-escalate signal, never a spawn trigger.
+     (`checks/check-review-report.sh` `_rounds_observation` — deleted at
+     kogaki#630, and read under §3.2 like every other occurrence of that path
+     below). The gate did not deny on rounds, deliberately: producer identity
+     is instrument-none at the record, so an owner-authorized round was
+     indistinguishable there from an unauthorized one; authorization is
+     readable only at the session layer, which is where the deny lived.
 
      **THE BOUND IS CARRIED AT THREE LAYERS, NOT TWO — the session boundary
      does not see every route, and PR #293 is the proof** (kogaki#295, owner
@@ -1128,12 +1128,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
      supersession only where somebody *asks for a third round* — an abnormal
      path — and left the **ordinary** path, where round 2 lands open blocking
      findings and nobody asks for anything, terminating in a state with no
-     next act at all. Read at the carrier: `tools/review-sweep.sh` refuses to
-     spawn a fix once the rounds are spent, on the sound ground that a fix
-     landing then could never be reviewed. Sound, and it leaves the author
+     next act at all. Read at the carrier while it existed: `tools/review-sweep.sh`
+     refused to spawn a fix once the rounds were spent, on the sound ground that a
+     fix landing then could never be reviewed. Sound, and it left the author
      holding findings, a bound that forbids the fix in place, and no lane that
-     produces a reviewable head. **The lane stops producing heads**, which is
-     the defect: the bound was meant to end a rally, not to end the work.
+     produces a reviewable head. **The lane stops producing heads**, which is the
+     defect: the bound was meant to end a rally, not to end the work.
 
      **So at that state the fixes are BORN AS THE SUCCESSOR CHANGE.** When
      round 2's report for the current head carries open blocking findings and
@@ -1143,13 +1143,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
      human tidy-up.
 
      **WHAT IS INSTALLED SO FAR IS THE STATE AND ITS ANNOUNCEMENT; THE
-     CREATION ACT IS A NAMED SLOT.** `tools/review-sweep.sh` reaches this
-     state and announces it on the PR, naming every finding the successor owes
-     a disposition for. It does **not** yet open the successor or close the
-     blocked PR. Written into the clause rather than left to the implementing
-     PR's record, because until that act lands the dead end is **renamed and
-     not removed**, and a clause asserting an act nothing performs is the
-     precise defect this whole section exists to end — the lane that named a
+     CREATION ACT IS A NAMED SLOT.** `tools/review-sweep.sh` reached this state and
+     announced it on the PR, naming every finding the successor owed a disposition
+     for. It did **not** open the successor or close the blocked PR, and the engine
+     that replaced it carries the slot unchanged. Written into the clause rather than
+     left to the implementing PR's record, because until that act lands the dead end
+     is **renamed and not removed**, and a clause asserting an act nothing performs
+     is the precise defect this whole section exists to end — the lane that named a
      next act and never took it. The slot is discharged when the creation act
      ships; until then a reader of this clause knows which half is standing.
 
@@ -1919,21 +1919,21 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **THE RESOLUTION IS ONE UNIT WITH TWO CONSUMERS, AND THE UNIT IS NAMED
      (v2, kogaki#308).** Everything above describes the resolution as though
-     the gate were its only reader. It is not. `tools/review-sweep.sh`'s
-     `decide()` asks the *same question* — is this head reviewed? — to choose
+     the gate were its only reader. It was not. `tools/review-sweep.sh`'s
+     `decide()` asked the *same question* — is this head reviewed? — to choose
      between `done`, `park` and `spawn-round-N`, and it answered by **sha
      identity alone**, through a `head_segments(segs, head)` that took no
-     `carried` argument at all. Two instruments, one question, two answers,
-     and the one that disagreed with the gate is the one that **spends the
-     bounded resource**.
+     `carried` argument at all. Two instruments, one question, two answers, and
+     the one that disagreed with the gate was the one that **spent the bounded
+     resource**.
 
-     So the clause states its unit rather than leaving it to each reader:
-     **"this head is reviewed" resolves through ONE definition — the
-     subject/instrument rule above, sha as instrument and content as
-     subject — consumed by both `checks/check-review-report.sh` and
-     `tools/review-sweep.sh`, with a fixture asserting the two agree.** A
-     second implementation of this resolution is a defect of this clause, not
-     an optimisation of its caller.
+     So the clause states its unit rather than leaving it to each reader: **"this head
+     is reviewed" resolves through ONE definition — the subject/instrument rule above,
+     sha as instrument and content as subject — consumed by every reader of it, with a
+     fixture asserting they agree.** Its two consumers when the clause was written were
+     `checks/check-review-report.sh` and `tools/review-sweep.sh`, both since deleted;
+     the requirement is the one definition, never the pair. A second implementation of
+     this resolution is a defect of this clause, not an optimisation of its caller.
 
      **That the unit is NAMED rather than merely shared is the served
      requirement, not a stylistic preference:**
@@ -1955,15 +1955,15 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      `consulted: product-lab@ce945eb129fd98c5f568256513fc081443eb0a5e LESSONS.md:16`
 
-     **The carrier shape is the one this repository already ratified for this
-     exact defect class**, and it is named here so the next implementer does
-     not re-derive it: `tools/review-sweep.sh`'s `TERMINAL_KEY_SRC` holds one
-     rule as a source string consumed by two processes, on the stated ground
-     that *"two hand-written copies of a rule are two things that can
-     disagree — the defect this file has already found twice, once per call
-     site"*, with a fixture compiling both and asserting agreement. Nothing
-     here mandates that mechanism specifically; what is mandated is **one
-     definition and an agreement fixture**, which that precedent satisfies.
+     **The carrier shape is the one this repository already ratified for this exact
+     defect class**, and it is named here so the next implementer does not re-derive
+     it: `tools/review-sweep.sh`'s `TERMINAL_KEY_SRC` held one rule as a source
+     string consumed by two processes, on the stated ground that *"two hand-written
+     copies of a rule are two things that can disagree — the defect this file has
+     already found twice, once per call site"*, with a fixture compiling both and
+     asserting agreement. That file is deleted (kogaki#630), so the shape is the
+     precedent and not a place to read. Nothing here mandates that mechanism
+     specifically; what is mandated is **one definition and an agreement fixture**.
 
      `deferred-slot: the shared head-resolution unit's CARRIER` — whether it
      lives as a source string in one file read by the other (the
@@ -2004,22 +2004,22 @@ invariant: Gukan guarantees Unit schema, never data schema).
   8. **A non-gating finding left OPEN at `done` carries a stated DISPOSITION,
      and the `done` boundary REPORTS the ones that do not** (kogaki#224, owner
      selection 2026-08-08 — arm 1 of the three candidate homes the issue
-     framed). The lane contract already says a `should` or a `nit` is
-     non-gating "with a follow-up filed where one is owed"
-     (`.claude/skills/review-lane/SKILL.md`), and **nothing carried that
-     clause**, so it was advice. This clause gives it a carrier and changes
-     what `done` *asserts*: not merely that nothing blocking is open, but that
-     every non-gating finding still open has been **dispositioned or named as
-     undispositioned in the sweep's own output**.
+     framed). The lane contract said a `should` or a `nit` is non-gating "with
+     a follow-up filed where one is owed"
+     (`.claude/skills/review-lane/SKILL.md`, since deleted), and **nothing
+     carried that clause**, so it was advice. This clause gives it a carrier
+     and changes what `done` *asserts*: not merely that nothing blocking is
+     open, but that every non-gating finding still open has been
+     **dispositioned or named as undispositioned in the sweep's own output**.
 
      **THE POLARITY IS REPORT, NEVER GATE, and it is stated first so the fix
      cannot degrade into the thing it repairs.** kogaki#72's budget rules that
      `should` and `nit` never gate a merge; that budget is **ratified
-     economics and nothing here reopens it**. The merge layer is
-     **untouched** by this clause — `checks/check-review-report.sh` reads
-     presence and open *blocking* findings exactly as before, and a PR whose
-     every non-gating finding is undispositioned still merges. What changes is
-     that the sweep says so, out loud, at the boundary where the loss happens.
+     economics and nothing here reopens it**. The merge layer is **untouched** by this
+     clause — it read presence and open *blocking* findings exactly as before
+     (`checks/check-review-report.sh`, at the head this clause was written against), and
+     a PR whose every non-gating finding is undispositioned still merges. What changes
+     is that the sweep says so, out loud, at the boundary where the loss happens.
      The served surface rules on the direction:
 
      > the review lane's judgment half must **NEVER be designed to depend on a
@@ -2237,22 +2237,22 @@ invariant: Gukan guarantees Unit schema, never data schema).
      rather than arguments.
 
      - **The `done` report was structurally blind to the fourth specimen.**
-       `tools/review-sweep.sh`'s disclosure NOTE counts findings where the
-       disposition is `d is None` — *no stated disposition* — so #413's
-       finding was never in the set it counts, and the NOTE's own text names
-       only #221, #231 and #240. That NOTE is the report-at-the-boundary remedy
-       already shipped, and it could not see the case that earned this
-       amendment. This is the strongest available argument against shipping a
-       second one.
+      `tools/review-sweep.sh`'s disclosure NOTE counted findings where the
+      disposition was `d is None` — *no stated disposition* — so #413's
+      finding was never in the set it counted, and the NOTE's own text named
+      only #221, #231 and #240. That NOTE was the report-at-the-boundary
+      remedy already shipped, and it could not see the case that earned this
+      amendment. This is the strongest available argument against shipping a
+      second one.
      - **This issue's originally declared empty-query matched nothing at
        authoring time.** `grep -n 'in-diff at round 1' tools/review-sweep.sh`
        returned no lines: that vocabulary is reviewer-authored prose in a
        report body and was never a token in the sweep's source, so the query as
        first written could not have discriminated a fix — it returned empty
-       before and after. It was re-declared at the decision as
-       `grep -n 'NON_GATING' tools/review-sweep.sh`, which returns the severity
-       set the disposition rule is written over. A floor left standing false is
-       worse than no floor, because it reads as measurement.
+       before and after. It was re-declared as `grep -n 'NON_GATING'
+       tools/review-sweep.sh`, which returned the severity set the rule is written over;
+       both are records of what was run, against a file deleted at kogaki#630. A floor
+       left standing false is worse than no floor, because it reads as measurement.
 
      **THE REMEDY'S SHAPE WAS DECIDED BY THE SERVED SURFACE, not only its
      existence.** Three arms were live — constrain the arming, constrain the
@@ -2272,9 +2272,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      arming site exists in this repository — `gh pr merge --auto` appears in no
      file here — so constraining the arming would have to live in an
      actor-level hook family in another repository, which is an escalation
-     rather than a fill, and it slows the merge path the sweep's own
-     auto-merge exists to unblock. The second arm is the only one whose entire
-     carrier is this repository's own `tools/review-sweep.sh` and this clause.
+     rather than a fill, and it slows the merge path the sweep's own auto-merge
+     exists to unblock. The second arm was the only one whose entire carrier was
+     this repository's own `tools/review-sweep.sh`, now deleted, and this clause.
 
      **THIS EXTENDS THE FLOOR AND MINTS NOTHING BESIDE IT.** A second rule
      keyed on arming, sitting next to a rule keyed on the counter, would be two
@@ -2629,12 +2629,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
        `:269`, both re-read at the current pin this sitting).
        **A FOURTH stale record was found by this clause's own round-1 review,
        and it is the worst-sited of the four.**
-       `.claude/skills/review-lane/SKILL.md` — the file a reviewer reads
-       *while composing*, and one of the four artifacts the widening trigger
-       below names — still says *"Rounds are counted from the report segments
-       themselves"*, directly under the state-machine table where a reviewer
-       goes to decide whether a PR is heading for `park`. Its neighbour *"a
-       reviewer that fragments twice parks the PR"* falls with it, and for a
+      `.claude/skills/review-lane/SKILL.md` — the file a reviewer read *while
+      composing*, and one of the four artifacts the widening trigger below named
+      — said *"Rounds are counted from the report segments themselves"*,
+      directly under the state-machine table where a reviewer went to decide
+      whether a PR was heading for `park`. Its neighbour *"a reviewer that
+      fragments twice parks the PR"* falls with it, and for a
        reason worth stating so fragments are not read as exempt: fragment-ness
        is `counted()` and cycle membership is `performed()`, a split
        `performed()`'s own docstring declares — *"Deliberately NOT folded into
@@ -2655,10 +2655,10 @@ invariant: Gukan guarantees Unit schema, never data schema).
        It is why this enumeration types rows by their **observing act** and
        never by a state a row asserts about one.
      - **Row 6 was filed `carried, not emitted` and re-derives as CARRIED.**
-       Clause 8's grammar reached the file the reviewer actually reads while
-       composing — `.claude/skills/review-lane/SKILL.md` now carries it as a
-       copy with declared precedence and its sub-rules pointed at (kogaki#251,
-       landed in PR #278). The producing site the carrier was missing now
+      Clause 8's grammar reached the file the reviewer then read while composing —
+      `.claude/skills/review-lane/SKILL.md` carried it as a copy with declared
+      precedence and its sub-rules pointed at (kogaki#251, landed in PR #278; the
+      file was deleted at kogaki#630). The producing site the carrier was missing now
        exists, which is the fourth rung the served surface names: *"a carrier
        is not installed until every input it reads has a producing site,
        checkable by enumeration"* (`product-lab@dec0d568
@@ -2687,13 +2687,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
      typing.** The trigger names an act that already happens rather than a
      periodic reader, on the ratified form for exactly this
      (`product-lab@dec0d568 topics/knowledge-architecture.md:43`): the
-     **review-lane sitting on any diff touching the four artifacts this
-     enumeration is derived from** — this section's declared line classes,
-     `checks/check-review-report.sh`, `tools/review-sweep.sh`, and
-     `.claude/skills/review-lane/SKILL.md`. The lane already reads all four to
-     do its ordinary job, so the trigger converts nothing into a schedule. A
-     re-typing that finds no change costs one sentence in the report; a
-     re-typing skipped is the silence this clause exists to end.
+     **review-lane sitting on any diff touching the artifacts this enumeration is
+     derived from** — this section's declared line classes, plus whatever carries the
+     review lane's machinery at the head the sitting runs at. The three named when
+     this was written (`checks/check-review-report.sh`, `tools/review-sweep.sh`,
+     `.claude/skills/review-lane/SKILL.md`) were deleted at kogaki#630, and a trigger
+     keyed on paths would have been unfireable from that moment. The lane reads what
+     carries it, so the trigger converts nothing into a schedule.
 
      **`instrument: none` for the re-typing itself, with its reopen trigger.**
      No registered check asserts that the table above matches the artifacts,
@@ -2991,11 +2991,11 @@ invariant: Gukan guarantees Unit schema, never data schema).
       - **`supersedes:` and the findings disposition are OBLIGATIONS.** Their
         violation is an **absence**, which generates no event to deny, so they
         cannot be gated at all. They are discharged by being made **visible**:
-        `checks/check-review-report.sh` reports, at the `done` boundary, a
-        successor that declares no `supersedes:` and any inherited finding
-        carrying no disposition line. **Reported, never gated** — the same
-        polarity clause 8 already holds for its own dispositions, and for the
-        same reason.
+        the `done` boundary reported a successor that declared no `supersedes:`
+        and any inherited finding carrying no disposition line
+        (`checks/check-review-report.sh`, deleted at kogaki#630; the obligation is
+        the engine's now). **Reported, never gated** — the same polarity clause 8
+        already holds for its own dispositions, and for the same reason.
 
         **A DISPOSITION POINTING AT AN ISSUE THE SAME MERGE CLOSES DOES NOT
         SATISFY THIS, AND THE NATURAL CHECK DOES NOT CATCH IT.** A `carried:
@@ -3124,11 +3124,11 @@ invariant: Gukan guarantees Unit schema, never data schema).
       rather than a reading, because clause 4 makes an earlier segment
       append-only" — and clause 4 carries no such rule: it is *every round
       leaves its record*, about postmortem rally residue, and no §4 clause
-      states append-only anywhere. What actually holds an earlier segment still
-      is a practice recorded in a comment in `checks/check-review-report.sh`
-      ("a new round supersedes by writing a new report, never by mutating an
-      old one"), and a PR comment is editable, so an ordinal is exactly as
-      stable as that practice and no more. **Reopen trigger:** an edited earlier
+      states append-only anywhere. What held an earlier segment still was a
+      practice recorded in a comment in `checks/check-review-report.sh` ("a new
+      round supersedes by writing a new report, never by mutating an old one");
+      that file is deleted, and a PR comment is editable, so an ordinal was exactly
+      as stable as that practice and no more. **Reopen trigger:** an edited earlier
       segment observed to move an ordinal. It binds
       to the immediately preceding `finding:` line; first declaration per
       finding wins; anchored whole; grounds required and non-empty, with no
@@ -3197,18 +3197,18 @@ invariant: Gukan guarantees Unit schema, never data schema).
       indistinguishable from not shipping the deny.
 
       **THE ACT LANDED 2026-08-13, AND CLAUSE 9 ROW 2 IS NOW TYPED `act`.**
-      `unadjudicated_blocking()` is defined in `lib/adjudication.py` and
-      loaded by `checks/check-review-report.sh`, whose call site is the
-      `present` branch's last read — the clause's "after every existing state
-      is clean" — and it carries 22 fixture cases and 26 killed mutations
-      (kogaki#269).
+      `unadjudicated_blocking()` was defined in `lib/adjudication.py` and loaded
+      by `checks/check-review-report.sh`, whose call site was the `present`
+      branch's last read — the clause's "after every existing state is clean" —
+      and it carried 22 fixture cases and 26 killed mutations (kogaki#269). Both
+      files were deleted at kogaki#630.
 
       **THE PREDICATE HAS A SECOND READER, AND THE UNIT MOVED SO THAT IT COULD
-      (kogaki#288).** `tools/review-sweep.sh`'s `decide()` reads only the
-      CURRENT head's segments, so it returned `done` — a terminal state — on a
-      PR this clause was holding red: no round spawned, no `author-owes`,
-      nothing for the author to push, and the sweep's own output contradicting
-      the merge layer. The predicate and its grammar therefore live in
+      (kogaki#288).** `tools/review-sweep.sh`'s `decide()` read only the CURRENT
+      head's segments, so it returned `done` — a terminal state — on a PR this
+      clause was holding red: no round spawned, no `author-owes`, nothing for
+      the author to push, and the sweep's own output contradicting the merge
+      layer. The predicate and its grammar therefore lived in
       `lib/adjudication.py`, the third member of the pattern
       `lib/head_resolution.py` (clause 7 v2) and `lib/disposition.py` (clause
       11) already establish, and BOTH consumers load it by a shared path
@@ -3245,13 +3245,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
       that does not exist. The row moved when the act did and not before, which
       is the whole of what the discipline asks.
 
-      **What a reader should check, restated for the state that now holds:**
-      the row and the act move together in **both** directions. A reader who
-      finds row 2 typed `act` while `grep -c unadjudicated_blocking
-      checks/check-review-report.sh` returns 0 has found a defect, not a
-      tidy-up — and so has one who finds it typed `none:` while the function is
-      there, because an observing act nothing points at is an act no consumer
-      can be routed to.
+      **What a reader should check, restated for the state that now holds:** the
+      row and the act move together in **both** directions — the row is typed
+      `act` exactly when the observing act exists, and `none:` exactly when it
+      does not. The grep that stated this test named
+      `checks/check-review-report.sh`, deleted at kogaki#630, so the test is now
+      run against whatever carries the act; an observing act nothing points at
+      is an act no consumer can be routed to.
 
       **Why this clause landed alone.** Its ratified predecessor rode PR #287
       as one `spec+fix` unit, which the owner closed unmerged on 2026-08-08 as
@@ -3643,10 +3643,10 @@ invariant: Gukan guarantees Unit schema, never data schema).
       the finding is escalated rather than state-asserted.
 
       **THE READ RIDES AN ACT THAT ALREADY HAPPENS.**
-      `checks/check-review-report.sh` already computes, at the `done` boundary,
-      the set of issues **this merge closes**, and already cross-references
-      declaration lines against that set — the evaporating-carrier rule at
-      `:474-475` and `:598-626`. This clause adds one reading over the same
+      The `done` boundary already computed the set of issues **this merge
+      closes** and already cross-referenced declaration lines against that set —
+      the evaporating-carrier rule, carried by `checks/check-review-report.sh`
+      until kogaki#630 deleted it. This clause adds one reading over the same
       set: **for each issue this merge closes, its own closing comment's
       `successor:` declarations are read, and every named issue still OPEN is
       reported**, with its number and its declared scope.
@@ -3744,10 +3744,10 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
   **A third class is declared above both and is resolved FIRST: a diff that
   touches the reviewing instrument itself.** It carries the careful tier's
-  model and cap. The shipped table classes `tools/**` and `.claude/skills/**`
-  as `ordinary`, which puts `tools/review-sweep.sh` and
-  `.claude/skills/review-lane/**` — the review machinery — in the cheap tier,
-  so the classifier calls its own instrument cheap. Measured on PR #98: two
+  model and cap. The shipped table classes `tools/**` and `.claude/skills/**` as
+  `ordinary`, which put the review machinery of the day — `tools/review-sweep.sh`
+  and `.claude/skills/review-lane/**`, both since deleted — in the cheap tier, so
+  the classifier called its own instrument cheap. Measured on PR #98: two
   consecutive spawned reviewers, both `error_max_turns` at 25 turns against a
   cap of 24, ~$2 spent, no report posted, the PR left unreviewed. Resolving the
   reflexive class before the careful/ordinary axis is what stops a diff that
@@ -5497,3 +5497,125 @@ still issued; the summary view is still derived; the writer
 appends to an issue rather than emitting records — §"What this repository does
 NOT own" stands unamended. This section governs how a record **lands**, and
 nothing else.
+
+## 3.2 A citation of a retired carrier is a historical ground, never a live pointer
+
+**Owner ruling 2026-09-03 (kogaki#785), carried out of kogaki#632.** §3.1
+governs how a pointer **addresses** its referent. This governs what a citation
+**says** once the referent is gone — a different axis, and the one §3.1 leaves
+open: an anchor can resolve perfectly into a file that no longer exists to be
+read, and a bare path can be perfectly correct as history.
+
+**Every reference to a deleted artifact is one of two things, and the
+difference is what a reader is invited to do with it.**
+
+- A **LIVE CLAIM** asserts something about a carrier a reader could go and
+  open: it reads, refuses, holds, computes, binds — in the present tense, now.
+  When the carrier is deleted the claim is **false**, and a false claim in an
+  operative document is worse than a missing one, because it reads as
+  something checkable. A live claim is **repaired**.
+- A **HISTORICAL GROUND** records what stood when a clause was written: the
+  evidence a decision rested on, an incident, a declined alternative, a query
+  that was run. It is **true and load-bearing**, and deleting it destroys the
+  record of why the decision was made. A historical ground **stays**, in the
+  past tense, so its tense carries its status.
+
+**The discriminator is tense plus invitation, and it is stated so the judgment
+is repeatable rather than re-argued per site.** A sentence is a live claim if
+it is in the present tense AND a reader could act on it — read the file, run
+the grep, expect the behaviour. Present tense alone is not enough: a dated
+diagnosis written in the present is a ground with a tense problem, repaired by
+tense. Invitation alone is not enough either: a declined alternative invites
+nothing.
+
+**THE SERVED RULING PUSHES HARDER THAN THIS SECTION, AND THE BOUNDARY IS
+STATED RATHER THAN ASSUMED**, because a reader who finds only the softer half
+would take this section for the whole rule:
+
+> **AN OPERATIVE DOCUMENT HOLDS ONLY THE CURRENT CONTRACT; A SUPERSEDED
+> BEHAVIOUR PRESERVED INSIDE IT REINSTALLS THAT BEHAVIOUR** (owner ruling
+> 2026-08-28, in their words: *"Bugs must not be recorded in code. The record
+> itself creates the bug."*) … Removal is complete only when the operative
+> carrier no longer describes the old behaviour in any form, with history
+> living in version control and issue threads.
+
+`consulted: product-lab@75714be1ba3ee3108b61c9606076cede689f553b topics/knowledge-architecture.md:21`
+
+Its specimen is this repository's own: a rebuild read a preserved description
+as the current contract and reinstalled a removed command. So a third category
+sits beside the two above — **a "historical ground" that amounts to a
+SPECIFICATION of the removed behaviour is not a ground at all**, and past-tensing
+it is not enough; it is cut, and the history is git's. The discriminator is what
+a reader could rebuild from the sentence: *why a clause exists* is a ground,
+*how the removed thing worked* is a specification.
+
+**THIS PASS PAST-TENSED AND CUT NOTHING, AND THAT IS A DECISION WITH A NAMED
+RISK.** Several grounds left standing here describe removed behaviour at some
+length — §4's account of what the sweep announced at the spent bound is the
+clearest — and under the ruling above a stricter reading would delete them. The
+softer reading was taken because §4 is a decision record whose clauses are
+argued *from* those specimens, and cutting them would leave rulings whose
+grounds a reader cannot check. **If the stricter reading is the right one, the
+remedy is deletion of those passages, not a re-wording of this section** — and
+that is a judgment for the owner, recorded here rather than resolved silently
+in favour of the reading that required less work.
+
+**A REPAIR REWRITES THE SENTENCE; IT NEVER SUBSTITUTES INSIDE IT.** kogaki#632
+item 3 is the specimen — sixteen mechanical replacements of one token, three of
+which left sentences that no longer parse, because a substitution changes a
+word and a sentence means something. This is the same rule §3.1 states for
+pins: *"the existing pointers were not rewritten mechanically"*, and it is why
+this section's own pass was run by reading each occurrence rather than by
+matching a pattern.
+
+**THE PASS HOLDS THE FILE'S LINE COUNT INVARIANT, and that is a requirement
+rather than a courtesy.** Forty line-numbered pointers into this file survive
+across the tree — §3.1's own drain, kogaki#635 — so any edit that adds or
+removes a line invalidates every one below it and owes an unbounded repoint
+pass. Each repair here was re-wrapped to exactly the line count it replaced,
+verified by `wc -l` before and after. **A repair that cannot be made at
+constant line count waits for kogaki#635**, rather than paying that issue's
+drain from this one's licence.
+
+**Sited at end-of-file for §3.1's reason**, which applies unchanged: inserting
+a section above existing pointers moves every one of them. It re-sites under §3
+beside §3.1, in the same later edit, when shifting is free.
+
+**The pass this section was written for, and its numbers, re-derived rather
+than carried.** The review stack `tools/review-sweep.sh`,
+`checks/check-review-report.sh` and `.claude/skills/review-lane/SKILL.md` was
+deleted at kogaki#630. At `9a6f64c` this file carried **38 lines** naming one
+of the three; nineteen were repaired as live claims, the rest read as
+historical grounds and were left standing, and one line disappeared because its
+repair folded two bare pointers into the sentence that had carried them —
+leaving **37** in the body of the file.
+
+**The whole-file count is 40, and the three-line difference is this section
+itself**, which names all three paths in stating what it is about. The figures
+are re-derived, never carried:
+
+    P='review-sweep.sh|check-review-report.sh|skills/review-lane'
+    grep -cE "$P" specs/SPEC.md                  # 40 — whole file, §3.2 included
+    awk '/^## 3.2 /{exit} 1' specs/SPEC.md |
+        grep -cE "$P"                            # 37 — the body, §3.2 excluded
+
+The second command cuts at the **heading**, never at a line number: a positional
+cut here would be §3.1's own defect, minted by the section that states the rule
+against it.
+
+The two numbers and the exclusion between them are written out because the
+first draft of this paragraph gave 37 beside a command that returns 40 — the
+recipe-that-does-not-reproduce defect, in the paragraph installing the rule
+against it, which is where the last two instances of this class also landed
+(kogaki#632 item 3; PR #783 round 1). A count with an enumeration beside it is
+re-derived, and an edit to the number is a claim about membership that only the
+enumeration can answer.
+
+**No check carries this, and the absence is stated rather than left.** Whether
+a sentence is a live claim is a judgment about meaning, and a checker for it
+would be judgment wearing a check's clothes — the shape this repository
+declines everywhere else. What is mechanical is the count above, which any
+reader can re-run; what it detects is growth, not correctness. **The reopen
+trigger** is a second retirement whose references are found unswept after this
+section exists, which would say the rule is not being read at the act that
+needs it.
