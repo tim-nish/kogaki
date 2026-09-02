@@ -1,6 +1,6 @@
 ---
 id: reg-0213
-status: pending
+status: pending  # subject RETIRED at PR #777 — see the closing note
 observed_at_pr: 775
 observed_at_head: 4aedf31
 class: in-diff
@@ -44,3 +44,18 @@ is about wording a reader meets today.
 
 Seventh instance in the 2026-09-02 sitting of that composition; see reg-0206 to
 reg-0212.
+
+
+---
+
+**RETIRED BY PR #777 (2026-09-02), and the entry is kept rather than deleted.**
+The owner withdrew the verbatim-excerpt premise: the evidence field is
+`excerpt`, holding the author's own account, and the `Excerpt:` marker, its
+regex and the malformed-marker branch are all gone. **The branch this entry is
+about has no site**, so the misdiagnosed message can no longer be read by
+anyone.
+
+Kept because the *class* survives its instance: a refusal split justified by a
+claim about WHO hits which branch still owes a test that the audience is the one
+the claim names. The entry is now a record of that class with a worked example,
+rather than an open repair.
