@@ -596,7 +596,15 @@ try {
       let exemplars = 0;
       for (const id of store.ids) {
         const txt = readFileSync(`moves/${id}.md`, "utf8");
-        const src = (txt.split(/^excerpt:[ \t]*>-?[ \t]*$/m)[1] || "");
+        // BOTH AUTHORED FORMS (PR #777 round 1). The split matched only the
+        // folded-scalar HEADER (`excerpt: >-`), so a record authored inline
+        // (`excerpt: one line`) yielded the empty string, counted as a
+        // non-exemplar, and the disclosed "N of 22" under-reported with
+        // nothing saying why. It cannot go red — the line is disclosed, never
+        // asserted — which is exactly what makes an under-report here silent.
+        // Every record in the tree uses `>-` today; the read no longer
+        // depends on that staying true.
+        const src = (txt.split(/^excerpt:[ \t]*/m)[1] || "").replace(/^>-?[ \t]*\n/, "");
         if (isExemplar(src)) exemplars++;
         if (/^sources:/m.test(txt)) fails.push(`(m) moves/${id}.md carries a \`sources\` field — the field is \`excerpt\` (kogaki#751, 2026-09-02), and a surviving \`sources\` beside it is the design error the rename exists to remove`);
       }
