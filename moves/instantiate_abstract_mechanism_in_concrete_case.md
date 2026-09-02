@@ -16,7 +16,7 @@ failure_modes: >-
   Providing an anecdote without mapping its causal role; adding detail that
   obscures the mechanism; or treating one instance as sufficient general
   proof.
-sources: >-
+excerpt: >-
   Observed in "Distance: Nine Out of Ten Nearby Great Powers Face Military
   Conflict." The account of Napoleon's invasion shows Russian withdrawal and
   scorched-earth tactics extending movement and supply difficulties until

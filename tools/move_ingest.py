@@ -31,7 +31,7 @@ FIELDS = (
     "effect",
     "constraints",
     "failure_modes",
-    "sources",
+    "excerpt",
 )
 
 # §6.9: the draft fields excluded from the proposal. Stripped BEFORE condition 3
@@ -462,7 +462,8 @@ def move_path(moves_dir, move_id):
 # --------------------------------------------------------------------------
 #
 # `attach_derivation_pointer` and its `provenance` parameter are GONE, and the
-# 22 saved Moves have had the ingestion string stripped from their `sources`.
+# 22 saved Moves have had the ingestion string stripped from their `sources`
+# (the field renamed to `excerpt` 2026-09-02, kogaki#751 — see below).
 #
 # §6.9.4 filled the `move-sources-derivation-vehicle` slot with the ingestion
 # run and marked that placement as the author's judgment, with the fork
@@ -484,6 +485,15 @@ def move_path(moves_dir, move_id):
 # kogaki#417 D1's form decision (prose over `path:line@sha`) is MOOTED rather
 # than reversed — with no pointer there is no form to decide. No Source vs
 # Provenance schema split is defined, because nothing demands one.
+#
+# THE FIELD IS `excerpt` (kogaki#751, owner ruling 2026-09-02). What the
+# cleanup above left behind was never a "source" in the sense of a document
+# locator: it is the author's few-line account of the reader movement they
+# observed when they identified the Move — which is the Excerpt the 2026-09-01
+# ruling asked for. The name `sources` was the last trace of the contaminated
+# design, so the field is renamed rather than joined by a second one. No
+# separate place for the publication or the source document exists in a
+# record; a `sources` key surviving beside `excerpt` would be a design error.
 
 # --------------------------------------------------------------------------
 # Save and regenerate
@@ -762,7 +772,7 @@ constraints: >-
   not always
 failure_modes: >-
   sometimes not
-sources: >-
+excerpt: >-
   a passage somewhere
 """
 
@@ -860,7 +870,7 @@ def self_test():
 
     # ---- condition 2 -----------------------------------------------------
     refuses(
-        _record().replace("sources: >-", "status: observed\nsources: >-"),
+        _record().replace("excerpt: >-", "status: observed\nexcerpt: >-"),
         "2",
         "AC3 cond 2 duplicate key refused",
     )
@@ -1356,7 +1366,7 @@ def self_test():
         """AC3: a refused record's row carries its condition and line number
         verbatim, in the file."""
         with tempfile.TemporaryDirectory() as tmp:
-            bad = _record("broken").replace("sources: >-\n  a passage somewhere\n", "")
+            bad = _record("broken").replace("excerpt: >-\n  a passage somewhere\n", "")
             proposals = read_proposals(_record("good") + bad)
             body = open(write_screen(render_screen(proposals), tmp)).read()
             assert "REFUSED" in body, body

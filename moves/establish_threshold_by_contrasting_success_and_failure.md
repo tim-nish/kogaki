@@ -17,7 +17,7 @@ failure_modes: >-
   Inferring a threshold from incomparable cases; converting a gradual
   relationship into an unsupported binary; or claiming an exact cutoff from
   qualitative evidence.
-sources: >-
+excerpt: >-
   Observed in "Maritime and Continental States." European colonial expansion
   is explained by overwhelming military and technological superiority, while
   later failures to retain colonies are linked to the erosion of that

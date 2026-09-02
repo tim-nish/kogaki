@@ -15,7 +15,7 @@ constraints: >-
 failure_modes: >-
   Selecting only favorable cases; citing statistics unrelated to the
   prediction; or treating correlation as complete causal confirmation.
-sources: >-
+excerpt: >-
   Observed in "Distance: Nine Out of Ten Nearby Great Powers Face Military
   Conflict." The passage contrasts Japan's relations with nearby China and
   distant Brazil, then presents aggregate findings linking geographic

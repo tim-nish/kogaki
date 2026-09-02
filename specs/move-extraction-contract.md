@@ -3,6 +3,13 @@
 Paste this whole file into the conversation after the model has read the
 article. It is self-contained: no other context is needed or permitted.
 
+Amended 2026-09-02 (kogaki#751, owner ruling): the evidence field is
+**`excerpt`**, and an excerpt is the extractor's own account of the reader
+movement — **never a verbatim quotation**. The first form of this contract
+(2026-09-01) named the field `sources` and demanded a quoted passage behind
+an `Excerpt:` marker; both are withdrawn, for the reasons stated under the
+excerpt rules below.
+
 ---
 
 You have just read an article. Your task is to extract its **Moves**.
@@ -40,10 +47,11 @@ constraints: >-
 failure_modes: >-
   <the characteristic ways this Move goes wrong when imitated badly —
   two or three, concrete>
-sources: >-
-  Observed in "<article title>". <At most two sentences of surrounding
-  context, only if the excerpt is not understandable without it.>
-  Excerpt: "<the verbatim passage>"
+excerpt: >-
+  Observed in "<article title>". <A few lines, in your own words, naming
+  the specific reader movement you focused on when you identified this
+  Move: what the passage establishes first, what it then shows the reader,
+  and where the reader ends up.>
 ```
 
 ## Per-field rules
@@ -58,27 +66,34 @@ sources: >-
 - **constraints / failure_modes** — general to the technique, never
   specific to this article's subject. A person applying this Move to a
   completely different topic must be able to obey them.
-- **sources** — this field carries the evidence, and its rules are strict:
+- **excerpt** — this field carries the evidence, and its rules are below.
 
-## The excerpt rules (sources)
+## The excerpt rules
 
-1. **The excerpt is verbatim.** Copy the passage that actually performs
-   the Move, word for word, in quotation marks after the literal marker
-   `Excerpt:`. A paraphrase or description of the passage is not
-   acceptable — the excerpt is the exemplar a later writer imitates, and
-   a description cannot be imitated.
-2. **Include only the portion that performs the Move.** Trim before and
-   after. If the Move's performance spans a gap, join the relevant parts
-   with ` […] ` and nothing else.
-3. **Summarize the surroundings instead of including them.** Where the
-   excerpt is not understandable alone, add at most two sentences of
-   context *before* the `Excerpt:` marker — a summary, clearly yours, not
-   quoted.
-4. **Keep it short.** The excerpt should usually be one paragraph or
-   less; it must never exceed three paragraphs. If the Move seems to need
-   more, you have selected the Move too broadly — narrow the id.
-5. **Translate faithfully if the article is not in English**, and say so:
-   `Excerpt (translated): "…"`.
+1. **The excerpt is your account of the reader movement, not a quotation.**
+   Write, in a few lines, the specific movement of the reader that led you
+   to identify this Move: what the passage establishes, what it then shows,
+   where it leaves the reader. This is what a later writer imitates — the
+   movement, seen at the level you saw it when you named the Move.
+2. **Do not paste the source text.** A Move derived at a meta level from a
+   long article is not served by the article's own thousand or ten thousand
+   characters sitting in the record; that is noise, and a verbatim
+   requirement would lower the excerpt's value rather than raise it. A short
+   quoted phrase inside your account is fine where it carries the movement;
+   a transcribed passage is not.
+3. **Name the article in the first sentence** — `Observed in "<title>".` —
+   and nothing more about where it lives. There is no separate place in a
+   record for the publication or the source document: the title inside the
+   excerpt is the whole of the record's provenance, and version history
+   holds the rest.
+4. **Keep it short.** A few lines; never more than one paragraph. If the
+   movement seems to need more, you have selected the Move too broadly —
+   narrow the id.
+5. **Write it in the article's language of ideas, not its subject.** The
+   excerpt may name the article's concrete subject (that is what makes it
+   an observation), but the movement it describes must be the one the
+   `intent` names, so that a reader of the record can see the technique in
+   the instance.
 
-A record whose `sources` has no `Excerpt:` marker is incomplete. Do not
-output it; either find the passage or drop the Move.
+A record whose `excerpt` is empty is incomplete. Do not output it; either
+write the account or drop the Move.

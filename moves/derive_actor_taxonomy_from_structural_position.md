@@ -17,7 +17,7 @@ failure_modes: >-
   Classifying actors by superficial resemblance; forcing every case into a
   binary category; or treating a category label as sufficient causal
   explanation.
-sources: >-
+excerpt: >-
   Observed in the supplied excerpt under "The Struggle Between Sea and Land
   That Has Shaped the World for Centuries." After presenting sea and land as
   the central geographic division, the passage classifies states as maritime

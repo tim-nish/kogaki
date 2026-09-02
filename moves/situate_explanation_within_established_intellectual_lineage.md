@@ -16,7 +16,7 @@ failure_modes: >-
   Name-dropping without showing the inherited idea; substituting authority
   for evidence; or flattening materially different theories into one
   tradition.
-sources: >-
+excerpt: >-
   Observed in the supplied discussion of classical geopolitics. The passage
   locates its sea-and-land interpretation in the theories of Alfred Mahan,
   Halford Mackinder, and Nicholas Spykman, then describes the recognized

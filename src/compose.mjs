@@ -344,97 +344,65 @@ export function validateSpecialization(record, steps, candidateId) {
 }
 
 // ---------------------------------------------------------------------------
-// THE MOVE EXEMPLAR PREDICATE (§4.13.1, kogaki#751; owner ruling 2026-09-01).
+// THE MOVE EXEMPLAR PREDICATE (§4.13.1, kogaki#751; owner rulings 2026-09-01
+// and 2026-09-02).
 //
 // `specs/move-extraction-contract.md` is the schema authority for Move
-// records: `sources` carries a VERBATIM excerpt behind the literal marker
-// `Excerpt:`, because the excerpt is what a later writer imitates and a
-// description cannot be imitated.
+// records: `excerpt` carries the author's own few-line account of the reader
+// movement they observed when they identified the Move — the passage or
+// transition they focused on, in their words. It is NOT a verbatim quotation
+// of the source (owner ruling 2026-09-02): a Move derived at a meta level from
+// a 10,000-character article is not served by 10,000 characters pasted into
+// the record, and a verbatim requirement would lower the excerpt's value
+// rather than raise it. What a later writer imitates is the movement, and the
+// author's account of it is the exemplar.
 //
-// A record without the marker CANNOT SERVE AS A PACKET EXEMPLAR, and the
-// Packet renders its excerpt block as a STATED ABSENCE rather than
-// substituting anything. That is the whole predicate, and both halves matter:
-// the record stays legal and usable for everything else it carries, and the
-// one thing it cannot do is stand in as the exemplar a writer copies.
+// THE FIELD WAS RENAMED, NOT REPLACED. The records' former `sources` text was
+// already this account — the cleanup at kogaki#548 stripped the ingestion
+// routing that had contaminated the field, and what it left was the excerpt
+// under the wrong name. No separate "source document" slot exists in a record;
+// the article's title inside the excerpt's prose is the whole of its
+// provenance, and git holds the rest.
 //
-// WHY THIS IS A PREDICATE AND NOT A REFUSAL. Every one of this repository's 22
-// Move records carries description-only `sources` today
-// (#751's body says 23; it counted `moves/INDEX.md`, which is a regenerated
-// view and never a record — the figure is corrected here rather than carried), so a rule that
-// refused them would refuse the whole library. The ruling does not say that —
-// it says such a record cannot be an EXEMPLAR — and the difference is what
-// lets the mechanism ship ahead of the re-extraction it enables.
-export const EXCERPT_MARKER = "Excerpt:";
+// The predicate is therefore: a record whose `excerpt` carries text is an
+// exemplar; one whose `excerpt` is empty CANNOT SERVE AS A PACKET EXEMPLAR,
+// and the Packet renders a STATED ABSENCE rather than substituting anything.
+// Every one of this repository's 22 records carries an excerpt today.
 
-// Reads a Move record's `sources` text. Returns the excerpt, or the reason
+// Reads a Move record's `excerpt` text. Returns the excerpt, or the reason
 // there is none — never a substitute, and never an empty string standing in
-// for a passage.
-export function moveExcerpt(sourcesText) {
-  const t = typeof sourcesText === "string" ? sourcesText : "";
-  // ANCHORED TO LINE START, AND THE QUOTATION MARKS ARE REQUIRED (PR #775
-  // round 1). The first form matched the marker ANYWHERE in the text with the
-  // quotes optional — so a `sources` whose prose merely MENTIONS `Excerpt:`,
-  // including one explaining that no excerpt exists yet, handed its trailing
-  // description back as a verbatim passage and flipped the record to exemplar
-  // standing. That is the ruling's own failure reached from the admitting
-  // side, and it is the worse direction: a false exemplar is a description a
-  // writer copies believing it is the author's words.
-  //
-  // Both halves come from the contract rather than from taste. Rule 3 puts
-  // context sentences BEFORE the marker, so the marker legitimately begins its
-  // own line — anchoring costs a conforming record nothing. And the output
-  // format mandates `Excerpt: "<the verbatim passage>"`, quotes included, so
-  // requiring them is reading the contract rather than tightening past it.
-  // The translated form is the same marker with a parenthetical (rule 5);
-  // both are exemplars and the reader is told which.
-  const m = t.match(/^[ \t]*Excerpt(\s*\(translated\))?:[ \t]*"([\s\S]*)"[ \t]*$/m);
-  if (!m) {
-    // DISTINGUISHED from "no marker at all", because they need different
-    // repairs: an unquoted or mid-line marker is a MALFORMED excerpt whose
-    // author believed they had supplied one, and reporting it as an absence
-    // would send them to re-extract a passage they already have.
-    if (/Excerpt(\s*\(translated\))?:/.test(t)) {
-      return {
-        excerpt: null,
-        translated: false,
-        absence: `this record's sources mention ${EXCERPT_MARKER} but not in the form the contract mandates — the marker begins its own line and the passage is in quotation marks (\`Excerpt: "…"\`, output format and rule 3). It is NOT read as an exemplar, because an unanchored match would admit prose that merely mentions the marker (§4.13.1)`,
-      };
-    }
-    return {
-      excerpt: null,
-      translated: false,
-      absence: `this record's sources carry no ${EXCERPT_MARKER} marker, so it holds a DESCRIPTION of the passage rather than the passage — it cannot serve as an exemplar (§4.13.1). Re-extract it through specs/move-extraction-contract.md against its source article.`,
-    };
-  }
-  // A marker with nothing between the quotes is worse than no marker: it
-  // claims exemplar standing and supplies nothing, so it is reported as its
-  // own absence rather than as an empty exemplar.
-  const body = m[2].trim();
+// for an account.
+export function moveExcerpt(excerptText) {
+  const t = typeof excerptText === "string" ? excerptText : "";
+  // Folded-scalar indentation is presentation, not content: the field is
+  // authored as `excerpt: >-` with its lines indented two spaces, and a reader
+  // comparing the excerpt to what the author wrote should see the author's
+  // words, not the file's margin.
+  const body = t.split("\n").map((l) => l.replace(/^[ \t]+/, "")).join("\n").trim();
   if (body === "") {
     return {
       excerpt: null,
-      translated: Boolean(m[1]),
-      absence: `this record carries an ${EXCERPT_MARKER} marker with no passage after it — an empty exemplar claims standing it cannot supply (§4.13.1)`,
+      absence: `this record's excerpt is empty — it holds no account of the reader movement the author observed, so it cannot serve as an exemplar (§4.13.1). Author one through specs/move-extraction-contract.md: a few lines, in your own words, naming the movement that led you to the Move.`,
     };
   }
-  return { excerpt: body, translated: Boolean(m[1]), absence: null };
+  return { excerpt: body, absence: null };
 }
 
 // Can this record stand as the exemplar a writer imitates?
-export function isExemplar(sourcesText) {
-  return moveExcerpt(sourcesText).excerpt !== null;
+export function isExemplar(excerptText) {
+  return moveExcerpt(excerptText).excerpt !== null;
 }
 
 // The Packet's excerpt block, rendered. A STATED ABSENCE is a rendering and
-// never an error: the assembler that meets a description-only record says so
-// in the block where the passage would have gone, so a reader knows they are
-// looking at a gap rather than at a short exemplar.
-export function renderExcerptBlock(moveId, sourcesText) {
-  const r = moveExcerpt(sourcesText);
+// never an error: the assembler that meets an empty excerpt says so in the
+// block where the account would have gone, so a reader knows they are looking
+// at a gap rather than at a short exemplar.
+export function renderExcerptBlock(moveId, excerptText) {
+  const r = moveExcerpt(excerptText);
   if (r.excerpt === null) {
     return `exemplar (${moveId}): NONE — ${r.absence}`;
   }
-  return `exemplar (${moveId})${r.translated ? ", translated" : ""}:\n${r.excerpt}`;
+  return `exemplar (${moveId}):\n${r.excerpt}`;
 }
 
 // ---------------------------------------------------------------------------

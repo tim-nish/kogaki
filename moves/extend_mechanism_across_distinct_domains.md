@@ -16,7 +16,7 @@ failure_modes: >-
   Equating domains through superficial resemblance; treating different
   causes as one mechanism; or generalizing beyond the demonstrated
   relationship.
-sources: >-
+excerpt: >-
   Observed in "Why Is a Weak State Like North Korea So Frightening?" The
   passage first explains distinguishability through weapon functions, then
   extends the mechanism to political systems by showing how democratic

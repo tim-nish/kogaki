@@ -16,7 +16,7 @@ failure_modes: >-
   Treating a merely compatible response as proof; affirming the consequent
   without considering alternatives; or selecting only responses that support
   the desired classification.
-sources: >-
+excerpt: >-
   Observed in "The Greatest Puzzle of Balance-of-Power Theory: America." The
   formation of coalitions against Russia and China is used to infer that
   they, rather than the United States, occupy the role of potential hegemon

@@ -16,7 +16,7 @@ failure_modes: >-
   Producing a topic list without a shared mechanism; separating factors that
   do not differ meaningfully; or confusing peer factors with levels of a
   hierarchy.
-sources: >-
+excerpt: >-
   Observed in "Geography Has the Greatest Influence on the Security
   Dilemma." After identifying movement as the common mechanism, the passage
   divides the relevant geographic conditions into distance, terrain, and

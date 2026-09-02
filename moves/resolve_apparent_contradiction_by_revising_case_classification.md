@@ -16,7 +16,7 @@ failure_modes: >-
   Redefining the category after every conflicting case; using circular
   classification; or revising the label without showing which criterion
   failed.
-sources: >-
+excerpt: >-
   Observed in "The Greatest Puzzle of Balance-of-Power Theory: America." The
   absence of a coalition against the United States is first presented as a
   contradiction, then attributed to the mistaken premise that the United

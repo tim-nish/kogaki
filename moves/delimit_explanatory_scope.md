@@ -14,7 +14,7 @@ constraints: >-
 failure_modes: >-
   Dismissing the explanation entirely; imposing an arbitrary boundary; or
   naming a limitation without showing how it restricts explanatory reach.
-sources: >-
+excerpt: >-
   Observed in "Attack-Defense Advantage Is Ambiguous." After weapons and
   political systems are used to explain attack-defense conditions, the
   passage limits their long-term explanatory reach because both can change

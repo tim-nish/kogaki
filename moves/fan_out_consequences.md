@@ -15,7 +15,7 @@ constraints: >-
 failure_modes: >-
   Listing related facts without derivation; repeating one consequence under
   different names; or extending the chain beyond what the material supports.
-sources: >-
+excerpt: >-
   Observed in "Distance: Nine Out of Ten Nearby Great Powers Face Military
   Conflict." The passage develops distance into range limits, transportation
   costs, longer supply lines, forces diverted to supply defense, and reduced

@@ -557,54 +557,56 @@ try {
     if (lines.length !== 2) fails.push(`(m) renderStep wrote ${lines.length} introduces line(s) for two entries — a joined field cannot be parsed back`);
     if (!lines[0].includes("opacity — what a state conceals, in practice")) fails.push("(m) the entry did not survive serialization intact");
 
-    // §4.13.1 — THE EXEMPLAR PREDICATE. A description-only record stays legal
-    // and is simply not an exemplar; the block STATES the absence rather than
-    // substituting anything.
-    const desc = `Observed in "An Article." The passage does the thing.`;
-    const exc = `Observed in "An Article." Context sentence.\n  Excerpt: "the passage, verbatim"`;
-    if (isExemplar(desc)) fails.push("(m) a description-only record was admitted as an exemplar — a description cannot be imitated, which is the whole reason the marker exists");
-    if (!isExemplar(exc)) fails.push("(m) a record carrying a verbatim excerpt was refused as an exemplar");
-    if (moveExcerpt(exc).excerpt !== "the passage, verbatim") fails.push("(m) the excerpt did not read back verbatim");
-    if (!moveExcerpt(`Excerpt (translated): "translated passage"`).translated) fails.push("(m) the translated form is not recognised as an exemplar carrying its own disclosure (contract rule 5)");
-    // AN EMPTY MARKER IS WORSE THAN NO MARKER: it claims standing and supplies
-    // nothing, so it is reported as its own absence and never as a short
-    // exemplar.
-    // THE ADMITTING SIDE (PR #775 round 1), which the first block had no case
-    // pointing at: an unanchored, quote-optional match let PROSE that merely
-    // mentions the marker hand back its trailing text as a verbatim passage.
-    // The worse direction — a false exemplar is a description a writer copies
-    // believing it is the author's words — and the likeliest carrier of the
-    // phrase is a record explaining that no excerpt exists yet.
-    const mentions = `Observed in "An Article." This record has no Excerpt: yet; re-extract it through the contract.`;
-    if (isExemplar(mentions)) fails.push("(m) a sources field that merely MENTIONS the marker was admitted as an exemplar — an unanchored match hands prose back as a verbatim passage");
-    const midline = `Observed in "An Article." Excerpt: the passage without quotation marks`;
-    if (isExemplar(midline)) fails.push("(m) an unquoted marker was admitted as an exemplar — the contract's output format mandates the quotation marks");
-    const mm = moveExcerpt(midline);
-    if (!/not in the form the contract mandates/.test(mm.absence || "")) fails.push("(m) a malformed marker is reported as an ABSENT one — different repairs, and the author who wrote it already has the passage");
-    // A conforming record whose marker begins its own line after context
-    // sentences is the shape rule 3 mandates, so anchoring must not cost it.
-    const withContext = `Observed in "An Article." One context sentence. A second.\n  Excerpt: "the passage, verbatim"`;
-    if (!isExemplar(withContext)) fails.push("(m) anchoring rejected the contract's OWN shape — context sentences before a marker on its own line (rule 3)");
-    const hollow = moveExcerpt(`Excerpt: ""`);
-    if (hollow.excerpt !== null) fails.push("(m) an empty Excerpt was admitted as an exemplar");
-    if (!/no passage after it/.test(hollow.absence || "")) fails.push("(m) an empty marker is not distinguished from an absent one — they need different repairs");
-    const block = renderExcerptBlock("some_move", desc);
+    // §4.13.1 — THE EXEMPLAR PREDICATE, over the `excerpt` field (owner ruling
+    // 2026-09-02: the excerpt is the author's own account of the reader
+    // movement, never a verbatim quotation, and the field the records already
+    // carried under the name `sources` WAS that account). A record whose
+    // excerpt carries text is an exemplar; an empty one is not, and the block
+    // STATES the absence rather than substituting anything.
+    const acct = `Observed in "An Article." The passage first establishes X,\n  then shows the reader that Y follows.`;
+    if (!isExemplar(acct)) fails.push("(m) a record carrying an author's account of the reader movement was refused as an exemplar — the excerpt is that account, not a quotation");
+    if (moveExcerpt(acct).excerpt !== `Observed in "An Article." The passage first establishes X,\nthen shows the reader that Y follows.`) fails.push("(m) the excerpt did not read back as authored, with the folded scalar's margin removed and nothing else touched");
+    // A VERBATIM-LOOKING excerpt is neither required nor privileged: the old
+    // `Excerpt:` marker is plain text now, and a record carrying it is an
+    // exemplar because it carries an account, not because of the marker.
+    const marked = `Excerpt: "the passage, verbatim"`;
+    if (!isExemplar(marked)) fails.push("(m) a record whose excerpt happens to contain the retired marker was refused — the marker is text, and the predicate reads presence of an account only");
+    if (moveExcerpt(marked).excerpt !== marked) fails.push("(m) the retired marker was PARSED rather than read as text — a quotation is not a privileged form of excerpt");
+    // AN EMPTY EXCERPT is the one absence: it claims a field and supplies no
+    // account, so the block says so and names the repairing act.
+    for (const [label, empty] of [["an empty string", ""], ["whitespace only", "  \n  "], ["a non-string", undefined]]) {
+      const r = moveExcerpt(empty);
+      if (r.excerpt !== null) fails.push(`(m) ${label} was admitted as an exemplar`);
+      if (!/empty/.test(r.absence || "")) fails.push(`(m) the absence for ${label} does not say the excerpt is empty`);
+    }
+    const block = renderExcerptBlock("some_move", "");
     if (!/NONE/.test(block)) fails.push("(m) the Packet's excerpt block does not STATE the absence");
     if (!/some_move/.test(block)) fails.push("(m) the stated absence does not name the Move it is about");
     if (!/move-extraction-contract/.test(block)) fails.push("(m) the stated absence does not name the act that repairs it");
-    if (/passage does the thing/.test(block)) fails.push("(m) the block SUBSTITUTED the description for the missing excerpt — the one thing the ruling forbids");
+    const full = renderExcerptBlock("some_move", acct);
+    if (!/^exemplar \(some_move\):\n/.test(full) || !/then shows the reader/.test(full)) fails.push("(m) the Packet's excerpt block does not render the author's account under the Move's name");
 
-    // THE LIBRARY AS IT STANDS, read rather than asserted: every record is
-    // description-only today, which is why this is a PREDICATE and not a
-    // refusal — a rule that refused them would refuse the whole library.
+    // THE LIBRARY AS IT STANDS, read rather than asserted. Every record
+    // carries an excerpt today (the rename at kogaki#751 made the field's
+    // content what it always was), and the count is still DISCLOSED rather
+    // than asserted, for the reason below.
     const store = loadMoveIds("moves");
     if (store.error) fails.push(`(m) the repository's Move library could not be read: ${store.error}`);
     else {
       let exemplars = 0;
       for (const id of store.ids) {
         const txt = readFileSync(`moves/${id}.md`, "utf8");
-        const src = (txt.split(/^sources:/m)[1] || "");
+        // BOTH AUTHORED FORMS (PR #777 round 1). The split matched only the
+        // folded-scalar HEADER (`excerpt: >-`), so a record authored inline
+        // (`excerpt: one line`) yielded the empty string, counted as a
+        // non-exemplar, and the disclosed "N of 22" under-reported with
+        // nothing saying why. It cannot go red — the line is disclosed, never
+        // asserted — which is exactly what makes an under-report here silent.
+        // Every record in the tree uses `>-` today; the read no longer
+        // depends on that staying true.
+        const src = (txt.split(/^excerpt:[ \t]*/m)[1] || "").replace(/^>-?[ \t]*\n/, "");
         if (isExemplar(src)) exemplars++;
+        if (/^sources:/m.test(txt)) fails.push(`(m) moves/${id}.md carries a \`sources\` field — the field is \`excerpt\` (kogaki#751, 2026-09-02), and a surviving \`sources\` beside it is the design error the rename exists to remove`);
       }
       // DISCLOSED, NEVER ASSERTED. The first form of this line failed when
       // the count moved off zero — which is to say it went red exactly when
@@ -614,7 +616,7 @@ try {
       // (product-lab topics/archive/claude-code-ops.md:24). The count is
       // rendered instead, so a reader sees the library's state move without
       // the suite obstructing the move.
-      exemplarLine = `${exemplars} of ${store.ids.size} Move record(s) carry a verbatim ${"Excerpt:"} and can serve as exemplars`;
+      exemplarLine = `${exemplars} of ${store.ids.size} Move record(s) carry an excerpt and can serve as exemplars`;
     }
   }
 
@@ -1014,7 +1016,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when the re-extraction is performed)`);
+console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
 console.log("brief compose: 13/13 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
@@ -1054,10 +1056,7 @@ console.log("brief compose: 13/13 cases — (a) §4.1 Step shape refused per mis
   + "snapshot taken before a Step's own entries, carrying each term's anchor and its introducing Step, and a "
   + "path introducing nothing renders an EMPTY ledger rather than an error; responsibility traces to the FIRST "
   + "Step declaring a term and to the BRIEF (null) when none does, a re-declaration moving nothing; the "
-  + "render/parse round trip is asserted at both ends. §4.13.1: a description-only record is NOT an exemplar "
-  + "while staying legal, an empty `Excerpt:` marker is reported as its own absence rather than as a short "
-  + "exemplar (it claims standing and supplies nothing), and the Packet's block STATES the absence naming the "
-  + "Move and the repairing act while SUBSTITUTING nothing. Accumulation is computed and never stored. The "
+  + "render/parse round trip is asserted at both ends. §4.13.1 (as amended 2026-09-02 — the field is `excerpt` and holds the author's account of the reader movement, never a verbatim quotation): a record carrying an account is an exemplar, the retired `Excerpt:` marker is read as plain text and confers nothing, an EMPTY excerpt is the one absence and is reported as such rather than as a short exemplar, the Packet's block STATES the absence naming the Move and the repairing act while SUBSTITUTING nothing, and a `sources` field surviving in any library record FAILS this member by name. Accumulation is computed and never stored. The "
   + "library's own exemplar count is DISCLOSED and never asserted — a count that failed when it moved would go "
   + "red exactly when the re-extraction is performed; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
   + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "

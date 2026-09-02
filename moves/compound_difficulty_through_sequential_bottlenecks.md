@@ -16,7 +16,7 @@ failure_modes: >-
   Presenting parallel difficulties as a sequence; counting the same
   constraint more than once; or treating cumulative difficulty as absolute
   impossibility.
-sources: >-
+excerpt: >-
   Observed in "Maritime and Continental States." The passage first
   establishes the transport requirements for moving an army across the sea,
   then shows that a successful crossing still leaves the separate

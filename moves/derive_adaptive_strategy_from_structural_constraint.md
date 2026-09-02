@@ -16,7 +16,7 @@ failure_modes: >-
   Inferring strategy from outcomes alone; naming a response without
   explaining its mechanism; or treating structural pressure as
   deterministic.
-sources: >-
+excerpt: >-
   Observed in "Distance: Nine Out of Ten Nearby Great Powers Face Military
   Conflict." After explaining the defensive value of distance, the passage
   derives strategic depth and buffer zones as ways states place distance
