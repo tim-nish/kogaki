@@ -1,0 +1,18 @@
+<!-- tsurezure-client-kit:emission (staging candidate — the hub's gate is the sole promotion path) -->
+date: 2026-08-28
+repo: Kogaki
+grain: lesson
+
+## Trigger — what happened
+
+One issue shipped the same defect five times across three pull requests. A machine-readable grammar declared the shape of each rendered line, and a class whose declaration the matcher could not consume compiled to a pattern matching everything or nothing — either way covering the line it named while discriminating nothing about it. Occurrence one: a form carrying a literal escape sequence no rendered line begins with. Two: the repair moved it into a per-line array whose members are escaped whole, so placeholders in them matched nothing, and it silently broke a neighbouring class that had been matching. Three: a third class's array held literal text the same change had rewritten in the emitter. Four: a placeholder naming no declared token compiled to a wildcard admitting any indented line, so the coverage case written to catch occurrences one through three could not see it. Five: the token added to fix occurrence four was declared as a bare string where every other token in that file is an object carrying a shape field, so the reader returned the same wildcard — and the note written beside it asserted that the class now discriminated.
+
+## The learning
+
+A declaration has two readers: the human who writes it and the parser that consumes it. Where the parser silently degrades an unconsumable declaration to a permissive default rather than refusing it, the two readers diverge completely — the human reads a precise specification and the machine reads 'match anything'. Nothing in between reports the disagreement, because the file is well-formed, the suite is green, and the class exists. What makes this recur rather than being one slip is that each repair is authored in the same state that produced the original: the author has just learned that notation A does not work, reaches for notation B, and validates B by reading it rather than by asking the parser what B compiled to. The parser is right there and is never consulted, because the failure feels like a knowledge gap that has now been closed. Two structural properties worth naming. The permissive default is the whole mechanism: a parser that refused an unconsumable declaration would convert every one of these into an immediate loud failure, and the choice to degrade instead is usually made for good reasons elsewhere in the system, which is why it is not obviously the culprit. And the notation almost always has a small number of working exemplars in the same file — the four literal-text users of one array form, the dozen objects carrying a shape field — so 'follow the neighbours' is available and is exactly what nobody does when writing the novel case. The operative form: for any declaration a machine consumes, the verification is to ask the machine what it compiled to and assert against that, not to read the declaration and believe it. Print the pattern. Test that it refuses something it should refuse. A declaration you have only read is a hypothesis. The corollary is about the notes people write beside these: an assertion that a declaration now has some property is worth exactly as much as the check that ran, and where no check ran it is worse than silence, because it tells the next reader the question has been settled.
+
+---
+
+Emitted under `specs/spec-client-kit/SPEC.md` §4. This is a **candidate**:
+nothing here is promoted, and nothing here writes any recall surface. The
+hub's own selection gate decides whether it becomes anything.

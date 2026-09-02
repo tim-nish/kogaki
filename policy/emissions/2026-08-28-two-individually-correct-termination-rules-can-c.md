@@ -1,0 +1,18 @@
+<!-- tsurezure-client-kit:emission (staging candidate — the hub's gate is the sole promotion path) -->
+date: 2026-08-28
+repo: Kogaki
+grain: lesson
+
+## Trigger — what happened
+
+A review process caps a submission at two rounds; past the cap the submission is terminal and the work continues as a fresh submission declaring which one it replaces. A separate rule says a later report may not silently retire a blocking finding an earlier revision raised — the retirement must be declared against that revision's identifier. The two are joined by the replacement link: the engine walks the chain and reads the whole history as one. A finding was raised on the first submission, genuinely fixed, and declared retired in the successor's report — but the declaration named the successor's own earlier revision rather than the revision that raised it, and identity there is the pair of revision and ordinal. So the ancestor's finding stayed open. The successor was otherwise complete, and the engine returned the healthy verdict when asked without the chain and the terminal verdict when asked with it. A third submission would have inherited the same unretired finding, spent its two rounds, and terminated the same way. Nothing available to the authoring side could discharge it, because reports are written by the reviewing side.
+
+## The learning
+
+Termination is not a property any single rule has; it is a property of the composition, and it is exactly the property that clause-level review cannot see. Each rule here is not merely defensible but good: bounding rounds stops unbounded polish, and refusing silent retirement of a raised defect stops the worst failure a review lane has. What makes their composition non-terminating is that one rule ENDS a submission while the other CARRIES an obligation across the very link the ending creates — so the ending manufactures a new instance of the obligation instead of discharging it, and the exit is not an exit. Look for this shape wherever a bounded process's exit produces a successor that inherits state: the question to ask is not whether each rule is right but whether the exit's cost is strictly less than the process's, and specifically whether anything the exit produces can re-arm the condition that forced it. If it can, there is no terminating exit and the process runs until something outside it intervenes. Two properties make this a bad failure rather than a visible one. First, the deadlock is INDISTINGUISHABLE FROM ORDINARY WAITING — every submission in the chain shows the same benign awaiting-review state an ordinary one shows, so the count is the only signal and no participant sees the count. Second, the fault is unreachable from inside: the missing declaration belongs to the reviewing side, so no act available to the author discharges it, and every repair for the mechanism is held by the mechanism. The operative correction has two halves. Structurally, a self-gating mechanism owes a declared bypass of last resort — named, logged, and reserved to the person who owns the mechanism — because when the gate's own machinery is what broke, there is no path from within. Practically, when a bounded process parks, ask what parked it before spending the next iteration: here the terminal verdict was produced by an inherited join and not by the work under review, and the two are trivially separable by asking the engine the same question with and without the chain. An iteration spent on the wrong diagnosis is the mechanism's failure mode operating exactly as designed.
+
+---
+
+Emitted under `specs/spec-client-kit/SPEC.md` §4. This is a **candidate**:
+nothing here is promoted, and nothing here writes any recall surface. The
+hub's own selection gate decides whether it becomes anything.
