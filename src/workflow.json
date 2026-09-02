@@ -49,7 +49,7 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§11, §13.7"
+      "governing": "§11"
     },
     {
       "id": "J1_claims",
