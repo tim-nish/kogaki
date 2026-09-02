@@ -94,9 +94,19 @@ SWEEP_ROOTS=(src checks specs gates .claude/skills tools)
 # THE COUNT IS OF MATCHING LINES, which is what `git grep -c` reports — two
 # hits on one line count once. Stated because the anchor is a number and a
 # reader checking it by eye counts occurrences.
+# `specs/spec-draft-pipeline/SPEC.md` LEFT THE LIST at kogaki#784, and its
+# departure is a TIGHTENING rather than a relaxation. It was anchored at 3
+# because three historical records named the pre-rename path and were
+# deliberately left at their original spelling — rewriting a past observation's
+# path makes the record false about the run it describes. The #784 re-cut
+# removed those records under kogaki#743's history criterion, so the exemption's
+# whole population is gone and the file is now swept like any other: a `briefs/`
+# literal appearing there fails as an unexempt survivor rather than as a count
+# that moved. THE CHECK REPORTED THIS CORRECTLY when the re-cut landed — "a
+# removed one means a historical record was edited" is exactly what happened,
+# and the count was amended in the same act rather than after a second run.
 declare -A SWEEP_KNOWN=(
-  ["specs/spec-draft-pipeline/SPEC.md"]=3
-  ["checks/check-draft-cites.sh"]=3
+  ["checks/check-draft-cites.sh"]=4
   ["checks/registry.json"]=2
 )
 sweep_hits="$(git grep -n -- 'briefs/' -- "${SWEEP_ROOTS[@]}" 2>/dev/null || true)"
@@ -129,7 +139,7 @@ if [[ -n "$sweep_unexempt" ]]; then
   echo "$sweep_unexempt" | sed '/^$/d' | sed 's/^/  - /'
   FAIL=1
 else
-  echo "rename sweep (kogaki#766): 0 surviving briefs-path literal over ${sweep_scanned} tracked file(s) in ${SWEEP_ROOTS[*]}; 3 site(s) count-anchored at their known hits (specs/spec-draft-pipeline/SPEC.md=3 historical, checks/check-draft-cites.sh=3 self, checks/registry.json=2 the admission record)"
+  echo "rename sweep (kogaki#766): 0 surviving briefs-path literal over ${sweep_scanned} tracked file(s) in ${SWEEP_ROOTS[*]}; 2 site(s) count-anchored at their known hits (checks/check-draft-cites.sh=4 self, checks/registry.json=2 the admission record); specs/spec-draft-pipeline/SPEC.md left the list at kogaki#784 when the historical records carrying its three hits were re-cut away"
 fi
 
 shopt -s nullglob

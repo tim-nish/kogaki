@@ -18,7 +18,12 @@ realizes are **owed** rather than covered:
 > v1**: this spec stops at the Brief's structure, and both live downstream of
 > it."
 
-`specs/spec-draft-pipeline/SPEC.md:343-347`
+`specs/spec-draft-pipeline/SPEC.md::Items 3 and 4 are neither bound nor excluded here`
+— the quotation above is that clause's v1 wording, kept as quoted; the anchor
+resolves to its current sentence. **The line pointer this replaces did not
+resolve to the quoted text even before the kogaki#784 re-cut** — it addressed
+the WA scope-limit paragraph two sections away — which is the failure mode
+`specs/SPEC.md` §3.1 retires line pointers for.
 
 Sections for a second command would sit under a `Governs:` line that does not
 cover them. The cost of the alternative is stated rather than waved away: this
@@ -32,7 +37,11 @@ own. Whitelist items 3 and 4 are what `/draft` realizes; port manifest items 3
 and 4 are the proposal contract and the gate carrier, which it does not.
 The two are separately addressable and are cited separately: the port manifest is
 `specs/SPEC.md` §5, and the whitelist is kogaki#127's, recorded at
-`specs/spec-draft-pipeline/SPEC.md:234` and enumerated at `:290-295`.
+`specs/spec-draft-pipeline/SPEC.md::The owner's inheritance whitelist for this pipeline is exactly four items`,
+which both records and enumerates it. The two line pointers this replaces —
+one of them a bare `:290-295` continuation resolving from no tree at all —
+addressed a §4.3 sentence and a version-status paragraph respectively, and
+neither carried the whitelist at any head.
 
 **The first cut of this clause attributed the distinction to `specs/SPEC.md:4743-4747`,
 and those lines do not carry it.** §4.5.3 there distinguishes the whitelist from
