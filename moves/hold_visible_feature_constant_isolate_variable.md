@@ -16,7 +16,7 @@ failure_modes: >-
   Ignoring differences that compete with the proposed explanation; choosing
   cases only for the desired result; or claiming experimental certainty from
   a historical comparison.
-sources: >-
+excerpt: >-
   Observed in "Distance: Nine Out of Ten Nearby Great Powers Face Military
   Conflict." The passage compares rapid German advances into Poland and
   France with failure against the Soviet Union, directing attention to

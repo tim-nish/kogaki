@@ -1,5 +1,23 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v24, amended 2026-09-02 (kogaki#751, owner ruling 2026-09-02) —
+**the Move record's evidence field is `excerpt`, and an excerpt is the author's
+own account of the reader movement, never a verbatim quotation.** Two
+corrections to v23, both the owner's: (1) `Excerpt` does not mean a quoted
+passage — a Move derived at a meta level from a long article is not served by
+that article's text pasted into the record, and a verbatim requirement lowers
+the excerpt's value; (2) the field the records carried as `sources` **was
+already the excerpt** — the cleanup at kogaki#548 stripped the routing
+contamination and left the author's account under the wrong name — so there is
+no separate "source" information to preserve and no re-extraction to perform.
+The field is **renamed** in the 22 records, the ingestion tool and the
+contract; §4.13.1 and §4.13.2 are superseded in place; and a `sources` key
+surviving in a record is a design error the compose check now fails by name.
+Where older text below says `sources` of a Move record, read `excerpt` — that
+text is retained as record, not edited. §4.2's list and §4.7's rule, the two
+normative sites, are amended in place.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v23, amended 2026-09-02 (kogaki#751) — **§4.13, the
 reader-knowledge ledger**, and **§4.13.1, the Move exemplar predicate**,
 transcribing the second pair of 2026-09-01 owner rulings. A Step may declare
@@ -491,7 +509,9 @@ The subset adopted in the 2026-08-06 consultation and re-ruled by the owner
 - **`effect`**
 - **`constraints`**
 - **`failure_modes`**
-- **`sources`**
+- **`excerpt`** — the author's account of the reader movement they
+  observed when they identified the Move (v24; formerly `sources`, renamed
+  2026-09-02 — §4.13.1).
 
 **Moves ↔ Strands are many-to-many.** A Move may bind **no** Strand, several
 Strands, a Journey, the Thesis, or an earlier step's conclusion. Nothing
@@ -700,14 +720,17 @@ grounding, and Moves must not dilute or compete with it.**
 `product-lab@dec0d568 topics/articles.md:14`
 
 - **One local transition** per Move.
-- **The five-warrant sentence test.** Every sentence outside `sources` is
+- **The five-warrant sentence test.** Every sentence outside `excerpt` is
   warranted by exactly one of: the operation, the required prior reader state,
   the produced reader state, a valid-vs-invalid application distinction, an
   observable failure form. **A sentence whose removal changes none of them is
   removed.**
 - **One proposition, one field** — a proposition appearing in two fields is a
   defect in both.
-- **`sources` carries location and derivation only.**
+- **`excerpt` carries the observed reader movement and the article's title,
+  and nothing else** (v24; the v1 form read *`sources` carries location and
+  derivation only* — the field held the same account then, under a name that
+  described what the contaminated design had appended to it).
 - **A failure mode never paraphrases a constraint**, and a Move never describes
   an article position, a sequence of Moves, a whole-article outcome, or the
   materials an article must supply.
@@ -1377,104 +1400,149 @@ carry it are **judgments**. Nothing in this section reads meaning.
 **The disclosure-not-assertion choice**, and the completeness criterion above,
 both rest on served lines rather than on this sitting's taste. The library's
 exemplar count is rendered and never asserted because a check that failed when
-the count moved would go red **exactly when the re-extraction it enables is
-performed** — a check anti-correlated with its own need, where "its silence
+the count moved would go red **exactly when a record is authored or retired**
+(at v23: when the re-extraction it enabled was performed) — a check
+anti-correlated with its own need, where "its silence
 reads as a clean result"
 (`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
 topics/archive/claude-code-ops.md:24`).
 
-**The unbuilt half belongs in the RUN's own output** and not only here: a job
+**v23's unbuilt half belonged in the RUN's own output** and not only here: a job
 that stops on purpose and waits for something outside its control says so where
 the operator looks, because from outside "a deliberate hold and an
 accomplishment of nothing are indistinguishable"
 (`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
 LESSONS.md:37`).
+At v24 there is no unbuilt half (§4.13.2), and the receipt stays as the record
+of why the v23 run disclosed one.
 
-#### 4.13.1 The Move exemplar predicate — `Excerpt:` in `sources`
+#### 4.13.1 The Move exemplar predicate — the `excerpt` field (v24)
 
-`specs/move-extraction-contract.md` is the schema authority for Move records:
-`sources` carries a **verbatim excerpt** behind the literal marker `Excerpt:`,
-because **the excerpt is the exemplar a later writer imitates and a
-description cannot be imitated**.
+`specs/move-extraction-contract.md` is the schema authority for Move records.
+A record's **`excerpt`** is **the author's own account, in a few lines, of the
+specific reader movement they focused on when they identified the Move** —
+what the passage establishes, what it then shows the reader, where the reader
+ends up. It is **not a verbatim quotation** (owner ruling 2026-09-02): a Move
+derived at a meta level from a thousand- or ten-thousand-character article is
+not served by that text sitting in the record — it is noise — and a verbatim
+requirement would lower the excerpt's value rather than raise it. What a later
+writer imitates is the **movement**, and the author's account of it is the
+exemplar.
 
-A record without the marker **cannot serve as a Packet exemplar**, and the
-Packet renders its excerpt block as a **stated absence** rather than
-substituting anything. Both halves are load-bearing: the record stays legal
-and usable for everything else it carries, and the one thing it cannot do is
-stand in as the passage someone copies.
+**The field was renamed, not replaced.** The records' `sources` text was
+already this account. The original implementation wrote the Move-loading
+route into the field as a rubber-stamp, contaminating it with tags and
+routing information; kogaki#548 stripped that out, and what remained was the
+excerpt under the wrong name. There is **no separate piece of information
+called "source" to preserve**: the article's title inside the excerpt's first
+sentence is the whole of a record's provenance, and version history holds the
+rest. A `sources` key surviving beside `excerpt` in any record is a design
+error, and the compose check fails it by name.
 
-**This is a PREDICATE and not a refusal, and the reason is a fact about this
-repository.** Every one of the **22** Move records carries description-only
-`sources` today, so a rule that refused them would refuse the whole library.
-The ruling does not say that — it says such a record cannot be an **exemplar**
-— and that difference is what lets the mechanism ship ahead of the
-re-extraction it enables.
+**The predicate.** A record whose `excerpt` carries text **is** an exemplar; a
+record whose `excerpt` is **empty** cannot serve as a Packet exemplar, and the
+Packet renders its excerpt block as a **stated absence** naming the Move and
+the repairing act, substituting nothing. That is the one absence left: the
+v23 distinctions between an absent marker, a malformed marker and an empty one
+were distinctions among forms of quotation, and there is no quotation.
 
-**An empty marker is reported as its own absence, never as a short exemplar.**
-A record carrying `Excerpt:` with nothing after it claims standing and supplies
-nothing, which is worse than claiming none — so it refuses distinguishably, and
-a reader is told which repair is owed.
+**The retired marker is text.** A record whose excerpt happens to contain the
+string `Excerpt:` is an exemplar because it carries an account, not because of
+the marker, and the reader parses nothing out of it.
 
-**The library reads as a set of ids for §4.12 and as sources HERE, and the two
+**The library today: 22 of 22.** Every record carries an excerpt, which is the
+same fact v23 stated as "every record is description-only" — read under the
+correct definition. The count is still **disclosed and never asserted** (§4.13.0).
+
+**The library reads as a set of ids for §4.12 and as excerpts HERE, and the two
 readers stay separate.** §4.12's resolver deliberately reads ids and nothing
-else; this predicate reads `sources` and nothing else. Neither grows into the
+else; this predicate reads `excerpt` and nothing else. Neither grows into the
 other.
 
-#### 4.13.2 The re-extraction is UNBUILT, and why it is not deferred work
+#### 4.13.2 The re-extraction is WITHDRAWN — the issue's design was wrong (v24)
 
-The 2026-09-01 ruling also directs that the existing records be **re-extracted
-through the contract** so each carries a conforming excerpt. **That has not
-been done, and it could not be done from this repository.**
+v23 recorded a re-extraction of the 22 records as an unbuilt half with a named
+blocker: verbatim excerpts, and the four source articles neither in this tree
+nor on the served surface. **Both premises were wrong, and the owner said so
+on 2026-09-02**: the excerpt was never meant to be verbatim, and the field
+already held it. The 2026-09-01 ruling's *"re-extracted from their source
+articles through the contract"* is withdrawn by the same authority that issued
+it. No actor holding the source articles is awaited, no fabrication was ever at
+risk, and the v23 text below is retained as the record of a correct refusal
+made under a wrong premise — the refusal to fabricate quotations was right;
+the belief that quotations were owed was not.
 
-The excerpts must be **verbatim**, and the passages live in the source
-articles — *"Why Is a Weak State Like North Korea So Frightening?"*, *"Maritime
-and Continental States."*, *"Attack-Defense Advantage Is Ambiguous."* and their
-siblings. Those articles are **not in this tree and not on the served
-surface**: §7.6 already records that these Moves' `sources` "cannot cite a
-served pin today" because they sit in the hub's staging file and **staging is
-not served**. The material a verbatim excerpt would be copied from is
-unreachable from here.
+What v23 got right survives unchanged: **only the evidence field was touched**.
+Each record keeps its `id`, `status`, `intent`, `requires`, `effect`,
+`constraints` and `failure_modes` byte for byte; the rename changed one key
+and no value. And the round-2 finding carried on kogaki#751 — the greedy
+excerpt body in `src/compose.mjs` — is **retired with the marker it parsed**:
+there is no marker, no quoted body and no regex, so the defect has no site.
 
-**The one thing that must not happen is the thing that would look like
-progress.** Composing plausible passages and marking them `Excerpt:` would
-produce records that are *fabricated quotations presented as evidence* — the
-exact failure the contract's own rule 1 exists to prevent ("A paraphrase or
-description of the passage is not acceptable"), made worse by the marker
-asserting verbatimness. **A stated absence is the honest state and the
-mechanism above renders it.**
+The two-specs observation from the same round ("`sources`' shape in the
+contract, the predicate in §4.13.1") is answered the same way: the contract
+owns the field's content and this section owns what the Packet does with it,
+and the seam between them is now a field read whole rather than a grammar
+two files had to agree on.
 
-So the split is recorded rather than left to be inferred: **the mechanism is
-built and the migration is not**, and until then every record renders its
-absence.
+---
 
-**The next act is named rather than left implied.** A run that ends with work
-remaining names the next act or says there is none
-(`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
-topics/claude-code-ops.md:48`). It is: **an actor holding the four source
-articles re-extracts the 22 records through
-`specs/move-extraction-contract.md`, one article at a time**, and each record
-that gains a conforming `Excerpt:` becomes an exemplar with no further change
-to anything here — the predicate already admits it, and the disclosed count
-moves on its own.
+*v23's §4.13.2 text, retained as record:*
 
-**The completeness criterion, stated in the same act as the purity one.** The
-predicate above is one-sided: it tests for the marker's PRESENCE, and a
-one-sided test "is satisfied most cheaply by deleting behaviour"
-(`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
-topics/claude-code-ops.md:132`). So what a re-extraction must PRESERVE is
-written down here rather than discovered by its reviewer: each record keeps its
-`id`, its `status`, and its `intent`/`requires`/`effect`/`constraints`/
-`failure_modes` as they stand — only `sources` is rewritten — because those
-five fields were authored against the reader and the technique rather than
-against the passage, and re-deriving them from an excerpt would narrow a
-general Move to the one article it was observed in. A re-extraction that
-changes them is a re-authoring and owes its own licence.
-
-**Why this is not a deferred slot.** A deferred slot names an undecided fork.
-Nothing here is undecided: the design is settled, the mechanism is shipped, and
-what remains is an act requiring material this repository does not hold. It is
-an unbuilt half with a named blocker, and calling it a fork would misfile it as
-a question when it is an errand.
+>
+> The 2026-09-01 ruling also directs that the existing records be **re-extracted
+> through the contract** so each carries a conforming excerpt. **That has not
+> been done, and it could not be done from this repository.**
+>
+> The excerpts must be **verbatim**, and the passages live in the source
+> articles — *"Why Is a Weak State Like North Korea So Frightening?"*, *"Maritime
+> and Continental States."*, *"Attack-Defense Advantage Is Ambiguous."* and their
+> siblings. Those articles are **not in this tree and not on the served
+> surface**: §7.6 already records that these Moves' `sources` "cannot cite a
+> served pin today" because they sit in the hub's staging file and **staging is
+> not served**. The material a verbatim excerpt would be copied from is
+> unreachable from here.
+>
+> **The one thing that must not happen is the thing that would look like
+> progress.** Composing plausible passages and marking them `Excerpt:` would
+> produce records that are *fabricated quotations presented as evidence* — the
+> exact failure the contract's own rule 1 exists to prevent ("A paraphrase or
+> description of the passage is not acceptable"), made worse by the marker
+> asserting verbatimness. **A stated absence is the honest state and the
+> mechanism above renders it.**
+>
+> So the split is recorded rather than left to be inferred: **the mechanism is
+> built and the migration is not**, and until then every record renders its
+> absence.
+>
+> **The next act is named rather than left implied.** A run that ends with work
+> remaining names the next act or says there is none
+> (`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
+> topics/claude-code-ops.md:48`). It is: **an actor holding the four source
+> articles re-extracts the 22 records through
+> `specs/move-extraction-contract.md`, one article at a time**, and each record
+> that gains a conforming `Excerpt:` becomes an exemplar with no further change
+> to anything here — the predicate already admits it, and the disclosed count
+> moves on its own.
+>
+> **The completeness criterion, stated in the same act as the purity one.** The
+> predicate above is one-sided: it tests for the marker's PRESENCE, and a
+> one-sided test "is satisfied most cheaply by deleting behaviour"
+> (`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
+> topics/claude-code-ops.md:132`). So what a re-extraction must PRESERVE is
+> written down here rather than discovered by its reviewer: each record keeps its
+> `id`, its `status`, and its `intent`/`requires`/`effect`/`constraints`/
+> `failure_modes` as they stand — only `sources` is rewritten — because those
+> five fields were authored against the reader and the technique rather than
+> against the passage, and re-deriving them from an excerpt would narrow a
+> general Move to the one article it was observed in. A re-extraction that
+> changes them is a re-authoring and owes its own licence.
+>
+> **Why this is not a deferred slot.** A deferred slot names an undecided fork.
+> Nothing here is undecided: the design is settled, the mechanism is shipped, and
+> what remains is an act requiring material this repository does not hold. It is
+> an unbuilt half with a named blocker, and calling it a fork would misfile it as
+> a question when it is an errand.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 

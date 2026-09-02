@@ -16,7 +16,7 @@ failure_modes: >-
   Selecting a convenient but irrelevant proxy; narrowing circularly around
   the desired conclusion; or presenting the criterion without connecting it
   to the original question.
-sources: >-
+excerpt: >-
   Observed in "Geography Has the Greatest Influence on the Security
   Dilemma." The passage narrows the broad question of geographic
   attack-defense effects to whether a geographic condition facilitates or

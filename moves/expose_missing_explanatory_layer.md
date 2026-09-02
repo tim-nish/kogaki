@@ -16,7 +16,7 @@ failure_modes: >-
   Rejecting a partially valid explanation as wholly false; adding a factor
   that does not resolve the mismatch; or manufacturing an anomaly to justify
   the new layer.
-sources: >-
+excerpt: >-
   Observed in "Why Is a Weak State Like North Korea So Frightening?" North
   Korea's limited military scale does not account for the degree of fear it
   produces, so the passage introduces opacity and unpredictability as the

@@ -16,7 +16,7 @@ failure_modes: >-
   Treating permanence as sufficient evidence of causation; comparing
   irrelevant time horizons; or ignoring meaningful changes in the supposedly
   stable factor.
-sources: >-
+excerpt: >-
   Observed in "Geography Has the Greatest Influence on the Security
   Dilemma." The passage contrasts changing weapons and political systems
   with geographic conditions that remain distinctive across countries and

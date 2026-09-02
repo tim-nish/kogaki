@@ -16,7 +16,7 @@ failure_modes: >-
   Recommending a response without connecting it to the mechanism; confusing
   correlation with intervention; or claiming complete prevention from
   partial mitigation.
-sources: >-
+excerpt: >-
   Observed in "Why Is a Weak State Like North Korea So Frightening?" After
   opacity is shown to increase uncertainty, diplomacy and recurring summit
   meetings are explained as practices that reveal intentions and make

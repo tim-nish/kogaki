@@ -16,7 +16,7 @@ failure_modes: >-
   Listing escalation without showing the feedback loop; assigning hostile
   intent where the actors face uncertainty; or treating escalation as
   inevitable.
-sources: >-
+excerpt: >-
   Observed in "Why Is a Weak State Like North Korea So Frightening?" The
   passage explains how unclear military expansion leads other states to arm
   defensively, producing mutual suspicion and further expansion. It later

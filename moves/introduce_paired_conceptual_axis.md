@@ -16,7 +16,7 @@ failure_modes: >-
   Pairing cases that differ along unrelated dimensions; leaving the
   comparison criterion implicit; or turning illustrative endpoints into a
   false binary.
-sources: >-
+excerpt: >-
   Observed in "Why Is a Weak State Like North Korea So Frightening?" A
   defensive wall and offensive artillery establish clear endpoints for
   understanding how a weapon's function can reveal whether its holder

@@ -15,7 +15,7 @@ constraints: >-
 failure_modes: >-
   Treating any later change as counteradaptation; omitting how the response
   weakens the advantage; or presenting eventual balance as inevitable.
-sources: >-
+excerpt: >-
   Observed in "Attack-Defense Advantage Is Ambiguous." Artillery first
   shifts siege warfare toward attack, after which defenders adopt stone
   construction, deeper and wider moats, elevated observation, and defensive
