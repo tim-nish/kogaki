@@ -1,5 +1,20 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v23, amended 2026-09-02 (kogaki#751) — **§4.13, the
+reader-knowledge ledger**, and **§4.13.1, the Move exemplar predicate**,
+transcribing the second pair of 2026-09-01 owner rulings. A Step may declare
+`introduces`; the harness DERIVES `reader_already_knows` for Step N as the
+union of Steps 1..N−1 — always computed, never stored — which makes an
+unintroduced term addressable to the first Step carrying it, or to the Brief
+when none does. A Move record without a verbatim `Excerpt:` cannot serve as a
+Packet exemplar, and the block renders a STATED ABSENCE rather than
+substituting the description. **§4.13.2 records what is NOT built**: the
+re-extraction of the 22 existing records is unbuildable from this repository —
+the source articles are neither in the tree nor served — and fabricating
+excerpts is the one act the contract exists to prevent.
+**deferred slots minted by this amendment: none** — §4.13.2 is an unbuilt
+half with a named blocker, not an undecided fork.
+
 **Status:** v22, amended 2026-09-02 (kogaki#747) — **§4.12, the Step↔Move
 instantiation contract**, transcribing the owner rulings of 2026-09-01. A Step
 instantiates a Move, and until now nothing checked any part of that
@@ -1309,6 +1324,157 @@ the served one — a superseded clause keeps its text and gains the amendment, s
 a reader arriving at an older rendering meets the correction rather than a live
 claim.
 `consulted: product-lab@f3947495a753371d4777f82e87e490debc5f9cb7 GLOSSARY.md:242`
+
+### 4.13 The reader-knowledge ledger — `introduces` on a Step (v23, kogaki#751)
+
+A Step may carry **`introduces`**: the terms or concepts it puts in front of
+the reader for the first time, each **bare** or with a **one-line meaning
+anchor** where the Step's own grounds do not already supply it. Authored at
+**Brief composition**, by the composer, like every other Step field.
+
+The harness then **derives** what a reader already knows arriving at Step N:
+the **union of Steps 1..N−1's entries**.
+
+**Accumulation is always computed, never stored.** `reader_already_knows` is
+not a field, is not written into a Brief, and is not carried in a run record.
+A stored copy would be a second answer to a question the path already answers,
+and it would be wrong the moment a Step moved.
+
+**What the field buys, stated because it is the whole point.** An unintroduced
+term becomes **addressable**: responsibility traces to **the first Step
+carrying it**, or to **the Brief** when no Step does. That is a fact about the
+path rather than a judgment about the prose — which is what lets it be
+mechanical at all.
+
+**First introducer wins, and that IS the addressability rather than a
+tie-break.** Where two Steps declare the same term, the reader met it at the
+earlier one, so that is where a later question resolves. The second
+declaration is **not an error** — a composer may legitimately restate a term —
+and it is not silently dropped either: it simply moves nothing.
+
+**One line per entry, and the serialization could not be otherwise.** A term
+may contain a comma and its anchor almost always does, so a comma-joined field
+cannot be parsed back. `renderStep` writes one `introduces:` line per entry and
+`parseBrief` reads them back the same way; the two are one round trip and are
+asserted at both ends.
+
+**A malformed entry refuses NAMING the Step**, on both sides, through one
+shared grammar — a writer and a reader disagreeing about what an entry is
+would fail silently at exactly the field whose value nobody re-derives by hand.
+
+**An empty ledger is a reading, never a failure.** A path that introduces
+nothing derives an empty ledger and says so. Every Brief in this repository is
+in that state today, which is why the field is **optional** and why a
+requirement would have refused the whole existing corpus rather than adding
+anything to it.
+
+**Shape only, and §4.6 clause 3 stands.** Whether a term is genuinely new
+here, whether its anchor explains it, and whether the Step's grounds already
+carry it are **judgments**. Nothing in this section reads meaning.
+
+#### 4.13.0 Receipts
+
+**The disclosure-not-assertion choice**, and the completeness criterion above,
+both rest on served lines rather than on this sitting's taste. The library's
+exemplar count is rendered and never asserted because a check that failed when
+the count moved would go red **exactly when the re-extraction it enables is
+performed** — a check anti-correlated with its own need, where "its silence
+reads as a clean result"
+(`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
+topics/archive/claude-code-ops.md:24`).
+
+**The unbuilt half belongs in the RUN's own output** and not only here: a job
+that stops on purpose and waits for something outside its control says so where
+the operator looks, because from outside "a deliberate hold and an
+accomplishment of nothing are indistinguishable"
+(`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
+LESSONS.md:37`).
+
+#### 4.13.1 The Move exemplar predicate — `Excerpt:` in `sources`
+
+`specs/move-extraction-contract.md` is the schema authority for Move records:
+`sources` carries a **verbatim excerpt** behind the literal marker `Excerpt:`,
+because **the excerpt is the exemplar a later writer imitates and a
+description cannot be imitated**.
+
+A record without the marker **cannot serve as a Packet exemplar**, and the
+Packet renders its excerpt block as a **stated absence** rather than
+substituting anything. Both halves are load-bearing: the record stays legal
+and usable for everything else it carries, and the one thing it cannot do is
+stand in as the passage someone copies.
+
+**This is a PREDICATE and not a refusal, and the reason is a fact about this
+repository.** Every one of the **22** Move records carries description-only
+`sources` today, so a rule that refused them would refuse the whole library.
+The ruling does not say that — it says such a record cannot be an **exemplar**
+— and that difference is what lets the mechanism ship ahead of the
+re-extraction it enables.
+
+**An empty marker is reported as its own absence, never as a short exemplar.**
+A record carrying `Excerpt:` with nothing after it claims standing and supplies
+nothing, which is worse than claiming none — so it refuses distinguishably, and
+a reader is told which repair is owed.
+
+**The library reads as a set of ids for §4.12 and as sources HERE, and the two
+readers stay separate.** §4.12's resolver deliberately reads ids and nothing
+else; this predicate reads `sources` and nothing else. Neither grows into the
+other.
+
+#### 4.13.2 The re-extraction is UNBUILT, and why it is not deferred work
+
+The 2026-09-01 ruling also directs that the existing records be **re-extracted
+through the contract** so each carries a conforming excerpt. **That has not
+been done, and it could not be done from this repository.**
+
+The excerpts must be **verbatim**, and the passages live in the source
+articles — *"Why Is a Weak State Like North Korea So Frightening?"*, *"Maritime
+and Continental States."*, *"Attack-Defense Advantage Is Ambiguous."* and their
+siblings. Those articles are **not in this tree and not on the served
+surface**: §7.6 already records that these Moves' `sources` "cannot cite a
+served pin today" because they sit in the hub's staging file and **staging is
+not served**. The material a verbatim excerpt would be copied from is
+unreachable from here.
+
+**The one thing that must not happen is the thing that would look like
+progress.** Composing plausible passages and marking them `Excerpt:` would
+produce records that are *fabricated quotations presented as evidence* — the
+exact failure the contract's own rule 1 exists to prevent ("A paraphrase or
+description of the passage is not acceptable"), made worse by the marker
+asserting verbatimness. **A stated absence is the honest state and the
+mechanism above renders it.**
+
+So the split is recorded rather than left to be inferred: **the mechanism is
+built and the migration is not**, and until then every record renders its
+absence.
+
+**The next act is named rather than left implied.** A run that ends with work
+remaining names the next act or says there is none
+(`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
+topics/claude-code-ops.md:48`). It is: **an actor holding the four source
+articles re-extracts the 22 records through
+`specs/move-extraction-contract.md`, one article at a time**, and each record
+that gains a conforming `Excerpt:` becomes an exemplar with no further change
+to anything here — the predicate already admits it, and the disclosed count
+moves on its own.
+
+**The completeness criterion, stated in the same act as the purity one.** The
+predicate above is one-sided: it tests for the marker's PRESENCE, and a
+one-sided test "is satisfied most cheaply by deleting behaviour"
+(`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f
+topics/claude-code-ops.md:132`). So what a re-extraction must PRESERVE is
+written down here rather than discovered by its reviewer: each record keeps its
+`id`, its `status`, and its `intent`/`requires`/`effect`/`constraints`/
+`failure_modes` as they stand — only `sources` is rewritten — because those
+five fields were authored against the reader and the technique rather than
+against the passage, and re-deriving them from an excerpt would narrow a
+general Move to the one article it was observed in. A re-extraction that
+changes them is a re-authoring and owes its own licence.
+
+**Why this is not a deferred slot.** A deferred slot names an undecided fork.
+Nothing here is undecided: the design is settled, the mechanism is shipped, and
+what remains is an act requiring material this repository does not hold. It is
+an unbuilt half with a named blocker, and calling it a fork would misfile it as
+a question when it is an errand.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 

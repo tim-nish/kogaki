@@ -122,6 +122,17 @@ export function validateSteps(steps) {
         return { error: `${at}: bridges, when present, names the two adjacent steps this Step was inserted between (§4.11) — an array of exactly two step ids` };
       }
     }
+    // §4.13's `introduces` (kogaki#751) — OPTIONAL, and validated here for
+    // the same reason `bridges` is: the accumulation the Packet derives from
+    // it is rendered at an owner-facing surface, so an unvalidated entry
+    // renders as a blank term or as `undefined` in a reader-knowledge ledger.
+    // SHAPE ONLY. Whether a term is genuinely introduced HERE, whether the
+    // anchor explains it, and whether the Step's grounds already carry it are
+    // judgments — §4.6 clause 3 stands and nothing below reads meaning.
+    if (s.introduces !== undefined) {
+      const bad = introducesRefusal(s.introduces, at);
+      if (bad) return { error: bad };
+    }
     if (!Array.isArray(s.grounds) || s.grounds.length === 0) {
       return { error: `${at}: grounds are required — specific propositions, each a Strand proposition, a named earlier Step's effect, or a declared reader assumption (§4.4)` };
     }
@@ -332,6 +343,209 @@ export function validateSpecialization(record, steps, candidateId) {
   return { ok: true, judged: steps.length };
 }
 
+// ---------------------------------------------------------------------------
+// THE MOVE EXEMPLAR PREDICATE (§4.13.1, kogaki#751; owner ruling 2026-09-01).
+//
+// `specs/move-extraction-contract.md` is the schema authority for Move
+// records: `sources` carries a VERBATIM excerpt behind the literal marker
+// `Excerpt:`, because the excerpt is what a later writer imitates and a
+// description cannot be imitated.
+//
+// A record without the marker CANNOT SERVE AS A PACKET EXEMPLAR, and the
+// Packet renders its excerpt block as a STATED ABSENCE rather than
+// substituting anything. That is the whole predicate, and both halves matter:
+// the record stays legal and usable for everything else it carries, and the
+// one thing it cannot do is stand in as the exemplar a writer copies.
+//
+// WHY THIS IS A PREDICATE AND NOT A REFUSAL. Every one of this repository's 22
+// Move records carries description-only `sources` today
+// (#751's body says 23; it counted `moves/INDEX.md`, which is a regenerated
+// view and never a record — the figure is corrected here rather than carried), so a rule that
+// refused them would refuse the whole library. The ruling does not say that —
+// it says such a record cannot be an EXEMPLAR — and the difference is what
+// lets the mechanism ship ahead of the re-extraction it enables.
+export const EXCERPT_MARKER = "Excerpt:";
+
+// Reads a Move record's `sources` text. Returns the excerpt, or the reason
+// there is none — never a substitute, and never an empty string standing in
+// for a passage.
+export function moveExcerpt(sourcesText) {
+  const t = typeof sourcesText === "string" ? sourcesText : "";
+  // ANCHORED TO LINE START, AND THE QUOTATION MARKS ARE REQUIRED (PR #775
+  // round 1). The first form matched the marker ANYWHERE in the text with the
+  // quotes optional — so a `sources` whose prose merely MENTIONS `Excerpt:`,
+  // including one explaining that no excerpt exists yet, handed its trailing
+  // description back as a verbatim passage and flipped the record to exemplar
+  // standing. That is the ruling's own failure reached from the admitting
+  // side, and it is the worse direction: a false exemplar is a description a
+  // writer copies believing it is the author's words.
+  //
+  // Both halves come from the contract rather than from taste. Rule 3 puts
+  // context sentences BEFORE the marker, so the marker legitimately begins its
+  // own line — anchoring costs a conforming record nothing. And the output
+  // format mandates `Excerpt: "<the verbatim passage>"`, quotes included, so
+  // requiring them is reading the contract rather than tightening past it.
+  // The translated form is the same marker with a parenthetical (rule 5);
+  // both are exemplars and the reader is told which.
+  const m = t.match(/^[ \t]*Excerpt(\s*\(translated\))?:[ \t]*"([\s\S]*)"[ \t]*$/m);
+  if (!m) {
+    // DISTINGUISHED from "no marker at all", because they need different
+    // repairs: an unquoted or mid-line marker is a MALFORMED excerpt whose
+    // author believed they had supplied one, and reporting it as an absence
+    // would send them to re-extract a passage they already have.
+    if (/Excerpt(\s*\(translated\))?:/.test(t)) {
+      return {
+        excerpt: null,
+        translated: false,
+        absence: `this record's sources mention ${EXCERPT_MARKER} but not in the form the contract mandates — the marker begins its own line and the passage is in quotation marks (\`Excerpt: "…"\`, output format and rule 3). It is NOT read as an exemplar, because an unanchored match would admit prose that merely mentions the marker (§4.13.1)`,
+      };
+    }
+    return {
+      excerpt: null,
+      translated: false,
+      absence: `this record's sources carry no ${EXCERPT_MARKER} marker, so it holds a DESCRIPTION of the passage rather than the passage — it cannot serve as an exemplar (§4.13.1). Re-extract it through specs/move-extraction-contract.md against its source article.`,
+    };
+  }
+  // A marker with nothing between the quotes is worse than no marker: it
+  // claims exemplar standing and supplies nothing, so it is reported as its
+  // own absence rather than as an empty exemplar.
+  const body = m[2].trim();
+  if (body === "") {
+    return {
+      excerpt: null,
+      translated: Boolean(m[1]),
+      absence: `this record carries an ${EXCERPT_MARKER} marker with no passage after it — an empty exemplar claims standing it cannot supply (§4.13.1)`,
+    };
+  }
+  return { excerpt: body, translated: Boolean(m[1]), absence: null };
+}
+
+// Can this record stand as the exemplar a writer imitates?
+export function isExemplar(sourcesText) {
+  return moveExcerpt(sourcesText).excerpt !== null;
+}
+
+// The Packet's excerpt block, rendered. A STATED ABSENCE is a rendering and
+// never an error: the assembler that meets a description-only record says so
+// in the block where the passage would have gone, so a reader knows they are
+// looking at a gap rather than at a short exemplar.
+export function renderExcerptBlock(moveId, sourcesText) {
+  const r = moveExcerpt(sourcesText);
+  if (r.excerpt === null) {
+    return `exemplar (${moveId}): NONE — ${r.absence}`;
+  }
+  return `exemplar (${moveId})${r.translated ? ", translated" : ""}:\n${r.excerpt}`;
+}
+
+// ---------------------------------------------------------------------------
+// THE READER-KNOWLEDGE LEDGER (§4.13, kogaki#751; owner ruling 2026-09-01).
+//
+// A Step may declare `introduces` — the terms or concepts it puts in front of
+// the reader for the first time, each bare or carrying a one-line meaning
+// anchor where the Step's own grounds do not supply it. The harness then
+// DERIVES what a reader already knows at Step N as the union of Steps 1..N-1's
+// entries.
+//
+// ACCUMULATION IS ALWAYS COMPUTED, NEVER STORED. `reader_already_knows` is not
+// a field, is not written into a Brief, and is not carried in a run record —
+// it is a function of the path, recomputed wherever it is needed. A stored
+// copy would be a second answer to a question the path already answers, and it
+// would go stale the moment a Step moved.
+//
+// What the field buys, stated because it is the whole point: an unintroduced
+// term becomes ADDRESSABLE. Responsibility traces to the first Step carrying
+// the term, or to the Brief when no Step does — which is a fact about the path
+// rather than a judgment about the prose.
+
+// The entry grammar, in one place because two readers consume it: the
+// composition side validates records, and `draft.mjs parseBrief` parses the
+// serialized form back. A `term` alone, or `term — anchor`, on one line.
+const INTRODUCES_SEP = "—";
+
+export function parseIntroducesEntry(raw) {
+  const line = String(raw).trim();
+  if (line === "") return { error: "an empty entry" };
+  const i = line.indexOf(INTRODUCES_SEP);
+  if (i === -1) return { term: line, anchor: null };
+  const term = line.slice(0, i).trim();
+  const anchor = line.slice(i + INTRODUCES_SEP.length).trim();
+  if (term === "") return { error: `an entry with no term before the ${INTRODUCES_SEP}` };
+  if (anchor === "") return { error: `"${term}" carries a ${INTRODUCES_SEP} with no meaning anchor after it — write the term bare, or anchor it` };
+  return { term, anchor };
+}
+
+// Shape refusal over a whole `introduces` value. Returns a string to refuse
+// with, or null. `at` is the caller's own way of naming the Step, so one
+// grammar serves the record side and the document side without either
+// inventing wording the other does not use.
+export function introducesRefusal(value, at) {
+  if (!Array.isArray(value)) {
+    return `${at}: introduces, when present, is an array of entries — a term the Step puts in front of the reader for the first time, bare or with a one-line meaning anchor (§4.13)`;
+  }
+  const seen = new Set();
+  for (const raw of value) {
+    if (typeof raw !== "string") {
+      return `${at}: introduces carries a non-string entry — each entry is one line, "term" or "term ${INTRODUCES_SEP} anchor" (§4.13)`;
+    }
+    const e = parseIntroducesEntry(raw);
+    if (e.error) return `${at}: introduces carries ${e.error} (§4.13)`;
+    const key = e.term.toLowerCase();
+    if (seen.has(key)) {
+      return `${at}: introduces names "${e.term}" twice — a term is introduced once, and a Step claiming it twice makes the ledger's own count wrong (§4.13)`;
+    }
+    seen.add(key);
+  }
+  return null;
+}
+
+// THE DERIVATION. For each Step in path order, what the reader already knows
+// arriving at it: the union of every EARLIER Step's entries, first-introducer
+// kept. Pure over the path — no store, no file, no I/O.
+//
+// FIRST INTRODUCER WINS, and that is the addressability property rather than a
+// tie-break: where two Steps declare the same term, the reader met it at the
+// earlier one, so that is the Step a later question about the term resolves
+// to. The second declaration is not an error — a composer may legitimately
+// re-state a term — and it is not silently dropped either: it simply does not
+// move the responsibility.
+export function readerKnowledgeLedger(steps) {
+  const known = new Map(); // term (lowercased) -> { term, anchor, introduced_by }
+  const rows = [];
+  for (const s of steps) {
+    // The snapshot is taken BEFORE this Step's own entries are folded in: a
+    // Step does not already know what it is itself introducing.
+    rows.push({
+      step_id: s.step_id,
+      reader_already_knows: [...known.values()].map((v) => ({ ...v })),
+    });
+    for (const raw of s.introduces || []) {
+      const e = parseIntroducesEntry(raw);
+      if (e.error) continue; // validated upstream; a bad entry never reaches here
+      const key = e.term.toLowerCase();
+      if (!known.has(key)) {
+        known.set(key, { term: e.term, anchor: e.anchor, introduced_by: s.step_id });
+      }
+    }
+  }
+  return rows;
+}
+
+// Where responsibility for a term lies: the FIRST Step that introduces it, or
+// `null` — meaning the Brief itself — when no Step does. The null case is the
+// point of the function and not an error path: an article may legitimately
+// rely on a term its path never introduces, and the ledger's job is to say
+// SO, addressably, rather than to refuse.
+export function introducerOf(term, steps) {
+  const key = String(term).trim().toLowerCase();
+  for (const s of steps) {
+    for (const raw of s.introduces || []) {
+      const e = parseIntroducesEntry(raw);
+      if (!e.error && e.term.toLowerCase() === key) return s.step_id;
+    }
+  }
+  return null;
+}
+
 export function renderStep(s) {
   const L = [];
   L.push("```step");
@@ -346,6 +560,12 @@ export function renderStep(s) {
   for (const g of s.grounds) {
     L.push(`ground (${g.type}${g.strand ? ` ${g.strand}` : ""}${g.step ? ` ${g.step}` : ""}): ${g.proposition}`);
   }
+  // §4.13 (kogaki#751): one LINE per entry, never a comma-joined list. A term
+  // may legitimately contain a comma, and its anchor almost always does, so a
+  // joined field could not be parsed back — the serialization and
+  // `parseBrief`'s reader are one round trip and this is the half that makes
+  // it possible.
+  for (const e of s.introduces || []) L.push(`introduces: ${e}`);
   if (s.bridges) L.push(`bridges: ${s.bridges.join(", ")}`);
   if (s.entailed === true) {
     L.push(`entailed: true`);

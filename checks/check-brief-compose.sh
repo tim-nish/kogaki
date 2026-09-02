@@ -24,12 +24,15 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements, replaceSlot } from "./src/compose.mjs";
-import { resolveMoveIds, validateSpecialization, loadMoveIds } from "./src/compose.mjs";
+import { resolveMoveIds, validateSpecialization, loadMoveIds,
+         introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
+         moveExcerpt, isExemplar, renderExcerptBlock } from "./src/compose.mjs";
 import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./src/assemble.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 
 const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
 const fails = [];
+let exemplarLine = "the Move library was not read";
 const dir = mkdtempSync(join(tmpdir(), "brief-compose-"));
 const theses = join(dir, "theses");
 const run = (argv) => spawnSync(process.execPath, argv, { encoding: "utf8" });
@@ -469,6 +472,152 @@ try {
     if (!bo.error || !/step t1:/.test(bo.error)) fails.push("(k) with two failing Steps the refusal does not name the FIRST in path order");
   }
 
+
+  // (m) §4.13 — THE READER-KNOWLEDGE LEDGER, and §4.13.1's exemplar predicate
+  // (kogaki#751). Both are SHAPE and DERIVATION only: whether a term is really
+  // introduced here, whether its anchor explains it, and whether an excerpt is
+  // the right passage are judgments (§4.6 clause 3), and nothing below reads
+  // meaning.
+  {
+    // THE FIELD IS OPTIONAL, and that is asserted first: every existing Step
+    // carries no `introduces`, so a requirement would have refused the whole
+    // suite above rather than adding a field to it.
+    if (validateSteps([step1, step2]).error) fails.push("(m) introduces was made REQUIRED — every Step composed before §4.13 carries none");
+    const ok = validateSteps([{ ...step1, introduces: ["opacity — what a state conceals about its capabilities", "deterrence"] }]);
+    if (ok.error) fails.push(`(m) a conforming introduces was refused: ${ok.error}`);
+
+    // THE ENTRY GRAMMAR, both forms, and each refusal naming the STEP.
+    const bare = parseIntroducesEntry("deterrence");
+    if (bare.term !== "deterrence" || bare.anchor !== null) fails.push("(m) a bare term did not parse as a term with no anchor");
+    const anchored = parseIntroducesEntry("opacity — what a state conceals");
+    if (anchored.term !== "opacity" || anchored.anchor !== "what a state conceals") fails.push("(m) an anchored entry did not split into term and anchor");
+    // A term may CONTAIN a comma, and its anchor almost always does — the
+    // reason the serialization is one line per entry rather than a joined
+    // list. Asserted so a later edit cannot "simplify" it back to a join.
+    const commas = parseIntroducesEntry("the security dilemma — where one state's defences, however defensive, read as threats");
+    if (commas.term !== "the security dilemma" || !commas.anchor.includes(",")) fails.push("(m) an anchor carrying commas did not survive the entry grammar — a comma-joined field could not round-trip");
+
+    for (const [label, value, needle] of [
+      ["a non-array", "deterrence", "array of entries"],
+      ["a non-string entry", [42], "non-string entry"],
+      ["an empty entry", [""], "empty entry"],
+      ["a dangling separator", ["opacity — "], "no meaning anchor"],
+      ["an anchor with no term", ["— what a state conceals"], "no term"],
+      ["a duplicate term", ["opacity", "Opacity"], "twice"],
+    ]) {
+      const r = validateSteps([{ ...step1, introduces: value }]);
+      if (!r.error) fails.push(`(m) ${label} was accepted as an introduces value`);
+      else {
+        if (!r.error.includes(needle)) fails.push(`(m) the refusal for ${label} does not say why — expected it to name ${JSON.stringify(needle)}`);
+        if (!/s1/.test(r.error)) fails.push(`(m) the refusal for ${label} does not NAME the Step (acceptance: a malformed entry refuses naming the Step)`);
+      }
+    }
+
+    // THE DERIVATION — the union of 1..N-1, snapshot taken BEFORE the Step's
+    // own entries, so a Step never already knows what it introduces.
+    const path = [
+      { step_id: "p1", introduces: ["opacity — what a state conceals"] },
+      { step_id: "p2", introduces: ["deterrence"] },
+      { step_id: "p3" },
+    ];
+    const led = readerKnowledgeLedger(path);
+    if (led.length !== 3) fails.push("(m) the ledger does not carry one row per Step");
+    if (led[0].reader_already_knows.length !== 0) fails.push("(m) the first Step arrives already knowing something — the snapshot is taken after its own entries");
+    if (led[1].reader_already_knows.map((k) => k.term).join() !== "opacity") fails.push("(m) step 2 does not know exactly what step 1 introduced");
+    if (led[2].reader_already_knows.map((k) => k.term).sort().join() !== "deterrence,opacity") fails.push("(m) the accumulation is not the UNION of every earlier Step");
+    if (led[1].reader_already_knows[0].anchor !== "what a state conceals") fails.push("(m) the anchor does not travel with the term into the ledger");
+    if (led[1].reader_already_knows[0].introduced_by !== "p1") fails.push("(m) the ledger does not carry WHICH Step introduced the term — the addressability the field exists for");
+
+    // A PATH THAT INTRODUCES NOTHING RENDERS AN EMPTY LEDGER, NOT AN ERROR
+    // (acceptance). This is the case every Brief in the tree is in today.
+    const none = readerKnowledgeLedger([{ step_id: "n1" }, { step_id: "n2" }]);
+    if (none.length !== 2) fails.push("(m) a path with no introduces produced no ledger rows");
+    if (none.some((r) => r.reader_already_knows.length !== 0)) fails.push("(m) a path introducing nothing derived a non-empty ledger");
+
+    // FIRST INTRODUCER WINS, and responsibility for an UNINTRODUCED term is
+    // the Brief's — a null that is the point of the function, not an error.
+    // THREE Steps, not two, and the third is what makes the assertion below
+    // possible: a re-declaration folds in AFTER its own row's snapshot, so on
+    // a two-Step path the only row that could show the difference does not
+    // exist and a last-introducer-wins mutation passes silently. Found by
+    // running exactly that mutation.
+    const twice = [{ step_id: "t1", introduces: ["x"] }, { step_id: "t2", introduces: ["x"] }, { step_id: "t3" }];
+    if (introducerOf("x", twice) !== "t1") fails.push("(m) responsibility for a twice-declared term does not trace to the FIRST Step");
+    if (introducerOf("X", twice) !== "t1") fails.push("(m) introducer lookup is case-sensitive — the same term in two casings is one term everywhere else");
+    if (introducerOf("unheard-of", twice) !== null) fails.push("(m) an unintroduced term does not trace to the Brief — the null case is the ledger's answer, never an error");
+    const twiceLed = readerKnowledgeLedger(twice);
+    if (twiceLed[2].reader_already_knows.length !== 1) fails.push("(m) a term declared by two Steps appears twice in the ledger — it is one term the reader met once");
+    if (twiceLed[2].reader_already_knows[0].introduced_by !== "t1") fails.push("(m) a re-declaration MOVED responsibility instead of leaving it at the first Step — a later question about the term would resolve to the wrong Step");
+
+    // THE ROUND TRIP. renderStep writes one line per entry and parseBrief
+    // reads them back; the two are asserted TOGETHER because a writer and a
+    // reader that disagree fail silently at exactly this field.
+    const rendered = renderStep({ ...step1, introduces: ["opacity — what a state conceals, in practice", "deterrence"] });
+    const lines = rendered.split("\n").filter((l) => l.startsWith("introduces:"));
+    if (lines.length !== 2) fails.push(`(m) renderStep wrote ${lines.length} introduces line(s) for two entries — a joined field cannot be parsed back`);
+    if (!lines[0].includes("opacity — what a state conceals, in practice")) fails.push("(m) the entry did not survive serialization intact");
+
+    // §4.13.1 — THE EXEMPLAR PREDICATE. A description-only record stays legal
+    // and is simply not an exemplar; the block STATES the absence rather than
+    // substituting anything.
+    const desc = `Observed in "An Article." The passage does the thing.`;
+    const exc = `Observed in "An Article." Context sentence.\n  Excerpt: "the passage, verbatim"`;
+    if (isExemplar(desc)) fails.push("(m) a description-only record was admitted as an exemplar — a description cannot be imitated, which is the whole reason the marker exists");
+    if (!isExemplar(exc)) fails.push("(m) a record carrying a verbatim excerpt was refused as an exemplar");
+    if (moveExcerpt(exc).excerpt !== "the passage, verbatim") fails.push("(m) the excerpt did not read back verbatim");
+    if (!moveExcerpt(`Excerpt (translated): "translated passage"`).translated) fails.push("(m) the translated form is not recognised as an exemplar carrying its own disclosure (contract rule 5)");
+    // AN EMPTY MARKER IS WORSE THAN NO MARKER: it claims standing and supplies
+    // nothing, so it is reported as its own absence and never as a short
+    // exemplar.
+    // THE ADMITTING SIDE (PR #775 round 1), which the first block had no case
+    // pointing at: an unanchored, quote-optional match let PROSE that merely
+    // mentions the marker hand back its trailing text as a verbatim passage.
+    // The worse direction — a false exemplar is a description a writer copies
+    // believing it is the author's words — and the likeliest carrier of the
+    // phrase is a record explaining that no excerpt exists yet.
+    const mentions = `Observed in "An Article." This record has no Excerpt: yet; re-extract it through the contract.`;
+    if (isExemplar(mentions)) fails.push("(m) a sources field that merely MENTIONS the marker was admitted as an exemplar — an unanchored match hands prose back as a verbatim passage");
+    const midline = `Observed in "An Article." Excerpt: the passage without quotation marks`;
+    if (isExemplar(midline)) fails.push("(m) an unquoted marker was admitted as an exemplar — the contract's output format mandates the quotation marks");
+    const mm = moveExcerpt(midline);
+    if (!/not in the form the contract mandates/.test(mm.absence || "")) fails.push("(m) a malformed marker is reported as an ABSENT one — different repairs, and the author who wrote it already has the passage");
+    // A conforming record whose marker begins its own line after context
+    // sentences is the shape rule 3 mandates, so anchoring must not cost it.
+    const withContext = `Observed in "An Article." One context sentence. A second.\n  Excerpt: "the passage, verbatim"`;
+    if (!isExemplar(withContext)) fails.push("(m) anchoring rejected the contract's OWN shape — context sentences before a marker on its own line (rule 3)");
+    const hollow = moveExcerpt(`Excerpt: ""`);
+    if (hollow.excerpt !== null) fails.push("(m) an empty Excerpt was admitted as an exemplar");
+    if (!/no passage after it/.test(hollow.absence || "")) fails.push("(m) an empty marker is not distinguished from an absent one — they need different repairs");
+    const block = renderExcerptBlock("some_move", desc);
+    if (!/NONE/.test(block)) fails.push("(m) the Packet's excerpt block does not STATE the absence");
+    if (!/some_move/.test(block)) fails.push("(m) the stated absence does not name the Move it is about");
+    if (!/move-extraction-contract/.test(block)) fails.push("(m) the stated absence does not name the act that repairs it");
+    if (/passage does the thing/.test(block)) fails.push("(m) the block SUBSTITUTED the description for the missing excerpt — the one thing the ruling forbids");
+
+    // THE LIBRARY AS IT STANDS, read rather than asserted: every record is
+    // description-only today, which is why this is a PREDICATE and not a
+    // refusal — a rule that refused them would refuse the whole library.
+    const store = loadMoveIds("moves");
+    if (store.error) fails.push(`(m) the repository's Move library could not be read: ${store.error}`);
+    else {
+      let exemplars = 0;
+      for (const id of store.ids) {
+        const txt = readFileSync(`moves/${id}.md`, "utf8");
+        const src = (txt.split(/^sources:/m)[1] || "");
+        if (isExemplar(src)) exemplars++;
+      }
+      // DISCLOSED, NEVER ASSERTED. The first form of this line failed when
+      // the count moved off zero — which is to say it went red exactly when
+      // the re-extraction this predicate exists to enable was performed. A
+      // check anti-correlated with its own need "is worse than no check,
+      // because its silence reads as a clean result"
+      // (product-lab topics/archive/claude-code-ops.md:24). The count is
+      // rendered instead, so a reader sees the library's state move without
+      // the suite obstructing the move.
+      exemplarLine = `${exemplars} of ${store.ids.size} Move record(s) carry a verbatim ${"Excerpt:"} and can serve as exemplars`;
+    }
+  }
+
   // (h) JOURNEY COVERAGE (§6.1 MUST 1, kogaki#501): journey material is a
   // DISTINCT material (§4.1's "which Journeys"), carried as `<L-id>.journey`,
   // PLACED OR ITS OMISSION DISCLOSED — derived from the composed steps, never
@@ -865,7 +1014,8 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief compose: 12/12 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when the re-extraction is performed)`);
+console.log("brief compose: 13/13 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -896,7 +1046,20 @@ console.log("brief compose: 12/12 cases — (a) §4.1 Step shape refused per mis
   + "refusing with the Step named and the judging sitting's own sentence QUOTED, and the refusal "
   + "deterministic in path order. Whether a specialization HOLDS is judged by the composing sitting and "
   + "never here: this member asserts the record's shape, its binding and the refusal, and composes no "
-  + "verdict of its own — §4.6 clause 3 stands; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
+  + "verdict of its own — §4.6 clause 3 stands; (m) §4.13 THE READER-KNOWLEDGE LEDGER and §4.13.1's exemplar predicate "
+  + "(kogaki#751) — `introduces` is OPTIONAL (asserted first: every Step composed before it carries none), "
+  + "its entry grammar takes a bare term or `term — anchor` with an anchor free to contain commas (which is "
+  + "why serialization is one LINE per entry and could not be a joined field), and six malformed shapes each "
+  + "refuse NAMING the Step; the ledger DERIVES reader_already_knows as the union of Steps 1..N-1 with the "
+  + "snapshot taken before a Step's own entries, carrying each term's anchor and its introducing Step, and a "
+  + "path introducing nothing renders an EMPTY ledger rather than an error; responsibility traces to the FIRST "
+  + "Step declaring a term and to the BRIEF (null) when none does, a re-declaration moving nothing; the "
+  + "render/parse round trip is asserted at both ends. §4.13.1: a description-only record is NOT an exemplar "
+  + "while staying legal, an empty `Excerpt:` marker is reported as its own absence rather than as a short "
+  + "exemplar (it claims standing and supplies nothing), and the Packet's block STATES the absence naming the "
+  + "Move and the repairing act while SUBSTITUTING nothing. Accumulation is computed and never stored. The "
+  + "library's own exemplar count is DISCLOSED and never asserted — a count that failed when it moved would go "
+  + "red exactly when the re-extraction is performed; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
   + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "
   + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "

@@ -109,6 +109,15 @@ kogaki#494).
    act (§7.5's never-minted rider stands), so a transition that types against
    no entry is the reopen trigger §4.1 names and is raised, never papered over
    with a filler entry.
+   Carry **`introduces`** on any Step that puts a term or concept in front of
+   the reader for the first time (§4.13, optional) — one entry per line, the
+   term bare, or `term — one-line meaning anchor` where the Step's own grounds
+   do not already supply the meaning. Do **not** compute what the reader
+   already knows: the harness derives that as the union of the earlier Steps'
+   entries, always computed and never stored, so a Step that declares its own
+   introductions is the whole of what you owe. What it buys is that an
+   unintroduced term becomes **addressable** — responsibility lands on the
+   first Step carrying it, or on the Brief when no Step does.
    The Candidates differ in **reader experience** (§6), Journey register
    included (§6.1). Write them to the run workspace as the composed-Candidates
    JSON.
