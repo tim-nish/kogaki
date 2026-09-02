@@ -39,6 +39,12 @@ duplicates: the record says what the built system *is*, this spec says what the
 composition layer *must* be. Where they disagree the record describes and this
 file binds.
 
+`necessity:` the reading instruction for everything below, and the one section
+whose subject is this file rather than the pipeline. A reader who does not know
+the runtime ignores this spec looks here for behaviour and finds prose that no
+longer matches — which is the state the re-cut removes and the one a later
+amendment can restore.
+
 ## 1. Scope — what this pipeline may not import
 
 This spec is authored here, fresh. It is **not** a port of writing-assistant's
@@ -449,9 +455,9 @@ asserts**.
 | mechanical | does the id resolve? | the runtime | a set-membership test over the library |
 | judged | are the instantiated states consistent specializations? | the composing sitting | a typed record the runtime validates and never composes |
 
-`necessity:` the split between what a runtime may decide and what only a
-reading sitting can. A schema holds a record's shape; nothing but prose can say
-why the verdict may not be composed by the thing that validates it.
+`necessity:` that the contract HAS two halves, and that which half a property
+belongs to is not a matter of convenience. The table below is the division;
+§4.12.1 and §4.12.2 each state why their own half sits where it does.
 
 #### 4.12.1 The mechanical half — move id resolution
 
@@ -549,9 +555,9 @@ anything to it.
 explains it, and whether the Step's grounds already carry it are judgments.
 Nothing in this section reads meaning.
 
-`necessity:` the derivation is carried by `src/compose.mjs`. What no carrier
-holds: why accumulation may not be stored, and why the first introducer is the
-answer rather than a tie-break.
+`necessity:` that an unintroduced term is ADDRESSABLE — a fact about the path
+rather than a judgment about the prose, which is the property that lets any of
+this be mechanical. §4.13.1 states the exemplar predicate's own reason.
 
 #### 4.13.1 The Move exemplar predicate — the `excerpt` field
 
