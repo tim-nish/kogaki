@@ -828,6 +828,12 @@ try {
     // prose while the flow still needs it. Two rows: the JUDGMENT the sitting
     // performs, and the INPUT that carries it to the runtime, because a skill
     // could name the flag while dropping the instruction to judge.
+    // §4.13's authored field (kogaki#751). The runtime accepts a Step without
+    // it — the field is optional by design — so nothing REFUSES a skill that
+    // stops mentioning it, and the prose is the only carrier the composer
+    // reads. That asymmetry is exactly why this row exists: an optional field
+    // dropped from the instructions is simply never authored again, silently.
+    ["§4.13 introduces authoring", /introduces[\s\S]{0,300}meaning anchor/],
     ["§4.12 specialization judgment", /reader_state_before[\s\S]{0,200}(specialization|consistent)|specialization[\s\S]{0,200}reader_state_before/],
     ["§4.12 verdict vocabulary", /cannot-determine/],
     ["adoption", /assemble\.mjs adopt-candidate /],

@@ -47,7 +47,7 @@ import { fileURLToPath } from "node:url";
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
 // composer sees would stop matching the one a realizer sees.
-import { resolveMoveIds } from "./compose.mjs";
+import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger } from "./compose.mjs";
 
 function fail(msg) {
   process.stderr.write(`draft: ${msg}\n`);
@@ -141,7 +141,23 @@ export function parseBrief(text, path = "<brief>") {
     // here, refused at `resolve` below — at the entry to realization rather
     // than partway through it.
     const moveM = body.match(/^move:\s*(\S+)\s*$/m);
-    steps.push({ step_id: idM[1], move: moveM ? moveM[1] : null, body });
+    // §4.13's `introduces:` (kogaki#751), read back from the serialized form.
+    // ONE LINE PER ENTRY, matching `renderStep`'s writer — a term may contain
+    // a comma and its anchor almost always does, so a comma-joined field could
+    // not be parsed back at all. Absent entirely is the ordinary case and is
+    // not an absence to report: a Step that introduces nothing carries no
+    // line, and the ledger below simply has nothing to fold in from it.
+    const introduces = [...body.matchAll(/^introduces:\s*(.*)$/gm)].map((x) => x[1]);
+    // A MALFORMED ENTRY REFUSES NAMING THE STEP (acceptance). The shape
+    // grammar is the composition side's, imported rather than re-expressed:
+    // the writer and the reader disagreeing about what an entry is would be
+    // the round trip failing silently at exactly the field whose value is an
+    // accumulation nobody re-derives by hand.
+    if (introduces.length) {
+      const bad = introducesRefusal(introduces, `the Brief at ${path}, step ${idM[1]}`);
+      if (bad) { refusals.push(bad); continue; }
+    }
+    steps.push({ step_id: idM[1], move: moveM ? moveM[1] : null, introduces, body });
   }
   if (steps.length === 0 && refusals.length === 0) {
     refusals.push(`the Brief at ${path} carries no Reader Path steps — there is nothing to realize`);
@@ -268,6 +284,14 @@ function cmdResolve(args) {
   process.stdout.write(`survey pin: ${brief.surveyPin}\n`);
   process.stdout.write(`closed set: ${brief.strands.map((s) => s.id).join(", ")} — the Brief's own text plus these Strands' served renderings at the pin; nothing else is reachable\n`);
   process.stdout.write(`reader path: ${brief.steps.map((s) => s.step_id).join(" → ")} (recorded order; realized in this order and no other)\n`);
+  // §4.13's ledger is DERIVED here and rendered, never stored: no field is
+  // written to the Brief and no key is added to the run record above. A Brief
+  // whose path introduces nothing renders the empty ledger AS an empty ledger
+  // — that is a true reading of the path, not a failure to compute one.
+  const ledger = readerKnowledgeLedger(brief.steps);
+  const introduced = ledger.length ? ledger[ledger.length - 1].reader_already_knows.length
+    + (brief.steps[brief.steps.length - 1].introduces || []).length : 0;
+  process.stdout.write(`reader-knowledge ledger: ${introduced} term(s) introduced across ${brief.steps.length} step(s), derived from the path at read time and stored nowhere (§4.13)${introduced === 0 ? " — this path introduces no terms, which is a reading of it and not an error" : ""}\n`);
   process.stdout.write(`move ids: ${brief.movesChecked} of ${brief.steps.length} step(s) resolved against the Move library (§4.12) — the specialization judgment was rendered at composition and is not re-derived here\n`);
   process.stdout.write(`workspace: ${ws} (machine-local; snapshots and run identity live here, never in the artifact)\n`);
 }
@@ -431,6 +455,35 @@ async function runSelfTest() {
 
   const r0 = drive("resolve");
   ok("resolve prints the recorded order", r0.status === 0 && r0.stdout.includes("s1 → s2"));
+
+  // 4a2 — §4.13's `introduces:` READ BACK (kogaki#751). The field is written
+  // one line per entry by renderStep; this is the reader half of that round
+  // trip, and a malformed entry refuses NAMING the Step (acceptance).
+  {
+    const withIntro = goodBrief.replace(
+      "step_id: s1\nmove: open_the_claim",
+      "step_id: s1\nmove: open_the_claim\nintroduces: opacity — what a state conceals, in practice\nintroduces: deterrence");
+    const pi = parseBrief(withIntro, "i.md");
+    ok("introduces is read off the step block, one line per entry",
+      pi.refusals.length === 0 && pi.steps[0].introduces.length === 2);
+    ok("an anchor carrying a comma survives the read",
+      (pi.steps[0].introduces[0] || "").includes("conceals, in practice"));
+    ok("a step with no introduces line reads as none, not as an absence to report",
+      Array.isArray(pi.steps[1].introduces) && pi.steps[1].introduces.length === 0);
+    const led = readerKnowledgeLedger(pi.steps);
+    ok("the ledger derives from the PARSED path",
+      led[0].reader_already_knows.length === 0 && led[1].reader_already_knows.length === 2);
+    const bad = parseBrief(goodBrief.replace("move: open_the_claim", "move: open_the_claim\nintroduces: opacity — "), "b.md");
+    ok("a malformed introduces entry refuses NAMING the step",
+      bad.refusals.some((r) => r.includes("s1") && /meaning anchor/.test(r)));
+    // A BRIEF WITH NO `introduces:` ANYWHERE RENDERS AN EMPTY LEDGER, NOT AN
+    // ERROR (acceptance) — the state every Brief in the tree is in today.
+    const plain = readerKnowledgeLedger(parseBrief(goodBrief, "p.md").steps);
+    ok("a Brief introducing nothing derives an empty ledger rather than failing",
+      plain.length === 2 && plain.every((r) => r.reader_already_knows.length === 0));
+    ok("resolve states the ledger it derived, including the empty reading",
+      r0.status === 0 && /reader-knowledge ledger: 0 term\(s\)/.test(r0.stdout) && /not an error/.test(r0.stdout));
+  }
 
   // 4b — §4.12's MECHANICAL HALF at the realization entry (kogaki#747).
   // `move:` was parsed for nothing; it is read now, and `resolve` refuses an
