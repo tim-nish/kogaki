@@ -155,13 +155,30 @@ instruction:
 
 Three clauses bind:
 
-1. **The operational definition** — no unexplained term of art, one relation
-   per sentence, a concrete subject acting. Never "write for audience X":
-   impersonation is the hazard this replaces, not a shorthand for it.
-2. **The round-trip test** — the original claim must be recoverable from the
-   plain version, with anything lost either restored or **explicitly
-   conceded**. A concession is part of the output, never a silent omission.
-   This is the "with round-trip concessions" half of the gate row §6 flips.
+1. **The operational definition** and 2. **the round-trip test** are
+   **OPERATIONAL TEXT, and their carrier is now the Packet template**
+   (kogaki#749) — `src/packet-template.md`, which the model reads at
+   generation. This section does not restate them.
+
+   **The move is the removal of a COPY, not a relocation for want of a
+   destination.** These two clauses change model behaviour at generation, so
+   the file the model actually reads is where they belong; restating them here
+   would be a second carrier for one rule, which is the drift shape, and the
+   copy sited next to the spec carries more apparent weight than the surface
+   the model consumes. What this section keeps is what a spec can hold and a
+   template cannot: the GROUND for the two clauses, quoted at its pin above —
+   why impersonation was replaced rather than abbreviated.
+
+   **What is still owed, named rather than left.** kogaki#749 rules this whole
+   spec deleted with its obligations re-homed, and the OTHER destination — the
+   Brief/Draft design record for §3's three prohibitions and this section's
+   normative ground — is **kogaki#752, unbuilt**. The deletion waits for it.
+   Executing it now would either drop those obligations or decide #752's shape
+   as a side effect of a construction act, and an eviction judgment folded into
+   a build is one a gate cannot ratify separately
+   (`consulted: product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
+   topics/knowledge-architecture.md:341`; the removal-of-a-copy reading is
+   `topics/knowledge-architecture.md:331`).
 3. **Candidates, not a single rendering** — 2–3 emitted onto the Brief for the
    owner's selection at the gate that already exists. This adds no gate; §1's
    never-opens-a-gate rule is about *style questions*, and a Brief candidate

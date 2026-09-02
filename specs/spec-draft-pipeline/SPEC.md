@@ -1,5 +1,19 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v25, amended 2026-09-02 (kogaki#749) — **§4.14, the Section
+Packet**: the harness-assembled input from which the model realizes one Step,
+rendered deterministically from a runtime-read template that points at no
+specification. `requires`/`effect` are excluded because §4.12 makes the Step's
+instantiated states their instance forms; a missing input refuses BY NAME
+because a hole in the model's entire input is one it fills by invention; prior
+Sections render in the Brief's recorded order rather than the directory's.
+**§4.14.2 records what is NOT built**: spec-style-contract's deletion waits on
+kogaki#752, and the Packet's retention path waits on kogaki#750 — the two
+operational clauses ARE harvested and that spec's §4 is reduced to a pointer,
+so no duplicate stands.
+**deferred slots minted by this amendment: none** — both remainders are unbuilt
+halves with named blockers, not undecided forks.
+
 **Status:** v24, amended 2026-09-02 (kogaki#751, owner ruling 2026-09-02) —
 **the Move record's evidence field is `excerpt`, and an excerpt is the author's
 own account of the reader movement, never a verbatim quotation.** Two
@@ -80,7 +94,7 @@ owner-facing rendering this pipeline emits is ordinary prose; a schema-style
 presentation that does reach a surface carries at most three fields; the mint
 records the adopted CLAIM and strips the gate's framing. Sited here rather than
 in `specs/spec-style-contract/SPEC.md` §4 because that spec binds the protocol
-of an owner-authored document and binds no authored clause. §4's three clauses
+of an owner-authored document and binds no authored clause. §4's three clauses (numbering as of v1; clauses 1 and 2 moved to `src/packet-template.md` at kogaki#749 — see §4.14.1)
 reach this composer unchanged and are not restated. **deferred slots minted by
 this amendment: none.**
 
@@ -355,7 +369,7 @@ is countable rather than assumed:
 | thesis | **bound** as design — §3 |
 | journey incorporation | **bound** — Journeys are admissible step materials (§4), §4.8 binds arc integrity, and the **register choice rides Candidate differentiation** at §6, whose composition MUSTs carry the 2026-07-31 frozen requirements (v10, kogaki#492). **No incorporation gate is registered, and none is owed.** At v8 this row read "… §4.10 binds the incorporation gate itself"; at v1–v7 it read "**partial** — … the incorporation gate itself is owed". Both prior readings are kept here rather than edited away |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
-| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2. **The SURFACE-SHAPE half is §5.1.3** (v20, kogaki#566): §4 binds the protocol of an owner-authored document and has no standing to say what this repository's composers may emit, so a reader tracing this gate reads both |
+| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 — **§4's clause numbering MOVED at kogaki#749** and this reference is repointed rather than left dangling: clauses 1 and 2 (the operational definition, the round-trip test) are OPERATIONAL and their carrier is now `src/packet-template.md`, which the model reads at generation; that spec's §4 keeps only their GROUND and clause 3. A reference to "§4 clause 2" therefore resolves to the template's round-trip instruction, and a composer that needs the text reads the template rather than the spec. **The SURFACE-SHAPE half is §5.1.3** (v20, kogaki#566): §4 binds the protocol of an owner-authored document and has no standing to say what this repository's composers may emit, so a reader tracing this gate reads both |
 
 **Row 4 was re-assessed at v5 and again at v20, and row 2 at v8 and again at v10. Rows 1 and 3 carry
 their v1 judgments unchanged and were not re-checked at either head** — the
@@ -1570,6 +1584,100 @@ two files had to agree on.
 > an unbuilt half with a named blocker, and calling it a fork would misfile it as
 > a question when it is an errand.
 
+### 4.14 The Section Packet (v25, kogaki#749)
+
+The **harness-assembled input from which the model realizes one Step's prose** —
+the one LLM judgment of the Draft lane. `draft.mjs packet --step <id>` renders
+it deterministically; the session realizes the prose; `section` validates it as
+before.
+
+**The Packet is the model's ENTIRE input.** Nothing outside it is read, which
+is why every block opens with a **fixed usage header** saying what the block is
+for: a block whose use is not stated gets used for whatever it resembles. The
+exemplar is the one that fails worst — read as content rather than as form, it
+hands this article another article's subject matter, which is why its header
+says so in the imperative.
+
+**Block order is fixed**, heavy prose late and the instruction last: global
+anchors (Thesis, Reader start, Reader target, Opening question, verbatim from
+the Brief) → the Move's contract → the Step's fields → the §4.13 ledger →
+every previously realized Section verbatim in recorded order → the write
+instruction.
+
+**`requires`/`effect` are EXCLUDED, and the exclusion is the ruling rather than
+an omission.** §4.12 makes the Step's `reader_state_before`/`after` the
+**instance forms** of exactly those two fields, so rendering both would put the
+general and the specialized statement of one thing side by side and leave the
+model to choose. The Step's instantiated states win.
+
+**Deterministic** means the same inputs render the same bytes: no timestamp, no
+run id, and prior Sections in the **Brief's recorded order** rather than from a
+directory read — a `readdir` would make the Packet's bytes depend on the
+filesystem.
+
+**A missing input refuses BY NAME rather than rendering an empty slot.** In an
+input that is the model's whole world, a hole is not a gap the model notices —
+it is a hole the model fills by invention.
+
+**Stored exactly as served**, overwritten on re-render, with path and sha
+**recorded in the run record** beside the Section it produces — and announced on
+stderr as well. The two are not the same act, and this sentence said "announced"
+while the runtime only printed (PR #780 round 1): a print is read by whoever is
+watching, a record by whoever comes after, and the ruling is about the second. A
+re-resolve **preserves** those entries where the Brief has not moved, because
+the run record is overwritten at `resolve` by design and an overwrite would
+orphan Packet files still on disk and still current.
+
+#### 4.14.1 The template is a runtime-read carrier, and it points at no spec
+
+`src/packet-template.md`, read at generation like `report-format.json` and
+`workflow.json`. **Template content is operational text only** — rules that
+change model behaviour at generation, kept minimal, a rule entering only with
+demonstrated runtime effect.
+
+**It carries no pointer to any specification**, which is #749's acceptance
+criterion 3 and is asserted against **both** the template and the rendered
+Packet, because a filled slot could carry one in. Design principles about the
+template live in the Brief/Draft design record (kogaki#752), never here.
+
+**Two clauses are harvested into it from the style contract** — the operational
+plain-register definition (no unexplained term of art, one relation per
+sentence, a concrete subject acting; never audience impersonation) and the
+round-trip instruction (the original claim recoverable, losses explicitly
+conceded). Those are **operational**, so the file the model reads is where they
+belong.
+
+#### 4.14.2 What is NOT built here, and why the deletion waits
+
+#749 also rules `specs/spec-style-contract/` **deleted** with its obligations
+re-homed. **That half is not executed**, and the reason is the sequencing rather
+than the ruling:
+
+- the two operational clauses **are** harvested, and that spec's §4 is reduced
+  to a pointer at the template — so no second carrier for them exists;
+- the **three prohibitions** and §4's normative ground re-home into the
+  Brief/Draft design record, which is **kogaki#752 and unbuilt**. Deleting now
+  would either drop them or decide #752's shape as a side effect of a
+  construction act.
+
+An eviction judgment folded into a build is one a gate cannot ratify
+separately — `consulted:
+product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
+topics/knowledge-architecture.md:341`. And what the harvest performs is the
+**removal of a copy** rather than a relocation for want of a destination —
+`consulted: product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
+topics/knowledge-architecture.md:331`.
+
+**Retention names its own substitution.** #749 routes the stored Packet to
+`runs/draft/<slug>/packets/`, per **kogaki#750, also unbuilt** — there is no
+`runs/` tree. The Packet is written to the run workspace where every other
+machine-local draft artifact already lives, and the command **says so on every
+render**, naming the owed path. It moves when `runs/` lands.
+
+**The next act is named:** kogaki#752 gives the three prohibitions a home, and
+kogaki#750 gives the Packet its retention path; #749 closes when both have
+landed and the deletion is executed against them.
+
 ## 5. The Brief's centre, and the obligations ledger inside it
 
 ### 5.1 The settled structure section
@@ -1843,7 +1951,7 @@ and says so:
 `specs/spec-style-contract/SPEC.md:42-45`
 
 A rule about what **this repository's** composers may emit is not a clause of
-the owner's style contract. §4's three clauses — the operational definition, the
+the owner's style contract. §4's three clauses (numbering as of v1; clauses 1 and 2 moved to `src/packet-template.md` at kogaki#749 — see §4.14.1) — the operational definition, the
 round-trip test, and candidates rather than a single rendering — reach this
 composer unchanged and are not restated here; this clause adds the surface-shape
 half that §4 has no standing to carry.
