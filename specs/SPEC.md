@@ -53,6 +53,23 @@ Three clauses, each binding separately so a partial compliance is visible:
    a command's closing lines — prints a `~/.kogaki/…`, `~/.local/…` or
    equivalent hidden path **outside debugging**.
 
+**Where machine state lives, amended (kogaki#750, owner rulings 2026-09-01).**
+Every lane's run intermediates live at `runs/<lane>/` in the working tree, not
+under `~/.kogaki` — one directory per lane, gitignored but for a tracked
+`runs/README.md` stating purpose, layout and lifetime, with each run pruning its
+own lane to the last K as its first act. `~/.kogaki` is written by no lane.
+
+**This does not soften rider 2, and the reading is stated so it is not
+re-derived.** Rider 2 says a human-facing file under a hidden directory is
+*declared* machine-facing; it asserts nothing in the other direction, and the
+discriminator §2.5.1 states is **lifetime**, never location. `reports/` and
+`policy/shape.md` already sit repo-visible and uncommitted on exactly this
+reading. What the hidden home directory cost was not correctness but
+observability: the material grew to 187MB across families no contributor knew
+existed, and nothing pruned it, because a location nobody reads is a location
+nobody bounds. Rider 3 is untouched — `runs/` is not a hidden path, and a lane
+printing one is still in a failed state.
+
 **This is not a Kogaki invention, and the served line predates the ruling by
 three weeks:** *"Human-facing artifacts (for reading, review, editing,
 hand-copy) live in the user's working repo; machine-readable intermediates,
@@ -5152,9 +5169,9 @@ subsystem per PR through the gate above:
    exemplar slots declared and empty, the record format, the admission
    register) was **declined rather than dropped silently**: it governed an
    owner-authored document no instance of which was ever created, and the
-   decline is recorded at DESIGN.md §7. And
-   binds **no authored style clause**: the contract instance is
-   owner-authored and nothing here creates it.
+   decline is recorded at DESIGN.md §7. This pipeline binds **no authored
+   style clause**: the contract instance is owner-authored and nothing here
+   creates it.
 7. **Review** — findings-only, one dimension: conformance to the named
    contract, citing the clause; plus the citation resolve check.
 

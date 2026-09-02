@@ -7,9 +7,9 @@ specification. `requires`/`effect` are excluded because §4.12 makes the Step's
 instantiated states their instance forms; a missing input refuses BY NAME
 because a hole in the model's entire input is one it fills by invention; prior
 Sections render in the Brief's recorded order rather than the directory's.
-**§4.14.2 records what remains**: the Packet's retention path waits on
-kogaki#750, and nothing else does — spec-style-contract was DELETED at #749's
-second pass with its obligations re-homed and twenty-one referrers repointed,
+**§4.14.2 records what remained**: the Packet's retention path waited on
+kogaki#750, which landed 2026-09-03, so nothing in that section is unbuilt — spec-style-contract was DELETED at #749's
+second pass with its obligations re-homed and twenty referrers repointed,
 so the "reduced to a pointer" state that sentence used to describe no longer
 exists in either direction.
 **deferred slots minted by this amendment: none** — both remainders are unbuilt
@@ -1667,8 +1667,13 @@ Where each obligation went:
   `specs/spec-brief-draft-design/DESIGN.md` §4/§5;
 - the round-trip concession's **mechanical refusal** is
   `checks/check-brief-compose.sh` case (o);
-- **twenty-one referrers** were repointed in the deleting act, found by
-  sweeping the file's name over the whole tree *before* deleting;
+- **twenty referrers** were repointed in the deleting act, found by sweeping
+  the file's name over the whole tree *before* deleting. The figure read
+  twenty-one at two heads and was wrong at both: it was incremented when
+  `gates/registry.json` — already inside the twenty — was repointed. Re-derived
+  at kogaki#750 from the tree at the deletion's base commit; the derivation and
+  the class are recorded once at `specs/spec-brief-draft-design/DESIGN.md`, not
+  restated here;
 - everything else the spec held — the carrier sort, exemplar slots, the record
   format, the admission register, its open questions — was **declined and
   recorded as declined** at DESIGN.md §7. It governed an owner-authored
@@ -1683,15 +1688,20 @@ destination second, and the deletion third. What the harvest performed was the
 `consulted: product-lab@816f1df898282d1780d0753316715aa9ad3eeeff
 topics/knowledge-architecture.md:331`.
 
-**Retention names its own substitution.** #749 routes the stored Packet to
-`runs/draft/<slug>/packets/`, per **kogaki#750, also unbuilt** — there is no
-`runs/` tree. The Packet is written to the run workspace where every other
-machine-local draft artifact already lives, and the command **says so on every
-render**, naming the owed path. It moves when `runs/` lands.
+**Retention is at its ruled destination (kogaki#750, landed).** #749 routes the
+stored Packet to `runs/draft/<slug>/packets/`, which did not exist as a declared
+home when the Packet shipped — so it was written to the run workspace beside the
+run record, the snapshots and the sections, with the command naming the owed
+path on every render. kogaki#750 moved the WORKSPACE into `runs/draft/<slug>/`,
+which discharges the debt without a second path expression in the Packet
+command: the Packet still joins its siblings, and the siblings moved. The
+owed-path line is **removed** rather than reworded — a line that keeps naming a
+discharged obligation leaves a reader unable to tell the current state from the
+state when the line was written.
 
-**The next act is named:** kogaki#752 gives the three prohibitions a home, and
-kogaki#750 gives the Packet its retention path; #749 closes when both have
-landed and the deletion is executed against them.
+**Nothing in this section remains unbuilt.** #749 closed as discharged on
+2026-09-02 with kogaki#750 as its named successor, and #750 landed the `runs/`
+tree, its keep-last bound and this retention path.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 

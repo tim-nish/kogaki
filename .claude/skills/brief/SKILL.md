@@ -42,8 +42,8 @@ returns, exactly as the Terrain skill hands over its artifacts. A runtime
 refusal is relayed as it stands, never swallowed.
 
 **NOTHING EXISTS UNDER `theses/` BEFORE A THESIS IS ADOPTED.** Pre-Thesis
-state is a machine-local run record the runtime writes (default under
-`~/.kogaki/brief-runs/`); the owner artifact begins exactly when the first
+state is a machine run record the runtime writes (default under
+`runs/brief/`, gitignored — kogaki#750); the owner artifact begins exactly when the first
 piece of substantive owner judgment — the Thesis — exists (§5.3 v9,
 kogaki#494).
 
@@ -56,9 +56,9 @@ kogaki#494).
    at most how the owner *found* the members on the report.
 2. **Enter** —
    `node src/brief.mjs enter --survey <survey record> --ids L…,L…`.
-   **The survey record is the machine-local run-workspace JSON the Terrain
-   survey wrote** (default under `~/.kogaki/runs/…` — the terrain runtime
-   prints its path at survey time; set `KOGAKI_DEBUG=1` there to see it).
+   **The survey record is the run-workspace JSON the Terrain survey wrote**
+   (default under `runs/terrain/…`, gitignored — the terrain runtime prints
+   its path at survey time; set `KOGAKI_DEBUG=1` there to see it).
    It is the record that assigned the `L<n>` ids, which is what makes it the
    resolver — `reports/FullReport.md` is the rendering the owner READ the
    ids off, not the record that resolves them.
@@ -165,7 +165,8 @@ kogaki#494).
 13. **Hand over the filled Brief** and stop. This is the end of the arc: name
     `theses/<slug>/brief.md` to the owner and never retype, summarize or
     restate it. The run's per-block Brief snapshots (before/after each
-    landing write) sit machine-local at `~/.kogaki/brief-runs/<slug>/snapshots/`.
+    landing write) sit at `runs/brief/<slug>/snapshots/` — in the tree,
+    gitignored, and pruned to the last K runs by the next run (kogaki#750).
 
 **THE INVOCATION ENDS AT A FILLED BRIEF, NEVER BEFORE** (§5.3 v19,
 kogaki#522, owner ruling 2026-08-18). A command is named for the artifact it

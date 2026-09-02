@@ -217,11 +217,21 @@ beyond the landing writes their own commands make; a collision refuses rather
 than overwriting.
 
 **The run workspace** is **machine state**: run records, per-block snapshots,
-realized Sections, rendered Packets. Machine-local, disposable, and never the
-artifact. It lives under the home directory today; `runs/` in the repository is
-the ratified destination and is **owed to kogaki#750**, at which point the
-Packet's retention path moves and this paragraph is amended rather than left
-describing a location that has changed.
+realized Sections, rendered Packets. Disposable, and never the artifact. It
+lives at `runs/<lane>/` in the repository — `runs/draft/<slug>/` for this lane
+— since **kogaki#750**, which also moved the Packet's retention path there; it
+lived under the home directory before that. This paragraph is amended rather
+than left describing a location that has changed, which is what the sentence it
+replaces said it owed.
+
+**Repo-visible is not owner-facing, and the distinction is the whole of why the
+move is not a reclassification.** `specs/SPEC.md` §4 rider 2 says a human-facing
+file under a machine-local hidden directory is *declared* machine-facing; it
+does not say the converse, and the discriminator §2.5.1 gives is **lifetime**,
+never location — a run workspace holds things whose lifetime is the run. What
+the tree buys is legibility to a contributor and a bound that a hidden directory
+never got: `runs/` is gitignored but for its README, each run prunes its own lane
+to the last K, and `rm -rf runs/` is safe by construction.
 
 **The rule that makes the split usable:** machine identity never enters an
 owner artifact. A Brief carries no run id, no timestamp and no workspace path,
@@ -274,21 +284,31 @@ authored" — so it governs an artifact with no instances, and an operative
 document holding a superseded or unexercised protocol reinstalls it for the
 next reader. It lives in version control and on kogaki#426's thread.
 
-**Twenty-one referrers were repointed**, found by sweeping the deleted file's
+**Twenty referrers were repointed**, found by sweeping the deleted file's
 name over the whole tree *before* deleting rather than after: `specs/SPEC.md`
 ×2, `spec-draft-pipeline` ×11, `spec-draft-command` ×2, `gates/registry.json`,
 `src/brief.mjs` ×2, `src/draft.mjs`, and this record. Three earlier review
 rounds had between them found five of them, one file at a time, because each
 round swept only what its own diff touched.
 
-**This paragraph first said TWENTY and named `gates/registry.json` among them
-while that file was not in the diff at all** (PR #782 round 1). The sweep had
-counted it and the repointing had skipped it, so the completeness record
-asserted an act that was not performed — which is worse than the omission,
-because a reader checking the claim would have stopped at the list. Recorded
-rather than silently corrected: a paragraph whose subject is completeness is
-the one place an unverified count does the most damage, and the count here was
-written from the sweep rather than from the diff.
+**This paragraph said TWENTY, then TWENTY-ONE, and twenty was right both
+times** (PR #782 rounds 1 and 2; reg-0221). Round 1 found `gates/registry.json`
+counted by the sweep and skipped by the repointing, so the record asserted an
+act that was not performed — worse than the omission, because a reader checking
+the claim would have stopped at the list. The repair repointed the file and
+**incremented the headline**, which was the second error and the instructive
+one: repointing a file already inside the twenty makes the two figures AGREE at
+twenty rather than raising either. A count is a claim about set MEMBERSHIP, and
+membership is answered by the enumeration beside it — so the headline is
+**re-derived, never edited**, and an edit to it is the move that produced both
+defects.
+
+Re-derived at kogaki#750, from the tree rather than from either headline: at
+the deletion's base commit `3840ba6`, `git grep -o -i "style.contract"` returns
+**23** occurrences, of which **3** are register records — historical records of
+what a round found, never repointed — leaving **20** across the seven files the
+enumeration above names. The paragraph confessing the first miscount is where
+the second one landed, one commit later.
 
 **deferred slot: the spec-draft-pipeline re-cut.** Owed on its own licensing
 issue, with the criteria applied section by section.

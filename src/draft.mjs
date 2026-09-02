@@ -41,15 +41,15 @@
 // while any Step lacks its section, so a flow cannot end "done" short of the
 // artifact without the refusal saying exactly which Steps are owed.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
-import { join, resolve, relative, dirname, basename } from "node:path";
+import { join, resolve, relative, dirname, basename, sep } from "node:path";
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 // §4.12's mechanical half is ONE function shared with the composition side
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger } from "./compose.mjs";
+import { enterRun, laneDir } from "./runs.mjs";
 
 function fail(msg) {
   process.stderr.write(`draft: ${msg}\n`);
@@ -205,14 +205,32 @@ export function findTraceStructure(content, stepIds) {
 
 // ---------------------------------------------------------------------------
 // Workspace — machine identity lives here and only here (§5): run record,
-// per-block snapshots, section files. Default under ~/.kogaki/draft-runs/;
-// --workspace overrides for the fixture pass, which never touches the home
-// directory.
+// per-block snapshots, section files, Packets. Default under `runs/draft/`
+// since kogaki#750 (`~/.kogaki/draft-runs/` before it); --workspace overrides
+// for the fixture pass, which never touches either.
+//
+// PURE: this RESOLVES a destination and creates nothing. Preparing the
+// workspace, and pruning the lane before doing so, is `enterWorkspace` below —
+// the split `runs.mjs` and `terrain.mjs` both make, and it matters here because
+// four of the five commands call this one mid-run, when pruning would be a
+// lane act performed by a step that owns no run.
 function workspaceFor(args, slug) {
   const base = typeof args.workspace === "string" && args.workspace !== ""
     ? args.workspace
-    : join(homedir(), ".kogaki", "draft-runs");
+    : laneDir("draft");
   return join(base, slug);
+}
+
+// The lane entry point, called by `resolve` alone: `resolve` is the run's first
+// act, so the keep-last-K prune belongs there and nowhere else. A `--workspace`
+// caller prunes nothing — they named the directory, so they hold it.
+function enterWorkspace(args, slug) {
+  if (typeof args.workspace === "string" && args.workspace !== "") {
+    const ws = workspaceFor(args, slug);
+    mkdirSync(ws, { recursive: true });
+    return ws;
+  }
+  return enterRun("draft", slug);
 }
 
 // Per-block snapshot (kogaki#523 shape, §5): the FULL assembled state, into
@@ -272,7 +290,7 @@ function assembleBody(brief, ws) {
 // Commands.
 function cmdResolve(args) {
   const brief = loadBrief(args);
-  const ws = workspaceFor(args, brief.slug);
+  const ws = enterWorkspace(args, brief.slug);
   mkdirSync(join(ws, "sections"), { recursive: true });
   // Machine identity: run record in the workspace, never in the artifact.
   // A RE-RESOLVE PRESERVES THE PACKET RECORDS WHEN THE BRIEF HAS NOT MOVED.
@@ -493,13 +511,15 @@ function cmdPacket(args) {
   // RETENTION: stored EXACTLY AS SERVED, overwritten on re-render, with the
   // path and sha announced beside the Section it will produce.
   //
-  // THE PATH IS THE RUN WORKSPACE, NOT runs/ (kogaki#750). #749 routes this to
-  // `runs/draft/<slug>/packets/` per that issue, which is UNBUILT — there is no
-  // runs/ tree at this head. Writing to a directory that does not exist as a
-  // declared home would have minted #750's design as a side effect of this
-  // command. The workspace is where every other machine-local draft artifact
-  // already lives (run record, snapshots, sections), so the Packet joins them
-  // and MOVES when runs/ lands.
+  // THE PATH IS `runs/draft/<slug>/packets/` (kogaki#750, landed). #749 ruled
+  // this destination and could not write it — there was no runs/ tree, and
+  // minting one as a side effect of the Packet command would have built #750's
+  // design at a seat that had no license for it. The expression is UNCHANGED:
+  // the Packet has always joined the run record, the snapshots and the sections
+  // in the workspace, and it is the WORKSPACE that moved. The debt is
+  // discharged by the lane's default resolving there, not by a second path
+  // expression here — a relocation that also re-routes its consumers changes
+  // two things and can only be half-verified.
   const dir = join(ws, "packets");
   mkdirSync(dir, { recursive: true });
   const out = join(dir, `${id}.md`);
@@ -533,7 +553,11 @@ function cmdPacket(args) {
   process.stderr.write(`\npacket ${id}: ${out}\n`);
   process.stderr.write(`packet sha256: ${sha}\n`);
   process.stderr.write(`stored exactly as served — the file above is byte-identical to what was printed (§4.14)\n`);
-  process.stderr.write(`retention home is the run workspace; runs/draft/<slug>/packets/ is owed to kogaki#750 and this path moves when it lands\n`);
+  // The owed-path line is GONE rather than reworded (kogaki#750). It announced
+  // a debt on every render, and the debt is paid: the workspace default IS
+  // `runs/draft/<slug>/`. A line that keeps naming a discharged obligation is
+  // the same defect as one that never named it — both leave a reader unable to
+  // tell the current state from the state when the line was written.
 }
 
 function cmdSection(args) {
@@ -983,6 +1007,24 @@ async function runSelfTest() {
   ok("the owner tree gained exactly the CanonicalDraft", briefDirNow === "brief.md,draft.md");
   ok("snapshots exist and are machine-local",
     readdirSync(join(ws, "fixture-brief", "snapshots")).length >= 2);
+
+  // 6 — THE LANE BINDING (kogaki#750). Every case above drives `--workspace`,
+  // which is exactly the path that did NOT change, so on its own this pass is
+  // green about a runtime that still writes to the retired home directory. The
+  // DEFAULT is the thing the issue moved, and `workspaceFor` is pure, so it can
+  // be asserted without writing anything: the destination is this lane's own
+  // directory in the tree and the slug is its entry.
+  ok("the default workspace is the draft lane's own directory",
+    workspaceFor({}, "some-slug") === join(laneDir("draft"), "some-slug"),
+    workspaceFor({}, "some-slug"));
+  ok("an explicit --workspace still wins over the lane default",
+    workspaceFor({ workspace: "/tmp/elsewhere" }, "some-slug") === join("/tmp/elsewhere", "some-slug"));
+  // The CONTROL that the assertion above is about a MOVE and not about any
+  // path: no run destination in this module resolves under a home directory
+  // any more. Stated as a property of the resolved path rather than of the
+  // source text, so a re-spelling that reintroduces the home directory fails.
+  ok("no default run destination resolves under a home directory",
+    !workspaceFor({}, "some-slug").includes(`${sep}.kogaki${sep}`));
 
   rmSync(root, { recursive: true, force: true });
   process.stdout.write(`draft self-test: ${passed} case(s) pass${failures.length ? `, FAILURES: ${failures.join(" | ")}` : ""}\n`);
