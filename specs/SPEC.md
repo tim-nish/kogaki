@@ -2237,13 +2237,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
      rather than arguments.
 
      - **The `done` report was structurally blind to the fourth specimen.**
-      `tools/review-sweep.sh`'s disclosure NOTE counted findings where the
-      disposition was `d is None` — *no stated disposition* — so #413's
-      finding was never in the set it counted, and the NOTE's own text named
-      only #221, #231 and #240. That NOTE was the report-at-the-boundary
-      remedy already shipped, and it could not see the case that earned this
-      amendment. This is the strongest available argument against shipping a
-      second one.
+       `tools/review-sweep.sh`'s disclosure NOTE counted findings where the
+       disposition was `d is None` — *no stated disposition* — so #413's
+       finding was never in the set it counted, and the NOTE's own text named
+       only #221, #231 and #240. That NOTE was the report-at-the-boundary
+       remedy already shipped, and it could not see the case that earned this
+       amendment. This is the strongest available argument against shipping a
+       second one.
      - **This issue's originally declared empty-query matched nothing at
        authoring time.** `grep -n 'in-diff at round 1' tools/review-sweep.sh`
        returned no lines: that vocabulary is reviewer-authored prose in a
@@ -2629,12 +2629,12 @@ invariant: Gukan guarantees Unit schema, never data schema).
        `:269`, both re-read at the current pin this sitting).
        **A FOURTH stale record was found by this clause's own round-1 review,
        and it is the worst-sited of the four.**
-      `.claude/skills/review-lane/SKILL.md` — the file a reviewer read *while
-      composing*, and one of the four artifacts the widening trigger below named
-      — said *"Rounds are counted from the report segments themselves"*,
-      directly under the state-machine table where a reviewer went to decide
-      whether a PR was heading for `park`. Its neighbour *"a reviewer that
-      fragments twice parks the PR"* falls with it, and for a
+       `.claude/skills/review-lane/SKILL.md` — the file a reviewer read *while
+       composing*, and one of the artifacts the widening trigger below named at
+       the time — said *"Rounds are counted from the report segments
+       themselves"*, directly under the state-machine table where a reviewer went
+       to decide whether a PR was heading for `park`. Its neighbour *"a reviewer
+       that fragments twice parks the PR"* fell with it, and for a
        reason worth stating so fragments are not read as exempt: fragment-ness
        is `counted()` and cycle membership is `performed()`, a split
        `performed()`'s own docstring declares — *"Deliberately NOT folded into
@@ -2655,10 +2655,10 @@ invariant: Gukan guarantees Unit schema, never data schema).
        It is why this enumeration types rows by their **observing act** and
        never by a state a row asserts about one.
      - **Row 6 was filed `carried, not emitted` and re-derives as CARRIED.**
-      Clause 8's grammar reached the file the reviewer then read while composing —
-      `.claude/skills/review-lane/SKILL.md` carried it as a copy with declared
-      precedence and its sub-rules pointed at (kogaki#251, landed in PR #278; the
-      file was deleted at kogaki#630). The producing site the carrier was missing now
+       Clause 8's grammar reached the file the reviewer then read while composing —
+       `.claude/skills/review-lane/SKILL.md` carried it as a copy with declared
+       precedence and its sub-rules pointed at (kogaki#251, landed in PR #278; the
+       file was deleted at kogaki#630). The producing site the carrier was missing now
        exists, which is the fourth rung the served surface names: *"a carrier
        is not installed until every input it reads has a producing site,
        checkable by enumeration"* (`product-lab@dec0d568
@@ -2697,13 +2697,13 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      **`instrument: none` for the re-typing itself, with its reopen trigger.**
      No registered check asserts that the table above matches the artifacts,
-     and none is licensed here: the property is *did a human re-read four
-     artifacts and re-decide ten judgments*, which rests on the sitting's
+     and none is licensed here: the property is *did a human re-read the
+     derivation set and re-decide ten judgments*, which rests on the sitting's
      self-report about its own process — an attestation rather than evidence,
      and the state the served surface names as needing a mechanism only when
      compliance can be simulated at the unit of inspection
-     (`product-lab@dec0d568 topics/knowledge-architecture.md:86`). It is
-     marked rather than omitted, which is the admissible third state.
+     (`product-lab@dec0d568 topics/knowledge-architecture.md:86`). It is marked
+     rather than omitted, which is the admissible third state.
      **Reopen trigger:** a second sitting finding a row stale in the way row 5
      was found stale here — the table asserting a mechanism's behaviour that
      the shipped mechanism contradicts.
@@ -5596,12 +5596,17 @@ are re-derived, never carried:
 
     P='review-sweep.sh|check-review-report.sh|skills/review-lane'
     grep -cE "$P" specs/SPEC.md                  # 40 — whole file, §3.2 included
-    awk '/^## 3.2 /{exit} 1' specs/SPEC.md |
+    awk '/^## /{k=($0 ~ /^## 3\.2 /)} !k' specs/SPEC.md |
         grep -cE "$P"                            # 37 — the body, §3.2 excluded
 
 The second command cuts at the **heading**, never at a line number: a positional
 cut here would be §3.1's own defect, minted by the section that states the rule
-against it.
+against it. It excludes **this section wherever it sits**, rather than
+everything after it — its first form was `awk '/^## 3.2 /{exit} 1'`, which
+equals "exclude §3.2" only while §3.2 is last, and this section commits in the
+paragraph above to moving. Demonstrated rather than argued: with §3.2 moved to
+the head of the file, the scoped form still returns 37 and the `exit` form
+returns 0 (PR #786 round 1).
 
 The two numbers and the exclusion between them are written out because the
 first draft of this paragraph gave 37 beside a command that returns 40 — the
