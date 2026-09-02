@@ -3476,15 +3476,194 @@ if (fails.length) {
 console.log("neighborhood Gloss fetch bound: PASS — counted at the SERVER via the stub's call log, never from the run's own accounting. The `journeys/` namespace is addressed and its row resolves to a served headline (kogaki#689), so the widening is asserted at the read AND at the row. NOT ASSERTED END TO END, stated rather than implied: the seam-unreachable state cannot arise from this path, because a non-soft member read exits before the neighborhood fetch runs — the marker and its arm are unit-asserted and the state is declared unobservable with its reopen trigger. The judged path fetches its displayed row's own tag; an all-unjudged pull, which renders no row, reads strictly fewer Gloss shards; and a multi-row judged pull still fetches, so the bound assertions are not passing on a dead fetch.");
 JS
 
+# --------------------------------------------------------------------------
+# §6.0.1 — the co-tag SELECTION display (kogaki#745)
+# --------------------------------------------------------------------------
+# The completeness inventory the issue states, asserted rather than described.
+# Each assertion below is named in `renderCotagSelection`'s own inventory
+# comment, so the two cannot drift without one of them failing.
+node --input-type=module - <<'JS'
+import { readFileSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { loadGrammar, validateSurface } from "./src/format-guard.mjs";
+import { renderCotagSelection, refuseIntent } from "./src/terrain.mjs";
+
+const fails = [];
+const G = loadGrammar("src/report-format.json");
+const SURVEY = "checks/fixtures/terrain/cotags/lone-tag-member.json";
+const rec = JSON.parse(readFileSync(SURVEY, "utf8"));
+const INTENT = "one sentence of intent";
+const good = renderCotagSelection(rec, "testing", INTENT);
+
+// (1) THE GRAMMAR CASE — a SEVENTH line class fails at emit, and §2.3's two
+// disclosure lines are refused ON THIS SURFACE. Both directions: the
+// conformant rendering must PASS, or a check that refused everything would
+// satisfy the refusal half while making the surface unrenderable.
+if (validateSurface("cotag_selection", good, G).length) {
+  fails.push("the conformant rendering is REFUSED by its own grammar — every refusal below would then be satisfied vacuously");
+}
+const refusals = [
+  ["a seventh line class", good + "\nthis line belongs to no declared class"],
+  ["§2.3's disclosure line", good.replace("intent:", "Showing 3 of 3 tags (nothing hidden).\nintent:")],
+  ["a count row whose cell is not a Count", good.replace(/^  testing( +)4( +)1$/m, "  testing$1x$2 1")],
+];
+for (const [name, text] of refusals) {
+  if (text === good) { fails.push(`the ${name} mutation did not change the text — the case asserts nothing`); continue; }
+  if (!validateSurface("cotag_selection", text, G).length) {
+    fails.push(`${name} was ADMITTED on cotag_selection — the line_class_allowlist is inert here, which is the condition report-format.json's own reader notes record for three of full_report's body classes`);
+  }
+}
+
+// (2) THE MARKER IS A FIXED LITERAL — a marker of a different form fails.
+if (!validateSurface("cotag_selection", good.replace(/^CO-TAGS — selecting co-tags for: /m, "CO-TAGS for: "), G).length) {
+  fails.push("a marker of a DIFFERENT form was admitted — block 1 is a fixed literal (§6.0.1) and nothing pins it");
+}
+
+// (3) BLOCK 2 ENUMERATES ALL SERVED TAGS, not just the selected tag's co-tags.
+// The record's tag set exceeds any one tag's co-tags, so a table short of the
+// full set is the defect this asserts against.
+const served = (rec.sections || []).map((x) => String(x.name));
+const rows = good.split("\n").filter((l) => /^ {2}\S/.test(l) && !/^ {2}tag {2,}Lessons/.test(l));
+if (rows.length !== served.length) {
+  fails.push(`block 2 rendered ${rows.length} row(s) for ${served.length} served tag(s) — §6.0.1 enumerates ALL served tags, and the completeness of that enumeration is what discharges §2.3's disclosure lines structurally`);
+}
+for (const t of served) {
+  if (!rows.some((l) => l.trim().startsWith(t))) fails.push(`served tag ${JSON.stringify(t)} is absent from block 2`);
+}
+
+// (4) `--intent` IS THE ONLY MODEL-CONTROLLED TEXT — the bound is EXACT and the
+// refusals are the emitter's own. Both directions, so a refuseIntent() that
+// refused everything would fail here.
+const intentCases = [
+  ["multi-line", "one\ntwo", true],
+  ["201 characters", "x".repeat(201), true],
+  ["200 characters — AT the bound", "x".repeat(200), false],
+  ["marker syntax", "CO-TAGS — selecting co-tags for: x", true],
+  ["table syntax", "prose Lessons  Journeys prose", true],
+  ["an ordinary sentence", "narrowing to where a guard and its cost meet", false],
+];
+for (const [name, val, mustRefuse] of intentCases) {
+  const refused = refuseIntent(val) !== null;
+  if (refused !== mustRefuse) {
+    fails.push(`--intent ${name}: expected ${mustRefuse ? "REFUSED" : "admitted"}, got ${refused ? "REFUSED" : "admitted"} — §6.0.1's bound is 200 and EXACT, and the refusal is the emitter's own fail() rather than a lint (specs/SPEC.md §2.6.3)`);
+  }
+}
+
+// (4b) THE WRAP PATH — §6.0.1's "wraps onto at most two lines, breaking at
+// hyphens or spaces, never mid-word; the table may widen". `wrapTagName` is the
+// only producer of the `row_continuation` class, and until PR #768 round 1 the
+// whole path had no case and no fixture: the golden specimen carries no wrapped
+// name, so the rule was implemented and unasserted.
+{
+  const long1 = "a-breakable-name-that-is-definitely-past-the-column-bound";
+  const unbreak = "unbreakablenamewithnohyphensorspacesatallwhatsoeverxx";
+  const wrapRec = { sections: [
+    { name: long1, by_family: { lesson: 9, journey: 2 } },
+    { name: "short", by_family: { lesson: 3, journey: 0 } },
+  ] };
+  const w = renderCotagSelection(wrapRec, "short", INTENT);
+  if (validateSurface("cotag_selection", w, G).length) {
+    fails.push("a rendering carrying a WRAPPED tag name is refused by the grammar — `row_continuation` is declared for exactly this line and would then be a class nothing can produce");
+  }
+  const cont = w.split("\n").filter((l) => /^ {4}\S/.test(l));
+  if (cont.length !== 1) {
+    fails.push(`expected exactly one row_continuation line for one wrapped name, found ${cont.length} — §6.0.1 bounds the wrap at TWO lines`);
+  }
+  // NEVER MID-WORD: the head must end at a hyphen or space boundary, so
+  // rejoining head and continuation must reproduce the name exactly.
+  const head = w.split("\n").find((l) => l.startsWith("  ") && l.trim().startsWith(long1.slice(0, 10)));
+  if (head && cont.length === 1) {
+    const rejoined = head.trim().split(/ {2,}/)[0] + cont[0].trim();
+    if (rejoined !== long1) {
+      fails.push(`the wrapped name does not rejoin to itself: ${JSON.stringify(rejoined)} !== ${JSON.stringify(long1)} — §6.0.1 breaks at a hyphen or a space and NEVER mid-word`);
+    }
+  }
+  // AN UNBREAKABLE NAME WIDENS THE TABLE rather than breaking mid-word, and a
+  // name that FITS the widened column is then NOT wrapped. Deciding each wrap
+  // against the constant before the final width is known is what wrapped a
+  // 41-character name inside a 45-wide column (PR #768 round 1).
+  const wideRec = { sections: [
+    { name: unbreak, by_family: { lesson: 1, journey: 1 } },
+    { name: "a-breakable-name-of-forty-one-characters-x", by_family: { lesson: 9, journey: 2 } },
+  ] };
+  const wide = renderCotagSelection(wideRec, "short", INTENT);
+  if (validateSurface("cotag_selection", wide, G).length) {
+    fails.push("a rendering whose table WIDENED for an unbreakable name is refused by the grammar");
+  }
+  if (!wide.includes(unbreak)) {
+    fails.push("an unbreakable tag name was BROKEN — §6.0.1 forbids breaking mid-word, so the table must widen instead");
+  }
+  if (wide.split("\n").some((l) => /^ {4}\S/.test(l))) {
+    fails.push("a name that FITS the widened column was wrapped anyway — the wrap decision must be taken against the column the table actually renders, not against the constant");
+  }
+}
+
+// (5) ONE EMITTER FOR THIS SURFACE — a second construction site fails.
+//
+// USES ARE COUNTED, MENTIONS ARE NOT. The name appears inside this emitter's own
+// inventory comment, and a raw occurrence count reads that as a third call site
+// — the use-vs-mention defect `check-boundary-receipts.sh` names one lane over,
+// arriving here as a check that fails on its own documentation. Line comments
+// are stripped before counting, so the assertion binds the CODE.
+const src = readFileSync("src/terrain.mjs", "utf8");
+const code = src.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+const sites = (code.match(/renderCotagSelection\(/g) || []).length;
+// one definition + one call site in cmdCotagSelection
+if (sites !== 2) {
+  fails.push(`renderCotagSelection( appears ${sites} time(s) in src/terrain.mjs's CODE (comments stripped); expected 2 — the definition and its single caller. A second construction site is the extraction defect the inventory names: the surface would then have two emitters and the grammar would police only one`);
+}
+// The mention itself is asserted PRESENT, so stripping comments cannot quietly
+// become a way to satisfy this by deleting the inventory it documents.
+if (!/`renderCotagSelection\(` call sites/.test(src)) {
+  fails.push("renderCotagSelection's inventory comment no longer names the assertion that guards it — the inventory and this case are a pair, and a pair with one half missing is an inventory nothing checks");
+}
+
+// (6) THE SURFACE WRITES NO ARTIFACT. Run the real command with both artifact
+// directories pointed at empty trees; both must still be empty.
+const tmp = mkdtempSync(join(tmpdir(), "cotag-selection-noartifact-"));
+try {
+  const rdir = join(tmp, "r"), gdir = join(tmp, "g");
+  const r = spawnSync(process.execPath,
+    ["src/terrain.mjs", "cotag-selection", "--survey", SURVEY, "--tag", "testing",
+     "--intent", INTENT, "--report-dir", rdir, "--rendering-dir", gdir],
+    { encoding: "utf8" });
+  if (r.status !== 0) {
+    fails.push(`cotag-selection exited ${r.status} — the no-artifact assertion below reads an absence, and an absence from a crashed run asserts nothing: ${(r.stderr || "").trim()}`);
+  } else {
+    for (const d of [rdir, gdir]) {
+      let listed = [];
+      try { listed = readdirSync(d); } catch { listed = []; }
+      if (listed.length) fails.push(`cotag-selection wrote ${JSON.stringify(listed)} into ${d} — §6.0.1 rules this surface writes NOTHING, and reports/Screen.md keeps exactly one writing state (cotag_screen)`);
+    }
+    if (!r.stdout.includes("CO-TAGS")) fails.push("cotag-selection wrote no rendering to stdout — the surface is owner-executed and stdout is its whole delivery");
+  }
+} finally { rmSync(tmp, { recursive: true, force: true }); }
+
+if (fails.length) {
+  console.log("FAIL §6.0.1 co-tag selection display (kogaki#745):");
+  for (const f of fails) console.log(`  - ${f}`);
+  process.exit(1);
+}
+console.log("§6.0.1 co-tag selection: the six declared classes DISCRIMINATE (a seventh class, a §2.3 disclosure line and a non-Count cell are each refused, and the conformant rendering passes); the marker is pinned as a fixed literal; block 2 enumerates ALL "
+  + `${served.length} served tag(s) rather than the selected tag's co-tags, which is what discharges §2.3 structurally; --intent's 200-character bound is asserted AT and PAST it with four more refusal directions and two admissions; the wrap path is asserted in three directions (a breakable name wraps onto exactly one continuation line and rejoins to itself, an unbreakable name widens the table rather than breaking mid-word, and a name fitting the widened column is not wrapped); one construction site; and the command writes NO artifact into either artifact directory while delivering its rendering on stdout.`);
+JS
+
 # THE GOLDEN SPECIMENS (SPEC-terrain §14.5, story 1.55, kogaki#347).
 #
-# One specimen per surface the grammar covers — two at v14. The point is to
+# One specimen per surface the grammar covers — FIVE at v18 (kogaki#745 added
+# `cotag_selection`). The count is READ FROM THE GRAMMAR by the block below and
+# this line is prose beside it, so on any disagreement the block wins and this
+# line is repaired. The point is to
 # catch a renderer edit that changes the rendered shape IN THE PR, between the
 # hands-on rounds rather than during them, which is when the 2026-08-09
 # transcript's fused lines were found.
 #
 # TWO ASSERTIONS PER SPECIMEN, and the pair is the design rather than belt and
 # braces. (1) The specimen is CONFORMANT against the grammar, by the same
+
+
 # predicate the emitters refuse with. (2) The renderer's output over the
 # committed input EQUALS the specimen. (1) alone would let the renderer drift
 # anywhere the grammar still admits; (2) alone would bless whatever the renderer
@@ -3514,7 +3693,11 @@ const GROUP = "testing × architecture";
 // says two.
 const covered = Object.keys(G.surfaces || {});
 const SPECIMENS = { cotag_screen: "cotag-screen.txt", full_report: "full-report.md",
-                    tag_listing: "tag-listing.txt", tag_row_listing: "tag-row-listing.txt" };
+                    tag_listing: "tag-listing.txt", tag_row_listing: "tag-row-listing.txt",
+                    cotag_selection: "cotag-selection.txt" };
+// §6.0.1's intent is the LLM's one sentence and is supplied at the invocation,
+// so the specimen pins one — the surface has no rendering without it.
+const SELECTION_INTENT = "narrowing to the co-tags of testing, to see which pairing carries enough Lessons to be worth a Screen";
 for (const s of covered) {
   if (!SPECIMENS[s]) {
     fails.push(`the grammar covers ${s} and ${DIR} holds no specimen for it — §14.5's count is ONE PER COVERED SURFACE, so covering a surface owes a specimen in the same sitting`);
@@ -3604,9 +3787,23 @@ try {
     { encoding: "utf8", env: { ...process.env, TSUREZURE_GATEWAY_JS: STUB } });
   if (rep.status !== 0) fails.push(`report exited ${rep.status}: ${(rep.stderr || "").trim()}`);
   const md = readdirSync(gdir).filter((f) => f.endsWith(".md"));
+  // §6.0.1's display, read from STDOUT — and that is not a departure from the
+  // artifact rule two paragraphs up, it is that rule applied. The two surfaces
+  // above are read from their artifact because §14.4.1 rules that a tool call's
+  // stdout is not what the owner opens. This surface is OWNER-EXECUTED: the
+  // owner types the command, so stdout IS the delivery and there is no artifact
+  // to prefer over it. Reading it here is what binds the specimen to the
+  // renderer rather than leaving it asserted for conformance alone.
+  const sel = spawnSync(process.execPath,
+    ["src/terrain.mjs", "cotag-selection", "--survey", SURVEY, "--tag", TAG,
+     "--intent", SELECTION_INTENT],
+    { encoding: "utf8" });
+  if (sel.status !== 0) fails.push(`cotag-selection exited ${sel.status}: ${(sel.stderr || "").trim()}`);
+
   const actual = {
     cotag_screen: smd.includes("Screen.md") ? readFileSync(join(sdir, "Screen.md"), "utf8") : null,
     full_report: md.length === 1 ? readFileSync(join(gdir, md[0]), "utf8") : null,
+    cotag_selection: sel.status === 0 ? sel.stdout : null,
   };
   if (md.length !== 1) fails.push(`expected exactly one rendered report, found ${md.length}`);
 
@@ -3649,10 +3846,14 @@ if (fails.length) {
 console.log(`golden specimens: ${Object.keys(SPECIMENS).length}/${Object.keys(SPECIMENS).length} covered surfaces carry one; `
   + `${paired} of them asserted TWICE and ${Object.keys(SPECIMENS).length - paired} ONCE. `
   + "The two assertions are: conformant against the grammar (by the emitters' own predicate), and byte-equal to the renderer's "
-  + "output over the committed input. THE SPLIT IS REPORTED RATHER THAN AVERAGED (kogaki#636): the second assertion runs only "
-  + "where a renderer writes that surface's artifact today, and the screen-1 surfaces have none — the tag listing goes to "
-  + "stdout from cmdSurvey and nothing writes it to reports/Screen.md until §15's executor lands. A green line claiming TWICE "
-  + "for a surface asserted ONCE is the figure-asserted-rather-than-derived defect this issue was filed over, one layer down. "
+  + "output over the committed input. THE SPLIT IS REPORTED RATHER THAN AVERAGED (kogaki#636): the second assertion runs "
+  + "wherever this check can obtain the surface's DELIVERED bytes — from its artifact where one is written, and from stdout "
+  + "where the surface is owner-executed and stdout IS the delivery (cotag_selection, kogaki#745). The two still asserted "
+  + "ONCE are the screen-1 listings, which this check does not invoke: the tag listing goes to stdout from cmdSurvey and "
+  + "nothing writes it to reports/Screen.md until §15's executor lands. THE DISCRIMINATOR IS NOT 'writes an artifact', which "
+  + "is what this line used to say and what kogaki#745 falsified by asserting an artifact-less surface twice. A green line "
+  + "claiming TWICE for a surface asserted ONCE is the figure-asserted-rather-than-derived defect this issue was filed over, "
+  + "one layer down. "
   + "The count is read from the grammar, so covering a third surface fails here until its "
   + "specimen exists, and a file matching no covered surface fails as corpus growth (AC6). On disagreement the SPECIMEN is "
   + "reported stale and the grammar stands (AC5). Hand-authored, not generated — the reason is recorded in the README beside them.");

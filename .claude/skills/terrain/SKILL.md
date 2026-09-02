@@ -40,6 +40,22 @@ never re-type it.
   avoid — the same stdout defect one step down — and relaying it is the
   retyping §14.4.1 v19 replaced. Neither command writes anything, so there is
   no artifact to name for either.
+- **The co-tag SELECTION display is the third of these, and it is the sanctioned
+  surface for a moment that previously had none** (§6.0.1). Once the owner has
+  named a tag, the `TAG_SELECTION` stop also prints
+  `node src/terrain.mjs cotag-selection --survey <record> --tag <T> --intent "<one sentence>"`.
+  **You supply the `--intent` sentence and nothing else on that surface.** The
+  three blocks are the harness's — a fixed marker, a counts table over ALL
+  served tags with family-named columns — and your sentence is the whole of
+  your contribution to them. The emitter refuses an intent that is multi-line,
+  longer than **200** characters, or that carries table or marker syntax; the
+  bound is exact and the refusal is the emitter's own, not a lint.
+  **Hand the command over; do not run it and do not relay its output.** It
+  writes nothing, so there is no artifact to name — and it is **not** a Screen:
+  it PRECEDES the Screen, and `reports/Screen.md` keeps exactly one writing
+  state. This display is why you no longer have to choose between "may not
+  relay stdout" and "must hand over an artifact" at a moment that offered
+  neither.
 - **A runtime refusal is delivered the same way and is never swallowed.**
   `fail()` writes to stderr and exits non-zero. Relay that stream as it stands.
 - **Retyping, summarizing, re-formatting, tabulating or paraphrasing runtime

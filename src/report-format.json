@@ -1,7 +1,7 @@
 {
-  "version": 17,
+  "version": 18,
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
-  "licensed_by": "kogaki#760 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
+  "licensed_by": "kogaki#745 \u2014 this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (src/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
     "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
@@ -52,6 +52,12 @@
       "means": "a provenance-neighborhood suggestion's owner-facing display id, minted over the neighborhood's own ordered output (§14.6)",
       "producer": "src/terrain.mjs NEIGHBOR_ID (:2828), minted over the sorted output at :2915",
       "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ (§14.6). §14.3 assigns a display_id ONCE, in the survey record; a suggestion is by construction NOT in that record, so nothing there assigns it one. The two spaces coexist and no owner surface renders both for one element. A taken suggestion is assigned an L<n> by §14.3's existing assignor on the way in, and its N<n> does not follow it."
+    },
+    "CountCell": {
+      "shape": "^ *[0-9]+ *$",
+      "means": "a right-aligned count CELL in §6.0.1's block 2 — the non-negative integer together with the padding that aligns it under its family name. The cell rather than the bare integer is the unit, because the padding is part of what the emitter renders and a token pinned to the digits alone cannot be followed by it: the form notation has no way to write \"digits, then however many spaces the alignment needs\". These are COLUMNS rather than prose, so the cells carry no family word of their own; the word is in the header.",
+      "producer": "renderCotagSelection() (src/terrain.mjs)",
+      "minted_here_because": "kogaki#745. Without a declared token every placeholder resolves to FREE (`[\\s\\S]*?`), so a class whose form is nothing but placeholders admits ANY line and the line_class_allowlist is inert on this surface — exactly the condition this file's own reader notes record for three of full_report's body classes. `tag_count_row` must POLICE, so its two count cells are pinned to a shape."
     },
     "NeighborhoodLevel": {
       "shape": "^(?:core|useful|background)$",
@@ -484,6 +490,48 @@
         {
           "id": "neighborhood_none_judged",
           "form": "<n> candidate(s) found, 0 shown — none carries a recommendation level. The mechanical layer ran; the judgment layer did not."
+        },
+        {
+          "id": "blank",
+          "form": ""
+        }
+      ]
+    },
+    "cotag_selection": {
+      "emitter": "renderCotagSelection, printed by the owner-executed `cotag-selection` command through the format guard (emitOwnerListing)",
+      "medium": "the owner's terminal (owner-executed) — this surface writes NO artifact",
+      "governing_prose": "SPEC-terrain §6.0.1 (the co-tag SELECTION display), §6.0 (the owner-executed listing channel). The judgment-class bound on `--intent` is the ROOT spec's, specs/SPEC.md §2.6.3, named with its document because spec-terrain has no §2.6 of its own.",
+      "non_member_fallback": "REFUSE — a line whose class is not in line_classes is not rendered and the emitter refuses to print (§14.2). §6.0.1 declares exactly six classes and states that a SEVENTH fails at emit time.",
+      "disclosure_lines_absent_because": "§2.3's disclosure lines do not render on this surface, and the ground is the GRAMMAR rather than a prohibition: block 2 enumerates ALL served tags, so this is a complete enumeration and §2.3's amended clause discharges the boundary structurally. Nothing here declares them forbidden — that would be an enumerated prohibition whose non-member fallback is admit, the shape §9 chose against.",
+      "class_count_is_six_because": "§6.0.1's ruled layout needs six line CLASSES, and an earlier form of that clause declared four — which made the ruled layout unrenderable under its own REFUSE fallback (found at implementation 2026-09-01, recorded as a Blocker on kogaki#737, amended by PR #748). `table_header` is what makes the columns family-NAMED; `row_continuation` is what admits the second line of a wrapped tag name.",
+      "line_classes": [
+        {
+          "id": "marker",
+          "form": "CO-TAGS — selecting co-tags for: <tag>",
+          "note": "a fixed literal but for the selected tag (§6.0.1 block 1)."
+        },
+        {
+          "id": "table_header",
+          "form": "  tag<column padding>  Lessons  Journeys",
+          "allowlist": ["the two family names"],
+          "note": "the tag column widens to the longest rendered tag name, so the padding is a placeholder; the two family names and the two-space gutters are literal and are what this class pins."
+        },
+        {
+          "id": "tag_count_row",
+          "form": "  <tag name and column padding>  <CountCell>  <CountCell>",
+          "allowlist": ["tag name", "Lesson count", "Journey count"],
+          "note": "the counts are pinned to the `CountCell` token rather than left as free placeholders, which is what makes this class discriminate a table row from any other line — a form of nothing but free placeholders admits every line on the surface. TWO NOTATION LIMITS shaped this form and are recorded rather than worked around silently (kogaki#745): ADJACENT PLACEHOLDERS COLLAPSE — the matcher masks each `<...>` to its hole INDEX and then splits on digit RUNS, so `<a><b>` masks to `01`, parses as hole 1, and hole 0 is dropped with nothing reporting it; the tag name and its column padding are therefore ONE placeholder. And a pinned token CANNOT BE FOLLOWED BY PADDING, because the form has no way to write \"digits, then however many spaces the alignment needs\" — which is why the unit is the CELL and not the integer."
+        },
+        {
+          "id": "row_continuation",
+          "form": "    <the rest of a wrapped tag name>",
+          "note": "the second line of a tag name too long for its column, broken at a hyphen or a space and never mid-word (§6.0.1 block 2). The FOUR-space indent is what separates it from `tag_count_row`'s two."
+        },
+        {
+          "id": "intent",
+          "form": "intent: <one sentence>",
+          "allowlist": ["the model's one sentence"],
+          "note": "the LLM's SOLE contribution to this surface (§6.0.1 block 3). Supplied at the invocation as --intent and refused by the emitter's own fail() when multi-line, longer than 200 characters, or carrying table or marker syntax."
         },
         {
           "id": "blank",

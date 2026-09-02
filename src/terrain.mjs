@@ -953,6 +953,140 @@ export function renderTagRowView(record, tag, family, fetchShards = fetchHeadlin
 }
 
 // --------------------------------------------------------------------------
+// cotag-selection — the display at the co-tag SELECTION moment (§6.0.1).
+// --------------------------------------------------------------------------
+// OWNER-EXECUTED AND IT WRITES NOTHING. The executor names this invocation at
+// the selection stop, intent placeholder included, and neither runs it nor
+// relays its output — §6.0's channel, unchanged and not re-argued here, since a
+// session's tool call prints to the session and an act the owner types prints
+// to the owner.
+//
+// WHY THIS IS NOT A SCREEN, which §6.0.1 calls its own load-bearing half: a
+// Screen is the rendering of the CO-TAG GROUPS, the one state that writes
+// `reports/Screen.md`. This display PRECEDES it and sits on the same side of
+// the line as §6.0's listings. `reports/Screen.md` keeps exactly one writing
+// state (`cotag_screen`) as it always had.
+//
+// THE INTENT BOUND IS 200 AND NOT "ABOUT 200", and the refusal is this
+// emitter's own `fail()` rather than a lint — a spec cannot ship an
+// approximation its emitter must then guess at. The judgment-class rule is the
+// ROOT spec's, `specs/SPEC.md` §2.6.3.
+//
+// COMPLETENESS INVENTORY (§6.0.1, and stated in this codebase's own idiom
+// because a criterion measuring only what must NOT remain is satisfied most
+// cheaply by removing behaviour). What must SURVIVE, and the test that fails
+// if it stops:
+//   · ONE emitter for this surface
+//       → `checks/check-terrain-composition.sh`'s single-construction
+//         assertion, which counts `renderCotagSelection(` call sites and fails
+//         on a second.
+//   · the surface writes NO artifact
+//       → the same check's no-artifact case: the command runs with a
+//         `--rendering-dir` and a `--report-dir` pointed at empty temp trees
+//         and both must still be empty afterwards.
+//   · the marker line is a FIXED literal
+//       → the grammar case, which fails a marker whose form differs.
+//   · block 2 enumerates ALL served tags, not just the selected tag's co-tags
+//       → the same check's enumeration case, over a record whose tag set
+//         exceeds the selected tag's co-tags; a table short of the full set
+//         fails.
+//   · a tag name too long for its column WRAPS onto at most two lines, breaking
+//     at a hyphen or a space and never mid-word, and a name that fits the
+//     widened column is NOT wrapped
+//       → the same check's wrap case, over a served set carrying a breakable
+//         long name, an unbreakable one and a short one.
+//   · `--intent` is the ONLY model-controlled text
+//       → the grammar case, which refuses a rendering whose intent line
+//         carries table or marker syntax.
+// consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
+const COTAG_SELECTION_MARKER = "CO-TAGS — selecting co-tags for:";
+const INTENT_MAX = 200;
+
+// The intent refusals, as the emitter's own act. Returns null when admissible
+// and the refusal text otherwise, so the caller decides whether to `fail()` —
+// which is what lets the check assert the refusals without spawning a process
+// per case.
+export function refuseIntent(intent) {
+  if (typeof intent !== "string" || intent.trim() === "") {
+    return "cotag-selection needs --intent <one sentence> — §6.0.1 block 3 is the LLM's sole contribution to this surface, and an absent one leaves the display with no third block.";
+  }
+  if (/\r|\n/.test(intent)) {
+    return "--intent is MULTI-LINE and §6.0.1 admits one sentence. The intent renders as a single `intent: ` line; a second line would be a seventh line class and the surface refuses at emit.";
+  }
+  if (intent.length > INTENT_MAX) {
+    return `--intent is ${intent.length} characters and the bound is ${INTENT_MAX}. The bound is exact rather than approximate (§6.0.1), and this refusal is the emitter's own rather than a lint (specs/SPEC.md §2.6.3).`;
+  }
+  if (intent.includes(COTAG_SELECTION_MARKER)) {
+    return "--intent carries MARKER syntax. Block 1 is a fixed literal the harness owns; an intent reproducing it would put a second marker on the surface.";
+  }
+  if (/ {2,}[0-9]+ {2,}[0-9]+\s*$/.test(intent) || /\bLessons {2,}Journeys\b/.test(intent)) {
+    return "--intent carries TABLE syntax. Block 2 is the harness's table; an intent shaped like a count row or a header would render as one.";
+  }
+  return null;
+}
+
+// A tag name too long for its column wraps onto AT MOST two lines, breaking at
+// a hyphen or a space and never mid-word (§6.0.1 block 2). Returns [head] or
+// [head, continuation].
+function wrapTagName(name, width) {
+  if (name.length <= width) return [name];
+  let cut = -1;
+  for (let i = 0; i <= width && i < name.length; i++) {
+    if (name[i] === " " || name[i] === "-") cut = i;
+  }
+  // No break point inside the column: the table WIDENS rather than breaking
+  // mid-word, which §6.0.1 forbids outright.
+  if (cut <= 0) return [name];
+  const head = name.slice(0, name[cut] === "-" ? cut + 1 : cut);
+  const rest = name.slice(name[cut] === "-" ? cut + 1 : cut + 1);
+  return rest === "" ? [head] : [head, rest];
+}
+
+// The three blocks of §6.0.1. `record` supplies block 2 over ALL served tags —
+// `record.sections` is the served set, and scoping it to the selected tag's
+// co-tags would make the surface a partial enumeration, which is the premise
+// §2.3's disclosure discharge rests on.
+export function renderCotagSelection(record, tag, intent) {
+  const sections = (record.sections || []).slice()
+    .sort((a, b) => {
+      const al = (a.by_family || {}).lesson || 0, bl = (b.by_family || {}).lesson || 0;
+      if (bl !== al) return bl - al;
+      return String(a.name).localeCompare(String(b.name));
+    });
+
+  // The tag column widens to the longest name it must carry, bounded so a
+  // single pathological name does not push the counts off the screen; a name
+  // past the bound wraps.
+  //
+  // THE WIDTH IS COMPUTED FIRST AND THE BOUND APPLIES TO IT, not to each name
+  // independently. An unbreakable name widens the column past COL_MAX — §6.0.1
+  // forbids breaking mid-word, so the table widens instead — and a name that
+  // FITS the widened column must then not be wrapped. Deciding each wrap
+  // against the constant before knowing the final width is what produced that
+  // inconsistency: a 41-character breakable name rendered wrapped inside a
+  // 45-wide column it fitted (PR #768 round 1).
+  const COL_MAX = 38;
+  const unbreakable = sections
+    .map((x) => String(x.name))
+    .filter((n) => n.length > COL_MAX && wrapTagName(n, COL_MAX).length === 1)
+    .reduce((a, n) => Math.max(a, n.length), 0);
+  const col = Math.max(COL_MAX, unbreakable);
+  const wrapped = sections.map((s) => ({ s, lines: wrapTagName(String(s.name), col) }));
+  const width = Math.max(3, ...wrapped.map((w) => w.lines[0].length));
+
+  const out = [`${COTAG_SELECTION_MARKER} ${tag}`, ""];
+  out.push(`  ${"tag".padEnd(width)}  ${"Lessons".padStart(7)}  ${"Journeys".padStart(8)}`);
+  for (const { s, lines } of wrapped) {
+    const fam = s.by_family || {};
+    out.push(`  ${lines[0].padEnd(width)}  ${String(fam.lesson || 0).padStart(7)}  ${String(fam.journey || 0).padStart(8)}`);
+    if (lines[1] !== undefined) out.push(`    ${lines[1]}`);
+  }
+  out.push("");
+  out.push(`intent: ${intent}`);
+  return out.join("\n");
+}
+
+// --------------------------------------------------------------------------
 // cotags — the second navigation step (SPEC.md §6). Selecting a tag displays
 // the other tags its members carry, grouped by co-tag with counts.
 //
@@ -5659,6 +5793,19 @@ function cmdTags(args) {
   emitOwnerListing("tag_listing", renderTagScreen(record));
 }
 
+// §6.0.1's owner-executed command. It PRINTS and writes nothing, so §15.5's
+// write authority never engages — there is no owner artifact to be written from
+// outside a writing state, which is why this channel needs no grant and adds no
+// third artifact to the two the ruling fixes.
+function cmdCotagSelection(args) {
+  const record = readJson(String(args.survey || fail("cotag-selection needs --survey <file> — the survey record the executor wrote. The `run` stop that hands this over names the path.")));
+  const tag = String(args.tag || fail("cotag-selection needs --tag <tag name> — block 1 names the tag being selected FOR, and the marker is a fixed literal but for it."));
+  const intent = args.intent === undefined ? "" : String(args.intent);
+  const refusal = refuseIntent(intent);
+  if (refusal) fail(refusal);
+  emitOwnerListing("cotag_selection", renderCotagSelection(record, tag, intent));
+}
+
 function cmdTagRows(args) {
   const record = readJson(String(args.survey || fail("tag-rows needs --survey <file> — the survey record the executor wrote.")));
   const tag = String(args.tag || fail("tag-rows needs --tag <tag name> — this is the per-tag row view, and the tag is what scopes it."));
@@ -5676,6 +5823,7 @@ switch (cmd) {
   // nothing, so they are neither Screens nor states of the flow.
   case "tags": cmdTags(args); break;
   case "tag-rows": cmdTagRows(args); break;
+  case "cotag-selection": cmdCotagSelection(args); break;
   case "cotags": cmdCotags(args); break;
   // RETIRED, LOUDLY (§13.2 v20, kogaki#473) — the same shape `--all-groups`
   // and `--group` took: a refusal naming the replacement, never a silent
