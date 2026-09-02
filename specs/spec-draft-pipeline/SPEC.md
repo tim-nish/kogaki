@@ -449,6 +449,10 @@ asserts**.
 | mechanical | does the id resolve? | the runtime | a set-membership test over the library |
 | judged | are the instantiated states consistent specializations? | the composing sitting | a typed record the runtime validates and never composes |
 
+`necessity:` the split between what a runtime may decide and what only a
+reading sitting can. A schema holds a record's shape; nothing but prose can say
+why the verdict may not be composed by the thing that validates it.
+
 #### 4.12.1 The mechanical half — move id resolution
 
 Every `move:` resolves to a record in the library. A path **cannot be adopted**
@@ -460,6 +464,10 @@ entering a Brief. `resolve` stops a Brief whose **library moved underneath it**
 — a Move renamed or withdrawn after composition dangles without the Brief
 changing at all, so a Brief that passed adoption can fail at realization.
 **One resolver, not two:** both seats call the same exported function.
+
+`necessity:` two seats and one resolver. That neither seat subsumes the other
+is a claim about when a library moves relative to a Brief, which no call site
+states.
 
 #### 4.12.2 The judged half — the specialization verdict
 
@@ -541,6 +549,10 @@ anything to it.
 explains it, and whether the Step's grounds already carry it are judgments.
 Nothing in this section reads meaning.
 
+`necessity:` the derivation is carried by `src/compose.mjs`. What no carrier
+holds: why accumulation may not be stored, and why the first introducer is the
+answer rather than a tie-break.
+
 #### 4.13.1 The Move exemplar predicate — the `excerpt` field
 
 A record's **`excerpt`** is **the author's own account, in a few lines, of the
@@ -597,6 +609,10 @@ it is a hole the model fills by invention.
 recorded in the run record **and** announced on stderr. Those are two acts, not
 one: a print is read by whoever is watching, a record by whoever comes after.
 
+`necessity:` the renderer is the carrier and this section does not restate it.
+What no carrier holds: why the Packet is the model's entire input, and why an
+absence must refuse rather than render.
+
 #### 4.14.1 The template is a runtime-read carrier, and it points at no spec
 
 `src/packet-template.md`, read at generation like `report-format.json` and
@@ -621,9 +637,8 @@ judge.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 
-`necessity:` a container for §§5.1–5.3, each of which states its own. The
-grouping is what makes the Brief's centre readable as one thing rather than
-three fields and a file path.
+`necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's
+centre readable as one thing rather than three fields and a file path.
 
 ### 5.1 The settled structure section
 
@@ -636,6 +651,10 @@ three fields and a file path.
 - **`unresolved_obligations`** — the ledger of §5.2.
 - **`thesis_closure`** — `explanation`, `established_by_steps`.
 - **`tradeoffs`**
+
+`necessity:` the field list is carried by `src/compose.mjs`, `src/brief.mjs`
+and `src/assemble.mjs`. What no carrier holds is which block authors which
+field, which the subsections below state one at a time.
 
 #### 5.1.1 The three reader fields, and the block that authors them
 
@@ -663,6 +682,9 @@ absence and proceed. The contrast with §6.1 MUST 1 is the argument: a Journey's
 absence is a *fact about the served material*, which a composition sitting
 cannot conjure; these three are the composer's own to author.
 
+`necessity:` an authoring site and a refusal, both judgments about where a
+value comes from. A default would satisfy every mechanical property here.
+
 #### 5.1.2 The vocabulary guard's reach
 
 `theses/<slug>/brief.md` is a tracked document the owner reads directly, and a
@@ -676,6 +698,9 @@ vocabulary does not reach the owner. An owner typing their own Thesis cannot
 break it — they are not this system — and neither can a served rendering quoted
 at its pin. **The boundary is where this composer writes; past it, the text is
 the owner's.**
+
+`necessity:` whose text a guard reaches is a layer argument. The guard greps a
+lexicon; it cannot tell the composer's words from the owner's.
 
 #### 5.1.3 The owner surface is prose; the schema stays in the record
 
@@ -767,6 +792,10 @@ exactly when the first piece of substantive owner judgment — the Thesis —
 exists. The home is a directory per Brief, `theses/<slug>/`, idempotent by slug
 with a collision refusing, and the runtime is **creator, never editor**.
 
+`necessity:` the gate's payload shape is in `gates/registry.json` and the flow
+is in `src/brief.mjs`. What no carrier holds: the two conditions a merged gate
+may not shed, and why declining a slug may not cost the Thesis.
+
 #### The invocation completes the Brief
 
 **A command is named for the artifact it completes, and it runs until that
@@ -850,7 +879,10 @@ floor in particular is a judgment about register that no grammar decides.
 
 ## 6.9 Move INGESTION — how a Move enters the library
 
-Input is a **free-form markdown file the owner writes**. A command reads it and
+Input is a **free-form file the owner writes**, conventionally carrying a
+`.md` extension. **It is not markdown**, and §6.9.0's grammar refuses markdown
+constructs by name: the extension is the owner's filing convenience, not a
+promise about the interior. A command reads it and
 proposes each Move in exactly §4.2's eight-field schema, stripping the excluded
 draft fields. An **agent review** applies the authoring discipline as
 **judgment**: one transition not an arc, separable from content, an id naming
@@ -927,6 +959,10 @@ read poorly as block scalars in a library a human is expected to *read*, and a
 structured body invites the reflex to treat it as machine-authoritative — one
 step from the verdict machinery §7.5 excludes. **Nothing here makes the block a
 verdict surface.**
+
+`necessity:` a form selection with both arms' costs stated. Neither cost is
+recoverable from the shipped form, and the declined arm is the one a later
+reader proposes again.
 
 #### 6.9.1a What that entails
 
