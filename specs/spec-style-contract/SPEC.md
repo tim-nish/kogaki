@@ -1,5 +1,14 @@
 # SPEC-style-contract — the style contract and plain-register commitment
 
+> **This spec is being dissolved (kogaki#749, kogaki#752).** §3's prohibitions
+> and §4's two operational clauses have moved: the clauses to
+> `src/packet-template.md`, which the model reads at generation, and the
+> prohibitions plus the round-trip ground to
+> `specs/spec-brief-draft-design/DESIGN.md`. What remains here is the pinned
+> GROUND for both, kept because a spec can hold a quoted served position and a
+> template cannot. The deletion itself waits on kogaki#749's remaining
+> referrers and on kogaki#750.
+
 **Status:** v1, authored 2026-08-13 (kogaki#426, from kogaki#127's remainder).
 **Governs:** port manifest item 6 (`specs/SPEC.md` §5).
 
@@ -128,10 +137,19 @@ such on the served surface rather than merely guarded here:
 `consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/articles.md:69`
 (receipt at §9.1)
 
-**Do not count sentences, compute a hedge ratio, or emit a syntax score
-anywhere in a run.** A syntax metric added here has **failed** this contract
-rather than implemented it — the inversion is stated because the failure mode
-is an addition that looks like diligence.
+**The prohibition itself is RE-HOMED (kogaki#752).** Its normative home is
+`specs/spec-brief-draft-design/DESIGN.md` §5, together with the other two
+standing prohibitions — no per-run style questions, and no second
+style-constitution artifact. This section keeps the **ground** quoted at its pin
+above and does not restate the rule, because a prohibition stated in two
+documents is the conformance copy that drifts, and the copy sited beside a spec
+carries more apparent weight than the record a reader is sent to.
+
+**What the re-homing does NOT change**: the prohibition binds exactly as before,
+and its violation is a design act rather than a runtime one — nothing at run
+time can observe a syntax metric being added, because adding one is a person
+deciding to. That is why it has a record and not a check, and why §5 of the
+design record states the same about all three.
 
 ## 4. Plain register is operational, and its test is the round trip
 

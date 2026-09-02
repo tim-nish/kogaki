@@ -252,9 +252,12 @@ the judgment realizing it, and neither is reachable by a check over cites.
 - **It creates no Move and mandates none.** A missing Move degrades a Draft and
   never blocks one (`specs/spec-draft-pipeline/SPEC.md` §7.5), so nothing here
   reaches the Move substrate.
-- **It adds no second style artifact.** Register is
-  `specs/spec-style-contract/SPEC.md` §4's, consumed at generation, and this spec
-  neither restates nor supplements it.
+- **It adds no second style artifact.** Register is **operational text in
+  `src/packet-template.md`**, which the model reads at generation — the carrier
+  moved at kogaki#749, from `specs/spec-style-contract/SPEC.md` §4, whose
+  clauses 1 and 2 no longer stand there. Its GROUND is
+  `specs/spec-brief-draft-design/DESIGN.md` §4. This spec neither restates nor
+  supplements either.
 - **It does not amend `specs/spec-draft-pipeline/SPEC.md`.** That spec's §2
   records whitelist items 3 and 4 as owed; this spec discharges the design half
   of both, and the amendment recording that is that spec's own act on its own
