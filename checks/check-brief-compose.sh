@@ -27,6 +27,7 @@ import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
 import { resolveMoveIds, validateSpecialization, loadMoveIds,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock } from "./src/compose.mjs";
+import { composeThesisCandidates } from "./src/brief.mjs";
 import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./src/assemble.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 
@@ -722,6 +723,58 @@ try {
     }
   }
 
+  // (o) THE ROUND-TRIP CONCESSION IS REFUSED WHEN ABSENT (kogaki#752),
+  // RESTORED after kogaki#770 destroyed its only carrier.
+  //
+  // The refusal lived in check-brief-entry.sh cases (b)/(b3). That member was
+  // removed under the 2026-09-02 retention rule and its arc table was re-homed
+  // here — the ARC TABLE ONLY. The removal took the assertion round 1 had
+  // named and left everything else the member was discharging, which is the
+  // completeness half of an extraction stated nowhere in that act: a removal
+  // owes an INVENTORY of the obligations the departing carrier held, not a
+  // repair of the one finding that prompted it.
+  //
+  // THE RULE WAS LIVE THROUGHOUT. `composeThesisCandidates` emits a concession
+  // per candidate and gates/registry.json requires each option to state one,
+  // so between kogaki#770 and this restoration a candidate with no concession
+  // would have reached the owner's gate with nothing objecting. Carrier-less
+  // BY OMISSION is the defect — a stated policy is admissible stated, measured,
+  // or deliberately carrier-less with a reopen trigger, and this was none of
+  // the three (product-lab@f8794c64 topics/knowledge-architecture.md:345).
+  //
+  // ITS NORMATIVE HOME IS THE DESIGN RECORD, not a spec section: the ground
+  // for the round trip lives at specs/spec-brief-draft-design/DESIGN.md, and
+  // this case is the mechanical half that document cannot be.
+  {
+    const strands = [
+      { id: "L1", display_id: "L1", slug: "alpha", claim: "the alpha claim, stated plainly" },
+      { id: "L2", display_id: "L2", slug: "bravo", claim: "the bravo claim, stated plainly" },
+    ];
+    // BOTH BRANCHES (PR #781 round 1). `composeThesisCandidates` splits on
+    // `strands.length === 1`, and the one-Strand branch builds its candidates
+    // through a POSITIONAL helper `one(id, claim, extra, concession)` — so
+    // dropping the fourth argument at either push site leaves a multi-Strand
+    // fixture green while `enter` renders `<thesis> undefined` to the owner.
+    // The recorded mutation attacks the shared constructor and cannot see it.
+    // Fourth time this suite family has met the fixture-too-small class; the
+    // fix is a case that enters the branch, not a stronger assertion.
+    const oneStrand = [{ id: "L1", display_id: "L1", slug: "alpha", claim: "the lone claim, stated plainly" }];
+    const cands = [...composeThesisCandidates(strands), ...composeThesisCandidates(oneStrand)];
+    if (!Array.isArray(cands) || cands.length < 4) {
+      fails.push(`(o) the composer produced ${cands.length} candidate(s) across both branches — the concession assertion cannot reach the one-Strand branch`);
+    } else {
+      for (const c of cands) {
+        if (!(c.concession || "").trim()) {
+          fails.push(`(o) candidate ${c.id} carries no round-trip concession — the original claim must be recoverable from the plain version, with anything lost restored or EXPLICITLY CONCEDED; a concession is part of the output and never a silent omission (specs/spec-brief-draft-design/DESIGN.md)`);
+        }
+      }
+      // THE GATE'S OWN LABEL CARRIES IT, which is the property that makes the
+      // concession reach the owner rather than merely exist on the record.
+      const labelled = cands.every((c) => (c.thesis || "").includes(c.claim));
+      if (!labelled) fails.push("(o) a candidate's thesis does not open with its own claim — the mint would record text the owner never read");
+    }
+  }
+
   // (h) JOURNEY COVERAGE (§6.1 MUST 1, kogaki#501): journey material is a
   // DISTINCT material (§4.1's "which Journeys"), carried as `<L-id>.journey`,
   // PLACED OR ITS OMISSION DISCLOSED — derived from the composed steps, never
@@ -1119,7 +1172,7 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
-console.log("brief compose: 14/14 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 15/15 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -1168,7 +1221,11 @@ console.log("brief compose: 14/14 cases — (a) §4.1 Step shape refused per mis
   + "stop, the ends-at-a-FILLED-Brief carrier, the named-inspection-need rule and v11's pre-mint bound. The §4.13 "
   + "row is the one with NO RUNTIME FALLBACK: the field is optional by design, so nothing refuses a skill that "
   + "stops mentioning it. Moved rather than deleted because brief-entry was its SOLE reader and the table is not "
-  + "what made that member heavy; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
+  + "what made that member heavy; (o) THE ROUND-TRIP CONCESSION refused when absent (kogaki#752) — RESTORED after kogaki#770 removed its "
+  + "only carrier with the arc table alone: the composer emits a concession per Thesis candidate and the gate "
+  + "registry requires each option to state one, so the rule was live and carried by nothing in between. "
+  + "Carrier-less BY OMISSION is the defect. Its normative home is the design record, and this is the "
+  + "mechanical half that document cannot be; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
   + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "
   + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "
