@@ -357,8 +357,10 @@ export function validateSpecialization(record, steps, candidateId) {
 // the record stays legal and usable for everything else it carries, and the
 // one thing it cannot do is stand in as the exemplar a writer copies.
 //
-// WHY THIS IS A PREDICATE AND NOT A REFUSAL. Every one of this repository's 23
-// Move records carries description-only `sources` today, so a rule that
+// WHY THIS IS A PREDICATE AND NOT A REFUSAL. Every one of this repository's 22
+// Move records carries description-only `sources` today
+// (#751's body says 23; it counted `moves/INDEX.md`, which is a regenerated
+// view and never a record — the figure is corrected here rather than carried), so a rule that
 // refused them would refuse the whole library. The ruling does not say that —
 // it says such a record cannot be an EXEMPLAR — and the difference is what
 // lets the mechanism ship ahead of the re-extraction it enables.
@@ -369,21 +371,45 @@ export const EXCERPT_MARKER = "Excerpt:";
 // for a passage.
 export function moveExcerpt(sourcesText) {
   const t = typeof sourcesText === "string" ? sourcesText : "";
-  // The translated form is the same marker with a parenthetical, per the
-  // contract's rule 5; both are exemplars and the reader is told which.
-  const m = t.match(/Excerpt(\s*\(translated\))?:\s*([\s\S]*)$/);
+  // ANCHORED TO LINE START, AND THE QUOTATION MARKS ARE REQUIRED (PR #775
+  // round 1). The first form matched the marker ANYWHERE in the text with the
+  // quotes optional — so a `sources` whose prose merely MENTIONS `Excerpt:`,
+  // including one explaining that no excerpt exists yet, handed its trailing
+  // description back as a verbatim passage and flipped the record to exemplar
+  // standing. That is the ruling's own failure reached from the admitting
+  // side, and it is the worse direction: a false exemplar is a description a
+  // writer copies believing it is the author's words.
+  //
+  // Both halves come from the contract rather than from taste. Rule 3 puts
+  // context sentences BEFORE the marker, so the marker legitimately begins its
+  // own line — anchoring costs a conforming record nothing. And the output
+  // format mandates `Excerpt: "<the verbatim passage>"`, quotes included, so
+  // requiring them is reading the contract rather than tightening past it.
+  // The translated form is the same marker with a parenthetical (rule 5);
+  // both are exemplars and the reader is told which.
+  const m = t.match(/^[ \t]*Excerpt(\s*\(translated\))?:[ \t]*"([\s\S]*)"[ \t]*$/m);
   if (!m) {
+    // DISTINGUISHED from "no marker at all", because they need different
+    // repairs: an unquoted or mid-line marker is a MALFORMED excerpt whose
+    // author believed they had supplied one, and reporting it as an absence
+    // would send them to re-extract a passage they already have.
+    if (/Excerpt(\s*\(translated\))?:/.test(t)) {
+      return {
+        excerpt: null,
+        translated: false,
+        absence: `this record's sources mention ${EXCERPT_MARKER} but not in the form the contract mandates — the marker begins its own line and the passage is in quotation marks (\`Excerpt: "…"\`, output format and rule 3). It is NOT read as an exemplar, because an unanchored match would admit prose that merely mentions the marker (§4.13.1)`,
+      };
+    }
     return {
       excerpt: null,
       translated: false,
       absence: `this record's sources carry no ${EXCERPT_MARKER} marker, so it holds a DESCRIPTION of the passage rather than the passage — it cannot serve as an exemplar (§4.13.1). Re-extract it through specs/move-extraction-contract.md against its source article.`,
     };
   }
-  const raw = m[2].trim();
-  // A marker with nothing after it is worse than no marker: it claims exemplar
-  // standing and supplies nothing, so it is reported as its own absence rather
-  // than as an empty exemplar.
-  const body = raw.replace(/^"|"$/g, "").trim();
+  // A marker with nothing between the quotes is worse than no marker: it
+  // claims exemplar standing and supplies nothing, so it is reported as its
+  // own absence rather than as an empty exemplar.
+  const body = m[2].trim();
   if (body === "") {
     return {
       excerpt: null,

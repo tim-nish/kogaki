@@ -288,9 +288,17 @@ function cmdResolve(args) {
   // written to the Brief and no key is added to the run record above. A Brief
   // whose path introduces nothing renders the empty ledger AS an empty ledger
   // — that is a true reading of the path, not a failure to compute one.
-  const ledger = readerKnowledgeLedger(brief.steps);
-  const introduced = ledger.length ? ledger[ledger.length - 1].reader_already_knows.length
-    + (brief.steps[brief.steps.length - 1].introduces || []).length : 0;
+  // COUNTED FROM THE DERIVATION, never by adding the last Step's RAW entries
+  // to the deduped union before it (PR #775 round 1). The first form
+  // double-counted a term a later Step re-declares — and cross-Step
+  // re-declaration is exactly what §4.13 legalizes, so the wrong case was the
+  // one the field explicitly permits. Appending a terminal sentinel makes the
+  // final row's snapshot the whole path's union, so the count comes from the
+  // same function everything else reads and cannot disagree with it. This
+  // line is the ONLY owner-facing rendering of the ledger, which is why a
+  // wrong number here is the one a reader has no way to check.
+  const ledger = readerKnowledgeLedger([...brief.steps, { step_id: "(end)" }]);
+  const introduced = ledger[ledger.length - 1].reader_already_knows.length;
   process.stdout.write(`reader-knowledge ledger: ${introduced} term(s) introduced across ${brief.steps.length} step(s), derived from the path at read time and stored nowhere (§4.13)${introduced === 0 ? " — this path introduces no terms, which is a reading of it and not an error" : ""}\n`);
   process.stdout.write(`move ids: ${brief.movesChecked} of ${brief.steps.length} step(s) resolved against the Move library (§4.12) — the specialization judgment was rendered at composition and is not re-derived here\n`);
   process.stdout.write(`workspace: ${ws} (machine-local; snapshots and run identity live here, never in the artifact)\n`);
@@ -481,6 +489,20 @@ async function runSelfTest() {
     const plain = readerKnowledgeLedger(parseBrief(goodBrief, "p.md").steps);
     ok("a Brief introducing nothing derives an empty ledger rather than failing",
       plain.length === 2 && plain.every((r) => r.reader_already_knows.length === 0));
+    // THE COUNT IS THE DERIVATION'S, and a re-declared term is counted ONCE
+    // (PR #775 round 1). Driven end to end rather than asserted against the
+    // function, because the defect was in the RENDERING and the function was
+    // right — an assertion over readerKnowledgeLedger would have passed.
+    const redecl = goodBrief
+      .replace("step_id: s1\nmove: open_the_claim", "step_id: s1\nmove: open_the_claim\nintroduces: opacity")
+      .replace("step_id: s2\nmove: close_the_claim", "step_id: s2\nmove: close_the_claim\nintroduces: opacity\nintroduces: deterrence");
+    const rdDir = join(root, "theses", "redecl"); mkdirSync(rdDir, { recursive: true });
+    writeFileSync(join(rdDir, "brief.md"), redecl);
+    const rr = spawnSync(process.execPath,
+      [self, "resolve", "--brief", join(rdDir, "brief.md"), "--workspace", join(root, "ws-r"), "--moves-dir", movesDir],
+      { encoding: "utf8" });
+    ok("a term two Steps declare is counted ONCE in the rendered ledger",
+      rr.status === 0 && /reader-knowledge ledger: 2 term\(s\)/.test(rr.stdout));
     ok("resolve states the ledger it derived, including the empty reading",
       r0.status === 0 && /reader-knowledge ledger: 0 term\(s\)/.test(r0.stdout) && /not an error/.test(r0.stdout));
   }

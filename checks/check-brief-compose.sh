@@ -569,6 +569,22 @@ try {
     // AN EMPTY MARKER IS WORSE THAN NO MARKER: it claims standing and supplies
     // nothing, so it is reported as its own absence and never as a short
     // exemplar.
+    // THE ADMITTING SIDE (PR #775 round 1), which the first block had no case
+    // pointing at: an unanchored, quote-optional match let PROSE that merely
+    // mentions the marker hand back its trailing text as a verbatim passage.
+    // The worse direction — a false exemplar is a description a writer copies
+    // believing it is the author's words — and the likeliest carrier of the
+    // phrase is a record explaining that no excerpt exists yet.
+    const mentions = `Observed in "An Article." This record has no Excerpt: yet; re-extract it through the contract.`;
+    if (isExemplar(mentions)) fails.push("(m) a sources field that merely MENTIONS the marker was admitted as an exemplar — an unanchored match hands prose back as a verbatim passage");
+    const midline = `Observed in "An Article." Excerpt: the passage without quotation marks`;
+    if (isExemplar(midline)) fails.push("(m) an unquoted marker was admitted as an exemplar — the contract's output format mandates the quotation marks");
+    const mm = moveExcerpt(midline);
+    if (!/not in the form the contract mandates/.test(mm.absence || "")) fails.push("(m) a malformed marker is reported as an ABSENT one — different repairs, and the author who wrote it already has the passage");
+    // A conforming record whose marker begins its own line after context
+    // sentences is the shape rule 3 mandates, so anchoring must not cost it.
+    const withContext = `Observed in "An Article." One context sentence. A second.\n  Excerpt: "the passage, verbatim"`;
+    if (!isExemplar(withContext)) fails.push("(m) anchoring rejected the contract's OWN shape — context sentences before a marker on its own line (rule 3)");
     const hollow = moveExcerpt(`Excerpt: ""`);
     if (hollow.excerpt !== null) fails.push("(m) an empty Excerpt was admitted as an exemplar");
     if (!/no passage after it/.test(hollow.absence || "")) fails.push("(m) an empty marker is not distinguished from an absent one — they need different repairs");
