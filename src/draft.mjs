@@ -225,6 +225,14 @@ function loadBrief(args) {
   // other. The judged half is NOT re-run here: it was rendered at composition
   // by a sitting reading the material, and re-deriving it at realization
   // would be this runtime composing a verdict, which §4.12 forbids.
+  // THE STORE DEFAULT IS WORKING-DIRECTORY-RELATIVE, and this entry is shared
+  // by resolve, material, section and emit — so all four gain a cwd dependency
+  // this runtime did not have before (a Brief arrives as a path; the workspace
+  // default is home-relative). Driven from outside the repository root they
+  // refuse as a STORE fault naming `--moves-dir`, which is legible rather than
+  // silent. Not made Brief-relative on purpose: inferring a repository root
+  // from a Brief's path guesses at a layout the spec does not govern, and a
+  // wrong guess resolves SILENTLY against the wrong library (§4.12.1).
   const resolved = resolveMoveIds(brief.steps, args["moves-dir"]);
   if (resolved.error) fail(resolved.error);
   return { ...brief, path: resolve(path), movesChecked: resolved.checked };

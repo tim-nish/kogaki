@@ -11,6 +11,15 @@ JUDGMENT recorded in a typed record the harness validates and never composes,
 at a mandatory occasion with no skip. §7.5's sole-mechanical-kill-criterion
 rider is SUPERSEDED in place (it was already stale at v18) and its
 judgment-class siblings stand unamended.
+**The arc gains a stage, and it is stated HERE rather than by editing v19's
+row**: `/brief` now drives entry → thesis gate → mint → path composition → path
+review → Candidate assembly → Candidate selection → **the §4.12 specialization
+judgment** → adoption. v19's status row below still names the eight-stage form
+in the present tense and is NOT edited — this spec retains superseded text as
+record, so a reader entering through the version record meets this line first
+and finds the older row as the history it is. (PR #774 round 1 read the v19 row
+as a live arc summary, which is the reading that makes stating the current form
+at the top load-bearing rather than decorative.)
 **deferred slots minted by this amendment: `specialization-judgment-and-path-review-ordering`.**
 
 **Status:** v21, amended 2026-08-21 (kogaki#577) — **§5.3 v11's release
@@ -1167,6 +1176,27 @@ re-bind Moves that were never wrong.
 `requires`/`effect` would be one edit away from comparing them, which is the
 lint §4.6 clause 3 forbids. The restraint is in the reader, not in a rule
 about the reader.
+
+**Where the library is, stated rather than left in a usage line.** The store
+defaults to `moves/` **relative to the working directory**, and `--moves-dir`
+names it anywhere else. Two consequences a reader is owed, because this is the
+one part of §4.12 that is a fact about the *environment* rather than about the
+artifact:
+
+- The realization runtime had **no working-directory dependency before this
+  section** — a Brief arrives as a path and the workspace default is
+  home-relative — and `resolve`, `material`, `section` and `emit` all reach the
+  resolution through one shared entry, so all four now carry it. Driven from
+  outside the repository root they refuse as a **store fault**.
+- That refusal is **legible rather than silent**: it names the store it could
+  not read and names `--moves-dir` as the discharge, which is the unreadable-
+  is-not-empty rule above doing the work it was written for. A fixture or a
+  driver running elsewhere passes the flag.
+
+The default is not made Brief-relative: inferring a repository root from a
+Brief's path would be a guess about a layout this spec does not govern, and a
+wrong guess resolves **silently** against the wrong library, which is strictly
+worse than a refusal that says where it looked.
 
 #### 4.12.2 The judged half — specialization is judged, and its record is typed
 

@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19, §4.12 v22): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → the §4.12 specialization judgment → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -148,6 +148,11 @@ kogaki#494).
     Move, or admit the Move to the library first — the library grows by an
     admission act, never by a Brief naming an id. Relay either refusal and fix
     it at source; nothing is written to the Brief.
+    The library is `moves/` **relative to the working directory**; add
+    `--moves-dir <dir>` when driving from anywhere but the repository root, and
+    note that `draft.mjs` takes the same flag for the same reason. A store it
+    cannot read refuses as a store fault naming no Step — that is a wrong
+    working directory, not a wrong Brief.
 13. **Hand over the filled Brief** and stop. This is the end of the arc: name
     `theses/<slug>/brief.md` to the owner and never retype, summarize or
     restate it. The run's per-block Brief snapshots (before/after each

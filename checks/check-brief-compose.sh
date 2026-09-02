@@ -635,9 +635,19 @@ try {
         if (bad.doc) fails.push(`(l) the refusal for a missing ${key} still produced a document`);
         if (/is not in the reviewed set/.test(bad.error)) fails.push(`(l) the unauthored-field refusal is worded as the unoffered-Candidate refusal — two different problems, one message`);
       }
-      // an EMPTY STRING is the same absence as a missing key
-      const empty = adoptCandidate(doc0, { candidates: [candA, { ...candB, [key]: "" }] }, "cand-2");
+      // an EMPTY STRING is the same absence as a missing key.
+      // PASSES A CONFORMING INSTANTIATION (PR #774 round 1): without it these
+      // three calls refuse on §4.12's absent-record guard before the
+      // reader-field guard is reached, and since they assert only that SOME
+      // error came back, deleting the empty-string-is-absence guard would
+      // leave them green. The sibling missing-key cases keep their
+      // discrimination on their own — they assert the heading is NAMED — so
+      // only this direction had lost it. Same two-guards-one-property class
+      // this change's own mutation pass found twice; found a third time here,
+      // by the reviewer, in a case this change did not write but did disarm.
+      const empty = adoptCandidate(doc0, { candidates: [candA, { ...candB, [key]: "" }] }, "cand-2", inst(candB));
       if (!empty.error) fails.push(`(l) adoption ACCEPTED an empty ${key} — an empty value is an unauthored one`);
+      else if (!empty.error.includes(heading)) fails.push(`(l) the empty-${key} refusal does not NAME the field — it refused for some other reason, so this case would stay green with the empty-value guard deleted`);
     }
     // AC5b — the refusal names ALL unauthored fields, not merely the first:
     // a caller told about one field at a time re-runs composition per field.
