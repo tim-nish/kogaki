@@ -94,7 +94,7 @@ owner-facing rendering this pipeline emits is ordinary prose; a schema-style
 presentation that does reach a surface carries at most three fields; the mint
 records the adopted CLAIM and strips the gate's framing. Sited here rather than
 in `specs/spec-style-contract/SPEC.md` §4 because that spec binds the protocol
-of an owner-authored document and binds no authored clause. §4's three clauses
+of an owner-authored document and binds no authored clause. §4's three clauses (numbering as of v1; clauses 1 and 2 moved to `src/packet-template.md` at kogaki#749 — see §4.14.1)
 reach this composer unchanged and are not restated. **deferred slots minted by
 this amendment: none.**
 
@@ -369,7 +369,7 @@ is countable rather than assumed:
 | thesis | **bound** as design — §3 |
 | journey incorporation | **bound** — Journeys are admissible step materials (§4), §4.8 binds arc integrity, and the **register choice rides Candidate differentiation** at §6, whose composition MUSTs carry the 2026-07-31 frozen requirements (v10, kogaki#492). **No incorporation gate is registered, and none is owed.** At v8 this row read "… §4.10 binds the incorporation gate itself"; at v1–v7 it read "**partial** — … the incorporation gate itself is owed". Both prior readings are kept here rather than edited away |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6; the load-bearing one |
-| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2. **The SURFACE-SHAPE half is §5.1.3** (v20, kogaki#566): §4 binds the protocol of an owner-authored document and has no standing to say what this repository's composers may emit, so a reader tracing this gate reads both |
+| plain register with round-trip concessions | **bound** — `specs/spec-style-contract/SPEC.md` §4, which carries manifest item 6's re-homing (kogaki#426). The operational definition and the round-trip test are that spec's; this row's "with round-trip concessions" half is §4 clause 2 — **§4's clause numbering MOVED at kogaki#749** and this reference is repointed rather than left dangling: clauses 1 and 2 (the operational definition, the round-trip test) are OPERATIONAL and their carrier is now `src/packet-template.md`, which the model reads at generation; that spec's §4 keeps only their GROUND and clause 3. A reference to "§4 clause 2" therefore resolves to the template's round-trip instruction, and a composer that needs the text reads the template rather than the spec. **The SURFACE-SHAPE half is §5.1.3** (v20, kogaki#566): §4 binds the protocol of an owner-authored document and has no standing to say what this repository's composers may emit, so a reader tracing this gate reads both |
 
 **Row 4 was re-assessed at v5 and again at v20, and row 2 at v8 and again at v10. Rows 1 and 3 carry
 their v1 judgments unchanged and were not re-checked at either head** — the
@@ -1620,7 +1620,13 @@ input that is the model's whole world, a hole is not a gap the model notices —
 it is a hole the model fills by invention.
 
 **Stored exactly as served**, overwritten on re-render, with path and sha
-announced beside the Section it produces.
+**recorded in the run record** beside the Section it produces — and announced on
+stderr as well. The two are not the same act, and this sentence said "announced"
+while the runtime only printed (PR #780 round 1): a print is read by whoever is
+watching, a record by whoever comes after, and the ruling is about the second. A
+re-resolve **preserves** those entries where the Brief has not moved, because
+the run record is overwritten at `resolve` by design and an overwrite would
+orphan Packet files still on disk and still current.
 
 #### 4.14.1 The template is a runtime-read carrier, and it points at no spec
 
@@ -1945,7 +1951,7 @@ and says so:
 `specs/spec-style-contract/SPEC.md:42-45`
 
 A rule about what **this repository's** composers may emit is not a clause of
-the owner's style contract. §4's three clauses — the operational definition, the
+the owner's style contract. §4's three clauses (numbering as of v1; clauses 1 and 2 moved to `src/packet-template.md` at kogaki#749 — see §4.14.1) — the operational definition, the
 round-trip test, and candidates rather than a single rendering — reach this
 composer unchanged and are not restated here; this clause adds the surface-shape
 half that §4 has no standing to carry.

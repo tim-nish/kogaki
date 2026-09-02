@@ -13,7 +13,7 @@
 // it realized or the judgment realizing it (§6), and neither is reachable by
 // this harness.
 //
-// Four commands, one per harness act:
+// Five commands, one per harness act:
 //   resolve  — parse the Brief; refuse a template BY FIELD NAME (a template
 //              is not an input); print the plan (closed Strand set, Steps in
 //              order); write the machine-local run record.
@@ -26,6 +26,8 @@
 //              closed set refuses by name. Snapshots the assembled state
 //              into the run workspace — no per-block commit and no tracked
 //              diff artifact (the kogaki#523 constraint, §5).
+//   packet   — render the Section Packet: the model's ENTIRE input for one
+//              Step (§4.14, kogaki#749), deterministic and stored as served.
 //   emit     — assemble the CanonicalDraft: body = the sections in the
 //              Reader Path's recorded order, prose only; frontmatter = the
 //              record half (§5). Repo-visible under a fixed human name
@@ -272,7 +274,23 @@ function cmdResolve(args) {
   const ws = workspaceFor(args, brief.slug);
   mkdirSync(join(ws, "sections"), { recursive: true });
   // Machine identity: run record in the workspace, never in the artifact.
+  // A RE-RESOLVE PRESERVES THE PACKET RECORDS WHEN THE BRIEF HAS NOT MOVED.
+  // This write is a full overwrite by design — the run record is the run's
+  // identity — but `packet` now records path+sha here, and an overwrite would
+  // orphan Packet files that are still on disk and still current: the exact
+  // unrecorded-artifact defect the recording exists to close, re-created by
+  // the other half of the same file. Where the Brief HAS moved, the old
+  // entries are correctly dropped: they describe Packets rendered from a
+  // Brief that no longer exists.
+  const prevRun = join(ws, "run.json");
+  let carried;
+  try {
+    const prev = JSON.parse(readFileSync(prevRun, "utf8"));
+    if (prev.brief_sha === sha256(brief.text) && prev.packets) carried = prev.packets;
+  } catch { /* no prior record, or unreadable — nothing to carry */ }
+
   writeFileSync(join(ws, "run.json"), JSON.stringify({
+    ...(carried ? { packets: carried } : {}),
     brief: brief.path,
     brief_sha: sha256(brief.text),
     survey_pin: brief.surveyPin,
@@ -351,7 +369,16 @@ const MOVE_FIELDS_RENDERED = ["intent", "constraints", "failure_modes"];
 // own purpose rather than a widening of the first.
 function moveField(text, field) {
   const m = text.match(new RegExp(`^${field}:\\s*(>-)?[ \\t]*\\n((?:[ \\t]+.*\\n?)*)`, "m"));
-  if (m) return m[2].split("\\n").map((l) => l.trim()).filter(Boolean).join(" ").trim();
+  // SPLIT ON A NEWLINE, not on the two-character sequence backslash-n (PR #780
+  // round 1). The first form never split at all, so every real Move record —
+  // which wraps intent/constraints/failure_modes/excerpt across lines — reached
+  // the model's ENTIRE INPUT carrying its source newlines and two-space
+  // indents. The self-test could not see it: its fixture records write
+  // single-line folded scalars, so the fold was never exercised. Same
+  // fixture-too-small class this file records three times against its own
+  // cases, arriving here on the side a mutation cannot reach — there was no
+  // guard to delete, only a fold that silently did nothing.
+  if (m) return m[2].split("\n").map((l) => l.trim()).filter(Boolean).join(" ").trim();
   const inline = text.match(new RegExp(`^${field}:[ \\t]*(.+)$`, "m"));
   return inline ? inline[1].trim() : null;
 }
@@ -384,9 +411,12 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
     reader_target: need("the Brief's Reader target", briefSection(brief.text, "Reader target")),
     opening_question: need("the Brief's Opening question", briefSection(brief.text, "Opening question")),
     move_id: step.move,
-    move_intent: need(`${step.move}'s intent`, moveField(moveText, "intent")),
-    move_constraints: need(`${step.move}'s constraints`, moveField(moveText, "constraints")),
-    move_failure_modes: need(`${step.move}'s failure_modes`, moveField(moveText, "failure_modes")),
+    // DERIVED FROM THE CONSTANT rather than naming the three again (PR #780
+    // round 1). The constant carried the exclusion's whole justification and
+    // was read by nothing, so it was a second statement of the rendered field
+    // set that could drift from the renderer with no check noticing.
+    ...Object.fromEntries(MOVE_FIELDS_RENDERED.map((f) =>
+      [`move_${f}`, need(`${step.move}'s ${f}`, moveField(moveText, f))])),
     // The exemplar renders its own STATED ABSENCE rather than a substitute
     // (§4.13.1) — an empty excerpt is not a missing input, it is a record that
     // cannot serve as an exemplar, and the Packet says so where the passage
@@ -474,6 +504,30 @@ function cmdPacket(args) {
   const out = join(dir, `${id}.md`);
   writeFileSync(out, r.packet);
   const sha = sha256(r.packet);
+
+  // RECORDED IN THE RUN RECORD, not only printed (PR #780 round 1). #749 rules
+  // "path+sha recorded in the run record beside the Section it produced", and
+  // the first form wrote both to stderr and nothing to run.json — a print is
+  // read by whoever is watching and a record is read by whoever comes after,
+  // which is the difference the ruling is about. §4.14 restated the ruling as
+  // "announced", which substituted the printing for the recording without
+  // saying it had.
+  //
+  // MERGED rather than overwritten: run.json is written at `resolve` and holds
+  // the run's identity, so the packet entry joins it under its step id and a
+  // re-render replaces that one entry. A missing or unreadable run.json is not
+  // a failure of the render — the Packet is already written and printed — so it
+  // warns, exactly as the snapshot path does.
+  const runFile = join(ws, "run.json");
+  try {
+    let rec = {};
+    if (existsSync(runFile)) rec = JSON.parse(readFileSync(runFile, "utf8"));
+    rec.packets = { ...(rec.packets || {}), [id]: { path: out, sha256: sha } };
+    writeFileSync(runFile, JSON.stringify(rec, null, 2) + "\n");
+  } catch (e) {
+    process.stderr.write(`draft: the packet's path and sha were not recorded in ${runFile} (${e.message}) — the Packet itself is written and printed; the record is the trace, and the trace never gates the write it traces\n`);
+  }
+
   process.stdout.write(r.packet);
   process.stderr.write(`\npacket ${id}: ${out}\n`);
   process.stderr.write(`packet sha256: ${sha}\n`);
@@ -615,7 +669,9 @@ async function runSelfTest() {
     // §4.12's membership test and is not enough for a Packet.
     writeFileSync(join(movesDir, `${id}.md`), [
       `id: ${id}`, "status: observed",
-      "intent: >-", `  what ${id} does to the reader.`,
+      // THE FIXTURE RECORDS WRAP (PR #780 round 1). Single-line folded scalars
+      // never exercised the fold, which is why a fold that did nothing shipped.
+      "intent: >-", `  what ${id} does to the reader,`, "  stated across two lines.",
       "requires: >-", "  the state this move depends on.",
       "effect: >-", "  the state this move produces.",
       "constraints: >-", "  what a correct performance must not do.",
@@ -726,6 +782,26 @@ async function runSelfTest() {
     const stored = join(wsSlug, "packets", "s1.md");
     ok("the stored packet is byte-identical to what was printed",
       existsSync(stored) && readFileSync(stored, "utf8") === p1.stdout);
+    // RECORDED IN THE RUN RECORD, which is what the ruling asks for — a print
+    // is read by whoever is watching, a record by whoever comes after.
+    {
+      const rf = join(wsSlug, "run.json");
+      const rec = existsSync(rf) ? JSON.parse(readFileSync(rf, "utf8")) : {};
+      ok("the packet's path and sha are recorded in the run record",
+        rec.packets && rec.packets.s1 && rec.packets.s1.path === stored
+        && /^[0-9a-f]{64}$/.test(rec.packets.s1.sha256 || ""));
+      // A RE-RESOLVE DOES NOT ORPHAN THEM. run.json is overwritten at resolve by
+      // design, so the recording this round added would have been erased by the
+      // next resolve while the Packet files stayed on disk.
+      const rr = spawnSync(process.execPath,
+        [self, "resolve", "--brief", join(briefDir, "brief.md"), "--workspace", ws, "--moves-dir", movesDir],
+        { encoding: "utf8" });
+      const after = JSON.parse(readFileSync(rf, "utf8"));
+      ok("a re-resolve preserves the packet records when the Brief has not moved",
+        rr.status === 0 && after.packets?.s1?.sha256 === rec.packets?.s1?.sha256);
+      ok("the recorded sha is the sha of what was actually stored",
+        rec.packets?.s1?.sha256 === createHash("sha256").update(readFileSync(stored, "utf8")).digest("hex"));
+    }
     // THE TEMPLATE POINTS AT NO SPEC (acceptance 3), asserted against the
     // RENDERED packet as well as the template file: a slot could carry one in.
     const tpl = readFileSync(join(dirname(self), "packet-template.md"), "utf8");
@@ -753,6 +829,11 @@ async function runSelfTest() {
       /reader_state_before/.test(p1.stdout) && /reader_state_after/.test(p1.stdout));
     // The exemplar's FORM-ONLY header is what stops the passage being read as
     // content — the block whose absence fails worst.
+    // THE FOLD ACTUALLY FOLDS. The fixture's intent wraps across two lines, so
+    // a fold that does nothing renders them as two — the defect PR #780 round 1
+    // found, which no mutation could reach because there was no guard to break.
+    ok("a multi-line Move field is folded to one line in the packet",
+      /what open_the_claim does to the reader, stated across two lines\./.test(p1.stdout));
     ok("the exemplar carries its form-only usage header",
       /FORM ONLY/.test(p1.stdout) && /do not reuse its/i.test(p1.stdout));
     // A DANGLING INPUT REFUSES BY NAME rather than rendering an empty slot: a
