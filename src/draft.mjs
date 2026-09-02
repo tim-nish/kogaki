@@ -43,6 +43,11 @@ import { join, resolve, relative, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
+// §4.12's mechanical half is ONE function shared with the composition side
+// (src/compose.mjs), never a second copy here: two resolvers are two things
+// that can disagree about what a dangling move id is, and the refusal a
+// composer sees would stop matching the one a realizer sees.
+import { resolveMoveIds } from "./compose.mjs";
 
 function fail(msg) {
   process.stderr.write(`draft: ${msg}\n`);
@@ -129,7 +134,14 @@ export function parseBrief(text, path = "<brief>") {
     const body = m[1];
     const idM = body.match(/^step_id:\s*(\S+)\s*$/m);
     if (!idM) { refusals.push(`the Brief at ${path} carries a step block with no step_id`); continue; }
-    steps.push({ step_id: idM[1], body });
+    // `move:` IS READ (§4.12, kogaki#747). It was parsed for `step_id` only
+    // and the Move binding sat here as uninterpreted dead input, so a typo'd
+    // or renamed id rode a minted Brief in silence until the Section Packet
+    // assembler joined Step.move → moves/<id>.md and failed mid-draft. Read
+    // here, refused at `resolve` below — at the entry to realization rather
+    // than partway through it.
+    const moveM = body.match(/^move:\s*(\S+)\s*$/m);
+    steps.push({ step_id: idM[1], move: moveM ? moveM[1] : null, body });
   }
   if (steps.length === 0 && refusals.length === 0) {
     refusals.push(`the Brief at ${path} carries no Reader Path steps — there is nothing to realize`);
@@ -204,7 +216,18 @@ function loadBrief(args) {
   catch (e) { fail(`the Brief at ${path} cannot be read (${e.message})`); }
   const brief = parseBrief(text, path);
   if (brief.refusals.length) fail(brief.refusals[0]);
-  return { ...brief, path: resolve(path) };
+  // §4.12's MECHANICAL HALF at the realization entry: `resolve` refuses an
+  // EXISTING Brief carrying a move id that resolves to no record, naming the
+  // Step and the id. The composition-side seat (assemble.mjs adopt-candidate)
+  // stops one entering a Brief; this one stops a Brief whose library moved
+  // underneath it — a Move renamed or withdrawn after the Brief was composed
+  // dangles without the Brief changing at all, so neither seat subsumes the
+  // other. The judged half is NOT re-run here: it was rendered at composition
+  // by a sitting reading the material, and re-deriving it at realization
+  // would be this runtime composing a verdict, which §4.12 forbids.
+  const resolved = resolveMoveIds(brief.steps, args["moves-dir"]);
+  if (resolved.error) fail(resolved.error);
+  return { ...brief, path: resolve(path), movesChecked: resolved.checked };
 }
 
 function assembleBody(brief, ws) {
@@ -237,6 +260,7 @@ function cmdResolve(args) {
   process.stdout.write(`survey pin: ${brief.surveyPin}\n`);
   process.stdout.write(`closed set: ${brief.strands.map((s) => s.id).join(", ")} — the Brief's own text plus these Strands' served renderings at the pin; nothing else is reachable\n`);
   process.stdout.write(`reader path: ${brief.steps.map((s) => s.step_id).join(" → ")} (recorded order; realized in this order and no other)\n`);
+  process.stdout.write(`move ids: ${brief.movesChecked} of ${brief.steps.length} step(s) resolved against the Move library (§4.12) — the specialization judgment was rendered at composition and is not re-derived here\n`);
   process.stdout.write(`workspace: ${ws} (machine-local; snapshots and run identity live here, never in the artifact)\n`);
 }
 
@@ -346,10 +370,25 @@ async function runSelfTest() {
     "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
     "## Thesis", "", "The fixture claim.", "",
     "## Sequence", "",
-    "```step", "step_id: s1", "purpose: open", "```", "",
-    "```step", "step_id: s2", "purpose: close", "```", "",
+    "```step", "step_id: s1", "move: open_the_claim", "purpose: open", "```", "",
+    "```step", "step_id: s2", "move: close_the_claim", "purpose: close", "```", "",
   ].join("\n");
   writeFileSync(join(briefDir, "brief.md"), goodBrief);
+
+  // §4.12's FIXTURE MOVE LIBRARY (kogaki#747). The fixture Brief binds Moves
+  // because a Step without one is not a Step (§4.1 v18) and its id must
+  // resolve (§4.12) — the pass drove a Brief whose step blocks carried no
+  // `move:` at all, which is the same dead-input state this issue closes.
+  // A fixture library rather than the repository's `moves/`: a self-test that
+  // resolved against the real store would go red on a library edit it has
+  // nothing to do with, and would force the fixture to adopt real Move ids it
+  // does not mean. Records hold an id line only — the resolver reads the store
+  // as a set of ids and nothing more.
+  const movesDir = join(root, "moves");
+  mkdirSync(movesDir, { recursive: true });
+  for (const id of ["open_the_claim", "close_the_claim"]) {
+    writeFileSync(join(movesDir, `${id}.md`), `id: ${id}\nstatus: observed\n`);
+  }
 
   // 1 — a template is not an input: the refusal names the field.
   const template = goodBrief.replace("The fixture claim.", SLOT);
@@ -379,11 +418,37 @@ async function runSelfTest() {
   const { spawnSync } = await import("node:child_process");
   const self = fileURLToPath(import.meta.url);
   const drive = (cmd, ...extra) => spawnSync(process.execPath,
-    [self, cmd, "--brief", join(briefDir, "brief.md"), "--workspace", ws, ...extra],
+    [self, cmd, "--brief", join(briefDir, "brief.md"), "--workspace", ws, "--moves-dir", movesDir, ...extra],
     { encoding: "utf8" });
 
   const r0 = drive("resolve");
   ok("resolve prints the recorded order", r0.status === 0 && r0.stdout.includes("s1 → s2"));
+
+  // 4b — §4.12's MECHANICAL HALF at the realization entry (kogaki#747).
+  // `move:` was parsed for nothing; it is read now, and `resolve` refuses an
+  // EXISTING Brief whose binding resolves to no record. This seat does not
+  // duplicate the composition-side one: a Move renamed or withdrawn after the
+  // Brief was composed dangles without the Brief changing at all, so a Brief
+  // that passed adoption can fail here and that is the case this covers.
+  ok("the move binding is read off the step block",
+    parsed.steps.length === 2 && parsed.steps[0].move === "open_the_claim");
+  const danglingBrief = goodBrief.replace("move: close_the_claim", "move: close_the_clam");
+  const dbDir = join(root, "theses", "dangling"); mkdirSync(dbDir, { recursive: true });
+  writeFileSync(join(dbDir, "brief.md"), danglingBrief);
+  const rd = spawnSync(process.execPath,
+    [self, "resolve", "--brief", join(dbDir, "brief.md"), "--workspace", join(root, "ws-d"), "--moves-dir", movesDir],
+    { encoding: "utf8" });
+  ok("resolve refuses a dangling move id, naming the step and the id",
+    rd.status !== 0 && /s2/.test(rd.stderr) && /close_the_clam/.test(rd.stderr));
+  ok("resolve states what it resolved against the library",
+    r0.status === 0 && /2 of 2 step\(s\) resolved/.test(r0.stdout));
+  // AN UNREADABLE LIBRARY IS NOT AN EMPTY ONE — the refusal names the store,
+  // never the Steps, so a composer is not sent to re-bind Moves that are fine.
+  const rn = spawnSync(process.execPath,
+    [self, "resolve", "--brief", join(briefDir, "brief.md"), "--workspace", join(root, "ws-n"), "--moves-dir", join(root, "no-library")],
+    { encoding: "utf8" });
+  ok("an unreadable Move library refuses as a store fault, naming no Step",
+    rn.status !== 0 && /cannot be read/.test(rn.stderr) && !/step s1/.test(rn.stderr));
 
   const sec2 = join(root, "sec2.md"); writeFileSync(sec2, "The closing prose.");
   const sec1 = join(root, "sec1.md"); writeFileSync(sec1, "The opening prose.");
@@ -445,6 +510,6 @@ if (args["self-test"]) {
     case "material": cmdMaterial(args); break;
     case "section": cmdSection(args); break;
     case "emit": cmdEmit(args); break;
-    default: fail("usage: draft.mjs resolve|material|section|emit --brief <path> [--workspace <dir>] [--strand <L-id>] [--step <id> --file <f>] | --self-test");
+    default: fail("usage: draft.mjs resolve|material|section|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> --file <f>] | --self-test");
   }
 }

@@ -18,12 +18,13 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements, replaceSlot } from "./src/compose.mjs";
+import { resolveMoveIds, validateSpecialization, loadMoveIds } from "./src/compose.mjs";
 import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./src/assemble.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 
@@ -39,6 +40,36 @@ run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-stat
 run(["src/brief.mjs", "adopt", "--run-state", rs, "--thesis", "thesis-1"]);
 run(["src/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--theses-dir", theses]);
 const briefPath = join(theses, "compose-case", "brief.md");
+
+// §4.12's FIXTURE MOVE LIBRARY (kogaki#747). The composed paths below bind
+// invented Move ids, which is correct for a shape fixture and is exactly why
+// the instantiation contract needs its own store to resolve against: pointing
+// these cases at the repository's real `moves/` would either force the fixture
+// to adopt library ids it does not mean, or make the check fail on a library
+// edit it has nothing to do with. `--moves-dir` exists for this.
+//
+// The records hold ONLY an id line. That is not laziness: `loadMoveIds` reads
+// the store as a set of ids and nothing else (§4.12's mechanical half is a
+// membership test), so a fixture carrying `requires`/`effect` would suggest
+// the resolver reads them.
+const MOVES = join(dir, "moves");
+mkdirSync(MOVES, { recursive: true });
+for (const id of ["state-claim-in-working-form", "worked-example", "generalize-from-the-seen-case"]) {
+  writeFileSync(join(MOVES, `${id}.md`), `id: ${id}\nstatus: observed\n`);
+}
+// A CONFORMING specialization record for a Candidate — composed HERE, by the
+// check, standing in for the judging sitting. The runtime under test composes
+// none, which is the property (c) below asserts by removing this.
+const spec = (cand, over = {}) => ({
+  version: "1",
+  candidate_id: cand.candidate_id,
+  verdicts: cand.steps.map((st) => ({
+    step_id: st.step_id, move: st.move, verdict: "consistent",
+    why: `the before-state and after-state read as instance forms of ${st.move}'s contract`,
+  })),
+  ...over,
+});
+const inst = (cand, over = {}) => ({ movesDir: MOVES, specialization: spec(cand, over) });
 
 const step1 = {
   // §4.1 v18 (kogaki#642): every Step binds a Move — the State component.
@@ -298,7 +329,7 @@ try {
 
   // (f) ADOPTION: the adopted Candidate's Reader Path lands in the Brief's
   // sequence; thesis_closure and tradeoffs fill from its reasoning (§5.1).
-  const ad = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2");
+  const ad = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB));
   if (ad.error) fails.push(`(f) adopting a reviewed Candidate was refused: ${ad.error}`);
   const doc3 = ad.doc || "";
   if (!/```step\nstep_id: t1/.test(doc3)) fails.push("(f) the adopted Candidate's Reader Path did not land in the Brief's sequence");
@@ -317,9 +348,126 @@ try {
   if (p1.status !== 0) fails.push(`(g) assemble exited ${p1.status}: ${(p1.stderr || "").trim()}`);
   else if (JSON.stringify(JSON.parse(readFileSync(ouf, "utf8"))) !== JSON.stringify(pay)) fails.push("(g) the command's payload differs from the exported function's — two producers");
   if (!/never a verdict/.test(p1.stdout || "")) fails.push("(g) assemble does not state the no-verdict property in its own output");
-  const p2 = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2"], { encoding: "utf8" });
+  const spf = join(dir, "specialization.json");
+  writeFileSync(spf, JSON.stringify(spec(candB)));
+  const p2 = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES], { encoding: "utf8" });
   if (p2.status !== 0) fails.push(`(g) adopt-candidate exited ${p2.status}: ${(p2.stderr || "").trim()}`);
   else if (readFileSync(bp2, "utf8") !== doc3) fails.push("(g) the command's adopted document differs from the exported function's — two producers");
+
+
+  // (k) THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747), both halves
+  // at the one occasion that can make them unskippable — adoption is the only
+  // write that lands a sequence in an existing Brief.
+  //
+  // THE MECHANICAL HALF — the move id resolves, or the adoption refuses.
+  {
+    const dangler = { ...candB, steps: [{ ...candB.steps[0], move: "no_such_move" }, candB.steps[1]] };
+    const d = adoptCandidate(doc0, { candidates: [candA, dangler] }, "cand-2", inst(dangler));
+    if (!d.error) fails.push("(k) a Step binding a move id that resolves to no record was ADOPTED — the dangling id rides the Brief to Packet time");
+    else {
+      if (!/t1/.test(d.error)) fails.push("(k) the dangling-move refusal does not name the STEP (ruling 1: the refusal names the Step and the id)");
+      if (!/no_such_move/.test(d.error)) fails.push("(k) the dangling-move refusal does not name the ID");
+      if (d.doc) fails.push("(k) the dangling-move refusal still produced a document");
+    }
+    // AN UNREADABLE STORE IS NOT AN EMPTY STORE. Without this branch every id
+    // reads as dangling and the refusal names the Steps for a fault that is
+    // the store's — a true refusal for a false reason, and the composer is
+    // sent to re-bind Moves that were never wrong.
+    const noStore = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
+      { movesDir: join(dir, "absent-library"), specialization: spec(candB) });
+    if (!noStore.error) fails.push("(k) an unreadable Move library was treated as a library");
+    else {
+      if (!/cannot be read/.test(noStore.error)) fails.push("(k) an unreadable Move library refuses as if the ids dangled — the refusal blames the composition for a store fault");
+      if (/t1/.test(noStore.error)) fails.push("(k) the unreadable-store refusal names a Step, sending the composer to re-bind Moves that are not the problem");
+    }
+    const emptyStore = loadMoveIds(theses);
+    if (!emptyStore.error || !/no Move records/.test(emptyStore.error)) fails.push("(k) a readable directory holding no Move records was accepted as a library");
+  }
+
+  // THE JUDGED HALF — a typed record the harness VALIDATES and NEVER COMPOSES.
+  {
+    // NO SKIP. The absence of a record is refused at the act, not defaulted:
+    // this single assertion is what makes the occasion mandatory, and it is
+    // also the direct evidence that no verdict is composed here — if adoption
+    // could supply one, this call would succeed.
+    const bare = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES });
+    if (!bare.error) fails.push("(k) adoption ACCEPTED a path with no specialization record — the judgment occasion is skippable, or the runtime composed a verdict of its own");
+    else {
+      // DISCRIMINATED, because two guards carry this and only one is the
+      // property. Removing the act-level check leaves `validateSpecialization`
+      // to refuse an undefined record on its SHAPE ("version is required"),
+      // which is a refusal for the wrong reason: it reports a malformed record
+      // where none was composed, and it would keep passing a mutation that
+      // deleted the mandatory occasion outright. Asserted against the act's
+      // own wording, so the no-skip property has an exercised trial of its own.
+      if (!/no specialization record/.test(bare.error)) fails.push("(k) the absent record refuses on the record's SHAPE rather than on the ACT — the mandatory occasion is asserted by nothing, and deleting it would not fail this check");
+      if (!/judgment/i.test(bare.error)) fails.push("(k) the no-record refusal does not say the missing thing is a JUDGMENT");
+      if (!/--specialization/.test(bare.error)) fails.push("(k) the no-record refusal does not name the input that discharges it");
+      if (bare.doc) fails.push("(k) the no-record refusal still produced a document");
+    }
+    // THE VOCABULARY IS READ FROM THE CARRIER, never restated in three
+    // places. If this check enumerated the values itself, amending
+    // src/specialization-schema.json would silently stop being an amendment.
+    const sch = JSON.parse(readFileSync("src/specialization-schema.json", "utf8"));
+    if (!sch.vocabulary.closed) fails.push("(k) the specialization vocabulary is not declared closed");
+    if (JSON.stringify(sch.vocabulary.passing) !== JSON.stringify(["consistent"]))
+      fails.push("(k) more than one verdict value passes — a non-answer that passes is a skip with a record attached");
+    for (const v of sch.vocabulary.values) {
+      const rec = spec(candB);
+      rec.verdicts[0].verdict = v;
+      const r = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: rec });
+      const shouldPass = sch.vocabulary.passing.includes(v);
+      if (shouldPass && r.error) fails.push(`(k) the passing verdict ${v} was refused: ${r.error}`);
+      if (!shouldPass) {
+        if (!r.error) fails.push(`(k) the verdict ${v} was ADOPTED — only ${sch.vocabulary.passing.join(", ")} passes`);
+        else {
+          if (!r.error.includes("t1")) fails.push(`(k) the ${v} refusal does not NAME the failing Step`);
+          if (!r.error.includes(rec.verdicts[0].why)) fails.push(`(k) the ${v} refusal does not QUOTE the sentence the judging sitting wrote — it paraphrases a judgment it did not make`);
+          if (!r.error.includes(v)) fails.push(`(k) the ${v} refusal does not say WHICH verdict it refuses on — contradicts and cannot-determine need different repairs`);
+          if (r.doc) fails.push(`(k) the ${v} refusal still produced a document`);
+        }
+      }
+    }
+    const outside = spec(candB); outside.verdicts[0].verdict = "probably-fine";
+    const o = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: outside });
+    if (!o.error || !/closed/.test(o.error)) fails.push("(k) a verdict outside the closed vocabulary was accepted");
+    // ONE PER STEP, EXACTLY, IN BOTH DIRECTIONS — a short list is the skip
+    // this occasion exists to prevent, one Step at a time; a long one means
+    // the record judges a path other than the one being adopted.
+    const short = spec(candB); short.verdicts = [short.verdicts[0]];
+    const sh = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: short });
+    if (!sh.error || !/t2/.test(sh.error)) fails.push("(k) a record judging only some Steps was accepted — the occasion is skippable one Step at a time");
+    const long = spec(candB); long.verdicts.push({ step_id: "t9", move: "worked-example", verdict: "consistent", why: "a step that is not in this path at all" });
+    const lo = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: long });
+    if (!lo.error || !/t9/.test(lo.error)) fails.push("(k) a record carrying a verdict for a Step outside the adopted path was accepted");
+    const dup = spec(candB); dup.verdicts.push({ ...dup.verdicts[0] });
+    const du = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: dup });
+    if (!du.error || !/two verdicts/.test(du.error)) fails.push("(k) two verdicts for one Step were accepted — the second can disagree with the first");
+    // THE RECORD IS BOUND TO WHAT IT JUDGES, on both axes. Without the
+    // candidate binding a sitting judges the Candidate it likes and adopts the
+    // one it wants; without the move binding the verdict certifies a
+    // relationship that is not the one in the Step.
+    const wrongCand = spec(candB); wrongCand.candidate_id = "cand-1";
+    const wc = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: wrongCand });
+    if (!wc.error || !/cand-1/.test(wc.error)) fails.push("(k) a record judging ANOTHER Candidate certified this one");
+    const wrongMove = spec(candB); wrongMove.verdicts[0].move = "worked-example";
+    const wm = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: wrongMove });
+    if (!wm.error || !/worked-example/.test(wm.error)) fails.push("(k) a verdict naming a Move the Step does not bind certified the Step");
+    // A one-word `why` is not the sentence a refusal hands back.
+    const thin = spec(candB); thin.verdicts[0].why = "fine";
+    const th = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: thin });
+    if (!th.error || !/why is/.test(th.error)) fails.push("(k) a one-word why was accepted as the sentence a refusal quotes");
+    const ver = spec(candB); ver.version = "2";
+    const vr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: ver });
+    if (!vr.error || !/version/.test(vr.error)) fails.push("(k) a record written to another version of the carrier was read anyway");
+    // DETERMINISTIC, AND IN THE PATH'S OWN ORDER: with both Steps failing, the
+    // refusal names the FIRST. A refusal that named an arbitrary one would
+    // send two sittings to two different repairs for one record.
+    const both = spec(candB);
+    both.verdicts[0].verdict = "contradicts"; both.verdicts[1].verdict = "contradicts";
+    const bo = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: both });
+    if (!bo.error || !/step t1:/.test(bo.error)) fails.push("(k) with two failing Steps the refusal does not name the FIRST in path order");
+  }
 
   // (h) JOURNEY COVERAGE (§6.1 MUST 1, kogaki#501): journey material is a
   // DISTINCT material (§4.1's "which Journeys"), carried as `<L-id>.journey`,
@@ -465,7 +613,7 @@ try {
       }
     }
     // AC4 — adoption lands all three, from the ADOPTED Candidate.
-    const adr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2");
+    const adr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB));
     if (adr.error) fails.push(`(l) adopting a complete Candidate was refused: ${adr.error}`);
     else {
       for (const [key, heading] of READER_FIELDS) {
@@ -707,7 +855,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 12/12 cases — (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -727,7 +875,18 @@ console.log("brief compose: 11/11 cases — (a) §4.1 Step shape refused per mis
   + "adopted Candidate's Reader Path lands in the Brief's sequence with thesis_closure and "
   + "tradeoffs filled from its reasoning, a declined Candidate lands nowhere, and an "
   + "unoffered Candidate refuses; (g) both assemble and adopt-candidate command paths are "
-  + "byte-equal to the exported functions; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
+  + "byte-equal to the exported functions; (k) THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747) at adoption, the "
+  + "one write that lands a sequence in an existing Brief — MECHANICALLY, a move id resolving to no "
+  + "Move library record refuses NAMING the Step and the id and writes nothing, an unreadable library "
+  + "refuses as a STORE fault rather than blaming the composition, and a readable directory holding no "
+  + "records is not a library; AS JUDGMENT, the specialization record is REQUIRED (its absence refuses at "
+  + "the act, which is the same assertion that proves no verdict is composed here), one verdict per Step "
+  + "exactly in both directions, bound to the adopted Candidate AND to the Move each Step binds, its "
+  + "vocabulary READ FROM src/specialization-schema.json rather than restated, every non-passing value "
+  + "refusing with the Step named and the judging sitting's own sentence QUOTED, and the refusal "
+  + "deterministic in path order. Whether a specialization HOLDS is judged by the composing sitting and "
+  + "never here: this member asserts the record's shape, its binding and the refusal, and composes no "
+  + "verdict of its own — §4.6 clause 3 stands; (h) JOURNEY COVERAGE (§6.1 MUST 1) — journey "
   + "material is a distinct material carried as `<L-id>.journey`, its placement DERIVED from "
   + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "

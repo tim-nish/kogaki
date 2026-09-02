@@ -126,12 +126,29 @@ kogaki#494).
     entries and nothing else, per the rendering contract below. Carry the
     premise's negation as a first-class option ("none of these — the Thesis or
     the settled set is what should change", §6), and free text.
-11. **Adopt the owner's Candidate** —
-    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id>`.
+11. **Judge the adopted path's Step↔Move instantiation** (§4.12) — a
+    MANDATORY occasion with no skip, and yours: for **every** Step of the
+    Candidate the owner chose, read its Move's `requires`/`effect` in
+    `moves/<id>.md` and judge whether that Step's `reader_state_before` and
+    `reader_state_after` are consistent **specializations** of them for this
+    reader and these Strands. Record one verdict per Step — `consistent`,
+    `contradicts`, or `cannot-determine`, with one sentence of why — in the
+    shape `src/specialization-schema.json` declares. `cannot-determine` is a
+    real answer and not a way past the gate: it refuses exactly as
+    `contradicts` does, and saying so is better than a `consistent` you did not
+    reach. **The runtime composes no verdict here and fills no default** — it
+    validates your record and refuses without one, so there is nothing to
+    inherit by leaving the flag off.
+12. **Adopt the owner's Candidate** —
+    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json>`.
     Its Reader Path becomes the Brief's sequence; `thesis_closure` and
     `tradeoffs` fill from its reasoning. **With no owner answer nothing lands**
-    — the runtime refuses.
-12. **Hand over the filled Brief** and stop. This is the end of the arc: name
+    — the runtime refuses. It also refuses a Step whose `move` resolves to no
+    record in `moves/` (§4.12), naming the Step and the id: bind an admitted
+    Move, or admit the Move to the library first — the library grows by an
+    admission act, never by a Brief naming an id. Relay either refusal and fix
+    it at source; nothing is written to the Brief.
+13. **Hand over the filled Brief** and stop. This is the end of the arc: name
     `theses/<slug>/brief.md` to the owner and never retype, summarize or
     restate it. The run's per-block Brief snapshots (before/after each
     landing write) sit machine-local at `~/.kogaki/brief-runs/<slug>/snapshots/`.

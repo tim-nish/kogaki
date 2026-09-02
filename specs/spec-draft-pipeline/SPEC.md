@@ -1,5 +1,18 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v22, amended 2026-09-02 (kogaki#747) — **§4.12, the Step↔Move
+instantiation contract**, transcribing the owner rulings of 2026-09-01. A Step
+instantiates a Move, and until now nothing checked any part of that
+relationship: `move:` was parsed for `step_id` only, so a dangling id rode a
+minted Brief until the Section Packet assembler failed on it mid-draft. The
+contract lands in two halves carried by different machinery — id resolution is
+MECHANICAL and refuses at adoption and at `resolve`; specialization is an LLM
+JUDGMENT recorded in a typed record the harness validates and never composes,
+at a mandatory occasion with no skip. §7.5's sole-mechanical-kill-criterion
+rider is SUPERSEDED in place (it was already stale at v18) and its
+judgment-class siblings stand unamended.
+**deferred slots minted by this amendment: `specialization-judgment-and-path-review-ordering`.**
+
 **Status:** v21, amended 2026-08-21 (kogaki#577) — **§5.3 v11's release
 condition is recorded as FIRED.** The clause declared the option body a
 try-one-first placement and pre-authorized the move to the label without
@@ -1103,6 +1116,142 @@ argument.
 **deferred slot: `bridge-approval-shape`** — the per-Bridge-approval escalation,
 owed on its own licensing issue with choice, alternatives and receipt before any
 gate embeds it.
+
+### 4.12 The Step↔Move instantiation contract (v22, kogaki#747)
+
+A Step **instantiates** a Move. `move` names a record in the Move library
+(§7), and the Step's `reader_state_before`/`reader_state_after` are the
+**instance forms** of that Move's `requires`/`effect`, specialized to this
+reader and these Strands. §4.1 v18 made the binding required; this section
+governs the **relationship the binding asserts**, which until now nothing
+checked at all.
+
+**The gap this closes, stated as it was found.** The draft harness parsed a
+step block for `step_id` only, so `move:` was **uninterpreted dead input**: a
+typo'd or renamed id sat silently in a minted Brief. It became load-bearing the
+moment the Section Packet assembler joined `Step.move → moves/<id>.md` — at
+which point a dangling id fails at Packet time, **mid-draft**, rather than at
+the composition that wrote it.
+
+**The contract has two halves and they are carried by different machinery on
+purpose.** Which half a property belongs to is not a matter of convenience:
+
+| half | the question | who answers | where it is carried |
+|---|---|---|---|
+| mechanical | does the id resolve? | the runtime | a set-membership test over the library |
+| judged | are the instantiated states consistent specializations? | the composing sitting | a typed record the runtime validates and never composes |
+
+#### 4.12.1 The mechanical half — move id resolution
+
+Every `move:` in a Brief's Reader Path resolves to a record in the Move
+library. A path **cannot be adopted into a Brief** and `resolve` **refuses an
+existing Brief** with a dangling id; the refusal names **the Step and the id**.
+
+**Two seats, and neither subsumes the other.** Adoption stops a dangling id
+entering a Brief. `resolve` stops a Brief whose **library moved underneath
+it** — a Move renamed or withdrawn after composition dangles without the Brief
+changing at all, so a Brief that passed adoption can fail at realization, and
+that case is reachable only from the second seat.
+
+**One resolver, not two.** Both seats call the same exported function. Two
+resolvers are two things that can disagree about what a dangling id is, and
+the refusal a composer meets would stop matching the one a realizer meets.
+
+**An unreadable library is not an empty library.** Where the store cannot be
+read, the refusal is a **store fault** and names no Step. This is not a
+nicety: reading an unreadable directory as an empty set makes every id dangle,
+so the run refuses **truly, for a false reason**, and sends a composer to
+re-bind Moves that were never wrong.
+
+**The library reads as a set of IDS and nothing more.** A resolver that parsed
+`requires`/`effect` would be one edit away from comparing them, which is the
+lint §4.6 clause 3 forbids. The restraint is in the reader, not in a rule
+about the reader.
+
+#### 4.12.2 The judged half — specialization is judged, and its record is typed
+
+Whether a Step's instantiated `reader_state_before`/`after` are consistent
+specializations of its Move's `requires`/`effect` is **an LLM judgment in the
+workflow**, not an owner inspection. The owner ruling of 2026-09-01 is that
+the judgment is **desirable but too cognitively expensive for manual
+dogfooding**, which is a statement about who performs it and not a weakening
+of what it asserts.
+
+It is wired to the LLM-judgment boundary standard, whose three clauses are
+each load-bearing here:
+
+1. **A mandatory occasion at Brief composition, with no skip.** The occasion is
+   **adoption** — `assemble.mjs adopt-candidate` — because that is the one
+   surviving write that lands a sequence in an existing Brief (§5.3 v17). A
+   path reaches a Brief through there or it does not reach one at all, which
+   is what makes the occasion unskippable rather than merely required.
+2. **A typed record the harness VALIDATES AND NEVER COMPOSES.** The carrier is
+   `src/specialization-schema.json`, on the single-carrier arrangement
+   `record-schema.json` and `gate-schema.json` already use. No default verdict
+   exists, none is inferred from a Step's fields, and a missing record is a
+   refusal rather than a blank to fill.
+3. **A deterministic refusal naming the failing Step**, in the path's own
+   order, **quoting the sentence the judging sitting wrote** rather than
+   paraphrasing a judgment the runtime did not make.
+
+**Why not path review, which judges every other MUST.** §4.6 puts every
+composition MUST at path review, so that is the first place to look and the
+wrong one. Path review's output is **reasoning surfaced for a human gate —
+never a verdict, never a score, never a pass/fail** — and `src/review.mjs`
+refuses any verdict-shaped field **by key**. A specialization verdict recorded
+there would be **unattachable by construction**. The judgment is not moved out
+of review's spirit; it is sited where a verdict is a legitimate output.
+
+**The record is bound to what it judges, on both axes.** It names the
+**Candidate** it was composed against and, per verdict, the **Move** the Step
+binds. Without the first, a sitting judges the Candidate it likes and adopts
+the one it wants. Without the second, a verdict certifies a relationship that
+is not the one in the Step.
+
+**One verdict per Step, exactly, in both directions.** A short record is the
+skip this occasion exists to prevent, arriving one Step at a time; a long one
+means the record was composed against a different path than the one adopted.
+
+**The vocabulary is CLOSED and three-valued**, and the third value is the
+decision worth recording: `consistent` | `contradicts` | `cannot-determine`,
+with exactly one passing. `cannot-determine` is a **first-class value, not an
+escape hatch** — under a two-valued read an honest non-answer must render as
+one of the two answers, and the value that absorbs it is the passing one. The
+same finding one domain over: a two-valued exists→accepted read where the
+ratified rule is three-valued and the honest value was cannot-determine
+(`consulted: product-lab@ded20f50ab341da7017375db08a4796166f47890
+topics/archive/knowledge-architecture.md:95`). It does not weaken the gate,
+because a `cannot-determine` refuses exactly as a `contradicts` does. What it
+buys is that the refusal says **which** — an unjudgeable Move contract and a
+contradicted one need different repairs, and a two-valued record renders them
+identically.
+
+**The judged half is rendered ONCE, at composition, and is not re-derived at
+realization.** `resolve` re-runs the mechanical half and not this one: the
+verdict was reached by a sitting reading the material, and re-deriving it at
+realization would be the runtime composing a verdict, which clause 2 forbids.
+
+#### 4.12.3 What this amends, and what it does not
+
+§7.5's rider **"Pin resolution remains the sole mechanical kill criterion"** is
+**superseded**, and it was already stale when this section was written: §4.1
+v18 (kogaki#642) made a Move-less Step unwritable, which is a second mechanical
+kill the rider did not record. §4.12.1 is the third. The riders that stand
+unchanged, and are load-bearing here rather than merely surviving:
+`requires`/`effect` matching is **judgment-class** and **never type-checked**,
+and **no machinery renders a verdict** on whether a Move's requires are met.
+Nothing in §4.12.2 renders one — the verdict is the sitting's, and the runtime
+owns the record's shape and the refusal.
+
+**What is NOT decided here, named rather than left.** Where the judgment point
+sits relative to path review's own pass — before it, after it, or interleaved —
+is not settled by siting the occasion at adoption; adoption is the seat that
+makes it unskippable, and review's ordering is a separate question. It is not
+answered by inference from this section.
+
+**deferred slot: `specialization-judgment-and-path-review-ordering`** — owed on
+its own licensing issue with choice, alternatives and receipt before any flow
+embeds an order.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 
@@ -2960,6 +3109,15 @@ permitted side of the declination's boundary, so they are not decoration:
   verdict on whether a Move's requires are met.
 - **Pin resolution remains the sole mechanical kill criterion.** Nothing else
   in this pipeline blocks mechanically.
+  **SUPERSEDED at v22 (kogaki#747), and it was already stale when superseded.**
+  §4.1 v18 (kogaki#642) made a Move-less Step unwritable — a second mechanical
+  kill this rider did not record — and §4.12.1 adds move id RESOLUTION as a
+  third. The rider is superseded rather than deleted, so a reader meeting it in
+  an older rendering finds the amendment instead of a live claim to count
+  against. **What it was protecting survives at the rider above it**, unamended:
+  requires/effect matching is judgment-class and never type-checked, and no
+  machinery renders a verdict on whether a Move's requires are met — §4.12.2's
+  verdict is the composing sitting's, validated here and composed here never.
 - **The describe-never-generate boundary of §4 is untouched** by the
   admission.
 

@@ -28,7 +28,7 @@
 // before it reads the move name only in the trivial sense that it validates
 // rationale presence; the order invariant itself is invisible in the
 // artifact and is carried by the §4.5 grounds test, judged at review.
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -155,6 +155,183 @@ export function validateSteps(steps) {
 // ---- rendering (SQ1: fenced blocks; §4.1 fixes the fields, not the markup;
 // this function IS the recorded serialization, exercised by the check's
 // fixture) ----
+// ---------------------------------------------------------------------------
+// THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747; owner rulings
+// 2026-09-01). A Step INSTANTIATES a Move: `move` names a record in the Move
+// library, and the Step's reader_state_before/after are the instance forms of
+// that Move's `requires`/`effect`, specialized to this reader and these
+// Strands. The relationship has two halves and they are carried by DIFFERENT
+// machinery on purpose:
+//
+//   MECHANICAL — does the id resolve? A set membership test over the store.
+//                Refused here.
+//   JUDGED     — are the instantiated states consistent specializations of
+//                the Move's contract? An LLM judgment, recorded in a typed
+//                record this file VALIDATES AND NEVER COMPOSES.
+//
+// Why the second is not a lint, restated because the temptation is real:
+// §4.6 clause 3 holds that no MUST of the composition design becomes a lint
+// "even where deterministic processing is possible", and §7.5's rider keeps
+// requires/effect matching judgment-class. Nothing below renders a verdict on
+// a specialization; the mechanism owns the record's SHAPE and the refusal.
+
+// The Move library, read as a SET OF IDS and nothing more. Reading only the
+// ids is deliberate: resolving the id is this half's whole job, and a reader
+// that parsed `requires`/`effect` would be one edit away from comparing them,
+// which is the lint §4.6 forbids.
+export function loadMoveIds(movesDir = "moves") {
+  let names;
+  try { names = readdirSync(movesDir); }
+  catch (e) {
+    // A STORE THAT CANNOT BE READ IS NOT AN EMPTY STORE. Returning an empty
+    // set here would turn an unreadable directory into "every move id is
+    // dangling", and a caller would render a refusal naming the Steps rather
+    // than the missing store — a true refusal for a false reason.
+    return { error: `the Move library at ${movesDir} cannot be read (${e.message}) — `
+      + `a Step binds a Move by id (§4.1 v18) and the ids resolve against this store (§4.12); `
+      + `pass --moves-dir if the library is not at the default path` };
+  }
+  const ids = new Set();
+  for (const n of names) {
+    if (!n.endsWith(".md")) continue;
+    const id = n.slice(0, -3);
+    if (id === "INDEX") continue; // the regenerated view, never a record (§6.9.1a)
+    ids.add(id);
+  }
+  if (ids.size === 0) {
+    return { error: `the Move library at ${movesDir} holds no Move records — `
+      + `every Step's move id would dangle, which is a store problem and not a composition one (§4.12)` };
+  }
+  return { ids };
+}
+
+// THE MECHANICAL HALF. Refuse the FIRST Step whose move id resolves to no
+// record, naming the Step and the id — the refusal shape ruling 1 names.
+// `steps` here are Step RECORDS (composition side) or the parsed step blocks
+// of an existing Brief (draft side); both carry `step_id` and `move`, which
+// is the whole of what this reads, so one function serves both occasions
+// rather than two that can disagree about what dangling means.
+export function resolveMoveIds(steps, movesDir = "moves") {
+  const store = loadMoveIds(movesDir);
+  if (store.error) return store;
+  for (const s of steps) {
+    const id = s.move;
+    if (typeof id !== "string" || id === "") {
+      // Shape, not resolution — validateSteps owns this on the composition
+      // side. Reached on the draft side, where the input is a parsed document.
+      return { error: `step ${s.step_id}: no move is bound — a Step binds a Move library entry by id (§4.1 v18), `
+        + `because the Move is the State component of a Step` };
+    }
+    if (!store.ids.has(id)) {
+      return { error: `step ${s.step_id}: move "${id}" resolves to no record in the Move library `
+        + `(${movesDir}/${id}.md does not exist) — a Step INSTANTIATES a Move, so a Move that is not there `
+        + `leaves the Step with no reader-state transition type to be the instance of (§4.12). `
+        + `Bind an admitted Move, or admit this one to the library first — the library grows by an `
+        + `admission act, never by a Brief naming an id (§7)` };
+    }
+  }
+  return { ok: true, checked: steps.length, store_size: store.ids.size };
+}
+
+// THE JUDGED HALF's carrier contract, read from the schema rather than
+// restated here — the same single-carrier arrangement record-schema.json and
+// gate-schema.json use, so the vocabulary is amended in one place.
+let SPECIALIZATION_SCHEMA = null;
+export function specializationSchema() {
+  if (SPECIALIZATION_SCHEMA) return SPECIALIZATION_SCHEMA;
+  const p = join(dirname(fileURLToPath(import.meta.url)), "specialization-schema.json");
+  SPECIALIZATION_SCHEMA = JSON.parse(readFileSync(p, "utf8"));
+  return SPECIALIZATION_SCHEMA;
+}
+
+// VALIDATE, NEVER COMPOSE. Every branch below is a refusal or a pass; none
+// writes a verdict, fills a default, or infers one from a Step's fields. A
+// record that is absent is refused by the CALLER (the occasion is mandatory,
+// §4.12), because "no record" is a fact about the act rather than about the
+// record's shape.
+export function validateSpecialization(record, steps, candidateId) {
+  const sch = specializationSchema();
+  const at = "the specialization record";
+  for (const k of sch.record.required) {
+    if (record?.[k] === undefined) {
+      return { error: `${at}: ${k} is required (§4.12) — the record is the judgment's carrier, and a carrier missing a required field records nothing` };
+    }
+  }
+  if (String(record.version) !== sch.record.version_must_be) {
+    return { error: `${at}: version ${JSON.stringify(record.version)} — this runtime reads version ${sch.record.version_must_be} (src/specialization-schema.json)` };
+  }
+  if (record.candidate_id !== candidateId) {
+    return { error: `${at}: judges candidate ${JSON.stringify(record.candidate_id)} but ${JSON.stringify(candidateId)} is being adopted — `
+      + `a record composed against one Candidate cannot certify another (§4.12). Judge the Candidate you are adopting.` };
+  }
+  if (!Array.isArray(record.verdicts)) {
+    return { error: `${at}: verdicts is an array, one entry per Step of the adopted path (§4.12)` };
+  }
+  const vocab = new Set(sch.vocabulary.values);
+  const passing = new Set(sch.vocabulary.passing);
+  const byStep = new Map();
+  for (const v of record.verdicts) {
+    for (const k of sch.verdict.required) {
+      if (typeof v?.[k] !== "string" || v[k] === "") {
+        return { error: `${at}: a verdict is missing ${k} — §4.12's verdict names the Step, the Move it instantiates, the verdict, and one sentence of why` };
+      }
+    }
+    if (byStep.has(v.step_id)) {
+      return { error: `${at}: two verdicts for step ${v.step_id} — one per Step, exactly (§4.12)` };
+    }
+    byStep.set(v.step_id, v);
+  }
+  // A verdict for a Step outside the adopted path means the record was
+  // composed against a different path than the one being adopted.
+  for (const v of record.verdicts) {
+    if (!steps.some((s) => s.step_id === v.step_id)) {
+      return { error: `${at}: verdict for step ${v.step_id}, which is not in the adopted path `
+        + `(${steps.map((s) => s.step_id).join(", ")}) — the record judges the path being adopted and no other (§4.12)` };
+    }
+  }
+  // ONE PER STEP, EXACTLY — the other direction, and it is the FIRST branch of
+  // the loop below rather than a pass of its own. That siting is deliberate:
+  // as a separate preceding loop it was a completeness check that the per-Step
+  // loop then silently DEPENDED on, so removing it did not make this function
+  // refuse — it made it throw on `v.move` several lines later. One guard, in
+  // the loop that needs the value, keeps the function total: every path out of
+  // it is a refusal or a pass, and there is no ordering between two guards for
+  // a later edit to break.
+  for (const s of steps) {
+    const v = byStep.get(s.step_id);
+    if (v === undefined) {
+      return { error: `${at}: step ${s.step_id} carries no verdict — the specialization judgment is per Step and cannot be skipped for one (§4.12)` };
+    }
+    if (v.move !== s.move) {
+      return { error: `${at}: step ${s.step_id}'s verdict judges move "${v.move}" but the Step binds "${s.move}" — `
+        + `the judgment is about THIS Step instantiating THIS Move, so a record naming another one certifies nothing (§4.12)` };
+    }
+    if (!vocab.has(v.verdict)) {
+      return { error: `${at}: step ${s.step_id}: verdict ${JSON.stringify(v.verdict)} — §4.12's vocabulary is closed: `
+        + `${sch.vocabulary.values.join(" | ")}` };
+    }
+    if (v.why.trim().split(/\s+/).length < sch.verdict.why_min_words) {
+      return { error: `${at}: step ${s.step_id}: why is ${v.why.trim().split(/\s+/).length} word(s) — `
+        + `the record carries one sentence of why, which is what a reader of a refusal is handed (§4.12)` };
+    }
+  }
+  // THE REFUSAL, deterministic and in the path's own order: the FIRST Step
+  // that does not pass, named, with its own sentence quoted back rather than
+  // paraphrased.
+  for (const s of steps) {
+    const v = byStep.get(s.step_id);
+    if (!passing.has(v.verdict)) {
+      const why = v.verdict === "cannot-determine"
+        ? `the judgment could not be reached against that Move's contract`
+        : `the instantiated reader states contradict that Move's requires/effect`;
+      return { error: `step ${s.step_id}: ${v.verdict} — ${why}. The judging sitting wrote: `
+        + `"${v.why.trim()}" — a Step whose instantiation does not hold is not adopted into a Brief (§4.12). `
+        + `Nothing was written.` };
+    }
+  }
+  return { ok: true, judged: steps.length };
+}
+
 export function renderStep(s) {
   const L = [];
   L.push("```step");

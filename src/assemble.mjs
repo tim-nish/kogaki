@@ -33,6 +33,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fillBrief, replaceSlot, selectedStrands, placements,
+  resolveMoveIds, validateSpecialization,
          journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 
@@ -416,7 +417,7 @@ export function assembleSelection(reviewed, doc) {
 
 // The adopted Candidate's Reader Path lands in the Brief (§5.1): sequence
 // through the §4.1 fill, thesis_closure and tradeoffs from its reasoning.
-export function adoptCandidate(doc, reviewed, candidateId) {
+export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   const cands = reviewed?.candidates || [];
   const c = cands.find((x) => x.candidate_id === candidateId);
   if (!c) {
@@ -441,6 +442,36 @@ export function adoptCandidate(doc, reviewed, candidateId) {
       + `${unauthored.length === 1 ? "it" : "them"} per Candidate, and adoption fills no default. `
       + `Compose the path again; nothing was written to the Brief.` };
   }
+  // THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747), BOTH HALVES,
+  // BEFORE ANYTHING IS WRITTEN. Adoption is the one surviving write that
+  // lands a sequence in an existing Brief, so it is the one occasion at which
+  // the contract can be made unskippable: a path reaches a Brief through here
+  // or it does not reach one at all. That is why the seat is here and not at
+  // path review — review's output is reasoning for a human gate and is
+  // refused any verdict-shaped field by key (src/review.mjs), so a verdict
+  // recorded there would be unattachable by construction.
+  //
+  // MECHANICAL HALF — every move id resolves to a Move library record.
+  const resolved = resolveMoveIds(c.steps, instantiation.movesDir);
+  if (resolved.error) {
+    return { error: `candidate ${candidateId}: ${resolved.error} Nothing was written to the Brief.` };
+  }
+  // JUDGED HALF — the specialization record is REQUIRED, and its absence is
+  // refused HERE rather than inside the validator: "no record" is a fact
+  // about the act that did not happen, not about a record's shape. This is
+  // the no-skip half of the occasion; the validator owns everything else.
+  if (instantiation.specialization === undefined) {
+    return { error: `candidate ${candidateId}: no specialization record — whether each Step's `
+      + `reader_state_before/after are consistent specializations of its Move's requires/effect is a `
+      + `JUDGMENT, and it is a mandatory occasion at Brief composition (§4.12, kogaki#747). Adoption `
+      + `composes no verdict of its own and fills no default. Judge the path, record the verdicts `
+      + `(src/specialization-schema.json), and pass --specialization <path>. Nothing was written.` };
+  }
+  const judged = validateSpecialization(instantiation.specialization, c.steps, candidateId);
+  if (judged.error) {
+    return { error: `candidate ${candidateId}: ${judged.error}` };
+  }
+
   const filled = fillBrief(doc, {
     steps: c.steps,
     coverage: c.coverage || {},
@@ -468,7 +499,7 @@ export function adoptCandidate(doc, reviewed, candidateId) {
     if (r.error) return r;
     out = r.doc;
   }
-  return { doc: out, placed: filled.placed, total: filled.total };
+  return { doc: out, placed: filled.placed, total: filled.total, checked: resolved.checked, judged: judged.judged };
 }
 
 function argString(args, key, usage) {
@@ -513,7 +544,19 @@ function cmdAdopt(args) {
     "adopt-candidate needs --candidate <id> — the owner's recorded answer at the selection gate. "
     + "With no owner answer nothing lands in the Brief.");
   const doc = readFileSync(briefPath, "utf8");
-  const r = adoptCandidate(doc, reviewed, id);
+  // §4.12's two halves reach the runtime as CALLER-SUPPLIED INPUTS, never as
+  // something this command derives: the moves directory is a path (default
+  // `moves`, overridable so the checks can point at a fixture library), and
+  // the specialization record is read from disk and parsed, never composed.
+  // `--specialization` has no default and no implicit empty value — an
+  // omitted flag reaches `adoptCandidate` as `undefined` and is refused
+  // there, which is what makes the occasion unskippable.
+  const instantiation = { movesDir: typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : undefined };
+  if (typeof args.specialization === "string" && args.specialization !== "") {
+    try { instantiation.specialization = JSON.parse(readFileSync(args.specialization, "utf8")); }
+    catch (e) { fail(`the specialization record at ${args.specialization} cannot be read (${e.message}) — §4.12's judgment record is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
+  }
+  const r = adoptCandidate(doc, reviewed, id, instantiation);
   if (r.error) fail(r.error);
   // Per-block snapshots (kogaki#523): adoption is the ONE surviving write
   // that lands blocks in an existing Brief — the sequence (through the same
@@ -523,6 +566,7 @@ function cmdAdopt(args) {
   const snapSeq = snapshotBrief(briefPath, "adopt-candidate", "before", doc);
   writeFileSync(briefPath, r.doc);
   snapshotBrief(briefPath, "adopt-candidate", "after", r.doc, snapSeq);
+  console.log(`instantiation contract (§4.12): ${r.checked} move id(s) resolved against the Move library, ${r.judged} Step specialization verdict(s) read from the record — judged by the composing sitting, validated here, composed here never`);
   console.log(`adopted ${id} — its Reader Path is the Brief's sequence; thesis_closure and tradeoffs filled from its reasoning; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
 }
 
@@ -531,6 +575,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   switch (args._cmd) {
     case "assemble": cmdAssemble(args); break;
     case "adopt-candidate": cmdAdopt(args); break;
-    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path> | adopt-candidate --brief <path> --reviewed <json> --candidate <id>");
+    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path> | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> [--moves-dir <dir>]");
   }
 }
