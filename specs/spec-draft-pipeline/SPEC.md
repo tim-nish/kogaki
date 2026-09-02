@@ -1459,6 +1459,32 @@ readers stay separate.** §4.12's resolver deliberately reads ids and nothing
 else; this predicate reads `excerpt` and nothing else. Neither grows into the
 other.
 
+#### 4.13.1a Receipts for the v24 withdrawal
+
+Two mapped boundaries are touched by this amendment — check infrastructure, and
+record disposition — and both are consulted here rather than left unasked.
+
+**The supersession's SHAPE is the served one**, and it is the reason v23's text
+below is retained rather than deleted: a reversal is recorded as a
+**supersession rather than a retraction** where the superseded reasoning was
+correct and parts of it survive intact. That is exactly this case — the refusal
+to fabricate quotations was right, and only the belief that quotations were
+owed was wrong.
+`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f topics/knowledge-architecture.md:293`
+
+**A run that ends with work remaining names the next act, or says there is
+none.** v23 named an act; v24 says there is none, which is the other arm of the
+same rule and is why the withdrawal is stated rather than merely implied by the
+absence of a follow-up.
+`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f topics/claude-code-ops.md:48`
+
+**The check keeps its shape rather than growing a clause.** The `(m)` cases are
+re-pointed at the renamed field and one guard is added for a surviving
+`sources` key; nothing is appended to catch a class the rename removes, per the
+typed improvement loop that routes a missed mechanical property to the merge
+carrier rather than to a new enumerated denial.
+`consulted: product-lab@dc000a386d8a9a89d7905fd139071fd9c67bdd8f topics/knowledge-architecture.md:329`
+
 #### 4.13.2 The re-extraction is WITHDRAWN — the issue's design was wrong (v24)
 
 v23 recorded a re-extraction of the 22 records as an unbuilt half with a named
