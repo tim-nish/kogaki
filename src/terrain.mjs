@@ -990,6 +990,11 @@ export function renderTagRowView(record, tag, family, fetchShards = fetchHeadlin
 //       → the same check's enumeration case, over a record whose tag set
 //         exceeds the selected tag's co-tags; a table short of the full set
 //         fails.
+//   · a tag name too long for its column WRAPS onto at most two lines, breaking
+//     at a hyphen or a space and never mid-word, and a name that fits the
+//     widened column is NOT wrapped
+//       → the same check's wrap case, over a served set carrying a breakable
+//         long name, an unbreakable one and a short one.
 //   · `--intent` is the ONLY model-controlled text
 //       → the grammar case, which refuses a rendering whose intent line
 //         carries table or marker syntax.
@@ -1052,8 +1057,21 @@ export function renderCotagSelection(record, tag, intent) {
   // The tag column widens to the longest name it must carry, bounded so a
   // single pathological name does not push the counts off the screen; a name
   // past the bound wraps.
+  //
+  // THE WIDTH IS COMPUTED FIRST AND THE BOUND APPLIES TO IT, not to each name
+  // independently. An unbreakable name widens the column past COL_MAX — §6.0.1
+  // forbids breaking mid-word, so the table widens instead — and a name that
+  // FITS the widened column must then not be wrapped. Deciding each wrap
+  // against the constant before knowing the final width is what produced that
+  // inconsistency: a 41-character breakable name rendered wrapped inside a
+  // 45-wide column it fitted (PR #768 round 1).
   const COL_MAX = 38;
-  const wrapped = sections.map((s) => ({ s, lines: wrapTagName(String(s.name), COL_MAX) }));
+  const unbreakable = sections
+    .map((x) => String(x.name))
+    .filter((n) => n.length > COL_MAX && wrapTagName(n, COL_MAX).length === 1)
+    .reduce((a, n) => Math.max(a, n.length), 0);
+  const col = Math.max(COL_MAX, unbreakable);
+  const wrapped = sections.map((s) => ({ s, lines: wrapTagName(String(s.name), col) }));
   const width = Math.max(3, ...wrapped.map((w) => w.lines[0].length));
 
   const out = [`${COTAG_SELECTION_MARKER} ${tag}`, ""];

@@ -3476,16 +3476,6 @@ if (fails.length) {
 console.log("neighborhood Gloss fetch bound: PASS — counted at the SERVER via the stub's call log, never from the run's own accounting. The `journeys/` namespace is addressed and its row resolves to a served headline (kogaki#689), so the widening is asserted at the read AND at the row. NOT ASSERTED END TO END, stated rather than implied: the seam-unreachable state cannot arise from this path, because a non-soft member read exits before the neighborhood fetch runs — the marker and its arm are unit-asserted and the state is declared unobservable with its reopen trigger. The judged path fetches its displayed row's own tag; an all-unjudged pull, which renders no row, reads strictly fewer Gloss shards; and a multi-row judged pull still fetches, so the bound assertions are not passing on a dead fetch.");
 JS
 
-# THE GOLDEN SPECIMENS (SPEC-terrain §14.5, story 1.55, kogaki#347).
-#
-# One specimen per surface the grammar covers — two at v14. The point is to
-# catch a renderer edit that changes the rendered shape IN THE PR, between the
-# hands-on rounds rather than during them, which is when the 2026-08-09
-# transcript's fused lines were found.
-#
-# TWO ASSERTIONS PER SPECIMEN, and the pair is the design rather than belt and
-# braces. (1) The specimen is CONFORMANT against the grammar, by the same
-
 # --------------------------------------------------------------------------
 # §6.0.1 — the co-tag SELECTION display (kogaki#745)
 # --------------------------------------------------------------------------
@@ -3561,6 +3551,55 @@ for (const [name, val, mustRefuse] of intentCases) {
   }
 }
 
+// (4b) THE WRAP PATH — §6.0.1's "wraps onto at most two lines, breaking at
+// hyphens or spaces, never mid-word; the table may widen". `wrapTagName` is the
+// only producer of the `row_continuation` class, and until PR #768 round 1 the
+// whole path had no case and no fixture: the golden specimen carries no wrapped
+// name, so the rule was implemented and unasserted.
+{
+  const long1 = "a-breakable-name-that-is-definitely-past-the-column-bound";
+  const unbreak = "unbreakablenamewithnohyphensorspacesatallwhatsoeverxx";
+  const wrapRec = { sections: [
+    { name: long1, by_family: { lesson: 9, journey: 2 } },
+    { name: "short", by_family: { lesson: 3, journey: 0 } },
+  ] };
+  const w = renderCotagSelection(wrapRec, "short", INTENT);
+  if (validateSurface("cotag_selection", w, G).length) {
+    fails.push("a rendering carrying a WRAPPED tag name is refused by the grammar — `row_continuation` is declared for exactly this line and would then be a class nothing can produce");
+  }
+  const cont = w.split("\n").filter((l) => /^ {4}\S/.test(l));
+  if (cont.length !== 1) {
+    fails.push(`expected exactly one row_continuation line for one wrapped name, found ${cont.length} — §6.0.1 bounds the wrap at TWO lines`);
+  }
+  // NEVER MID-WORD: the head must end at a hyphen or space boundary, so
+  // rejoining head and continuation must reproduce the name exactly.
+  const head = w.split("\n").find((l) => l.startsWith("  ") && l.trim().startsWith(long1.slice(0, 10)));
+  if (head && cont.length === 1) {
+    const rejoined = head.trim().split(/ {2,}/)[0] + cont[0].trim();
+    if (rejoined !== long1) {
+      fails.push(`the wrapped name does not rejoin to itself: ${JSON.stringify(rejoined)} !== ${JSON.stringify(long1)} — §6.0.1 breaks at a hyphen or a space and NEVER mid-word`);
+    }
+  }
+  // AN UNBREAKABLE NAME WIDENS THE TABLE rather than breaking mid-word, and a
+  // name that FITS the widened column is then NOT wrapped. Deciding each wrap
+  // against the constant before the final width is known is what wrapped a
+  // 41-character name inside a 45-wide column (PR #768 round 1).
+  const wideRec = { sections: [
+    { name: unbreak, by_family: { lesson: 1, journey: 1 } },
+    { name: "a-breakable-name-of-forty-one-characters-x", by_family: { lesson: 9, journey: 2 } },
+  ] };
+  const wide = renderCotagSelection(wideRec, "short", INTENT);
+  if (validateSurface("cotag_selection", wide, G).length) {
+    fails.push("a rendering whose table WIDENED for an unbreakable name is refused by the grammar");
+  }
+  if (!wide.includes(unbreak)) {
+    fails.push("an unbreakable tag name was BROKEN — §6.0.1 forbids breaking mid-word, so the table must widen instead");
+  }
+  if (wide.split("\n").some((l) => /^ {4}\S/.test(l))) {
+    fails.push("a name that FITS the widened column was wrapped anyway — the wrap decision must be taken against the column the table actually renders, not against the constant");
+  }
+}
+
 // (5) ONE EMITTER FOR THIS SURFACE — a second construction site fails.
 //
 // USES ARE COUNTED, MENTIONS ARE NOT. The name appears inside this emitter's own
@@ -3608,8 +3647,22 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("§6.0.1 co-tag selection: the six declared classes DISCRIMINATE (a seventh class, a §2.3 disclosure line and a non-Count cell are each refused, and the conformant rendering passes); the marker is pinned as a fixed literal; block 2 enumerates ALL "
-  + `${served.length} served tag(s) rather than the selected tag's co-tags, which is what discharges §2.3 structurally; --intent's 200-character bound is asserted AT and PAST it with four more refusal directions and two admissions; one construction site; and the command writes NO artifact into either artifact directory while delivering its rendering on stdout.`);
+  + `${served.length} served tag(s) rather than the selected tag's co-tags, which is what discharges §2.3 structurally; --intent's 200-character bound is asserted AT and PAST it with four more refusal directions and two admissions; the wrap path is asserted in three directions (a breakable name wraps onto exactly one continuation line and rejoins to itself, an unbreakable name widens the table rather than breaking mid-word, and a name fitting the widened column is not wrapped); one construction site; and the command writes NO artifact into either artifact directory while delivering its rendering on stdout.`);
 JS
+
+# THE GOLDEN SPECIMENS (SPEC-terrain §14.5, story 1.55, kogaki#347).
+#
+# One specimen per surface the grammar covers — FIVE at v18 (kogaki#745 added
+# `cotag_selection`). The count is READ FROM THE GRAMMAR by the block below and
+# this line is prose beside it, so on any disagreement the block wins and this
+# line is repaired. The point is to
+# catch a renderer edit that changes the rendered shape IN THE PR, between the
+# hands-on rounds rather than during them, which is when the 2026-08-09
+# transcript's fused lines were found.
+#
+# TWO ASSERTIONS PER SPECIMEN, and the pair is the design rather than belt and
+# braces. (1) The specimen is CONFORMANT against the grammar, by the same
+
 
 # predicate the emitters refuse with. (2) The renderer's output over the
 # committed input EQUALS the specimen. (1) alone would let the renderer drift
