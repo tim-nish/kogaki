@@ -33,6 +33,9 @@
 #   - CHECKS_FORCE=1 — the caller wants execution, not a verdict;
 #   - the lookup cannot be made (no gh, no network, no token) — degrade is
 #     a full run, never a guess.
+#   - the only CI run for this SHA is a `pull_request` run — it checked out
+#     the MERGE commit, not this one, so its verdict is about a different
+#     tree. Only `push` runs are trusted; see `ci_verdict`.
 # The record is written ONLY after a run in which every member passed, and
 # lives OUTSIDE the repository tree (${CHECKS_RESULT_DIR:-$XDG_CACHE_HOME/
 # kogaki-checks/<repo>/}): the approved-closes receipt was once committed by
@@ -146,7 +149,26 @@ def local_verdict(sha):
 
 
 def ci_verdict(sha):
-    """A completed, successful `checks` workflow run for this exact commit.
+    """A completed, successful `checks` workflow run that CHECKED OUT this
+    exact commit.
+
+    PUSH EVENTS ONLY, and that restriction is the whole soundness of this
+    lookup (PR #797 round 1). A workflow run's `head_sha` is the PR HEAD for a
+    `pull_request` run, so `gh run list --commit <pr head>` matches it — but
+    that run checked out `refs/pull/N/merge`, the merge of the PR head into
+    the base, which is a DIFFERENT TREE whenever the base has moved. Trusting
+    it would let a local run at the PR head skip the suite on evidence from a
+    tree that included commits the PR head does not have, breaking the premise
+    the whole key rests on: that the SHA describes the tree being checked.
+    On a `push` run the checkout IS the keyed commit, so the key and the tree
+    agree by construction.
+
+    The cost is stated rather than discovered: a PR head can never reuse a CI
+    verdict, only a local one. That is the sound half of what #769 measured —
+    the duplication it targets is the review lane and repeated local runs
+    sharing the local store, and #769's own body already records that CI-side
+    reuse is bounded at the ~1% of runs that are same-SHA reruns, which live
+    on the push path where this lookup still hits.
 
     `gh` absent, unauthenticated or offline degrades to None — a full run —
     and says nothing, because a lookup that cannot be made is not evidence
@@ -155,7 +177,7 @@ def ci_verdict(sha):
     try:
         out = subprocess.run(
             ["gh", "run", "list", "--workflow", WORKFLOW, "--commit", sha,
-             "--status", "success", "--limit", "1",
+             "--event", "push", "--status", "success", "--limit", "1",
              "--json", "databaseId,url,createdAt"],
             capture_output=True, text=True, timeout=20)
     except (OSError, subprocess.TimeoutExpired):

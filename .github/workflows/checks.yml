@@ -32,11 +32,20 @@ jobs:
           CONSULT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CONSULT_PR_BODY: ${{ github.event.pull_request.body }}
           # ONCE PER HEAD SHA (kogaki#769): the runner looks up a completed
-          # successful `checks` run for this exact commit before executing
-          # a member. The writer sits beside its reader (kogaki#36): the only
-          # consumer of this token in the tree is that lookup in
-          # tools/run-registered-checks.sh; `actions: read` below is what it
+          # successful `checks` run that CHECKED OUT this exact commit before
+          # executing a member. The writer sits beside its reader (kogaki#36):
+          # the only consumer of this token in the tree is that lookup in
+          # tools/run-registered-checks.sh; `actions: read` above is what it
           # needs and all it gets.
+          #
+          # ITS READER IS THE `push` PATH, NOT THIS PR PATH, and that is
+          # deliberate rather than an oversight (PR #797 round 1). On a
+          # `pull_request` run `actions/checkout` gives us `refs/pull/N/merge`,
+          # so HEAD here is the merge commit and no `push` run will ever carry
+          # that SHA — the lookup misses and the suite runs in full, every
+          # time, on every PR. The token earns its place on pushes to master,
+          # where HEAD is the keyed commit and a same-SHA rerun (~1% of runs,
+          # measured in #769) reuses instead of re-executing.
           GH_TOKEN: ${{ github.token }}
           # REMOVED (kogaki#632). This block wrote `GH_TOKEN`,
           # `REVIEW_PR_NUMBER` and `REVIEW_HEAD_SHA` for `check-review-report.sh`
