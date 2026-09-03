@@ -1061,8 +1061,33 @@ invariant: Gukan guarantees Unit schema, never data schema).
      exactly one reader, the engine, so the two-copy hazard the paragraph above
      argues against is not merely avoided but currently unreachable.
 
+     **THE MACHINE FORM MOVED, AMENDED (kogaki#810, owner ruling 2026-09-03;
+     found at PR #803 round 1).** The bound's machine form is the
+     **machine-local** declaration
+     `~/.claude/review-lane/<owner>/<repo>/declaration.json`, written by
+     `review-lane setup` and read by the engine's `read_declaration` — its
+     docstring, read 2026-09-03: "Lane presence, the round bound, the
+     concurrency cap and the freeze are all read here. `mechanisms` is NOT."
+     That is SPEC-review-lane-command v28's shape, and the engine had it
+     before this amendment: the tracked `review_rounds_max` was a dead copy
+     from the moment v28 landed, and PR #803 deletes it. The tracked
+     `.claude/review-lane.json` now carries `review.mechanisms` and nothing
+     else. **The diff-visibility guarantee is WITHDRAWN, not moved.** Raising
+     the bound is an edit of a machine-local file and lands in no commit. The
+     owner chose that over restoring visibility at another layer (a tracked
+     ceiling a registered check enforces) and over diverging from v28 with a
+     pinned declaration: the tool already behaves this way, and following it
+     is the least work. Every passage in this clause that grounds the site's
+     tracking on that guarantee is read as history from this amendment on.
+     The clause stays the authority for the VALUE — **2 rounds** — which now
+     has no tracked projection; the file stays un-ignored for `mechanisms`
+     alone.
+
      **WHICH SIDE CONSUMES EACH KEY, stated because the file is tracked so its
-     declarations are raisable by diff** (kogaki#632, item 7). Every key in
+     declarations are raisable by diff** (kogaki#632, item 7; **amended
+     kogaki#810** — `"trigger"` and `review_rounds_max` left the tracked file at
+     PR #803, and this paragraph describes the file as it stood at kogaki#632).
+     Every key in
      `.claude/review-lane.json` is read by the **engine**
      (`~/.claude/tools/review-lane`, machine-local per kogaki#9's rule that a
      tool's location is never a committed path), and by nothing in this tree.
@@ -1238,7 +1263,9 @@ invariant: Gukan guarantees Unit schema, never data schema).
      in-session edit of `.claude/review-lane.json` is a route no carrier here
      refuses. It lands in a commit diff — which is a property of the site
      being **tracked**, and is precisely why the site had to be, since the
-     same edit to a machine-local file would leave nothing to review. Clause
+     same edit to a machine-local file would leave nothing to review —
+     **which, amended kogaki#810, is now the shape rather than the residue: the
+     bound lives machine-local and the diff property is withdrawn.** Clause
      10's record-side rounds observation remains the backstop that sees a
      crossed bound whoever produced it.
 
