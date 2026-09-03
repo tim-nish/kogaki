@@ -58,4 +58,53 @@ if (( N < FLOOR )); then
 fi
 echo "ok: draft runtime fixture pass ran ${N} case(s) clean, at or above its declared floor of ${FLOOR}"
 
+# --- THE SKILL NAMES ONLY PATHS AND SUBCOMMANDS THE HARNESS HAS (kogaki#812).
+#
+# This is the assertion that earns the draft skill its place in `.gitignore`'s
+# tracked set, on the criterion that block already states for `brief` and
+# `terrain`: a check asserts against the skill, and the assertion does not exist
+# without its file.
+#
+# WHAT IT CATCHES, from the incident that filed it: untracked, the skill was
+# invisible to kogaki#765's `git grep` rename sweep and went on naming
+# `draft/draft.mjs` — a path removed 2026-09-02 — while the sweep reported
+# clean. A rename that misses one file is silent precisely where the file is
+# unreadable to the sweep.
+#
+# SCOPE, stated so the pass is not read as more: it checks that every path and
+# every subcommand the skill NAMES exists. It cannot check that the skill says
+# the right thing, and DESIGN.md §3 is explicit that tracking is necessary and
+# not sufficient — what makes the flow ordering hold is that it lives in the
+# Harness, not that this file is now checked.
+SKILL=".claude/skills/draft/SKILL.md"
+if [[ ! -f "$SKILL" ]]; then
+  echo "FAIL: $SKILL is missing — it is tracked (kogaki#812) and this member asserts against it, so its absence is a defect rather than a skip"
+  exit 1
+fi
+
+# Every `<path>/draft.mjs` the skill names must resolve.
+BAD_PATH=0
+while read -r pth; do
+  [[ -z "$pth" ]] && continue
+  if [[ ! -f "$pth" ]]; then
+    echo "FAIL: $SKILL names '$pth', which does not exist — a skill naming a removed entry point is the kogaki#765 rename-sweep miss, and this member is what makes it loud"
+    BAD_PATH=1
+  fi
+done < <(grep -oE '[A-Za-z0-9_./-]*draft\.mjs' "$SKILL" | sort -u)
+(( BAD_PATH == 0 )) || exit 1
+
+# Every subcommand it names must be one the Harness dispatches.
+DISPATCHED=$(grep -oE '^ *case "[a-z]+":' src/draft.mjs | sed 's/.*"\([a-z]*\)".*/\1/' | sort -u)
+BAD_CMD=0
+while read -r sub; do
+  [[ -z "$sub" ]] && continue
+  if ! grep -qx "$sub" <<<"$DISPATCHED"; then
+    echo "FAIL: $SKILL invokes 'draft.mjs $sub', which the Harness does not dispatch (it has: $(tr '\n' ' ' <<<"$DISPATCHED"))"
+    BAD_CMD=1
+  fi
+done < <(grep -oE 'draft\.mjs +[a-z]+' "$SKILL" | awk '{print $2}' | sort -u)
+(( BAD_CMD == 0 )) || exit 1
+
+echo "ok: the draft skill names only Harness paths and subcommands that exist — tracked under .gitignore's stated criterion, and NOT a claim that it says the right thing (DESIGN.md 3: tracking is necessary and not sufficient)"
+
 exit 0
