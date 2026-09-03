@@ -2074,10 +2074,14 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      ```
      finding: should open  <the finding>
-     carried: #<N> | register            — a named carrier
+     carried: #<N>                       — a named carrier
      declined: <reason>                  — an explicit decline, reason required
      ```
 
+     - `carried: register` is part of the engine's grammar and is **not
+       available in this repository**, which declares no register — see the
+       clause below. It is omitted from the shape above so a reader composing a
+       disposition here does not copy an unreachable one.
      - The line binds to the **immediately preceding `finding:` line** in the
        same segment. A disposition before any finding disposes of nothing.
      - **First declaration wins.** A second disposition on one finding is
@@ -2123,44 +2127,35 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/claude-code-ops.md:28`
      (`a-routing-habit-reads-as-conformance-outside-its-domain`)
 
-     **THE REGISTER IS AN ADMISSIBLE CARRIER, so this clause does not mint one
-     issue per nit.** `carried: register` names the review lane's register,
-     which is **`reviews/register/`** — the per-item record directory §21
-     governs. **§21 is this carrier's definition and this clause defers to it**;
-     the register's own semantics, lifecycle and transition set are resolved
-     there rather than restated here, and where the two could be read as
-     disagreeing §21 wins. A precedence rule is stated rather than left to a
-     reader because two sites naming one carrier with no precedence is the
-     conformance-copy defect this document names elsewhere in its own words.
+     **THIS REPOSITORY DECLARES NO REGISTER, so `carried: register` is not an
+     available disposition here** (owner ruling 2026-09-03, kogaki#804). The
+     directory this clause used to name is deleted, and nothing in this
+     repository can write a review observation into the tree. A disposition
+     therefore resolves to one of three: resolved in the diff, an issue, or an
+     explicit `declined:` with its reason. The vocabulary itself belongs to the
+     review engine, which holds it for repositories that do declare a register;
+     what changed is that this is not one of them.
 
-     **THE CHEAPNESS THIS CLAUSE ADVERTISES IS A CLAIM ABOUT A WRITE PATH, and
-     that path is §21's too** (kogaki#735). "Does not mint one issue per nit"
-     is false unless writing the record is cheaper than filing the issue, and
-     the kogaki#624 migration made it briefly untrue — a record had to be
-     committed and landed through a pull request, so recording a nit required
-     the issue this sentence promises it does not. §21 §"The write path" is
-     what makes the sentence true again: a diff touching only
-     `reviews/register/` lands on `master` directly, no branch, no pull
-     request, no licensing issue. A reader meeting this clause and finding the
-     write path expensive is reading a broken promise, not a nuance.
+     **THE COST THIS COSTS US IS STATED RATHER THAN LEFT TO BE DISCOVERED.**
+     This clause once promised not to mint one issue per nit, and the register
+     was what made the promise true — a cheap write for an observation whose
+     value is the count rather than the instance. With the register gone the
+     promise is weaker here: an accretion-class finding that is worth keeping
+     costs an issue, and one that is not worth an issue is declined in the open
+     with its reason. The served line that argued for a cheap exit —
+     "termination requires at least one exit whose cost does not reproduce the
+     process" — is not satisfied by an issue, and the honest reading is that
+     this repository accepts that cost rather than that it has been answered.
+     `consulted: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/claude-code-ops.md:78`
 
-     **THE CARRIER WAS `kogaki#246` UNTIL 2026-08-31** (kogaki#624), an issue
-     that declared itself a ledger; the owner ruled it eliminated by a one-time
-     migration. It is named here in the past tense on purpose: a reader meeting
-     a `carried: register` disposition written before that date is reading a
-     pointer into the old carrier, and needs to know the pointer moved rather
-     than to find this clause silent about where it went. kogaki#13 is the
-     lane's *deliverable* record and is not its register, then or now. It is
-     the right home for an **accretion-class**
-     finding — a mechanical observation whose value is the count rather than
-     the instance, the class the lane's `out-of-dimension:` line already routes
-     there. Requiring an issue for each would convert this clause into the
-     accretion machine the check-suite economics exist to prevent, and the same
-     served line that admits the register warns that "registering everything
-     kills the cadence".
+     **A `carried: register` DISPOSITION WRITTEN BEFORE 2026-09-03 IS A
+     HISTORICAL POINTER**, read under §3.2: it records where an observation went
+     under a carrier this repository no longer has, and it is not an instruction
+     to recreate one. kogaki#13 is the lane's *deliverable* record and was never
+     its register.
 
-     **WHERE NO FURTHER CYCLE IS REACHABLE, A LATENT IN-DIFF FINDING DEFAULTS
-     TO THE REGISTER — THE REACHABILITY FLOOR** (kogaki#374, owner approval
+     **WHERE NO FURTHER CYCLE IS REACHABLE, A LATENT IN-DIFF FINDING TAKES THE
+     FLOOR'S EXIT — THE REACHABILITY FLOOR** (kogaki#374, owner approval
      2026-08-12; the heading generalised from *at a spent bound* by kogaki#433,
      owner selection 2026-08-15, argued at the table below — a reader arriving
      at this heading must not get the narrow reading the amendment replaced).
@@ -2175,11 +2170,20 @@ invariant: Gukan guarantees Unit schema, never data schema).
      terminate a fix chain on its ordinary path however good each fix was.
 
      So: **a non-gating in-diff finding at a spent bound that is LATENT —
-     not reachable against currently served state — defaults to
-     `carried: register`.** Minting an issue or a successor for such a finding
-     requires either **stated reachability** (the inputs or served state under
-     which it fires) or an **explicit owner promotion**, recorded at the
-     disposition itself rather than in a comment beside it.
+     not reachable against currently served state — exits as an issue, or as an
+     explicit `declined:` carrying its reason.** Minting a *successor* for such
+     a finding requires either **stated reachability** (the inputs or served
+     state under which it fires) or an **explicit owner promotion**, recorded at
+     the disposition itself rather than in a comment beside it.
+
+     **THE FLOOR'S CHEAP EXIT IS GONE HERE, AND THE CELL SAYS SO RATHER THAN
+     READING AS THOUGH NOTHING CHANGED** (owner ruling 2026-09-03, kogaki#804).
+     The cell held `carried: register` from 2026-08-12 until the register was
+     deleted; what replaced it is the pair this repository still has. The floor
+     itself is untouched — it still separates a latent finding from a reachable
+     one, and still keeps a latent finding from taking the successor lane by
+     default — but the exit it names now costs an issue where it once cost a
+     record, which is the trade the clause above states in full.
 
      **Reachability is a CLAIM, written in the disposition's own reason, and
      nothing gates on it.** It is prose a reader can argue with, in the shape
@@ -2201,7 +2205,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      | | a further cycle is reachable | no further cycle is reachable |
      |---|---|---|
      | **reachable** in-diff finding | resolved in the review | clause 3's successor lane |
-     | **latent** in-diff finding | resolved in the review | **`carried: register`** (non-gating) |
+     | **latent** in-diff finding | resolved in the review | **an issue, or `declined: <reason>`** (non-gating) |
 
      **THE COLUMN IS KEYED ON CYCLE REACHABILITY, AND THE SPENT BOUND IS ONE
      CAUSE OF IT RATHER THAN THE DEFINITION** (kogaki#433, owner selection
@@ -2306,9 +2310,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
 
      Severity stays out of carrier choice everywhere else — location still
      selects. **A finding STILL GATING AT THE MERGE LAYER is untouched** and so
-     is the two-round bound: nothing here lets a gating finding reach the
-     register. The register's scope widens by this one cell, and kogaki#246's
-     ledger discipline and its close-requires-a-successor rule are untouched.
+     is the two-round bound: nothing here lets a gating finding take the floor's
+     exit. The floor's scope widens by this one cell.
 
      **"Gating" is read at the merge layer, not off the severity token, and
      this is stated because the earlier wording said `blocking` and was
@@ -2316,24 +2319,26 @@ invariant: Gukan guarantees Unit schema, never data schema).
      `should` for want of a justification** is a **non-gating** finding by this
      clause's own membership rule below — it "is in the class precisely because
      it fails toward merge" — so a latent in-diff one at a spent bound **is** in
-     the floor's scope and does default to the register. That is the intended
+     the floor's scope and does take the floor's exit. That is the intended
      reading and not an escape: the downgrade has already decided the merge
      question, and what is left is a finding nothing can currently reach, which
      is the cell this floor exists for. An assurance phrased on the token
-     `blocking` would have denied it in the register's own vocabulary while the
-     clause fifty lines down admitted it.
+     `blocking` would have denied it while the clause fifty lines down admitted
+     it.
 
      **The specimen is kogaki#373, and it is not retroactive.** Under this
-     floor those three findings are three register rows rather than an issue;
-     they stay as dispositioned, because a settled disposition is not reopened
-     by a floor that changes where a finding waits. The ground is the
+     floor those three findings take the floor's exit rather than the successor
+     lane; they stay as dispositioned, because a settled disposition is not
+     reopened by a floor that changes where a finding waits. They were recorded
+     against the register that carried this cell until 2026-09-03, which is
+     history and not an instruction (§3.2). The ground is the
      disposition's own settledness and not any PR's flight status — kogaki#373
      is closed and its fix chain landed at `f8ffaa8`, so a ground phrased on
      flight would have expired before this clause was read. The floor binds the
      next spent bound.
 
      **WHAT THIS DOES NOT CLAIM.** A latent finding is not a wrong finding, and
-     the register is not a bin. All three of kogaki#373's were real, and one
+     the floor's exit is not a bin. All three of kogaki#373's were real, and one
      had a twin the issue never named that its fix PR found anyway. The floor
      changes **where an unreachable defect waits**, never whether it is
      recorded — which is the whole difference between this and the evaporation
@@ -2750,15 +2755,15 @@ invariant: Gukan guarantees Unit schema, never data schema).
      hop while the four artifacts the enumeration is derived from all remain
      addressed from here. It stays the better arm the day §4's clause list
      needs splitting for its own reasons, and that is its reopen trigger.
-     *The observation register, kogaki#246.* The cheapest arm by a distance —
-     it already accumulates three of these very transitions as
+     *The observation register, kogaki#246.* The cheapest arm by a distance at
+     the time, since it already accumulated three of these very transitions as
      `out-of-dimension:` appends. Declined because **a ledger is not a
-     governing text**: the register holds observations whose value is the
-     count, and kogaki#191 split it from the deliverable record precisely to
-     stop that conflation, which siting a typing rule there would recreate.
-     The register keeps its observations and this clause asserts nothing about
-     its lifecycle; kogaki#246's own pointer append already names this clause
-     as where rows 5, 6 and 7 were carried.
+     governing text**: it held observations whose value is the count, and
+     kogaki#191 split it from the deliverable record precisely to stop that
+     conflation, which siting a typing rule there would recreate. The arm is
+     recorded in the past tense because the carrier it names was deleted on
+     2026-09-03 (kogaki#804) — the decline stands on its own ground and does not
+     depend on the arm still existing.
 
      **deferred slots: none.**
 
@@ -5307,196 +5312,6 @@ in consults, gate declarations and issue receipts — is the **hub's** boundary
 field and is untouched. It changes only if Gukan rules on its own carrier
 question. This section governs this repository's internal cross-artifact
 pointers only.
-
-## 21. The observation register is per-item records, never an issue (kogaki#624)
-
-**Owner ruling 2026-08-23.** The review lane's observation register — typed
-observations with a lifecycle and a named reading gate — lives in
-`reviews/register/`, one file per observation. `kogaki#246`, the issue that
-carried it, is eliminated by a one-time migration. A **periodic issue→file
-drain is refused**: a permanent drain preserves the wrong primary.
-
-**#246's CLOSE IS OWED AND IS NOT ASSERTED HERE.** The migration lands the
-records; closing the old carrier is a tracker act performed after this text
-merges, so until it happens this section describes a directory that exists and
-an issue that is still open. Governing text that narrated the close in the
-perfect tense would assert a guarantee the tree does not have — and the
-guarantee below, that no observation can reach the old carrier, is exactly the
-one that depends on it.
-
-The ground is served and quoted rather than paraphrased:
-
-> "Lifecycle state lives in PER-ITEM TYPED RECORDS in the repository … under
-> four refinements: one record per item rather than a shared ledger, the
-> transition set enumerated in governing text with FORM validated mechanically
-> and TRUTH left human, the record's own stable ID as identity with commit shas
-> as FIELDS, and every summary view DERIVED and never authored."
-> — `product-lab@c2f4650f6a3f4fa39c562c2538ddbd01c68dd7b0 topics/knowledge-architecture.md:53`
-
-### The transition set, enumerated here because that is what makes it a set
-
-    pending  →  promoted    the observation became work: an issue, a spec
-                            change, or a check. The record names what it became.
-    pending  →  dismissed   the observation was judged not to warrant work.
-                            The record says why.
-
-`pending` is the birth state. **There are no other states and no other
-transitions**, and both terminal states are absorbing: a promoted or dismissed
-record is not reopened, it is superseded by a new record naming it. A reader
-meeting a `status` outside this set has met a malformed record, which the form
-check refuses.
-
-**FORM is mechanical and TRUTH is human**, and the split is the whole design.
-`checks/check-observation-records.sh` validates that a record HAS a status in
-the set, a well-formed issued id matching its filename, and unique identity
-across the directory. Whether `promoted` is the *right* disposition for a given
-observation is a judgment, is never gated, and is never inferred from prose.
-
-### Identity is ISSUED, never borrowed
-
-Each record's `id` is a kogaki-issued `reg-NNNN`, assigned once and never
-reused. The originating GitHub comment is kept as the **field**
-`source_comment`, and it is deliberately not the identity:
-
-> "A proof that binds a record to a subject can only be as strong as the
-> namespace the subject's identity comes from, so borrowing an identity from a
-> foreign namespace (a tracker's issue ID, the filesystem's path, version
-> control's content hash) fails wherever the record travels outside that
-> namespace's reach; identity for such a binding is ISSUED by the guaranteeing
-> party rather than observed from context."
-> — `product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d LESSONS.md:40`
-
-Commit shas are fields for the same reason: `observed_at_pr` and
-`observed_at_head` record where the observation was made, and neither
-identifies the record.
-
-### Every migrated row is `pending`, and that is a reading rather than a default
-
-The 185 rows migrated from `kogaki#246` on 2026-08-31 carry `status: pending`
-**without exception**, because **no row carried a machine-readable
-disposition**: an anchored disposition line appears in zero of the 185. Fifty-three
-mention the word "disposition" in prose, which is discussion *about* dispositions
-and not a recorded one.
-
-Reading a disposition out of that prose is exactly the judgment this section
-assigns to a human, so it was not done. The alternative — marking rows
-`promoted` or `dismissed` on a machine's reading of their text — would have
-produced a register whose dispositions look recorded and were inferred, which
-is worse than one that is honestly all-pending.
-
-### The summary view is derived
-
-Any roll-up of this directory is regenerated from the records and never
-authored beside them. An authored summary is a second store that drifts, which
-is the defect the migration exists to end.
-
-### What this repository does NOT own
-
-The writer `issue-sync register-append` appends to an **issue** and lives in
-`~/.claude/tools/`, outside this repository. Re-pointing it to emit records is
-a claude-toolkit act and is not this section's to make. What holds here without
-it: the tool **refuses an append to a closed register** — so **once**
-`kogaki#246` is closed, no further observation can land in the old carrier and
-the straddle is shut from this side even though the writer is not. **That
-guarantee is conditional on the close, which is owed rather than done** (see
-above); while it is outstanding both carriers accept writes, and this section
-says so rather than describing the state it expects to reach.
-
-**Stated rather than left implicit**, because the obligation has two halves and
-only one has a committable carrier here:
-`consulted: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/claude-code-ops.md:82`
-— "when an obligation has two halves and only one has a committable carrier,
-the issue closes on that half, because the closable half is the only one
-producing evidence of closure."
-
-### The write path: a register-only diff lands on `master` directly (kogaki#735)
-
-**Owner selection 2026-09-01.** A diff touching **only** `reviews/register/`
-is committed on `master` and pushed. **No branch, no pull request, no
-licensing issue, and no review round.** The commit message names the issue or
-pull request the observation was made at — the record's own
-`observed_at_pr` / `source_comment` provenance, never a licence borrowed for
-the occasion.
-
-**Why this section exists at all.** The kogaki#624 migration closed the
-straddle it set out to close and changed what an append **costs**, in a
-direction nobody chose. Before it, `issue-sync register-append` posted a
-comment: no branch, no commit, no pull request, no licensing issue. After it,
-a record had to be committed and landed through a pull request — so recording
-an accretion-class finding required exactly the issue that §4 clause 8 admits
-`carried: register` in order to avoid. The cheap carrier had come to cost the
-thing it was built to prevent.
-
-The ground is served and quoted rather than paraphrased:
-
-> "A bounded process whose every exit path costs another full cycle of itself
-> cannot converge — **termination requires at least one exit whose cost does
-> not reproduce the process**, and the tell is a finding class carried at the
-> same price as a reachable defect."
-> — `product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/claude-code-ops.md:78`
-
-The register **is** that exit. A write path costing a branch, a pull request,
-two required checks and — because `.claude/review-lane.json` declares
-`"trigger": true` — a review round, is the exit reproducing the process, which
-is the shape the served line rules against. One commit is not.
-
-**A RECORD WRITE IS AN OBSERVATION, NEVER AN IMPLEMENTATION, and that is why
-the licence invariant does not reach it.** The licence contract is
-**claude-toolkit-sited** and is cited with its repository the way every served
-line in this section is —
-`tim-nish/claude-toolkit@6d322421c28c615efa010b73bd2dabb5ff68f400 specs/spec-implementation-license/SPEC.md`,
-whose actor-level `PreToolUse` deny is the carrier. An unqualified `specs/…`
-path would read as local and resolve to nothing here. It
-governs what **authorizes a change**; a register record authorizes nothing,
-changes no behaviour, and is read by no consumer as a contract. Routing it
-through a licensing issue was never the licence rule binding — it was this
-repository's default routing applied outside its domain:
-
-> "A review finding's carrier is selected by WHERE THE DEFECT LIVES, never by
-> the repository's default routing… **Location selects, never severity.**"
-> — `product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d topics/claude-code-ops.md:124`
-
-**WHAT IS GIVEN UP IS STATED, not discovered.** `master` carries two required
-status checks, and a direct push does not **gate** on them. It does not skip
-them: `.github/workflows/checks.yml` runs on `push: branches: [master]`, so
-both jobs run against the pushed head and a malformed record shows red — after
-the fact rather than before it. The mitigation is part of the path and not
-advice beside it: **run `bash checks/check-observation-records.sh` locally
-before pushing.** Form is mechanical and truth is human, exactly as the
-transition set above already says; what moves is when the form check runs, not
-whether it does.
-
-**The SECOND required job is accounted for here too, because the first
-paragraph of this section is what keeps it green.** `license-assertion`
-(`.github/workflows/checks.yml:56`) also fires on `push: branches: [master]`,
-and on a push event it greps the **head commit message** for `#[0-9]+` and
-exits 1 without one. So "the commit message names the issue or pull request
-the observation was made at" is not a provenance nicety — it is load-bearing
-for a required check, and a record pushed under a message naming no number
-turns `master` red. Stating it in one place and relying on it in another is
-exactly the split this paragraph exists to close.
-
-**THE ENVIRONMENTAL PREMISE, stated because a path that depends on one and
-does not name it reads as unconditional.** This works because `master`'s
-protection carries `enforce_admins: false` (read live 2026-09-01), so the
-required checks do not bind the repository's administrator. **If that flips to
-`true`, this path stops working** — the push is refused, and the remedy is a
-decision to be made then, not a fallback to be assumed now. The signature is a
-refused push and nothing else, which is loud rather than silent, and that is
-the property that makes stating the premise sufficient here.
-
-**SCOPE IS THE DIFF, NEVER THE INTENT.** The path is available to a commit
-whose every changed path is under `reviews/register/`. A commit touching one
-other file is an ordinary change and takes the ordinary route, with no
-partial credit and no judgment call about which half dominated. A reader
-looking for the boundary reads `git show --stat`, not a rationale.
-
-**WHAT THIS DOES NOT CHANGE.** The transition set is untouched; identity is
-still issued; the summary view is still derived; the writer
-`issue-sync register-append` still lives outside this repository and still
-appends to an issue rather than emitting records — §"What this repository does
-NOT own" stands unamended. This section governs how a record **lands**, and
-nothing else.
 
 ## 3.2 A citation of a retired carrier is a historical ground, never a live pointer
 

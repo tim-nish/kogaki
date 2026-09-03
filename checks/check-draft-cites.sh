@@ -86,9 +86,9 @@ echo "ok: cite-check fixture pass ran ${N} case(s) clean, at or above its declar
 #   than inherited from the matcher."
 #   consulted: product-lab@7a9f53a1c6d0addb8098c789fce5ae32c99ec3f8 LESSONS.md:82
 # THE ROOTS ARE DECLARED, and a root that resolves to no tracked file fails
-# below. `reviews/register/` and `policy/emissions/` are deliberately OUTSIDE
-# them: both are historical records, and the acceptance class this sweep
-# discharges reaches "code, checks, gate prose or spec pins".
+# below. `policy/emissions/` is deliberately OUTSIDE them: it holds historical
+# records, and the acceptance class this sweep discharges reaches "code,
+# checks, gate prose or spec pins".
 SWEEP_ROOTS=(src checks specs gates .claude/skills tools)
 
 # THE COUNT IS OF MATCHING LINES, which is what `git grep -c` reports — two
