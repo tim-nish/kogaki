@@ -858,7 +858,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
   remembered prose. kogaki#220 and #223 are about to author fixtures at volume
   in sittings that were not present for story 1.36.
 
-- **External-dependency registry** (`deps/registry.json`): the capabilities
+- **External-dependency registry** (`src/deps-registry.json`): the capabilities
   this repository **needs but cannot install** — a spawned session's tool
   grants, a repository setting, a user-level hook's install state — declared
   rather than assumed. Each entry names the acts that break without it, **the

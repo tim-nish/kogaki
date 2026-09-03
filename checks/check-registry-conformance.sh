@@ -718,9 +718,11 @@ def probe_precondition_fixture():
         if verification is not None:
             dep["verification"] = verification
         with tempfile.TemporaryDirectory() as tmp:
-            deps = pathlib.Path(tmp) / "deps"
-            deps.mkdir()
-            (deps / "registry.json").write_text(
+            # The probe opens src/deps-registry.json (kogaki#806), so the
+            # synthetic tree mirrors that layout rather than the old deps/.
+            src_dir = pathlib.Path(tmp) / "src"
+            src_dir.mkdir()
+            (src_dir / "deps-registry.json").write_text(
                 json.dumps({"dependencies": [dep]}))
             return subprocess.run(["bash", "-c", probe], cwd=tmp,
                                   capture_output=True, text=True,
