@@ -1,5 +1,13 @@
 # SPEC-gate-carrier — the gate carrier
 
+**Status:** v4, amended 2026-09-03 (kogaki#818) — **§4 states what a capture's
+`options_offered` is judged AGAINST.** The rule was real and unwritten: the
+schema carried the flag, the check carried the comparison, and this contract
+named `options_offered` only as a payload member. Its scope was asserted
+nowhere but in one registry entry's own prose, which is why a conforming run
+could redden the suite forever without contradicting any sentence in this file.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v3, amended 2026-08-21 (kogaki#569) — **§3.1's one exception is
 discharged.** v2 (same day, same issue) bound what the question screen carries —
 four members, a fifth owes a stated reason, machine-facing text not among them —
@@ -189,6 +197,67 @@ A row for a gate carries `evidence` (the `AskUserQuestion` tool use itself,
 by `tool` and `tool_use_id` — the rendering's own artifact, not a claim that
 it rendered) and `payload` (`options_offered`, `free_text_offered`, `answer`).
 An answer recorded without its payload cannot be re-judged.
+
+### 4.1 What `options_offered` is judged against (v4, kogaki#818)
+
+`options_offered` is compared for **exact set equality** against the options
+the gate declared **for that run**. The comparison is unchanged from v1 in
+strength; what v4 states is the thing v1 left to the reader — **which
+declaration is the comparison target.**
+
+- Where a sibling `<gate_id>.run-declaration.json` sits beside the capture, it
+  is the target. That file is the gate's declaration *as raised*, written by
+  the executor at the wait that owed it, and it is the only artifact that can
+  hold an option composed for that run.
+- Where no sibling declaration exists, the target is the gate's entry in
+  `gates/registry.json`. This is the pre-v4 behaviour, kept exactly: a capture
+  that reached the tree with no run workspace around it is judged against the
+  registry and fails on disagreement, **by design rather than by exemption.**
+
+**Nothing is exempted and no rule is loosened.** A gate declaring
+`dynamic_options` is not released from the equality rule — its declaration
+simply names the run's options instead of the class's, and equality is then
+decidable against something that can actually be equal to what was offered.
+The `"scope": "anywhere in the repository"` population of this section's first
+paragraph is untouched: the fix is in what a capture is compared *to*, never
+in which captures are looked at.
+
+**Why the rule needed its scope written down.** The registry's own
+`dynamic_options` prose said the run declaration lives in "the machine-local
+run workspace, which never enters the tree" — meaning the **committed** tree,
+since `/runs/*` is ignored. `checks/check-gate-carrier.sh` reads the **working
+directory**. Both readings of "the tree" are natural and only one was ever
+implemented, so every conforming run left the local suite red on a legitimate
+act, stably and forever:
+
+> "If you write a rule like \"anything still marked unfinished\", say where the
+> mark has to be — in the header field, not just somewhere in the file. …
+> The wrong match is usually stable rather than intermittent, which makes it
+> worse: an item that is always wrong quietly becomes something everyone
+> learns to ignore. Write the rule with the one example that tells the two
+> readings apart, so whoever implements it later gets a test and not just a
+> description."
+
+`consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b gloss/lessons/testing.md:95`
+
+**The exemption shape was declined on the served record**, not on taste. The
+candidate direction that released `dynamic_options` gates from equality and
+pattern-matched their ids instead would inherit forward to every gate that
+later declares the field, without that gate restating the original reason in
+its own terms:
+
+> "the entire purpose of an exception is to skip a check, so a wrongly
+> inherited one produces no error, no warning, and no failing test; the system
+> is not failing to verify, it has been told not to."
+
+`consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b gloss/lessons/testing.md:173`
+
+**The fixture pair is owed, per the quoted line's last sentence** — the one
+example that tells the two readings apart. A conforming capture whose
+`options_offered` match a sibling run declaration but **not** the registry
+must be accepted, and a nonconforming capture whose options match **neither**
+must still fail. A single fixture cannot discriminate the two readings, so
+neither is admissible alone.
 
 A row whose `gate_id` is `null` is the **gate-less row**: a stop that raised
 no gate. It states its `no_gate_reason` and carries neither evidence nor
