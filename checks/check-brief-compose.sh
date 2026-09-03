@@ -90,7 +90,12 @@ const inst = (cand, over = {}) => ({ movesDir: MOVES, specialization: spec(cand,
 
 const step1 = {
   // §4.1 v18 (kogaki#642): every Step binds a Move — the State component.
+  // §4.15 rule 3 (kogaki#822): the FIRST Step always opens a Section, so every
+  // path fixture in this member starts from a Step that declares one. Added at
+  // the shared record rather than per block, because rule 3 binds every path
+  // and a per-block copy would drift the moment one block gains a case.
   step_id: "s1", move: "state-claim-in-working-form", materials: ["L2", "thesis"],
+  opens_section: "The claim, in working form",
   purpose: "give the reader the claim in working form",
   reader_state_before: "the reader has no stake in the claim",
   reader_state_after: "the reader can state the claim and its cost",
@@ -1184,7 +1189,12 @@ try {
     grounds: [{ type: "strand", strand: "L1", proposition: "the strand says so" }],
     ...extra,
   });
+  // §4.15 rule 3 (kogaki#822): every path's first Step opens a Section. Applied
+  // HERE rather than at each fixture's first element, so a case added later
+  // inherits it — this block's cases differ in their bridges, never in their
+  // grouping, and a per-case copy is what drifts.
   const admit = (steps, what) => {
+    if (steps[0].opens_section === undefined) steps[0] = { ...steps[0], opens_section: "Opening" };
     const v = validateSteps(steps);
     if (v.error) fails.push(`(l) the ${what} fixture is not an admissible path — it would assert over a shape the runtime refuses: ${v.error}`);
     return steps;
@@ -1238,13 +1248,74 @@ try {
   }
 }
 
+// (q) §4.15 THE SECTION — `opens_section` AND THE GROUPING RULES (kogaki#822).
+// The four rules are validated at COMPOSITION and not at `brief.mjs mint`,
+// because mint writes a Brief shell and no Step exists there for a rule to
+// read — §4.15 records that correction and this block is its exercised half.
+// Rules 2, 3 and rule 4's Step-count clause are mechanical; rule 1 is the
+// POSITIVE case whose negation rule 2 refuses, and rule 4's prose-length
+// clause is §4.15's named deferred slot, so neither is asserted here.
+{
+  const Q = (id, extra = {}) => ({
+    step_id: id, move: "m1", materials: ["L1"], purpose: "p",
+    reader_state_before: "a", reader_state_after: "b", depends_on: [],
+    rationale: "r", grounds: [{ type: "strand", strand: "L1", proposition: "q" }],
+    ...extra,
+  });
+  const err = (steps) => validateSteps(steps).error || "";
+
+  // The field is OPTIONAL — asserted FIRST, because every case composed before
+  // this issue carries none and a required field would fail all of them.
+  const noneAnywhere = err([Q("s1"), Q("s2")]);
+  if (!/rule 3/.test(noneAnywhere)) {
+    fails.push(`(q) a path opening NO Section is admitted or refused by the wrong rule — §4.15 rule 3 says the first Step always opens: ${noneAnywhere}`);
+  }
+  // ACCEPTANCE 4 both ways: the refusal names the RULE and the STEP.
+  if (!/§4\.15 rule 3/.test(noneAnywhere) || !/\(s1\)/.test(noneAnywhere)) {
+    fails.push(`(q) rule 3's refusal does not name both the rule and the Step — a refusal naming neither sends a composer to re-read the whole path: ${noneAnywhere}`);
+  }
+
+  // Rule 2 — a Step DEVELOPING its predecessor continues, so it may not open.
+  const everyStepOpens = err([Q("s1", { opens_section: "A" }), Q("s2", { opens_section: "B", depends_on: ["s1"] })]);
+  if (!/§4\.15 rule 2/.test(everyStepOpens) || !/\(s2\)/.test(everyStepOpens)) {
+    fails.push(`(q) a Step that develops its predecessor may still open a Section — §4.15 rule 2's refusal is what stops a heading on every Step: ${everyStepOpens}`);
+  }
+
+  // Rule 4's Step-count clause — two consecutive one-Step Sections MERGE.
+  const threeSingles = err([Q("s1", { opens_section: "A" }), Q("s2", { opens_section: "B", materials: ["L2"] }), Q("s3", { opens_section: "C", materials: ["L3"] })]);
+  if (!/§4\.15 rule 4/.test(threeSingles)) {
+    fails.push(`(q) three independent Steps each opening their own Section are admitted — rule 4's Step-count clause refuses two consecutive one-Step Sections: ${threeSingles}`);
+  }
+
+  // A CORRECTLY GROUPED path mints clean — the control. Without it every
+  // assertion above is satisfied by a validator that refuses everything.
+  const grouped = err([Q("s1", { opens_section: "A" }), Q("s2", { depends_on: ["s1"] }), Q("s3", { opens_section: "B", materials: ["L2"], depends_on: ["s2"] })]);
+  if (grouped) {
+    fails.push(`(q) a correctly grouped path is REFUSED — s1 opens, s2 continues it, s3 opens a second Section: ${grouped}`);
+  }
+
+  // Shape: presence marks the opening, value carries the title, so a blank
+  // value has no meaning rather than meaning "opens untitled".
+  for (const [bad, what] of [["", "empty"], ["   ", "whitespace-only"], [true, "non-string"]]) {
+    if (!err([Q("s1", { opens_section: bad })])) {
+      fails.push(`(q) a ${what} opens_section is admitted — it would render as a blank heading above a Section`);
+    }
+  }
+
+  // IT SURVIVES SERIALIZATION. A Brief re-read from its recorded form must
+  // still declare its Sections, or the renderer (kogaki#823) has nothing to read.
+  if (!/^opens_section: A Section Title$/m.test(renderStep(Q("s1", { opens_section: "A Section Title" })))) {
+    fails.push("(q) renderStep drops `opens_section` — a Brief re-read from its recorded form declares no Section at all");
+  }
+}
+
 if (fails.length) {
   console.log("FAIL brief compose (SPEC-draft-pipeline §§4.1/4.4/5.1-5.2, story 1.73):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
 console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
-console.log("brief compose: 16/16 cases — (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: 17/17 cases — (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
