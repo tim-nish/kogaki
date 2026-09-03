@@ -28,6 +28,51 @@ mkdir -p "$HOME"
 # deletes, and nothing downstream would fail.
 [[ "$HOME" == "$TMP/home" ]] || fail "the install sandbox HOME is not set — installs would write to the operator's own ~/.claude.json (kogaki#638)"
 
+# THE CLAUDE CLI IS A TEST DOUBLE, exactly as the gateway transport already is
+# (kogaki#787). `install.sh` step 5 shells out to `claude mcp list` on every
+# run and to `claude mcp add` when a gateway is configured, and the real CLI
+# costs 2.8s per start-up on the authoring machine — measured 2026-09-03, six
+# start-ups across this file's four installs, 5.0s of its 9.1s wall time.
+#
+# WHAT THE REAL CLI BOUGHT WAS NOTHING, AND THAT IS THE ARGUMENT. Before this
+# change no assertion in this file read `$HOME/.claude.json`, the install's
+# `MCP:` output, or any other effect of either call: the test paid six
+# start-ups for zero assertions. It could not assert more than it did, either —
+# under the sandboxed HOME the registration lands in a throwaway file the test
+# deletes, so the only observable was that some CLI ran.
+#
+# THE SHIM ASSERTS MORE THAN THE REAL CALL DID. It records the argv it was
+# invoked with, so the install's registration is checked for the exact
+# arguments it passes rather than for the existence of a side effect — which
+# is what this test is about: the install's behaviour, never the CLI's. The
+# CLI's own correctness is the CLI's concern and is not this suite's to verify.
+CLAUDE_LOG="$TMP/claude-argv.log"
+: > "$CLAUDE_LOG"
+# The `mcp list` body the shim prints. Empty = nothing registered, which is the
+# state every install in this file runs against; a scenario that needs the
+# already-registered branch writes 'tsurezure' into this file first.
+MCP_LIST_BODY="$TMP/claude-mcp-list-body"
+: > "$MCP_LIST_BODY"
+mkdir -p "$TMP/shim"
+# ONE ARGUMENT PER LINE, never "$*" (PR #793 round 1). Joining with a space
+# loses argument boundaries, so a gateway path or consumer name containing one
+# would be indistinguishable from two arguments — and this log is the whole of
+# what "asserted verbatim" means below. The record is a NUL-free rendering of
+# argv with a blank line terminating each call, so a call is matched as a
+# sequence rather than as a joined string.
+cat > "$TMP/shim/claude" <<SHIM
+#!/usr/bin/env bash
+{ for a in "\$@"; do printf '%s\n' "\$a"; done; printf '\n'; } >> "$CLAUDE_LOG"
+if [[ "\${1:-}" == "mcp" && "\${2:-}" == "list" ]]; then
+  cat "$MCP_LIST_BODY"
+fi
+exit 0
+SHIM
+chmod +x "$TMP/shim/claude"
+export PATH="$TMP/shim:$PATH"
+[[ "$(command -v claude)" == "$TMP/shim/claude" ]] \
+  || fail "the claude shim is not first on PATH — this test would start the real CLI (kogaki#787)"
+
 # 1. Fresh install.
 mkdir -p "$TMP/repo"
 "$KIT_DIR/install.sh" --repo "$TMP/repo" --consumer kit-test >"$TMP/out1" 2>&1 || fail "install exited non-zero"
@@ -1048,6 +1093,126 @@ printf '%s\n' "$RT" | grep -q 'round-trip: OK' \
 printf '%s\n' "$RT" | grep -q "round-trip: OK ($PIN_1111)" \
   || fail "the round-trip line does not carry the pin it reached (kogaki#638) — want 'round-trip: OK ($PIN_1111)', got: $(printf '%s\n' "$RT" | grep 'round-trip' || echo '<no round-trip line>')"
 echo "ok: the install's round-trip line renders the pin it reached (kogaki#638)"
+
+# 12b. THE REGISTRATION IS ASSERTED BY ARGV (kogaki#787). The install above is
+#      the one run in this file that reaches `claude mcp add`: it is the only
+#      one carrying `--gateway`, so GATEWAY_JS is set and step 5 takes the
+#      register branch rather than the not-configured one.
+#
+#      This assertion did not exist before the shim. The real CLI's effect
+#      landed in a sandboxed `$HOME/.claude.json` this test deletes, so the
+#      registration's ARGUMENTS — the scope, the server name, the gateway path
+#      and the consumer — were checked by nothing at all.
+#      The log holds one argument per line with a blank line per call, so the
+#      expected argv is compared as a SEQUENCE and a value containing a space
+#      cannot masquerade as two arguments.
+WANT_ADD=$(printf '%s\n' mcp add -s local tsurezure -- node "$TMP/stub-gw.js" --consumer kit-test)
+ADD_CALLS=$(python3 - "$CLAUDE_LOG" <<'PYX'
+import sys
+calls = [c for c in open(sys.argv[1]).read().split("\n\n") if c.strip()]
+print(sum(1 for c in calls if c.strip().splitlines()[:2] == ["mcp", "add"]))
+PYX
+)
+[[ "$ADD_CALLS" -eq 1 ]] \
+  || fail "the install called 'claude mcp add' $ADD_CALLS time(s); exactly one install in this file configures a gateway, so exactly one registration is owed (kogaki#787)"
+python3 - "$CLAUDE_LOG" "$WANT_ADD" <<'PYX' \
+  || fail "the registration argv is not the one the install must pass (kogaki#787)"
+import sys
+log, want = open(sys.argv[1]).read(), sys.argv[2].strip().splitlines()
+calls = [c.strip().splitlines() for c in log.split("\n\n") if c.strip()]
+if want in calls:
+    raise SystemExit(0)
+print(f"want {want!r}\ngot  {[c for c in calls if c[:2]==['mcp','add']]!r}", file=sys.stderr)
+raise SystemExit(1)
+PYX
+printf '%s\n' "$RT" | grep -q 'MCP: registered (scope local, consumer kit-test)' \
+  || fail "the install did not announce the registration it made: $(printf '%s\n' "$RT" | grep 'MCP:' || echo '<no MCP line>')"
+echo "ok: the registration is asserted by recorded argv, not by a real CLI start-up (kogaki#787)"
+
+# 12c. THE ALREADY-REGISTERED BRANCH, which no case reached before. The shim
+#      answers `mcp list` with a body naming the server, and the install must
+#      then make NO `mcp add` call at all — the idempotency this branch exists
+#      for, previously unobserved because the sandboxed HOME always read empty.
+echo 'tsurezure: node /somewhere/index.js' > "$MCP_LIST_BODY"
+: > "$CLAUDE_LOG"
+mkdir -p "$TMP/already"
+ALREADY=$("$KIT_DIR/install.sh" --repo "$TMP/already" --consumer kit-test --gateway "$TMP/stub-gw.js" 2>&1)
+: > "$MCP_LIST_BODY"
+printf '%s\n' "$ALREADY" | grep -q 'MCP: tsurezure already registered' \
+  || fail "the install did not take the already-registered branch when 'mcp list' named the server: $(printf '%s\n' "$ALREADY" | grep 'MCP:' || echo '<no MCP line>')"
+[[ "$(python3 -c "
+import sys
+calls=[c for c in open('$CLAUDE_LOG').read().split(chr(10)*2) if c.strip()]
+print(sum(1 for c in calls if c.strip().splitlines()[:2]==['mcp','add']))
+")" -eq 0 ]] \
+  || fail "the install re-registered a server 'mcp list' already reported (kogaki#787) — the already-registered branch must make no add call"
+echo "ok: an already-registered project is not re-registered (kogaki#787)"
+
+# 12d. THE CLI-ABSENT ARM, kept because it is a real degraded path and the one
+#      case a shim must not stand in for. PATH is rebuilt WITHOUT the directory
+#      holding any `claude`, so the install meets a genuine command-not-found
+#      rather than a shim reporting failure — the two differ at the shell, and
+#      this arm is about the shell's answer.
+#      THE PATH IS REBUILT BY SHADOWING, NOT BY DROPPING DIRECTORIES, and the
+#      first form of this case got it wrong in a way that passed. On the
+#      authoring machine `claude` and `node` live in the SAME directory
+#      (`~/.nvm/versions/node/<v>/bin`), so dropping every directory holding a
+#      `claude` also removed `node` — and the install then degraded because it
+#      had no node either, while this case's message says the cause was the
+#      missing CLI. The assertion passed for a reason it does not name, which
+#      is the one failure mode a degraded-path case exists to avoid.
+#
+#      So the replacement directory carries a symlink to every binary in the
+#      original except `claude`, and the original is removed from PATH along
+#      with the shim. Everything the install needs is still reachable; exactly
+#      one command is not.
+ABSENT_PATH=$(python3 - "$PATH" "$TMP/nobin" "$TMP/shim" <<'PYX'
+import os, sys
+path_in, nobin, shim = sys.argv[1], sys.argv[2], sys.argv[3]
+os.makedirs(nobin, exist_ok=True)
+holders = []
+for d in path_in.split(os.pathsep):
+    if d and d != shim and os.path.exists(os.path.join(d, "claude")):
+        holders.append(d)
+for d in holders:
+    for name in os.listdir(d):
+        if name == "claude":
+            continue
+        link = os.path.join(nobin, name)
+        if not os.path.lexists(link):
+            os.symlink(os.path.join(d, name), link)
+# THE REPLACEMENT SITS WHERE THE HOLDER SAT, never at the front (PR #793
+# round 1). Prepending would make every binary symlinked out of the holder
+# outrank a same-named binary that sat EARLIER in the original PATH, so on a
+# machine with two `node`s this case would run a different one than the rest
+# of the file — the same shape as the defect this case was repaired for.
+keep, placed = [], False
+for d in path_in.split(os.pathsep):
+    if not d or d == shim:
+        continue
+    if d in holders:
+        if not placed:
+            keep.append(nobin)
+            placed = True
+        continue
+    keep.append(d)
+if not placed:
+    keep.insert(0, nobin)
+print(os.pathsep.join(keep))
+PYX
+)
+[[ -z "$(PATH="$ABSENT_PATH" command -v claude || true)" ]] \
+  || fail "the CLI-absent arm still resolves a claude — the case would assert a degrade that did not happen (kogaki#787)"
+[[ -n "$(PATH="$ABSENT_PATH" command -v node || true)" ]] \
+  || fail "the CLI-absent arm lost node as well as claude — the install would degrade for a reason this case does not name (kogaki#787)"
+mkdir -p "$TMP/nocli"
+NOCLI=$(PATH="$ABSENT_PATH" "$KIT_DIR/install.sh" --repo "$TMP/nocli" --consumer kit-test --gateway "$TMP/stub-gw.js" 2>&1) \
+  || fail "the install exited non-zero with no claude on PATH — a degraded install is a valid install"
+printf '%s\n' "$NOCLI" | grep -q 'MCP: could not register automatically' \
+  || fail "with no claude on PATH the install must print the manual command, got: $(printf '%s\n' "$NOCLI" | grep 'MCP:' || echo '<no MCP line>')"
+printf '%s\n' "$NOCLI" | grep -qF "claude mcp add -s local tsurezure -- node $TMP/stub-gw.js --consumer kit-test" \
+  || fail "the manual command the install prints is not the one an operator should run"
+echo "ok: with no claude on PATH the install degrades and prints the manual command (kogaki#787)"
 
 # 13. THE INSTALL ANNOUNCES EVERY SEAM CHECK IT VENDORS (kogaki#724).
 #     The kit vendors these and does NOT copy them into the consumer's
