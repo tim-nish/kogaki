@@ -35,9 +35,19 @@ behaviour — and this spec applies that move to external dependencies.
 ## 2. The enumeration and its home
 
 Every external capability this repository needs is declared in
-`deps/registry.json`. The registry is the enumeration against which coverage
+`src/deps-registry.json`. The registry is the enumeration against which coverage
 is measured, and an undeclared dependency is the thing that fails — rather
 than a run that stalls.
+
+**Why `src/` and not beside its reader (kogaki#806).** The file moved out of a
+root-level `deps/` under the owner ruling of 2026-09-03, and its first
+destination was `checks/`, beside `check-external-deps.sh`. That is illegal
+here: `checks/check-registry-conformance.sh` enumerates every file under
+`checks/` except `registry.json` and fails it as an unregistered check — dead
+code by construction. So the carrier sits in flat `src/` beside
+`src/gate-registry.json`, which kogaki#805 moved there the same day under the
+same ruling, and beside the schemas it and its siblings satisfy. The reader
+finds it through the schema's `registry_path`, never through adjacency.
 
 **It is a separate artifact from `checks/registry.json` and from
 `src/gate-registry.json`, and the argument is mechanical before it is

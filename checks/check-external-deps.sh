@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The external-dependency registry, made checkable (specs/SPEC.md:69-80,
+# The external-dependency registry, made checkable (specs/SPEC.md:861-874,
 # specs/spec-external-deps/SPEC.md; kogaki#55, story 1.14).
 #
-# WHAT THIS CARRIES. `deps/registry.json` declares the capabilities this
+# WHAT THIS CARRIES. `src/deps-registry.json` declares the capabilities this
 # repository NEEDS but cannot install — a repository setting, an actor-level
 # hook's install state, a spawned session's tool grants. The specimen is the
 # held run on PR #51, where three obstacles were ONE defect: all assumed, none
@@ -347,10 +347,10 @@ if [c for c, _ in validate_non_member({"capability": "x"})] != ["NON_MEMBER_MISS
 # left to prose, because the live registry is non-empty and this branch would
 # otherwise never be exercised on any run — the shape that lets a rendering
 # rot unnoticed until the day it is needed.
-if "0 declared dependencies" not in registry_line([], "deps/registry.json"):
+if "0 declared dependencies" not in registry_line([], "src/deps-registry.json"):
     failures.append("the empty registry does not render its zero explicitly; a "
                     "silent pass is indistinguishable from a check that did not run")
-if "0 declared dependencies" in registry_line([_conforming()], "deps/registry.json"):
+if "0 declared dependencies" in registry_line([_conforming()], "src/deps-registry.json"):
     failures.append("the zero rendering fired on a non-empty registry")
 
 fixture_codes = set()

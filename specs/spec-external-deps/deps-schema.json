@@ -8,11 +8,11 @@
     "src/gate-schema.json and",
     "src/record-schema.json, deliberately.",
     "",
-    "The enumeration itself lives in deps/registry.json. This file says what",
-    "an entry must LOOK like; it never says which capabilities exist."
+    "The enumeration itself lives in src/deps-registry.json. This file says",
+    "what an entry must LOOK like; it never says which capabilities exist."
   ],
   "version": "1",
-  "registry_path": "deps/registry.json",
+  "registry_path": "src/deps-registry.json",
   "entry": {
     "required": [
       "id",
