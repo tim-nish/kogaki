@@ -463,11 +463,26 @@ function selfTest() {
     // live in their own bounded sub-directory, exempt from the lane prune.
     {
       const nf = fixture("brief", ["slug-a", "slug-b", "slug-c"]);
-      const e1 = enterSubRun("brief", BRIEF_ENTRIES, "entry-1", { keep: 2, root: nf.root });
+      // THE ENTRIES ARE AGED EXPLICITLY, exactly as `fixture` ages a lane's
+      // workspaces, and for the same reason stated there: which entry is "the
+      // oldest" must be a fact about the tree rather than about the order the
+      // machine happened to run in. Four `enterSubRun` calls can land inside
+      // one millisecond, and the prune's name tiebreak then keeps the LOWEST
+      // names — so this case went red on a clean head roughly one run in two
+      // (kogaki#788). The bound is what is under test here; the tiebreak is
+      // asserted on its own, below, on entries whose mtimes are equal BY
+      // CONSTRUCTION rather than by luck.
+      let aged = 0;
+      const age = (dest) => {
+        const t = new Date(Date.now() - (10 - ++aged) * 60000);
+        utimesSync(dest, t, t);
+        return dest;
+      };
+      const e1 = age(enterSubRun("brief", BRIEF_ENTRIES, "entry-1", { keep: 2, root: nf.root }));
       ok("(n) the entry lands under the lane's entries directory",
         e1 === join(nf.dir, BRIEF_ENTRIES, "entry-1"), e1);
       for (const e of ["entry-2", "entry-3", "entry-4"]) {
-        enterSubRun("brief", BRIEF_ENTRIES, e, { keep: 2, root: nf.root });
+        age(enterSubRun("brief", BRIEF_ENTRIES, e, { keep: 2, root: nf.root }));
       }
       ok("(n) four entries did not evict a single slug workspace",
         JSON.stringify(names(nf.dir)) === JSON.stringify(["entries", "slug-a", "slug-b", "slug-c"]),
@@ -484,6 +499,23 @@ function selfTest() {
       // And a slug workspace prune still ignores the entries directory.
       const rm = pruneLaneForRun("brief", "slug-d", { keep: 2, root: nf.root });
       ok("(n) the lane prune never removes the entries directory", !rm.includes(BRIEF_ENTRIES), JSON.stringify(rm));
+
+      // THE TIEBREAK, asserted directly (kogaki#788). Ageing the entries above
+      // puts `entriesByAge`'s name tiebreak out of reach of every other
+      // assertion in this pass — a fixture repaired by removing the tie stops
+      // covering the rule the tie exists for, which is the repair paying for
+      // itself with the coverage it was meant to protect. So the tie is built
+      // rather than raced: three entries at one EXPLICIT mtime, where name
+      // ASCENDING keeps the two lexically first. Invert the tiebreak and this
+      // line goes red.
+      const tf = fixture("brief", []);
+      const ties = join(tf.dir, BRIEF_ENTRIES);
+      const tied = new Date(Date.now() - 30 * 60000);
+      for (const e of ["tie-c", "tie-a", "tie-b"]) mkdirSync(join(ties, e), { recursive: true });
+      for (const e of ["tie-a", "tie-b", "tie-c"]) utimesSync(join(ties, e), tied, tied);
+      pruneWithin(ties, null, 2);
+      ok("(n) an mtime tie is broken by name ascending",
+        JSON.stringify(names(ties)) === JSON.stringify(["tie-a", "tie-b"]), JSON.stringify(names(ties)));
     }
 
     // (j) THE CONTAINMENT GUARD, reached directly: every name it sees in
