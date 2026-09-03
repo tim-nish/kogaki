@@ -1,7 +1,8 @@
 # SPEC-client-kit — the consumer half of the seam
 
-**Status:** v1, authored 2026-08-09 (kogaki#325 and kogaki#326, decided as one
-coupled group in a `/ship-cycle` spec-lane sitting).
+**Status:** v2, authored 2026-08-09 (kogaki#325 and kogaki#326, decided as one
+coupled group in a `/ship-cycle` spec-lane sitting); **§10 kit currency added
+2026-09-03 (kogaki#633)**.
 **Governs:** the tsurezure client kit's **consumer-side** contract — what a kit
 install delivers by default, and what a kit-installed sitting owes.
 
@@ -603,6 +604,10 @@ puts no instrument in force.
 | §8.3 the pin-token deny | the **kit**, as a declared fast path only |
 | §9.1 the conduct-axis facet in the map template | the **kit** (seed); the consumer's own map thereafter |
 | §9.2 the `axis:` key's SHAPE | the consuming repo's `specs/SPEC.md` §4; the **hub** owns its values |
+| §10.2 the stamp, written at install | the **kit** (`install.sh`) |
+| §10.2 the currency check's verdict states | the **consumer's registered suite** |
+| §10.2 the declared consumer list | the **Home** |
+| §10.3 the stamp is COMMITTED | the **kit's default**, and it is the one deliberate exception to §3.3 |
 
 ## 6. Out of scope, by decision
 
@@ -622,6 +627,9 @@ puts no instrument in force.
   the grammar", and §9 obeys it by putting the key in §4 and keeping only the
   delivery half in this spec.
 - **An emitter for `axis:`** — §9.3, named and deliberately not built here.
+- **A Home-side sweep over the declared consumer list** — §10.2 ships the
+  declaration and no reader of it; §4.6's decline of cadence coupling binds
+  here unchanged, and a scheduled reader is not minted by this amendment.
 - **The `subject | conduct` value set** — §9.2; **RATIFIED by the hub
   2026-08-13 and enforced consumer-side 2026-08-28 (kogaki#673).** No consumer
   and no kit may MINT it, which is unchanged and is a different act from copying
@@ -873,3 +881,162 @@ though instrumented, with the acknowledgement living only in a PR body.
 enforcement landed 2026-08-28 (kogaki#673); it is listed as discharged rather
 than dropped, so a reader of an older revision can tell a filled slot from one
 that was quietly removed.
+
+## 10. Kit currency — an installed copy knows it is behind (kogaki#633)
+
+### 10.1 What was missing, and why a convention could not carry it
+
+The kit was built for multiple consumers — `install.sh --repo <path> --consumer
+<name>`, idempotent, templates create-only-when-absent, a degraded install still
+valid. What it has never had is a way for an installed copy to know it is
+**behind**. With one consumer that gap is invisible; with two it is the whole
+maintenance problem, and "keep the copies in sync" is a prose obligation of
+exactly the kind §2 already rules advisory.
+
+The served position discriminates the shape, and it is quoted whole at its pin
+rather than paraphrased:
+
+> "a local copy of a centrally-managed artifact is a FORK WITH NO FORK'S
+> DISCIPLINE — no version stamp, no staleness check, no declared divergence.
+> Either the consumer loads the centre's artifact (and the centre owes it a
+> loadable path), or the copy is a DECLARED fork carrying its own version and
+> its own reason. The one thing it may not be is an undeclared duplicate that
+> looks like the original."
+
+`consulted: product-lab@4eb5bc6659494a70c0ae82e8527495f16d6f765a topics/claude-code-ops.md:103`
+  request_id: 176a6689-56dc-4961-b001-8bbe199ada25
+  outcome: discriminating
+  query: How should a vendored copy of a centrally-maintained kit know it is behind its home, and where should the version stamp live — committed in the consumer or machine-local? What does admitting a new staleness check into a consumer's suite owe?
+
+### 10.2 The clause
+
+**A kit copy carries a stamp, and the stamp is written by the install.** The
+installer writes `policy/kit/.kit-version` into the consumer, naming the Home
+repository, the Home revision the copy came from, and the install date, beside a
+manifest digest over the vendored kit files. **A copy without provenance cannot
+exist**, because the act that produces the copy is the act that stamps it — the
+`constrains:` half, and the reason this is not a rule about copies that already
+exist.
+
+**The consumer runs the currency check; it reports and never gates.** A
+registered check reads the stamp and renders exactly one of:
+
+- **`current`** — the stamp's revision is the Home's current revision;
+- **`behind <n>`** — naming the delta, by file;
+- **`cannot-determine`** — the Home was not reachable. **Never `current`.**
+
+**A stamp that is absent, malformed, or disagrees with its manifest FAILS.**
+That is the one condition this check denies on, and it denies on it because it
+is a fact about the consumer's own tree — no cross-repo read is involved, so the
+denial cannot fire on someone else's availability.
+
+**Nothing in a consumer's suite fails merely because the Home moved.** Blocking
+a consumer's suite on the Home's revision would couple two repositories' release
+cadences, which is the coupling the eventual dedicated repository exists to
+remove. This is the same report-never-gate posture §3.4 and §4.5 already carry,
+and it is stated here rather than inherited by implication.
+
+**The Home declares its consumers.** `policy/kit/consumers.json` in the Home
+makes *"who is behind?"* answerable from the Home rather than by walking a
+machine. It is a declaration, not a sweep: §4.6's decline of cadence coupling
+binds here unchanged, and no scheduled reader is minted.
+
+### 10.3 Where the stamp lives, and what it is durable against
+
+**The stamp is COMMITTED.** It is the one kit artifact for which §3.3's
+repo-visible-not-committed default is wrong, and the ground is served:
+
+> "…the durable pole owes a statement of WHAT IT IS DURABLE AGAINST — a process,
+> a working copy, a clone, or the repository — because a carrier that cannot be
+> committed satisfies the word while failing every reader's reading of it."
+
+`consulted: product-lab@4eb5bc6659494a70c0ae82e8527495f16d6f765a topics/claude-code-ops.md:158`
+  request_id: 176a6689-56dc-4961-b001-8bbe199ada25
+  outcome: discriminating
+  query: How should a vendored copy of a centrally-maintained kit know it is behind its home, and where should the version stamp live — committed in the consumer or machine-local? What does admitting a new staleness check into a consumer's suite owe?
+
+A machine-local stamp is durable against a **working copy** only, so a fresh
+clone would inherit no provenance and the check would read `cannot-determine`
+on every clone — indistinguishable from an unreachable Home. Provenance must
+survive a **clone**, so the stamp is committed and is named here as such.
+
+**This does not move the gateway's location.** `policy/kit/README.md:21-24`
+keeps the gateway machine-local — "never a committed path and never directory
+adjacency" — and a version stamp is not a path. The two are separate carriers
+with deliberately opposite durability, and this clause states the difference
+rather than leaving a reader to reconcile it.
+
+### 10.4 The check enters the registry like every other member
+
+The currency check is a **registered** check and owes the full admission record
+`checks/check-registry-conformance.sh` already enforces — `contract`, `license`,
+`tier`, `removal_signal`, an observing `removal_instrument`, and `efficacy`
+evidence. It is named here because §10.2 mints a check, and the kernel is
+served: admission carries a removal signal declared at birth. Its entry ships in
+`policy/kit/registry-entries.json` under the kit-is-the-SOURCE precedence
+kogaki#724 already established, so a consumer's copy cannot drift silently.
+
+**Its removal signal is stated at birth, in this clause:** the kit's separation
+into its own repository with a package-manager-shaped distribution, at which
+point currency is the distributor's property and this check has no subject.
+
+### 10.5 The exercise is a FIXTURE, and that is a finding rather than a shortfall
+
+**No consumer is kit-installed at its committed state.** Read live 2026-09-03:
+`tim-nish/claude-toolkit` on `main` tracks nothing of the kit — `git ls-files
+policy .claude/skills/consult-first checks` returns empty and `CLAUDE.md`
+carries no `tsurezure-client-kit:begin` marker; the `policy/emissions/` and
+`policy/shape.md` present in that working copy are untracked kit *outputs*, not
+the kit. So §0's "claude-toolkit is its first staleness consumer" describes an
+intent, not an instantiation.
+
+The consequence is stated rather than discovered: **the reporting direction is
+exercised against a deliberately-stale FIXTURE**, never against a live second
+consumer, and an acceptance claim that reads otherwise is asserting a consumer
+that does not exist. The served line is exact about why the fixture is still
+owed:
+
+> "'Is the automation installed?', 'is it the current version?', 'is it firing?'
+> and 'is it doing anything?' are four different questions, and the first three
+> can all be yes while the fourth is no."
+
+`consulted: product-lab@4eb5bc6659494a70c0ae82e8527495f16d6f765a gloss/lessons/claude-code-ops.md:275`
+
+A currency check exercised only on a current copy answers the first three and
+never the fourth.
+
+### 10.6 The two declined arms, recorded so neither is re-proposed blind
+
+**A2 — the consumer declares and the Home computes.** The consumer's check
+verifies only stamp integrity against its manifest; "behind" is answered by a
+Home-side report over `consumers.json`. It is the cleanest reading of the served
+declared-fork arm and has no `cannot-determine` state to design at all.
+**Declined** because the "behind" answer would then be carrier-less by
+construction: a Home-side report is an act nobody is obliged to perform, which
+is the advisory shape §2 rules out, while the consumer's suite is an act that
+already happens.
+
+**A3 — no copy; the centre owes a loadable path.** The arm the served line names
+*first*, and the one matching kogaki#9's machine-local founding rule most
+closely. **Declined on a mechanical fact rather than on taste:** `checks/registry.json`'s
+`file` field is a committed path and four seam checks are registered under
+`policy/kit/checks/…`, so a machine-local kit directory cannot be registered or
+run in CI at all. It also reopens what the kit installs, which kogaki#633 places
+out of scope. Recorded here because it stays the right shape the moment the kit
+becomes a distributed package — which is §10.4's removal signal, and the two are
+deliberately the same event.
+
+### 10.7 deferred slots
+
+**`kit-currency-home-resolution`** — how the check *reaches* the Home is not
+decided here. `--home <path>`, an environment variable, and a stamped remote URL
+are all admissible and none is chosen, because the choice turns on facts about
+CI availability this sitting did not read. Until it is filled, `cannot-determine`
+is the expected CI reading and §10.2 already says so. **Filling it is its own
+decision act** with its own consult and receipt, per the decide-or-name rule.
+
+**`kit-currency-divergence-declaration`** — the served line's third property, a
+**declared divergence**, is not built. §10.2's manifest digest detects that a copy
+differs from its stamp; it carries no way to declare a difference as intended.
+Named rather than left, because a manifest with no declaration channel makes an
+intentional local fix indistinguishable from drift.
