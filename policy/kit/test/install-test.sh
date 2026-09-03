@@ -1417,6 +1417,62 @@ printf '{"consumers":[{"repo":"x","role":"home"}]}\n' > "$TMP/nested/policy/kit/
 NESTOUT=$("$KIT_DIR/install.sh" --repo "$TMP/nested" --consumer kit-test 2>&1)
 printf '%s\n' "$NESTOUT" | grep -q 'no stamp is written and none is owed' \
   && fail "a nested role: home read as the Home declaration to the installer — the divergence finding 5 named"
-echo "ok: a nested role is not the Home declaration, to the installer as to the check"
+#     AND THE POSITIVE OUTCOME (PR #800 round 1, finding 3). Asserting only that
+#     the Home message is absent would pass unchanged if the installer skipped
+#     the stamp for some entirely different reason; what makes the case
+#     meaningful is that the tree was treated as a CONSUMER.
+[ -f "$TMP/nested/policy/kit/.kit-version" ] \
+  || fail "a nested role: home left the tree unstamped — the case asserts the tree is treated as a consumer, not merely that one message is absent"
+echo "ok: a nested role is not the Home declaration, and the tree is stamped as a consumer"
+
+#     7l. A SELF-INSTALL CANNOT LAUNDER A TAMPERED COPY (PR #800 round 1,
+#     finding 1). The laundering path: edit the vendored kit, run the
+#     documented in-place refresh, and an earlier form rewrote `manifest:` to
+#     the digest of the edited tree — clearing check-kit-currency's
+#     "disagrees with its stamp" deny while `home`/`home_revision` stayed
+#     stale, so the stamp asserted that home@<old rev> contained bytes it did
+#     not. Fixture case 6 was defeated by construction.
+mkdir -p "$TMP/launder/policy"
+cp -r "$KIT_DIR" "$TMP/launder/policy/kit"
+rm -f "$TMP/launder/policy/kit/consumers.json"
+ORIG_M=$(bash "$KIT_DIR/bin/kit-manifest.sh" "$TMP/launder/policy/kit")
+{ echo "home: example/origin-home"; echo "home_revision: 2222222222222222222222222222222222222222";
+  echo "installed: 2026-01-01"; echo "manifest: $ORIG_M";
+  echo "manifest_algorithm: policy/kit/bin/kit-manifest.sh"; } > "$TMP/launder/policy/kit/.kit-version"
+#     Tamper with the copy, then run the in-place refresh from inside it.
+printf '\n# a local edit the Home never had\n' >> "$TMP/launder/policy/kit/bin/kit-manifest.sh"
+(cd "$TMP/launder" && bash policy/kit/install.sh --repo "$TMP/launder" --consumer kit-test >/dev/null 2>&1)
+grep -q "^manifest: $ORIG_M$" "$TMP/launder/policy/kit/.kit-version" \
+  || fail "a self-install rewrote the manifest over a tampered copy — the tamper deny is cleared and the stamp now asserts bytes the named revision does not contain"
+#     And the deny it protects must still fire.
+"$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/launder" >/dev/null 2>&1 \
+  && fail "a tampered copy passed the currency check after a self-install — the laundering path is open"
+echo "ok: a self-install leaves the stamp untouched, and the tamper deny still fires"
+
+#     7m. A DIRTY HOME IS NOT STAMPED AS ITS HEAD (PR #800 round 1, finding 2).
+#     The digest comes from the working tree and home_revision from HEAD, so an
+#     uncommitted kit change makes the stamp name a revision it does not match.
+DIRTYHOME="$TMP/dirtyhome"
+mkdir -p "$DIRTYHOME"
+cp -r "$KIT_DIR" "$DIRTYHOME/kit"
+(cd "$DIRTYHOME" && git init -q && git -c user.email=t@e -c user.name=t add -A >/dev/null 2>&1    && git -c user.email=t@e -c user.name=t commit -qm one >/dev/null 2>&1)
+printf '\n# uncommitted\n' >> "$DIRTYHOME/kit/bin/kit-manifest.sh"
+mkdir -p "$TMP/dirtytgt/policy"
+cp -r "$DIRTYHOME/kit" "$TMP/dirtytgt/policy/kit"
+rm -f "$TMP/dirtytgt/policy/kit/consumers.json"
+DIRTYOUT=$("$DIRTYHOME/kit/install.sh" --repo "$TMP/dirtytgt" --consumer kit-test 2>&1)
+[ -f "$TMP/dirtytgt/policy/kit/.kit-version" ] \
+  || fail "a dirty Home wrote no stamp — the guard MARKS the revision rather than refusing, so development trees stay installable"
+grep -qE '^home_revision: [0-9a-f]+-dirty$' "$TMP/dirtytgt/policy/kit/.kit-version" \
+  || fail "a dirty Home stamped a bare revision, asserting that commit contains uncommitted bytes: $(grep '^home_revision:' "$TMP/dirtytgt/policy/kit/.kit-version")"
+printf '%s\n' "$DIRTYOUT" | grep -q 'uncommitted changes' \
+  || fail "the install marked the revision dirty without saying why"
+#     And the consequence that makes the marker load-bearing: the value is not
+#     a resolvable commit, so currency degrades rather than claiming `current`.
+DOUT=$("$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/dirtytgt" --home "$DIRTYHOME" 2>&1) \
+  || fail "a dirty-sourced copy failed the currency check; it should degrade, not deny"
+printf '%s\n' "$DOUT" | grep -q 'verdict: cannot-determine' \
+  || fail "a dirty-sourced copy did not degrade to cannot-determine: $(printf '%s\n' "$DOUT" | grep verdict)"
+echo "ok: a dirty Home marks the revision, and currency degrades rather than overclaiming"
 
 echo "ALL PASS"

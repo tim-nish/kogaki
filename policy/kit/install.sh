@@ -348,21 +348,28 @@ else
     say "written. A stamp carrying no verifiable digest would fail the currency"
     say "check later while this step reported success."
   elif [[ "$SELF_INSTALL" -eq 1 && -f "$REPO/policy/kit/.kit-version" ]]; then
-    # A refresh in place: keep the recorded origin, refresh only the digest,
-    # so re-running the installer never rewrites where the copy came from.
+    # A SELF-INSTALL LEAVES THE STAMP ENTIRELY ALONE (PR #800 round 1, finding
+    # 1). An earlier form kept `home`/`home_revision` and "refreshed" the
+    # manifest — which was the laundering path one branch over from the one
+    # kogaki#799 closed: in a self-install the source IS the copy, so the
+    # refreshed digest is the digest of whatever the tree now holds. A consumer
+    # could edit its vendored policy/kit/, run the documented in-place refresh,
+    # and have check-kit-currency's "disagrees with its stamp" deny SILENTLY
+    # CLEARED, leaving a stamp asserting that home@<old rev> contains bytes it
+    # does not. That defeats fixture case 6 by construction.
+    #
+    # There is nothing a self-install can legitimately refresh here. The stamp
+    # records where a copy CAME FROM, and an installer reading the copy cannot
+    # establish that — which is exactly why the no-prior-stamp branch below
+    # writes nothing. Refreshing a field of a record it cannot verify is the
+    # same act with a prior value to hide behind.
     PREV_HOME="$(sed -n 's/^home:[[:space:]]*//p' "$REPO/policy/kit/.kit-version" | head -1)"
     PREV_REV="$(sed -n 's/^home_revision:[[:space:]]*//p' "$REPO/policy/kit/.kit-version" | head -1)"
-    PREV_INSTALLED="$(sed -n 's/^installed:[[:space:]]*//p' "$REPO/policy/kit/.kit-version" | head -1)"
-    {
-      printf 'home: %s\n' "${PREV_HOME:-unknown-home}"
-      printf 'home_revision: %s\n' "${PREV_REV:-unknown}"
-      printf 'installed: %s\n' "${PREV_INSTALLED:-$(date -u +%Y-%m-%d)}"
-      printf 'manifest: %s\n' "$KIT_MANIFEST"
-      printf 'manifest_algorithm: policy/kit/bin/kit-manifest.sh\n'
-    } > "$REPO/policy/kit/.kit-version"
-    say "policy/kit/.kit-version: self-install — the recorded origin"
-    say "${PREV_HOME:-unknown-home}@${PREV_REV:0:12} is KEPT and only the manifest refreshed."
-    say "An installer cannot establish where a copy came from by reading that copy."
+    say "policy/kit/.kit-version: self-install — the stamp is left UNTOUCHED"
+    say "(${PREV_HOME:-unknown-home}@${PREV_REV:0:12}). An installer reading the copy cannot"
+    say "establish where the copy came from, and rewriting the digest here would"
+    say "clear the tamper deny rather than refresh anything. If this copy has"
+    say "diverged, check-kit-currency says so — which is the point."
   elif [[ "$SELF_INSTALL" -eq 1 ]]; then
     say "policy/kit/.kit-version: self-install with no prior stamp — this installer"
     say "IS the copy, so it cannot establish an origin and NO stamp is written."
@@ -382,6 +389,30 @@ else
     [[ -n "$HOME_SLUG" ]] || HOME_SLUG="unknown-home"
     HOME_REV="$(cd "$KIT_DIR" && git rev-parse HEAD 2>/dev/null || true)"
     [[ -n "$HOME_REV" ]] || HOME_REV="unknown"
+    # A DIRTY HOME CANNOT BE STAMPED AS ITS HEAD (PR #800 round 1, finding 2).
+    # The digest is taken from the Home's WORKING TREE and `home_revision` from
+    # `git rev-parse HEAD`, so uncommitted kit changes produce a stamp asserting
+    # that home@<HEAD> contains bytes that revision does not. The copy-vs-source
+    # guard cannot see it: both sides are digested from the same dirty tree.
+    HOME_DIRTY="$(cd "$KIT_DIR" && git status --porcelain -- . 2>/dev/null || true)"
+    if [[ -n "$HOME_DIRTY" ]]; then
+      # MARKED, NOT REFUSED — and the first attempt at this guard refused,
+      # which broke `install-test.sh` on any tree where the kit was being
+      # edited, i.e. every tree developing the kit. That is a large cost for a
+      # narrow correctness gain.
+      #
+      # What must not happen is the FALSE CLAIM: `home_revision: <sha>` beside
+      # a digest of uncommitted bytes asserts that the revision contains them.
+      # Suffixing the value fixes that at the root — it is no longer a
+      # resolvable commit, so `check-kit-currency` cannot match it against any
+      # Home and degrades to `cannot-determine`, which is the true reading of a
+      # copy taken from a dirty tree. The stamp still records provenance; it
+      # just stops overclaiming it.
+      HOME_REV="${HOME_REV}-dirty"
+      say "NOTE: the Home's policy/kit/ has uncommitted changes, so the stamp records"
+      say "${HOME_REV} — deliberately not a resolvable revision, because the digest"
+      say "does not correspond to any commit. Currency will read cannot-determine."
+    fi
     {
       printf 'home: %s\n' "$HOME_SLUG"
       printf 'home_revision: %s\n' "$HOME_REV"
