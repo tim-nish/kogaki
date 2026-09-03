@@ -730,7 +730,23 @@ function cmdSection(args) {
   // both does not read one as a widening of the other: that guard refuses
   // RECORD rendered as structure (a step id, a key line) and is unchanged; this
   // refuses a TITLE the Brief did not declare, at a level the Harness owns.
-  const heading = content.match(/^(#{1,3})\s+(?!#)(.*\S)\s*$/m);
+  //
+  // EVERY HEADING LEVEL, and `[ \t]` rather than `\s` (PR #843 round 1,
+  // findings 3 and 5). The first form matched `#{1,3}` with a `(?!#)` guard, so
+  // `#### A title` passed unrefused — the engine backtracks the hash run and
+  // then fails on the whitespace, which means a model answering "No heading"
+  // with a SUB-heading landed one in the body while acceptance 3, which counts
+  // `##` only, stayed green. `findTraceStructure` beside it already reads
+  // `#{1,6}`, so the two guards disagreed about what a heading is. And `\s`
+  // spans newlines, so a lone `#` line reported a "heading" assembled across
+  // three lines.
+  //
+  // FENCED BLOCKS ARE EXCLUDED (finding 5, second half). A `# install deps`
+  // comment inside a code fence in realized prose is not a heading, and
+  // refusing it is an over-refusal at composition time against prose the
+  // article may legitimately need.
+  const unfenced = content.replace(/^```[\s\S]*?^```[ \t]*$/gm, "");
+  const heading = unfenced.match(/^(#{1,6})[ \t]+(\S.*?)[ \t]*$/m);
   if (heading) {
     fail(`the section for ${id} carries its own heading (${heading[0].trim()}) — after §4.15 the heading is the Harness's, rendered once per Section at the Step that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. `
       + `Remove it: the Packet's write instruction says "No heading" for this reason`);
@@ -1325,8 +1341,16 @@ async function runSelfTest() {
   // that put a second heading rule beside it.
   const badTrace = join(root, "prose-bad-trace.md");
   writeFileSync(badTrace, "step_id: t1\n\nprose.");
-  ok("findTraceStructure's refusals still fire on a declared path",
-    driveSec("section", "--step", "t1", "--file", badTrace).status !== 0);
+  // ASSERTS WHICH REFUSAL FIRED (PR #843 round 1, finding 4). `status !== 0`
+  // alone stayed green if `findTraceStructure`'s call were removed and any
+  // earlier guard — the Packet backstop, the foreign-strand scan — refused
+  // instead, which is precisely the control acceptance 4 asks for failing to
+  // control anything. Its two siblings already assert on stderr text; this one
+  // is now their equal.
+  const rTrace = driveSec("section", "--step", "t1", "--file", badTrace);
+  ok("findTraceStructure's refusals still fire on a declared path, by name",
+    rTrace.status !== 0 && rTrace.stderr.includes("renders record as structure") &&
+    rTrace.stderr.includes("`step_id:` key line"), rTrace.stderr.trim().slice(0, 160));
   ok("a bare step id as a heading is still refused",
     findTraceStructure("# t1\n\nprose.", ["t1"]).length > 0);
 
@@ -1337,6 +1361,30 @@ async function runSelfTest() {
   const rOwn = driveSec("section", "--step", "t1", "--file", ownHeading);
   ok("realized prose carrying its own heading refuses, naming the heading",
     rOwn.status !== 0 && rOwn.stderr.includes("A title the Brief never declared"), rOwn.stderr.trim().slice(0, 160));
+  // EVERY LEVEL (PR #843 round 1, finding 3). The `##` case above passed under
+  // the first form of the guard AND under the defect, because the defect was
+  // at h4 and above — so the level sweep is the case that discriminates, and
+  // its absence is why the hole shipped. `findTraceStructure` reads `#{1,6}`,
+  // so h4 was refused as RECORD and unrefused as a TITLE by the same file.
+  for (const level of ["#", "###", "####", "#####", "######"]) {
+    const f = join(root, `prose-h${level.length}.md`);
+    writeFileSync(f, `${level} A title the Brief never declared\n\nprose.`);
+    const r = driveSec("section", "--step", "t1", "--file", f);
+    ok(`realized prose carrying an h${level.length} heading refuses too`,
+      r.status !== 0 && r.stderr.includes("A title the Brief never declared"), r.stderr.trim().slice(0, 120));
+  }
+  // THE OVER-REFUSALS, both directions (finding 5). A hash inside a fenced code
+  // block is a comment and not a heading; a lone hash with no text is neither.
+  const fenced = join(root, "prose-fenced.md");
+  writeFileSync(fenced, "prose before.\n\n```sh\n# install deps\nnpm i\n```\n\nprose after.");
+  const rFenced = driveSec("section", "--step", "t1", "--file", fenced);
+  ok("a hash comment inside a fenced code block is not refused as a heading",
+    rFenced.status === 0, rFenced.stderr.trim().slice(0, 160));
+  const loneHash = join(root, "prose-lone-hash.md");
+  writeFileSync(loneHash, "prose.\n\n#\n\nmore prose.");
+  const rLone = driveSec("section", "--step", "t1", "--file", loneHash);
+  ok("a lone hash with no text on its line is not read as a heading spanning later lines",
+    rLone.status === 0, rLone.stderr.trim().slice(0, 160));
 
   // The round trip: the writer is `renderStep` and the reader is `parseBrief`,
   // through ONE shared shape grammar. A malformed value refuses NAMING the Step
