@@ -675,7 +675,7 @@ try {
       // ANCHORED, not an alternation: `a|b` binds looser than the surrounding
       // context, so the earlier two-branch form reduced to a bare
       // `brief-thesis-adoption` and any prose mention satisfied it (round 1).
-      ["thesis gate", /gates\/registry\.json:\s*\n?\s*brief-thesis-adoption/],
+      ["thesis gate", /src\/gate-registry\.json:\s*\n?\s*brief-thesis-adoption/],
       ["adopt", /brief\.mjs adopt /],
       ["mint", /brief\.mjs mint /],
       ["path review", /review\.mjs attach /],
@@ -741,7 +741,7 @@ try {
   // repair of the one finding that prompted it.
   //
   // THE RULE WAS LIVE THROUGHOUT. `composeThesisCandidates` emits a concession
-  // per candidate and gates/registry.json requires each option to state one,
+  // per candidate and src/gate-registry.json requires each option to state one,
   // so between kogaki#770 and this restoration a candidate with no concession
   // would have reached the owner's gate with nothing objecting. Carrier-less
   // BY OMISSION is the defect — a stated policy is admissible stated, measured,

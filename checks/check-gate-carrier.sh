@@ -2,7 +2,7 @@
 # The gate carrier, made checkable (manifest item 4, specs/SPEC.md:99-101;
 # kogaki#16, umbrella kogaki#14).
 #
-# Validates the declared gate registry (gates/registry.json) and every gate
+# Validates the declared gate registry (src/gate-registry.json) and every gate
 # capture file (*.gate-capture.json, anywhere in the tree) against
 # src/gate-schema.json — the single carrier, whose field
 # lists this check READS rather than restates.
@@ -186,7 +186,7 @@ def declared_options(gate_id, registered_options, decl_dir):
                     f"{sibling.name} carries no readable 'options' list")
             return [o.get("id") for o in opts], (
                 f"{sibling.name}, the declaration this run raised")
-    return registered_options.get(gate_id), "gates/registry.json"
+    return registered_options.get(gate_id), "src/gate-registry.json"
 
 
 def validate_row(row, registered_gate_ids, registered_options, decl_dir=None):
@@ -299,7 +299,7 @@ failures = []
 cannot_determine = []
 
 # 1. The declared gate registry — the enumeration coverage is measured against.
-registry_path = root / "gates/registry.json"
+registry_path = root / "src/gate-registry.json"
 registry, error = load(registry_path)
 if error:
     print(f"FAIL {registry_path}: {error[0]} — {error[1]}")
@@ -446,12 +446,12 @@ if failures:
 
 if gates:
     print(f"registry: {len(gates)} declared gate(s), all conforming "
-          f"(gates/registry.json)")
+          f"(src/gate-registry.json)")
     print(f"coverage: {len(covered_gates & registered_ids)}/{len(gates)} declared "
           "gate(s) have a capture row — a fraction OF the registry and of nothing "
           "else; an unregistered gate is uncovered by default")
 else:
-    print("registry: 0 declared gates in gates/registry.json — none yet; the "
+    print("registry: 0 declared gates in src/gate-registry.json — none yet; the "
           "carrier is ported ahead of its first consumer (Terrain, "
           "specs/SPEC.md:109-112)")
     print("coverage: 0/0 — vacuous by construction, stated rather than omitted; "

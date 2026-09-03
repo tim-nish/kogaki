@@ -89,7 +89,7 @@ echo "ok: cite-check fixture pass ran ${N} case(s) clean, at or above its declar
 # below. `policy/emissions/` is deliberately OUTSIDE them: it holds historical
 # records, and the acceptance class this sweep discharges reaches "code,
 # checks, gate prose or spec pins".
-SWEEP_ROOTS=(src checks specs gates .claude/skills tools)
+SWEEP_ROOTS=(src checks specs .claude/skills tools)
 
 # THE COUNT IS OF MATCHING LINES, which is what `git grep -c` reports — two
 # hits on one line count once. Stated because the anchor is a number and a

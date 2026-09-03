@@ -40,7 +40,7 @@ is measured, and an undeclared dependency is the thing that fails — rather
 than a run that stalls.
 
 **It is a separate artifact from `checks/registry.json` and from
-`gates/registry.json`, and the argument is mechanical before it is
+`src/gate-registry.json`, and the argument is mechanical before it is
 philosophical**, exactly as `specs/spec-gate-carrier/SPEC.md` §2 argues for
 its own separation.
 

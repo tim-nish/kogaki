@@ -68,7 +68,7 @@ kogaki#494).
    Thesis candidates composed from the settled set only, each in plain
    register with its round-trip concession stated, **each paired with the
    name it gives the Brief** (derived from that candidate's own Thesis).
-3. **Raise the thesis-determination gate** (`gates/registry.json:
+3. **Raise the thesis-determination gate** (`src/gate-registry.json:
    brief-thesis-adoption`) through AskUserQuestion — **the only owner
    question before the mint** — offering exactly what the runtime declared:
    the composed candidates, each with its name **in the option label**, set

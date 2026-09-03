@@ -563,7 +563,7 @@ function cmdEnter(args) {
   // (story 1.72 AC3): the record-shape fields of
   // specs/spec-proposal-contract/SPEC.md (where/why/label/options/
   // free_text), the premise's negation as a FIRST-CLASS option routing back
-  // through Terrain, and the registered gate id (gates/registry.json:
+  // through Terrain, and the registered gate id (src/gate-registry.json:
   // brief-thesis-adoption). The free-text channel does not discharge the
   // negation and carries no condition.
   //
