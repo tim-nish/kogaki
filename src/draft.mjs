@@ -502,9 +502,22 @@ function stepField(body, field) {
 // absence in this renderer is stated — a hole in the model's whole world is not
 // a gap the model notices, it is a hole the model fills by invention.
 export function sectionPlacement(sec) {
-  if (sec === undefined) return "(this Brief declares no Sections — the article is one unbroken run of prose, and no heading is rendered.)";
+  // DEFENSIVE ONLY, and said so rather than advertised as a rendered form (PR
+  // #844 round 1, finding 3). No Packet render reaches it: `sectionsOf` derives
+  // one untitled Section for a path declaring nothing, and
+  // `renderAndStorePacket` refuses an unknown Step before the lookup. It is
+  // kept so the function is total and removed from the assertions and from the
+  // admission record, because a contract field claiming unreachable behaviour
+  // is re-read at every later judgment on the member.
+  if (sec === undefined) return "(no Section could be derived for this Step.)";
   if (sec.title === undefined) {
-    return `- **Section.** ${sec.index} of this article, untitled — this Brief declares no Section titles, so no heading is rendered above your prose.`;
+    // The untitled form STILL SAYS WHICH (finding 3, second half): the block
+    // above it promises "the line below says which", and a form that says
+    // neither breaks that promise for the whole pre-§4.15 corpus, which is the
+    // only corpus that reaches it.
+    return sec.opens
+      ? `- **This Step OPENS a Section**, the ${sec.index}${sec.index === 1 ? "st" : "th"} of this article. This Brief declares no Section titles, so no heading is rendered above your prose.`
+      : `- **This Step CONTINUES the ${sec.index}${sec.index === 1 ? "st" : "th"} Section of this article.** This Brief declares no Section titles, so no heading is rendered, and prose you are writing further into sits above.`;
   }
   const others = sec.step_ids.length - 1;
   return sec.opens
@@ -530,12 +543,24 @@ export function priorProseBySection(priorSections, sections, currentIndex) {
   for (const sec of sections) {
     if (sec.index > currentIndex) break;
     const parts = sec.step_ids.filter((id) => have.has(id)).map((id) => have.get(id));
-    if (!parts.length) continue;
+    const current = sec.index === currentIndex;
+    // AN EMPTY CURRENT SECTION IS STILL RENDERED, and that is the finding this
+    // branch exists for (PR #844 round 1, finding 1). Skipping it made the
+    // block END with the PREVIOUS Section for every Step that OPENS Section 2
+    // or later — while the template promises the block "ends with this Step's
+    // own Section so far", so the model was told the last group was its own
+    // when it was the one before it. An earlier Section with no prose is a
+    // different case and is still skipped: it has nothing to show and is not
+    // where the model is writing.
+    if (!parts.length && !current) continue;
     const label = sec.title === undefined
       ? `### (untitled Section ${sec.index})`
       : `### ${sec.title}`;
-    const mark = sec.index === currentIndex ? " — THIS STEP'S OWN SECTION, so far" : "";
-    out.push(`${label}${mark}\n\n${parts.join("\n\n")}`);
+    const mark = current ? " — THIS STEP'S OWN SECTION, so far" : "";
+    const shown = parts.length
+      ? parts.join("\n\n")
+      : "(nothing yet — this Step opens the Section, so its prose is the first in it.)";
+    out.push(`${label}${mark}\n\n${shown}`);
   }
   return out.length ? out.join("\n\n") : null;
 }
@@ -575,7 +600,10 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
     grounds: grounds || "(none recorded)",
     reader_already_knows: known.length
       ? known.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
-      : "(nothing — this is the first Section to introduce anything, or the path introduces no terms)",
+      // "Step", not "Section" (PR #844 round 1, finding 2). A slot VALUE reaches
+      // the model's entire input exactly as a block header does, so the
+      // one-word-one-unit rule binds it too.
+      : "(nothing — this is the first Step to introduce anything, or the path introduces no terms)",
     introduces: intro.length ? intro.map((e) => `- ${e}`).join("\n") : "(nothing new)",
     section_placement: sectionPlacement(section),
     // BOUNDED BY THE SECTION, not merely ordered (kogaki#825). Falls back to the
@@ -1507,10 +1535,24 @@ async function runSelfTest() {
     soFar(bodyT2).includes("### The first question"));
   ok("a continuing Step's own Section so far is marked as its own",
     soFar(bodyT2).includes("THIS STEP'S OWN SECTION, so far"), soFar(bodyT2).trim().slice(0, 200));
+  // REWRITTEN (PR #844 round 1, finding 1). The first form carried an
+  // `Infinity` fallback that PASSED when the second heading was absent — and it
+  // was absent, because t3's Section held only t3 and an empty Section was
+  // skipped. The case asserted the "and its own" half of its own name by
+  // nothing, which is how the defect shipped past a green fixture. Both indices
+  // are now required to exist, and the ORDER is asserted between two facts
+  // rather than between a fact and a fallback.
+  const iEarlier = soFar(bodyT3).indexOf("### The first question");
+  const iOwn = soFar(bodyT3).indexOf("### The second question");
   ok("a later Section's Packet carries the EARLIER Section and its own, in order",
-    soFar(bodyT3).indexOf("### The first question") >= 0 &&
-    soFar(bodyT3).indexOf("### The first question") < (soFar(bodyT3).indexOf("### The second question") >= 0
-      ? soFar(bodyT3).indexOf("### The second question") : Infinity));
+    iEarlier >= 0 && iOwn >= 0 && iEarlier < iOwn, `earlier=${iEarlier} own=${iOwn}`);
+  // The block ENDS with the Step's own Section, which is the template's
+  // promise and the thing the skip broke: an opening Step of a later Section
+  // has no prose in it yet and must still be shown its own, marked and last.
+  ok("an opening Step of a LATER Section still ends the block with its own Section, marked",
+    soFar(bodyT3).lastIndexOf("THIS STEP'S OWN SECTION, so far") > iEarlier &&
+    soFar(bodyT3).includes("this Step opens the Section"),
+    soFar(bodyT3).trim().slice(-220));
   ok("the first Step states the absence of prior prose rather than rendering empty",
     soFar(bodyT1).includes("nothing yet"));
 
@@ -1534,10 +1576,25 @@ async function runSelfTest() {
   // The pre-§4.15 CONTROL: a Brief declaring no Section renders the stated
   // absence rather than a blank or an invented title, and its article-so-far
   // block falls back to the flat form it always had.
-  ok("an undeclared path's Packet states the absence of Sections",
-    sectionPlacement(undefined).includes("declares no Sections"));
-  ok("an untitled Section renders as untitled rather than as a blank title",
-    sectionPlacement({ index: 1, title: undefined, opens: true, step_ids: ["s1"] }).includes("untitled"));
+  // REPLACED (PR #844 round 1, finding 3). The case it replaces asserted
+  // `sectionPlacement(undefined)` — an input no Packet render can produce — and
+  // so controlled a path the pre-§4.15 corpus never takes. The corpus takes the
+  // UNTITLED path, so that is what is controlled, and it is asserted to say
+  // WHICH of opens/continues, because the block above it promises exactly that.
+  ok("the untitled form an undeclared path actually gets says whether the Step opens or continues",
+    sectionPlacement({ index: 1, title: undefined, opens: true, step_ids: ["s1", "s2"] }).includes("OPENS a Section") &&
+    sectionPlacement({ index: 1, title: undefined, opens: false, step_ids: ["s1", "s2"] }).includes("CONTINUES"));
+  ok("the untitled form states that no title is declared rather than rendering a blank one",
+    sectionPlacement({ index: 1, title: undefined, opens: true, step_ids: ["s1"] }).includes("declares no Section titles"));
+  // The rendered Packet for a path declaring nothing takes that same branch —
+  // asserted through the CLI, so the two cases above are about a form the
+  // corpus really receives rather than about a pure function in isolation.
+  const undeclared = spawnSync(process.execPath,
+    [self, "packet", "--brief", join(briefDir, "brief.md"), "--workspace", ws, "--moves-dir", movesDir, "--step", "s1"],
+    { encoding: "utf8" });
+  ok("an undeclared path's RENDERED Packet takes the untitled form",
+    undeclared.stdout.includes("declares no Section titles"),
+    undeclared.stdout.split("## The Section this Step sits in")[1]?.slice(0, 160));
 
   rmSync(root, { recursive: true, force: true });
   process.stdout.write(`draft self-test: ${passed} case(s) pass${failures.length ? `, FAILURES: ${failures.join(" | ")}` : ""}\n`);
