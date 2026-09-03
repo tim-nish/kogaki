@@ -27,10 +27,12 @@ is advisory; what binds is in the Harness.
     node src/draft.mjs section  --brief <brief.md> --step <step_id> --file <prose>
     node src/draft.mjs emit     --brief <brief.md>
 
-`resolve` opens the run and renders the first Step's Packet. `packet` re-renders
-one on demand. `section` records a Step's realized prose and renders the next
-Step's Packet. `emit` assembles the CanonicalDraft and refuses while any Step
-lacks its section, naming the Steps it still owes.
+`resolve` opens the run and renders the first UNREALIZED Step's Packet — not the
+path's first Step, which differ once a run is resumed mid-way. `material` prints
+one Strand's citations and every `ground (strand <L-id>)` line the Brief carries
+for it; it takes no Step. `packet` re-renders a Packet on demand. `section`
+records a Step's realized prose and renders the next unrealized Step's Packet. `emit` assembles the CanonicalDraft and refuses while
+any Step lacks its section, naming the Steps it still owes.
 
 **Realize each Step from its Packet and nothing else** — §3 makes the Packet a
 Step's entire input, and the Harness refuses a `section` whose Packet it cannot
