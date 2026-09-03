@@ -191,9 +191,27 @@ the rendering half of §4.15 and does not weaken the refusal above: a Section
 heading is a **title the Brief declared**, never a step id, so a heading that is
 a bare step id stays refused exactly as it is today.
 
-**NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS.** At this head
-`src/draft.mjs emit` renders one heading per Step and the trace carries no
-Section. Carrier: **kogaki#823**.
+**BUILT AT kogaki#823, AND THE UNBUILT NOTE'S OWN READING OF THE HEAD WAS
+WRONG.** That note said `emit` "renders one heading per Step". It rendered
+**none**: `assembleBody` joined the realized prose and wrote no heading at all,
+and the five headings over five Steps in
+`theses/safety-check-refuses-last-moment/draft.md` were written **by the model
+into the prose**. The correction matters because it names the actual defect —
+heading authorship was **unowned**, so the count of headings was whatever each
+realization happened to produce, and *one per Step* was a description of one
+draft rather than a rule anything held.
+
+**So the rendering half is two acts, not one, and the second is what makes the
+count an identity.** `emit` writes the headings from `opens_section`; and
+`section` **refuses realized prose that carries a heading of its own**, before
+it can be recorded. Either alone leaves the count decided by the prose. That
+refusal is **distinct from the trace refusal above and neither subsumes the
+other**: the trace guard refuses *record* rendered as structure and names AC6,
+while this one refuses a heading of any text — including a good title — because
+`opens_section` is where a title is declared and a second authoring seat would
+put two writers on one article's structure. The trace guard is evaluated
+**first**, so a heading that is a bare step id is still refused as record, with
+the reason it was always given.
 
 **LLM — judgment, contract-bound, unharnessed.** The prose: realizing each
 Step's declared `reader_state_before → reader_state_after` transition, written

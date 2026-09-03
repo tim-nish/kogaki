@@ -1,6 +1,6 @@
 ---
 brief: brief.md
-brief_pin: sha256:163b1a4fedd118e76824dac67b3808cf95b35d839b67c85663a5fadbf50bb9ae
+brief_pin: sha256:e95e14ba29f8801fec0b30759d1c6da67e60868e96ef828deb2a5d4254e98c65
 survey_pin: product-lab@4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d
 generated_by: {"at":"2026-08-31T13:00:48.861Z","by":"draft/draft.mjs (story 1.80, kogaki#587)","brief_sha":"163b1a4fedd118e76824dac67b3808cf95b35d839b67c85663a5fadbf50bb9ae"}
 cites:
@@ -15,11 +15,11 @@ cites:
   - {"strand":"L173","slug":"order-self-revoking-steps-by-restriction","kind":"cite","cite":"gloss/ELEMENTS.jsonl slug=order-self-revoking-steps-by-restriction kind=lesson @4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d"}
   - {"strand":"L173","slug":"order-self-revoking-steps-by-restriction","kind":"journey cite","cite":"gloss/ELEMENTS.jsonl slug=order-self-revoking-steps-by-restriction kind=journey @4adab37645a1cf8ac8ec3dd2b922d5f80d037c5d"}
 trace:
-  - {"step_id":"c1","section":1}
-  - {"step_id":"c2","section":2}
-  - {"step_id":"c3","section":3}
-  - {"step_id":"c4","section":4}
-  - {"step_id":"c5","section":5}
+  - {"step_id":"c1","section":1,"section_title":"Four questions to ask while you are installing a check"}
+  - {"step_id":"c2","section":2,"section_title":"Whether the check can fire, and what kind it is"}
+  - {"step_id":"c3","section":2,"section_title":"Whether the check can fire, and what kind it is"}
+  - {"step_id":"c4","section":3,"section_title":"Where the refusal sits in the process"}
+  - {"step_id":"c5","section":3,"section_title":"Where the refusal sits in the process"}
 ---
 
 ## Four questions to ask while you are installing a check
@@ -46,7 +46,7 @@ Four questions, and one rule for growing the list: add to it only when something
 
 The rest of this article is the case for each question — where it came from, what it caught, and why the shorter version of it does not work. If you stop reading here you have the practice. What follows is why you should trust it.
 
-## The first question: can this check actually fire?
+## Whether the check can fire, and what kind it is
 
 The first question looks like the weakest of the four. It reads as a formality — of course the check runs, it was merged, there is a configuration entry naming its file. That reading is the reason the question is on the list, and the reason it has to be fanned out into its separate routes rather than asked once. A single yes-or-no gets answered once, confidently, from the surface evidence, and then never asked again.
 
@@ -66,8 +66,6 @@ The third route is the plain one — the check is installed on some occasions an
 
 What ties the routes together is what they do to the surface. All three leave the system reading as safe. A configuration entry naming a real file, a merge commit, a green suite: each is evidence that something was set up, and none of them is evidence that it can run. So the first question is not answered by looking at the check. It is answered by replaying the original failure through it and watching it block.
 
-## The second question: a computable fact, or a judgment?
-
 Establishing that a check can fire tells you nothing about what kind of check it should be. That is the next question, and asked in the abstract it is close to useless: whether a property is a fact or a judgment sounds like a distinction you either see immediately or argue about forever. The useful route in is not the definition. It is the two failure signatures, because each wrong answer fails in a way you can recognise without knowing anything about the property in advance.
 
 A work item was filed carrying an origin label it should not have had. The first fix proposed was a command-line flag that only the legitimate code path would pass. The owner declined that and offered the opposite mechanism instead: a human confirmation on every filing.
@@ -84,7 +82,7 @@ The resolution in that case was neither mechanism. It was a routing rule: a prop
 
 The phrase "at the moment of the act" is doing real work in that sentence. Which code path is creating this record is a fact that exists while the record is being created and is often gone immediately afterwards. Deferring the check to a later stage does not make it harder; it makes it impossible, and then it gets replaced by the caller-supplied flag, which is where this section started.
 
-## The third question: whose effort does this refusal spend?
+## Where the refusal sits in the process
 
 By now the check is in a good state. It has an occasion, its inputs have writers, it can see what the rule is about, and the property it decides has been routed to the mechanism that suits it. A reasonable person would stop here. The check fires, and when it fires it is right.
 
@@ -99,8 +97,6 @@ The practical form of the question is: validate the shape of something when it i
 The diagnostic is a pattern rather than an instance. One late refusal on approved work tells you nothing — sometimes the fault genuinely could not have been seen earlier. A pattern of late refusals on already-approved work is evidence that the check is sited too far downstream, and it is the kind of evidence you have to go looking for, because each individual instance arrives looking like a success.
 
 This is also where the earlier questions stop helping, and it is worth being clear about that. Everything in the previous two sections was about whether a check works. This question is about a check that works. You can pass the first three questions completely and still be holding a system that spends its most expensive resource on faults it was told about much earlier.
-
-## The fourth question: does any earlier step revoke what a later one needs?
 
 Three questions in, the list looks finished. Each one takes a check and asks something about that check: can it run, what kind is it, where does its refusal land. Applied one check at a time, they cover the ground — and that is exactly the assumption the fourth question exists to break.
 
