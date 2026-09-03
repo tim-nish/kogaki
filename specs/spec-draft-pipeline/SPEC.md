@@ -760,11 +760,14 @@ keeps the contract a validator and a registered check assert against.
 composition judgment; this says a title exists and where it is declared, never
 what it should say. Packet timing and location stay §3's and kogaki#809's.
 
-**NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS.** At this head
-`src/brief.mjs` has no `opens_section` and no rule validation, and `src/draft.mjs
-emit` still renders one heading per Step. Carriers: **kogaki#822** (the field and
-its composition-time validation), **kogaki#823** (the renderer and the frontmatter Step→Section
-trace).
+**PARTLY BUILT AT THIS HEAD, and the halves are named separately because they
+landed at different times.** The DECLARATION half is BUILT (kogaki#822): the
+field is admitted by `validateSteps`, the grouping rules above refuse at
+composition, and `renderStep` serializes it. The RENDERING half is UNBUILT —
+`src/draft.mjs emit` still writes one heading per Step and `parseBrief` does not
+read `opens_section` back, so nothing consumes the declaration yet. Carrier:
+**kogaki#823** (the renderer, the frontmatter Step→Section trace, and the
+parse-back that makes the round trip whole).
 
 `necessity:` the four rules are a validator's contract and a registered check's
 assertion target, so they need a site inside this spec rather than a pointer out

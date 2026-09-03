@@ -1309,13 +1309,28 @@ try {
   }
 }
 
+console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
+// kogaki#822 acceptance 5, and kogaki#661's defect: the count below is a CLAIM,
+// and a claim compared against nothing reports a silently lost case as a green
+// pass. The floor lives in checks/registry.json and the count lives here, so
+// deleting a case and lowering this number fails against the floor — and
+// lowering the floor to match is itself caught by check-registry-conformance.
+const CASE_COUNT = 17;
+{
+  const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
+  const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;
+  if (typeof floor !== "number") {
+    fails.push("(floor) checks/registry.json declares no case_floor for brief-compose — an unreadable floor is not a pass (kogaki#661)");
+  } else if (CASE_COUNT < floor) {
+    fails.push(`(floor) this member reports ${CASE_COUNT} case(s) against a declared case_floor of ${floor} — cases were LOST rather than broken, and the pass line would otherwise report their absence as evidence (kogaki#661)`);
+  }
+}
 if (fails.length) {
   console.log("FAIL brief compose (SPEC-draft-pipeline §§4.1/4.4/5.1-5.2, story 1.73):");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
-console.log("brief compose: 17/17 cases — (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"

@@ -453,10 +453,6 @@ export function parseIntroducesEntry(raw) {
   return { term, anchor };
 }
 
-// Shape refusal over a whole `introduces` value. Returns a string to refuse
-// with, or null. `at` is the caller's own way of naming the Step, so one
-// grammar serves the record side and the document side without either
-// inventing wording the other does not use.
 // §4.15's `opens_section` (kogaki#822) — OPTIONAL, and shape-validated here for
 // the reason `introduces` is: the title reaches an owner-facing heading, so an
 // unvalidated value renders as a blank or as `undefined` above a Section.
@@ -518,6 +514,10 @@ export function sectionGroupingRefusal(steps) {
   return null;
 }
 
+// Shape refusal over a whole `introduces` value. Returns a string to refuse
+// with, or null. `at` is the caller's own way of naming the Step, so one
+// grammar serves the record side and the document side without either
+// inventing wording the other does not use.
 export function introducesRefusal(value, at) {
   if (!Array.isArray(value)) {
     return `${at}: introduces, when present, is an array of entries — a term the Step puts in front of the reader for the first time, bare or with a one-line meaning anchor (§4.13)`;
