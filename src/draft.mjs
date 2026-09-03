@@ -604,7 +604,10 @@ function cmdSection(args) {
   if (!step) {
     fail(`no step "${id}" in this Brief's Reader Path (${brief.steps.map((s) => s.step_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`);
   }
-  const wsPre = workspaceFor(args, brief.slug);
+  // ONE NAME FOR THE WORKSPACE (PR #814 round 1, finding 3). The backstop's
+  // refusal depends on this path, so a second binding for the same value is a
+  // divergence hazard in exactly the function that must not drift.
+  const ws = workspaceFor(args, brief.slug);
   // THE BACKSTOP (kogaki#811, DESIGN.md §3). Render-within supplies the Packet;
   // this catches what render-within structurally cannot see — a Packet deleted
   // or gone stale between the render and the realization. Checked BEFORE the
@@ -616,13 +619,13 @@ function cmdSection(args) {
   // its own record. A Packet whose record is missing is the SAME refusal —
   // "rendered" means recorded, and an unrecorded file cannot be shown to be
   // the one this Step was realized from.
-  const packetPath = join(wsPre, "packets", `${id}.md`);
+  const packetPath = join(ws, "packets", `${id}.md`);
   if (!existsSync(packetPath)) {
     fail(`step ${id} has no rendered Packet at ${packetPath} — §3 makes the Packet a Step's ENTIRE input, so realizing one without it means the prose was written from something else. `
       + `The Harness renders it at \`resolve\` and after each \`section\`; if it was deleted, \`packet --step ${id}\` restores it`);
   }
   let recordedSha = null;
-  try { recordedSha = (JSON.parse(readFileSync(join(wsPre, "run.json"), "utf8")).packets || {})[id]?.sha256 || null; }
+  try { recordedSha = (JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).packets || {})[id]?.sha256 || null; }
   catch { /* no run record — handled as unrecorded below */ }
   const onDiskSha = sha256(readFileSync(packetPath, "utf8"));
   if (recordedSha === null) {
@@ -642,7 +645,6 @@ function cmdSection(args) {
   if (structural.length) {
     fail(`the section for ${id} renders record as structure: ${structural[0]} — the per-Step trace is frontmatter record, never visible structure in the body (SPEC-draft-command §5)`);
   }
-  const ws = workspaceFor(args, brief.slug);
   mkdirSync(join(ws, "sections"), { recursive: true });
   let seq = 0;
   try { seq = readdirSync(join(ws, "snapshots")).length; } catch { /* first snapshot */ }
@@ -1054,8 +1056,21 @@ async function runSelfTest() {
   const w1 = drive("section", "--step", "s1", "--file", sec1);
   ok("sections land", w1.status === 0 && w2.status === 0);
 
+  // A PACKET DELETED AFTER ITS RENDER (PR #814 round 1, finding 2). This is the
+  // backstop's OWN case and the one that distinguishes it from render-within:
+  // the never-rendered case above reaches the same branch, but from a state
+  // render-within explains rather than one it cannot see. #811 and DESIGN.md §3
+  // both name delete-after-render specifically, so it is asserted specifically.
+  ok("section refuses a Packet deleted after it was rendered",
+    (() => { const pkt = join(wsSlug, "packets", "s1.md");
+             const keep = readFileSync(pkt, "utf8");
+             rmSync(pkt);
+             const r = drive("section", "--step", "s1", "--file", sec1);
+             writeFileSync(pkt, keep);
+             return r.status !== 0 && /no rendered Packet/.test(r.stderr); })());
+
   // A Packet edited after its render disagrees with its own recorded sha, and
-  // that is the case render-within structurally cannot see.
+  // that is the second case render-within structurally cannot see.
   ok("section refuses a Packet that changed after it was rendered",
     (() => { const pkt = join(wsSlug, "packets", "s1.md");
              const keep = readFileSync(pkt, "utf8");
