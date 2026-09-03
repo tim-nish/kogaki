@@ -319,6 +319,7 @@ function cmdResolve(args) {
   }, null, 2) + "\n");
   process.stdout.write(`brief: ${brief.path}\n`);
   process.stdout.write(`survey pin: ${brief.surveyPin}\n`);
+  driveNextPacket(brief, args, ws);
   process.stdout.write(`closed set: ${brief.strands.map((s) => s.id).join(", ")} — the Brief's own text plus these Strands' served renderings at the pin; nothing else is reachable\n`);
   process.stdout.write(`reader path: ${brief.steps.map((s) => s.step_id).join(" → ")} (recorded order; realized in this order and no other)\n`);
   // §4.13's ledger is DERIVED here and rendered, never stored: no field is
@@ -473,26 +474,26 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
   return { packet: out };
 }
 
-function cmdPacket(args) {
-  const brief = loadBrief(args);
-  const id = argString(args, "step", "packet needs --step <step_id>");
+// THE PACKET RENDER, FACTORED SO THE HARNESS CAN DRIVE IT (kogaki#811,
+// DESIGN.md §3). `cmdPacket` prints it on demand; `resolve` and `section`
+// call it to hand the NEXT Step's input forward without the session asking.
+// One implementation, so the on-demand and the driven renders cannot diverge
+// in what they write or what they record.
+function renderAndStorePacket(brief, id, args, ws) {
   const step = brief.steps.find((s) => s.step_id === id);
-  if (!step) {
-    fail(`no step "${id}" in this Brief's Reader Path (${brief.steps.map((s) => s.step_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`);
-  }
+  if (!step) return { error: `no step "${id}" in this Brief's Reader Path (${brief.steps.map((s) => s.step_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it` };
   const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
   let moveText;
   try { moveText = readFileSync(join(movesDir, `${step.move}.md`), "utf8"); }
   catch (e) {
-    fail(`step ${id} binds move "${step.move}" and its record cannot be read from ${movesDir} (${e.message}) — `
-      + `resolve refuses a dangling id before this point (§4.12.1), so this is the store rather than the Brief`);
+    return { error: `step ${id} binds move "${step.move}" and its record cannot be read from ${movesDir} (${e.message}) — `
+      + `resolve refuses a dangling id before this point (§4.12.1), so this is the store rather than the Brief` };
   }
   const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
   let template;
   try { template = readFileSync(tplPath, "utf8"); }
-  catch (e) { fail(`the Packet template at ${tplPath} cannot be read (${e.message}) — it is a runtime-read carrier and the command has no built-in fallback, deliberately: a fallback template would be a second copy nobody maintains`); }
+  catch (e) { return { error: `the Packet template at ${tplPath} cannot be read (${e.message}) — it is a runtime-read carrier and the command has no built-in fallback, deliberately: a fallback template would be a second copy nobody maintains` }; }
 
-  const ws = workspaceFor(args, brief.slug);
   // PRIOR SECTIONS IN THE BRIEF'S RECORDED ORDER, never a directory read —
   // the order is the Reader Path's and a readdir would make the Packet's bytes
   // depend on the filesystem.
@@ -506,7 +507,7 @@ function cmdPacket(args) {
   const row = ledger.find((r) => r.step_id === id);
 
   const r = renderPacket({ template, brief, step, moveText, priorSections: prior, ledgerRow: row });
-  if (r.error) fail(r.error);
+  if (r.error) return { error: r.error };
 
   // RETENTION: stored EXACTLY AS SERVED, overwritten on re-render, with the
   // path and sha announced beside the Section it will produce.
@@ -549,6 +550,17 @@ function cmdPacket(args) {
     process.stderr.write(`draft: the packet's path and sha were not recorded in ${runFile} (${e.message}) — the Packet itself is written and printed; the record is the trace, and the trace never gates the write it traces\n`);
   }
 
+  return { packet: r.packet, out, sha };
+}
+
+function cmdPacket(args) {
+  const brief = loadBrief(args);
+  const id = argString(args, "step", "packet needs --step <step_id>");
+  const ws = workspaceFor(args, brief.slug);
+  const r = renderAndStorePacket(brief, id, args, ws);
+  if (r.error) fail(r.error);
+  const { out, sha } = r;
+
   process.stdout.write(r.packet);
   process.stderr.write(`\npacket ${id}: ${out}\n`);
   process.stderr.write(`packet sha256: ${sha}\n`);
@@ -560,6 +572,30 @@ function cmdPacket(args) {
   // tell the current state from the state when the line was written.
 }
 
+// THE HARNESS HANDS THE NEXT STEP'S INPUT FORWARD (kogaki#811, DESIGN.md §3).
+// `resolve` calls this at run start and `section` after recording a Step, so a
+// Packet exists for the Step about to be realized WITHOUT the session running
+// a command. That is the render-within arm: it makes §3's "one Step, one
+// input" true by construction rather than by a session remembering.
+//
+// It never fails the act it rides on. A Packet that cannot be rendered here is
+// reported and the run continues, because `section`'s own refusal is the
+// backstop that catches the absence at the moment it matters — and a driver
+// that could fail `resolve` would make a template read gate the run's start.
+function driveNextPacket(brief, args, ws) {
+  const next = brief.steps.find((s) => !existsSync(join(ws, "sections", `${s.step_id}.md`)));
+  if (!next) return null;
+  const r = renderAndStorePacket(brief, next.step_id, args, ws);
+  if (r.error) {
+    process.stderr.write(`draft: the Packet for the next Step (${next.step_id}) was not rendered — ${r.error}\n`);
+    process.stderr.write(`draft: run \`packet --step ${next.step_id}\` to see the failure in full; \`section\` will refuse this Step until its Packet exists\n`);
+    return null;
+  }
+  process.stderr.write(`packet ${next.step_id}: ${r.out}\n`);
+  process.stderr.write(`packet sha256: ${r.sha}\n`);
+  return next.step_id;
+}
+
 function cmdSection(args) {
   const brief = loadBrief(args);
   const id = argString(args, "step", "section needs --step <step_id>");
@@ -568,6 +604,35 @@ function cmdSection(args) {
   if (!step) {
     fail(`no step "${id}" in this Brief's Reader Path (${brief.steps.map((s) => s.step_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`);
   }
+  const wsPre = workspaceFor(args, brief.slug);
+  // THE BACKSTOP (kogaki#811, DESIGN.md §3). Render-within supplies the Packet;
+  // this catches what render-within structurally cannot see — a Packet deleted
+  // or gone stale between the render and the realization. Checked BEFORE the
+  // section file is read, so a run that owes a Packet is told that rather than
+  // a read error about prose it should not be recording yet.
+  //
+  // STALENESS IS THE SHA, not the timestamp: run.json records the sha the
+  // Packet was served with, so a file edited after the render disagrees with
+  // its own record. A Packet whose record is missing is the SAME refusal —
+  // "rendered" means recorded, and an unrecorded file cannot be shown to be
+  // the one this Step was realized from.
+  const packetPath = join(wsPre, "packets", `${id}.md`);
+  if (!existsSync(packetPath)) {
+    fail(`step ${id} has no rendered Packet at ${packetPath} — §3 makes the Packet a Step's ENTIRE input, so realizing one without it means the prose was written from something else. `
+      + `The Harness renders it at \`resolve\` and after each \`section\`; if it was deleted, \`packet --step ${id}\` restores it`);
+  }
+  let recordedSha = null;
+  try { recordedSha = (JSON.parse(readFileSync(join(wsPre, "run.json"), "utf8")).packets || {})[id]?.sha256 || null; }
+  catch { /* no run record — handled as unrecorded below */ }
+  const onDiskSha = sha256(readFileSync(packetPath, "utf8"));
+  if (recordedSha === null) {
+    fail(`step ${id} has a Packet file at ${packetPath} that no run record accounts for — a Packet is "rendered" when the run records its sha, and an unrecorded file cannot be shown to be the one this Step was realized from. Re-render with \`packet --step ${id}\``);
+  }
+  if (recordedSha !== onDiskSha) {
+    fail(`step ${id}'s Packet changed after it was rendered — recorded ${recordedSha.slice(0, 12)}, on disk ${onDiskSha.slice(0, 12)}. `
+      + `The prose may have been realized from either, and nothing here can tell which. Re-render with \`packet --step ${id}\` and realize again`);
+  }
+
   let content;
   try { content = readFileSync(file, "utf8"); }
   catch (e) { fail(`the section file ${file} cannot be read (${e.message})`); }
@@ -585,6 +650,8 @@ function cmdSection(args) {
   writeFileSync(join(ws, "sections", `${id}.md`), content);
   snapshotDraft(ws, `after-${id}`, seq + 1, assembleBody(brief, ws).body);
   process.stdout.write(`section ${id} recorded (${brief.steps.findIndex((s) => s.step_id === id) + 1} of ${brief.steps.length} steps)\n`);
+  const nextId = driveNextPacket(brief, args, ws);
+  if (nextId) process.stdout.write(`next: ${nextId} — its Packet is rendered above; realize from it and record with \`section --step ${nextId} --file <prose>\`\n`);
 }
 
 function cmdEmit(args) {
@@ -967,9 +1034,47 @@ async function runSelfTest() {
   const e0 = drive("emit");
   ok("emit refuses short of completion, naming the owed steps",
     e0.status !== 0 && e0.stderr.includes("s1, s2"));
+  // THE BACKSTOP FIRES BEFORE ANY OF THESE (kogaki#811). Asserted first,
+  // because every `section` below now presupposes a Packet and a fixture that
+  // only exercised the happy path would pass whether or not the refusal exists.
+  ok("section refuses a Step whose Packet was never rendered",
+    (() => { const r = drive("section", "--step", "s2", "--file", sec2);
+             return r.status !== 0 && /no rendered Packet/.test(r.stderr); })());
+
+  // Render-within: `resolve` already handed s1's Packet forward, so s1 needs
+  // no command here — which is the whole point. s2's is rendered explicitly to
+  // reach it out of order.
+  // The workspace resolves under the Brief's slug, so the Packet path is named
+  // once here rather than rebuilt at each assertion below.
+  const wsSlug = join(ws, "fixture-brief");
+  ok("resolve rendered the first Step's Packet without being asked",
+    existsSync(join(wsSlug, "packets", "s1.md")));
+  drive("packet", "--step", "s2");
   const w2 = drive("section", "--step", "s2", "--file", sec2);
   const w1 = drive("section", "--step", "s1", "--file", sec1);
   ok("sections land", w1.status === 0 && w2.status === 0);
+
+  // A Packet edited after its render disagrees with its own recorded sha, and
+  // that is the case render-within structurally cannot see.
+  ok("section refuses a Packet that changed after it was rendered",
+    (() => { const pkt = join(wsSlug, "packets", "s1.md");
+             const keep = readFileSync(pkt, "utf8");
+             writeFileSync(pkt, keep + "\nedited after the render\n");
+             const r = drive("section", "--step", "s1", "--file", sec1);
+             writeFileSync(pkt, keep);
+             return r.status !== 0 && /changed after it was rendered/.test(r.stderr); })());
+
+  // And a Packet file no run record accounts for is the same refusal, because
+  // "rendered" means recorded — an unrecorded file cannot be shown to be the
+  // one the prose was realized from.
+  ok("section refuses a Packet file no run record accounts for",
+    (() => { const runFile = join(wsSlug, "run.json");
+             const keep = readFileSync(runFile, "utf8");
+             const rec = JSON.parse(keep); delete rec.packets;
+             writeFileSync(runFile, JSON.stringify(rec, null, 2));
+             const r = drive("section", "--step", "s1", "--file", sec1);
+             writeFileSync(runFile, keep);
+             return r.status !== 0 && /no run record accounts for/.test(r.stderr); })());
   const wForeign = join(root, "foreign.md"); writeFileSync(wForeign, "But L9 says.");
   ok("a section naming a foreign strand refuses",
     drive("section", "--step", "s1", "--file", wForeign).status !== 0);
