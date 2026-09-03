@@ -85,7 +85,17 @@
     "",
     "STILL OPEN, named rather than left: a member whose pass prints no parseable",
     "figure at all. All four print one today; deciding what such a member owes is",
-    "its own act (deferred slot `delegating-member-with-no-parseable-count`)."
+    "its own act (deferred slot `delegating-member-with-no-parseable-count`).",
+    "",
+    "OPTIONAL PER-ENTRY KEY `serial: true` (kogaki#789). The suite runs its",
+    "members CONCURRENTLY and prints the log in registry order; an entry that",
+    "cannot share the working tree with another member declares `serial: true`",
+    "and is run alone, before the pool. NO MEMBER DECLARES IT TODAY, and the",
+    "absence is a reading rather than an oversight: `runs-retention` and",
+    "`registry-conformance` are the only members touching shared paths and both",
+    "only READ them. `CHECKS_JOBS=1` in the environment restores fully serial",
+    "execution for a whole run. Neither switch changes what any member checks or",
+    "what the log says — the runner's own header carries the argument."
   ],
   "checks": [
     {
