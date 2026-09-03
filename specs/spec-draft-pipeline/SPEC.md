@@ -124,6 +124,7 @@ records forces it, and the collapse is a convenience that reads as tidiness.
 - **`rationale`** — why *this article's* materials make this the next Step.
 - **`introduces`** — optional; §4.13.
 - **`bridges`** — optional; §4.11.
+- **`opens_section`** — optional; §4.15.
 
 **Why `move` is required.** `Step = Input + State`. The inputs are the Strands,
 the Thesis and previous Step output; **the Move is the State**, and
@@ -640,6 +641,68 @@ What no carrier holds: why the Packet is the entire input, why an absence must
 refuse rather than render, and why the template may not cite a spec — each a
 claim about what the model will do with a surface, which only a reader can
 judge.
+
+### 4.15 The Section — a grouping of Steps, declared on `opens_section`
+
+**A Step is one unit of realization; a Section is one promise to the reader that
+the question changes here.** They are different units, and binding the heading to
+the Step produced both drafts the owner rejected on 2026-09-03 — one heading per
+Step read as fragmented, none read as unscannable. A **Section is a grouping of
+Steps declared in the Brief**: the Harness renders one heading per Section and
+none inside it.
+
+**The carrier is `opens_section: <title>`** on the Step that opens a Section,
+absent on a Step that continues one. One key, not two: its **presence** marks the
+opening and its **value** carries the title. A separate `section_title` key was
+declined at kogaki#822 because two keys can disagree — a Step opening with no
+title, a title on a continuing Step — and neither state has a meaning.
+
+**Filled at composition, validated at mint.** Judging which Steps open is
+composition-time judgment and belongs where the Steps are already judged: the
+Brief. The four rules below are the Harness's **validation of that judgment**,
+not a second judge — so a Brief that opens a Section on every Step, or on none,
+refuses at `brief.mjs mint` **naming the rule it broke and the Step**.
+
+1. **A Step opens a Section when it changes the reader's question** — its
+   `purpose` answers a question the previous Step did not pose, or its
+   `introduces` (§4.13) names a term later Steps use.
+2. **A Step continues the current Section when it develops the previous one** —
+   its `depends_on` is the immediately preceding Step and its `materials`
+   overlap that Step's.
+3. **The first Step always opens.** A Section never closes on a Step that only
+   sets up the next one, so a heading never lands on a transition paragraph.
+4. **Length is a check, not the rule.** A Section running past roughly a screen
+   and a half of prose without a heading is refused with a request to split; two
+   consecutive Sections that are each one short Step are refused with a request
+   to merge. **Article length enters as a bound on the grouping, never as its
+   reason** — the ordering is load-bearing, because a length rule promoted to the
+   reason is a heading budget, which is the fragmented draft again with a number
+   attached.
+
+**This section is NORMATIVE and `specs/spec-brief-draft-design/DESIGN.md` §2.1
+points at it.** The four rules were ratified there on 2026-09-03 and stood in
+both documents at kogaki#822's pickup; a copy with no declared precedence and no
+mismatch check is a defect this repository has already paid for elsewhere, so
+the precedence is declared rather than left to two texts that can drift. DESIGN
+§2.1 keeps the ruling's grounds — why Section is a unit at all — and this section
+keeps the contract a validator and a registered check assert against.
+
+**What this section does not decide.** How a Section title is *worded* is
+composition judgment; this says a title exists and where it is declared, never
+what it should say. Packet timing and location stay §3's and kogaki#809's.
+
+**NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS.** At this head
+`src/brief.mjs` has no `opens_section` and no rule validation, and `src/draft.mjs
+emit` still renders one heading per Step. Carriers: **kogaki#822** (the field and
+its mint validation), **kogaki#823** (the renderer and the frontmatter Step→Section
+trace).
+
+`necessity:` the four rules are a validator's contract and a registered check's
+assertion target, so they need a site inside this spec rather than a pointer out
+of it — §4.1 names every other optional field's own subsection and this field had
+none. What no carrier holds: why a heading is a promise to the reader rather than
+an artifact of how the text was produced, and why length is subordinated to the
+grouping rather than standing in for it.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 
