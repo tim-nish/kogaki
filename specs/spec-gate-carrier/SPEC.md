@@ -190,13 +190,30 @@ hook already reads.
 
 ## 4. Payload and answer capture, with the gate-less row
 
-Capture files are any `*.gate-capture.json` in the tree — a default carrier,
-not an enumerated directory, for the same reason item 3 chose one.
+Capture files are any `*.gate-capture.json` in the **working tree** — a
+default carrier, not an enumerated directory, for the same reason item 3 chose
+one. "Working tree" rather than "the tree", because that word is the homonym
+§4.1 was written to resolve: a machine-local run workspace is in the working
+tree and never in the committed one, and reading it the other way is what made
+a conforming run fail.
 
 A row for a gate carries `evidence` (the `AskUserQuestion` tool use itself,
 by `tool` and `tool_use_id` — the rendering's own artifact, not a claim that
 it rendered) and `payload` (`options_offered`, `free_text_offered`, `answer`).
 An answer recorded without its payload cannot be re-judged.
+
+A row whose `gate_id` is `null` is the **gate-less row**: a stop that raised
+no gate. It states its `no_gate_reason` and carries neither evidence nor
+payload. It is a legitimate row class, never a violation and never a crash:
+
+> "no fixture held a gate-less row though every payload-capturing run
+> produces them"
+
+`consulted: product-lab@5f769dfe5c8f5c0c9e82b397c1858c8c0d7a7926 topics/claude-code-ops.md:14`
+
+`checks/fixtures/gate-carrier/conforming/capture-gateless-row.json` and
+`capture-mixed-run.json` are that fixture, written first rather than after the
+incident.
 
 ### 4.1 What `options_offered` is judged against (v4, kogaki#818)
 
@@ -218,9 +235,9 @@ declaration is the comparison target.**
 `dynamic_options` is not released from the equality rule — its declaration
 simply names the run's options instead of the class's, and equality is then
 decidable against something that can actually be equal to what was offered.
-The `"scope": "anywhere in the repository"` population of this section's first
-paragraph is untouched: the fix is in what a capture is compared *to*, never
-in which captures are looked at.
+The capture population is untouched: `src/gate-schema.json`'s
+`"scope": "anywhere in the repository"` still governs which files are looked
+at, and the fix is entirely in what a capture is compared *to*.
 
 **Why the rule needed its scope written down.** The registry's own
 `dynamic_options` prose said the run declaration lives in "the machine-local
@@ -258,19 +275,6 @@ example that tells the two readings apart. A conforming capture whose
 must be accepted, and a nonconforming capture whose options match **neither**
 must still fail. A single fixture cannot discriminate the two readings, so
 neither is admissible alone.
-
-A row whose `gate_id` is `null` is the **gate-less row**: a stop that raised
-no gate. It states its `no_gate_reason` and carries neither evidence nor
-payload. It is a legitimate row class, never a violation and never a crash:
-
-> "no fixture held a gate-less row though every payload-capturing run
-> produces them"
-
-`consulted: product-lab@5f769dfe5c8f5c0c9e82b397c1858c8c0d7a7926 topics/claude-code-ops.md:14`
-
-`checks/fixtures/gate-carrier/conforming/capture-gateless-row.json` and
-`capture-mixed-run.json` are that fixture, written first rather than after the
-incident.
 
 ## 5. The machine's own comparison — item 4's, decided here
 
