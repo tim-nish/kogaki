@@ -607,7 +607,7 @@ puts no instrument in force.
 | §10.2 the stamp, written at install | the **kit** (`install.sh`) |
 | §10.2 the currency check's verdict states | the **consumer's registered suite** |
 | §10.2 the declared consumer list | the **Home** |
-| §10.3 the stamp is COMMITTED | the **kit's default**, and it is the one deliberate exception to §3.3 |
+| §10.3 the stamp is COMMITTED | the **kit's default**; the second instance of §4.3's source-sensitivity discriminator, not a second exception rule |
 
 ## 6. Out of scope, by decision
 
@@ -924,11 +924,32 @@ registered check reads the stamp and renders exactly one of:
 - **`current`** — the stamp's revision is the Home's current revision;
 - **`behind <n>`** — naming the delta, by file;
 - **`cannot-determine`** — the Home was not reachable. **Never `current`.**
+- **`home`** — this tree holds the kit as its source and owes no stamp. See the
+  Home exemption below; it is rendered, never silent.
 
-**A stamp that is absent, malformed, or disagrees with its manifest FAILS.**
-That is the one condition this check denies on, and it denies on it because it
-is a fact about the consumer's own tree — no cross-repo read is involved, so the
-denial cannot fire on someone else's availability.
+**A stamp that is absent, malformed, or disagrees with its manifest FAILS —
+IN A CONSUMER.** That is the one condition this check denies on, and it denies
+on it because it is a fact about the consumer's own tree: no cross-repo read is
+involved, so the denial cannot fire on someone else's availability.
+
+**THE HOME IS EXEMPT, and the exemption is stated here rather than invented in
+the implementation.** Kogaki holds `policy/kit/` as the kit's **source** (§0,
+interim) and was never installed *into*, so it has no install act to write a
+stamp and no Home to be behind — it *is* the Home. Yet the currency check
+registers into `checks/registry.json` from `policy/kit/registry-entries.json`
+exactly as the four existing seam checks do, so it runs in the Home like every
+other member. Without this clause it would deny there, on a missing
+`.kit-version` the Home is not supposed to have.
+
+**The exemption is keyed on the kit being the SOURCE, never on a repository
+name.** A tree in which `policy/kit/` is the authoritative copy renders
+`home — no stamp owed` and passes; a tree holding a derived copy owes its
+stamp. Keying on `tim-nish/kogaki` would be the enumeration shape this
+repository refuses elsewhere, and it would break at the very event §10.4 names
+as this check's removal signal. The **`home` verdict is rendered, never
+silent** — a reader who cannot see that the check ran and exempted cannot tell
+this from a check that never looked, which is the same disclosure discipline
+§4.5 and §10.2's `cannot-determine` already carry.
 
 **Nothing in a consumer's suite fails merely because the Home moved.** Blocking
 a consumer's suite on the Home's revision would couple two repositories' release
@@ -943,8 +964,20 @@ binds here unchanged, and no scheduled reader is minted.
 
 ### 10.3 Where the stamp lives, and what it is durable against
 
-**The stamp is COMMITTED.** It is the one kit artifact for which §3.3's
-repo-visible-not-committed default is wrong, and the ground is served:
+**The stamp is COMMITTED**, and it is the **second** kit artifact to answer
+§3.3's repo-visible-not-committed default the other way — §4.3 already sites the
+emission as committed, "the opposite of §3.3's answer, on the same axis, for a
+stated reason". Saying "the one exception" here would have been false, and false
+in the way §4.3 warns about: two decisions that look like one.
+
+**§4.3's discriminator is source sensitivity, and it decides this clause too.**
+§3.3's digest derives from **hub** material and committing it would declassify;
+an emission is authored consumer-side, so committing it declassifies nothing.
+A stamp names a **public revision of the Home and a digest of files the consumer
+already holds** — it carries no hub-derived content at all, so it falls on the
+committable side of the same discriminator rather than needing a new one. What
+is added here is not a second exception rule but a second instance of §4.3's
+rule, and the further ground is served:
 
 > "…the durable pole owes a statement of WHAT IT IS DURABLE AGAINST — a process,
 > a working copy, a clone, or the repository — because a carrier that cannot be
@@ -1001,6 +1034,9 @@ owed:
 > can all be yes while the fourth is no."
 
 `consulted: product-lab@4eb5bc6659494a70c0ae82e8527495f16d6f765a gloss/lessons/claude-code-ops.md:275`
+  request_id: 176a6689-56dc-4961-b001-8bbe199ada25
+  outcome: discriminating
+  query: How should a vendored copy of a centrally-maintained kit know it is behind its home, and where should the version stamp live — committed in the consumer or machine-local? What does admitting a new staleness check into a consumer's suite owe?
 
 A currency check exercised only on a current copy answers the first three and
 never the fourth.
