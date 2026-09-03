@@ -51,7 +51,46 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+// THE PENDING RUN RECORD, held for exactly as long as a run's state loop is
+// executing (kogaki#808). `fail()` is `process.exit(1)`, and the record was
+// written only after the loop — so a refusal raised INSIDE a state discarded
+// every transition the same act had already performed. The specimen is
+// `J3_neighborhood`: `neighborhood_input` writes the candidate enumeration to
+// the run directory, `J3_neighborhood` then refuses for want of `--neighborhood`,
+// and the enumeration sat on disk with the run record not naming it. J1 and J2
+// have the same shape and lose nothing, because their input is produced by a
+// separate command; J3's is produced by the preceding state in the same act,
+// which is what makes the loss specific to it.
+//
+// A REFUSAL STAYS A REFUSAL. This changes nothing about what is refused, what
+// exit code it carries, or what it prints; it stops the refusal being a
+// ROLLBACK of the states that completed before it. That is the constraint the
+// issue's own `remedy:` names, and it is sited at `fail()` rather than at the
+// judgment states because a per-state repair would cover the one state whose
+// loss was observed and leave the next one to be discovered the same way.
+let RUN_PERSIST = null;
+
+export function setRunPersist(dir, rec) {
+  RUN_PERSIST = dir && rec ? { dir, rec } : null;
+}
+
+// THE PERSIST NEVER MASKS THE REFUSAL IT RIDES. A write that throws is
+// swallowed deliberately: the operator is being told why the act refused, and
+// a second failure reported in its place would replace a diagnosis with an
+// accident of the tracing.
+function persistPendingRun() {
+  if (!RUN_PERSIST) return;
+  const { dir, rec } = RUN_PERSIST;
+  RUN_PERSIST = null;
+  try {
+    const out = { ...rec };
+    delete out._dir;
+    writeRunRecord(dir, out);
+  } catch { /* the refusal below is the message that matters */ }
+}
+
 function fail(msg) {
+  persistPendingRun();
   process.stderr.write(`terrain: ${msg}\n`);
   process.exit(1);
 }
@@ -5569,6 +5608,12 @@ function cmdRun(args) {
     fail(`run record ${runRecordPath(dir)} was written against workflow table version ${rec.workflow.version} and this table is version ${table.version}. The run cannot be resumed across a table version change — start a fresh run directory.`);
   }
   rec._dir = dir;
+  // ARMED FROM HERE (kogaki#808). Every refusal raised for the rest of this act
+  // — an owner-input refusal, a capture refusal, a judgment state's missing
+  // typed record — now persists the transitions this act completed before it,
+  // instead of exiting with them on disk and unnamed by the record. The release
+  // is at the loop's own write below.
+  setRunPersist(dir, rec);
 
   // ---- Owner input, admitted by the WAIT and not by its own shape (AC5).
   if (args.input !== undefined) {
@@ -5787,6 +5832,11 @@ function cmdRun(args) {
     rec.completed.push(st.id);
   }
 
+  // THE PENDING RECORD IS RELEASED HERE, at the one place the loop's own write
+  // happens (kogaki#808). Everything between the arming below and this line is
+  // the window in which a refusal would otherwise have discarded the act's
+  // completed transitions.
+  setRunPersist(null, null);
   delete rec._dir;
   const recPath = writeRunRecord(dir, rec);
 
@@ -6089,6 +6139,63 @@ switch (cmd) {
         return r.status !== 0;
       };
       const terminal = { id: "done", kind: "terminal" };
+
+      // A REFUSAL IS NOT A ROLLBACK (kogaki#808). The specimen was
+      // `J3_neighborhood`: `neighborhood_input` writes the candidate
+      // enumeration into the run directory, the judgment state then refuses for
+      // want of `--neighborhood`, and `fail()` exited before the loop's own
+      // write — so the enumeration was on disk and the record did not name it.
+      //
+      // THE ARM DRIVES THE PROPERTY, NOT THE SPECIMEN, and that is a choice
+      // rather than a shortcut: `neighborhood_input` reads the seam, and this
+      // pass is seam-free by construction. What makes the substitution faithful
+      // is that the specimen's loss had nothing to do with the neighborhood —
+      // it was a completed transition discarded by a later refusal in the same
+      // act, which is exactly what this fixture stages.
+      //
+      // THE REFUSAL MUST FIRE INSIDE THE LOOP, and the first cut of this arm did
+      // not: it used an uninterpretable KIND, which `loadWorkflowTable` refuses
+      // at load, before any state runs. Nothing had completed, so nothing was
+      // lost, and the arm passed against the unfixed runtime for a reason that
+      // had nothing to do with the property. The fixture below refuses at the
+      // renderer binding instead — a check the loop makes per state, after the
+      // states before it have completed.
+      {
+        const tp = join(scratch, "refusal-persists.json");
+        const rd = join(scratch, "rd-refusal-persists");
+        mkdirSync(rd, { recursive: true });
+        writeFileSync(tp, JSON.stringify({ version: 1, states: [
+          { id: "a", kind: "compute" },
+          { id: "unrendered", kind: "write", writes: "screen" },
+          terminal,
+        ] }));
+        const r = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rd, "--workflow", tp], { encoding: "utf8" });
+        const persisted = readRunRecord(rd);
+        ok("a refusal raised inside a run still refuses — exit is non-zero and the message is the refusal's own",
+          r.status !== 0 && /no renderer bound to it/.test(r.stderr || ""), (r.stderr || "").trim().slice(0, 120));
+        ok("a refusal PERSISTS the run record, so the transitions the same act completed survive it (kogaki#808)",
+          persisted !== null, "no run record was written at all");
+        ok("the persisted record names the state that completed before the refusal — a refusal stops being a rollback of what preceded it",
+          !!persisted && Array.isArray(persisted.completed) && persisted.completed.includes("a"),
+          persisted ? JSON.stringify(persisted.completed) : "(no record)");
+        ok("the persisted record carries no internal run-directory handle — the refusal path writes the same shape the loop's own write does",
+          !!persisted && persisted._dir === undefined);
+      }
+
+      // ITEM 2 OF THE SAME ISSUE: the flag existed, the table named it, and the
+      // one surface an owner reads did not. Asserted here because a usage block
+      // is exactly the kind of prose that drifts from the argument it documents
+      // with nothing observing the gap.
+      {
+        const r = spawnSync(process.execPath, [selfPath], { encoding: "utf8" });
+        const usage = (r.stdout || "") + (r.stderr || "");
+        ok("`run` usage names --neighborhood, the flag whose absence was previously discoverable only from a refusal",
+          /run \[--run-dir[\s\S]{0,400}--neighborhood F/.test(usage));
+        ok("`report` usage names the identity QUADRUPLE rather than the triple it was widened from at kogaki#741",
+          /QUADRUPLE \(substrate pin/.test(usage) && !/identified by the TRIPLE/.test(usage));
+      }
+
       ok("a table declaring no states is refused",
         refuses("no-states", { version: 1, states: [] }));
       ok("a duplicate state id is refused",
@@ -6234,7 +6341,8 @@ switch (cmd) {
                                             and the one place an owner looks for a command did not.
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
       [--capture-option ID | --capture-free-text S] [--tool-use-id ID]
-      [--claims F] [--subdivisions F] [--classification F] [--judge-model M] [--judge-effort E]
+      [--claims F] [--subdivisions F] [--classification F] [--neighborhood F]
+      [--judge-model M] [--judge-effort E]
                                             THE §15 CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
                                             src/workflow.json declares until the
@@ -6270,8 +6378,10 @@ switch (cmd) {
          [--subdivisions F] [--neighborhood F] [--judge-model M --judge-effort E]
          [--report-dir D]
                                             the Full Report (§12) — untruncated Claims and
-                                            Glosses, identified by the TRIPLE (substrate pin,
-                                            co-tag query, judge pin). TWO ARTIFACTS (§12.2 v11):
+                                            Glosses, identified by the QUADRUPLE (substrate pin,
+                                            co-tag query, judge pin, neighborhood judgment
+                                            record — widened from the triple at kogaki#741).
+                                            TWO ARTIFACTS (§12.2 v11):
                                             --neighborhood carries the judgment layer: one
                                             level (core|useful|background) and one claim per
                                             candidate, keyed by slug (§13.4, kogaki#686).
