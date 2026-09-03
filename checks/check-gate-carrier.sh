@@ -150,7 +150,46 @@ def validate_gate(gate):
 # Capture validation. Every row is guarded: a row that cannot be judged is
 # reported as CANNOT-DETERMINE and never as a finding.
 # --------------------------------------------------------------------------
-def validate_row(row, registered_gate_ids, registered_options):
+def declared_options(gate_id, registered_options, decl_dir):
+    """The comparison target for a capture row's `options_offered`, per
+    specs/spec-gate-carrier/SPEC.md §4.1 (v4, kogaki#818).
+
+    The run's OWN declaration where one sits beside the capture; the registry
+    entry otherwise. The defect this resolves was a homonym on "the tree": the
+    registry's `dynamic_options` prose meant the COMMITTED tree (`/runs/*` is
+    ignored), while this check reads the WORKING DIRECTORY — so a run that
+    composed its options per run, exactly as the registry says it does, could
+    never pass.
+
+    Returns `(options, source)` — and None options where no target is
+    resolvable, which is the pre-existing "gate is in no registry" path,
+    reported by its own code and never here. The source travels WITH the
+    options rather than being re-derived by the caller: a second `is_file()`
+    probe would be a second answer to a question this one already answered,
+    free to disagree with it.
+    A sibling that exists and will not parse RAISES: the row guard turns that
+    into a CANNOT-DETERMINE, because an unreadable declaration is a defect in
+    this checker's inputs and not a finding against the gate (§7).
+    """
+    if decl_dir is not None:
+        sibling = decl_dir / f"{gate_id}{schema['capture']['run_declaration_suffix']}"
+        if sibling.is_file():
+            doc, error = load(sibling)
+            if error:
+                raise ValueError(
+                    f"{sibling.name} sits beside the capture and will not parse "
+                    f"({error[1]}) — the run's declaration is the comparison "
+                    f"target and an unreadable one cannot be compared against")
+            opts = doc.get("options")
+            if not isinstance(opts, list):
+                raise ValueError(
+                    f"{sibling.name} carries no readable 'options' list")
+            return [o.get("id") for o in opts], (
+                f"{sibling.name}, the declaration this run raised")
+    return registered_options.get(gate_id), "gates/registry.json"
+
+
+def validate_row(row, registered_gate_ids, registered_options, decl_dir=None):
     v = []
     c = schema["capture"]
     for field in c["row_required"]:
@@ -203,16 +242,18 @@ def validate_row(row, registered_gate_ids, registered_options):
             v.append(("CAPTURE_PAYLOAD_FREE_TEXT_NOT_OFFERED",
                       "the payload must record that free text was offered"))
         offered = payload.get("options_offered")
-        if (c["payload_options_must_equal_registered_gate_options"]
-                and offered is not None and gate_id in registered_options):
-            if sorted(offered) != sorted(registered_options[gate_id]):
+        if c["payload_options_must_equal_declared_gate_options"] and offered is not None:
+            target, source = declared_options(gate_id, registered_options,
+                                              decl_dir)
+            if target is not None and sorted(offered) != sorted(target):
                 v.append(("CAPTURE_PAYLOAD_OPTIONS_MISMATCH",
                           f"the payload's options disagree with the options gate "
-                          f"{gate_id!r} declares"))
+                          f"{gate_id!r} declares in {source}"))
     return v
 
 
-def validate_capture_doc(doc, registered_gate_ids, registered_options, where):
+def validate_capture_doc(doc, registered_gate_ids, registered_options, where,
+                         decl_dir=None):
     """Return (violations, cannot_determines). Each row is guarded."""
     violations, crashes = [], []
     rows = doc.get(schema["capture"]["rows_key"])
@@ -222,7 +263,8 @@ def validate_capture_doc(doc, registered_gate_ids, registered_options, where):
         return violations, crashes
     for row in rows:
         try:
-            violations.extend(validate_row(row, registered_gate_ids, registered_options))
+            violations.extend(validate_row(row, registered_gate_ids,
+                                           registered_options, decl_dir))
         except Exception as exc:              # the guard, on every write path
             # Keyed WITHOUT the row index, deliberately: a deterministic cause
             # produces the identical entry N times, and collapsing on that key
@@ -290,7 +332,8 @@ for path in captures:
                     gateless_rows += 1
                 else:
                     covered_gates.add(row.get("gate_id"))
-    v, c = validate_capture_doc(doc, registered_ids, registered_options, str(path))
+    v, c = validate_capture_doc(doc, registered_ids, registered_options,
+                                str(path), path.parent)
     failures.extend((code, f"{path}: {detail}") for code, detail in v)
     cannot_determine.extend(c)
 
@@ -306,19 +349,36 @@ fx_options = {g.get("id"): [o.get("id") for o in (g.get("options") or [])]
 covered_codes = set()
 
 
+def fixture_paths(kind):
+    """The fixtures in one directory.
+
+    A `*.run-declaration.json` beside a capture fixture is that fixture's
+    INPUT, not a fixture of its own — it is what §4.1 makes the comparison
+    target, and the fixture directory is shaped like a real run workspace so
+    that the filesystem lookup under test is the same one the production path
+    performs. Excluding it here is what keeps that possible: this glob is
+    `*.json` while the real capture scanner globs `*.gate-capture.json`, so
+    only here could a declaration be mistaken for a subject.
+    """
+    suffix = schema["capture"]["run_declaration_suffix"]
+    return sorted(p for p in (fixtures / kind).glob("*.json")
+                  if not p.name.endswith(suffix))
+
+
 def fixture_codes(path):
     """All codes a fixture provokes, whether it is a gate or a capture file."""
     doc, error = load(path)
     if error:
         return None, [("MALFORMED_JSON", error[1])], []
     if doc.get("_fixture") == "capture":
-        v, c = validate_capture_doc(doc, fx_ids, fx_options, str(path))
+        v, c = validate_capture_doc(doc, fx_ids, fx_options, str(path),
+                                    path.parent)
         return doc, v, c
     return doc, validate_gate(doc), []
 
 
 for kind, expect_clean in (("conforming", True), ("nonconforming", False)):
-    paths = sorted((fixtures / kind).glob("*.json"))
+    paths = fixture_paths(kind)
     if not paths:
         print(f"FAIL fixtures/{kind} is empty: this check's discrimination "
               "is unevidenced")
@@ -398,8 +458,8 @@ else:
           "the registry is what would make the fraction mean anything")
 print(f"captures: {len(captures)} *.gate-capture.json, {capture_rows} row(s), "
       f"{gateless_rows} of them gate-less (a legitimate row class, not a crash)")
-print(f"fixtures: {len(sorted((fixtures / 'conforming').glob('*.json')))} conforming "
-      f"accepted, {len(sorted((fixtures / 'nonconforming').glob('*.json')))} "
+print(f"fixtures: {len(fixture_paths('conforming'))} conforming "
+      f"accepted, {len(fixture_paths('nonconforming'))} "
       f"non-conforming each rejected with its declared code "
       f"({len(covered_codes & CODES)}/{len(CODES)} violation codes exercised, plus "
       f"the guarded {CRASH} path and its repetition disclosure)")

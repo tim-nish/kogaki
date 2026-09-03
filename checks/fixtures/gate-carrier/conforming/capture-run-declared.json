@@ -1,0 +1,23 @@
+{
+  "_fixture": "capture",
+  "rows": [
+    {
+      "stop_id": "stop-0002",
+      "gate_id": "terrain-dynamic",
+      "evidence": {
+        "tool": "AskUserQuestion",
+        "tool_use_id": "toolu_01GateCarrier0002"
+      },
+      "payload": {
+        "options_offered": [
+          "strand:g1-1",
+          "no-strand"
+        ],
+        "free_text_offered": true,
+        "answer": {
+          "option": "strand:g1-1"
+        }
+      }
+    }
+  ]
+}

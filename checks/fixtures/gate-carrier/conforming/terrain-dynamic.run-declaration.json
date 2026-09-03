@@ -1,0 +1,21 @@
+{
+  "id": "terrain-dynamic",
+  "raised_by": "the fixture pair for specs/spec-gate-carrier/SPEC.md §4.1 (kogaki#818) — shaped after the real declaration src/terrain.mjs:1798 writes",
+  "host": "claude-code",
+  "medium": "selector",
+  "question": "Which Strand does the article take as material?",
+  "options": [
+    {
+      "id": "strand:g1-1",
+      "label": "G1-1"
+    },
+    {
+      "id": "no-strand",
+      "label": "Take no Strand from this survey; nothing is selected and the survey stands"
+    }
+  ],
+  "free_text_offered": true,
+  "fork": false,
+  "declared_at": "2026-09-03T09:00:21.145Z",
+  "run_declaration": true
+}

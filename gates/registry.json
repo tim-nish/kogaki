@@ -35,7 +35,7 @@
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "Strand options are composed per run from the owner's current view (ids strand:<slug>, at most 3 beside the standing option — the selector affordance holds 4); the run's full declaration is written beside its capture in the machine-local run workspace, which never enters the tree (specs/SPEC.md §4 rider 3). Consulted 2026-08-05 (product-lab@16a6dbf6, two framings): no served position discriminates declaring a run-computed option set in a static registry — recorded as a miss, not resolved silently. The class is declared here, the content with the run; a capture that somehow reaches the tree and disagrees with this entry FAILS the options-equality check by design rather than being exempted."
+      "dynamic_options": "Strand options are composed per run from the owner's current view (ids strand:<slug>, at most 3 beside the standing option — the selector affordance holds 4); the run's full declaration is written beside its capture in the machine-local run workspace, which never enters the tree (specs/SPEC.md §4 rider 3). Consulted 2026-08-05 (product-lab@16a6dbf6, two framings): no served position discriminates declaring a run-computed option set in a static registry — recorded as a miss, not resolved silently. The class is declared here, the content with the run; a capture is judged against the run declaration where one sits beside it and against THIS entry where none does, and disagreement with whichever applies FAILS the options-equality check by design rather than being exempted (specs/spec-gate-carrier/SPEC.md §4.1). Until kogaki#818 this sentence read 'a capture that somehow reaches the tree' and meant the COMMITTED tree, while the check read the WORKING DIRECTORY — so every conforming run reddened the local suite."
     },
     {
       "id": "terrain-trim-ratification",
@@ -51,7 +51,7 @@
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation — the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting and the same recorded consult miss as terrain-strand-selection. fork:false deliberately: Terrain attaches no recommendation to a trim — a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
+      "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation — the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting, the same comparison target (specs/spec-gate-carrier/SPEC.md §4.1), and the same recorded consult miss as terrain-strand-selection. fork:false deliberately: Terrain attaches no recommendation to a trim — a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
     },
     {
       "id": "terrain-claim-reoffer",
