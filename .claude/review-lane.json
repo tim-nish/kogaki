@@ -1,9 +1,7 @@
 {
-  "review_rounds_max": 2,
   "review": {
     "mechanisms": [
       "bash tools/run-registered-checks.sh"
-    ],
-    "trigger": true
+    ]
   }
 }
