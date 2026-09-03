@@ -2,7 +2,12 @@
   "note": [
     "The gate registry the CAPTURE fixtures resolve against. Separate from",
     "gates/registry.json so a fixture never has to be admitted as a real",
-    "gate of this repository to exercise a capture branch."
+    "gate of this repository to exercise a capture branch.",
+    "`terrain-dynamic` stands for the real shape kogaki#818 was filed on: a",
+    "gate whose CLASS-level declaration is one standing option, with the rest",
+    "composed per run. Its static list is deliberately NOT what the run offers,",
+    "which is what lets the fixture pair discriminate the two readings of the",
+    "comparison target (specs/spec-gate-carrier/SPEC.md §4.1)."
   ],
   "gates": [
     {
@@ -13,6 +18,14 @@
         },
         {
           "id": "strand-b"
+        }
+      ]
+    },
+    {
+      "id": "terrain-dynamic",
+      "options": [
+        {
+          "id": "no-strand"
         }
       ]
     }

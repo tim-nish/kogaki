@@ -45,7 +45,10 @@
     "evidence_tool_must_be": "AskUserQuestion",
     "payload_required": ["options_offered", "free_text_offered", "answer"],
     "payload_free_text_offered_must_be": true,
-    "payload_options_must_equal_registered_gate_options": true,
+    "payload_options_must_equal_declared_gate_options": true,
+    "run_declaration_suffix": ".run-declaration.json",
+    "payload_options_comparison_target": "the sibling `<gate_id>` + run_declaration_suffix beside the capture where one exists \u2014 the gate's declaration AS RAISED, and the only artifact that can hold an option composed for that run \u2014 and the gate's gates/registry.json entry otherwise (specs/spec-gate-carrier/SPEC.md \u00a74.1, kogaki#818)",
+    "payload_options_comparison_rationale": "Exact set equality, unchanged in strength: v4 states the TARGET rather than loosening the rule. A gate declaring dynamic_options is NOT exempt \u2014 its declaration names the run's options instead of the class's, so equality becomes decidable against something that can actually equal what was offered. The capture population is untouched. The old key name said `registered`, which was the whole defect: it named the registry as the target in the one place a reader would look for the target.",
     "gateless_row": {
       "gate_id_is": null,
       "required": ["no_gate_reason"],
