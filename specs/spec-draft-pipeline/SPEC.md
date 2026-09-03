@@ -760,14 +760,26 @@ keeps the contract a validator and a registered check assert against.
 composition judgment; this says a title exists and where it is declared, never
 what it should say. Packet timing and location stay §3's and kogaki#809's.
 
-**PARTLY BUILT AT THIS HEAD, and the halves are named separately because they
-landed at different times.** The DECLARATION half is BUILT (kogaki#822): the
+**BUILT AT THIS HEAD, and the halves are still named separately because they
+landed at different times.** The DECLARATION half landed at kogaki#822: the
 field is admitted by `validateSteps`, the grouping rules above refuse at
-composition, and `renderStep` serializes it. The RENDERING half is UNBUILT —
-`src/draft.mjs emit` still writes one heading per Step and `parseBrief` does not
-read `opens_section` back, so nothing consumes the declaration yet. Carrier:
-**kogaki#823** (the renderer, the frontmatter Step→Section trace, and the
-parse-back that makes the round trip whole).
+composition, and `renderStep` serializes it. The RENDERING half landed at
+**kogaki#823** — `parseBrief` reads `opens_section` back through the same
+refusal the composition side applies, `emit` writes one `## <title>` per Section
+at its opening Step, and the frontmatter trace carries the Step→Section mapping.
+The round trip is whole.
+
+**THE RENDERING HALF NEEDED A SECOND ACT, which the unbuilt note did not
+anticipate and which is recorded because the note's own reading of the head was
+wrong.** That note said `emit` "still writes one heading per Step". It wrote
+**none**: `assembleBody` joined the realized prose, and the headings in the
+2026-09-03 specimen were written **by the model into the prose**. So heading
+authorship was **unowned** rather than misplaced, and *one per Step* described
+one draft rather than a rule anything held. Writing the headings from
+`opens_section` is therefore only half the repair; `section` must also **refuse
+realized prose that carries a heading of its own**, or the count of headings
+stays whatever the realization happened to produce. Both halves shipped
+together at kogaki#823.
 
 `necessity:` the four rules are a validator's contract and a registered check's
 assertion target, so they need a site inside this spec rather than a pointer out
