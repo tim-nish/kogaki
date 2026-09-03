@@ -5775,7 +5775,19 @@ function cmdRun(args) {
           rec.gate_declarations_owed.push({ state: st.id, gate_id: st.gate_id || null, declaration: null,
             unwritten: `this runtime has no option composer bound to ${JSON.stringify(st.id)} — §15.1: a GATE state is a table row PLUS an option composer, and the executor invents neither options nor a judgment` });
         } else {
-          const gateId = st.gate_id || fail(`workflow state ${JSON.stringify(st.id)} has an option composer bound to it and names no gate_id. field_semantics requires the key of exactly the states whose renders_gate_declaration is true.`);
+          // THE WAIT IS UNRECORDED BEFORE THIS REFUSAL (PR #821 round 1). The
+          // branch above has already set `rec.awaiting`, and since kogaki#808
+          // made a refusal persist the record, that assignment would now
+          // OUTLIVE this refusal — leaving a record whose `awaiting` names a
+          // state whose declaration was never composed, which the pre-loop
+          // `--input` guard admits precisely because no declaration exists.
+          // Reachable only on a malformed table, and the hole it grazes is the
+          // one #625 item 1 closed, so the assignment is retracted rather than
+          // left for the shipped table's `gate_id` coverage to keep unreachable.
+          const gateId = st.gate_id || (() => {
+            rec.awaiting = null;
+            return fail(`workflow state ${JSON.stringify(st.id)} has an option composer bound to it and names no gate_id. field_semantics requires the key of exactly the states whose renders_gate_declaration is true.`);
+          })();
           const { options, extra } = compose(rec, st, args, dir);
           const declPath = emitGateDeclaration(dir, gateId, options, extra || {});
           rec.gate_declarations_owed.push({ state: st.id, gate_id: gateId, declaration: relFromRepo(resolve(declPath)) });
@@ -5833,9 +5845,9 @@ function cmdRun(args) {
   }
 
   // THE PENDING RECORD IS RELEASED HERE, at the one place the loop's own write
-  // happens (kogaki#808). Everything between the arming below and this line is
-  // the window in which a refusal would otherwise have discarded the act's
-  // completed transitions.
+  // happens (kogaki#808). Everything between the arming ABOVE — at the top of
+  // this act, beside `rec._dir = dir` — and this line is the window in which a
+  // refusal would otherwise have discarded the act's completed transitions.
   setRunPersist(null, null);
   delete rec._dir;
   const recPath = writeRunRecord(dir, rec);
@@ -6165,12 +6177,12 @@ switch (cmd) {
         const rd = join(scratch, "rd-refusal-persists");
         mkdirSync(rd, { recursive: true });
         writeFileSync(tp, JSON.stringify({ version: 1, states: [
-          { id: "a", kind: "compute" },
+          { id: "a", kind: "compute", conditional: "entered only by --enter, so the act sets a record FIELD beside `completed`" },
           { id: "unrendered", kind: "write", writes: "screen" },
           terminal,
         ] }));
         const r = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rd, "--workflow", tp], { encoding: "utf8" });
+          [selfPath, "run", "--run-dir", rd, "--workflow", tp, "--enter", "a"], { encoding: "utf8" });
         const persisted = readRunRecord(rd);
         ok("a refusal raised inside a run still refuses — exit is non-zero and the message is the refusal's own",
           r.status !== 0 && /no renderer bound to it/.test(r.stderr || ""), (r.stderr || "").trim().slice(0, 120));
@@ -6179,6 +6191,17 @@ switch (cmd) {
         ok("the persisted record names the state that completed before the refusal — a refusal stops being a rollback of what preceded it",
           !!persisted && Array.isArray(persisted.completed) && persisted.completed.includes("a"),
           persisted ? JSON.stringify(persisted.completed) : "(no record)");
+        // AND A FIELD THE COMPLETED STATE SET, NOT ONLY THE COMPLETION LIST
+        // (PR #821 round 1). The loss #808 names is a FIELD — `neighborhood_candidates`
+        // on disk and unnamed by the record — so a pass asserting `completed`
+        // alone stays green through a later narrowing of what is persisted, and
+        // re-opens the specimen while reporting nothing. `conditional_entered`
+        // is the seam-free field available here: the executor writes it when a
+        // conditional state is entered, which is a transition's own record
+        // effect rather than the loop's bookkeeping of which states ran.
+        ok("the persisted record carries a FIELD the completed state set, which is the loss #808 names — not only the list of what completed",
+          !!persisted && Array.isArray(persisted.conditional_entered) && persisted.conditional_entered.includes("a"),
+          persisted ? JSON.stringify(persisted.conditional_entered) : "(no record)");
         ok("the persisted record carries no internal run-directory handle — the refusal path writes the same shape the loop's own write does",
           !!persisted && persisted._dir === undefined);
       }
