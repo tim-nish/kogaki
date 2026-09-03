@@ -80,6 +80,11 @@ are carried by different machinery on purpose: **id resolution is mechanical**
 (a Step's `move` must name a record that exists) and **specialization is
 judged** (whether the instantiated states are consistent specializations).
 
+**The Move library grows by an admission act, never by a Brief naming an id.**
+A composer that needs a Move the library lacks raises that rather than minting
+one, because a Move admitted as a side effect of needing it is a technique
+nobody observed.
+
 ### 2.1 Section — a grouping of Steps, declared in the Brief (kogaki#816)
 
 **Owner ruling, 2026-09-03.** One Step is one unit of **realization**, and that
@@ -137,14 +142,35 @@ renderer and the frontmatter section trace), **#825** (the Packet, including the
 vocabulary collision this ruling creates inside its template).
 
 **THE VOCABULARY COLLISION IS DISCLOSED HERE RATHER THAN LEFT TO ITS CARRIER,**
-because this record is what creates it. `src/packet-template.md` ships block
-headers reading `# Write one Section`, `## The Move this Section performs` and
-`## This Section's Step` — all using *Section* for what this section now calls a
-**Step**. After this ruling `This Section's Step` is a category error and `Write
-one Section` instructs the realizer to write a whole grouping when it must write
-one Step. That is not cosmetic: §3 makes the Packet the realizer's **entire**
-input, so a word meaning two things inside it is a defect in the one artifact
-whose job is to be unambiguous. #825 carries the reconciliation.
+because this record is what creates it, **and it is wider than the Packet
+template.** `src/packet-template.md` ships block headers reading `# Write one
+Section`, `## The Move this Section performs` and `## This Section's Step` — all
+using *Section* for what this section now calls a **Step**. After this ruling
+`This Section's Step` is a category error and `Write one Section` instructs the
+realizer to write a whole grouping when it must write one Step. That is not
+cosmetic: §3 makes the Packet the realizer's **entire** input, so a word meaning
+two things inside it is a defect in the one artifact whose job is to be
+unambiguous.
+
+**THE PER-STEP ARTIFACT IS ITSELF CALLED THE "SECTION PACKET", and that is the
+larger half** (PR #826 round 1, finding 2 — the first drafting of this paragraph
+named only the template's three headers and was narrower than the collision it
+was disclosing). The name appears in **this file** at §3 ("One Step's realization
+takes exactly one input: the **Section Packet**"), as the heading of a ratified
+spec section — `specs/spec-draft-pipeline/SPEC.md` §4.14, *The Section Packet* —
+in `src/draft.mjs`'s own subcommand gloss, at the top of the template, and inside
+`checks/registry.json`'s `draft-runtime` contract, which states §4.14 in the same
+words. So after this ruling the Section Packet is a **per-Step packet named for a
+grouping**, in a served spec heading and in a registered member's admission
+record.
+
+**Nothing here renames it, and the reason is stated rather than left as an
+omission.** A ratified spec section heading and a registry contract are not this
+record's to rewrite in an act whose licence is "record Section as a unit"; and a
+rename that touched the served spec without touching the registry contract that
+quotes it would put two names on one artifact, which is the defect one level
+worse than the one being fixed. **#825 carries the reconciliation and its scope
+is widened to every site named above**, the template included.
 
 **WHAT THIS SECTION DOES NOT DECIDE.** Packet timing and location stay §3's and
 #809's. The Step-to-Move contract stays #747's. The `intent`-style question of
@@ -173,11 +199,6 @@ them after generation:
 and the failure each header defends against, none of which this decides. The
 Packet consequence is real and is #825's, named above rather than written into
 §3 by this act.
-
-**The Move library grows by an admission act, never by a Brief naming an id.**
-A composer that needs a Move the library lacks raises that rather than minting
-one, because a Move admitted as a side effect of needing it is a technique
-nobody observed.
 
 ## 3. The Packet architecture
 
