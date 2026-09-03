@@ -72,12 +72,14 @@ policy/shape.md
 # said "three" and then "9"; both were true when written.
 .claude/*
 
-# SPEC.md §4's no-owner-override clause grounds the review rounds-bound on this
-# site being TRACKED — "the same edit to a machine-local file would leave
-# nothing to review" (specs/SPEC.md:1205-1210) — and the Review lane's
-# mechanism declaration landed here as a tracked declaration (PR #617). A
-# machine-local copy would make the bound unraisable-by-diff, which is the one
-# property the clause exists to guarantee.
+# The Review lane's MECHANISM declaration (`review.mechanisms`) is tracked here
+# (PR #617): the engine reads it from the working tree, and a fresh clone must
+# carry it. Nothing else in the file is tracked any more. The round bound and
+# the trigger live in the machine-local declaration
+# `~/.claude/review-lane/<owner>/<repo>/declaration.json` (SPEC-review-lane-
+# command v28; kogaki#810, owner ruling 2026-09-03), and the earlier ground for
+# un-ignoring this path — that a machine-local bound would be unraisable-by-
+# diff — is withdrawn with SPEC.md §4's amendment of the same date.
 !.claude/review-lane.json
 
 # The two skill files a registered check READS. Each carries a contract with no
