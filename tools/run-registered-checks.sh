@@ -87,7 +87,13 @@ def run_member(entry):
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     return {
         "entry": entry,
-        "output": result.stdout.decode("utf-8", "replace"),
+        # RAW BYTES, never decoded. Streaming passed a member's output to fd 1
+        # untouched, and decoding it here would silently rewrite any non-UTF-8
+        # byte a member emits into U+FFFD — a log difference this change has no
+        # licence to make. No member emits such output today; that is why it
+        # stays bytes rather than why it would be safe to decode (PR #794
+        # round 1).
+        "output": result.stdout,
         "returncode": result.returncode,
         "elapsed_ms": round((time.monotonic() - started) * 1000),
     }
@@ -139,8 +145,10 @@ serial_sum_ms = 0
 for entry in entries:
     result = results[entry["id"]]
     print(f"== {entry['id']} ({member_path(entry)})", flush=True)
-    sys.stdout.write(result["output"])
-    sys.stdout.flush()
+    # Through the binary buffer, so the member's bytes reach the log exactly as
+    # they left it. The print above is flushed, so ordering holds.
+    sys.stdout.buffer.write(result["output"])
+    sys.stdout.buffer.flush()
     serial_sum_ms += result["elapsed_ms"]
     # The catch ledger's primary capture (kogaki#113): one line per check per
     # exercised run, in the run log — assembled on demand, never a stored
@@ -178,11 +186,22 @@ for entry in entries:
     if result["returncode"] != 0:
         failed.append(entry["id"])
 
-# Wall BESIDE the serial sum (kogaki#789 acceptance 1). No target is asserted
-# and none is checked: this is a cap that REPORTS, never a target that PULLS.
+# Wall BESIDE the summed member cost (kogaki#789 acceptance 1). No target is
+# asserted and none is checked: this is a cap that REPORTS, never a target that
+# PULLS.
+#
+# IT IS CALLED "member sum" AND NOT "serial sum", because under concurrency it
+# is neither (PR #794 round 1). The figure is the sum of the per-member `ms=`
+# values actually recorded, and those are contention-inflated — measured ~28%
+# above what the same members total when run serially. Labelling it "serial
+# sum" would have made the one line added to expose the wall/serial gap
+# overstate the very side it was quoting, and the qualifier belongs in the
+# PRINTED log rather than only in this file's comments, since the log is what a
+# reader and CI actually see.
 mode = (f"{jobs} job(s)" if pool_entries else "serial")
-print(f"suite: wall {wall_ms/1000:.2f}s; serial sum {serial_sum_ms/1000:.2f}s "
-      f"over {len(entries)} member(s); {mode}"
+inflated = " (contention-inflated; not a serial baseline)" if pool_entries else ""
+print(f"suite: wall {wall_ms/1000:.2f}s; member sum {serial_sum_ms/1000:.2f}s"
+      f"{inflated} over {len(entries)} member(s); {mode}"
       + (f", {len(serial_entries)} declared serial" if serial_entries and pool_entries else ""))
 
 if failed:
