@@ -1253,4 +1253,73 @@ printf '%s\n' "$SEAM" | grep -qF "$VENDORED seam check(s) vendored" \
   || fail "the install created $TMP/seam/checks — the kit must NOT copy seam checks into the consumer's tree (kogaki#724): the registry names the kit's own file so that exactly one copy exists"
 echo "ok: the install announces every seam check it vendors, and copies none ($VENDORED check(s), kogaki#724)"
 
+# 7. THE KIT STAMP (kogaki#795; contract specs/spec-client-kit/SPEC.md §10.2).
+#
+#     Both branches are asserted, because the interesting one is the branch
+#     that writes NOTHING: `install.sh` does not vendor `policy/kit/`, so a
+#     consumer holds a kit copy only if one was placed there, and a silent
+#     no-op there is indistinguishable from a stamp step that failed.
+
+#     7a. NO KIT COPY -> no stamp, and the absence is STATED. Asserted against
+#     the FRESH INSTALL CASE 1 ALREADY PAID FOR rather than a fourth install of
+#     its own: `$TMP/repo` holds no kit copy, which is exactly this branch's
+#     condition, and install.sh costs ~1.2 s a run on this member's own
+#     measurement. Reusing it keeps the assertion and drops the cost.
+[ ! -f "$TMP/repo/policy/kit/.kit-version" ] \
+  || fail "the install stamped a tree that holds no kit copy — there is nothing there to be behind"
+grep -q 'no stamp is owed' "$TMP/out1" \
+  || fail "the install wrote no stamp and did not say so — an absent stamp and a failed stamp step read identically otherwise (SPEC-client-kit 10.2)"
+echo "ok: no kit copy -> no stamp, and the install states the absence"
+
+#     7b. A VENDORED KIT COPY -> stamped, with every field the check requires.
+mkdir -p "$TMP/stamp_yes/policy"
+cp -r "$KIT_DIR" "$TMP/stamp_yes/policy/kit"
+#     The Home's own role declaration must not travel with a copy: a tree
+#     carrying both it and a stamp is contradictory and the currency check
+#     fails it. Removing it here is what makes the copy a CONSUMER.
+rm -f "$TMP/stamp_yes/policy/kit/consumers.json"
+"$KIT_DIR/install.sh" --repo "$TMP/stamp_yes" --consumer kit-test >"$TMP/out_stamp" 2>&1 \
+  || fail "install exited non-zero on a tree holding a kit copy"
+STAMP="$TMP/stamp_yes/policy/kit/.kit-version"
+[ -f "$STAMP" ] || fail "no policy/kit/.kit-version written into a tree that holds a kit copy (SPEC-client-kit 10.2)"
+for K in home home_revision installed manifest; do
+  grep -qE "^$K:[[:space:]]*[^[:space:]]" "$STAMP" \
+    || fail "the stamp is missing or empty at required key '$K' — check-kit-currency calls that malformed"
+done
+#     The slug is the owner/name pair and NOT the clone URL: a `.git` suffix
+#     left on it made every stamp wrong by four characters until it was fixed.
+grep -qE '^home: [^/[:space:]]+/[^/[:space:]]+$' "$STAMP" \
+  || fail "the stamp's home is not a bare owner/name pair: $(grep '^home:' "$STAMP")"
+grep -q '\.git$' "$STAMP" && fail "the stamp carries a .git suffix on its home slug"
+echo "ok: a vendored kit copy is stamped, with every field the currency check requires"
+
+#     7c. IDEMPOTENT, like every other install step.
+cp "$STAMP" "$TMP/stamp_first"
+"$KIT_DIR/install.sh" --repo "$TMP/stamp_yes" --consumer kit-test >/dev/null 2>&1
+diff -q "$TMP/stamp_first" "$STAMP" >/dev/null \
+  || fail "a second install changed the stamp — the install is not idempotent at the stamp step"
+echo "ok: the stamp step is idempotent"
+
+#     7d. THE STAMP IS COMMITTED (SPEC-client-kit 10.3) — deliberately the
+#     OPPOSITE of the shape read at 4d, which the install DOES gitignore. A
+#     machine-local stamp is durable against a working copy only, so a fresh
+#     clone would inherit no provenance and read cannot-determine forever,
+#     indistinguishable from an unreachable Home.
+if [ -f "$TMP/stamp_yes/.gitignore" ]; then
+  grep -qx 'policy/kit/.kit-version' "$TMP/stamp_yes/.gitignore" \
+    && fail "the install excluded the stamp from version control — 10.3 requires it to survive a clone"
+fi
+echo "ok: the stamp is not gitignored (10.3 — provenance must survive a clone)"
+
+#     7e. THE WRITTEN STAMP IS READ BACK BY THE SHIPPED CHECK, not by a
+#     re-implementation of it. This is the writer/verifier pair the shared
+#     manifest tool exists to keep from drifting, asserted end to end.
+CUROUT=$("$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/stamp_yes" 2>&1) || {
+  printf '%s\n' "$CUROUT"
+  fail "the currency check rejected a copy this install just stamped"
+}
+printf '%s\n' "$CUROUT" | grep -q 'verdict: cannot-determine' \
+  || fail "a freshly stamped copy with no Home supplied should read cannot-determine; got: $(printf '%s\n' "$CUROUT" | grep verdict)"
+echo "ok: the shipped currency check accepts the stamp the install just wrote"
+
 echo "ALL PASS"
