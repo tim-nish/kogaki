@@ -57,12 +57,13 @@ The invariant that makes them worth having is uniform — **the harness
 validates the record's shape and the sitting supplies its content**, so a
 missing record is a refusal rather than a blank the harness fills.
 
-## 2. The Move–Step–Strand model
+## 2. The Move–Step–Strand model, and the Section above it
 
-necessity: *the three-way distinction is what makes the vocabulary usable, and
-each term's carrier holds only its own half — `moves/` holds a Move, a Brief
-holds a Step, a survey holds a Strand, and nothing holds the relation between
-them.*
+necessity: *the distinction is what makes the vocabulary usable, and each term's
+carrier holds only its own half — `moves/` holds a Move, a Brief holds a Step,
+a survey holds a Strand, and nothing holds the relation between them. The
+Section is here for a sharper reason: it was for a time not a unit at all, and
+what filled the gap was a heading emitted per Step.*
 
 Three distinct things, routinely conflated by anyone meeting them for the first
 time:
@@ -83,6 +84,121 @@ judged** (whether the instantiated states are consistent specializations).
 A composer that needs a Move the library lacks raises that rather than minting
 one, because a Move admitted as a side effect of needing it is a technique
 nobody observed.
+
+### 2.1 Section — a grouping of Steps, declared in the Brief (kogaki#816)
+
+**Owner ruling, 2026-09-03.** One Step is one unit of **realization**, and that
+is unchanged. A heading is a different unit: **a promise to the reader that the
+question changes here.** A Section is a **grouping of Steps declared in the
+Brief**; the Harness renders one heading per Section and none inside it.
+
+| | what it is | where it lives |
+|---|---|---|
+| **Section** | a **grouping of Steps** — one promise to the reader that the question changes | a Brief's Reader Path, as `opens_section` on the Step that opens it |
+
+**WHY A FOURTH UNIT RATHER THAN A SETTING.** Binding the heading to the Step
+produced both failures observed on 2026-09-03, and they are the two ends of one
+axis rather than a bug and its overcorrection: the draft with a heading on every
+Step read as **fragmented** (`theses/safety-check-refuses-last-moment/draft.md`,
+five headings for five Steps), and the drafts with none were **hard to scan**
+(the two drafts written that day under the pre-rename workspace path, which
+kogaki#766 has since retired). The owner rejected the binary and asked for a
+structural rule. A knob choosing between the two would have made
+both reachable and neither correct; a unit makes the grouping something the
+Brief **states** and the Harness **checks**.
+
+**WHERE THE JUDGMENT SITS, and it is not new judgment.** Which Steps open a
+Section is composition-time judgment, and it belongs where the Steps are already
+judged: **the Brief**. The four rules below are the Harness's *validation* of
+that judgment, not a second judge — a Brief that opens a Section on every Step,
+or on none, is refused at mint with the rule it broke and the Step named.
+
+**The four rules, computed from fields the Brief already carries:**
+
+1. **A Step opens a Section when it changes the reader's question** — its
+   `purpose` answers a question the previous Step did not pose, or its
+   `introduces:` names a term that later Steps use.
+2. **A Step continues the current Section when it develops the previous one** —
+   its `depends_on` is the immediately preceding Step and its `materials`
+   overlap with that Step's.
+3. **The first Step always opens.** A Section never closes on a Step that only
+   sets up the next one, so a heading never lands on a transition paragraph.
+4. **Length is a check, not the rule.** A Section running past roughly a screen
+   and a half of prose without a heading is refused with a request to split; two
+   consecutive Sections that are each one short Step are refused with a request
+   to merge. **Article length enters as a bound on the grouping, never as its
+   reason** — the ordering is load-bearing, because a length rule promoted to
+   the reason is a heading budget, which is the fragmented draft again with a
+   number attached.
+
+**NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS**, stated in that shape
+deliberately — the same correction PR #813 round 1 forced one section down,
+where "the refusal stays" asserted the continuity of something that never
+existed. At this head `src/brief.mjs` has no `opens_section` and no rule
+validation, `src/draft.mjs emit` still renders one heading per Step, and
+`src/packet-template.md` still uses the word *Section* for the per-Step unit.
+Carriers: **#822** (the Brief field and its mint validation), **#823** (the
+renderer and the frontmatter section trace), **#825** (the Packet, including the
+vocabulary collision this ruling creates inside its template).
+
+**THE VOCABULARY COLLISION IS DISCLOSED HERE RATHER THAN LEFT TO ITS CARRIER,**
+because this record is what creates it, **and it is wider than the Packet
+template.** `src/packet-template.md` ships block headers reading `# Write one
+Section`, `## The Move this Section performs` and `## This Section's Step` — all
+using *Section* for what this section now calls a **Step**. After this ruling
+`This Section's Step` is a category error and `Write one Section` instructs the
+realizer to write a whole grouping when it must write one Step. That is not
+cosmetic: §3 makes the Packet the realizer's **entire** input, so a word meaning
+two things inside it is a defect in the one artifact whose job is to be
+unambiguous.
+
+**THE PER-STEP ARTIFACT IS ITSELF CALLED THE "SECTION PACKET", and that is the
+larger half** (PR #826 round 1, finding 2 — the first drafting of this paragraph
+named only the template's three headers and was narrower than the collision it
+was disclosing). The name appears in **this file** at §3 ("One Step's realization
+takes exactly one input: the **Section Packet**"), as the heading of a ratified
+spec section — `specs/spec-draft-pipeline/SPEC.md` §4.14, *The Section Packet* —
+in `src/draft.mjs`'s own subcommand gloss, at the top of the template, and inside
+`checks/registry.json`'s `draft-runtime` contract, which states §4.14 in the same
+words. So after this ruling the Section Packet is a **per-Step packet named for a
+grouping**, in a served spec heading and in a registered member's admission
+record.
+
+**Nothing here renames it, and the reason is stated rather than left as an
+omission.** A ratified spec section heading and a registry contract are not this
+record's to rewrite in an act whose licence is "record Section as a unit"; and a
+rename that touched the served spec without touching the registry contract that
+quotes it would put two names on one artifact, which is the defect one level
+worse than the one being fixed. **#825 carries the reconciliation and its scope
+is widened to every site named above**, the template included.
+
+**WHAT THIS SECTION DOES NOT DECIDE.** Packet timing and location stay §3's and
+#809's. The Step-to-Move contract stays #747's. The `intent`-style question of
+how a Section title is *worded* is composition judgment and no rule here binds
+it — this record says a title exists and where it is declared, never what it
+should say.
+
+**The remedy is constrain-shaped, and the alternative it rules out is named.**
+Binding the heading to a Section the Brief declares and mint validates makes
+both rejected drafts **unproducible**, rather than adding a check that catches
+them after generation:
+
+> "Where a defect class recurs against enumerated post-hoc repairs, the remedy
+> is to constrain what the pipeline can PRODUCE rather than to improve what it
+> can DETECT — an enumerated prohibition can only name yesterday's leak while a
+> construction constraint makes tomorrow's unreachable."
+
+`consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b LESSONS.md:161`
+  request_id: 33256c02-cc24-48ba-98b7-c2f5031b8b58
+  outcome: discriminating
+  query: a reader needs a promise that the question changes here; document structure and scannability for the reader, headings as a contract with the reader rather than an artifact of how the text was produced
+
+**PLACEMENT, disclosed rather than left to accrete.** This lands in §2 and not
+§3 because §2 is where the units and their carriers live, and Section is a
+**unit** — §3's `necessity:` scopes it to the Packet's block order, exclusions
+and the failure each header defends against, none of which this decides. The
+Packet consequence is real and is #825's, named above rather than written into
+§3 by this act.
 
 ## 3. The Packet architecture
 
