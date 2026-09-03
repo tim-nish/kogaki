@@ -1322,4 +1322,55 @@ printf '%s\n' "$CUROUT" | grep -q 'verdict: cannot-determine' \
   || fail "a freshly stamped copy with no Home supplied should read cannot-determine; got: $(printf '%s\n' "$CUROUT" | grep verdict)"
 echo "ok: the shipped currency check accepts the stamp the install just wrote"
 
+#     7f. THE HOME IS NOT STAMPED (PR #798 round 1, finding 2). Refreshing the
+#     Home's own managed block is a documented act, and stamping there produced
+#     a tree the currency check calls contradictory — a breakage this step
+#     caused and then warned about.
+mkdir -p "$TMP/stamp_home/policy"
+cp -r "$KIT_DIR" "$TMP/stamp_home/policy/kit"
+printf '{"role":"home","consumers":[]}\n' > "$TMP/stamp_home/policy/kit/consumers.json"
+HOMEOUT=$("$KIT_DIR/install.sh" --repo "$TMP/stamp_home" --consumer kit-test 2>&1)
+[ ! -f "$TMP/stamp_home/policy/kit/.kit-version" ] \
+  || fail "the install stamped a tree declaring role=home — that is the contradictory state check-kit-currency fails"
+printf '%s\n' "$HOMEOUT" | grep -q 'no stamp is written and none is owed' \
+  || fail "the install skipped stamping the Home without saying why"
+"$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/stamp_home" >/dev/null 2>&1 \
+  || fail "the Home is red on the currency check after its own installer ran — the breakage finding 2 named"
+echo "ok: the Home is not stamped, and stays green on its own currency check"
+
+#     7g. A SELF-INSTALL DOES NOT LAUNDER PROVENANCE (PR #798 round 1,
+#     finding 3). A consumer running its OWN vendored install.sh cannot
+#     establish where its copy came from; writing its own slug at its own HEAD
+#     would make a stale copy read `current` forever while passing every deny
+#     condition.
+mkdir -p "$TMP/selfinst/policy"
+cp -r "$KIT_DIR" "$TMP/selfinst/policy/kit"
+rm -f "$TMP/selfinst/policy/kit/consumers.json"
+{ echo "home: example/origin-home"; echo "home_revision: 1111111111111111111111111111111111111111";
+  echo "installed: 2026-01-01";
+  echo "manifest: $(bash "$KIT_DIR/bin/kit-manifest.sh" "$TMP/selfinst/policy/kit")";
+  echo "manifest_algorithm: policy/kit/bin/kit-manifest.sh"; } > "$TMP/selfinst/policy/kit/.kit-version"
+(cd "$TMP/selfinst" && bash policy/kit/install.sh --repo "$TMP/selfinst" --consumer kit-test >/dev/null 2>&1)
+grep -q '^home: example/origin-home$' "$TMP/selfinst/policy/kit/.kit-version" \
+  || fail "a self-install rewrote the recorded origin: $(grep '^home:' "$TMP/selfinst/policy/kit/.kit-version")"
+grep -q '^home_revision: 1111111111111111111111111111111111111111$' "$TMP/selfinst/policy/kit/.kit-version" \
+  || fail "a self-install rewrote the recorded home_revision — a stale copy would then read current forever"
+echo "ok: a self-install keeps the recorded origin and refreshes only the manifest"
+
+#     7h. NO STAMP RATHER THAN AN UNVERIFIABLE ONE (PR #798 round 1,
+#     finding 4). With the digest uncomputable the install used to write
+#     `manifest: unavailable` and report success, producing a stamp guaranteed
+#     to fail later.
+mkdir -p "$TMP/nodigest/policy"
+cp -r "$KIT_DIR" "$TMP/nodigest/policy/kit"
+rm -f "$TMP/nodigest/policy/kit/consumers.json"
+mkdir -p "$TMP/nosha"
+printf '#!/bin/sh\nexit 127\n' > "$TMP/nosha/sha256sum"; chmod +x "$TMP/nosha/sha256sum"
+NODIG=$(PATH="$TMP/nosha:$PATH" "$KIT_DIR/install.sh" --repo "$TMP/nodigest" --consumer kit-test 2>&1)
+[ ! -f "$TMP/nodigest/policy/kit/.kit-version" ] \
+  || fail "the install wrote a stamp whose manifest could not be computed — it would fail the currency check later while this step reported success"
+printf '%s\n' "$NODIG" | grep -q 'NO stamp is' \
+  || fail "the install skipped the stamp for an uncomputable digest without saying so"
+echo "ok: an uncomputable digest writes no stamp, and says so"
+
 echo "ALL PASS"

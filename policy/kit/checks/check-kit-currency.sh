@@ -85,9 +85,19 @@ read_currency() {
   local stamp="$kit/.kit-version"
   local consumers="$kit/consumers.json"
 
+  # NOT A FIFTH VERDICT (PR #798 round 1, finding 1). §10.2 and #795 both say
+  # "exactly one of" FOUR, and an earlier draft answered this case with a fifth,
+  # `no-kit-copy`, which was undeclared by the clause and covered by no case.
+  # It is a CALLER ERROR rather than a reading: this script lives at
+  # `policy/kit/checks/`, so a tree with no `policy/kit/` has no copy of it to
+  # run and the registry entry naming that path resolves to nothing. The state
+  # is reachable only by pointing `--root` somewhere else, which is a mistake
+  # about the argument and not a fact about a consumer. Exit 2, the same code
+  # the argument parser uses, so it can never be read as a verdict.
   if [[ ! -d "$kit" ]]; then
-    echo "verdict: no-kit-copy"
-    return 0
+    echo "error: no policy/kit/ under $root — this check ships INSIDE the kit, so a"
+    echo "tree without one holds no copy of this script either. Check --root."
+    return 2
   fi
 
   local declares_home=0
@@ -291,6 +301,31 @@ if [[ "$SELF_TEST" -eq 1 ]]; then
 
   # 11. An unreachable Home degrades to cannot-determine, never current.
   expect "unreadable Home -> cannot-determine" 0 "verdict: cannot-determine" "$T/c_cur" "$T/nope"
+
+  # 12. A tree with no kit copy is a CALLER ERROR, exit 2, and renders NO
+  #     verdict — the branch finding 1 named as undeclared and unexercised.
+  mkdir -p "$T/nokit"
+  out="$(read_currency "$T/nokit" "")"; rc=$?
+  cases=$((cases+1))
+  if [[ "$rc" -eq 2 ]] && [[ "$out" != *"verdict:"* ]]; then
+    echo "  ok   no kit copy -> exit 2, and renders no verdict"
+  else
+    echo "  FAIL no-kit-copy: exit $rc rendering: $out"; bad=$((bad+1))
+  fi
+
+  # 13. THE VERDICT SET IS EXACTLY FOUR, asserted over the shipped source
+  #     rather than trusted — the assertion that would have caught finding 1.
+  cases=$((cases+1))
+  # `+` and not `*`: a zero-width match let a bare `verdict:` — the word in a
+  # prose line — count as a fifth name, which is a detector reporting itself.
+  declared="$(grep -Eo 'verdict: [a-z][a-z-]*' "$0" | sort -u | sed 's/^verdict: //')"
+  wanted="$(printf 'behind\ncannot-determine\ncurrent\nhome\n')"
+  if [[ "$declared" == "$wanted" ]]; then
+    echo "  ok   the shipped source renders exactly four verdicts"
+  else
+    echo "  FAIL verdict set drifted from the four SPEC 10.2 names:"; echo "$declared" | sed 's/^/         /'
+    bad=$((bad+1))
+  fi
 
   echo "fixture: $cases case(s), $bad failure(s)"
   [[ "$bad" -eq 0 ]] || { echo "FAIL: kit-currency fixture"; exit 1; }

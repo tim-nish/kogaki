@@ -272,39 +272,82 @@ fi
 # from an unreachable Home. Nothing here adds it to `.gitignore`, and that is
 # the deliberate opposite of the shape read at step 4d.
 say "--- kit stamp ---"
-if [[ -d "$REPO/policy/kit" ]]; then
-  # The `.git` suffix is stripped BEFORE the owner/name pair is extracted: doing
-  # it in one expression lets the greedy path group swallow the suffix, which
-  # stamped `owner/name.git` and made every slug wrong by four characters.
-  HOME_SLUG="$(cd "$KIT_DIR/../.." && git config --get remote.origin.url 2>/dev/null \
-    | sed -e 's#\.git$##' -e 's#.*[:/]\([^/]*/[^/]*\)$#\1#' || true)"
-  [[ -n "$HOME_SLUG" ]] || HOME_SLUG="unknown-home"
-  HOME_REV="$(cd "$KIT_DIR" && git rev-parse HEAD 2>/dev/null || true)"
-  [[ -n "$HOME_REV" ]] || HOME_REV="unknown"
-  # The digest comes from the ONE implementation both writer and verifier use,
-  # so a mismatch is always a fact about the trees and never about two
-  # algorithms disagreeing.
-  KIT_MANIFEST="$(bash "$KIT_DIR/bin/kit-manifest.sh" "$REPO/policy/kit" 2>/dev/null || echo unavailable)"
-  {
-    printf 'home: %s\n' "$HOME_SLUG"
-    printf 'home_revision: %s\n' "$HOME_REV"
-    printf 'installed: %s\n' "$(date -u +%Y-%m-%d)"
-    printf 'manifest: %s\n' "$KIT_MANIFEST"
-    printf 'manifest_algorithm: policy/kit/bin/kit-manifest.sh\n'
-  } > "$REPO/policy/kit/.kit-version"
-  say "policy/kit/.kit-version: stamped $HOME_SLUG@${HOME_REV:0:12} (committed — see SPEC-client-kit 10.3)"
-  # A stamped tree must not also declare itself the Home; the currency check
-  # calls that contradictory and fails it. Removing a declaration the installer
-  # did not write would be destroying repo-own state, so this REPORTS.
-  if [[ -f "$REPO/policy/kit/consumers.json" ]] \
-     && grep -q '"role"[[:space:]]*:[[:space:]]*"home"' "$REPO/policy/kit/consumers.json" 2>/dev/null; then
-    say "WARNING: this repo also declares policy/kit/consumers.json role=home."
-    say "A tree is the kit's source or a copy of it, never both — check-kit-currency FAILS this."
-  fi
-else
+if [[ ! -d "$REPO/policy/kit" ]]; then
   say "no policy/kit/ in $REPO — the kit's OUTPUT is installed and no kit COPY is"
   say "vendored here, so no stamp is owed. Stated rather than skipped silently:"
   say "an absent stamp and a stamp step that failed read identically otherwise."
+elif [[ -f "$REPO/policy/kit/consumers.json" ]] \
+     && grep -q '"role"[[:space:]]*:[[:space:]]*"home"' "$REPO/policy/kit/consumers.json" 2>/dev/null; then
+  # THE HOME IS NOT STAMPED (PR #798 round 1, finding 2). This branch used to
+  # write the stamp and then WARN that the result was contradictory — which
+  # made the documented act of refreshing the Home's own managed block
+  # (`install.sh --repo .`) turn the Home red on the very member this kit
+  # registers. A warning beside a breakage the same step just caused is not a
+  # disclosure; refusing the write is.
+  say "policy/kit/consumers.json declares role=home — the kit's SOURCE is not a"
+  say "copy of itself, so no stamp is written and none is owed. A tree carrying"
+  say "both the declaration and a stamp is contradictory and check-kit-currency"
+  say "FAILS it, which is exactly what stamping here would have produced."
+else
+  # SELF-INSTALL IS REFUSED PROVENANCE, NOT GIVEN FALSE PROVENANCE (PR #798
+  # round 1, finding 3). `home`/`home_revision` are read from where THIS
+  # install.sh lives, which is the source being installed FROM. When that is
+  # the target's own vendored copy — a consumer running
+  # `policy/kit/install.sh --repo .` to refresh itself — the installer cannot
+  # establish where the copy came from, and writing the consumer's own slug at
+  # its own HEAD would LAUNDER the provenance: a stale copy stamped by itself
+  # reads `current` forever while passing every deny condition, which is the
+  # undeclared-duplicate state §10.1's served position names.
+  KIT_ROOT="$(cd "$KIT_DIR/../.." 2>/dev/null && pwd -P || echo "")"
+  REPO_ROOT="$(cd "$REPO" 2>/dev/null && pwd -P || echo "")"
+  SELF_INSTALL=0
+  [[ -n "$KIT_ROOT" && "$KIT_ROOT" == "$REPO_ROOT" ]] && SELF_INSTALL=1
+
+  KIT_MANIFEST="$(bash "$KIT_DIR/bin/kit-manifest.sh" "$REPO/policy/kit" 2>/dev/null || true)"
+  if [[ -z "$KIT_MANIFEST" ]]; then
+    # NO STAMP RATHER THAN AN UNVERIFIABLE ONE (PR #798 round 1, finding 4).
+    # This used to write `manifest: unavailable` and report "stamped", so the
+    # install passed while producing a stamp guaranteed to FAIL later — the
+    # failed-step-reads-as-success shape the absent-copy branch above refuses
+    # by name.
+    say "cannot compute the kit manifest (is sha256sum available?) — NO stamp is"
+    say "written. A stamp carrying no verifiable digest would fail the currency"
+    say "check later while this step reported success."
+  elif [[ "$SELF_INSTALL" -eq 1 && -f "$REPO/policy/kit/.kit-version" ]]; then
+    # A refresh in place: keep the recorded origin, refresh only the digest,
+    # so re-running the installer never rewrites where the copy came from.
+    PREV_HOME="$(sed -n 's/^home:[[:space:]]*//p' "$REPO/policy/kit/.kit-version" | head -1)"
+    PREV_REV="$(sed -n 's/^home_revision:[[:space:]]*//p' "$REPO/policy/kit/.kit-version" | head -1)"
+    PREV_INSTALLED="$(sed -n 's/^installed:[[:space:]]*//p' "$REPO/policy/kit/.kit-version" | head -1)"
+    {
+      printf 'home: %s\n' "${PREV_HOME:-unknown-home}"
+      printf 'home_revision: %s\n' "${PREV_REV:-unknown}"
+      printf 'installed: %s\n' "${PREV_INSTALLED:-$(date -u +%Y-%m-%d)}"
+      printf 'manifest: %s\n' "$KIT_MANIFEST"
+      printf 'manifest_algorithm: policy/kit/bin/kit-manifest.sh\n'
+    } > "$REPO/policy/kit/.kit-version"
+    say "policy/kit/.kit-version: self-install — the recorded origin"
+    say "${PREV_HOME:-unknown-home}@${PREV_REV:0:12} is KEPT and only the manifest refreshed."
+    say "An installer cannot establish where a copy came from by reading that copy."
+  elif [[ "$SELF_INSTALL" -eq 1 ]]; then
+    say "policy/kit/.kit-version: self-install with no prior stamp — this installer"
+    say "IS the copy, so it cannot establish an origin and NO stamp is written."
+    say "Stamp the copy from the Home it was taken from, or declare it a fork."
+  else
+    HOME_SLUG="$(cd "$KIT_DIR/../.." && git config --get remote.origin.url 2>/dev/null \
+      | sed -e 's#\.git$##' -e 's#.*[:/]\([^/]*/[^/]*\)$#\1#' || true)"
+    [[ -n "$HOME_SLUG" ]] || HOME_SLUG="unknown-home"
+    HOME_REV="$(cd "$KIT_DIR" && git rev-parse HEAD 2>/dev/null || true)"
+    [[ -n "$HOME_REV" ]] || HOME_REV="unknown"
+    {
+      printf 'home: %s\n' "$HOME_SLUG"
+      printf 'home_revision: %s\n' "$HOME_REV"
+      printf 'installed: %s\n' "$(date -u +%Y-%m-%d)"
+      printf 'manifest: %s\n' "$KIT_MANIFEST"
+      printf 'manifest_algorithm: policy/kit/bin/kit-manifest.sh\n'
+    } > "$REPO/policy/kit/.kit-version"
+    say "policy/kit/.kit-version: stamped $HOME_SLUG@${HOME_REV:0:12} (committed — see SPEC-client-kit 10.3)"
+  fi
 fi
 
 say "install complete for consumer '$CONSUMER' at $REPO"
