@@ -124,6 +124,7 @@ records forces it, and the collapse is a convenience that reads as tidiness.
 - **`rationale`** — why *this article's* materials make this the next Step.
 - **`introduces`** — optional; §4.13.
 - **`bridges`** — optional; §4.11.
+- **`opens_section`** — optional; §4.15.
 
 **Why `move` is required.** `Step = Input + State`. The inputs are the Strands,
 the Thesis and previous Step output; **the Move is the State**, and
@@ -580,11 +581,34 @@ the registered checks; what no carrier holds is why accumulation may not be
 stored, why the first introducer is the answer rather than a tie-break, and
 what an excerpt is *for* — which is what stops it drifting back to a quotation.
 
-### 4.14 The Section Packet
+### 4.14 The Step Packet
 
 The **harness-assembled input from which the model realizes one Step's prose** —
 the one LLM judgment of the Draft lane. `draft.mjs packet --step <id>` renders
 it; the session realizes the prose; `section` validates it.
+
+**RENAMED FROM "THE SECTION PACKET" (kogaki#825), and the rename is recorded
+rather than left to a reader who remembers the old heading.** §4.15 makes
+*Section* a **grouping of Steps**, so an artifact rendering exactly one Step was
+a per-Step packet named for a grouping — in a served spec heading, in a
+registered member's admission record, and at the top of the template the model
+reads. The rename lands at **every** site carrying the proper noun in one act:
+this heading, `specs/spec-brief-draft-design/DESIGN.md` §2.1 and §3,
+`checks/registry.json`'s `draft-runtime` contract, `src/draft.mjs`, and
+`src/packet-template.md`. **A subset was refused**: renaming the served heading
+without the registry contract that quotes it would put two names on one artifact,
+which is the defect one level worse than the one being fixed.
+
+**THE `section` SUBCOMMAND KEEPS ITS NAME, and that is a decision rather than an
+oversight.** `draft.mjs section` accepts one Step's realized prose, so after
+§4.15 its name reads as the grouping it does not handle. It is retained because
+it is an **entry point**, not prose: `checks/registry.json`'s kogaki#815 clause
+couples the Harness's entry-point set to `.claude/skills/draft/SKILL.md` **in
+both directions**, so moving it moves the CLI, the skill and a registered
+member's admission record together — an act whose licence is not "the Packet
+names its Section". The retention is recorded here and in the skill so a reader
+meeting the mismatch finds a decision rather than a leftover; renaming it is
+available later on its own licence.
 
 **The Packet is the model's ENTIRE input.** Nothing outside it is read, which is
 why every block opens with a **fixed usage header** saying what the block is
@@ -595,7 +619,7 @@ imperative.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
 anchors → the Move's contract → the Step's fields → the §4.13 ledger → every
-previously realized Section in recorded order → the write instruction.
+previously realized Step's prose in recorded order → the write instruction.
 
 **`requires`/`effect` are EXCLUDED**, and the exclusion is the ruling rather
 than an omission: §4.12 makes the Step's `reader_state_before`/`after` the
@@ -604,8 +628,8 @@ general and the specialized statement of one thing side by side and leave the
 model to choose. The Step's instantiated states win.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
-run id, and prior Sections in the **Brief's recorded order** rather than from a
-directory read.
+run id, and prior Steps' prose in the **Brief's recorded order** rather than from
+a directory read.
 
 **A missing input refuses BY NAME rather than rendering an empty slot.** In an
 input that is the model's whole world, a hole is not a gap the model notices —
@@ -640,6 +664,68 @@ What no carrier holds: why the Packet is the entire input, why an absence must
 refuse rather than render, and why the template may not cite a spec — each a
 claim about what the model will do with a surface, which only a reader can
 judge.
+
+### 4.15 The Section — a grouping of Steps, declared on `opens_section`
+
+**A Step is one unit of realization; a Section is one promise to the reader that
+the question changes here.** They are different units, and binding the heading to
+the Step produced both drafts the owner rejected on 2026-09-03 — one heading per
+Step read as fragmented, none read as unscannable. A **Section is a grouping of
+Steps declared in the Brief**: the Harness renders one heading per Section and
+none inside it.
+
+**The carrier is `opens_section: <title>`** on the Step that opens a Section,
+absent on a Step that continues one. One key, not two: its **presence** marks the
+opening and its **value** carries the title. A separate `section_title` key was
+declined at kogaki#822 because two keys can disagree — a Step opening with no
+title, a title on a continuing Step — and neither state has a meaning.
+
+**Filled at composition, validated at mint.** Judging which Steps open is
+composition-time judgment and belongs where the Steps are already judged: the
+Brief. The four rules below are the Harness's **validation of that judgment**,
+not a second judge — so a Brief that opens a Section on every Step, or on none,
+refuses at `brief.mjs mint` **naming the rule it broke and the Step**.
+
+1. **A Step opens a Section when it changes the reader's question** — its
+   `purpose` answers a question the previous Step did not pose, or its
+   `introduces` (§4.13) names a term later Steps use.
+2. **A Step continues the current Section when it develops the previous one** —
+   its `depends_on` is the immediately preceding Step and its `materials`
+   overlap that Step's.
+3. **The first Step always opens.** A Section never closes on a Step that only
+   sets up the next one, so a heading never lands on a transition paragraph.
+4. **Length is a check, not the rule.** A Section running past roughly a screen
+   and a half of prose without a heading is refused with a request to split; two
+   consecutive Sections that are each one short Step are refused with a request
+   to merge. **Article length enters as a bound on the grouping, never as its
+   reason** — the ordering is load-bearing, because a length rule promoted to the
+   reason is a heading budget, which is the fragmented draft again with a number
+   attached.
+
+**This section is NORMATIVE and `specs/spec-brief-draft-design/DESIGN.md` §2.1
+points at it.** The four rules were ratified there on 2026-09-03 and stood in
+both documents at kogaki#822's pickup; a copy with no declared precedence and no
+mismatch check is a defect this repository has already paid for elsewhere, so
+the precedence is declared rather than left to two texts that can drift. DESIGN
+§2.1 keeps the ruling's grounds — why Section is a unit at all — and this section
+keeps the contract a validator and a registered check assert against.
+
+**What this section does not decide.** How a Section title is *worded* is
+composition judgment; this says a title exists and where it is declared, never
+what it should say. Packet timing and location stay §3's and kogaki#809's.
+
+**NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS.** At this head
+`src/brief.mjs` has no `opens_section` and no rule validation, and `src/draft.mjs
+emit` still renders one heading per Step. Carriers: **kogaki#822** (the field and
+its mint validation), **kogaki#823** (the renderer and the frontmatter Step→Section
+trace).
+
+`necessity:` the four rules are a validator's contract and a registered check's
+assertion target, so they need a site inside this spec rather than a pointer out
+of it — §4.1 names every other optional field's own subsection and this field had
+none. What no carrier holds: why a heading is a promise to the reader rather than
+an artifact of how the text was produced, and why length is subordinated to the
+grouping rather than standing in for it.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 

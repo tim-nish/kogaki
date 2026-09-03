@@ -168,9 +168,32 @@ check, which names the identity form as the migration in its refusal. Content
 drift behind a resolving identity remains the quote check's to catch.
 `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 topics/knowledge-architecture.md:126`
 
-A **per-Step trace** — which sections realize which `step_id` — is
-machine-readable record, persisted because review's fidelity dimension reads it.
-**The trace never renders as visible structure in the article body.**
+A **per-Step trace** — which prose block realizes which `step_id`, **and which
+Section that Step belongs to** — is machine-readable record, persisted because
+review's fidelity dimension reads it. **The trace never renders as visible
+structure in the article body.**
+
+**THE SECTION HALF IS kogaki#823's, and the word was corrected in the same act.**
+This sentence read "which sections realize which `step_id`", using *Section* for
+the per-Step unit — a site of the collision `specs/spec-draft-pipeline/SPEC.md`
+§4.15 creates and one that neither kogaki#825's site table nor
+`specs/spec-brief-draft-design/DESIGN.md` enumerated. A Step is one unit of
+realization; a **Section** is a grouping of Steps declared on `opens_section`
+(§4.15). The trace maps **each Step to exactly one Section**, which is what lets
+a reviewer check the grouping the Brief declared against the article that was
+produced from it.
+
+**VISIBLE STRUCTURE IS THE SECTION'S, NEVER THE STEP'S.** `emit` writes one
+`## <title>` per Section, at its opening Step, and **no heading inside a
+Section** — so the count of body headings equals the count of Sections and is
+strictly less than the count of Steps in any Brief that groups at all. This is
+the rendering half of §4.15 and does not weaken the refusal above: a Section
+heading is a **title the Brief declared**, never a step id, so a heading that is
+a bare step id stays refused exactly as it is today.
+
+**NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS.** At this head
+`src/draft.mjs emit` renders one heading per Step and the trace carries no
+Section. Carrier: **kogaki#823**.
 
 **LLM — judgment, contract-bound, unharnessed.** The prose: realizing each
 Step's declared `reader_state_before → reader_state_after` transition, written

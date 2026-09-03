@@ -113,23 +113,23 @@ judged: **the Brief**. The four rules below are the Harness's *validation* of
 that judgment, not a second judge — a Brief that opens a Section on every Step,
 or on none, is refused at mint with the rule it broke and the Step named.
 
-**The four rules, computed from fields the Brief already carries:**
+**THE FOUR RULES ARE NORMATIVE AT `specs/spec-draft-pipeline/SPEC.md` §4.15,
+AND THIS RECORD POINTS AT THEM RATHER THAN RESTATING THEM (kogaki#822).** They
+were ratified here on 2026-09-03 and stood in full in both documents until §4.15
+landed. **The precedence is declared rather than left to two texts that can
+drift**: §4.15 is the contract `brief.mjs mint` validates against and a
+registered check asserts, and this section keeps the *grounds* — why Section is a
+unit at all, and why length is subordinated to the grouping. A copy with no
+declared precedence and no mismatch check is a defect this repository has already
+paid for, which is why the reduction is part of the act that created the second
+copy rather than a later tidy-up.
 
-1. **A Step opens a Section when it changes the reader's question** — its
-   `purpose` answers a question the previous Step did not pose, or its
-   `introduces:` names a term that later Steps use.
-2. **A Step continues the current Section when it develops the previous one** —
-   its `depends_on` is the immediately preceding Step and its `materials`
-   overlap with that Step's.
-3. **The first Step always opens.** A Section never closes on a Step that only
-   sets up the next one, so a heading never lands on a transition paragraph.
-4. **Length is a check, not the rule.** A Section running past roughly a screen
-   and a half of prose without a heading is refused with a request to split; two
-   consecutive Sections that are each one short Step are refused with a request
-   to merge. **Article length enters as a bound on the grouping, never as its
-   reason** — the ordering is load-bearing, because a length rule promoted to
-   the reason is a heading budget, which is the fragmented draft again with a
-   number attached.
+**In one line, so this section is readable alone:** a Step **opens** a Section
+when it changes the reader's question, **continues** when it develops the
+previous one, the **first Step always opens**, and **length is a check on the
+grouping and never its reason** — a length rule promoted to the reason is a
+heading budget, which is the fragmented draft again with a number attached.
+§4.15 is the text that binds.
 
 **NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS**, stated in that shape
 deliberately — the same correction PR #813 round 1 forced one section down,
@@ -157,12 +157,13 @@ larger half** (PR #826 round 1, finding 2 — the first drafting of this paragra
 named only the template's three headers and was narrower than the collision it
 was disclosing). The name appears in **this file** at §3 ("One Step's realization
 takes exactly one input: the **Section Packet**"), as the heading of a ratified
-spec section — `specs/spec-draft-pipeline/SPEC.md` §4.14, *The Section Packet* —
+spec section — `specs/spec-draft-pipeline/SPEC.md` §4.14, then *The Section
+Packet* and now *The Step Packet* —
 in `src/draft.mjs`'s own subcommand gloss, at the top of the template, and inside
 `checks/registry.json`'s `draft-runtime` contract, which states §4.14 in the same
-words. So after this ruling the Section Packet is a **per-Step packet named for a
-grouping**, in a served spec heading and in a registered member's admission
-record.
+words. So after this ruling the Section Packet was a **per-Step packet named for
+a grouping**, in a served spec heading and in a registered member's admission
+record. It is **the Step Packet** as of the reconciliation recorded below.
 
 **Nothing here renames it, and the reason is stated rather than left as an
 omission.** A ratified spec section heading and a registry contract are not this
@@ -171,6 +172,32 @@ rename that touched the served spec without touching the registry contract that
 quotes it would put two names on one artifact, which is the defect one level
 worse than the one being fixed. **#825 carries the reconciliation and its scope
 is widened to every site named above**, the template included.
+
+**THE RECONCILIATION IS DECIDED (owner selection 2026-09-03, kogaki#825), AND
+THE SITE LIST ABOVE WAS INCOMPLETE.** Two sites carrying *Section* for the
+per-Step unit appear in neither the enumeration above nor #825's own table:
+`specs/spec-draft-command/SPEC.md`'s trace sentence ("which sections realize
+which `step_id`"), and **the `section` subcommand of `src/draft.mjs`**, named
+four times in `.claude/skills/draft/SKILL.md`. The second is the expensive one —
+`checks/registry.json`'s kogaki#815 clause couples the Harness's entry-point set
+to that skill file **in both directions** — and it is why the decision separates
+two names rather than treating the collision as one:
+
+- **The proper noun renames completely.** *Section Packet* → **Step Packet**, at
+  every site carrying it in one act: `specs/spec-draft-pipeline/SPEC.md` §4.14,
+  this file's §2.1 and §3, `checks/registry.json`'s `draft-runtime` contract,
+  `src/draft.mjs`, and `src/packet-template.md`. No subset.
+- **The ordinary-word misuses are fixed**, the template's block headers and the
+  trace sentence included.
+- **The `section` subcommand is RETAINED, with the retention recorded** at
+  §4.14 and in the skill, so a reader meeting the mismatch finds a decision
+  rather than a leftover. Moving a CLI entry point is not licensed by "the
+  Packet names its Section"; renaming it is available later on its own licence.
+
+Stated as a decision because the constraint above admits exactly two arms —
+rename every site, or rename none and record at each — and this satisfies both,
+once per name: one name renamed everywhere, one retained with its retention
+recorded at its sites.
 
 **WHAT THIS SECTION DOES NOT DECIDE.** Packet timing and location stay §3's and
 #809's. The Step-to-Move contract stays #747's. The `intent`-style question of
@@ -206,8 +233,9 @@ necessity: *the Packet's design is a claim about what a model does with an
 input, and the template can state the rules but not the reasoning for the block
 ORDER, the exclusions, or which failure each header is defending against.*
 
-One Step's realization takes exactly one input: the **Section Packet**, rendered
-by `draft.mjs packet` from a fixed template. Nothing outside it is read.
+One Step's realization takes exactly one input: the **Step Packet** — named *the
+Section Packet* until kogaki#825, see §2.1 — rendered by `draft.mjs packet` from
+a fixed template. Nothing outside it is read.
 
 **AND THE HARNESS RENDERS IT, as the step immediately before realization
 (kogaki#809, owner ruling 2026-09-03).** The sentence above was true of the
