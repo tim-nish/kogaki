@@ -581,11 +581,34 @@ the registered checks; what no carrier holds is why accumulation may not be
 stored, why the first introducer is the answer rather than a tie-break, and
 what an excerpt is *for* — which is what stops it drifting back to a quotation.
 
-### 4.14 The Section Packet
+### 4.14 The Step Packet
 
 The **harness-assembled input from which the model realizes one Step's prose** —
 the one LLM judgment of the Draft lane. `draft.mjs packet --step <id>` renders
 it; the session realizes the prose; `section` validates it.
+
+**RENAMED FROM "THE SECTION PACKET" (kogaki#825), and the rename is recorded
+rather than left to a reader who remembers the old heading.** §4.15 makes
+*Section* a **grouping of Steps**, so an artifact rendering exactly one Step was
+a per-Step packet named for a grouping — in a served spec heading, in a
+registered member's admission record, and at the top of the template the model
+reads. The rename lands at **every** site carrying the proper noun in one act:
+this heading, `specs/spec-brief-draft-design/DESIGN.md` §2.1 and §3,
+`checks/registry.json`'s `draft-runtime` contract, `src/draft.mjs`, and
+`src/packet-template.md`. **A subset was refused**: renaming the served heading
+without the registry contract that quotes it would put two names on one artifact,
+which is the defect one level worse than the one being fixed.
+
+**THE `section` SUBCOMMAND KEEPS ITS NAME, and that is a decision rather than an
+oversight.** `draft.mjs section` accepts one Step's realized prose, so after
+§4.15 its name reads as the grouping it does not handle. It is retained because
+it is an **entry point**, not prose: `checks/registry.json`'s kogaki#815 clause
+couples the Harness's entry-point set to `.claude/skills/draft/SKILL.md` **in
+both directions**, so moving it moves the CLI, the skill and a registered
+member's admission record together — an act whose licence is not "the Packet
+names its Section". The retention is recorded here and in the skill so a reader
+meeting the mismatch finds a decision rather than a leftover; renaming it is
+available later on its own licence.
 
 **The Packet is the model's ENTIRE input.** Nothing outside it is read, which is
 why every block opens with a **fixed usage header** saying what the block is
@@ -596,7 +619,7 @@ imperative.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
 anchors → the Move's contract → the Step's fields → the §4.13 ledger → every
-previously realized Section in recorded order → the write instruction.
+previously realized Step's prose in recorded order → the write instruction.
 
 **`requires`/`effect` are EXCLUDED**, and the exclusion is the ruling rather
 than an omission: §4.12 makes the Step's `reader_state_before`/`after` the
@@ -605,8 +628,8 @@ general and the specialized statement of one thing side by side and leave the
 model to choose. The Step's instantiated states win.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
-run id, and prior Sections in the **Brief's recorded order** rather than from a
-directory read.
+run id, and prior Steps' prose in the **Brief's recorded order** rather than from
+a directory read.
 
 **A missing input refuses BY NAME rather than rendering an empty slot.** In an
 input that is the model's whole world, a hole is not a gap the model notices —
