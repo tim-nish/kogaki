@@ -26,7 +26,7 @@
 //              closed set refuses by name. Snapshots the assembled state
 //              into the run workspace — no per-block commit and no tracked
 //              diff artifact (the kogaki#523 constraint, §5).
-//   packet   — render the Section Packet: the model's ENTIRE input for one
+//   packet   — render the Step Packet: the model's ENTIRE input for one
 //              Step (§4.14, kogaki#749), deterministic and stored as served.
 //   emit     — assemble the CanonicalDraft: body = the sections in the
 //              Reader Path's recorded order, prose only; frontmatter = the
@@ -138,7 +138,7 @@ export function parseBrief(text, path = "<brief>") {
     if (!idM) { refusals.push(`the Brief at ${path} carries a step block with no step_id`); continue; }
     // `move:` IS READ (§4.12, kogaki#747). It was parsed for `step_id` only
     // and the Move binding sat here as uninterpreted dead input, so a typo'd
-    // or renamed id rode a minted Brief in silence until the Section Packet
+    // or renamed id rode a minted Brief in silence until the Step Packet
     // assembler joined Step.move → moves/<id>.md and failed mid-draft. Read
     // here, refused at `resolve` below — at the entry to realization rather
     // than partway through it.
@@ -490,7 +490,57 @@ function stepField(body, field) {
   return m ? m[1].trim() : null;
 }
 
-export function renderPacket({ template, brief, step, moveText, priorSections, ledgerRow }) {
+// §4.15's Section, as the Packet says it (kogaki#825). The Packet is the
+// model's ENTIRE input, so "which Section am I in" is answerable only if the
+// Packet answers it — an opening Step is told the title it is opening, and a
+// continuing Step is told the heading it sits under. Both forms name a title
+// that is ALREADY ON THE PAGE or about to be, so neither invites the model to
+// write one.
+//
+// The untitled case is the pre-§4.15 corpus, which derives one untitled
+// Section: it is STATED rather than left blank, for the same reason every other
+// absence in this renderer is stated — a hole in the model's whole world is not
+// a gap the model notices, it is a hole the model fills by invention.
+export function sectionPlacement(sec) {
+  if (sec === undefined) return "(this Brief declares no Sections — the article is one unbroken run of prose, and no heading is rendered.)";
+  if (sec.title === undefined) {
+    return `- **Section.** ${sec.index} of this article, untitled — this Brief declares no Section titles, so no heading is rendered above your prose.`;
+  }
+  const others = sec.step_ids.length - 1;
+  return sec.opens
+    ? `- **This Step OPENS a Section.** Its heading is **"${sec.title}"**, rendered by the Harness immediately above your prose.\n`
+      + `- **Your prose is what the heading promises.** ${others === 0
+          ? "This Step is the whole Section."
+          : `${others} further Step${others === 1 ? "" : "s"} continue${others === 1 ? "s" : ""} under it, so open the question rather than closing it.`}`
+    : `- **This Step CONTINUES the Section headed "${sec.title}".** That heading is already on the page, above prose you are writing further into.\n`
+      + `- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Step that opens its own.`;
+}
+
+// PRIOR PROSE GROUPED BY SECTION (kogaki#825). The flat concatenation was
+// well defined for an opening Step and not for a continuing one: "the article
+// so far" had no boundary inside it, so a Step continuing a Section could not
+// tell which prose was its own Section's and which belonged to earlier ones.
+// Grouping under the headings the Draft will actually render is what bounds it,
+// and the current Section comes LAST because it is the prose immediately above
+// where the model writes.
+export function priorProseBySection(priorSections, sections, currentIndex) {
+  if (!priorSections.length) return null;
+  const have = new Map(priorSections.map((p) => [p.step_id, p.text]));
+  const out = [];
+  for (const sec of sections) {
+    if (sec.index > currentIndex) break;
+    const parts = sec.step_ids.filter((id) => have.has(id)).map((id) => have.get(id));
+    if (!parts.length) continue;
+    const label = sec.title === undefined
+      ? `### (untitled Section ${sec.index})`
+      : `### ${sec.title}`;
+    const mark = sec.index === currentIndex ? " — THIS STEP'S OWN SECTION, so far" : "";
+    out.push(`${label}${mark}\n\n${parts.join("\n\n")}`);
+  }
+  return out.length ? out.join("\n\n") : null;
+}
+
+export function renderPacket({ template, brief, step, moveText, priorSections, ledgerRow, section, sections }) {
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
 
@@ -527,9 +577,14 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
       ? known.map((k) => `- ${k.term}${k.anchor ? ` — ${k.anchor}` : ""} (introduced at ${k.introduced_by})`).join("\n")
       : "(nothing — this is the first Section to introduce anything, or the path introduces no terms)",
     introduces: intro.length ? intro.map((e) => `- ${e}`).join("\n") : "(nothing new)",
+    section_placement: sectionPlacement(section),
+    // BOUNDED BY THE SECTION, not merely ordered (kogaki#825). Falls back to the
+    // flat form only when no grouping is derivable, so a Brief that declares no
+    // Sections reads exactly as it did before this issue.
     prior_sections: priorSections.length
-      ? priorSections.map((p) => p.text).join("\n\n")
-      : "(nothing yet — this is the article's first Section)",
+      ? (priorProseBySection(priorSections, sections || [], section?.index ?? 1)
+         || priorSections.map((p) => p.text).join("\n\n"))
+      : "(nothing yet — this is the article's first Step, so nothing precedes it)",
   };
   if (missing.length) {
     return { error: `the Packet for ${step.step_id} cannot be rendered: ${missing[0]} is absent. `
@@ -579,7 +634,13 @@ function renderAndStorePacket(brief, id, args, ws) {
   const ledger = readerKnowledgeLedger(brief.steps);
   const row = ledger.find((r) => r.step_id === id);
 
-  const r = renderPacket({ template, brief, step, moveText, priorSections: prior, ledgerRow: row });
+  // The SAME derivation the renderer and the trace use (kogaki#823's
+  // `sectionsOf`/`sectionOfStep`), never a second one: what the Draft renders
+  // and what the Packet says about where this Step sits cannot disagree.
+  const sections = sectionsOf(brief.steps);
+  const section = sectionOfStep(brief.steps).get(id);
+
+  const r = renderPacket({ template, brief, step, moveText, priorSections: prior, ledgerRow: row, section, sections });
   if (r.error) return { error: r.error };
 
   // RETENTION: stored EXACTLY AS SERVED, overwritten on re-render, with the
@@ -1409,6 +1470,74 @@ async function runSelfTest() {
   ok("a path declaring no Section derives one untitled Section and renders no heading",
     sectionsOf([{ step_id: "s1" }, { step_id: "s2" }]).length === 1 &&
     !/^## /m.test(out.split("---\n").slice(2).join("---\n")));
+
+  // 8 — §4.15 IN THE PACKET (kogaki#825). Block 7 asserts what the DRAFT
+  // renders; this asserts what the PACKET SAYS, which is a different artifact
+  // with a different reader — the model, whose entire world it is. The two are
+  // driven off the SAME Brief so the derivation they share is exercised once
+  // rather than twice, which is the point of sharing it.
+  const packSec = (step) => spawnSync(process.execPath,
+    [self, "packet", "--brief", join(secDir, "brief.md"), "--workspace", secWs, "--moves-dir", movesDir, "--step", step],
+    { encoding: "utf8" });
+  const pT1 = packSec("t1"), pT2 = packSec("t2"), pT3 = packSec("t3");
+  const bodyT1 = pT1.stdout, bodyT2 = pT2.stdout, bodyT3 = pT3.stdout;
+
+  ok("every Packet names its Section",
+    [bodyT1, bodyT2, bodyT3].every((b) => b.includes("## The Section this Step sits in")));
+  ok("an opening Step's Packet carries the title it opens",
+    bodyT1.includes("OPENS a Section") && bodyT1.includes('"The first question"'),
+    bodyT1.split("## The Section this Step sits in")[1]?.slice(0, 200));
+  ok("a continuing Step's Packet names the heading it sits under, and says no heading is rendered here",
+    bodyT2.includes("CONTINUES the Section headed") && bodyT2.includes('"The first question"') &&
+    bodyT2.includes("No new heading is rendered here"),
+    bodyT2.split("## The Section this Step sits in")[1]?.slice(0, 200));
+  // The discrimination, without which "names its Section" is satisfied by a
+  // Packet that names the same thing for every Step.
+  ok("the two forms discriminate: a Step that opens is not told it continues",
+    !bodyT1.includes("CONTINUES the Section headed") && !bodyT2.includes("OPENS a Section"));
+  ok("the second Section's opening Step names ITS title, not the first's",
+    bodyT3.includes("OPENS a Section") && bodyT3.includes('"The second question"') &&
+    !bodyT3.split("## The Section this Step sits in")[1].split("##")[0].includes("The first question"));
+
+  // Acceptance 2 — the article-so-far block is BOUNDED. The flat form was well
+  // defined for an opening Step and not for a continuing one; grouping under
+  // the headings the Draft renders is what supplies the boundary.
+  const soFar = (b) => b.split("## The article so far")[1]?.split("## Write")[0] ?? "";
+  ok("the article-so-far block groups prior prose under its Section headings",
+    soFar(bodyT2).includes("### The first question"));
+  ok("a continuing Step's own Section so far is marked as its own",
+    soFar(bodyT2).includes("THIS STEP'S OWN SECTION, so far"), soFar(bodyT2).trim().slice(0, 200));
+  ok("a later Section's Packet carries the EARLIER Section and its own, in order",
+    soFar(bodyT3).indexOf("### The first question") >= 0 &&
+    soFar(bodyT3).indexOf("### The first question") < (soFar(bodyT3).indexOf("### The second question") >= 0
+      ? soFar(bodyT3).indexOf("### The second question") : Infinity));
+  ok("the first Step states the absence of prior prose rather than rendering empty",
+    soFar(bodyT1).includes("nothing yet"));
+
+  // Acceptance 3 — one word, one unit. Asserted on the RENDERED Packet, which
+  // is what the model reads, and not only on the template.
+  ok("no rendered block header uses Section for the per-Step unit",
+    !bodyT1.includes("# Write one Section") && !bodyT1.includes("This Section's Step") &&
+    !bodyT1.includes("The Move this Section performs") &&
+    bodyT1.includes("# Write one Step") && bodyT1.includes("## This Step"));
+  // The CONTROL: "Section" still appears, because the grouping is a real unit
+  // the Packet must name. A check asserting its absence would be asserting the
+  // rename went too far.
+  ok("Section survives in the rendered Packet as the GROUPING, not as the Step",
+    bodyT1.includes("A Section is a grouping of Steps"));
+
+  // §4.14.1's standing prohibition, re-asserted because this issue rewrote the
+  // template: the template and the rendered Packet both point at no spec.
+  ok("neither the rewritten template nor the rendered Packet points at a spec",
+    !/§\d/.test(readFileSync(join(dirname(self), "packet-template.md"), "utf8")) && !/§\d/.test(bodyT1));
+
+  // The pre-§4.15 CONTROL: a Brief declaring no Section renders the stated
+  // absence rather than a blank or an invented title, and its article-so-far
+  // block falls back to the flat form it always had.
+  ok("an undeclared path's Packet states the absence of Sections",
+    sectionPlacement(undefined).includes("declares no Sections"));
+  ok("an untitled Section renders as untitled rather than as a blank title",
+    sectionPlacement({ index: 1, title: undefined, opens: true, step_ids: ["s1"] }).includes("untitled"));
 
   rmSync(root, { recursive: true, force: true });
   process.stdout.write(`draft self-test: ${passed} case(s) pass${failures.length ? `, FAILURES: ${failures.join(" | ")}` : ""}\n`);
