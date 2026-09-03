@@ -58,4 +58,89 @@ if (( N < FLOOR )); then
 fi
 echo "ok: draft runtime fixture pass ran ${N} case(s) clean, at or above its declared floor of ${FLOOR}"
 
+# --- THE SKILL NAMES ONLY PATHS AND SUBCOMMANDS THE HARNESS HAS (kogaki#812).
+#
+# This is the assertion that earns the draft skill its place in `.gitignore`'s
+# tracked set, on the criterion that block already states for `brief` and
+# `terrain`: a check asserts against the skill, and the assertion does not exist
+# without its file.
+#
+# WHAT IT CATCHES, from the incident that filed it: untracked, the skill was
+# invisible to kogaki#765's `git grep` rename sweep and went on naming
+# `draft/draft.mjs` — a path removed 2026-09-02 — while the sweep reported
+# clean. A rename that misses one file is silent precisely where the file is
+# unreadable to the sweep.
+#
+# SCOPE, stated so the pass is not read as more: it checks that every path and
+# every subcommand the skill NAMES exists. It cannot check that the skill says
+# the right thing, and DESIGN.md §3 is explicit that tracking is necessary and
+# not sufficient — what makes the flow ordering hold is that it lives in the
+# Harness, not that this file is now checked.
+SKILL=".claude/skills/draft/SKILL.md"
+if [[ ! -f "$SKILL" ]]; then
+  echo "FAIL: $SKILL is missing — it is tracked (kogaki#812) and this member asserts against it, so its absence is a defect rather than a skip"
+  exit 1
+fi
+
+# Every `<path>/draft.mjs` the skill names must resolve.
+NAMED_PATHS=$(grep -oE '[A-Za-z0-9_./-]*draft\.mjs' "$SKILL" | sort -u)
+BAD_PATH=0
+while read -r pth; do
+  [[ -z "$pth" ]] && continue
+  if [[ ! -f "$pth" ]]; then
+    echo "FAIL: $SKILL names '$pth', which does not exist — a skill naming a removed entry point is the kogaki#765 rename-sweep miss, and this member is what makes it loud"
+    BAD_PATH=1
+  fi
+done < <(printf '%s\n' "$NAMED_PATHS")
+(( BAD_PATH == 0 )) || exit 1
+
+# THE FLOOR ON THE PATH ARM. Without it the loop above iterates zero times on a
+# skill that names no path at all, and the member prints its ok line having
+# asserted nothing (kogaki#815 round 1, finding 2). A pass must mean the arm ran.
+if [[ -z "$NAMED_PATHS" ]]; then
+  echo "FAIL: $SKILL names no '<path>/draft.mjs' at all, so the path arm asserted nothing — a check that passes vacuously on an empty subject is the fixture-too-small class this member's own efficacy_note already records three times"
+  exit 1
+fi
+
+# Every subcommand it names must be one the Harness dispatches.
+DISPATCHED=$(grep -oE '^ *case "[a-z]+":' src/draft.mjs | sed 's/.*"\([a-z]*\)".*/\1/' | sort -u)
+NAMED_CMDS=$(grep -oE 'draft\.mjs +[a-z]+' "$SKILL" | awk '{print $2}' | sort -u)
+BAD_CMD=0
+while read -r sub; do
+  [[ -z "$sub" ]] && continue
+  if ! grep -qx "$sub" <<<"$DISPATCHED"; then
+    echo "FAIL: $SKILL invokes 'draft.mjs $sub', which the Harness does not dispatch (it has: $(tr '\n' ' ' <<<"$DISPATCHED"))"
+    BAD_CMD=1
+  fi
+done < <(printf '%s\n' "$NAMED_CMDS")
+(( BAD_CMD == 0 )) || exit 1
+
+# THE FLOOR ON THE DISPATCH ARM, AND IT IS MUTUAL COVERAGE RATHER THAN A COUNT
+# (kogaki#815 round 1, finding 2). The loop above only constrains the skill's
+# names from one side, so it passed vacuously on a skill naming nothing, and a
+# re-spelling that broke the literal `draft.mjs <sub>` form -- backticks around
+# the filename, a line wrap -- silently emptied it while still printing ok. The
+# floor closes both at once: every subcommand the Harness DISPATCHES must be
+# named by the skill. A skill that names nothing now fails once per subcommand
+# instead of passing, and a re-spelling fails on the subcommand it hid.
+#
+# THE COST, stated rather than discovered: adding a subcommand to src/draft.mjs
+# now fails this member until the skill names it. That is the intended polarity
+# -- this file is the entry-point surface, and an entry point absent from it is
+# the kogaki#765 drift running the other direction -- but it is a real coupling,
+# and a genuinely internal subcommand would have to be documented here or the
+# arm given a declared exclusion. Neither is owed today: the dispatch set is
+# exactly the five entry points.
+MISSING_CMD=0
+while read -r sub; do
+  [[ -z "$sub" ]] && continue
+  if ! grep -qx "$sub" <<<"$NAMED_CMDS"; then
+    echo "FAIL: the Harness dispatches 'draft.mjs $sub' and $SKILL does not name it -- either the skill has drifted behind the entry points it exists to name, or its invocation form changed and this arm can no longer read it (kogaki#815)"
+    MISSING_CMD=1
+  fi
+done <<<"$DISPATCHED"
+(( MISSING_CMD == 0 )) || exit 1
+
+echo "ok: the draft skill names every subcommand the Harness dispatches, and only paths and subcommands that exist — tracked under .gitignore's stated criterion, and NOT a claim that it says the right thing (DESIGN.md 3: tracking is necessary and not sufficient)"
+
 exit 0

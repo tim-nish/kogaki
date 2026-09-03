@@ -87,14 +87,26 @@ policy/shape.md
 # `check-terrain-composition.sh:473` asserts the co-tag step is named in
 # terrain's (its absence routed a tag selection to a second `view --tag` and
 # produced the dump, §6.1).
+#
+# DRAFT JOINS THEM (kogaki#812, DESIGN.md §3). Its admission is the same
+# criterion and its evidence is what the absence cost: untracked, the file was
+# invisible to kogaki#765's `git grep` rename sweep, so it went on naming
+# `draft/draft.mjs` — removed 2026-09-02 — and never mentioned the Packet at
+# all. `check-draft-runtime.sh` now asserts every Harness path and subcommand
+# the skill names, which is the assertion that does not exist without its file.
+# Untracked also meant the file never reached a worktree, since `git worktree
+# add` does not populate ignored paths.
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/brief/
 !.claude/skills/terrain/
+!.claude/skills/draft/
 .claude/skills/brief/*
 .claude/skills/terrain/*
+.claude/skills/draft/*
 !.claude/skills/brief/SKILL.md
 !.claude/skills/terrain/SKILL.md
+!.claude/skills/draft/SKILL.md
 
 # The remaining reader, admitted by the same criterion (kogaki#621).
 # Tracking it is what lets its absence guard be deleted rather than placed:
