@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The external-dependency registry, made checkable (specs/SPEC.md:69-80,
+# The external-dependency registry, made checkable (specs/SPEC.md:861-874,
 # specs/spec-external-deps/SPEC.md; kogaki#55, story 1.14).
 #
 # WHAT THIS CARRIES. `src/deps-registry.json` declares the capabilities this
