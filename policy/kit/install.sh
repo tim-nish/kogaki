@@ -251,4 +251,60 @@ else
   say "no seam checks vendored with this kit"
 fi
 
+# 7. THE KIT STAMP (kogaki#795; contract specs/spec-client-kit/SPEC.md §10.2).
+#
+# A copy without provenance cannot exist, because THE ACT THAT PRODUCES THE
+# COPY IS THE ACT THAT STAMPS IT. That is the `constrains:` half of #633's
+# remedy, and it is why this step lives in the installer rather than in a
+# reminder: a rule needing someone to remember it is advisory, and its apparent
+# coverage is an enumeration of the places somebody happened to act.
+#
+# STAMPED ONLY WHERE A COPY EXISTS, and the absence is DISCLOSED rather than
+# silently skipped. `install.sh` does not vendor `policy/kit/` — it installs the
+# kit's OUTPUT (the managed block, the map, the skill, the digest, the emissions
+# directory) — so a consumer holds a kit copy only if one was placed there. With
+# no copy there is nothing to be behind and no stamp is owed; saying so is what
+# keeps this distinguishable from a stamp step that failed.
+#
+# COMMITTED, not gitignored — §10.3. A machine-local stamp is durable against a
+# working copy only, so a fresh clone would inherit no provenance and the
+# currency check would read `cannot-determine` on every clone, indistinguishable
+# from an unreachable Home. Nothing here adds it to `.gitignore`, and that is
+# the deliberate opposite of the shape read at step 4d.
+say "--- kit stamp ---"
+if [[ -d "$REPO/policy/kit" ]]; then
+  # The `.git` suffix is stripped BEFORE the owner/name pair is extracted: doing
+  # it in one expression lets the greedy path group swallow the suffix, which
+  # stamped `owner/name.git` and made every slug wrong by four characters.
+  HOME_SLUG="$(cd "$KIT_DIR/../.." && git config --get remote.origin.url 2>/dev/null \
+    | sed -e 's#\.git$##' -e 's#.*[:/]\([^/]*/[^/]*\)$#\1#' || true)"
+  [[ -n "$HOME_SLUG" ]] || HOME_SLUG="unknown-home"
+  HOME_REV="$(cd "$KIT_DIR" && git rev-parse HEAD 2>/dev/null || true)"
+  [[ -n "$HOME_REV" ]] || HOME_REV="unknown"
+  # The digest comes from the ONE implementation both writer and verifier use,
+  # so a mismatch is always a fact about the trees and never about two
+  # algorithms disagreeing.
+  KIT_MANIFEST="$(bash "$KIT_DIR/bin/kit-manifest.sh" "$REPO/policy/kit" 2>/dev/null || echo unavailable)"
+  {
+    printf 'home: %s\n' "$HOME_SLUG"
+    printf 'home_revision: %s\n' "$HOME_REV"
+    printf 'installed: %s\n' "$(date -u +%Y-%m-%d)"
+    printf 'manifest: %s\n' "$KIT_MANIFEST"
+    printf 'manifest_algorithm: policy/kit/bin/kit-manifest.sh\n'
+  } > "$REPO/policy/kit/.kit-version"
+  say "policy/kit/.kit-version: stamped $HOME_SLUG@${HOME_REV:0:12} (committed — see SPEC-client-kit 10.3)"
+  # A stamped tree must not also declare itself the Home; the currency check
+  # calls that contradictory and fails it. Removing a declaration the installer
+  # did not write would be destroying repo-own state, so this REPORTS.
+  if [[ -f "$REPO/policy/kit/consumers.json" ]] \
+     && grep -q '"role"[[:space:]]*:[[:space:]]*"home"' "$REPO/policy/kit/consumers.json" 2>/dev/null; then
+    say "WARNING: this repo also declares policy/kit/consumers.json role=home."
+    say "A tree is the kit's source or a copy of it, never both — check-kit-currency FAILS this."
+  fi
+else
+  say "no policy/kit/ in $REPO — the kit's OUTPUT is installed and no kit COPY is"
+  say "vendored here, so no stamp is owed. Stated rather than skipped silently:"
+  say "an absent stamp and a stamp step that failed read identically otherwise."
+fi
+
 say "install complete for consumer '$CONSUMER' at $REPO"
