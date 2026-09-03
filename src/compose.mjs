@@ -133,6 +133,12 @@ export function validateSteps(steps) {
       const bad = introducesRefusal(s.introduces, at);
       if (bad) return { error: bad };
     }
+    // §4.15's `opens_section` (kogaki#822) — shape only here; the four grouping
+    // rules are a property of the whole path and run after this loop.
+    if (s.opens_section !== undefined) {
+      const bad = opensSectionRefusal(s.opens_section, at);
+      if (bad) return { error: bad };
+    }
     if (!Array.isArray(s.grounds) || s.grounds.length === 0) {
       return { error: `${at}: grounds are required — specific propositions, each a Strand proposition, a named earlier Step's effect, or a declared reader assumption (§4.4)` };
     }
@@ -160,6 +166,11 @@ export function validateSteps(steps) {
     }
     seen.add(s.step_id);
   }
+  // §4.15's grouping rules (kogaki#822) run over the WHOLE path, after every
+  // Step is known to be well formed — each rule is a statement about a Step's
+  // relation to its neighbours, so none of them is decidable inside the loop.
+  const grouping = sectionGroupingRefusal(steps);
+  if (grouping) return { error: grouping };
   return { steps };
 }
 
@@ -442,6 +453,67 @@ export function parseIntroducesEntry(raw) {
   return { term, anchor };
 }
 
+// §4.15's `opens_section` (kogaki#822) — OPTIONAL, and shape-validated here for
+// the reason `introduces` is: the title reaches an owner-facing heading, so an
+// unvalidated value renders as a blank or as `undefined` above a Section.
+export function opensSectionRefusal(value, at) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return `${at}: opens_section, when present, is the Section's title — a non-empty string (§4.15). Its PRESENCE marks the opening and its VALUE carries the title, which is why an empty one has no meaning rather than meaning "opens with no title"`;
+  }
+  return null;
+}
+
+// §4.15's four grouping rules, validated over the WHOLE path rather than per
+// Step, because every one of them is a statement about a Step's relation to its
+// NEIGHBOURS. Returns the first refusal or null.
+//
+// WHICH RULES ARE MECHANICAL, stated because the answer is not uniform and a
+// reader owes an account of the ones that are not:
+//
+//   rule 1  the POSITIVE case (a Step opens when it changes the reader's
+//           question). Its `purpose` half is judgment — §4.6 clause 3 keeps
+//           every MUST un-linted — and its violation is exactly rule 2's
+//           refusal, so nothing separate is checked here.
+//   rule 2  MECHANICAL and checked: a Step whose `depends_on` is exactly the
+//           immediately preceding Step AND whose `materials` overlap that
+//           Step's is DEVELOPING it, so it continues and may not open.
+//   rule 3  MECHANICAL and checked: the first Step always opens.
+//   rule 4  SPLIT (§4.15). The Step-count clause is checked here — two
+//           consecutive Sections holding exactly one Step each refuse with the
+//           request-to-merge. The prose-length clause measures realized prose,
+//           which no Brief contains, and is a named deferred slot in §4.15.
+export function sectionGroupingRefusal(steps) {
+  const at = (i) => `step ${i + 1} (${steps[i].step_id})`;
+
+  // rule 3 — the first Step always opens.
+  if (steps[0].opens_section === undefined) {
+    return `${at(0)}: §4.15 rule 3 — the FIRST Step always opens a Section, and this path opens none. A Brief whose Reader Path declares no opens_section anywhere renders as one unbroken run of prose, which is the second of the two drafts the 2026-09-03 ruling rejected`;
+  }
+
+  // rule 2 — a Step that develops its predecessor continues, so it may not open.
+  for (let i = 1; i < steps.length; i++) {
+    const s = steps[i], prev = steps[i - 1];
+    if (s.opens_section === undefined) continue;
+    const dependsOnlyOnPrev = s.depends_on.length === 1 && s.depends_on[0] === prev.step_id;
+    const overlaps = s.materials.some((m) => prev.materials.includes(m));
+    if (dependsOnlyOnPrev && overlaps) {
+      return `${at(i)}: §4.15 rule 2 — this Step DEVELOPS ${prev.step_id} (its depends_on is exactly that Step, and its materials overlap it), so it continues that Section and may not open a new one. Remove its opens_section, or change what the Step stands on if the reader's question really does change here`;
+    }
+  }
+
+  // rule 4, Step-count clause — two consecutive one-Step Sections.
+  const opens = steps.map((s, i) => (s.opens_section === undefined ? -1 : i)).filter((i) => i >= 0);
+  for (let k = 0; k + 2 < opens.length + 1; k++) {
+    const start = opens[k];
+    const next = k + 1 < opens.length ? opens[k + 1] : steps.length;
+    const after = k + 2 < opens.length ? opens[k + 2] : steps.length;
+    if (next - start === 1 && after - next === 1) {
+      return `${at(start)}: §4.15 rule 4 — this Section and the one opening at ${steps[next].step_id} each hold exactly one Step. Two consecutive one-Step Sections are refused with a request to MERGE them, because a heading every Step is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason`;
+    }
+  }
+  return null;
+}
+
 // Shape refusal over a whole `introduces` value. Returns a string to refuse
 // with, or null. `at` is the caller's own way of naming the Step, so one
 // grammar serves the record side and the document side without either
@@ -534,6 +606,7 @@ export function renderStep(s) {
   // `parseBrief`'s reader are one round trip and this is the half that makes
   // it possible.
   for (const e of s.introduces || []) L.push(`introduces: ${e}`);
+  if (s.opens_section !== undefined) L.push(`opens_section: ${s.opens_section}`);
   if (s.bridges) L.push(`bridges: ${s.bridges.join(", ")}`);
   if (s.entailed === true) {
     L.push(`entailed: true`);

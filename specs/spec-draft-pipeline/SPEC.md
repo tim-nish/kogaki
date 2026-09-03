@@ -680,11 +680,23 @@ opening and its **value** carries the title. A separate `section_title` key was
 declined at kogaki#822 because two keys can disagree — a Step opening with no
 title, a title on a continuing Step — and neither state has a meaning.
 
-**Filled at composition, validated at mint.** Judging which Steps open is
+**Filled at composition, validated at composition.** Judging which Steps open is
 composition-time judgment and belongs where the Steps are already judged: the
 Brief. The four rules below are the Harness's **validation of that judgment**,
 not a second judge — so a Brief that opens a Section on every Step, or on none,
-refuses at `brief.mjs mint` **naming the rule it broke and the Step**.
+is refused **naming the rule it broke and the Step**.
+
+**THE SITE IS COMPOSITION, NOT `mint`, AND THE CORRECTION IS RECORDED RATHER
+THAN MADE SILENTLY (kogaki#822).** The 2026-09-03 owner ruling and kogaki#822's
+acceptance both say *validated at `brief.mjs mint`*. That is not reachable:
+`mint` consumes the adopted (Thesis, name) pair and writes a Brief **shell** —
+its own output states that the Reader Path, coverage and obligations are filled
+in later — so **no Step exists at mint for any rule to read**. The Steps arrive
+at composition, where `validateSteps` (`src/compose.mjs`) already refuses every
+other §4.1 and §4.13 shape, and that is where these rules run. Same class as the
+rule-4 split below, one level up: a rule stated at a stage its subject does not
+reach. The ruling's intent — refuse before the Brief is adopted, naming the rule
+and the Step — is unchanged and is satisfied here; only the named act moves.
 
 1. **A Step opens a Section when it changes the reader's question** — its
    `purpose` answers a question the previous Step did not pose, or its
@@ -702,6 +714,40 @@ refuses at `brief.mjs mint` **naming the rule it broke and the Step**.
    reason is a heading budget, which is the fragmented draft again with a number
    attached.
 
+**RULE 4 SPLITS BY WHERE ITS PROPERTY EXISTS, and composition validates only
+the half it can compute (kogaki#822).** The rule as ratified carries two clauses and they
+measure different things:
+
+- *"two consecutive Sections that are each one short Step"* — the **Step count**
+  is a fact about the Brief, present as soon as the Steps are.
+  **`validateSteps` refuses it**: two adjacent Sections holding exactly one Step
+  each refuse with the request-to-merge, naming rule 4 and both Steps. The word
+  *short* is dropped from the composition-time form deliberately — it qualifies
+  prose that does not exist yet, and a check that guessed at it would be
+  refusing on an estimate.
+- *"a Section running past roughly a screen and a half of prose"* — this
+  measures **realized prose**, which the Brief does not contain. Mint cannot
+  evaluate it and does not pretend to.
+
+**A composition-time proxy was the declined alternative**, and the ground is this
+section's own: a Step's `purpose` length predicts its realized prose length
+weakly at best, so the refusal would fire on the estimate rather than on the
+thing — which is the heading budget rule 4's last sentence exists to refuse,
+arriving through the back door. The split is by **property type**, the shape
+this repository's build governance already uses: a computable fact is carried
+where it is computable, and a judgment stays where a reader can make it.
+
+**deferred slot: the prose-length clause's carrier.** Where the length check
+runs once prose exists — inside `emit`, inside `section`, or at review — is
+**not decided here**, and it is deliberately not loaded onto kogaki#823, whose
+licence is the renderer's Section headings and the frontmatter trace and says
+nothing about a length refusal. Filling this slot is its own decision act on its
+own licensing issue, with alternatives and a receipt, before any code embeds a
+threshold. Until it is filled the clause binds the **composing sitting's**
+judgment and no runtime, which is what it did before this amendment; what
+changes is that the gap is now stated instead of being discovered by an
+implementer reading rule 4 and looking for its check.
+
 **This section is NORMATIVE and `specs/spec-brief-draft-design/DESIGN.md` §2.1
 points at it.** The four rules were ratified there on 2026-09-03 and stood in
 both documents at kogaki#822's pickup; a copy with no declared precedence and no
@@ -714,11 +760,14 @@ keeps the contract a validator and a registered check assert against.
 composition judgment; this says a title exists and where it is declared, never
 what it should say. Packet timing and location stay §3's and kogaki#809's.
 
-**NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS.** At this head
-`src/brief.mjs` has no `opens_section` and no rule validation, and `src/draft.mjs
-emit` still renders one heading per Step. Carriers: **kogaki#822** (the field and
-its mint validation), **kogaki#823** (the renderer and the frontmatter Step→Section
-trace).
+**PARTLY BUILT AT THIS HEAD, and the halves are named separately because they
+landed at different times.** The DECLARATION half is BUILT (kogaki#822): the
+field is admitted by `validateSteps`, the grouping rules above refuse at
+composition, and `renderStep` serializes it. The RENDERING half is UNBUILT —
+`src/draft.mjs emit` still writes one heading per Step and `parseBrief` does not
+read `opens_section` back, so nothing consumes the declaration yet. Carrier:
+**kogaki#823** (the renderer, the frontmatter Step→Section trace, and the
+parse-back that makes the round trip whole).
 
 `necessity:` the four rules are a validator's contract and a registered check's
 assertion target, so they need a site inside this spec rather than a pointer out
