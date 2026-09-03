@@ -73,6 +73,7 @@ purpose: Open with the finding that a question set has to be attached to the act
 reader_state_before: The reader believes that knowing about a class of defect is most of the protection against it.
 reader_state_after: The reader holds a short list of prompts and expects the article to justify each one.
 depends_on: (none)
+opens_section: Four questions to ask while you are installing a check
 rationale: Leading with the practice makes the article usable immediately, and it converts the remaining sections from exposition into justification the reader is actively checking.
 ground (strand L148): Industrial hazard studies apply about seven fixed prompts at every step and aviation checklists trigger on the action rather than the subject, because attention follows the line already being pursued.
 ```
@@ -85,6 +86,7 @@ purpose: Develop the first prompt — can this check actually fire? — into its
 reader_state_before: The reader has a prompt and reads it as a single yes-or-no about whether the check was installed.
 reader_state_after: The reader knows the prompt has several independent failure routes and that a configuration entry naming a real file is not evidence any of them are clear.
 depends_on: c1
+opens_section: Whether the check can fire, and what kind it is
 rationale: A prompt the reader reads as one question gets answered once and dismissed; fanning it into named routes is what makes it survive contact with a real audit.
 ground (strand L7): An input with no writer means the safeguard can never fire, and the standard test that every shipped component is called from somewhere passes on the dead version.
 ground (strand L31): Where the rule names a destination the check cannot see in its arguments, the rule can only ever be advice, and the tell is a requirement whose every available answer is unattractive.
@@ -112,6 +114,7 @@ purpose: Justify the third prompt — whose effort does this refusal spend? — 
 reader_state_before: The reader treats a check that fires correctly as the end state the prompts are aiming at.
 reader_state_after: The reader holds placement as a live question even for a check that is installed, live, and correctly categorised.
 depends_on: c1, c3
+opens_section: Where the refusal sits in the process
 rationale: This is the Thesis itself, and it is placed where the reader has exhausted the cheaper explanations, so the not-necessarily lands as a residue rather than as a slogan.
 ground (strand L32): Where a refusal rejects something a person has already read and approved, that effort is spent and unrepeatable while the fault was introduced by whatever produced the item.
 ground (step_effect c3): The reader has fixed the categorisation and the liveness and still holds a check that refuses late.
