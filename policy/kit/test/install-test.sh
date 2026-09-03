@@ -1253,4 +1253,226 @@ printf '%s\n' "$SEAM" | grep -qF "$VENDORED seam check(s) vendored" \
   || fail "the install created $TMP/seam/checks — the kit must NOT copy seam checks into the consumer's tree (kogaki#724): the registry names the kit's own file so that exactly one copy exists"
 echo "ok: the install announces every seam check it vendors, and copies none ($VENDORED check(s), kogaki#724)"
 
+# 7. THE KIT STAMP (kogaki#795; contract specs/spec-client-kit/SPEC.md §10.2).
+#
+#     Both branches are asserted, because the interesting one is the branch
+#     that writes NOTHING: `install.sh` does not vendor `policy/kit/`, so a
+#     consumer holds a kit copy only if one was placed there, and a silent
+#     no-op there is indistinguishable from a stamp step that failed.
+
+#     7a. NO KIT COPY -> no stamp, and the absence is STATED. Asserted against
+#     the FRESH INSTALL CASE 1 ALREADY PAID FOR rather than a fourth install of
+#     its own: `$TMP/repo` holds no kit copy, which is exactly this branch's
+#     condition, and install.sh costs ~1.2 s a run on this member's own
+#     measurement. Reusing it keeps the assertion and drops the cost.
+[ ! -f "$TMP/repo/policy/kit/.kit-version" ] \
+  || fail "the install stamped a tree that holds no kit copy — there is nothing there to be behind"
+grep -q 'no stamp is owed' "$TMP/out1" \
+  || fail "the install wrote no stamp and did not say so — an absent stamp and a failed stamp step read identically otherwise (SPEC-client-kit 10.2)"
+echo "ok: no kit copy -> no stamp, and the install states the absence"
+
+#     7b. A VENDORED KIT COPY -> stamped, with every field the check requires.
+mkdir -p "$TMP/stamp_yes/policy"
+cp -r "$KIT_DIR" "$TMP/stamp_yes/policy/kit"
+#     The Home's own role declaration must not travel with a copy: a tree
+#     carrying both it and a stamp is contradictory and the currency check
+#     fails it. Removing it here is what makes the copy a CONSUMER.
+rm -f "$TMP/stamp_yes/policy/kit/consumers.json"
+"$KIT_DIR/install.sh" --repo "$TMP/stamp_yes" --consumer kit-test >"$TMP/out_stamp" 2>&1 \
+  || fail "install exited non-zero on a tree holding a kit copy"
+STAMP="$TMP/stamp_yes/policy/kit/.kit-version"
+[ -f "$STAMP" ] || fail "no policy/kit/.kit-version written into a tree that holds a kit copy (SPEC-client-kit 10.2)"
+for K in home home_revision installed manifest; do
+  grep -qE "^$K:[[:space:]]*[^[:space:]]" "$STAMP" \
+    || fail "the stamp is missing or empty at required key '$K' — check-kit-currency calls that malformed"
+done
+#     The slug is the owner/name pair and NOT the clone URL: a `.git` suffix
+#     left on it made every stamp wrong by four characters until it was fixed.
+grep -qE '^home: [^/[:space:]]+/[^/[:space:]]+$' "$STAMP" \
+  || fail "the stamp's home is not a bare owner/name pair: $(grep '^home:' "$STAMP")"
+grep -q '\.git$' "$STAMP" && fail "the stamp carries a .git suffix on its home slug"
+echo "ok: a vendored kit copy is stamped, with every field the currency check requires"
+
+#     7c. IDEMPOTENT, like every other install step.
+cp "$STAMP" "$TMP/stamp_first"
+"$KIT_DIR/install.sh" --repo "$TMP/stamp_yes" --consumer kit-test >/dev/null 2>&1
+diff -q "$TMP/stamp_first" "$STAMP" >/dev/null \
+  || fail "a second install changed the stamp — the install is not idempotent at the stamp step"
+echo "ok: the stamp step is idempotent"
+
+#     7d. THE STAMP IS COMMITTED (SPEC-client-kit 10.3) — deliberately the
+#     OPPOSITE of the shape read at 4d, which the install DOES gitignore. A
+#     machine-local stamp is durable against a working copy only, so a fresh
+#     clone would inherit no provenance and read cannot-determine forever,
+#     indistinguishable from an unreachable Home.
+if [ -f "$TMP/stamp_yes/.gitignore" ]; then
+  grep -qx 'policy/kit/.kit-version' "$TMP/stamp_yes/.gitignore" \
+    && fail "the install excluded the stamp from version control — 10.3 requires it to survive a clone"
+fi
+echo "ok: the stamp is not gitignored (10.3 — provenance must survive a clone)"
+
+#     7e. THE WRITTEN STAMP IS READ BACK BY THE SHIPPED CHECK, not by a
+#     re-implementation of it. This is the writer/verifier pair the shared
+#     manifest tool exists to keep from drifting, asserted end to end.
+CUROUT=$("$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/stamp_yes" 2>&1) || {
+  printf '%s\n' "$CUROUT"
+  fail "the currency check rejected a copy this install just stamped"
+}
+printf '%s\n' "$CUROUT" | grep -q 'verdict: cannot-determine' \
+  || fail "a freshly stamped copy with no Home supplied should read cannot-determine; got: $(printf '%s\n' "$CUROUT" | grep verdict)"
+echo "ok: the shipped currency check accepts the stamp the install just wrote"
+
+#     7f. THE HOME IS NOT STAMPED (PR #798 round 1, finding 2). Refreshing the
+#     Home's own managed block is a documented act, and stamping there produced
+#     a tree the currency check calls contradictory — a breakage this step
+#     caused and then warned about.
+mkdir -p "$TMP/stamp_home/policy"
+cp -r "$KIT_DIR" "$TMP/stamp_home/policy/kit"
+printf '{"role":"home","consumers":[]}\n' > "$TMP/stamp_home/policy/kit/consumers.json"
+HOMEOUT=$("$KIT_DIR/install.sh" --repo "$TMP/stamp_home" --consumer kit-test 2>&1)
+[ ! -f "$TMP/stamp_home/policy/kit/.kit-version" ] \
+  || fail "the install stamped a tree declaring role=home — that is the contradictory state check-kit-currency fails"
+printf '%s\n' "$HOMEOUT" | grep -q 'no stamp is written and none is owed' \
+  || fail "the install skipped stamping the Home without saying why"
+"$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/stamp_home" >/dev/null 2>&1 \
+  || fail "the Home is red on the currency check after its own installer ran — the breakage finding 2 named"
+echo "ok: the Home is not stamped, and stays green on its own currency check"
+
+#     7g. A SELF-INSTALL DOES NOT LAUNDER PROVENANCE (PR #798 round 1,
+#     finding 3). A consumer running its OWN vendored install.sh cannot
+#     establish where its copy came from; writing its own slug at its own HEAD
+#     would make a stale copy read `current` forever while passing every deny
+#     condition.
+mkdir -p "$TMP/selfinst/policy"
+cp -r "$KIT_DIR" "$TMP/selfinst/policy/kit"
+rm -f "$TMP/selfinst/policy/kit/consumers.json"
+{ echo "home: example/origin-home"; echo "home_revision: 1111111111111111111111111111111111111111";
+  echo "installed: 2026-01-01";
+  echo "manifest: $(bash "$KIT_DIR/bin/kit-manifest.sh" "$TMP/selfinst/policy/kit")";
+  echo "manifest_algorithm: policy/kit/bin/kit-manifest.sh"; } > "$TMP/selfinst/policy/kit/.kit-version"
+(cd "$TMP/selfinst" && bash policy/kit/install.sh --repo "$TMP/selfinst" --consumer kit-test >/dev/null 2>&1)
+grep -q '^home: example/origin-home$' "$TMP/selfinst/policy/kit/.kit-version" \
+  || fail "a self-install rewrote the recorded origin: $(grep '^home:' "$TMP/selfinst/policy/kit/.kit-version")"
+grep -q '^home_revision: 1111111111111111111111111111111111111111$' "$TMP/selfinst/policy/kit/.kit-version" \
+  || fail "a self-install rewrote the recorded home_revision — a stale copy would then read current forever"
+echo "ok: a self-install keeps the recorded origin and refreshes only the manifest"
+
+#     7h. NO STAMP RATHER THAN AN UNVERIFIABLE ONE (PR #798 round 1,
+#     finding 4). With the digest uncomputable the install used to write
+#     `manifest: unavailable` and report success, producing a stamp guaranteed
+#     to fail later.
+mkdir -p "$TMP/nodigest/policy"
+cp -r "$KIT_DIR" "$TMP/nodigest/policy/kit"
+rm -f "$TMP/nodigest/policy/kit/consumers.json"
+mkdir -p "$TMP/nosha"
+printf '#!/bin/sh\nexit 127\n' > "$TMP/nosha/sha256sum"; chmod +x "$TMP/nosha/sha256sum"
+NODIG=$(PATH="$TMP/nosha:$PATH" "$KIT_DIR/install.sh" --repo "$TMP/nodigest" --consumer kit-test 2>&1)
+[ ! -f "$TMP/nodigest/policy/kit/.kit-version" ] \
+  || fail "the install wrote a stamp whose manifest could not be computed — it would fail the currency check later while this step reported success"
+printf '%s\n' "$NODIG" | grep -q 'NO stamp is' \
+  || fail "the install skipped the stamp for an uncomputable digest without saying so"
+echo "ok: an uncomputable digest writes no stamp, and says so"
+
+#     7i. A STALE COPY IS NOT STAMPED AS CURRENT (kogaki#799, resolving PR #798
+#     round 2's finding 3 — the half round 1's fix left standing).
+#
+#     The scenario the stamp exists to make impossible: a tree holds an OLD
+#     copy of policy/kit/ and runs a NEWER Home's installer. Digesting the copy
+#     made the stamp agree with itself by construction, so the currency check
+#     later read `current` for a copy that was behind — every deny condition
+#     passing, which is the undeclared duplicate SPEC-client-kit §10.1 names.
+mkdir -p "$TMP/stale/policy"
+cp -r "$KIT_DIR" "$TMP/stale/policy/kit"
+rm -f "$TMP/stale/policy/kit/consumers.json"
+#     Make the copy differ from the source — a stale copy, by construction.
+printf '\n# a line the Home no longer has\n' >> "$TMP/stale/policy/kit/bin/kit-manifest.sh"
+STALEOUT=$("$KIT_DIR/install.sh" --repo "$TMP/stale" --consumer kit-test 2>&1)
+[ ! -f "$TMP/stale/policy/kit/.kit-version" ] \
+  || fail "a stale copy was stamped — the stamp would assert a provenance false at the moment it was written, and check-kit-currency would then read it as current"
+printf '%s\n' "$STALEOUT" | grep -q 'did not come from here' \
+  || fail "the install refused to stamp a stale copy without saying why: $(printf '%s\n' "$STALEOUT" | grep -A2 'kit stamp')"
+echo "ok: a stale copy is refused a stamp rather than stamped as current"
+
+#     7j. AND THE MATCHING COPY STILL STAMPS — the control, because a refusal
+#     that fired on everything would pass 7i while breaking the feature.
+mkdir -p "$TMP/fresh/policy"
+cp -r "$KIT_DIR" "$TMP/fresh/policy/kit"
+rm -f "$TMP/fresh/policy/kit/consumers.json"
+"$KIT_DIR/install.sh" --repo "$TMP/fresh" --consumer kit-test >/dev/null 2>&1
+[ -f "$TMP/fresh/policy/kit/.kit-version" ] \
+  || fail "a copy identical to the source was refused a stamp — the refusal is not discriminating"
+#     The stamped digest is the SOURCE's, which is the whole of finding 3's fix.
+SRC_M=$(bash "$KIT_DIR/bin/kit-manifest.sh" "$KIT_DIR")
+grep -q "^manifest: $SRC_M$" "$TMP/fresh/policy/kit/.kit-version" \
+  || fail "the stamp does not carry the SOURCE manifest: $(grep '^manifest:' "$TMP/fresh/policy/kit/.kit-version")"
+echo "ok: a matching copy is stamped, and the stamp carries the SOURCE digest"
+
+#     7k. THE MARKER HAS ONE READER (kogaki#799, PR #798 round 2 finding 5).
+#     A nested role must not read as the Home to the installer either — under
+#     the divergent readers this tree skipped the stamp here and was denied by
+#     the check.
+mkdir -p "$TMP/nested/policy"
+cp -r "$KIT_DIR" "$TMP/nested/policy/kit"
+printf '{"consumers":[{"repo":"x","role":"home"}]}\n' > "$TMP/nested/policy/kit/consumers.json"
+NESTOUT=$("$KIT_DIR/install.sh" --repo "$TMP/nested" --consumer kit-test 2>&1)
+printf '%s\n' "$NESTOUT" | grep -q 'no stamp is written and none is owed' \
+  && fail "a nested role: home read as the Home declaration to the installer — the divergence finding 5 named"
+#     AND THE POSITIVE OUTCOME (PR #800 round 1, finding 3). Asserting only that
+#     the Home message is absent would pass unchanged if the installer skipped
+#     the stamp for some entirely different reason; what makes the case
+#     meaningful is that the tree was treated as a CONSUMER.
+[ -f "$TMP/nested/policy/kit/.kit-version" ] \
+  || fail "a nested role: home left the tree unstamped — the case asserts the tree is treated as a consumer, not merely that one message is absent"
+echo "ok: a nested role is not the Home declaration, and the tree is stamped as a consumer"
+
+#     7l. A SELF-INSTALL CANNOT LAUNDER A TAMPERED COPY (PR #800 round 1,
+#     finding 1). The laundering path: edit the vendored kit, run the
+#     documented in-place refresh, and an earlier form rewrote `manifest:` to
+#     the digest of the edited tree — clearing check-kit-currency's
+#     "disagrees with its stamp" deny while `home`/`home_revision` stayed
+#     stale, so the stamp asserted that home@<old rev> contained bytes it did
+#     not. Fixture case 6 was defeated by construction.
+mkdir -p "$TMP/launder/policy"
+cp -r "$KIT_DIR" "$TMP/launder/policy/kit"
+rm -f "$TMP/launder/policy/kit/consumers.json"
+ORIG_M=$(bash "$KIT_DIR/bin/kit-manifest.sh" "$TMP/launder/policy/kit")
+{ echo "home: example/origin-home"; echo "home_revision: 2222222222222222222222222222222222222222";
+  echo "installed: 2026-01-01"; echo "manifest: $ORIG_M";
+  echo "manifest_algorithm: policy/kit/bin/kit-manifest.sh"; } > "$TMP/launder/policy/kit/.kit-version"
+#     Tamper with the copy, then run the in-place refresh from inside it.
+printf '\n# a local edit the Home never had\n' >> "$TMP/launder/policy/kit/bin/kit-manifest.sh"
+(cd "$TMP/launder" && bash policy/kit/install.sh --repo "$TMP/launder" --consumer kit-test >/dev/null 2>&1)
+grep -q "^manifest: $ORIG_M$" "$TMP/launder/policy/kit/.kit-version" \
+  || fail "a self-install rewrote the manifest over a tampered copy — the tamper deny is cleared and the stamp now asserts bytes the named revision does not contain"
+#     And the deny it protects must still fire.
+"$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/launder" >/dev/null 2>&1 \
+  && fail "a tampered copy passed the currency check after a self-install — the laundering path is open"
+echo "ok: a self-install leaves the stamp untouched, and the tamper deny still fires"
+
+#     7m. A DIRTY HOME IS NOT STAMPED AS ITS HEAD (PR #800 round 1, finding 2).
+#     The digest comes from the working tree and home_revision from HEAD, so an
+#     uncommitted kit change makes the stamp name a revision it does not match.
+DIRTYHOME="$TMP/dirtyhome"
+mkdir -p "$DIRTYHOME"
+cp -r "$KIT_DIR" "$DIRTYHOME/kit"
+(cd "$DIRTYHOME" && git init -q && git -c user.email=t@e -c user.name=t add -A >/dev/null 2>&1    && git -c user.email=t@e -c user.name=t commit -qm one >/dev/null 2>&1)
+printf '\n# uncommitted\n' >> "$DIRTYHOME/kit/bin/kit-manifest.sh"
+mkdir -p "$TMP/dirtytgt/policy"
+cp -r "$DIRTYHOME/kit" "$TMP/dirtytgt/policy/kit"
+rm -f "$TMP/dirtytgt/policy/kit/consumers.json"
+DIRTYOUT=$("$DIRTYHOME/kit/install.sh" --repo "$TMP/dirtytgt" --consumer kit-test 2>&1)
+[ -f "$TMP/dirtytgt/policy/kit/.kit-version" ] \
+  || fail "a dirty Home wrote no stamp — the guard MARKS the revision rather than refusing, so development trees stay installable"
+grep -qE '^home_revision: [0-9a-f]+-dirty$' "$TMP/dirtytgt/policy/kit/.kit-version" \
+  || fail "a dirty Home stamped a bare revision, asserting that commit contains uncommitted bytes: $(grep '^home_revision:' "$TMP/dirtytgt/policy/kit/.kit-version")"
+printf '%s\n' "$DIRTYOUT" | grep -q 'uncommitted changes' \
+  || fail "the install marked the revision dirty without saying why"
+#     And the consequence that makes the marker load-bearing: the value is not
+#     a resolvable commit, so currency degrades rather than claiming `current`.
+DOUT=$("$KIT_DIR/checks/check-kit-currency.sh" --root "$TMP/dirtytgt" --home "$DIRTYHOME" 2>&1) \
+  || fail "a dirty-sourced copy failed the currency check; it should degrade, not deny"
+printf '%s\n' "$DOUT" | grep -q 'verdict: cannot-determine' \
+  || fail "a dirty-sourced copy did not degrade to cannot-determine: $(printf '%s\n' "$DOUT" | grep verdict)"
+echo "ok: a dirty Home marks the revision, and currency degrades rather than overclaiming"
+
 echo "ALL PASS"

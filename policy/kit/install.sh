@@ -251,4 +251,177 @@ else
   say "no seam checks vendored with this kit"
 fi
 
+# 7. THE KIT STAMP (kogaki#795; contract specs/spec-client-kit/SPEC.md §10.2).
+#
+# A copy without provenance cannot exist, because THE ACT THAT PRODUCES THE
+# COPY IS THE ACT THAT STAMPS IT. That is the `constrains:` half of #633's
+# remedy, and it is why this step lives in the installer rather than in a
+# reminder: a rule needing someone to remember it is advisory, and its apparent
+# coverage is an enumeration of the places somebody happened to act.
+#
+# STAMPED ONLY WHERE A COPY EXISTS, and the absence is DISCLOSED rather than
+# silently skipped. `install.sh` does not vendor `policy/kit/` — it installs the
+# kit's OUTPUT (the managed block, the map, the skill, the digest, the emissions
+# directory) — so a consumer holds a kit copy only if one was placed there. With
+# no copy there is nothing to be behind and no stamp is owed; saying so is what
+# keeps this distinguishable from a stamp step that failed.
+#
+# COMMITTED, not gitignored — §10.3. A machine-local stamp is durable against a
+# working copy only, so a fresh clone would inherit no provenance and the
+# currency check would read `cannot-determine` on every clone, indistinguishable
+# from an unreachable Home. Nothing here adds it to `.gitignore`, and that is
+# the deliberate opposite of the shape read at step 4d.
+say "--- kit stamp ---"
+# The role is read ONCE, and its THREE answers are kept apart. A non-zero exit
+# means the question could not be answered — never "not the Home" — because
+# collapsing those two stamps the Home, the contradictory state the role branch
+# below exists to prevent.
+ROLE_OUT=""; ROLE_RC=0
+if [[ -d "$REPO/policy/kit" ]]; then
+  ROLE_OUT="$(bash "$KIT_DIR/bin/kit-role.sh" "$REPO/policy/kit" 2>/dev/null)" || ROLE_RC=$?
+fi
+if [[ ! -d "$REPO/policy/kit" ]]; then
+  say "no policy/kit/ in $REPO — the kit's OUTPUT is installed and no kit COPY is"
+  say "vendored here, so no stamp is owed. Stated rather than skipped silently:"
+  say "an absent stamp and a stamp step that failed read identically otherwise."
+elif [[ "$ROLE_RC" -ne 0 ]]; then
+  say "cannot read policy/kit/consumers.json to tell a SOURCE tree from a copy"
+  say "(kit-role exited $ROLE_RC) — NO stamp is written. Guessing 'not the Home'"
+  say "here would stamp the Home, which check-kit-currency then fails; an"
+  say "unanswerable question is not a negative answer."
+elif [[ "$ROLE_OUT" == "home" ]]; then
+  # THE HOME IS NOT STAMPED (PR #798 round 1, finding 2). This branch used to
+  # write the stamp and then WARN that the result was contradictory — which
+  # made the documented act of refreshing the Home's own managed block
+  # (`install.sh --repo .`) turn the Home red on the very member this kit
+  # registers. A warning beside a breakage the same step just caused is not a
+  # disclosure; refusing the write is.
+  say "policy/kit/consumers.json declares role=home — the kit's SOURCE is not a"
+  say "copy of itself, so no stamp is written and none is owed. A tree carrying"
+  say "both the declaration and a stamp is contradictory and check-kit-currency"
+  say "FAILS it, which is exactly what stamping here would have produced."
+else
+  # SELF-INSTALL IS REFUSED PROVENANCE, NOT GIVEN FALSE PROVENANCE (PR #798
+  # round 1, finding 3). `home`/`home_revision` are read from where THIS
+  # install.sh lives, which is the source being installed FROM. When that is
+  # the target's own vendored copy — a consumer running
+  # `policy/kit/install.sh --repo .` to refresh itself — the installer cannot
+  # establish where the copy came from, and writing the consumer's own slug at
+  # its own HEAD would LAUNDER the provenance: a stale copy stamped by itself
+  # reads `current` forever while passing every deny condition, which is the
+  # undeclared-duplicate state §10.1's served position names.
+  KIT_ROOT="$(cd "$KIT_DIR/../.." 2>/dev/null && pwd -P || echo "")"
+  REPO_ROOT="$(cd "$REPO" 2>/dev/null && pwd -P || echo "")"
+  SELF_INSTALL=0
+  [[ -n "$KIT_ROOT" && "$KIT_ROOT" == "$REPO_ROOT" ]] && SELF_INSTALL=1
+
+  # THE STAMP DIGESTS THE SOURCE, NOT THE COPY (kogaki#799, resolving PR #798
+  # round 2's finding 3 — the half round 1's fix left standing while reporting
+  # the whole finding resolved).
+  #
+  # The stamp records WHERE THIS COPY CAME FROM: a Home slug, a Home revision,
+  # and a digest. Digesting the copy made the third field agree with the first
+  # two by construction — whatever was in the tree became "what home@rev
+  # contains" — so a tree holding a STALE copy that ran a FRESH Home's installer
+  # was stamped `home@<new HEAD>` over its own contents, matched its own
+  # manifest, and read `current` while being behind. Every deny condition passed
+  # in that state, which is exactly the undeclared-duplicate the served position
+  # at SPEC-client-kit §10.1 names.
+  #
+  # So SOURCE_MANIFEST is what the stamp asserts, and the copy is checked
+  # AGAINST it at install time rather than at some later check run: an
+  # immediate legible refusal beats a deferred failure whose cause is three
+  # steps back.
+  SOURCE_MANIFEST="$(bash "$KIT_DIR/bin/kit-manifest.sh" "$KIT_DIR" 2>/dev/null || true)"
+  COPY_MANIFEST="$(bash "$KIT_DIR/bin/kit-manifest.sh" "$REPO/policy/kit" 2>/dev/null || true)"
+  KIT_MANIFEST="$SOURCE_MANIFEST"
+  if [[ -z "$SOURCE_MANIFEST" || -z "$COPY_MANIFEST" ]]; then
+    KIT_MANIFEST=""
+  fi
+  if [[ -z "$KIT_MANIFEST" ]]; then
+    # NO STAMP RATHER THAN AN UNVERIFIABLE ONE (PR #798 round 1, finding 4).
+    # This used to write `manifest: unavailable` and report "stamped", so the
+    # install passed while producing a stamp guaranteed to FAIL later — the
+    # failed-step-reads-as-success shape the absent-copy branch above refuses
+    # by name.
+    say "cannot compute the kit manifest (is sha256sum available?) — NO stamp is"
+    say "written. A stamp carrying no verifiable digest would fail the currency"
+    say "check later while this step reported success."
+  elif [[ "$SELF_INSTALL" -eq 1 && -f "$REPO/policy/kit/.kit-version" ]]; then
+    # A SELF-INSTALL LEAVES THE STAMP ENTIRELY ALONE (PR #800 round 1, finding
+    # 1). An earlier form kept `home`/`home_revision` and "refreshed" the
+    # manifest — which was the laundering path one branch over from the one
+    # kogaki#799 closed: in a self-install the source IS the copy, so the
+    # refreshed digest is the digest of whatever the tree now holds. A consumer
+    # could edit its vendored policy/kit/, run the documented in-place refresh,
+    # and have check-kit-currency's "disagrees with its stamp" deny SILENTLY
+    # CLEARED, leaving a stamp asserting that home@<old rev> contains bytes it
+    # does not. That defeats fixture case 6 by construction.
+    #
+    # There is nothing a self-install can legitimately refresh here. The stamp
+    # records where a copy CAME FROM, and an installer reading the copy cannot
+    # establish that — which is exactly why the no-prior-stamp branch below
+    # writes nothing. Refreshing a field of a record it cannot verify is the
+    # same act with a prior value to hide behind.
+    PREV_HOME="$(sed -n 's/^home:[[:space:]]*//p' "$REPO/policy/kit/.kit-version" | head -1)"
+    PREV_REV="$(sed -n 's/^home_revision:[[:space:]]*//p' "$REPO/policy/kit/.kit-version" | head -1)"
+    say "policy/kit/.kit-version: self-install — the stamp is left UNTOUCHED"
+    say "(${PREV_HOME:-unknown-home}@${PREV_REV:0:12}). An installer reading the copy cannot"
+    say "establish where the copy came from, and rewriting the digest here would"
+    say "clear the tamper deny rather than refresh anything. If this copy has"
+    say "diverged, check-kit-currency says so — which is the point."
+  elif [[ "$SELF_INSTALL" -eq 1 ]]; then
+    say "policy/kit/.kit-version: self-install with no prior stamp — this installer"
+    say "IS the copy, so it cannot establish an origin and NO stamp is written."
+    say "Stamp the copy from the Home it was taken from, or declare it a fork."
+  elif [[ "$SOURCE_MANIFEST" != "$COPY_MANIFEST" ]]; then
+    # The copy in this tree is not the kit being installed from. Stamping it
+    # would assert a provenance that is false at the moment it is written.
+    say "policy/kit/ in $REPO does NOT match the kit being installed from"
+    say "  source ${SOURCE_MANIFEST:0:12}  copy ${COPY_MANIFEST:0:12}"
+    say "NO stamp is written: a stamp says where a copy CAME FROM, and this copy"
+    say "did not come from here. Re-copy policy/kit/ from the Home and re-run, or"
+    say "declare the divergence — an unstamped copy is refused by"
+    say "check-kit-currency, which is the honest reading rather than a false one."
+  else
+    HOME_SLUG="$(cd "$KIT_DIR/../.." && git config --get remote.origin.url 2>/dev/null \
+      | sed -e 's#\.git$##' -e 's#.*[:/]\([^/]*/[^/]*\)$#\1#' || true)"
+    [[ -n "$HOME_SLUG" ]] || HOME_SLUG="unknown-home"
+    HOME_REV="$(cd "$KIT_DIR" && git rev-parse HEAD 2>/dev/null || true)"
+    [[ -n "$HOME_REV" ]] || HOME_REV="unknown"
+    # A DIRTY HOME CANNOT BE STAMPED AS ITS HEAD (PR #800 round 1, finding 2).
+    # The digest is taken from the Home's WORKING TREE and `home_revision` from
+    # `git rev-parse HEAD`, so uncommitted kit changes produce a stamp asserting
+    # that home@<HEAD> contains bytes that revision does not. The copy-vs-source
+    # guard cannot see it: both sides are digested from the same dirty tree.
+    HOME_DIRTY="$(cd "$KIT_DIR" && git status --porcelain -- . 2>/dev/null || true)"
+    if [[ -n "$HOME_DIRTY" ]]; then
+      # MARKED, NOT REFUSED — and the first attempt at this guard refused,
+      # which broke `install-test.sh` on any tree where the kit was being
+      # edited, i.e. every tree developing the kit. That is a large cost for a
+      # narrow correctness gain.
+      #
+      # What must not happen is the FALSE CLAIM: `home_revision: <sha>` beside
+      # a digest of uncommitted bytes asserts that the revision contains them.
+      # Suffixing the value fixes that at the root — it is no longer a
+      # resolvable commit, so `check-kit-currency` cannot match it against any
+      # Home and degrades to `cannot-determine`, which is the true reading of a
+      # copy taken from a dirty tree. The stamp still records provenance; it
+      # just stops overclaiming it.
+      HOME_REV="${HOME_REV}-dirty"
+      say "NOTE: the Home's policy/kit/ has uncommitted changes, so the stamp records"
+      say "${HOME_REV} — deliberately not a resolvable revision, because the digest"
+      say "does not correspond to any commit. Currency will read cannot-determine."
+    fi
+    {
+      printf 'home: %s\n' "$HOME_SLUG"
+      printf 'home_revision: %s\n' "$HOME_REV"
+      printf 'installed: %s\n' "$(date -u +%Y-%m-%d)"
+      printf 'manifest: %s\n' "$KIT_MANIFEST"
+      printf 'manifest_algorithm: policy/kit/bin/kit-manifest.sh\n'
+    } > "$REPO/policy/kit/.kit-version"
+    say "policy/kit/.kit-version: stamped $HOME_SLUG@${HOME_REV:0:12} (committed — see SPEC-client-kit 10.3)"
+  fi
+fi
+
 say "install complete for consumer '$CONSUMER' at $REPO"

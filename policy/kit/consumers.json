@@ -1,0 +1,6 @@
+{
+  "role": "home",
+  "_role_note": "THE POSITIVE MARKER BY WHICH A TREE IS RECOGNISED AS THE KIT'S SOURCE (kogaki#795, filling the choice specs/spec-client-kit/SPEC.md §10.2 left to the implementation). It is a POSITIVE, SELF-DESCRIBING fact and never a repository name: a name breaks at the very event §10.4 names as the currency check's removal signal, and the kit's Home is interim by §0. It is also never the ABSENCE of a stamp — a Home and a consumer whose .kit-version was deleted present identically under that reading, which would make §10.2's one deny condition unreachable and invert the clause. A tree carrying BOTH this declaration and a .kit-version is contradictory and FAILS.",
+  "_consumers_note": "The Home's declaration of who installs this kit, so 'who is behind?' is answerable from the Home rather than by walking the machine (SPEC §10.2). A DECLARATION, NEVER A SWEEP — §6 and §4.6 decline a scheduled reader, and nothing here reads this list on a timer. A repository is listed when it is installed into; being listed is a claim about intent, and the consumer's own .kit-version is the claim about fact.",
+  "consumers": []
+}
