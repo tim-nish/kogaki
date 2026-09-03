@@ -1373,4 +1373,50 @@ printf '%s\n' "$NODIG" | grep -q 'NO stamp is' \
   || fail "the install skipped the stamp for an uncomputable digest without saying so"
 echo "ok: an uncomputable digest writes no stamp, and says so"
 
+#     7i. A STALE COPY IS NOT STAMPED AS CURRENT (kogaki#799, resolving PR #798
+#     round 2's finding 3 — the half round 1's fix left standing).
+#
+#     The scenario the stamp exists to make impossible: a tree holds an OLD
+#     copy of policy/kit/ and runs a NEWER Home's installer. Digesting the copy
+#     made the stamp agree with itself by construction, so the currency check
+#     later read `current` for a copy that was behind — every deny condition
+#     passing, which is the undeclared duplicate SPEC-client-kit §10.1 names.
+mkdir -p "$TMP/stale/policy"
+cp -r "$KIT_DIR" "$TMP/stale/policy/kit"
+rm -f "$TMP/stale/policy/kit/consumers.json"
+#     Make the copy differ from the source — a stale copy, by construction.
+printf '\n# a line the Home no longer has\n' >> "$TMP/stale/policy/kit/bin/kit-manifest.sh"
+STALEOUT=$("$KIT_DIR/install.sh" --repo "$TMP/stale" --consumer kit-test 2>&1)
+[ ! -f "$TMP/stale/policy/kit/.kit-version" ] \
+  || fail "a stale copy was stamped — the stamp would assert a provenance false at the moment it was written, and check-kit-currency would then read it as current"
+printf '%s\n' "$STALEOUT" | grep -q 'did not come from here' \
+  || fail "the install refused to stamp a stale copy without saying why: $(printf '%s\n' "$STALEOUT" | grep -A2 'kit stamp')"
+echo "ok: a stale copy is refused a stamp rather than stamped as current"
+
+#     7j. AND THE MATCHING COPY STILL STAMPS — the control, because a refusal
+#     that fired on everything would pass 7i while breaking the feature.
+mkdir -p "$TMP/fresh/policy"
+cp -r "$KIT_DIR" "$TMP/fresh/policy/kit"
+rm -f "$TMP/fresh/policy/kit/consumers.json"
+"$KIT_DIR/install.sh" --repo "$TMP/fresh" --consumer kit-test >/dev/null 2>&1
+[ -f "$TMP/fresh/policy/kit/.kit-version" ] \
+  || fail "a copy identical to the source was refused a stamp — the refusal is not discriminating"
+#     The stamped digest is the SOURCE's, which is the whole of finding 3's fix.
+SRC_M=$(bash "$KIT_DIR/bin/kit-manifest.sh" "$KIT_DIR")
+grep -q "^manifest: $SRC_M$" "$TMP/fresh/policy/kit/.kit-version" \
+  || fail "the stamp does not carry the SOURCE manifest: $(grep '^manifest:' "$TMP/fresh/policy/kit/.kit-version")"
+echo "ok: a matching copy is stamped, and the stamp carries the SOURCE digest"
+
+#     7k. THE MARKER HAS ONE READER (kogaki#799, PR #798 round 2 finding 5).
+#     A nested role must not read as the Home to the installer either — under
+#     the divergent readers this tree skipped the stamp here and was denied by
+#     the check.
+mkdir -p "$TMP/nested/policy"
+cp -r "$KIT_DIR" "$TMP/nested/policy/kit"
+printf '{"consumers":[{"repo":"x","role":"home"}]}\n' > "$TMP/nested/policy/kit/consumers.json"
+NESTOUT=$("$KIT_DIR/install.sh" --repo "$TMP/nested" --consumer kit-test 2>&1)
+printf '%s\n' "$NESTOUT" | grep -q 'no stamp is written and none is owed' \
+  && fail "a nested role: home read as the Home declaration to the installer — the divergence finding 5 named"
+echo "ok: a nested role is not the Home declaration, to the installer as to the check"
+
 echo "ALL PASS"

@@ -74,6 +74,7 @@ else
 fi
 
 MANIFEST_TOOL="$(dirname "$0")/../bin/kit-manifest.sh"
+ROLE_TOOL="$(dirname "$0")/../bin/kit-role.sh"
 
 # --- The reading, as a function, so the fixture exercises THE SHIPPED PATH.
 # A fixture that re-implemented the verdicts would assert its own copy of them,
@@ -100,15 +101,14 @@ read_currency() {
     return 2
   fi
 
+  # THE MARKER IS READ BY THE SHARED IMPLEMENTATION (kogaki#799, PR #798 round 2
+  # finding 5). This check and `install.sh` previously asked the same question
+  # with different semantics — a top-level JSON parse here, a grep-anywhere
+  # there — so a nested `role: home` made the install skip the stamp while this
+  # check denied the resulting unstamped tree. One reader, neither caller
+  # restating it, on `kit-manifest.sh`'s own precedent.
   local declares_home=0
-  if [[ -f "$consumers" ]]; then
-    if python3 -c "
-import json,sys
-try: d=json.load(open('$consumers'))
-except Exception: sys.exit(1)
-sys.exit(0 if isinstance(d,dict) and d.get('role')=='home' else 1)
-" 2>/dev/null; then declares_home=1; fi
-  fi
+  if [[ "$(bash "$ROLE_TOOL" "$kit" 2>/dev/null)" == "home" ]]; then declares_home=1; fi
 
   # CONTRADICTION FIRST. Checked before either single-state branch, because
   # whichever branch ran first would absorb this case and report a clean
@@ -216,11 +216,13 @@ if [[ "$SELF_TEST" -eq 1 ]]; then
   # A Home: a kit tree that declares role=home and carries no stamp.
   mk_home() { local d="$1"; mkdir -p "$d/policy/kit/bin"
     cp "$MANIFEST_TOOL" "$d/policy/kit/bin/kit-manifest.sh"
+    cp "$ROLE_TOOL" "$d/policy/kit/bin/kit-role.sh"
     echo 'kit payload v1' > "$d/policy/kit/payload.txt"
     printf '{"role":"home","consumers":[]}\n' > "$d/policy/kit/consumers.json"; }
   # A consumer: the same kit files, no home declaration, stamped.
   mk_consumer() { local d="$1" home_rev="$2"; mkdir -p "$d/policy/kit/bin"
     cp "$MANIFEST_TOOL" "$d/policy/kit/bin/kit-manifest.sh"
+    cp "$ROLE_TOOL" "$d/policy/kit/bin/kit-role.sh"
     echo 'kit payload v1' > "$d/policy/kit/payload.txt"
     { echo "home: example/home"; echo "home_revision: $home_rev";
       echo "installed: 2026-09-03";
@@ -325,6 +327,21 @@ if [[ "$SELF_TEST" -eq 1 ]]; then
   else
     echo "  FAIL verdict set drifted from the four SPEC 10.2 names:"; echo "$declared" | sed 's/^/         /'
     bad=$((bad+1))
+  fi
+
+  # 14. A NESTED `role: home` IS NOT THE DECLARATION, and both callers agree
+  #     (PR #798 round 2, finding 5). Under the divergent readers this tree
+  #     made the install skip the stamp while this check denied it.
+  mk_consumer "$T/c_nested" "0000000000000000000000000000000000000000"
+  printf '{"consumers":[{"repo":"x","role":"home"}]}\n' > "$T/c_nested/policy/kit/consumers.json"
+  rm -f "$T/c_nested/policy/kit/.kit-version"
+  expect "nested role is not the Home declaration" 1 "without provenance" "$T/c_nested"
+  cases=$((cases+1))
+  if [[ "$(bash "$ROLE_TOOL" "$T/c_nested/policy/kit")" == "" ]] \
+     && [[ "$(bash "$ROLE_TOOL" "$T/home/policy/kit")" == "home" ]]; then
+    echo "  ok   the shared marker reader discriminates nested from top-level"
+  else
+    echo "  FAIL the shared marker reader did not discriminate"; bad=$((bad+1))
   fi
 
   echo "fixture: $cases case(s), $bad failure(s)"

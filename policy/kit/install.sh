@@ -276,8 +276,7 @@ if [[ ! -d "$REPO/policy/kit" ]]; then
   say "no policy/kit/ in $REPO — the kit's OUTPUT is installed and no kit COPY is"
   say "vendored here, so no stamp is owed. Stated rather than skipped silently:"
   say "an absent stamp and a stamp step that failed read identically otherwise."
-elif [[ -f "$REPO/policy/kit/consumers.json" ]] \
-     && grep -q '"role"[[:space:]]*:[[:space:]]*"home"' "$REPO/policy/kit/consumers.json" 2>/dev/null; then
+elif [[ "$(bash "$KIT_DIR/bin/kit-role.sh" "$REPO/policy/kit" 2>/dev/null)" == "home" ]]; then
   # THE HOME IS NOT STAMPED (PR #798 round 1, finding 2). This branch used to
   # write the stamp and then WARN that the result was contradictory — which
   # made the documented act of refreshing the Home's own managed block
@@ -303,7 +302,29 @@ else
   SELF_INSTALL=0
   [[ -n "$KIT_ROOT" && "$KIT_ROOT" == "$REPO_ROOT" ]] && SELF_INSTALL=1
 
-  KIT_MANIFEST="$(bash "$KIT_DIR/bin/kit-manifest.sh" "$REPO/policy/kit" 2>/dev/null || true)"
+  # THE STAMP DIGESTS THE SOURCE, NOT THE COPY (kogaki#799, resolving PR #798
+  # round 2's finding 3 — the half round 1's fix left standing while reporting
+  # the whole finding resolved).
+  #
+  # The stamp records WHERE THIS COPY CAME FROM: a Home slug, a Home revision,
+  # and a digest. Digesting the copy made the third field agree with the first
+  # two by construction — whatever was in the tree became "what home@rev
+  # contains" — so a tree holding a STALE copy that ran a FRESH Home's installer
+  # was stamped `home@<new HEAD>` over its own contents, matched its own
+  # manifest, and read `current` while being behind. Every deny condition passed
+  # in that state, which is exactly the undeclared-duplicate the served position
+  # at SPEC-client-kit §10.1 names.
+  #
+  # So SOURCE_MANIFEST is what the stamp asserts, and the copy is checked
+  # AGAINST it at install time rather than at some later check run: an
+  # immediate legible refusal beats a deferred failure whose cause is three
+  # steps back.
+  SOURCE_MANIFEST="$(bash "$KIT_DIR/bin/kit-manifest.sh" "$KIT_DIR" 2>/dev/null || true)"
+  COPY_MANIFEST="$(bash "$KIT_DIR/bin/kit-manifest.sh" "$REPO/policy/kit" 2>/dev/null || true)"
+  KIT_MANIFEST="$SOURCE_MANIFEST"
+  if [[ -z "$SOURCE_MANIFEST" || -z "$COPY_MANIFEST" ]]; then
+    KIT_MANIFEST=""
+  fi
   if [[ -z "$KIT_MANIFEST" ]]; then
     # NO STAMP RATHER THAN AN UNVERIFIABLE ONE (PR #798 round 1, finding 4).
     # This used to write `manifest: unavailable` and report "stamped", so the
@@ -333,6 +354,15 @@ else
     say "policy/kit/.kit-version: self-install with no prior stamp — this installer"
     say "IS the copy, so it cannot establish an origin and NO stamp is written."
     say "Stamp the copy from the Home it was taken from, or declare it a fork."
+  elif [[ "$SOURCE_MANIFEST" != "$COPY_MANIFEST" ]]; then
+    # The copy in this tree is not the kit being installed from. Stamping it
+    # would assert a provenance that is false at the moment it is written.
+    say "policy/kit/ in $REPO does NOT match the kit being installed from"
+    say "  source ${SOURCE_MANIFEST:0:12}  copy ${COPY_MANIFEST:0:12}"
+    say "NO stamp is written: a stamp says where a copy CAME FROM, and this copy"
+    say "did not come from here. Re-copy policy/kit/ from the Home and re-run, or"
+    say "declare the divergence — an unstamped copy is refused by"
+    say "check-kit-currency, which is the honest reading rather than a false one."
   else
     HOME_SLUG="$(cd "$KIT_DIR/../.." && git config --get remote.origin.url 2>/dev/null \
       | sed -e 's#\.git$##' -e 's#.*[:/]\([^/]*/[^/]*\)$#\1#' || true)"
