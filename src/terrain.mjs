@@ -5512,6 +5512,12 @@ const GATE_WORK = {
 // tomorrow's unreachable.
 // consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b LESSONS.md:161
 //
+// SUBSTITUTION IS UNIFORM ACROSS EVERY KEY, `why` included (kogaki#819 round 1). It went in
+// raw while the property case computed its expected value WITH substitution applied, so a
+// `why` that ever named the survey record would have failed the check for a renderer
+// asymmetry rather than for a missing key — a false finding pointing at the wrong defect.
+// Harmless as the table stands, which is exactly why it would have been found late.
+//
 // `why` IS NOT AN EXCEPTION TO THE RULE, and the distinction is worth stating
 // because it looks like one. Every OTHER key is an invocation the owner types;
 // `why` is the prose reason, and it is rendered in the header line — so its
@@ -5522,16 +5528,23 @@ const GATE_WORK = {
 // WHAT THIS DOES NOT REACH, disclosed rather than left for a reader to assume
 // from a green check: this renders the invocation to the EXECUTOR's stdout, and
 // in the Claude Code harness a tool call's stdout is displayed to the MODEL,
-// not reliably to the OWNER (§6.0's own ground). The hop from here to the
-// owner's terminal is model text and has no carrier. kogaki#807's owner ruling
-// 2 names that as a design discussion and does not decide it; nothing here
-// closes it.
+// not reliably to the OWNER (§6.0's own ground). That hop is carried by the
+// ORDINARY HAND-OVER PATTERN and by nothing stronger — the executor prints its
+// fixed block and the commands at the stop, the model hands them over, the
+// owner runs them with `!` — which is the same pattern already carrying `tags`
+// and `tag-rows`. This change makes it carry the third declared command too.
+// (An earlier form of this comment called that hop an open owner ruling. It is
+// not: kogaki#807's ruling 2 was WITHDRAWN by the owner on 2026-09-03 as a
+// question about every stop in every command rather than about this screen,
+// and ruling 1 resolved in favour of the kogaki#737 wording. Corrected rather
+// than deleted, because a comment asserting an open question that is closed
+// sends the next reader to look for a decision nobody owes.)
 function ownerReadsLines(or, sr) {
   // ONE PLACEHOLDER, SUBSTITUTED; everything else is the table's own text.
   // Composing an invocation here would put the command in two places and make
   // the table advisory about its own hand-over.
   const sub = (t) => String(t).replace(/<survey record>/g, sr);
-  const lines = [`READ FIRST, and run it YOURSELF — ${or.why || ""}`];
+  const lines = [`READ FIRST, and run it YOURSELF — ${or.why ? sub(or.why) : ""}`];
   for (const key of Object.keys(or)) {
     if (key === "why") continue;
     lines.push(`  ${sub(or[key])}`);
@@ -6175,6 +6188,8 @@ switch (cmd) {
         invented.includes("node src/terrain.mjs invented --survey S.json"));
       ok("`why` reaches the output once, in the header, rather than twice or not at all",
         invented.split("because").length - 1 === 1 && invented.startsWith("READ FIRST"));
+      ok("`why` is substituted like every other key — an asymmetry here would fail the property case for a renderer defect rather than a missing key",
+        ownerReadsLines({ invocation: "x", why: "grounded in <survey record>" }, "S.json").join("\n").includes("grounded in S.json"));
       ok("the table's own key order is the render order",
         invented.indexOf("terrain.mjs tags") < invented.indexOf("terrain.mjs invented"));
     }
