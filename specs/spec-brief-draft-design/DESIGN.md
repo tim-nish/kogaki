@@ -93,6 +93,96 @@ ORDER, the exclusions, or which failure each header is defending against.*
 One Step's realization takes exactly one input: the **Section Packet**, rendered
 by `draft.mjs packet` from a fixed template. Nothing outside it is read.
 
+**AND THE HARNESS RENDERS IT, as the step immediately before realization
+(kogaki#809, owner ruling 2026-09-03).** The sentence above was true of the
+design and false of the running system: `draft.mjs` had no ordering between
+`packet` and `section`, so a Step could be realized with no Packet ever
+rendered — and after a full Draft run there were none. The clause did not fail
+because it was wrong; it failed because nothing was obliged to make it true.
+
+The Packet is a **render from a fixed template**, not an owner judgment, so
+moving it inside the Harness takes no decision away from anyone. It makes "one
+Step, one input" true **by construction** rather than by a session remembering
+to run a command.
+
+**The refusal is KEPT AS THE BACKSTOP — and neither half exists yet.**
+`section` SHALL refuse to realize a Step whose Packet is absent; the case
+render-within cannot see is a Packet deleted or stale between the render and the
+realization. Both clauses are **normative and unbuilt at the head that records
+them**: `draft.mjs` has no ordering and no refusal between `packet` and
+`section`, which is kogaki#809's own defect report, and the carriers are #811
+(Harness) and #812 (skill). Stated in that shape deliberately — an earlier
+drafting of this paragraph wrote "the refusal stays" and "still refuses", which
+assert the CONTINUITY of something that never existed and let a reader arriving
+before those land read the gap this section exists to name as already closed.
+
+This is the gate-plus-backstop split rather than a belt-and-braces habit:
+
+> "the preflight stays the BACKSTOP that catches the act's absence, never the
+> mechanism that supplies it … the gate catches the act, the brief catches its
+> absence"
+
+`consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b topics/claude-code-ops.md:284`
+  request_id: 5f4b00ad-ddb2-4280-874b-e7739828f869
+  outcome: discriminating
+  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding step? Which is constraining generation rather than post-hoc detection?
+
+and it is the constrain-generation arm rather than the detection arm:
+
+> "the remedy is to constrain what the pipeline can PRODUCE rather than to
+> improve what it can DETECT … detection survives only where free composition
+> is irreducible"
+
+`consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b LESSONS.md:161`
+  request_id: 5f4b00ad-ddb2-4280-874b-e7739828f869
+  outcome: discriminating
+  query: When a required input can be missing at the moment of use, does the harness refuse the act until the input is produced, or produce the input itself as the preceding step? Which is constraining generation rather than post-hoc detection?
+
+**AN INSPECTION PAUSE IS A DISTINCT FACT, and this clause does not decide it
+(owner correction at the ruling gate).** It is tempting to read render-within as
+trading away the owner's chance to read a Packet before its Step. It does not.
+If the design wants that pause, it belongs **after the render** and is its own
+clause — never a reason to keep rendering manual. Recorded because the gate that
+produced this ruling stated the cost as "the Packet becomes an artifact the
+owner reads rather than an act they perform", and that framing invites exactly
+the wrong inference: the two are independent, and only one of them is decided
+here.
+
+**The skill carries none of this.** `.claude/skills/draft/SKILL.md` SHALL BE
+tracked under the same criterion its siblings are — a check asserts against it —
+and reduced to invoking the Harness entry points, because under this ruling the
+flow ordering lives in the Harness and the skill has nothing left to carry. Also
+normative and unbuilt: at this head `git ls-files .claude/skills/` returns
+`brief`, `terrain` and `consult-first` only, and #812 is the carrier.
+
+**Placement, disclosed rather than left to accrete.** This clause is about a
+CARRIER — which file is tracked and checked — and §3's own `necessity:` line
+scopes this section to the reasoning behind the Packet's block order, its
+exclusions, and the failure each header defends against. It lodges here because
+one ruling decided both forks, not because §3 is its home; §6 (owner state
+versus machine state) is the closer neighbour. Recorded rather than moved,
+because moving it is its own act and a silent lodging is what turns into
+accretion.
+
+The ground is this repository's own incident rather than a general preference:
+
+> "A BYPASS OF SUCH A SYSTEM IS SILENT BY CONSTRUCTION, BECAUSE THE SYSTEM'S
+> RECORD ONLY ACCOUNTS FOR WHAT CAME THROUGH IT … Its own skill file said
+> 'there is ONE entry point' and, forty lines further down, still listed the two
+> old direct commands. The session followed the file's own text."
+
+`consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b topics/claude-code-ops.md:28`
+  request_id: d2ee8773-814a-420e-adc2-9e44d0cf6224
+  outcome: discriminating
+  query: A skill file that drives a workflow is gitignored while its siblings are tracked, so repository-wide rename sweeps using git grep cannot see it and it still names a removed path. What governs whether such a driver is tracked, and what governs a carrier no sweep can reach?
+
+kogaki#809 is that line's second instance in this repository: the draft skill was
+untracked, so #765's `git grep` rename sweep could not see it; it still names
+`draft/draft.mjs`, removed 2026-09-02; and it never mentions the Packet at all.
+**Tracking it is necessary and not sufficient** — a tracked skill can still say
+the wrong thing. What makes the ordering hold is that it lives in the Harness,
+and tracking is what lets a sweep and a check reach the file at all.
+
 **Every block opens with a fixed usage header**, because a block whose use is
 not stated gets used for whatever it resembles. The exemplar block is the one
 that fails worst — read as content rather than as form, it hands the article
