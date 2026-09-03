@@ -40,3 +40,12 @@ transferable half: **after renaming a thing because its old name was wrong,
 grep the diff for the old name** — the repair's own hunk is the highest-density
 place the retracted term survives, and it is the one place a reviewer quoting
 the printed surface will not look.
+
+**Consulted at the carry decision**, because the exit itself is a mapped
+boundary: `consulted: product-lab@dc9fcd533e9e08538bd0740b7eef37b458fb3bcd
+topics/claude-code-ops.md:154` — *"at a spent bound a latent non-gating finding
+DEFAULTS TO THE REGISTER, and an issue or successor for such a finding requires
+stated reachability or an explicit owner promotion."* The terminal-bound rule at
+`topics/claude-code-ops.md:171` governs a PR **blocked** at the bound; round 2
+returned `present`/`done`, so supersession was never the applicable rule.
+outcome: discriminating
