@@ -131,15 +131,30 @@ grouping and never its reason** — a length rule promoted to the reason is a
 heading budget, which is the fragmented draft again with a number attached.
 §4.15 is the text that binds.
 
-**NORMATIVE AND UNBUILT AT THE HEAD THAT RECORDS THIS**, stated in that shape
-deliberately — the same correction PR #813 round 1 forced one section down,
-where "the refusal stays" asserted the continuity of something that never
-existed. At this head `src/brief.mjs` has no `opens_section` and no rule
-validation, `src/draft.mjs emit` still renders one heading per Step, and
-`src/packet-template.md` still uses the word *Section* for the per-Step unit.
-Carriers: **#822** (the Brief field and its mint validation), **#823** (the
-renderer and the frontmatter section trace), **#825** (the Packet, including the
-vocabulary collision this ruling creates inside its template).
+**NORMATIVE, AND PARTLY BUILT AT THIS HEAD**, stated in that shape deliberately
+— the same correction PR #813 round 1 forced one section down, where "the
+refusal stays" asserted the continuity of something that never existed. The
+build state is given **per clause**, because two of the three the unbuilt form
+listed are now false and the third is not:
+
+- **BUILT, #822** — the field is admitted and the four rules refuse. **Not in
+  `src/brief.mjs`, which is where this note predicted it.** `cmdMint` writes a
+  Brief *shell* and no Step exists there for a rule to read, so the site is
+  `validateSteps` in **`src/compose.mjs`** — the one act Steps reach. The
+  ruling's intent is unchanged and only the named act moved.
+- **BUILT, #823** — `emit` writes one `## <title>` per Section at its opening
+  Step, `parseBrief` reads the field back, and the frontmatter trace maps each
+  Step to exactly one Section. **This note's own reading of the head was wrong
+  and the correction is kept**: `emit` rendered **no** heading, not one per
+  Step, and the specimen's five headings were the model's, written into the
+  prose. Heading authorship was *unowned*, which is why the repair needed a
+  second act — `section` refuses realized prose carrying a heading of its own.
+- **UNBUILT, #825** — `src/packet-template.md` still uses the word *Section*
+  for the per-Step unit, at its `# Write one Section`, `## The Move this Section
+  performs` and `## This Section's Step` block headers. Carrier: **#825** (the
+  Packet, including the vocabulary collision this ruling creates inside its
+  template). This is the clause the section below elaborates, and it is the one
+  a reader of that section should still expect to find open.
 
 **THE VOCABULARY COLLISION IS DISCLOSED HERE RATHER THAN LEFT TO ITS CARRIER,**
 because this record is what creates it, **and it is wider than the Packet
