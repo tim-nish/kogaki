@@ -48,7 +48,7 @@ import { fileURLToPath } from "node:url";
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
 // composer sees would stop matching the one a realizer sees.
-import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger } from "./compose.mjs";
+import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal } from "./compose.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 
 function fail(msg) {
@@ -159,7 +159,28 @@ export function parseBrief(text, path = "<brief>") {
       const bad = introducesRefusal(introduces, `the Brief at ${path}, step ${idM[1]}`);
       if (bad) { refusals.push(bad); continue; }
     }
-    steps.push({ step_id: idM[1], move: moveM ? moveM[1] : null, introduces, body });
+    // §4.15's `opens_section:` (kogaki#823), read back from the serialized form
+    // `renderStep` writes. THE PARSE-BACK IS WHAT MAKES THE DECLARATION LIVE:
+    // kogaki#822 landed the field, its four grouping rules and its writer, and
+    // nothing on this side read it — so a Brief could declare its Sections
+    // perfectly and the Draft would still render one heading per Step, with
+    // every check green. The round trip is asserted at both ends through ONE
+    // shared shape grammar, imported rather than re-expressed, for the reason
+    // `introduces` is: a writer and a reader disagreeing about what a value is
+    // fails silently at exactly the field whose value reaches an owner-facing
+    // heading.
+    // `[ \t]*` and NOT `\s*`: `\s` matches a newline, so a blank value would
+    // eat the line break and capture the NEXT field's line as the title — a
+    // Section silently headed "purpose: ..." instead of refusing. Caught by the
+    // blank-value fixture below; the same idiom `stepField` already uses.
+    const opensM = body.match(/^opens_section:[ \t]*(.*)$/m);
+    let opens_section;
+    if (opensM) {
+      const bad = opensSectionRefusal(opensM[1].trim(), `the Brief at ${path}, step ${idM[1]}`);
+      if (bad) { refusals.push(bad); continue; }
+      opens_section = opensM[1].trim();
+    }
+    steps.push({ step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, body });
   }
   if (steps.length === 0 && refusals.length === 0) {
     refusals.push(`the Brief at ${path} carries no Reader Path steps — there is nothing to realize`);
@@ -275,12 +296,64 @@ function loadBrief(args) {
   return { ...brief, path: resolve(path), movesChecked: resolved.checked };
 }
 
+// §4.15's SECTION GROUPING, derived from the Brief and from nothing else
+// (kogaki#823). ONE derivation, shared by the renderer, the frontmatter trace
+// and the Packet: a Section is a run of Steps beginning at a Step that declares
+// `opens_section` and continuing until the next one does. The Brief is the only
+// input, so what the Draft renders and what a Packet says about where a Step
+// sits cannot disagree — two derivations of the same grouping is two things
+// that can drift about which Section a Step is in.
+//
+// A path declaring no `opens_section` at all is the pre-§4.15 corpus, and it
+// derives ONE untitled Section rather than refusing. The refusal for that shape
+// is rule 3's and it lives at COMPOSITION (`sectionGroupingRefusal`), where the
+// Brief is being authored and can still be fixed; refusing here as well would
+// make every Brief minted before this issue unrenderable, which is a migration
+// this issue has no licence for and did not ask for.
+export function sectionsOf(steps) {
+  const sections = [];
+  for (const s of steps) {
+    if (s.opens_section !== undefined || sections.length === 0) {
+      sections.push({ index: sections.length + 1, title: s.opens_section, step_ids: [] });
+    }
+    sections[sections.length - 1].step_ids.push(s.step_id);
+  }
+  return sections;
+}
+
+// The per-Step view of the same derivation: step_id -> its Section, and whether
+// this Step is the one that OPENS it. Both consumers need the mapping keyed
+// this way and neither should re-walk the runs to get it.
+export function sectionOfStep(steps) {
+  const map = new Map();
+  for (const sec of sectionsOf(steps)) {
+    for (const id of sec.step_ids) {
+      map.set(id, { index: sec.index, title: sec.title, opens: id === sec.step_ids[0], step_ids: sec.step_ids });
+    }
+  }
+  return map;
+}
+
+// THE HEADING IS THE HARNESS'S, WRITTEN HERE AND NOWHERE ELSE (kogaki#823).
+// `emit` used to concatenate the realized prose and write no heading at all,
+// which left the heading to whatever the model happened to produce — five
+// headings for five Steps in the 2026-09-03 specimen, the fragmentation half of
+// the pair the owner rejected. Deriving them from the Brief's declaration is
+// what makes a heading-per-Step draft UNPRODUCIBLE rather than detected: there
+// is no input to this function from which one could come.
 function assembleBody(brief, ws) {
   const parts = [];
   const missing = [];
+  const sections = sectionsOf(brief.steps);
+  const opensAt = new Map();
+  for (const sec of sections) opensAt.set(sec.step_ids[0], sec);
   for (const step of brief.steps) {
     const f = join(ws, "sections", `${step.step_id}.md`);
     if (!existsSync(f)) { missing.push(step.step_id); continue; }
+    const sec = opensAt.get(step.step_id);
+    // An untitled Section renders no heading rather than an empty one. It is
+    // reachable only on a pre-§4.15 path, whose whole body is one Section.
+    if (sec && sec.title !== undefined) parts.push(`## ${sec.title}`);
     parts.push(readFileSync(f, "utf8").trim());
   }
   return { body: parts.join("\n\n"), missing };
@@ -645,6 +718,23 @@ function cmdSection(args) {
   if (structural.length) {
     fail(`the section for ${id} renders record as structure: ${structural[0]} — the per-Step trace is frontmatter record, never visible structure in the body (SPEC-draft-command §5)`);
   }
+  // THE PROSE CARRIES NO SECTION HEADING (§4.15, kogaki#823). The heading is
+  // the Harness's, written by `assembleBody` from the Brief's declaration, so a
+  // heading in the realized prose is a SECOND writer of the same structure —
+  // and the two do not add up to the one-heading-per-Section the ruling asks
+  // for. The template already instructs "No heading"; this is what makes the
+  // instruction binding rather than advisory, which is the whole distance
+  // between a rule and its enforcement.
+  //
+  // DISTINCT FROM `findTraceStructure` ABOVE, and stated so a reader meeting
+  // both does not read one as a widening of the other: that guard refuses
+  // RECORD rendered as structure (a step id, a key line) and is unchanged; this
+  // refuses a TITLE the Brief did not declare, at a level the Harness owns.
+  const heading = content.match(/^(#{1,3})\s+(?!#)(.*\S)\s*$/m);
+  if (heading) {
+    fail(`the section for ${id} carries its own heading (${heading[0].trim()}) — after §4.15 the heading is the Harness's, rendered once per Section at the Step that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. `
+      + `Remove it: the Packet's write instruction says "No heading" for this reason`);
+  }
   mkdirSync(join(ws, "sections"), { recursive: true });
   let seq = 0;
   try { seq = readdirSync(join(ws, "snapshots")).length; } catch { /* first snapshot */ }
@@ -677,7 +767,16 @@ function cmdEmit(args) {
   }
   const cites = brief.strands.flatMap((s) =>
     s.cites.map((c) => ({ strand: s.id, slug: s.slug, kind: c.kind, cite: c.cite })));
-  const trace = brief.steps.map((s, i) => ({ step_id: s.step_id, section: i + 1 }));
+  // THE TRACE MAPS EACH STEP TO ITS SECTION, not to its own ordinal
+  // (kogaki#823). `section: i + 1` numbered the Steps and called the result a
+  // section, which was true only while the two units were the same one — after
+  // §4.15 it asserted a one-to-one mapping that the Brief may not declare, so a
+  // reader of the trace could not tell which Steps shared a heading.
+  const secOf = sectionOfStep(brief.steps);
+  const trace = brief.steps.map((s) => {
+    const sec = secOf.get(s.step_id);
+    return { step_id: s.step_id, section: sec.index, ...(sec.title !== undefined ? { section_title: sec.title } : {}) };
+  });
   // The artifact is owner-visible and machine-independent (round 1 finding 3):
   // the Brief is named relative to the draft that realizes it — always its
   // sibling — so two machines emit identical bytes. The absolute path is
@@ -1145,6 +1244,123 @@ async function runSelfTest() {
   // source text, so a re-spelling that reintroduces the home directory fails.
   ok("no default run destination resolves under a home directory",
     !workspaceFor({}, "some-slug").includes(`${sep}.kogaki${sep}`));
+
+  // 7 — §4.15's SECTION GROUPING, DRIVEN END TO END (kogaki#823). The cases
+  // above run against a Brief that declares no `opens_section`, which is the
+  // pre-§4.15 corpus and exercises exactly the fallback branch — so on their
+  // own they are green about a renderer that reads the declaration for nothing.
+  // This block drives a Brief that DOES declare it: three Steps, two Sections,
+  // so "fewer headings than Steps" is a property of the output rather than an
+  // arithmetic identity that would hold for any grouping.
+  const secDir = join(root, "theses", "section-brief");
+  mkdirSync(secDir, { recursive: true });
+  const secWs = join(root, "ws-sec");
+  const stepBlock = (id, move, opens, extra = []) => [
+    "```step", `step_id: ${id}`, `move: ${move}`,
+    ...(opens ? [`opens_section: ${opens}`] : []),
+    `purpose: purpose of ${id}`,
+    `reader_state_before: before ${id}.`, `reader_state_after: after ${id}.`,
+    "materials: L1", `rationale: rationale for ${id}.`,
+    "ground (strand L1): the material states the claim.",
+    ...extra, "```", "",
+  ];
+  const secBrief = (blocks) => [
+    "# Brief — section-brief", "",
+    "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+    "## Strands", "", "### L1 — first-strand", "",
+    "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+    "## Thesis", "", "The fixture claim.", "",
+    "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+    "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
+    "## Opening question", "", "What makes the fixture claim worth stating?", "",
+    "## Sequence", "", ...blocks,
+  ].join("\n");
+  writeFileSync(join(secDir, "brief.md"), secBrief([
+    ...stepBlock("t1", "open_the_claim", "The first question"),
+    ...stepBlock("t2", "close_the_claim", null),
+    ...stepBlock("t3", "close_the_claim", "The second question"),
+  ]));
+  const driveSec = (cmd, ...extra) => spawnSync(process.execPath,
+    [self, cmd, "--brief", join(secDir, "brief.md"), "--workspace", secWs, "--moves-dir", movesDir, ...extra],
+    { encoding: "utf8" });
+
+  driveSec("resolve");
+  for (const id of ["t1", "t2", "t3"]) {
+    const f = join(root, `prose-${id}.md`);
+    writeFileSync(f, `The realized prose for ${id}.`);
+    driveSec("section", "--step", id, "--file", f);
+  }
+  const eSec = driveSec("emit");
+  const secOut = existsSync(join(secDir, "draft.md")) ? readFileSync(join(secDir, "draft.md"), "utf8") : "";
+  const secBody = secOut.split("---\n").slice(2).join("---\n");
+  const headings = [...secBody.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+
+  ok("a declared path emits one heading per Section, at the opening Step",
+    eSec.status === 0 && headings.join("|") === "The first question|The second question", headings.join("|"));
+  // The issue's acceptance 1 and 3, asserted as the RELATION rather than as the
+  // number: three Steps and two headings is what "fewer headings than Steps"
+  // means, and equality with the Section count is what "none inside" means.
+  ok("fewer headings than Steps, and exactly one per Section",
+    headings.length === 2 && headings.length < 3 &&
+    headings.length === sectionsOf([{ step_id: "t1", opens_section: "a" }, { step_id: "t2" }, { step_id: "t3", opens_section: "b" }]).length);
+  // The continuing Step's prose sits under the heading its Section opened with
+  // and gains none of its own — the "no heading inside a Section" half.
+  ok("a continuing Step's prose renders under the open Section's heading, with no heading of its own",
+    secBody.indexOf("The realized prose for t2.") > secBody.indexOf("## The first question") &&
+    secBody.indexOf("The realized prose for t2.") < secBody.indexOf("## The second question"));
+
+  // Acceptance 2: every Step in the trace, mapped to exactly one Section — and
+  // t1/t2 sharing Section 1 is what the old `section: i + 1` could not say.
+  const secTrace = [...secOut.matchAll(/^  - (\{"step_id".*\})$/gm)].map((m) => JSON.parse(m[1]));
+  ok("every Step appears in the trace, mapped to exactly one Section",
+    secTrace.length === 3 && new Set(secTrace.map((t) => t.step_id)).size === 3 &&
+    secTrace.every((t) => typeof t.section === "number"));
+  ok("Steps sharing a Section carry the SAME section number, and the title rides the trace",
+    secTrace[0].section === 1 && secTrace[1].section === 1 && secTrace[2].section === 2 &&
+    secTrace[0].section_title === "The first question" && secTrace[2].section_title === "The second question",
+    JSON.stringify(secTrace));
+
+  // Acceptance 4's CONTROL: the adjacent guard is unchanged. Asserted on this
+  // Brief rather than trusted from the block above, because this is the issue
+  // that put a second heading rule beside it.
+  const badTrace = join(root, "prose-bad-trace.md");
+  writeFileSync(badTrace, "step_id: t1\n\nprose.");
+  ok("findTraceStructure's refusals still fire on a declared path",
+    driveSec("section", "--step", "t1", "--file", badTrace).status !== 0);
+  ok("a bare step id as a heading is still refused",
+    findTraceStructure("# t1\n\nprose.", ["t1"]).length > 0);
+
+  // The prose-side half of "no heading inside a Section": the Harness owns the
+  // heading, so prose writing its own is refused at the act that records it.
+  const ownHeading = join(root, "prose-own-heading.md");
+  writeFileSync(ownHeading, "## A title the Brief never declared\n\nprose.");
+  const rOwn = driveSec("section", "--step", "t1", "--file", ownHeading);
+  ok("realized prose carrying its own heading refuses, naming the heading",
+    rOwn.status !== 0 && rOwn.stderr.includes("A title the Brief never declared"), rOwn.stderr.trim().slice(0, 160));
+
+  // The round trip: the writer is `renderStep` and the reader is `parseBrief`,
+  // through ONE shared shape grammar. A malformed value refuses NAMING the Step
+  // rather than rendering a blank heading over a Section.
+  const blankDir = join(root, "theses", "blank-brief");
+  mkdirSync(blankDir, { recursive: true });
+  writeFileSync(join(blankDir, "brief.md"), secBrief([
+    ...stepBlock("t1", "open_the_claim", "   "),
+    ...stepBlock("t2", "close_the_claim", null),
+  ]));
+  const rBlank = spawnSync(process.execPath,
+    [self, "resolve", "--brief", join(blankDir, "brief.md"), "--workspace", join(root, "ws-blank"), "--moves-dir", movesDir],
+    { encoding: "utf8" });
+  ok("a blank opens_section refuses on read-back, naming the Step",
+    rBlank.status !== 0 && rBlank.stderr.includes("t1") && rBlank.stderr.includes("opens_section"),
+    rBlank.stderr.trim().slice(0, 160));
+
+  // The pre-§4.15 corpus is the CONTROL for the fallback: a path declaring
+  // nothing derives one untitled Section and renders no heading, rather than
+  // refusing or rendering `## undefined`. Without this, the migration cost of
+  // this issue is invisible.
+  ok("a path declaring no Section derives one untitled Section and renders no heading",
+    sectionsOf([{ step_id: "s1" }, { step_id: "s2" }]).length === 1 &&
+    !/^## /m.test(out.split("---\n").slice(2).join("---\n")));
 
   rmSync(root, { recursive: true, force: true });
   process.stdout.write(`draft self-test: ${passed} case(s) pass${failures.length ? `, FAILURES: ${failures.join(" | ")}` : ""}\n`);
