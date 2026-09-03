@@ -1070,7 +1070,8 @@ invariant: Gukan guarantees Unit schema, never data schema).
      concurrency cap and the freeze are all read here. `mechanisms` is NOT."
      That is SPEC-review-lane-command v28's shape, and the engine had it
      before this amendment: the tracked `review_rounds_max` was a dead copy
-     from the moment v28 landed, and PR #803 deletes it. The tracked
+     from the moment v28 landed, and PR #828 deletes it (re-landing the held
+     PR #803, whose round 1 surfaced the conflict). The tracked
      `.claude/review-lane.json` now carries `review.mechanisms` and nothing
      else. **The diff-visibility guarantee is WITHDRAWN, not moved.** Raising
      the bound is an edit of a machine-local file and lands in no commit. The
@@ -1086,7 +1087,7 @@ invariant: Gukan guarantees Unit schema, never data schema).
      **WHICH SIDE CONSUMES EACH KEY, stated because the file is tracked so its
      declarations are raisable by diff** (kogaki#632, item 7; **amended
      kogaki#810** — `"trigger"` and `review_rounds_max` left the tracked file at
-     PR #803, and this paragraph describes the file as it stood at kogaki#632).
+     PR #828, and this paragraph describes the file as it stood at kogaki#632).
      Every key in
      `.claude/review-lane.json` is read by the **engine**
      (`~/.claude/tools/review-lane`, machine-local per kogaki#9's rule that a
