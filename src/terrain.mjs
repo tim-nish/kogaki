@@ -5490,6 +5490,55 @@ const GATE_WORK = {
 // spans a chat turn, `parseArgs` reads process.argv only, and supplying a
 // stdin path would turn a wait into a prompt — which §6.3's empty question
 // allowlist for that window forbids.
+// THE `owner_reads` HAND-OVER, RENDERED FROM THE TABLE (kogaki#807).
+//
+// WHAT WENT WRONG, and it is the reason this is a loop rather than three
+// console.log lines. This renderer used to name its keys — `invocation`, then
+// `also` — while the block above it claimed the opposite in as many words:
+// "DATA, NOT DRIVER CODE … a table that moves the hand-over, or adds one to a
+// second wait, needs no runtime change." kogaki#745 then added a THIRD key,
+// `then`, carrying the co-tag selection invocation, and the executor read it
+// nowhere. No party printed that command: the executor did not, and the skill
+// forbids the model from running or relaying it. The owner reached the co-tag
+// stage with no tag list on screen and selected from memory. The close comment
+// on kogaki#737 verified "the executor names the invocation" by citing that the
+// JSON key EXISTS — true, and about the wrong file.
+//
+// SO THE SELECTION IS GONE RATHER THAN EXTENDED. Adding `if (or.then)` beside
+// the other two would fix this key and leave key N+1 uncovered by construction,
+// which is the shape the served position rules against: constrain what the
+// pipeline can PRODUCE rather than improve what it can DETECT — an enumerated
+// prohibition names yesterday's leak while a construction constraint makes
+// tomorrow's unreachable.
+// consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b LESSONS.md:161
+//
+// `why` IS NOT AN EXCEPTION TO THE RULE, and the distinction is worth stating
+// because it looks like one. Every OTHER key is an invocation the owner types;
+// `why` is the prose reason, and it is rendered in the header line — so its
+// value still reaches the stop output, which is exactly what the asserted
+// property demands. The loop skips it to avoid printing it twice, never to
+// decide whether it is rendered at all.
+//
+// WHAT THIS DOES NOT REACH, disclosed rather than left for a reader to assume
+// from a green check: this renders the invocation to the EXECUTOR's stdout, and
+// in the Claude Code harness a tool call's stdout is displayed to the MODEL,
+// not reliably to the OWNER (§6.0's own ground). The hop from here to the
+// owner's terminal is model text and has no carrier. kogaki#807's owner ruling
+// 2 names that as a design discussion and does not decide it; nothing here
+// closes it.
+function ownerReadsLines(or, sr) {
+  // ONE PLACEHOLDER, SUBSTITUTED; everything else is the table's own text.
+  // Composing an invocation here would put the command in two places and make
+  // the table advisory about its own hand-over.
+  const sub = (t) => String(t).replace(/<survey record>/g, sr);
+  const lines = [`READ FIRST, and run it YOURSELF — ${or.why || ""}`];
+  for (const key of Object.keys(or)) {
+    if (key === "why") continue;
+    lines.push(`  ${sub(or[key])}`);
+  }
+  return lines;
+}
+
 function cmdRun(args) {
   const dir = runDir(args);
   const tablePath = args.workflow ? String(args.workflow) : WORKFLOW_TABLE;
@@ -5744,14 +5793,7 @@ function cmdRun(args) {
     if (stopped.owner_reads) {
       const rec2 = readRunRecord(dir);
       const sr = rec2 && rec2.survey_record ? relFromRepo(resolve(REPO, rec2.survey_record)) : "<survey record>";
-      // ONE PLACEHOLDER, SUBSTITUTED; everything else is the table's own text.
-      // Composing the invocation here would put the command in two places and
-      // make the table advisory about its own hand-over.
-      const sub = (t) => String(t).replace(/<survey record>/g, sr);
-      const or = stopped.owner_reads;
-      console.log(`READ FIRST, and run it YOURSELF — ${or.why || ""}`);
-      console.log(`  ${sub(or.invocation)}`);
-      if (or.also) console.log(`  ${sub(or.also)}`);
+      for (const line of ownerReadsLines(stopped.owner_reads, sr)) console.log(line);
     }
     const owedHere = stopped.renders_gate_declaration
       ? rec.gate_declarations_owed.find((g) => g.state === stopped.id) : null;
@@ -6085,6 +6127,58 @@ switch (cmd) {
       })());
     }
 
+    // ---- THE `owner_reads` HAND-OVER RENDERS EVERY KEY THE TABLE DECLARES
+    // (kogaki#807). The defect these assert against: the stop renderer named
+    // `invocation` and `also`, kogaki#745 added `then` carrying the co-tag
+    // selection invocation, and no party ever printed it — the executor read
+    // the key nowhere and the skill forbids the model from running or relaying
+    // it. The owner selected co-tags from memory.
+    //
+    // THE ASSERTION IS OVER THE PROPERTY, not over the key that was missed.
+    // Case 1 iterates the SHIPPED table, so a fourth key added tomorrow is
+    // covered on the day it is added rather than on the day it is forgotten;
+    // asserting `then` by name would be the enumerated repair this fix exists
+    // to replace, and would pass just as happily on a renderer that named
+    // three keys instead of two.
+    {
+      const wf = readJson(join(REPO, "src", "workflow.json"));
+      const withReads = (wf.states || []).filter((st) => st && st.owner_reads);
+      ok("the shipped table declares at least one owner_reads hand-over — a vacuous pass here would assert nothing",
+        withReads.length > 0, `${withReads.length} state(s)`);
+      const missing = [];
+      for (const st of withReads) {
+        const out = ownerReadsLines(st.owner_reads, "runs/terrain/x/survey.json").join("\n");
+        for (const key of Object.keys(st.owner_reads)) {
+          const val = String(st.owner_reads[key]).replace(/<survey record>/g, "runs/terrain/x/survey.json");
+          if (!out.includes(val)) missing.push(`${st.id}.${key}`);
+        }
+      }
+      ok("every owner_reads key the shipped table declares reaches the executor's stop output",
+        missing.length === 0, missing.join(", "));
+
+      // The specimen, asserted BESIDE the property rather than instead of it:
+      // this is the key that was declared and unrendered, and acceptance item 1
+      // names its two substitution facts.
+      const ts = withReads.find((st) => st.id === "TAG_SELECTION");
+      const tsOut = ts ? ownerReadsLines(ts.owner_reads, "runs/terrain/x/survey.json").join("\n") : "";
+      ok("the co-tag selection invocation is named at the TAG_SELECTION stop, with the survey record substituted",
+        tsOut.includes("cotag-selection --survey runs/terrain/x/survey.json"), tsOut.slice(0, 120));
+      ok("the intent placeholder survives into the named invocation — it is the model's sole contribution and the executor supplies it at the invocation",
+        tsOut.includes("<one sentence: why these co-tags, from the model>"));
+
+      // DATA, NOT DRIVER CODE — the claim the old comment made and the code
+      // falsified. A key this runtime has never heard of renders anyway.
+      const invented = ownerReadsLines(
+        { invocation: "node src/terrain.mjs tags --survey <survey record>", why: "because", zzz_new_key: "node src/terrain.mjs invented --survey <survey record>" },
+        "S.json").join("\n");
+      ok("a hand-over key this runtime does not know renders without a code change",
+        invented.includes("node src/terrain.mjs invented --survey S.json"));
+      ok("`why` reaches the output once, in the header, rather than twice or not at all",
+        invented.split("because").length - 1 === 1 && invented.startsWith("READ FIRST"));
+      ok("the table's own key order is the render order",
+        invented.indexOf("terrain.mjs tags") < invented.indexOf("terrain.mjs invented"));
+    }
+
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
     if (bad.length) process.exit(1);
     break;
@@ -6097,7 +6191,7 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <run|tags|tag-rows|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
+    console.log(`usage: terrain.mjs <run|tags|tag-rows|cotag-selection|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
   tags --survey F                           THE OWNER RUNS THIS (SPEC-terrain §6.0). Prints the
                                             pre-selection tag listing — a header and one tag row
                                             per section — under the tag_listing grammar, and
@@ -6110,6 +6204,19 @@ switch (cmd) {
                                             half). The candidate rows under one named tag with
                                             their Gloss headlines, under tag_row_listing. Writes
                                             nothing. Never scheduled by the flow.
+  cotag-selection --survey F --tag T --intent S
+                                            THE OWNER RUNS THIS TOO (§6.0.1). The co-tag SELECTION
+                                            display for the tag just chosen — fixed blocks, guaranteed
+                                            as screen output and never a file. Writes nothing. The
+                                            executor names this invocation at the same TAG_SELECTION
+                                            stop as the two above, from the table's own owner_reads,
+                                            and neither runs it nor relays its output. --intent is the
+                                            model's SOLE contribution to the surface and rides the
+                                            named invocation rather than being printed separately; it
+                                            is refused when multi-line, over 200 characters, or
+                                            carrying table or marker syntax. Absent from this usage
+                                            until kogaki#807 — the act existed, the table named it,
+                                            and the one place an owner looks for a command did not.
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
       [--capture-option ID | --capture-free-text S] [--tool-use-id ID]
       [--claims F] [--subdivisions F] [--classification F] [--judge-model M] [--judge-effort E]
