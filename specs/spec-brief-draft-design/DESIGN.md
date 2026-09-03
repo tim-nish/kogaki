@@ -105,10 +105,18 @@ moving it inside the Harness takes no decision away from anyone. It makes "one
 Step, one input" true **by construction** rather than by a session remembering
 to run a command.
 
-**The refusal stays, as the backstop.** `section` still refuses to realize a
-Step whose Packet is absent — the case render-within cannot see is a Packet
-deleted or stale between the render and the realization. This is the
-gate-plus-backstop split rather than a belt-and-braces habit:
+**The refusal is KEPT AS THE BACKSTOP — and neither half exists yet.**
+`section` SHALL refuse to realize a Step whose Packet is absent; the case
+render-within cannot see is a Packet deleted or stale between the render and the
+realization. Both clauses are **normative and unbuilt at the head that records
+them**: `draft.mjs` has no ordering and no refusal between `packet` and
+`section`, which is kogaki#809's own defect report, and the carriers are #811
+(Harness) and #812 (skill). Stated in that shape deliberately — an earlier
+drafting of this paragraph wrote "the refusal stays" and "still refuses", which
+assert the CONTINUITY of something that never existed and let a reader arriving
+before those land read the gap this section exists to name as already closed.
+
+This is the gate-plus-backstop split rather than a belt-and-braces habit:
 
 > "the preflight stays the BACKSTOP that catches the act's absence, never the
 > mechanism that supplies it … the gate catches the act, the brief catches its
@@ -140,11 +148,23 @@ owner reads rather than an act they perform", and that framing invites exactly
 the wrong inference: the two are independent, and only one of them is decided
 here.
 
-**The skill carries none of this.** `.claude/skills/draft/SKILL.md` is tracked
-under the same criterion its siblings are — a check asserts against it — and
-reduced to invoking the Harness entry points, because under this ruling the flow
-ordering lives in the Harness and the skill has nothing left to carry. The
-ground is this repository's own incident rather than a general preference:
+**The skill carries none of this.** `.claude/skills/draft/SKILL.md` SHALL BE
+tracked under the same criterion its siblings are — a check asserts against it —
+and reduced to invoking the Harness entry points, because under this ruling the
+flow ordering lives in the Harness and the skill has nothing left to carry. Also
+normative and unbuilt: at this head `git ls-files .claude/skills/` returns
+`brief`, `terrain` and `consult-first` only, and #812 is the carrier.
+
+**Placement, disclosed rather than left to accrete.** This clause is about a
+CARRIER — which file is tracked and checked — and §3's own `necessity:` line
+scopes this section to the reasoning behind the Packet's block order, its
+exclusions, and the failure each header defends against. It lodges here because
+one ruling decided both forks, not because §3 is its home; §6 (owner state
+versus machine state) is the closer neighbour. Recorded rather than moved,
+because moving it is its own act and a silent lodging is what turns into
+accretion.
+
+The ground is this repository's own incident rather than a general preference:
 
 > "A BYPASS OF SUCH A SYSTEM IS SILENT BY CONSTRUCTION, BECAUSE THE SYSTEM'S
 > RECORD ONLY ACCOUNTS FOR WHAT CAME THROUGH IT … Its own skill file said
