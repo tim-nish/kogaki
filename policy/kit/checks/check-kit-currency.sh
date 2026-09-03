@@ -107,8 +107,27 @@ read_currency() {
   # there — so a nested `role: home` made the install skip the stamp while this
   # check denied the resulting unstamped tree. One reader, neither caller
   # restating it, on `kit-manifest.sh`'s own precedent.
-  local declares_home=0
-  if [[ "$(bash "$ROLE_TOOL" "$kit" 2>/dev/null)" == "home" ]]; then declares_home=1; fi
+  local declares_home=0 role_out="" role_rc=0
+  role_out="$(bash "$ROLE_TOOL" "$kit" 2>/dev/null)" || role_rc=$?
+  if [[ "$role_rc" -ne 0 ]]; then
+    # CANNOT-ANSWER IS NOT "NOT THE HOME". Read as a negative, an unreadable
+    # declaration makes this check deny the Home as a consumer with no
+    # provenance — a true-looking verdict about the wrong subject. Exit 2, the
+    # code already reserved for a question this check cannot answer.
+    echo "error: cannot read the Home declaration under $kit (kit-role exited $role_rc)."
+    # Worded with a dash rather than a colon deliberately. Case 13 scans this
+    # file for the verdict token followed by a name, to hold the set at four,
+    # so ANY prose that punctuates that word with a colon reads as a fifth
+    # name — including, on the first attempt, this very comment explaining the
+    # hazard. The guard was right twice; the sentences were wrong. A scan over
+    # source text cannot tell a rendered verdict from a mention of one, which
+    # is the cost of asserting over the file rather than over the behaviour,
+    # and it is accepted here: the alternative is trusting the set by eye,
+    # which is what let a fifth verdict ship in the first place.
+    echo "This is not a verdict — an unreadable declaration is not a consumer."
+    return 2
+  fi
+  [[ "$role_out" == "home" ]] && declares_home=1
 
   # CONTRADICTION FIRST. Checked before either single-state branch, because
   # whichever branch ran first would absorb this case and report a clean
@@ -342,6 +361,22 @@ if [[ "$SELF_TEST" -eq 1 ]]; then
     echo "  ok   the shared marker reader discriminates nested from top-level"
   else
     echo "  FAIL the shared marker reader did not discriminate"; bad=$((bad+1))
+  fi
+
+  # 15. CANNOT-ANSWER IS A THIRD STATE, never "not the Home". A corrupt
+  #     declaration in a Home must not read as a consumer with no stamp.
+  mk_home "$T/home_corrupt"
+  printf 'not json at all\n' > "$T/home_corrupt/policy/kit/consumers.json"
+  out="$(read_currency "$T/home_corrupt" "")"; rc=$?
+  cases=$((cases+1))
+  # The exclusion tests for a RENDERED verdict, so it must not be satisfied by
+  # the word inside the refusal's own sentence — the first draft of this line
+  # excluded `verdict:` and the message says "not a verdict:", which matched.
+  if [[ "$rc" -eq 2 ]] && [[ "$out" == *"not a verdict"* ]] \
+     && ! grep -qE '^verdict: ' <<<"$out"; then
+    echo "  ok   an unreadable Home declaration is an error, not a consumer deny"
+  else
+    echo "  FAIL unreadable declaration: exit $rc — $out"; bad=$((bad+1))
   fi
 
   echo "fixture: $cases case(s), $bad failure(s)"

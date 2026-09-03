@@ -272,11 +272,24 @@ fi
 # from an unreachable Home. Nothing here adds it to `.gitignore`, and that is
 # the deliberate opposite of the shape read at step 4d.
 say "--- kit stamp ---"
+# The role is read ONCE, and its THREE answers are kept apart. A non-zero exit
+# means the question could not be answered — never "not the Home" — because
+# collapsing those two stamps the Home, the contradictory state the role branch
+# below exists to prevent.
+ROLE_OUT=""; ROLE_RC=0
+if [[ -d "$REPO/policy/kit" ]]; then
+  ROLE_OUT="$(bash "$KIT_DIR/bin/kit-role.sh" "$REPO/policy/kit" 2>/dev/null)" || ROLE_RC=$?
+fi
 if [[ ! -d "$REPO/policy/kit" ]]; then
   say "no policy/kit/ in $REPO — the kit's OUTPUT is installed and no kit COPY is"
   say "vendored here, so no stamp is owed. Stated rather than skipped silently:"
   say "an absent stamp and a stamp step that failed read identically otherwise."
-elif [[ "$(bash "$KIT_DIR/bin/kit-role.sh" "$REPO/policy/kit" 2>/dev/null)" == "home" ]]; then
+elif [[ "$ROLE_RC" -ne 0 ]]; then
+  say "cannot read policy/kit/consumers.json to tell a SOURCE tree from a copy"
+  say "(kit-role exited $ROLE_RC) — NO stamp is written. Guessing 'not the Home'"
+  say "here would stamp the Home, which check-kit-currency then fails; an"
+  say "unanswerable question is not a negative answer."
+elif [[ "$ROLE_OUT" == "home" ]]; then
   # THE HOME IS NOT STAMPED (PR #798 round 1, finding 2). This branch used to
   # write the stamp and then WARN that the result was contradictory — which
   # made the documented act of refreshing the Home's own managed block
