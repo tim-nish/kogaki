@@ -54,9 +54,15 @@ CLAUDE_LOG="$TMP/claude-argv.log"
 MCP_LIST_BODY="$TMP/claude-mcp-list-body"
 : > "$MCP_LIST_BODY"
 mkdir -p "$TMP/shim"
+# ONE ARGUMENT PER LINE, never "$*" (PR #793 round 1). Joining with a space
+# loses argument boundaries, so a gateway path or consumer name containing one
+# would be indistinguishable from two arguments — and this log is the whole of
+# what "asserted verbatim" means below. The record is a NUL-free rendering of
+# argv with a blank line terminating each call, so a call is matched as a
+# sequence rather than as a joined string.
 cat > "$TMP/shim/claude" <<SHIM
 #!/usr/bin/env bash
-printf '%s\n' "\$*" >> "$CLAUDE_LOG"
+{ for a in "\$@"; do printf '%s\n' "\$a"; done; printf '\n'; } >> "$CLAUDE_LOG"
 if [[ "\${1:-}" == "mcp" && "\${2:-}" == "list" ]]; then
   cat "$MCP_LIST_BODY"
 fi
@@ -1097,11 +1103,28 @@ echo "ok: the install's round-trip line renders the pin it reached (kogaki#638)"
 #      landed in a sandboxed `$HOME/.claude.json` this test deletes, so the
 #      registration's ARGUMENTS — the scope, the server name, the gateway path
 #      and the consumer — were checked by nothing at all.
-ADD_LINES=$(grep -c '^mcp add ' "$CLAUDE_LOG" || true)
-[[ "$ADD_LINES" -eq 1 ]] \
-  || fail "the install called 'claude mcp add' $ADD_LINES time(s); exactly one install in this file configures a gateway, so exactly one registration is owed (kogaki#787)"
-grep -qxF "mcp add -s local tsurezure -- node $TMP/stub-gw.js --consumer kit-test" "$CLAUDE_LOG" \
-  || fail "the registration argv is not the one the install must pass (kogaki#787) — want 'mcp add -s local tsurezure -- node $TMP/stub-gw.js --consumer kit-test', got: $(grep '^mcp add ' "$CLAUDE_LOG" || echo '<no mcp add call>')"
+#      The log holds one argument per line with a blank line per call, so the
+#      expected argv is compared as a SEQUENCE and a value containing a space
+#      cannot masquerade as two arguments.
+WANT_ADD=$(printf '%s\n' mcp add -s local tsurezure -- node "$TMP/stub-gw.js" --consumer kit-test)
+ADD_CALLS=$(python3 - "$CLAUDE_LOG" <<'PYX'
+import sys
+calls = [c for c in open(sys.argv[1]).read().split("\n\n") if c.strip()]
+print(sum(1 for c in calls if c.strip().splitlines()[:2] == ["mcp", "add"]))
+PYX
+)
+[[ "$ADD_CALLS" -eq 1 ]] \
+  || fail "the install called 'claude mcp add' $ADD_CALLS time(s); exactly one install in this file configures a gateway, so exactly one registration is owed (kogaki#787)"
+python3 - "$CLAUDE_LOG" "$WANT_ADD" <<'PYX' \
+  || fail "the registration argv is not the one the install must pass (kogaki#787)"
+import sys
+log, want = open(sys.argv[1]).read(), sys.argv[2].strip().splitlines()
+calls = [c.strip().splitlines() for c in log.split("\n\n") if c.strip()]
+if want in calls:
+    raise SystemExit(0)
+print(f"want {want!r}\ngot  {[c for c in calls if c[:2]==['mcp','add']]!r}", file=sys.stderr)
+raise SystemExit(1)
+PYX
 printf '%s\n' "$RT" | grep -q 'MCP: registered (scope local, consumer kit-test)' \
   || fail "the install did not announce the registration it made: $(printf '%s\n' "$RT" | grep 'MCP:' || echo '<no MCP line>')"
 echo "ok: the registration is asserted by recorded argv, not by a real CLI start-up (kogaki#787)"
@@ -1117,7 +1140,11 @@ ALREADY=$("$KIT_DIR/install.sh" --repo "$TMP/already" --consumer kit-test --gate
 : > "$MCP_LIST_BODY"
 printf '%s\n' "$ALREADY" | grep -q 'MCP: tsurezure already registered' \
   || fail "the install did not take the already-registered branch when 'mcp list' named the server: $(printf '%s\n' "$ALREADY" | grep 'MCP:' || echo '<no MCP line>')"
-[[ "$(grep -c '^mcp add ' "$CLAUDE_LOG" || true)" -eq 0 ]] \
+[[ "$(python3 -c "
+import sys
+calls=[c for c in open('$CLAUDE_LOG').read().split(chr(10)*2) if c.strip()]
+print(sum(1 for c in calls if c.strip().splitlines()[:2]==['mcp','add']))
+")" -eq 0 ]] \
   || fail "the install re-registered a server 'mcp list' already reported (kogaki#787) — the already-registered branch must make no add call"
 echo "ok: an already-registered project is not re-registered (kogaki#787)"
 
@@ -1154,8 +1181,23 @@ for d in holders:
         link = os.path.join(nobin, name)
         if not os.path.lexists(link):
             os.symlink(os.path.join(d, name), link)
-keep = [nobin] + [d for d in path_in.split(os.pathsep)
-                  if d and d != shim and d not in holders]
+# THE REPLACEMENT SITS WHERE THE HOLDER SAT, never at the front (PR #793
+# round 1). Prepending would make every binary symlinked out of the holder
+# outrank a same-named binary that sat EARLIER in the original PATH, so on a
+# machine with two `node`s this case would run a different one than the rest
+# of the file — the same shape as the defect this case was repaired for.
+keep, placed = [], False
+for d in path_in.split(os.pathsep):
+    if not d or d == shim:
+        continue
+    if d in holders:
+        if not placed:
+            keep.append(nobin)
+            placed = True
+        continue
+    keep.append(d)
+if not placed:
+    keep.insert(0, nobin)
 print(os.pathsep.join(keep))
 PYX
 )
