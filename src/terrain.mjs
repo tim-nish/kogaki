@@ -1807,7 +1807,13 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
     run_declaration: true,
   };
   delete declaration.dynamic_options;
-  const out = join(dir, `${gateId}.run-declaration.json`);
+  // The sibling filename is a JOIN KEY: check-gate-carrier resolves this file
+  // beside a capture to decide what the capture's options_offered is compared
+  // against (SPEC-gate-carrier §4.1). It reads the suffix from the schema, so
+  // this writer reads it from the same place — with two copies, a rename on
+  // one side makes the check silently fall back to the registry comparison,
+  // which is the pre-#818 behaviour it would then report as a pass (kogaki#837).
+  const out = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
   writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
   return out;
 }
