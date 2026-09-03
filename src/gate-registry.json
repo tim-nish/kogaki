@@ -16,8 +16,11 @@
     "optional, and an optional admission field is exactly the gap kogaki#6",
     "was filed to close. Same coverage discipline, different admission",
     "economics, so two artifacts.",
-    "Shape: src/gate-schema.json. Contract:",
-    "specs/spec-gate-carrier/SPEC.md."
+    "Home: src/gate-registry.json, beside src/gate-schema.json — the schema this",
+    "file satisfies. It is a runtime-read carrier (src/terrain.mjs loads it at",
+    "module start), which is the criterion kogaki#765 used to site such carriers",
+    "in flat src/.",
+    "Contract: specs/spec-gate-carrier/SPEC.md."
   ],
   "version": "1",
   "gates": [

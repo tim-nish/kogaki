@@ -10,7 +10,7 @@ version narrative and ratification quote-trail. **Governs** port manifest item
 No runtime reads this file. The Brief and Draft lanes are driven by their own
 carriers — `src/compose.mjs`, `src/brief.mjs`, `src/assemble.mjs`,
 `src/draft.mjs`, `src/packet-template.md`, `src/specialization-schema.json`,
-`gates/registry.json`, `specs/move-extraction-contract.md` and the registered
+`src/gate-registry.json`, `specs/move-extraction-contract.md` and the registered
 checks — and where one of those decides a question, this file points at it and
 does not restate it.
 
@@ -22,7 +22,7 @@ parked designs with their triggers.
 in a machine carrier. A section whose reason cannot be stated is deleted.
 
 **Section numbers are preserved.** Other carriers cite this spec by section —
-`checks/registry.json`, `gates/registry.json`, the runtime modules and the
+`checks/registry.json`, `src/gate-registry.json`, the runtime modules and the
 sibling specs — so the re-cut renumbered nothing. **A gap in the numbering is a
 removed section, not missing text**, and every number another artifact cites
 still resolves here.
@@ -782,7 +782,7 @@ option would be a second judgment ratified with only the first actually asked.
   option — **the bare slug, never a `theses/` path** — because the option is
   already dense, carrying a Thesis, its concession and a name at once. It
   renders in the option **label**; the live shape is
-  `gates/registry.json`'s `brief-thesis-adoption` entry, which this clause names
+  `src/gate-registry.json`'s `brief-thesis-adoption` entry, which this clause names
   rather than restates.
 - **Separately declinable.** An owner who adopts a listed Thesis but wants a
   different slug says so **in the same one answer**; the adopt act takes the
@@ -798,7 +798,7 @@ exactly when the first piece of substantive owner judgment — the Thesis —
 exists. The home is a directory per Brief, `theses/<slug>/`, idempotent by slug
 with a collision refusing, and the runtime is **creator, never editor**.
 
-`necessity:` the gate's payload shape is in `gates/registry.json` and the flow
+`necessity:` the gate's payload shape is in `src/gate-registry.json` and the flow
 is in `src/brief.mjs`. What no carrier holds: the two conditions a merged gate
 may not shed, and why declining a slug may not cost the Thesis.
 
@@ -819,7 +819,7 @@ no such point**, and both gates are answerable from what the runtime renders
 into them. A later sitting that finds one adds the named stop there, with its
 ground; it does not restore the default.
 
-`necessity:` the gate's payload shape is in `gates/registry.json` and the flow
+`necessity:` the gate's payload shape is in `src/gate-registry.json` and the flow
 is in `src/brief.mjs`. What no carrier holds: the two conditions a merged gate
 may not shed, why declining a slug may not cost the Thesis, and why a
 mid-workflow stop needs an inspection-need — all conduct at an owner surface.

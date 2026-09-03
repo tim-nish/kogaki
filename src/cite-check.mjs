@@ -46,7 +46,7 @@ const REPO = join(HERE, "..");
 
 // The guarantee split, quoted in the output per AC2. Quoted from
 // specs/SPEC.md:424-430 by hand and verified by no instrument — this file is
-// outside check-anchor-resolve.sh's corpus (specs/, checks/, policy/, gates/), so
+// outside check-anchor-resolve.sh's corpus (specs/, checks/, policy/), so
 // the pointer's currency is review's to check, not asserted here.
 export const GUARANTEE_SPLIT =
   'the boundary this instrument stops at — "Kogaki guarantees citation ' +

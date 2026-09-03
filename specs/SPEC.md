@@ -5313,8 +5313,8 @@ anchors it to its true referent by human judgment, never mechanically.
 checker's roots and never the working directory.** Tracked, because a number
 whose zero closes an issue must be the SAME number in every clone: `.local/` is
 untracked here, so a working-copy scan counts files a fresh checkout does not
-have and two environments disagree about when the work is done. `check-anchor-resolve.sh` walks `specs/`, `checks/`,
-`policy/` and `gates/`; the pointers do not respect that boundary. A round-1
+have and two environments disagree about when the work is done. `check-anchor-resolve.sh` walks `specs/`, `checks/`
+and `policy/`; the pointers do not respect that boundary. A round-1
 finding on PR #648 was a pointer in **`.gitignore`** invalidated by this
 section's own earlier insertion and invisible to every instrument, and a whole-
 tree scan found two more under `.local/stories/`. So the drain's enumeration is

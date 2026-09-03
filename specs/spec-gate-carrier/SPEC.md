@@ -49,7 +49,7 @@ neither validator reads the other's files.
 
 ## 2. The declared gate registry
 
-Every gate this repository raises is declared in `gates/registry.json`. The
+Every gate this repository raises is declared in `src/gate-registry.json`. The
 registry is the enumeration against which coverage is measured, and it exists
 because the alternative is the uncovered-by-default shape: without an
 enumeration, "all gates are covered" is a statement about the gates somebody
@@ -184,7 +184,7 @@ repository. The paragraph below preserves v2's disposition record:
 `consulted: product-lab@541e59588bdb96977812c15057cecddc88702f32 LESSONS.md:97`
 
 **No gate is registered by this clause and no check is registered by it.** It
-binds composition, which `gates/registry.json` already declares per gate, and a
+binds composition, which `src/gate-registry.json` already declares per gate, and a
 check over question text would be a second reader of a surface the actor-level
 hook already reads.
 
@@ -227,7 +227,7 @@ declaration is the comparison target.**
   the executor at the wait that owed it, and it is the only artifact that can
   hold an option composed for that run.
 - Where no sibling declaration exists, the target is the gate's entry in
-  `gates/registry.json`. This is the pre-v4 behaviour, kept exactly: a capture
+  `src/gate-registry.json`. This is the pre-v4 behaviour, kept exactly: a capture
   that reached the tree with no run workspace around it is judged against the
   registry and fails on disagreement, **by design rather than by exemption.**
 

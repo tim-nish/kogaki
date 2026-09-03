@@ -88,7 +88,7 @@ python3 - "$@" <<'PY'
 import os, re, sys, pathlib, subprocess
 
 # The ANCHOR corpus: where anchors are resolved and refused.
-ROOTS = ["specs", "checks", "policy", "gates"]
+ROOTS = ["specs", "checks", "policy"]
 
 # The CLOSED-SET denominator is a TRACKED-TREE scan, deliberately wider than
 # ROOTS (§3.1). Pointers do not respect the anchor corpus's boundary: PR #648

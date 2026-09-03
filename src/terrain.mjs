@@ -36,7 +36,7 @@ const REPO = resolve(HERE, "..");
 const SURVEY_SCHEMA = readJson(join(REPO, "src/survey-schema.json"));
 const RECORD_SCHEMA = readJson(join(REPO, "src/record-schema.json"));
 const GATE_SCHEMA = readJson(join(REPO, "src/gate-schema.json"));
-const GATES_REGISTRY = readJson(join(REPO, "gates/registry.json"));
+const GATES_REGISTRY = readJson(join(REPO, "src/gate-registry.json"));
 // §14.1's single carrier of the RENDERED FORM. Resolved from this module's own
 // location, like every schema above it — the emit-time refusal must not depend
 // on the cwd a run happens to start in.
@@ -1797,7 +1797,7 @@ export function composeClaimReoffer(args, dir, record) {
 // outside a run can reach this composer at all.
 export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
-  if (!registered) fail(`${gateId} is not declared in gates/registry.json — an unregistered gate is the uncovered-by-default shape`);
+  if (!registered) fail(`${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
   const seen = new Set(dynamicOptions.map((o) => o.id));
   const declaration = {
     ...registered,
