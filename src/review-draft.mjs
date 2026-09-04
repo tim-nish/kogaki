@@ -269,37 +269,182 @@ function requireCurrent(run, draft) {
 // artifact renders the input and records what comes back. The line below names
 // that boundary in the rendered file itself, so a reviewer reading an input
 // before #871 lands can see which half is missing rather than inventing one.
-function renderRecoveryInput(ws, draft, step) {
+// THE ARTICLE BEFORE THIS PASSAGE, re-derived from the CURRENT Draft rather
+// than read from the Packet that produced the prose (kogaki#871). Two reasons,
+// and only the second is about blindness: the Packet's own "article so far"
+// block was true when the Step was written and a later correction may have
+// moved it, so the current Draft is the article the reader actually meets; and
+// reading the Packet for it would put Packet bytes into a reviewer whose
+// ignorance is the instrument.
+//
+// Grouped under the Section headings the trace declares, never by scanning the
+// body for `##` lines — the trace already maps each Step to its Section
+// (kogaki#823), and a heading scan would be a second answer to a question the
+// trace answers.
+function articleBefore(steps, stepId) {
+  const idx = steps.findIndex((s) => s.step_id === stepId);
+  if (idx <= 0) {
+    return "(nothing yet — this is the article's first passage, so nothing precedes it.)";
+  }
+  const out = [];
+  let openSection = null;
+  for (const s of steps.slice(0, idx)) {
+    if (s.section !== openSection) {
+      if (out.length) out.push("");
+      out.push(`## ${s.section_title ?? `Section ${s.section}`}`, "");
+      openSection = s.section;
+    }
+    out.push(s.prose, "");
+  }
+  while (out.length && out[out.length - 1] === "") out.pop();
+  return out.join("\n");
+}
+
+// The passage, one line per line, each carrying its DRAFT line number so the
+// reviewer's spans and the trace's ranges are in one coordinate system. A
+// reviewer counting lines itself would be inventing the join key.
+function numberedProse(step) {
+  const width = String(step.lines[1]).length;
+  return step.prose.split("\n")
+    .map((l, i) => `${String(step.lines[0] + i).padStart(width, " ")} | ${l}`)
+    .join("\n");
+}
+
+// THE WORDING LIVES IN A FILE A PERSON CAN EDIT, the same arrangement
+// `src/draft.mjs` has with `src/packet-template.md`. The template is resolved
+// from THIS MODULE's location, never from the cwd a command happens to be
+// invoked in.
+function renderRecoveryInput(ws, draft, step, steps) {
+  const tplPath = join(dirname(fileURLToPath(import.meta.url)), "recovery-template.md");
+  if (!existsSync(tplPath)) {
+    fail(`the recovery template is absent — ${tplPath}. It is the reviewer's entire input, so a `
+      + "missing template is a hole the reviewer fills by invention; this refuses rather than "
+      + "rendering prose with no instruction.");
+  }
+  let out = readFileSync(tplPath, "utf8");
+  // The HTML comment is authoring guidance for the template's maintainer and is
+  // NOT part of the reviewer's input — stripped so the rendered file is exactly
+  // what the reviewer reads and nothing more. Inherited from the Packet render.
+  out = out.replace(/^<!--[\s\S]*?-->\n*/, "");
+  const fields = {
+    step_id: step.step_id,
+    article_so_far: articleBefore(steps, step.step_id),
+    step_lines: `${step.lines[0]}–${step.lines[1]}`,
+    step_prose: numberedProse(step),
+    recover_command: `node src/review-draft.mjs recover --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${step.step_id} --file <recovered.json>`,
+  };
+  for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
+  const left = out.match(/\{\{(\w+)\}\}/);
+  if (left) {
+    fail(`the recovery template's slot {{${left[1]}}} was not filled — the renderer and the `
+      + "template disagree about the slot set, which is the round trip failing silently");
+  }
   const dir = join(ws, "recovery");
   mkdirSync(dir, { recursive: true });
-  const out = join(dir, `${step.step_id}.md`);
-  const text = [
-    `# Recover the Step record — ${step.step_id}`,
-    "",
-    "You have not seen the input that produced this prose, and you must not look",
-    "for it. Read the passage below and write down the Step record you believe it",
-    "realizes: what the reader is assumed to know coming in, what they know going",
-    "out, what the passage asserts, and what it restates from earlier prose.",
-    "",
-    "Your record is evidence about THIS PROSE. Do not reason about what a Packet",
-    "probably said — a recovered record that agrees with the input because it",
-    "guessed at the input measures nothing.",
-    "",
-    `## The passage (draft lines ${step.lines[0]}–${step.lines[1]})`,
-    "",
-    step.prose,
-    "",
-    "## The record to write",
-    "",
-    "The recovered record's field set is kogaki#871's and is not declared by this",
-    "Harness. Until it lands, write the four items named above as plain labelled",
-    "lines and hand the file back with:",
-    "",
-    `    node src/review-draft.mjs recover --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${step.step_id} --file <recovered>`,
-    "",
-  ].join("\n");
-  writeFileSync(out, text + "\n");
-  return out;
+  const dest = join(dir, `${step.step_id}.md`);
+  writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
+  return dest;
+}
+
+// ---------------------------------------------------------------------------
+// Validating the recovered record. THE CONTRACT IS `src/recovered-schema.json`
+// AND THIS FUNCTION READS IT (kogaki#871) — the field list is not restated
+// here, so amending the record's shape is one edit to that file and never a
+// two-copy divergence. Same arrangement `src/record-schema.json` has with
+// `checks/check-proposal-contract.sh`.
+//
+// EVERY REFUSAL NAMES WHAT IT SAW. A record handed back by a reviewer is the
+// one artifact in this flow a person wrote by hand, so "invalid" without the
+// field is a refusal that costs another read of the schema to act on.
+function readSchema() {
+  const p = join(dirname(fileURLToPath(import.meta.url)), "recovered-schema.json");
+  if (!existsSync(p)) {
+    fail(`the recovered-record schema is absent — ${p}. It is the contract a recovery is `
+      + "validated against, so this refuses rather than accepting an unvalidated record.");
+  }
+  try { return JSON.parse(readFileSync(p, "utf8")); }
+  catch (e) { fail(`the recovered-record schema at ${p} is not readable JSON (${e.message})`); }
+}
+
+function validateRecovered(text, step, file) {
+  const schema = readSchema();
+  let rec;
+  try { rec = JSON.parse(text); }
+  catch (e) {
+    fail(`${file} is not readable JSON (${e.message}) — a recovered record is one JSON object, `
+      + `validated against src/recovered-schema.json`);
+  }
+  if (rec === null || typeof rec !== "object" || Array.isArray(rec)) {
+    fail(`${file} is not a JSON object — a recovered record is one object carrying the fields `
+      + `${schema.required.join(", ")}`);
+  }
+  const problems = [];
+
+  // THE REVIEWER WRITES NO VERDICTS AND NO ADVICE, and a forbidden key is
+  // REFUSED rather than dropped: an ignored field still shaped the reading that
+  // produced the rest of the record, so accepting the record and discarding the
+  // key would keep exactly the contamination the blindness exists to prevent.
+  for (const k of schema.forbidden_keys || []) {
+    if (Object.prototype.hasOwnProperty.call(rec, k)) {
+      problems.push(`carries the forbidden key \`${k}\` — the reviewer recovers what the prose `
+        + "says and writes no verdicts and no advice; a record carrying one is refused rather "
+        + "than accepted with the key ignored");
+    }
+  }
+
+  const inStep = (span) => Array.isArray(span) && span.length === 2
+    && Number.isInteger(span[0]) && Number.isInteger(span[1])
+    && span[0] <= span[1] && span[0] >= step.lines[0] && span[1] <= step.lines[1];
+
+  for (const key of schema.required) {
+    if (!Object.prototype.hasOwnProperty.call(rec, key)) {
+      problems.push(`is missing the required field \`${key}\``);
+      continue;
+    }
+    const spec = (schema.fields || {})[key] || {};
+    const v = rec[key];
+    if (spec.type === "string") {
+      if (typeof v !== "string" || v.trim() === "") {
+        problems.push(`\`${key}\` must be a non-empty string`);
+      }
+      continue;
+    }
+    if (spec.type !== "array") continue;
+    if (!Array.isArray(v)) { problems.push(`\`${key}\` must be an array`); continue; }
+    if (spec.min !== undefined && v.length < spec.min) {
+      problems.push(`\`${key}\` carries ${v.length} entr${v.length === 1 ? "y" : "ies"} and needs at `
+        + `least ${spec.min}${spec.why_min ? ` — ${spec.why_min}` : ""}`);
+    }
+    v.forEach((item, i) => {
+      const at = `\`${key}\`[${i}]`;
+      if (spec.of === "string") {
+        if (typeof item !== "string" || item.trim() === "") problems.push(`${at} must be a non-empty string`);
+        return;
+      }
+      if (item === null || typeof item !== "object" || Array.isArray(item)) {
+        problems.push(`${at} must be an object`); return;
+      }
+      for (const req of spec.item_required || []) {
+        if (!Object.prototype.hasOwnProperty.call(item, req)) problems.push(`${at} is missing \`${req}\``);
+      }
+      if (spec.text_key && typeof item[spec.text_key] === "string" && item[spec.text_key].trim() === "") {
+        problems.push(`${at}.${spec.text_key} is empty`);
+      }
+      if (schema.spans_lie_inside_the_step && spec.span_key
+          && Object.prototype.hasOwnProperty.call(item, spec.span_key)
+          && !inStep(item[spec.span_key])) {
+        problems.push(`${at}.${spec.span_key} is ${JSON.stringify(item[spec.span_key])}, which does not lie `
+          + `inside ${step.step_id}'s draft line range [${step.lines[0]}, ${step.lines[1]}] — a record `
+          + "pointing outside the passage is not evidence about it");
+      }
+    });
+  }
+
+  if (problems.length) {
+    fail(`the recovered record for ${step.step_id} (${file}) does not satisfy `
+      + `src/recovered-schema.json:\n  - ${problems.join("\n  - ")}`);
+  }
+  return rec;
 }
 
 // The next Step with no recovery yet, in the path's recorded order. `open`
@@ -341,7 +486,7 @@ function cmdOpen(args) {
   };
 
   const first = steps[0];
-  const input = renderRecoveryInput(ws, draft, first);
+  const input = renderRecoveryInput(ws, draft, first, steps);
   run.rendered[first.step_id] = input;
   writeRun(ws, run);
 
@@ -380,10 +525,16 @@ function cmdRecover(args) {
   }
   if (!existsSync(file)) fail(`no recovered record at ${file}`);
 
+  // VALIDATED BEFORE IT IS RECORDED (kogaki#871). A record written to the
+  // workspace and validated later would leave `compare` to discover the defect,
+  // by which point the reviewer who could fix it has finished reading.
+  const content = readFileSync(file, "utf8");
+  const step = run.steps.find((x) => x.step_id === stepId);
+  validateRecovered(content, step, file);
+
   const dir = join(ws, "recovered");
   mkdirSync(dir, { recursive: true });
-  const out = join(dir, `${stepId}${file.endsWith(".json") ? ".json" : ".md"}`);
-  const content = readFileSync(file, "utf8");
+  const out = join(dir, `${stepId}.json`);
   writeFileSync(out, content);
   run.recovered[stepId] = out;
 
@@ -392,7 +543,7 @@ function cmdRecover(args) {
   if (next) {
     const { steps } = resolveInputs(draft);
     const full = steps.find((s) => s.step_id === next.step_id);
-    nextInput = renderRecoveryInput(ws, draft, full);
+    nextInput = renderRecoveryInput(ws, draft, full, steps);
     run.rendered[next.step_id] = nextInput;
   }
   writeRun(ws, run);
@@ -748,6 +899,30 @@ async function runSelfTest() {
   const drive = (cmd, ...extra) => spawnSync(process.execPath,
     [self, cmd, "--draft", draft.path, "--workspace", wsBase, ...extra], { encoding: "utf8" });
 
+  // A schema-valid recovered record for one Step, built from that Step's own
+  // draft line range so its spans lie inside the passage. The fixture's records
+  // are REAL records from here on (kogaki#871) — a plain-text stand-in would
+  // now be refused by the validator, and the ordering cases below must fail on
+  // the ORDERING rather than on the record's shape.
+  const recordFor = (id) => {
+    const r = draft.ranges[id];
+    const [lo, hi] = [r[0] + draft.bodyOffset, r[1] + draft.bodyOffset];
+    return {
+      claims: [{ claim: `The passage ${id} asserts something.`, span: [lo, hi] }],
+      reader_state_after: `The reader has read ${id}.`,
+      purpose: `To carry ${id}'s part of the article.`,
+      terms_introduced: [],
+      shape: "It states a thing and moves on.",
+      concessions: [],
+      restates: [],
+    };
+  };
+  const writeRecord = (id, mutate = (r) => r) => {
+    const f = join(root, `rec-${id}.json`);
+    writeFileSync(f, JSON.stringify(mutate(recordFor(id)), null, 2) + "\n");
+    return f;
+  };
+
   // 1 — a file with no frontmatter carries no trace to review against.
   {
     const d = join(root, "theses", "nofm"); mkdirSync(d, { recursive: true });
@@ -836,18 +1011,30 @@ async function runSelfTest() {
     ok("the recovery input carries NOTHING from the Packet", !input.includes("PACKETONLYTOKEN"));
     ok("the recovery input names the draft line range it quoted", /draft lines \d+–\d+/.test(input));
     ok("the recovery input tells the reviewer not to reason about the input",
-      /Do not reason about what a Packet/.test(input));
-    // The prose the input quotes must be the prose at that range in the file —
-    // an off-by-one here would review the wrong passage silently.
+      /Do not reason about what the\s+author was probably told/.test(input));
+    ok("and forbids verdicts and advice outright (kogaki#871)",
+      /Write no verdicts and no advice/.test(input));
+    // THE QUOTED PASSAGE IS EXACTLY THE FILE LINES THE TRACE NAMES, asserted
+    // through the NUMBERING rather than as a substring (kogaki#871): each line
+    // is rendered `<n> | <text>`, so the case reconstructs the file from the
+    // input and compares. An off-by-one in either the range or the numbering
+    // would review the wrong passage silently, and only comparing BOTH the
+    // numbers and the text catches both.
     const fileLines = readFileSync(draft.path, "utf8").split("\n");
     const [s, e] = [draft.ranges.a1[0] + draft.bodyOffset, draft.ranges.a1[1] + draft.bodyOffset];
+    const block = input.split(`## The passage — draft lines ${s}–${e}`)[1] || "";
+    const numbered = block.split("\n").filter((l) => /^\s*\d+ \| /.test(l));
+    const reconstructed = numbered.map((l) => l.replace(/^\s*\d+ \| /, ""));
+    const numbers = numbered.map((l) => Number(l.match(/^\s*(\d+) \| /)[1]));
     ok("the quoted passage is exactly the file lines the trace names",
-      input.includes(fileLines.slice(s - 1, e).join("\n")));
+      reconstructed.join("\n") === fileLines.slice(s - 1, e).join("\n"));
+    ok("and every line carries its own DRAFT line number, so spans and the trace share one coordinate",
+      numbers.length === e - s + 1 && numbers[0] === s && numbers[numbers.length - 1] === e);
   }
 
   // 9 — an unknown Step names BOTH sides.
   {
-    const bad = join(root, "rec-bad.md"); writeFileSync(bad, "recovered\n");
+    const bad = writeRecord("a1");
     const r = drive("recover", "--step", "zz", "--file", bad);
     ok("an unknown step_id refuses naming both sides",
       r.status === 1 && /unknown step `zz`/.test(r.stderr) && /a1, a2, a3/.test(r.stderr));
@@ -857,7 +1044,7 @@ async function runSelfTest() {
   // never rendered was written against something else, and afterwards there is
   // no way to tell what.
   {
-    const rec = join(root, "rec-a3.md"); writeFileSync(rec, "recovered a3\n");
+    const rec = writeRecord("a3");
     const r = drive("recover", "--step", "a3", "--file", rec);
     ok("a Step whose recovery input was never rendered refuses",
       r.status === 1 && /step a3 has no rendered recovery input/.test(r.stderr));
@@ -866,11 +1053,11 @@ async function runSelfTest() {
 
   // 11 — recording one recovery renders the next.
   {
-    const rec = join(root, "rec-a1.md"); writeFileSync(rec, "recovered a1\n");
+    const rec = writeRecord("a1");
     const r = drive("recover", "--step", "a1", "--file", rec);
     ok("a recovery is recorded", r.status === 0 && /recorded: a1/.test(r.stdout));
     ok("and the NEXT recovery input is rendered", /next recovery input: .*a2\.md/.test(r.stdout));
-    ok("the recovered record lands in the workspace", existsSync(join(WS, "recovered", "a1.md")));
+    ok("the recovered record lands in the workspace", existsSync(join(WS, "recovered", "a1.json")));
   }
 
   // 12 — ACCEPTANCE 2: compare before every recovery refuses, naming what is
@@ -890,7 +1077,7 @@ async function runSelfTest() {
   // self-driving all the way to `compare` instead of stopping silently.
   let lastRecover = null;
   for (const id of ["a2", "a3"]) {
-    const rec = join(root, `rec-${id}.md`); writeFileSync(rec, `recovered ${id}\n`);
+    const rec = writeRecord(id);
     lastRecover = drive("recover", "--step", id, "--file", rec);
     ok(`recovery ${id} is recorded`, lastRecover.status === 0);
   }
@@ -949,7 +1136,7 @@ async function runSelfTest() {
   // Registered rather than absent: a reviewer reaching for `correct` gets the
   // issue that owns it instead of "unknown command".
   {
-    const r = drive("correct", "--step", "a1", "--file", join(root, "rec-a1.md"));
+    const r = drive("correct", "--step", "a1", "--file", writeRecord("a1"));
     ok("correct is declared and names the issue that builds it",
       r.status === 1 && /kogaki#874/.test(r.stderr) && !/unknown/.test(r.stderr));
     const c = drive("check");
@@ -1094,6 +1281,179 @@ async function runSelfTest() {
   {
     const text = readFileSync(join(thesis, "review.md"), "utf8");
     ok("the owner record ends with a newline", text.endsWith("\n"));
+  }
+
+  // ---- kogaki#871 -------------------------------------------------------
+  // AC1 — the recovery input for a CONTINUING Step carries the article before
+  // it and none of its own Packet. The fixture's Packets hold PACKETONLYTOKEN,
+  // and case 8 already asserts its absence for a1; a2 is the case that matters
+  // for the article-so-far block, because a1's block is the empty one.
+  {
+    const input = readFileSync(join(WS, "recovery", "a2.md"), "utf8");
+    ok("a continuing Step's recovery input carries the PRECEDING Step's prose",
+      input.includes(PROSE.a1[0]));
+    ok("and its own prose", input.includes(PROSE.a2[0]));
+    ok("and none of the strings that appear only in its Packet",
+      !input.includes("PACKETONLYTOKEN"));
+    ok("and it groups the article before it under the Section heading the TRACE declares",
+      input.includes(`## ${SECTIONS[0].title}`));
+    // The heading comes from the trace, never from a scan of the body — so a
+    // Section whose heading text the body does not carry still renders.
+    ok("the article-so-far block ends where the passage begins",
+      input.indexOf(PROSE.a1[0]) < input.indexOf("## The passage"));
+    // a1 opens the article, so its own block says so rather than rendering empty.
+    const first = readFileSync(join(WS, "recovery", "a1.md"), "utf8");
+    ok("the article's FIRST passage says nothing precedes it rather than rendering an empty block",
+      /nothing yet — this is the article's first passage/.test(first));
+    // a3 opens the SECOND Section, so its block carries both headings.
+    const third = readFileSync(join(WS, "recovery", "a3.md"), "utf8");
+    ok("a Step opening a later Section carries every earlier Section's heading",
+      third.includes(`## ${SECTIONS[0].title}`) && !third.includes(`## ${SECTIONS[1].title}`));
+  }
+
+  // The template is the reviewer's ENTIRE input, so its absence is a hole the
+  // reviewer fills by invention. Driven against a copy of the module with no
+  // template beside it.
+  {
+    const solo = join(root, "solo"); mkdirSync(solo, { recursive: true });
+    writeFileSync(join(solo, "review-draft.mjs"), readFileSync(self, "utf8"));
+    writeFileSync(join(solo, "runs.mjs"), readFileSync(join(dirname(self), "runs.mjs"), "utf8"));
+    writeFileSync(join(solo, "runs.json"), readFileSync(join(dirname(self), "runs.json"), "utf8"));
+    const r = spawnSync(process.execPath,
+      [join(solo, "review-draft.mjs"), "open", "--draft", draft.path, "--workspace", join(root, "ws-solo")],
+      { encoding: "utf8" });
+    ok("an absent recovery template refuses rather than rendering prose with no instruction",
+      r.status === 1 && /recovery template is absent/.test(r.stderr));
+  }
+
+  // AC2 — the recovered record is validated against src/recovered-schema.json,
+  // and every refusal NAMES what it saw. A record is the one artifact in this
+  // flow a person writes by hand, so a bare "invalid" costs another read of the
+  // schema to act on.
+  {
+    const ws3 = join(root, "ws3");
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", draft.path, "--workspace", ws3], { encoding: "utf8" });
+    ok("a third run opens", D("open").status === 0);
+
+    // `expect` is a substring or a regex. The refusals quote field names in
+    // backticks, which read far more clearly as substrings than as patterns
+    // escaped through two layers.
+    const bad = (name, mutate, expect) => {
+      const f = writeRecord("a1", mutate);
+      const r = D("recover", "--step", "a1", "--file", f);
+      const hit = typeof expect === "string" ? r.stderr.includes(expect) : expect.test(r.stderr);
+      ok(name, r.status === 1 && hit);
+    };
+
+    for (const field of ["claims", "reader_state_after", "purpose", "terms_introduced", "shape", "concessions", "restates"]) {
+      bad(`a record missing \`${field}\` is refused BY NAME`,
+        (r) => { delete r[field]; return r; },
+        `missing the required field \`${field}\``);
+    }
+
+    // AN EMPTY ARRAY IS AN ANSWER AND AN ABSENT KEY IS NOT — the pair that
+    // makes the previous three cases mean something.
+    {
+      const f = writeRecord("a1");
+      const r = D("recover", "--step", "a1", "--file", f);
+      ok("while an EMPTY terms_introduced/concessions/restates is accepted", r.status === 0);
+    }
+
+    const [lo, hi] = [draft.ranges.a1[0] + draft.bodyOffset, draft.ranges.a1[1] + draft.bodyOffset];
+    bad("a span BEFORE the Step's range is refused, naming the range",
+      (r) => { r.claims[0].span = [lo - 1, hi]; return r; },
+      `does not lie inside a1's draft line range [${lo}, ${hi}]`);
+    bad("a span AFTER the Step's range is refused",
+      (r) => { r.claims[0].span = [lo, hi + 1]; return r; },
+      /does not lie inside/);
+    bad("an inverted span is refused",
+      (r) => { r.claims[0].span = [hi, lo]; return r; },
+      /does not lie inside/);
+    bad("a span that is not a pair of integers is refused",
+      (r) => { r.claims[0].span = ["a", "b"]; return r; },
+      /does not lie inside/);
+    bad("a restates span outside the range is refused too — every span_key is checked, not only claims'",
+      (r) => { r.restates = [{ span: [lo - 5, lo - 4], of: "something earlier" }]; return r; },
+      "`restates`[0].span");
+    bad("a claims entry missing its span is refused",
+      (r) => { delete r.claims[0].span; return r; },
+      "`claims`[0] is missing `span`");
+    bad("an empty claims list is refused, with the schema's own reason",
+      (r) => { r.claims = []; return r; },
+      /needs at least 1 — a passage asserting nothing is not a Step/);
+    bad("an empty string field is refused",
+      (r) => { r.purpose = "   "; return r; },
+      "`purpose` must be a non-empty string");
+    bad("a non-array where the schema says array is refused",
+      (r) => { r.terms_introduced = "opacity"; return r; },
+      "`terms_introduced` must be an array");
+    bad("a non-string inside terms_introduced is refused",
+      (r) => { r.terms_introduced = [42]; return r; },
+      "`terms_introduced`[0] must be a non-empty string");
+
+    // THE REVIEWER WRITES NO VERDICTS AND NO ADVICE, and the key is REFUSED
+    // rather than dropped: an ignored field still shaped the reading that
+    // produced the rest of the record.
+    bad("a record carrying a verdict is refused rather than accepted with the key ignored",
+      (r) => { r.verdict = "holds"; return r; },
+      "forbidden key `verdict`");
+    bad("and so is one carrying advice",
+      (r) => { r.advice = "tighten the second paragraph"; return r; },
+      "forbidden key `advice`");
+
+    // The refusal collects EVERY problem rather than the first, so a reviewer
+    // repairing a record does not discover them one run at a time.
+    {
+      const f = writeRecord("a1", (r) => { delete r.purpose; delete r.shape; r.score = 3; return r; });
+      const r = D("recover", "--step", "a1", "--file", f);
+      ok("every problem is named in one refusal, never the first one found",
+        r.status === 1 && /missing the required field `purpose`/.test(r.stderr)
+        && /missing the required field `shape`/.test(r.stderr)
+        && /forbidden key `score`/.test(r.stderr));
+    }
+
+    // Not-JSON and not-an-object are separate refusals, because they are
+    // separate mistakes.
+    {
+      const f = join(root, "notjson.json"); writeFileSync(f, "recovered a1, in prose\n");
+      const r = D("recover", "--step", "a1", "--file", f);
+      ok("a record that is not JSON is refused, naming the parse error",
+        r.status === 1 && /is not readable JSON/.test(r.stderr));
+      const g = join(root, "notobj.json"); writeFileSync(g, "[1,2,3]\n");
+      const r2 = D("recover", "--step", "a1", "--file", g);
+      ok("a JSON array is refused, naming the fields a record carries",
+        r2.status === 1 && /is not a JSON object/.test(r2.stderr));
+    }
+
+    // THE VALIDATION HAPPENS BEFORE THE RECORD IS WRITTEN. A record validated
+    // afterwards would leave `compare` to discover the defect, by which point
+    // the reviewer who could fix it has finished reading.
+    {
+      // A FRESH workspace: `ws3` already holds a successful a1 recovery from the
+      // empty-arrays case above, and asserting absence there would pass or fail
+      // on that history rather than on this refusal.
+      const ws4 = join(root, "ws4");
+      spawnSync(process.execPath, [self, "open", "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
+      const f = writeRecord("a1", (r) => { delete r.shape; return r; });
+      const r = spawnSync(process.execPath,
+        [self, "recover", "--step", "a1", "--file", f, "--draft", draft.path, "--workspace", ws4], { encoding: "utf8" });
+      ok("a refused record is not written to the workspace",
+        r.status === 1 && !existsSync(join(ws4, "fixture", "recovered", "a1.json")));
+    }
+  }
+
+  // THE SCHEMA IS READ, NEVER RESTATED. The runtime must not carry its own copy
+  // of the field list, or amending the record's shape becomes two edits that
+  // can disagree.
+  {
+    const schema = JSON.parse(readFileSync(join(dirname(self), "recovered-schema.json"), "utf8"));
+    const code = readFileSync(self, "utf8");
+    const prod = code.slice(0, code.indexOf("async function runSelfTest"));
+    ok("the schema declares the seven fields the issue names",
+      schema.required.length === 7 && schema.required.includes("terms_introduced"));
+    ok("and the runtime does not restate the field list",
+      !schema.required.every((f) => prod.includes(`"${f}"`)));
   }
 
   // 24 — usage with no command, and an unknown command.

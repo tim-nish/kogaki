@@ -1,0 +1,82 @@
+{
+  "note": [
+    "The recovered Step record's contract, machine-readable (kogaki#871).",
+    "src/review-draft.mjs READS these lists rather than restating them — this",
+    "file is the single carrier, so amending the record's shape is one edit and",
+    "never a two-copy divergence. The same arrangement src/record-schema.json",
+    "has with checks/check-proposal-contract.sh.",
+    "",
+    "EVERY FIELD IS A FACT ABOUT THE PROSE, which is the whole design: a field",
+    "that could not be checked by pointing at the passage would be the reviewer",
+    "asserting rather than recovering, and the comparison downstream would have",
+    "nothing to bind to. That is why `forbidden_keys` exists — the reviewer",
+    "writes no verdicts and no advice, and a record carrying one is refused",
+    "rather than accepted-and-ignored, because an ignored field still shaped",
+    "the reading that produced the rest of the record.",
+    "",
+    "`spans_lie_inside_the_step` is the second half of the same rule. A span is",
+    "a pair of DRAFT LINE NUMBERS — the coordinate the trace already uses, so a",
+    "reviewer, the Harness and a later reader all cite the same numbers — and",
+    "one pointing outside the passage is not evidence about the passage.",
+    "",
+    "AN EMPTY ARRAY IS AN ANSWER AND AN ABSENT KEY IS NOT. `terms_introduced`,",
+    "`concessions` and `restates` are each legitimately empty for a passage",
+    "that introduces, concedes or repeats nothing — so they are REQUIRED and",
+    "may be `[]`. Making them optional would leave a reviewer who simply did",
+    "not look indistinguishable from one who looked and found none."
+  ],
+  "version": "1",
+  "required": [
+    "claims",
+    "reader_state_after",
+    "purpose",
+    "terms_introduced",
+    "shape",
+    "concessions",
+    "restates"
+  ],
+  "fields": {
+    "claims": {
+      "type": "array",
+      "of": "object",
+      "item_required": ["claim", "span"],
+      "text_key": "claim",
+      "span_key": "span",
+      "min": 1,
+      "why_min": "a passage asserting nothing is not a Step; an empty claims list is a reviewer who did not read rather than a passage with no content"
+    },
+    "reader_state_after": { "type": "string" },
+    "purpose": { "type": "string" },
+    "terms_introduced": { "type": "array", "of": "string" },
+    "shape": { "type": "string" },
+    "concessions": {
+      "type": "array",
+      "of": "object",
+      "item_required": ["text", "span"],
+      "text_key": "text",
+      "span_key": "span"
+    },
+    "restates": {
+      "type": "array",
+      "of": "object",
+      "item_required": ["span", "of"],
+      "text_key": "of",
+      "span_key": "span"
+    }
+  },
+  "spans_lie_inside_the_step": true,
+  "forbidden_keys": [
+    "verdict",
+    "verdicts",
+    "advice",
+    "recommendation",
+    "recommendations",
+    "severity",
+    "score",
+    "rating",
+    "holds",
+    "fails",
+    "suggestion",
+    "suggestions"
+  ]
+}

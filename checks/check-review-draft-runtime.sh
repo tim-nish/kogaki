@@ -160,4 +160,45 @@ if ! node --input-type=module -e '
 fi
 echo "ok: the review lane is registered in both LANES and src/runs.json, asked of the module rather than matched as text"
 
+# --- THE RECOVERY TEMPLATE CARRIES NO PACKET BLOCK (kogaki#871).
+#
+# The fixture asserts the absence in the RENDERED input, driven from a fixture
+# Packet holding a marker string. This asserts it on the TEMPLATE, against the
+# real src/packet-template.md, and neither subsumes the other: the fixture would
+# catch a renderer that started reading the Packet, and this catches a template
+# edit that pasted a Packet block in -- which would read as helpful, render no
+# marker, and silently end the measurement.
+#
+# THE FORBIDDEN LIST IS DERIVED FROM THE PACKET TEMPLATE'S OWN HEADINGS, never
+# transcribed here: a block added to the Packet is covered by the derivation
+# rather than by a list somebody remembered to extend.
+RT="src/recovery-template.md"
+PT="src/packet-template.md"
+for f in "$RT" "$PT" src/recovered-schema.json; do
+  if [[ ! -f "$f" ]]; then
+    echo "FAIL: $f is missing -- the recovery input and its record contract are runtime-read, so an absent one is a defect rather than a skip"
+    exit 1
+  fi
+done
+
+# The Packet's own headings, as a heading-line pattern each.
+LEAK=0
+while IFS= read -r h; do
+  [[ -z "$h" ]] && continue
+  # "The article so far" is the ONE block both templates legitimately carry a
+  # form of: the recovery input re-derives it from the current Draft rather than
+  # reading the Packet's copy, which is the kogaki#871 design and not a leak.
+  [[ "$h" == *"article so far"* ]] && continue
+  # MATCHED AS A HEADING LINE, never as a substring. The Packet heading "Write"
+  # occurs inside this template's own "Write no verdicts and no advice", and a
+  # substring match failed on correct text -- the guard-that-fires-on-correct-
+  # behaviour shape, caught at authoring rather than in review.
+  if awk -v want="$h" '/^#{0,0}##/ { line=$0; sub(/^#+[ ]*/, "", line); sub(/[ ]*$/, "", line); if (line == want) found=1 } END { exit !found }' "$RT"; then
+    echo "FAIL: $RT carries the Packet block heading \"$h\" -- the reviewer is blind by design, and a Packet block in the recovery input ends the measurement while looking helpful"
+    LEAK=1
+  fi
+done < <(sed -nE 's/^#{2,3} (.*[^ ]) *$/\1/p' "$PT")
+if (( LEAK )); then exit 1; fi
+echo "ok: $RT carries no block heading from $PT (derived from its headings, never transcribed)"
+
 echo "PASS: ReviewDraft runtime"
