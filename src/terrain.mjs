@@ -5492,14 +5492,22 @@ const STATE_WORK = {
 
   // ---- THE ONE FIXTURE-ONLY RENDERER (kogaki#824). ------------------------
   // A STATE'S OWN RENDERER SETTING A RECORD KEY is the shape kogaki#808's loss
-  // has, and it is the shape this seam-free pass could not otherwise stage:
-  // every state above either sets no record key at all (`compose_input` calls
-  // and returns null) or reads the gateway to compute one (`survey` reaches
-  // `cmdSurvey`, which calls `gatewayQuery`). So the property was asserted
-  // through `conditional_entered` instead — a PROXY the executor writes in its
-  // own advance loop, three lines from `rec.completed.push(st.id)` — and a
-  // persist narrowed to control fields would have kept the pass green while
-  // dropping exactly the key #808 was filed over.
+  // has, and it is the shape this seam-free pass could not otherwise stage.
+  // TWO states above set a record key and NEITHER is reachable without the
+  // gateway, by different routes — stated separately because a disjunction over
+  // them is false and an earlier form of this comment asserted one (PR #852
+  // round 1): `survey` reaches `cmdSurvey`, which calls `gatewayQuery`
+  // DIRECTLY; `neighborhood_input` sets `rec.neighborhood_candidates` and calls
+  // no gateway function itself, but opens with `readJson(needSurvey(rec))`, and
+  // the survey record it demands is minted by `survey` and by nothing else — a
+  // TRANSITIVE dependency, which is a real bar to a seam-free pass and not the
+  // direct read the earlier sentence claimed.
+  //
+  // So the property was asserted through `conditional_entered` instead — a
+  // PROXY the executor writes in its own advance loop, three lines from
+  // `rec.completed.push(st.id)` — and a persist narrowed to control fields
+  // would have kept the pass green while dropping exactly the key #808 was
+  // filed over.
   //
   // ADMITTED FOR THE FIXTURE PATH ONLY, and that bound is a CASE rather than
   // this comment: the id carries `FIXTURE_STATE_PREFIX`, and the pass asserts
@@ -6264,6 +6272,16 @@ switch (cmd) {
         // admission whose whole guarantee is a comment is the class kogaki#824
         // is a member of.
         {
+          // THE UNREADABLE-CARRIER GUARD IS DECLINED, AND THE DECLINE IS
+          // MEASURED (PR #852 round 1, out-of-dimension). The observation — that
+          // an unreadable `src/workflow.json` would abort here with a parse
+          // error rather than failing this case by name — is correct in
+          // principle and UNREACHABLE at this head: the module reads the same
+          // carrier at evaluation time, so a malformed table kills the process
+          // at import and this case never runs. Verified by writing `{ not json`
+          // into the carrier: the pass dies in ModuleJob.run and prints no case
+          // at all. A try/catch here would be dead code, which is the shape this
+          // PR exists to argue against.
           const shipped = readJson(WORKFLOW_TABLE);
           const leaked = (shipped.states || []).map((x) => String(x.id))
             .filter((id) => id.startsWith(FIXTURE_STATE_PREFIX));
