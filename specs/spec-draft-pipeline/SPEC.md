@@ -470,10 +470,11 @@ thing being approved. Nothing is owed about a path that was not taken.
 
 **What the repair does NOT claim.** Until its carrier lands, this clause names a
 surface that does not yet exist — which is the defect one level over, so the
-carrier is named rather than assumed: kogaki#864's child issue, filed in the
-same sitting that ratified this. A clause promising a disclosure with no
-carrier is exactly what kogaki#859 recorded, and stating the carrier is what
-keeps this from repeating it.
+carrier is named rather than assumed: **kogaki#866**, filed in the same sitting
+that ratified this and carrying the whole of the build (the slot, its fill at
+adoption, and the assertions). A clause promising a disclosure with no carrier
+is exactly what kogaki#859 recorded, and naming a followable one is what keeps
+this from repeating it.
 
 **The third arm is declined and recorded so it is not re-proposed blind:**
 ratifying that bridges need no owner disclosure at all. It is legitimate only
@@ -1141,8 +1142,11 @@ property this paragraph exists to keep, because the two were last coupled by
 accident and the coupling is what let one clause's amendment silently break the
 other's.
 
-**Vacuous where §6.1 is vacuous.** A Brief with no Journey material discloses
-nothing here, exactly as this section's four requirements bind nothing there.
+**The slot's journey half is vacuous on a Brief with no Journey material**, on
+the same terms as this section's four requirements above: the slot still renders
+and its bridge half still fills, and the journey sentence simply has nothing to
+state. An empty disclosure and an absent one are not the same reading, which is
+why this is said rather than left to the reader.
 
 `necessity:` four composition MUSTs applied to prose by a reader. The arc-shape
 floor in particular is a judgment about register that no grammar decides.
@@ -1446,8 +1450,9 @@ evidence of a decision, and each of these has been proposed at least once.
 ## 9. Open, with triggers
 
 - **`bridge-approval-shape`** (§4.11) — per-Bridge approval, if dogfooding
-  shows bridges misbehaving. **Still open after kogaki#864**, which restored the
-  post-hoc disclosure surface and did not touch this trigger.
+  shows bridges misbehaving. **Still open after kogaki#864**, which RATIFIED a
+  post-hoc disclosure surface — carrier kogaki#866, still owed — and did not
+  touch this trigger.
 - **`specialization-judgment-and-path-review-ordering`** (§4.12) — where the
   judgment point sits relative to path review's own pass.
 - **`move-sources-derivation-vehicle`** (§6.9.4) — REOPENED; the successor
