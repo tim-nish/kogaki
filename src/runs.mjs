@@ -40,7 +40,7 @@ export const RUNS_ROOT = join(REPO, "runs");
 // The closed lane set. A lane outside it refuses BY NAME rather than minting a
 // directory: `runs/` is enumerated by a human, and a typo that silently
 // creates `runs/terain/` produces a lane nothing prunes.
-export const LANES = Object.freeze(["terrain", "brief", "draft"]);
+export const LANES = Object.freeze(["terrain", "brief", "draft", "review"]);
 
 // Entries a lane's pruning never removes, by name. `runs/terrain/reports/` is
 // the report RECORD store, whose home is stable by §12.2's own argument — the
@@ -58,7 +58,7 @@ export const LANES = Object.freeze(["terrain", "brief", "draft"]);
 // abandoned. Under one budget, ten entries — the front door, and the cheapest
 // command to re-run after an abandoned start — evict every Brief's snapshot
 // trace (PR #783 round 1, finding 3).
-const ALWAYS_EXEMPT = Object.freeze({ terrain: ["reports"], brief: ["entries"], draft: [] });
+const ALWAYS_EXEMPT = Object.freeze({ terrain: ["reports"], brief: ["entries"], draft: [], review: [] });
 
 // The one sub-directory carrying its own bound, named here rather than passed
 // by a caller: a caller that could name any sub-directory could exempt any
@@ -536,7 +536,11 @@ function selfTest() {
       writeFileSync(f, JSON.stringify(obj));
       return f;
     };
-    const full = { terrain: { keep_last: 3 }, brief: { keep_last: 3 }, draft: { keep_last: 3 } };
+    // DERIVED FROM `LANES`, never transcribed: `keepLast` checks EVERY lane, so a
+    // fixture block naming the lanes by hand goes red the moment a lane is added —
+    // reporting the fixture's staleness as a defect in the module. Lane N+1 is
+    // covered by the derivation rather than by a list somebody remembered to extend.
+    const full = Object.fromEntries(LANES.map((l) => [l, { keep_last: 3 }]));
     refuses("(k) a lanes block missing a lane refuses, naming it",
       () => keepLast("draft", cfg({ lanes: { terrain: full.terrain, draft: full.draft } })), "brief");
     refuses("(k) keep_last of 0 refuses",

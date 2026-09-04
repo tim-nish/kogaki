@@ -22,7 +22,7 @@
 # lane rather than a blanket on the name; the containment guard, reached
 # directly because production names come from readdir and cannot express an
 # escape; that the bound's carrier fails loudly on a missing lane, a zero and a
-# non-integer; that the SHIPPED src/runs.json answers for all three lanes; and
+# non-integer; that the SHIPPED src/runs.json answers for EVERY lane in LANES; and
 # that `enterRun` prunes before it creates.
 #
 # WHY THIS MEMBER EXISTS RATHER THAN A WIDENING OF A LANE'S OWN MEMBER: the
