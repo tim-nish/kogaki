@@ -377,6 +377,73 @@ try {
   const noSuch = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-9");
   if (!noSuch.error || !/not in the reviewed set/.test(noSuch.error)) fails.push("(f) adopting a Candidate the gate never offered was accepted");
 
+  // (r) THE POST-HOC DISCLOSURE SLOT (kogaki#866, ratified at §4.11/§6.1 by
+  // kogaki#864). §4.11 approves a Bridge by disclosing it after the fact; that
+  // disclosure rode the gate's evidence rendering until kogaki#859 emptied it,
+  // and the ruling moved it here. What this asserts is the ACT — the slot is
+  // present and unfilled before adoption, adoption fills it, and it carries the
+  // ADOPTED Candidate's values — because a slot that renders and never fills is
+  // the fires-but-does-not-act shape this whole decision was raised against.
+  {
+    // AC1 — present and UNFILLED before adoption. Asserted apart from the fill,
+    // so a slot that was never minted and one that was minted-and-filled cannot
+    // both pass the same test.
+    if (!/## What this path bridged/.test(doc0)) {
+      fails.push("(r) the minted Brief carries no disclosure slot — §4.11's post-hoc approval has no surface (kogaki#864)");
+    } else if (!/## What this path bridged\n\n\*\(awaiting composition\)\*/.test(doc0)) {
+      fails.push("(r) the disclosure slot is not an unfilled slot at mint — every composition field is typed-unfilled until its act (§5.3)");
+    }
+    // AC2 — adoption fills it, and with the BRIDGE half of a path that bridged.
+    // Built from candB's OWN steps rather than re-composed: the fixture under
+    // test is the disclosure, not step validity, and re-composing a path here
+    // put a `depends_on` out of order and failed for a reason unrelated to
+    // anything (r) asserts.
+    const bcand = JSON.parse(JSON.stringify(candB));
+    bcand.steps[1].bridges = ["t1", "t2"];
+    const bad = adoptCandidate(doc0, { candidates: [candA, bcand] }, "cand-2", inst(bcand));
+    if (bad.error) fails.push(`(r) adopting a Candidate that bridged was refused: ${bad.error}`);
+    else {
+      const bdoc = bad.doc || "";
+      if (/## What this path bridged\n\n\*\(awaiting composition\)\*/.test(bdoc)) {
+        fails.push("(r) the disclosure slot is still unfilled after adoption — it renders and never acts, which is the defect kogaki#864 was raised on");
+      }
+      if (!/bridge\(s\) inserted/.test(bdoc)) fails.push("(r) the filled slot does not state what was bridged");
+      // AC4 — the journey half rides the SAME slot, vacuous rather than absent.
+      //
+      // BOUND TO THE FIGURE, NOT TO THE WORD, and this is a repair recorded
+      // rather than a first draft: the assertion read `/[Jj]ourney/` over the
+      // slot's segment and passed while the journey half was DELETED from the
+      // fill, because the slot's own CAPTION contains the word "journey". It
+      // matched the caption this commit wrote, which is the assertion-binds-a-
+      // proxy shape — and the proxy here was introduced by the very change
+      // under test. It now asserts the value `candidateEvidence` derives, which
+      // no caption can supply.
+      const seg = (bdoc.split("## What this path bridged")[1] || "").split("\n## ")[0];
+      const want = candidateEvidence(bcand, selectedStrands(doc0), journeyBearingStrands(doc0)).journey_coverage;
+      if (!seg.includes(want)) {
+        fails.push(`(r) the journey half is absent from the slot — §6.1 rides §4.11's slot, and an empty disclosure is not a missing one; wanted ${JSON.stringify(want.slice(0, 60))}`);
+      }
+    }
+    // AC3 — a path that bridged NOTHING fills without erroring and without
+    // claiming a bridge. The vacuous case is the one a fill written for the
+    // happy path silently gets wrong.
+    const nbd = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB));
+    if (nbd.error) fails.push(`(r) adopting a Candidate that bridged nothing was refused: ${nbd.error}`);
+    else {
+      const ndoc = nbd.doc || "";
+      if (/## What this path bridged\n\n\*\(awaiting composition\)\*/.test(ndoc)) fails.push("(r) an unbridged path left the slot unfilled — vacuous is not absent");
+      if (/[1-9]\d* bridge\(s\) inserted/.test(ndoc)) fails.push("(r) an unbridged path claims a bridge");
+    }
+    // AC5 — THE VALUES ARE THE ADOPTED CANDIDATE'S. Two Candidates differing in
+    // what they bridged must not fill identically; this is what makes the slot
+    // a disclosure of the adopted path rather than of the Candidate set.
+    const other = adoptCandidate(doc0, { candidates: [candA, bcand] }, "cand-2", inst(bcand));
+    const segOf = (d) => ((d || "").split("## What this path bridged")[1] || "").split("\n## ")[0];
+    if (!other.error && !nbd.error && segOf(other.doc) === segOf(nbd.doc)) {
+      fails.push("(r) a bridging path and an unbridged one disclose identically — the slot does not carry the ADOPTED Candidate's own values");
+    }
+  }
+
   // (g) COMMAND PATHS agree with the exported functions.
   const rvf = join(dir, "reviewed.json"); const ouf = join(dir, "payload.json");
   writeFileSync(rvf, JSON.stringify({ candidates: [candA, candB] }));
