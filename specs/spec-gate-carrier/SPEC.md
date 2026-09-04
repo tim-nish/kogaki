@@ -9,7 +9,7 @@ could redden the suite forever without contradicting any sentence in this file.
 **deferred slots minted by this amendment: none.**
 
 **Status:** v3, amended 2026-08-21 (kogaki#569) — **§3.1's one exception is
-discharged.** v2 (same day, same issue) bound what the question screen carries —
+discharged.** v2 (same day, same issue) bound what the question carries —
 four members, a fifth owes a stated reason, machine-facing text not among them —
 and named one exception in force: the gate declaration block, mandated in the
 question text by a clause and hook living in `tim-nish/claude-toolkit`, where
@@ -92,7 +92,7 @@ served line; a host with no declared binding fails rather than inheriting
 one, because inheriting would restore the unfalsifiable general form under a
 new name.
 
-### 3.1 What the question screen carries (v2, kogaki#569; exception discharged at v3, kogaki#569)
+### 3.1 What the question carries (v2, kogaki#569; exception discharged at v3, kogaki#569)
 
 §3 binds the **medium** — which affordance a gate renders through. This clause
 binds what that affordance **carries**, which the manifest already admits as
@@ -107,16 +107,16 @@ The quote is the whole ground §3.1 rests on, and a pin that looks sound while
 resolving elsewhere is the defect class `policy/consultation-map.md` records at
 kogaki#266. The header's copy is outside this clause and is not repaired here.
 
-**The owner ruling (2026-08-20).** The question screen carries the identifying
+**The owner ruling (2026-08-20).** The question carries the identifying
 material the owner reads, the instruction, the question, and the options.
-**Anything else on a gate screen is added only with a stated reason**, and the
+**Anything else on a gate question is added only with a stated reason**, and the
 reason is stated where the element is added rather than assumed by whoever adds
 it.
 
 **The general clause is the load-bearing half, deliberately.** Naming the one
 element that prompted the ruling would cover that element and leave the next one
 uncovered by default — the enumeration shape this repository refuses elsewhere.
-So the rule is composition-shaped: the screen has four members, and a fifth owes
+So the rule is composition-shaped: the question has four members, and a fifth owes
 an argument.
 
 **Machine-facing text is not one of the four.** This repository already classes
@@ -132,12 +132,12 @@ the source is authoritative and the installed copy derived — `checks/check-cli
 since kogaki#615, so a pointer into it resolves nowhere on a fresh clone)
 
 **And that source licenses one narrower admission, scoped to the DECLARATION
-surface and not to the question screen.** The sentence the excerpt cuts reads:
+surface and not to the question.** The sentence the excerpt cuts reads:
 "One exception is not an exception: a gate declaration may carry an `outcome:`
 line, which is a token and not a pin." A bare `outcome:` token is therefore
 admissible on a gate declaration by the same source — and since v3 the
 declaration itself rides the transcript (see the discharge below), so this
-admission touches the question screen not at all: the four-member rule and
+admission touches the question not at all: the four-member rule and
 "no exception in force" stand together with it, not against it.
 
 Rendering a machine-facing record into the question body is the record/rendering

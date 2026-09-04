@@ -491,7 +491,7 @@ function cmdSurvey(args) {
       // ASSIGNMENT ORDER, and why it is the served corpus's own order (SQ1).
       // §14.3 makes the ID stable within a pin and explicitly permits a pin
       // advance to renumber, but "legal to shuffle" is hostile to an owner
-      // holding a printed screen — so the numbering follows the order the
+      // holding a printed display — so the numbering follows the order the
       // substrate SERVES the records in, which is append-stable for the common
       // pin advance (a Lesson added to the end of a shard takes the next
       // number and shuffles nothing). It is not stable against an insertion
@@ -516,7 +516,7 @@ function cmdSurvey(args) {
     const j = journeyBySlug.get(c.slug);
     if (j) c.journey = { slug: j.slug, cite: j.cite };
   }
-  // Compose: one section per served tag (screen 1's axis is the served tag
+  // Compose: one section per served tag (display 1's axis is the served tag
   // vocabulary, SPEC.md §2.2); multi-tag Lessons place in every section they
   // relate to — completeness is a COVER counted in placements, not a
   // partition (SPEC.md §2.1).
@@ -571,7 +571,7 @@ function cmdSurvey(args) {
   console.log(`Pin: ${record.pin}`);
   console.log(`Survey record: ${out}\n`);
   // THE TAG LISTING IS NOT EMITTED HERE ANY MORE (PR #667 round 1 findings 4
-  // and 5). It is the `tag_listing` surface, and `renderTagScreen` is its one
+  // and 5). It is the `tag_listing` surface, and `renderTagDisplay` is its one
   // emitter, reached through the executor and written under that surface's
   // grammar. While both existed a run emitted the listing TWICE — once from
   // this compute state under no grammar, once from the owner-executed `tags` through the
@@ -583,7 +583,7 @@ function cmdSurvey(args) {
   // removes.
   // The bounded-input pointer, sited at the step BEFORE the one that needs it.
   // A composer reaching for material per group has already spent the reads by
-  // the time `cotags` runs, so a pointer only on the co-tag screen would arrive
+  // the time `cotags` runs, so a pointer only on the CoTagGroups display would arrive
   // after the cost (kogaki#163 lever 3).
   console.log(`Before composing claims for a tag: compose-input --survey ${out} --tag T — ${COMPOSITION_INPUT_BOUND}. Composing from per-group material instead spends one read per PLACEMENT, which is what the 2026-08-07 architecture run measured at ~19 minutes.`);
   // Returned so the §15 executor can record the survey record BY PATH (§15.3)
@@ -594,9 +594,9 @@ function cmdSurvey(args) {
 
 // ---- Figure rendering. Every emitted figure names the families it counted
 // (SPEC.md §2.1, §9): `agents (115 — 59 lessons + 56 journeys)`, never
-// `agents (115)`. Every screen showing candidate rows states its denominator
+// `agents (115)`. Every display showing candidate rows states its denominator
 // in Lessons (§5). These two helpers are the only place a Terrain figure is
-// composed, so a new screen cannot emit a bare count by forgetting to.
+// composed, so a new display cannot emit a bare count by forgetting to.
 export function strandFigure(split) {
   const total = SURVEY_SCHEMA.families.reduce((n, f) => n + (split[f] || 0), 0);
   return `${total} — ${SURVEY_SCHEMA.families.map((f) => {
@@ -619,7 +619,7 @@ export function lessonCount(n) {
   return `${n} ${n === 1 ? "Lesson" : "Lessons"}`;
 }
 
-// Screen 1's tag row renders a declared ALLOWLIST and nothing else
+// Display 1's tag row renders a declared ALLOWLIST and nothing else
 // (SPEC.md §9, v5, kogaki#147): the tag name, and the tag's Lesson count. A
 // line class not on the allowlist does not render — the remedy is the
 // constructive form, never a per-column removal, because an enumerated
@@ -833,7 +833,7 @@ function glossMarkerFor(x) {
 // WHICH OF THE THREE GLOSS STATES A ROW IS IN (kogaki#689, PR #693 round 1).
 //
 // EXPORTED AND PURE BECAUSE THE INLINE FORM WAS UNASSERTABLE. This decision sat
-// inside `cmdReport`'s fetch loop, and the neighborhood cases drive the screen
+// inside `cmdReport`'s fetch loop, and the neighborhood cases drive the display
 // directly — so every assertion about the miss markers was exercising the
 // EMITTER'S fallback and none was reaching the state assignment. Collapsing the
 // two miss states back into one marker changed nothing any case could see, which
@@ -878,7 +878,7 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"]) {
   return NO_HEADLINE;
 }
 
-// THE TWO SCREEN RENDERERS, PRIVATE (§15.5, §15.1; kogaki#665). Each RETURNS
+// THE TWO DISPLAY RENDERERS, PRIVATE (§15.5, §15.1; kogaki#665). Each RETURNS
 // TEXT AND WRITES NOTHING — the write is the executor's, through the one
 // private writer, under the calling state's own grammar. Neither is exported
 // and neither is dispatchable by name: #625 acceptance item 1 makes an
@@ -888,9 +888,9 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"]) {
 // own, and that is load-bearing rather than symmetry: it is what makes
 // REFUSE-conformance testable without the substrate. A renderer that reached
 // the seam directly could only be exercised where the seam is.
-function composeScreenText(record, tags, family, fetchShards) {
-  const screen = [];
-  const say = (s = "") => { for (const line of String(s).split("\n")) screen.push(line); };
+function composeDisplayText(record, tags, family, fetchShards) {
+  const display = [];
+  const say = (s = "") => { for (const line of String(s).split("\n")) display.push(line); };
   let list = record.candidates;
   if (tags) list = list.filter((c) => tags.some((t) => c.tags.includes(t)));
   // The rows are Lessons; a family filter selects rows whose Strand set
@@ -935,7 +935,7 @@ function composeScreenText(record, tags, family, fetchShards) {
     say(`ABNORMAL: ${missing} of ${list.length} rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
   }
   if (missingDisplayId) say(displayIdAbnormalLine(missingDisplayId, list.length));
-  return screen.join("\n");
+  return display.join("\n");
 }
 
 // The PRE-SELECTION listing: the TAG ROWS — a tag name and its Lesson count,
@@ -972,8 +972,8 @@ function composeScreenText(record, tags, family, fetchShards) {
 //       → the same grammar case: `NAVIGATION_HINT` is a declared line class and
 //         its removal drops a required class.
 // consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
-function renderTagScreen(record) {
-  const out = ["The survey — screen 1. Navigation (narrows nothing): name a tag.", ""];
+function renderTagDisplay(record) {
+  const out = ["The survey — display 1. Navigation (narrows nothing): name a tag.", ""];
   for (const s of record.sections) out.push(`  ${tagRow(s)}`);
   out.push("");
   out.push(NAVIGATION_HINT);
@@ -1003,7 +1003,7 @@ function renderTagScreen(record) {
 // seam path is unchanged.
 // consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
 export function renderTagRowView(record, tag, family, fetchShards = fetchHeadlines) {
-  return composeScreenText(record, [String(tag)], family || null, fetchShards);
+  return composeDisplayText(record, [String(tag)], family || null, fetchShards);
 }
 
 // --------------------------------------------------------------------------
@@ -1015,11 +1015,11 @@ export function renderTagRowView(record, tag, family, fetchShards = fetchHeadlin
 // session's tool call prints to the session and an act the owner types prints
 // to the owner.
 //
-// WHY THIS IS NOT A SCREEN, which §6.0.1 calls its own load-bearing half: a
-// Screen is the rendering of the CO-TAG GROUPS, the one state that writes
-// `reports/Screen.md`. This display PRECEDES it and sits on the same side of
-// the line as §6.0's listings. `reports/Screen.md` keeps exactly one writing
-// state (`cotag_screen`) as it always had.
+// WHY THIS IS NOT THE CoTagGroups DISPLAY, which §6.0.1 calls its own
+// load-bearing half: that display renders the CO-TAG GROUPS and is the one state that writes
+// `reports/CoTagGroups.md`. This display PRECEDES it and sits on the same side of
+// the line as §6.0's listings. `reports/CoTagGroups.md` keeps exactly one writing
+// state (`cotag_groups`) as it always had.
 //
 // THE INTENT BOUND IS 200 AND NOT "ABOUT 200", and the refusal is this
 // emitter's own `fail()` rather than a lint — a spec cannot ship an
@@ -1109,7 +1109,7 @@ export function renderCotagSelection(record, tag, intent) {
     });
 
   // The tag column widens to the longest name it must carry, bounded so a
-  // single pathological name does not push the counts off the screen; a name
+  // single pathological name does not push the counts out of view; a name
   // past the bound wraps.
   //
   // THE WIDTH IS COMPUTED FIRST AND THE BOUND APPLIES TO IT, not to each name
@@ -1162,7 +1162,7 @@ export const NO_SECOND_TAG = "(no second served tag)";
 // discipline §9 applies to a missing Gloss rendering, at the claim's layer.
 export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clear, never substituted⟩";
 
-// No per-row pin renders on the screen (§6.1 v5, withdrawing v4's per-row
+// No per-row pin renders on the display (§6.1 v5, withdrawing v4's per-row
 // pin): the pin is sited ONCE, in the Full Report, whose member records carry
 // the member → served-line map. The WA baseline closed group presentation to
 // "Group ID, Strand ID, gloss, journey — and nothing else" (wa#1115/#1116).
@@ -1192,10 +1192,10 @@ export function cotagGroups(members, selectedTag) {
   //
   // SCOPE, stated rather than implied (AC11, owner decision 2026-08-11 on
   // kogaki#317): the id is assigned in sort order and A PIN ADVANCE MAY
-  // RENUMBER IT. One new co-tag shifts every group after it. The screen and
+  // RENUMBER IT. One new co-tag shifts every group after it. The display and
   // the report of a single run agree, which is what an owner-entered id set
-  // (kogaki#314) consumes; an id copied from a screen printed under an earlier
-  // pin does not, and the screen says so. No persistent map is written —
+  // (kogaki#314) consumes; an id copied from a display printed under an earlier
+  // pin does not, and the display says so. No persistent map is written —
   // that would be the second carrier §14.3's ID→slug rule already refuses.
   return [...byCotag.keys()].sort().map((k, i) => ({
     name: `${selectedTag} × ${k}`,
@@ -1246,15 +1246,15 @@ export function cotagCover(members, groups) {
 }
 
 function cmdCotags(args) {
-  // THE SCREEN IS COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES (§14.2, story
+  // THE DISPLAY IS COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES (§14.2, story
   // 1.54, AC1). The refusal has to be able to emit NOTHING, and a command that
   // printed its first eight lines and then refused would have put a
-  // nonconformant screen in front of the owner — which is the whole condition
+  // nonconformant display in front of the owner — which is the whole condition
   // the refusal exists to prevent. `say` is the only writer below; `fail`
   // still goes to stderr and is not a line of this surface
   // (report-format.json `refusal_text_boundary`).
-  const screen = [];
-  const say = (s = "") => { for (const line of String(s).split("\n")) screen.push(line); };
+  const display = [];
+  const say = (s = "") => { for (const line of String(s).split("\n")) display.push(line); };
   const record = readJson(String(args.survey || fail("cotags needs --survey <file>")));
   const tag = String(args.tag || fail("cotags needs --tag <selected tag>"));
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
@@ -1276,9 +1276,9 @@ function cmdCotags(args) {
     }
   }
 
-  // GroupClaim-first rendering, AT the screen, for EVERY group (§6.1, §7's v3
+  // GroupClaim-first rendering, AT the display, for EVERY group (§6.1, §7's v3
   // rider). v2 composed a claim only under a separate `claim` invocation naming
-  // one group, which is why the served screen carried none — the machinery was
+  // one group, which is why the served display carried none — the machinery was
   // built and unreached. The composer's prompt, model and wording stay outside
   // this runtime exactly as §7 leaves them, so the claims ARRIVE AS ARGUMENTS;
   // what is bound here is that every group gets one and that a missing one is
@@ -1318,13 +1318,13 @@ function cmdCotags(args) {
       fail(`--subdivisions names ${JSON.stringify(k)}, which is no composed group (SPEC.md §6.2)`);
     }
     // THE SECOND READER OF THE SAME MAP, migrated in the same change
-    // (§12.1 v9, kogaki#199 AC6). `cmdReport` and this screen read one input;
+    // (§12.1 v9, kogaki#199 AC6). `cmdReport` and this display read one input;
     // migrating one and not the other would put two encodings behind one file
     // and rebuild the defect between them — the producer/consumer split where
     // neither side's suite can see the break.
     readSubdivisionEntry(k, subdivisions[k]);
   }
-  // The screen REQUIRES the judge pin wherever it serves SubGroups (§6.2), on
+  // The display REQUIRES the judge pin wherever it serves SubGroups (§6.2), on
   // the same ground `subdivide` refuses without one: a per-invocation judged
   // surface with no judge pin is the drift-undetectable shape, where
   // "recomputed fresh" silently becomes "recomputed by a different judge".
@@ -1332,7 +1332,7 @@ function cmdCotags(args) {
   if (Object.keys(subdivisions).length) {
     const m = args["judge-model"];
     const e = args["judge-effort"];
-    if (!m || !e) fail("--judge-model and --judge-effort are required when the screen serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md §6.2, §8)");
+    if (!m || !e) fail("--judge-model and --judge-effort are required when the display serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md §6.2, §8)");
     judgePin = { model_id: String(m), effort_tier: String(e) };
   }
 
@@ -1349,18 +1349,18 @@ function cmdCotags(args) {
     // GroupID, the Lesson count and the member Lesson IDs; the claim renders
     // beneath. Where SubGroups are served the heading carries the count alone
     // and the IDs live on the SubGroup lines (§6.2). No per-row pin renders on
-    // any screen — the pin is sited ONCE, in the Full Report (§6.1 v5's
+    // any display — the pin is sited ONCE, in the Full Report (§6.1 v5's
     // withdrawal of the v4 per-row pin; the WA baseline, wa#1115/#1116).
     const _entry = readSubdivisionEntry(
       g.name, subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
-    // The screen's own reader takes the SubGroupClaim list out of the typed
+    // The display's own reader takes the SubGroupClaim list out of the typed
     // record. A judged-empty group has none, which is the conformant state and
     // renders as no SubGroups rather than as a catch-all.
     const subForHeading = _entry ? _entry.subgroups : undefined;
     // Keyed on whether there ARE SubGroupClaims, never on whether the entry
     // exists: `[]` is truthy, and a judged-empty group that hid its members
     // behind the subdivided heading would drop the whole membership from the
-    // screen — the same trap the report's `members` field carried.
+    // display — the same trap the report's `members` field carried.
     // §14.3 — group members render as display_ids, never as `lesson:<slug>`.
     const gShown = displayIds(g.members, record.candidates);
     // The claim is read BEFORE the heading now, because `judgeSubgroup` needs
@@ -1462,7 +1462,7 @@ function cmdCotags(args) {
     // It is emitted here rather than trailing the previous block so that the
     // first group is separated from the header by the same act as every other
     // group is separated from its predecessor — a trailing newline on one
-    // emitter and a leading one on another is how the pre-v31 screen ended up
+    // emitter and a leading one on another is how the pre-v31 display ended up
     // spacing subdivided groups and running flat ones together.
     say("");
     // §6.2 — A SUBDIVIDED GROUP'S HEADING CARRIES THE PARENT'S LESSON COUNT
@@ -1476,7 +1476,7 @@ function cmdCotags(args) {
     //
     // ONLY THE COUNT RETURNS, not the member list. The two heading classes
     // therefore differ by exactly the `: <ids>` tail, and the count sits in
-    // the same position on both, family-named per §9 — a subdivided screen and
+    // the same position on both, family-named per §9 — a subdivided display and
     // a flat one are read left to right the same way.
     say(judged
       ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
@@ -1512,7 +1512,7 @@ function cmdCotags(args) {
 
     // The member Lesson IDs, for EVERY group and WITHOUT --group being named.
     // This is kogaki#128's specific defect: v2 emitted them only under
-    // `selected`, so the served screen showed counts and no ids, and no image
+    // `selected`, so the served display showed counts and no ids, and no image
     // of a possible Thesis could form. Naming a group narrows what is PRINTED
     // and never what is counted — the cover below is unchanged by it.
     // A judged-empty group renders NO SubGroups. Calling subgroupPlacement on
@@ -1554,7 +1554,7 @@ function cmdCotags(args) {
     say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`other\` — the residual, so the judge found no subset of ${subdivisionLimits().min} or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
   }
   if (claimless) {
-    say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this screen carry no composed GroupClaim. §6.1 serves the claim FIRST and a screen without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
+    say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this display carry no composed GroupClaim. §6.1 serves the claim FIRST and a display without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
     // The remedy names the BOUNDED input rather than "go compose something":
     // the fault above is cleared by composing, and the way composing was
     // costing ~19 minutes was per-group reads (kogaki#163 lever 3).
@@ -1583,21 +1583,21 @@ function cmdCotags(args) {
   // dropped four of six member fields while every assertion about the data
   // structure stayed green.
   // The refusal still gates the WRITE as well as the print — `emitOrRefuse`
-  // validates before its callback runs, so a nonconformant screen reaches
+  // validates before its callback runs, so a nonconformant display reaches
   // neither the owner's terminal nor their artifact (§14.2, story 1.54 AC1).
-  // THROUGH THE ONE PRIVATE WRITER, like the two screen states beside it
+  // THROUGH THE ONE PRIVATE WRITER, like the two display states beside it
   // (PR #667 round 1 finding 3). This was a SECOND path to the same artifact —
-  // its own `emitOrRefuse` plus a direct `writeScreen` — which left
-  // `writeScreenSurface` one of two rather than the one criterion 1 names, and
+  // its own `emitOrRefuse` plus a direct `writeDisplay` — which left
+  // `writeDisplaySurface` one of two rather than the one criterion 1 names, and
   // left the `writers_per_artifact` drop resting on a "no second path" ground
   // the tree did not hold. The refusal still gates the write, because that is
-  // what `writeScreenSurface` does — AND the print, which now happens inside
+  // what `writeDisplaySurface` does — AND the print, which now happens inside
   // that writer's refusal callback rather than here (PR #667 round 2). Hoisting
   // it above the writer is what made `cmdCotags` emit before it validated,
   // which at the base it did not.
-  const text = screen.join("\n");
-  const path = writeScreenSurface(args, "cotag_screen", text);
-  announceScreen(path);
+  const text = display.join("\n");
+  const path = writeDisplaySurface(args, "cotag_groups", text);
+  announceDisplay(path);
   // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
   return path;
 }
@@ -1625,18 +1625,18 @@ function emitOrRefuse(surfaceName, text, write) {
 // THE OWNER-EXECUTED LISTING'S EMIT PATH (SPEC-terrain §6.0 v29, kogaki#682,
 // owner selection 2026-08-29).
 //
-// The pre-selection tag listing and the per-tag row view are NOT Screens: the
-// owner ruling of 2026-08-28 defines a Screen as the rendering written AFTER a
+// The pre-selection tag listing and the per-tag row view are NOT the CoTagGroups
+// display: the owner ruling of 2026-08-28 defines it as the rendering written AFTER a
 // tag has been selected, and neither of these is. They therefore write no owner
-// artifact at all — `reports/Screen.md` has exactly one writing state,
-// `cotag_screen` — and they reach the owner by a channel the harness actually
+// artifact at all — `reports/CoTagGroups.md` has exactly one writing state,
+// `cotag_groups` — and they reach the owner by a channel the harness actually
 // displays: THE OWNER RUNS THEM.
 //
 // WHY NOT STDOUT FROM A SESSION-DRIVEN ACT, which is what this looks like:
 //
 //   "In the Claude Code harness a tool call's stdout is displayed to the MODEL,
 //   not reliably to the OWNER … every conformant behavior renders nothing, and
-//   the observed false claim ('the screen is above') is what an agent produces
+//   the observed false claim ('the display is above') is what an agent produces
 //   when instructed to deliver through a channel that does not display."
 //   consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/claude-code-ops.md:69
 //
@@ -1762,7 +1762,7 @@ export function composeClaimReoffer(args, dir, record) {
   } else if (originText) {
     // The member set may be DERIVED from the group the claim was composed over
     // — §6.1 composes a GroupClaim over a group's WHOLE member set, so those
-    // members genuinely are a screen-composed origin's. What §7 forbids is the
+    // members genuinely are a display-composed origin's. What §7 forbids is the
     // substitution being SILENT: a derived set and a recorded one are otherwise
     // indistinguishable at the gate, and the owner comparing a recomposed claim
     // against its origin cannot see which they hold. So the fallback announces
@@ -1773,8 +1773,8 @@ export function composeClaimReoffer(args, dir, record) {
                     original_members: originMembers || group.members,
                     original_members_provenance: derived ? "derived" : "recorded",
                     original_source: derived
-                      ? "screen-composed (wording passed as an argument; MEMBER SET DERIVED from the group it was composed over, not recorded — SPEC.md §7)"
-                      : "screen-composed (passed as an argument; the screen writes no record — SPEC.md §7)" };
+                      ? "display-composed (wording passed as an argument; MEMBER SET DERIVED from the group it was composed over, not recorded — SPEC.md §7)"
+                      : "display-composed (passed as an argument; the display writes no record — SPEC.md §7)" };
   } else {
     // An absent origin is STATED, never fabricated (§7 v4 rider). A gate that
     // silently omitted it would present a recomposed wording as if it had one.
@@ -1839,7 +1839,7 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 //
 // WHICH MODEL judges is a per-invocation PINNED FACT and not a decision this
 // code makes: the judge pin (model id + effort tier) is ADOPTED for
-// per-invocation judged surfaces and names terrain screens, claims and
+// per-invocation judged surfaces and names terrain displays, claims and
 // groupings among them, with the judge-migration tripwire as its complement —
 // the pin makes a judge change observable, the tripwire makes it
 // consequential. So the classification and its verdicts arrive as input and
@@ -1850,18 +1850,18 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 // SubGroups; it stands in for no verdict. What the judge supplies is the
 // COHERENCE LABEL — one of a closed three, with one sentence of why — and no
 // number is compared against it. The three instruments remain REPORTED
-// quantities gating nothing, and the screen budget still arrives per run.
+// quantities gating nothing, and the display budget still arrives per run.
 //
 // The prohibition this comment used to state — no numeric constant anywhere in
 // split-or-stop logic — was reversed by the owner on 2026-08-28 on a specimen
 // it permitted. It is quoted at §8 as provenance and is not the rule here.
 // --------------------------------------------------------------------------
 // The SubGroup's own two rendered lines — its name and its claim. Rendering
-// arithmetic for the screen-budget instrument; it gates nothing and is not
+// arithmetic for the display-budget instrument; it gates nothing and is not
 // stop logic.
 const LINES_PER_SUBGROUP_HEADER = 2;
 
-// The PLACEMENT half of subdivision, extracted so the co-tag screen (§6.2) and
+// The PLACEMENT half of subdivision, extracted so the co-tag display (§6.2) and
 // `subdivide` (§8) share ONE composer rather than each carrying its own.
 //
 // It is this half — not the instruments and not the coherence verdicts — that owns
@@ -1913,7 +1913,7 @@ export const SUBDIVISION_REQUIRED_AT = 10;
 //
 // CONSUMER-OWNED VALUES, and that is a ruling rather than an omission: a
 // consumer owns the SHAPE of its own record and never the VALUES of a field
-// that JOINS across a boundary. This label is rendered on kogaki's own screen
+// that JOINS across a boundary. This label is rendered on kogaki's own display
 // and read by nothing outside it, so no hub ratification is owed.
 // consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/knowledge-architecture.md:198
 export const COHERENCE_LABELS = Object.freeze(["tight", "related", "loose", "other"]);
@@ -1985,9 +1985,9 @@ export function subgroupPlacement(parent, classification, block) {
 }
 
 // The JUDGMENT half of subdivision (§8), extracted beside `subgroupPlacement`
-// so the co-tag screen (§6.2) and `subdivide` share ONE implementation.
+// so the co-tag display (§6.2) and `subdivide` share ONE implementation.
 //
-// kogaki#133's first finding is what this closes: the screen placed members
+// kogaki#133's first finding is what this closes: the display placed members
 // and printed name, claim and ids while evaluating neither conjunct and
 // emitting neither disclosure, so "where §8's conditions put them" was
 // satisfied by the caller's JSON alone. A second copy of these rules would be
@@ -2160,7 +2160,7 @@ export function composeSubdivisionRecord(args, dir, record) {
   const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the SubGroup claims' coherence is judged against"));
   const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
   const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
-  const screenBudget = Number(args["screen-budget"] || fail("--screen-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a screen lands, not of the material, so it is the caller's to state (SPEC.md §8)"));
+  const displayBudget = Number(args["display-budget"] || fail("--display-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a display lands, not of the material, so it is the caller's to state (SPEC.md §8)"));
   const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|other) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
 
   const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
@@ -2182,7 +2182,7 @@ export function composeSubdivisionRecord(args, dir, record) {
       // Line arithmetic for the rendering destination, not a threshold and not
       // stop logic: one line for the SubGroup name, one for its claim, one per
       // member. It gates nothing — the budget is REPORTED against the need.
-      screen_budget_lines: { needs: LINES_PER_SUBGROUP_HEADER + sg.members.length, budget: screenBudget },
+      display_budget_lines: { needs: LINES_PER_SUBGROUP_HEADER + sg.members.length, budget: displayBudget },
       // Read from the SubGroup's own carried verdicts rather than a binding in
       // this scope: story 1.31 moved `const vd = sg.verdicts || {}` into
       // `judgeSubgroup`, and this third instrument — the only `vd.` site left
@@ -2252,7 +2252,7 @@ function resolveReportTargets(record, tag, enteredIds, args) {
 // --------------------------------------------------------------------------
 // report — the Full Report (SPEC.md §12).
 //
-// The other half of §6.1's compact screen: the screen is what the owner
+// The other half of §6.1's compact display: the display is what the owner
 // NAVIGATES, this is what they READ. Untruncated Claims and Glosses, with no
 // truncation anywhere — which is why it parses the served shard whole rather
 // than through `parseGlossShard`, whose whole job is to cut a headline.
@@ -2410,7 +2410,7 @@ export function readSubdivisionEntry(name, entry) {
 
 
 // The shard, parsed WHOLE. `parseGlossShard` above returns the first sentence
-// because a screen row is a headline; §12 forbids truncation anywhere, so the
+// because a display row is a headline; §12 forbids truncation anywhere, so the
 // report cannot reuse it — the same shard read for two purposes needs two
 // readers, not one reader with a flag.
 export function parseGlossFull(resp) {
@@ -2775,26 +2775,24 @@ function announceArtifacts(rendered, recordPath) {
   }
 }
 
-// THE SCREEN'S OWNER RENDERING (§14.4.1 v18, kogaki#434; implemented under
+// THE CoTagGroups OWNER RENDERING (kogaki#434; implemented under
 // kogaki#464 after #434 closed without it).
 //
-// §14.4.1 rules that an owner-facing screen is delivered as an ARTIFACT THE
-// RUNTIME WRITES, never through a display channel. The channel this repository
-// is operated through displays a tool call's stdout TO THE MODEL and not
-// reliably to the owner — it collapses to a one-line summary — so through v17
-// the contract had no satisfiable member: retyping is prohibited (§14.4), a
-// question UI is prohibited after tag selection (§6.3), and model-side
-// re-emission is refused. What that produced was not silence but a FALSE CLAIM
-// OF SUCCESS, which reads as delivery.
+// The runtime WRITES this rendering, and §14.4's removal of the relay as a
+// producer is why: the channel this repository is operated through displays a
+// tool call's stdout TO THE MODEL and not reliably to the owner — it collapses
+// to a one-line summary — and retyping is prohibited (§14.4) while a question
+// UI is prohibited after tag selection (§6.3). What model composition produced
+// was not silence but a FALSE CLAIM OF SUCCESS, which reads as delivery.
 //
 // THE NAME IS A LITERAL joined onto the renderings directory, exactly as
-// `FullReport.md` is, so a second screen name is UNWRITABLE RATHER THAN
-// DETECTED — the constrain-side answer §14.4.1 names in its own
-// what-is-not-carried list. Every screen renders through here; there is no
+// `FullReport.md` is, so a second rendering name is UNWRITABLE RATHER THAN
+// DETECTED — the constrain-side answer §15.8 names in its own
+// what-is-not-carried list. Every display renders through here; there is no
 // second path and no caller-supplied name.
 //
 // §12.2 v12's "exactly one owner rendering" is SCOPED TO FULL REPORT
-// RENDERINGS (§14.4.1), and the screen is a SECOND owner-rendering class with
+// RENDERINGS, and this display is a SECOND owner-rendering class with
 // its own count of exactly one: overwritten per render, never accumulated. The
 // invariant §12.2 v12 actually protects — no accumulation, no machine-register
 // naming on the owner surface — holds for both, which is why this is a scoping
@@ -2808,18 +2806,18 @@ function announceArtifacts(rendered, recordPath) {
 export const NAVIGATION_HINT =
   "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4).";
 
-export const SCREEN_RENDERING = "Screen.md";
+export const DISPLAY_RENDERING = "CoTagGroups.md";
 
 // WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain §15.5 v28, kogaki#681,
 // successor to #680). §15.5's title — "owner artifacts are written only from
 // writing states" — was carried by nothing: `cotags` and `report` stayed live
 // dispatcher cases calling the same renderers, so a session could mint
-// `reports/Screen.md` or `reports/FullReport.md` out of order, with no run
+// `reports/CoTagGroups.md` or `reports/FullReport.md` out of order, with no run
 // record. #680's disposition ("they cease to exist as entry points") was
 // REFUTED by observation at #681: the executor re-surveys live rather than
 // accepting a fixture, `compose_input` crosses the served-material seam, and
 // `J1_claims` is non-conditional — so the 34 composition-check sites that drive
-// these two commands could not be migrated, and the claimless screen §6.1
+// these two commands could not be migrated, and the claimless display §6.1
 // requires is unreachable through `run` at all.
 //
 // SO THE REFUSAL BINDS THE WRITE AND NOT THE ENTRY POINT. The commands survive
@@ -2855,74 +2853,74 @@ function refuseUnauthorizedOwnerWrite(dir, artifact) {
     + "The composition itself is not refused: render into a run-scoped location and the write proceeds, because a rendering whose lifetime is the run is not an owner artifact (§2.5.1).");
 }
 
-function writeScreen(args, text) {
+function writeDisplay(args, text) {
   // REFUSED BEFORE THE DESTINATION IS PREPARED, not after (PR #702 round 1,
   // finding 2). `renderingsDir` mkdirs and retires; the guard reads the pure
   // destination so an unauthorized act touches nothing at all.
-  refuseUnauthorizedOwnerWrite(renderingDestination(args), SCREEN_RENDERING);
-  const path = join(renderingsDir(args), SCREEN_RENDERING);
+  refuseUnauthorizedOwnerWrite(renderingDestination(args), DISPLAY_RENDERING);
+  const path = join(renderingsDir(args), DISPLAY_RENDERING);
   writeFileSync(path, text.endsWith("\n") ? text : text + "\n");
   return path;
 }
 
-// THE ONE PRIVATE SCREEN WRITER (§15.5, kogaki#665). Every state whose
-// `writes` field names the screen artifact goes through here, and the GRAMMAR
+// THE ONE PRIVATE DISPLAY WRITER (§15.5, kogaki#665). Every state whose
+// `writes` field names the display artifact goes through here, and the GRAMMAR
 // COMES FROM THE CALLING STATE rather than from the artifact path — three
 // states share one file, and `report-format.json` declares a separate surface
-// for each, so a writer that inferred the grammar from `Screen.md` could only
+// for each, so a writer that inferred the grammar from `CoTagGroups.md` could only
 // ever enforce one of the three.
 //
 // WHAT THIS REMOVES, which is the point rather than a tidy: `cmdView` used to
-// call `writeScreen` DIRECTLY, with no `emitOrRefuse` anywhere on its path —
+// call `writeDisplay` DIRECTLY, with no `emitOrRefuse` anywhere on its path —
 // so the two listing surfaces had declared grammars that nothing on the
-// write path enforced. §14.4.1 admitted two writers; §15.5 supersedes it with
+// write path enforced. An earlier form admitted two writers; §15.5 supersedes it with
 // one, and this is that one. The refusal gates the WRITE and not only a print,
 // because `emitOrRefuse` takes the write as a callback: there is no path here
 // that emits first.
 //
 // AND THE PRINT IS INSIDE THE CALLBACK TOO (PR #667 round 2, carried to
-// kogaki#625). All three screen states printed the text and THEN called this,
+// kogaki#625). All three display states printed the text and THEN called this,
 // so the sentence above was true of the write and false of the terminal — the
-// property "a nonconformant screen reaches neither the owner's terminal nor
+// property "a nonconformant display reaches neither the owner's terminal nor
 // their artifact" had quietly become a property of the artifact alone. §14.4
 // puts the owner's reading on the artifact, so the ratified guarantee was
 // intact and only its stated reach was overclaimed; the repair is to make the
 // sentence true again rather than to narrow it, because a comment asserting a
 // structural property the code no longer has is how the next edit loses it for
 // real. One printer, one writer, one callback, one refusal.
-function writeScreenSurface(args, surface, text) {
+function writeDisplaySurface(args, surface, text) {
   // BEFORE THE PRINTER, NOT ONLY BEFORE THE WRITE (§15.5 v28, kogaki#681).
-  // `writeScreen` carries the same refusal as the writer's own guard, but the
+  // `writeDisplay` carries the same refusal as the writer's own guard, but the
   // printer runs first inside the callback below — so siting the check only
-  // there put the refused screen on the owner's terminal and then declined to
+  // there put the refused display on the owner's terminal and then declined to
   // file it. That is the exact half-property PR #667 round 2 repaired for the
-  // grammar refusal ("a nonconformant screen reaches NEITHER the owner's
+  // grammar refusal ("a nonconformant display reaches NEITHER the owner's
   // terminal nor their artifact"), re-broken by a second refusal added at the
   // wrong end of the same callback. Two call sites, one property: this one
-  // binds the printer, `writeScreen`'s binds any future caller of the writer.
-  refuseUnauthorizedOwnerWrite(renderingDestination(args), SCREEN_RENDERING);
+  // binds the printer, `writeDisplay`'s binds any future caller of the writer.
+  refuseUnauthorizedOwnerWrite(renderingDestination(args), DISPLAY_RENDERING);
   let path = null;
   emitOrRefuse(surface, text, (conformant) => {
     console.log(conformant);
-    path = writeScreen(args, conformant);
+    path = writeDisplay(args, conformant);
   });
   // Unreachable: `emitOrRefuse` either runs the callback or fails the process.
   return path || fail(`${surface} produced no artifact path`);
 }
 
 // THE HAND-OVER'S FLOOR, and only its floor. Writing the artifact is NOT
-// delivery: a run that writes `reports/Screen.md` and tells the owner nothing
+// delivery: a run that writes `reports/CoTagGroups.md` and tells the owner nothing
 // produces exactly the owner-visible state kogaki#434 was filed against, so
 // §14.4's "Delivering nothing is still a failure" binds to the HAND-OVER and
 // never to the write.
 //
 // What this function does is name the artifact. WHICH FORM the relay's own
 // hand-over takes — a pointer, an `!`-command, a file-send — is non-normative
-// per §14.4.1 and is deliberately not decided here: a runtime that printed one
-// prescribed form would re-import the harness binding the ruling removed.
-function announceScreen(path) {
-  console.log(`Screen — READ THIS ONE (owner rendering, SPEC-terrain §14.4.1): ${relFromRepo(path)}`);
-  console.log("ONE screen file, overwritten per render (§14.4.1) — §12.2 v12's count is scoped to "
+// and is deliberately not decided here: a runtime that printed one prescribed
+// form would re-import the harness binding the ruling removed.
+function announceDisplay(path) {
+  console.log(`CoTagGroups — READ THIS ONE (owner rendering, SPEC-terrain §15.5): ${relFromRepo(path)}`);
+  console.log("ONE CoTagGroups file, overwritten per render — §12.2 v12's count is scoped to "
     + "FullReport.md, and this is the second owner-rendering class with its own count of exactly one.");
 }
 
@@ -3328,14 +3326,14 @@ function reportIdentityKey(i) {
 
 // THE ENTERED ID SET, RESOLVED AND CANONICALISED (§12 v6, kogaki#314).
 //
-// The owner reads a screen and types `G10,G5-1,G5-2`. Those ids resolve
+// The owner reads a display and types `G10,G5-1,G5-2`. Those ids resolve
 // against THE GROUPS THIS RUN COMPOSES and nothing else — story 1.56 AC11
 // makes an id valid for the run that printed it, because a pin advance may
 // renumber, so a cached numbering would silently resolve to the wrong Strands.
 //
 // THE SORT IS NUMERIC-AWARE, and this is the part a plain reading gets wrong.
 // `G5-1` comes before `G10`: lexicographically `"G10" < "G5-1"`, which would
-// render a screen's tenth group above its fifth. Compare the numeric
+// render a display's tenth group above its fifth. Compare the numeric
 // components, never the raw string.
 //
 // CANONICAL, so identity is SET-BASED (§12 v6): two typings of the same ids in
@@ -3355,7 +3353,7 @@ export function canonicalIds(ids) {
   });
 }
 
-// Resolve each entered id to a Group or a SubGroup of this screen.
+// Resolve each entered id to a Group or a SubGroup of this display.
 //
 // A SubGroup id brings ITS SubGroup, not its parent (AC7): entering `G5` and
 // `G5-1` together is admissible and renders both, with `G5-1`'s members
@@ -3366,7 +3364,7 @@ function resolveEnteredIds(entered, groups, subOf) {
   for (const g of groups) {
     known.push(g.gid);
     byId.set(g.gid, { kind: "group", gid: g.gid, group: g });
-    // SubGroup ids are derived exactly as the screen derives them: the
+    // SubGroup ids are derived exactly as the display derives them: the
     // parent's gid plus a 1-based index over `subgroupPlacement`'s output.
     const entry = subOf ? subOf(g) : null;
     if (entry && entry.subgroups && entry.subgroups.length) {
@@ -3382,10 +3380,10 @@ function resolveEnteredIds(entered, groups, subOf) {
   const missing = canon.filter((id) => !byId.has(id));
   if (missing.length) {
     // AC5 — a refusal that does not say what WAS available sends the owner
-    // back to re-read a screen they already read.
-    fail(`report --ids names ${missing.join(", ")}, which resolve to no Group or SubGroup on this screen. `
+    // back to re-read a display they already read.
+    fail(`report --ids names ${missing.join(", ")}, which resolve to no Group or SubGroup on this display. `
       + `The ids that do resolve are: ${canonicalIds(known).join(", ")}. `
-      + "Ids are valid for the run that printed them (story 1.56 AC11): a pin advance may renumber, so re-read the screen rather than reusing an older list.");
+      + "Ids are valid for the run that printed them (story 1.56 AC11): a pin advance may renumber, so re-read the display rather than reusing an older list.");
   }
   return { canonical: canon, targets: canon.map((id) => byId.get(id)) };
 }
@@ -3481,7 +3479,7 @@ function cmdReport(args) {
   // §11 v5 / §12 v6 (kogaki#314): the owner enters a G/SG ID SET and ONE report
   // covers exactly it. `--all-groups` and `--group` are GONE, not deprecated —
   // leaving the eager flag reachable would leave the over-generation the
-  // decision removes one argument away, on precisely the 11-group screen that
+  // decision removes one argument away, on precisely the 11-group display that
   // filed the issue.
   if (args["all-groups"] !== undefined || args.group !== undefined) {
     fail("report no longer takes --all-groups or --group. SPEC.md §11 v5 (kogaki#314) supersedes eager per-group generation: enter the Group/SubGroup IDs you want, e.g. `report --tag <T> --ids G10,G5-1,G5-2`, and ONE report covers exactly those.");
@@ -3493,7 +3491,7 @@ function cmdReport(args) {
     // report. "The owner entered nothing" and "the owner wants a report of
     // nothing" are different, and the second is not a thing §12 can render —
     // a report with no material has no identity worth colliding on.
-    fail("report --ids was empty. An empty ID set is not a report of nothing: enter at least one Group or SubGroup ID from the screen.");
+    fail("report --ids was empty. An empty ID set is not a report of nothing: enter at least one Group or SubGroup ID from the display.");
   }
 
   const { groups, targets, resolved, subOf } = resolveReportTargets(record, tag, enteredIds, args);
@@ -3501,7 +3499,7 @@ function cmdReport(args) {
   // `report` are handed the same `--claims` file, so migrating one and leaving
   // the other reading the flat map would put two encodings behind one file —
   // the defect §12.1 v9 fixed for `--subdivisions` by migrating both readers in
-  // one change. `report` does not re-run the subset check (that is the screen's
+  // one change. `report` does not re-run the subset check (that is the display's
   // gate, and it has already refused there) but it MUST read the same shape, or
   // a typed record would silently render every group's claim as absent.
   const { claims } = readClaimsRecord(
@@ -3668,15 +3666,15 @@ function cmdReport(args) {
     // §6.2 v7 RULE 3 BINDS THIS SURFACE TOO, and it did not until PR #355
     // round 1 finding 1. The rule reads unconditionally — "the group renders no
     // SubGroups" — and story 1.57 implemented the suppression only in
-    // `cmdCotags`, so one run's two owner surfaces disagreed: the screen showed
-    // the group flat while the report still carried the SubGroups the screen
+    // `cmdCotags`, so one run's two owner surfaces disagreed: the display showed
+    // the group flat while the report still carried the SubGroups the display
     // had suppressed. An owner copying a G-id between them would have found two
     // different structures under it, which is the divergence kogaki#317 minted
     // the ids to prevent.
     //
-    // The judgement runs HERE rather than being read off the screen, because
+    // The judgement runs HERE rather than being read off the display, because
     // the two surfaces share the subdivision record and nothing else — reading
-    // the screen's verdict would be a second carrier. Same input, same
+    // the display's verdict would be a second carrier. Same input, same
     // `judgeSubgroup`, same conclusion.
     for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim, group.members.length);
     // EVERY SubGroup IS NAMED BY THE JUDGE (kogaki#738): the catch-all filter
@@ -3684,7 +3682,7 @@ function cmdReport(args) {
     // deleted.
     const namedSg = placed.subgroups;
     // The record half of §6.2 v7 rule 3, re-keyed and bounded exactly as the
-    // screen's is — same input, same conclusion, one rule (kogaki#683, #738).
+    // display's is — same input, same conclusion, one rule (kogaki#683, #738).
     if (namedSg.length === 1 && namedSg[0].verdicts
         && namedSg[0].verdicts.coherence === "other"
         && group.members.length < SUBDIVISION_REQUIRED_AT) {
@@ -3694,10 +3692,10 @@ function cmdReport(args) {
       subgroups = [];
       suppressedSplitHere = true;
     } else {
-    // §6.2 v6 — the SubGroupID is derived the same way the screen derives it:
+    // §6.2 v6 — the SubGroupID is derived the same way the display derives it:
     // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
     // output in the same order. That is what makes AC4 hold — an owner copying
-    // `G2-1` off the screen finds `G2-1` in the report — without either surface
+    // `G2-1` off the display finds `G2-1` in the report — without either surface
     // reading an id the other stored, which would be the second carrier.
     subgroups = placed.subgroups.map((sg, i) => ({
       name: sg.name,
@@ -3736,7 +3734,7 @@ function cmdReport(args) {
   // THE SPLIT REQUIREMENT REACHES THIS SURFACE TOO (§8 v30, kogaki#683; PR #705
   // round 1). Disposition 1 refuses a judged-empty outcome for a group at or
   // above the threshold, and the `subdivision_required_at_ten` grammar rule
-  // carries that on `cotag_screen`. It cannot carry it here: `full_report`'s
+  // carries that on `cotag_groups`. It cannot carry it here: `full_report`'s
   // section heading renders no LessonCount, and that surface's line-class
   // allowlist is INERT by the grammar's own record — three body classes are
   // bare placeholders, so no line on it can be unadmitted. A rule declared over
@@ -3888,7 +3886,7 @@ function cmdReport(args) {
           + "recomputing here would be the second enumeration this field exists to remove."))
     : neighborhoodForTargets(record, targets);
   // THE JUDGMENT LAYER, joined onto the mechanical candidates by slug. A
-  // candidate with no judgment keeps none — `neighborhoodScreen` counts it as
+  // candidate with no judgment keeps none — `neighborhoodDisplay` counts it as
   // unjudged and says so, rather than defaulting it to a level nobody assigned.
   // `full_report` REFUSES AN UNJUDGED NEIGHBORHOOD (§13.4, kogaki#741 ruling 2).
   // Scoped to a NON-EMPTY enumeration, mirroring the orphan refusal below: where
@@ -3904,7 +3902,7 @@ function cmdReport(args) {
   const judgments = readNeighborhoodJudgments(args.neighborhood);
   // A KEY MATCHING NO CANDIDATE IS REFUSED, NOT DROPPED. A typo, a stale file,
   // or a slug from another Group would otherwise vanish — and where NO key
-  // matched, the screen took its all-unjudged arm and printed "the mechanical
+  // matched, the display took its all-unjudged arm and printed "the mechanical
   // layer ran; the judgment layer did not", which is the one fact the reader is
   // owed and the one fact that is false: the layer ran and joined nothing. The
   // reader is careful about a level it cannot recognise and was silent about a
@@ -4057,7 +4055,7 @@ function cmdReport(args) {
   // is the opt-out and its absence is the default.
   let rendered = null;
   if (!args["no-render"]) {
-    // §15.5 v28 (kogaki#681) — the same write-authority refusal the screen
+    // §15.5 v28 (kogaki#681) — the same write-authority refusal the display
     // writer carries, at the other owner artifact, and BEFORE the destination
     // is prepared.
     //
@@ -4262,7 +4260,7 @@ const NEIGHBOR_ID = (n) => `N${n}`;
 // `source_batch: "q_a/3/answer.md"` while the batch id is `"q_a/3"`, so an
 // equality join returns NO batch-mates for every Grain in them and presents
 // that as "this Grain has no same-sitting siblings" — indistinguishable on
-// screen from a Grain that genuinely has none. That is this surface
+// display from a Grain that genuinely has none. That is this surface
 // reproducing the silent exclusion §13.0 exists to remove, one layer down.
 function batchKey(sourceBatch) {
   if (!sourceBatch) return null;
@@ -4280,7 +4278,7 @@ function batchKey(sourceBatch) {
 
 // ORDER IS DECLARED AND MECHANICAL: instance-bearing groups first, by substrate
 // then by instance id, then the bare substrates by name. NEVER by size — a
-// screen that puts the biggest group first has ranked its groups, which is the
+// display that puts the biggest group first has ranked its groups, which is the
 // judgment §13.1 refuses, arriving as layout rather than as a score.
 export function compareGroups(a, b) {
   const ka = [a.instance === null ? 1 : 0, a.substrate, a.instance ?? ""];
@@ -4293,7 +4291,7 @@ export function compareGroups(a, b) {
 }
 
 // HOW MANY ROWS ONE SUGGESTION RENDERS AS — ONE DEFINITION, used by the
-// enumerator's total and by both of the screen's counts (PR #392 round 1). A
+// enumerator's total and by both of the display's counts (PR #392 round 1). A
 // suggestion with no substrate instance still renders, under an explicit
 // undisclosed heading, so it is ONE rendering and not zero: the alternative
 // reading made the family section and the headline disagree on the check's own
@@ -4323,8 +4321,8 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // slug -> Map of substrate name -> Set of INSTANCE ids (null for a substrate
   // that has no instances). The instance is what story 1.61 needs and the
   // substrate NAME alone cannot supply: §13.4 obligation 4 groups by substrate
-  // INSTANCE, so a screen told only "source_batch" knows the row belongs under
-  // some batch heading and not under WHICH — and the screen cannot recover it,
+  // INSTANCE, so a display told only "source_batch" knows the row belongs under
+  // some batch heading and not under WHICH — and the display cannot recover it,
   // because the batch join lives here and nowhere else. Widening the returned
   // shape is the alternative story 1.61's Review Focus names, taken because the
   // other one is unavailable rather than because it is tidier.
@@ -4351,7 +4349,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // batch id for `source_batch`. A null instance is a stated absence rather
   // than a missing key, and it survives kogaki#686's narrowing because a
   // substrate that IS its own instance is still expressible:
-  // the screen groups it under the substrate's own heading.
+  // the display groups it under the substrate's own heading.
   const note = (slug, substrate, instance = null, seedsReaching = []) => {
     if (seedSet.has(slug) || !bySlug.has(slug)) return;
     if (!reachedSeeds.has(slug)) reachedSeeds.set(slug, new Set());
@@ -4482,7 +4480,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     nid: NEIGHBOR_ID(i + 1),
     slug,
     // The FAMILY a suggestion belongs to, carried on the suggestion itself so
-    // the screen never has to re-look-up the record to state a per-family
+    // the display never has to re-look-up the record to state a per-family
     // figure. A record with no `kind` yields null rather than a guess: an
     // unknown family folded into a known one is the pooling AC3 forbids,
     // arriving one record at a time.
@@ -4519,7 +4517,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // READABLE; printing 0 there would assert a
   // population that was never counted, and printing `n of 0` is arithmetic
   // nonsense that reads as a bug in the numerator. Null renders as an explicit
-  // "no denominator readable" on the screen.
+  // "no denominator readable" on the display.
   // THE TWO SIDES OF THE RATIO RANGE OVER ONE SET, and getting that wrong is
   // what round 1 of PR #383 caught. The denominator is the walked batches'
   // members of this family, minus the seeds; so the numerator must be the
@@ -4561,14 +4559,14 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // `suggested` and `seeds` stay, and they are NOT the denominator AC3
     // governs — they are totals over the run. What AC3 forbids is stating a
     // POOLED denominator where a family-keyed one is readable, which is what
-    // `by_family` now carries; the screen prints the per-family rows and never
+    // `by_family` now carries; the display prints the per-family rows and never
     // a pooled `n of m`.
     // `suggested` COUNTS SUGGESTIONS and `rendered` COUNTS RENDERINGS, and the
     // two are carried separately because they differ by construction (§13.4
     // obligation 4): a suggestion reached by two substrates renders under each.
     // A single figure standing in for both is the conflation story 1.61's AC2a
     // exists to refuse — stated here at the source rather than left for the
-    // screen to infer from a structure it would have to re-walk.
+    // display to infer from a structure it would have to re-walk.
     counts: { seeds: seeds.length, suggested: suggestions.length,
       rendered: suggestions.reduce((n, s) => n + renderingsOf(s), 0),
       unresolved: unresolved.length, by_family },
@@ -4595,7 +4593,7 @@ export function settledSlugs(candidates, memberIds) {
 // THE ENUMERATION FOR A RESOLVED TARGET SET — the machinery `cmdNeighborhood`
 // held, extracted when that subcommand retired (SPEC-terrain §13.2 v20,
 // story 1.69, kogaki#473) so `cmdReport` computes it inside the pull. Reuse,
-// never re-derive: a second resolver is how the section and the screen it
+// never re-derive: a second resolver is how the section and the display it
 // replaced would drift.
 // THE JUDGMENT LAYER'S INPUT (kogaki#686). The LLM supplies, per mechanical
 // candidate, one free-form claim and one level from the harness-fixed set. It
@@ -4679,7 +4677,7 @@ function neighborhoodForTargets(record, targets) {
   return { gids: targets.map((t) => t.gid), suggestions, unresolved, counts, unmapped };
 }
 
-// THE NEIGHBORHOOD SCREEN, composed apart from the command (story 1.45).
+// THE NEIGHBORHOOD DISPLAY, composed apart from the command (story 1.45).
 //
 // Exported and pure over its inputs for the same reason `neighborhoodOf` is:
 // §13.4's obligations are properties of what RENDERS, not of what enumerates,
@@ -4742,13 +4740,13 @@ export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 // declaration already states is the more expensive half of the same repair.
 // THE DISPLAY SELECTION, DEFINED ONCE (kogaki#689). Which rows a populated
 // section renders — the judged set, the level-ordered fill, the cap — was
-// computed inside the screen alone, and the bounded Gloss fetch below has to
+// computed inside the display alone, and the bounded Gloss fetch below has to
 // reach the SAME set: a fetch over more rows than render pays for rows nobody
 // sees, and a fetch over fewer leaves a rendered row unfilled. Two computations
 // of "which rows show" is how those two drift, so there is one.
 //
 // Pure over its input and states every arm rather than returning a bare list:
-// the screen renders a different sentence for each, and an arm collapsed here
+// the display renders a different sentence for each, and an arm collapsed here
 // would have to be re-derived there.
 export function neighborhoodDisplaySet(suggestions) {
   const list = suggestions || [];
@@ -4797,7 +4795,7 @@ export function neighborhoodDisplaySet(suggestions) {
   return { state: "shown", found, unjudged, shown, composition };
 }
 
-export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) {
+export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
   const out = [];
   const say = (s = "") => out.push(s);
   say(`Provenance neighborhood — ${tag} — settled set ${gids.join(", ")}`);
@@ -4986,8 +4984,8 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) 
 // THE FULL REPORT SECTION (SPEC-terrain §13.1 v20, story 1.69, kogaki#473).
 //
 // The neighborhood's owner rendering is a section of `reports/FullReport.md`,
-// at §12's ONCE tier, LAST — never a screen of its own. The lines are
-// `neighborhoodScreen`'s, reused rather than re-derived: the screen's own
+// at §12's ONCE tier, LAST — never a display of its own. The lines are
+// `neighborhoodDisplay`'s, reused rather than re-derived: the display's own
 // heading (a plain-text line naming tag and set) is replaced by the Markdown
 // heading and the `*Seeded by:*` line `report-format.json` v6 declares, and
 // everything from the counts line down is the same emitter §13.4's
@@ -4995,7 +4993,7 @@ export function neighborhoodScreen({ tag, gids, suggestions, unresolved = [] }) 
 // and the enumeration would drift — the reuse rule the licensing issue
 // states verbatim.
 //
-// Exported and pure over its inputs for the same reason `neighborhoodScreen`
+// Exported and pure over its inputs for the same reason `neighborhoodDisplay`
 // is: §13.4's obligations are properties of what RENDERS, so a fixture must
 // reach this without a seam.
 // The rule the callee's comment states, holding HERE TOO: this frame forwards
@@ -5020,9 +5018,9 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
     ];
   }
   return [...head,
-    // Drop only the screen's heading line; the tag it carried already heads
+    // Drop only the display's heading line; the tag it carried already heads
     // the report's own title, and the set rides `*Seeded by:*` above.
-    ...neighborhoodScreen({ tag: "", gids, suggestions, unresolved }).slice(1),
+    ...neighborhoodDisplay({ tag: "", gids, suggestions, unresolved }).slice(1),
   ];
 }
 
@@ -5160,7 +5158,7 @@ export function derivedBaseline(table) {
   // declared key with no derived counterpart is the omission hole in the other
   // direction. What replaces it is not a better count: §15.5's one-writer
   // property is made true BY CONSTRUCTION at this issue — one private
-  // `writeScreenSurface`, no second path — which is constrain-generation where
+  // `writeDisplaySurface`, no second path — which is constrain-generation where
   // the figure was after-the-fact detection that never fired.
   return {
     waits: states.filter((s) => s.kind === "wait").length,
@@ -5267,14 +5265,14 @@ const STATE_WORK = {
     return null;
   },
 
-  // `tag_screen` AND `tag_row_view` ARE GONE AS STATES (§6.0 v29, kogaki#682,
+  // `tag_display` AND `tag_row_view` ARE GONE AS STATES (§6.0 v29, kogaki#682,
   // owner ruling 2026-08-28 + owner selection 2026-08-29). Neither renders a
-  // Screen — a Screen is the rendering written AFTER a tag is selected — so
-  // neither writes `reports/Screen.md`, and with no artifact to write and no
+  // Display — a Display is the rendering written AFTER a tag is selected — so
+  // neither writes `reports/CoTagGroups.md`, and with no artifact to write and no
   // sequencing authority to carry there is nothing left for a state to do.
   // Their renderings reach the owner through `tags` and `tag-rows`, which the
-  // OWNER runs. `reports/Screen.md` now has exactly one writing state,
-  // `cotag_screen`; with `full_report` the owner-artifact writes per run are
+  // OWNER runs. `reports/CoTagGroups.md` now has exactly one writing state,
+  // `cotag_groups`; with `full_report` the owner-artifact writes per run are
   // TWO.
 
   compose_input: (rec, st, args) => {
@@ -5430,7 +5428,7 @@ const STATE_WORK = {
     // arriving from the other direction.
     //
     // The partial arm is therefore closed BY CONSTRUCTION rather than counted:
-    // `neighborhoodScreen` no longer needs an unjudged tally, because after this
+    // `neighborhoodDisplay` no longer needs an unjudged tally, because after this
     // refusal there is nothing for it to count.
     const uncovered = [...have].filter((slug) => !judgments.has(slug));
     if (uncovered.length) {
@@ -5443,12 +5441,12 @@ const STATE_WORK = {
     return null;
   },
 
-  cotag_screen: (rec, st, args) => ({
+  cotag_groups: (rec, st, args) => ({
     artifact: cmdCotags({
       ...args,
       survey: needSurvey(rec),
       tag: ownerInput(rec, "TAG_SELECTION")
-        || fail("cotag_screen needs a tag, and no wait has supplied one yet."),
+        || fail("cotag_groups needs a tag, and no wait has supplied one yet."),
     }),
   }),
 
@@ -5475,7 +5473,7 @@ const STATE_WORK = {
       ...(rec.judgments && rec.judgments.J3_neighborhood
         ? { neighborhood: rec.judgments.J3_neighborhood } : {}),
     });
-    // OBSERVED, NOT CONSTRUCTED (PR #655 round 1). `cmdSurvey`, the two screen
+    // OBSERVED, NOT CONSTRUCTED (PR #655 round 1). `cmdSurvey`, the two display
     // renderers and `cmdCotags` each return the path they actually wrote; this
     // state ASSERTED one instead, via join(renderingsDir(args), basename(...)).
     // `cmdReport` honours `--no-render` by writing NO rendering and `args` is
@@ -5582,7 +5580,7 @@ const GATE_WORK = {
 // `then`, carrying the co-tag selection invocation, and the executor read it
 // nowhere. No party printed that command: the executor did not, and the skill
 // forbids the model from running or relaying it. The owner reached the co-tag
-// stage with no tag list on screen and selected from memory. The close comment
+// stage with no tag list on display and selected from memory. The close comment
 // on kogaki#737 verified "the executor names the invocation" by citing that the
 // JSON key EXISTS — true, and about the wrong file.
 //
@@ -5617,7 +5615,7 @@ const GATE_WORK = {
 // and `tag-rows`. This change makes it carry the third declared command too.
 // (An earlier form of this comment called that hop an open owner ruling. It is
 // not: kogaki#807's ruling 2 was WITHDRAWN by the owner on 2026-09-03 as a
-// question about every stop in every command rather than about this screen,
+// question about every stop in every command rather than about this display,
 // and ruling 1 resolved in favour of the kogaki#737 wording. Corrected rather
 // than deleted, because a comment asserting an open question that is closed
 // sends the next reader to look for a decision nobody owes.)
@@ -5987,7 +5985,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 // with two grammars are two entry points.
 function cmdTags(args) {
   const record = readJson(String(args.survey || fail("tags needs --survey <file> — the survey record the executor wrote. The `run` stop that hands this over names the path.")));
-  emitOwnerListing("tag_listing", renderTagScreen(record));
+  emitOwnerListing("tag_listing", renderTagDisplay(record));
 }
 
 // §6.0.1's owner-executed command. It PRINTS and writes nothing, so §15.5's
@@ -6017,7 +6015,7 @@ switch (cmd) {
   // OWNER-EXECUTED, and that is their whole channel (§6.0 v29, kogaki#682).
   // The owner types these; the session does not drive them. They emit their
   // rendering to the owner's own terminal under the format guard and write
-  // nothing, so they are neither Screens nor states of the flow.
+  // nothing, so they are neither displays nor states of the flow.
   case "tags": cmdTags(args); break;
   case "tag-rows": cmdTagRows(args); break;
   case "cotag-selection": cmdCotagSelection(args); break;
@@ -6065,7 +6063,7 @@ switch (cmd) {
       + "the SUBDIVISION_COVER_INCOMPLETE refusal — are the `J2_subdivision` state's. Drive "
       + "it through the executor: `run --run-dir <D> --subdivisions <f> --classification <f> "
       + "--tag <T> --group <G> --group-claim <line> --judge-model <m> --judge-effort <e> "
-      + "--screen-budget <n>`.");
+      + "--display-budget <n>`.");
     break;
   case "act":
   case "gate":
@@ -6115,7 +6113,7 @@ switch (cmd) {
         try { refuseUnlessConformant(surface, emitted, grammar); return true; }
         catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
       };
-      for (const surface of ["cotag_screen", "tag_row_listing"]) {
+      for (const surface of ["cotag_groups", "tag_row_listing"]) {
         ok(`${surface} admits the line displayIdAbnormalLine actually emits`, admits(surface));
       }
       // The control: an abbreviated form whose tail carries NO digit worked
@@ -6123,7 +6121,7 @@ switch (cmd) {
       ok("an abbreviated form with a digit-free tail still matches (classification)",
         (() => {
           try {
-            refuseUnlessConformant("cotag_screen",
+            refuseUnlessConformant("cotag_groups",
               "Classification: NAVIGATION (SPEC.md §2.3 — it ranks nothing, narrows nothing and hides nothing.)",
               grammar);
             return true;
@@ -6222,7 +6220,7 @@ switch (cmd) {
         writeFileSync(tp, JSON.stringify({ version: 1, states: [
           { id: "a", kind: "compute", conditional: "entered only by --enter, so the act sets a record FIELD beside `completed`" },
           { id: `${FIXTURE_STATE_PREFIX}sets_record_key`, kind: "compute" },
-          { id: "unrendered", kind: "write", writes: "screen" },
+          { id: "unrendered", kind: "write", writes: "display" },
           terminal,
         ] }));
         const r = spawnSync(process.execPath,
@@ -6319,8 +6317,8 @@ switch (cmd) {
       ok("a write state with no renderer bound to it is refused, never invented and never skipped",
         refuses("write-no-renderer", {
           version: 1,
-          owner_artifacts: { screen: { path: "reports/Screen.md", writer: "one" } },
-          states: [{ id: "not_a_shipped_state", kind: "write", writes: "screen" }, terminal],
+          owner_artifacts: { display: { path: "reports/CoTagGroups.md", writer: "one" } },
+          states: [{ id: "not_a_shipped_state", kind: "write", writes: "display" }, terminal],
         }));
       ok("an owner input arriving with no outstanding wait is refused — the WAIT is what admits it",
         refuses("input-no-wait", null, ["--input", "claude-code-ops"]));
@@ -6439,7 +6437,7 @@ switch (cmd) {
   cotag-selection --survey F --tag T --intent S
                                             THE OWNER RUNS THIS TOO (§6.0.1). The co-tag SELECTION
                                             display for the tag just chosen — fixed blocks, guaranteed
-                                            as screen output and never a file. Writes nothing. The
+                                            as display output and never a file. Writes nothing. The
                                             executor names this invocation at the same TAG_SELECTION
                                             stop as the two above, from the table's own owner_reads,
                                             and neither runs it nor relays its output. --intent is the

@@ -8,7 +8,7 @@
     {
       "id": "items-3-4-first",
       "label": "Port items 3 and 4 ahead of Terrain",
-      "evidence": "Terrain's screens present selections, so both are preconditions (`specs/spec-terrain/SPEC.md::Terrain's screens present selections`)"
+      "evidence": "Terrain's displays present selections, so both are preconditions (`specs/spec-terrain/SPEC.md::Terrain's displays present selections`)"
     },
     {
       "id": "terrain-first",

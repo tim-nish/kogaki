@@ -810,7 +810,7 @@ a human wrote — and the map's own choice is the one that line prescribes:
   - *survey before acting:* the `claude-code-ops` decision lines on the
     terminal bound and the successor lane, and `specs/SPEC.md` §4's
     successor-obligation clause — headline-first, **before the options are
-    composed**, because an option is hard to withdraw once it is on the screen
+    composed**, because an option is hard to withdraw once it is on screen
     beside its peers.
 - **Served line (pinned):** quoted whole at its pin rather than paraphrased —
 
@@ -847,7 +847,7 @@ a human wrote — and the map's own choice is the one that line prescribes:
     served line — and declared `outcome: uncovered-after-1-framings` while the
     line sat served and unchanged at the pin above.
 - **Postmortem:**
-  - *violating artifact:* the two gate screens above.
+  - *violating artifact:* the two gate questions above.
   - *triggering terms:* third round, spent bound, merge on your judgment.
   - *the question, verbatim:* **reconstructed at this filing, not run** — no
     query was issued at either gate; both sittings queried the change's subject

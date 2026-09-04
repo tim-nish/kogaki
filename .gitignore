@@ -34,8 +34,8 @@ policy/shape.md
 # untracked"; this line is that clause's declaration in the carrier that
 # enforces it. Repo-VISIBLE because the owner authors it where they work; NOT
 # committed, because an admitted Move lands one file in `moves/` through the
-# ingestion command's own review screen, and §6.9's "ADMISSION IS THE OWNER'S
-# ACT AT THAT SCREEN, never the command's" is exactly what committing the input
+# ingestion command's own review listing, and §6.9's "ADMISSION IS THE OWNER'S
+# ACT AT THAT QUESTION, never the command's" is exactly what committing the input
 # would route around — it would admit by location what the spec reserves for a
 # gate. ANCHORED with a leading slash: the clause binds the REPOSITORY-ROOT
 # file, and a bare `moves.md` would also exclude `moves/moves.md` — silently

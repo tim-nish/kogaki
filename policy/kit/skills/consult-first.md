@@ -87,7 +87,7 @@ Answer:   <what the surface answered, readable>
 Conclusion: <what you therefore conclude>
 ```
 
-**Two rules, and they are the whole of this.** Put Question and Answer on the
+**Two rules, and they are the whole of this.** Put Question and Answer on
 screen **before** any question UI appears — a gate stays compact and this does
 not fit in one. And **compose the Conclusion yourself**: the kit emits the first
 two parts and leaves the third as a slot, because only the session that asked

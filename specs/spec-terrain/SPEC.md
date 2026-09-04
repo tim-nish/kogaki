@@ -37,11 +37,11 @@ Authored here, in the consumer, never ported as hub text.
 ## 1. Sequencing — the decision this spec was required to make
 
 `specs/SPEC.md` §5's ordering clause is the carrier.
-Terrain's screens present selections, so they depend on manifest items **3**
+Terrain's displays present selections, so they depend on manifest items **3**
 (the proposal contract) and **4** (the gate carrier); both port first, as their
 own PRs.
 
-<!-- The sentence beginning "Terrain's screens" is a resolvable ANCHOR cited by
+<!-- The sentence beginning "Terrain's displays" is a resolvable ANCHOR cited by
 the gate-carrier fixtures. Two constraints, both invisible at the sentence
 itself: it must stay on ONE line, because a rewrap breaks every citation without
 changing a word; and the phrase must occur ONCE in this file, because an anchor
@@ -82,7 +82,7 @@ was computed after composition or over the right population.
 ### 2.2 Presentation-only grouping
 
 Sections gate nothing. A navigation step carries **no selection authority** —
-moving between screens, expanding a section, or changing the grouping axis never
+moving between displays, expanding a section, or changing the grouping axis never
 narrows what the owner may choose. Grouping is a view over the candidate set,
 never a filter on it.
 
@@ -132,15 +132,15 @@ WA; citing this section for a non-Terrain question is misusing it.
 an absent number is a divergence that no longer exists.
 
 1. **Lessons-only candidate rows** (§5.1) — declared there with its falsifiers.
-4. **No per-Strand Gloss line and no Journey line on the screen** (§6.1) — the
+4. **No per-Strand Gloss line and no Journey line on the display** (§6.1) — the
    baseline served group presentation as ID, Strand ID, gloss, journey. Kogaki's
-   screen serves the IDs and the composed claim and serves neither gloss nor
+   display serves the IDs and the composed claim and serves neither gloss nor
    journey, which live in the Full Report (§12). The cost is real: an owner
-   reading the screen sees Lesson IDs and a claim with no per-Strand headline
+   reading the display sees Lesson IDs and a claim with no per-Strand headline
    until they open the report.
 5. **Co-tag group ordering** — the served surface orders groups by descending
    member count; Kogaki ships `COTAG_SORT`, "co-tag name ascending, then member
-   id ascending", declared and printed on the screen. Both are deterministic and
+   id ascending", declared and printed on the display. Both are deterministic and
    both are navigation under §2.3, so neither violates the boundary.
 
 An entry lands here **in the same amendment that creates the divergence**.
@@ -149,7 +149,7 @@ An entry lands here **in the same amendment that creates the divergence**.
 **THE FLOW RULE**, stated here in full because `.claude/skills/terrain/SKILL.md`
 cites it and states it operationally. Two limbs:
 
-- **Negative.** The screens and the Full Report are the runtime's renderings,
+- **Negative.** The displays and the Full Report are the runtime's renderings,
   **served verbatim**. The flow composes the runtime's *inputs* and relays its
   *output* as-is; it **never re-renders, summarizes, reformats, tabulates or
   paraphrases** what the runtime printed.
@@ -157,7 +157,7 @@ cites it and states it operationally. Two limbs:
   command returns** — before any gate, question or other tool call. A runtime
   refusal's stderr is delivered the same way and never swallowed. The object of
   that act is **the artifact, named**. The form of the hand-over is
-  non-normative (§14.4.1). **Relaying nothing is a breach.**
+  non-normative. **Relaying nothing is a breach.**
 
 **This clause is advisory, not a carrier.** No check here observes whether a
 string reached the owner's visible reply. What it buys is that a run relaying
@@ -207,20 +207,20 @@ evidence of a decision.
 ## 5. The candidate model — Lessons-only rows, Journey marked by absence
 
 **The candidate row is one Lesson.** A Journey is a **mark on its Lesson's row**,
-reading by **absence** — a Lesson with no Journey is decorated. Every screen
+reading by **absence** — a Lesson with no Journey is decorated. Every display
 showing candidate rows **states its denominator**, in Lessons.
 
 The load-bearing half is the denominator, not the mark: at high Journey coverage
 a presence-mark decorates nearly every row and discriminates between none, and
 the stated denominator is what makes the next coverage inversion visible
-on-screen. The figure is **re-measured every run**, never quoted from here.
+on screen. The figure is **re-measured every run**, never quoted from here.
 
 The shapes are `src/survey-schema.json`'s (`candidate_family_must_be`,
 `journey_mark_key`, `orphan_journey_rationale`).
 
 ### 5.1 Declared divergence — pending hub wording
 
-**This section diverges from a ratified served ruling**, which offers screen 2 as
+**This section diverges from a ratified served ruling**, which offers display 2 as
 all of a topic's Lessons **and Journeys**. Kogaki proceeds on: candidate rows are
 Lessons only, the Journey family derived and marked by absence, the denominator
 stated.
@@ -265,9 +265,10 @@ hold neither a proposal awaiting ratification nor a disclosed absence.
 
 ### 6.0 The pre-selection listings are OWNER-EXECUTED, and write nothing
 
-**A Screen is the rendering of the co-tag groups** — the surface §6.3's two-act
-window operates on, and the one state that writes `reports/Screen.md`. The
-pre-selection tag listing and the per-tag row view are **not** Screens.
+**The CoTagGroups display is the rendering of the co-tag groups** — the surface
+§6.3's two-act window operates on, and the one state that writes
+`reports/CoTagGroups.md`. The pre-selection tag listing and the per-tag row view
+are **not** part of it.
 
 **The channel: the OWNER runs them.** The executor names the invocation at its
 `TAG_SELECTION` stop, from `workflow.json`'s own `owner_reads`, and **neither
@@ -288,12 +289,12 @@ permutation and carries no selection authority.
 ### 6.0.1 The co-tag SELECTION display (kogaki#737)
 
 **Owner ruling 2026-09-01.** At the co-tag selection moment the display is
-**guaranteed by the harness as screen output — never a file**. Fixed blocks; the
+**guaranteed by the harness as displayed output — never a file**. Fixed blocks; the
 LLM controls exactly one sentence; it writes nothing.
 
-**Why it is not a Screen.** §6.0's definition keys on *what* the rendering is,
-not *when* it happens. This display precedes the Screen, on the same side of the
-line as §6.0's listings, and `reports/Screen.md` keeps exactly one writing state.
+**Why it is not the CoTagGroups display.** §6.0's definition keys on *what* the
+rendering is, not *when* it happens. This one precedes it, on the same side of the
+line as §6.0's listings, and `reports/CoTagGroups.md` keeps exactly one writing state.
 
 **The channel is §6.0's, unchanged.** The executor names the invocation, intent
 placeholder included, and neither runs it nor relays its output.
@@ -321,18 +322,18 @@ the generator in place.
 The class list and its REFUSE fallback are `report-format.json`'s
 (`surfaces.cotag_selection`).
 
-### 6.1 What the co-tag screen SERVES
+### 6.1 What the CoTagGroups display SERVES
 
 **Per group:** the **GroupID**, the **GroupClaim** (§7's composed "in common:"
 line), and the **member Lesson IDs**. Where §8 binds, members are served as
 SubGroups (§6.2). Every figure names its families (§9).
 
-**The screen carries no per-Strand Gloss line and no Journey line** — those live
+**The display carries no per-Strand Gloss line and no Journey line** — those live
 in the Full Report (§12). This is §2.4's register entry 4.
 
 The claim renders **beneath the heading, whole** — never clipped — for every
 group, subdivided ones included. The line shapes are
-`report-format.json`'s `surfaces.cotag_screen`. Where SubGroups render, **only the member list
+`report-format.json`'s `surfaces.cotag_groups`. Where SubGroups render, **only the member list
 moves to them; the parent's own Lesson count stays on the heading**, because that
 count is one side of `subgroup_members_sum_to_parent`.
 
@@ -342,15 +343,15 @@ long prose that wraps at the terminal edge, and a continuation begins at column
 **content**: `G<n>` is a Group, `G<n>-<m>` one of its SubGroups. Every line
 renders flush left.
 
-**No flat slug dump.** Every Lesson ID reaches the screen inside at least one
+**No flat slug dump.** Every Lesson ID reaches the display inside at least one
 Group.
 
-**Purpose clause, because the screen is judged against it.** Terrain supports
+**Purpose clause, because the display is judged against it.** Terrain supports
 **beginning** Brief creation; its job is surfacing which combination of Lesson
-IDs the owner would enter. **A screen with no visible Lesson IDs fails that
+IDs the owner would enter. **A display with no visible Lesson IDs fails that
 purpose regardless of what else it shows.**
 
-### 6.2 SubGroups on the screen, and the threshold
+### 6.2 SubGroups on the CoTagGroups display, and the threshold
 
 **The threshold is TEN**: a composed group at or above 10 members must serve
 SubGroups, and a judged-empty outcome for one is refused at render. Below it,
@@ -362,7 +363,7 @@ SubGroups appear where the judge's coherence label and §8's disclosures put the
    a refusal naming it.** Every member placed, nothing dropped, nothing swept.
    Enforced at two altitudes — over the placement record before any text
    exists, and over the rendered text by the grammar's own decidable rule.
-2. **The screen judges its SubGroups; it does not merely render them.** A
+2. **The display judges its SubGroups; it does not merely render them.** A
    SubGroup the engine composed and stamped with a verdict no judge reached is
    the defect this rule exists against.
 3. **A suppressed split is disclosed, never silent.** A group rendering flat
@@ -374,8 +375,8 @@ SubGroups appear where the judge's coherence label and §8's disclosures put the
 Exactly two acts occur in it, and **a question UI in this window is a defect**.
 The fallback is **REFUSE**, not report-only.
 
-**The fork is closed.** A tag named by the owner lands directly at the co-tag
-screen.
+**The fork is closed.** A tag named by the owner lands directly at the
+CoTagGroups display.
 
 **Scope: this allowlist governs the post-selection window only.** A question
 elsewhere in the flow is governed elsewhere.
@@ -383,8 +384,8 @@ elsewhere in the flow is governed elsewhere.
 **What this does not claim.** Per §2.4, the clause is advisory at the model's
 composition layer; the runtime half is `workflow.json`'s wait placement.
 
-`necessity:` §6 is where the surface's *meaning* lives — what a Screen is, why
-the channel is the owner's terminal, what the screen is judged against, and why a
+`necessity:` §6 is where the surface's *meaning* lives — what the CoTagGroups
+display is, why the channel is the owner's terminal, what it is judged against, and why a
 question in the window is a defect. The grammar holds the line classes; none of
 it holds these.
 
@@ -396,7 +397,7 @@ The original wording survives only in the per-invocation rendering; a recomposed
 claim is a **proposal** the owner may decline in favour of the original, with the
 recorded member set unchanged.
 
-**The GroupClaim is composed AT the co-tag screen, for every group.**
+**The GroupClaim is composed AT the CoTagGroups display, for every group.**
 
 **The origin travels as an ARGUMENT, and the no-record rider stands.** The caller
 supplies the origin; nothing persists a second copy.
@@ -470,7 +471,7 @@ headline, quoted at its pin, never re-composed.
 
 **Every emitted figure names its families**, per §2.1. A bare count is a defect.
 
-**Screen 1's tag rows carry a declared ALLOWLIST** — the tag name and the Lesson
+**Display 1's tag rows carry a declared ALLOWLIST** — the tag name and the Lesson
 count, and nothing else. Its non-member fallback is REFUSE, and this is the shape
 §2.3 cites: an enumerated prohibition's fallback is admit, which is what was
 chosen against.
@@ -656,8 +657,8 @@ whether a widened set makes better articles is not decided by this section.
 
 ### 13.1 What it is under §2 — a report, never a proposal
 
-**The artifact is a section of the Full Report.** It is not a screen and has no
-screen of its own.
+**The artifact is a section of the Full Report.** It is not a display and has no
+display of its own.
 
 **§2's three inherited contracts are untouched, and this is the load-bearing
 half.** A widening view narrows nothing, so no divergence is owed and no
@@ -789,11 +790,11 @@ carrier — `expressible` and `not_expressible`, both enumerated there.
 
 ### 14.3 No owner surface renders an element NAME — the display ID does
 
-Screen output and Full Report alike display **element IDs, never element names**.
+Displayed output and Full Report alike show **element IDs, never element names**.
 The rendered token is the `display_id`, **assigned ONCE in the survey record**.
 
 **Why once rather than per artifact.** The display ID is a **join key**: the
-co-tag screen, the Full Report and the owner's own entry must all mean the same
+CoTagGroups display, the Full Report and the owner's own entry must all mean the same
 row by the same token.
 
 **The accepted cost:** a survey-wide space numbers rows the owner may never see.
@@ -802,19 +803,6 @@ row by the same token.
 
 **The skill layer never retypes runtime output.** This is a **removal, not a
 rule** — the relay stops being a producer at all.
-
-### 14.4.1 Delivery binds to an ARTIFACT, never to a display channel
-
-The general rule is `specs/SPEC.md` §2.5.3 and this section cites it. Each screen
-is written to `reports/Screen.md`, a fixed name.
-
-**Why an artifact and not a channel.** A channel that does not display produces
-conformant behaviour that renders nothing to the owner.
-
-**The delivery MECHANISM is explicitly non-normative.** A pointer in the reply,
-an owner-executed command, a harness file-send — interchangeable, none required.
-**A hand-over must occur; its FORM is what is free.** Writing the artifact is not
-delivery.
 
 ### 14.5 A golden fixture, and what it is for
 
@@ -865,7 +853,7 @@ committed.
 
 ### 15.4 A wait is the executor STOPPING; it is never the runtime asking
 
-**§6.3's ruling binds the table.** Nothing runs unattended between the screen and
+**§6.3's ruling binds the table.** Nothing runs unattended between the display and
 the owner's answer.
 
 Which waits render a gate declaration is `workflow.json`'s
@@ -933,7 +921,7 @@ a surface that can disagree with this one.
   that it was **handed over**.
 - **Nothing counts the rendering files.** A rendering arriving under another
   name, hand-copied or written outside the renderings directory, is unobserved.
-- **The delivery mechanism is unchecked because it is unconstrained** (§14.4.1).
+- **The delivery mechanism is unchecked because it is unconstrained.**
   There is nothing there to check, by design.
 - **The table's SEMANTIC honesty is not checkable.** That the declared order is
   the right order, that a wait belongs where it sits, and that a judgment point

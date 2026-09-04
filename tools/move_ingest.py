@@ -7,8 +7,8 @@ rendering a saved file, and regenerating moves/INDEX.md.
 
 It owns NOTHING §6.9 makes JUDGMENT. There is no scoring, no verdict, and no
 lint here, and nothing in this file admits a Move: `save_accepted()` is called
-with the ids the owner selected at the screen, and it is the caller's business
-to have obtained them. §6.9: "ADMISSION IS THE OWNER'S ACT AT THAT SCREEN,
+with the ids the owner selected at the question, and it is the caller's business
+to have obtained them. §6.9: "ADMISSION IS THE OWNER'S ACT AT THAT QUESTION,
 never the command's."
 
 The division of labour §6.9.0 states, kept: condition 4 catches what the parser
@@ -370,7 +370,7 @@ def read_proposals(text):
     """Split, admit, normalize. Returns [Proposal] — one per located record.
 
     A refused record becomes a Proposal carrying its Refusal rather than
-    stopping the run: the owner sees the whole file at one screen, and a single
+    stopping the run: the owner sees the whole file in one listing, and a single
     malformed record does not hide the other twenty-one.
     """
     proposals = []
@@ -478,7 +478,7 @@ def move_path(moves_dir, move_id):
 #     batch and source commit; the string stored in a semantic field what
 #     version history already holds.
 #   * MUTATION AFTER ACCEPTANCE. It was appended AFTER the owner accepted at
-#     the selection screen, so what landed on disk was not what was approved
+#     the accept/decline question, so what landed on disk was not what was approved
 #     and the delta was never displayed. That is the sharpest of the three:
 #     nothing may now change a record between the owner's act and the write.
 #
@@ -503,10 +503,10 @@ def save_accepted(moves_dir, accepted):
     """Write one file per accepted Move, then regenerate INDEX.
 
     `accepted` is the set of proposals the OWNER selected. Nothing in this
-    module decides membership — admission is the owner's act at the screen.
+    module decides membership — admission is the owner's act at the question.
 
     An id collision is refused rather than overwritten: §6.9.1a puts that
-    collision at the selection screen as review's dedupe judgment, "never as a
+    collision at the accept/decline question as review's dedupe judgment, "never as a
     silent overwrite", so reaching this function with two of them is a bug in
     the caller and is raised rather than absorbed.
 
@@ -544,7 +544,7 @@ def save_accepted(moves_dir, accepted):
                 "1a",
                 "the id `%s` is already taken — by another Move accepted in this "
                 "batch, or by one saved in an earlier run. The collision belongs "
-                "at the selection screen as review's dedupe judgment, never here" % move_id,
+                "at the accept/decline question as review's dedupe judgment, never here" % move_id,
             )
         seen.add(move_id)
 
@@ -626,11 +626,11 @@ def write_index(moves_dir):
 # either token shape is refused at render. This is a FORM floor, not a content
 # lint — the same class as the trim label's effect-stating floor — and the
 # record half needs no check at all: no record field except `id` ever reaches
-# a row, so a verdict smuggled into a field has no way onto the screen.
+# a row, so a verdict smuggled into a field has no way into the rendering.
 VERDICT_SHAPE = re.compile(r"^\s*(?:[\w./-]+|[\w-]+\s*:\s*[\w./-]+)\s*$")
 
 
-def render_screen(proposals, readings=None):
+def render_proposals(proposals, readings=None):
     """The count line §6.9.0 requires, plus one line per proposal.
 
     The PARSED RECORD COUNT is the only instrument that can catch `1` where the
@@ -638,7 +638,7 @@ def render_screen(proposals, readings=None):
     rather than withheld. It is printed FIRST and unconditionally.
 
     `readings` is the review's typed input — id -> prose reading — riding the
-    render as DATA so the reviewed screen is still the tool's own artifact
+    render as DATA so the reviewed listing is still the tool's own rendering
     (story 1.70; the CLI flag mirrors Terrain's `--claims` file pattern). A
     reading naming an id outside the parsed set REFUSES: a silently dropped
     reading is the row-loss defect §2.5.3 exists to remove, one input over. An
@@ -689,32 +689,15 @@ def render_screen(proposals, readings=None):
     return "\n".join(lines)
 
 
-SCREEN_NAME = "MoveScreen.md"
-
-
-def write_screen(text, reports_dir="reports"):
-    """specs/SPEC.md \u00a72.5.3: the screen is WRITTEN by the mechanical half
-    to a fixed literal name, overwritten on every render. The literal is
-    joined here, so a second screen name is unwritable rather than detected —
-    the same construction spec-terrain \u00a712.2/\u00a714.4.1 use."""
-    os.makedirs(reports_dir, exist_ok=True)
-    path = os.path.join(reports_dir, SCREEN_NAME)
-    with open(path, "w") as handle:
-        handle.write(text + "\n")
-    return path
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Move ingestion: split, admit, normalize. Saves nothing — "
-        "admission is the owner's act at the selection screen."
+        "admission is the owner's act at the accept/decline question."
     )
     parser.add_argument("input", nargs="?", help="the owner-authored Moves file")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--readings", help="JSON file mapping id -> prose reading "
                         "(the review's typed input; mirrors Terrain's --claims file pattern)")
-    parser.add_argument("--reports-dir", default="reports",
-                        help="where the screen artifact lands (tests only; the owner path is the default)")
     args = parser.parse_args(argv)
 
     if args.self_test:
@@ -738,21 +721,17 @@ def main(argv=None):
         with open(args.readings) as handle:
             readings = json.load(handle)
 
-    # THE DEFECT SITE, REPAIRED (story 1.70, kogaki#474): the rendering is
-    # never stdout — a tool call's stdout is displayed to the model, not
-    # reliably to the owner, and the first live run truncated mid-identifier
-    # at row 16 of 22 on exactly that channel. The screen is written to its
-    # artifact and stdout carries the hand-over pointer plus nothing of the
-    # rendering (specs/SPEC.md \u00a72.5.3; \u00a76.9.2).
+    # The proposal list is SHOWN, and it is shown BEFORE the accept/decline
+    # question rather than written to a file (owner ruling 2026-09-04). Its
+    # first line is the parsed-record count, which is the only instrument that
+    # can catch `1` where the owner wrote `22`, so the rendering carries its
+    # own completeness evidence wherever it is read.
     try:
-        screen = render_screen(proposals, readings)
+        rendering = render_proposals(proposals, readings)
     except Refusal as refusal:
         sys.stderr.write("refused: %s\n" % refusal)
         return 1
-    path = write_screen(screen, args.reports_dir)
-    print("Move screen \u2014 READ THIS ONE (owner rendering, specs/SPEC.md \u00a72.5.3): %s" % path)
-    print("parsed records: %d \u2014 the screen's own first line carries the full count and every row"
-          % len(proposals))
+    print(rendering)
     return 0
 
 
@@ -830,9 +809,9 @@ def self_test():
         proposals = read_proposals(text)
         assert len(proposals) == 22, "expected 22 records, got %d" % len(proposals)
         assert all(p.admitted for p in proposals), "some records refused"
-        screen = render_screen(proposals)
-        assert screen.startswith("parsed records: 22"), (
-            "the count must be the first thing on the screen; got %r" % screen[:40]
+        rendering = render_proposals(proposals)
+        assert rendering.startswith("parsed records: 22"), (
+            "the count must be the first thing rendered; got %r" % rendering[:40]
         )
 
     check("AC2 22 records split and counted", count_is_the_instrument)
@@ -1328,62 +1307,47 @@ def self_test():
 
     check("AC6 admission is the caller's act, never this module's", nothing_here_admits_a_move)
 
-    # ---- story 1.70 (kogaki#474): the screen is an artifact the tool writes --
-    def screen_artifact_carries_every_row():
-        """AC1: N records -> reports/MoveScreen.md with exactly N rows, the
-        count line FIRST. Asserted over the FILE the owner opens, never over
-        a return value \u2014 the defect was between the renderer and the
-        owner's eyes, so the assertion binds the artifact."""
-        with tempfile.TemporaryDirectory() as tmp:
-            text = "\n".join(_record("m%d" % n) for n in range(22))
-            proposals = read_proposals(text)
-            path = write_screen(render_screen(proposals), tmp)
-            assert os.path.basename(path) == SCREEN_NAME, path
-            body = open(path).read()
-            assert body.startswith("parsed records: 22"), (
-                "the count line must be the file's first line; got %r" % body[:40])
-            rows = [ln for ln in body.splitlines() if ln.startswith("  line ")]
-            assert len(rows) == 22, "expected 22 rows in the artifact, got %d" % len(rows)
+    # ---- the proposal rendering: what the owner reads before deciding ------
+    # THE ARTIFACT IS GONE (kogaki#858, owner ruling 2026-09-04) and with it the
+    # two assertions whose whole subject was the file \u2014 that the name was a
+    # fixed literal, and that a second render overwrote the first. Neither
+    # property exists once nothing is written. The two content properties below
+    # were merely SITED on the file and are retargeted onto the rendering, which
+    # is where they were always about: a count the owner can check the row list
+    # against, and a refusal that survives to be read.
+    def rendering_carries_every_row():
+        """N records -> the count line FIRST, then exactly N rows."""
+        text = "\n".join(_record("m%d" % n) for n in range(22))
+        body = render_proposals(read_proposals(text))
+        assert body.startswith("parsed records: 22"), (
+            "the count line must come first; got %r" % body[:40])
+        rows = [ln for ln in body.splitlines() if ln.startswith("  line ")]
+        assert len(rows) == 22, "expected 22 rows, got %d" % len(rows)
 
-    check("1.70 AC1 the artifact carries the count first and every row",
-          screen_artifact_carries_every_row)
+    check("the rendering carries the count first and every row",
+          rendering_carries_every_row)
 
-    def screen_overwrites_never_appends():
-        """AC2: the fixed literal is overwritten per render \u2014 a second
-        run's screen is the second run's, whole and alone."""
-        with tempfile.TemporaryDirectory() as tmp:
-            write_screen(render_screen(read_proposals(
-                "\n".join(_record("m%d" % n) for n in range(5)))), tmp)
-            path = write_screen(render_screen(read_proposals(_record("solo"))), tmp)
-            body = open(path).read()
-            assert body.startswith("parsed records: 1"), body[:40]
-            assert "m0" not in body, "a prior render's row survived the overwrite"
+    def refusal_row_reaches_the_rendering():
+        """A refused record's row carries its condition and line number
+        verbatim."""
+        bad = _record("broken").replace("excerpt: >-\n  a passage somewhere\n", "")
+        proposals = read_proposals(_record("good") + bad)
+        body = render_proposals(proposals)
+        assert "REFUSED" in body, body
+        refused = [p for p in proposals if not p.admitted][0]
+        assert str(refused.refusal) in body, (
+            "the refusal text must reach the rendering verbatim")
 
-    check("1.70 AC2 the artifact is overwritten, never appended",
-          screen_overwrites_never_appends)
-
-    def refusal_row_reaches_the_artifact():
-        """AC3: a refused record's row carries its condition and line number
-        verbatim, in the file."""
-        with tempfile.TemporaryDirectory() as tmp:
-            bad = _record("broken").replace("excerpt: >-\n  a passage somewhere\n", "")
-            proposals = read_proposals(_record("good") + bad)
-            body = open(write_screen(render_screen(proposals), tmp)).read()
-            assert "REFUSED" in body, body
-            refused = [p for p in proposals if not p.admitted][0]
-            assert str(refused.refusal) in body, (
-                "the refusal text must reach the artifact verbatim")
-
-    check("1.70 AC3 a refusal row reaches the artifact verbatim",
-          refusal_row_reaches_the_artifact)
+    check("a refusal row reaches the rendering verbatim",
+          refusal_row_reaches_the_rendering)
 
     def readings_ride_as_data():
         """AC4: a reading renders under its row; a stranger id REFUSES naming
         it; an id with no reading renders no reading line."""
         proposals = read_proposals(_record("with-reading") + _record("without"))
-        screen = render_screen(proposals, {
+        rendering = render_proposals(proposals, {
             "with-reading": "reads as one clean local transition and nothing more"})
-        lines = screen.splitlines()
+        lines = rendering.splitlines()
         i = next(n for n, ln in enumerate(lines) if "with-reading" in ln)
         assert lines[i + 1].strip().startswith("\u2014"), (
             "the reading must render as a continuation under its row")
@@ -1391,7 +1355,7 @@ def self_test():
         assert j + 1 == len(lines) or lines[j + 1].startswith("  line "), (
             "an id with no reading must render no reading line")
         try:
-            render_screen(proposals, {"stranger": "some prose reading of it"})
+            render_proposals(proposals, {"stranger": "some prose reading of it"})
         except Refusal as refusal:
             assert refusal.condition == "stranger-reading", refusal.condition
             assert "stranger" in str(refusal), str(refusal)
@@ -1406,12 +1370,12 @@ def self_test():
         the readings arm REFUSES both token shapes (the 2026-08-16 specimen
         `judgment: clean` literally among them), and the record arm is
         unwritable BY CONSTRUCTION \u2014 no record field but `id` is ever
-        printed, so a verdict smuggled into a field has no path to the screen,
+        printed, so a verdict smuggled into a field has no path to the rendering,
         which is asserted by rendering exactly such a record."""
         proposals = read_proposals(_record("target"))
         for specimen in ("clean", "judgment: clean", "PASS", "7/10", "status: ok"):
             try:
-                render_screen(proposals, {"target": specimen})
+                render_proposals(proposals, {"target": specimen})
             except Refusal as refusal:
                 assert refusal.condition == "verdict-shaped-reading", (
                     "%r: %s" % (specimen, refusal.condition))
@@ -1420,8 +1384,8 @@ def self_test():
                     "verdict-shaped reading %r rendered instead of refusing" % specimen)
         smuggled = _record("smuggler").replace(
             "does a thing", "judgment: clean")
-        screen = render_screen(read_proposals(smuggled))
-        assert "judgment: clean" not in screen, (
+        rendering = render_proposals(read_proposals(smuggled))
+        assert "judgment: clean" not in rendering, (
             "a record field reached a row \u2014 the construction constraint is broken")
 
     check("1.70 AC5 a verdict token is unwritable on a row, both arms",
