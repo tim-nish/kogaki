@@ -160,12 +160,11 @@ its own carrier, not the block's aggregate:
   `src/draft.mjs` carries `sectionPlacement` and `priorProseBySection` — every
   Packet names its Section and the article-so-far block is Section-bounded —
   and `checks/registry.json`'s `draft-runtime` contract records the rename in
-  the same act as the served heading. **The proper noun renamed completely**,
-  per the reconciliation below: *Section Packet* → **Step Packet** at
-  `specs/spec-draft-pipeline/SPEC.md` §4.14, this file's §2.1 and §3, the
-  registry contract, `src/draft.mjs` and the template. The `section`
-  subcommand is retained with its retention recorded, which is the arm the
-  reconciliation chose rather than an unfinished half.
+  the same act as the served heading. **The proper noun renamed completely and
+  the `section` subcommand was retained**, on the reconciliation's own terms
+  and at its own site list — stated once, below, and pointed at from here
+  rather than re-enumerated, because two copies of one site list are two
+  things that can disagree.
 
 **THE VOCABULARY COLLISION IS DISCLOSED HERE RATHER THAN LEFT TO ITS CARRIER,**
 because this record is what creates it, **and it was wider than the Packet
