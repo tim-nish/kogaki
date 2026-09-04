@@ -111,18 +111,20 @@ Brief **states** and the Harness **checks**.
 Section is composition-time judgment, and it belongs where the Steps are already
 judged: **the Brief**. The four rules below are the Harness's *validation* of
 that judgment, not a second judge — a Brief that opens a Section on every Step,
-or on none, is refused at mint with the rule it broke and the Step named.
+or on none, is refused **at composition** with the rule it broke and the Step
+named. Which act validates, and why it cannot be `mint`, are recorded
+normatively at `specs/spec-draft-pipeline/SPEC.md` §4.15 (kogaki#842).
 
 **THE FOUR RULES ARE NORMATIVE AT `specs/spec-draft-pipeline/SPEC.md` §4.15,
 AND THIS RECORD POINTS AT THEM RATHER THAN RESTATING THEM (kogaki#822).** They
 were ratified here on 2026-09-03 and stood in full in both documents until §4.15
 landed. **The precedence is declared rather than left to two texts that can
-drift**: §4.15 is the contract `brief.mjs mint` validates against and a
-registered check asserts, and this section keeps the *grounds* — why Section is a
-unit at all, and why length is subordinated to the grouping. A copy with no
-declared precedence and no mismatch check is a defect this repository has already
-paid for, which is why the reduction is part of the act that created the second
-copy rather than a later tidy-up.
+drift**: §4.15 is the contract the Harness validates against and a registered
+check asserts, and it is where the validating act is named; this section keeps
+the *grounds* — why Section is a unit at all, and why length is subordinated to
+the grouping. A copy with no declared precedence and no mismatch check is a
+defect this repository has already paid for, which is why the reduction is part
+of the act that created the second copy rather than a later tidy-up.
 
 **In one line, so this section is readable alone:** a Step **opens** a Section
 when it changes the reader's question, **continues** when it develops the
@@ -221,9 +223,9 @@ it — this record says a title exists and where it is declared, never what it
 should say.
 
 **The remedy is constrain-shaped, and the alternative it rules out is named.**
-Binding the heading to a Section the Brief declares and mint validates makes
-both rejected drafts **unproducible**, rather than adding a check that catches
-them after generation:
+Binding the heading to a Section the Brief declares and composition validates
+makes both rejected drafts **unproducible**, rather than adding a check that
+catches them after generation:
 
 > "Where a defect class recurs against enumerated post-hoc repairs, the remedy
 > is to constrain what the pipeline can PRODUCE rather than to improve what it
