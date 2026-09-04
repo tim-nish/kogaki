@@ -166,6 +166,20 @@ export const SLOT_CAPTIONS = new Map([
   ["Unresolved obligations", "What each step still owes the reader, entered with the step that settles it."],
   ["Thesis closure", "How the path closes the claim, and which steps establish it."],
   ["Tradeoffs", "What adopting this path gave up."],
+  // THE POST-HOC DISCLOSURE SURFACE (kogaki#866, ratified at §4.11/§6.1 by
+  // kogaki#864). §4.11 approves a Bridge Step by disclosing it after the fact
+  // rather than by asking; that disclosure rode the selection gate's evidence
+  // rendering until kogaki#859 emptied it, and this slot is where it lands
+  // instead. §6.1's journey coverage rides the same slot on its OWN ground —
+  // the owner ruled the two are different questions (one an approval, one a
+  // report) and then ruled both onto one surface, so the mechanism is shared
+  // and the grounds are not. A later ruling may move one without the other.
+  //
+  // THE HEADING IS THE BRIDGE HALF'S and the caption carries both, which is a
+  // rendering choice inside the ratified decision rather than a second
+  // decision: the heading is the owner's own words at the gate, and §5.1.3
+  // governs the caption as prose.
+  ["What this path bridged", "What the composer inserted to carry the reader across a gap and on what reasoning, and how much of the selected journey material the path used."],
 ]);
 
 // Pure; exported for the check. Returns { error } naming what leaked and
@@ -518,6 +532,33 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
       : `adopted over its siblings on reader experience: ${c.reader_experience}. The declined Candidates' experiences are recorded in the run's gate payload.`);
   if (r.error) return r;
   out = r.doc;
+  // THE POST-HOC DISCLOSURE FILLS HERE (kogaki#866). The scope is the ADOPTED
+  // Candidate, and that is the property the move buys rather than a limit on
+  // it: the retired gate rendering carried bridges for every Candidate,
+  // including the ones nobody chose, while approval is only ever about what
+  // was adopted. `candidateEvidence` regains the caller kogaki#863 removed and
+  // deliberately kept it exported against — the retention is spent as intended.
+  //
+  // THE JOURNEY HALF IS VACUOUS, NEVER ABSENT, on a Brief with no Journey
+  // material (§6.1 as ratified): the slot renders, the bridge half fills, and
+  // the journey sentence states that there was none. An empty disclosure and a
+  // missing one are different readings, which is the whole reason this slot
+  // exists.
+  //
+  // A BRIEF MINTED BEFORE THIS SLOT EXISTED CANNOT BE ADOPTED INTO, and that is
+  // stated rather than left to be discovered: `replaceSlot` refuses a section
+  // it cannot find, naming it. No migration is built, because the live
+  // population is EMPTY — both Briefs in the tree at this head are already
+  // fully adopted (no unfilled slot remains in either), so neither is ever
+  // adopted into again. A migration for nobody is the cost this note replaces;
+  // if a pre-slot Brief does turn up mid-flight, the refusal names the section
+  // and re-minting is the route.
+  {
+    const ev = candidateEvidence(c, selectedStrands(doc), journeyBearingStrands(doc));
+    r = replaceSlot(out, "What this path bridged", `${ev.bridges}\n\n${ev.journey_coverage}`);
+    if (r.error) return r;
+    out = r.doc;
+  }
   // The three land from THIS Candidate, beside thesis_closure and tradeoffs
   // (§5.1 v12). A declined Candidate's values land nowhere, because only the
   // adopted Candidate reaches this function at all.
