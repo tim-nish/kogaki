@@ -5245,6 +5245,15 @@ function needSurvey(rec) {
     || fail("this run has no survey record yet — the state that mints it has not run. Re-enter the executor without --input to advance the flow (§15.2).");
 }
 
+// THE FIXTURE-ONLY STATE PREFIX (kogaki#824). A state id beginning with this
+// string is admitted to `STATE_WORK` for the self-test's own throwaway tables
+// and is refused a place in the shipped carrier. §15.1 puts the state set in
+// `src/workflow.json`, so an id that never enters that file alters no contract
+// — and the bound is asserted rather than promised: the pass drives the shipped
+// table against this prefix.
+const FIXTURE_STATE_PREFIX = "__fixture_";
+const FIXTURE_RECORD_KEY_VALUE = "written by this state's own renderer";
+
 // ---- THE RENDERER HALF (§15.1: "a table row PLUS a renderer"). ------------
 // Keyed by state id. Each entry performs its state's work and returns either
 // null, or `{ artifact }` for a write state naming the path it wrote. The
@@ -5479,6 +5488,34 @@ const STATE_WORK = {
     // nothing, which is a different claim from a renderer that named no
     // artifact, and the executor's guard reads exactly that difference.
     return { artifact: written || null };
+  },
+
+  // ---- THE ONE FIXTURE-ONLY RENDERER (kogaki#824). ------------------------
+  // A STATE'S OWN RENDERER SETTING A RECORD KEY is the shape kogaki#808's loss
+  // has, and it is the shape this seam-free pass could not otherwise stage.
+  // TWO states above set a record key and NEITHER is reachable without the
+  // gateway, by different routes — stated separately because a disjunction over
+  // them is false and an earlier form of this comment asserted one (PR #852
+  // round 1): `survey` reaches `cmdSurvey`, which calls `gatewayQuery`
+  // DIRECTLY; `neighborhood_input` sets `rec.neighborhood_candidates` and calls
+  // no gateway function itself, but opens with `readJson(needSurvey(rec))`, and
+  // the survey record it demands is minted by `survey` and by nothing else — a
+  // TRANSITIVE dependency, which is a real bar to a seam-free pass and not the
+  // direct read the earlier sentence claimed.
+  //
+  // So the property was asserted through `conditional_entered` instead — a
+  // PROXY the executor writes in its own advance loop, three lines from
+  // `rec.completed.push(st.id)` — and a persist narrowed to control fields
+  // would have kept the pass green while dropping exactly the key #808 was
+  // filed over.
+  //
+  // ADMITTED FOR THE FIXTURE PATH ONLY, and that bound is a CASE rather than
+  // this comment: the id carries `FIXTURE_STATE_PREFIX`, and the pass asserts
+  // the shipped `src/workflow.json` names no state carrying it. A comment
+  // saying "fixture-only" is the shape kogaki#824 exists to stop trusting.
+  [`${FIXTURE_STATE_PREFIX}sets_record_key`]: (rec) => {
+    rec.fixture_record_key = FIXTURE_RECORD_KEY_VALUE;
+    return null;
   },
 };
 
@@ -6184,6 +6221,7 @@ switch (cmd) {
         mkdirSync(rd, { recursive: true });
         writeFileSync(tp, JSON.stringify({ version: 1, states: [
           { id: "a", kind: "compute", conditional: "entered only by --enter, so the act sets a record FIELD beside `completed`" },
+          { id: `${FIXTURE_STATE_PREFIX}sets_record_key`, kind: "compute" },
           { id: "unrendered", kind: "write", writes: "screen" },
           terminal,
         ] }));
@@ -6197,17 +6235,60 @@ switch (cmd) {
         ok("the persisted record names the state that completed before the refusal — a refusal stops being a rollback of what preceded it",
           !!persisted && Array.isArray(persisted.completed) && persisted.completed.includes("a"),
           persisted ? JSON.stringify(persisted.completed) : "(no record)");
-        // AND A FIELD THE COMPLETED STATE SET, NOT ONLY THE COMPLETION LIST
-        // (PR #821 round 1). The loss #808 names is a FIELD — `neighborhood_candidates`
-        // on disk and unnamed by the record — so a pass asserting `completed`
-        // alone stays green through a later narrowing of what is persisted, and
-        // re-opens the specimen while reporting nothing. `conditional_entered`
-        // is the seam-free field available here: the executor writes it when a
-        // conditional state is entered, which is a transition's own record
-        // effect rather than the loop's bookkeeping of which states ran.
-        ok("the persisted record carries a FIELD the completed state set, which is the loss #808 names — not only the list of what completed",
+        // A FIELD BESIDE THE COMPLETION LIST (PR #821 round 1). The loss #808
+        // names is a FIELD — `neighborhood_candidates` on disk and unnamed by
+        // the record — so a pass asserting `completed` alone stays green through
+        // a later narrowing of what is persisted, and re-opens the specimen
+        // while reporting nothing.
+        //
+        // `conditional_entered` IS LOOP BOOKKEEPING, AND THE COMMENT THAT SAID
+        // OTHERWISE WAS FALSE (kogaki#824, shipped at 91b4947 and corrected
+        // here). It read "a transition's own record effect rather than the
+        // loop's bookkeeping of which states ran"; the executor writes it in the
+        // advance loop three lines from `rec.completed.push(st.id)` and beside
+        // `conditional_skipped`. So this case NARROWS the seam and does not
+        // close it: it fails a persist reduced to `{completed}` alone, and
+        // PASSES one reduced to control fields — which is the narrowing the
+        // round-1 finding actually named. The case below is the one that binds
+        // the property, and the two are kept apart so a later reader can tell
+        // which assertion carries which claim.
+        ok("the persisted record carries a FIELD the completed state set — not only the list of what completed",
           !!persisted && Array.isArray(persisted.conditional_entered) && persisted.conditional_entered.includes("a"),
           persisted ? JSON.stringify(persisted.conditional_entered) : "(no record)");
+        // THE CASE THAT BINDS THE PROPERTY (kogaki#824). `fixture_record_key` is
+        // written by the fixture-only state's OWN RENDERER and by nothing else —
+        // no loop touches it — so a persist reduced to control fields drops it
+        // and this case alone goes red. That is the discrimination the case
+        // above cannot make, and it is asserted on the VALUE rather than on
+        // presence, so a persist that carried the key with its contents lost
+        // fails too.
+        ok("the persisted record carries a key written by a STATE'S OWN RENDERER, which is the shape of the loss #808 names — a persist narrowed to control fields drops this while keeping the case above green",
+          !!persisted && persisted.fixture_record_key === FIXTURE_RECORD_KEY_VALUE,
+          persisted ? JSON.stringify(persisted.fixture_record_key) : "(no record)");
+        // THE FIXTURE-ONLY ADMISSION IS BOUNDED BY THIS CASE, never by the
+        // comment in `STATE_WORK`. §15.1 puts the state set in the carrier, so
+        // what makes the renderer above harmless is that its id never reaches
+        // `src/workflow.json` — asserted here rather than trusted, because an
+        // admission whose whole guarantee is a comment is the class kogaki#824
+        // is a member of.
+        {
+          // THE UNREADABLE-CARRIER GUARD IS DECLINED, AND THE DECLINE IS
+          // MEASURED (PR #852 round 1, out-of-dimension). The observation — that
+          // an unreadable `src/workflow.json` would abort here with a parse
+          // error rather than failing this case by name — is correct in
+          // principle and UNREACHABLE at this head: the module reads the same
+          // carrier at evaluation time, so a malformed table kills the process
+          // at import and this case never runs. Verified by writing `{ not json`
+          // into the carrier: the pass dies in ModuleJob.run and prints no case
+          // at all. A try/catch here would be dead code, which is the shape this
+          // PR exists to argue against.
+          const shipped = readJson(WORKFLOW_TABLE);
+          const leaked = (shipped.states || []).map((x) => String(x.id))
+            .filter((id) => id.startsWith(FIXTURE_STATE_PREFIX));
+          ok("the shipped workflow table names no fixture-only state — the STATE_WORK admission is bounded by a case, not by a comment",
+            Array.isArray(shipped.states) && shipped.states.length > 0 && leaked.length === 0,
+            JSON.stringify(leaked));
+        }
         ok("the persisted record carries no internal run-directory handle — the refusal path writes the same shape the loop's own write does",
           !!persisted && persisted._dir === undefined);
       }
