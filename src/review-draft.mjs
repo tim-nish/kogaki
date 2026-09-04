@@ -384,13 +384,27 @@ function validateRecovered(text, step, file) {
   // REFUSED rather than dropped: an ignored field still shaped the reading that
   // produced the rest of the record, so accepting the record and discarding the
   // key would keep exactly the contamination the blindness exists to prevent.
-  for (const k of schema.forbidden_keys || []) {
-    if (Object.prototype.hasOwnProperty.call(rec, k)) {
-      problems.push(`carries the forbidden key \`${k}\` — the reviewer recovers what the prose `
-        + "says and writes no verdicts and no advice; a record carrying one is refused rather "
-        + "than accepted with the key ignored");
+  // CHECKED AT EVERY DEPTH, not only at the top level (PR #884 round 1,
+  // finding 2). The schema's own reason for refusing rather than dropping — an
+  // ignored field still shaped the reading that produced the rest of the record
+  // — applies unchanged to a verdict written one level down, and a reviewer
+  // smuggling a judgment into a claim object is at least as likely as one
+  // adding an eighth sibling field.
+  const forbidden = new Set(schema.forbidden_keys || []);
+  const walk = (node, path) => {
+    if (Array.isArray(node)) { node.forEach((v, i) => walk(v, `${path}[${i}]`)); return; }
+    if (node === null || typeof node !== "object") return;
+    for (const [k, v] of Object.entries(node)) {
+      const at = path ? `${path}.${k}` : `\`${k}\``;
+      if (forbidden.has(k)) {
+        problems.push(`carries the forbidden key ${at} — the reviewer recovers what the prose `
+          + "says and writes no verdicts and no advice; a record carrying one is refused rather "
+          + "than accepted with the key ignored");
+      }
+      walk(v, path ? `${path}.${k}` : `\`${k}\``);
     }
-  }
+  };
+  walk(rec, "");
 
   const inStep = (span) => Array.isArray(span) && span.length === 2
     && Number.isInteger(span[0]) && Number.isInteger(span[1])
@@ -1346,7 +1360,11 @@ async function runSelfTest() {
       ok(name, r.status === 1 && hit);
     };
 
-    for (const field of ["claims", "reader_state_after", "purpose", "terms_introduced", "shape", "concessions", "restates"]) {
+    // ITERATED FROM THE SCHEMA, never transcribed (PR #884 round 1, finding 3).
+    // This was the one place in the change that restated the list it exists to
+    // prove is read, so a field added to the schema gained no refusal case.
+    const SCHEMA = JSON.parse(readFileSync(join(dirname(self), "recovered-schema.json"), "utf8"));
+    for (const field of SCHEMA.required) {
       bad(`a record missing \`${field}\` is refused BY NAME`,
         (r) => { delete r[field]; return r; },
         `missing the required field \`${field}\``);
@@ -1401,6 +1419,14 @@ async function runSelfTest() {
     bad("and so is one carrying advice",
       (r) => { r.advice = "tighten the second paragraph"; return r; },
       "forbidden key `advice`");
+    // NESTED, which is where a judgment is most likely to be smuggled in (PR
+    // #884 round 1, finding 2): a top-level-only check accepted this silently.
+    bad("a verdict smuggled INSIDE a claim object is refused, naming its path",
+      (r) => { r.claims[0].verdict = "holds"; return r; },
+      "forbidden key `claims`[0].verdict");
+    bad("and one nested inside concessions is refused too",
+      (r) => { r.concessions = [{ text: "a concession", span: [lo, lo], score: 2 }]; return r; },
+      "forbidden key `concessions`[0].score");
 
     // The refusal collects EVERY problem rather than the first, so a reviewer
     // repairing a record does not discover them one run at a time.
@@ -1452,8 +1478,12 @@ async function runSelfTest() {
     const prod = code.slice(0, code.indexOf("async function runSelfTest"));
     ok("the schema declares the seven fields the issue names",
       schema.required.length === 7 && schema.required.includes("terms_introduced"));
+    // `!some` and NOT `!every` (PR #884 round 1, finding 3): the `every` form
+    // passed as soon as ONE of the seven names was absent from production code,
+    // so a runtime restating six of seven read clean. `!some` is the property
+    // this case's own name claims.
     ok("and the runtime does not restate the field list",
-      !schema.required.every((f) => prod.includes(`"${f}"`)));
+      !schema.required.some((f) => prod.includes(`"${f}"`)));
   }
 
   // 24 — usage with no command, and an unknown command.

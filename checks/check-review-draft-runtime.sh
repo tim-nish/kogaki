@@ -172,6 +172,14 @@ echo "ok: the review lane is registered in both LANES and src/runs.json, asked o
 # THE FORBIDDEN LIST IS DERIVED FROM THE PACKET TEMPLATE'S OWN HEADINGS, never
 # transcribed here: a block added to the Packet is covered by the derivation
 # rather than by a list somebody remembered to extend.
+#
+# THE BOUND IS STATED RATHER THAN LEFT TO READ AS TOTAL (PR #884 round 1,
+# finding 4). Every heading level is read and compared as EXACT text, so what
+# this does NOT catch is a pasted block somebody RETITLED -- a Packet block
+# arriving under a new name escapes, and no textual guard can close that. What
+# it does catch is the copy-paste, which is the shape the failure actually
+# takes. The registry contract states the same bound; a guard described as
+# total coverage would be the overclaim this finding named.
 RT="src/recovery-template.md"
 PT="src/packet-template.md"
 for f in "$RT" "$PT" src/recovered-schema.json; do
@@ -193,11 +201,16 @@ while IFS= read -r h; do
   # occurs inside this template's own "Write no verdicts and no advice", and a
   # substring match failed on correct text -- the guard-that-fires-on-correct-
   # behaviour shape, caught at authoring rather than in review.
-  if awk -v want="$h" '/^#{0,0}##/ { line=$0; sub(/^#+[ ]*/, "", line); sub(/[ ]*$/, "", line); if (line == want) found=1 } END { exit !found }' "$RT"; then
+  # `/^##/` and NOT `/^#{0,0}##/`: the interval is inert where awk supports
+  # intervals and matched LITERALLY where it does not, in which case no heading
+  # line is ever selected, `found` is never set, and this guard reports ok on a
+  # leaked template. A guard whose failure mode is a clean pass is the shape
+  # this member calls out by name two blocks up (PR #884 round 1, finding 1).
+  if awk -v want="$h" '/^#/ { line=$0; sub(/^#+[ ]*/, "", line); sub(/[ ]*$/, "", line); if (line == want) found=1 } END { exit !found }' "$RT"; then
     echo "FAIL: $RT carries the Packet block heading \"$h\" -- the reviewer is blind by design, and a Packet block in the recovery input ends the measurement while looking helpful"
     LEAK=1
   fi
-done < <(sed -nE 's/^#{2,3} (.*[^ ]) *$/\1/p' "$PT")
+done < <(sed -nE 's/^#{1,6} (.*[^ ]) *$/\1/p' "$PT")
 if (( LEAK )); then exit 1; fi
 echo "ok: $RT carries no block heading from $PT (derived from its headings, never transcribed)"
 
