@@ -432,29 +432,65 @@ multiply owner questions; the flags already expose every bridge's reasoning at
 the one gate that exists; and a per-Bridge stop would be a default mid-workflow
 stop with no inspection need.
 
-**THE SECOND GROUND IS FALSIFIED, AND SAYING SO IS THIS SECTION'S WHOLE ACT
-HERE** (kogaki#859). "The flags already expose every bridge's reasoning at the
-one gate that exists" was true while the gate rendered the evidence; §6's
-reduction emptied that rendering, and its amendment stopped the payload copying
-the evidence at all — so the bridges are **derivable on demand and disclosed
-nowhere**. Post-hoc disclosure with no
-disclosure surface is not post-hoc approval — it is no approval, and the
-remaining two grounds argue only against the alternative rather than for what
-is left.
+**THE SECOND GROUND WAS FALSIFIED AND IS NOW REPAIRED** (falsification
+kogaki#859, repair kogaki#864, owner ruling 2026-09-04). "The flags already
+expose every bridge's reasoning at the one gate that exists" was true while the
+gate rendered the evidence; §6's reduction emptied that rendering, and its
+amendment stopped the payload copying the evidence at all — so for one release
+the bridges were derivable on demand and disclosed nowhere. Post-hoc disclosure
+with no disclosure surface is not post-hoc approval; it is no approval.
 
-**Nothing is decided here, deliberately.** The three arms are visible — restore
-a bridge line to the gate under §6's one-item-at-a-time reversal, move the
-disclosure to a surface the owner reads after the fact, or ratify that bridges
-need no owner disclosure at all — and choosing among them is a decision act
-owed on its own licensing issue, not a consequence an implementation may settle
-in passing. What kogaki#859 owed was to not leave the falsification silent: a
-ground that stops holding without anyone touching the clause it supports is
-exactly the failure this repository's premise audits exist for. **Recorded, not
-repaired.**
+**THE DISCLOSURE SURFACE IS THE MINTED BRIEF, and the second ground is restated
+against it:** the adopted Candidate's bridges are written into the Brief at
+adoption — how many, between which Steps, and each bridge's reasoning — in a
+slot of its own, and the Brief is a tracked document the owner reads directly.
+The three grounds now read: per-Candidate machine-side work must never multiply
+owner questions; **the adopted path's bridges reach the owner in the Brief they
+are adopted into**; and a per-Bridge stop would be a default mid-workflow stop
+with no inspection need.
+
+**Why a post-hoc surface rather than the gate.** The competing arm — restoring a
+bridge line above the selection question — was declined, and not on cost. The
+served position binding a disclosure to a *gate surface* rests on a person being
+unable to leave that screen without abandoning the act: `consulted:
+product-lab@dbe745dca3ed930e1cad5b5504b01bb13f602cb0
+topics/knowledge-architecture.md:285` — "an auditor asking *did we ask?* can
+follow a pointer, and a person holding a four-option screen cannot leave it
+without abandoning the act, so the obligation sits on the SURFACE and no amount
+of capture discharges it." Bridge approval is **post-hoc by this section's own
+design**: there is no screen the owner is held on, so the pointer arm is the one
+the position licenses, and putting the line back above a question §6 has just
+cleared would spend the surface §6 was reduced to protect.
+
+**THE SCOPE IS THE ADOPTED CANDIDATE ONLY, and that is the property the move
+buys rather than a limitation of it.** The gate rendering carried every
+Candidate's bridges, including the two the owner did not choose; approval is
+about what was adopted, so a per-Candidate disclosure was always wider than the
+thing being approved. Nothing is owed about a path that was not taken.
+
+**What the repair does NOT claim.** Until its carrier lands, this clause names a
+surface that does not yet exist — which is the defect one level over, so the
+carrier is named rather than assumed: kogaki#864's child issue, filed in the
+same sitting that ratified this. A clause promising a disclosure with no
+carrier is exactly what kogaki#859 recorded, and stating the carrier is what
+keeps this from repeating it.
+
+**The third arm is declined and recorded so it is not re-proposed blind:**
+ratifying that bridges need no owner disclosure at all. It is legitimate only
+with a stated account of what makes an unannounced insertion safe, and no such
+account was offered; `LESSONS.md:78@dbe745dc` names the shape it would have to
+answer — a control that is installed, current, fires, and does not **act**.
 
 **deferred slot: `bridge-approval-shape`** — escalation to explicit per-Bridge
 approval, if dogfooding shows bridges misbehaving. Owed on its own licensing
 issue with choice, alternatives and receipt before any gate embeds it.
+**UNCHANGED BY kogaki#864, and the distinction is stated rather than left to a
+reader who finds two bridge-approval decisions side by side.** This slot's
+trigger is *bridges misbehaving*; #864's question was *the disclosure surface
+was withdrawn*. Different triggers, different questions — #864 restored a
+surface for the approval this section already declares, and decided nothing
+about escalating to a per-Bridge question. A sitting reaching for this slot
+still owes it its own ruling.
 
 `necessity:` an insertion contract whose marking field is validated by a
 carrier, and whose *reason* — insertion is history, not shape — is what stops
@@ -1085,13 +1121,28 @@ one:**
 **Vacuous, never violated, on a Brief with no Journey material.**
 
 **Judged as judgment, never as a lint.** Conformance is read at **path review**
-(§4.8's arc clauses, per Candidate, as `src/review.mjs` runs them) and surfaced
-to the owner as reasoning per §6's evidence rule — which, since kogaki#859
-reduced the gate to its labels and stopped the payload copying the reasoning,
-reaches the owner **nowhere**. The conformance judgement and the review record
-it is made from are unchanged, and `candidateEvidence` still derives the figure;
-what is gone is its display, on the same terms and with the same open decision
-§4.11 records.
+(§4.8's arc clauses, per Candidate, as `src/review.mjs` runs them). It was
+surfaced to the owner as reasoning per §6's evidence rule; kogaki#859 reduced
+that gate to its labels and stopped the payload copying the reasoning, so for
+one release the figure reached the owner nowhere.
+
+**THE ADOPTED PATH'S JOURNEY COVERAGE RIDES §4.11's BRIEF SLOT** (kogaki#864,
+owner ruling 2026-09-04) — the same slot, the same act, filled at adoption from
+the adopted Candidate.
+
+**THE MECHANISM IS SHARED AND THE GROUND IS NOT, which is why this clause states
+its own.** §4.11's disclosure is an **approval**: remove it and an approval step
+is gone with nothing standing in for it. This one is a **report** on a judgment
+that path review makes and records either way, so its absence cost visibility
+rather than a control — and the owner ruled the two are different questions
+before ruling that both land in the Brief. Two clauses, distinct grounds, one
+carrier. **A later sitting may move one without moving the other**; that is the
+property this paragraph exists to keep, because the two were last coupled by
+accident and the coupling is what let one clause's amendment silently break the
+other's.
+
+**Vacuous where §6.1 is vacuous.** A Brief with no Journey material discloses
+nothing here, exactly as this section's four requirements bind nothing there.
 
 `necessity:` four composition MUSTs applied to prose by a reader. The arc-shape
 floor in particular is a judgment about register that no grammar decides.
@@ -1395,7 +1446,8 @@ evidence of a decision, and each of these has been proposed at least once.
 ## 9. Open, with triggers
 
 - **`bridge-approval-shape`** (§4.11) — per-Bridge approval, if dogfooding
-  shows bridges misbehaving.
+  shows bridges misbehaving. **Still open after kogaki#864**, which restored the
+  post-hoc disclosure surface and did not touch this trigger.
 - **`specialization-judgment-and-path-review-ordering`** (§4.12) — where the
   judgment point sits relative to path review's own pass.
 - **`move-sources-derivation-vehicle`** (§6.9.4) — REOPENED; the successor
