@@ -344,6 +344,21 @@ export function sectionOfStep(steps) {
 function assembleBody(brief, ws) {
   const parts = [];
   const missing = [];
+  // THE RANGE RIDES THE WALK THAT PRODUCES THE PROSE (kogaki#868). Line
+  // accounting computed anywhere else is a second derivation of where a Step
+  // sits, and two derivations agree until one is edited; here the range and the
+  // bytes it points at cannot disagree, because the same `push` produces both.
+  // Body-relative and 1-based; `cmdEmit` offsets by the frontmatter it writes.
+  const ranges = new Map();
+  let line = 1;
+  const push = (text) => {
+    const span = [line, line + text.split("\n").length - 1];
+    parts.push(text);
+    // The `\n\n` join below leaves exactly one blank line between blocks, and
+    // that blank line belongs to no Step.
+    line = span[1] + 2;
+    return span;
+  };
   const sections = sectionsOf(brief.steps);
   const opensAt = new Map();
   for (const sec of sections) opensAt.set(sec.step_ids[0], sec);
@@ -353,10 +368,11 @@ function assembleBody(brief, ws) {
     const sec = opensAt.get(step.step_id);
     // An untitled Section renders no heading rather than an empty one. It is
     // reachable only on a pre-§4.15 path, whose whole body is one Section.
-    if (sec && sec.title !== undefined) parts.push(`## ${sec.title}`);
-    parts.push(readFileSync(f, "utf8").trim());
+    // A heading line belongs to the Section, never to the Step that opened it.
+    if (sec && sec.title !== undefined) push(`## ${sec.title}`);
+    ranges.set(step.step_id, push(readFileSync(f, "utf8").trim()));
   }
-  return { body: parts.join("\n\n"), missing };
+  return { body: parts.join("\n\n"), missing, ranges };
 }
 
 // ---------------------------------------------------------------------------
@@ -884,7 +900,7 @@ function cmdSection(args) {
 function cmdEmit(args) {
   const brief = loadBrief(args);
   const ws = workspaceFor(args, brief.slug);
-  const { body, missing } = assembleBody(brief, ws);
+  const { body, missing, ranges } = assembleBody(brief, ws);
   if (missing.length) {
     fail(`the run is not at completion: step(s) ${missing.join(", ")} have no realized section — a /draft run ends when the CanonicalDraft exists, and these are what it still owes (SPEC-draft-command §3)`);
   }
@@ -912,11 +928,18 @@ function cmdEmit(args) {
     const sec = secOf.get(s.step_id);
     return { step_id: s.step_id, section: sec.index, ...(sec.title !== undefined ? { section_title: sec.title } : {}) };
   });
+  // THE PACKET RECORD IS READ, NEVER RE-DERIVED (kogaki#868). `cmdPacket` wrote
+  // path and sha to run.json at the render; recomputing a sha here would answer
+  // for the file as it stands rather than for the input that produced the
+  // prose, which is the whole of what the trace is for.
+  let packets = {};
+  try { packets = JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).packets || {}; }
+  catch { /* no run record, or unreadable — every Step reports its absence below */ }
   // The artifact is owner-visible and machine-independent (round 1 finding 3):
   // the Brief is named relative to the draft that realizes it — always its
   // sibling — so two machines emit identical bytes. The absolute path is
   // machine identity and stays in run.json / last-emit.json.
-  const fm = [
+  const head = [
     "---",
     `brief: ${relative(dirname(outPath), brief.path)}`,
     `brief_pin: sha256:${sha256(brief.text)}`,
@@ -925,6 +948,32 @@ function cmdEmit(args) {
     "cites:",
     ...cites.map((c) => `  - ${JSON.stringify(c)}`),
     "trace:",
+  ];
+  // THE NUMBERS ARE WHAT AN EDITOR SHOWS: 1-based over the file as written,
+  // frontmatter included. The offset is countable before the entries are
+  // filled because an entry renders as exactly ONE line whatever it carries —
+  // head lines, then one per trace entry, then the closing `---`, then the
+  // blank line the `\n\n` join leaves. So body line 1 is file line
+  // `bodyOffset + 1`, and the count cannot circle back on the values below.
+  const bodyOffset = head.length + trace.length + 2;
+  for (const t of trace) {
+    const span = ranges.get(t.step_id);
+    if (span) t.lines = [span[0] + bodyOffset, span[1] + bodyOffset];
+    const rec = packets[t.step_id];
+    if (rec && typeof rec.path === "string" && typeof rec.sha256 === "string") {
+      // Relative to the draft, the same convention `brief:` uses above: the sha
+      // identifies the input, the path is repo-relative, and neither is machine
+      // identity (DESIGN.md §6).
+      t.packet = relative(dirname(outPath), rec.path);
+      t.packet_sha = rec.sha256;
+    } else {
+      // The trace never gates the write it traces — the same rule `snapshotDraft`
+      // and `cmdPacket`'s own record write already hold.
+      process.stderr.write(`draft: step ${t.step_id} has no readable packet record in ${join(ws, "run.json")} — its trace entry carries no packet fields; the trace never gates the write it traces\n`);
+    }
+  }
+  const fm = [
+    ...head,
     ...trace.map((t) => `  - ${JSON.stringify(t)}`),
     "---",
   ].join("\n");
@@ -1454,6 +1503,48 @@ async function runSelfTest() {
     secTrace[0].section === 1 && secTrace[1].section === 1 && secTrace[2].section === 2 &&
     secTrace[0].section_title === "The first question" && secTrace[2].section_title === "The second question",
     JSON.stringify(secTrace));
+
+  // kogaki#868 acceptance 1: the range is asserted by RESOLVING it against the
+  // file as written, never by recomputing the arithmetic the emitter used — a
+  // test that repeats the derivation is green exactly when the derivation is
+  // wrong in both places.
+  const secLines = secOut.split("\n");
+  ok("every trace entry locates its Step's prose by line range, resolved against the written file",
+    secTrace.length === 3 && secTrace.every((t) =>
+      Array.isArray(t.lines) && t.lines.length === 2 && t.lines[0] <= t.lines[1] &&
+      secLines.slice(t.lines[0] - 1, t.lines[1]).join("\n") === `The realized prose for ${t.step_id}.`),
+    JSON.stringify(secTrace.map((t) => [t.step_id, t.lines])));
+  // A heading line and the blank lines between blocks belong to no Step: t1
+  // opens a Section, so its range must start BELOW the heading it opened with.
+  ok("a Section heading line belongs to no Step's range",
+    secLines[secTrace[0].lines[0] - 2] === "" &&
+    secLines[secTrace[0].lines[0] - 3] === "## The first question");
+  // Acceptance 1's other half: the Packet that produced the prose, by path and
+  // by sha, with the sha checked against the file at the path it names.
+  ok("every trace entry names its Packet, and packet_sha is the sha of the file at packet",
+    secTrace.every((t) => typeof t.packet === "string" && /^[0-9a-f]{64}$/.test(t.packet_sha || "") &&
+      t.packet_sha === createHash("sha256")
+        .update(readFileSync(join(secDir, t.packet), "utf8")).digest("hex")),
+    JSON.stringify(secTrace.map((t) => [t.step_id, t.packet])));
+  // Acceptance 3: a missing `packets` entry drops the two fields for THAT Step
+  // and nothing else — the draft is still written, the range still resolves,
+  // and stderr names the Step. The trace never gates the write it traces.
+  const secRunFile = join(secWs, "section-brief", "run.json");
+  const secRunKeep = readFileSync(secRunFile, "utf8");
+  const secRec = JSON.parse(secRunKeep); delete secRec.packets.t2;
+  writeFileSync(secRunFile, JSON.stringify(secRec, null, 2) + "\n");
+  const eGap = driveSec("emit");
+  const gapTrace = [...readFileSync(join(secDir, "draft.md"), "utf8")
+    .matchAll(/^  - (\{"step_id".*\})$/gm)].map((m) => JSON.parse(m[1]));
+  ok("a Step whose packet record is absent emits no packet fields, warns by name, and does not gate the write",
+    eGap.status === 0 && gapTrace.length === 3 &&
+    gapTrace[1].packet === undefined && gapTrace[1].packet_sha === undefined &&
+    Array.isArray(gapTrace[1].lines) &&
+    gapTrace[0].packet !== undefined && gapTrace[2].packet !== undefined &&
+    /step t2 has no readable packet record/.test(eGap.stderr),
+    eGap.stderr.trim().split("\n").slice(-1)[0]);
+  writeFileSync(secRunFile, secRunKeep);
+  driveSec("emit");
 
   // Acceptance 4's CONTROL: the adjacent guard is unchanged. Asserted on this
   // Brief rather than trusted from the block above, because this is the issue
