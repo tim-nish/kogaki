@@ -1,7 +1,7 @@
 {
-  "version": 12,
+  "version": 13,
   "governing_text": "specs/spec-terrain/SPEC.md §15",
-  "licensed_by": "kogaki#745 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
+  "licensed_by": "kogaki#858 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
     "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (§15.5) and renders under the grammar_surface THIS STATE declares, never one bound to the artifact path.",
@@ -84,14 +84,14 @@
       "governing": "§8, §8.1, §12.1"
     },
     {
-      "id": "cotag_screen",
+      "id": "cotag_groups",
       "kind": "write",
-      "does": "Renders the co-tag screen: groups by co-tag, mints GroupIDs, renders the composed claims and the SubGroups J2 placed.",
-      "writes": "screen",
+      "does": "Renders the CoTagGroups display: groups by co-tag, mints GroupIDs, renders the composed claims and the SubGroups J2 placed.",
+      "writes": "cotag_groups",
       "conditional": false,
       "renders_gate_declaration": false,
       "governing": "§6.1, §6.2, §7, §14.2",
-      "grammar_surface": "cotag_screen in report-format.json"
+      "grammar_surface": "cotag_groups in report-format.json"
     },
     {
       "id": "ID_SELECTION",
@@ -170,9 +170,9 @@
     "grammared_writing_states": 2
   },
   "owner_artifacts": {
-    "screen": {
-      "path": "reports/Screen.md",
-      "writer": "one private screen renderer, called by the writing state the table binds it to",
+    "cotag_groups": {
+      "path": "reports/CoTagGroups.md",
+      "writer": "one private CoTagGroups renderer, called by the writing state the table binds it to",
       "rule": "overwritten on every render; ONE writer, private to the executor (SPEC §15.5)"
     },
     "full_report": {
@@ -189,7 +189,7 @@
   },
   "bound_to_a_state": {
     "survey": "the survey state",
-    "cotags": "the cotag_screen state. CALLABLE for composition, REFUSED at the owner artifact: a standalone invocation whose rendering destination resolves to the repository's `reports/` fails rather than writing Screen.md (§15.5). Redirect it and the composition proceeds — a rendering whose lifetime is the run is not an owner artifact (specs/SPEC.md §2.5.1).",
+    "cotags": "the cotag_groups state. CALLABLE for composition, REFUSED at the owner artifact: a standalone invocation whose rendering destination resolves to the repository's `reports/` fails rather than writing CoTagGroups.md (§15.5). Redirect it and the composition proceeds — a rendering whose lifetime is the run is not an owner artifact (specs/SPEC.md §2.5.1).",
     "compose-input": "the compose_input state",
     "report": "the full_report state. Same write authority as `cotags`: callable for composition, and refused where the destination resolves to the repository's `reports/`, so FullReport.md is written only from the writing state the table binds the renderer to (§15.5)."
   },
@@ -211,7 +211,7 @@
   "owner_executed_entry_points": {
     "tags": "the pre-selection tag listing — a header and one tag row per section, under the `tag_listing` grammar. Takes `--survey <record>`; the executor names the invocation at its TAG_SELECTION stop.",
     "tag-rows": "the per-tag row view — candidate rows under one named tag with their Gloss headlines, under the `tag_row_listing` grammar. Takes `--survey <record> --tag <T>`, and `--family <f>` to mark. Run when the owner asks to browse rows; never scheduled.",
-    "cotag-selection": "the co-tag SELECTION display (§6.0.1) — three blocks under the `cotag_selection` grammar: the fixed marker, a counts table over ALL served tags with family-named columns, and the model's one `intent:` sentence. Takes `--survey <record> --tag <T> --intent <one sentence>`. Writes NOTHING, so §15.5's write authority never engages and it is not a state; it PRECEDES the Screen and `reports/Screen.md` keeps exactly one writing state (`cotag_screen`). The executor names the invocation at its `TAG_SELECTION` stop, intent placeholder included, and neither runs it nor relays its output."
+    "cotag-selection": "the co-tag SELECTION display (§6.0.1) — three blocks under the `cotag_selection` grammar: the fixed marker, a counts table over ALL served tags with family-named columns, and the model's one `intent:` sentence. Takes `--survey <record> --tag <T> --intent <one sentence>`. Writes NOTHING, so §15.5's write authority never engages and it is not a state; it PRECEDES the CoTagGroups display and `reports/CoTagGroups.md` keeps exactly one writing state (`cotag_groups`). The executor names the invocation at its `TAG_SELECTION` stop, intent placeholder included, and neither runs it nor relays its output."
   },
   "entry_point_accounting": "EVERY case in src/terrain.mjs's dispatcher appears in exactly one of the 5 maps above (bound_to_a_state, removed_entry_points, retired_entry_points, non_flow_entry_points, owner_executed_entry_points), and THAT TOTALITY is the property rather than the count: the next entry point is covered by the totality rather than by having been remembered. A case in none of them, or in two, is a defect against this file."
 }

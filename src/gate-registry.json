@@ -26,7 +26,7 @@
   "gates": [
     {
       "id": "terrain-strand-selection",
-      "raised_by": "src/terrain.mjs gate + .claude/skills/terrain — the selection screen (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
+      "raised_by": "src/terrain.mjs gate + .claude/skills/terrain — the co-tag selection question (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which Strand does the article take as material?",

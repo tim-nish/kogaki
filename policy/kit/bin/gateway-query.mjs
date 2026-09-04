@@ -1092,7 +1092,7 @@ function selfTest() {
   const owner = composeOwnerRender(ownerObserved);
   const ownerFail = [];
   // §8.1 — the pin is machine-facing. Asserted on the EMITTED TEXT, because
-  // the whole claim of this register is about what reaches a screen.
+  // the whole claim of this register is about what reaches the owner.
   for (const tok of ["consulted:", "request_id:", "@abc1234", "hub@"]) {
     if (owner.includes(tok)) ownerFail.push(`owner render emitted the pin-shaped token ${tok}`);
   }

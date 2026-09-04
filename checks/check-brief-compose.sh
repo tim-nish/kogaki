@@ -1450,7 +1450,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) 
   + "sibling in check-brief-entry was a LITERAL ENUMERATION of the same headings and went red on correct "
   + "output; it now derives from SLOT_CAPTIONS, because a copy of a table is a second declaration that "
   + "drifts the first time the table moves. "
-  + "kogaki#568's four, all against the selection screen's shape: restoring the shared effect prefix on every "
+  + "kogaki#568's four, all against the selection question's shape: restoring the shared effect prefix on every "
   + "option label fails (e)'s no-repetition assertion AND its opens-with-the-record-id assertion; dropping the "
   + "effect from the payload label too fails (e)'s states-ONCE assertion, which is the half that stops "
   + "\u0022no repetition\u0022 being satisfied by stating it nowhere; slicing one evidence item out of the rendering "

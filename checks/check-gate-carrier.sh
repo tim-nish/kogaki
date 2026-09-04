@@ -123,7 +123,7 @@ def validate_gate(gate):
             v.append(("COMPARISON_ABSENT",
                       "a fork gate owes a ranked recommendation with per-option "
                       "evidence; withholding the machine's judgment moves it "
-                      "off-screen, not away"))
+                      "out of view, not away"))
         else:
             for field in c_spec["required"]:
                 if field not in comparison or comparison[field] in (None, "", []):

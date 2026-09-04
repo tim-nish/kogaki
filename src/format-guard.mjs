@@ -161,7 +161,7 @@ export function classMatchers(entry, grammar) {
 // `group_prose` is `      <composer prose>`, which matches every line indented
 // six spaces, including every `subgroup_heading`. First-match-wins therefore
 // classified subgroup headings as prose, and `subgroup_members_sum_to_parent`
-// summed zero and refused a perfectly good screen. The bug was not in the
+// summed zero and refused a perfectly good display. The bug was not in the
 // grammar: both classes genuinely admit that line, and the grammar has no
 // notation for "try me last".
 //
@@ -287,7 +287,7 @@ export function validateSurface(surfaceName, text, grammar) {
 // itself firing.
 //
 // Where the guarantee actually lives, per surface:
-//   cotag_screen — CARRIED, by `line_class_allowlist` plus the `<GroupID>` /
+//   cotag_groups — CARRIED, by `line_class_allowlist` plus the `<GroupID>` /
 //     `<SubGroupID>` fragments inside the heading forms. A heading opening with
 //     anything else is unadmitted and the emitter refuses. Verified: the
 //     v5-shaped `testing × architecture — 2 Lessons: L2, L1` is refused.
@@ -313,7 +313,7 @@ const countIn = (s) => {
 // along, left standing on the withdrawal side because the repair looked
 // forward and nobody re-read what it made stale (PR #759 round 1, finding 2).
 //
-// WHAT ACTUALLY HAPPENED, in order. There was a predicate, over `cotag_screen`,
+// WHAT ACTUALLY HAPPENED, in order. There was a predicate, over `cotag_groups`,
 // through report-format.json v12: the SubGroup counts under a subdivided group
 // heading had to sum to that heading's own count. kogaki#684 disposition 2
 // removed the count from the heading, so one side of the comparison went away
@@ -432,8 +432,8 @@ function sumToParentRule(surfaceName, lines, classified) {
 // value that drifts silently when copied.
 //
 // WHY A GROUP HEADING PLUS ITS FOLLOWERS RATHER THAN A COUNT OF HEADINGS: the
-// property is per parent, so a screen with one conformant 12-member group and
-// one flat 40-member group must fail on the second alone — a screen-wide test
+// property is per parent, so a display with one conformant 12-member group and
+// one flat 40-member group must fail on the second alone — a display-wide test
 // would let the first mask it — the scoping mistake the deleted `catch_all_share`
 // recorded having made once already, kept here because the lesson outlived the
 // rule that learned it.
@@ -489,7 +489,7 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
       // rediscover it: almost nothing today. A line classifies
       // `group_heading_subdivided` only when the emitter is rendering
       // SubGroups, so `sawSubgroup` is set before `close()` reads it in every
-      // screen this emitter produces. It would remove an asymmetry, and it
+      // display this emitter produces. It would remove an asymmetry, and it
       // would need its own issue and a matching amendment to the entry's rule
       // text — both, or the divergence returns.
       parent = id === "group_heading_flat" ? countIn(lines[i]) : null;

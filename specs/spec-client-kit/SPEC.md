@@ -363,7 +363,7 @@ The boundary is ratified and is quoted rather than re-derived:
 `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/archive/knowledge-architecture.md:204`
 
 So: nothing auto-promotes, nothing writes the recall surface, and `/qa-mine`'s
-selection screen, its ledger dedupe and the hub's sweep gate are all untouched.
+selection listing, its ledger dedupe and the hub's sweep gate are all untouched.
 A kit that closed the loop would breach the seam it exists to serve.
 
 ### 4.3 The emission location is a directory the CONSUMER owns, and it IS committed
@@ -683,7 +683,7 @@ An owner-facing display of a consultation carries **Question**, **Answer** and
 readable text rather than as an address, and the conclusion drawn from it.
 
 **Presentation:** this does not fit inside a question UI, so it does not go
-there. **Before a question UI appears, ordinary screen output carries Question
+there. **Before a question UI appears, ordinary displayed output carries Question
 and Answer together, followed by the one Conclusion derived from them.** The
 question itself stays compact.
 

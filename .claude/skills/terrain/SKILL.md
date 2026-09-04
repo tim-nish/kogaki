@@ -25,7 +25,7 @@ producer is.
 | what | you do |
 |---|---|
 | **Full Report** — `reports/FullReport.md` | `announceArtifacts` prints its path; hand **that artifact** over. Do not open the file and write its contents into your reply — that is retyping with extra steps — and `cat`-ing it into a tool call is the same delivery through the same unreliable channel with one more process in the way. |
-| **Screen** — `reports/Screen.md` | the runtime writes and names it. **The printed screen text is not the delivery**: a tool call's stdout reaches the model, not reliably the owner. |
+| **CoTagGroups** — `reports/CoTagGroups.md` | the runtime writes and names it. **The printed text is not the delivery**: a tool call's stdout reaches the model, not reliably the owner. |
 | **Pre-selection listings** (`tags`, `tag-rows`) | **the owner runs them.** The executor prints the invocation at its `TAG_SELECTION` stop. Hand the command over; do not run it and do not relay its output. Neither writes anything, so there is no artifact to name. |
 | **Co-tag selection display** (`cotag-selection`) | same — the owner runs it. **You supply `--intent` and nothing else on that surface.** |
 | **A runtime refusal** | `fail()` writes to stderr and exits non-zero. Relay that stream as it stands; never swallow it. |
@@ -47,8 +47,8 @@ collapse them.
   What is not free is skipping it.
 
 **There is nothing here to police, and that is deliberate.** This is a removal,
-not a new duty: the relay stops being a producer, so a retyped screen diverging
-from the screen cannot occur rather than being caught afterwards. Do not add, or
+not a new duty: the relay stops being a producer, so a retyped rendering diverging
+from the runtime's cannot occur rather than being caught afterwards. Do not add, or
 ask for, a lint over model output — that re-creates the producer this removes in
 order to have something to check.
 
@@ -150,7 +150,7 @@ yours and the design is not.**
 
 ## Hard lines
 
-- **Never serve a co-tag screen or a Full Report without the subdivision
+- **Never serve a CoTagGroups display or a Full Report without the subdivision
   judgment.**
 - **Compose from `compose-input`, never from the whole survey.**
 - **After a tag has been selected, never launch a question UI** (§6.3).

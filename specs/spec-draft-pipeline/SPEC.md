@@ -706,7 +706,7 @@ and the Step — is unchanged and is satisfied here; only the named act moves.
    overlap that Step's.
 3. **The first Step always opens.** A Section never closes on a Step that only
    sets up the next one, so a heading never lands on a transition paragraph.
-4. **Length is a check, not the rule.** A Section running past roughly a screen
+4. **Length is a check, not the rule.** A Section running past roughly a display
    and a half of prose without a heading is refused with a request to split; two
    consecutive Sections that are each one short Step are refused with a request
    to merge. **Article length enters as a bound on the grouping, never as its
@@ -725,7 +725,7 @@ measure different things:
   *short* is dropped from the composition-time form deliberately — it qualifies
   prose that does not exist yet, and a check that guessed at it would be
   refusing on an estimate.
-- *"a Section running past roughly a screen and a half of prose"* — this
+- *"a Section running past roughly a display and a half of prose"* — this
   measures **realized prose**, which the Brief does not contain. Mint cannot
   evaluate it and does not pretend to.
 
@@ -1043,11 +1043,11 @@ the operation in established terms, effect differing from requires, statable
 invalidity, dedupe against existing ids (a near-duplicate proposes an amendment
 rather than a new entry), honest `status` (**`validated` is never assignable
 here**), and an excerpt naming real passages with no fabricated citations. Then
-**one selection screen**: per-Move accept / decline / free-form, the owner
+**one accept/decline question**: per-Move accept / decline / free-form, the owner
 deciding. Accepted Moves land one file each in `moves/`, and the command
 regenerates `moves/INDEX.md`.
 
-**ADMISSION IS THE OWNER'S ACT AT THAT SCREEN, never the command's.** Review may
+**ADMISSION IS THE OWNER'S ACT AT THAT QUESTION, never the command's.** Review may
 split or rename, so the reviewed proposal is not the authored file — nothing
 self-admits.
 
@@ -1128,7 +1128,7 @@ here the block **is** the document.
 **The filename.** `moves/<id>.md`, the `id` field as the whole stem —
 **derived, never composed.** A review that renames a Move renames its file, and
 nothing else has to agree because nothing else stores the name. Two accepted
-Moves cannot share an `id`; the collision surfaces at the selection screen as
+Moves cannot share an `id`; the collision surfaces at the accept/decline question as
 the dedupe judgment §6.9 already assigns to review, never as a silent
 overwrite.
 
@@ -1151,21 +1151,16 @@ mechanical evidence resolution. Quotation from served renderings at pins remains
 the boundary, and pin resolution stays the sole mechanical instrument on
 grounding.
 
-**The selection screen is delivered as an artifact the mechanical half writes**,
-never through a display channel and never model-retyped. Two consequences are
-this section's own:
+**The proposal listing is SHOWN, before the accept/decline question**, and it is
+not written to a file (owner ruling 2026-09-04, kogaki#858). The artifact-delivery
+rule this clause used to inherit rested on a premise the same ruling found false —
+that output cannot reach the owner without a file or an owner-typed command — and
+it went with the concept it was built on. One consequence survives it, because the
+consequence was never about the vehicle:
 
-- **The artifact is `reports/MoveScreen.md`** — a fixed literal, overwritten on
-  every render, repo-visible and not committed. The name is this surface's
-  because the renderers are independent and a shared name would have them
-  clobber each other.
 - **The count line comes FIRST and is never suppressed.** The parsed-record
-  count is the only instrument that can catch `1` where the owner wrote `22`.
-
-**Both bullets are written in the OWED tense**: nothing in this repository
-writes that file today. A reader who runs the tool and finds no
-`reports/MoveScreen.md` knows which of the two is stale — the code, not the
-clause.
+  count is the only instrument that can catch `1` where the owner wrote `22`,
+  and it travels with the rendering wherever the rendering is read.
 
 **"No verdict machinery" is a CONSTRUCTION constraint on this surface, not only
 a prohibition:** the renderer makes a per-row verdict, score or status token
@@ -1199,7 +1194,7 @@ appended derivation string:
 2. **Redundant with git.** The ingestion date, the batch and the source commit
    are all in version history.
 3. **Mutation after acceptance.** The tool appended it *after* the owner
-   accepted at the selection screen, so what landed on disk was not what was
+   accepted at the accept/decline question, so what landed on disk was not what was
    approved and the delta was never displayed. **Nothing may change a record
    between the owner's acceptance and the write.**
 
