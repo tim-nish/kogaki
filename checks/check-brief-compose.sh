@@ -28,7 +28,7 @@ import { resolveMoveIds, validateSpecialization, loadMoveIds,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
-import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary } from "./src/assemble.mjs";
+import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS } from "./src/assemble.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 import { snapshotBrief } from "./src/compose.mjs";
 import { laneDir } from "./src/runs.mjs";
@@ -434,13 +434,37 @@ try {
       if (/## What this path bridged\n\n\*\(awaiting composition\)\*/.test(ndoc)) fails.push("(r) an unbridged path left the slot unfilled — vacuous is not absent");
       if (/[1-9]\d* bridge\(s\) inserted/.test(ndoc)) fails.push("(r) an unbridged path claims a bridge");
     }
-    // AC5 — THE VALUES ARE THE ADOPTED CANDIDATE'S. Two Candidates differing in
-    // what they bridged must not fill identically; this is what makes the slot
-    // a disclosure of the adopted path rather than of the Candidate set.
-    const other = adoptCandidate(doc0, { candidates: [candA, bcand] }, "cand-2", inst(bcand));
+    // AC5 — THE VALUES ARE THE ADOPTED CANDIDATE'S, and ONLY `candidateId`
+    // VARIES. The first draft adopted from two DIFFERENT sets — candB out of
+    // [candA, candB] and the bridging one out of [candA, bcand] — so a fill
+    // derived from the whole reviewed set would have produced two different
+    // segments and passed. That binds "the fill depends on something", not
+    // "the fill is the adopted Candidate's": the assertion-binds-a-proxy shape
+    // AC4 above already records, found again one case over.
+    //
+    // ONE set, both Candidates in it under distinct ids, one bridging and one
+    // not, and the only thing that changes between the two calls is which id is
+    // adopted. A set-derived fill now yields the SAME segment twice and fails.
+    const b2 = JSON.parse(JSON.stringify(candB));
+    b2.candidate_id = "cand-3";
+    b2.reader_experience = "the case first, with the gap named where the reader meets it";
+    b2.steps[1].bridges = ["t1", "t2"];
+    const oneSet = { candidates: [candA, candB, b2] };
     const segOf = (d) => ((d || "").split("## What this path bridged")[1] || "").split("\n## ")[0];
-    if (!other.error && !nbd.error && segOf(other.doc) === segOf(nbd.doc)) {
-      fails.push("(r) a bridging path and an unbridged one disclose identically — the slot does not carry the ADOPTED Candidate's own values");
+    const plainAd = adoptCandidate(doc0, oneSet, "cand-2", inst(candB));
+    const bridgeAd = adoptCandidate(doc0, oneSet, "cand-3", inst(b2));
+    if (plainAd.error) fails.push(`(r) adopting the unbridged Candidate from the shared set was refused: ${plainAd.error}`);
+    else if (bridgeAd.error) fails.push(`(r) adopting the bridging Candidate from the shared set was refused: ${bridgeAd.error}`);
+    else if (segOf(plainAd.doc) === segOf(bridgeAd.doc)) {
+      fails.push("(r) two Candidates from ONE set disclose identically when only the adopted id differs — the slot carries the SET's values, not the ADOPTED Candidate's");
+    }
+    // #866 item 4's last clause, asserted rather than left to hold by accident:
+    // the Brief-side vocabulary tripwire reaches the new caption. It is true
+    // today only because `composeBrief` throws at mint and every case above
+    // mints doc0 — a refactor moving the caption off the guarded set would lose
+    // the coverage with nothing going red.
+    if (findInternalVocabulary(SLOT_CAPTIONS.get("What this path bridged") || "")) {
+      fails.push("(r) the disclosure slot's caption carries spec-internal vocabulary — the owner reads this heading and holds none of this codebase's names");
     }
   }
 
