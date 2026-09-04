@@ -536,7 +536,11 @@ function selfTest() {
       writeFileSync(f, JSON.stringify(obj));
       return f;
     };
-    const full = { terrain: { keep_last: 3 }, brief: { keep_last: 3 }, draft: { keep_last: 3 } };
+    // DERIVED FROM `LANES`, never transcribed: `keepLast` checks EVERY lane, so a
+    // fixture block naming the lanes by hand goes red the moment a lane is added —
+    // reporting the fixture's staleness as a defect in the module. Lane N+1 is
+    // covered by the derivation rather than by a list somebody remembered to extend.
+    const full = Object.fromEntries(LANES.map((l) => [l, { keep_last: 3 }]));
     refuses("(k) a lanes block missing a lane refuses, naming it",
       () => keepLast("draft", cfg({ lanes: { terrain: full.terrain, draft: full.draft } })), "brief");
     refuses("(k) keep_last of 0 refuses",
