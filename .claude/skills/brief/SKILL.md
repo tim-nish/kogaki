@@ -132,7 +132,9 @@ kogaki#494).
    or a section reference; relay that refusal and fix the wording at source.
 10. **Raise the Candidate-selection gate** through AskUserQuestion — the
     second and last owner question — rendering the payload's `rendering`
-    entries and nothing else, per the rendering contract below. Carry the
+    entries and nothing else, per the rendering contract below. Since
+    kogaki#859 that rendering is **empty**: nothing goes on screen above this
+    question, yours included. Carry the
     premise's negation as a first-class option ("none of these — the Thesis or
     the settled set is what should change", §6), and free text.
 11. **Judge the adopted path's Step↔Move instantiation** (§4.12) — a
@@ -201,9 +203,13 @@ is bounded at **one revise round** per Candidate; a Candidate whose gap
 survives its revise carries the residue to the selection gate rather than
 looping. A Bridge Step mints **no Move** — it is an ordinary §4.1 Step
 recognised by its insertion contract, so nothing here reaches the Move
-substrate. Approval is **post-hoc**: there is no per-Bridge question, and each
-Candidate's evidence at the existing selection gate discloses what it bridged
-and on what reasoning.
+substrate. Approval is **post-hoc**, and **its disclosure carrier is currently absent**:
+there is no per-Bridge question, and the bridge disclosure it relied on rode
+the Candidate-selection gate's evidence rendering, which kogaki#859 emptied.
+The bridges are still derivable per Candidate from the composed path; nothing
+records them in the payload and nothing shows them to the owner. This is a real consequence of that ruling
+rather than an oversight in it, and it is carried as its own decision — see
+`specs/spec-draft-pipeline/SPEC.md` §4.11.
 
 ## Rendering contract — the owner reads plain register
 
@@ -226,21 +232,35 @@ confused**: a machine-local *record*, which keeps the internal field names
 so the run stays reconstructible, and a *rendering*, which is the only thing
 a human ever sees.
 
-- **Render the payload's `rendering` entries and nothing else.** At the
-  Candidate-selection gate each entry is **one prose paragraph** — its plain
-  question, then the reasoning that answers it — and you print the entries in
-  order, verbatim, as prose. **Do not turn them back into a field list**: no
-  heading per entry, no bold label, no table. The shape was `label`/`text`
-  pairs until kogaki#568; plain words in a field layout still read as a form,
-  and §5.1.3 governs the shape as well as the words. Nothing is summarized,
-  reordered, or re-titled.
+- **Render the payload's `rendering` entries and nothing else.** They are
+  printed in order, verbatim, as prose — nothing summarized, reordered or
+  re-titled, and **never turned into a field list** (no heading per entry, no
+  bold label, no table): plain words in a field layout still read as a form,
+  and §5.1.3 governs the shape as well as the words.
+- **At the Candidate-selection gate the `rendering` is EMPTY, so you print
+  nothing above the question** (owner ruling 2026-09-04, kogaki#859). The gate
+  is the options and nothing else: one option per Candidate labelled by its
+  reader experience, the premise's negation, free text. The rule above still
+  governs — it simply has nothing to carry here.
+  **This is a prohibition on YOUR prose, not only on the payload's.** The
+  measured defect was ~20,000 characters of Harness-composed evidence above a
+  question whose labels decide it; a session that removed the payload's half
+  and wrote its own summary in its place would reproduce it exactly. Do not
+  introduce the Candidates, do not compare them, do not explain what the
+  reasoning was — and note the payload does not carry it for you to relay: the
+  reasoning stays in `reviewed.json` and the Candidates file, where a later act
+  reads it if one needs to.
 - **Never show an internal key name.** `thesis_closure`, `placement_count`,
   `grounds_test` and their siblings are this codebase's names for the
   record's fields, not the owner's names for anything. They stay in the
-  payload's `evidence` object, which is never displayed. At the
-  Candidate-selection gate this is what the owner reads instead: "Does the
-  path close the claim?", "How much of the settled material does this path
-  use?", one plain question per item (kogaki#520).
+  payload's inputs — `reviewed.json` and the Candidates file — which the gate
+  neither displays nor copies. Since kogaki#859 the
+  Candidate-selection gate displays no evidence at all, so this rule binds
+  there through the option **labels** — the reader-experience prose — and
+  through any line you were tempted to add. The plain questions the labels
+  used to carry ("Does the path close the claim?") are retained in the code's
+  label table against a later ruling restoring one item, and reach the owner
+  nowhere today (kogaki#520, kogaki#859).
 - **Never show a section reference.** A pointer into a spec (`§6.1`) is a
   term of art to a reader who does not hold the spec.
 - **The runtime denies a leak; it does not repair one.** `src/assemble.mjs`

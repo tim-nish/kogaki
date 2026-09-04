@@ -426,11 +426,31 @@ continuity is observed inside path review's `evaluation_levels` area
 no check member, computes no score and produces no verdict.
 
 **Approval is post-hoc disclosure.** No per-Bridge question: each Candidate's
-evidence at the existing selection gate carries its inserted bridges — how
-many, between which Steps, and each bridge's reasoning. Three grounds:
-per-Candidate machine-side work must never multiply owner questions; the flags
-already expose every bridge's reasoning at the one gate that exists; and a
-per-Bridge stop would be a default mid-workflow stop with no inspection need.
+evidence carries its inserted bridges — how many, between which Steps, and each
+bridge's reasoning. Three grounds: per-Candidate machine-side work must never
+multiply owner questions; the flags already expose every bridge's reasoning at
+the one gate that exists; and a per-Bridge stop would be a default mid-workflow
+stop with no inspection need.
+
+**THE SECOND GROUND IS FALSIFIED, AND SAYING SO IS THIS SECTION'S WHOLE ACT
+HERE** (kogaki#859). "The flags already expose every bridge's reasoning at the
+one gate that exists" was true while the gate rendered the evidence; §6's
+reduction emptied that rendering, and its amendment stopped the payload copying
+the evidence at all — so the bridges are **derivable on demand and disclosed
+nowhere**. Post-hoc disclosure with no
+disclosure surface is not post-hoc approval — it is no approval, and the
+remaining two grounds argue only against the alternative rather than for what
+is left.
+
+**Nothing is decided here, deliberately.** The three arms are visible — restore
+a bridge line to the gate under §6's one-item-at-a-time reversal, move the
+disclosure to a surface the owner reads after the fact, or ratify that bridges
+need no owner disclosure at all — and choosing among them is a decision act
+owed on its own licensing issue, not a consequence an implementation may settle
+in passing. What kogaki#859 owed was to not leave the falsification silent: a
+ground that stops holding without anyone touching the clause it supports is
+exactly the failure this repository's premise audits exist for. **Recorded, not
+repaired.**
 
 **deferred slot: `bridge-approval-shape`** — escalation to explicit per-Bridge
 approval, if dogfooding shows bridges misbehaving. Owed on its own licensing
@@ -984,11 +1004,52 @@ A new check would owe an admission record, a removal signal and a typed
 observing instrument, and a check admitted ahead of its subject is the shape
 this repository refuses.
 
-Each Candidate carries, **as its evidence at the gate**, the composition-time
-reasoning: Step validity, transition continuity, Thesis closure, the obligations
-ledger's state, and the Strand placement count. **Reasoning surfaced for the
-owner, never an automated verdict** — the evidence is what the owner reads, not
-what a checker passed.
+**The selection payload carries, per Candidate, its id and its
+reader-experience label; the premise's negation; free text. Nothing else.**
+The composition-time reasoning — Step validity, transition continuity, Thesis
+closure, the obligations ledger's state, the Strand placement count — is
+composed where it is composed and stays there: in the reviewed Candidates
+(`reviewed.json`, the Candidates file), which this clause does not touch.
+**Never an automated verdict**: no machinery renders one, and nothing a checker
+passed decides the selection.
+
+**THE EVIDENCE NEITHER REACHES THE OWNER NOR IS COPIED INTO THE PAYLOAD, and
+the ruling came in two parts** (owner ruling 2026-09-04, kogaki#859). This
+clause read "the evidence is what the owner reads", and the implementation was
+faithful to it: sixteen paragraphs per Candidate, measured at ~6,400–7,090
+characters each, about **20,000 characters** standing above a question whose
+three labels total under 900. The first run to measure whether the owner read
+them found they did not, and decided on the labels alone.
+
+**The amendment goes further than the display, and its ground is general rather
+than local to this payload:** the reasoning is not retained in the payload "just
+in case" either. Quoting the ruling — *"the run record holds what a later act
+reads. 'Save everything to the run record just in case' is rejected; an entry
+with no reader is unnecessary data and is refused, not tolerated."* So the
+payload stops **copying**; the inputs it copied from are untouched, and a later
+act that needs the reasoning reads it where it was composed. If it is ever
+wanted for debugging it is saved then, by its own decision.
+
+`consulted: product-lab@315feac641735a8cba84408feab15d6bfe57affe topics/archive/articles.md:29`
+— "A mechanism is not correct merely because it behaves according to its own
+internal rules. If the user experience is bad, then it is a mechanism built on
+an incorrect design." A gate conformant to this clause and unreadable is the
+clause giving way, not the implementation.
+
+**The reversal is one item at a time, and never the list restored.** If a later
+run shows one evidence item is needed to decide, that item is added by its own
+ruling — the derivation (`candidateEvidence`) and the plain-label tables that
+would render it are retained for exactly this, and `checks/check-brief-compose.sh`
+asserts both stay fit to use. A ruling that restored the list wholesale would
+reproduce the defect this one records.
+
+**The declined alternative, recorded so it is not re-proposed blind:** a
+one-line disclosure at the gate saying the reasoning exists and is available
+elsewhere — the disclose-the-count discipline
+(`topics/archive/articles.md:26@315feac6`), applied to material leaving a view.
+It does not bind, because the record was never an owner surface: nothing is
+truncated from a view the owner had, and an unasked-for line is the same defect
+one size down.
 
 **The premise's negation is a first-class option**: the composing premise is
 that the Thesis and the selected set support a structure, so the option set
@@ -1025,7 +1086,12 @@ one:**
 
 **Judged as judgment, never as a lint.** Conformance is read at **path review**
 (§4.8's arc clauses, per Candidate, as `src/review.mjs` runs them) and surfaced
-to the owner as reasoning per §6's evidence rule.
+to the owner as reasoning per §6's evidence rule — which, since kogaki#859
+reduced the gate to its labels and stopped the payload copying the reasoning,
+reaches the owner **nowhere**. The conformance judgement and the review record
+it is made from are unchanged, and `candidateEvidence` still derives the figure;
+what is gone is its display, on the same terms and with the same open decision
+§4.11 records.
 
 `necessity:` four composition MUSTs applied to prose by a reader. The arc-shape
 floor in particular is a judgment about register that no grammar decides.

@@ -19,12 +19,14 @@
 //     emits the selection payload: each option carrying as its gate
 //     EVIDENCE the composition-time reasoning — step validity, transition
 //     continuity, Thesis closure, the obligations ledger's state, and the
-//     Strand placement count. Reasoning surfaced for the owner, never an
-//     automated verdict (§6). THE OWNER-FACING HALF OF THAT PAYLOAD IS ITS
-//     `rendering` (kogaki#520): each evidence item under one plain label,
-//     the internal keys kept in `evidence` as the record and shown to
-//     nobody — with a deny tripwire refusing any rendering that carries
-//     spec-internal vocabulary anyway.
+//     Strand placement count. Reasoning composed and RECORDED for the run,
+//     never an automated verdict (§6). THE OWNER-FACING HALF OF THAT PAYLOAD
+//     IS ITS `rendering`, and since kogaki#859 that rendering is EMPTY: the
+//     owner reads the reader-experience labels and nothing else, the internal
+//     keys stay in `evidence` as the record and are shown to nobody — with a
+//     deny tripwire still refusing any rendering that carries spec-internal
+//     vocabulary, because the rendering being empty today is a fact about
+//     today's producer and not a property of the shape.
 //   adopt-candidate — the owner's recorded answer: the adopted Candidate's
 //     Reader Path lands in the Brief's sequence (through the same §4.1
 //     fill the composition runtime owns), and thesis_closure and tradeoffs
@@ -65,6 +67,17 @@ export const READER_FIELDS = [
   ["opening_question", "Opening question"],
 ];
 
+// THESE TWO TABLES OUTLIVE BOTH THE RENDERING AND THE RECORD THAT USED THEM,
+// and that is a decision rather than an oversight (kogaki#859). Their sole
+// rendering path closed when `rendering` went empty, which makes them look like
+// dead code —
+// but the ruling that closed it is explicitly reversible one item at a time:
+// "if a later run shows one evidence item is needed to decide, that item is
+// added by its own ruling, never the list restored". These tables are what
+// such a ruling re-points at, and they still name the questions the evidence
+// answers, which is what a reader of the record needs. Retiring them would
+// make the cheap reversal an expensive one, to save nothing an execution pays
+// for. What is NOT retained is any claim that they reach the owner.
 export const EVIDENCE_LABELS = [
   ["reader_start", "Where does this path assume the reader is standing?"],
   ["reader_target", "Where does this path leave the reader?"],
@@ -326,7 +339,15 @@ export function assembleSelection(reviewed, doc) {
     return { error: "the Brief carries no Strands section — not a minted Brief (assembly runs over the Brief whose closed set the Candidates composed from)" };
   }
   const journeyIds = journeyBearingStrands(doc);
-  const options = cands.map((c) => { const ev = candidateEvidence(c, strandIds, journeyIds); return ({
+  // `candidateEvidence` IS NO LONGER CALLED HERE, and that follows from the
+  // ruling rather than being tidying beside it: computing a value the payload
+  // does not carry is precisely "an entry with no reader". It stays EXPORTED
+  // and stays exercised by `checks/check-brief-compose.sh`, because §6.1's
+  // journey-coverage disclosure and §4.11's bridge disclosure are specified
+  // behaviours whose display this ruling removed and whose future is an open
+  // decision — deleting the derivation would settle that decision by making
+  // one arm unbuildable, which is not this issue's to do.
+  const options = cands.map((c) => ({
     id: c.candidate_id,
     // THE EFFECT STATES ONCE, AT QUESTION LEVEL (kogaki#568). Every option's
     // label used to open `Adopt <id> — its Reader Path becomes the Brief's
@@ -352,42 +373,48 @@ export function assembleSelection(reviewed, doc) {
     // resolved; it is not the label's opening, because a token nobody chose
     // between is not what distinguishes an option.
     label: c.reader_experience,
-    // THE EVIDENCE AT THE GATE (§6): composition-time reasoning, surfaced
-    // for the owner — never an automated verdict. THIS OBJECT IS THE RECORD,
-    // not the rendering: it keeps the internal keys, it stays in the
-    // machine-local payload, and nothing shows it to the owner (kogaki#520).
-    evidence: {
-      reader_start: ev.reader_start,
-      reader_target: ev.reader_target,
-      opening_question: ev.opening_question,
-      step_validity: c.reasoning.step_validity,
-      transition_continuity: c.reasoning.transition_continuity,
-      thesis_closure: c.reasoning.thesis_closure,
-      obligations_ledger: ev.obligations_ledger,
-      placement_count: ev.placement_count,
-      journey_coverage: ev.journey_coverage,
-      bridges: ev.bridges,
-      review: c.review,
-    },
-    // THE RENDERING (kogaki#520, reshaped at kogaki#568): the same evidence, in
-    // the same order, and this is still the ONLY surface the gate shows. What
-    // changed is the SHAPE, not the content. kogaki#520 got the words right —
-    // plain questions instead of key names — and left a label/text pair per
-    // item, which displays as a field list however plain the labels read. The
-    // §5.1.3 contract (v20, kogaki#566) governs the shape too, and names this
-    // issue as the §6 half's carrier.
+    // NO EVIDENCE FIELD (kogaki#859, owner ruling 2026-09-04). The option is its
+    // id and its label; the gate's whole option set is those, the negation and
+    // free text. The first half of this ruling emptied the RENDERING and kept
+    // this object as the record; the amendment removed the object too, on a
+    // general position the ruling states rather than a preference about this
+    // payload: "the run record holds what a later act reads … an entry with no
+    // reader is unnecessary data and is refused, not tolerated."
     //
-    // EACH ITEM IS ONE PARAGRAPH: its plain question followed by its own prose.
-    // Nothing is dropped and nothing is reordered — the question that used to
-    // be a label is now the paragraph's first sentence, which is where a reader
-    // meets it anyway. The count still comes from EVIDENCE_LABELS and
-    // REVIEW_AREAS rather than a literal, so an added evidence item reaches the
-    // owner without a second edit here.
-    rendering: [
-      ...EVIDENCE_LABELS.map(([key, label]) => `${label} ${key in ev ? ev[key] : c.reasoning[key]}`),
-      ...REVIEW_AREAS.map((area) => `${REVIEW_LABELS[area]} ${c.review[area]}`),
-    ],
-  }); });
+    // NOTHING IS LOST, and that is checkable rather than asserted: every field
+    // this object held was COPIED from inputs that survive untouched — the
+    // reasoning and review from `reviewed.json`, the rest derived on demand by
+    // `candidateEvidence` below, which is still exported and still exercised.
+    // The ruling is explicit that it does not touch those inputs, only what the
+    // payload copies out of them, so a later act that needs the reasoning reads
+    // it where it was composed instead of from a second copy nobody read.
+    // THE RENDERING IS EMPTY (kogaki#859, owner ruling 2026-09-04). It carried
+    // one paragraph per evidence item and per review area — sixteen per
+    // Candidate, measured at ~6,400-7,090 characters each, about 20,000 above a
+    // question whose three labels total under 900. The first run to measure
+    // whether the owner read it found they did not, and decided on the labels
+    // alone. What is removed is the RENDERING PATH, never the reasoning: the
+    // `evidence` object above is unchanged, every field still composed and
+    // still written to the run record, so nothing is lost and a later ruling
+    // that one item is needed to decide adds that item back here.
+    //
+    // WHY EMPTY RATHER THAN SHORTER. The declined alternative was a one-line
+    // disclosure saying the reasoning exists and is recorded elsewhere — the
+    // disclose-the-count discipline, applied to material leaving a view. It
+    // does not bind: the record was never an owner surface, so nothing is being
+    // truncated from a view the owner had, and a line they did not ask for is
+    // the same defect one size down. The governing position is the one this
+    // gate failed: a mechanism is not correct merely because it behaves
+    // according to its own internal rules, and this gate was conformant to §6
+    // and unreadable (product-lab@315feac6 topics/archive/articles.md:29).
+    //
+    // THE KEY STAYS, holding an empty array rather than being deleted. The
+    // tripwire below walks `o.rendering` and every consumer reads it; a key
+    // that vanishes and one that is empty are the same silence to a reader and
+    // different silences to a check, and only the second lets a later run tell
+    // "nothing is rendered" from "nothing renders it".
+    rendering: [],
+  }));
   options.push({
     id: "none-of-these",
     // THE PREMISE'S NEGATION IS FIRST-CLASS (§6; proposal-contract §2.1):
@@ -533,7 +560,7 @@ function cmdAssemble(args) {
   if (r.error) fail(r.error);
   mkdirSync(dirname(resolve(out)), { recursive: true });
   writeFileSync(out, JSON.stringify(r.payload, null, 2) + "\n");
-  console.log(`selection payload: ${r.payload.options.length - 1} Candidate(s) plus the first-class negation, each Candidate carrying its composition-time reasoning as evidence — surfaced for the owner, never a verdict (§6). Written: ${out}`);
+  console.log(`selection payload: ${r.payload.options.length - 1} Candidate(s) plus the first-class negation, each option carrying its id and its reader-experience label and nothing else — never a verdict, and the composition-time reasoning stays in the reviewed Candidates it was composed from rather than being copied here (§6, kogaki#859). Written: ${out}`);
 }
 
 function cmdAdopt(args) {
