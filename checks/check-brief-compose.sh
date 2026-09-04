@@ -875,60 +875,60 @@ try {
     if (/verdict|pass|score/i.test(o?.evidence?.journey_coverage || "")) fails.push("(i) journey_coverage reads as a verdict — §6.1 registers no check and §4.6 keeps every MUST un-linted");
   }
 
-  // (j) PLAIN-REGISTER RENDERING and its deny tripwire (kogaki#520, reshaped
-  // at kogaki#568): the owner reads `rendering` — one PROSE PARAGRAPH per
-  // evidence item, its plain question first and the record's own prose after — and the internal keys stay in `evidence`,
-  // which nothing shows. The tripwire REFUSES a rendering that carries
-  // spec-internal vocabulary anyway, naming what leaked; it never rewrites.
+  // (j) THE RENDERING IS BOUND TO THE LABELS (kogaki#520, reshaped at
+  // kogaki#568, REDUCED at kogaki#859). This assertion used to require one
+  // prose paragraph per evidence item and per review area — sixteen per
+  // Candidate, ~20,000 characters above a question whose labels total under
+  // 900. The owner ruling of 2026-09-04 closed that rendering path: the gate
+  // shows the reader-experience labels and nothing else, and the composed
+  // reasoning stays in `evidence` as the run's record.
+  //
+  // WHAT THIS CATCHES, stated because an assertion that cannot name its defect
+  // is asserting the absence of output: the rendering re-acquiring per-item
+  // paragraphs. That is not hypothetical — it is the exact shape this check
+  // required one commit ago, so the failure mode is a revert, a merge, or a
+  // producer added later that composes the old list. `length === 0` is the
+  // property, not a proxy for it, and no partial restoration passes it.
+  //
+  // THE RECORD ASSERTIONS SURVIVE UNCHANGED and are the other half: a
+  // reduction that also dropped the evidence would satisfy an emptiness test
+  // while losing what the ruling explicitly kept.
   const INTERNAL = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
   const plain = assembleSelection({ candidates: [candA, candB] }, doc0);
   if (plain.error) fails.push(`(j) a plain-register Candidate set was refused: ${plain.error}`);
   for (const o of (plain.payload?.options || []).filter((x) => !x.negates_premise)) {
     const rend = o.rendering;
-    // Derived from EVIDENCE_LABELS rather than a literal: the count moved
-    // from 6 to 9 when v12 added the three reader fields, and a literal here
-    // would have to be found and edited every time the evidence set grows,
-    // which is the edit a reader is most likely to make wrongly.
-    if (!Array.isArray(rend) || rend.length !== EVIDENCE_LABELS.length + REVIEW_AREAS.length) {
-      fails.push(`(j) option ${o.id} carries no rendering of the expected size — one prose paragraph per evidence item and per review area`);
-      continue;
+    // THE KEY IS PRESENT AND EMPTY — the two are asserted apart. A vanished
+    // key and an empty one are the same silence to a reader and different
+    // silences here, and only the second lets a later run tell "nothing is
+    // rendered" from "nothing renders it".
+    if (!Array.isArray(rend)) {
+      fails.push(`(j) option ${o.id} carries no rendering key — the key stays and holds the empty list, so the bound is readable rather than merely unwritten (kogaki#859)`);
+    } else if (rend.length !== 0) {
+      fails.push(`(j) option ${o.id} renders ${rend.length} entr(y/ies) above the question — the gate is bound to its labels, and the composition-time reasoning stays in the record (kogaki#859): ${JSON.stringify(String(rend[0]).slice(0, 80))}`);
     }
-    // EACH ENTRY IS ONE PROSE PARAGRAPH (kogaki#568). The entries were
-    // {label, text} pairs, which display as a field list however plain the
-    // labels read — kogaki#520 fixed the WORDS and left the SHAPE, and §5.1.3
-    // (v20, kogaki#566) governs the shape too. The label/text assertions are
-    // RE-POINTED rather than deleted: same properties, read off the paragraph.
-    for (const item of rend) {
-      if (typeof item !== "string" || item.trim() === "") {
-        fails.push(`(j) option ${o.id} has a rendering entry that is not a non-empty prose paragraph — the owner-facing half is prose, never a field (§5.1.3)`);
-        continue;
-      }
-      if (INTERNAL.test(item)) fails.push(`(j) option ${o.id}'s rendering reads an internal key: ${item.slice(0, 60)}`);
+    // THE LABEL IS NOW THE WHOLE OWNER SURFACE, so the plain-register floor
+    // moves onto it. It was covered transitively while the paragraphs carried
+    // the same rule; with them gone, an unasserted label is the one thing the
+    // owner actually reads.
+    if (typeof o.label !== "string" || o.label.trim() === "") {
+      fails.push(`(j) option ${o.id} carries no label — the label is the whole of what the owner reads at this gate`);
+    } else if (INTERNAL.test(o.label)) {
+      fails.push(`(j) option ${o.id}'s label reads an internal key: ${o.label.slice(0, 60)}`);
     }
-    // NOTHING IS DROPPED IN THE RESHAPING: every plain question that had a
-    // label still opens a paragraph, and each opens exactly one. This is the
-    // distinctness assertion the label-set test used to carry, re-pointed —
-    // two items collapsing into one paragraph is the loss a count alone would
-    // miss, because the count is asserted against the same source lists above.
-    const questions = [...EVIDENCE_LABELS.map(([, l]) => l), ...REVIEW_AREAS.map((a) => REVIEW_LABELS[a])];
-    for (const q of questions) {
-      const carriers = rend.filter((r) => typeof r === "string" && r.startsWith(q));
-      if (carriers.length !== 1) {
-        fails.push(`(j) option ${o.id} opens ${carriers.length} paragraph(s) with ${JSON.stringify(q)} — every item reaches the owner, exactly once`);
-      }
-    }
-    // Located BY ITS QUESTION rather than by index: this assertion read rend[2]
-    // until v12 prepended three reader items and silently moved it to five.
-    // A positional probe over a growing list tests whichever item happens to
-    // sit there, which is not the assertion anyone wrote.
-    const tcLabel = EVIDENCE_LABELS.find(([k]) => k === "thesis_closure")[1];
-    const tc = rend.find((r) => typeof r === "string" && r.startsWith(tcLabel));
-    if (!tc) fails.push(`(j) the Thesis-closure item does not open a paragraph with its plain question`);
-    // the rendering is the RECORD's own prose, not a second source
-    else if (tc !== `${tcLabel} ${o.evidence.thesis_closure}`) fails.push(`(j) option ${o.id}'s rendering restates the evidence instead of carrying it`);
-    // the internal keys survive IN THE RECORD
+    // THE RECORD KEEPS EVERY KEY (kogaki#859 acceptance 2). This is what makes
+    // the reduction a rendering change rather than a loss, and it is why the
+    // ruling's own reversal — one item added back by its own ruling — has
+    // something to read.
     for (const k of ["reader_start", "reader_target", "opening_question", "step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count", "journey_coverage"]) {
-      if (typeof o.evidence?.[k] !== "string") fails.push(`(j) the record lost internal key ${k} — the keys stay in the payload, only the rendering changes`);
+      if (typeof o.evidence?.[k] !== "string") fails.push(`(j) the record lost internal key ${k} — the keys stay in the payload, and only the rendering was reduced`);
+    }
+    if (typeof o.evidence?.review !== "object" || o.evidence.review === null) {
+      fails.push(`(j) the record lost the review reasoning — the review areas left the rendering, not the record`);
+    } else {
+      for (const a of REVIEW_AREAS) {
+        if (typeof o.evidence.review[a] !== "string") fails.push(`(j) the record lost review area ${a} — the areas left the rendering, not the record`);
+      }
     }
   }
   // ---- (l) THE THREE READER FIELDS (§5.1 v12, kogaki#521, story 1.77):
@@ -954,19 +954,27 @@ try {
     if (rp.payload?.id !== "brief-candidate-selection-payload") {
       fails.push("(l) the reader fields did not ride the existing Candidate-selection payload — §5.1.1 owes no new gate");
     }
-    // AC3 — each renders under a plain label carrying the record's own prose.
-    // (j)'s loop already refuses an internal key in any label; this asserts
-    // the three are PRESENT and carry the record rather than a restatement.
+    // AC3 — each of the three is PRESENT and per-Candidate in the record.
+    // RE-POINTED AT THE RECORD (kogaki#859), and the re-point is a NARROWING
+    // that is stated rather than hidden: this assertion had two halves, that
+    // the field is present and that its rendering CARRIES the record rather
+    // than restating it. The second half had the rendering as its subject and
+    // dies with it — there is no second copy left to diverge from the first.
+    // What survives is the half §5.1 v12 was actually about: the field is
+    // authored per Candidate and reaches the payload.
+    //
+    // ITS PLAIN LABEL IS STILL ASSERTED, one level over, because the table
+    // outlives the rendering (see EVIDENCE_LABELS in src/assemble.mjs): a
+    // label that decayed into an internal key while unrendered is exactly what
+    // the ruling's own one-item-at-a-time reversal would render.
     for (const o of opts) {
       for (const [key] of READER_FIELDS) {
-        // RE-POINTED AT THE PARAGRAPH SHAPE (kogaki#568), not relaxed: the same
-        // two properties — the item is PRESENT under its plain question, and it
-        // CARRIES the record rather than restating it — read off a paragraph
-        // instead of a {label, text} pair.
-        const label = EVIDENCE_LABELS.find(([k]) => k === key)[1];
-        const item = (o.rendering || []).find((r) => typeof r === "string" && r.startsWith(label));
-        if (!item) fails.push(`(l) option ${o.id} does not open a paragraph with ${key}'s plain question`);
-        else if (item !== `${label} ${o.evidence[key]}`) fails.push(`(l) option ${o.id}'s ${key} rendering restates the record instead of carrying it`);
+        if (typeof o.evidence?.[key] !== "string" || o.evidence[key].trim() === "") {
+          fails.push(`(l) option ${o.id} carries no ${key} in the record — the three reader fields are authored per Candidate (§5.1 v12)`);
+        }
+        const entry = EVIDENCE_LABELS.find(([k]) => k === key);
+        if (!entry) fails.push(`(l) ${key} has no plain label — the table is what a later ruling restoring one item reads (kogaki#859)`);
+        else if (findInternalVocabulary(entry[1])) fails.push(`(l) ${key}'s plain label reads an internal key: ${entry[1]}`);
       }
     }
     // AC4 — adoption lands all three, from the ADOPTED Candidate.
@@ -1053,24 +1061,50 @@ try {
     }
   }
 
-  // THE TRIPWIRE FIRES, and names what leaked
+  // THE TRIPWIRE FIRES, and names what leaked.
+  //
+  // RE-POINTED AT THE LABEL (kogaki#859), and this is a repair rather than a
+  // relocation of convenience. These two cases injected their leak into
+  // `reasoning.thesis_closure` and `reasoning.step_validity`, which reached the
+  // owner only by way of the rendering. With the rendering empty that injection
+  // reaches no owner surface at all, so the tripwire correctly would NOT fire
+  // and both assertions would have started failing — or, worse, been deleted as
+  // obsolete. Neither is right: the property they assert is live, and it is the
+  // one the tripwire exists for. What died was the PROXY they bound it through.
+  //
+  // The owner surface is now the option label, which is the Candidate's
+  // reader_experience, so that is where the leak is injected. Everything else
+  // is unchanged: the deny still names what leaked, and still refuses rather
+  // than rewrites.
   const leakCand = JSON.parse(JSON.stringify(candB));
-  leakCand.reasoning.thesis_closure = "the final step discharges thesis_closure for the reader";
+  leakCand.reader_experience = "Opens where the reader stands, then discharges thesis_closure for them";
   const leaked = assembleSelection({ candidates: [candA, leakCand] }, doc0);
-  if (!leaked.error) fails.push("(j) a rendering carrying an internal key was presented to the owner — the tripwire did not fire");
+  if (!leaked.error) fails.push("(j) a label carrying an internal key was presented to the owner — the tripwire did not fire");
   else {
     if (!/thesis_closure/.test(leaked.error)) fails.push("(j) the tripwire refused without NAMING what leaked");
     if (leaked.payload) fails.push("(j) the tripwire produced a payload anyway — a deny, never a rewrite layer");
   }
   const secCand = JSON.parse(JSON.stringify(candB));
-  secCand.reasoning.step_validity = "each step's grounds were traced, as §4.4 requires";
+  secCand.reader_experience = "Opens on the industry default, then traces each step's grounds as §4.4 requires";
   const secLeak = assembleSelection({ candidates: [candA, secCand] }, doc0);
-  if (!secLeak.error || !/section reference/.test(secLeak.error)) fails.push("(j) a section reference reached the owner-facing rendering — the tripwire did not fire");
-  // the deny reads the RENDERING, not the record: it is not a lint on any
-  // composition MUST (§4.6 clause 3 stands) — a clean rendering passes with
-  // the internal keys still present in the record, asserted above.
+  if (!secLeak.error || !/section reference/.test(secLeak.error)) fails.push("(j) a section reference reached the owner-facing label — the tripwire did not fire");
+  // THE DENY READS THE OWNER SURFACE, NOT THE RECORD, and the reduction makes
+  // that sharper rather than vacuous: a Candidate whose RECORD is full of
+  // internal keys — which every Candidate's is, asserted above — now passes,
+  // because none of it is rendered. It is not a lint on any composition MUST
+  // (§4.6 clause 3 stands).
   const denyClean = denyInternalVocabulary(plain.payload || {});
-  if (denyClean.error) fails.push(`(j) the tripwire refused a clean rendering: ${denyClean.error}`);
+  if (denyClean.error) fails.push(`(j) the tripwire refused a clean payload: ${denyClean.error}`);
+  // AND THE RECORD IS NOT A LEAK PATH: candB's reasoning carries internal keys
+  // by construction, and its payload is clean. This is the assertion that would
+  // catch the rendering coming back by a side door — a producer that re-attached
+  // the reasoning would fail here even if it skipped the `rendering` key.
+  {
+    const recCand = JSON.parse(JSON.stringify(candB));
+    recCand.reasoning.thesis_closure = "the final step discharges thesis_closure for the reader";
+    const rec = assembleSelection({ candidates: [candA, recCand] }, doc0);
+    if (rec.error) fails.push(`(j) an internal key in the RECORD was refused — the deny reads the owner surface, and the record is not one (kogaki#859): ${rec.error}`);
+  }
 
 } finally {
   rmSync(dir, { recursive: true, force: true });
@@ -1227,9 +1261,13 @@ try {
   if (a === b) fails.push("(l) a bridged Candidate and an unbridged one read identically — the disclosure is not per-Candidate");
   // It rides the EXISTING gate: a plain label, no new gate row. The SHARED
   // predicate (kogaki#526), not a re-derived regex: one definition, every
-  // owner surface.
+  // owner surface. SCOPED SINCE kogaki#859: the label no longer reaches the
+  // owner, because nothing in this table does — what is asserted is that the
+  // table stays fit to be rendered, since the ruling's own reversal restores
+  // one item at a time from exactly here. A label left to decay while
+  // unrendered is what makes that reversal expensive.
   const lbl = EVIDENCE_LABELS.find(([k]) => k === "bridges");
-  if (!lbl) fails.push("(l) `bridges` has no plain label — it would reach the owner under its internal key (kogaki#520)");
+  if (!lbl) fails.push("(l) `bridges` has no plain label — a restoring ruling would have only its internal key to render (kogaki#520, kogaki#859)");
   else if (findInternalVocabulary(lbl[1])) fails.push(`(l) the bridge label reads an internal key: ${lbl[1]}`);
 
   // (l2) THE FIELD IS ADMITTED AND BOUNDED (#546 round 1, finding 3). §4.11
@@ -1404,16 +1442,30 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) 
   + "NAME as unsupported completion, a Journey outside the closed set refused as a Brief fetch, "
   + "and the no-Journey case vacuous rather than violated; (i) per-Candidate journey_coverage "
   + "rides the gate payload as EVIDENCE, so two Candidates differing on the journey axis do not "
-  + "read identically, and it carries no verdict token; (j) PLAIN-REGISTER RENDERING "
-  + "(kogaki#520) — every evidence item and every review area renders under one distinct plain "
-  + "label carrying the record's own prose, no owner-facing string in the payload holds an "
-  + "internal key or a section reference, the internal keys SURVIVE in `evidence` as the "
-  + "record, and the deny tripwire refuses a rendering that carries either shape anyway, "
-  + "NAMING what leaked and producing no payload — a deny, never a rewrite layer. The "
-  + "tripwire reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642): THIRTY-ONE "
+  + "read identically, and it carries no verdict token; (j) THE RENDERING IS BOUND TO THE "
+  + "LABELS (kogaki#520, REDUCED at kogaki#859) — the `rendering` key is PRESENT and EMPTY, "
+  + "the two asserted apart so a vanished key and a bounded one are distinguishable; the "
+  + "option label, which is now the whole of what the owner reads, is non-empty and free of "
+  + "internal keys; every evidence field and every review area SURVIVES in `evidence` as the "
+  + "record, which is what makes the reduction a rendering change rather than a loss; no "
+  + "owner-facing string in the payload holds an internal key or a section reference; the deny "
+  + "tripwire refuses a LABEL carrying either shape, NAMING what leaked and producing no "
+  + "payload — a deny, never a rewrite layer — while a record full of internal keys passes, "
+  + "which is the assertion that catches the evidence returning by a side door. The tripwire "
+  + "reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859): THIRTY-FOUR "
   + "mutations. RE-DERIVED, not incremented: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
-  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one = 31. "
+  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three = 34. "
+  + "kogaki#859's three, all against the reduction of the gate to its labels — and the first is an "
+  + "INVERSION, recorded as such because an inverted assertion and a deleted one read identically at a later "
+  + "head: restoring the sixteen evidence-and-review paragraphs — the shape this member REQUIRED one commit "
+  + "ago — fails (j)'s emptiness assertion naming the count it found, and additionally trips the record-is-not-"
+  + "a-leak-path assertion, which is the direct evidence that the two guard different doors. Deleting the "
+  + "`rendering` key outright fails (j)'s key-present assertion rather than passing its emptiness one, which "
+  + "is the direct evidence that present-and-empty is asserted apart from absent. And dropping `review` from "
+  + "the record fails (j)'s record half while leaving the rendering empty and green — the direct evidence "
+  + "that a reduction which also LOST the reasoning would not pass here, which is the whole of what makes "
+  + "kogaki#859 a rendering correction rather than a re-scoping. "
   + "kogaki#642's one, against the requirement that a Move is a Step's State component: restoring the optional test in "
   + "validateSteps — the v17 shape, `move` checked only when present — fails (a)'s a-step-without-a-Move assertion. The "
   + "assertion it fails is the INVERSION of the one that stood here, not a new sibling beside it: v17's (a) asserted that a "
@@ -1453,11 +1505,17 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) 
   + "kogaki#568's four, all against the selection screen's shape: restoring the shared effect prefix on every "
   + "option label fails (e)'s no-repetition assertion AND its opens-with-the-record-id assertion; dropping the "
   + "effect from the payload label too fails (e)'s states-ONCE assertion, which is the half that stops "
-  + "\u0022no repetition\u0022 being satisfied by stating it nowhere; slicing one evidence item out of the rendering "
-  + "fails (j)'s count assertion, taken against EVIDENCE_LABELS and REVIEW_AREAS rather than a literal; and "
-  + "making the leak predicate skip the paragraphs \u2014 the shape the reshaping introduced \u2014 fails BOTH of "
+  + "\u0022no repetition\u0022 being satisfied by stating it nowhere; slicing one evidence item out of the "
+  + "rendering failed (j)'s count assertion, taken against EVIDENCE_LABELS and REVIEW_AREAS rather than a literal; and "
+  + "making the leak predicate skip the paragraphs \u2014 the shape the reshaping introduced \u2014 failed BOTH of "
   + "(j)'s tripwire cases, the direct evidence that a leak cannot escape by moving into a surface the predicate "
-  + "stopped walking. TWO MORE FROM PR #576 ROUND 1, which found a re-pointing this head MISSED: the "
+  + "stopped walking. THE LAST TWO ARE SUPERSEDED BY kogaki#859 AND KEPT IN THE PAST TENSE RATHER THAN REWRITTEN: "
+  + "the count assertion they broke no longer exists, and the tripwire no longer walks paragraphs because there are "
+  + "none, so neither mutation would fail this member at today's head. They are NOT re-described against today's "
+  + "assertions \u2014 that would claim a run at kogaki#568 that never happened, and a mutation record whose entries "
+  + "are edited to stay green is exactly the artifact bound by belief this discipline exists to refuse. Their "
+  + "successors are enumerated under kogaki#859 above, and the tally counts both, because the historical evidence "
+  + "was real when it was taken. TWO MORE FROM PR #576 ROUND 1, which found a re-pointing this head MISSED: the "
   + "independent belt at (j) still read the retired `r.label`/`r.text` off entries that are now strings, so "
   + "its SECTION-REFERENCE arm went vacuous while the pass line kept claiming it \u2014 the internal-key arm survived at the per-item loop, which is what made the loss invisible. Discriminating it needed the predicate "
   + "NEUTERED as well as a leak planted, because the runtime tripwire shadows the belt on the happy path: "
@@ -1470,6 +1528,18 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) 
   + "read the same two properties \u2014 present under its plain question, and CARRYING the record rather than "
   + "restating it \u2014 off a paragraph instead of a pair; the label-distinctness test is re-pointed as one "
   + "paragraph per plain question, because two items collapsing into one is a loss the count alone would miss. "
+  + "kogaki#859 RE-POINTS THAT RE-POINTING, and one of its moves is a NARROWING stated rather than hidden. "
+  + "(j)'s two tripwire cases injected their leak into `reasoning.thesis_closure` and `reasoning.step_validity`, "
+  + "which reached the owner only by way of the rendering; with the rendering empty that injection reaches no "
+  + "owner surface, so both cases would have gone RED against correct code. The property is live and the PROXY "
+  + "died, so the leak is now injected into the option label, which is the owner surface that remains \u2014 and "
+  + "a third case asserts the same leak in the RECORD passes, which is the belt the first two no longer supply. "
+  + "The NARROWING is at (l): its three reader-field assertions carried two properties, present-per-Candidate and "
+  + "carrying-the-record-rather-than-restating-it, and the second had the rendering as its subject. It is DROPPED, "
+  + "not re-pointed, because there is no second copy left to diverge from the record \u2014 recorded because a "
+  + "dropped assertion and a re-pointed one read identically at a later head, which is this paragraph's own rule "
+  + "turned on the head that wrote it. What replaced it is an assertion that the plain-label table stays fit to "
+  + "RENDER, since kogaki#859's ruling restores one item at a time from exactly that table. "
   + "THE ORIGINAL TWENTY-ONE "
   + "mutations, COUNTED at kogaki#559 rather than incremented. The count was "
   + "taken by reading the enumeration below, and it is recorded here so the "
