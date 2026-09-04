@@ -609,10 +609,18 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
     // BOUNDED BY THE SECTION, not merely ordered (kogaki#825). Falls back to the
     // flat form only when no grouping is derivable, so a Brief that declares no
     // Sections reads exactly as it did before this issue.
+    // THE EMPTY CASE DOES NOT ASSERT MORE THAN IT KNOWS (PR #844 round 2, nit
+    // 3). An empty `priorSections` means no earlier Step has been REALIZED, not
+    // that none exists: `packet --step <later id>` renders on demand before the
+    // Steps above it are written, and the old string told that Step it was the
+    // article's first. The two states are now distinguished by the Brief's own
+    // path, which the renderer already holds.
     prior_sections: priorSections.length
       ? (priorProseBySection(priorSections, sections || [], section?.index ?? 1)
          || priorSections.map((p) => p.text).join("\n\n"))
-      : "(nothing yet — this is the article's first Step, so nothing precedes it)",
+      : (brief.steps[0] && brief.steps[0].step_id === step.step_id
+          ? "(nothing yet — this is the article's first Step, so nothing precedes it.)"
+          : "(nothing yet — the Steps before this one in the Reader Path are not realized, so no prose precedes it on the page. This is NOT the article's opening: do not write one.)"),
   };
   if (missing.length) {
     return { error: `the Packet for ${step.step_id} cannot be rendered: ${missing[0]} is absent. `
@@ -1555,6 +1563,25 @@ async function runSelfTest() {
     soFar(bodyT3).trim().slice(-220));
   ok("the first Step states the absence of prior prose rather than rendering empty",
     soFar(bodyT1).includes("nothing yet"));
+  // THE EMPTY CASE IS DRIVEN ON BOTH ITS BRANCHES (PR #844 round 2, nit 3),
+  // through the CLI and into a FRESH workspace, because the falsity was
+  // reachable exactly there: `packet --step <later id>` before the Steps above
+  // it are realized. The old single string told that Step it was the article's
+  // first, so a case asserting only "nothing yet" passed over it — both
+  // branches are therefore asserted to DISCRIMINATE.
+  {
+    const freshWs = join(root, "ws-sec-unrealized");
+    const packFresh = (step) => spawnSync(process.execPath,
+      [self, "packet", "--brief", join(secDir, "brief.md"), "--workspace", freshWs,
+       "--moves-dir", movesDir, "--step", step],
+      { encoding: "utf8" });
+    const first = soFar(packFresh("t1").stdout), later = soFar(packFresh("t2").stdout);
+    ok("with nothing realized, the article's FIRST Step is told it is the first",
+      first.includes("this is the article's first Step"), first.trim().slice(0, 160));
+    ok("with nothing realized, a LATER Step is NOT told it is the article's first",
+      later.includes("nothing yet") && !later.includes("this is the article's first Step") &&
+      later.includes("are not realized"), later.trim().slice(0, 200));
+  }
 
   // Acceptance 3 — one word, one unit. Asserted on the RENDERED Packet, which
   // is what the model reads, and not only on the template.
