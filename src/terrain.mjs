@@ -2919,7 +2919,7 @@ function writeDisplaySurface(args, surface, text) {
 // and is deliberately not decided here: a runtime that printed one prescribed
 // form would re-import the harness binding the ruling removed.
 function announceDisplay(path) {
-  console.log(`CoTagGroups — READ THIS ONE (owner rendering, SPEC-terrain §15.5): ${relFromRepo(path)}`);
+  console.log(`CoTagGroups — READ THIS ONE (owner rendering, SPEC-terrain §2.4's flow rule): ${relFromRepo(path)}`);
   console.log("ONE CoTagGroups file, overwritten per render — §12.2 v12's count is scoped to "
     + "FullReport.md, and this is the second owner-rendering class with its own count of exactly one.");
 }

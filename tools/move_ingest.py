@@ -620,7 +620,7 @@ def write_index(moves_dir):
 
 # A verdict, score or status token arrives in one of two shapes: a bare token
 # (`clean`, `PASS`, `7/10`) or a `key: value` pair (`judgment: clean` — the
-# 2026-08-16 specimen). §2.5.3's closing clause and §6.9.2 make such a token
+# 2026-08-16 specimen). §6.9.2's construction constraint makes such a token
 # UNRENDERABLE on a row rather than prohibited: a reading is a prose judgment
 # ("this proposes a split", "these two are near-duplicates"), so a value in
 # either token shape is refused at render. This is a FORM floor, not a content
@@ -641,7 +641,8 @@ def render_proposals(proposals, readings=None):
     render as DATA so the reviewed listing is still the tool's own rendering
     (story 1.70; the CLI flag mirrors Terrain's `--claims` file pattern). A
     reading naming an id outside the parsed set REFUSES: a silently dropped
-    reading is the row-loss defect §2.5.3 exists to remove, one input over. An
+    reading is the row-loss defect §6.9.2's count-line rule exists to make
+    visible, one input over. An
     id with no reading renders no reading line — absence is the normal case.
     """
     readings = dict(readings or {})
@@ -659,7 +660,7 @@ def render_proposals(proposals, readings=None):
                 "verdict-shaped-reading",
                 "the reading for %r is a bare token or key:value pair (%r) — a "
                 "verdict, score or status shape. A reading is a prose judgment "
-                "(specs/SPEC.md \u00a72.5.3; \u00a76.9.2: readings, and silence "
+                "(\u00a76.9.2: readings, and silence "
                 "where there is nothing to say)" % (move_id, value),
             )
 
