@@ -23,10 +23,22 @@
 # field the tool never fills.
 #
 # AND ONE STRUCTURAL CASE, which is the mechanical half of the owner's
-# 2026-09-04 ruling: the Harness imports no Brief, Move or Strand reader. The
-# ruling says a need for one is a PACKET GAP filed against
-# src/packet-template.md; a case asserting the absence of the read is what makes
-# that a property rather than a promise.
+# 2026-09-04 ruling: the Harness imports ONLY node builtins and ./runs.mjs. It
+# is an ALLOWLIST (PR #882 round 1, finding 5) — the first form named the
+# modules it refused, so an unanticipated reader would have passed it while
+# breaking the ruling it exists to mechanize. The ruling says a need for a
+# Brief, Move or Strand is a PACKET GAP filed against src/packet-template.md;
+# a case whose non-member fallback is REFUSE is what makes that a property
+# rather than a promise.
+#
+# WHAT THE PASS DOES NOT EVIDENCE, stated rather than left to be assumed. The
+# issue's AC1 names a live drive against `theses/some-safety-properties-cannot-
+# checked/draft.md` and its six Packets. That Draft is UNTRACKED working
+# material and its Packets live under the gitignored `runs/`, so the drive is
+# not reproducible from the tree and this member — seam-free, and it never reads
+# `theses/` or `runs/` — does not attempt it. AC1's reproducible evidence is the
+# fixture Draft, built in `emit`'s own shape. The live drive was performed once
+# at authoring and is reported as an observation, never as coverage.
 #
 # NOT CARRIED HERE, stated rather than implied: the recovered record's schema
 # (kogaki#871), the item classes and the three-valued verdict (kogaki#872), the
@@ -125,14 +137,27 @@ echo "ok: $SKILL names only paths and subcommands the Harness has, and names all
 # ANY lane carries no positive bound, so a lane added to one and not the other
 # is a runtime that refuses its own workspace. The condition never arises while
 # both edits land together, which is exactly when its absence leaves no trace.
-if ! grep -q '"review"' src/runs.json; then
-  echo "FAIL: src/runs.json declares no keep_last for the review lane — runs.mjs checks EVERY lane's bound, so the review workspace would refuse to open"
+# ASKED OF THE MODULE, never matched as text (PR #882 round 1, finding 4). The
+# first form grepped for the literal `"terrain", "brief", "draft", "review"`,
+# which goes red on a reordering or a reformat that changes nothing, and for a
+# bare `"review"` in src/runs.json, which does not check the key sits under
+# `lanes` carrying a positive bound. Both are the contract-tested-against-its-
+# own-text shape: green about the document, silent about the behaviour.
+if ! node --input-type=module -e '
+  import { LANES, keepLast } from "./src/runs.mjs";
+  if (!LANES.includes("review")) {
+    console.error("LANES does not carry the review lane");
+    process.exit(1);
+  }
+  const k = keepLast("review");
+  if (!Number.isInteger(k) || k < 1) {
+    console.error(`keepLast("review") returned ${k}`);
+    process.exit(1);
+  }
+'; then
+  echo "FAIL: the review lane is not registered in BOTH src/runs.mjs's LANES and src/runs.json's bounds — keepLast checks every lane, so one carrier without the other is a runtime that refuses its own workspace"
   exit 1
 fi
-if ! grep -q '"terrain", "brief", "draft", "review"' src/runs.mjs; then
-  echo "FAIL: src/runs.mjs's LANES does not carry the review lane — the workspace would refuse by name"
-  exit 1
-fi
-echo "ok: the review lane is registered in both LANES and src/runs.json"
+echo "ok: the review lane is registered in both LANES and src/runs.json, asked of the module rather than matched as text"
 
 echo "PASS: ReviewDraft runtime"

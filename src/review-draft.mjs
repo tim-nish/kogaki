@@ -129,7 +129,20 @@ function readDraft(draftPath) {
   // The body is everything after the closing `---` and the blank line the
   // `\n\n` join leaves. Line numbers in the trace are 1-based over the FILE,
   // frontmatter included, which is what an editor shows.
-  const body = lines.slice(end + 2).join("\n");
+  //
+  // THE FINAL EMPTY ELEMENT IS DROPPED, AND THAT IS WHAT MAKES `body_sha` THE
+  // SAME NUMBER ON BOTH SIDES (PR #882 round 1, finding 2). `emit` writes
+  // `fm + "\n\n" + body + "\n"` and records `sha256(body)`; splitting that file
+  // on newlines leaves a trailing "" that the naive slice re-joins as a final
+  // "\n", so this hashed `body + "\n"` and an owner comparing
+  // `runs/draft/<slug>/last-emit.json` against the `**Body sha.**` line in
+  // `review.md` saw two different hexes for an unedited Draft. Nothing broke —
+  // `requireCurrent` only ever compared this value against itself — which is
+  // exactly why it could ship: the divergence is invisible to every reader
+  // except the owner, who is the one it misleads.
+  const bodyLines = lines.slice(end + 2);
+  if (bodyLines.length && bodyLines[bodyLines.length - 1] === "") bodyLines.pop();
+  const body = bodyLines.join("\n");
   return { path: draftPath, text, lines, frontmatterEnd: end, body, body_sha: sha256(body), trace };
 }
 
@@ -202,10 +215,18 @@ function slugOf(draftPath) {
   return basename(dirname(resolve(draftPath)));
 }
 
+// `--workspace` IS A BASE AND THE SLUG IS JOINED ONTO IT — the same reading
+// `src/draft.mjs`'s own `workspaceFor` gives the flag (PR #882 round 1,
+// finding 3). Returning the flag verbatim made two Drafts driven under one
+// `--workspace` share a single `run.json`, so the second `open` overwrote the
+// first run's rendered inputs and recoveries with no error and no trace. Two
+// commands whose flag has the same name and different arity is the homonym
+// defect; the sibling's reading is the one that was already load-bearing.
 function workspaceFor(args, slug) {
   if (typeof args.workspace === "string" && args.workspace !== "") {
-    mkdirSync(args.workspace, { recursive: true });
-    return args.workspace;
+    const dest = join(args.workspace, slug);
+    mkdirSync(dest, { recursive: true });
+    return dest;
   }
   return enterRun("review", slug);
 }
@@ -585,7 +606,10 @@ function cmdClose(args) {
     lines.push("");
   }
 
-  writeFileSync(out, lines.join("\n"));
+  // A trailing newline, like every other write in this file: `review.md` is
+  // repo-visible and committed, so without one it lands as a no-final-newline
+  // file in every diff that touches it (PR #882 round 1, finding 6).
+  writeFileSync(out, lines.join("\n") + "\n");
   run.closed_at = now;
   writeRun(ws, run);
   process.stdout.write(`review record: ${out}\n`);
@@ -715,9 +739,14 @@ async function runSelfTest() {
 
   const thesis = join(root, "theses", "fixture");
   const draft = buildDraft(thesis, { packetDir });
-  const ws = join(root, "ws");
+  // `--workspace` is a BASE; the run lands at base/<slug>, which is what the
+  // sibling's flag has always meant. `WS` is where this Draft's run record and
+  // rendered inputs actually sit, and the cases read it rather than the base —
+  // reading the base would pass under the pre-fix behaviour too.
+  const wsBase = join(root, "ws");
+  const WS = join(wsBase, "fixture");
   const drive = (cmd, ...extra) => spawnSync(process.execPath,
-    [self, cmd, "--draft", draft.path, "--workspace", ws, ...extra], { encoding: "utf8" });
+    [self, cmd, "--draft", draft.path, "--workspace", wsBase, ...extra], { encoding: "utf8" });
 
   // 1 — a file with no frontmatter carries no trace to review against.
   {
@@ -796,13 +825,13 @@ async function runSelfTest() {
   ok("open names the Sections it found", /sections\s+2 —/.test(rOpen.stdout));
   ok("open reports the Packets as verified against the trace", /packets\s+3 verified/.test(rOpen.stdout));
   ok("open renders the FIRST recovery input", /first recovery input: .*recovery[\/\\]a1\.md/.test(rOpen.stdout));
-  ok("open writes a run record", existsSync(join(ws, "run.json")));
+  ok("open writes a run record", existsSync(join(WS, "run.json")));
 
   // 8 — THE RECOVERY IS BLIND, and this is the case that binds it. The input
   // carries the prose and nothing from the Packet; a token only the Packet has
   // must not appear.
   {
-    const input = readFileSync(join(ws, "recovery", "a1.md"), "utf8");
+    const input = readFileSync(join(WS, "recovery", "a1.md"), "utf8");
     ok("the recovery input carries the Step's prose", input.includes("The first passage opens the claim"));
     ok("the recovery input carries NOTHING from the Packet", !input.includes("PACKETONLYTOKEN"));
     ok("the recovery input names the draft line range it quoted", /draft lines \d+–\d+/.test(input));
@@ -841,7 +870,7 @@ async function runSelfTest() {
     const r = drive("recover", "--step", "a1", "--file", rec);
     ok("a recovery is recorded", r.status === 0 && /recorded: a1/.test(r.stdout));
     ok("and the NEXT recovery input is rendered", /next recovery input: .*a2\.md/.test(r.stdout));
-    ok("the recovered record lands in the workspace", existsSync(join(ws, "recovered", "a1.md")));
+    ok("the recovered record lands in the workspace", existsSync(join(WS, "recovered", "a1.md")));
   }
 
   // 12 — ACCEPTANCE 2: compare before every recovery refuses, naming what is
@@ -913,7 +942,7 @@ async function runSelfTest() {
     ok("and distinguishes an UNFILLED join from a clean review",
       /unfilled join rather than a clean review/.test(r.stdout));
     ok("and names the issue that fills it", /kogaki#872/.test(r.stdout));
-    ok("a join record lands in the workspace", existsSync(join(ws, "join.json")));
+    ok("a join record lands in the workspace", existsSync(join(WS, "join.json")));
   }
 
   // 18 — the two entry points this artifact DECLARES and kogaki#874 builds.
@@ -954,12 +983,12 @@ async function runSelfTest() {
   // into the run record, because the correction path that produces residue is
   // kogaki#874 and this artifact still owes the rendering.
   {
-    const run = JSON.parse(readFileSync(join(ws, "run.json"), "utf8"));
+    const run = JSON.parse(readFileSync(join(WS, "run.json"), "utf8"));
     run.residue = [
       { step_id: "a1", item: "reader_state_after", why: "the recovered state still differs after pass two" },
       { step_id: "a3", item: "restates", why: "the passage restates the Packet's wording" },
     ];
-    writeFileSync(join(ws, "run.json"), JSON.stringify(run, null, 2) + "\n");
+    writeFileSync(join(WS, "run.json"), JSON.stringify(run, null, 2) + "\n");
     const r = drive("close");
     ok("close renders residue", r.status === 0);
     const text = readFileSync(join(thesis, "review.md"), "utf8");
@@ -994,12 +1023,77 @@ async function runSelfTest() {
   // 23 — THE CLOSED INPUT SET, asserted structurally rather than promised. The
   // owner's ruling is that a need for a Brief, a Move or a Strand is a PACKET
   // GAP; the mechanical half is that no such read exists in this file.
+  // AN ALLOWLIST, NOT A DENYLIST (PR #882 round 1, finding 5). The first form
+  // named the modules it refused, so a future `./strand.mjs` would have passed
+  // it while breaking the ruling it exists to mechanize — the enumerated
+  // prohibition whose load-bearing half is its non-member fallback, and whose
+  // fallback there was ADMIT. Enumerating what the Harness MAY import inverts
+  // that: an import nobody anticipated is refused by default, which is what
+  // makes the registry's claim ("a property rather than a promise") hold
+  // against edits nobody anticipated either.
   {
     const src = readFileSync(self, "utf8");
     const code = src.slice(0, src.indexOf("async function runSelfTest"));
-    ok("the Harness imports no Brief, Move or Strand reader",
-      !/from "\.\/(brief|compose|terrain|assemble)\.mjs"/.test(code));
-    ok("and reads no moves/ or gloss/ path", !/moves\//.test(code) && !/ELEMENTS\.jsonl/.test(code));
+    const ALLOWED = new Set(["node:fs", "node:path", "node:url", "node:crypto", "./runs.mjs"]);
+    const imports = [...code.matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
+    const foreign = imports.filter((m) => !ALLOWED.has(m));
+    ok("the Harness imports ONLY node builtins and ./runs.mjs — an allowlist, so an unanticipated reader is refused by default",
+      imports.length > 0 && foreign.length === 0, foreign.join(", "));
+    // The two store literals stay asserted beside it: a Move or Strand reached
+    // by a path composed at runtime imports nothing, so the allowlist alone
+    // cannot see it. Neither case subsumes the other.
+    //
+    // AND THE CLAUSE IS NARROW ON PURPOSE. `brief.md` is deliberately NOT in
+    // this list, though the ruling covers Briefs too: the refusals at
+    // `resolveInputs` name `draft.mjs emit --brief <brief.md>` as the act that
+    // repairs a stale trace, and a literal test cannot tell that MENTION from a
+    // READ. Widening it would have failed on a correct refusal message, which
+    // is the guard-that-fires-on-correct-behaviour shape. The Brief is covered
+    // by the allowlist above, where the distinction is decidable.
+    ok("and reads no moves/ or gloss/ store literal",
+      !/moves\//.test(code) && !/ELEMENTS\.jsonl/.test(code));
+  }
+
+  // 23a — FINDING 2: `body_sha` is the SAME number on both sides. `emit` writes
+  // `fm + "\n\n" + body + "\n"` and records `sha256(body)`; the fixture Draft is
+  // built in exactly that shape, so the two can be compared directly. The
+  // pre-fix reader hashed `body + "\n"` and no case could witness it, because
+  // every assertion went through this module's own reader.
+  {
+    const raw = readFileSync(draft.path, "utf8");
+    const fmEnd = raw.indexOf("\n---\n", 3) + "\n---\n".length;
+    const emitted = raw.slice(fmEnd + 1);            // past the blank line
+    const emitBody = emitted.replace(/\n$/, "");      // what `emit` hashed
+    ok("readDraft's body is exactly the string `emit` hashes",
+      readDraft(draft.path).body === emitBody);
+    const text = readFileSync(join(thesis, "review.md"), "utf8");
+    ok("and the body sha in the owner record matches it",
+      text.includes(sha256(emitBody)));
+  }
+
+  // 23b — FINDING 3: `--workspace` is a BASE and the slug is joined onto it, so
+  // two Drafts driven under one base do not share a run record. Before the fix
+  // the second `open` silently overwrote the first's rendered inputs.
+  {
+    const other = join(root, "theses", "second");
+    const d2 = buildDraft(other, { packetDir });
+    const base = join(root, "shared-base");
+    const o1 = spawnSync(process.execPath, [self, "open", "--draft", draft.path, "--workspace", base], { encoding: "utf8" });
+    const o2 = spawnSync(process.execPath, [self, "open", "--draft", d2.path, "--workspace", base], { encoding: "utf8" });
+    ok("two Drafts open under one --workspace base", o1.status === 0 && o2.status === 0);
+    ok("and each gets its own run record under its own slug",
+      existsSync(join(base, "fixture", "run.json")) && existsSync(join(base, "second", "run.json")));
+    const r1 = JSON.parse(readFileSync(join(base, "fixture", "run.json"), "utf8"));
+    ok("so the first run's record still names the first Draft",
+      r1.draft === resolve(draft.path) && r1.slug === "fixture");
+  }
+
+  // 23c — FINDING 6: the owner record ends with a newline, like every other
+  // write here. It is repo-visible and committed, so without one it lands as a
+  // no-final-newline file in every diff that touches it.
+  {
+    const text = readFileSync(join(thesis, "review.md"), "utf8");
+    ok("the owner record ends with a newline", text.endsWith("\n"));
   }
 
   // 24 — usage with no command, and an unknown command.
