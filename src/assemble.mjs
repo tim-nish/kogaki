@@ -67,9 +67,10 @@ export const READER_FIELDS = [
   ["opening_question", "Opening question"],
 ];
 
-// THESE TWO TABLES OUTLIVE THE RENDERING THAT USED THEM, and that is a
-// decision rather than an oversight (kogaki#859). Their sole rendering path
-// closed when `rendering` went empty, which makes them look like dead code —
+// THESE TWO TABLES OUTLIVE BOTH THE RENDERING AND THE RECORD THAT USED THEM,
+// and that is a decision rather than an oversight (kogaki#859). Their sole
+// rendering path closed when `rendering` went empty, which makes them look like
+// dead code —
 // but the ruling that closed it is explicitly reversible one item at a time:
 // "if a later run shows one evidence item is needed to decide, that item is
 // added by its own ruling, never the list restored". These tables are what
@@ -338,7 +339,15 @@ export function assembleSelection(reviewed, doc) {
     return { error: "the Brief carries no Strands section — not a minted Brief (assembly runs over the Brief whose closed set the Candidates composed from)" };
   }
   const journeyIds = journeyBearingStrands(doc);
-  const options = cands.map((c) => { const ev = candidateEvidence(c, strandIds, journeyIds); return ({
+  // `candidateEvidence` IS NO LONGER CALLED HERE, and that follows from the
+  // ruling rather than being tidying beside it: computing a value the payload
+  // does not carry is precisely "an entry with no reader". It stays EXPORTED
+  // and stays exercised by `checks/check-brief-compose.sh`, because §6.1's
+  // journey-coverage disclosure and §4.11's bridge disclosure are specified
+  // behaviours whose display this ruling removed and whose future is an open
+  // decision — deleting the derivation would settle that decision by making
+  // one arm unbuildable, which is not this issue's to do.
+  const options = cands.map((c) => ({
     id: c.candidate_id,
     // THE EFFECT STATES ONCE, AT QUESTION LEVEL (kogaki#568). Every option's
     // label used to open `Adopt <id> — its Reader Path becomes the Brief's
@@ -364,23 +373,21 @@ export function assembleSelection(reviewed, doc) {
     // resolved; it is not the label's opening, because a token nobody chose
     // between is not what distinguishes an option.
     label: c.reader_experience,
-    // THE EVIDENCE AT THE GATE (§6): composition-time reasoning, surfaced
-    // for the owner — never an automated verdict. THIS OBJECT IS THE RECORD,
-    // not the rendering: it keeps the internal keys, it stays in the
-    // machine-local payload, and nothing shows it to the owner (kogaki#520).
-    evidence: {
-      reader_start: ev.reader_start,
-      reader_target: ev.reader_target,
-      opening_question: ev.opening_question,
-      step_validity: c.reasoning.step_validity,
-      transition_continuity: c.reasoning.transition_continuity,
-      thesis_closure: c.reasoning.thesis_closure,
-      obligations_ledger: ev.obligations_ledger,
-      placement_count: ev.placement_count,
-      journey_coverage: ev.journey_coverage,
-      bridges: ev.bridges,
-      review: c.review,
-    },
+    // NO EVIDENCE FIELD (kogaki#859, owner ruling 2026-09-04). The option is its
+    // id and its label; the gate's whole option set is those, the negation and
+    // free text. The first half of this ruling emptied the RENDERING and kept
+    // this object as the record; the amendment removed the object too, on a
+    // general position the ruling states rather than a preference about this
+    // payload: "the run record holds what a later act reads … an entry with no
+    // reader is unnecessary data and is refused, not tolerated."
+    //
+    // NOTHING IS LOST, and that is checkable rather than asserted: every field
+    // this object held was COPIED from inputs that survive untouched — the
+    // reasoning and review from `reviewed.json`, the rest derived on demand by
+    // `candidateEvidence` below, which is still exported and still exercised.
+    // The ruling is explicit that it does not touch those inputs, only what the
+    // payload copies out of them, so a later act that needs the reasoning reads
+    // it where it was composed instead of from a second copy nobody read.
     // THE RENDERING IS EMPTY (kogaki#859, owner ruling 2026-09-04). It carried
     // one paragraph per evidence item and per review area — sixteen per
     // Candidate, measured at ~6,400-7,090 characters each, about 20,000 above a
@@ -407,7 +414,7 @@ export function assembleSelection(reviewed, doc) {
     // different silences to a check, and only the second lets a later run tell
     // "nothing is rendered" from "nothing renders it".
     rendering: [],
-  }); });
+  }));
   options.push({
     id: "none-of-these",
     // THE PREMISE'S NEGATION IS FIRST-CLASS (§6; proposal-contract §2.1):
@@ -553,7 +560,7 @@ function cmdAssemble(args) {
   if (r.error) fail(r.error);
   mkdirSync(dirname(resolve(out)), { recursive: true });
   writeFileSync(out, JSON.stringify(r.payload, null, 2) + "\n");
-  console.log(`selection payload: ${r.payload.options.length - 1} Candidate(s) plus the first-class negation, each Candidate carrying its composition-time reasoning as evidence — recorded in this run, never a verdict and never rendered at the gate (§6, kogaki#859). Written: ${out}`);
+  console.log(`selection payload: ${r.payload.options.length - 1} Candidate(s) plus the first-class negation, each option carrying its id and its reader-experience label and nothing else — never a verdict, and the composition-time reasoning stays in the reviewed Candidates it was composed from rather than being copied here (§6, kogaki#859). Written: ${out}`);
 }
 
 function cmdAdopt(args) {

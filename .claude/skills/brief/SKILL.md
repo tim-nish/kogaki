@@ -206,8 +206,8 @@ recognised by its insertion contract, so nothing here reaches the Move
 substrate. Approval is **post-hoc**, and **its disclosure carrier is currently absent**:
 there is no per-Bridge question, and the bridge disclosure it relied on rode
 the Candidate-selection gate's evidence rendering, which kogaki#859 emptied.
-The bridges are still computed per Candidate and still recorded in the run;
-nothing shows them to the owner. This is a real consequence of that ruling
+The bridges are still derivable per Candidate from the composed path; nothing
+records them in the payload and nothing shows them to the owner. This is a real consequence of that ruling
 rather than an oversight in it, and it is carried as its own decision — see
 `specs/spec-draft-pipeline/SPEC.md` §4.11.
 
@@ -247,12 +247,14 @@ a human ever sees.
   question whose labels decide it; a session that removed the payload's half
   and wrote its own summary in its place would reproduce it exactly. Do not
   introduce the Candidates, do not compare them, do not explain what the
-  reasoning was — the composition-time reasoning is in the run record, and the
-  owner asks for it if they want it.
+  reasoning was — and note the payload does not carry it for you to relay: the
+  reasoning stays in `reviewed.json` and the Candidates file, where a later act
+  reads it if one needs to.
 - **Never show an internal key name.** `thesis_closure`, `placement_count`,
   `grounds_test` and their siblings are this codebase's names for the
   record's fields, not the owner's names for anything. They stay in the
-  payload's `evidence` object, which is never displayed. Since kogaki#859 the
+  payload's inputs — `reviewed.json` and the Candidates file — which the gate
+  neither displays nor copies. Since kogaki#859 the
   Candidate-selection gate displays no evidence at all, so this rule binds
   there through the option **labels** — the reader-experience prose — and
   through any line you were tempted to add. The plain questions the labels

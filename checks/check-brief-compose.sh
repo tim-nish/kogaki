@@ -318,10 +318,19 @@ try {
   }
   if (pay.free_text?.accepted !== true) fails.push("(e) the free-text channel is not unconditionally accepted");
   if (!/does not discharge/.test(pay.free_text?.prompt || "")) fails.push("(e) the free-text prompt does not state that it leaves the negation undischarged");
+  // THE OPTION CARRIES ITS ID AND ITS LABEL AND NOTHING ELSE (§6 as amended,
+  // kogaki#859 owner ruling 2026-09-04). This assertion REQUIRED the five
+  // composition-time items on every option until that ruling; it is INVERTED
+  // here rather than deleted, on the ruling's own general position — "the run
+  // record holds what a later act reads … an entry with no reader is
+  // unnecessary data and is refused, not tolerated". What replaces it is the
+  // same property one layer down: the items are still DERIVED per Candidate,
+  // asserted directly against `candidateEvidence` below and at (i), so the
+  // computation keeps its evidence while the payload stops copying it out.
   for (const o of (pay.options || []).filter((x) => !x.negates_premise)) {
-    for (const f of ["step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count"]) {
-      if (typeof o.evidence?.[f] !== "string") fails.push(`(e) option ${o.id} carries no ${f} evidence — the five composition-time items ride each Candidate (§6)`);
-    }
+    if ("evidence" in o) fails.push(`(e) option ${o.id} carries an evidence object — the payload copies no reasoning out of the reviewed Candidates (§6, kogaki#859)`);
+    const extra = Object.keys(o).filter((k) => !["id", "label", "rendering"].includes(k));
+    if (extra.length) fails.push(`(e) option ${o.id} carries ${JSON.stringify(extra)} — the option is its id and its reader-experience label, with the bounded rendering key and nothing else (kogaki#859)`);
     // THE EFFECT STATES ONCE, AND NO OPTION REPEATS IT (kogaki#568). This line
     // used to require every option label to match `Adopt … becomes the Brief's
     // sequence` — a string match on a clause IDENTICAL on every option, so what
@@ -341,13 +350,19 @@ try {
     if (new RegExp("^\\s*Adopt\\s+" + o.id + "\\b").test(o.label || "")) {
       fails.push(`(e) option ${o.id}'s label opens with the record id — the id resolves the answer and is not what distinguishes an option (kogaki#568)`);
     }
-    if (typeof o.evidence?.review !== "object") fails.push(`(e) option ${o.id} does not carry the path-review reasoning`);
   }
   // candB places only L1+L2 across two steps; candA the same — per-candidate
   // placement counts must come from each Candidate's OWN steps.
   const oneStrand = assembleSelection({ candidates: [mkCand("cand-5", "only the claim, no case", [step1]), candB] }, doc0);
-  const opt5 = (oneStrand.payload?.options || []).find((o) => o.id === "cand-5");
-  if (!opt5 || !/1 of 2/.test(opt5.evidence.placement_count)) fails.push("(e) a Candidate placing one of two Strands does not carry '1 of 2' — the count is per Candidate, from its own steps");
+  // RE-POINTED AT THE DERIVATION (kogaki#859): the count no longer rides the
+  // payload, so it is read where it is computed. The property is unchanged and
+  // is the one that mattered — per Candidate, from its OWN steps — and the
+  // assembly call is kept beside it so a Candidate placing one of two Strands
+  // is still driven through the payload path rather than only through the
+  // function.
+  if (!(oneStrand.payload?.options || []).some((o) => o.id === "cand-5")) fails.push("(e) a one-Strand Candidate did not reach the gate at all");
+  const ev5 = candidateEvidence(mkCand("cand-5", "only the claim, no case", [step1]), ["L1", "L2"], []);
+  if (!/1 of 2/.test(ev5.placement_count || "")) fails.push("(e) a Candidate placing one of two Strands does not derive '1 of 2' — the count is per Candidate, from its own steps");
 
   // (f) ADOPTION: the adopted Candidate's Reader Path lands in the Brief's
   // sequence; thesis_closure and tradeoffs fill from its reasoning (§5.1).
@@ -861,18 +876,32 @@ try {
   // VACUOUS, never violated: journeyPlacements over an empty Journey set
   if (journeyPlacements([step1, step2], []).size !== 0) fails.push("(h) journeyPlacements over no Journey-bearing member is not empty");
 
-  // (i) PER-CANDIDATE journey coverage rides the gate payload as EVIDENCE
-  // (§6.1: register is an axis Candidates differ on, so the figure is per
-  // Candidate and never averaged across the Brief).
+  // (i) PER-CANDIDATE journey coverage (§6.1: register is an axis Candidates
+  // differ on, so the figure is per Candidate and never averaged across the
+  // Brief).
+  //
+  // RE-POINTED FROM THE PAYLOAD TO THE DERIVATION (kogaki#859). It read
+  // `option.evidence.journey_coverage`, and the amended ruling removed that
+  // object from the payload — so the read would have thrown, and the tempting
+  // repair, deleting the case, would have retired §6.1's only mechanical
+  // evidence at the moment its DISPLAY was withdrawn. Display and computation
+  // are different questions and only the first was ruled on. The per-Candidate
+  // property is asserted where it is now computed, and the assembly call is
+  // KEPT beside it as the control that a journey-placing Candidate still
+  // reaches the gate at all.
   const jcandA = { ...JSON.parse(JSON.stringify(candA)), steps: [jstep] };
   const jpay = assembleSelection({ candidates: [jcandA, candB] }, doc0);
   if (jpay.error) fails.push(`(i) assembly refused a Candidate placing journey material: ${jpay.error}`);
-  else {
-    const o = jpay.payload.options.find((x) => x.id === jcandA.candidate_id);
-    const o2 = jpay.payload.options.find((x) => x.id === candB.candidate_id);
-    if (!/1 of 1 Journey-bearing/.test(o?.evidence?.journey_coverage || "")) fails.push("(i) the placing Candidate's journey_coverage is absent or wrong");
-    if (!/OMITTED and disclosed: L2/.test(o2?.evidence?.journey_coverage || "")) fails.push("(i) the omitting Candidate's journey_coverage does not disclose the omission — two Candidates differing on this axis read identically");
-    if (/verdict|pass|score/i.test(o?.evidence?.journey_coverage || "")) fails.push("(i) journey_coverage reads as a verdict — §6.1 registers no check and §4.6 keeps every MUST un-linted");
+  else if (!jpay.payload.options.some((x) => x.id === jcandA.candidate_id)) {
+    fails.push("(i) a Candidate placing journey material did not reach the gate");
+  }
+  {
+    const jids = journeyBearingStrands(doc0);
+    const e1 = candidateEvidence(jcandA, selectedStrands(doc0), jids);
+    const e2 = candidateEvidence(candB, selectedStrands(doc0), jids);
+    if (!/1 of 1 Journey-bearing/.test(e1.journey_coverage || "")) fails.push("(i) the placing Candidate's journey_coverage is absent or wrong");
+    if (!/OMITTED and disclosed: L2/.test(e2.journey_coverage || "")) fails.push("(i) the omitting Candidate's journey_coverage does not disclose the omission — two Candidates differing on this axis read identically");
+    if (/verdict|pass|score/i.test(e1.journey_coverage || "")) fails.push("(i) journey_coverage reads as a verdict — §6.1 registers no check and §4.6 keeps every MUST un-linted");
   }
 
   // (j) THE RENDERING IS BOUND TO THE LABELS (kogaki#520, reshaped at
@@ -916,36 +945,36 @@ try {
     } else if (INTERNAL.test(o.label)) {
       fails.push(`(j) option ${o.id}'s label reads an internal key: ${o.label.slice(0, 60)}`);
     }
-    // THE RECORD KEEPS EVERY KEY (kogaki#859 acceptance 2). This is what makes
-    // the reduction a rendering change rather than a loss, and it is why the
-    // ruling's own reversal — one item added back by its own ruling — has
-    // something to read.
-    for (const k of ["reader_start", "reader_target", "opening_question", "step_validity", "transition_continuity", "thesis_closure", "obligations_ledger", "placement_count", "journey_coverage"]) {
-      if (typeof o.evidence?.[k] !== "string") fails.push(`(j) the record lost internal key ${k} — the keys stay in the payload, and only the rendering was reduced`);
-    }
-    if (typeof o.evidence?.review !== "object" || o.evidence.review === null) {
-      fails.push(`(j) the record lost the review reasoning — the review areas left the rendering, not the record`);
-    } else {
-      for (const a of REVIEW_AREAS) {
-        if (typeof o.evidence.review[a] !== "string") fails.push(`(j) the record lost review area ${a} — the areas left the rendering, not the record`);
-      }
-    }
+    // AND THE PAYLOAD CARRIES NO RECORD EITHER (kogaki#859 as amended). The
+    // first half of this ruling emptied the rendering and KEPT the evidence
+    // object; three assertions stood here requiring that retention. The
+    // amendment removed the object, so they are INVERTED — and the inversion is
+    // recorded rather than performed silently, because this is the second time
+    // in one head that these assertions changed direction, which is exactly the
+    // history a later reader cannot reconstruct from the code.
+    if ("evidence" in o) fails.push(`(j) option ${o.id} carries an evidence object — the payload copies no reasoning out of the reviewed Candidates (§6, kogaki#859)`);
   }
   // ---- (l) THE THREE READER FIELDS (§5.1 v12, kogaki#521, story 1.77):
   // authored at PATH COMPOSITION per Candidate, riding the EXISTING gate,
   // landing at adoption, and REFUSING by name when unauthored. ----
   {
-    // AC1 — the axis is real: cand-1 and cand-2 carry DIFFERENT values, and
-    // the difference survives to the gate. A per-Brief fill would make these
-    // identical, which is the direct evidence that the fill pass was the
-    // wrong site.
+    // AC1 — the axis is real: cand-1 and cand-2 carry DIFFERENT values.
+    // RE-POINTED FROM THE GATE TO THE DERIVATION (kogaki#859 as amended): the
+    // clause "and the difference survives to the gate" is DROPPED because the
+    // gate no longer carries these fields at all, and re-pointed prose that
+    // quietly kept an untrue clause would be worse than the loss. What is
+    // asserted is what story 1.77 was actually protecting — that composing the
+    // three ONCE for the whole set, the declined fill-pass site, is detectable:
+    // two Candidates must not read identically. That property is per-Candidate
+    // composition and is independent of where the values are displayed.
     const rp = assembleSelection({ candidates: [candA, candB] }, doc0);
     if (rp.error) fails.push(`(l) a Candidate set carrying the reader fields was refused: ${rp.error}`);
-    const opts = (rp.payload?.options || []).filter((x) => !x.negates_premise);
+    const sids = selectedStrands(doc0), jids = journeyBearingStrands(doc0);
+    const evs = [candA, candB].map((c) => candidateEvidence(c, sids, jids));
     for (const [key] of READER_FIELDS) {
-      const seen = opts.map((o) => o.evidence?.[key]);
+      const seen = evs.map((e) => e[key]);
       if (seen.some((v) => typeof v !== "string" || v === "")) {
-        fails.push(`(l) an option carries no ${key} — path composition writes it per Candidate`);
+        fails.push(`(l) a Candidate derives no ${key} — path composition writes it per Candidate`);
       } else if (new Set(seen).size !== seen.length) {
         fails.push(`(l) two Candidates read IDENTICALLY on ${key} — the reader axis is not per-Candidate`);
       }
@@ -967,15 +996,21 @@ try {
     // outlives the rendering (see EVIDENCE_LABELS in src/assemble.mjs): a
     // label that decayed into an internal key while unrendered is exactly what
     // the ruling's own one-item-at-a-time reversal would render.
-    for (const o of opts) {
-      for (const [key] of READER_FIELDS) {
-        if (typeof o.evidence?.[key] !== "string" || o.evidence[key].trim() === "") {
-          fails.push(`(l) option ${o.id} carries no ${key} in the record — the three reader fields are authored per Candidate (§5.1 v12)`);
+    for (const [key] of READER_FIELDS) {
+      // AUTHORED PER CANDIDATE, asserted at the DERIVATION (kogaki#859 as
+      // amended). §5.1 v12's property is that the three are the Candidate's
+      // own; it was read off the payload, which no longer carries them, so it
+      // is read where they are composed. The refusal at adoption — the half
+      // §5.1 v12 actually gates on — is unchanged and asserted at AC5 below.
+      for (const c of [candA, candB]) {
+        const e = candidateEvidence(c, selectedStrands(doc0), journeyBearingStrands(doc0));
+        if (typeof e[key] !== "string" || e[key].trim() === "") {
+          fails.push(`(l) ${c.candidate_id} derives no ${key} — the three reader fields are authored per Candidate (§5.1 v12)`);
         }
-        const entry = EVIDENCE_LABELS.find(([k]) => k === key);
-        if (!entry) fails.push(`(l) ${key} has no plain label — the table is what a later ruling restoring one item reads (kogaki#859)`);
-        else if (findInternalVocabulary(entry[1])) fails.push(`(l) ${key}'s plain label reads an internal key: ${entry[1]}`);
       }
+      const entry = EVIDENCE_LABELS.find(([k]) => k === key);
+      if (!entry) fails.push(`(l) ${key} has no plain label — the table is what a later ruling restoring one item reads (kogaki#859)`);
+      else if (findInternalVocabulary(entry[1])) fails.push(`(l) ${key}'s plain label reads an internal key: ${entry[1]}`);
     }
     // AC4 — adoption lands all three, from the ADOPTED Candidate.
     const adr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB));
@@ -1446,26 +1481,32 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) 
   + "LABELS (kogaki#520, REDUCED at kogaki#859) — the `rendering` key is PRESENT and EMPTY, "
   + "the two asserted apart so a vanished key and a bounded one are distinguishable; the "
   + "option label, which is now the whole of what the owner reads, is non-empty and free of "
-  + "internal keys; every evidence field and every review area SURVIVES in `evidence` as the "
-  + "record, which is what makes the reduction a rendering change rather than a loss; no "
-  + "owner-facing string in the payload holds an internal key or a section reference; the deny "
-  + "tripwire refuses a LABEL carrying either shape, NAMING what leaked and producing no "
-  + "payload — a deny, never a rewrite layer — while a record full of internal keys passes, "
-  + "which is the assertion that catches the evidence returning by a side door. The tripwire "
-  + "reads REGISTER, never a composition MUST (§4.6 clause 3 stands). "
+  + "internal keys; the option carries NO evidence object and no key beyond id, label and the "
+  + "bounded rendering, per the amended ruling that a run record holds what a later act reads; "
+  + "the composition-time reasoning is asserted where it is COMPOSED instead, at (e), (i) and "
+  + "(l) against candidateEvidence, so removing the copy costs the derivation none of its "
+  + "evidence; no owner-facing string in the payload holds an internal key or a section "
+  + "reference; the deny tripwire refuses a LABEL carrying either shape, NAMING what leaked and "
+  + "producing no payload — a deny, never a rewrite layer — while a Candidate whose REASONING "
+  + "is full of internal keys passes, which is the assertion that catches the evidence "
+  + "returning by a side door. The tripwire reads REGISTER, never a composition MUST (§4.6 "
+  + "clause 3 stands). "
   + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859): THIRTY-FOUR "
   + "mutations. RE-DERIVED, not incremented: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
   + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three = 34. "
-  + "kogaki#859's three, all against the reduction of the gate to its labels — and the first is an "
+  + "kogaki#859's three, all against the reduction of the gate to its id and its label — and the first is an "
   + "INVERSION, recorded as such because an inverted assertion and a deleted one read identically at a later "
   + "head: restoring the sixteen evidence-and-review paragraphs — the shape this member REQUIRED one commit "
-  + "ago — fails (j)'s emptiness assertion naming the count it found, and additionally trips the record-is-not-"
-  + "a-leak-path assertion, which is the direct evidence that the two guard different doors. Deleting the "
+  + "ago — fails (j)'s emptiness assertion naming the count it found. Deleting the "
   + "`rendering` key outright fails (j)'s key-present assertion rather than passing its emptiness one, which "
-  + "is the direct evidence that present-and-empty is asserted apart from absent. And dropping `review` from "
-  + "the record fails (j)'s record half while leaving the rendering empty and green — the direct evidence "
-  + "that a reduction which also LOST the reasoning would not pass here, which is the whole of what makes "
-  + "kogaki#859 a rendering correction rather than a re-scoping. "
+  + "is the direct evidence that present-and-empty is asserted apart from absent. And restoring the `evidence` "
+  + "object to the option fails (e)'s no-extra-key assertion AND (j)'s no-evidence one, which is the direct "
+  + "evidence that the amendment's half is guarded at two sites and not only where the first half landed. "
+  + "THE SECOND AND THIRD OF THESE ARE DOUBLE INVERSIONS WITHIN ONE HEAD, and saying so is the point: this "
+  + "member first REQUIRED the evidence object, then — under the first half of the ruling — asserted its "
+  + "RETENTION in three new places, then under the amendment asserts its ABSENCE. A reader who cannot see "
+  + "that the direction changed twice cannot tell a considered inversion from a mistake, and the second "
+  + "change was made only because a review round read the issue's comments and this head had not. "
   + "kogaki#642's one, against the requirement that a Move is a Step's State component: restoring the optional test in "
   + "validateSteps — the v17 shape, `move` checked only when present — fails (a)'s a-step-without-a-Move assertion. The "
   + "assertion it fails is the INVERSION of the one that stood here, not a new sibling beside it: v17's (a) asserted that a "
