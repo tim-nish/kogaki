@@ -103,12 +103,15 @@ policy/shape.md
 !.claude/skills/brief/
 !.claude/skills/terrain/
 !.claude/skills/draft/
+!.claude/skills/review-draft/
 .claude/skills/brief/*
 .claude/skills/terrain/*
 .claude/skills/draft/*
+.claude/skills/review-draft/*
 !.claude/skills/brief/SKILL.md
 !.claude/skills/terrain/SKILL.md
 !.claude/skills/draft/SKILL.md
+!.claude/skills/review-draft/SKILL.md
 
 # The remaining reader, admitted by the same criterion (kogaki#621).
 # Tracking it is what lets its absence guard be deleted rather than placed:
