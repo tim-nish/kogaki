@@ -131,11 +131,14 @@ grouping and never its reason** — a length rule promoted to the reason is a
 heading budget, which is the fragmented draft again with a number attached.
 §4.15 is the text that binds.
 
-**NORMATIVE, AND PARTLY BUILT AT THIS HEAD**, stated in that shape deliberately
+**NORMATIVE, AND BUILT AT THIS HEAD**, stated in that shape deliberately
 — the same correction PR #813 round 1 forced one section down, where "the
 refusal stays" asserted the continuity of something that never existed. The
-build state is given **per clause**, because two of the three the unbuilt form
-listed are now false and the third is not:
+build state is given **per clause**, because the unbuilt form listed three and
+all three are now false — the last of them at kogaki#825, merged as PR #847.
+The per-clause shape is kept rather than collapsed into one BUILT line: each
+clause names the act that landed it, and a reader arriving at a clause needs
+its own carrier, not the block's aggregate:
 
 - **BUILT, #822** — the field is admitted and the four rules refuse. **Not in
   `src/brief.mjs`, which is where this note predicted it.** `cmdMint` writes a
@@ -149,23 +152,33 @@ listed are now false and the third is not:
   Step, and the specimen's five headings were the model's, written into the
   prose. Heading authorship was *unowned*, which is why the repair needed a
   second act — `section` refuses realized prose carrying a heading of its own.
-- **UNBUILT, #825** — `src/packet-template.md` still uses the word *Section*
-  for the per-Step unit, at its `# Write one Section`, `## The Move this Section
-  performs` and `## This Section's Step` block headers. Carrier: **#825** (the
-  Packet, including the vocabulary collision this ruling creates inside its
-  template). This is the clause the section below elaborates, and it is the one
-  a reader of that section should still expect to find open.
+- **BUILT, #825** — the vocabulary collision this ruling creates inside the
+  Packet is reconciled. `src/packet-template.md`'s block headers are rewritten
+  to the Step (`# Write one Step`, `## The Move this Step performs — its
+  contract`, `## This Step`), and it gains `## The Section this Step sits in`,
+  so the two words name two units inside the realizer's entire input.
+  `src/draft.mjs` carries `sectionPlacement` and `priorProseBySection` — every
+  Packet names its Section and the article-so-far block is Section-bounded —
+  and `checks/registry.json`'s `draft-runtime` contract records the rename in
+  the same act as the served heading. **The proper noun renamed completely and
+  the `section` subcommand was retained**, on the reconciliation's own terms
+  and at its own site list — stated once, below, and pointed at from here
+  rather than re-enumerated, because two copies of one site list are two
+  things that can disagree.
 
 **THE VOCABULARY COLLISION IS DISCLOSED HERE RATHER THAN LEFT TO ITS CARRIER,**
-because this record is what creates it, **and it is wider than the Packet
-template.** `src/packet-template.md` ships block headers reading `# Write one
+because this record is what creates it, **and it was wider than the Packet
+template.** `src/packet-template.md` shipped block headers reading `# Write one
 Section`, `## The Move this Section performs` and `## This Section's Step` — all
-using *Section* for what this section now calls a **Step**. After this ruling
-`This Section's Step` is a category error and `Write one Section` instructs the
-realizer to write a whole grouping when it must write one Step. That is not
+using *Section* for what this section calls a **Step**. After this ruling
+`This Section's Step` was a category error and `Write one Section` instructed the
+realizer to write a whole grouping when it must write one Step. That was not
 cosmetic: §3 makes the Packet the realizer's **entire** input, so a word meaning
 two things inside it is a defect in the one artifact whose job is to be
-unambiguous.
+unambiguous. **Reconciled at kogaki#825** (PR #847), per the BUILT clause above;
+the disclosure is kept in the past tense rather than deleted, because the
+collision is what this ruling created and a reader of §2.1's reconciliation
+needs the defect it answers.
 
 **THE PER-STEP ARTIFACT IS ITSELF CALLED THE "SECTION PACKET", and that is the
 larger half** (PR #826 round 1, finding 2 — the first drafting of this paragraph
@@ -248,9 +261,9 @@ necessity: *the Packet's design is a claim about what a model does with an
 input, and the template can state the rules but not the reasoning for the block
 ORDER, the exclusions, or which failure each header is defending against.*
 
-One Step's realization takes exactly one input: the **Step Packet** — named *the
-Section Packet* until kogaki#825, see §2.1 — rendered by `draft.mjs packet` from
-a fixed template. Nothing outside it is read.
+One Step's realization takes exactly one input: the **Step Packet** — renamed
+from *the Section Packet* at kogaki#825, see §2.1 — rendered by `draft.mjs
+packet` from a fixed template. Nothing outside it is read.
 
 **AND THE HARNESS RENDERS IT, as the step immediately before realization
 (kogaki#809, owner ruling 2026-09-03).** The sentence above was true of the
