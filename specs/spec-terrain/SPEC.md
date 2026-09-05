@@ -302,6 +302,46 @@ SubGroups appear where the judge's coherence label and §8's disclosures put the
 3. **A suppressed split is disclosed, never silent.** A group rendering flat
    where a split was possible says so.
 
+### 6.2.1 A JUDGE PIN IS DECLARED UNTIL THE HARNESS OBSERVES THE JUDGMENT
+
+**The judgment stays a named LLM judgment point; what changes is what the
+surfaces are willing to assert about it** (kogaki#892, under the owner's
+2026-09-04 ruling that a Harness must not consume model output as authoritative
+control input).
+
+The `--subdivisions` record declares `"judged": true` per group and the judge
+pin arrives as `--judge-model`/`--judge-effort`. Neither is an observation:
+`{"judged": true, "subgroups": []}` is the conformant record for a judgment that
+found no split and is byte-identical to one nobody performed, and the pin is
+whatever the composer typed. The display nonetheless rendered `judged by
+<model>/<effort>` — **a declaration rendered as an observation**, which is the
+right act with a guard silently disabled.
+
+**Two provenance states, and both surfaces name theirs.**
+
+- **`observed`** — the Harness invoked the judge itself, or holds a judgment
+  record its **own** act wrote. **Terrain invokes no judge, so this state has no
+  producer today.** It is declared rather than omitted: a single-state
+  provenance is indistinguishable from no provenance at all, and this is the
+  arm a judge-invoking act lights up without either renderer changing.
+- **`declared`** — no such record. The pin names what the **composer** says
+  judged the split, and the rendering says so.
+
+**What the Harness does observe, in both states, is the `--subdivisions`
+artifact it read** — whose sha it takes **itself**, from the bytes on disk. That
+binds a rendering to a record, so the two can be shown to disagree. It is **not**
+evidence that a judgment ran, and the rendered text does not let it stand in for
+one.
+
+**No second carrier is read for this.** A judgment record the session writes and
+the runtime reads back would be the same defect wearing a new name: read-back is
+allowed only of the Harness's own acts.
+
+**A judged-empty group renders `no split recorded`, not `judged, no split`**,
+wherever the provenance is `declared`. §12.1 v9's three states are **untouched**
+— `[]` and an absent key stay different states and the notice says so. What
+changed is the claim about the **act**, not about the record.
+
 ### 6.3 The post-tag-selection window — exactly two acts, and no question
 
 **Read §6.0 first.** This governs the window that opens once a tag is selected.
@@ -502,7 +542,12 @@ The rendered form is `report-format.json`'s `surfaces.full_report`.
 - **The co-tag query is the pair (selected tag, entered id set).** Two reports
   are the same report when both match. Group names are composed, so the tag is
   the stable half.
-- **The judge pin is the third component, always.** The arity is **uniform**: a
+- **The judge pin is the third component, always, and it is DECLARED unless the
+  Harness observed the judgment** — §6.2.1, cited here and restated nowhere. The
+  provenance rides the report record **beside** the identity, never inside it:
+  the key's third component is the PIN, and folding provenance into it would
+  make two runs over one record under one pin two different reports the moment a
+  judge-invoking act existed. The arity is **uniform**: a
   key whose shape depends on the report's own content is a key nobody can
   compute without the content. Where no judged material exists the pin is the
   typed literal `none` — and **`none` on a co-tag-generated report is

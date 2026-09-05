@@ -28,7 +28,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { loadGrammar, refuseUnlessConformant, FormatRefusal } from "./format-guard.mjs";
+import { loadGrammar, refuseUnlessConformant, validateSurface, FormatRefusal } from "./format-guard.mjs";
 import { enterRun, laneDir, terrainRunEntry } from "./runs.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -1115,6 +1115,9 @@ function cmdCotags(args) {
     if (!m || !e) fail("--judge-model and --judge-effort are required when the display serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md §6.2, §8)");
     judgePin = { model_id: String(m), effort_tier: String(e) };
   }
+  // WHAT THE HARNESS OBSERVED about that pin (kogaki#892). Computed here, beside
+  // the pin it qualifies, so a pin can never reach the display without it.
+  const judgeProv = judgmentProvenance(args.subdivisions ? String(args.subdivisions) : null);
 
   const selected = args.group ? String(args.group) : null;
   const shown = selected ? groups.filter((g) => g.name === selected || g.cotag === selected) : groups;
@@ -1321,7 +1324,10 @@ function cmdCotags(args) {
         say(sg.coherence_line);
         for (const d of sg.disclosures) say(`DISCLOSURE — ${d}`);
       }
-      say(`\njudged by ${judgePin.model_id} / ${judgePin.effort_tier} (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)`);
+      // THE LINE NAMES ITS PROVENANCE (kogaki#892). It used to read `judged by
+      // <model>/<effort>` on the strength of the record's own `judged: true`,
+      // which is a declaration rendered as an observation.
+      say(`\n${judgePinLine(judgePin, judgeProv)}`);
     }
   }
   // A SUPPRESSED SPLIT IS DISCLOSED, never silent (§2.1; the `claimless`
@@ -2197,6 +2203,127 @@ export function readSubdivisionEntry(name, entry) {
   return { judged: true, subgroups: entry.subgroups };
 }
 
+// --------------------------------------------------------------------------
+// JUDGMENT PROVENANCE — what the HARNESS OBSERVED about the judgment, held
+// apart from what the RECORD DECLARES about it (kogaki#892, under the owner's
+// 2026-09-04 ruling that a Harness must not consume model output as
+// authoritative control input for state, counts, eligibility or routing).
+//
+// `readSubdivisionEntry` above refuses an entry that does not state
+// `"judged": true`, and that refusal does real work: judged-empty and
+// never-judged are different states and the flag is what separates them. What
+// it CANNOT do is show that a judgment ran. `{"judged": true, "subgroups": []}`
+// is the conformant record for a judgment that found no split, and it is
+// byte-identical to one nobody performed. The judge pin is the same shape one
+// level over — `--judge-model`/`--judge-effort` are values the composer
+// supplies, and `readNeighborhoodJudgments`' own note is explicit that "no
+// model call happens inside this tool".
+//
+// THE DEFECT WAS IN THE RENDERING, NOT IN THE JUDGMENT. The judgment is a
+// named LLM judgment point and it stays. What the display printed was
+// `judged by <model>/<effort>` — which reads as a fact the Harness stands
+// behind — on the strength of a declaration alone. The right act with a guard
+// silently disabled, which is the ruling's own test for this class.
+//
+// TWO STATES, and which of them is reachable is stated rather than left for a
+// reader to infer:
+//
+//   `observed`  the Harness invoked the judge itself, or holds a judgment
+//               record its OWN act wrote. Terrain invokes no judge, so this
+//               state HAS NO PRODUCER TODAY. It is named rather than omitted
+//               because a single-state provenance is indistinguishable from no
+//               provenance at all, and because it is the arm a judge-invoking
+//               act would light up without touching either renderer.
+//   `declared`  no such record. The pin names what the COMPOSER says judged
+//               this split. This is every run today.
+//
+// WHAT THE HARNESS DOES OBSERVE, in both states: the `--subdivisions` artifact
+// it read, whose sha it takes ITSELF from the bytes on disk — the same read
+// `composedInputDigests` already makes for the report record. That is
+// kogaki#892 acceptance 1's second arm, "a recorded judgment artifact whose sha
+// the Harness took", and it is a real binding: it says WHICH record a rendering
+// came from, so a rendering and a record can be shown to disagree. It is NOT
+// evidence that a judgment ran, and the rendered text says so rather than
+// letting the sha stand in for the thing it cannot show.
+//
+// NO NEW FILE IS READ FOR THIS, and the omission is the decision. A
+// `judgment-record.json` the session writes and this layer reads back would be
+// the SAME defect wearing a second carrier: read-back is allowed only of the
+// Harness's own acts, and a record the model composes is model output whatever
+// it is named. Minting one would discharge the issue on the surface while
+// reproducing it underneath.
+export const JUDGMENT_OBSERVED = "observed";
+export const JUDGMENT_DECLARED = "declared";
+
+// The Harness's own judgment-invocation record. `null` because terrain invokes
+// no judge — the one honest value. A FUNCTION rather than a bare constant so
+// that the site a judge-invoking act would fill is named and reachable, and so
+// the two renderers below read one source rather than each testing a literal.
+export function harnessJudgeInvocation() {
+  return null;
+}
+
+export function judgmentProvenance(subdivisionsPath) {
+  const invocation = harnessJudgeInvocation();
+  return {
+    state: invocation ? JUDGMENT_OBSERVED : JUDGMENT_DECLARED,
+    // Taken from the bytes on disk BY THIS LAYER. A sha the composer supplied
+    // would be one more declaration, which is the whole of what this removes.
+    artifact_sha: subdivisionsPath
+      ? createHash("sha256").update(readFileSync(String(subdivisionsPath))).digest("hex").slice(0, 16)
+      : null,
+    invocation,
+  };
+}
+
+// A record written before this field existed carries no provenance, and the
+// honest reading of that is `declared` — an old record cannot show an
+// observation it never made. Absent and declared are NOT collapsed elsewhere;
+// they are collapsed HERE, once, at the one place the distinction has no
+// consequence, so no renderer has to test for `undefined`.
+export function provenanceOf(carrier) {
+  const p = carrier && carrier.judgment_provenance;
+  return p && p.state
+    ? p
+    : { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
+}
+
+// THE JUDGE LINE, composed ONCE for both owner surfaces (§6.2, §12.1). Two
+// renderers each writing their own sentence is how the display and the report
+// would come to say different things about the same record — the second-carrier
+// shape this file refuses everywhere else.
+export function judgePinLine(pin, prov) {
+  const p = prov || { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
+  const seen = p.artifact_sha
+    ? `the --subdivisions record it read, sha \`${p.artifact_sha}\``
+    : "no --subdivisions record at all";
+  if (p.state === JUDGMENT_OBSERVED) {
+    return `judged by ${pin.model_id} / ${pin.effort_tier} — OBSERVED: the Harness holds its own `
+      + `invocation record \`${p.invocation.id}\`, taken over ${seen} (SPEC-terrain §6.2, §12.1)`;
+  }
+  return `judge pin DECLARED — ${pin.model_id} / ${pin.effort_tier}. The Harness invoked no judge and holds `
+    + `no invocation record, so this names what the composer says judged this split rather than something the `
+    + `Harness saw happen; what it did observe is ${seen} (SPEC-terrain §6.2, §12.1 — a judged surface with no `
+    + `judge pin is the drift-undetectable shape; kogaki#892 — a declaration is not rendered as an observation)`;
+}
+
+// THE JUDGED-EMPTY NOTICE (kogaki#892 acceptance 2). Below the threshold a
+// judged-empty outcome is conformant and renders; at or above it the pre-render
+// refusal in `cmdReport` has already fired, which is why the size scoping this
+// acceptance names is enforced upstream rather than re-tested here — a second
+// size test would be a second carrier for one threshold.
+export function judgedEmptyNoticeLines(prov) {
+  if ((prov || {}).state === JUDGMENT_OBSERVED) {
+    return ["*The judgment produced NO split — this is a judged-empty outcome,",
+      "not an absent judgment. Members are listed below.*"];
+  }
+  return ["*NO SPLIT IS RECORDED for this group. The subdivisions record declares a",
+    "judgment that produced none; the Harness invoked no judge and holds no",
+    "invocation record, so it cannot show that a judgment RAN and does not say",
+    "one did (kogaki#892). This is still not an absent record: `[]` and an absent",
+    "key stay different states (SPEC-terrain §12.1 v9). Members are listed below.*"];
+}
+
 
 // The shard, parsed WHOLE. `parseGlossShard` above returns the first sentence
 // because a display row is a headline; §12 forbids truncation anywhere, so the
@@ -2778,8 +2905,21 @@ export function renderReportMarkdown(report, tag) {
   L.push(`*Selected tag:* \`${tag}\`  `);
   L.push(`*Selections:* ${(i.query.ids || []).join(", ")}  `);
   L.push(`*Substrate pin:* \`${i.pin}\`  `);
-  L.push(`*Judge:* ${i.judge_pin === NO_JUDGE ? "`none`"
-    : `\`${i.judge_pin.model_id}/${i.judge_pin.effort_tier}\``}`);
+  // §12.1's third component, AND WHAT THE HARNESS OBSERVED OF IT (kogaki#892).
+  // The pin alone read as a fact the Harness stands behind; the provenance
+  // clause is what separates a pin the composer declared from a judgment an act
+  // was seen to perform. Read through `provenanceOf`, so a report record written
+  // before the field existed renders `declared` rather than crashing or, worse,
+  // rendering as though it had been observed.
+  {
+    const prov = provenanceOf(report);
+    const pinText = i.judge_pin === NO_JUDGE ? "`none`"
+      : `\`${i.judge_pin.model_id}/${i.judge_pin.effort_tier}\``;
+    const seen = prov.artifact_sha ? `subdivisions record sha \`${prov.artifact_sha}\`` : "no subdivisions record";
+    L.push(`*Judge:* ${pinText} — ${prov.state === JUDGMENT_OBSERVED
+      ? `OBSERVED, Harness invocation record \`${prov.invocation.id}\`, over ${seen}`
+      : `pin DECLARED, no Harness invocation record; observed: ${seen}`}`);
+  }
   L.push("");
   L.push("> Untruncated. This report ranks nothing, narrows nothing and hides");
   L.push("> nothing (SPEC-terrain §2.3, §12). It is a RENDERING, not an address:");
@@ -2838,8 +2978,9 @@ export function renderReportMarkdown(report, tag) {
         L.push("a judged-empty outcome nor an absent judgment. Members are listed below,");
         L.push("and none was dropped.*");
       } else {
-        L.push("*The judgment produced NO split — this is a judged-empty outcome,");
-        L.push("not an absent judgment. Members are listed below.*");
+        // kogaki#892 acceptance 2 — a judged-empty outcome is rendered as
+        // "no split recorded" unless the Harness can show the judgment ran.
+        L.push(...judgedEmptyNoticeLines(provenanceOf(report)));
       }
       L.push("");
       for (const m of sec.members || []) L.push(...memberBlock(m, 3));
@@ -3410,6 +3551,12 @@ function cmdReport(args) {
   // claims and subdivisions ride the record. The neighborhood judgment no
   // longer does — it moved into the key above.
   const composedInputs = composedInputDigests(args);
+  // WHAT THE HARNESS OBSERVED of the judgment this report is served on
+  // (kogaki#892). Recorded BESIDE the identity and never inside it, exactly as
+  // `composed_inputs` is: the identity's third component is the PIN, and a
+  // provenance folded into the key would make two runs over one record under
+  // one pin two different reports the moment a judge-invoking act existed.
+  const judgmentProv = judgmentProvenance(args.subdivisions ? String(args.subdivisions) : null);
   const sectionsOut = [];
   let abnormalTotal = 0;
   const allMemberIds = [];
@@ -3804,6 +3951,8 @@ function cmdReport(args) {
     id: `terrain-full-report-${identityDigest(identity)}`,
     // RECORDED BESIDE THE IDENTITY, never inside it (§12.1, kogaki#700).
     composed_inputs: composedInputs,
+    // The same siting, for the same reason (kogaki#892) — see `judgmentProv`.
+    judgment_provenance: judgmentProv,
     kind: "full-report",
     identity,
     // §12 v7 — the entered set, canonical, recorded in the identity block.
@@ -3883,7 +4032,7 @@ function cmdReport(args) {
   // which is where the contract now lives so that neither path can drift from
   // the other again.
   announceArtifacts(rendered, out);
-  console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, [${identity.query.ids.join(", ")}]) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
+  console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, [${identity.query.ids.join(", ")}]) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`} judge-provenance=${judgmentProv.state}${judgmentProv.artifact_sha ? ` (subdivisions sha ${judgmentProv.artifact_sha})` : ""}`);
   console.log(`${sectionFigure({ name: `${tag} — ${identity.query.ids.length} selection(s)`, members: [...new Set(allMemberIds)], by_family: report.counted }, record.candidates.length)}`);
   if (abnormal) {
     console.log(`ABNORMAL: ${abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9, §12).`);
@@ -6394,6 +6543,79 @@ switch (cmd) {
         ok("tags, tag-rows and cotag-selection each refuse with their OWN disposition — the moved one names its successor, the retired two say there is none, and none of them falls through to the usage banner",
           refusals.every((x) => x.ok), refusals.filter((x) => !x.ok).map((x) => x.cmd).join(", ") || "(all matched)");
       }
+    }
+
+    // ---- JUDGMENT PROVENANCE (kogaki#892). The subdivisions record's own
+    // `judged: true` and its declared judge pin used to reach both owner
+    // surfaces as an assertion the Harness stood behind. These cases assert
+    // that what the Harness never observed is no longer rendered as though it
+    // had been, and — the direction a provenance case is usually blind in —
+    // that the observed form is still emittable, so the repair is a split and
+    // not a blanket downgrade.
+    {
+      const grammar = loadGrammar(REPORT_FORMAT);
+      const admits = (surface, text) => validateSurface(surface, text, grammar)
+        .every((v) => !/line_class_allowlist/.test(v));
+      const pin = { model_id: "a-model", effort_tier: "high" };
+      const declared = { state: JUDGMENT_DECLARED, artifact_sha: "0123456789abcdef", invocation: null };
+      const observed = { state: JUDGMENT_OBSERVED, artifact_sha: "0123456789abcdef", invocation: { id: "inv-1" } };
+
+      // THE STATE, not the text: terrain invokes no judge, so the only
+      // provenance a run can compute is `declared`. A future act that invokes
+      // one flips `harnessJudgeInvocation` and this case with it.
+      ok("terrain invokes no judge, so a computed provenance is DECLARED and carries no invocation record",
+        judgmentProvenance(null).state === JUDGMENT_DECLARED
+        && harnessJudgeInvocation() === null
+        && judgmentProvenance(null).invocation === null);
+
+      // The sha is taken by THIS layer from the bytes on disk — the one thing
+      // about the judgment the Harness actually observed.
+      {
+        const dir = join(tmpdir(), `terrain-selftest-prov-${process.pid}`);
+        mkdirSync(dir, { recursive: true });
+        const f = join(dir, "subdivisions.json");
+        writeFileSync(f, JSON.stringify({ G1: { judged: true, subgroups: [] } }));
+        const expect = createHash("sha256").update(readFileSync(f)).digest("hex").slice(0, 16);
+        ok("the provenance takes the subdivisions record's sha from the bytes on disk, not from anything the record declares",
+          judgmentProvenance(f).artifact_sha === expect && expect.length === 16);
+        rmSync(dir, { recursive: true, force: true });
+      }
+
+      // The display line. The pre-#892 text is the discriminator: a line that
+      // still opens `judged by` under a DECLARED provenance is the defect.
+      ok("under a declared provenance the display says the pin is DECLARED and does not say the judgment was observed",
+        /^judge pin DECLARED — a-model \/ high\./.test(judgePinLine(pin, declared))
+        && !/^judged by/.test(judgePinLine(pin, declared))
+        && judgePinLine(pin, declared).includes("0123456789abcdef"));
+      ok("the OBSERVED form is still composable and names the Harness's own invocation record — the repair is a split, not a blanket downgrade",
+        /^judged by a-model \/ high — OBSERVED/.test(judgePinLine(pin, observed))
+        && judgePinLine(pin, observed).includes("inv-1"));
+
+      // Both forms must reach the surface: a grammar admitting only the one the
+      // runtime happens to emit today would refuse the other the moment a
+      // judge-invoking act existed, which is the amend-it-later shape the
+      // superseded entry beside it records.
+      ok("cotag_groups admits BOTH judge-pin lines judgePinLine actually composes",
+        admits("cotag_groups", judgePinLine(pin, declared))
+        && admits("cotag_groups", judgePinLine(pin, observed)));
+
+      // Acceptance 2. `no split recorded` under a declaration; the judged-empty
+      // wording only where the judgment was observed.
+      ok("a judged-empty group renders NO SPLIT IS RECORDED under a declared provenance, and the judged-empty wording only under an observed one",
+        judgedEmptyNoticeLines(declared)[0].startsWith("*NO SPLIT IS RECORDED")
+        && !judgedEmptyNoticeLines(declared).join(" ").includes("this is a judged-empty outcome")
+        && judgedEmptyNoticeLines(observed).join(" ").includes("this is a judged-empty outcome"));
+      ok("full_report admits BOTH judged-empty notices judgedEmptyNoticeLines actually composes",
+        admits("full_report", judgedEmptyNoticeLines(declared).join("\n"))
+        && admits("full_report", judgedEmptyNoticeLines(observed).join("\n")));
+
+      // A report record written before the field existed renders DECLARED. The
+      // direction matters: the safe default for a record that cannot show an
+      // observation is the state that claims none.
+      ok("a report record carrying no judgment_provenance reads as DECLARED rather than as observed",
+        provenanceOf({}).state === JUDGMENT_DECLARED
+        && provenanceOf(undefined).state === JUDGMENT_DECLARED
+        && provenanceOf({ judgment_provenance: observed }).state === JUDGMENT_OBSERVED);
     }
 
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
