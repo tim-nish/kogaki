@@ -31,13 +31,14 @@
 //     Reader Path lands in the Brief's sequence (through the same §4.1
 //     fill the composition runtime owns), and thesis_closure and tradeoffs
 //     fill from its reasoning (§5.1).
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { resolve, dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fillBrief, replaceSlot, selectedStrands, placements,
-  resolveMoveIds, validateSpecialization,
+  resolveMoveIds, validateSpecialization, specializationDigest, validateRatification, specializationSchema, gateSchema, gateRegistry,
          journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
+import { laneDir } from "./runs.mjs";
 
 function fail(msg) {
   process.stderr.write(`assemble: ${msg}\n`);
@@ -522,6 +523,45 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   if (judged.error) {
     return { error: `candidate ${candidateId}: ${judged.error}` };
   }
+  // RATIFIED HALF — the owner gate (§4.12.3, kogaki#893). Sited HERE, after
+  // the judged half and before anything is written, and the order is the
+  // whole of acceptance item 2: a `contradicts` or `cannot-determine` record
+  // refuses ABOVE, unchanged, with the same message in the same path order,
+  // and never reaches this line. An owner is asked to ratify a record that
+  // already passes and nothing else — carrying a failing record to a gate
+  // would ask them to approve a refusal.
+  //
+  // A PASSING RECORD IS NO LONGER THE SOLE UNLOCK, which is the property.
+  // The verdict is the composing sitting's, so a record of shape-valid
+  // `consistent` verdicts with no judgment behind them used to reach the
+  // write with nothing beside it.
+  //
+  // The absence is refused HERE rather than inside the validator, for the
+  // same reason the record's absence is: "not ratified" is a fact about an
+  // act that did not happen, not about a capture's shape.
+  const digest = specializationDigest(instantiation.specialization, c.steps);
+  if (instantiation.ratification === undefined) {
+    return { error: `candidate ${candidateId}: the specialization record passes, and a PASSING RECORD IS NOT THE SOLE UNLOCK `
+      + `(§4.12.3, kogaki#893). Every verdict here is the composing sitting's own, so the record is rendered to the owner and `
+      + `RATIFIED before the path is written into the Brief. Raise the ${specializationSchema().ratification.gate_id} gate with `
+      + `\`assemble.mjs ratify-specialization\`, record the owner's answer, and pass --ratification <capture>. `
+      + `The record being ratified digests ${digest}. Nothing was written.`,
+      // THE REFUSAL CARRIES ITS SUBJECT. `ratify-specialization --declare`
+      // reaches this same branch deliberately — the gate is declared over a
+      // record that has ALREADY passed every clause above, so the one act
+      // that establishes "passing" is the one that composes the gate. These
+      // two fields are what it needs, returned rather than recomputed by a
+      // second reader that could disagree with this one about what passed.
+      digest,
+      rendering: c.steps.map((st) => {
+        const v = instantiation.specialization.verdicts.find((x) => x.step_id === st.step_id);
+        return { step_id: st.step_id, move: st.move, verdict: v.verdict, why: v.why.trim() };
+      }) };
+  }
+  const ratified = validateRatification(instantiation.ratification, candidateId, digest);
+  if (ratified.error) {
+    return { error: `candidate ${candidateId}: ${ratified.error}` };
+  }
 
   const filled = fillBrief(doc, {
     steps: c.steps,
@@ -577,7 +617,8 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
     if (r.error) return r;
     out = r.doc;
   }
-  return { doc: out, placed: filled.placed, total: filled.total, checked: resolved.checked, judged: judged.judged };
+  return { doc: out, placed: filled.placed, total: filled.total, checked: resolved.checked, judged: judged.judged,
+    ratified_by: ratified.tool_use_id, record_digest: digest };
 }
 
 function argString(args, key, usage) {
@@ -634,6 +675,14 @@ function cmdAdopt(args) {
     try { instantiation.specialization = JSON.parse(readFileSync(args.specialization, "utf8")); }
     catch (e) { fail(`the specialization record at ${args.specialization} cannot be read (${e.message}) — §4.12's judgment record is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
   }
+  // §4.12.3's ratification capture, read the same way and for the same
+  // reason: an omitted flag reaches `adoptCandidate` as `undefined` and is
+  // refused there, which is what makes the gate unskippable, while an
+  // unreadable file is a fault rather than an absence.
+  if (typeof args.ratification === "string" && args.ratification !== "") {
+    try { instantiation.ratification = JSON.parse(readFileSync(args.ratification, "utf8")); }
+    catch (e) { fail(`the ratification capture at ${args.ratification} cannot be read (${e.message}) — §4.12.3's owner answer is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
+  }
   const r = adoptCandidate(doc, reviewed, id, instantiation);
   if (r.error) fail(r.error);
   // Per-block snapshots (kogaki#523): adoption is the ONE surviving write
@@ -645,7 +694,120 @@ function cmdAdopt(args) {
   writeFileSync(briefPath, r.doc);
   snapshotBrief(briefPath, "adopt-candidate", "after", r.doc, snapSeq);
   console.log(`instantiation contract (§4.12): ${r.checked} move id(s) resolved against the Move library, ${r.judged} Step specialization verdict(s) read from the record — judged by the composing sitting, validated here, composed here never`);
+  console.log(`specialization ratification (§4.12.3): the record digesting ${r.record_digest} was rendered at the ${specializationSchema().ratification.gate_id} gate and ratified by the owner (AskUserQuestion ${r.ratified_by}) — a passing record is not the sole unlock`);
   console.log(`adopted ${id} — its Reader Path is the Brief's sequence; thesis_closure and tradeoffs filled from its reasoning; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
+}
+
+// ---------------------------------------------------------------------------
+// THE RATIFICATION GATE'S EXECUTOR (§4.12.3, kogaki#893).
+//
+// ONE ACT, TWO MODES, AND NO ENTRY POINT THAT CAN MINT STATE OUT OF BAND.
+// `--declare` composes the run declaration and renders the record; `--capture`
+// records the owner's answer against THAT declaration. Both recompute the
+// subject from the same inputs adoption reads, through the same
+// `adoptCandidate` call, so a capture cannot be written for a record that
+// would not itself pass — the declare mode reaches its subject only through
+// the branch that fires after every clause of §4.12 has passed. This is the
+// property kogaki#625 item 1 established on the Terrain side by removing
+// `gate` and `capture` as entry points: an answer is admitted only at the
+// wait that declared it. Here the wait is the adoption refusal itself.
+function ratificationDir(briefPath) {
+  return join(laneDir("brief"), basename(dirname(resolve(briefPath))));
+}
+
+function cmdRatify(args) {
+  const briefPath = argString(args, "brief", "ratify-specialization needs --brief <theses/<slug>/brief.md>");
+  const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
+    "ratify-specialization needs --reviewed <json> — the reviewed Candidates the selection gate offered"), "utf8"));
+  const id = argString(args, "candidate", "ratify-specialization needs --candidate <id>");
+  const doc = readFileSync(briefPath, "utf8");
+  const instantiation = { movesDir: typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : undefined };
+  const specPath = argString(args, "specialization",
+    "ratify-specialization needs --specialization <json> — the record being ratified IS the gate's evidence, so there is no gate without one");
+  try { instantiation.specialization = JSON.parse(readFileSync(specPath, "utf8")); }
+  catch (e) { fail(`the specialization record at ${specPath} cannot be read (${e.message})`); }
+
+  // THE SUBJECT, established by the same act that would adopt it. A record
+  // that does not pass never reaches a gate: asking an owner to ratify a
+  // `contradicts` verdict would ask them to approve a refusal, and acceptance
+  // item 2's "the refusing arms are unchanged" is exactly this ordering.
+  const probe = adoptCandidate(doc, reviewed, id, instantiation);
+  if (probe.digest === undefined) {
+    fail(probe.error
+      ? `${probe.error}\n\nNo gate is raised: the record does not pass, so there is nothing to ratify. Repair the record, not the gate.`
+      : `candidate ${id}: the record was adopted without a gate — the ratification requirement is not in force, which is the defect kogaki#893 exists to close`);
+  }
+  const sch = specializationSchema().ratification;
+  const dir = ratificationDir(briefPath);
+  mkdirSync(dir, { recursive: true });
+  const declPath = join(dir, `${sch.gate_id}${gateSchema().capture.run_declaration_suffix}`);
+  const capPath = join(dir, `${sch.gate_id}.gate-capture.json`);
+  const binding = { candidate_id: id, record_digest: probe.digest };
+
+  if (args.capture) {
+    // THE CAPTURE, admitted only against a declaration this act wrote, and
+    // only for the record that declaration was raised over. Without the
+    // declaration there is no gate; with a different record the binding below
+    // no longer matches and `validateRatification` refuses at adoption.
+    let decl;
+    try { decl = JSON.parse(readFileSync(declPath, "utf8")); }
+    catch { fail(`no declaration at ${declPath} — an answer is admitted at the wait that declared it, so run --declare and raise the gate first (§4.12.3)`); }
+    if (decl.ratifies?.record_digest !== probe.digest) {
+      fail(`the declaration at ${declPath} was raised over a record digesting ${JSON.stringify(decl.ratifies?.record_digest)}, `
+        + `but the record on disk now digests ${JSON.stringify(probe.digest)} — the record changed after the gate was raised, `
+        + `so this answer would ratify verdicts the owner was never shown. Re-run --declare and re-raise the gate (§4.12.3).`);
+    }
+    const toolUseId = argString(args, "tool-use-id",
+      "--capture needs --tool-use-id <id> — the AskUserQuestion tool_use_id, the one field tying the row to a question the harness actually asked");
+    const option = argString(args, "option",
+      `--capture needs --option <${sch.affirmative_option}|${sch.declining_option}>`);
+    if (!decl.options.some((o) => o.id === option)) {
+      fail(`answer option ${JSON.stringify(option)} was not offered by the declaration`);
+    }
+    const row = {
+      stop_id: `stop-${Date.now()}`,
+      gate_id: sch.gate_id,
+      evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
+      payload: {
+        options_offered: decl.options.map((o) => o.id),
+        free_text_offered: true,
+        answer: { option },
+      },
+      [sch.capture_binding_key]: binding,
+    };
+    const capture = existsSync(capPath) ? JSON.parse(readFileSync(capPath, "utf8")) : { rows: [] };
+    capture.rows.push(row);
+    writeFileSync(capPath, JSON.stringify(capture, null, 2) + "\n");
+    console.log(`captured: ${option} at ${sch.gate_id}, bound to candidate ${id} and record digest ${probe.digest}`);
+    console.log(option === sch.affirmative_option
+      ? `pass --ratification ${capPath} to adopt-candidate. Written: ${capPath}`
+      : `the record is NOT ratified — adoption will refuse, naming this answer, and nothing is written to the Brief. Written: ${capPath}`);
+    return;
+  }
+
+  const registered = (gateRegistry().gates || []).find((g) => g.id === sch.gate_id);
+  if (!registered) fail(`${sch.gate_id} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
+  const declaration = {
+    ...registered,
+    declared_at: new Date().toISOString(),
+    run_declaration: true,
+    ratifies: binding,
+    // THE RECORD, byte-for-byte as `validateSpecialization` read it. The
+    // session renders THIS above the question rather than composing or
+    // retyping it — a gate whose evidence is retyped is a gate over the
+    // retyping.
+    record_rendering: probe.rendering,
+  };
+  delete declaration.dynamic_options;
+  writeFileSync(declPath, JSON.stringify(declaration, null, 2) + "\n");
+  console.log(`${sch.gate_id} — the §4.12 specialization record for candidate ${id}, digest ${probe.digest}.`);
+  console.log(`Render every row below on screen, then ask the declaration's question through AskUserQuestion.\n`);
+  for (const r of probe.rendering) {
+    console.log(`  ${r.step_id}  instantiates ${r.move}  —  ${r.verdict}`);
+    console.log(`      "${r.why}"`);
+  }
+  console.log(`\nThen: assemble.mjs ratify-specialization --capture --tool-use-id <id> --option <${sch.affirmative_option}|${sch.declining_option}> (same --brief/--reviewed/--candidate/--specialization)`);
+  console.log(`declaration: ${declPath}`);
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -653,6 +815,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   switch (args._cmd) {
     case "assemble": cmdAssemble(args); break;
     case "adopt-candidate": cmdAdopt(args); break;
-    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path> | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> [--moves-dir <dir>]");
+    case "ratify-specialization": cmdRatify(args); break;
+    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | ratify-specialization [--capture --tool-use-id <id> --option <id>] --brief <path> --reviewed <json> --candidate <id> --specialization <json> [--moves-dir <dir>]\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> --ratification <capture> [--moves-dir <dir>]");
   }
 }

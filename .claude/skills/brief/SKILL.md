@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19, §4.12 v22): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → the §4.12 specialization judgment → adoption, ending only at a filled Brief or at an owner answer that ends it. TWO owner gates, one before the mint (each Thesis with the name it gives the Brief) and one at Candidate selection; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19, §4.12 v22): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → the §4.12 specialization judgment → adoption, ending only at a filled Brief or at an owner answer that ends it. THREE owner gates: one before the mint (each Thesis with the name it gives the Brief), one at Candidate selection, and one ratifying the §4.12 specialization record before the path is written; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -131,7 +131,7 @@ kogaki#494).
    The runtime refuses a payload whose rendering leaks an internal identifier
    or a section reference; relay that refusal and fix the wording at source.
 10. **Raise the Candidate-selection gate** through AskUserQuestion — the
-    second and last owner question — rendering the payload's `rendering`
+    second of three owner questions (§4.12.3 added the third, kogaki#893) — rendering the payload's `rendering`
     entries and nothing else, per the rendering contract below. Since
     kogaki#859 that rendering is **empty**: nothing goes on screen above this
     question, yours included. Carry the
@@ -150,11 +150,33 @@ kogaki#494).
     reach. **The runtime composes no verdict here and fills no default** — it
     validates your record and refuses without one, so there is nothing to
     inherit by leaving the flag off.
+11a. **Raise the specialization-ratification gate** (§4.12.3) — the THIRD and
+    last owner question, and the only one after the Candidate is chosen.
+    `node src/assemble.mjs ratify-specialization --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json>`
+    composes the run declaration and prints the record: every Step, the Move it
+    instantiates, its verdict, and the sentence you wrote. **Render exactly
+    what it printed** — do not retype, summarize or re-order it; a gate whose
+    evidence is retyped is a gate over the retyping. Then ask the
+    declaration's question through AskUserQuestion, with its two options
+    (`ratify` / `not-ratified`) and free text, and record the answer:
+    `node src/assemble.mjs ratify-specialization --capture --tool-use-id <the AskUserQuestion tool_use_id> --option <ratify|not-ratified>` plus the same four flags.
+    **The verdicts above are yours, and this is what stops them being the only
+    thing between you and the write.** A record every one of whose verdicts
+    reads `consistent` unlocks the Brief, and you composed it — so the owner
+    reads it before it lands. **`not-ratified` is a real answer**: it is
+    recorded, adoption refuses naming it, nothing is written, and the Steps the
+    owner disagreed with are re-judged. A free-text answer is a comment and
+    never a ratification.
+    **The gate is raised over a record that already PASSES.** If the command
+    refuses instead of declaring, your record does not pass §4.12 — repair the
+    record, not the gate, and nothing reaches the owner.
 12. **Adopt the owner's Candidate** —
-    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json>`.
+    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json> --ratification <the capture path the step above printed>`.
     Its Reader Path becomes the Brief's sequence; `thesis_closure` and
     `tradeoffs` fill from its reasoning. **With no owner answer nothing lands**
-    — the runtime refuses. It also refuses a Step whose `move` resolves to no
+    — the runtime refuses, at the selection gate and at the ratification gate
+    alike: without `--ratification` it refuses even a record whose every
+    verdict passes, naming the gate and this flag (§4.12.3). It also refuses a Step whose `move` resolves to no
     record in `moves/` (§4.12), naming the Step and the id: bind an admitted
     Move, or admit the Move to the library first — the library grows by an
     admission act, never by a Brief naming an id. Relay either refusal and fix
