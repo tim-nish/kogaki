@@ -2307,6 +2307,42 @@ export function judgePinLine(pin, prov) {
     + `judge pin is the drift-undetectable shape; kogaki#892 — a declaration is not rendered as an observation)`;
 }
 
+// THE REPORT'S JUDGE LINE, composed ONCE (kogaki#918). It sits beside
+// `judgePinLine` rather than inside it: the display and the report are two
+// surfaces with two sentences by §12.1's own arrangement, and folding them
+// would make one of them say what the other's reader needs. What it does share
+// is the rule — one composer per surface, so a renderer cannot come to say two
+// things about one record.
+//
+// THREE ARMS, and the third is what #918 adds. A `none` pin is the ABSENCE of
+// a pin, not a declared one, so a provenance clause reading `pin DECLARED`
+// against it asserts a declaration nobody made — the same class kogaki#892
+// closed one step over (a declaration rendered as an observation), arriving in
+// the change that closed it.
+//
+// AND THE CLAUSE NAMES THE RECORD, never the run. It used to open `observed:`,
+// which reads as a fact about the act that produced the line — and the
+// idempotent-rerun path re-renders a PRIOR record through this same function,
+// so a rerun that DID pass `--subdivisions` rendered a pre-#892 record as
+// `observed: no subdivisions record`: true of the record, false of the run,
+// with nothing in the line saying which. The repair is made here, at the one
+// composer both paths reach, rather than at the rerun site — a second sentence
+// for the second path is exactly the divergence this arrangement refuses.
+export function reportJudgeLine(identity, prov) {
+  const p = prov || { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
+  const held = p.artifact_sha
+    ? `subdivisions record sha \`${p.artifact_sha}\``
+    : "no subdivisions record";
+  if (identity.judge_pin === NO_JUDGE) {
+    return "*Judge:* `none` — this report names no judge, so there is nothing here to attribute "
+      + `to one; the record holds: ${held}`;
+  }
+  const pinText = `\`${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}\``;
+  return `*Judge:* ${pinText} — ${p.state === JUDGMENT_OBSERVED
+    ? `OBSERVED, Harness invocation record \`${p.invocation.id}\`, over ${held}`
+    : `pin DECLARED, no Harness invocation record; the record holds: ${held}`}`;
+}
+
 // THE JUDGED-EMPTY NOTICE (kogaki#892 acceptance 2). Below the threshold a
 // judged-empty outcome is conformant and renders; at or above it the pre-render
 // refusal in `cmdReport` has already fired, which is why the size scoping this
@@ -2911,15 +2947,7 @@ export function renderReportMarkdown(report, tag) {
   // was seen to perform. Read through `provenanceOf`, so a report record written
   // before the field existed renders `declared` rather than crashing or, worse,
   // rendering as though it had been observed.
-  {
-    const prov = provenanceOf(report);
-    const pinText = i.judge_pin === NO_JUDGE ? "`none`"
-      : `\`${i.judge_pin.model_id}/${i.judge_pin.effort_tier}\``;
-    const seen = prov.artifact_sha ? `subdivisions record sha \`${prov.artifact_sha}\`` : "no subdivisions record";
-    L.push(`*Judge:* ${pinText} — ${prov.state === JUDGMENT_OBSERVED
-      ? `OBSERVED, Harness invocation record \`${prov.invocation.id}\`, over ${seen}`
-      : `pin DECLARED, no Harness invocation record; observed: ${seen}`}`);
-  }
+  L.push(reportJudgeLine(i, provenanceOf(report)));
   L.push("");
   L.push("> Untruncated. This report ranks nothing, narrows nothing and hides");
   L.push("> nothing (SPEC-terrain §2.3, §12). It is a RENDERING, not an address:");
@@ -6612,6 +6640,35 @@ switch (cmd) {
       // A report record written before the field existed renders DECLARED. The
       // direction matters: the safe default for a record that cannot show an
       // observation is the state that claims none.
+      // ---- kogaki#918. The provenance clause was composed against EVERY pin,
+      // including the typed literal `none` — so the absence of a pin rendered
+      // as `pin DECLARED`, an absence asserted as a declaration, which is #892's
+      // own class one step over and arrived in the change that closed it.
+      ok("a `none` pin renders no declaration: the report's judge line asserts nothing was declared and never says DECLARED",
+        reportJudgeLine({ judge_pin: NO_JUDGE }, declared).startsWith("*Judge:* `none` —")
+        && !/declared/i.test(reportJudgeLine({ judge_pin: NO_JUDGE }, declared))
+        && !/declared/i.test(reportJudgeLine({ judge_pin: NO_JUDGE }, observed)));
+      // The direction a downgrade case is usually blind in: the two pinned arms
+      // must still assert what they always did, or the repair is a blanket
+      // silencing rather than a third arm.
+      ok("a pinned report judge line still says DECLARED where the Harness observed nothing, and OBSERVED where it did",
+        /pin DECLARED, no Harness invocation record/.test(reportJudgeLine({ judge_pin: pin }, declared))
+        && /OBSERVED, Harness invocation record `inv-1`/.test(reportJudgeLine({ judge_pin: pin }, observed)));
+      // Acceptance 2. The rerun path re-renders a PRIOR record through this
+      // same composer, so the clause must describe the RECORD; `observed:` read
+      // as a claim about the run that re-read it, and a pre-#892 record
+      // re-rendered by a `--subdivisions` rerun said the rerun observed nothing.
+      ok("the report judge line names what the RECORD holds and never what the run passed, on all three arms",
+        [reportJudgeLine({ judge_pin: NO_JUDGE }, declared),
+          reportJudgeLine({ judge_pin: pin }, declared),
+          reportJudgeLine({ judge_pin: pin }, observed)]
+          .every((line) => /the record holds:|over subdivisions record sha/.test(line)
+            && !/observed: /.test(line)));
+      ok("full_report admits all three judge lines reportJudgeLine actually composes",
+        admits("full_report", reportJudgeLine({ judge_pin: NO_JUDGE }, declared))
+        && admits("full_report", reportJudgeLine({ judge_pin: pin }, declared))
+        && admits("full_report", reportJudgeLine({ judge_pin: pin }, observed)));
+
       ok("a report record carrying no judgment_provenance reads as DECLARED rather than as observed",
         provenanceOf({}).state === JUDGMENT_DECLARED
         && provenanceOf(undefined).state === JUDGMENT_DECLARED

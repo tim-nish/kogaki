@@ -226,9 +226,9 @@
         },
         {
           "id": "judge",
-          "form": "*Judge:* <JudgePin> — <judgment provenance clause>",
-          "governing": "SPEC-terrain §12.1 — the identity's third component, now rendered WITH what the Harness observed of it (kogaki#892). The provenance clause names either the Harness's own invocation record or, where there is none, that the pin is DECLARED and that what was observed is the subdivisions record's sha.",
-          "superseded": "*Judge:* <JudgePin> (kogaki#892: the pin alone read as a fact the Harness stands behind.)"
+          "form": "*Judge:* `none` — this report names no judge, so there is nothing here to attribute to one; the record holds: … | *Judge:* `<model_id>/<effort_tier>` — pin DECLARED, no Harness invocation record; the record holds: … | *Judge:* `<model_id>/<effort_tier>` — OBSERVED, Harness invocation record `<id>`, over …",
+          "governing": "SPEC-terrain \u00a712.1 \u2014 the identity's third component, rendered WITH what the Harness observed of it (kogaki#892) and with the pin's own identity respected (kogaki#918). THREE alternatives, composed by one function (`reportJudgeLine`) so this class and the display's `judge_pin` class cannot come to say different things about one record. The first is emitted against the typed literal `none`, which is the ABSENCE of a pin and so declares nothing; the second where a pin was declared and the Harness observed no invocation, which is every run today; the third where it observed one. Every arm names what the RECORD holds, never what the run passed \u2014 the idempotent-rerun path re-renders a prior record through this same composer.",
+          "superseded": "*Judge:* <JudgePin> (kogaki#892: the pin alone read as a fact the Harness stands behind.) (kogaki#918: `pin DECLARED, no Harness invocation record; observed: \u2026` was composed against every pin including `none`, so an absence rendered as a declaration; and its `observed:` clause read as a claim about the run rather than about the record the rerun path re-rendered.)"
         },
         {
           "id": "preamble",
