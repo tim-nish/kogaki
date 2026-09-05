@@ -3,7 +3,7 @@
     "The gate carrier, machine-readable (SPEC.md beside this file is the",
     "prose half; kogaki#16, manifest item 4).",
     "checks/check-gate-carrier.sh READS these lists rather than restating",
-    "them — this file is the single carrier, so amending the contract is",
+    "them \u2014 this file is the single carrier, so amending the contract is",
     "one edit and never a two-copy divergence. Same arrangement as",
     "src/record-schema.json, deliberately: item 3",
     "and item 4 are adjacent contracts and share no machinery."
@@ -13,7 +13,7 @@
     "claude-code": {
       "medium_must_be": "selector",
       "affordance": "AskUserQuestion",
-      "binding": "topics/claude-code-ops.md:61@5f769dfe — RATIFIED as the rule's first named MEDIUM BINDING"
+      "binding": "topics/claude-code-ops.md:61@5f769dfe \u2014 RATIFIED as the rule's first named MEDIUM BINDING"
     }
   },
   "media_forbidden_in_every_host": [
@@ -55,13 +55,13 @@
     ],
     "recommended_must_be_option_id": true,
     "per_option_evidence_field": "evidence",
-    "carried_here": "structural presence only — a necessary condition, never sufficiency",
+    "carried_here": "structural presence only \u2014 a necessary condition, never sufficiency",
     "sufficiency_routes_to": "the review lane's judgment half (kogaki#13, story 1.5): whether the attached evidence is the evidence bearing on the option, whether the overturning evidence would in fact overturn the recommendation, and whether the question reads as a gate beyond its named affordance"
   },
   "capture": {
     "glob": "*.gate-capture.json",
     "scope": "anywhere in the repository",
-    "rationale": "a default carrier, not an enumerated directory — an enumerated home leaves capture file N+1 uncovered by default",
+    "rationale": "a default carrier, not an enumerated directory \u2014 an enumerated home leaves capture file N+1 uncovered by default",
     "rows_key": "rows",
     "row_required": [
       "stop_id",
@@ -69,8 +69,7 @@
     ],
     "gate_row_required": [
       "evidence",
-      "payload",
-      "gate_instance_id"
+      "payload"
     ],
     "evidence_required": [
       "tool",
@@ -85,9 +84,9 @@
     "payload_free_text_offered_must_be": true,
     "payload_options_must_equal_declared_gate_options": true,
     "run_declaration_suffix": ".run-declaration.json",
-    "payload_options_comparison_target": "the run declaration sitting beside the capture where one exists — the gate's declaration AS RAISED, and the only artifact that can hold an option composed for that run — and the gate's src/gate-registry.json entry otherwise (specs/spec-gate-carrier/SPEC.md §4.1, kogaki#818 and kogaki#891)",
-    "payload_options_comparison_sibling_name": "the capture's OWN name with the `glob` suffix replaced by run_declaration_suffix, then `<gate_id>` + run_declaration_suffix — in that order. A capture is named by its RUN wherever two run states share one workspace (src/brief.mjs writes `<run-state stem>.<gate_id>.`), and a gate_id-only name would then give two runs ONE declaration between them; the second name is the per-gate-directory form src/assemble.mjs writes (§4.1 v5, kogaki#891)",
-    "payload_options_comparison_rationale": "Exact set equality, unchanged in strength: v4 states the TARGET rather than loosening the rule. A gate declaring dynamic_options is NOT exempt — its declaration names the run's options instead of the class's, so equality becomes decidable against something that can actually equal what was offered. The capture population is untouched. The old key name said `registered`, which was the whole defect: it named the registry as the target in the one place a reader would look for the target.",
+    "payload_options_comparison_target": "the run declaration sitting beside the capture where one exists \u2014 the gate's declaration AS RAISED, and the only artifact that can hold an option composed for that run \u2014 and the gate's src/gate-registry.json entry otherwise (specs/spec-gate-carrier/SPEC.md \u00a74.1, kogaki#818 and kogaki#891)",
+    "payload_options_comparison_sibling_name": "the capture's OWN name with the `glob` suffix replaced by run_declaration_suffix, then `<gate_id>` + run_declaration_suffix \u2014 in that order. A capture is named by its RUN wherever two run states share one workspace (src/brief.mjs writes `<run-state stem>.<gate_id>.`), and a gate_id-only name would then give two runs ONE declaration between them; the second name is the per-gate-directory form src/assemble.mjs writes (\u00a74.1 v5, kogaki#891)",
+    "payload_options_comparison_rationale": "Exact set equality, unchanged in strength: v4 states the TARGET rather than loosening the rule. A gate declaring dynamic_options is NOT exempt \u2014 its declaration names the run's options instead of the class's, so equality becomes decidable against something that can actually equal what was offered. The capture population is untouched. The old key name said `registered`, which was the whole defect: it named the registry as the target in the one place a reader would look for the target.",
     "gateless_row": {
       "gate_id_is": null,
       "required": [
@@ -105,7 +104,7 @@
       "option_set_digest"
     ],
     "owner_answer_rationale": "kogaki#891. A capture for a gate whose answer IS the owner's decision (rather than their ratification of a machine record) binds to the OPTION SET it answered, digested over [gate_id, [option ids]]. The same option id offered beside different alternatives is a different question, so without this axis a capture taken at one rendering certifies a choice at another. The ratification gate's own two-axis binding (`ratifies`) is unchanged and is a separate key: it binds WHAT was ratified, this binds WHAT WAS OFFERED.",
-    "gate_instance_id_rationale": "kogaki#890. Every RAISING of a gate mints a nonce, written into the run declaration and echoed onto the captured row, and the executor joins the two on it and on nothing else. It is a nonce rather than a digest because a binding computed from content identifies the CONTENT and never the INSTANCE: it separates two raisings exactly when they differ and fails exactly when they are alike, which is the pair a reader is least able to tell apart. Two runs over one settled input compose the same question and the same option set and therefore the same option_set_digest, so answers_over alone cannot keep one run's answer from advancing the other's wait. answers_over is unchanged and is not replaced: it binds WHAT WAS OFFERED, and this binds WHICH RAISING OFFERED IT.",
+    "gate_instance_id_rationale": "kogaki#890. Every RAISING of a gate mints a nonce, written into the run declaration and echoed onto the captured row, and the executor joins the two on it and on nothing else. It is a nonce rather than a digest because a binding computed from content identifies the CONTENT and never the INSTANCE: it separates two raisings exactly when they differ and fails exactly when they are alike, which is the pair a reader is least able to tell apart. Two runs over one settled input compose the same question and the same option set and therefore the same option_set_digest, so answers_over alone cannot keep one run's answer from advancing the other's wait. answers_over is unchanged and is not replaced: it binds WHAT WAS OFFERED, and this binds WHICH RAISING OFFERED IT. REQUIRED PER GATE, NOT GLOBALLY, and the scoping is the decision rather than a weakening (PR #917 round 1, finding 2). The field was first added to gate_row_required, which check-gate-carrier.sh enforces against EVERY row it finds anywhere in the working tree; the brief lane's three writers emit no such field and its run state lands inside the tree at runs/brief/ (gitignored, which the scanner does not consult). So the first /brief run on any working copy would have reddened the local suite against captures no writer in the tree could make conforming -- exactly the class kogaki#818 was filed to repair, rebuilt inside its own repair. A requirement binds the gates whose writer emits it; extending it to the brief lane is that lane's own act, named as a deferred slot at specs/spec-gate-carrier/SPEC.md 10.4.",
     "open_gate_pointer": {
       "dir_env": "KOGAKI_OPEN_GATES",
       "dir_default": "~/.claude/kogaki-open-gates",
@@ -117,14 +116,15 @@
         "declaration_path",
         "capture_path"
       ],
-      "rationale": "kogaki#890. The capture is written by .claude/hooks/write-gate-capture.py, a PostToolUse carrier on AskUserQuestion; that hook sees the harness's payload and has no way to know which run raised the question, because a run workspace is machine-local and may sit anywhere. The pointer is the forwarding address, written at the raising and removed when the row is written or the wait advances. IT CARRIES NO ANSWER AND GRANTS NOTHING: nothing downstream believes a pointer, so deleting the directory costs a re-render and never an admitted answer, and a forged one can only cause a row to be written where no gate is outstanding, which the instance-id join then refuses. WHERE TWO OUTSTANDING POINTERS CARRY ONE QUESTION the hook writes NOTHING and says so on stderr — choosing would be the silent misattribution the nonce exists to prevent, arriving through the narrowing step instead."
+      "rationale": "kogaki#890. The capture is written by .claude/hooks/write-gate-capture.py, a PostToolUse carrier on AskUserQuestion; that hook sees the harness's payload and has no way to know which run raised the question, because a run workspace is machine-local and may sit anywhere. The pointer is the forwarding address, written at the raising and removed when the row is written or the wait advances. IT CARRIES NO ANSWER AND GRANTS NOTHING: nothing downstream believes a pointer, so deleting the directory costs a re-render and never an admitted answer, and a forged one can only cause a row to be written where no gate is outstanding, which the instance-id join then refuses. WHERE TWO OUTSTANDING POINTERS CARRY ONE QUESTION the hook writes NOTHING and says so on stderr \u2014 choosing would be the silent misattribution the nonce exists to prevent, arriving through the narrowing step instead."
     },
-    "answer_channel": "kogaki#890, owner selection 2026-09-05. A capture row is written by the harness at the moment the owner answers, and by nothing else. src/terrain.mjs's --capture-option, --capture-free-text and --tool-use-id are REMOVED and refused by name; removed rather than deprecated, because a deprecated channel is a channel and the finding was that this one existed at all."
+    "answer_channel": "kogaki#890, owner selection 2026-09-05. A capture row is written by the harness at the moment the owner answers, and by nothing else. src/terrain.mjs's --capture-option, --capture-free-text and --tool-use-id are REMOVED and refused by name; removed rather than deprecated, because a deprecated channel is a channel and the finding was that this one existed at all.",
+    "gate_instance_id_gate_key": "requires_gate_instance_id"
   },
   "reporting": {
     "crash_is_not_a_finding": true,
     "crash_code": "CANNOT_DETERMINE",
     "repetition_disclosed": true,
-    "rationale": "a checker whose fallback message is phrased as its positive finding converts every internal error into a false accusation, and identical repeated output reads as accumulating evidence — the remedy has three parts (topics/claude-code-ops.md:14@5f769dfe)"
+    "rationale": "a checker whose fallback message is phrased as its positive finding converts every internal error into a false accusation, and identical repeated output reads as accumulating evidence \u2014 the remedy has three parts (topics/claude-code-ops.md:14@5f769dfe)"
   }
 }

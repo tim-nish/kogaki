@@ -53,9 +53,31 @@ recoverable stop into a lost run.
 import hashlib
 import json
 import os
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# HOW LONG AN UNCONSUMED POINTER STAYS LIVE (PR #917 round 1, finding 3).
+#
+# A pointer is removed by this hook after a successful write and by the
+# executor at the advance — and a run ABANDONED at an outstanding gate reaches
+# neither. That is not the exotic case: it is what the unrouted-option refusal
+# leaves behind every time, and what a deleted run directory or a `runs/`
+# retention prune leaves behind without touching this directory at all. Because
+# a gate's question is a constant string in `src/gate-registry.json`, one
+# orphan makes EVERY later raising of that gate class ambiguous, and the
+# ambiguity arm below then writes nothing — so a single abandoned run would
+# wedge that gate on the machine until someone hand-cleaned the directory.
+#
+# TWO REAPERS, and the precise one runs first. A pointer whose declaration is
+# GONE is dead by observation rather than by guess, and that covers the deleted
+# run directory exactly. The age bound is the backstop for the run that still
+# exists and was simply walked away from; it is deliberately long, because it
+# is the reaper that could in principle discard a live gate, and the cost of
+# discarding one is a re-render while the cost of keeping an orphan is a wedged
+# gate class.
+POINTER_TTL = timedelta(hours=12)
 
 
 def pointer_dir():
@@ -65,6 +87,40 @@ def pointer_dir():
 
 def note(msg):
     print(f"write-gate-capture: {msg}", file=sys.stderr)
+
+
+def normalise(text):
+    """Collapse whitespace for LABEL COMPARISON only, never for storage.
+
+    The harness reports the label the owner saw, and a label that arrives
+    re-wrapped or padded is the same answer. What this must not do is absorb a
+    label that arrives TRUNCATED or DECORATED — that is `resolve_answer`'s job
+    below, and it refuses rather than normalising harder.
+    """
+    return re.sub(r"\s+", " ", str(text)).strip()
+
+
+def is_expired(pointer):
+    """Dead pointers, by observation first and by age second.
+
+    Returns a reason string, or None when the pointer is still live.
+    """
+    decl = pointer.get("declaration_path")
+    if not decl or not Path(decl).exists():
+        return f"its declaration {decl} no longer exists"
+    opened = pointer.get("opened_at")
+    try:
+        when = datetime.fromisoformat(str(opened).replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+    except Exception:                                             # noqa: BLE001
+        # An unreadable timestamp is NOT treated as expired. Reaping on a field
+        # this hook failed to parse would discard live gates on a formatting
+        # change, which is the expensive direction of this trade.
+        return None
+    if datetime.now(timezone.utc) - when > POINTER_TTL:
+        return f"it was opened at {opened}, more than {POINTER_TTL} ago"
+    return None
 
 
 def option_set_digest(gate_id, option_ids):
@@ -112,6 +168,18 @@ def load_pointers():
                  "(a finding, not a skip: its gate will refuse at re-entry)")
             continue
         doc["_pointer_path"] = p
+        expired = is_expired(doc)
+        if expired:
+            # REAPED, AND SAID OUT LOUD. A silent prune here would make a
+            # genuinely wedged directory and a healthy one look identical in
+            # the log, which is the disclosure this hook owes on every other
+            # arm too.
+            note(f"pointer {p.name} (gate {doc.get('gate_id')}) is reaped: {expired}")
+            try:
+                p.unlink()
+            except OSError:
+                pass
+            continue
         out.append(doc)
     return out
 
@@ -121,12 +189,35 @@ def resolve_answer(declaration, label):
 
     The harness reports what the owner saw, which is the label; the record is
     keyed on the id. An answer matching no label is free text — that is the
-    "Other" affordance, which every gate here declares on — and it is stored as
-    free text rather than coerced into an id it does not name.
+    "Other" affordance, which every gate here declares on.
+
+    THE NO-MATCH CASE IS NOT AUTOMATICALLY FREE TEXT (PR #917 round 1, finding
+    4). These labels are long — `other-method`'s runs to a full sentence — so a
+    label that arrives truncated, decorated or re-wrapped would fall through an
+    exact comparison and be recorded as the owner's own words. That is worse
+    than a refusal in a specific way: `terrain-tag-selection`'s standing option
+    is ROUTED NOWHERE, and a free-text reading of it skips the refusal PR #898
+    added and lands the text where a tag name goes — the exact wedge that fix
+    closed, returning by another route. The old flag path could not do this,
+    because an id that was not offered was refused outright.
+
+    So the comparison is done on collapsed whitespace, and a near-miss —
+    either side a prefix of the other — is recorded as UNRESOLVED rather than
+    resolved either way. The executor refuses on it. A near-miss is exactly the
+    case where free text and a mangled label are indistinguishable from the
+    payload alone, and naming that is honest where guessing is not.
     """
+    want = normalise(label)
     for opt in declaration.get("options") or []:
-        if str(opt.get("label", "")) == label:
+        if normalise(opt.get("label", "")) == want:
             return {"option": str(opt.get("id"))}
+    for opt in declaration.get("options") or []:
+        have = normalise(opt.get("label", ""))
+        if not have or not want:
+            continue
+        if have.startswith(want) or want.startswith(have):
+            return {"label_unresolved": True, "raw": str(label),
+                    "resembles_option": str(opt.get("id"))}
     return {"free_text": label}
 
 

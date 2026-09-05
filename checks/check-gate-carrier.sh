@@ -219,7 +219,8 @@ def declared_options(gate_id, registered_options, capture_path):
     return registered_options.get(gate_id), "src/gate-registry.json"
 
 
-def validate_row(row, registered_gate_ids, registered_options, capture_path=None):
+def validate_row(row, registered_gate_ids, registered_options, capture_path=None,
+                 nonce_gates=frozenset()):
     v = []
     c = schema["capture"]
     for field in c["row_required"]:
@@ -252,6 +253,21 @@ def validate_row(row, registered_gate_ids, registered_options, capture_path=None
         if field not in row or row[field] in (None, "", []):
             v.append(("CAPTURE_MISSING_FIELD", f"row.{field}"))
 
+    # PER-GATE REQUIREMENTS, read from the schema like every other list here
+    # (kogaki#890; PR #917 round 1, finding 2). `gate_instance_id` binds the
+    # gates whose WRITER emits it, and a global requirement would fail rows no
+    # writer in this tree can make conforming: the brief lane's three writers
+    # emit no nonce and its run state lands inside the working tree at
+    # `runs/brief/`, which this scanner reaches because it does not consult
+    # .gitignore. That is the shape kogaki#818 was filed to repair -- a
+    # conforming run reddening the local suite, stably and forever -- and
+    # rebuilding it inside a later repair is the failure worth naming.
+    #
+    # DATA, NOT A BRANCH: a gate joins the requirement by appearing in the
+    # schema's list, so the brief lane's eventual nonce needs no edit here.
+    if gate_id in nonce_gates and not str(row.get("gate_instance_id", "")).strip():
+        v.append(("CAPTURE_MISSING_FIELD", "row.gate_instance_id"))
+
     evidence = row.get("evidence")
     if evidence:
         for field in c["evidence_required"]:
@@ -283,6 +299,7 @@ def validate_row(row, registered_gate_ids, registered_options, capture_path=None
 
 
 def validate_capture_doc(doc, registered_gate_ids, registered_options, where,
+                         nonce_gates=frozenset(),
                          capture_path=None):
     """Return (violations, cannot_determines). Each row is guarded."""
     violations, crashes = [], []
@@ -294,7 +311,8 @@ def validate_capture_doc(doc, registered_gate_ids, registered_options, where,
     for row in rows:
         try:
             violations.extend(validate_row(row, registered_gate_ids,
-                                           registered_options, capture_path))
+                                           registered_options, capture_path,
+                                           nonce_gates))
         except Exception as exc:              # the guard, on every write path
             # Keyed WITHOUT the row index, deliberately: a deterministic cause
             # produces the identical entry N times, and collapsing on that key
@@ -339,6 +357,13 @@ for gate in gates:
     for code, detail in validate_gate(gate):
         failures.append((code, f"{registry_path}[{gate.get('id')!r}]: {detail}"))
 registered_ids = {g.get("id") for g in gates}
+# WHICH GATES OWE A NONCE, read from each gate's OWN registry row rather than
+# from a list in the schema (kogaki#890; PR #917 round 1, finding 2). The key
+# name is the schema's; the membership is the registry's, which is what lets
+# the fixture registry declare it for its own synthetic gate and lets the brief
+# lane join later by declaring the flag rather than by editing this file.
+NONCE_KEY = schema["capture"]["gate_instance_id_gate_key"]
+nonce_gates = {g.get("id") for g in gates if g.get(NONCE_KEY)}
 registered_options = {g.get("id"): [o.get("id") for o in (g.get("options") or [])]
                       for g in gates}
 
@@ -363,7 +388,7 @@ for path in captures:
                 else:
                     covered_gates.add(row.get("gate_id"))
     v, c = validate_capture_doc(doc, registered_ids, registered_options,
-                                str(path), path)
+                                str(path), nonce_gates, path)
     failures.extend((code, f"{path}: {detail}") for code, detail in v)
     cannot_determine.extend(c)
 
@@ -375,6 +400,7 @@ if error:
 fx_ids = {g.get("id") for g in fx_registry["gates"]}
 fx_options = {g.get("id"): [o.get("id") for o in (g.get("options") or [])]
               for g in fx_registry["gates"]}
+fx_nonce_gates = {g.get("id") for g in fx_registry["gates"] if g.get(NONCE_KEY)}
 
 covered_codes = set()
 
@@ -402,7 +428,7 @@ def fixture_codes(path):
         return None, [("MALFORMED_JSON", error[1])], []
     if doc.get("_fixture") == "capture":
         v, c = validate_capture_doc(doc, fx_ids, fx_options, str(path),
-                                    path)
+                                    fx_nonce_gates, path)
         return doc, v, c
     return doc, validate_gate(doc), []
 

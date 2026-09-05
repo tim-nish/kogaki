@@ -1644,6 +1644,22 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
   const gd = openGateDir();
   mkdirSync(gd, { recursive: true });
   const capPath = join(dir, "terrain.gate-capture.json");
+  // A RE-RAISING SUPERSEDES ITS OWN PREVIOUS POINTER (PR #917 round 1, finding
+  // 3). Re-rendering a gate after a refusal is the ordinary recovery this file
+  // tells the owner to perform, and each raising mints a fresh instance id —
+  // so without this the recovery itself accumulates orphans, one per attempt,
+  // in the directory whose ambiguity arm then refuses to write anything. The
+  // superseded pointer is this run's own, matched on the capture it names and
+  // the gate it raises, so nothing here reaches another run's.
+  for (const f of readdirSync(gd)) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const prev = readJson(join(gd, f));
+      if (prev.gate_id === declaration.id && prev.capture_path === resolve(capPath)) {
+        rmSync(join(gd, f), { force: true });
+      }
+    } catch { /* an unreadable pointer is the hook's to report, not this writer's to repair */ }
+  }
   writeFileSync(join(gd, `${declaration.gate_instance_id}.json`), JSON.stringify({
     gate_instance_id: declaration.gate_instance_id,
     gate_id: declaration.id,
@@ -4086,6 +4102,19 @@ export function readCapturedAnswer(dir, decl) {
       + `Re-render the gate. Nothing was advanced.`);
   }
   const answer = (row.payload || {}).answer || {};
+  // AN UNRESOLVED LABEL IS REFUSED, NEVER READ AS FREE TEXT (PR #917 round 1,
+  // finding 4). The hook records this when the harness's reported label neither
+  // matches a declared one nor is clearly distinct from it — a truncation, a
+  // decoration, a re-wrap. Reading such an answer as the owner's own words
+  // would route a declared option's text to where a tag name or an id list
+  // goes, skipping the unrouted-option refusal entirely; and the payload alone
+  // cannot tell a mangled label from genuine free text, so the honest act is to
+  // stop rather than to pick the reading that happens to advance.
+  if (answer.label_unresolved) {
+    fail(`the captured answer for gate ${decl.id} could not be resolved to an option or to free text: the harness reported ${JSON.stringify(answer.raw)}, `
+      + `which resembles the declared option ${JSON.stringify(answer.resembles_option)} without matching it. `
+      + `A near-miss is indistinguishable from free text on the payload alone, so it is refused rather than read as either. Re-render the gate, options verbatim.`);
+  }
   const option = typeof answer.option === "string" && answer.option !== "" ? answer.option : null;
   const freeText = typeof answer.free_text === "string" && answer.free_text.trim() !== "" ? answer.free_text : null;
   if (!option && !freeText) {
@@ -6653,6 +6682,108 @@ switch (cmd) {
         ok("with two outstanding gates carrying one question the hook writes no row and names the ambiguity, rather than picking one",
           /does not choose between them/.test(`${rTwoOpen.stdout || ""}${rTwoOpen.stderr || ""}`),
           `${rTwoOpen.stderr || ""}`.trim().split("\n")[0].slice(0, 160));
+
+        // A TRUNCATED LABEL IS REFUSED, NOT READ AS THE OWNER'S OWN WORDS
+        // (PR #917 round 1, finding 4). The standing option's label is a full
+        // sentence, so a label that arrives cut short would have fallen through
+        // an exact comparison and been recorded as free text — landing a
+        // declared option's text where a tag name goes and skipping the
+        // unrouted refusal entirely, which is the wedge PR #898 closed
+        // returning by another route.
+        const rdTrunc = join(gs, "rd-truncated");
+        mkdirSync(rdTrunc, { recursive: true });
+        writeFileSync(join(rdTrunc, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { encoding: "utf8", env: envFor("trunc") });
+        const declTrunc = readJson(join(rdTrunc, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        const fullLabel = declTrunc.options.find((o) => o.id === "other-method").label;
+        answerThroughHook("trunc", declTrunc.question, fullLabel.slice(0, 24), "toolu_test_truncated");
+        const rTrunc = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { encoding: "utf8", env: envFor("trunc") });
+        const outTrunc = `${rTrunc.stdout || ""}${rTrunc.stderr || ""}`;
+        const recTrunc = readRunRecord(rdTrunc);
+        ok("a TRUNCATED option label is refused rather than recorded as free text — a near-miss is not silently read as the owner's own words",
+          rTrunc.status !== 0 && /could not be resolved to an option or to free text/.test(outTrunc)
+            && recTrunc.owner_input.TAG_SELECTION === undefined,
+          outTrunc.trim().split("\n")[0].slice(0, 170));
+        // A RE-WRAPPED label is still the same answer, so the refusal above
+        // discriminates rather than refusing every label that is not byte-equal.
+        const rdWrap = join(gs, "rd-rewrapped");
+        mkdirSync(rdWrap, { recursive: true });
+        writeFileSync(join(rdWrap, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { encoding: "utf8", env: envFor("wrap") });
+        const declWrap = readJson(join(rdWrap, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        const wrapped = declWrap.options.find((o) => o.id === "other-method").label.replace(/ /g, "\n  ");
+        answerThroughHook("wrap", declWrap.question, wrapped, "toolu_test_rewrapped");
+        const rWrap = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { encoding: "utf8", env: envFor("wrap") });
+        ok("a RE-WRAPPED label still resolves to its option — whitespace is presentation, and the near-miss refusal is not a refusal of every inexact label",
+          rWrap.status !== 0 && /ROUTED NOWHERE/.test(`${rWrap.stdout || ""}${rWrap.stderr || ""}`),
+          `${rWrap.stdout || ""}${rWrap.stderr || ""}`.trim().split("\n").slice(-1)[0].slice(0, 150));
+
+        // AN ORPHANED POINTER IS REAPED, so one abandoned run cannot wedge a
+        // whole gate class on the machine (PR #917 round 1, finding 3). The
+        // question is a constant string, so every later raising would otherwise
+        // match the orphan and the ambiguity arm would write nothing forever.
+        const rdOrphan = join(gs, "rd-orphan");
+        mkdirSync(rdOrphan, { recursive: true });
+        writeFileSync(join(rdOrphan, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOrphan, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+        rmSync(rdOrphan, { recursive: true, force: true });   // the abandoned run
+        const rdAfter = join(gs, "rd-after-orphan");
+        mkdirSync(rdAfter, { recursive: true });
+        writeFileSync(join(rdAfter, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+        const declAfter = readJson(join(rdAfter, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        const rAfterHook = answerThroughHook("orphan", declAfter.question, "a-tag", "toolu_test_after_orphan");
+        const rAfter = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+        const recAfter = readRunRecord(rdAfter);
+        ok("a pointer whose run was deleted is REAPED, so the next raising of that gate is not wedged by the orphan",
+          /is reaped: its declaration/.test(`${rAfterHook.stdout || ""}${rAfterHook.stderr || ""}`)
+            && rAfter.status === 0 && recAfter.owner_input.TAG_SELECTION === "a-tag",
+          `${rAfterHook.stderr || ""}`.trim().split("\n")[0].slice(0, 150));
+
+        // A RE-RAISING SUPERSEDES ITS OWN POINTER, so the recovery this file
+        // prescribes — re-render after a refusal — does not itself accumulate
+        // the orphans that wedge the gate.
+        const rdRe = join(gs, "rd-reraise");
+        mkdirSync(rdRe, { recursive: true });
+        writeFileSync(join(rdRe, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        for (let i = 0; i < 3; i++) {
+          rmSync(join(rdRe, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`), { force: true });
+          const rec = readRunRecord(rdRe);
+          rec.gate_declarations_owed = [];
+          writeFileSync(join(rdRe, RUN_RECORD_FILE), JSON.stringify(rec));
+          spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdRe, "--workflow", tp], { encoding: "utf8", env: envFor("reraise") });
+        }
+        ok("three raisings of one gate in one run leave exactly ONE pointer — the prescribed recovery does not accumulate the orphans it would then be blocked by",
+          readdirSync(gatesFor("reraise")).filter((f) => f.endsWith(".json")).length === 1,
+          `${readdirSync(gatesFor("reraise")).length} pointer(s)`);
 
         rmSync(gs, { recursive: true, force: true });
       }

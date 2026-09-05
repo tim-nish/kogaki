@@ -19,7 +19,8 @@
         {
           "id": "strand-b"
         }
-      ]
+      ],
+      "requires_gate_instance_id": true
     },
     {
       "id": "terrain-dynamic",
