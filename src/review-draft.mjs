@@ -1410,11 +1410,20 @@ function cmdClose(args) {
     fail("`close` is reachable from `compare` with zero fails, or from `check` in every state — "
       + "and neither has run. Run `compare --draft <draft.md>` first.");
   }
-  const fails = (run.findings || []).filter((f) => f.verdict === "fails");
+  // ONLY A **PRESERVED** ITEM'S FAIL WITHHOLDS `close` (kogaki#872). The item
+  // table makes the class the CONSEQUENCE: a preserved fail sends its Step to
+  // correction, and a best-effort fail rides along only when that Step is
+  // re-realized anyway. A guard counting every fail would send a Step to pass
+  // two for a best-effort finding, which is the opposite of riding along — and
+  // it would make `close` unreachable on a Draft whose only findings are ones
+  // the design says to carry rather than to act on. Found on the first live
+  // drive, where a best-effort item fired on every Step.
+  const fails = (run.findings || []).filter((f) => f.verdict === "fails" && f.class === "preserved");
   if (fails.length && !run.checked_at) {
-    fail(`the join found ${fails.length} failing item(s), so \`close\` is reachable only through `
-      + "`check` — pass two is what turns a failing item into a correction or into residue. "
-      + `Failing: ${fails.map((f) => `${f.step_id}/${f.item}`).join(", ")}`);
+    fail(`the join found ${fails.length} failing PRESERVED item(s), so \`close\` is reachable only `
+      + "through `check` — pass two is what turns a failing preserved item into a correction or into "
+      + `residue. A best-effort fail does not withhold the record; it rides along. Failing: `
+      + `${fails.map((f) => `${f.step_id}/${f.item}`).join(", ")}`);
   }
 
   const out = join(dirname(resolve(draftPath)), "review.md");
@@ -2661,6 +2670,56 @@ async function runSelfTest() {
     const rev = readOrEmpty(join(root, "theses", "undecided", "review.md"));
     ok("and the owner record lists every undecided pair with its class",
       /cannot-decide \((preserved|best-effort)\)/.test(rev));
+  }
+
+  // A BEST-EFFORT FAIL RIDES ALONG: it reaches the owner record with its class
+  // and its EVIDENCE, and it does NOT withhold `close`. A guard counting every
+  // fail would send a Step to pass two for a finding the design says to carry
+  // rather than to act on — and on the first live drive a best-effort item fired
+  // on every Step, so `close` would have been unreachable for that Draft.
+  {
+    const pd = join(root, "packets-riding"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
+    // a2 repeats a run of a1's words verbatim — `restates-earlier-step`, which
+    // the table calls best-effort and mechanical.
+    const ridingProse = {
+      a1: PROSE.a1,
+      a2: ["The first passage opens the claim and says what the reader is about to be shown again."],
+      a3: PROSE.a3,
+    };
+    const d = buildDraft(join(root, "theses", "riding"), { packetDir: pd, prose: ridingProse });
+    const wsb = join(root, "ws-riding");
+    const r = driveToCompletedJoin(d, wsb, "riding");
+    ok("the run completes", r.second.status === 0);
+    const L = linesOf(r.second.stdout);
+    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/restates-earlier-step")));
+    ok("and no Step is sent to correction, because no PRESERVED item failed",
+      /no Step is sent to correction/.test(r.second.stdout));
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const c = D("close");
+    ok("close is reachable with a best-effort fail outstanding", c.status === 0);
+    const rev = readOrEmpty(join(root, "theses", "riding", "review.md"));
+    ok("and the owner record carries the finding with its class",
+      /a2 \/ restates-earlier-step\*\* — fails \(best-effort\)/.test(rev));
+    // THE EVIDENCE IS WHERE THE QUOTED MATERIAL LIVES, and this is the other
+    // half of the comparison line's no-numbers rule: the line refuses to carry a
+    // quote, so the record is where a finding becomes actionable rather than
+    // merely located.
+    ok("and the quoted material the comparison line refused to carry",
+      /^ {2}- evidence: \S/m.test(rev));
+
+    // A PRESERVED fail still withholds it, and the refusal says which kind.
+    const short = join(root, "packets-riding-short"); mkdirSync(short, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(short, id, id === "a1" ? { grounds: [GROUNDS.a1[0]] } : {});
+    const d2 = buildDraft(join(root, "theses", "riding-short"), { packetDir: short });
+    const wsb2 = join(root, "ws-riding-short");
+    driveToCompletedJoin(d2, wsb2, "ridingshort");
+    const c2 = spawnSync(process.execPath,
+      [self, "close", "--draft", d2.path, "--workspace", wsb2], { encoding: "utf8" });
+    ok("while a PRESERVED fail still withholds the record, naming the class",
+      c2.status === 1 && /failing PRESERVED item/.test(c2.stderr)
+      && /A best-effort fail does not withhold the record/.test(c2.stderr));
   }
 
   // A PACKET MISSING A BLOCK THE COMPARISON NEEDS IS A PACKET GAP, refused BY
