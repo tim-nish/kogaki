@@ -12,9 +12,10 @@
 # AND SINCE kogaki#894, THE ARITHMETIC OF §4.11's BOUND. "One revise round per
 # Candidate" was prose with its count in the composing sitting's memory, so a
 # Candidate re-reviewed three times reached assembly with no refusal and no
-# disclosure. Cases (e)-(g) assert the count is the Harness's: a third attach
+# disclosure. Cases (e)-(h) assert the count is the Harness's: a third attach
 # refuses by name, a Candidate at the bound carries a residue entry THIS
-# RUNTIME wrote, and a re-run with the same reasoning spends no round.
+# RUNTIME wrote, a re-run with the same reasoning spends no round, and a
+# DAMAGED ledger refuses rather than reading as zero rounds spent.
 set -u
 cd "$(dirname "$0")/.."
 
