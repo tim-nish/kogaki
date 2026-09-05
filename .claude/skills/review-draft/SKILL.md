@@ -41,11 +41,21 @@ bounded second pass. `close` writes the owner record.
 
 ## The two readers, and why each is blind to something
 
-**The recovering reviewer has never seen the Packet.** It reads one passage and
-writes down the Step record it believes that passage realizes. A recovered
-record that agrees with the input because it guessed at the input measures
-nothing, which is why the Harness renders the passage alone and refuses a
+**The recovering reviewer has never seen the Packet.** It reads the article
+before one passage, then that passage, and writes down the Step record it
+believes the passage realizes. A recovered record that agrees with the input
+because it guessed at the input measures nothing, which is why the Harness
+renders prose alone — the wording is `src/recovery-template.md`, which holds no
+thesis, no grounds, no Move, no reader states and no term list — and refuses a
 record for a Step whose input it did not render.
+
+The record it returns is one JSON object validated against
+`src/recovered-schema.json`: `claims` (each with the draft line span it rests
+on), `reader_state_after`, `purpose`, `terms_introduced`, `shape`, `concessions`
+and `restates`. Every field is a fact about the prose, so every field can be
+checked by pointing at the prose. A missing field, a span outside the passage,
+and a verdict or a piece of advice are each **refused by name** — an empty array
+is an answer, an absent key is not.
 
 **The cold reader reads the body only** — no headings taken on trust, no trace,
 no Packet — and writes, after each Section, the question it answered and what
