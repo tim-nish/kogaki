@@ -110,6 +110,15 @@ export function reviewEntrySha(entry) {
   return createHash("sha256").update(canonical).digest("hex");
 }
 
+// ONE THING THIS CANNOT SEE, STATED RATHER THAN LEFT (PR #908 round 1). The
+// ledger lives INSIDE `runs/brief/<slug>/`, which `enterRun` prunes keep-last
+// per `src/runs.json`. A pruned workspace leaves no file, and no file reads as
+// no rounds spent — the degrades-to-zero shape the corrupt-read branch below
+// refuses, arriving by a different door. The ledger's lifetime IS the lane's
+// retention bound. It is low risk rather than no risk (a Candidate's first
+// attach and its one revise sit inside a single composing sitting, and each
+// attach keeps the directory fresh), and it is written down because the
+// alternative is discovering it as a bound that quietly did not hold.
 export function readAttachLedger(path) {
   if (!existsSync(path)) return { attaches: {} };
   let raw;
@@ -218,9 +227,15 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
         bound: `${REVISE_BOUND} revise round per Candidate (SPEC-draft-pipeline §4.11)`,
         first_attached_at: rounds[0].at,
         revise_attached_at: rounds[rounds.length - 1].at,
+        // PRECISE ABOUT ITS OWN BOUND (PR #908 round 1). "cannot be re-reviewed
+        // again" was false for the case the design deliberately allows:
+        // re-attaching the SAME reasoning is accepted and spends nothing. This
+        // sentence rides to the gate as the Harness's words about its own
+        // arithmetic, so it says what the arithmetic actually does.
         statement: "this Candidate has spent its one revise round; anything the revise did not "
           + "repair rides to the selection gate as disclosed residue, and this Candidate cannot "
-          + "be re-reviewed again",
+          + "be re-reviewed with DIFFERENT reasoning (re-attaching the same reasoning is "
+          + "accepted and spends nothing)",
       };
     }
     out.push(attached);
@@ -264,7 +279,15 @@ function cmdAttach(args) {
     "attach needs --brief <path> — theses/<slug>/brief.md. The slug names the run workspace "
     + "runs/brief/<slug>/ the revise-round ledger lives in, and §4.11's one-revise-round bound "
     + "is counted THERE rather than in the composing sitting's memory (kogaki#894)");
-  const lp = attachLedgerPath(brief, args["ledger-root"] === undefined ? undefined : args["ledger-root"]);
+  // THE LEDGER'S HOME IS NOT A COMMAND-LINE ARGUMENT (PR #908 round 1). A
+  // `--ledger-root` flag was exactly the shape §4.11's Harness-resolved-home
+  // bullet rules out one paragraph away — a caller-chosen path lets a second
+  // attach land beside the first with a fresh count. The fixture's need is
+  // real (counting into the developer's live `runs/` would spend a real
+  // Brief's bound), so the seam survives as a NAMED FIXTURE VARIABLE, off the
+  // command line and stated in the spec bullet: nothing composes it by
+  // accident, and it does not read as a supported way to run the lane.
+  const lp = attachLedgerPath(brief, process.env.KOGAKI_ATTACH_LEDGER_ROOT_FOR_TESTS);
   if (lp.error) fail(lp.error);
   const prior = readAttachLedger(lp.path);
   if (prior.error) fail(prior.error);

@@ -240,7 +240,11 @@ survives its revise carries the residue to the selection gate rather than
 looping. **The Harness counts the round** (kogaki#894): `attach` records each
 Candidate's attaches in `runs/brief/<slug>/review-attach-ledger.json`, refuses
 a third naming the Candidate and the attaches it counted, and writes the
-residue entry itself onto a Candidate at the bound. The bound used to live in
+residue entry itself onto a Candidate at the bound. **The residue rides the
+reviewed set and does not reach the owner** — the selection gate's options
+carry `id` and `label` alone since kogaki#859, the same hole the bridge
+disclosure already sits in — so do not describe it to the owner as something
+they will see. The bound used to live in
 the composing sitting's memory, which is to say nowhere a later act could
 read — a Candidate re-reviewed three times reached assembly with no refusal
 and no disclosure. **The residue entry is not yours to declare**: a Candidate

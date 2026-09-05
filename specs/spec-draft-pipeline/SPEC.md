@@ -1,5 +1,14 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v30, amended 2026-09-05 (kogaki#894, PR #908 round 1) — §4.11's
+carrier clauses gain three statements the round found missing: the ledger's one
+relocation seam is named (a seam nothing declares cannot be told from the
+caller-chosen home the same bullet rules out), the ledger's lifetime is stated
+as the lane's retention bound, and the residue's disclosure is scoped to what
+the payload supports — it rides the reviewed set and does not reach the owner,
+the same hole this section already records for the bridge disclosure.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v29, amended 2026-09-05 (kogaki#894) — **§4.11's "one revise round
 per Candidate" gains its carrier.** The bound was prose with its count outside
 the Harness — nothing counted an attach, so a Candidate re-reviewed three times
@@ -455,7 +464,21 @@ count honest rather than merely present:
 - **The ledger's home is Harness-resolved**, from the Brief's own slug —
   `runs/brief/<slug>/review-attach-ledger.json`, through `runs.mjs`'s pure
   resolver. A caller-chosen path would let a second attach land beside the
-  first with a fresh count, which is a bound the counted party can reset.
+  first with a fresh count, which is a bound the counted party can reset. **The
+  one relocation seam is `KOGAKI_ATTACH_LEDGER_ROOT_FOR_TESTS`**, named here
+  because a seam nothing declares is indistinguishable from the surface this
+  bullet rules out: the fixture pass must not count into a developer's live
+  `runs/`, where asserting the arithmetic would spend a real Brief's bound. It
+  is deliberately **not** a command-line flag — PR #908 round 1 found the flag
+  form to be exactly the caller-chosen home this bullet asserts the opposite
+  of, whatever the intent behind it.
+- **The ledger's lifetime is the lane's retention bound**, stated rather than
+  discovered. The ledger lives inside `runs/brief/<slug>/`, which `enterRun`
+  prunes keep-last; a pruned workspace leaves no file, and no file reads as no
+  rounds spent — the degrades-to-zero shape the damaged-read refusal below
+  refuses, arriving by a different door. It is low risk rather than no risk: a
+  Candidate's first attach and its one revise sit inside a single composing
+  sitting, and each attach keeps the directory fresh.
 - **A round is spent by attaching DIFFERENT reasoning**, keyed on a sha of the
   attached entry. Re-running an attach with the same reasoning is the
   recovery-by-re-running every command here promises, and charging it a round
@@ -463,15 +486,24 @@ count honest rather than merely present:
   the ledger is written only on success, so a malformed entry never consumes a
   revise the Candidate has not had.
 - **The residue entry is written by the runtime, from the ledger.** A Candidate
-  at the bound rides to the gate carrying `revise_residue` — how many attaches,
-  the bound it was written against, and that anything the revise did not repair
-  is disclosed rather than re-looped. A Candidate arriving with its own is
-  **refused**: a model-declared residue is a model-supplied control input
+  at the bound carries `revise_residue` into the reviewed set — how many
+  attaches, the bound it was written against, and that anything the revise did
+  not repair is disclosed rather than re-looped. A Candidate arriving with its
+  own is **refused**: a model-declared residue is a model-supplied control input
   wearing the Harness's field name, which is `bridges`'s own shape one field
   over. **The Harness counts the round and never judges the repair** — a
   residue entry says a round was spent, never that a gap survived it.
+  **AND IT DOES NOT YET REACH THE OWNER, which is stated rather than implied**
+  (PR #908 round 1). The entry rides the reviewed set, where a later act can
+  read it; the selection gate's options carry `id` and `label` alone since
+  kogaki#859 emptied the evidence rendering, so nothing puts it on screen. This
+  is **the same hole this section already records for the bridge disclosure**,
+  and it is one hole rather than two: both are Candidate-level evidence with no
+  owner surface left to ride. Saying the residue "rides to the gate" without
+  this sentence would assert the disclosure half of "a gap surviving it is
+  disclosed" more strongly than the payload supports.
 
-The assertion is `checks/check-brief-review.sh` cases (e)–(g).
+The assertion is `checks/check-brief-review.sh` cases (e)–(h).
 
 **Routing a finding does not make an evaluation level a check.** Transition
 continuity is observed inside path review's `evaluation_levels` area
