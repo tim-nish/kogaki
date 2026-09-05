@@ -1,0 +1,49 @@
+{
+  "note": [
+    "The CLOSED set of figure kinds (kogaki#876, child of #875).",
+    "",
+    "A kind is a SCHEMA OF ROLES AND NOTHING ELSE. It carries no words a",
+    "reader sees: `roles` names the positions a figure of this kind has, and",
+    "`relation` states in one line what holds between them. Neither is",
+    "rendered to a reader, and nothing here is subject matter.",
+    "",
+    "A Move's optional `visual_form` block names one `kind` from this set and",
+    "maps EVERY role of that kind into the Move's own vocabulary - the terms",
+    "its `requires`/`effect`/`intent` already use. Ingestion validates exactly",
+    "three things (SPEC-draft-pipeline 6.9.3): the kind exists, every role of",
+    "that kind is mapped, and no extra role is mapped. It judges no wording.",
+    "",
+    "`kind` is reserved and can never be a role name - the block is flat, so a",
+    "role named `kind` would be indistinguishable from the kind selector.",
+    "tools/move_ingest.py refuses this file if any kind declares one.",
+    "",
+    "CLOSED means a new kind enters by editing this file under its own issue,",
+    "never by a Move naming one. A Move naming an unknown kind is refused by",
+    "name, which is what makes the set closed rather than advisory.",
+    "",
+    "A form on a Move OBLIGES NO STEP TO USE IT. Nothing in the draft pipeline",
+    "reads this file to decide anything today; it is a vocabulary, not a gate."
+  ],
+  "kinds": {
+    "axis": {
+      "roles": ["endpoint_a", "endpoint_b", "criterion"],
+      "relation": "the two endpoints sit on the criterion"
+    },
+    "chain": {
+      "roles": ["stages", "bottlenecks"],
+      "relation": "ordered stages, each feeding the next, one bottleneck per stage"
+    },
+    "matrix": {
+      "roles": ["cases", "relation"],
+      "relation": "one relation held by every case"
+    },
+    "tree": {
+      "roles": ["root", "branches"],
+      "relation": "the root divides into the branches"
+    },
+    "threshold": {
+      "roles": ["successes", "failures", "line"],
+      "relation": "the line separates the two sets"
+    }
+  }
+}

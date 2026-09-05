@@ -17,6 +17,7 @@ do the other's job, and neither is left resting on the other.
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -33,6 +34,27 @@ FIELDS = (
     "failure_modes",
     "excerpt",
 )
+
+# §6.9.3: the ONE optional field. It is not part of §4.2's eight and never
+# becomes one — condition 3 admits the eight, plus this and nothing else.
+# Absent by default: a Move acquires a form only when its transformation has a
+# relational shape, which is the admission act's judgment and not a rule here.
+OPTIONAL_FIELDS = ("visual_form",)
+
+# The only key whose value is a nested mapping. The value model stays
+# deliberately small (§6.9.0): scalars, `>-` folded scalars, column-0
+# sequences — and this one nesting, admitted by NAME rather than by shape, so
+# an accidentally-indented `key: value` under any other field is still the
+# scalar it has always been.
+NESTED_FIELDS = ("visual_form",)
+
+# `kind` selects the schema; every other key in the block is a role. The block
+# is FLAT, so a kind declaring a role named `kind` would make the two
+# indistinguishable — refused when the set is loaded, never at a Move.
+KIND_SELECTOR = "kind"
+
+# An indented `key: value` line inside a nested block.
+NESTED_KEY = re.compile(r"^\s+([A-Za-z_][A-Za-z0-9_]*):(.*)$")
 
 # §6.9: the draft fields excluded from the proposal. Stripped BEFORE condition 3
 # runs, so their presence routes to the strip step rather than to a refusal.
@@ -227,12 +249,15 @@ def parse_record(first_line_no, lines):
     buffer = []
     folded = False
     seq = None
+    nested = None
 
     def flush():
-        nonlocal current, buffer, folded, seq
+        nonlocal current, buffer, folded, seq, nested
         if current is None:
             return
-        if seq is not None:
+        if nested is not None:
+            mapping[current] = nested
+        elif seq is not None:
             mapping[current] = seq
         elif folded:
             # A `>-` folded scalar: lines join with single spaces, trailing
@@ -241,7 +266,7 @@ def parse_record(first_line_no, lines):
             mapping[current] = " ".join(p.strip() for p in buffer if p.strip())
         else:
             mapping[current] = "\n".join(buffer).strip()
-        current, buffer, folded, seq = None, [], False, None
+        current, buffer, folded, seq, nested = None, [], False, None, None
 
     for offset, line in enumerate(lines):
         line_no = first_line_no + offset
@@ -259,6 +284,7 @@ def parse_record(first_line_no, lines):
                 )
             order.append(key)
             current = key
+            nested = None
             inline = key_match.group(2).strip()
             if inline in (">-", ">", "|-", "|"):
                 folded = inline.startswith(">")
@@ -272,6 +298,26 @@ def parse_record(first_line_no, lines):
 
         if current is None:
             continue
+
+        if current in NESTED_FIELDS and not folded and seq is None:
+            # Admitted BY NAME, not by shape: only the fields named in
+            # NESTED_FIELDS read an indented `key: value` line as a mapping
+            # entry, so every other field's indented lines stay the scalar
+            # continuation they have always been.
+            nested_match = NESTED_KEY.match(line)
+            if nested_match:
+                if nested is None:
+                    nested = {}
+                nested_key = nested_match.group(1)
+                if nested_key in nested:
+                    raise Refusal(
+                        "2",
+                        "duplicate key `%s` within `%s`" % (nested_key, current),
+                        line_no=line_no,
+                        line=line,
+                    )
+                nested[nested_key] = nested_match.group(2).strip()
+                continue
 
         if SEQUENCE_ITEM.match(line):
             if seq is None:
@@ -311,7 +357,11 @@ def check_field_set(mapping, first_line_no):
     have = set(mapping)
     want = set(FIELDS)
     missing = sorted(want - have)
-    extra = sorted(have - want)
+    # §6.9.3: the optional field is admitted here and NOWHERE ELSE widens the
+    # set. A record carrying it has nine keys and is still exact; a record
+    # carrying anything else is still refused, so the condition keeps its
+    # catch — the seven-key absorbed neighbour is unaffected either way.
+    extra = sorted(have - want - set(OPTIONAL_FIELDS))
     if missing or extra:
         parts = []
         if missing:
@@ -320,7 +370,134 @@ def check_field_set(mapping, first_line_no):
             parts.append("unexpected %s" % ", ".join("`%s`" % k for k in extra))
         raise Refusal(
             "3",
-            "record does not carry exactly §4.2's eight keys — " + "; ".join(parts),
+            "record does not carry exactly §4.2's eight keys "
+            "(plus at most `visual_form`) — " + "; ".join(parts),
+            line_no=first_line_no,
+        )
+
+
+# --------------------------------------------------------------------------
+# §6.9.3 — the visual form
+# --------------------------------------------------------------------------
+
+# Resolved from this module's own location, never from the caller's cwd: the
+# set is repository material, and a Move ingested from any directory must be
+# judged against the same closed set.
+FIGURE_KINDS_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "src",
+    "figure-kinds.json",
+)
+
+_KINDS_CACHE = {}
+
+
+def load_figure_kinds(path=None):
+    """The closed kind set, as `{kind: [role, ...]}`.
+
+    Two properties of the FILE are asserted here rather than trusted, because
+    both make a Move-level refusal unreachable or wrong if they fail:
+
+      · a kind declaring a role named `kind` — the block is flat, so that role
+        and the kind selector would be one key and the selector would always
+        win, silently dropping a mapped role;
+      · a kind declaring no roles at all — every form naming it would then
+        validate vacuously, which is a check that never looked.
+
+    A malformed set is a defect in this repository, so it raises rather than
+    refusing a record: refusing the owner's Move for the tool's own broken
+    input would name the wrong party.
+    """
+    path = path or FIGURE_KINDS_PATH
+    if path in _KINDS_CACHE:
+        return _KINDS_CACHE[path]
+    with open(path) as handle:
+        data = json.load(handle)
+    kinds = {}
+    for name, spec in sorted(data.get("kinds", {}).items()):
+        roles = list(spec.get("roles", []))
+        if not roles:
+            raise ValueError("figure kind `%s` declares no roles" % name)
+        if KIND_SELECTOR in roles:
+            raise ValueError(
+                "figure kind `%s` declares a role named `%s`, which the flat "
+                "block cannot distinguish from the kind selector" % (name, KIND_SELECTOR)
+            )
+        kinds[name] = roles
+    if not kinds:
+        raise ValueError("%s declares no kinds" % path)
+    _KINDS_CACHE[path] = kinds
+    return kinds
+
+
+def check_visual_form(mapping, first_line_no, kinds=None):
+    """§6.9.3: validate the optional `visual_form` block, or do nothing.
+
+    Exactly three things, named in the refusal:
+
+      1. the block is a mapping naming one `kind` from the closed set;
+      2. every role of that kind is mapped;
+      3. no role outside that kind is mapped.
+
+    It judges NO WORDING. Whether a role's line is a good reading of the Move's
+    vocabulary is the admission act's judgment, and a rule over prose here
+    would be the lint §6.9.2 excludes.
+
+    Absence is not a finding: a Move without the block is untouched, which is
+    what makes every existing record pass unchanged.
+    """
+    if "visual_form" not in mapping:
+        return
+
+    form = mapping["visual_form"]
+    if not isinstance(form, dict):
+        raise Refusal(
+            "visual-form",
+            "`visual_form` is not a block of `kind:` plus one line per role",
+            line_no=first_line_no,
+        )
+
+    kinds = kinds if kinds is not None else load_figure_kinds()
+
+    kind = form.get(KIND_SELECTOR)
+    if not kind:
+        raise Refusal(
+            "visual-form",
+            "`visual_form` names no `kind`; the closed set is %s"
+            % ", ".join("`%s`" % k for k in sorted(kinds)),
+            line_no=first_line_no,
+        )
+    if kind not in kinds:
+        raise Refusal(
+            "visual-form",
+            "`visual_form` names unknown kind `%s`; the closed set is %s"
+            % (kind, ", ".join("`%s`" % k for k in sorted(kinds))),
+            line_no=first_line_no,
+        )
+
+    want = set(kinds[kind])
+    have = set(form) - {KIND_SELECTOR}
+    missing = sorted(want - have)
+    extra = sorted(have - want)
+    if missing or extra:
+        parts = []
+        if missing:
+            parts.append("unmapped %s" % ", ".join("`%s`" % r for r in missing))
+        if extra:
+            parts.append("not a role of `%s`: %s" % (kind, ", ".join("`%s`" % r for r in extra)))
+        raise Refusal(
+            "visual-form",
+            "`visual_form` does not map exactly kind `%s`'s roles — " % kind
+            + "; ".join(parts),
+            line_no=first_line_no,
+        )
+
+    blank = sorted(r for r in want if not str(form[r]).strip())
+    if blank:
+        raise Refusal(
+            "visual-form",
+            "`visual_form` maps %s to nothing; a role carries one line in the "
+            "Move's own vocabulary" % ", ".join("`%s`" % r for r in blank),
             line_no=first_line_no,
         )
 
@@ -380,6 +557,7 @@ def read_proposals(text):
             mapping, _order = parse_record(first_line_no, lines)
             stripped = strip_excluded(mapping)
             check_field_set(mapping, first_line_no)
+            check_visual_form(mapping, first_line_no)
         except Refusal as r:
             proposals.append(Proposal(first_line_no, refusal=r))
             continue
@@ -430,6 +608,20 @@ def render_move(mapping):
         out.append("%s: >-" % field)
         for chunk in _wrap(str(value), 74):
             out.append("  %s" % chunk)
+
+    # §6.9.3: the optional block renders LAST and only when present, so a Move
+    # without a form is byte-identical to what it has always been — the
+    # property that makes every existing record pass unchanged.
+    form = mapping.get("visual_form")
+    if isinstance(form, dict) and form:
+        out.append("visual_form:")
+        out.append("  %s: %s" % (KIND_SELECTOR, form.get(KIND_SELECTOR, "")))
+        roles = load_figure_kinds().get(form.get(KIND_SELECTOR), [])
+        # The kind's own role ORDER, never the mapping's insertion order: the
+        # file is the record, and two records of one kind that differ only in
+        # the order their roles were typed would otherwise render differently.
+        for role in roles:
+            out.append("  %s: %s" % (role, form.get(role, "")))
     return "\n".join(out) + "\n"
 
 
@@ -757,8 +949,19 @@ excerpt: >-
 """
 
 
-def _record(move_id="a-move"):
-    return EIGHT.format(id=move_id)
+AXIS_FORM = """visual_form:
+  kind: axis
+  endpoint_a: the first endpoint the Move presents
+  endpoint_b: the opposing endpoint
+  criterion: the one axis both endpoints clarify
+"""
+
+
+def _record(move_id="a-move", form=None):
+    text = EIGHT.format(id=move_id)
+    if form is not None:
+        text += form
+    return text
 
 
 def self_test():
@@ -1391,6 +1594,177 @@ def self_test():
 
     check("1.70 AC5 a verdict token is unwritable on a row, both arms",
           verdict_token_is_unwritable)
+
+    # ---- #876: the closed kind set and the optional visual form ---------
+    def the_set_is_closed_and_well_formed():
+        """The FILE's own two properties, asserted rather than trusted: no kind
+        may declare a role named `kind` (flat block — it would be the selector),
+        and no kind may declare zero roles (every form naming it would then
+        validate vacuously). Both make a Move-level refusal wrong if they fail,
+        so they are caught at the set and never at a record."""
+        kinds = load_figure_kinds()
+        assert kinds, "the closed set is empty"
+        for name, roles in kinds.items():
+            assert roles, "kind %s declares no roles" % name
+            assert KIND_SELECTOR not in roles, "kind %s declares a `kind` role" % name
+
+        import tempfile as _tf
+
+        for bad, why in (
+            ({"kinds": {"k": {"roles": []}}}, "no roles"),
+            ({"kinds": {"k": {"roles": ["kind"]}}}, "a `kind` role"),
+            ({"kinds": {}}, "no kinds"),
+        ):
+            with _tf.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+                json.dump(bad, handle)
+                path = handle.name
+            try:
+                load_figure_kinds(path)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("a set declaring %s was accepted" % why)
+
+    check("#876 the closed kind set refuses its own two malformations",
+          the_set_is_closed_and_well_formed)
+
+    def a_record_without_a_form_is_unchanged():
+        """AC2: the optional field changes NOTHING for the twenty-two records
+        that carry no form — admitted, rendered and round-tripped exactly as
+        before. This is the assertion the widening of condition 3 could break
+        silently, because a record that still passes looks identical to one
+        nothing touched."""
+        proposals = read_proposals(_record("plain"))
+        assert len(proposals) == 1 and proposals[0].admitted, "a plain record was refused"
+        mapping = proposals[0].mapping
+        assert "visual_form" not in mapping, "a form appeared on a record that has none"
+        rendered = render_move(mapping)
+        assert "visual_form" not in rendered, "the renderer wrote a form that does not exist"
+        back, _ = parse_record(1, rendered.split("\n"))
+        assert back == mapping, "the plain round trip is no longer identity"
+
+    check("#876 AC2 a record with no form is untouched, through the round trip",
+          a_record_without_a_form_is_unchanged)
+
+    def a_conforming_form_is_admitted_and_round_trips():
+        proposals = read_proposals(_record("axied", AXIS_FORM))
+        assert proposals[0].admitted, "a conforming form was refused: %s" % (
+            proposals[0].refusal,)
+        form = proposals[0].mapping["visual_form"]
+        assert form["kind"] == "axis", form
+        assert form["criterion"] == "the one axis both endpoints clarify", form
+        rendered = render_move(proposals[0].mapping)
+        back, _ = parse_record(1, rendered.split("\n"))
+        assert back["visual_form"] == form, (
+            "the form did not survive the round trip: %r vs %r" % (back.get("visual_form"), form))
+        # The kind's role ORDER, not the typing order.
+        lines = [line.strip() for line in rendered.split("\n") if line.startswith("  ")]
+        keys = [line.split(":", 1)[0] for line in lines if ":" in line]
+        assert keys[keys.index("kind"):] == ["kind", "endpoint_a", "endpoint_b", "criterion"], keys
+
+    check("#876 AC3 a conforming form is admitted and renders in role order",
+          a_conforming_form_is_admitted_and_round_trips)
+
+    # AC1, all three arms. Each is refused BY NAME — the condition token and
+    # the offending kind or role appear in the refusal, because "refused" alone
+    # sends the owner back to a file with no line to look at.
+    def refuses_form(form, fragment, label):
+        def run():
+            proposals = read_proposals(_record("subject", form))
+            bad = [p for p in proposals if not p.admitted]
+            assert bad, "expected a refusal, the record was admitted"
+            refusal = bad[0].refusal
+            assert refusal.condition == "visual-form", (
+                "expected condition visual-form, got %s (%s)" % (refusal.condition, refusal))
+            assert fragment in str(refusal), (
+                "the refusal does not name %r: %s" % (fragment, refusal))
+
+        check(label, run)
+
+    refuses_form(
+        "visual_form:\n  kind: spiral\n  endpoint_a: x\n",
+        "`spiral`",
+        "#876 AC1 an unknown kind is refused, naming it")
+    refuses_form(
+        "visual_form:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n",
+        "`criterion`",
+        "#876 AC1 a missing role is refused, naming it")
+    refuses_form(
+        "visual_form:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n"
+        "  criterion: z\n  midpoint: w\n",
+        "`midpoint`",
+        "#876 AC1 a role outside the kind is refused, naming it")
+    refuses_form(
+        "visual_form:\n  endpoint_a: x\n",
+        "names no `kind`",
+        "#876 AC1 a form with no kind is refused")
+    refuses_form(
+        "visual_form:\n  kind: axis\n  endpoint_a: x\n  endpoint_b: y\n  criterion:\n",
+        "`criterion`",
+        "#876 AC1 a role mapped to nothing is refused, naming it")
+
+    def an_unknown_ninth_key_is_still_refused():
+        """The widening admits `visual_form` and NOTHING else — the catch
+        condition 3 exists for is unchanged, which a widening is exactly the
+        kind of change that can quietly remove."""
+        proposals = read_proposals(_record("subject", "notes: >-\n  a ninth key\n"))
+        bad = [p for p in proposals if not p.admitted]
+        assert bad, "a ninth key other than `visual_form` was admitted"
+        assert bad[0].refusal.condition == "3", bad[0].refusal
+        seven = _record("subject").replace("excerpt: >-\n  a passage somewhere\n", "")
+        proposals = read_proposals(seven)
+        assert not proposals[0].admitted, "a seven-key record was admitted"
+        assert proposals[0].refusal.condition == "3", proposals[0].refusal
+
+    check("#876 condition 3 still refuses a ninth key and a seventh",
+          an_unknown_ninth_key_is_still_refused)
+
+    def the_nesting_is_admitted_by_name_not_by_shape():
+        """An indented `key: value` under any OTHER field is the scalar it has
+        always been. Admitting the nesting by shape would silently retype every
+        record whose prose happens to contain a colon at the start of a line."""
+        text = _record("colonist").replace(
+            "intent: >-\n  does a thing", "intent:\n  caveat: does a thing")
+        proposals = read_proposals(text)
+        assert proposals[0].admitted, proposals[0].refusal
+        value = proposals[0].mapping["intent"]
+        assert isinstance(value, str) and "caveat: does a thing" in value, (
+            "an indented `key: value` under `intent` became a mapping: %r" % (value,))
+
+    check("#876 the nested block is admitted by NAME, never by shape",
+          the_nesting_is_admitted_by_name_not_by_shape)
+
+    def a_saved_form_survives_index_regeneration():
+        """`write_index` reads every file back through `parse_record`. A form
+        that did not survive that path would corrupt the INDEX row's source
+        mapping, which is how the column-0 sequence defect reached INDEX."""
+        with tempfile.TemporaryDirectory() as moves_dir:
+            proposals = read_proposals(_record("axied", AXIS_FORM))
+            save_accepted(moves_dir, proposals)
+            back = read_saved(os.path.join(moves_dir, "axied.md"))
+            assert back["visual_form"]["kind"] == "axis", back
+            assert back == proposals[0].mapping, "the saved form did not read back"
+            index = open(os.path.join(moves_dir, "INDEX.md")).read()
+            assert "| axied | observed |" in index, index
+            assert "visual_form" not in index, "a form reached the INDEX row"
+
+    check("#876 a saved form survives save -> read -> INDEX regeneration",
+          a_saved_form_survives_index_regeneration)
+
+    def the_shipped_record_carries_its_form():
+        """AC3 against the repository rather than against a fixture: the one
+        record the issue names is admitted at its shipped bytes."""
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "moves", "introduce_paired_conceptual_axis.md")
+        if not os.path.exists(path):
+            return
+        mapping = read_saved(path)
+        assert mapping.get("visual_form", {}).get("kind") == "axis", mapping.get("visual_form")
+        check_visual_form(mapping, 1)
+
+    check("#876 AC3 the shipped axis record is admitted at its bytes",
+          the_shipped_record_carries_its_form)
 
     for failure in failures:
         sys.stderr.write("FAIL  %s\n" % failure)

@@ -54,6 +54,16 @@ excerpt: >-
   and where the reader ends up.>
 ```
 
+## The one optional field
+
+`visual_form` is the single field admissible beyond the eight above, and it is
+**absent by default**. Its shape, the closed kind set it draws on, and the
+three things ingestion validates about it are
+`specs/spec-draft-pipeline/SPEC.md` §6.9.3 — cited here and restated nowhere.
+**Nothing in this contract's extraction produces one**: an extractor writes the
+eight fields, and a form is added later, by the admission act's judgment, only
+when the Move's transformation has a relational shape.
+
 ## Per-field rules
 
 - **id** — a verb phrase describing the transformation, not the topic:
