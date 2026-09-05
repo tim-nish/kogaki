@@ -267,23 +267,34 @@ survives its revise carries the residue to the selection gate rather than
 looping. **The Harness counts the round** (kogaki#894): `attach` records each
 Candidate's attaches in `runs/brief/<slug>/review-attach-ledger.json`, refuses
 a third naming the Candidate and the attaches it counted, and writes the
-residue entry itself onto a Candidate at the bound. **The residue rides the
-reviewed set and does not reach the owner** — the selection gate's options
-carry `id` and `label` alone since kogaki#859, the same hole the bridge
-disclosure already sits in — so do not describe it to the owner as something
-they will see. The bound used to live in
+residue entry itself onto a Candidate at the bound. **The residue REACHES the owner at the
+selection gate** (kogaki#909, owner ruling 2026-09-06): it is disclosure
+evidence that bears on the choice, so it renders above the question as the one
+sentence the Harness wrote about its own arithmetic — one paragraph, only on a
+Candidate that actually spent a round. So it IS something the owner sees, and
+saying otherwise now understates what the gate carries. The bound used to live in
 the composing sitting's memory, which is to say nowhere a later act could
 read — a Candidate re-reviewed three times reached assembly with no refusal
 and no disclosure. **The residue entry is not yours to declare**: a Candidate
 arriving with its own `revise_residue` is refused, for the reason `bridges`
 one field over is model-declared and this is not. A Bridge Step mints **no Move** — it is an ordinary §4.1 Step
 recognised by its insertion contract, so nothing here reaches the Move
-substrate. Approval is **post-hoc**, and **its disclosure carrier is currently absent**:
-there is no per-Bridge question, and the bridge disclosure it relied on rode
-the Candidate-selection gate's evidence rendering, which kogaki#859 emptied.
-The bridges are still derivable per Candidate from the composed path; nothing
-records them in the payload and nothing shows them to the owner. This is a real consequence of that ruling
-rather than an oversight in it, and it is carried as its own decision — see
+substrate. Approval is **post-hoc**, and **its disclosure carrier is the minted Brief**
+(kogaki#864, built at kogaki#866): there is no per-Bridge question, and the
+adopted Candidate's bridges — how many, between which Steps, and each one's
+reasoning — are written into the Brief's own slot at adoption, which is a
+tracked document the owner reads directly. THIS PARAGRAPH USED TO SAY THE
+CARRIER WAS ABSENT, and it was stale from 2026-09-05: the disclosure did ride
+the Candidate-selection gate's evidence rendering, kogaki#859 did empty that
+rendering, and kogaki#864 then ruled the replacement surface with kogaki#866
+building it. The scope is the ADOPTED Candidate only, which is the property the
+move buys rather than a limit on it — approval is about what was adopted, so
+nothing is owed about a path that was not taken.
+
+**The two disclosures now land differently, and the test is one line**
+(kogaki#909): evidence that bears on the CHOICE reaches the selection gate,
+evidence that is a post-hoc report or approval rides the Brief slot. The residue
+is the first, the bridges are the second. See
 `specs/spec-draft-pipeline/SPEC.md` §4.11.
 
 ## Rendering contract — the owner reads plain register

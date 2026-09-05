@@ -37,6 +37,7 @@ import { createHash } from "node:crypto";
 import { resolve, dirname, basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runDestination, RunsRefusal } from "./runs.mjs";
+import { disclosureSurface } from "./disclosure.mjs";
 
 function fail(msg) {
   process.stderr.write(`review: ${msg}\n`);
@@ -257,6 +258,21 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
     // Written from the ledger, so it exists exactly when a revise round was
     // actually spent — never because a composer said so.
     if (rounds.length >= MAX_ATTACHES) {
+      // THE WRITE IS REFUSED WHERE THE FIELD REACHES NO OWNER (kogaki#909,
+      // owner ruling 2026-09-06). `revise_residue` is disclosure-class
+      // evidence, and `src/disclosure-fields.json` is where a disclosure-class
+      // field declares the surface it reaches. Writing one the table does not
+      // name is how this defect was found in the first place — the entry
+      // existed, a later act could read it, and no owner surface carried it —
+      // so the Harness refuses to mint it rather than minting it and leaving
+      // the absence to be discovered a field at a time.
+      if (!disclosureSurface("revise_residue")) {
+        return { error: `candidate ${c.candidate_id} reached the revise bound, and the entry `
+          + `recording that is disclosure-class evidence naming no owner surface — `
+          + `src/disclosure-fields.json declares no \`revise_residue\`. A record the owner `
+          + `never sees does not discharge a disclosure; declare the field and its grade `
+          + `there, under its own issue` };
+      }
       attached.revise_residue = {
         attaches: rounds.length,
         bound: `${REVISE_BOUND} revise round per Candidate (SPEC-draft-pipeline §4.11)`,

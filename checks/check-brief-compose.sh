@@ -28,7 +28,8 @@ import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDige
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
-import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS } from "./src/assemble.mjs";
+import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS, decisionGradeRendering } from "./src/assemble.mjs";
+import { validateDisclosureTable, disclosureSurface, disclosureFieldsPresent } from "./src/disclosure.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 import { snapshotBrief } from "./src/compose.mjs";
 import { laneDir } from "./src/runs.mjs";
@@ -1271,7 +1272,16 @@ try {
     if (!Array.isArray(rend)) {
       fails.push(`(j) option ${o.id} carries no rendering key — the key stays and holds the empty list, so the bound is readable rather than merely unwritten (kogaki#859)`);
     } else if (rend.length !== 0) {
-      fails.push(`(j) option ${o.id} renders ${rend.length} entr(y/ies) above the question — the gate is bound to its labels, and the composition-time reasoning stays in the record (kogaki#859): ${JSON.stringify(String(rend[0]).slice(0, 80))}`);
+      // SCOPED BY kogaki#909, and the scope is stated rather than left to a
+      // reader who finds an emptiness assertion beside a rendering case. #859's
+      // emptiness is the rule for a Candidate owing NO decision-grade
+      // disclosure, which is what `candA`/`candB` are — neither carries a
+      // declared decision-grade field. A Candidate that DOES carry one renders
+      // it, by #859's own one-item-at-a-time reversal clause, and that is (u)'s
+      // subject. Asserting emptiness unconditionally here would make this case
+      // and (u) contradict each other, with the suite green on whichever ran
+      // first.
+      fails.push(`(j) option ${o.id} renders ${rend.length} entr(y/ies) above the question, and this Candidate owes no decision-grade disclosure — the gate is bound to its labels, and the composition-time reasoning stays in the record (kogaki#859): ${JSON.stringify(String(rend[0]).slice(0, 80))}`);
     }
     // THE LABEL IS NOW THE WHOLE OWNER SURFACE, so the plain-register floor
     // moves onto it. It was covered transitively while the paragraphs carried
@@ -1291,6 +1301,153 @@ try {
     // history a later reader cannot reconstruct from the code.
     if ("evidence" in o) fails.push(`(j) option ${o.id} carries an evidence object — the payload copies no reasoning out of the reviewed Candidates (§6, kogaki#859)`);
   }
+  // ---- (u) THE DISCLOSURE-CLASS TABLE AND ITS ONE TEST (kogaki#909, owner
+  // ruling 2026-09-06). §4.11 and §6 decide the CLASS rather than a third
+  // field: Candidate-level disclosure evidence that BEARS ON THE CHOICE is
+  // decision-grade and reaches the selection gate, because a pending human
+  // verdict's carrier is the render layer; evidence that is a post-hoc report
+  // or approval rides the minted Brief's slot, because nothing is owed about a
+  // path not taken. `src/disclosure-fields.json` is that decision's carrier.
+  //
+  // WHAT THIS CASE IS FOR. The defect was a DECLARED piece of evidence with no
+  // owner surface, found one field at a time — the bridge disclosure, then the
+  // revise residue, with #877's `figure:` queued to be the third. So the
+  // assertions bind the property that makes a fourth impossible: the table is
+  // well formed in BOTH directions, every declared grade is reached by a real
+  // producer, and the gate's rendering is DERIVED from the table rather than
+  // enumerating the fields it knows about. ----
+  {
+    // AC1 — the live table validates. This is the control: every refusal below
+    // is only evidence if the unmutated table passes.
+    const live = validateDisclosureTable();
+    if (live.error) fails.push(`(u) the live disclosure table is malformed: ${live.error}`);
+
+    // AC2 — BOTH DIRECTIONS, because they fail differently. A field naming an
+    // unknown grade is evidence that reaches nowhere; a grade no field claims
+    // is a surface nothing arrives at, which reads as coverage while
+    // delivering nothing. Each malformation is refused BY NAME, so a repairer
+    // learns which entry is wrong rather than that something is.
+    const bad = [
+      ["no grades", { grades: {}, fields: { a: { grade: "decision", why: "w" } } }, /declares no grades/],
+      ["no fields", { grades: { decision: "selection-gate" }, fields: {} }, /declares no fields/],
+      ["a grade naming no surface", { grades: { decision: "" }, fields: { a: { grade: "decision", why: "w" } } }, /names no surface/],
+      ["a field naming an unknown grade", { grades: { decision: "selection-gate" }, fields: { a: { grade: "post-hoc", why: "w" } } }, /which the table does not declare/],
+      ["a field with no ground for its grade", { grades: { decision: "selection-gate" }, fields: { a: { grade: "decision", why: "  " } } }, /states no reason for its grade/],
+      ["a bare field name", { grades: { decision: "selection-gate" }, fields: { a: null } }, /carries no entry/],
+      ["a grade no field claims", { grades: { decision: "selection-gate", "post-hoc": "brief-slot" }, fields: { a: { grade: "decision", why: "w" } } }, /claimed by no field/],
+    ];
+    for (const [what, table, wanted] of bad) {
+      const r = validateDisclosureTable(table);
+      if (!r.error) fails.push(`(u) a disclosure table with ${what} was ADMITTED — a malformed table makes every surface obligation vacuous while reading exactly like a Candidate set that owed none`);
+      else if (!wanted.test(r.error)) fails.push(`(u) a disclosure table with ${what} was refused, but not by name: ${r.error}`);
+    }
+
+    // AC3 — EVERY DECLARED GRADE HAS A LIVE PRODUCER. A grade is the mapping
+    // from evidence to the place the owner reads it, so a grade whose surface
+    // no code reaches is the original defect wearing a declaration.
+    if (disclosureSurface("revise_residue") !== "selection-gate") {
+      fails.push("(u) `revise_residue` does not resolve to the selection gate — the owner ruling of 2026-09-06 grades it decision-class because it bears on the choice being made");
+    }
+    if (disclosureSurface("bridges") !== "brief-slot") {
+      fails.push("(u) `bridges` does not resolve to the Brief slot — §4.11's approval is post-hoc and about what was ADOPTED (kogaki#864)");
+    }
+    if (!SLOT_CAPTIONS.has("What this path bridged")) {
+      fails.push("(u) the brief-slot surface names no slot in SLOT_CAPTIONS — the post-hoc grade would deliver to a heading the Brief does not carry");
+    }
+    if (disclosureSurface("not-a-declared-field") !== null) {
+      fails.push("(u) an undeclared field resolved to a surface — the table's answer for a key nobody declared is null, and a guard that invented one would be claiming a reach it does not have");
+    }
+
+    // AC4 — DERIVED, NEVER ENUMERATED. This is the property that makes field
+    // N+1 free, and it is asserted with a SYNTHETIC table carrying a field the
+    // renderer has never heard of: if `decisionGradeRendering` named its
+    // fields, this third one would render as nothing and the table and the
+    // renderer would be two carriers of one rule.
+    const synth = {
+      grades: { decision: "selection-gate", "post-hoc": "brief-slot" },
+      fields: {
+        revise_residue: { grade: "decision", why: "w" },
+        bridges: { grade: "post-hoc", why: "w" },
+        third_field_the_renderer_never_heard_of: { grade: "decision", why: "w" },
+      },
+    };
+    const synthCand = {
+      revise_residue: { statement: "this path spent its one revise round and what the revise did not repair stands" },
+      bridges: ["s1", "s2"],
+      third_field_the_renderer_never_heard_of: { statement: "a later field, declared and never coded for" },
+    };
+    const derived = decisionGradeRendering(synthCand, synth);
+    if (derived.length !== 2) {
+      fails.push(`(u) the gate rendering produced ${derived.length} paragraph(s) for a table declaring TWO decision-grade fields — it is enumerating the fields it knows rather than deriving them, so a field added to the table would reach the owner nowhere`);
+    }
+    if (!derived.some((t) => /a later field, declared and never coded for/.test(t))) {
+      fails.push("(u) a decision-grade field added to the table alone did not render — field N+1 must fail no new assertion and need no new code, or the class repeats one field at a time");
+    }
+    // THE PARTIAL REGRESSION, NOT ONLY THE TOTAL ONE (PR #931 round 1, finding
+    // 3). A renderer that went back to enumerating ONE known field would emit
+    // one paragraph here and pass any emptiness test, delivering nothing for
+    // the second declared field. So the assertion is the EQUALITY the
+    // composition-site guard now enforces — owed against rendered — evaluated
+    // on the synthetic table, which is the only place two decision-grade fields
+    // can be constructed while the live table declares one.
+    const owedSynth = disclosureFieldsPresent(synthCand, "decision", synth);
+    if (derived.length !== owedSynth.length) {
+      fails.push(`(u) the rendering produced ${derived.length} paragraph(s) for ${owedSynth.length} owed decision-grade field(s) — a PARTIAL enumeration passes an emptiness test while one field reaches the owner nowhere, which is the regression an emptiness test cannot see`);
+    }
+    // AND THE POST-HOC FIELD DOES NOT LEAK ONTO THE GATE. `bridges` is present
+    // on the same Candidate; grading it post-hoc means the gate must NOT carry
+    // it, which is the half that keeps this from being a restoration of the
+    // list kogaki#859 removed.
+    if (derived.some((t) => /s1|s2/.test(t))) {
+      fails.push("(u) a post-hoc field rendered at the gate — the grade decides the surface, and a post-hoc field reaching the gate is the 2026-09-04 reduction being undone by the back door");
+    }
+
+    // AC5 — END TO END, through the real payload. A Candidate at the revise
+    // bound reaches the owner with the Harness's own sentence; a Candidate
+    // below the bound renders nothing, so #859's empty case is intact.
+    const residue = {
+      attaches: 2,
+      bound: "one revise round per Candidate",
+      statement: "this path spent its one revise round; anything the revise did not repair stands, and it cannot be reviewed again with different reasoning",
+    };
+    const withResidue = JSON.parse(JSON.stringify(candA));
+    withResidue.revise_residue = residue;
+    const pay = assembleSelection({ candidates: [withResidue, candB] }, doc0);
+    if (pay.error) {
+      fails.push(`(u) a Candidate carrying decision-grade disclosure was refused at assembly: ${pay.error}`);
+    } else {
+      const opt = (pay.payload.options || []).find((o) => o.id === "cand-1");
+      const other = (pay.payload.options || []).find((o) => o.id === "cand-2");
+      if (!opt || !Array.isArray(opt.rendering) || opt.rendering.length !== 1) {
+        fails.push(`(u) the Candidate at the revise bound rendered ${opt ? (opt.rendering || []).length : "no"} paragraph(s) at the gate — evidence that bears on the choice is owed BEFORE the choice, because the owner acts on what they see and not on what the record holds`);
+      } else if (!opt.rendering[0].includes("spent its one revise round")) {
+        fails.push(`(u) the rendered paragraph is not the Harness's own statement — re-describing it here would be a second derivation of one fact, and the two would agree until one was edited: ${JSON.stringify(opt.rendering[0].slice(0, 80))}`);
+      }
+      if (!other || !Array.isArray(other.rendering) || other.rendering.length !== 0) {
+        fails.push("(u) a Candidate owing no decision-grade disclosure rendered something — kogaki#859's empty case is the rule and this ruling reverses ONE ITEM, never the list");
+      }
+      // THE RENDERING IS AN OWNER SURFACE, so the shared tripwire binds it.
+      // A statement that decayed into an internal key would reach the owner
+      // through a path #859 had closed and this ruling reopened by one item.
+      const leak = denyInternalVocabulary(pay.payload);
+      if (leak.error) fails.push(`(u) the decision-grade rendering leaks internal vocabulary: ${leak.error}`);
+    }
+    // AND A CANDIDATE CARRYING A RESIDUE WITH NO WORDS still discloses: an
+    // absent disclosure and a blank one are different readings, and only the
+    // second is a defect.
+    const mute = JSON.parse(JSON.stringify(candA));
+    mute.revise_residue = { attaches: 2 };
+    const mpay = assembleSelection({ candidates: [mute, candB] }, doc0);
+    if (mpay.error) {
+      fails.push(`(u) a Candidate whose residue carried no statement was refused: ${mpay.error}`);
+    } else {
+      const mo = (mpay.payload.options || []).find((o) => o.id === "cand-1");
+      if (!mo || (mo.rendering || []).length !== 1) {
+        fails.push("(u) a residue carrying no readable statement rendered nothing — a blank disclosure and an absent one are different readings, and the gate must not turn the first into the second");
+      }
+    }
+  }
+
   // ---- (l) THE THREE READER FIELDS (§5.1 v12, kogaki#521, story 1.77):
   // authored at PATH COMPOSITION per Candidate, riding the EXISTING gate,
   // landing at adoption, and REFUSING by name when unauthored. ----
@@ -1877,7 +2034,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // pass. The floor lives in checks/registry.json and the count lives here, so
 // deleting a case and lowering this number fails against the floor — and
 // lowering the floor to match is itself caught by check-registry-conformance.
-const CASE_COUNT = 20;
+const CASE_COUNT = 21;
 {
   const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
   const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;
@@ -1892,7 +2049,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"

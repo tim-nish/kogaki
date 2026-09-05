@@ -1,5 +1,17 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v33, amended 2026-09-06 (kogaki#909) — **Candidate-level
+disclosure evidence gets ONE test instead of a paragraph per field.** Evidence
+that BEARS ON THE CHOICE the owner is making is decision-grade and reaches the
+selection gate, because a pending human verdict's carrier is the render layer;
+evidence that is a post-hoc report or approval rides the minted Brief's slot,
+because nothing is owed about a path that was not taken. `revise_residue` is
+decision-grade and now renders at the gate — kogaki#859's own one-item-at-a-time
+reversal, never the list restored — and `bridges` stays post-hoc where
+kogaki#864 put it. The grading is carried by `src/disclosure-fields.json`, and a
+declared field that reaches no surface is refused at the write rather than
+discovered a field at a time. **deferred slots minted by this amendment: none.**
+
 **Status:** v32, amended 2026-09-05 (kogaki#891) — **the owner's answer at the
 thesis-determination gate (§5.3) and at the Candidate-selection gate (§6) is
 READ from a Harness-written capture, never received as an argument.** Both
@@ -525,18 +537,54 @@ count honest rather than merely present:
   wearing the Harness's field name, which is `bridges`'s own shape one field
   over. **The Harness counts the round and never judges the repair** — a
   residue entry says a round was spent, never that a gap survived it.
-  **AND IT DOES NOT YET REACH THE OWNER, which is stated rather than implied**
-  (PR #908 round 1). The entry rides the reviewed set, where a later act can
-  read it; the selection gate's options carry `id` and `label` alone since
-  kogaki#859 emptied the evidence rendering, so nothing puts it on screen. This
-  is **the same hole this section already records for the bridge disclosure**,
-  and it is one hole rather than two: both are Candidate-level evidence with no
-  owner surface left to ride. **Carried at kogaki#909**, which asks the question
-  for the CLASS rather than a third time for a third field — #877's `figure:`
-  would be the third to re-derive the same absence.
-  Saying the residue "rides to the gate" without
-  this sentence would assert the disclosure half of "a gap surviving it is
-  disclosed" more strongly than the payload supports.
+  **AND IT REACHES THE OWNER AT THE GATE** (kogaki#909, owner ruling
+  2026-09-06). Between PR #908 and that ruling it did not: the entry rode the
+  reviewed set where a later act could read it, and the selection gate's options
+  carried `id` and `label` alone since kogaki#859 emptied the evidence
+  rendering, so nothing put it on screen. That was **the same hole this section
+  records for the bridge disclosure** — one hole rather than two, both
+  Candidate-level evidence with no owner surface left to ride — and #909 asked
+  the question for the CLASS rather than a third time for a third field, #877's
+  `figure:` being the third that would have re-derived the same absence.
+
+  **THE TEST IS WHETHER THE EVIDENCE BEARS ON THE CHOICE, and it is one test
+  applied per field rather than a ruling per field.** Disclosure-class evidence
+  that bears on the pending selection is **decision-grade** and reaches the
+  **selection gate**; evidence that is a post-hoc report or approval is
+  **post-hoc** and rides the **minted Brief's slot** (§4.11's own disclosure
+  surface, kogaki#864, built at kogaki#866). The residue is decision-grade: it
+  says this Candidate spent its one revise round and that anything the revise
+  did not repair stands, which is a property of the Candidate the owner is
+  choosing **between**, so it is owed before the choice rather than after it.
+  `bridges` is post-hoc and stays exactly where kogaki#864 put it.
+  `consulted: product-lab@172ede395a5d74ef9a8b2c7b2031f79fda2fc930
+  topics/archive/knowledge-architecture.md:172` — "a **pending human verdict**
+  is violated by not being acted on, and the human acts on what they SEE rather
+  than on what the authoritative file contains, so its carrier is the render
+  layer."
+
+  **THIS IS ONE ITEM, NEVER THE LIST RESTORED.** §6's reduction removed sixteen
+  paragraphs per Candidate — about 20,000 characters above a question whose
+  labels total under 900 — and its ruling is explicit that a later run showing
+  one evidence item is needed to decide adds **that item** by its own ruling.
+  What renders is the Harness's own one sentence about its own arithmetic, on at
+  most three Candidates, and only where a revise round was actually spent. A
+  Candidate that spent none renders nothing, so the empty case §6 established is
+  intact.
+
+  **THE CARRIER IS `src/disclosure-fields.json`, and a declared field reaching
+  no surface is refused at the WRITE.** The table names each disclosure-class
+  field's grade, the grade names the surface, and `src/assemble.mjs` derives the
+  gate's rendering **from the table** rather than enumerating the fields it
+  knows — so a field added to the table reaches the owner with no code naming
+  it, and a renderer that regressed to an enumeration is refused by name at the
+  composition site. `src/review.mjs` refuses to mint a residue at all where the
+  table declares no surface for it. The assertion is
+  `checks/check-brief-compose.sh` case **(u)**.
+  **What this does NOT claim, stated rather than left to be trusted past:** a
+  field **nobody declared** is outside the table's reach — no reading of it
+  bears on a key that was never entered. What is closed is the defect the class
+  was found by, a *declared* piece of evidence with no surface.
 
 - **A DAMAGED ledger refuses; an ABSENT one is zero rounds spent.** This is the
   bullet the lifetime clause above points at, and the distinction is the whole
@@ -1397,6 +1445,26 @@ argument above rests on exactly that coverage, so the claim was load-bearing and
 carrier-less at once: a contract tested against its own text is green about the
 document and silent about the tables. Naming the case is what makes the claim
 falsifiable rather than merely written down.
+
+**THE CLAUSE HAS BEEN EXERCISED ONCE, AND ONCE IS THE RECORD** (kogaki#909,
+owner ruling 2026-09-06). The item added is **decision-grade disclosure
+evidence** — evidence that bears on the choice the owner is making at this gate,
+of which `revise_residue` is the first and currently the only member. The
+grading test and its carrier live in §4.11 and are not restated here; what §6
+records is that its own reversal route was used as written, by its own ruling,
+for one item rather than for a list.
+
+**Why this is not the 20,000 characters coming back by instalments, stated so a
+later reader can tell the difference.** What #859 removed was the
+composition-time **reasoning**, copied wholesale for every Candidate whether or
+not anything had happened — sixteen paragraphs each, present on every run. What
+returns is the Harness's own **one sentence** about its own arithmetic, present
+only where the arithmetic actually fired, on at most three Candidates. The
+distinguishing property is not length but **conditionality**: a Candidate that
+spent no revise round renders nothing, so the empty case this ruling
+established remains the ordinary case rather than becoming the exception. A
+later item proposed for this route is measured against that property and not
+against a character count.
 
 **The declined alternative, recorded so it is not re-proposed blind:** a
 one-line disclosure at the gate saying the reasoning exists and is available
