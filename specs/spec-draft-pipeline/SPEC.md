@@ -454,13 +454,13 @@ with no inspection need.
 **Why a post-hoc surface rather than the gate.** The competing arm — restoring a
 bridge line above the selection question — was declined, and not on cost. The
 served position binding a disclosure to a *gate surface* rests on a person being
-unable to leave that screen without abandoning the act: `consulted:
+unable to leave that surface without abandoning the act: `consulted:
 product-lab@dbe745dca3ed930e1cad5b5504b01bb13f602cb0
 topics/knowledge-architecture.md:285` — "an auditor asking *did we ask?* can
 follow a pointer, and a person holding a four-option screen cannot leave it
 without abandoning the act, so the obligation sits on the SURFACE and no amount
 of capture discharges it." Bridge approval is **post-hoc by this section's own
-design**: there is no screen the owner is held on, so the pointer arm is the one
+design**: there is no surface the owner is held on, so the pointer arm is the one
 the position licenses, and putting the line back above a question §6 has just
 cleared would spend the surface §6 was reduced to protect.
 
