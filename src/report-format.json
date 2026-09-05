@@ -154,10 +154,15 @@
         },
         {
           "id": "judge_pin",
-          "form": "judged by <model_id> / <effort_tier> — OBSERVED: the Harness holds its own invocation record … | judge pin DECLARED — <model_id> / <effort_tier>. The Harness invoked no judge and holds …",
-          "governing": "SPEC-terrain §6.2, §12.1 — and kogaki#892, which is what put TWO alternatives here. The first is emitted where the Harness observed the judgment act itself; the second where it did not, which is every run today because Terrain invokes no judge. Both are composed by one function (`judgePinLine`), so this class and the report's `judge` class cannot come to say different things about one record.",
-          "superseded": "judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape) (kogaki#892: the line asserted a judgment the Harness never observed. It was emitted on the strength of the subdivisions record's own `judged: true` and its declared pin — a declaration rendered as an observation, which is the right act with a guard silently disabled.)"
+          "form": "judged by <model_id> / <effort_tier> — OBSERVED: … | judge pin DECLARED — <model_id> / <effort_tier>. …",
+          "governing": "SPEC-terrain §6.2, §12.1 — and kogaki#892, which is what put TWO alternatives here. The first is emitted where the Harness observed the judgment act itself; the second where it did not, which is every run today because Terrain invokes no judge. Both are composed by one function (`judgePinLine`), so this class and the report's `judge` class cannot come to say different things about one record. WRAPPED at the display column since kogaki#919, so the form abbreviates immediately after the pin: the first rendered line is a prefix of the sentence and its continuations are the `judge_pin_continuation` class below. Abbreviating right after the placeholders rather than mid-clause is deliberate — a longer model id moves the wrap point, and a form pinning literal text past it would refuse exactly the ids it did not anticipate.",
+          "superseded": "judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape) (kogaki#892: the line asserted a judgment the Harness never observed. It was emitted on the strength of the subdivisions record's own `judged: true` and its declared pin — a declaration rendered as an observation, which is the right act with a guard silently disabled.) (kogaki#919: the line was emitted as one unwrapped string of roughly 450 characters, on the surface kogaki#317 exists to keep readable under wrapping, while its report counterpart `judged_empty_notice_declared` was hand-wrapped at the same content.)"
         },
+          {
+            "id": "judge_pin_continuation",
+            "form": "  <continuation of the wrapped judge pin line>",
+            "governing": "kogaki#919. The judge pin line wraps at the column the report's counterpart notice already uses, and its continuations carry a two-space hanging indent. The indent is what this class keys on: it is the one shape no other cotag_groups emitter produces, so admitting continuations costs the allowlist no specificity — a bare-placeholder class here would admit every line and make `line_class_allowlist` inert on this surface, which is the state the grammar's own reader_notes record as a deferred slot on full_report rather than a thing to reproduce."
+          },
         {
           "id": "abnormal_claimless",
           "form": "ABNORMAL: <n> of <m> group(s) on this display carry no composed GroupClaim. …"
