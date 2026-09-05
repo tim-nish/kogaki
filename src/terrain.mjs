@@ -3061,6 +3061,46 @@ export function thesisCandidatesSection(candidates) {
   return L;
 }
 
+// THE PRE-#861 REPLAY GUARD, PURE AND EXPORTED (PR #923 round 1, finding 2).
+// It lives here rather than inline in `cmdReport` for the reason every other
+// predicate in this file was split out: `cmdReport` reaches the seam, so a
+// fixture that can only call the command cannot state this property, and a
+// guard whose failing path no case can reach is one nobody can show works.
+//
+// WHAT IT ANSWERS: thesis candidate ids were minted at RENDER time until
+// kogaki#861 moved the mint into `readThesisCandidates`, so a record stored
+// before that move carries candidates with no `id` — and `thesisCandidatesSection`
+// now refuses one, naming "a caller that bypassed the reader" when the true
+// cause is a record predating the field. Replaying such a record would fail a
+// rerun that has done nothing wrong, which is exactly the treatment the
+// `priorPredatesJudgmentKey` clause declines two clauses up. Recomputing mints
+// the ids through the reader, which is where they now come from.
+export function priorPredatesCandidateIds(prior) {
+  return Array.isArray(prior && prior.thesis_candidates)
+    && prior.thesis_candidates.some((c) => !c || !c.id);
+}
+
+// THE WHOLE REPLAY DECISION, not just its new conjunct — and the widening is
+// the repair rather than tidiness. The first cut of this fix exported the
+// predicate alone and asserted it, and the mutation that DROPPED the conjunct
+// from `cmdReport`'s condition left the fixture GREEN: the case bound the
+// predicate and the defect lived at the call site, which is the same
+// binds-a-proxy shape this sitting's own emission names one layer over. A case
+// can only bind the decision if the decision is the thing it calls, so the
+// condition moves here whole and `cmdReport` asks it rather than composing it.
+//
+// The two predating guards are stated as one function and not two because they
+// are one rule: a stored record that cannot be shown idempotent is RECOMPUTED
+// — never replayed, and never refused, since refusing would fail a rerun that
+// has done nothing wrong.
+export function shouldReplayPrior(prior, identity, sameIdentityFn = sameIdentity) {
+  const predatesJudgmentKey = !!(prior && prior.identity
+    && prior.identity.neighborhood_judgment === undefined);
+  return sameIdentityFn(prior && prior.identity, identity)
+    && !predatesJudgmentKey
+    && !priorPredatesCandidateIds(prior);
+}
+
 export function renderReportMarkdown(report, tag) {
   const L = [];
   const i = report.identity;
@@ -3905,9 +3945,13 @@ function cmdReport(args) {
     // enumeration is non-empty; it is the same treatment `composedInputDelta`
     // gives a record predating ITS field, for the same reason — a record that
     // cannot be shown idempotent is recomputed rather than replayed.
-    const priorPredatesJudgmentKey = prior.identity
-      && prior.identity.neighborhood_judgment === undefined;
-    if (sameIdentity(prior.identity, identity) && !priorPredatesJudgmentKey) {
+    // A PRE-#861 RECORD IS NEVER REPLAYED EITHER, and for the reason the clause
+    // above already gives rather than a new one. Both predating guards and the
+    // identity comparison are `shouldReplayPrior`, pure and exported: this
+    // branch reaches the seam, so a condition composed HERE is one no fixture
+    // can state — see that function's own header for what the first cut of this
+    // fix left unbound.
+    if (shouldReplayPrior(prior, identity)) {
       // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (§12.1, kogaki#700).
       // Same identity is not the same artifact when the inputs it was rendered
       // from differ: the CLAIMS and SUBDIVISIONS stay recorded rather than keyed
@@ -7590,6 +7634,34 @@ switch (cmd) {
           const section = thesisCandidatesSection([{ id: "TC7", claim: "seven", strands: ["L1", "L2"] }]);
           return composed.map((c) => c.id).join(",") === "TC1,TC2,TC3"
             && section.some((l) => l === "- TC7 — seven");
+        })());
+
+      // ---- A RECORD PREDATING THE ID MINT IS RECOMPUTED, NEVER REPLAYED AND
+      // NEVER REFUSED (PR #923 round 1, finding 2). The section's refusal is
+      // right about a caller that bypassed the reader and wrong about a stored
+      // record written before the field existed; the replay guard is what keeps
+      // the second out of the first's reach. The CONTROL is the other half —
+      // a record whose candidates all carry ids still replays, so this is a
+      // guard on one shape and not a blanket disabling of the rerun path.
+      ok("a stored report record whose Thesis candidates carry no id is recomputed rather than replayed, and one that carries them still replays",
+        (() => {
+          const pre = { thesis_candidates: [{ claim: "one", strands: ["L1"] }] };
+          const post = { thesis_candidates: [{ id: "TC1", claim: "one", strands: ["L1"] }] };
+          const none = { thesis_candidates: [] };
+          // THE DECISION IS WHAT IS CALLED, never the conjunct alone: an
+          // identity comparison is injected so this reaches the same function
+          // `cmdReport` asks, and a conjunct dropped from it fails here.
+          const same = () => true;
+          const idty = { neighborhood_judgment: "NO_JUDGE" };
+          const wrap = (r) => ({ identity: idty, ...r });
+          return priorPredatesCandidateIds(pre)
+            && !priorPredatesCandidateIds(post)
+            && !priorPredatesCandidateIds(none)
+            && !priorPredatesCandidateIds({})
+            && !shouldReplayPrior(wrap(pre), idty, same)
+            && shouldReplayPrior(wrap(post), idty, same)
+            && shouldReplayPrior(wrap(none), idty, same)
+            && !shouldReplayPrior({ identity: {} }, idty, same);
         })());
 
       // ---- THE ORDERING, read from the shipped carrier (§15.1 keeps the state
