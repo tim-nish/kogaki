@@ -150,16 +150,45 @@ def validate_gate(gate):
 # Capture validation. Every row is guarded: a row that cannot be judged is
 # reported as CANNOT-DETERMINE and never as a finding.
 # --------------------------------------------------------------------------
-def declared_options(gate_id, registered_options, decl_dir):
+def declaration_candidates(gate_id, capture_path):
+    """The names this capture's own run declaration can carry, most specific
+    first (§4.1 v5, kogaki#891).
+
+    A capture is named by its RUN, not by its gate, wherever two run states can
+    share one workspace: `src/brief.mjs` writes
+    `<run-state stem>.<gate_id>.gate-capture.json` beside
+    `<run-state stem>.<gate_id>.run-declaration.json`, because a gate_id-only
+    name gives two entries over the same settled Strand set ONE declaration and
+    ONE capture between them. So the first candidate is derived from the
+    capture's OWN filename — the only name that always names the declaration of
+    the run that wrote it — and `<gate_id>` + suffix is the second, which is the
+    v4 name and what `src/assemble.mjs` and the per-gate directories still use.
+
+    Deriving rather than probing a directory listing is deliberate: a listing
+    would have to guess which of two sibling declarations belongs to this
+    capture, and guessing wrong admits run state A's answer at run state B's
+    adoption — the failure the run-state keying exists to close.
+    """
+    suffix = schema["capture"]["run_declaration_suffix"]
+    glob_suffix = schema["capture"]["glob"].lstrip("*")
+    names = []
+    if capture_path.name.endswith(glob_suffix):
+        names.append(capture_path.name[:-len(glob_suffix)] + suffix)
+    if gate_id is not None and f"{gate_id}{suffix}" not in names:
+        names.append(f"{gate_id}{suffix}")
+    return [capture_path.parent / n for n in names]
+
+
+def declared_options(gate_id, registered_options, capture_path):
     """The comparison target for a capture row's `options_offered`, per
-    specs/spec-gate-carrier/SPEC.md §4.1 (v4, kogaki#818).
+    specs/spec-gate-carrier/SPEC.md §4.1 (v5, kogaki#891; v4, kogaki#818).
 
     The run's OWN declaration where one sits beside the capture; the registry
-    entry otherwise. The defect this resolves was a homonym on "the tree": the
+    entry otherwise. The defect v4 resolved was a homonym on "the tree": the
     registry's `dynamic_options` prose meant the COMMITTED tree (`/runs/*` is
     ignored), while this check reads the WORKING DIRECTORY — so a run that
     composed its options per run, exactly as the registry says it does, could
-    never pass.
+    never pass. v5 resolves WHICH sibling: see `declaration_candidates`.
 
     Returns `(options, source)` — and None options where no target is
     resolvable, which is the pre-existing "gate is in no registry" path,
@@ -171,9 +200,10 @@ def declared_options(gate_id, registered_options, decl_dir):
     into a CANNOT-DETERMINE, because an unreadable declaration is a defect in
     this checker's inputs and not a finding against the gate (§7).
     """
-    if decl_dir is not None:
-        sibling = decl_dir / f"{gate_id}{schema['capture']['run_declaration_suffix']}"
-        if sibling.is_file():
+    if capture_path is not None:
+        for sibling in declaration_candidates(gate_id, capture_path):
+            if not sibling.is_file():
+                continue
             doc, error = load(sibling)
             if error:
                 raise ValueError(
@@ -189,7 +219,7 @@ def declared_options(gate_id, registered_options, decl_dir):
     return registered_options.get(gate_id), "src/gate-registry.json"
 
 
-def validate_row(row, registered_gate_ids, registered_options, decl_dir=None):
+def validate_row(row, registered_gate_ids, registered_options, capture_path=None):
     v = []
     c = schema["capture"]
     for field in c["row_required"]:
@@ -244,7 +274,7 @@ def validate_row(row, registered_gate_ids, registered_options, decl_dir=None):
         offered = payload.get("options_offered")
         if c["payload_options_must_equal_declared_gate_options"] and offered is not None:
             target, source = declared_options(gate_id, registered_options,
-                                              decl_dir)
+                                              capture_path)
             if target is not None and sorted(offered) != sorted(target):
                 v.append(("CAPTURE_PAYLOAD_OPTIONS_MISMATCH",
                           f"the payload's options disagree with the options gate "
@@ -253,7 +283,7 @@ def validate_row(row, registered_gate_ids, registered_options, decl_dir=None):
 
 
 def validate_capture_doc(doc, registered_gate_ids, registered_options, where,
-                         decl_dir=None):
+                         capture_path=None):
     """Return (violations, cannot_determines). Each row is guarded."""
     violations, crashes = [], []
     rows = doc.get(schema["capture"]["rows_key"])
@@ -264,7 +294,7 @@ def validate_capture_doc(doc, registered_gate_ids, registered_options, where,
     for row in rows:
         try:
             violations.extend(validate_row(row, registered_gate_ids,
-                                           registered_options, decl_dir))
+                                           registered_options, capture_path))
         except Exception as exc:              # the guard, on every write path
             # Keyed WITHOUT the row index, deliberately: a deterministic cause
             # produces the identical entry N times, and collapsing on that key
@@ -333,7 +363,7 @@ for path in captures:
                 else:
                     covered_gates.add(row.get("gate_id"))
     v, c = validate_capture_doc(doc, registered_ids, registered_options,
-                                str(path), path.parent)
+                                str(path), path)
     failures.extend((code, f"{path}: {detail}") for code, detail in v)
     cannot_determine.extend(c)
 
@@ -372,7 +402,7 @@ def fixture_codes(path):
         return None, [("MALFORMED_JSON", error[1])], []
     if doc.get("_fixture") == "capture":
         v, c = validate_capture_doc(doc, fx_ids, fx_options, str(path),
-                                    path.parent)
+                                    path)
         return doc, v, c
     return doc, validate_gate(doc), []
 

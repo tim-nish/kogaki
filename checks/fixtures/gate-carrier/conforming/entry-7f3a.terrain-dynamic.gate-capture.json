@@ -1,0 +1,33 @@
+{
+  "_fixture": "capture",
+  "_note": [
+    "The run-state-keyed pair (§4.1 v5, kogaki#891). This capture sits in a",
+    "directory that ALREADY holds `terrain-dynamic.run-declaration.json` for a",
+    "different run, and its options match NEITHER that declaration NOR the",
+    "fixture registry — so it is admitted only when the sibling is resolved",
+    "from the capture's own filename. Under the gate_id-only lookup it resolves",
+    "the other run's declaration and reports CAPTURE_PAYLOAD_OPTIONS_MISMATCH,",
+    "which is the discrimination: two run states in one workspace is exactly",
+    "when the wrong declaration is least distinguishable from the right one."
+  ],
+  "rows": [
+    {
+      "stop_id": "stop-0004",
+      "gate_id": "terrain-dynamic",
+      "evidence": {
+        "tool": "AskUserQuestion",
+        "tool_use_id": "toolu_01GateCarrier0004"
+      },
+      "payload": {
+        "options_offered": [
+          "strand:g2-4",
+          "no-strand"
+        ],
+        "free_text_offered": true,
+        "answer": {
+          "option": "strand:g2-4"
+        }
+      }
+    }
+  ]
+}
