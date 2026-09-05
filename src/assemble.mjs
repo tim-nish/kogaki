@@ -36,6 +36,7 @@ import { resolve, dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fillBrief, replaceSlot, selectedStrands, placements,
   resolveMoveIds, validateSpecialization, specializationDigest, validateRatification, specializationSchema, gateSchema, gateRegistry,
+  ownerGateDigest, validateOwnerAnswer,
          journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { laneDir } from "./runs.mjs";
@@ -467,6 +468,18 @@ export function assembleSelection(reviewed, doc) {
   return { payload };
 }
 
+// THE OPTION SET THE §6 GATE OFFERED (kogaki#891), derived from the same
+// composer the gate itself is raised from. A capture binds to the option set
+// it answered — the same candidate id offered beside different alternatives is
+// a different question — so both the gate executor and adoption must compute
+// the set the SAME way, which is why neither of them enumerates it and both
+// call this.
+export function selectionOptionIds(reviewed, doc) {
+  const r = assembleSelection(reviewed, doc);
+  if (r.error) return { error: r.error };
+  return { ids: r.payload.options.map((o) => o.id), options: r.payload.options, payload: r.payload };
+}
+
 // The adopted Candidate's Reader Path lands in the Brief (§5.1): sequence
 // through the §4.1 fill, thesis_closure and tradeoffs from its reasoning.
 export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
@@ -494,6 +507,52 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
       + `${unauthored.length === 1 ? "it" : "them"} per Candidate, and adoption fills no default. `
       + `Compose the path again; nothing was written to the Brief.` };
   }
+  // SELECTED HALF — the §6 Candidate-selection gate (kogaki#891). Sited HERE,
+  // above every JUDGMENT clause, because this one binds the SUBJECT'S IDENTITY:
+  // the argument it checks is `candidateId` itself. Judging a specialization
+  // record about Candidate A, and asking an owner to ratify it, is wasted
+  // work and a misleading refusal when the owner chose B — every downstream
+  // clause would pass on A and the run would refuse at the very end naming
+  // the wrong thing. It sits BELOW the two clauses that establish the
+  // Candidate is a Candidate at all (in the reviewed set; its reader fields
+  // authored), because a malformed Candidate was never offerable and its own
+  // refusal names the repair; selection is the first clause about the OWNER.
+  //
+  // WHAT THE ORDER DOES NOT DISTURB. §4.12.3's stated property is that a
+  // `contradicts` or `cannot-determine` record refuses ABOVE the ratification
+  // gate, so a failing record never reaches an owner. That ordering is
+  // between the judged and ratified halves and is untouched: this clause
+  // sits above BOTH, and a run whose selection is absent never reaches either,
+  // which is the same discipline one step earlier.
+  //
+  // The absence is refused HERE rather than inside the validator, for the
+  // reason §4.12.3 already states: "not selected" is a fact about an act that
+  // did not happen, not about a capture's shape.
+  if (instantiation.selection === undefined) {
+    return { error: `candidate ${candidateId}: which Reader Path the Brief follows is the OWNER'S choice at the §6 `
+      + `Candidate-selection gate, and until kogaki#891 it reached this runtime as \`--candidate\` — an argument the `
+      + `model composed from the question-UI answer, carrying no evidence of any kind. Raise the gate with `
+      + `\`assemble.mjs gate-candidate --declare\`, record the owner's click with \`gate-candidate --capture\`, and pass `
+      + `--selection <capture>. Nothing was written.` };
+  }
+  const offered = selectionOptionIds(reviewed, doc);
+  if (offered.error) return { error: `the §6 selection gate cannot be recomposed, so the captured answer cannot be judged against what was offered: ${offered.error}` };
+  const selDigest = ownerGateDigest("brief-candidate-selection", offered.ids);
+  const chose = validateOwnerAnswer(instantiation.selection, "brief-candidate-selection", selDigest);
+  if (chose.error) return { error: `candidate ${candidateId}: ${chose.error}` };
+  if (chose.option === "none-of-these") {
+    return { error: `candidate ${candidateId}: the owner answered "none-of-these" at the §6 Candidate-selection gate — `
+      + `the Thesis or the selected set is what should change, and NO Reader Path lands in the Brief. `
+      + `Nothing was written.` };
+  }
+  // THE MATCH, which is acceptance item 1 of kogaki#891 in one line: the
+  // argument is refused when it does not equal the recorded answer.
+  if (chose.option !== candidateId) {
+    return { error: `the owner selected candidate ${JSON.stringify(chose.option)} at the §6 gate, but `
+      + `${JSON.stringify(candidateId)} is being adopted — an owner who chose one Reader Path did not choose another. `
+      + `Nothing was written.` };
+  }
+
   // THE STEP↔MOVE INSTANTIATION CONTRACT (§4.12, kogaki#747), BOTH HALVES,
   // BEFORE ANYTHING IS WRITTEN. Adoption is the one surviving write that
   // lands a sequence in an existing Brief, so it is the one occasion at which
@@ -618,7 +677,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
     out = r.doc;
   }
   return { doc: out, placed: filled.placed, total: filled.total, checked: resolved.checked, judged: judged.judged,
-    ratified_by: ratified.tool_use_id, record_digest: digest };
+    ratified_by: ratified.tool_use_id, record_digest: digest, selected_by: chose.tool_use_id };
 }
 
 function argString(args, key, usage) {
@@ -659,9 +718,13 @@ function cmdAdopt(args) {
   const briefPath = argString(args, "brief", "adopt-candidate needs --brief <theses/<slug>/brief.md>");
   const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
     "adopt-candidate needs --reviewed <json> — the reviewed Candidates the gate offered"), "utf8"));
+  // `--candidate` NAMES the Candidate being adopted; it no longer CARRIES the
+  // owner's answer (kogaki#891). The answer is read from --selection, and this
+  // argument is refused when the two disagree — a selector the model composes
+  // is admissible exactly because the evidence beside it is not.
   const id = argString(args, "candidate",
-    "adopt-candidate needs --candidate <id> — the owner's recorded answer at the selection gate. "
-    + "With no owner answer nothing lands in the Brief.");
+    "adopt-candidate needs --candidate <id> — which Candidate is being adopted. It is checked AGAINST the "
+    + "owner's recorded answer at the §6 selection gate (--selection) and never stands in for it.");
   const doc = readFileSync(briefPath, "utf8");
   // §4.12's two halves reach the runtime as CALLER-SUPPLIED INPUTS, never as
   // something this command derives: the moves directory is a path (default
@@ -679,6 +742,14 @@ function cmdAdopt(args) {
   // reason: an omitted flag reaches `adoptCandidate` as `undefined` and is
   // refused there, which is what makes the gate unskippable, while an
   // unreadable file is a fault rather than an absence.
+  // §6's selection capture, read the same way and for the same reason: an
+  // omitted flag reaches `adoptCandidate` as `undefined` and is refused there,
+  // which is what makes the gate unskippable, while an unreadable file is a
+  // fault rather than an absence.
+  if (typeof args.selection === "string" && args.selection !== "") {
+    try { instantiation.selection = JSON.parse(readFileSync(args.selection, "utf8")); }
+    catch (e) { fail(`the selection capture at ${args.selection} cannot be read (${e.message}) — §6's owner answer is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
+  }
   if (typeof args.ratification === "string" && args.ratification !== "") {
     try { instantiation.ratification = JSON.parse(readFileSync(args.ratification, "utf8")); }
     catch (e) { fail(`the ratification capture at ${args.ratification} cannot be read (${e.message}) — §4.12.3's owner answer is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
@@ -694,6 +765,7 @@ function cmdAdopt(args) {
   writeFileSync(briefPath, r.doc);
   snapshotBrief(briefPath, "adopt-candidate", "after", r.doc, snapSeq);
   console.log(`instantiation contract (§4.12): ${r.checked} move id(s) resolved against the Move library, ${r.judged} Step specialization verdict(s) read from the record — judged by the composing sitting, validated here, composed here never`);
+  console.log(`candidate selection (§6): ${id} was the owner's own answer at the brief-candidate-selection gate (AskUserQuestion ${r.selected_by}) — read from the capture, never carried by --candidate (kogaki#891)`);
   console.log(`specialization ratification (§4.12.3): the record digesting ${r.record_digest} was rendered at the ${specializationSchema().ratification.gate_id} gate and ratified by the owner (AskUserQuestion ${r.ratified_by}) — a passing record is not the sole unlock`);
   console.log(`adopted ${id} — its Reader Path is the Brief's sequence; thesis_closure and tradeoffs filled from its reasoning; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
 }
@@ -726,6 +798,18 @@ function cmdRatify(args) {
     "ratify-specialization needs --specialization <json> — the record being ratified IS the gate's evidence, so there is no gate without one");
   try { instantiation.specialization = JSON.parse(readFileSync(specPath, "utf8")); }
   catch (e) { fail(`the specialization record at ${specPath} cannot be read (${e.message})`); }
+  // §6's SELECTION CAPTURE IS AN INPUT HERE TOO (kogaki#891), because the
+  // subject below is established by the SAME `adoptCandidate` call adoption
+  // makes — and that call now refuses a Candidate the owner did not select.
+  // The ratification gate sits AFTER the selection gate in §6's flow, so a
+  // ratification raised without one would ask an owner to ratify a record
+  // about a Reader Path nobody chose. The runtime manufactures no stand-in:
+  // there is no synthetic selection and no bypass.
+  const selPath = argString(args, "selection",
+    "ratify-specialization needs --selection <capture> — the owner's answer at the §6 Candidate-selection gate. "
+    + "The record being ratified describes the Candidate they chose, so the gate after it is raised only once that answer exists (kogaki#891).");
+  try { instantiation.selection = JSON.parse(readFileSync(selPath, "utf8")); }
+  catch (e) { fail(`the selection capture at ${selPath} cannot be read (${e.message}) — §6's owner answer is an input to the ratification gate, so an unreadable one is not an absent one and is not treated as one`); }
 
   // THE SUBJECT, established by the same act that would adopt it. A record
   // that does not pass never reaches a gate: asking an owner to ratify a
@@ -810,12 +894,101 @@ function cmdRatify(args) {
   console.log(`declaration: ${declPath}`);
 }
 
+// ---------------------------------------------------------------------------
+// THE §6 CANDIDATE-SELECTION GATE'S EXECUTOR (kogaki#891).
+//
+// The same one-act-two-modes shape §4.12.3's executor established, and for the
+// same reason: an answer is admitted only at the wait that declared it. Both
+// modes recompose the option set through `selectionOptionIds` — the same
+// composer adoption reads — so a capture cannot be written for a set that
+// would not itself be offered, and the digest the capture binds to is
+// computed once, in one place, by both writers and the reader.
+function cmdGateCandidate(args) {
+  const briefPath = argString(args, "brief", "gate-candidate needs --brief <theses/<slug>/brief.md>");
+  const reviewed = JSON.parse(readFileSync(argString(args, "reviewed",
+    "gate-candidate needs --reviewed <json> — the reviewed Candidates the gate offers"), "utf8"));
+  const doc = readFileSync(briefPath, "utf8");
+  const offered = selectionOptionIds(reviewed, doc);
+  if (offered.error) fail(`${offered.error}\n\nNo gate is raised: the Candidates cannot be presented, so there is nothing to choose between. Repair the Candidates, not the gate.`);
+  const gateId = "brief-candidate-selection";
+  const digest = ownerGateDigest(gateId, offered.ids);
+  const dir = ratificationDir(briefPath);
+  mkdirSync(dir, { recursive: true });
+  const declPath = join(dir, `${gateId}${gateSchema().capture.run_declaration_suffix}`);
+  const capPath = join(dir, `${gateId}.gate-capture.json`);
+
+  if (args.capture) {
+    let decl;
+    try { decl = JSON.parse(readFileSync(declPath, "utf8")); }
+    catch { fail(`no declaration at ${declPath} — an answer is admitted at the wait that declared it, so run --declare and raise the gate first (§6; kogaki#891).`); }
+    if (decl.answers_over?.option_set_digest !== digest) {
+      fail(`the declaration at ${declPath} was raised over an option set digesting ${JSON.stringify(decl.answers_over?.option_set_digest)}, `
+        + `but the Candidates now offer one digesting ${JSON.stringify(digest)} — the Candidates changed after the gate was raised, `
+        + `so this answer would adopt a Reader Path the owner was never shown. Re-run --declare and re-raise the gate.`);
+    }
+    const toolUseId = argString(args, "tool-use-id",
+      "--capture needs --tool-use-id <id> — the AskUserQuestion tool_use_id, the one field tying the row to a question the harness actually asked");
+    const option = typeof args.option === "string" && args.option !== "" ? args.option : undefined;
+    const freeText = typeof args["free-text"] === "string" && args["free-text"].trim() !== "" ? args["free-text"] : undefined;
+    if (option === undefined && freeText === undefined) {
+      fail(`--capture needs --option <id> or --free-text <the owner's own words>. Options offered: ${offered.ids.join(", ")}.`);
+    }
+    if (option !== undefined && !offered.ids.includes(option)) {
+      fail(`answer option ${JSON.stringify(option)} was not offered by the declaration — offered: ${offered.ids.join(", ")}.`);
+    }
+    const answer = {};
+    if (option !== undefined) answer.option = option;
+    if (freeText !== undefined) answer.free_text = freeText;
+    const row = {
+      stop_id: `stop-${Date.now()}`,
+      gate_id: gateId,
+      evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
+      payload: { options_offered: offered.ids, free_text_offered: true, answer },
+      [gateSchema().capture.owner_answer_binding_key]: { option_set_digest: digest },
+    };
+    const capture = existsSync(capPath) ? JSON.parse(readFileSync(capPath, "utf8")) : { rows: [] };
+    capture.rows.push(row);
+    writeFileSync(capPath, JSON.stringify(capture, null, 2) + "\n");
+    console.log(`captured at ${gateId}: ${JSON.stringify(answer)}`);
+    console.log(option === "none-of-these" || option === undefined
+      ? `no Reader Path is adopted on this answer — adoption will refuse, naming it, and nothing is written to the Brief. Written: ${capPath}`
+      : `pass --selection ${capPath} --candidate ${option} to adopt-candidate. Written: ${capPath}`);
+    return;
+  }
+
+  const registered = (gateRegistry().gates || []).find((g) => g.id === gateId);
+  if (!registered) fail(`${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
+  const declaration = {
+    ...registered,
+    declared_at: new Date().toISOString(),
+    run_declaration: true,
+    // THE OPTIONS AS OFFERED, from the payload the gate is raised from — the
+    // options-equality comparison target SPEC-gate-carrier §4.1 names.
+    options: offered.options,
+    question: registered.question,
+    label: offered.payload.label,
+    where: offered.payload.where,
+    why: offered.payload.why,
+    free_text: offered.payload.free_text,
+    answers_over: { option_set_digest: digest },
+  };
+  delete declaration.dynamic_options;
+  writeFileSync(declPath, JSON.stringify(declaration, null, 2) + "\n");
+  console.log(`${gateId} — ${offered.ids.length - 1} Candidate(s) plus the first-class negation, digest ${digest}.`);
+  console.log(`Render every option below on screen, then ask the declaration's question through AskUserQuestion.\n`);
+  for (const o of offered.options) console.log(`  ${o.id}\n      ${o.label}`);
+  console.log(`\n  (free text) ${offered.payload.free_text?.prompt || ""}`);
+  console.log(`\nThen: assemble.mjs gate-candidate --capture --brief ${briefPath} --reviewed <json> --tool-use-id <id> [--option <id>] [--free-text <words>]`);
+  console.log(`declaration: ${declPath}`);
+}
+
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
     case "assemble": cmdAssemble(args); break;
     case "adopt-candidate": cmdAdopt(args); break;
+    case "gate-candidate": cmdGateCandidate(args); break;
     case "ratify-specialization": cmdRatify(args); break;
-    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | ratify-specialization [--capture --tool-use-id <id> --option <id>] --brief <path> --reviewed <json> --candidate <id> --specialization <json> [--moves-dir <dir>]\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> --ratification <capture> [--moves-dir <dir>]");
+    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | gate-candidate [--capture --tool-use-id <id> [--option <id>] [--free-text <words>]] --brief <path> --reviewed <json>\n  | ratify-specialization [--capture --tool-use-id <id> --option <id>] --brief <path> --reviewed <json> --candidate <id> --specialization <json> --selection <capture> [--moves-dir <dir>]\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> --selection <capture> --ratification <capture> [--moves-dir <dir>]");
   }
 }

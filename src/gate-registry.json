@@ -1,6 +1,6 @@
 {
   "note": [
-    "The gate registry — the enumeration against which gate coverage is",
+    "The gate registry \u2014 the enumeration against which gate coverage is",
     "measured (manifest item 4, specs/SPEC.md:99-101; kogaki#16).",
     "An unregistered gate is the uncovered-by-default shape, so this file",
     "is what makes a coverage claim mean anything: the number the check",
@@ -10,13 +10,13 @@
     "exist under checks/, and check-registry-conformance.sh fails any entry",
     "that does not (checks/check-registry-conformance.sh:21-27). A gate is",
     "not a file in checks/, so a gate row is a dangling entry by",
-    "construction. The admission record is check-loop economics too — tier,",
-    "runtime_ms, removal_signal — and a gate has no runtime and no loop",
+    "construction. The admission record is check-loop economics too \u2014 tier,",
+    "runtime_ms, removal_signal \u2014 and a gate has no runtime and no loop",
     "position. Merging would mean fabricating those fields or making them",
     "optional, and an optional admission field is exactly the gap kogaki#6",
     "was filed to close. Same coverage discipline, different admission",
     "economics, so two artifacts.",
-    "Home: src/gate-registry.json, beside src/gate-schema.json — the schema this",
+    "Home: src/gate-registry.json, beside src/gate-schema.json \u2014 the schema this",
     "file satisfies. It is a runtime-read carrier (src/terrain.mjs loads it at",
     "module start), which is the criterion kogaki#765 used to site such carriers",
     "in flat src/.",
@@ -26,26 +26,26 @@
   "gates": [
     {
       "id": "terrain-tag-selection",
-      "raised_by": "src/terrain.mjs — the executor composes this declaration at its `TAG_SELECTION` wait and the session renders it through AskUserQuestion (specs/spec-terrain/SPEC.md §6.0, §15.4; kogaki#856)",
+      "raised_by": "src/terrain.mjs \u2014 the executor composes this declaration at its `TAG_SELECTION` wait and the session renders it through AskUserQuestion (specs/spec-terrain/SPEC.md \u00a76.0, \u00a715.4; kogaki#856)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which tag does the survey open on?",
       "options": [
         {
           "id": "other-method",
-          "label": "Use a method other than co-tags — no other method exists yet, and this option is routed nowhere"
+          "label": "Use a method other than co-tags \u2014 no other method exists yet, and this option is routed nowhere"
         }
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "NONE, and that is this gate's shape rather than an omission (owner rulings 2026-09-04 on kogaki#856): exactly two ways to answer exist — the standing option above, or free-form entry of a tag name — so the run composes no option of its own and the composer returns an empty list. The one thing the run DOES carry is not an option: the declaration's `tag_listing` key holds the runtime's own pre-selection listing over this run's survey record, byte-for-byte, so the session renders the table above the question rather than composing or retyping it. The standing option is the PREMISE NEGATION the gate owes: the option set is generated on the premise that co-tag grouping is the method, and a gate whose options all share a machine-computed premise makes it unfalsifiable at the one moment a human is present to falsify it — a free-text escape is not sufficient, because it is the option a hurried operator skips. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198",
+      "dynamic_options": "NONE, and that is this gate's shape rather than an omission (owner rulings 2026-09-04 on kogaki#856): exactly two ways to answer exist \u2014 the standing option above, or free-form entry of a tag name \u2014 so the run composes no option of its own and the composer returns an empty list. The one thing the run DOES carry is not an option: the declaration's `tag_listing` key holds the runtime's own pre-selection listing over this run's survey record, byte-for-byte, so the session renders the table above the question rather than composing or retyping it. The standing option is the PREMISE NEGATION the gate owes: the option set is generated on the premise that co-tag grouping is the method, and a gate whose options all share a machine-computed premise makes it unfalsifiable at the one moment a human is present to falsify it \u2014 a free-text escape is not sufficient, because it is the option a hurried operator skips. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198",
       "unrouted_options": {
-        "other-method": "No method other than co-tags exists yet, so this option is routed NOWHERE (owner ruling 1, 2026-09-04). The executor records the capture — the answer is evidence and the gate carrier owes the row — and then REFUSES the advance, naming the option, leaving the wait outstanding so the gate can be re-rendered. Routed nowhere is not the same as accepted: without this the option id lands where a tag name goes and the run dies two states later in `compose_input`, telling the owner that \"other-method\" is not in the survey's vocabulary — a refusal that misdescribes what they did. One of exactly two ways to answer deserves a refusal that names it (PR #898 round 1)."
+        "other-method": "No method other than co-tags exists yet, so this option is routed NOWHERE (owner ruling 1, 2026-09-04). The executor records the capture \u2014 the answer is evidence and the gate carrier owes the row \u2014 and then REFUSES the advance, naming the option, leaving the wait outstanding so the gate can be re-rendered. Routed nowhere is not the same as accepted: without this the option id lands where a tag name goes and the run dies two states later in `compose_input`, telling the owner that \"other-method\" is not in the survey's vocabulary \u2014 a refusal that misdescribes what they did. One of exactly two ways to answer deserves a refusal that names it (PR #898 round 1)."
       }
     },
     {
       "id": "terrain-strand-selection",
-      "raised_by": "src/terrain.mjs gate + .claude/skills/terrain — the co-tag selection question (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
+      "raised_by": "src/terrain.mjs gate + .claude/skills/terrain \u2014 the co-tag selection question (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which Strand does the article take as material?",
@@ -57,14 +57,14 @@
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "Strand options are composed per run from the owner's current view (ids strand:<slug>, at most 3 beside the standing option — the selector affordance holds 4); the run's full declaration is written beside its capture in the machine-local run workspace, which never enters the tree (specs/SPEC.md §4 rider 3). Consulted 2026-08-05 (product-lab@16a6dbf6, two framings): no served position discriminates declaring a run-computed option set in a static registry — recorded as a miss, not resolved silently. The class is declared here, the content with the run; a capture is judged against the run declaration where one sits beside it and against THIS entry where none does, and disagreement with whichever applies FAILS the options-equality check by design rather than being exempted (specs/spec-gate-carrier/SPEC.md §4.1). Until kogaki#818 this sentence read 'a capture that somehow reaches the tree' and meant the COMMITTED tree, while the check read the WORKING DIRECTORY — so every conforming run reddened the local suite."
+      "dynamic_options": "Strand options are composed per run from the owner's current view (ids strand:<slug>, at most 3 beside the standing option \u2014 the selector affordance holds 4); the run's full declaration is written beside its capture in the machine-local run workspace, which never enters the tree (specs/SPEC.md \u00a74 rider 3). Consulted 2026-08-05 (product-lab@16a6dbf6, two framings): no served position discriminates declaring a run-computed option set in a static registry \u2014 recorded as a miss, not resolved silently. The class is declared here, the content with the run; a capture is judged against the run declaration where one sits beside it and against THIS entry where none does, and disagreement with whichever applies FAILS the options-equality check by design rather than being exempted (specs/spec-gate-carrier/SPEC.md \u00a74.1). Until kogaki#818 this sentence read 'a capture that somehow reaches the tree' and meant the COMMITTED tree, while the check read the WORKING DIRECTORY \u2014 so every conforming run reddened the local suite."
     },
     {
       "id": "terrain-trim-ratification",
-      "raised_by": "src/terrain.mjs gate --proposal + .claude/skills/terrain — a rank/trim/hide proposal record presented for ratification (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
+      "raised_by": "src/terrain.mjs gate --proposal + .claude/skills/terrain \u2014 a rank/trim/hide proposal record presented for ratification (specs/spec-terrain/SPEC.md:76-86; kogaki#17)",
       "host": "claude-code",
       "medium": "selector",
-      "question": "The machine proposes narrowing the candidate set — apply it?",
+      "question": "The machine proposes narrowing the candidate set \u2014 apply it?",
       "options": [
         {
           "id": "decline",
@@ -73,14 +73,14 @@
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation — the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting, the same comparison target (specs/spec-gate-carrier/SPEC.md §4.1), and the same recorded consult miss as terrain-strand-selection. fork:false deliberately: Terrain attaches no recommendation to a trim — a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
+      "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation \u2014 the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting, the same comparison target (specs/spec-gate-carrier/SPEC.md \u00a74.1), and the same recorded consult miss as terrain-strand-selection. fork:false deliberately: Terrain attaches no recommendation to a trim \u2014 a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
     },
     {
       "id": "terrain-claim-reoffer",
-      "raised_by": "src/terrain.mjs claim (subset path) + .claude/skills/terrain — a GroupClaim recomposed over a subset of the set it was pinned to, re-offered (specs/spec-terrain/SPEC.md §7; kogaki#106, story 1.24)",
+      "raised_by": "src/terrain.mjs claim (subset path) + .claude/skills/terrain \u2014 a GroupClaim recomposed over a subset of the set it was pinned to, re-offered (specs/spec-terrain/SPEC.md \u00a77; kogaki#106, story 1.24)",
       "host": "claude-code",
       "medium": "selector",
-      "question": "The group's members changed, so the claim was recomposed over the subset — which wording is adopted?",
+      "question": "The group's members changed, so the claim was recomposed over the subset \u2014 which wording is adopted?",
       "options": [
         {
           "id": "keep-original-wording",
@@ -89,47 +89,67 @@
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "The recomposed-claim option comes per run from the *.terrain-claim.json record being presented, whose `claim` was composed over the SUBSET the owner selected. The standing keep-original option is standing because §7 makes it explicitly available: a recomposed claim is a PROPOSAL, and the owner keeping the original wording over a changed member set is a legible mismatch rather than a forbidden one — the record carries the members, so the disagreement is readable rather than hidden. This gate exists because a change to the set a derived expression was derived from is a GATE EVENT rather than a refresh (topics/articles.md:73@f918c515); keeping the claim silently would assert commonality over absent members — a provenance lie — while discarding it would throw away the only thing in the interaction the machine did not supply. fork:false deliberately, for the same reason as terrain-trim-ratification: Terrain attaches no recommendation to which wording is truer over the subset, and a recommendation here would be the machine making the owner's judgment for them. Same run-workspace siting as the other two gates."
+      "dynamic_options": "The recomposed-claim option comes per run from the *.terrain-claim.json record being presented, whose `claim` was composed over the SUBSET the owner selected. The standing keep-original option is standing because \u00a77 makes it explicitly available: a recomposed claim is a PROPOSAL, and the owner keeping the original wording over a changed member set is a legible mismatch rather than a forbidden one \u2014 the record carries the members, so the disagreement is readable rather than hidden. This gate exists because a change to the set a derived expression was derived from is a GATE EVENT rather than a refresh (topics/articles.md:73@f918c515); keeping the claim silently would assert commonality over absent members \u2014 a provenance lie \u2014 while discarding it would throw away the only thing in the interaction the machine did not supply. fork:false deliberately, for the same reason as terrain-trim-ratification: Terrain attaches no recommendation to which wording is truer over the subset, and a recommendation here would be the machine making the owner's judgment for them. Same run-workspace siting as the other two gates."
     },
     {
       "id": "brief-thesis-adoption",
-      "raised_by": "src/brief.mjs enter + .claude/skills/brief — the thesis-determination gate, THE ONE OWNER QUESTION before the mint (specs/spec-draft-pipeline/SPEC.md §5.3 v11, kogaki#518; re-sequenced v9, kogaki#494; kogaki#488, story 1.72)",
+      "raised_by": "src/brief.mjs enter + .claude/skills/brief \u2014 the thesis-determination gate, THE ONE OWNER QUESTION before the mint (specs/spec-draft-pipeline/SPEC.md \u00a75.3 v11, kogaki#518; re-sequenced v9, kogaki#494; kogaki#488, story 1.72)",
       "host": "claude-code",
       "medium": "selector",
       "question": "Which Thesis does the Brief adopt, and under what name?",
       "options": [
         {
           "id": "back-to-terrain",
-          "label": "The settled set is what should change — go back through Terrain and re-settle; no Brief is started and nothing is written (a Brief never fetches)",
+          "label": "The settled set is what should change \u2014 go back through Terrain and re-settle; no Brief is started and nothing is written (a Brief never fetches)",
           "negates_premise": true
         }
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "The 2-3 options are composed per run FROM THE SETTLED STRAND SET ONLY (§3's read-not-invented rule; ids thesis-1..thesis-3), each in plain register with its round-trip concession stated (normative home: specs/spec-brief-draft-design/DESIGN.md §4, kogaki#752; the round-trip INSTRUCTION itself is operational text in src/packet-template.md, kogaki#749, so a composer reads the template and this row cites the ground rather than the text. The pre-split home was SPEC-style-contract §4; that spec was DELETED at kogaki#749 and its pinned served quote was carried into the design record with it). EACH OPTION IS A (THESIS, SLUG) PAIR (v11, kogaki#518, owner ruling 2026-08-17 recorded in kogaki#494's thread): `enter` derives one slug per candidate from that candidate's own Thesis and carries it in the option, and adopting an option adopts both halves — the mint consumes the adopted pair. There is no second slug question anywhere in this flow; the retired brief-slug-approval gate is gone from this registry rather than left unraised, because two gates whose owner_decision resolves to the same vocabulary entry at the same artifact are ONE gate, the second being a defect. THE PAIR RIDES ONE GATE ONLY UNDER THE TWO CONDITIONS §5.3 v11 BINDS IT BY, and both are declared here rather than left to the runtime. SEPARATELY RENDERED: the slug is its own visible, NAMED element of the option LABEL — `<Thesis rendering, concession included> — Brief: <bare slug>`, carrying the BARE slug and never a theses/ path. The site moved from the option BODY at kogaki#567, under the release condition §5.3 v11 attached to the body placement when it declared it try-one-first; WHAT THAT CONDITION NOW STANDS AT is read from kogaki#567 and from §5.3, never asserted here — a gate record names its carrier and does not assert that carrier's state (consulted: product-lab@541e5958 LESSONS.md:97). THE PROPERTY IS UNCHANGED and only its site moved: the name is set off and named rather than folded into the Thesis prose, which is what stops a second decision class being ratified unseen. The body entry is REMOVED rather than left beside the label — two sites for one value is what a half-finished move leaves behind, and the check refuses it. SEPARATELY DECLINABLE: an owner who adopts a listed Thesis but wants a different name says so in the SAME one answer — `adopt --thesis <id> --slug <name>` — which costs neither a restatement of the Thesis nor the abandonment of the option; the runtime's lowercase-and-hyphens refusal covers a malformed one. The run's full declaration is written into the machine-local run state beside the composed candidates (pre-Thesis state is machine-local, §5.3 v9) — the same run-workspace siting as the terrain gates. The standing negation option is standing because the composing premise — this settled set supports a Thesis — is the machine's, and its negation routes back through Terrain, never a Brief fetch. fork:false deliberately: the runtime attaches no recommendation among its own candidates — ranking them would be the machine adopting a Thesis by another name, and the Thesis is the first piece of substantive OWNER judgment in the flow. The free-text answer becomes the adopted Thesis verbatim, with its name derived from it, and does not discharge the negation option."
+      "dynamic_options": "The 2-3 options are composed per run FROM THE SETTLED STRAND SET ONLY (\u00a73's read-not-invented rule; ids thesis-1..thesis-3), each in plain register with its round-trip concession stated (normative home: specs/spec-brief-draft-design/DESIGN.md \u00a74, kogaki#752; the round-trip INSTRUCTION itself is operational text in src/packet-template.md, kogaki#749, so a composer reads the template and this row cites the ground rather than the text. The pre-split home was SPEC-style-contract \u00a74; that spec was DELETED at kogaki#749 and its pinned served quote was carried into the design record with it). EACH OPTION IS A (THESIS, SLUG) PAIR (v11, kogaki#518, owner ruling 2026-08-17 recorded in kogaki#494's thread): `enter` derives one slug per candidate from that candidate's own Thesis and carries it in the option, and adopting an option adopts both halves \u2014 the mint consumes the adopted pair. There is no second slug question anywhere in this flow; the retired brief-slug-approval gate is gone from this registry rather than left unraised, because two gates whose owner_decision resolves to the same vocabulary entry at the same artifact are ONE gate, the second being a defect. THE PAIR RIDES ONE GATE ONLY UNDER THE TWO CONDITIONS \u00a75.3 v11 BINDS IT BY, and both are declared here rather than left to the runtime. SEPARATELY RENDERED: the slug is its own visible, NAMED element of the option LABEL \u2014 `<Thesis rendering, concession included> \u2014 Brief: <bare slug>`, carrying the BARE slug and never a theses/ path. The site moved from the option BODY at kogaki#567, under the release condition \u00a75.3 v11 attached to the body placement when it declared it try-one-first; WHAT THAT CONDITION NOW STANDS AT is read from kogaki#567 and from \u00a75.3, never asserted here \u2014 a gate record names its carrier and does not assert that carrier's state (consulted: product-lab@541e5958 LESSONS.md:97). THE PROPERTY IS UNCHANGED and only its site moved: the name is set off and named rather than folded into the Thesis prose, which is what stops a second decision class being ratified unseen. The body entry is REMOVED rather than left beside the label \u2014 two sites for one value is what a half-finished move leaves behind, and the check refuses it. SEPARATELY DECLINABLE: an owner who adopts a listed Thesis but wants a different name says so in the SAME one answer \u2014 `adopt --thesis <id> --slug <name>` \u2014 which costs neither a restatement of the Thesis nor the abandonment of the option; the runtime's lowercase-and-hyphens refusal covers a malformed one. The run's full declaration is written into the machine-local run state beside the composed candidates (pre-Thesis state is machine-local, \u00a75.3 v9) \u2014 the same run-workspace siting as the terrain gates. The standing negation option is standing because the composing premise \u2014 this settled set supports a Thesis \u2014 is the machine's, and its negation routes back through Terrain, never a Brief fetch. fork:false deliberately: the runtime attaches no recommendation among its own candidates \u2014 ranking them would be the machine adopting a Thesis by another name, and the Thesis is the first piece of substantive OWNER judgment in the flow. The free-text answer becomes the adopted Thesis verbatim, with its name derived from it, and does not discharge the negation option."
     },
     {
       "id": "brief-specialization-ratification",
-      "raised_by": "src/assemble.mjs ratify-specialization + .claude/skills/brief — the §4.12 specialization record, rendered and ratified before adoption writes the path into the Brief (specs/spec-draft-pipeline/SPEC.md §4.12.3; kogaki#893)",
+      "raised_by": "src/assemble.mjs ratify-specialization + .claude/skills/brief \u2014 the \u00a74.12 specialization record, rendered and ratified before adoption writes the path into the Brief (specs/spec-draft-pipeline/SPEC.md \u00a74.12.3; kogaki#893)",
       "host": "claude-code",
       "medium": "selector",
       "question": "The specialization record judges every Step of this Candidate consistent with its Move. Ratify it, and adopt the path into the Brief?",
       "options": [
         {
           "id": "ratify",
-          "label": "Ratify the record as read — adopt this Candidate's Reader Path into the Brief"
+          "label": "Ratify the record as read \u2014 adopt this Candidate's Reader Path into the Brief"
         },
         {
           "id": "not-ratified",
-          "label": "Do not ratify — a verdict above does not hold; nothing is written and the Steps are re-judged",
+          "label": "Do not ratify \u2014 a verdict above does not hold; nothing is written and the Steps are re-judged",
           "negates_premise": true
         }
       ],
       "free_text_offered": true,
       "fork": false,
-      "dynamic_options": "NONE, and that is this gate's shape rather than an omission. Both options are standing: the question is a ratification of one record, so its answer set is the same two answers on every run, and the thing that varies is the EVIDENCE rather than the options. The run's varying material rides the declaration's own `record_rendering` and `ratifies` keys — the verdicts as judged, Step by Step with the Move each binds and the sentence the composing sitting wrote, byte-for-byte as `validateSpecialization` read them — so the session renders the record above the question rather than composing or retyping it. `not-ratified` is the PREMISE NEGATION this gate owes: every option is generated on the premise that the record's `consistent` verdicts hold, and that premise is EXACTLY WHAT IS BEING ASKED ABOUT, so a gate without a first-class way to say it does not hold would be unfalsifiable at the one moment a human is present to falsify it. A free-text escape is not sufficient — it is the option a hurried operator skips. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198 fork:false deliberately, and for a sharper reason than the terrain gates': the machine has no position to recommend here. It composed no verdict in the record (§4.12 clause 2) and reads no Move's requires/effect (§7.5), so a recommendation would be the runtime rendering a specialization verdict of its own by another route — the exact act §4.12 forbids.",
+      "dynamic_options": "NONE, and that is this gate's shape rather than an omission. Both options are standing: the question is a ratification of one record, so its answer set is the same two answers on every run, and the thing that varies is the EVIDENCE rather than the options. The run's varying material rides the declaration's own `record_rendering` and `ratifies` keys \u2014 the verdicts as judged, Step by Step with the Move each binds and the sentence the composing sitting wrote, byte-for-byte as `validateSpecialization` read them \u2014 so the session renders the record above the question rather than composing or retyping it. `not-ratified` is the PREMISE NEGATION this gate owes: every option is generated on the premise that the record's `consistent` verdicts hold, and that premise is EXACTLY WHAT IS BEING ASKED ABOUT, so a gate without a first-class way to say it does not hold would be unfalsifiable at the one moment a human is present to falsify it. A free-text escape is not sufficient \u2014 it is the option a hurried operator skips. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198 fork:false deliberately, and for a sharper reason than the terrain gates': the machine has no position to recommend here. It composed no verdict in the record (\u00a74.12 clause 2) and reads no Move's requires/effect (\u00a77.5), so a recommendation would be the runtime rendering a specialization verdict of its own by another route \u2014 the exact act \u00a74.12 forbids.",
       "unrouted_options": {
-        "not-ratified": "Routed to a REFUSAL, not to a state. The executor records the capture — the answer is evidence and the gate carrier owes the row — and `adopt-candidate` then refuses, naming the answer, leaving the Brief unwritten and the Candidate adoptable again once the Steps are re-judged. Recording the decline rather than discarding it is what makes a re-raised gate legible: the capture carries both answers in order, and `validateRatification` reads the LAST, so an owner who declines and later ratifies has a record of having changed their mind rather than a silent overwrite."
+        "not-ratified": "Routed to a REFUSAL, not to a state. The executor records the capture \u2014 the answer is evidence and the gate carrier owes the row \u2014 and `adopt-candidate` then refuses, naming the answer, leaving the Brief unwritten and the Candidate adoptable again once the Steps are re-judged. Recording the decline rather than discarding it is what makes a re-raised gate legible: the capture carries both answers in order, and `validateRatification` reads the LAST, so an owner who declines and later ratifies has a record of having changed their mind rather than a silent overwrite."
+      }
+    },
+    {
+      "id": "brief-candidate-selection",
+      "raised_by": "src/assemble.mjs gate-candidate + .claude/skills/brief \u2014 the \u00a76 Candidate-selection gate, the owner's choice of which composed Reader Path the Brief follows (specs/spec-draft-pipeline/SPEC.md \u00a76; kogaki#891)",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "Which composed Reader Path does the Brief follow?",
+      "options": [
+        {
+          "id": "none-of-these",
+          "label": "None of these \u2014 the Thesis or the selected set is what should change; no Reader Path lands in the Brief",
+          "negates_premise": true
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "dynamic_options": "The 2-3 Candidate options are composed per run by `assembleSelection` from the reviewed Candidates (\u00a76: two to three per article, differing in READER EXPERIENCE, refused outside that count), each option carrying its candidate_id and its reader-experience prose as the label and nothing else \u2014 never a verdict, and no evidence field (kogaki#859, owner ruling 2026-09-04). The run's full declaration is written beside its capture in the machine-local brief lane workspace, which never enters the tree, and THAT declaration is the options-equality comparison target (specs/spec-gate-carrier/SPEC.md \u00a74.1). REGISTERED AT kogaki#891, AND THE GAP IS THE FINDING RATHER THAN AN OVERSIGHT: this gate has been raised by the skill since \u00a76 existed while carrying no registry row, which is exactly the uncovered-by-default shape this file exists to close \u2014 a coverage number computed over the other gates read as complete. The standing negation option is the PREMISE NEGATION the gate owes: every option is generated on the premise that the adopted Thesis and the settled Strand set support a composed structure, and its negation routes to a refusal that writes nothing rather than to a state. fork:false deliberately, and for the sharper of the two available reasons: the Candidates differ in READER EXPERIENCE, which is the owner's own judgment about the article they are writing, so a recommendation here would be the runtime choosing the reader's journey by another route.",
+      "unrouted_options": {
+        "none-of-these": "Routed to a REFUSAL, not to a state. The executor records the capture \u2014 the answer is evidence and the gate carrier owes the row \u2014 and `adopt-candidate` then refuses, naming the answer, leaving the Brief's sequence unwritten and every Candidate adoptable again once the Thesis or the settled set changes. Recording the decline rather than discarding it is what makes a re-raised gate legible: the capture carries both answers in order and `validateOwnerAnswer` reads the LAST, so an owner who declines and later selects has a record of having changed their mind rather than a silent overwrite."
       }
     }
   ]
