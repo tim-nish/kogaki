@@ -96,6 +96,16 @@ making it. Every member appears in a SubGroup you composed.
 **Compose `tight` first, then `related`, then `loose`, and let what remains go to
 `other` explicitly.** One pass; there is no iterative regrouping.
 
+**And the surfaces now say that nothing checked it.** `"judged": true` and the
+`--judge-model`/`--judge-effort` pin are things you DECLARE; the Harness invokes
+no judge and holds no record of one, so it no longer prints `judged by
+<model>/<effort>` as though it had watched the judgment happen. The display
+reads **`judge pin DECLARED — <model> / <effort>`** and names the one thing the
+Harness did observe: the sha it took of the `--subdivisions` file you passed.
+A judged-empty group renders **`NO SPLIT IS RECORDED`** rather than "judged, no
+split". None of this weakens the duty above — it makes visible that the duty is
+where the guarantee lives (SPEC-terrain §6.2.1, kogaki#892).
+
 **The split decision is not yours at ten or more.** A composed group of 10+
 members must serve SubGroups. Membership assignment stays your judgment; whether
 to split does not. Below ten, `"subgroups": []` is the conformant record for a

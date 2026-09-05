@@ -1,5 +1,5 @@
 {
-  "version": 18,
+  "version": 19,
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
   "licensed_by": "kogaki#856 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "refusal_text_boundary": {
@@ -154,7 +154,9 @@
         },
         {
           "id": "judge_pin",
-          "form": "judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape)"
+          "form": "judged by <model_id> / <effort_tier> — OBSERVED: the Harness holds its own invocation record … | judge pin DECLARED — <model_id> / <effort_tier>. The Harness invoked no judge and holds …",
+          "governing": "SPEC-terrain §6.2, §12.1 — and kogaki#892, which is what put TWO alternatives here. The first is emitted where the Harness observed the judgment act itself; the second where it did not, which is every run today because Terrain invokes no judge. Both are composed by one function (`judgePinLine`), so this class and the report's `judge` class cannot come to say different things about one record.",
+          "superseded": "judged by <model_id> / <effort_tier> (§6.2 — a judged surface with no judge pin is the drift-undetectable shape) (kogaki#892: the line asserted a judgment the Harness never observed. It was emitted on the strength of the subdivisions record's own `judged: true` and its declared pin — a declaration rendered as an observation, which is the right act with a guard silently disabled.)"
         },
         {
           "id": "abnormal_claimless",
@@ -224,7 +226,9 @@
         },
         {
           "id": "judge",
-          "form": "*Judge:* <JudgePin>"
+          "form": "*Judge:* <JudgePin> — <judgment provenance clause>",
+          "governing": "SPEC-terrain §12.1 — the identity's third component, now rendered WITH what the Harness observed of it (kogaki#892). The provenance clause names either the Harness's own invocation record or, where there is none, that the pin is DECLARED and that what was observed is the subdivisions record's sha.",
+          "superseded": "*Judge:* <JudgePin> (kogaki#892: the pin alone read as a fact the Harness stands behind.)"
         },
         {
           "id": "preamble",
@@ -276,11 +280,24 @@
         },
         {
           "id": "judged_empty_notice",
-          "form": "a two-line wrapped italic notice",
+          "form": "a two-line wrapped italic notice — the OBSERVED form",
           "lines": [
             "*The judgment produced NO split — this is a judged-empty outcome,",
             "not an absent judgment. Members are listed below.*"
-          ]
+          ],
+          "governing": "SPEC-terrain §12.1 v9. DEFENSIVE since kogaki#892, in the same sense `neighborhood_unjudged` is: it is emitted only where the judgment's provenance is `observed`, and Terrain invokes no judge, so no command path reaches it today. It is kept rather than deleted because it is the form a judge-invoking act would emit, and a grammar carrying only the declared form would have to be amended again to admit it."
+        },
+        {
+          "id": "judged_empty_notice_declared",
+          "form": "a five-line wrapped italic notice — the DECLARED form, and the one every run emits today",
+          "lines": [
+            "*NO SPLIT IS RECORDED for this group. The subdivisions record declares a",
+            "judgment that produced none; the Harness invoked no judge and holds no",
+            "invocation record, so it cannot show that a judgment RAN and does not say",
+            "one did (kogaki#892). This is still not an absent record: `[]` and an absent",
+            "key stay different states (SPEC-terrain §12.1 v9). Members are listed below.*"
+          ],
+          "governing": "kogaki#892 acceptance 2 — a judged-empty group is rendered as `no split recorded` rather than as `judged, no split` unless the Harness can show the judgment ran. The distinction §12.1 v9 draws between `[]` and an absent key is UNTOUCHED and the notice says so: what changed is not the record's three states but what the renderer is willing to assert about the act behind them."
         },
         {
           "id": "h3_subgroup",

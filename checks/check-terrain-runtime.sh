@@ -22,7 +22,10 @@
 # and the executor's six refusals (no states, duplicate state id, an
 # uninterpreted kind, a write state naming no artifact, a table with no
 # terminal state, a write state with no renderer) plus the input-without-wait
-# refusal.
+# refusal; and JUDGMENT PROVENANCE (kogaki#892) — that neither owner surface
+# renders a judgment the Harness never observed, that the observed form stays
+# composable so the repair is a split rather than a blanket downgrade, and that
+# the grammar admits both forms of both lines.
 #
 # WHY THIS MEMBER EXISTS, stated rather than implied: all of the above was
 # present, correct and observed by nothing. No registered check invoked the
