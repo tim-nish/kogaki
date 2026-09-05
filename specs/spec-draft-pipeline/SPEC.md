@@ -1106,7 +1106,8 @@ may not shed, and why declining a slug may not cost the Thesis.
 **A command is named for the artifact it completes, and it runs until that
 artifact is complete.** One invocation drives the whole arc — entry, the thesis
 gate, the mint, path composition, path review with §4.11's revise routing,
-Candidate assembly, the Candidate-selection gate, adoption — and ends only at a
+Candidate assembly, the Candidate-selection gate, §4.12.3's ratification gate,
+adoption — and ends only at a
 **filled** Brief, or at an owner answer that ends it.
 
 **A human gate is not a stop.** What is abolished is the **default** stop.

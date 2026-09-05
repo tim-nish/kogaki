@@ -197,15 +197,19 @@ kogaki#522, owner ruling 2026-08-18). A command is named for the artifact it
 completes and runs until that artifact is complete; `/brief` completes a Brief,
 it does not create a Brief template. **A human gate is not a stop** — raise it
 and continue on the answer. The only other legitimate ending is an owner answer
-that ends the run: the premise's negation at either gate, or "none of these" at
-selection.
+that ends the run: the premise's negation at any of the three gates, or "none of
+these" at selection. At the ratification gate that negation is `not-ratified`,
+and it ends the run the same way — the answer is recorded, adoption refuses
+naming it, and nothing is written.
 
 **There is NO named inspection-need in this flow, and that was checked rather
 than assumed.** A legitimate mid-workflow stop exists only where the owner must
 leave the conversation to read another console or surface before the next gate
-can be answered honestly — Terrain's co-tag inspection is the precedent. Neither
-gate here is such a point: both are answerable from what the runtime renders
-into them. If a later sitting finds one, it names the stop **there** with its
+can be answered honestly — Terrain's co-tag inspection is the precedent. No gate
+here is such a point: all three are answerable from what the runtime renders
+into them, the ratification gate included — `ratify-specialization --declare`
+prints the record verdict by verdict, so the owner reads it in the conversation
+rather than leaving to find it. If a later sitting finds one, it names the stop **there** with its
 ground; it never restores a default stop.
 
 **The specimen this replaces:** the 2026-08-18 dogfood run ended after the mint
@@ -241,9 +245,10 @@ kogaki#566). A record may carry fields and this pipeline's records do — what
 reaches the owner is written as ordinary prose, with no field label opening it.
 Where a schema-style presentation reaches a surface at all it carries **at most
 three fields**; beyond that the presentation defeats natural line breaks and
-stops being readable. **This binds both gates, not only the one it was found
-at**: the thesis-determination gate's options and the Candidate-selection gate's
-rendering are the same surface class, and the §6 half's own carrier is
+stops being readable. **This binds all three gates, not only the one it was
+found at**: the thesis-determination gate's options, the Candidate-selection
+gate's rendering and §4.12.3's per-Step record rendering are the same surface
+class, and the §6 half's own carrier is
 kogaki#568. What the mint records is the adopted **claim** — the sentence
 saying how the other settled members serve it is gate scaffolding and does not
 survive into the Brief.
