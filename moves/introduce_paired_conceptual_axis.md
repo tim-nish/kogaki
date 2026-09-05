@@ -21,3 +21,8 @@ excerpt: >-
   defensive wall and offensive artillery establish clear endpoints for
   understanding how a weapon's function can reveal whether its holder
   intends attack or defense.
+visual_form:
+  kind: axis
+  endpoint_a: the first endpoint the Move presents
+  endpoint_b: the opposing endpoint
+  criterion: the one axis both endpoints clarify

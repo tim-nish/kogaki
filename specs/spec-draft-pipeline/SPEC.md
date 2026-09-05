@@ -58,7 +58,8 @@ item 2 — its structure half.
 No runtime reads this file. The Brief and Draft lanes are driven by their own
 carriers — `src/compose.mjs`, `src/brief.mjs`, `src/assemble.mjs`,
 `src/draft.mjs`, `src/packet-template.md`, `src/specialization-schema.json`,
-`src/gate-registry.json`, `specs/move-extraction-contract.md` and the registered
+`src/gate-registry.json`, `src/figure-kinds.json`,
+`specs/move-extraction-contract.md` and the registered
 checks — and where one of those decides a question, this file points at it and
 does not restate it.
 
@@ -200,7 +201,17 @@ gets relaxed.
 
 `id`, `status` (`observed` | `generalized` | `proposed` | `validated`),
 `intent`, `requires`, `effect`, `constraints`, `failure_modes`, `excerpt`.
-Nothing added. The schema authority is `specs/move-extraction-contract.md`.
+The schema authority is `specs/move-extraction-contract.md`.
+
+**One optional ninth field, and it is the only one (kogaki#876).** `visual_form`
+— §6.9.3 — is **absent by default** and adds nothing to the eight: a Move
+without it is byte-identical, admitted identically, and indexed identically to
+what it has always been. "Nothing added" stood here as an absolute and is now
+the rule with exactly one named exception, because an absolute a shipped field
+contradicts is worse than a rule that names what it admits. **The exception is
+closed the same way the kind set is**: a tenth field enters by amending this
+clause under its own issue, and condition 3 refuses every key this clause does
+not name.
 
 **Moves ↔ Strands are many-to-many.** A Move may bind no Strand, several, a
 Journey, the Thesis, or an earlier Step's conclusion.
@@ -1502,11 +1513,15 @@ which condition 4 names and bounds rather than claiming away:**
    naming the line. This is the condition that catches an out-of-order *first*
    record, which no per-record check can see.
 2. **Duplicate keys within a record are refused rather than resolved.**
-3. **After the strip step, a record carries exactly §4.2's eight keys — no more
-   and no fewer.** The ordering matters: the excluded draft fields are stripped
-   **first**, so their presence routes to the strip step rather than to a
-   refusal. A record that absorbed its neighbour's `status` leaves that
-   neighbour with seven, and this condition catches it.
+3. **After the strip step, a record carries exactly §4.2's eight keys, plus at
+   most the optional `visual_form` — no more and no fewer.** The ordering
+   matters: the excluded draft fields are stripped **first**, so their presence
+   routes to the strip step rather than to a refusal. A record that absorbed its
+   neighbour's `status` leaves that neighbour with seven, and this condition
+   catches it. **The widening is by NAME and by one (kogaki#876)**: a ninth key
+   that is not `visual_form` is refused exactly as before, and so is a seventh —
+   a widening is the change that can quietly remove a condition's catch, so what
+   it admits is enumerated rather than loosened.
 4. **A markdown construct anywhere in the file is refused, naming the line.**
    The bounded blind spot: **a bullet among the items of a legal block sequence
    is indistinguishable from data**, and no grammar can see it.
@@ -1526,7 +1541,10 @@ in particular is invisible in every artifact it corrupts.
 ### 6.9.1 The file interior — the §4.2 block IS the file body
 
 The eight fields render as a **structured block as the file body**, and
-`moves/INDEX.md`'s row derives mechanically from those same fields.
+`moves/INDEX.md`'s row derives mechanically from those same fields. Where the
+record carries §6.9.3's optional `visual_form`, it renders **after** them, and
+the INDEX row is unaffected — its three columns are `id`, `status` and
+`intent`, so no form reaches a row.
 
 **The declined arm, with its real cost.** Headed prose sections per field are
 friendlier for fields that are genuinely paragraphs, and keep the artifact
@@ -1552,6 +1570,16 @@ byte-identical in form to the block the owner authored — which is what makes
 normalize over a conforming input close to identity. No fence, no `---`
 delimiters: front-matter delimiters imply a document below the metadata, and
 here the block **is** the document.
+
+**And §6.9.3's `visual_form` last, when present** (kogaki#876). The identity
+property above is unchanged for it: the form is written back in the **kind's**
+role order, which is the order a conforming input already carries, and a
+record without a form renders byte-identically to what it always did. This
+clause is amended rather than left to be read as an absolute the shipped
+renderer contradicts — the correction §4.2 makes to its own "nothing added",
+applied at the clause that actually rules the rendered body. **The eight
+remain the eight**: `visual_form` is not in §4.2's order and is not counted
+into it, which is why it renders after the loop rather than inside it.
 
 **The filename.** `moves/<id>.md`, the `id` field as the whole stem —
 **derived, never composed.** A review that renames a Move renames its file, and
@@ -1601,6 +1629,80 @@ Review owes **readings** and silence where there is nothing to say.
 re-derived, plus one clause the inheritance does not cover — the owed tense —
 which is what tells a reader which side of a spec-ahead-of-code interval they
 are standing on.
+
+### 6.9.3 The closed kind set and the Move's `visual_form`
+
+`src/figure-kinds.json` holds the **closed** set of figure kinds. A kind is a
+**schema of roles and nothing else**: `roles` names the positions a figure of
+that kind has, and `relation` states in one line what holds between them.
+**A kind carries no words a reader sees**, and nothing in it is subject matter.
+The first version:
+
+| kind | roles | relation |
+|---|---|---|
+| axis | endpoint_a, endpoint_b, criterion | the two endpoints sit on the criterion |
+| chain | stages, bottlenecks | ordered stages, each feeding the next, one bottleneck per stage |
+| matrix | cases, relation | one relation held by every case |
+| tree | root, branches | the root divides into the branches |
+| threshold | successes, failures, line | the line separates the two sets |
+
+**The roles are singular keys, and the plural names are the decision.** The
+authoring table proposed `stage[1..n]`, `case[1..n]`, `branch[1..n]`,
+`success[1..n]` and `failure[1..n]`. An indexed role has to be filled per
+instance, and a per-instance filling is **example content** — the one thing a
+form is forbidden to carry. So `stages` takes one line describing what plays
+that part in this Move's vocabulary, exactly as `criterion` does, and the
+arity stays where it belongs: in the figure a composer eventually draws, never
+in the schema.
+
+**The Move's block.** `visual_form` is an optional field in a Move record: one
+`kind` from the set, and **per role, one line** mapping it into the Move's own
+vocabulary — the terms its `requires`/`effect`/`intent` already use. The block
+is **flat**, so `kind` is reserved and no kind may declare a role by that name;
+`tools/move_ingest.py` refuses the *set* on that shape rather than refusing a
+Move, because the malformation is this repository's and naming the owner's
+record for it would name the wrong party. For `introduce_paired_conceptual_axis`:
+
+    visual_form:
+      kind: axis
+      endpoint_a: the first endpoint the Move presents
+      endpoint_b: the opposing endpoint
+      criterion: the one axis both endpoints clarify
+
+**Absent by default.** A form is added only when the Move's transformation has
+a relational shape, and that is the **admission act's judgment** (§6.9's agent
+review judges it as it judges the other fields), never a rule here. **A form on
+a Move obliges no Step to use it**, and nothing in the pipeline reads
+`src/figure-kinds.json` to decide anything.
+
+**What ingestion validates is exactly three things, and each is refused by
+name:** the kind exists in the closed set; every role of that kind is mapped;
+no role outside that kind is mapped. A role mapped to an empty line is the
+third case wearing the second's clothes and is refused with it. **It judges no
+wording** — whether a role's line is a good reading of the Move's vocabulary is
+review's judgment, and a rule over that prose would be the lint §6.9.2
+excludes.
+
+**The value model gains one nesting, admitted BY NAME.** §6.9.0's model is
+deliberately small — plain scalars, `>-` folded scalars, column-0 sequences —
+and `visual_form` is the one key whose indented `key: value` lines are read as
+a mapping. Admitting the nesting by *shape* was declined: it would silently
+retype every field whose folded prose happens to begin a line with a word and a
+colon, which is a change to twenty-two shipped records made by a feature none of
+them uses.
+
+**The form renders LAST and only when present**, in the **kind's** role order
+rather than the order the owner typed. Both halves are load-bearing: rendering
+last is what makes a formless record byte-identical to what it has always been,
+and rendering in the kind's order is what stops two records of one kind
+differing only in typing order. **Nothing about INDEX changes** — its three
+columns are `id`, `status` and `intent`, so a form reaches no row.
+
+`necessity:` a closed set whose closure is the whole of its value, one optional
+field stated as the single exception to §4.2's "nothing added", and a validation
+scoped to three mechanical facts with the wording judgment left explicitly
+where §6.9 already put it. The plural-role decision and the by-name nesting are
+both selections whose declined arm is recoverable from nothing else.
 
 ### 6.9.4 `move-sources-derivation-vehicle` — REOPENED
 
