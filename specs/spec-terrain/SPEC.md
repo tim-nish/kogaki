@@ -6,10 +6,10 @@ proposals, ratification quote-trails — lives in git and in the issues.
 
 **Governs:** port manifest item 1 (`specs/SPEC.md` §5).
 
-**The forward rule.** A removed owner-facing behaviour is **gone** — no refusing
-stub, and never a prose restatement of what it used to do. A superseded behaviour
-kept as a record in an operative carrier is material a later re-cut reads back in,
-which is how a removed surface returns.
+**The forward rule.** A removed owner-facing behaviour is **gone** — no
+refusing stub, and never a prose restatement of what it used to do. A
+superseded behaviour kept as a record in an operative carrier is material a
+later re-cut reads back in, which is how a removed surface returns.
 
 ## What this file is for, and what it is not
 
@@ -243,9 +243,8 @@ Nothing relies on stdout reaching the owner, and no session retypes the table,
 because the bytes ride an artifact the session renders rather than a stream it
 must relay.
 
-**There is no per-tag row view and no co-tag selection display.** The tag listing
-rides the gate declaration above, and the CoTagGroups display is reached by
-selecting a tag at that gate.
+The tag listing rides the gate declaration above, and the CoTagGroups display is
+reached by selecting a tag at that gate.
 
 Selecting a tag displays the other tags its members carry, grouped by co-tag,
 with counts. Navigation in the full §2.3 sense: deterministic, complete, nothing
@@ -510,9 +509,9 @@ The rendered form is `report-format.json`'s `surfaces.full_report`.
   non-conformant**, because that path always reaches a judgment. `none` and an
   empty SubGroupClaim set are **not synonyms**.
 - **The fourth component is the neighborhood judgment record.** The
-  discriminator is **who is in the report**, not what it says: the neighborhood
-  judgment changes which candidates are displayed at all, because §13.4's fill is
-  level-ordered.
+  discriminator is **who is in the report**, not what it says: the
+  neighborhood judgment changes which candidates are displayed at all,
+  because §13.4's fill is level-ordered.
 
 **The record carries a digest of the composed inputs, RECORDED and never KEYED**
 — for the claims and the subdivisions. The discriminator is again membership: a
@@ -553,7 +552,8 @@ artifact.**
 
 ### 12.3 Thesis candidates — the early image, and it binds nothing
 
-**The report carries a fixed Thesis-candidates section**, immediately after the header so the early image is read first.
+**The report carries a fixed Thesis-candidates section**, immediately after
+the header so the early image is read first.
 
 **What it is for.** It lets the owner form an early image of the Theses this
 Strand set could support. **It binds nothing**: the Brief's eventual Thesis is
@@ -646,9 +646,9 @@ grammar's; three properties of it are not.
   decided first. **The seam state is declared unobservable from this path**, with
   a reopen trigger: the first Gloss caller here that reads softly.
 
-**An unjudged candidate is not a state.** J3 refuses a judgment
-record leaving any mechanical candidate uncovered, and `full_report` refuses to
-render an unjudged neighborhood. **Both the enumerating compute state and the
+**An unjudged candidate is not a state.** J3 refuses a judgment record leaving
+any mechanical candidate uncovered, and `full_report` refuses to render an
+unjudged neighborhood. **Both the enumerating compute state and the
 judgment point are unconditional** in `workflow.json`.
 
 **J3 refuses three ways:** a judgment key naming no mechanical candidate; a
@@ -830,7 +830,6 @@ This is a statement about the **runtime**, not about the owner's surface.
 
 They emit no owner surface, carry no sequencing authority, and are reachable
 without a run record. Every other entry point is a state.
-
 
 ### 15.8 What is NOT carried — the honest list
 

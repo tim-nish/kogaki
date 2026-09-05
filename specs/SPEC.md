@@ -5025,12 +5025,9 @@ Three clauses, each binding separately so a partial compliance is visible:
    limit stated as part of the clause rather than as a footnote, and the
    divergences registered.
 2. **The default where nothing is declared is NO INHERITED BASELINE.**
-   Kogaki does **not** inherit `writing-assistant` generally, and since
-   `specs/spec-terrain/SPEC.md` v36 (kogaki#857) it does not inherit it for
-   Terrain either — Terrain's design is Kogaki's own, and wording making it
-   depend on or refer back to WA is removed rather than annotated (owner
-   ruling 2026-09-05). §5's port manifest is the scoping instrument —
-   *anything unnamed is dropped by decision*. A subject with no
+   Kogaki does **not** inherit `writing-assistant`. §5's port manifest is
+   the scoping instrument — *anything unnamed is dropped by decision*. A
+   subject with no
    declared baseline has a **fresh** design, and a sitting that wishes to
    inherit one declares it first; the declaration is the act, never a
    reading recovered afterwards from resemblance.
@@ -5053,7 +5050,6 @@ rate while being read as though it were current:
 | subject | where its baseline is declared |
 | --- | --- |
 | the tsurezure client kit | `specs/spec-client-kit/SPEC.md` §1, with its divergence register (empty at v1) |
-| Terrain design | nothing declared — clause 2 applies, the design is fresh |
 | every other subject | nothing declared — clause 2 applies, the design is fresh |
 
 An entry lands here in the same amendment that declares the baseline.
