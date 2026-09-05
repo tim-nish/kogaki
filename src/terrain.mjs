@@ -28,7 +28,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { loadGrammar, refuseUnlessConformant, validateSurface, FormatRefusal } from "./format-guard.mjs";
+import { loadGrammar, refuseUnlessConformant, validateSurface, classMatchers, FormatRefusal } from "./format-guard.mjs";
 import { enterRun, laneDir, terrainRunEntry } from "./runs.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -940,6 +940,10 @@ function renderTagDisplay(record) {
 export const NO_SECOND_TAG = "(no second served tag)";
 // A group with no composed claim is MARKED, never substituted — the same
 // discipline §9 applies to a missing Gloss rendering, at the claim's layer.
+// The row's TC-target marker (kogaki#861). Same vocabulary as the Gloss
+// markers beside it: a fault to clear, never a substituted candidate id.
+export const NO_TARGET = "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
+
 export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clear, never substituted⟩";
 
 // No per-row pin renders on the display (§6.1 v5, withdrawing v4's per-row
@@ -3041,11 +3045,16 @@ export function thesisCandidatesSection(candidates) {
     L.push("");
     return L;
   }
-  candidates.forEach((c, i) => {
-    // THE ID IS MINTED HERE, POSITIONALLY, and is never read from the input.
-    // A supplied id would be a second carrier for a number the list already
-    // fixes, and the two would drift the first time a candidate was reordered.
-    L.push(`- TC${i + 1} — ${c.claim}`);
+  candidates.forEach((c) => {
+    // THE ID IS READ, NOT MINTED (kogaki#861). It used to be minted here from
+    // the loop index, which made the render the place a TC id came into
+    // existence — and J3's judgment record now names one, so a target could
+    // only be checked against ids that did not yet exist. `readThesisCandidates`
+    // mints them, before the neighborhood is judged; this section renders what
+    // that reader fixed. A candidate arriving here without one is a caller that
+    // bypassed the reader, and re-minting from the index would silently paper
+    // over exactly the ordering question the move exists to settle.
+    L.push(`- ${c.id || fail("a Thesis candidate reached the §12.3 section with no minted id. Ids are fixed by readThesisCandidates before J3_neighborhood judges (kogaki#861); a candidate composed past that reader has an id nothing checked a neighborhood target against.")} — ${c.claim}`);
     L.push(`  strands: ${c.strands.join(", ")}`);
   });
   L.push("");
@@ -3561,7 +3570,27 @@ export function readThesisCandidates(raw, memberDisplayIds, limits) {
       fail(`${at} names ${[...new Set(dup)].join(", ")} more than once. A repeated strand inflates the `
         + "combination without adding to it.");
     }
-    return { claim, strands: [...strands] };
+    // THE ID IS MINTED HERE, POSITIONALLY, AND IT IS MINTED BEFORE THE
+    // NEIGHBORHOOD IS JUDGED (kogaki#861, owner ruling 2026-09-05). It used to
+    // be minted at RENDER time inside `thesisCandidatesSection`, which was
+    // sound while nothing but that section named a TC id — and unusable the
+    // moment J3's judgment record had to name one. A neighbor's target is
+    // checked against this set, so the set must be FIXED before the judgment
+    // rather than assigned after it:
+    //
+    //   "JUDGMENT SITS IN THE GAPS BETWEEN DETERMINISTIC PARTS, NEVER AS A
+    //    LAYER AROUND THEM … is the model deciding what happens next, or
+    //    supplying a value between two things whose order is already fixed?"
+    //   product-lab@ab04cc9bca21a600cd9eb0a594619d3ca899d05f
+    //     topics/claude-code-ops.md:24
+    //
+    // Still POSITIONAL and still never read from the input: a supplied id would
+    // be a second carrier for a number the list already fixes, and the two
+    // would drift the first time a candidate was reordered. What changed is
+    // WHEN the position is read, not who decides it — the `thesis_candidates`
+    // state reads it, writes the minted list to the run workspace, and every
+    // later reader of that file re-mints the same ids from the same order.
+    return { id: `TC${i + 1}`, claim, strands: [...strands] };
   });
 }
 
@@ -4021,9 +4050,25 @@ function cmdReport(args) {
         + "this Group and this settled set.");
     }
   }
+  // THE TARGETS JOIN TO THE §12.3 SECTION OF THIS SAME FILE (kogaki#861), and
+  // the absent-candidates fallback STOPS APPLYING to a judged neighborhood.
+  // `--thesis-candidates` was optional and an absent list rendered §12.3's
+  // empty notice; that is still the answer for an unjudged or empty
+  // neighborhood, and it cannot be the answer here — every row about to render
+  // names a candidate, so a pull with no candidates would put TC ids on the
+  // owner's surface with no section for them to point at.
+  if (judgments.size && (neighborhood.suggestions || []).length) {
+    if (!thesisCandidates.length) {
+      fail("this pull carries a neighborhood judgment and no --thesis-candidates. Every judged row names "
+        + "the Thesis candidate it serves (kogaki#861), so the candidates must be composed for this pull: "
+        + "an absent list would render TC ids against §12.3's empty notice. Compose them and pass "
+        + "--thesis-candidates, or run the pull with no neighborhood judgment.");
+    }
+    orFail(() => refuseTargetsOutsideCandidates(judgments, thesisCandidates.map((c) => c.id), "full_report"));
+  }
   for (const sug of neighborhood.suggestions || []) {
     const j = judgments.get(sug.slug);
-    if (j) { sug.level = j.level; sug.claim = j.claim; }
+    if (j) { sug.level = j.level; sug.claim = j.claim; sug.target = j.target; }
     // The relation IN PLAIN WORDS (§686 disposition 3, field 2). With
     // exploration fixed to one substrate this is always Batch membership, so
     // the row names the batch rather than a substrate token a reader would
@@ -4797,27 +4842,116 @@ export function settledSlugs(candidates, memberIds) {
 // rather than passed through, because the display ranks by level and an
 // unrecognised token would sort as "no level" — showing a judged candidate as
 // unjudged, which is the silent-exclusion shape §13.0 exists to remove.
-export function readNeighborhoodJudgments(path) {
-  if (!path) return new Map();
-  const raw = readJson(String(path));
+// THE REFUSAL IS A THROW AND THE FILE READER CONVERTS IT (kogaki#861). Every
+// refusal below used to call `fail()` directly, which exits the process — so
+// the only way to assert one was to spawn a subprocess, and none of them was
+// asserted by anything. This is `FormatRefusal`/`emitOrRefuse`'s arrangement
+// one module over: the judgment is decided by a PURE function that throws, and
+// the one impure caller turns the throw into the same `fail()` the refusal
+// always was. The refusal text, its wording and its siting are unchanged; what
+// moved is who exits.
+export class JudgmentRefusal extends Error {}
+
+// The one converter, so the two readers of a throwing validator cannot drift in
+// WHEN they exit — the reason `emitOrRefuse` exists for the format guard.
+function orFail(fn) {
+  try { return fn(); }
+  catch (e) {
+    if (e instanceof JudgmentRefusal) fail(e.message);
+    throw e;
+  }
+}
+
+// A Thesis candidate's id, as `report-format.json`'s `ThesisCandidateID` token
+// declares it. Transcribed rather than read from the grammar because this
+// refusal fires on an INPUT and the grammar governs a rendered SURFACE: reading
+// the token here would make a judgment record's admissibility depend on a
+// carrier that describes what a line looks like.
+const THESIS_CANDIDATE_ID = /^TC[0-9]+$/;
+
+// THE JUDGMENT'S THIRD FIELD (kogaki#861, owner report 2026-09-04). A row that
+// states a level and a claim still does not say what the neighbor is FOR, and
+// the report carries the Thesis candidates it could be for at the top of the
+// same file. So each judgment names the candidate it serves AND its role for
+// that candidate, and a record without one is refused exactly as a level with
+// no claim is: the row has a fixed line class for it and no way to render it
+// from anything else.
+export function neighborhoodJudgmentsFrom(raw) {
   const out = new Map();
   for (const [slug, v] of Object.entries(raw || {})) {
     if (!v || typeof v !== "object") {
-      fail(`neighborhood judgment for ${JSON.stringify(slug)} is not an object: `
-        + `each entry is {"level": <one of ${NEIGHBORHOOD_LEVELS.join(" | ")}>, "claim": "<one sentence>"}`);
+      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} is not an object: `
+        + `each entry is {"level": <one of ${NEIGHBORHOOD_LEVELS.join(" | ")}>, "claim": "<one sentence>", `
+        + `"target": {"candidate": "TC<n>", "role": "<the role it plays for that candidate>"}}`);
     }
     if (!NEIGHBORHOOD_LEVELS.includes(v.level)) {
-      fail(`neighborhood judgment for ${JSON.stringify(slug)} carries level `
+      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries level `
         + `${JSON.stringify(v.level)}, which is not the harness-fixed set `
         + `(${NEIGHBORHOOD_LEVELS.join(" | ")}). The set is closed; extending it is the owner's act.`);
     }
     if (typeof v.claim !== "string" || !v.claim.trim()) {
-      fail(`neighborhood judgment for ${JSON.stringify(slug)} carries no claim. `
+      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries no claim. `
         + "A level without a claim is a rank with no reason, which the row has no way to render.");
     }
-    out.set(slug, { level: v.level, claim: v.claim.trim() });
+    const t = v.target;
+    if (!t || typeof t !== "object" || Array.isArray(t)) {
+      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries no target. `
+        + "A level and a claim with no target is a recommendation with nothing to serve: the row's "
+        + "TC-target line is a FIXED line class (kogaki#861) and there is nothing else to render it "
+        + `from. Write "target": {"candidate": "TC<n>", "role": "<the role it plays for that candidate>"}.`);
+    }
+    if (typeof t.candidate !== "string" || !THESIS_CANDIDATE_ID.test(t.candidate.trim())) {
+      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} targets `
+        + `${JSON.stringify(t.candidate)}, which is not a Thesis-candidate id (TC<n>). The target names a `
+        + "candidate of THIS report's §12.3 section; a slug, a display id or free text there would render a "
+        + "line the reader cannot join to anything above it.");
+    }
+    if (typeof t.role !== "string" || !t.role.trim()) {
+      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} names a target candidate `
+        + "and no role for it. WHICH candidate and WHAT FOR are both owed: a neighbor named against TC2 with "
+        + "no role states that it is relevant and withholds the whole of why.");
+    }
+    if (/\n/.test(t.role)) {
+      // One RENDERED line per target, exactly as §12.3's claim is bounded: a
+      // newline emits a line no grammar class admits, and the emit-time
+      // refusal would then name the surface rather than this input.
+      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries a role spanning more `
+        + "than one line. The TC-target line is one rendered line, so a multi-line role emits a line no grammar "
+        + "class admits and the refusal would name the surface rather than this input.");
+    }
+    out.set(slug, { level: v.level, claim: v.claim.trim(),
+      target: { candidate: t.candidate.trim(), role: t.role.trim() } });
   }
   return out;
+}
+
+export function readNeighborhoodJudgments(path) {
+  if (!path) return new Map();
+  const raw = readJson(String(path));
+  return orFail(() => neighborhoodJudgmentsFrom(raw));
+}
+
+// THE TARGET IS CHECKED AGAINST THE COMPOSED CANDIDATES, NEVER AGAINST ITS OWN
+// SHAPE ALONE (kogaki#861). `TC9` is a well-formed id and names nothing in a
+// three-candidate report; rendered unchecked it would put a line on the owner's
+// surface pointing at a section that does not carry it — the join failing
+// silently in the one direction the reader cannot see, which is the same
+// silence the orphan-slug refusal beside it exists to end.
+//
+// Pure and throwing, so BOTH readers — the J3 state and the pull — reach one
+// implementation of the rule rather than two readings of it.
+export function refuseTargetsOutsideCandidates(judgments, candidateIds, at) {
+  const known = new Set(candidateIds || []);
+  const bad = [...judgments.entries()]
+    .filter(([, j]) => j.target && !known.has(j.target.candidate))
+    .map(([slug, j]) => `${slug} -> ${j.target.candidate}`);
+  if (bad.length) {
+    throw new JudgmentRefusal(`${at} refuses ${bad.length} neighborhood target(s) naming a Thesis candidate this `
+      + `report does not carry: ${bad.join(", ")}. The composed candidates are: `
+      + `${known.size ? [...known].join(", ") : "(none composed)"}. A target that joins nothing renders a line `
+      + "pointing at a section that does not carry it.");
+  }
+  return judgments;
 }
 
 function neighborhoodForTargets(record, targets) {
@@ -5145,8 +5279,33 @@ export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] })
   if (gaps.length) sayGaps();
   say();
 
-  // FOUR FIELDS, in the ruled order. `relation` is plain words rather than a
-  // substrate token, because the row is read by the owner and not by a parser.
+  // FOUR FIXED LINE CLASSES PER ROW, in the ruled order (kogaki#861, owner
+  // report 2026-09-04 and rulings 2026-09-05): the id/level/relation row, the
+  // TC-target line, the Gloss line or its marker, the claim line. Each is a
+  // fixed class, so the information is always shown explicitly and never only
+  // where something happened to be recorded.
+  //
+  // THE LEVEL MOVED TO THE HEAD OF THE ROW and is gone from the tail of the
+  // claim. It ranks the row, and a rank read after the sentence it ranks is a
+  // rank the reader has to go back for; the trailing `[core]` is DELETED rather
+  // than kept beside the new position, because two carriers for one level is
+  // how a later edit updates half of them.
+  //
+  // THE GLOSS LINE STAYS, ABSENCE MARKERS INCLUDED (owner ruling 2026-09-05).
+  // The owner's sketch of the new format omitted it and showed the NEW lines
+  // rather than an exhaustive row spec. Dropping the three typed markers with
+  // it would have been the worse half of that reading: a row whose shard
+  // carried nothing would then render four clean lines and say nothing about
+  // the fault —
+  //   "A check inherits the trigger of the gate it is sited in, and can be
+  //    ANTI-CORRELATED with its own need. … A check anti-correlated with its
+  //    need is worse than no check, because its silence reads as a clean
+  //    result."
+  //   product-lab@ab04cc9bca21a600cd9eb0a594619d3ca899d05f
+  //     topics/archive/claude-code-ops.md:24
+  //
+  // `relation` is plain words rather than a substrate token, because the row is
+  // read by the owner and not by a parser.
   //
   // THE GLOSS IS QUOTED AT ITS CITE (kogaki#689). It is a served rendering, so
   // it travels with the address it was read from; a headline rendered bare is
@@ -5155,7 +5314,17 @@ export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] })
   // marker `cmdView` and the Brief lane render, so one vocabulary covers the
   // state wherever it arises, and it is a fault to clear rather than prose.
   for (const x of shown) {
-    say(`- ${x.nid} — ${x.relation || "relation unrecorded"}`);
+    say(`- ${x.nid} [${x.level}] — ${x.relation || "relation unrecorded"}`);
+    // THE TC-TARGET LINE, ALWAYS (kogaki#861). `readNeighborhoodJudgments`
+    // refuses a judgment carrying no target, so a row reaching here without one
+    // came from a caller that composed its own selection — the same standing as
+    // the unjudged arms above, and answered the same way: a TYPED ABSENCE
+    // MARKER rather than an omitted line. Omitting it would make "the target is
+    // a fixed line class" false exactly where it matters, and substituting a
+    // plausible candidate id would be the renderer inventing the join.
+    say(x.target && x.target.candidate && x.target.role
+      ? `  serves: ${x.target.role} for ${x.target.candidate}`
+      : `  ${NO_TARGET}`);
     // A HEADLINE WITH NO CITE FALLS TO THE MARKER, NEVER TO BARE PROSE (PR #694
     // round 1). The ternary's second arm used to print `x.gloss` when it was
     // truthy, so a served headline arriving with a null cite rendered UNQUOTED
@@ -5168,7 +5337,8 @@ export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] })
     // refusal of the whole report or an unclassed line.
     say(x.gloss && x.gloss_cite ? `  “${x.gloss}”  ${x.gloss_cite}`
                                 : `  ${glossMarkerFor(x)}`);
-    say(`  ${x.claim || "claim unrecorded"} [${x.level}]`);
+    // THE LEVEL IS GONE FROM THIS LINE — it heads the row above (kogaki#861).
+    say(`  ${x.claim || "claim unrecorded"}`);
   }
   return out;
 }
@@ -5540,6 +5710,59 @@ const STATE_WORK = {
   // unobtainable without an LLM pass, which no ruling asked for. What the
   // declaration removes is the SILENT version — an unjudged run is now a
   // skipped conditional the run record names, not an absent capability.
+  // THE THESIS CANDIDATES ARE COMPOSED AND THEIR IDS FIXED BEFORE J3 JUDGES
+  // (kogaki#861, owner ruling 2026-09-05). The alternative on the table was one
+  // combined judgment composing candidates and neighborhood together; the
+  // ordering was chosen instead, and the ground is what a judgment point is
+  // for:
+  //
+  //   "JUDGMENT SITS IN THE GAPS BETWEEN DETERMINISTIC PARTS, NEVER AS A LAYER
+  //    AROUND THEM … is the model deciding what happens next, or supplying a
+  //    value between two things whose order is already fixed?"
+  //   product-lab@ab04cc9bca21a600cd9eb0a594619d3ca899d05f
+  //     topics/claude-code-ops.md:24
+  //
+  // TC1 must MEAN something before a neighbor can be judged against it. With one
+  // combined record the model would be supplying the candidate list and the
+  // targets into it in the same act, so nothing outside that act could refuse a
+  // target naming a candidate the same record invented. Two states put the
+  // ordering in the table, where §15.1 keeps it, and the refusal below reads a
+  // set the state before it fixed.
+  //
+  // IT VALIDATES AND NEVER COMPOSES (§15.6), like every judgment point beside
+  // it: `readThesisCandidates` is the existing reader and carries the count,
+  // arity and membership refusals unchanged. What this state adds is the WRITE
+  // — the minted list goes to the run workspace so J3 and the pull read one
+  // fixed set of ids rather than each re-deciding what TC1 is.
+  thesis_candidates: (rec, st, args) => {
+    const path = String(args["thesis-candidates"]
+      || fail(`${st.id} is a declared judgment point and needs its typed record: --thesis-candidates <file>. ${st.refusal || ""}`.trim()));
+    const record = readJson(needSurvey(rec));
+    const tag = ownerInput(rec, "TAG_SELECTION")
+      || fail(`${st.id} needs a tag, and no wait has supplied one yet.`);
+    const ids = ownerInput(rec, "ID_SELECTION")
+      || fail(`${st.id} needs the entered ID set, and no wait has supplied one yet.`);
+    // SPLIT AS `report` AND `neighborhood_input` SPLIT IT. Two parsers over one
+    // owner input is two answers to one question, and the member set a
+    // candidate's strands are checked against is exactly the set the pull will
+    // render.
+    const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
+    const { targets } = resolveReportTargets(record, tag, enteredIds, args);
+    const memberDisplayIds = [...new Set(
+      targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
+      .map((mid) => displayIdOf(mid, record.candidates))
+      .filter((d) => d && d !== NO_DISPLAY_ID);
+    const composed = readThesisCandidates(readJson(path), memberDisplayIds,
+      loadGrammar(REPORT_FORMAT).limits || {});
+    const out = join(rec._dir, "terrain-thesis-candidates.json");
+    writeFileSync(out, JSON.stringify(composed, null, 2) + "\n");
+    // STORED ABSOLUTE, like `neighborhood_candidates` beside it — a run
+    // workspace is routinely outside the tree.
+    rec.thesis_candidates = out;
+    rec.judgments[st.id] = relFromRepo(resolve(path));
+    return null;
+  },
+
   neighborhood_input: (rec, st, args) => {
     const record = readJson(needSurvey(rec));
     const ids = ownerInput(rec, "ID_SELECTION")
@@ -5623,6 +5846,19 @@ const STATE_WORK = {
     // The partial arm is therefore closed BY CONSTRUCTION rather than counted:
     // `neighborhoodDisplay` no longer needs an unjudged tally, because after this
     // refusal there is nothing for it to count.
+    // THE FIFTH REFUSAL — THE TARGET NAMES A COMPOSED CANDIDATE (kogaki#861).
+    // The typed record now carries, per candidate, the Thesis candidate it
+    // serves; `neighborhoodJudgmentsFrom` refuses a record with no target and
+    // refuses one whose target is not a TC id, and neither can refuse `TC9` in a
+    // three-candidate pull — that is a fact about the OTHER state's output, and
+    // this is where the two meet. Read from the file the `thesis_candidates`
+    // state wrote rather than from argv, for the reason the judgment path is
+    // read from the run record one state down: the ids J3 checks against must be
+    // the ids the pull will render.
+    const composedTc = rec.thesis_candidates
+      ? readJson(rec.thesis_candidates)
+      : fail(`${st.id} has no composed Thesis candidates to check its targets against — enter thesis_candidates first (\`--enter thesis_candidates\`). A neighborhood judged before the candidates exist names ids nothing has fixed (kogaki#861).`);
+    orFail(() => refuseTargetsOutsideCandidates(judgments, (composedTc || []).map((c) => c.id), st.id));
     const uncovered = [...have].filter((slug) => !judgments.has(slug));
     if (uncovered.length) {
       fail(`${st.id} refuses: ${uncovered.length} mechanical candidate(s) carry no judgment — `
@@ -5655,6 +5891,12 @@ const STATE_WORK = {
       // Absent where no emitter ran — the unjudged flow — and cmdReport then
       // computes inside the pull as §13.2 always said.
       ...(rec.neighborhood_candidates ? { "neighborhood-candidates": rec.neighborhood_candidates } : {}),
+      // THE COMPOSED CANDIDATES JOIN FROM THE RUN RECORD, never from this act's
+      // argv (kogaki#861) — the same rule the judgment path below follows and
+      // for the same reason. The `thesis_candidates` state minted the ids J3
+      // validated every target against; re-reading a file named on argv here
+      // could renumber them under a judgment that already passed.
+      ...(rec.thesis_candidates ? { "thesis-candidates": rec.thesis_candidates } : {}),
       // THE JUDGMENT JOINS FROM THE RUN RECORD, never from this act's argv
       // (§13.4, kogaki#741 ruling 2). J3 wrote the path it validated; reading
       // it back here is what makes "deleting the judgment file after J3 and
@@ -7202,6 +7444,166 @@ switch (cmd) {
         && provenanceOf({ judgment_provenance: observed }).state === JUDGMENT_OBSERVED);
     }
 
+    // ---- THE NEIGHBORHOOD ROW NAMES ITS THESIS-CANDIDATE TARGET (kogaki#861,
+    // owner report 2026-09-04, owner rulings 2026-09-05). The Provenance
+    // neighborhood sat in the same file as the Thesis candidates and was
+    // related to nothing in it: a reader could not tell what a suggested
+    // neighbor was FOR, and the level that ranks the row arrived at the end of
+    // the sentence it ranks. These cases assert the four fixed line classes,
+    // the judgment record's new required field, and the ordering that makes a
+    // target checkable at all.
+    //
+    // SEAM-FREE, like every case above: the reader, the display and the section
+    // are pure over their inputs, and the refusals are asserted through
+    // `neighborhoodJudgmentsFrom`/`refuseTargetsOutsideCandidates`, which THROW
+    // rather than exiting — the arrangement `emitOrRefuse` uses for the format
+    // guard, and the reason these refusals are assertable at all.
+    {
+      const grammar = loadGrammar(REPORT_FORMAT);
+      const admits = (surface, text) => validateSurface(surface, text, grammar)
+        .every((v) => !/line_class_allowlist/.test(v));
+      const refused = (fn) => {
+        try { fn(); return null; }
+        catch (e) { return e instanceof JudgmentRefusal ? e.message : null; }
+      };
+      const wellFormed = {
+        "a/b": { level: "core", claim: "A decision from the thread that produced two of this group's members.",
+          target: { candidate: "TC1", role: "Core" } },
+      };
+
+      ok("a judgment carrying level and claim and NO target is refused — the row's TC-target line is a fixed class and has nothing else to render from",
+        /carries no target/.test(refused(() => neighborhoodJudgmentsFrom({
+          "a/b": { level: "core", claim: "a claim" } })) || ""));
+      ok("a target that is not a Thesis-candidate id is refused, and so is one carrying no role — WHICH candidate and WHAT FOR are both owed",
+        /is not a Thesis-candidate id/.test(refused(() => neighborhoodJudgmentsFrom({
+          "a/b": { level: "core", claim: "a claim", target: { candidate: "l15", role: "Core" } } })) || "")
+        && /and no role for it/.test(refused(() => neighborhoodJudgmentsFrom({
+          "a/b": { level: "core", claim: "a claim", target: { candidate: "TC1" } } })) || ""));
+      // THE CONTROL for the two above: the pre-existing refusals still fire and
+      // a well-formed record still passes, so the new field is an addition
+      // rather than a reader that refuses everything.
+      ok("the level-with-no-claim refusal is untouched, and a well-formed record carries level, claim and target through the reader",
+        /A level without a claim is a rank with no reason/.test(refused(() => neighborhoodJudgmentsFrom({
+          "a/b": { level: "core", target: { candidate: "TC1", role: "Core" } } })) || "")
+        && (() => {
+          const j = neighborhoodJudgmentsFrom(wellFormed).get("a/b");
+          return j.level === "core" && /A decision from the thread/.test(j.claim)
+            && j.target.candidate === "TC1" && j.target.role === "Core";
+        })());
+
+      // A TARGET IS CHECKED AGAINST THE COMPOSED SET, not against its own shape:
+      // `TC9` is a well-formed id naming nothing in a three-candidate pull.
+      ok("a target naming a Thesis candidate the pull does not carry is refused, naming the row and the composed set; one inside the set passes",
+        /TC9/.test(refused(() => refuseTargetsOutsideCandidates(
+          neighborhoodJudgmentsFrom({ "a/b": { level: "core", claim: "c", target: { candidate: "TC9", role: "Core" } } }),
+          ["TC1", "TC2", "TC3"], "J3_neighborhood")) || "")
+        && refused(() => refuseTargetsOutsideCandidates(
+          neighborhoodJudgmentsFrom(wellFormed), ["TC1", "TC2", "TC3"], "J3_neighborhood")) === null);
+
+      // ---- THE ROW ITSELF. One judged suggestion, rendered through the display
+      // the report section reuses, so what is asserted is what the owner reads.
+      const row = (over = {}) => ({
+        nid: "N3", slug: "a/b", level: "core",
+        relation: "from the same Batch as L15, L97 (q_a/2026-08-08)",
+        claim: "A decision from the thread that produced two of this group's members.",
+        target: { candidate: "TC1", role: "Core" },
+        gloss: "Binding claims at the refusing layer", gloss_cite: "product-lab@aaaaaaa gloss/ELEMENTS.jsonl:12",
+        ...over,
+      });
+      const linesOf = (over) => neighborhoodDisplay({ tag: "t", gids: ["G1"], suggestions: [row(over)] });
+      const shown = linesOf();
+      const at = (re) => shown.findIndex((l) => re.test(l));
+
+      ok("the row states its level at the HEAD, beside the id and before the relation",
+        /^- N3 \[core\] — from the same Batch as L15, L97/.test(shown[at(/^- N3 /)] || ""));
+      ok("the claim line carries NO trailing level — the level has one carrier and it is the row above",
+        (() => {
+          const claimLine = shown.find((l) => /A decision from the thread/.test(l));
+          return claimLine === "  A decision from the thread that produced two of this group's members."
+            && !/\[core\]/.test(claimLine);
+        })());
+      ok("the four line classes render in the ruled order: row, TC target, Gloss, claim",
+        (() => {
+          const i = at(/^- N3 /);
+          return i >= 0 && shown[i + 1] === "  serves: Core for TC1"
+            && /^  “Binding claims at the refusing layer”/.test(shown[i + 2] || "")
+            && /^  A decision from the thread/.test(shown[i + 3] || "");
+        })(), JSON.stringify(shown.slice(-4)));
+      ok("the TC-target line is a FIXED class: a row reaching the renderer with no target renders the typed absence marker rather than dropping the line",
+        (() => {
+          const l = linesOf({ target: undefined });
+          const i = l.findIndex((x) => /^- N3 /.test(x));
+          return l[i + 1] === `  ${NO_TARGET}` && l.length === shown.length;
+        })());
+
+      // THE GLOSS LINE SURVIVES THE REFORMAT, absence markers included (owner
+      // ruling 2026-09-05). A row whose shard carried nothing must still say so:
+      // four clean lines over an unreported fault is the anti-correlated check.
+      ok("the Gloss line still renders quoted at its cite, and each of the three typed absence markers still renders in its place",
+        /^  “Binding claims at the refusing layer”  product-lab@aaaaaaa/.test(shown[at(/^- N3 /) + 2] || "")
+        && [[{ gloss: null, gloss_cite: null }, NO_SHARD_ADDRESSED],
+          [{ gloss: NO_SEAM, gloss_cite: null }, NO_SEAM],
+          [{ gloss: "a headline with no address", gloss_cite: null }, NO_HEADLINE]]
+          .every(([over, marker]) => {
+            const l = linesOf(over);
+            return l[l.findIndex((x) => /^- N3 /.test(x)) + 2] === `  ${marker}`;
+          }));
+
+      // THE GRAMMAR ADMITS WHAT THE EMITTER PRODUCES — the direction PR #658's
+      // defect ran in, where a class never admitted its own emitter's line and
+      // nothing said so.
+      ok("full_report admits every line the reformatted row emits, on the quoted-Gloss arm and on all four absence arms",
+        [shown, linesOf({ target: undefined }), linesOf({ gloss: null, gloss_cite: null }),
+          linesOf({ gloss: NO_SEAM, gloss_cite: null }), linesOf({ gloss: "x", gloss_cite: null })]
+          .every((l) => admits("full_report", l.slice(1).join("\n"))));
+
+      // AND THE CLASSES THEMSELVES CARRY IT, which the surface-level case above
+      // CANNOT assert. `neighborhood_suggestion_claim` lost its trailing level
+      // and now pins no literal, so it admits any two-space-indented line —
+      // deleting the target class outright leaves the surface admitting the
+      // target line under the claim class, and `admits` stays green. Verified by
+      // running that mutation, which is why this case reads the DECLARED class
+      // by id and drives its own matcher.
+      ok("the grammar's own classes carry the reformat: the target class admits the emitted line and refuses one naming no candidate, the absence marker has its own class, and the row class refuses the pre-#861 level-less row",
+        (() => {
+          const byId = (id) => {
+            const e = ((grammar.surfaces.full_report || {}).line_classes || []).find((x) => x.id === id);
+            return e ? classMatchers(e, grammar) : null;
+          };
+          const m = (res, line) => !!res && res.some((re) => re.test(line));
+          return m(byId("neighborhood_suggestion_target"), "  serves: Core for TC1")
+            && !m(byId("neighborhood_suggestion_target"), "  serves: Core for L1")
+            && m(byId("neighborhood_suggestion_target_absent"), `  ${NO_TARGET}`)
+            && m(byId("neighborhood_suggestion_row"), "- N3 [core] — from the same Batch as L15")
+            && !m(byId("neighborhood_suggestion_row"), "- N3 — from the same Batch as L15");
+        })());
+
+      // ---- THE IDS ARE FIXED BEFORE THE JUDGMENT, which is what makes a target
+      // checkable. Asserted from the OTHER side too: the section renders the id
+      // it was handed, so a section that re-mints from its loop index fails.
+      ok("readThesisCandidates mints the TC ids, and the §12.3 section renders the id it is handed rather than its own loop index",
+        (() => {
+          const composed = readThesisCandidates(
+            [{ claim: "one", strands: ["L1", "L2"] }, { claim: "two", strands: ["L2", "L3"] },
+              { claim: "three", strands: ["L1", "L3"] }],
+            ["L1", "L2", "L3"], { thesis_candidates: 3 });
+          const section = thesisCandidatesSection([{ id: "TC7", claim: "seven", strands: ["L1", "L2"] }]);
+          return composed.map((c) => c.id).join(",") === "TC1,TC2,TC3"
+            && section.some((l) => l === "- TC7 — seven");
+        })());
+
+      // ---- THE ORDERING, read from the shipped carrier (§15.1 keeps the state
+      // set there, so this is a property of the table and not of this file).
+      ok("the shipped table composes the Thesis candidates as a judgment point AHEAD of J3_neighborhood, which is ahead of the full_report write",
+        (() => {
+          const ids = shipped.states.map((x) => x.id);
+          const tc = shipped.states.find((x) => x.id === "thesis_candidates");
+          return !!tc && tc.kind === "judgment"
+            && ids.indexOf("thesis_candidates") < ids.indexOf("J3_neighborhood")
+            && ids.indexOf("J3_neighborhood") < ids.indexOf("full_report");
+        })());
+    }
+
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
     if (bad.length) process.exit(1);
     break;
@@ -7224,7 +7626,7 @@ switch (cmd) {
                                             a refusal naming which of the two happened.
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
       (a declared gate's answer takes NO flag — it is read from the harness's capture)
-      [--claims F] [--subdivisions F] [--classification F] [--neighborhood F]
+      [--claims F] [--subdivisions F] [--classification F] [--neighborhood F] [--thesis-candidates F]
       [--judge-model M] [--judge-effort E]
                                             THE §15 CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
@@ -7258,16 +7660,21 @@ switch (cmd) {
                                             --subdivisions are maps keyed by group name; a
                                             group missing a claim is MARKED, never substituted.
   report --survey F --tag T (--group G | --all-groups) [--claims F]
-         [--subdivisions F] [--neighborhood F] [--judge-model M --judge-effort E]
-         [--report-dir D]
+         [--subdivisions F] [--neighborhood F] [--thesis-candidates F]
+         [--judge-model M --judge-effort E] [--report-dir D]
                                             the Full Report (§12) — untruncated Claims and
                                             Glosses, identified by the QUADRUPLE (substrate pin,
                                             co-tag query, judge pin, neighborhood judgment
                                             record — widened from the triple at kogaki#741).
                                             TWO ARTIFACTS (§12.2 v11):
                                             --neighborhood carries the judgment layer: one
-                                            level (core|useful|background) and one claim per
-                                            candidate, keyed by slug (§13.4, kogaki#686).
+                                            level (core|useful|background), one claim and one
+                                            target per candidate, keyed by slug (§13.4,
+                                            kogaki#686, kogaki#861). The target is
+                                            {"candidate":"TC<n>","role":"…"} and names a
+                                            Thesis candidate of THIS pull, so a judged
+                                            neighborhood REQUIRES --thesis-candidates: the
+                                            absent-candidates fallback does not apply to it.
                                             the machine RECORD in the run workspace, and the
                                             owner RENDERING — exactly ONE file,
                                             reports/FullReport.md, overwritten per pull
