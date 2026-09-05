@@ -86,6 +86,44 @@
     "register_tests": { "kind": "paragraph", "opens_with": "**Plain register, operationally:**" }
   },
 
+  "pass_two": {
+      "note": [
+        "THE SECOND PASS'S BOUND IS DATA, for the reason the packet_blocks",
+        "note gives one block down (kogaki#874). `check` re-judges the",
+        "corrected Steps' own items, the two CONTINUITY items on the Step",
+        "immediately after each correction, and every mechanical item over",
+        "the whole Draft -- and the runtime names none of those ids, because",
+        "an item id spelled out in the runtime cannot be told from one",
+        "restating this table.",
+        "",
+        "`successor_items` is TWO ids and the issue names the properties they",
+        "carry: `reader_state_before` continuity and `restates`. The Packet",
+        "renders a `reader_state_before` slot and this table declares NO",
+        "reader for it -- the block that carries the reader's INCOMING state",
+        "is `already_knows`, which is what `already-knows` compares -- so the",
+        "continuity item is that one rather than a new item over a block",
+        "nothing reads. Both are best-effort, which is the qualifier the",
+        "issue's own sentence carries.",
+        "",
+        "`restates-earlier-step` is ALSO mechanical, so it is in the bound",
+        "twice over: once for every Step and once as a successor item. That",
+        "is not redundancy to remove -- it is the item whose INPUT a",
+        "correction changes, since its haystack is the earlier prose, and",
+        "listing it here says why the successor is re-checked at all.",
+        "",
+        "`drift_blocks` are the Packet blocks the drift measure reports",
+        "verbatim overlap against -- the ground and state lines. Same",
+        "arrangement, same reason."
+      ],
+      "successor_items": [
+        "already-knows",
+        "restates-earlier-step"
+      ],
+      "drift_blocks": [
+        "grounds",
+        "reader_state_after"
+      ]
+    },
   "thresholds": {
     "note": [
       "Thresholds are INPUTS TO THE HARNESS AND NEVER OUTPUT. No emitted line",
