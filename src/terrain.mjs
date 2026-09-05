@@ -2371,13 +2371,24 @@ export const DISPLAY_WRAP_COLUMNS = 77;
 // A single word longer than the column is emitted OVERLONG rather than broken:
 // the tokens that reach this line are a sha in backticks and an invocation id,
 // and breaking one would produce a value that cannot be copied.
-export function wrapDisplayLine(text, columns = DISPLAY_WRAP_COLUMNS, indent = "  ") {
+//
+// A `head` IS EMITTED WHOLE ON THE FIRST LINE, however long, and the wrap
+// begins after it (PR #921 round 1 finding 1). This is not a convenience: the
+// grammar classifies a wrapped line by its FIRST line, and an abbreviated form
+// compiles to a PREFIX regex, so whatever the class pins must be text no input
+// can push onto a continuation. Wrapping the sentence whole put the pin clause
+// — `<model_id> / <effort_tier>.`, composer-supplied and unbounded in length —
+// inside the wrappable region, so a model id past roughly 45 characters moved
+// the wrap point above it, `line_class_allowlist` returned null and
+// `emitOrRefuse` failed the WHOLE `cotag_groups` emit. A display that refuses
+// itself on a long pin is worse than the long line this change removes, and no
+// fixture reached it because the fixtures carry short ids.
+export function wrapDisplayLine(text, columns = DISPLAY_WRAP_COLUMNS, indent = "  ", head = null) {
   const words = String(text).split(/\s+/).filter((w) => w !== "");
   const out = [];
-  let line = "";
+  let line = head === null ? "" : String(head);
   for (const w of words) {
-    const prefix = out.length === 0 ? "" : indent;
-    if (line === "") { line = prefix + w; continue; }
+    if (line === "") { line = w; continue; }
     if (`${line} ${w}`.length <= columns) { line = `${line} ${w}`; continue; }
     out.push(line);
     line = indent + w;
@@ -2399,14 +2410,25 @@ export function judgePinLine(pin, prov) {
   // unreachable today — terrain invokes no judge — so wrapping only the arm a
   // run can produce would leave the divergence standing for whenever a producer
   // appears, which is the amend-it-later shape this file refuses.
+  //
+  // THE PIN CLAUSE IS THE HEAD, on both arms, and that is what keeps a long
+  // composer-supplied `model_id` from moving the text the grammar classifies
+  // on (PR #921 round 1 finding 1). Each form below abbreviates at exactly the
+  // head's end and NOT one space later: a form ending `<effort_tier>. …`
+  // demands a further word on the first line, which is the same length
+  // dependency in a costume.
   if (p.state === JUDGMENT_OBSERVED) {
-    return wrapDisplayLine(`judged by ${pin.model_id} / ${pin.effort_tier} — OBSERVED: the Harness holds its own `
-      + `invocation record \`${p.invocation.id}\`, taken over ${seen} (SPEC-terrain §6.2, §12.1)`).join("\n");
+    return wrapDisplayLine(`the Harness holds its own `
+      + `invocation record \`${p.invocation.id}\`, taken over ${seen} (SPEC-terrain §6.2, §12.1)`,
+    DISPLAY_WRAP_COLUMNS, "  ",
+    `judged by ${pin.model_id} / ${pin.effort_tier} — OBSERVED:`).join("\n");
   }
-  return wrapDisplayLine(`judge pin DECLARED — ${pin.model_id} / ${pin.effort_tier}. The Harness invoked no judge and holds `
+  return wrapDisplayLine(`The Harness invoked no judge and holds `
     + `no invocation record, so this names what the composer says judged this split rather than something the `
     + `Harness saw happen; what it did observe is ${seen} (SPEC-terrain §6.2, §12.1 — a judged surface with no `
-    + `judge pin is the drift-undetectable shape; kogaki#892 — a declaration is not rendered as an observation)`).join("\n");
+    + `judge pin is the drift-undetectable shape; kogaki#892 — a declaration is not rendered as an observation)`,
+  DISPLAY_WRAP_COLUMNS, "  ",
+  `judge pin DECLARED — ${pin.model_id} / ${pin.effort_tier}.`).join("\n");
 }
 
 // THE REPORT'S JUDGE LINE, composed ONCE (kogaki#918). It sits beside
@@ -7126,6 +7148,24 @@ switch (cmd) {
         [judgePinLine(pin, declared), judgePinLine(pin, observed)]
           .every((text) => text.split("\n").slice(1).every((l) => l.startsWith("  "))
             && !text.split("\n")[0].startsWith(" ")));
+      // ---- PR #921 round 1 finding 1. THE PIN IS COMPOSER-SUPPLIED AND
+      // UNBOUNDED, and the wrap made its length reach the grammar. A form
+      // abbreviating one space past the pin clause demands a further word on
+      // the first rendered line, so a long enough `model_id` wrapped the clause
+      // apart, no class matched line 1, and `emitOrRefuse` refused the WHOLE
+      // cotag_groups surface — a display that destroys itself on an input the
+      // owner typed. The fixtures carried short ids, which is why nothing saw
+      // it. This case is stated over the LENGTH rather than over one id: it
+      // sweeps the whole range through and past the width, so a later change to
+      // the column, the head or the form is measured against every crossing
+      // rather than against the one specimen that failed.
+      ok("a long composer-supplied judge pin still classifies — the pin clause is never wrapped off the first line, at any id length",
+        [1, 20, 45, 48, 52, 60, 80, 140].every((n) => {
+          const long = { model_id: "m".repeat(n), effort_tier: "high" };
+          return [judgePinLine(long, declared), judgePinLine(long, observed)]
+            .every((text) => text.split("\n")[0].includes(`${long.model_id} / high`)
+              && admits("cotag_groups", text));
+        }));
 
       // ---- kogaki#918. The provenance clause was composed against EVERY pin,
       // including the typed literal `none` — so the absence of a pin rendered
