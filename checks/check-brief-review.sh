@@ -253,7 +253,7 @@ console.log("brief review: 8/8 cases — (a) per-Candidate reasoning attaches an
   + "round records (the door a container-shaped check leaves open) — while an ABSENT one is "
   + "zero rounds spent, because a bound whose count degrades to zero on a bad read is a "
   + "suggestion with a good failure mode. "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): FOUR mutations, each run once "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): SIX mutations, each run once "
   + "and restored surgically — dropping the per-candidate completeness guard failed (b)'s "
   + "by-name refusal; dropping the verdict-key scan failed (c)'s unattachability; raising "
   + "MAX_ATTACHES to 3 failed (e)'s third-attach refusal AND (f)'s residue, since a "
