@@ -221,11 +221,16 @@ while IFS= read -r h; do
   # occurs inside this template's own "Write no verdicts and no advice", and a
   # substring match failed on correct text -- the guard-that-fires-on-correct-
   # behaviour shape, caught at authoring rather than in review.
-  # `/^##/` and NOT `/^#{0,0}##/`: the interval is inert where awk supports
+  # `/^#/` and NOT `/^#{0,0}##/`: the interval is inert where awk supports
   # intervals and matched LITERALLY where it does not, in which case no heading
   # line is ever selected, `found` is never set, and this guard reports ok on a
   # leaked template. A guard whose failure mode is a clean pass is the shape
   # this member calls out by name two blocks up (PR #884 round 1, finding 1).
+  # THE SELECTOR HAS TWO CARRIERS: this comment and this member's `efficacy_note`
+  # in checks/registry.json, which records the same repair. They disagreed once
+  # already (kogaki#886, this comment naming `/^##/` against the code's `/^#/`),
+  # so each names the other here rather than only the wrong side being corrected
+  # -- edit one and the other is owed the same edit.
   if awk -v want="$h" '/^#/ { line=$0; sub(/^#+[ ]*/, "", line); sub(/[ ]*$/, "", line); if (line == want) found=1 } END { exit !found }' "$RT"; then
     echo "FAIL: $RT carries the Packet block heading \"$h\" -- the reviewer is blind by design, and a Packet block in the recovery input ends the measurement while looking helpful"
     LEAK=1
