@@ -30,6 +30,14 @@
 // fails or from `check` in every state. A session does not sequence these acts
 // and cannot get the sequence wrong.
 //
+// THE COMPARISON IS FIXED IN THE HARNESS (kogaki#872). `src/review-items.json`
+// decides which Packet information must be recoverable per item class, which
+// items are preserved and which best-effort, and which are decided from string
+// facts rather than put to a reader. The judging model sees ONE pair and ONE
+// question and answers with one of three tokens — it never assigns severity,
+// never ranks, and never sees two pairs at once, because the table already
+// holds every consequence a verdict has.
+//
 // COMPLETION: the command runs to completion — it ends when `review.md` exists.
 // Two passes at most (owner ruling 2026-09-04). It finishes with residue rather
 // than reaching for a third pass, because the residue is the useful output:
@@ -37,12 +45,14 @@
 // Packet, and the owner classifies which.
 //
 // WHAT THIS ARTIFACT DOES NOT OWN, stated so a reader can tell a boundary from
-// a hole. The recovery input's record schema is kogaki#871; the item classes,
-// the three-valued verdict and the mechanical checks are kogaki#872; the cold
-// reader's pairing rules are kogaki#873; `correct` and the bounded second pass
-// are kogaki#874. Each is registered in the dispatcher below and refuses by
-// naming its issue, so the surface this file declares is the surface a later
-// child fills rather than one it has to discover.
+// a hole. The cold reader's pairing rules are kogaki#873; `correct` and the
+// bounded second pass are kogaki#874. Each is registered in the dispatcher below
+// and refuses by naming its issue, so the surface this file declares is the
+// surface a later child fills rather than one it has to discover. The recovery
+// input's record schema (kogaki#871) and the item classes, the three-valued
+// verdict and the mechanical checks (kogaki#872) are FILLED — named here as
+// landed rather than dropped from the list, because a boundary that quietly
+// stops being one cannot be told from a boundary a reader misremembered.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname, basename, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -607,8 +617,680 @@ function missingFor(run) {
   return { steps, sections };
 }
 
+// ---------------------------------------------------------------------------
+// THE COMPARISON (kogaki#872). The join between what a Packet DECLARED and what
+// the blind reviewer RECOVERED from the prose it produced.
+//
+// THE ITEM TABLE IS FIXED IN THE HARNESS AND READ FROM `src/review-items.json`
+// — which item classes exist, which are preserved and which are best-effort,
+// which are decided mechanically and which are put to a model. The runtime does
+// not restate it, the same arrangement `src/recovered-schema.json` already has
+// with the recovery half: amending the table is one edit.
+//
+// THE MODEL NEVER ASSIGNS SEVERITY, and that is the whole reason the table is
+// here rather than in a prompt. A judging model sees ONE pair, answers ONE
+// question, and returns one of three tokens with one sentence. It cannot rank,
+// weigh or aggregate, because it is never shown two pairs at once. What a
+// `fails` COSTS is the table's: a preserved item's fail sends the Step to
+// correction, a best-effort item's rides along if that Step is re-realized
+// anyway.
+//
+// `cannot-decide` IS NEVER ROUNDED. It is a third answer, not a weak `holds`,
+// and it is listed with its pair so a person can look at what the reader could
+// not settle.
+
+function readItems() {
+  const p = join(dirname(fileURLToPath(import.meta.url)), "review-items.json");
+  if (!existsSync(p)) {
+    fail(`the item table is absent — ${p}. It is the whole of what the comparison compares, so `
+      + "this refuses rather than joining against a table it invented.");
+  }
+  let t;
+  try { t = JSON.parse(readFileSync(p, "utf8")); }
+  catch (e) { fail(`the item table at ${p} is not readable JSON (${e.message})`); }
+  if (!Array.isArray(t.items) || !t.items.length) fail(`the item table at ${p} declares no items`);
+  return t;
+}
+
+// ---------------------------------------------------------------------------
+// Reading the DECLARED side back out of a rendered Packet.
+//
+// THE PACKET IS PARSED AS THE TEMPLATE WRITES IT, never as general markdown —
+// the same reading `readDraft` gives the trace, and for the same reason: a
+// second grammar can disagree with the writer about what was written. Every
+// block below is a form `src/packet-template.md` renders, and a block that is
+// absent is a PACKET GAP rather than something to work around, per the owner's
+// 2026-09-04 closed-input ruling. The refusal names the block, the item that
+// needed it, and the file the gap is filed against.
+
+// The stated-absence forms the Packet renderer writes where a value is empty.
+// They are ANSWERS and not holes: a Packet saying "(nothing new)" has told the
+// comparison there is nothing to compare, which is different from a Packet that
+// never rendered the block at all.
+const PACKET_ABSENCE = /^\((none|nothing)\b/i;
+
+// A `- **label.** value` line, plus any continuation lines the renderer wrapped
+// under it. The renderer puts multi-entry values (a term list, a knows list) on
+// the lines below the label, so a reader that took only the label line would
+// silently see the first entry and no others.
+function packetBullet(text, label) {
+  const lines = text.split("\n");
+  const head = new RegExp(`^- \\*\\*${label}\\.\\*\\*\\s?(.*)$`);
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(head);
+    if (!m) continue;
+    const out = m[1] === "" ? [] : [m[1]];
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j];
+      if (l.trim() === "" || l.startsWith("#") || /^- \*\*/.test(l)) break;
+      out.push(l);
+    }
+    return out.join("\n").trim();
+  }
+  return null;
+}
+
+// A `- item` list read out of a bullet value, with the stated-absence forms
+// answering as the empty list. `already knows` renders each entry as
+// `term — anchor (introduced at <step>)`; only the term is the join key, and the
+// anchor is what the Packet carries FOR THE WRITER rather than for this reader.
+function bulletList(value, { termOnly = false } = {}) {
+  if (value === null) return null;
+  if (PACKET_ABSENCE.test(value)) return [];
+  const out = [];
+  for (const l of value.split("\n")) {
+    const m = l.match(/^\s*-\s+(.*\S)\s*$/);
+    if (!m) continue;
+    let t = m[1];
+    if (termOnly) {
+      t = t.split(" — ")[0].replace(/\s*\(introduced at [^)]*\)\s*$/, "").trim();
+    }
+    if (t) out.push(t);
+  }
+  return out;
+}
+
+// The block between a heading and the next one, with the template's own fixed
+// instruction paragraph dropped — what is left is the rendered VALUE. Matched
+// on the heading's text rather than its level, because the level is the
+// template's business and the block's identity is its name.
+function packetBlock(text, heading, { after = null } = {}) {
+  const lines = text.split("\n");
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^#+\s+(.*\S)\s*$/);
+    if (m && m[1] === heading) { start = i + 1; break; }
+  }
+  if (start === -1) return null;
+  let end = lines.length;
+  for (let i = start; i < lines.length; i++) {
+    if (/^#+\s+\S/.test(lines[i])) { end = i; break; }
+  }
+  let body = lines.slice(start, end).join("\n");
+  // THE FIXED INSTRUCTION PARAGRAPH IS MATCHED AS A WORD SEQUENCE, never as a
+  // literal: the template wraps its prose, and a literal that carried the
+  // template's own line breaks would stop matching the moment somebody rewrapped
+  // a paragraph — which changes nothing and would silently hand the whole
+  // instruction paragraph back as the block's VALUE.
+  if (after) {
+    const m = body.match(after);
+    if (m) body = body.slice(m.index + m[0].length);
+  }
+  return body.trim();
+}
+
+// ONE READER PER BLOCK KIND, and every label, heading and fixed sentence it
+// keys on comes from `packet_blocks` in the item table. The runtime therefore
+// carries no literal that happens to equal a field name somewhere else —
+// `grounds`, `purpose` and `reader_state_after` are each a Packet label AND an
+// item id AND (for two of them) a recovered-record field, and a runtime
+// spelling them out cannot be told apart from one restating the table or the
+// schema.
+const PACKET_READERS = {
+  // THE GROUNDS ARE A BLOCK BELOW THEIR BULLET, NOT THE BULLET'S VALUE (PR #895
+  // round 1, finding 2). The template's `- **grounds.** ...` line is fixed
+  // INSTRUCTION prose — "These are what this Step may assert" — and the rendered
+  // value, `(none recorded)` included, goes into the separate block under it. A
+  // reader testing the bullet's text for a stated absence could never match, so
+  // a Step whose Brief declares no grounds refused the WHOLE run as a false
+  // Packet gap and sent the reviewer to file against a template that was not
+  // broken. The bullet locates the region; the region carries the value.
+  ground_lines: (t, spec) => {
+    const lines = t.split("\n");
+    const at = lines.findIndex((l) => new RegExp(`^- \\*\\*${spec.bullet_label}\\.\\*\\*`).test(l));
+    if (at === -1) return null;
+    let end = lines.length;
+    for (let i = at + 1; i < lines.length; i++) { if (/^#+\s+\S/.test(lines[i])) { end = i; break; } }
+    const region = lines.slice(at + 1, end);
+    const re = new RegExp(`^${spec.prefix}\\s`);
+    const g = region.filter((l) => re.test(l)).map((l) => l.trim());
+    if (g.length) return g;
+    // A stated absence in the region is an ANSWER — this Step declares none. It
+    // is only a hole when the bullet, and so the region, is absent altogether.
+    if (region.some((l) => PACKET_ABSENCE.test(l.trim()))) return [];
+    return null;
+  },
+  bullet: (t, spec) => packetBullet(t, spec.label),
+  bullet_list: (t, spec) => bulletList(packetBullet(t, spec.label), { termOnly: !!spec.term_only }),
+  bullets: (t, spec) => {
+    const out = {};
+    for (const label of spec.labels) {
+      const v = packetBullet(t, label);
+      if (v === null) return null;
+      out[label] = v;
+    }
+    return out;
+  },
+  block: (t, spec) => {
+    const b = packetBlock(t, spec.heading, { after: wordSequence(spec.after_words) });
+    if (b === null) return null;
+    return PACKET_ABSENCE.test(b) ? "" : b;
+  },
+  paragraph: (t, spec) => {
+    const i = t.indexOf(spec.opens_with);
+    if (i === -1) return null;
+    const rest = t.slice(i);
+    const end = rest.indexOf("\n\n");
+    return (end === -1 ? rest : rest.slice(0, end)).trim();
+  },
+};
+
+// A fixed sentence from the template, as a pattern that ignores how it was
+// wrapped. Every character is escaped and every run of whitespace becomes one
+// `\s+`, so the pattern matches the sentence and never anything else.
+function wordSequence(s) {
+  return new RegExp(String(s).trim().split(/\s+/)
+    .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"));
+}
+
+// The declared side for one Step, read once and refusing BY NAME on the first
+// block an item needs and the Packet does not carry.
+function declaredFor(step, items) {
+  const text = readFileSync(step.packet_path, "utf8");
+  const need = new Set();
+  for (const it of items.items) {
+    if (it.declared_block) need.add(it.declared_block);
+    for (const b of it.also_declared_blocks || []) need.add(b);
+  }
+  const out = {};
+  for (const name of need) {
+    const spec = (items.packet_blocks || {})[name];
+    const reader = spec && PACKET_READERS[spec.kind];
+    if (!reader) {
+      fail(`the item table names the Packet block \`${name}\`, which this Harness has no reader for `
+        + "— the table and the runtime disagree about the Packet's shape, and a comparison run "
+        + "against a block nobody reads would report agreement it never checked");
+    }
+    const v = reader(text, spec);
+    if (v === null) {
+      const wanted = items.items.filter((i) => i.declared_block === name
+        || (i.also_declared_blocks || []).includes(name)).map((i) => i.id);
+      fail(`step ${step.step_id}: its Packet carries no \`${name}\` block, which the item(s) `
+        + `${wanted.join(", ")} compare against.\n  packet  ${step.packet_path}\n`
+        + "A block the comparison needs and the Packet does not carry is a PACKET GAP: file it "
+        + "against src/packet-template.md. It is never satisfied by reading the Brief, the Move "
+        + "or the Strand — the owner's 2026-09-04 ruling is that a need for those is evidence "
+        + "the Packet is missing information.");
+    }
+    out[name] = v;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// The mechanical half. Every check below is a STRING FACT about the Draft and
+// its Packet — no model call is made for any of them, and the join record says
+// so per item, which is what makes "decided mechanically" checkable rather than
+// claimed.
+
+// The literal below is wrapped so that no line ends on the preposition an
+// import statement uses. The closed-input case reads this file's own text for
+// import shapes, and a stopword list is not an import. THE SHAPE IS NOT SPELLED
+// OUT HERE, deliberately: a comment that writes the pattern it exists to avoid
+// becomes the first hit of the reader looking for it, which is the use-versus-
+// mention defect src/packet-template.md's own header records.
+const STOPWORDS = new Set(("a an and are as at be been being but by can could did do does "
+  + "for had has have how in into is it its may might must not of on or should so than the "
+  + "that their from these they this those to was were what when which who will with would you your "
+  + "them then there")
+  .split(" "));
+
+function wordsOf(s) { return (String(s).toLowerCase().match(/[a-z0-9']+/g) || []); }
+function contentWords(s) { return wordsOf(s).filter((w) => !STOPWORDS.has(w)); }
+
+// CONTAINMENT, not similarity: the question is whether the CLAIM is covered by
+// a ground, so the denominator is the claim's own content words. A symmetric
+// score would let a long ground pair with anything and a short one with
+// nothing, which is the wrong shape for "may this passage assert this".
+function pairClaims(grounds, claims, textKey, floor) {
+  const gsets = grounds.map((g) => new Set(contentWords(g)));
+  return claims.map((c, i) => {
+    const cw = contentWords(c && c[textKey]);
+    let best = -1; let score = 0;
+    if (cw.length) {
+      gsets.forEach((gs, j) => {
+        const hit = cw.filter((w) => gs.has(w)).length / cw.length;
+        if (hit > score) { score = hit; best = j; }
+      });
+    }
+    return { claim_index: i, ground_index: score >= floor ? best : -1 };
+  });
+}
+
+// Every draft line of this Step, paired with its own draft line number — the
+// coordinate the trace, the recovered spans and every finding below share.
+function numberedLines(step) {
+  return step.prose.split("\n").map((text, i) => ({ n: step.lines[0] + i, text }));
+}
+
+// The first N-word window of `line` that occurs verbatim in `haystack`.
+// Normalized to a word sequence on both sides, so a wrap, a double space or a
+// comma is not what decides it — the words are.
+function verbatimWindow(line, haystacks, n) {
+  const w = wordsOf(line);
+  if (w.length < n) return null;
+  const hays = haystacks.map((h) => " " + wordsOf(h).join(" ") + " ");
+  for (let i = 0; i + n <= w.length; i++) {
+    const win = w.slice(i, i + n).join(" ");
+    if (hays.some((h) => h.includes(" " + win + " "))) return win;
+  }
+  return null;
+}
+
+// The earliest draft line on which `term` occurs as a word sequence, over the
+// whole BODY rather than over one Step: `term-before-introduction` asks where
+// the reader first meets a word, and the reader reads the article.
+//
+// THE FRONTMATTER IS SKIPPED, AND THAT IS CORRECTNESS RATHER THAN TIDINESS. The
+// record half carries the trace, the Brief pin and every cite the Draft was
+// composed from, so a Step introducing a term the trace happens to contain —
+// `draft`, `packet`, `cite`, a Strand slug — would fail on a line NO READER EVER
+// SEES, and the finding would point at a JSON line as the place the reader met
+// the word. The search starts where `readDraft`'s own body starts, so the two
+// cannot disagree about where the article begins.
+function firstOccurrence(draft, term) {
+  const t = wordsOf(term);
+  if (!t.length) return null;
+  const needle = " " + t.join(" ") + " ";
+  for (let i = draft.frontmatterEnd + 2; i < draft.lines.length; i++) {
+    if ((" " + wordsOf(draft.lines[i]).join(" ") + " ").includes(needle)) return i + 1;
+  }
+  return null;
+}
+
+// ONE IMPLEMENTATION PER MECHANICAL ITEM, keyed by the item's own id. Each
+// returns `{verdict, reason, span}` and never a score. The ids here are
+// BINDINGS to the table's `mode: mechanical` rows — a table row whose id has no
+// implementation is refused below rather than silently skipped, which is the
+// half that keeps the two from drifting apart.
+const MECHANICAL = {
+  "term-before-introduction": ({ declared, step, draft, item }) => {
+    const terms = declared[item.declared_block];
+    for (const term of terms) {
+      const at = firstOccurrence(draft, term);
+      if (at !== null && at < step.lines[0]) {
+        return {
+          verdict: "fails",
+          reason: "a term this Step introduces is used before it",
+          evidence: term,
+          span: [at, at],
+        };
+      }
+    }
+    return {
+      verdict: "holds",
+      reason: terms.length
+        ? "no term this Step introduces occurs before it"
+        : "this Step introduces no term",
+      span: step.lines,
+    };
+  },
+
+  "grounds-unused": ({ declared, pairs, step, item }) => {
+    const grounds = declared[item.declared_block];
+    const used = new Set(pairs.filter((p) => p.ground_index !== -1).map((p) => p.ground_index));
+    const unused = grounds.map((g, i) => [g, i]).filter(([, i]) => !used.has(i));
+    if (!unused.length) {
+      return {
+        verdict: "holds",
+        reason: grounds.length ? "every ground is carried by a recovered claim"
+          : "this Step declares no grounds",
+        span: step.lines,
+      };
+    }
+    return {
+      verdict: "fails",
+      reason: "a ground no recovered claim rests on",
+      evidence: unused.map(([g]) => g),
+      span: step.lines,
+    };
+  },
+
+  "restates-earlier-step": ({ step, earlier, items }) => {
+    const n = items.thresholds.verbatim_overlap_words;
+    const haystack = earlier.map((s) => s.prose);
+    if (haystack.length) {
+      for (const { n: ln, text } of numberedLines(step)) {
+        const win = verbatimWindow(text, haystack, n);
+        if (win) {
+          return { verdict: "fails", reason: "this line repeats an earlier Step verbatim",
+            evidence: win, span: [ln, ln] };
+        }
+      }
+    }
+    return {
+      verdict: "holds",
+      reason: haystack.length ? "no run of words here repeats an earlier Step verbatim"
+        : "nothing precedes this Step, so there is nothing to repeat",
+      span: step.lines,
+    };
+  },
+
+  "packet-wording": ({ step, declared, items, item }) => {
+    const n = items.thresholds.verbatim_overlap_words;
+    const haystack = [item.declared_block, ...(item.also_declared_blocks || [])]
+      .flatMap((b) => (Array.isArray(declared[b]) ? declared[b] : [declared[b]]));
+    for (const { n: ln, text } of numberedLines(step)) {
+      const win = verbatimWindow(text, haystack, n);
+      if (win) {
+        return {
+          verdict: "fails",
+          reason: "this line quotes the Packet rather than writing from it",
+          evidence: win,
+          span: [ln, ln],
+        };
+      }
+    }
+    return { verdict: "holds", reason: "no run of words here repeats the Packet's own wording", span: step.lines };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Rendering one join Packet, and recording the verdict that comes back.
+
+function renderJoinPacket(ws, draft, step, item, pair, declaredText, recoveredText) {
+  const tplPath = join(dirname(fileURLToPath(import.meta.url)), "join-template.md");
+  if (!existsSync(tplPath)) {
+    fail(`the join template is absent — ${tplPath}. It is the judging model's entire input, so a `
+      + "missing template is a hole the model fills by invention; this refuses rather than asking "
+      + "a question with no form.");
+  }
+  let out = readFileSync(tplPath, "utf8").replace(/^<!--[\s\S]*?-->\n*/, "");
+  const fields = {
+    step_id: step.step_id,
+    item: item.id,
+    item_class: item.class,
+    declared: declaredText,
+    recovered: recoveredText,
+    span: `${step.lines[0]}–${step.lines[1]}`,
+    quoted: numberedProse(step),
+    question: item.question,
+    record_command: `node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path} --verdicts <verdicts.json>`,
+  };
+  for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
+  const left = out.match(/\{\{(\w+)\}\}/);
+  if (left) {
+    fail(`the join template's slot {{${left[1]}}} was not filled — the renderer and the template `
+      + "disagree about the slot set, which is the round trip failing silently");
+  }
+  const dir = join(ws, "join");
+  mkdirSync(dir, { recursive: true });
+  const name = pair === null ? `${step.step_id}.${item.id}.md` : `${step.step_id}.${item.id}.${pair}.md`;
+  const dest = join(dir, name);
+  writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
+  return dest;
+}
+
+const verdictKey = (step_id, item, pair) => (pair === null || pair === undefined
+  ? `${step_id}/${item}` : `${step_id}/${item}#${pair}`);
+
+// THE VERDICT FILE IS VALIDATED AGAINST WHAT THE RUN ACTUALLY OWES, and every
+// refusal names what it saw. Three refusals matter and each is its own mistake:
+// a pair nobody was asked about, a token outside the closed three, and a reason
+// carrying a digit.
+//
+// A DIGIT IN THE REASON IS REFUSED, which is the one rule here that looks like
+// fussiness and is not. The item table holds no severity and the verdict set has
+// no order; a number in the sentence is where a score comes back in — "three of
+// five grounds", "eighty percent" — and once one is written a later reader
+// compares them. Line numbers are the Harness's and are already rendered in the
+// span; every other number in a review is a score by another name.
+function recordVerdicts(run, file, owed, items) {
+  if (!existsSync(file)) fail(`no verdicts file at ${file}`);
+  let doc;
+  try { doc = JSON.parse(readFileSync(file, "utf8")); }
+  catch (e) {
+    fail(`${file} is not readable JSON (${e.message}) — a verdicts file is one JSON object `
+      + `carrying \`verdicts\`: [{step_id, item, pair?, verdict, reason}]`);
+  }
+  const list = doc && !Array.isArray(doc) && Array.isArray(doc.verdicts) ? doc.verdicts : null;
+  if (!list) {
+    fail(`${file} carries no \`verdicts\` array — it is one JSON object of the form `
+      + `{"verdicts": [{"step_id": ..., "item": ..., "verdict": ..., "reason": ...}]}`);
+  }
+  // A PAIR ALREADY ANSWERED IS STILL ANSWERABLE (PR #895 round 1, finding 5).
+  // `owed` shrinks as verdicts land, so validating against it alone refused a
+  // re-submitted file — and a reviewer correcting an answer they got wrong met
+  // "which this run did not ask about", which is false: the run did ask, and was
+  // answered. A revision overwrites; only a pair the run never asked about, and
+  // a mechanical item, are refused.
+  const askable = new Map(owed.map((o) => [o.key, o]));
+  for (const k of Object.keys(run.verdicts || {})) if (!askable.has(k)) askable.set(k, { key: k });
+  const owedBy = askable;
+  const problems = [];
+  const accepted = [];
+  list.forEach((v, i) => {
+    const at = `\`verdicts\`[${i}]`;
+    if (v === null || typeof v !== "object" || Array.isArray(v)) { problems.push(`${at} must be an object`); return; }
+    const key = verdictKey(v.step_id, v.item, v.pair === undefined ? null : v.pair);
+    if (!owedBy.has(key)) {
+      const mech = items.items.find((it) => it.id === v.item && it.mode === "mechanical");
+      problems.push(mech
+        ? `${at} answers \`${key}\`, which is a MECHANICAL item — the Harness decides it `
+          + "from string facts about the Draft and the Packet, and a recorded judgment over one would "
+          + "silently replace a computed fact"
+        : `${at} answers \`${key}\`, which this run did not ask about — the pairs it owes are `
+          + `${owed.length ? owed.map((o) => o.key).join(", ") : "(none)"}`
+          + `${Object.keys(run.verdicts || {}).length
+            ? `, and the pairs it has already answered, which a revision may overwrite, are `
+              + `${Object.keys(run.verdicts).join(", ")}` : ""}`);
+      return;
+    }
+    if (!items.verdicts.includes(v.verdict)) {
+      problems.push(`${at} carries the verdict \`${v.verdict}\` — the closed set is `
+        + `${items.verdicts.join(", ")}, and there is no fourth answer`);
+      return;
+    }
+    if (typeof v.reason !== "string" || v.reason.trim() === "") {
+      problems.push(`${at} carries no \`reason\` — one sentence saying what does or does not agree`);
+      return;
+    }
+    if (/[0-9]/.test(v.reason)) {
+      problems.push(`${at}'s reason carries a digit — line numbers are rendered in the span and `
+        + "every other number in a review is a score by another name; write it as a word");
+      return;
+    }
+    accepted.push({ key, step_id: v.step_id, item: v.item, pair: v.pair === undefined ? null : v.pair,
+      verdict: v.verdict, reason: v.reason.trim() });
+  });
+  if (problems.length) {
+    fail(`the verdicts in ${file} were not recorded:\n  - ${problems.join("\n  - ")}`);
+  }
+  run.verdicts = run.verdicts || {};
+  for (const a of accepted) run.verdicts[a.key] = a;
+  return accepted.length;
+}
+
+// ---------------------------------------------------------------------------
+// The join itself.
+
+// The declared and recovered sides as the judging model reads them. An array
+// renders as a list, an object as its own labelled lines, and a NULL recovered
+// field means the recovered side IS THE PROSE — the negative items, which ask
+// whether something is absent from the passage rather than whether two lines
+// agree.
+function renderSide(v) {
+  if (v === null || v === undefined) return "(none)";
+  if (Array.isArray(v)) return v.length ? v.map((x) => `- ${x}`).join("\n") : "(none)";
+  if (typeof v === "object") return Object.entries(v).map(([k, x]) => `- **${k}.** ${x}`).join("\n");
+  return String(v);
+}
+
+// EVERY (Step, item) PAIR, computed fresh. Mechanical items are decided here;
+// judged items are rendered as join Packets and answered from the run record.
+// Nothing is cached across a call, because a recorded verdict is exactly what
+// changes the answer.
+function buildJoin(draft, run, items, ws) {
+  const { steps } = resolveInputs(draft);
+  const floor = items.thresholds.claim_ground_containment;
+  const results = [];
+  const owed = [];
+  const modelCalls = [];
+  const mechanicalLog = [];
+  const verdicts = run.verdicts || {};
+
+  steps.forEach((step, si) => {
+    const declared = declaredFor(step, items);
+    let rec;
+    try { rec = JSON.parse(readFileSync(run.recovered[step.step_id], "utf8")); }
+    catch (e) { fail(`the recovered record for ${step.step_id} is not readable (${e.message})`); }
+    const earlier = steps.slice(0, si);
+
+    // THE PAIRING IS COMPUTED ONCE AND TWO ITEMS READ IT. `grounds` asks what a
+    // claim rests on and `grounds-unused` asks what no claim rests on; they are
+    // the two halves of one assignment, and computing it twice would let them
+    // disagree about the same Step.
+    const pairedItem = items.items.find((it) => it.mode === "paired");
+    const pairs = pairedItem
+      ? pairClaims(declared[pairedItem.declared_block], rec[pairedItem.recovered_field] || [],
+        pairedItem.pair_text_key, floor)
+      : [];
+
+    for (const item of items.items) {
+      const ctx = { declared, rec, step, draft, earlier, items, pairs, item };
+
+      if (item.mode === "mechanical") {
+        const impl = MECHANICAL[item.id];
+        if (!impl) {
+          fail(`the item table declares \`${item.id}\` mechanical and this Harness has no `
+            + "implementation for it — a mechanical item with no check would report `holds` for "
+            + "every Draft, which is the silent pass this whole comparison exists to refuse");
+        }
+        const r = impl(ctx);
+        results.push({ step_id: step.step_id, item: item.id, class: item.class,
+          decided_by: "harness", ...r });
+        mechanicalLog.push({ step_id: step.step_id, item: item.id });
+        continue;
+      }
+
+      // A declared side the Packet renders as a stated absence can make a
+      // negative item vacuous — there is no exemplar, so nothing of one can
+      // leak. The table says so per item rather than the runtime deciding it.
+      const dv = item.declared_block ? declared[item.declared_block] : null;
+      if (item.when_declared_absent
+          && (dv === "" || (Array.isArray(dv) && dv.length === 0))) {
+        results.push({ step_id: step.step_id, item: item.id, class: item.class,
+          decided_by: "harness", verdict: item.when_declared_absent.verdict,
+          reason: item.when_declared_absent.sentence, span: step.lines });
+        mechanicalLog.push({ step_id: step.step_id, item: item.id });
+        continue;
+      }
+
+      const subs = [];
+      if (item.mode === "paired") {
+        const entries = rec[item.recovered_field] || [];
+        entries.forEach((entry, i) => {
+          const p = pairs[i];
+          if (!p || p.ground_index === -1) {
+            // DECIDED HERE, BY NAME, WITH NO MODEL CALL. An entry that pairs
+            // with nothing has no counterpart to put a question about, and
+            // `widened` is a fact about the pairing rather than a reading of it.
+            subs.push({ pair: i, verdict: "fails", reason: item.unpaired_sentence,
+              span: entry.span || step.lines, decided_by: "harness" });
+            mechanicalLog.push({ step_id: step.step_id, item: item.id, pair: i });
+            return;
+          }
+          const key = verdictKey(step.step_id, item.id, i);
+          const file = renderJoinPacket(ws, draft, step, item, i,
+            declared[item.declared_block][p.ground_index],
+            renderSide(entry[item.pair_text_key]));
+          modelCalls.push({ step_id: step.step_id, item: item.id, pair: i, packet: file });
+          const v = verdicts[key];
+          subs.push(v
+            ? { pair: i, verdict: v.verdict, reason: v.reason, span: entry.span || step.lines, decided_by: "model" }
+            : { pair: i, owed: true, key, packet: file, span: entry.span || step.lines });
+          if (!v) owed.push({ key, step_id: step.step_id, item: item.id, pair: i, packet: file });
+        });
+      } else {
+        const key = verdictKey(step.step_id, item.id, null);
+        const file = renderJoinPacket(ws, draft, step, item, null,
+          renderSide(item.declared_block ? declared[item.declared_block] : null),
+          item.recovered_field ? renderSide(rec[item.recovered_field])
+            : "(the passage itself, quoted below — this item asks whether something is ABSENT from it)");
+        modelCalls.push({ step_id: step.step_id, item: item.id, pair: null, packet: file });
+        const v = verdicts[key];
+        subs.push(v
+          ? { pair: null, verdict: v.verdict, reason: v.reason, span: step.lines, decided_by: "model" }
+          : { pair: null, owed: true, key, packet: file, span: step.lines });
+        if (!v) owed.push({ key, step_id: step.step_id, item: item.id, pair: null, packet: file });
+      }
+
+      if (!subs.length) {
+        results.push({ step_id: step.step_id, item: item.id, class: item.class, decided_by: "harness",
+          verdict: "holds", reason: "the recovered side carries nothing for this item to disagree with",
+          span: step.lines });
+        mechanicalLog.push({ step_id: step.step_id, item: item.id });
+        continue;
+      }
+      if (subs.some((s) => s.owed)) {
+        results.push({ step_id: step.step_id, item: item.id, class: item.class, owed: true,
+          span: step.lines });
+        continue;
+      }
+      // THE ITEM'S LINE RENDERS THE STRONGEST NON-`holds` ANSWER AMONG ITS
+      // PAIRS AND NAMES IT — a SELECTION, never an aggregate. Every pair's own
+      // verdict is written to the join record, so nothing is summed, averaged
+      // or scored on the way to one line; `fails` wins over `cannot-decide`
+      // because a fail is the answer that has a consequence, and neither is
+      // rounded into `holds`.
+      const chosen = subs.find((s) => s.verdict === "fails")
+        || subs.find((s) => s.verdict === "cannot-decide") || subs[0];
+      results.push({ step_id: step.step_id, item: item.id, class: item.class,
+        decided_by: subs.every((s) => s.decided_by === "harness") ? "harness" : "model",
+        verdict: chosen.verdict, reason: chosen.reason, span: chosen.span, pairs: subs });
+    }
+  });
+
+  return { results, owed, modelCalls, mechanicalLog, steps };
+}
+
+// ONE LINE PER (Step, item), AND NO NUMBER IN IT THAT IS NOT A LINE NUMBER —
+// ENFORCED HERE RATHER THAN PROMISED. The span is the only numeric field the
+// line carries, and a reason carrying a digit refuses the whole emission by
+// name.
+//
+// THE RULE IS ENFORCED BECAUSE THE FIRST LIVE DRIVE BROKE IT. Quoting the
+// offending material into the reason read as helpful and was the leak: the live
+// Draft's grounds are labelled by the Strands they came from, so
+// `grounds-unused` rendered `ground (strand L97)` into a comparison line and put
+// a number in front of a reader that was not a line number and could be
+// compared. So quoted material is EVIDENCE — it goes to the join record and to
+// the owner record, where a reader can see it in full — and never into the line
+// whose whole claim is that the only numbers in it are coordinates.
+function comparisonLine(r) {
+  if (/[0-9]/.test(r.reason)) {
+    fail(`the comparison line for ${r.step_id}/${r.item} carries a digit in its reason `
+      + `(${JSON.stringify(r.reason)}). A comparison line renders line numbers and nothing else `
+      + "numeric — every other number in a review is a score by another name, and quoted material "
+      + "belongs in the finding's evidence rather than in the line.");
+  }
+  const w = (s, n) => String(s).padEnd(n, " ");
+  return `${w(r.step_id, 8)}${w(r.item, 26)}${w(r.verdict, 14)}`
+    + `${w(`[${r.span[0]}-${r.span[1]}]`, 14)}${r.reason}`;
+}
+
 function cmdCompare(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft compare --draft <draft.md>");
+  const draftPath = argString(args, "draft", "usage: review-draft compare --draft <draft.md> [--verdicts <verdicts.json>]");
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
@@ -623,31 +1305,80 @@ function cmdCompare(args) {
       + `and report the gaps as agreement.\n  ${parts.join("\n  ")}`);
   }
 
-  // THE JOIN'S ITEM TABLE IS kogaki#872's, NOT THIS ARTIFACT'S. What lands here
-  // is the act and its precondition; what fills it is the fixed item-class
-  // table, the three-valued verdict and the mechanical checks. The record says
-  // so rather than writing an empty findings list that reads like a clean
-  // review — an unfilled join and a join that found nothing are the same file
-  // to a later reader unless one of them says which it is.
-  run.compared_at = new Date().toISOString();
-  run.join_state = "item classes not yet built (kogaki#872)";
-  run.findings = [];
+  const items = readItems();
+
+  // THE OWED SET IS COMPUTED BEFORE ANY VERDICT IS RECORDED, and that ordering
+  // is what the file is validated against: what a run asks about is a property
+  // of the Draft, the Packets and the item table, never of the answers it has
+  // already been given.
+  let pass = buildJoin(draft, run, items, ws);
+  let recorded = 0;
+  if (args.verdicts !== undefined) {
+    const file = argString(args, "verdicts", "usage: review-draft compare --draft <draft.md> --verdicts <verdicts.json>");
+    recorded = recordVerdicts(run, file, pass.owed, items);
+    pass = buildJoin(draft, run, items, ws);
+  }
+
+  const { results, owed, modelCalls, mechanicalLog } = pass;
+  const complete = owed.length === 0;
+  run.join_complete = complete;
+  run.compared_at = complete ? new Date().toISOString() : null;
+  run.join_state = complete ? null
+    : `${owed.length} pair(s) await a verdict — the join is unfilled, not clean`;
+  run.findings = complete ? results.filter((r) => r.verdict !== "holds") : [];
   writeRun(ws, run);
-  writeFileSync(join(ws, "join.json"), JSON.stringify({
+
+  const joinPath = join(ws, "join.json");
+  writeFileSync(joinPath, JSON.stringify({
     draft: run.draft, body_sha: run.body_sha, compared_at: run.compared_at,
-    steps: run.steps.map((s) => s.step_id),
-    sections: run.sections.map((s) => s.index),
-    findings: [],
-    note: "the item classes, the three-valued verdict and the mechanical checks are kogaki#872; "
-      + "this file records that the join RAN with every input present, and carries no verdicts yet",
+    item_table_version: items.version,
+    complete,
+    results,
+    owed,
+    // WHICH ITEMS COST A MODEL CALL AND WHICH DID NOT, per pair. This is the
+    // record that makes "decided mechanically" checkable rather than claimed —
+    // a mechanical item appears in `mechanical` and in no `model_calls` entry,
+    // for every Step.
+    model_calls: modelCalls,
+    mechanical: mechanicalLog,
   }, null, 2) + "\n");
 
-  process.stdout.write(`compare: every input present — ${run.steps.length} recovered Step(s), `
-    + `${run.sections.length} Section entr${run.sections.length === 1 ? "y" : "ies"}.\n`
-    + "findings: none — the item classes and the three-valued verdict are kogaki#872 and are not "
-    + "built yet, so this is an unfilled join rather than a clean review.\n"
-    + `join record: ${join(ws, "join.json")}\n`
-    + "`close --draft <draft.md>` writes the owner record.\n");
+  if (recorded) process.stdout.write(`recorded: ${recorded} verdict(s)\n`);
+
+  if (!complete) {
+    // NO COMPARISON LINE IS EMITTED WHILE ANY PAIR IS UNANSWERED. There is no
+    // fourth token for "not asked yet", and writing `cannot-decide` here would
+    // round an absence into an answer — the one rounding the three-valued
+    // verdict exists to refuse.
+    process.stdout.write(
+      `compare: every input present — ${run.steps.length} recovered Step(s), `
+      + `${run.sections.length} Section entr${run.sections.length === 1 ? "y" : "ies"}.\n`
+      + `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n`
+      + `${owed.length} pair(s) await a verdict — one join Packet each, under ${join(ws, "join")}:\n`
+      + owed.map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
+      + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
+      + `  node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path} --verdicts <verdicts.json>\n`
+      + `join record: ${joinPath}\n`);
+    return;
+  }
+
+  const fails = results.filter((r) => r.verdict === "fails");
+  const preserved = fails.filter((r) => r.class === "preserved");
+  const undecided = results.filter((r) => r.verdict === "cannot-decide");
+  process.stdout.write(
+    results.map(comparisonLine).join("\n") + "\n\n"
+    + `compare: ${results.length} (Step, item) pair(s) joined, `
+    + `${mechanicalLog.length} decided mechanically and ${modelCalls.length} judged.\n`
+    + (preserved.length
+      ? `Steps sent to correction — a preserved item fails: ${[...new Set(preserved.map((r) => r.step_id))].join(", ")}\n`
+      : "No preserved item fails, so no Step is sent to correction.\n")
+    + (undecided.length
+      ? `cannot-decide, listed with its pair and never rounded: ${undecided.map((r) => `${r.step_id}/${r.item}`).join(", ")}\n`
+      : "")
+    + `join record: ${joinPath}\n`
+    + (fails.length
+      ? "`check --draft <draft.md>` is pass two.\n"
+      : "`close --draft <draft.md>` writes the owner record.\n"));
 }
 
 // `correct` and `check` are DECLARED HERE AND BUILT BY kogaki#874. Registering
@@ -697,14 +1428,34 @@ function cmdClose(args) {
   requireCurrent(run, draft);
 
   if (!run.compared_at) {
+    // AN UNFILLED JOIN AND AN UNRUN ONE ARE DIFFERENT REFUSALS, because they
+    // have different repairs: one needs `compare` run, the other needs the
+    // verdicts it is still waiting on. Reporting both as "compare has not run"
+    // would send a reviewer who has already compared back to the act they just
+    // performed.
+    if (run.join_state) {
+      fail(`the join has run and is UNFILLED — ${run.join_state}. \`close\` writes the owner `
+        + "record, and a record written over unanswered pairs would render them as no findings, "
+        + "which reads as a clean review. Answer the join Packets under the workspace's `join/` "
+        + "directory and record them with `compare --draft <draft.md> --verdicts <verdicts.json>`.");
+    }
     fail("`close` is reachable from `compare` with zero fails, or from `check` in every state — "
       + "and neither has run. Run `compare --draft <draft.md>` first.");
   }
-  const fails = (run.findings || []).filter((f) => f.verdict === "fails");
+  // ONLY A **PRESERVED** ITEM'S FAIL WITHHOLDS `close` (kogaki#872). The item
+  // table makes the class the CONSEQUENCE: a preserved fail sends its Step to
+  // correction, and a best-effort fail rides along only when that Step is
+  // re-realized anyway. A guard counting every fail would send a Step to pass
+  // two for a best-effort finding, which is the opposite of riding along — and
+  // it would make `close` unreachable on a Draft whose only findings are ones
+  // the design says to carry rather than to act on. Found on the first live
+  // drive, where a best-effort item fired on every Step.
+  const fails = (run.findings || []).filter((f) => f.verdict === "fails" && f.class === "preserved");
   if (fails.length && !run.checked_at) {
-    fail(`the join found ${fails.length} failing item(s), so \`close\` is reachable only through `
-      + "`check` — pass two is what turns a failing item into a correction or into residue. "
-      + `Failing: ${fails.map((f) => `${f.step_id}/${f.item}`).join(", ")}`);
+    fail(`the join found ${fails.length} failing PRESERVED item(s), so \`close\` is reachable only `
+      + "through `check` — pass two is what turns a failing preserved item into a correction or into "
+      + `residue. A best-effort fail does not withhold the record; it rides along. Failing: `
+      + `${fails.map((f) => `${f.step_id}/${f.item}`).join(", ")}`);
   }
 
   const out = join(dirname(resolve(draftPath)), "review.md");
@@ -737,8 +1488,19 @@ function cmdClose(args) {
       ? `_None recorded — ${run.join_state}. This is an unfilled join, not a clean review._`
       : "_None._", "");
   } else {
+    // EVERY FINDING CARRIES ITS CLASS, because the class is the consequence:
+    // a preserved item's `fails` sends the Step to correction and a
+    // best-effort one's rides along if that Step is re-realized anyway. A
+    // findings list that rendered the verdict alone would leave the owner to
+    // look the consequence up.
     for (const f of run.findings) {
-      lines.push(`- **${f.step_id} / ${f.item}** — ${f.verdict}`);
+      lines.push(`- **${f.step_id} / ${f.item}** — ${f.verdict} (${f.class ?? "unclassed"})`);
+      if (f.reason) lines.push(`  - ${f.reason}`);
+      // THE QUOTED MATERIAL LIVES HERE, and this is the other half of the
+      // comparison line's no-numbers rule: the line refuses to carry a quote,
+      // so the owner record is where a finding becomes actionable rather than
+      // merely located.
+      for (const e of [].concat(f.evidence ?? [])) lines.push(`  - evidence: ${e}`);
       if (f.declared) lines.push(`  - declared: ${f.declared}`);
       if (f.recovered) lines.push(`  - recovered: ${f.recovered}`);
       if (f.span) lines.push(`  - span: ${JSON.stringify(f.span)}`);
@@ -797,7 +1559,7 @@ const USAGE = `review-draft — the round-trip review of a CanonicalDraft agains
   node src/review-draft.mjs open    --draft <draft.md>
   node src/review-draft.mjs recover --draft <draft.md> --step <id> --file <recovered>
   node src/review-draft.mjs read    --draft <draft.md> --section <n> --file <ledger>
-  node src/review-draft.mjs compare --draft <draft.md>
+  node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
   node src/review-draft.mjs correct --draft <draft.md> --step <id> --file <prose>   [kogaki#874]
   node src/review-draft.mjs check   --draft <draft.md>                              [kogaki#874]
   node src/review-draft.mjs close   --draft <draft.md>
@@ -806,6 +1568,12 @@ The Harness owns the ordering: \`recover\` refuses a Step whose recovery input i
 did not render, \`compare\` refuses while any Step or Section entry is missing,
 \`check\` refuses before \`compare\`, and \`close\` is reachable from \`compare\` with
 zero fails or from \`check\` in every state.
+
+\`compare\` decides the mechanical items itself and renders one join Packet per
+judged pair; \`--verdicts\` records the answers. It emits one line per (Step,
+item) once every pair is answered, and never before: there is no fourth token
+for "not asked yet", and \`cannot-decide\` is a real answer rather than a place
+to round one.
 
 It reads the Draft, its trace and the Packets that trace names — no Brief, no
 Move file, no Strand. A check that needs anything else is a Packet gap and is
@@ -831,6 +1599,13 @@ async function runSelfTest() {
   const root = mkdtempSync(join(tmpdir(), "review-draft-selftest-"));
   let passed = 0; const failures = [];
   const ok = (name, cond) => { if (cond) passed++; else failures.push(name); };
+  // A CASE MUST FAIL, NEVER THROW. A mutation that stops `close` writing its
+  // record used to take the whole pass down with an ENOENT from the next case,
+  // and a crash reports no case count at all — which is the shape
+  // checks/check-review-draft-runtime.sh reads as "the pass did not run" rather
+  // than as "these cases failed". Every later read of a written artifact goes
+  // through this.
+  const readOrEmpty = (p) => (existsSync(p) ? readFileSync(p, "utf8") : "");
 
   // -- the fixture Draft, built the way `emit` builds one -------------------
   // Line ranges are computed rather than transcribed: a transcribed range that
@@ -839,7 +1614,8 @@ async function runSelfTest() {
   const PROSE = {
     a1: ["The first passage opens the claim and says what the reader is about to be shown.",
       "",
-      "It runs two paragraphs so a range covering more than one line is exercised."],
+      "It runs two paragraphs so a range covering more than one line is exercised.",
+      "The harness renders each input in the path's recorded order."],
     a2: ["The second passage continues under the same heading and does not restate it."],
     a3: ["The third passage opens the second Section with a question of its own."],
   };
@@ -848,7 +1624,8 @@ async function runSelfTest() {
     { index: 2, title: "The second heading", steps: ["a3"] },
   ];
 
-  function buildDraft(dir, { packetDir, mutate = (t) => t, omitLines = null, omitPacket = null } = {}) {
+  function buildDraft(dir, { packetDir, mutate = (t) => t, omitLines = null, omitPacket = null,
+    prose = PROSE } = {}) {
     mkdirSync(dir, { recursive: true });
     // Body first, recording each Step's 1-based body range.
     const body = []; const ranges = {};
@@ -856,7 +1633,7 @@ async function runSelfTest() {
       body.push(`## ${sec.title}`, "");
       for (const id of sec.steps) {
         const start = body.length + 1;
-        body.push(...PROSE[id]);
+        body.push(...prose[id]);
         ranges[id] = [start, body.length];
         body.push("");
       }
@@ -888,19 +1665,97 @@ async function runSelfTest() {
     return { path: out, ranges, bodyOffset };
   }
 
+  // THE FIXTURE PACKETS ARE RENDERED IN THE TEMPLATE'S OWN SHAPE (kogaki#872),
+  // not stubbed: `compare` reads the DECLARED side back out of a Packet block by
+  // block, and a stub carrying two lines would make every join case assert
+  // against a refusal rather than against the comparison. They are hand-written
+  // rather than produced by `src/draft.mjs`, because importing the Draft lane
+  // here would break the closed-input allowlist this pass also asserts.
+  //
   // Packets carry text that appears NOWHERE in the prose, so the blindness case
-  // below can assert on a string only the Packet has.
+  // below can assert on a string only the Packet has. They carry NO DIGIT
+  // either — the comparison lines quote Packet material, and a digit in a ground
+  // would land in one and make the no-numbers-but-line-numbers case assert
+  // against the fixture's own wording rather than against the format.
+  const GROUNDS = {
+    a1: ["ground alpha — the harness renders the recovery input before any record is accepted.",
+      "ground beta — the reviewer never reads the packet that produced the prose."],
+    a2: ["ground gamma — an ordering owned by the harness cannot be got wrong by a session."],
+    a3: ["ground delta — a residue line is classified by the owner and never by the tool."],
+  };
+  const PACKET_FIELDS = {
+    a1: { after: "The reader knows which act renders the input.", purpose: "To open the claim.",
+      introduces: ["harness"], knows: [], opens: true, excerpt: "PACKETONLYTOKEN a passage about tides and harbours." },
+    a2: { after: "The reader knows an owned ordering cannot be got wrong.", purpose: "To carry the claim further.",
+      introduces: [], knows: ["harness"], opens: false, excerpt: "PACKETONLYTOKEN a second passage about weather." },
+    a3: { after: "The reader knows who classifies residue.", purpose: "To open the second question.",
+      introduces: [], knows: ["harness"], opens: true, excerpt: null },
+  };
+  // THE FIXTURE PACKET IS THE REAL TEMPLATE WITH ITS SLOTS FILLED (PR #895
+  // round 1, findings 2 and 3). It used to be written out by hand in the shape
+  // the author believed the template had, and BOTH of those findings are that
+  // belief being wrong: the grounds reader tested a bullet whose value lives in
+  // a block below it, and the Section anchor stopped a sentence short of its
+  // paragraph's end. Neither was visible to a fixture whose Packets ended
+  // exactly where the reader expected them to.
+  //
+  // So the fixture reads `src/packet-template.md` and fills the slots itself —
+  // the same slot set `src/draft.mjs renderPacket` fills, without importing it,
+  // because the closed-input allowlist this pass also asserts forbids that
+  // import. The fixed instruction prose around every slot is therefore the
+  // TEMPLATE'S, not a copy, so a template edit reaches these cases instead of
+  // sliding past them.
+  const TEMPLATE = readFileSync(join(dirname(self), "packet-template.md"), "utf8")
+    .replace(/^<!--[\s\S]*?-->\n*/, "");
+  function writePacket(dir, id, { grounds = GROUNDS[id] } = {}) {
+    const f = PACKET_FIELDS[id];
+    const bullets = (xs, empty) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : empty);
+    const slots = {
+      thesis: "PACKETONLYTOKEN the thesis.",
+      reader_start: "PACKETONLYTOKEN where the reader starts.",
+      reader_target: "PACKETONLYTOKEN where the reader lands.",
+      opening_question: "PACKETONLYTOKEN the opening question.",
+      move_id: "name-the-mechanism",
+      move_intent: "Name the mechanism before naming its consequence.",
+      move_constraints: "Name the mechanism first; never announce the consequence before the reader can check it.",
+      move_failure_modes: "Announcing a conclusion the reader has no way to check yet.",
+      move_excerpt: f.excerpt === null
+        ? "(none — this Move record carries no excerpt, so it cannot serve as an exemplar. Perform the Move from its contract above.)"
+        : f.excerpt,
+      step_id: id,
+      purpose: f.purpose,
+      reader_state_before: "PACKETONLYTOKEN the state before.",
+      reader_state_after: f.after,
+      materials: "(none)",
+      rationale: "PACKETONLYTOKEN why this Step sits here.",
+      // THE STATED ABSENCE THE RENDERER WRITES, verbatim (src/draft.mjs's
+      // `grounds || "(none recorded)"`), so the groundless case exercises the
+      // string a real Packet actually carries.
+      grounds: grounds.length ? grounds.join("\n") : "(none recorded)",
+      section_placement: f.opens
+        ? "- **This Step OPENS a Section.** Its heading is **\"A heading\"**, rendered by the Harness immediately above your prose.\n"
+          + "- **Your prose is what the heading promises.** This Step is the whole Section."
+        : "- **This Step CONTINUES the Section headed \"A heading\".** That heading is already on the page, above prose you are writing further into.\n"
+          + "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Step that opens its own.",
+      reader_already_knows: bullets(f.knows,
+        "(nothing — this is the first Step to introduce anything, or the path introduces no terms)"),
+      introduces: bullets(f.introduces, "(nothing new)"),
+      prior_sections: "PACKETONLYTOKEN the article so far.",
+    };
+    let out = TEMPLATE;
+    for (const [k, v] of Object.entries(slots)) out = out.split(`{{${k}}}`).join(v);
+    const left = out.match(/\{\{(\w+)\}\}/);
+    if (left) {
+      // A slot the fixture does not fill is a template block these cases would
+      // review with `{{name}}` sitting where its value belongs — reported here
+      // rather than discovered as a strange refusal three cases later.
+      throw new Error(`the fixture does not fill the Packet template's slot {{${left[1]}}}`);
+    }
+    writeFileSync(join(dir, `${id}.md`), out);
+  }
   const packetDir = join(root, "packets");
   mkdirSync(packetDir, { recursive: true });
-  for (const id of ["a1", "a2", "a3"]) {
-    writeFileSync(join(packetDir, `${id}.md`), [
-      `# Write one Step`, "",
-      `- **Step.** ${id}`,
-      "- **reader_state_before.** PACKETONLYTOKEN the state before.",
-      "- **reader_state_after.** the state after.",
-      "",
-    ].join("\n"));
-  }
+  for (const id of ["a1", "a2", "a3"]) writePacket(packetDir, id);
 
   const thesis = join(root, "theses", "fixture");
   const draft = buildDraft(thesis, { packetDir });
@@ -918,13 +1773,31 @@ async function runSelfTest() {
   // are REAL records from here on (kogaki#871) — a plain-text stand-in would
   // now be refused by the validator, and the ordering cases below must fail on
   // the ORDERING rather than on the record's shape.
+  //
+  // THE CLAIMS PAIR WITH THE FIXTURE PACKETS' GROUNDS (kogaki#872). The
+  // comparison assigns each recovered claim to the ground it rests on by
+  // containment, so a record whose claims share no words with any ground would
+  // make EVERY Step fail `widened` and the join cases would assert against the
+  // fixture rather than against the pairing. And no field carries a digit: the
+  // comparison lines quote recovered material, and the no-numbers-but-line-
+  // numbers case must fail on the FORMAT rather than on this record's wording.
+  const RECOVERED = {
+    a1: { claims: ["the harness renders the recovery input before any record is accepted",
+      "the reviewer never reads the packet that produced the prose"],
+      after: "The reader knows which act renders the input.", purpose: "To open the claim." },
+    a2: { claims: ["an ordering owned by the harness cannot be got wrong by a session"],
+      after: "The reader knows an owned ordering cannot be got wrong.", purpose: "To carry the claim further." },
+    a3: { claims: ["a residue line is classified by the owner and never by the tool"],
+      after: "The reader knows who classifies residue.", purpose: "To open the second question." },
+  };
   const recordFor = (id) => {
     const r = draft.ranges[id];
     const [lo, hi] = [r[0] + draft.bodyOffset, r[1] + draft.bodyOffset];
+    const f = RECOVERED[id];
     return {
-      claims: [{ claim: `The passage ${id} asserts something.`, span: [lo, hi] }],
-      reader_state_after: `The reader has read ${id}.`,
-      purpose: `To carry ${id}'s part of the article.`,
+      claims: f.claims.map((claim) => ({ claim, span: [lo, hi] })),
+      reader_state_after: f.after,
+      purpose: f.purpose,
       terms_introduced: [],
       shape: "It states a thing and moves on.",
       concessions: [],
@@ -935,6 +1808,80 @@ async function runSelfTest() {
     const f = join(root, `rec-${id}.json`);
     writeFileSync(f, JSON.stringify(mutate(recordFor(id)), null, 2) + "\n");
     return f;
+  };
+
+  // The same record, against ANY fixture Draft's ranges — the kogaki#872 cases
+  // build their own Drafts (a Packet with a ground removed, a Draft using a term
+  // before the Step that introduces it) and each needs records whose spans lie
+  // inside ITS passages.
+  const writeRecordFor = (d, id, tag) => {
+    const r = d.ranges[id];
+    const [lo, hi] = [r[0] + d.bodyOffset, r[1] + d.bodyOffset];
+    const f = RECOVERED[id];
+    const p = join(root, `rec-${tag}-${id}.json`);
+    writeFileSync(p, JSON.stringify({
+      claims: f.claims.map((claim) => ({ claim, span: [lo, hi] })),
+      reader_state_after: f.after,
+      purpose: f.purpose,
+      terms_introduced: [],
+      shape: "It states a thing and moves on.",
+      concessions: [],
+      restates: [],
+    }, null, 2) + "\n");
+    return p;
+  };
+
+  const ledgerFile = join(root, "ledger-entry.md");
+  writeFileSync(ledgerFile, "the question I answered, and what I now believe\n");
+
+  // ANSWER EVERY PAIR THE RUN SAYS IT OWES, read from the run's OWN join record
+  // rather than from a list transcribed here. That is not convenience: it is the
+  // property the fixture is asserting — the Harness tells the judging model
+  // exactly which pairs it is asking about, so a transcribed list would pass
+  // while the Harness asked for something else.
+  const answerOwed = (jsonPath, tag, verdict = "holds",
+    reason = "the declared line and the recovered one agree") => {
+    // AN ABSENT JOIN RECORD ANSWERS NOTHING RATHER THAN THROWING. A mutation
+    // that makes `compare` refuse leaves no record, and reading it directly took
+    // the whole pass down with an ENOENT — which reports no case count at all,
+    // the shape the member reads as "the pass did not run" rather than as "these
+    // cases failed".
+    const owed = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, "utf8")).owed : [];
+    const f = join(root, `verdicts-${tag}.json`);
+    writeFileSync(f, JSON.stringify({
+      verdicts: owed.map((o) => ({
+        step_id: o.step_id, item: o.item,
+        ...(o.pair === null ? {} : { pair: o.pair }),
+        verdict, reason,
+      })),
+    }, null, 2) + "\n");
+    return f;
+  };
+
+  // open -> recover x3 -> read x2 -> compare -> answer -> compare. The whole
+  // flow, driven through the real entry points, for a fixture Draft of this
+  // shape.
+  const driveToCompletedJoin = (d, wsBase, tag) => {
+    const slug = basename(dirname(resolve(d.path)));
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsBase], { encoding: "utf8" });
+    D("open");
+    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, tag));
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    const first = D("compare");
+    const jsonPath = join(wsBase, slug, "join.json");
+    const second = D("compare", "--verdicts", answerOwed(jsonPath, tag));
+    return { first, second, jsonPath, ws: join(wsBase, slug) };
+  };
+
+  // The comparison lines, as a map from `<step>/<item>` to the whole line.
+  const linesOf = (stdout) => {
+    const m = new Map();
+    for (const l of stdout.split("\n")) {
+      const f = l.match(/^(\S+)\s+(\S+)\s+(holds|fails|cannot-decide)\s+\[(\d+)-(\d+)\]\s+(.*)$/);
+      if (f) m.set(`${f[1]}/${f[2]}`, l);
+    }
+    return m;
   };
 
   // 1 — a file with no frontmatter carries no trace to review against.
@@ -1134,16 +2081,137 @@ async function runSelfTest() {
       c.status === 1 && /reachable from `compare` with zero fails, or from `check`/.test(c.stderr));
   }
 
-  // 17 — the join runs with every input present, and SAYS it is unfilled
-  // rather than rendering an empty findings list that reads like a clean pass.
+  // 17 — THE JOIN, IN ITS TWO PHASES (kogaki#872). Phase one decides the
+  // mechanical items and renders one join Packet per judged pair; phase two
+  // records the verdicts and emits the comparison.
+  let owedFirst = null;
   {
     const r = drive("compare");
     ok("compare succeeds once every input is present", r.status === 0);
     ok("and reports the counts it joined over", /3 recovered Step\(s\), 2 Section entries/.test(r.stdout));
-    ok("and distinguishes an UNFILLED join from a clean review",
-      /unfilled join rather than a clean review/.test(r.stdout));
-    ok("and names the issue that fills it", /kogaki#872/.test(r.stdout));
     ok("a join record lands in the workspace", existsSync(join(WS, "join.json")));
+
+    const rec = JSON.parse(readFileSync(join(WS, "join.json"), "utf8"));
+    owedFirst = rec.owed;
+    ok("the unfilled join says so rather than rendering an empty findings list",
+      rec.complete === false && /await a verdict/.test(r.stdout));
+    // NO COMPARISON LINE IS EMITTED WHILE A PAIR IS UNANSWERED. There is no
+    // fourth token for "not asked yet", and rendering `cannot-decide` for one
+    // would round an absence into an answer.
+    ok("and emits NO comparison line while any pair is unanswered", linesOf(r.stdout).size === 0);
+    ok("it names every pair it owes, with the join Packet rendered for each",
+      rec.owed.length > 0 && rec.owed.every((o) => existsSync(o.packet))
+      && rec.owed.every((o) => r.stdout.includes(o.key)));
+    ok("and the run record refuses to call an unfilled join compared",
+      JSON.parse(readFileSync(join(WS, "run.json"), "utf8")).compared_at === null);
+
+    // A join Packet is ONE pair and ONE question, and it names the three tokens
+    // it will accept. The judging model cannot rank, because it is never shown
+    // two pairs at once.
+    const jp = rec.owed.length ? readFileSync(rec.owed[0].packet, "utf8") : "";
+    ok("a join Packet carries the declared side, the recovered side and the quoted prose",
+      /### What the Packet DECLARED/.test(jp) && /### What was RECOVERED from the prose/.test(jp)
+      && /### The prose itself — draft lines/.test(jp));
+    ok("and exactly one question", (jp.match(/^## The question$/gm) || []).length === 1);
+    ok("and the closed three-token answer set", /holds.*fails.*cannot-decide/.test(jp));
+    ok("and the template's authoring comment is stripped from it", !jp.startsWith("<!--"));
+  }
+
+  // 17a — `close` refuses over an UNFILLED join, and refuses DIFFERENTLY from
+  // one where compare never ran: the two have different repairs.
+  {
+    const c = drive("close");
+    ok("close over an unfilled join refuses, naming the pairs it still waits on",
+      c.status === 1 && /the join has run and is UNFILLED/.test(c.stderr));
+    ok("and says what a record written over them would read as",
+      /reads as a clean review/.test(c.stderr));
+  }
+
+  // 17b — the verdicts file is validated against WHAT THE RUN OWES, and each
+  // refusal is its own mistake.
+  {
+    const bad = (name, verdicts, expect) => {
+      const f = join(root, "bad-verdicts.json");
+      writeFileSync(f, JSON.stringify({ verdicts }) + "\n");
+      const r = drive("compare", "--verdicts", f);
+      const hit = typeof expect === "string" ? r.stderr.includes(expect) : expect.test(r.stderr);
+      ok(name, r.status === 1 && hit);
+    };
+    bad("a verdict for a MECHANICAL item is refused, saying it would replace a computed fact",
+      [{ step_id: "a1", item: "term-before-introduction", verdict: "holds", reason: "it reads fine" }],
+      "which is a MECHANICAL item");
+    bad("a verdict for a pair this run never asked about is refused, naming the pairs it owes",
+      [{ step_id: "a1", item: "purpose", pair: 4, verdict: "holds", reason: "it reads fine" }],
+      "which this run did not ask about");
+    bad("a fourth verdict token is refused, naming the closed three",
+      [{ step_id: "a1", item: "purpose", verdict: "mostly-holds", reason: "it reads fine" }],
+      "there is no fourth answer");
+    bad("a verdict with no reason is refused",
+      [{ step_id: "a1", item: "purpose", verdict: "holds" }],
+      "carries no `reason`");
+    // A DIGIT IN THE REASON IS WHERE A SCORE COMES BACK IN. The item table holds
+    // no severity and the verdict set has no order; once one number is written
+    // into a review a later reader compares them.
+    bad("a reason carrying a digit is refused, because that is where a score comes back in",
+      [{ step_id: "a1", item: "purpose", verdict: "holds", reason: "3 of the grounds are carried" }],
+      "every other number in a review is a score by another name");
+    bad("a verdicts file that is not one object carrying `verdicts` is refused",
+      undefined, "carries no `verdicts` array");
+    // EVERY problem in one refusal, never the first found.
+    {
+      const f = join(root, "bad-verdicts-many.json");
+      writeFileSync(f, JSON.stringify({ verdicts: [
+        { step_id: "a1", item: "purpose", verdict: "nope", reason: "one" },
+        { step_id: "a2", item: "purpose", verdict: "holds", reason: "there are 2 of them" },
+      ] }) + "\n");
+      const r = drive("compare", "--verdicts", f);
+      ok("every verdict problem is named in one refusal, never the first found",
+        r.status === 1 && /no fourth answer/.test(r.stderr) && /score by another name/.test(r.stderr));
+    }
+    ok("and a refused verdicts file leaves the join unfilled",
+      JSON.parse(readFileSync(join(WS, "join.json"), "utf8")).complete === false);
+  }
+
+  // 17c — ACCEPTANCE 1: the completed join emits ONE LINE PER (Step, item),
+  // each carrying a verdict from the closed three and a quoted span, and NO
+  // NUMBER THAT IS NOT A LINE NUMBER.
+  let baseLines = null;
+  {
+    const r = drive("compare", "--verdicts", answerOwed(join(WS, "join.json"), "main"));
+    ok("recording the verdicts completes the join", r.status === 0 && /recorded: \d+ verdict/.test(r.stdout));
+    const rec = JSON.parse(readFileSync(join(WS, "join.json"), "utf8"));
+    ok("and the join record says so", rec.complete === true);
+
+    const ITEMS = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    baseLines = linesOf(r.stdout);
+    ok("one comparison line per (Step, item), over the whole item table",
+      baseLines.size === 3 * ITEMS.items.length);
+    ok("every Step and every item the table declares has a line",
+      ["a1", "a2", "a3"].every((s) => ITEMS.items.every((i) => baseLines.has(`${s}/${i.id}`))));
+
+    // THE NO-NUMBERS PROPERTY, asserted over what the HARNESS composes: the
+    // step id and the span are the line's only numeric fields, and stripping
+    // them must leave no digit. Quoted Draft and Packet material is rendered as
+    // it stands — the fixture carries no digit in either, so a digit surviving
+    // the strip is the FORMAT having invented a number rather than the corpus
+    // having contained one.
+    const stripped = [...baseLines.values()].map((l) => l.replace(/^\S+\s+/, "").replace(/\[\d+-\d+\]/, ""));
+    ok("no number appears in a comparison line that is not a line number",
+      stripped.every((l) => !/\d/.test(l)));
+    ok("every verdict is one of the closed three",
+      [...baseLines.values()].every((l) => /\s(holds|fails|cannot-decide)\s/.test(l)));
+    // The span is a DRAFT line range, so it must lie inside the file.
+    const total = readFileSync(draft.path, "utf8").split("\n").length;
+    ok("and every span is a draft line range inside the file",
+      [...baseLines.values()].every((l) => {
+        const m = l.match(/\[(\d+)-(\d+)\]/);
+        return Number(m[1]) >= 1 && Number(m[2]) <= total && Number(m[1]) <= Number(m[2]);
+      }));
+
+    ok("the run reports which pairs cost a model call and which did not",
+      /decided mechanically and \d+ judged/.test(r.stdout));
+    ok("and says whether any Step is sent to correction — a PRESERVED item failing",
+      /no Step is sent to correction/.test(r.stdout));
   }
 
   // 18 — the two entry points this artifact DECLARES and kogaki#874 builds.
@@ -1164,7 +2232,7 @@ async function runSelfTest() {
     ok("close succeeds from compare with zero fails", r.status === 0);
     const out = join(thesis, "review.md");
     ok("close writes review.md beside the Draft", existsSync(out));
-    const text = readFileSync(out, "utf8");
+    const text = readOrEmpty(out);
     ok("the record is headed by the Draft's body sha", text.includes(sha256(readDraft(draft.path).body)));
     ok("the record names every Packet it was reviewed against with its sha",
       ["a1", "a2", "a3"].every((id) => text.includes(`\`${id}\``))
@@ -1172,8 +2240,8 @@ async function runSelfTest() {
     ok("the record carries the Findings list", /^## Findings$/m.test(text));
     ok("the record carries the Corrections list", /^## Corrections$/m.test(text));
     ok("the record carries the Residue list", /^## Residue$/m.test(text));
-    ok("an unfilled join is stated as such in the record rather than as no findings",
-      /unfilled join, not a clean review/.test(text));
+    ok("a COMPLETED join with no failing item renders its findings list as none",
+      /^## Findings\n\n_None\._$/m.test(text));
     ok("the record states how many passes ran", /\*\*Passes\.\*\* one \(compare\)/.test(text));
     ok("the record tells the owner what to fill classified: with",
       /`packet` or `reviewdraft`/.test(text));
@@ -1192,7 +2260,7 @@ async function runSelfTest() {
     writeFileSync(join(WS, "run.json"), JSON.stringify(run, null, 2) + "\n");
     const r = drive("close");
     ok("close renders residue", r.status === 0);
-    const text = readFileSync(join(thesis, "review.md"), "utf8");
+    const text = readOrEmpty(join(thesis, "review.md"));
     const residue = text.slice(text.indexOf("## Residue"));
     const items = (residue.match(/^- \*\*/gm) || []).length;
     const fields = (residue.match(/^ {2}classified:$/gm) || []).length;
@@ -1267,7 +2335,7 @@ async function runSelfTest() {
     const emitBody = emitted.replace(/\n$/, "");      // what `emit` hashed
     ok("readDraft's body is exactly the string `emit` hashes",
       readDraft(draft.path).body === emitBody);
-    const text = readFileSync(join(thesis, "review.md"), "utf8");
+    const text = readOrEmpty(join(thesis, "review.md"));
     ok("and the body sha in the owner record matches it",
       text.includes(sha256(emitBody)));
   }
@@ -1293,7 +2361,7 @@ async function runSelfTest() {
   // write here. It is repo-visible and committed, so without one it lands as a
   // no-final-newline file in every diff that touches it.
   {
-    const text = readFileSync(join(thesis, "review.md"), "utf8");
+    const text = readOrEmpty(join(thesis, "review.md"));
     ok("the owner record ends with a newline", text.endsWith("\n"));
   }
 
@@ -1467,6 +2535,444 @@ async function runSelfTest() {
       ok("a refused record is not written to the workspace",
         r.status === 1 && !existsSync(join(ws4, "fixture", "recovered", "a1.json")));
     }
+  }
+
+
+  // ---- kogaki#872 -------------------------------------------------------
+  // ACCEPTANCE 2: removing ONE ground from a Packet copy yields exactly one new
+  // `widened` fail on that Step, and no change elsewhere.
+  //
+  // DRIVEN AS TWO WHOLE RUNS OVER TWO WHOLE DRAFTS, because the Packet's sha is
+  // in the trace: editing a Packet under a live Draft is refused by `open`, by
+  // design, so "a Packet copy" is a second Draft emitted against it. The two
+  // Drafts differ in exactly one ground, and every line range is identical
+  // because `buildDraft` computes them from the same body.
+  {
+    const full = join(root, "packets-full"); mkdirSync(full, { recursive: true });
+    const short = join(root, "packets-short"); mkdirSync(short, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) {
+      writePacket(full, id);
+      // a1 keeps only its FIRST ground; the second recovered claim now rests on
+      // nothing the Packet declares.
+      writePacket(short, id, id === "a1" ? { grounds: [GROUNDS.a1[0]] } : {});
+    }
+    const dFull = buildDraft(join(root, "theses", "full"), { packetDir: full });
+    const dShort = buildDraft(join(root, "theses", "short"), { packetDir: short });
+    const rFull = driveToCompletedJoin(dFull, join(root, "ws-full"), "full");
+    const rShort = driveToCompletedJoin(dShort, join(root, "ws-short"), "short");
+    ok("both runs reach a completed join", rFull.second.status === 0 && rShort.second.status === 0);
+
+    const L1 = linesOf(rFull.second.stdout);
+    const L2 = linesOf(rShort.second.stdout);
+    const failing = (m) => [...m.entries()].filter(([, l]) => /\sfails\s/.test(l)).map(([k]) => k);
+    ok("the unmutated run has no failing item", failing(L1).length === 0);
+    ok("removing one ground yields EXACTLY ONE new fail", failing(L2).length === 1);
+    ok("and it is on the Step whose Packet lost the ground, on the grounds item",
+      failing(L2)[0] === "a1/grounds");
+    ok("and it is named `widened` — the claim rests on no ground the Packet declares",
+      /widened/.test(L2.get("a1/grounds")));
+    // NO CHANGE ELSEWHERE, asserted as line-for-line identity over every OTHER
+    // pair rather than as a count: a count would pass while two items swapped
+    // verdicts.
+    const changed = [...L1.keys()].filter((k) => k !== "a1/grounds" && L1.get(k) !== L2.get(k));
+    ok("and nothing else changes — every other (Step, item) line is identical",
+      L1.size === L2.size && changed.length === 0, changed.join(", "));
+    // THE WIDENED PAIR COSTS NO MODEL CALL. A claim that pairs with nothing has
+    // no counterpart to put a question about, so the fail is a fact about the
+    // pairing rather than a reading of it.
+    const recShort = JSON.parse(readFileSync(rShort.jsonPath, "utf8"));
+    ok("the widened claim is decided by the Harness, with no join Packet rendered for it",
+      !recShort.model_calls.some((c) => c.step_id === "a1" && c.item === "grounds" && c.pair === 1)
+      && recShort.mechanical.some((c) => c.step_id === "a1" && c.item === "grounds" && c.pair === 1));
+    // The other half of the same pairing: the ground the claim used to rest on
+    // is gone, so `grounds-unused` still holds — the two items read ONE
+    // assignment and cannot disagree about the same Step.
+    ok("and the unused-grounds item, which reads the same pairing, still holds",
+      /\sholds\s/.test(L2.get("a1/grounds-unused")));
+    // A PRESERVED item failing is what sends a Step to correction, and the run
+    // says which — the class is the consequence, never a severity.
+    ok("a preserved item failing sends its Step to correction, and the run names it",
+      /Steps sent to correction[^\n]*a1/.test(rShort.second.stdout));
+  }
+
+  // ACCEPTANCE 3: a Draft using a term one Step BEFORE the Step whose Packet
+  // says to introduce it is caught MECHANICALLY — no model call for that item.
+  {
+    const pd = join(root, "packets-early"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) {
+      writePacket(pd, id);
+      if (id === "a3") {
+        // a3's Packet declares the term; a1's prose already used it.
+        const p = join(pd, "a3.md");
+        writeFileSync(p, readFileSync(p, "utf8").replace("- **introduce here.** (nothing new)",
+          "- **introduce here.** - opacity"));
+      }
+    }
+    const earlyProse = {
+      a1: ["The first passage opens the claim and reaches for opacity as if it were settled.", "",
+        "It runs two paragraphs so a range covering more than one line is exercised.",
+        "The harness renders each input in the path's recorded order."],
+      a2: PROSE.a2,
+      a3: PROSE.a3,
+    };
+    const d = buildDraft(join(root, "theses", "early"), { packetDir: pd, prose: earlyProse });
+    const r = driveToCompletedJoin(d, join(root, "ws-early"), "early");
+    ok("the run reaches a completed join", r.second.status === 0);
+    const L = linesOf(r.second.stdout);
+    const line = L.get("a3/term-before-introduction");
+    ok("a term used before the Step that introduces it FAILS on that Step", /\sfails\s/.test(line));
+    // THE TERM IS EVIDENCE, NOT PART OF THE LINE. Quoted material is where a
+    // number gets into a comparison line — the live drive's own grounds are
+    // labelled by the Strands they came from — so the line refuses to carry it
+    // and the join record holds it in full.
+    ok("and the line itself quotes nothing", !/opacity/.test(line));
+    ok("while the finding's evidence names the term",
+      JSON.parse(readFileSync(r.jsonPath, "utf8")).results
+        .find((x) => x.step_id === "a3" && x.item === "term-before-introduction").evidence === "opacity");
+    // THE SPAN IS THE EARLIER OCCURRENCE, not the Step's own range: the finding
+    // points at where the reader actually met the word.
+    const early = readFileSync(d.path, "utf8").split("\n")
+      .findIndex((l) => /reaches for opacity/.test(l)) + 1;
+    ok("and the span points at the line where the reader first meets it",
+      line.includes(`[${early}-${early}]`));
+
+    // NO MODEL CALL IN THE LOG FOR THAT ITEM, for any Step — which is what
+    // makes "decided mechanically" checkable rather than claimed.
+    const rec = JSON.parse(readFileSync(r.jsonPath, "utf8"));
+    ok("no join Packet is rendered for a mechanical item, on any Step",
+      !rec.model_calls.some((c) => c.item === "term-before-introduction"));
+    ok("and every Step records it as decided by the Harness",
+      ["a1", "a2", "a3"].every((s) =>
+        rec.mechanical.some((c) => c.step_id === s && c.item === "term-before-introduction")));
+    // The whole mechanical set, asserted from the TABLE rather than from a list
+    // written here: a table row that gained `mode: mechanical` and no
+    // implementation would otherwise report `holds` for every Draft.
+    const ITEMS = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    const mech = ITEMS.items.filter((i) => i.mode === "mechanical").map((i) => i.id);
+    ok("every item the table calls mechanical costs no model call on any Step",
+      mech.length > 0 && !rec.model_calls.some((c) => mech.includes(c.item)));
+    ok("and every judged item DOES cost one",
+      ITEMS.items.filter((i) => i.mode === "judged")
+        .every((i) => rec.model_calls.some((c) => c.item === i.id)));
+  }
+
+  // ROUND 1, FINDING 2: a Step whose Brief declares NO grounds is an ordinary
+  // Step, not a Packet gap. The renderer writes `(none recorded)` into the
+  // grounds BLOCK, below a bullet whose own text is fixed instruction prose, so
+  // a reader testing the bullet could never match and refused the whole run.
+  {
+    const pd = join(root, "packets-groundless"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id, id === "a2" ? { grounds: [] } : {});
+    ok("the fixture's groundless Packet carries the stated absence the renderer writes",
+      /\(none recorded\)/.test(readFileSync(join(pd, "a2.md"), "utf8")));
+    const d = buildDraft(join(root, "theses", "groundless"), { packetDir: pd });
+    const r = driveToCompletedJoin(d, join(root, "ws-groundless"), "groundless");
+    ok("a Step declaring no grounds does not refuse the run as a Packet gap",
+      r.second.status === 0 && !/carries no `grounds` block/.test(r.first.stderr + r.second.stderr));
+    const L = linesOf(r.second.stdout);
+    ok("and the unused-grounds item says so in its own words",
+      /this Step declares no grounds/.test(L.get("a2/grounds-unused")));
+    // The other Steps are untouched: the absence is this Step's, not the run's.
+    ok("while a Step that does declare grounds still carries them",
+      /every ground is carried by a recovered claim/.test(L.get("a1/grounds-unused")));
+  }
+
+  // ROUND 1, FINDING 3: the Section block's declared side is the RENDERED VALUE,
+  // never the template's instruction prose. The anchor used to stop one sentence
+  // short of its paragraph, so the sentence after it was prepended to what the
+  // judging model reads — the exact failure the reader's own comment names,
+  // reached by an incomplete anchor rather than by a rewrap.
+  {
+    const rec = JSON.parse(readFileSync(join(WS, "join.json"), "utf8"));
+    const call = rec.model_calls.find((c) => c.item === "section-continues");
+    const jp = call && existsSync(call.packet) ? readFileSync(call.packet, "utf8") : "";
+    const declared = (jp.split("### What the Packet DECLARED")[1] || "").split("###")[0];
+    ok("the Section block's declared side carries the rendered placement",
+      /This Step (OPENS|CONTINUES)/.test(declared));
+    // ASSERTED AGAINST THE TEMPLATE'S OWN SENTENCES rather than a transcribed
+    // pair, so a paragraph the template gains is covered by the derivation.
+    const para = TEMPLATE.split("## The Section this Step sits in")[1].split("{{section_placement}}")[0];
+    const sentences = para.split(/(?<=\.)\s+/).map((s) => s.replace(/\s+/g, " ").trim()).filter((s) => s.length > 30);
+    ok("and none of the template's instruction sentences survives into it",
+      sentences.length > 0 && !sentences.some((s) => declared.replace(/\s+/g, " ").includes(s)),
+      sentences.find((s) => declared.replace(/\s+/g, " ").includes(s)) || "");
+  }
+
+  // ROUND 1, FINDING 5: a recorded verdict can be REVISED. `owed` shrinks as
+  // answers land, so validating against it alone refused a re-submitted file and
+  // told a reviewer correcting a wrong answer that the run never asked — which
+  // is false, and named no repair.
+  {
+    const f = join(root, "revise.json");
+    writeFileSync(f, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
+      verdict: "fails", reason: "the passage is doing a different job from the declared one" }] }) + "\n");
+    const r = drive("compare", "--verdicts", f);
+    ok("an answered pair can be answered again", r.status === 0 && /recorded: 1 verdict/.test(r.stdout));
+    ok("and the revision is what the comparison line now renders",
+      /\sfails\s/.test(linesOf(r.stdout).get("a1/purpose")));
+    // Put it back, so the cases after this one see the run they expect.
+    const g = join(root, "revise-back.json");
+    writeFileSync(g, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
+      verdict: "holds", reason: "the declared line and the recovered one agree" }] }) + "\n");
+    const back = drive("compare", "--verdicts", g);
+    ok("and a revision is not one-way", /\sholds\s/.test(linesOf(back.stdout).get("a1/purpose")));
+    // A pair the run never asked about is STILL refused, and the refusal now
+    // names the answered set as revisable rather than claiming nothing is.
+    const bad = join(root, "revise-bad.json");
+    writeFileSync(bad, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose", pair: 7,
+      verdict: "holds", reason: "it reads fine" }] }) + "\n");
+    const b = drive("compare", "--verdicts", bad);
+    ok("while a pair nobody asked about is still refused, naming the revisable set",
+      b.status === 1 && /already answered, which a revision may overwrite/.test(b.stderr));
+  }
+
+  // A TERM THE FRONTMATTER HAPPENS TO CARRY IS NOT MET BY THE READER THERE. The
+  // record half holds the trace, the Brief pin and every cite, so a Step
+  // introducing a word the trace contains would otherwise fail on a line no
+  // reader ever sees, with the finding pointing at JSON as the place the reader
+  // first met the term.
+  {
+    const pd = join(root, "packets-fm"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) {
+      writePacket(pd, id);
+      if (id === "a3") {
+        const p = join(pd, "a3.md");
+        writeFileSync(p, readFileSync(p, "utf8").replace("- **introduce here.** (nothing new)",
+          "- **introduce here.** - packet"));
+      }
+    }
+    const d = buildDraft(join(root, "theses", "fm"), { packetDir: pd });
+    const fmText = readFileSync(d.path, "utf8").split("\n").slice(0, 8).join("\n");
+    ok("the fixture's own frontmatter carries the term, so the case can witness the defect",
+      /packet/.test(fmText));
+    const r = driveToCompletedJoin(d, join(root, "ws-fm"), "fm");
+    ok("the run completes", r.second.status === 0);
+    ok("and a term occurring only in the frontmatter does not fail the Step that introduces it",
+      /\sholds\s/.test(linesOf(r.second.stdout).get("a3/term-before-introduction")));
+  }
+
+  // A TERM CARRYING A DIGIT STILL YIELDS A DIGIT-FREE COMPARISON LINE. This is
+  // the case the first live drive earned: the live Draft's grounds are labelled
+  // by the Strands they came from, so quoting the offending material into the
+  // reason put a number in front of a reader that was not a line number. The
+  // line refuses to carry a quote; the evidence holds it in full.
+  {
+    const pd = join(root, "packets-digit"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) {
+      writePacket(pd, id);
+      if (id === "a3") {
+        const p = join(pd, "a3.md");
+        writeFileSync(p, readFileSync(p, "utf8").replace("- **introduce here.** (nothing new)",
+          "- **introduce here.** - strand L97"));
+      }
+    }
+    const digitProse = {
+      a1: ["The first passage opens the claim and cites strand L97 as if it were settled.", "",
+        "It runs two paragraphs so a range covering more than one line is exercised.",
+        "The harness renders each input in the path's recorded order."],
+      a2: PROSE.a2,
+      a3: PROSE.a3,
+    };
+    const d = buildDraft(join(root, "theses", "digit"), { packetDir: pd, prose: digitProse });
+    const r = driveToCompletedJoin(d, join(root, "ws-digit"), "digit");
+    ok("a run whose Packet names a term carrying a digit still completes", r.second.status === 0);
+    const line = linesOf(r.second.stdout).get("a3/term-before-introduction");
+    ok("it fails on the Step that introduces the term", /\sfails\s/.test(line));
+    ok("and the comparison line carries no digit outside its span",
+      !/\d/.test(line.replace(/^\S+\s+/, "").replace(/\[\d+-\d+\]/, "")));
+    ok("while the evidence carries the term whole, digit included",
+      JSON.parse(readFileSync(r.jsonPath, "utf8")).results
+        .find((x) => x.step_id === "a3" && x.item === "term-before-introduction").evidence === "strand L97");
+  }
+
+  // `cannot-decide` IS A THIRD ANSWER AND IS NEVER ROUNDED. It is listed with
+  // its pair, and it is not a fail — it sends no Step to correction.
+  {
+    const pd = join(root, "packets-undecided"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
+    const d = buildDraft(join(root, "theses", "undecided"), { packetDir: pd });
+    const wsb = join(root, "ws-undecided");
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    D("open");
+    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "und"));
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("compare");
+    const jp = join(wsb, "undecided", "join.json");
+    const f = answerOwed(jp, "und", "cannot-decide", "the passage does not say either way");
+    const r = D("compare", "--verdicts", f);
+    ok("a run answered entirely `cannot-decide` completes", r.status === 0);
+    const L = linesOf(r.second === undefined ? r.stdout : r.stdout);
+    ok("every judged pair renders `cannot-decide` rather than being rounded",
+      [...L.values()].some((l) => /\scannot-decide\s/.test(l)));
+    ok("and it is listed with its pair", /cannot-decide, listed with its pair and never rounded/.test(r.stdout));
+    ok("and it sends no Step to correction — it is not a fail",
+      /no Step is sent to correction/.test(r.stdout));
+    // A cannot-decide is still a FINDING: it is what the owner record must
+    // carry so a person can look at what the reader could not settle.
+    const c = D("close");
+    ok("close is reachable with cannot-decide and zero fails", c.status === 0);
+    const rev = readOrEmpty(join(root, "theses", "undecided", "review.md"));
+    ok("and the owner record lists every undecided pair with its class",
+      /cannot-decide \((preserved|best-effort)\)/.test(rev));
+  }
+
+  // A BEST-EFFORT FAIL RIDES ALONG: it reaches the owner record with its class
+  // and its EVIDENCE, and it does NOT withhold `close`. A guard counting every
+  // fail would send a Step to pass two for a finding the design says to carry
+  // rather than to act on — and on the first live drive a best-effort item fired
+  // on every Step, so `close` would have been unreachable for that Draft.
+  {
+    const pd = join(root, "packets-riding"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
+    // a2 repeats a run of a1's words verbatim — `restates-earlier-step`, which
+    // the table calls best-effort and mechanical.
+    const ridingProse = {
+      a1: PROSE.a1,
+      a2: ["The first passage opens the claim and says what the reader is about to be shown again."],
+      a3: PROSE.a3,
+    };
+    const d = buildDraft(join(root, "theses", "riding"), { packetDir: pd, prose: ridingProse });
+    const wsb = join(root, "ws-riding");
+    const r = driveToCompletedJoin(d, wsb, "riding");
+    ok("the run completes", r.second.status === 0);
+    const L = linesOf(r.second.stdout);
+    ok("the best-effort item fails", /\sfails\s/.test(L.get("a2/restates-earlier-step")));
+    ok("and no Step is sent to correction, because no PRESERVED item failed",
+      /no Step is sent to correction/.test(r.second.stdout));
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const c = D("close");
+    ok("close is reachable with a best-effort fail outstanding", c.status === 0);
+    const rev = readOrEmpty(join(root, "theses", "riding", "review.md"));
+    ok("and the owner record carries the finding with its class",
+      /a2 \/ restates-earlier-step\*\* — fails \(best-effort\)/.test(rev));
+    // THE EVIDENCE IS WHERE THE QUOTED MATERIAL LIVES, and this is the other
+    // half of the comparison line's no-numbers rule: the line refuses to carry a
+    // quote, so the record is where a finding becomes actionable rather than
+    // merely located.
+    ok("and the quoted material the comparison line refused to carry",
+      /^ {2}- evidence: \S/m.test(rev));
+
+    // A PRESERVED fail still withholds it, and the refusal says which kind.
+    const short = join(root, "packets-riding-short"); mkdirSync(short, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(short, id, id === "a1" ? { grounds: [GROUNDS.a1[0]] } : {});
+    const d2 = buildDraft(join(root, "theses", "riding-short"), { packetDir: short });
+    const wsb2 = join(root, "ws-riding-short");
+    driveToCompletedJoin(d2, wsb2, "ridingshort");
+    const c2 = spawnSync(process.execPath,
+      [self, "close", "--draft", d2.path, "--workspace", wsb2], { encoding: "utf8" });
+    ok("while a PRESERVED fail still withholds the record, naming the class",
+      c2.status === 1 && /failing PRESERVED item/.test(c2.stderr)
+      && /A best-effort fail does not withhold the record/.test(c2.stderr));
+  }
+
+  // A PACKET MISSING A BLOCK THE COMPARISON NEEDS IS A PACKET GAP, refused BY
+  // NAME and filed against the template — never satisfied by reading the Brief,
+  // the Move or the Strand.
+  {
+    const pd = join(root, "packets-gapped"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id);
+    const p = join(pd, "a2.md");
+    writeFileSync(p, readFileSync(p, "utf8")
+      .split("\n").filter((l) => !/^- \*\*purpose\.\*\*/.test(l)).join("\n"));
+    const d = buildDraft(join(root, "theses", "gapped"), { packetDir: pd });
+    const wsb = join(root, "ws-gapped");
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    D("open");
+    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "gap"));
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    const r = D("compare");
+    ok("a Packet missing a block the comparison needs refuses BY NAME, naming the Step",
+      r.status === 1 && /step a2: its Packet carries no `purpose` block/.test(r.stderr));
+    ok("and names the item that compares against it", /purpose/.test(r.stderr));
+    ok("and files it as a PACKET GAP against the template, not as a side read",
+      /PACKET GAP/.test(r.stderr) && /src\/packet-template\.md/.test(r.stderr));
+  }
+
+  // A MOVE RECORD WITH NO EXEMPLAR MAKES THE NEGATIVE ITEM VACUOUS, and the
+  // table says so per item rather than the runtime deciding it: there is no
+  // exemplar, so no subject matter can leak from one.
+  {
+    const rec = JSON.parse(readFileSync(join(WS, "join.json"), "utf8"));
+    const a3 = rec.results.find((x) => x.step_id === "a3" && x.item === "exemplar-leak");
+    const a1 = rec.results.find((x) => x.step_id === "a1" && x.item === "exemplar-leak");
+    ok("a Step whose Move carries no exemplar is decided by the Harness, with no model call",
+      a3.decided_by === "harness" && /no exemplar/.test(a3.reason)
+      && !rec.model_calls.some((c) => c.step_id === "a3" && c.item === "exemplar-leak"));
+    ok("while a Step whose Move DOES carry one is judged",
+      a1.decided_by === "model"
+      && rec.model_calls.some((c) => c.step_id === "a1" && c.item === "exemplar-leak"));
+  }
+
+  // THE ITEM TABLE IS READ, NEVER RESTATED — the same arrangement the recovered
+  // record's schema has. The item ids that DO occur in the runtime are the keys
+  // of the mechanical implementations and of the Packet-block readers, which is
+  // the binding the table's `mode` and `declared_block` fields name; every other
+  // use iterates `items`.
+  {
+    const table = JSON.parse(readFileSync(join(dirname(self), "review-items.json"), "utf8"));
+    const code = readFileSync(self, "utf8");
+    const prod = code.slice(0, code.indexOf("async function runSelfTest"));
+    const judged = table.items.filter((i) => i.mode !== "mechanical").map((i) => i.id);
+    ok("no JUDGED item's id occurs in the runtime — the table is the only carrier",
+      judged.length > 0 && !judged.some((id) => prod.includes(`"${id}"`)));
+    ok("every MECHANICAL item the table declares has an implementation keyed by its id",
+      table.items.filter((i) => i.mode === "mechanical").every((i) => prod.includes(`"${i.id}"`)));
+    // The runtime enumerates no verdict set of its own — it VALIDATES against
+    // the table's. The one token it names is in the selection rule, which needs
+    // to know that a fail outranks an undecided pair when an item's line has to
+    // pick one of its pairs to render; that is an ordering the table does not
+    // carry and the runtime owns.
+    ok("the closed verdict set is validated from the table, not from a list here",
+      table.verdicts.length === 3 && prod.includes("items.verdicts.includes")
+      && !/"holds"\s*,\s*"fails"/.test(prod));
+    ok("and every threshold is an INPUT: no emitted line renders one",
+      Object.keys(table.thresholds).filter((k) => k !== "note").length > 0
+      && [...baseLines.values()].every((l) =>
+        !String(table.thresholds.claim_ground_containment).includes(".") || !l.includes("0.")));
+  }
+
+  // AN ABSENT JOIN TEMPLATE IS A HOLE THE MODEL FILLS BY INVENTION, so the
+  // Harness refuses rather than asking a question with no form. Driven against a
+  // copy of the module with the template removed from beside it.
+  {
+    const solo = join(root, "solo-join"); mkdirSync(solo, { recursive: true });
+    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "recovery-template.md",
+      "recovered-schema.json", "review-items.json"]) {
+      writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
+    }
+    const d = buildDraft(join(root, "theses", "nojointpl"), { packetDir });
+    const wsb = join(root, "ws-nojointpl");
+    const D = (...a) => spawnSync(process.execPath,
+      [join(solo, "review-draft.mjs"), ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    D("open");
+    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "njt"));
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    const r = D("compare");
+    ok("an absent join template refuses rather than asking a question with no form",
+      r.status === 1 && /join template is absent/.test(r.stderr));
+  }
+
+  // AND AN ABSENT ITEM TABLE REFUSES, for the reason the table exists: the
+  // comparison would otherwise join against a table it invented.
+  {
+    const solo = join(root, "solo-items"); mkdirSync(solo, { recursive: true });
+    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "recovery-template.md",
+      "recovered-schema.json", "join-template.md"]) {
+      writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
+    }
+    const d = buildDraft(join(root, "theses", "noitems"), { packetDir });
+    const wsb = join(root, "ws-noitems");
+    const D = (...a) => spawnSync(process.execPath,
+      [join(solo, "review-draft.mjs"), ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    D("open");
+    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "nit"));
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    const r = D("compare");
+    ok("an absent item table refuses rather than joining against a table it invented",
+      r.status === 1 && /item table is absent/.test(r.stderr));
   }
 
   // THE SCHEMA IS READ, NEVER RESTATED. The runtime must not carry its own copy

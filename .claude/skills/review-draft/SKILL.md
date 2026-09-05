@@ -28,16 +28,47 @@ never satisfy it with a side read here.
     node src/review-draft.mjs open    --draft <draft.md>
     node src/review-draft.mjs recover --draft <draft.md> --step <id> --file <recovered>
     node src/review-draft.mjs read    --draft <draft.md> --section <n> --file <ledger>
-    node src/review-draft.mjs compare --draft <draft.md>
+    node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
     node src/review-draft.mjs correct --draft <draft.md> --step <id> --file <prose>
     node src/review-draft.mjs check   --draft <draft.md>
     node src/review-draft.mjs close   --draft <draft.md>
 
 `open` verifies the inputs, opens `runs/review/<slug>/` and renders the first
 recovery input. `recover` records one blind recovery and renders the next.
-`read` records the cold reader's entry for one Section. `compare` runs the
-deterministic join. `correct` records a re-realized Step and `check` runs the
-bounded second pass. `close` writes the owner record.
+`read` records the cold reader's entry for one Section. `compare` runs the join.
+`correct` records a re-realized Step and `check` runs the bounded second pass.
+`close` writes the owner record.
+
+## The comparison, and what the judging model is not asked
+
+`compare` runs in two phases and the Harness owns both. The first decides every
+**mechanical** item — string facts about the Draft and its Packets, no model
+call — and renders **one join Packet per judged pair**, each carrying the
+declared line, the recovered line, the quoted prose and **one** question. The
+second records the answers with `--verdicts` and emits the comparison.
+
+**The item table is `src/review-items.json` and it is fixed in the Harness.**
+Which Packet information must be recoverable is decided there, per item class,
+and so is what a `fails` costs: a **preserved** item failing sends its Step to
+correction, a **best-effort** one rides along if that Step is re-realized
+anyway. **The model never assigns severity** — it sees one pair, answers one
+question, and returns one of `holds`, `fails`, `cannot-decide` plus one
+sentence. It never sees two pairs at once, so it cannot rank them.
+
+`cannot-decide` is a third answer and is **never rounded**; it is listed with
+its pair so a person can look. There are no scores, no ranking and no aggregate,
+and the emission holds that mechanically: **a comparison line renders line
+numbers and nothing else numeric**, so quoted material is carried as the
+finding's *evidence* in the join record and the owner record rather than in the
+line. A recorded reason carrying a digit is refused.
+
+`compare` emits one line per (Step, item) **only once every pair is answered**.
+There is no fourth token for "not asked yet", and an unfilled join says it is
+unfilled rather than rendering an empty findings list; `close` refuses over one.
+
+A Packet block the comparison needs and a Packet does not carry is a **Packet
+gap**: it refuses by name and is filed against `src/packet-template.md`, never
+satisfied by a side read.
 
 ## The two readers, and why each is blind to something
 

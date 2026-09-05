@@ -1,0 +1,219 @@
+{
+  "note": [
+    "The comparison's ITEM TABLE, fixed in the Harness (kogaki#872).",
+    "",
+    "WHICH PACKET INFORMATION MUST BE RECOVERABLE IS DECIDED ONCE, HERE, per",
+    "item class — and the judging model never assigns one. It answers one",
+    "question about one pair and returns one of three tokens. src/review-draft.mjs",
+    "READS this file rather than restating it, the same arrangement",
+    "src/recovered-schema.json has with the recovery half: amending the table is",
+    "one edit and never a two-copy divergence.",
+    "",
+    "`class` IS THE CONSEQUENCE, not a severity. A Step is sent to correction only",
+    "on a `fails` in a PRESERVED item; a best-effort fail rides along when that",
+    "Step is re-realized anyway. There is no score, no ranking and no aggregate —",
+    "the three tokens are the whole vocabulary, and `cannot-decide` is never",
+    "rounded to either neighbour.",
+    "",
+    "`mode` IS WHO DECIDES, and it is the half that keeps the model out of the",
+    "mechanical items:",
+    "  - `mechanical` — the Harness decides from string facts about the Draft and",
+    "    the Packet. NO join Packet is rendered and no model call is made.",
+    "  - `judged`     — the Harness renders one join Packet (the declared line,",
+    "    the recovered line, the quoted span, one question) and records the",
+    "    verdict that comes back.",
+    "  - `paired`     — the Harness pairs the recovered entries against the",
+    "    declared ones MECHANICALLY; an entry that pairs with nothing is decided",
+    "    here, by name, with no model call, and the paired set is then judged.",
+    "    This is the one hybrid, and it exists because `widened` is a fact about",
+    "    the pairing rather than a reading of it.",
+    "",
+    "`declared_block` names the Packet block the declared side is read from, and",
+    "src/review-draft.mjs refuses BY NAME when a Packet carries no such block —",
+    "a missing block is a PACKET GAP filed against src/packet-template.md, per",
+    "the owner's 2026-09-04 closed-input ruling, and never something the",
+    "comparison works around.",
+    "",
+    "`recovered_field` names the field of src/recovered-schema.json the recovered",
+    "side is read from. `null` means the recovered side IS THE PROSE — the",
+    "negative items, which assert that something is absent from the passage.",
+    "",
+    "NOT COMPARED, enumerated so a reader can tell a boundary from a hole:",
+    "rationale, materials, reader_state_before, and the thesis and reader target",
+    "per Step. The article level is the cold reader's (kogaki#873)."
+  ],
+  "version": "1",
+  "verdicts": ["holds", "fails", "cannot-decide"],
+  "classes": ["preserved", "best-effort"],
+  "modes": ["mechanical", "judged", "paired"],
+
+  "packet_blocks": {
+    "note": [
+      "THE PACKET'S SHAPE IS DATA, not a literal in the runtime (kogaki#872).",
+      "src/review-draft.mjs reads a declared block by its KIND, and every label,",
+      "heading and fixed instruction sentence the reader keys on lives here. Two",
+      "things follow, and the second is the reason:",
+      "",
+      "  - amending src/packet-template.md is one edit here and never a hunt",
+      "    through the comparison for a string that used to match;",
+      "  - the runtime carries no literal that HAPPENS to equal a field name",
+      "    somewhere else. `grounds`, `purpose` and `reader_state_after` are",
+      "    each a Packet label AND an item id AND (for two of them) a recovered",
+      "    record field, and a runtime spelling them out cannot be told apart",
+      "    from one restating the table or the schema. A synonym in a join key",
+      "    is the same defect as a divergence.",
+      "",
+      "`after_words` is the template's own fixed instruction paragraph, matched",
+      "as a WORD SEQUENCE so a rewrap — which changes nothing — does not silently",
+      "hand the instruction back as the block's value."
+    ],
+    "grounds": { "kind": "ground_lines", "prefix": "ground", "bullet_label": "grounds" },
+    "reader_state_after": { "kind": "bullet", "label": "reader_state_after" },
+    "purpose": { "kind": "bullet", "label": "purpose" },
+    "introduces": { "kind": "bullet_list", "label": "introduce here" },
+    "already_knows": { "kind": "bullet_list", "label": "already knows", "term_only": true },
+    "move_contract": { "kind": "bullets", "labels": ["constraints", "failure_modes"] },
+    "move_excerpt": {
+      "kind": "block",
+      "heading": "An exemplar of this Move — FORM ONLY",
+      "after_words": "Read it for the shape of the movement and nothing else."
+    },
+    "section_placement": {
+      "kind": "block",
+      "heading": "The Section this Step sits in",
+      "after_words": "one, and the line below says which. Where it continues, the heading is already on the page and you are writing further into it: do not restate the heading's claim, and do not open a new subject."
+    },
+    "register_tests": { "kind": "paragraph", "opens_with": "**Plain register, operationally:**" }
+  },
+
+  "thresholds": {
+    "note": [
+      "Thresholds are INPUTS TO THE HARNESS AND NEVER OUTPUT. No emitted line",
+      "carries one — a comparison line renders line numbers and nothing else",
+      "numeric, so a reader cannot mistake a tuning constant for evidence."
+    ],
+    "claim_ground_containment": 0.34,
+    "verbatim_overlap_words": 8
+  },
+
+  "items": [
+    {
+      "id": "grounds",
+      "class": "preserved",
+      "mode": "paired",
+      "declared_block": "grounds",
+      "recovered_field": "claims",
+      "pair_text_key": "claim",
+      "unpaired_reason": "widened",
+      "unpaired_sentence": "this recovered claim pairs with no ground the Packet declares, so the passage asserts more than it was given — widened",
+      "question": "Does this recovered claim assert no more than the ground it is paired with? Answer `fails` if the claim goes beyond the ground in scope, in certainty, or in subject."
+    },
+    {
+      "id": "reader-state-after",
+      "class": "preserved",
+      "mode": "judged",
+      "declared_block": "reader_state_after",
+      "recovered_field": "reader_state_after",
+      "question": "Do the declared reader state and the recovered one describe the same reader? Answer `fails` if a reader in the recovered state would not be in the declared one."
+    },
+    {
+      "id": "introduces",
+      "class": "preserved",
+      "mode": "judged",
+      "declared_block": "introduces",
+      "recovered_field": "terms_introduced",
+      "question": "Is every term the Packet says to introduce here actually introduced in this passage — usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
+    },
+    {
+      "id": "term-before-introduction",
+      "class": "preserved",
+      "mode": "mechanical",
+      "declared_block": "introduces",
+      "recovered_field": null,
+      "question": null
+    },
+    {
+      "id": "move-contract",
+      "class": "preserved",
+      "mode": "judged",
+      "declared_block": "move_contract",
+      "recovered_field": "shape",
+      "question": "Read the Move's constraints and failure_modes against the shape recovered from the prose. Answer `fails` if a constraint is violated or a failure mode fired."
+    },
+    {
+      "id": "exemplar-leak",
+      "class": "preserved",
+      "mode": "judged",
+      "negative": true,
+      "declared_block": "move_excerpt",
+      "recovered_field": null,
+      "when_declared_absent": {
+        "verdict": "holds",
+        "sentence": "this Move record carries no exemplar, so no subject matter could leak from one"
+      },
+      "question": "The exemplar was FORM ONLY. Does any entity, fact, claim or term from it appear in this passage? Answer `fails` if it does — this item asks about the exemplar's subject matter, never its shape."
+    },
+    {
+      "id": "concessions",
+      "class": "preserved",
+      "mode": "judged",
+      "declared_block": "grounds",
+      "recovered_field": "concessions",
+      "question": "Is any ground carried more weakly in the prose than the Packet declares it, with no concession recovered for it? Answer `fails` if a ground was softened silently."
+    },
+    {
+      "id": "purpose",
+      "class": "best-effort",
+      "mode": "judged",
+      "declared_block": "purpose",
+      "recovered_field": "purpose",
+      "question": "Do the declared purpose and the recovered one name the same job for this Step? Answer `fails` if the passage is doing a different job."
+    },
+    {
+      "id": "grounds-unused",
+      "class": "best-effort",
+      "mode": "mechanical",
+      "declared_block": "grounds",
+      "recovered_field": "claims"
+    },
+    {
+      "id": "already-knows",
+      "class": "best-effort",
+      "mode": "judged",
+      "declared_block": "already_knows",
+      "recovered_field": "terms_introduced",
+      "question": "Does the passage re-introduce a term the reader already knows — explaining again what an earlier Step established? Answer `fails` if it does."
+    },
+    {
+      "id": "restates-earlier-step",
+      "class": "best-effort",
+      "mode": "mechanical",
+      "declared_block": null,
+      "recovered_field": null
+    },
+    {
+      "id": "section-continues",
+      "class": "best-effort",
+      "mode": "judged",
+      "declared_block": "section_placement",
+      "recovered_field": "shape",
+      "question": "The Packet says whether this Step opens its Section or continues one. Where it CONTINUES, does the passage re-open the subject or restate the heading's claim? Answer `fails` if it does; answer `holds` where the Step opens its Section, since the item does not bind there."
+    },
+    {
+      "id": "register-tests",
+      "class": "best-effort",
+      "mode": "judged",
+      "declared_block": "register_tests",
+      "recovered_field": null,
+      "question": "Read the passage against the three register tests the Packet states, cited as its clauses. Answer `fails` if one of them is not met, naming which."
+    },
+    {
+      "id": "packet-wording",
+      "class": "best-effort",
+      "mode": "mechanical",
+      "declared_block": "grounds",
+      "also_declared_blocks": ["reader_state_after"],
+      "recovered_field": null
+    }
+  ]
+}
