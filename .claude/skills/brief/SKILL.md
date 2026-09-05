@@ -26,9 +26,12 @@ not exist: no gate is registered for it, and the runtime emits no such
 payload.
 
 **"Before the mint" is the whole of that bound** (§5.3 v19, kogaki#522). The
-completed flow raises **two** gates: this one, and §6's Candidate-selection
-gate at step 10. What v11 forbids is a second ask for a decision the owner has
-already made — never a second decision.
+completed flow raises **three** gates: this one, §6's Candidate-selection gate
+at step 10, and §4.12.3's specialization-ratification gate at step 12
+(kogaki#893). What v11 forbids is a second ask for a decision the owner has
+already made — never a second decision, which is why the third one is
+admissible: ratifying the specialization record is a decision nobody has been
+asked for at either earlier gate.
 
 **THIS SITS OUTSIDE TERRAIN.** Terrain ends at Strand exploration (owner
 correction 2026-08-09). This skill starts from a set the owner has ALREADY
