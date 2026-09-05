@@ -127,8 +127,15 @@ kogaki#494).
 8. **Review each path** across the six areas `src/review.mjs` names
    (`grounds_test`, `entailment`, `prohibitions`, `semantic_economy`,
    `arc_integrity`, `evaluation_levels`), then
-   `node src/review.mjs attach --candidates <json> --review <json> --out <reviewed.json>`.
+   `node src/review.mjs attach --candidates <json> --review <json> --brief theses/<slug>/brief.md --out <reviewed.json>`.
    Review does **not** fail a Candidate — see the revise routing below.
+   **`--brief` is required, and it is what makes §4.11's bound countable**
+   (kogaki#894): the slug names the run workspace `runs/brief/<slug>/`, where
+   the attach records each Candidate's rounds. Do **not** carry the count
+   yourself — the runtime refuses a third attach and states each Candidate's
+   round tally in its own output, so re-running the attach with the same
+   reasoning costs nothing and attaching *different* reasoning is what spends
+   the revise round.
 9. **Assemble the selection payload** —
    `node src/assemble.mjs assemble --reviewed <reviewed.json> --brief theses/<slug>/brief.md --out <selection.json>`.
    The runtime refuses a payload whose rendering leaks an internal identifier
@@ -230,7 +237,19 @@ two adjacent Steps, that Candidate routes **back to composition**, a Bridge
 Step is inserted, and the path is **re-reviewed** — then assembly. The routing
 is bounded at **one revise round** per Candidate; a Candidate whose gap
 survives its revise carries the residue to the selection gate rather than
-looping. A Bridge Step mints **no Move** — it is an ordinary §4.1 Step
+looping. **The Harness counts the round** (kogaki#894): `attach` records each
+Candidate's attaches in `runs/brief/<slug>/review-attach-ledger.json`, refuses
+a third naming the Candidate and the attaches it counted, and writes the
+residue entry itself onto a Candidate at the bound. **The residue rides the
+reviewed set and does not reach the owner** — the selection gate's options
+carry `id` and `label` alone since kogaki#859, the same hole the bridge
+disclosure already sits in — so do not describe it to the owner as something
+they will see. The bound used to live in
+the composing sitting's memory, which is to say nowhere a later act could
+read — a Candidate re-reviewed three times reached assembly with no refusal
+and no disclosure. **The residue entry is not yours to declare**: a Candidate
+arriving with its own `revise_residue` is refused, for the reason `bridges`
+one field over is model-declared and this is not. A Bridge Step mints **no Move** — it is an ordinary §4.1 Step
 recognised by its insertion contract, so nothing here reaches the Move
 substrate. Approval is **post-hoc**, and **its disclosure carrier is currently absent**:
 there is no per-Bridge question, and the bridge disclosure it relied on rode
