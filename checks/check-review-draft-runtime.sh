@@ -29,7 +29,25 @@
 # breaking the ruling it exists to mechanize. The ruling says a need for a
 # Brief, Move or Strand is a PACKET GAP filed against src/packet-template.md;
 # a case whose non-member fallback is REFUSE is what makes that a property
-# rather than a promise.
+# rather than a promise. `node:child_process` joined the allowlist at
+# kogaki#874 and the property is UNCHANGED rather than widened — the clause is
+# "only node builtins and ./runs.mjs", and a builtin is what it is. It is there
+# for one act: `correct` re-enters the realization lane as a subprocess,
+# because a corrected Step must be realized by the renderer that wrote the
+# Packets rather than by a second one written in the review Harness. The
+# reviewer still reads no Brief, no Move and no Strand, and the two store
+# literals asserted beside the allowlist are what would catch such a read
+# composed at runtime.
+#
+# AND kogaki#874's CORRECTION PATH, driven END TO END OVER A REAL DRAFT. This
+# is the one block in the pass that builds its Draft through `src/draft.mjs`
+# rather than by hand, and the reason is the property: `correct` re-renders the
+# Step's Packet against the article as it NOW stands, so a hand-written
+# stand-in for that Packet would be the pass checking that it can read its own
+# guess — and the "article so far" block, which IS the continuity mechanism the
+# owner's concern is about, is exactly the part a stand-in would invent. It
+# stays seam-free: a Brief, a Move store and two workspaces under the same temp
+# root, no network and no read of this repository's `theses/` or `runs/`.
 #
 # WHAT THE PASS DOES NOT EVIDENCE, stated rather than left to be assumed. The
 # issue's AC1 names a live drive against `theses/some-safety-properties-cannot-
@@ -41,11 +59,11 @@
 # at authoring and is reported as an observation, never as coverage.
 #
 # NOT CARRIED HERE, stated rather than implied: the cold reader's pairing
-# (kogaki#873) and the correction path with its bounded second pass
-# (kogaki#874). Those entry points are DECLARED by this runtime and refuse by
-# naming their issue; the pass asserts the refusal, never the behaviour that has
-# not been built. The recovered record's schema (kogaki#871) and the comparison
-# (kogaki#872) ARE carried, named here as landed rather than dropped from the
+# (kogaki#873). That entry point is DECLARED by this runtime and refuses by
+# naming its issue; the pass asserts the refusal, never the behaviour that has
+# not been built. The recovered record's schema (kogaki#871), the comparison
+# (kogaki#872) and the correction path with its bounded second pass
+# (kogaki#874) ARE carried, named here as landed rather than dropped from the
 # list, because a boundary that quietly stops being one cannot be told from a
 # boundary a reader misremembered.
 set -uo pipefail

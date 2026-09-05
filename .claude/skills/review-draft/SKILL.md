@@ -29,15 +29,15 @@ never satisfy it with a side read here.
     node src/review-draft.mjs recover --draft <draft.md> --step <id> --file <recovered>
     node src/review-draft.mjs read    --draft <draft.md> --section <n> --file <ledger>
     node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
-    node src/review-draft.mjs correct --draft <draft.md> --step <id> --file <prose>
-    node src/review-draft.mjs check   --draft <draft.md>
+    node src/review-draft.mjs correct --draft <draft.md> --step <id> [--file <prose>]
+    node src/review-draft.mjs check   --draft <draft.md> [--verdicts <verdicts.json>]
     node src/review-draft.mjs close   --draft <draft.md>
 
 `open` verifies the inputs, opens `runs/review/<slug>/` and renders the first
 recovery input. `recover` records one blind recovery and renders the next.
 `read` records the cold reader's entry for one Section. `compare` runs the join.
-`correct` records a re-realized Step and `check` runs the bounded second pass.
-`close` writes the owner record.
+`correct` renders a correction input and records the re-realized Step; `check`
+runs the bounded second pass. `close` writes the owner record.
 
 ## The comparison, and what the judging model is not asked
 
@@ -69,6 +69,44 @@ unfilled rather than rendering an empty findings list; `close` refuses over one.
 A Packet block the comparison needs and a Packet does not carry is a **Packet
 gap**: it refuses by name and is filed against `src/packet-template.md`, never
 satisfied by a side read.
+
+## The correction path, and what a corrected Step receives
+
+A corrected Step is realized from a **freshly rendered Packet**, never from the
+Packet that produced the failing prose. `correct` re-renders it against the
+Draft **as it now stands**, so the "article so far" block carries the current
+preceding prose — including Steps corrected earlier in the same pass — and the
+reader-knowledge ledger and Section block come with it. That block is the
+continuity mechanism, and rendering fresh is what keeps a corrected Step
+continuous with the article rather than drifting toward being self-contained.
+
+`correct` runs in two phases, like `compare`. With no `--file` it renders the
+input: the fresh Packet with **one Correction block** appended after the write
+instruction, carrying the previous realization verbatim, the findings that
+failed with their pairs and spans, the items that **held** as what the
+correction must not break, and the instruction to change what the findings name
+and nothing else. With `--file` it records the prose through the realization
+lane, so the Draft is re-assembled by the same code that wrote it, and snapshots
+land in the review workspace.
+
+**Corrections run in path order** and a Step out of order refuses — each later
+one must see the earlier ones in its own "article so far". Between the render
+and the recording the run is **mid-correction** on that Step and every other act
+refuses by name; the act that ends it is `correct --file`.
+
+**Drift is reported and never gated.** Per corrected Step the Harness states the
+share of sentences changed against the previous realization and the verbatim
+overlap with the Packet's ground and state lines, and both reach `review.md`. A
+high change share is what the owner reads as the Step becoming self-contained;
+it is information, not a refusal.
+
+`check` is pass two and is **bounded**: it re-runs the blind recovery for the
+corrected Steps, then re-judges their own failed and held preserved items, the
+two continuity items on each corrected Step's successor, and every mechanical
+item over the whole Draft. Every other pair is **carried** from pass one, marked
+as carried, at no model call. The bound is recorded in `check.json` rather than
+only applied. Pass two answers its own owed pairs through `check --verdicts`,
+never `compare`'s. A preserved item still failing after it is **residue**.
 
 ## The two readers, and why each is blind to something
 
