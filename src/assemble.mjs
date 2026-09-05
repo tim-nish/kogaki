@@ -47,7 +47,11 @@ function fail(msg) {
 // The composition-time reasoning each Candidate owes the gate, beside the
 // review areas the attach already guaranteed. The three levels are §4.6's
 // — observed, never scored — and the composer records them per Candidate.
-const REASONING_FIELDS = ["step_validity", "transition_continuity", "thesis_closure"];
+// EXPORTED (kogaki#859) so the guard SPEC §6 claims can derive this table's
+// key set rather than restate it: EVIDENCE_LABELS covers exactly these three
+// plus whatever `candidateEvidence` derives, and a literal copy in the check
+// would be a second declaration that drifts the first time either moves.
+export const REASONING_FIELDS = ["step_validity", "transition_continuity", "thesis_closure"];
 
 // THE OWNER READS THE GATE, NOT THE SPEC (kogaki#520). Every evidence item
 // keeps its internal key in the payload — that is the record, and the record
@@ -407,10 +411,16 @@ export function assembleSelection(reviewed, doc) {
     // Candidate, measured at ~6,400-7,090 characters each, about 20,000 above a
     // question whose three labels total under 900. The first run to measure
     // whether the owner read it found they did not, and decided on the labels
-    // alone. What is removed is the RENDERING PATH, never the reasoning: the
-    // `evidence` object above is unchanged, every field still composed and
-    // still written to the run record, so nothing is lost and a later ruling
-    // that one item is needed to decide adds that item back here.
+    // alone. What is removed is the RENDERING PATH **and the record copy**: the
+    // amendment to the ruling took the `evidence` object too, on the general
+    // position that "the run record holds what a later act reads". Nothing is
+    // lost, because every field this payload held was COPIED from inputs that
+    // survive untouched — the reasoning and review in `reviewed.json`, the rest
+    // derived on demand by `candidateEvidence` — so a later ruling that one item
+    // is needed to decide adds that item back here, reading it where it is
+    // composed. THIS COMMENT PREVIOUSLY SAID THE OBJECT WAS UNCHANGED AND STILL
+    // WRITTEN TO THE RUN RECORD, fifteen lines below the comment that removes
+    // it (kogaki#859, PR #863 round 2, carried finding 1).
     //
     // WHY EMPTY RATHER THAN SHORTER. The declined alternative was a one-line
     // disclosure saying the reasoning exists and is recorded elsewhere — the

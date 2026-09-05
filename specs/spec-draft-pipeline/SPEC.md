@@ -1,9 +1,11 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
-**Status:** v26, re-cut 2026-09-03 (kogaki#784) under kogaki#743's four
-criteria. No clause is amended by the re-cut: what left was carrier-held prose,
-version narrative and ratification quote-trail. **Governs** port manifest item
-2 — its structure half.
+**Status:** v27, amended 2026-09-05 (kogaki#859, PR #863 round 2) — §6's
+retention clause names the check case that carries it, after the claim it made
+was found carrier-less. v26, re-cut 2026-09-03 (kogaki#784) under kogaki#743's
+four criteria; no clause was amended by that re-cut, which took carrier-held
+prose, version narrative and ratification quote-trail. **Governs** port manifest
+item 2 — its structure half.
 
 ## What this file is for, and what it is not
 
@@ -1077,8 +1079,21 @@ clause giving way, not the implementation.
 run shows one evidence item is needed to decide, that item is added by its own
 ruling — the derivation (`candidateEvidence`) and the plain-label tables that
 would render it are retained for exactly this, and `checks/check-brief-compose.sh`
-asserts both stay fit to use. A ruling that restored the list wholesale would
-reproduce the defect this one records.
+**case (r)** asserts both stay fit to use: `EVIDENCE_LABELS` covers exactly
+`REASONING_FIELDS` plus the keys `candidateEvidence` derives, and `REVIEW_LABELS`
+exactly `REVIEW_AREAS`, in both directions, with every label non-blank and free of
+internal vocabulary. A ruling that restored the list wholesale would reproduce the
+defect this one records.
+
+**The case is NAMED here because this sentence previously claimed a guard that did
+not exist** (PR #863 round 2, carried finding 2). It asserted that the check
+"asserts both stay fit to use" while `REVIEW_LABELS` was asserted **nowhere** — its
+only reader was the rendering loop this ruling deleted, leaving an unused import as
+the sole trace — and `EVIDENCE_LABELS` for four of its ten keys. The retention
+argument above rests on exactly that coverage, so the claim was load-bearing and
+carrier-less at once: a contract tested against its own text is green about the
+document and silent about the tables. Naming the case is what makes the claim
+falsifiable rather than merely written down.
 
 **The declined alternative, recorded so it is not re-proposed blind:** a
 one-line disclosure at the gate saying the reasoning exists and is available
