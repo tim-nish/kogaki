@@ -58,14 +58,41 @@
 # fixture Draft, built in `emit`'s own shape. The live drive was performed once
 # at authoring and is reported as an observation, never as coverage.
 #
-# NOT CARRIED HERE, stated rather than implied: the cold reader's pairing
-# (kogaki#873). That entry point is DECLARED by this runtime and refuses by
-# naming its issue; the pass asserts the refusal, never the behaviour that has
-# not been built. The recovered record's schema (kogaki#871), the comparison
-# (kogaki#872) and the correction path with its bounded second pass
-# (kogaki#874) ARE carried, named here as landed rather than dropped from the
-# list, because a boundary that quietly stops being one cannot be told from a
-# boundary a reader misremembered.
+# AND kogaki#873's COLD READER. Three properties, one per acceptance item. The
+# INPUT'S BLINDNESS is asserted as STRING ABSENCE — the fixture Packets carry a
+# token that appears nowhere in the prose, and the rendered input must not carry
+# it — with a paired assertion that the body IS present, because an empty file
+# would satisfy the absence for the wrong reason, which is how a blindness test
+# most often fails. THE ENTRY SET is asserted at `read`, which now validates
+# against the table's own `sections.ledger_fields`: before kogaki#873 this entry
+# point recorded whatever file it was handed, so a Section could be "recorded"
+# by an empty file and the comparison would lay nothing against the heading and
+# report agreement. AND WHERE A SECTION FINDING GOES is asserted on ALL THREE
+# routes, because any one of them alone could be what the Harness answers for
+# every Section fail: a fixture where every Step holds and a heading is replaced
+# yields one `upstream: brief` residue line and zero correction targets; its
+# control — a Step already failing in the same Section — localizes there
+# instead; and a third, added at PR #930 round 1, drives a Step to
+# `cannot-decide` on the localizing item and asserts the Section routes
+# `undecided` — NOT localized, which would hand a correction target to a
+# reviewer who declined to decide, and NOT upstream, whose own premise is that
+# every Step holds.
+#
+# AND THE RENDERERS SUBSTITUTE THE ARTICLE LAST, asserted with a Draft that
+# quotes a template slot in its own prose. That is the ordinary case here rather
+# than the adversarial one — this repository's live Draft is about this
+# pipeline — and the fixture written for the cold reader's renderer refused on
+# the RECOVERY renderer first, which is how the same ordering was found at its
+# second site. The template's authoring comment is split off before any fixture
+# mutates it: the renderer strips that comment, so an edit there reaches nothing
+# and the case would pass while asserting about a file the renderer never saw.
+#
+# EVERY DECLARED BOUNDARY IS NOW CARRIED, named here as landed rather than
+# dropped from the list, because a boundary that quietly stops being one cannot
+# be told from a boundary a reader misremembered: the recovered record's schema
+# (kogaki#871), the comparison (kogaki#872), the cold reader (kogaki#873) and
+# the correction path with its bounded second pass (kogaki#874). Figures remain
+# out of scope for this batch (kogaki#869) and are not a hole here.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 

@@ -83,7 +83,11 @@
       "heading": "The Section this Step sits in",
       "after_words": "one, and the line below says which. Where it continues, the heading is already on the page and you are writing further into it: do not restate the heading's claim, and do not open a new subject."
     },
-    "register_tests": { "kind": "paragraph", "opens_with": "**Plain register, operationally:**" }
+    "register_tests": { "kind": "paragraph", "opens_with": "**Plain register, operationally:**" },
+
+    "thesis": { "kind": "bullet", "label": "Thesis" },
+    "opening_question": { "kind": "bullet", "label": "Opening question" },
+    "reader_state_before": { "kind": "bullet", "label": "reader_state_before" }
   },
 
   "pass_two": {
@@ -97,13 +101,21 @@
         "restating this table.",
         "",
         "`successor_items` is TWO ids and the issue names the properties they",
-        "carry: `reader_state_before` continuity and `restates`. The Packet",
-        "renders a `reader_state_before` slot and this table declares NO",
-        "reader for it -- the block that carries the reader's INCOMING state",
-        "is `already_knows`, which is what `already-knows` compares -- so the",
-        "continuity item is that one rather than a new item over a block",
-        "nothing reads. Both are best-effort, which is the qualifier the",
-        "issue's own sentence carries.",
+        "carry: `reader_state_before` continuity and `restates`. NO STEP ITEM",
+        "reads the Packet's `reader_state_before` slot -- the block carrying",
+        "the reader's INCOMING state on the Step side is `already_knows`,",
+        "which is what `already-knows` compares -- so the continuity item is",
+        "that one rather than a new item over a block no STEP item reads.",
+        "Both are best-effort, which is the qualifier the issue's own",
+        "sentence carries.",
+        "",
+        "NARROWED AT kogaki#873, which declares a reader for that block. This",
+        "clause read `this table declares NO reader for it`, flatly, and the",
+        "Section pair `section-belief-before` now reads exactly it. The",
+        "argument above is untouched -- it was always about which STEP item",
+        "carries incoming-state continuity -- and the sentence is narrowed to",
+        "what it was arguing rather than left standing as a false fact about",
+        "the table.",
         "",
         "`restates-earlier-step` is ALSO mechanical, so it is in the bound",
         "twice over: once for every Step and once as a successor item. That",
@@ -132,6 +144,112 @@
     ],
     "claim_ground_containment": 0.34,
     "verbatim_overlap_words": 8
+  },
+
+  "sections": {
+    "note": [
+      "THE COLD READER'S PAIRING TABLE, fixed in the Harness (kogaki#873).",
+      "",
+      "A Section declares exactly ONE thing in the Brief: its heading, the",
+      "promise that the question changes here (DESIGN.md 2.1). Its reader path",
+      "is derivable from the trace and the Packets -- the first Step's",
+      "`reader_state_before` and the last Step's `reader_state_after` -- so NO",
+      "SECTION-LEVEL STEP IS MINTED. One would be a second authoring seat on",
+      "structure, and this table exists so that none is needed.",
+      "",
+      "The cold reader reads the BODY ONLY: frontmatter stripped, no Packet",
+      "content. After each Section it records the question that Section",
+      "answered and what it now believes; at the end it records what the",
+      "article claimed. The pairs below are what the Harness lays those entries",
+      "against, and `class` is the CONSEQUENCE exactly as it is for the Step",
+      "items. The verdict vocabulary is the same three tokens, shared rather",
+      "than re-declared: `cannot-decide` is not rounded here either.",
+      "",
+      "WHAT DIFFERS IS WHERE A FAIL GOES. ReviewDraft corrects at Step",
+      "granularity only, so a Section fail either LOCALIZES to a Step or routes",
+      "UPSTREAM to the Brief as residue. Which pairs exist and what each costs",
+      "are this table's; the routing rules are the runtime's.",
+      "",
+      "`declared.from` names WHERE the declared side is read: `section_title`",
+      "from the trace, `first_step`/`last_step` from that Step's own Packet,",
+      "`any_packet` for a block every Packet carries identically because it is",
+      "a fixed point of the whole article. `recovered.from` names which ledger",
+      "entry answers: this Section's, the previous Section's, or the final",
+      "claim.",
+      "",
+      "`vacuous_when` is how an item that asks about ONE Section says so, rather",
+      "than the runtime knowing which items are special. It is the ONLY key that",
+      "decides it: a companion `binds` was declared here at first and read",
+      "nowhere, so a later row whose two keys disagreed would have bound by one",
+      "and read as binding by the other -- the two-copy divergence the",
+      "packet_blocks note argues against, grown inside the table that argues it",
+      "(PR #930 round 1). Which Section an item binds on is readable from its",
+      "`vacuous_when` and is stated again in its `vacuous_sentence`, for the",
+      "reader rather than for the runtime.",
+      "",
+      "A vacuous pair is decided by the Harness with the table's own sentence and",
+      "costs no model call -- it is not skipped, because a skipped pair and a",
+      "pair that held are the same silence to a reader.",
+      "",
+      "`localizing_item` is the STEP item a Section fail localizes on when no",
+      "Step in the Section has failed a preserved item outright: the first Step",
+      "whose recovered reader state does not hold is where the Section's own",
+      "reader path came apart. It is named here rather than in the runtime for",
+      "the reason the packet_blocks note gives -- an item id spelled out in the",
+      "runtime cannot be told from one restating this table."
+    ],
+
+    "ledger_fields": {
+      "question": { "prompt": "the question this Section answered, in one line" },
+      "belief": { "prompt": "what you now believe, having read it, in one or two sentences" }
+    },
+    "final_claim_field": "claim",
+
+    "localizing_item": "reader-state-after",
+
+    "items": [
+      {
+        "id": "section-question",
+        "class": "preserved",
+        "declared": { "from": "section_title" },
+        "recovered": { "from": "entry", "field": "question" },
+        "question": "Does the question this reader says the Section answered match what its heading promises? Answer `fails` if the heading promises a different question, or promises one the reader did not find answered."
+      },
+      {
+        "id": "section-belief-after",
+        "class": "preserved",
+        "declared": { "from": "last_step", "block": "reader_state_after" },
+        "recovered": { "from": "entry", "field": "belief" },
+        "question": "Do the declared reader state at the Section's end and what this reader now believes describe the same reader? Answer `fails` if a reader holding the recovered belief would not be in the declared state."
+      },
+      {
+        "id": "section-belief-before",
+        "class": "best-effort",
+        "declared": { "from": "first_step", "block": "reader_state_before" },
+        "recovered": { "from": "previous_entry", "field": "belief" },
+        "vacuous_when": "no_previous_entry",
+        "vacuous_sentence": "this is the article's first Section, so no previous entry declares what the reader arrived believing",
+        "question": "The reader arrives at this Section holding what the previous Section left them with. Does that match the state the Section's first Step declares it starts from? Answer `fails` if the Section starts from a reader who does not exist yet."
+      },
+      {
+        "id": "final-claim",
+        "class": "preserved",
+        "declared": { "from": "any_packet", "block": "thesis" },
+        "recovered": { "from": "final_claim" },
+        "vacuous_when": "not_last_section",
+        "vacuous_sentence": "the final claim is recorded once for the whole Draft and is paired at its last Section",
+        "question": "Is what this reader says the article claimed the article's thesis? Answer `fails` if the recovered claim is a different claim, or a weaker or a wider one."
+      },
+      {
+        "id": "opening-question",
+        "class": "best-effort",
+        "declared": { "from": "any_packet", "block": "opening_question" },
+        "recovered": { "from": "entry", "field": "belief" },
+        "vacuous_when": "not_first_section",
+        "vacuous_sentence": "this item asks what the first Section did with the opening question, and binds there only",
+        "question": "After this first Section, is the article's opening question answered, or deliberately held open? Answer `fails` if the reader's belief neither answers it nor leaves it open -- if the question has simply been dropped."
+      }
+    ]
   },
 
   "items": [

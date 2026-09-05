@@ -45,15 +45,16 @@
 // Packet, and the owner classifies which.
 //
 // WHAT THIS ARTIFACT DOES NOT OWN, stated so a reader can tell a boundary from
-// a hole. The cold reader's pairing rules are kogaki#873, registered in the
-// dispatcher below and refusing by naming its issue, so the surface this file
-// declares is the surface a later child fills rather than one it has to
-// discover. The recovery input's record schema (kogaki#871), the item classes,
-// the three-valued verdict and the mechanical checks (kogaki#872), and the
-// correction path with its bounded second pass (kogaki#874) are FILLED — named
-// here as landed rather than dropped from the list, because a boundary that
-// quietly stops being one cannot be told from a boundary a reader
-// misremembered.
+// a hole. EVERY DECLARED BOUNDARY IS NOW FILLED, and each is named here as
+// landed rather than dropped from the list, because a boundary that quietly
+// stops being one cannot be told from a boundary a reader misremembered: the
+// recovery input's record schema (kogaki#871); the item classes, the
+// three-valued verdict and the mechanical checks (kogaki#872); the cold
+// reader's Section pairing and where a Section finding goes (kogaki#873); and
+// the correction path with its bounded second pass (kogaki#874).
+//
+// FIGURES REMAIN OUT OF SCOPE for this batch (kogaki#869) — they change the
+// Step schema and the Packet, so they are a later batch and not a hole here.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname, basename, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -382,22 +383,134 @@ function renderRecoveryInput(ws, draft, step, steps) {
   // NOT part of the reviewer's input — stripped so the rendered file is exactly
   // what the reviewer reads and nothing more. Inherited from the Packet render.
   out = out.replace(/^<!--[\s\S]*?-->\n*/, "");
+  // THE ARTICLE'S OWN TEXT GOES IN LAST, AND THE SLOT CHECK RUNS BEFORE IT
+  // (PR #930 round 1, finding 4, found at its second site by that finding's own
+  // fixture). `article_so_far` and `step_prose` are the two slots whose content
+  // this Harness does not write, and an article about this pipeline can quote a
+  // template slot in its own prose — this repository's live Draft is exactly
+  // that. Substituting them first made the article part of the template: prose
+  // saying `{{recover_command}}` had the command written into it, and prose
+  // saying any other `{{word}}` made the render refuse that "the renderer and
+  // the template disagree about the slot set", which is false and names a
+  // repair the Draft's author cannot perform. The finding was raised against
+  // the cold reader's renderer; it was the same ordering here, and the fixture
+  // written for it refused on THIS function first.
+  const ARTICLE_SLOTS = { article_so_far: articleBefore(steps, step.step_id), step_prose: numberedProse(step) };
   const fields = {
     step_id: step.step_id,
-    article_so_far: articleBefore(steps, step.step_id),
     step_lines: `${step.lines[0]}–${step.lines[1]}`,
-    step_prose: numberedProse(step),
     recover_command: `node src/review-draft.mjs recover --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${step.step_id} --file <recovered.json>`,
   };
   for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
-  const left = out.match(/\{\{(\w+)\}\}/);
+  let probe = out;
+  for (const k of Object.keys(ARTICLE_SLOTS)) probe = probe.split(`{{${k}}}`).join("");
+  const left = probe.match(/\{\{(\w+)\}\}/);
   if (left) {
     fail(`the recovery template's slot {{${left[1]}}} was not filled — the renderer and the `
       + "template disagree about the slot set, which is the round trip failing silently");
   }
+  for (const k of Object.keys(ARTICLE_SLOTS)) {
+    if (!out.includes(`{{${k}}}`)) {
+      fail(`the recovery template carries no {{${k}}} slot, so the rendered input would be an `
+        + "instruction with no prose under it — a reviewer handed that would answer from nothing");
+    }
+  }
+  for (const [k, v] of Object.entries(ARTICLE_SLOTS)) out = out.split(`{{${k}}}`).join(v);
   const dir = join(ws, "recovery");
   mkdirSync(dir, { recursive: true });
   const dest = join(dir, `${step.step_id}.md`);
+  writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
+  return dest;
+}
+
+// ---------------------------------------------------------------------------
+// THE COLD READER'S INPUT (kogaki#873). The Draft BODY, and nothing else.
+//
+// THIS READER'S IGNORANCE IS WIDER THAN THE STEP REVIEWER'S, which is the whole
+// reason it is a second instrument rather than a second question to the first.
+// The Step reviewer sees one passage and the article before it; this one sees
+// the whole body and no Packet, no trace, no frontmatter and no Step boundary.
+// It answers what the article did to it, and the Harness is what knows what the
+// article was supposed to do.
+//
+// STEP BOUNDARIES ARE NOT RENDERED, deliberately. Half of what the Section
+// pairs measure is whether a Section reads as one movement, and marking the
+// seams would tell the reader where to expect them.
+//
+// THE BODY IS RENDERED VERBATIM, never re-assembled from the trace's Steps the
+// way `articleBefore` assembles it. That is not a shortcut: the body is what a
+// reader actually meets, and re-assembling it would silently drop anything the
+// Draft carries between Steps. It also makes the blindness property STRUCTURAL
+// rather than argued — the body is the article, so it cannot contain a string
+// that occurs only in a Packet, and the fixture asserts exactly that.
+function numberedBody(draft) {
+  // The body's first line, 1-based over the FILE: the closing `---` sits at
+  // `frontmatterEnd`, `readDraft` skips the blank line after it, and file
+  // numbering is 1-based. The trace's own ranges are in this coordinate system,
+  // so the reader's spans and the Harness's are the same numbers.
+  const first = draft.frontmatterEnd + 3;
+  const lines = draft.body.split("\n");
+  const width = String(first + lines.length - 1).length;
+  return lines.map((l, i) => `${String(first + i).padStart(width, " ")} | ${l}`).join("\n");
+}
+
+// The ledger entry's shape, rendered from the item table rather than written
+// into the template. A template naming its own fields and a table naming them
+// too is the two-copy divergence `src/recovered-schema.json` is arranged to
+// avoid one layer over: `read` validates against the table, so the instruction
+// a reader follows and the rule they are judged by are one edit.
+function ledgerShape(items) {
+  const f = (items.sections || {}).ledger_fields;
+  const keys = f ? Object.keys(f) : [];
+  if (!keys.length) {
+    fail("the item table declares no `sections.ledger_fields`, and the cold reader's entry is "
+      + "what the Section pairs are laid against. A template rendered with no field list would "
+      + "ask for a record whose shape nobody declared.");
+  }
+  return "```json\n{ " + keys.map((k) => `"${k}": "…"`).join(", ") + " }\n```\n\n"
+    + keys.map((k) => `- \`${k}\` — ${f[k].prompt}`).join("\n");
+}
+
+function renderColdReaderInput(ws, draft, run, items) {
+  const tplPath = join(dirname(fileURLToPath(import.meta.url)), "cold-reader-template.md");
+  if (!existsSync(tplPath)) {
+    fail(`the cold reader's template is absent — ${tplPath}. It is that reader's entire input, so `
+      + "a missing template is a hole the reader fills by invention; this refuses rather than "
+      + "handing over a body with no instruction.");
+  }
+  let out = readFileSync(tplPath, "utf8").replace(/^<!--[\s\S]*?-->\n*/, "");
+  const rel = relative(process.cwd(), draft.path) || draft.path;
+  const n = run.sections.length;
+  const fields = {
+    slug: run.slug,
+    section_count: `${n} Section${n === 1 ? "" : "s"}, in order`,
+    ledger_shape: ledgerShape(items),
+    read_command: `node src/review-draft.mjs read --draft ${rel} --section <n> --file <entry.json>`,
+    claim_command: `node src/review-draft.mjs read --draft ${rel} --claim --file <claim.json>`,
+  };
+  // THE BODY GOES IN LAST, AND THE SLOT CHECK RUNS BEFORE IT (round 1, finding
+  // 4). The body is the one field whose content this Harness does not write,
+  // and an article about this pipeline can quote a template slot in its own
+  // prose. Substituting it first made that prose part of the template: a Draft
+  // saying `{{read_command}}` had the command written into it, and one saying
+  // any other `{{word}}` made `open` refuse that "the renderer and the template
+  // disagree about the slot set" — false, and naming a repair the author of the
+  // Draft cannot perform. Filling every slot the Harness owns, checking, and
+  // only then dropping the body in means the check reads the TEMPLATE and never
+  // the article.
+  for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
+  const left = out.replace("{{body}}", "").match(/\{\{(\w+)\}\}/);
+  if (left) {
+    fail(`the cold reader's template slot {{${left[1]}}} was not filled — the renderer and the `
+      + "template disagree about the slot set, which is the round trip failing silently");
+  }
+  if (!out.includes("{{body}}")) {
+    fail("the cold reader's template carries no {{body}} slot, so the rendered input would be an "
+      + "instruction with no article under it — a reader handed that would answer from nothing");
+  }
+  out = out.split("{{body}}").join(numberedBody(draft));
+  const dest = join(ws, "cold-reader.md");
+  mkdirSync(ws, { recursive: true });
   writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
   return dest;
 }
@@ -548,6 +661,10 @@ function cmdOpen(args) {
     recovered: {},
     correction_inputs: {},
     ledger: {},
+    final_claim: null,
+    section_findings: [],
+    section_routes: [],
+    section_residue: [],
     findings: [],
     corrections: [],
     residue: [],
@@ -559,6 +676,14 @@ function cmdOpen(args) {
   const first = steps[0];
   const input = renderRecoveryInput(ws, draft, first, steps);
   run.rendered[first.step_id] = input;
+  // THE COLD READER'S INPUT IS RENDERED AT `open`, WHOLE, and not one Section at
+  // a time (kogaki#873). It is one document because the reader is one reader:
+  // rendering per Section would hand out the body in pieces and make "read on"
+  // an instruction the Harness gives rather than the article's own. The reader
+  // is told to record each entry BEFORE reading further, which is a property of
+  // how they read and not something a renderer can enforce.
+  const cold = renderColdReaderInput(ws, draft, run, readItems());
+  run.cold_reader_input = cold;
   writeRun(ws, run);
 
   process.stdout.write(
@@ -568,7 +693,8 @@ function cmdOpen(args) {
     + `  sections  ${sections.length} — ${sections.map((s) => `${s.index}. ${s.title ?? "(untitled)"}`).join(" | ")}\n`
     + `  packets   ${steps.length} verified against the trace's shas\n`
     + `  workspace ${ws}\n`
-    + `\nfirst recovery input: ${input}\n`);
+    + `\nfirst recovery input: ${input}\n`
+    + `cold reader input:    ${cold}\n`);
 }
 
 function cmdRecover(args) {
@@ -626,42 +752,151 @@ function cmdRecover(args) {
     + `\`read --section <n> --file <ledger>\`.\n`);
 }
 
+// ---------------------------------------------------------------------------
+// `read` — recording the cold reader's Section ledger and its final claim
+// (kogaki#873).
+//
+// THE ENTRY IS VALIDATED, AND THAT IS THE CHANGE kogaki#873 MAKES HERE. The
+// entry point recorded whatever file it was handed, so a Section could be
+// "recorded" by an empty file and `compare` would then lay nothing against the
+// heading and report agreement. What a Section entry must carry is
+// `sections.ledger_fields` in the item table — read here rather than restated,
+// the same arrangement `validateRecovered` has with the recovered schema, so
+// the shape the template ASKS for and the shape `read` ACCEPTS cannot diverge.
+//
+// EVERY FIELD IS ONE THE READER CAN ANSWER FROM THE PROSE ALONE. There is no
+// field here whose honest answer needs the Packet: a reader asked for something
+// only the plan holds would go looking for the plan, and the blindness this
+// instrument rests on would end at that field.
+
+// One entry, as JSON. The refusal names the field and the Section, because a
+// reviewer who has written three entries and mis-shaped one needs to know which.
+function validateLedgerEntry(text, n, file, items) {
+  const spec = (items.sections || {}).ledger_fields || {};
+  const keys = Object.keys(spec);
+  let doc;
+  try { doc = JSON.parse(text); }
+  catch (e) {
+    fail(`the Section ${n} entry at ${file} is not readable JSON (${e.message}) — an entry is one `
+      + `JSON object carrying ${keys.map((k) => `\`${k}\``).join(" and ")}`);
+  }
+  if (doc === null || typeof doc !== "object" || Array.isArray(doc)) {
+    fail(`the Section ${n} entry at ${file} is not a JSON object — an entry is one object carrying `
+      + `${keys.map((k) => `\`${k}\``).join(" and ")}`);
+  }
+  const problems = [];
+  for (const k of keys) {
+    const v = doc[k];
+    if (v === undefined) { problems.push(`\`${k}\` is absent — ${spec[k].prompt}`); continue; }
+    if (typeof v !== "string" || v.trim() === "") {
+      problems.push(`\`${k}\` is empty — ${spec[k].prompt}. An empty field is not an answer: the `
+        + "pair it feeds would be laid against nothing and would report agreement");
+    }
+  }
+  // A FIELD THE TABLE DOES NOT DECLARE IS REFUSED BY NAME. An entry carrying a
+  // fourth field is a reader answering a question nobody asked, and silently
+  // dropping it would leave them believing it was read.
+  const extra = Object.keys(doc).filter((k) => !keys.includes(k));
+  if (extra.length) {
+    problems.push(`${extra.map((k) => `\`${k}\``).join(", ")} ${extra.length === 1 ? "is a field" : "are fields"} `
+      + `the ledger does not declare — a Section entry carries ${keys.map((k) => `\`${k}\``).join(" and ")} `
+      + "and nothing else");
+  }
+  if (problems.length) {
+    fail(`the Section ${n} entry at ${file} was not recorded:\n  - ${problems.join("\n  - ")}`);
+  }
+  const out = {};
+  for (const k of keys) out[k] = doc[k].trim();
+  return out;
+}
+
 function cmdRead(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft read --draft <draft.md> --section <n> --file <ledger>");
-  const file = argString(args, "file", "usage: review-draft read --draft <draft.md> --section <n> --file <ledger>");
-  const raw = args.section;
-  const n = typeof raw === "string" ? Number(raw) : NaN;
-  if (!Number.isInteger(n)) fail("usage: review-draft read --draft <draft.md> --section <n> --file <ledger> (n is the Section's index)");
+  const usage = "usage: review-draft read --draft <draft.md> --section <n> --file <entry.json>\n"
+    + "       review-draft read --draft <draft.md> --claim --file <claim.json>";
+  const draftPath = argString(args, "draft", usage);
+  const file = argString(args, "file", usage);
   const draft = readDraft(draftPath);
   const ws = workspaceFor(args, slugOf(draftPath));
   const run = readRun(ws);
   requireCurrent(run, draft);
+  const items = readItems();
+  if (!existsSync(file)) fail(`no cold-reader entry at ${file}`);
+  const text = readFileSync(file, "utf8");
+  const dir = join(ws, "ledger");
+  mkdirSync(dir, { recursive: true });
 
-  const known = run.sections.map((s) => s.index);
+  // THE FINAL CLAIM IS ONE RECORD FOR THE WHOLE DRAFT, not a Section's. It is
+  // recorded through this same entry point rather than a command of its own,
+  // because it is the same act by the same reader at the end of the same read —
+  // and a separate command would let a run reach `compare` having taken one and
+  // not the other with nothing saying they belonged together.
+  if (args.claim !== undefined) {
+    if (args.section !== undefined) {
+      fail("`--claim` records the final claim for the whole Draft and `--section` records one "
+        + `Section's entry — a call carrying both is asking for two records at once.\n${usage}`);
+    }
+    const key = (items.sections || {}).final_claim_field;
+    if (!key) {
+      fail("the item table declares no `sections.final_claim_field`, and the final claim is what "
+        + "the article's thesis is laid against. A claim recorded under a field nobody declared "
+        + "would be compared against nothing.");
+    }
+    let doc;
+    try { doc = JSON.parse(text); }
+    catch (e) {
+      fail(`the final claim at ${file} is not readable JSON (${e.message}) — it is one JSON object `
+        + `of the form {"${key}": "…"}`);
+    }
+    const v = doc && !Array.isArray(doc) && typeof doc === "object" ? doc[key] : undefined;
+    if (typeof v !== "string" || v.trim() === "") {
+      fail(`the final claim at ${file} carries no \`${key}\` — one or two sentences saying what the `
+        + "article claimed, in the reader's own words. An empty claim would be laid against the "
+        + "thesis and would report agreement.");
+    }
+    const out = join(dir, "final-claim.json");
+    writeFileSync(out, JSON.stringify({ [key]: v.trim() }, null, 2) + "\n");
+    run.final_claim = out;
+    writeRun(ws, run);
+    const owed = run.sections.map((x) => x.index).filter((i) => !run.ledger[String(i)]);
+    process.stdout.write(`recorded: the final claim -> ${out}\n`
+      + (owed.length ? `sections still owed: ${owed.join(", ")}\n`
+        : "every Section entry and the final claim are recorded.\n"));
+    return;
+  }
+
+  const raw = args.section;
+  const n = typeof raw === "string" ? Number(raw) : NaN;
+  if (!Number.isInteger(n)) fail(`${usage}\n(n is the Section's index)`);
+  const known = run.sections.map((x) => x.index);
   if (!known.includes(n)) {
     fail(`unknown section ${n} — this Draft's Sections are ${known.join(", ")}`);
   }
-  if (!existsSync(file)) fail(`no Section ledger entry at ${file}`);
-
-  const dir = join(ws, "ledger");
-  mkdirSync(dir, { recursive: true });
-  const out = join(dir, `section-${n}${file.endsWith(".json") ? ".json" : ".md"}`);
-  writeFileSync(out, readFileSync(file, "utf8"));
+  const entry = validateLedgerEntry(text, n, file, items);
+  const out = join(dir, `section-${n}.json`);
+  writeFileSync(out, JSON.stringify(entry, null, 2) + "\n");
   run.ledger[String(n)] = out;
   writeRun(ws, run);
 
   const owed = known.filter((i) => !run.ledger[String(i)]);
   process.stdout.write(`recorded: section ${n} -> ${out}\n`
-    + (owed.length ? `sections still owed: ${owed.join(", ")}\n` : "every Section entry is recorded.\n"));
+    + (owed.length ? `sections still owed: ${owed.join(", ")}\n`
+      : run.final_claim ? "every Section entry and the final claim are recorded.\n"
+        : "every Section entry is recorded. The final claim is what `compare` still owes — "
+          + "`read --claim --file <claim.json>`.\n"));
 }
 
 // What `compare` is missing, computed once and rendered as the refusal's whole
 // content: a reviewer told "something is missing" has to go looking, and the
 // looking is the part the Harness can do.
+//
+// THE FINAL CLAIM IS A THIRD KIND OF MISSING (kogaki#873), reported beside the
+// Steps and the Sections rather than folded into either. It is one record for
+// the whole Draft, so naming it by a Section number would send a reviewer to
+// re-read a Section they already recorded.
 function missingFor(run) {
   const steps = run.steps.map((s) => s.step_id).filter((id) => !run.recovered[id]);
   const sections = run.sections.map((s) => s.index).filter((i) => !run.ledger[String(i)]);
-  return { steps, sections };
+  return { steps, sections, claim: !run.final_claim };
 }
 
 // ---------------------------------------------------------------------------
@@ -850,6 +1085,31 @@ function wordSequence(s) {
     .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"));
 }
 
+// ONE BLOCK, OUT OF ONE PACKET, refusing BY NAME on a block the Packet does not
+// carry. Both sides of the review read a Packet block through here — the Step
+// items and, since kogaki#873, the Section pairs — so a Packet gap is one
+// refusal with one wording however it was reached, and a second reader cannot
+// grow beside this one and disagree with it about what the Packet's shape is.
+function readPacketBlock(text, name, items, step, wantedBy) {
+  const spec = (items.packet_blocks || {})[name];
+  const reader = spec && PACKET_READERS[spec.kind];
+  if (!reader) {
+    fail(`the item table names the Packet block \`${name}\`, which this Harness has no reader for `
+      + "— the table and the runtime disagree about the Packet's shape, and a comparison run "
+      + "against a block nobody reads would report agreement it never checked");
+  }
+  const v = reader(text, spec);
+  if (v === null) {
+    fail(`step ${step.step_id}: its Packet carries no \`${name}\` block, which the item(s) `
+      + `${wantedBy.join(", ")} compare against.\n  packet  ${step.packet_path}\n`
+      + "A block the comparison needs and the Packet does not carry is a PACKET GAP: file it "
+      + "against src/packet-template.md. It is never satisfied by reading the Brief, the Move "
+      + "or the Strand — the owner's 2026-09-04 ruling is that a need for those is evidence "
+      + "the Packet is missing information.");
+  }
+  return v;
+}
+
 // The declared side for one Step, read once and refusing BY NAME on the first
 // block an item needs and the Packet does not carry.
 function declaredFor(step, items) {
@@ -861,25 +1121,9 @@ function declaredFor(step, items) {
   }
   const out = {};
   for (const name of need) {
-    const spec = (items.packet_blocks || {})[name];
-    const reader = spec && PACKET_READERS[spec.kind];
-    if (!reader) {
-      fail(`the item table names the Packet block \`${name}\`, which this Harness has no reader for `
-        + "— the table and the runtime disagree about the Packet's shape, and a comparison run "
-        + "against a block nobody reads would report agreement it never checked");
-    }
-    const v = reader(text, spec);
-    if (v === null) {
-      const wanted = items.items.filter((i) => i.declared_block === name
-        || (i.also_declared_blocks || []).includes(name)).map((i) => i.id);
-      fail(`step ${step.step_id}: its Packet carries no \`${name}\` block, which the item(s) `
-        + `${wanted.join(", ")} compare against.\n  packet  ${step.packet_path}\n`
-        + "A block the comparison needs and the Packet does not carry is a PACKET GAP: file it "
-        + "against src/packet-template.md. It is never satisfied by reading the Brief, the Move "
-        + "or the Strand — the owner's 2026-09-04 ruling is that a need for those is evidence "
-        + "the Packet is missing information.");
-    }
-    out[name] = v;
+    const wanted = items.items.filter((i) => i.declared_block === name
+      || (i.also_declared_blocks || []).includes(name)).map((i) => i.id);
+    out[name] = readPacketBlock(text, name, items, step, wanted);
   }
   return out;
 }
@@ -1351,6 +1595,280 @@ function buildJoin(draft, run, items, ws, opts = {}) {
   return { results, owed, modelCalls, mechanicalLog, steps };
 }
 
+// ---------------------------------------------------------------------------
+// THE SECTION JOIN (kogaki#873). The cold reader's ledger, laid against what the
+// trace and the Packets declare about each Section.
+//
+// NO SECTION-LEVEL STEP IS MINTED, and this join is why none is needed. A
+// Section declares exactly one thing in the Brief — its heading, the promise
+// that the question changes here — and its reader path is DERIVABLE: the first
+// Step's `reader_state_before` and the last Step's `reader_state_after`. A
+// Section Step would be a second authoring seat on structure, answering a
+// question the Steps it groups already answer between them.
+//
+// THE PAIRS AND THEIR CLASSES ARE THE TABLE'S; the routing is this runtime's.
+// That split is the same one the Step half makes, and it matters more here:
+// ReviewDraft corrects at Step granularity only, so what a Section fail COSTS
+// is not a class on the item but a route out of the Section, and only a route
+// can be computed.
+
+// A Section as the judging model reads it: one pseudo-Step, so the join
+// template and `numberedProse` are reused rather than a second rendering path
+// growing beside them. The prose is the DRAFT'S OWN LINES over the Section's
+// span, heading included — the Section as the reader met it, not the Steps
+// re-assembled, which would drop whatever the Draft carries between them.
+function sectionAsStep(draft, run, sec, steps) {
+  const ids = new Set(sec.steps);
+  const mine = steps.filter((x) => ids.has(x.step_id));
+  if (!mine.length) {
+    fail(`section ${sec.index} groups no Step — the trace maps each Step to its Section, so a `
+      + "Section with none is a trace the Harness cannot lay a ledger entry against");
+  }
+  // The heading sits above the first Step's range; the Section's span opens at
+  // the heading because `section-question` is a pair against exactly it.
+  const headingAt = firstHeadingAbove(draft, mine[0].lines[0]);
+  const span = [headingAt === null ? mine[0].lines[0] : headingAt,
+    mine[mine.length - 1].lines[1]];
+  return {
+    step_id: `section:${sec.index}`,
+    lines: span,
+    prose: draft.lines.slice(span[0] - 1, span[1]).join("\n"),
+    first: mine[0],
+    last: mine[mine.length - 1],
+  };
+}
+
+// The nearest heading line at or above a Step's first line, within the body. A
+// Section whose heading the Draft does not carry is not an error here — the
+// span simply opens at the prose, and `section-question` still pairs against
+// the title the TRACE declares, which is the authority either way.
+function firstHeadingAbove(draft, line) {
+  const floor = draft.frontmatterEnd + 3;
+  for (let i = line; i >= floor; i--) {
+    if (/^#+\s+\S/.test(draft.lines[i - 1] ?? "")) return i;
+  }
+  return null;
+}
+
+// The declared side of one Section pair. Four sources, and each is a fact the
+// trace or a Packet already carries — nothing here reads a Brief, and the
+// `any_packet` source is the one that could have: a thesis is the Brief's, and
+// it reaches this reader through the Packet that carries it, which is the whole
+// of the owner's closed-input ruling applied to the Section half.
+function sectionDeclared(item, draft, sec, view, items) {
+  const from = (item.declared || {}).from;
+  const block = (item.declared || {}).block;
+  if (from === "section_title") {
+    if (typeof sec.title !== "string" || sec.title.trim() === "") {
+      fail(`section ${sec.index} carries no title in the trace, and \`${item.id}\` pairs the `
+        + "reader's question against exactly that heading. A Section with no declared heading is "
+        + "an EMIT gap: the trace's `section_title` is what `emit` writes, and a pair laid against "
+        + "an absent heading would report agreement with nothing.");
+    }
+    return sec.title;
+  }
+  const step = from === "first_step" ? view.first : from === "last_step" ? view.last : null;
+  if (step) {
+    return readPacketBlock(readFileSync(step.packet_path, "utf8"), block, items, step, [item.id]);
+  }
+  if (from === "any_packet") {
+    // A FIXED POINT IS READ FROM EVERY PACKET AND MUST AGREE (kogaki#873). The
+    // template renders the thesis and the opening question into every Packet
+    // because they are fixed for the whole article; reading one Packet and
+    // trusting the rest would make a divergence — a Packet re-rendered from a
+    // moved Brief, say — invisible at exactly the join that would have caught
+    // it. Disagreement is refused by name rather than resolved by picking one.
+    const seen = new Map();
+    for (const st of view.all) {
+      const v = readPacketBlock(readFileSync(st.packet_path, "utf8"), block, items, st, [item.id]);
+      const k = JSON.stringify(v);
+      if (!seen.has(k)) seen.set(k, []);
+      seen.get(k).push(st.step_id);
+    }
+    if (seen.size > 1) {
+      fail(`the Packets disagree about \`${block}\`, which is a fixed point of the whole article `
+        + `and which \`${item.id}\` compares against:\n`
+        + [...seen.entries()].map(([k, ids]) => `  ${ids.join(", ")}: ${k}`).join("\n")
+        + "\nA fixed point that differs between Packets means the Steps were written against "
+        + "different articles. Re-render the Packets from the current Brief before reviewing.");
+    }
+    return [...seen.keys()].length ? JSON.parse([...seen.keys()][0]) : null;
+  }
+  fail(`the item table's Section pair \`${item.id}\` declares the source \`${from}\`, which this `
+    + "Harness has no reader for — the table and the runtime disagree about where a declared side "
+    + "comes from, and a pair read from nowhere would report agreement it never checked");
+}
+
+// The recovered side: which ledger entry answers this pair.
+function sectionRecovered(item, run, sec, order) {
+  const from = (item.recovered || {}).from;
+  const field = (item.recovered || {}).field;
+  const readEntry = (idx) => {
+    const path = run.ledger[String(idx)];
+    if (!path) return null;
+    try { return JSON.parse(readFileSync(path, "utf8")); }
+    catch (e) { fail(`the Section ${idx} ledger entry is not readable (${e.message}) — ${path}`); }
+  };
+  if (from === "entry") return (readEntry(sec.index) || {})[field] ?? null;
+  if (from === "previous_entry") {
+    const at = order.indexOf(sec.index);
+    return at <= 0 ? null : (readEntry(order[at - 1]) || {})[field] ?? null;
+  }
+  if (from === "final_claim") {
+    if (!run.final_claim) return null;
+    let doc;
+    try { doc = JSON.parse(readFileSync(run.final_claim, "utf8")); }
+    catch (e) { fail(`the final claim is not readable (${e.message}) — ${run.final_claim}`); }
+    return doc[item.recovered.field || "claim"] ?? Object.values(doc)[0] ?? null;
+  }
+  fail(`the item table's Section pair \`${item.id}\` declares the recovered source \`${from}\`, `
+    + "which this Harness has no reader for");
+}
+
+// Whether a pair is vacuous on this Section, and the table's own sentence for
+// saying so. A vacuous pair is DECIDED, never skipped: it renders a `holds` line
+// carrying the reason it did not bind, because a skipped pair and a pair that
+// held are the same silence to a reader of the output.
+function sectionVacuous(item, sec, order) {
+  const at = order.indexOf(sec.index);
+  const when = item.vacuous_when;
+  if (!when) return false;
+  if (when === "no_previous_entry") return at === 0;
+  if (when === "not_first_section") return at !== 0;
+  if (when === "not_last_section") return at !== order.length - 1;
+  fail(`the item table's Section pair \`${item.id}\` declares \`vacuous_when: ${when}\`, which `
+    + "this Harness has no test for — a vacuity condition nobody evaluates would make the pair "
+    + "bind everywhere or nowhere, and the two are indistinguishable in the output");
+}
+
+function buildSectionJoin(draft, run, items, ws) {
+  const table = items.sections || {};
+  if (!Array.isArray(table.items) || !table.items.length) {
+    fail("the item table declares no `sections.items`, so the cold reader's ledger would be "
+      + "recorded and never laid against anything — a review that collected a whole second "
+      + "reading and compared none of it reports agreement it never checked");
+  }
+  const { steps } = resolveInputs(draft);
+  const order = run.sections.map((s) => s.index);
+  const verdicts = run.verdicts || {};
+  const results = [];
+  const owed = [];
+  const modelCalls = [];
+  const mechanicalLog = [];
+
+  for (const sec of run.sections) {
+    const view = { ...sectionAsStep(draft, run, sec, steps), all: steps };
+    for (const item of table.items) {
+      const row = { section: sec.index, item: item.id, class: item.class, span: view.lines };
+      if (sectionVacuous(item, sec, order)) {
+        results.push({ ...row, decided_by: "harness", verdict: "holds",
+          reason: item.vacuous_sentence });
+        mechanicalLog.push({ section: sec.index, item: item.id });
+        continue;
+      }
+      const declared = sectionDeclared(item, draft, sec, view, items);
+      const recovered = sectionRecovered(item, run, sec, order);
+      const key = verdictKey(view.step_id, item.id, null);
+      const file = renderJoinPacket(ws, draft, view, item, null,
+        renderSide(declared), renderSide(recovered));
+      modelCalls.push({ section: sec.index, item: item.id, pair: null, packet: file });
+      const v = verdicts[key];
+      if (v) {
+        results.push({ ...row, decided_by: "model", verdict: v.verdict, reason: v.reason,
+          declared: renderSide(declared), recovered: renderSide(recovered) });
+      } else {
+        results.push({ ...row, owed: true });
+        owed.push({ key, step_id: view.step_id, section: sec.index, item: item.id, pair: null,
+          packet: file });
+      }
+    }
+  }
+  return { results, owed, modelCalls, mechanicalLog };
+}
+
+// WHERE A SECTION FINDING GOES (kogaki#873). ReviewDraft corrects at Step
+// granularity only, so a Section fail is routed rather than corrected:
+//
+//   1. it LOCALIZES when some Step in the Section already FAILS a preserved
+//      item, or when the per-Step recovered reader state first FAILS at a Step
+//      — that Step is the correction target;
+//   2. and when every Step in the Section holds and the Section still fails,
+//      the GROUPING is wrong: the heading promises what the Steps it groups do
+//      not deliver. That is a Brief defect. It goes to residue as
+//      `upstream: brief`, and NO CORRECTION RUNS — correcting a Step here would
+//      be repairing prose to cover for a structure nobody re-decided.
+//
+// Route 2 is the one worth naming twice: it is the only finding this Harness
+// produces that no correction can discharge, and a run that quietly localized
+// it anyway would send a healthy Step to be rewritten and report the Section
+// clean afterwards.
+//
+// AND `cannot-decide` IS THE THIRD ANSWER HERE TOO (round 1, finding 2). The
+// first form localized on `verdict !== "holds"`, which swept a `cannot-decide`
+// on the localizing item into route 1 and handed a correction target to a
+// reviewer who had declined to decide — contradicting the property the Step
+// half states and fixtures, that `cannot-decide` sends no Step to correction.
+// Narrowing to `fails` alone would have been the other error: route 2's ground
+// is that EVERY STEP HOLDS, and a Section with an undecided Step would then
+// have been reported as a Brief defect on a premise that is false.
+//
+// So neither route's condition is widened and the state that satisfies neither
+// is named: the Section fails, and where it fails cannot be decided while a
+// Step's reader state is unsettled. It reaches the owner as residue like an
+// upstream route — no correction runs, because there is no target — and it says
+// which Steps are undecided, so the owner can settle those and re-run rather
+// than being handed a Brief defect that may not be one. Rounding it into either
+// neighbour is exactly what the three-valued verdict exists to refuse, one
+// level up from the pair it was invented for.
+function routeSectionFail(sec, run, stepResults, items) {
+  const localizing = (items.sections || {}).localizing_item;
+  if (!localizing) {
+    fail("the item table declares no `sections.localizing_item`, and a Section fail localizes on "
+      + "the first Step whose recovered reader state does not hold. With none declared every "
+      + "Section fail would route upstream, which would report a Brief defect for every Step "
+      + "defect the Section happens to contain.");
+  }
+  const ids = sec.steps;
+  const preserved = ids.find((id) => stepResults.some((r) => r.step_id === id
+    && r.verdict === "fails" && r.class === "preserved"));
+  if (preserved) {
+    return { kind: "localized", step_id: preserved,
+      why: "a preserved item already fails on this Step, so the Section's finding is that Step's" };
+  }
+  const diverged = ids.find((id) => stepResults.some((r) => r.step_id === id
+    && r.item === localizing && r.verdict === "fails"));
+  if (diverged) {
+    return { kind: "localized", step_id: diverged,
+      why: "the recovered reader state first fails at this Step" };
+  }
+  const undecided = ids.filter((id) => stepResults.some((r) => r.step_id === id
+    && r.verdict === "cannot-decide"));
+  if (undecided.length) {
+    return { kind: "undecided", steps: undecided,
+      why: `this Section fails and where it fails cannot be decided: ${undecided.join(", ")} `
+        + "carry a `cannot-decide`, so neither is a correction target and the Section's Steps "
+        + "cannot be said to hold" };
+  }
+  return { kind: "upstream", upstream: "brief",
+    why: "every Step in this Section holds and the Section still fails, so the grouping is what "
+      + "is wrong: the heading promises what the Steps it groups do not deliver" };
+}
+
+// One line per (Section, item), under the Step lines' own no-numbers rule —
+// shared with `comparisonLine` rather than re-argued, because a Section line
+// that could carry a number would be the same leak through a second door.
+function sectionLine(r) {
+  if (/[0-9]/.test(r.reason)) {
+    fail(`the Section line for section ${r.section}/${r.item} carries a digit in its reason `
+      + `(${JSON.stringify(r.reason)}). A review line renders line numbers and nothing else `
+      + "numeric — every other number in a review is a score by another name, and quoted material "
+      + "belongs in the finding's evidence rather than in the line.");
+  }
+  const w = (x, n) => String(x).padEnd(n, " ");
+  return `${w(`section ${r.section}`, 12)}${w(r.item, 24)}${w(r.verdict, 14)}`
+    + `${w(`[${r.span[0]}-${r.span[1]}]`, 14)}${r.reason}`;
+}
+
 // ONE LINE PER (Step, item), AND NO NUMBER IN IT THAT IS NOT A LINE NUMBER —
 // ENFORCED HERE RATHER THAN PROMISED. The span is the only numeric field the
 // line carries, and a reason carrying a digit refuses the whole emission by
@@ -1383,11 +1901,17 @@ function cmdCompare(args) {
   const run = readRun(ws);
   requireCurrent(run, draft);
 
+  // EVERY MISSING INPUT IS NAMED IN ONE REFUSAL, and the Section entries are
+  // named BY SECTION NUMBER (kogaki#873). A reviewer sent back for "a missing
+  // entry" has to work out which; the Harness already knows, and the claim is
+  // reported as its own kind because it is one record for the whole Draft
+  // rather than any Section's.
   const missing = missingFor(run);
-  if (missing.steps.length || missing.sections.length) {
+  if (missing.steps.length || missing.sections.length || missing.claim) {
     const parts = [];
     if (missing.steps.length) parts.push(`step recover${missing.steps.length === 1 ? "y" : "ies"}: ${missing.steps.join(", ")}`);
     if (missing.sections.length) parts.push(`section ledger entr${missing.sections.length === 1 ? "y" : "ies"}: ${missing.sections.join(", ")}`);
+    if (missing.claim) parts.push("the cold reader's final claim: `read --claim --file <claim.json>`");
     fail(`the join has inputs missing, so it would compare a partial review against a whole Draft `
       + `and report the gaps as agreement.\n  ${parts.join("\n  ")}`);
   }
@@ -1399,20 +1923,53 @@ function cmdCompare(args) {
   // of the Draft, the Packets and the item table, never of the answers it has
   // already been given.
   let pass = buildJoin(draft, run, items, ws);
+  let sec = buildSectionJoin(draft, run, items, ws);
   let recorded = 0;
   if (args.verdicts !== undefined) {
     const file = argString(args, "verdicts", "usage: review-draft compare --draft <draft.md> --verdicts <verdicts.json>");
-    recorded = recordVerdicts(run, file, pass.owed, items);
+    // ONE VERDICTS FILE ANSWERS BOTH JOINS, validated against their union. Two
+    // files would make it possible to record one and not the other and reach a
+    // complete-looking join over half the review.
+    recorded = recordVerdicts(run, file, [...pass.owed, ...sec.owed], items);
     pass = buildJoin(draft, run, items, ws);
+    sec = buildSectionJoin(draft, run, items, ws);
   }
 
   const { results, owed, modelCalls, mechanicalLog } = pass;
-  const complete = owed.length === 0;
+  const complete = owed.length === 0 && sec.owed.length === 0;
   run.join_complete = complete;
   run.compared_at = complete ? new Date().toISOString() : null;
   run.join_state = complete ? null
     : `${owed.length} pair(s) await a verdict — the join is unfilled, not clean`;
   run.findings = complete ? results.filter((r) => r.verdict !== "holds") : [];
+
+  // THE SECTION FINDINGS ARE ROUTED HERE, at the act that produces them, and
+  // kept in their own fields rather than merged into `findings`. Two reasons,
+  // and the second is the load-bearing one: a Section row carries a Section
+  // index where a Step row carries a `step_id`, so merging them would put a
+  // `section:2` into the set `correctionOwed` reads as Steps; and an upstream
+  // route is residue that NO pass produces — it never goes to correction at
+  // all — so folding it into pass two's residue would claim it survived a pass
+  // that never looked at it.
+  run.section_findings = complete ? sec.results.filter((r) => r.verdict !== "holds") : [];
+  run.section_routes = complete
+    ? [...new Set(run.section_findings.filter((r) => r.verdict === "fails").map((r) => r.section))]
+      .map((idx) => {
+        const s0 = run.sections.find((x) => x.index === idx);
+        return { section: idx, ...routeSectionFail(s0, run, results, items) };
+      })
+    : [];
+  // BOTH NON-LOCALIZING ROUTES REACH RESIDUE, and each line says which it is.
+  // They share the property that no correction runs — there is no target — and
+  // they are different news: one says the Brief's grouping is wrong, the other
+  // says the Harness could not tell, and an owner classifying the line needs to
+  // know which.
+  run.section_residue = run.section_routes
+    .filter((r) => r.kind === "upstream" || r.kind === "undecided")
+    .map((r) => ({ section: r.section, kind: r.kind, upstream: r.upstream ?? null,
+      steps: r.steps ?? null, why: r.why,
+      items: run.section_findings.filter((f) => f.section === r.section && f.verdict === "fails")
+        .map((f) => f.item) }));
   writeRun(ws, run);
 
   const joinPath = join(ws, "join.json");
@@ -1428,6 +1985,17 @@ function cmdCompare(args) {
     // for every Step.
     model_calls: modelCalls,
     mechanical: mechanicalLog,
+    // THE SECTION HALF IS ITS OWN BRANCH OF THE RECORD, not extra rows in
+    // `results`. A reader of this file can tell a Step row from a Section row
+    // without inspecting which key it happens to carry, and `routes` is the
+    // part no other artifact holds: where each Section fail went, and why.
+    sections: {
+      results: sec.results,
+      owed: sec.owed,
+      model_calls: sec.modelCalls,
+      mechanical: sec.mechanicalLog,
+      routes: run.section_routes,
+    },
   }, null, 2) + "\n");
 
   if (recorded) process.stdout.write(`recorded: ${recorded} verdict(s)\n`);
@@ -1439,10 +2007,10 @@ function cmdCompare(args) {
     // verdict exists to refuse.
     process.stdout.write(
       `compare: every input present — ${run.steps.length} recovered Step(s), `
-      + `${run.sections.length} Section entr${run.sections.length === 1 ? "y" : "ies"}.\n`
+      + `${run.sections.length} Section entr${run.sections.length === 1 ? "y" : "ies"} and the final claim.\n`
       + `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n`
-      + `${owed.length} pair(s) await a verdict — one join Packet each, under ${join(ws, "join")}:\n`
-      + owed.map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
+      + `${owed.length + sec.owed.length} pair(s) await a verdict — one join Packet each, under ${join(ws, "join")}:\n`
+      + [...owed, ...sec.owed].map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
       + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
       + `  node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path} --verdicts <verdicts.json>\n`
       + `join record: ${joinPath}\n`);
@@ -1452,18 +2020,46 @@ function cmdCompare(args) {
   const fails = results.filter((r) => r.verdict === "fails");
   const preserved = fails.filter((r) => r.class === "preserved");
   const undecided = results.filter((r) => r.verdict === "cannot-decide");
+  const secFails = sec.results.filter((r) => r.verdict === "fails");
+  const secUndecided = sec.results.filter((r) => r.verdict === "cannot-decide");
+  const localized = run.section_routes.filter((r) => r.kind === "localized");
   process.stdout.write(
     results.map(comparisonLine).join("\n") + "\n\n"
+    + sec.results.map(sectionLine).join("\n") + "\n\n"
     + `compare: ${results.length} (Step, item) pair(s) joined, `
     + `${mechanicalLog.length} decided mechanically and ${modelCalls.length} judged.\n`
+    + `         ${sec.results.length} (Section, item) pair(s) joined, `
+    + `${sec.mechanicalLog.length} vacuous by the table and ${sec.modelCalls.length} judged.\n`
     + (preserved.length
       ? `Steps sent to correction — a preserved item fails: ${[...new Set(preserved.map((r) => r.step_id))].join(", ")}\n`
       : "No preserved item fails, so no Step is sent to correction.\n")
-    + (undecided.length
-      ? `cannot-decide, listed with its pair and never rounded: ${undecided.map((r) => `${r.step_id}/${r.item}`).join(", ")}\n`
+    // WHERE EACH SECTION FAIL WENT, in the run's own output and not only in the
+    // record. A Section fail that localized and one that routed upstream are
+    // different news — the first adds a correction target, the second is a
+    // Brief defect no correction can discharge — and a run reporting only the
+    // count would leave them indistinguishable.
+    + (localized.length
+      ? `Section fails localized to a Step: ${localized.map((r) => `section ${r.section} -> ${r.step_id}`).join(", ")}\n`
+      : "")
+    + (run.section_residue.some((r) => r.kind === "upstream")
+      ? "Section fails routed UPSTREAM to the Brief — every Step in them holds, so the grouping "
+        + `is what is wrong: ${run.section_residue.filter((r) => r.kind === "upstream").map((r) => `section ${r.section}`).join(", ")}\n`
+        + "  No correction runs for these. They reach the owner record as residue marked "
+        + "`upstream: brief`.\n"
+      : "")
+    + (run.section_residue.some((r) => r.kind === "undecided")
+      ? "Section fails whose LOCATION could not be decided — a Step in them carries a "
+        + `\`cannot-decide\`: ${run.section_residue.filter((r) => r.kind === "undecided").map((r) => `section ${r.section} (${r.steps.join(", ")})`).join(", ")}\n`
+        + "  No correction runs for these either, and they are NOT reported as Brief defects: "
+        + "settle those pairs and re-run.\n"
+      : "")
+    + (undecided.length || secUndecided.length
+      ? "cannot-decide, listed with its pair and never rounded: "
+        + [...undecided.map((r) => `${r.step_id}/${r.item}`),
+          ...secUndecided.map((r) => `section ${r.section}/${r.item}`)].join(", ") + "\n"
       : "")
     + `join record: ${joinPath}\n`
-    + (fails.length
+    + (fails.length || secFails.length
       ? "`check --draft <draft.md>` is pass two.\n"
       : "`close --draft <draft.md>` writes the owner record.\n"));
 }
@@ -1541,10 +2137,19 @@ function readJoin(ws) {
 // item. Best-effort fails are not here and never send a Step to correction;
 // they ride along when the Step is re-realized anyway, which is what the item
 // table's class means at this act exactly as it means it at `close`.
+// A LOCALIZED SECTION FAIL ADDS ITS TARGET STEP (kogaki#873). ReviewDraft
+// corrects at Step granularity only, so this is where a Section finding becomes
+// correctable work — and it is the only place it can: nothing downstream reads
+// `section_routes`, and a route computed and then never acted on would be a
+// finding the run made and dropped. An UPSTREAM route adds nothing here, by
+// design: no correction runs for a Brief defect.
 function correctionOwed(run) {
   const failing = new Set((run.findings || [])
     .filter((f) => f.verdict === "fails" && f.class === "preserved")
     .map((f) => f.step_id));
+  for (const r of run.section_routes || []) {
+    if (r.kind === "localized") failing.add(r.step_id);
+  }
   return run.steps.map((s) => s.step_id).filter((id) => failing.has(id));
 }
 
@@ -2003,6 +2608,12 @@ function cmdCheck(args) {
   // open and the claim is now true either way: a re-judged fail says it
   // survived, a carried one says its Step was never corrected so nothing
   // re-read it.
+  //
+  // THE SECTION RESIDUE IS NOT RECOMPUTED HERE, and that is deliberate
+  // (kogaki#873). An upstream route is a Brief defect: no correction ran for
+  // it, so pass two did not re-read it, and re-deriving it from this pass would
+  // claim it survived a pass that never looked at it. It is carried from
+  // `compare` unchanged and rendered beside this residue, saying which it is.
   run.residue = run.findings
     .filter((f) => f.verdict === "fails" && f.class === "preserved")
     .map((f) => ({
@@ -2038,7 +2649,12 @@ function cmdCheck(args) {
     + (run.residue.length
       ? `residue — preserved item(s) reaching the owner to classify: `
         + `${run.residue.map((r) => `${r.step_id}/${r.item}`).join(", ")}\n`
-      : "no preserved item fails after pass two, so the residue is empty.\n")
+      : "no preserved item fails after pass two, so the Step residue is empty.\n")
+    + ((run.section_residue || []).length
+      ? "residue carried from pass one — Section fail(s) with no correction target: "
+        + `${run.section_residue.map((r) => `section ${r.section} (${r.kind})`).join(", ")}\n`
+        + "  No correction ran for these and pass two did not re-read them.\n"
+      : "")
     + `check record: ${joinPath}\n`
     + "`close --draft <draft.md>` writes the owner record.\n");
 }
@@ -2083,7 +2699,19 @@ function cmdClose(args) {
   // it would make `close` unreachable on a Draft whose only findings are ones
   // the design says to carry rather than to act on. Found on the first live
   // drive, where a best-effort item fired on every Step.
+  // A LOCALIZED SECTION FAIL WITHHOLDS `close` THE SAME WAY (kogaki#873): it
+  // named a correction target, so pass two is what turns it into a correction
+  // or into residue. AN UPSTREAM ONE DOES NOT — no correction runs for a Brief
+  // defect, so routing it through pass two would ask a pass to re-read
+  // something nothing changed, and `close` is where it was always going.
+  const localized = (run.section_routes || []).filter((r) => r.kind === "localized");
   const fails = (run.findings || []).filter((f) => f.verdict === "fails" && f.class === "preserved");
+  if (localized.length && !run.checked_at) {
+    fail(`the Section join sent ${localized.map((r) => `section ${r.section} -> ${r.step_id}`).join(", ")} `
+      + "to correction, so `close` is reachable only through `check`. A Section fail that localizes "
+      + "to a Step is that Step's to repair; only a fail whose Section holds throughout routes "
+      + "upstream to the Brief and reaches this record directly.");
+  }
   if (fails.length && !run.checked_at) {
     fail(`the join found ${fails.length} failing PRESERVED item(s), so \`close\` is reachable only `
       + "through `check` — pass two is what turns a failing preserved item into a correction or into "
@@ -2141,6 +2769,35 @@ function cmdClose(args) {
     lines.push("");
   }
 
+  // THE SECTION FINDINGS ARE THEIR OWN SECTION OF THE RECORD, and each names
+  // WHERE IT WENT. A Section finding with no route rendered would leave the
+  // owner to work out whether a correction was owed for it, which is the one
+  // thing the routing rules exist to have already decided.
+  lines.push("## The cold reader — Section findings", "");
+  if (!(run.section_findings || []).length) {
+    lines.push(run.join_state
+      ? `_None recorded — ${run.join_state}. This is an unfilled join, not a clean review._`
+      : "_None._", "");
+  } else {
+    const routeFor = (idx) => (run.section_routes || []).find((r) => r.section === idx);
+    for (const f of run.section_findings) {
+      lines.push(`- **Section ${f.section} / ${f.item}** — ${f.verdict} (${f.class ?? "unclassed"})`);
+      if (f.reason) lines.push(`  - ${f.reason}`);
+      if (f.declared) lines.push(`  - declared: ${f.declared}`);
+      if (f.recovered) lines.push(`  - recovered: ${f.recovered}`);
+      if (f.span) lines.push(`  - span: ${JSON.stringify(f.span)}`);
+      const r = f.verdict === "fails" ? routeFor(f.section) : null;
+      if (r) {
+        lines.push(r.kind === "localized"
+          ? `  - route: corrected at **${r.step_id}** — ${r.why}`
+          : r.kind === "upstream"
+            ? `  - route: **upstream: ${r.upstream}** — ${r.why}`
+            : `  - route: **undecided** — ${r.why}`);
+      }
+    }
+    lines.push("");
+  }
+
   lines.push("## Corrections", "");
   if (!run.corrections.length) {
     lines.push(run.checked_at
@@ -2158,11 +2815,26 @@ function cmdClose(args) {
   lines.push("## Residue", "",
     "Each line is an item that survived every pass this run made. Fill",
     "`classified:` with `packet` or `reviewdraft`.", "");
-  if (!run.residue.length) {
+  const upstream = run.section_residue || [];
+  if (!run.residue.length && !upstream.length) {
     lines.push("_None._", "");
   } else {
     for (const r of run.residue) {
       lines.push(`- **${r.step_id} / ${r.item}** — ${r.why}`);
+      lines.push("  classified:");
+    }
+    // AN UPSTREAM LINE SAYS SO, AND SAYS IT IS NOT ABOUT A STEP. It reached the
+    // record without a correction and without pass two, which is a different
+    // provenance from every other residue line here — and the owner is being
+    // asked to classify it `packet` or `reviewdraft` on exactly that basis.
+    for (const r of upstream) {
+      lines.push(`- **Section ${r.section} / ${r.items.join(", ")}** — `
+        + (r.kind === "upstream" ? `upstream: ${r.upstream}` : "undecided") + ` — ${r.why}`);
+      lines.push(r.kind === "upstream"
+        ? "  - No correction ran: ReviewDraft corrects at Step granularity, and every Step in "
+          + "this Section holds, so what is wrong is the grouping."
+        : "  - No correction ran: there is no target. This is NOT a Brief defect — the Section's "
+          + "Steps cannot be said to hold while a pair is undecided.");
       lines.push("  classified:");
     }
     lines.push("");
@@ -2193,14 +2865,16 @@ const USAGE = `review-draft — the round-trip review of a CanonicalDraft agains
 
   node src/review-draft.mjs open    --draft <draft.md>
   node src/review-draft.mjs recover --draft <draft.md> --step <id> --file <recovered>
-  node src/review-draft.mjs read    --draft <draft.md> --section <n> --file <ledger>
+  node src/review-draft.mjs read    --draft <draft.md> --section <n> --file <entry.json>
+  node src/review-draft.mjs read    --draft <draft.md> --claim --file <claim.json>
   node src/review-draft.mjs compare --draft <draft.md> [--verdicts <verdicts.json>]
   node src/review-draft.mjs correct --draft <draft.md> --step <id> [--file <prose>]
   node src/review-draft.mjs check   --draft <draft.md> [--verdicts <verdicts.json>]
   node src/review-draft.mjs close   --draft <draft.md>
 
 The Harness owns the ordering: \`recover\` refuses a Step whose recovery input it
-did not render, \`compare\` refuses while any Step or Section entry is missing,
+did not render, \`compare\` refuses while any Step recovery, Section entry or the
+cold reader's final claim is missing,
 \`check\` refuses before \`compare\`, and \`close\` is reachable from \`compare\` with
 zero fails or from \`check\` in every state.
 
@@ -2226,6 +2900,17 @@ judged pair; \`--verdicts\` records the answers. It emits one line per (Step,
 item) once every pair is answered, and never before: there is no fourth token
 for "not asked yet", and \`cannot-decide\` is a real answer rather than a place
 to round one.
+
+\`open\` also renders the COLD READER'S input: the Draft body alone, no
+frontmatter and nothing from a Packet. That reader records, per Section, the
+question it answered and what they now believe, and one final claim for the
+whole article; \`read\` takes those back and validates them. \`compare\` lays them
+against the heading the trace declares and the reader states the Section's first
+and last Packets declare, on the same three tokens. A Section fail is ROUTED
+rather than corrected — ReviewDraft corrects at Step granularity only: to a Step
+when one in the Section is already failing or its recovered reader state stops
+holding, and otherwise UPSTREAM to the Brief as residue marked
+\`upstream: brief\`, with no correction run.
 
 It reads the Draft, its trace and the Packets that trace names — no Brief, no
 Move file, no Strand. A check that needs anything else is a Packet gap and is
@@ -2483,8 +3168,21 @@ async function runSelfTest() {
     return p;
   };
 
-  const ledgerFile = join(root, "ledger-entry.md");
-  writeFileSync(ledgerFile, "the question I answered, and what I now believe\n");
+  // THE LEDGER FIXTURE IS A VALID ENTRY, in the shape src/review-items.json
+  // declares (kogaki#873). One entry serves every Section: the Section pairs
+  // are judged, so the fixture answers them through `answerOwed` like every
+  // other judged pair, and what this file has to be RIGHT about is its shape.
+  // It carries NO DIGIT, for the reason the Packets carry none — quoted
+  // material reaches a reason, and a reason with a digit refuses the emission.
+  const ledgerFile = join(root, "ledger-entry.json");
+  writeFileSync(ledgerFile, JSON.stringify({
+    question: "what the passage was for",
+    belief: "The reader believes the claim and knows who classifies residue.",
+  }, null, 2) + "\n");
+  const claimFile = join(root, "final-claim.json");
+  writeFileSync(claimFile, JSON.stringify({
+    claim: "The article claimed that a review is laid against the record that produced the prose.",
+  }, null, 2) + "\n");
 
   // ANSWER EVERY PAIR THE RUN SAYS IT OWES, read from the run's OWN join record
   // rather than from a list transcribed here. That is not convenience: it is the
@@ -2498,7 +3196,12 @@ async function runSelfTest() {
     // the whole pass down with an ENOENT — which reports no case count at all,
     // the shape the member reads as "the pass did not run" rather than as "these
     // cases failed".
-    const owed = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, "utf8")).owed : [];
+    // BOTH JOINS' OWED SETS, read from the record's own two branches. A helper
+    // that answered only the Step half would leave every Section pair owed and
+    // the join never complete — and the cases downstream would then assert
+    // against an unfilled join rather than against what they name.
+    const rec0 = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, "utf8")) : {};
+    const owed = [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
     const f = join(root, `verdicts-${tag}.json`);
     writeFileSync(f, JSON.stringify({
       verdicts: owed.map((o) => ({
@@ -2520,6 +3223,7 @@ async function runSelfTest() {
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, tag));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("read", "--claim", "--file", claimFile);
     const first = D("compare");
     const jsonPath = join(wsBase, slug, "join.json");
     const second = D("compare", "--verdicts", answerOwed(jsonPath, tag));
@@ -2532,6 +3236,18 @@ async function runSelfTest() {
     for (const l of stdout.split("\n")) {
       const f = l.match(/^(\S+)\s+(\S+)\s+(holds|fails|cannot-decide)\s+\[(\d+)-(\d+)\]\s+(.*)$/);
       if (f) m.set(`${f[1]}/${f[2]}`, l);
+    }
+    return m;
+  };
+
+  // The Section lines carry `section <n>` in the first column, which the Step
+  // matcher above reads as two fields — so they get their own matcher rather
+  // than that one being loosened, which would let a malformed Step line pass.
+  const sectionLinesOf = (stdout) => {
+    const m = new Map();
+    for (const l of stdout.split("\n")) {
+      const f = l.match(/^section (\d+)\s+(\S+)\s+(holds|fails|cannot-decide)\s+\[(\d+)-(\d+)\]\s+(.*)$/);
+      if (f) m.set(`${f[1]}/${f[2]}`, { line: l, verdict: f[3], reason: f[6] });
     }
     return m;
   };
@@ -2700,24 +3416,74 @@ async function runSelfTest() {
     /every Step is recovered/.test(lastRecover.stdout)
     && /2 entries/.test(lastRecover.stdout));
 
-  // 14 — compare now names ONLY the Section entries.
+  // 14 — compare now names ONLY the cold reader's inputs, and names the final
+  // claim as its own kind rather than as a Section number (kogaki#873's
+  // ACCEPTANCE 2). A reviewer sent back for "a missing entry" would have to
+  // work out which; a claim reported under a Section number would send them to
+  // re-read a Section they already recorded.
   {
     const r = drive("compare");
-    ok("compare with only Section entries outstanding refuses on those alone",
+    ok("compare with only the cold reader's inputs outstanding refuses on those alone",
       r.status === 1 && /section ledger entries: 1, 2/.test(r.stderr) && !/step recover/.test(r.stderr));
+    ok("and names the final claim as its own missing input, not as a Section",
+      /final claim/.test(r.stderr) && !/section ledger entries: 1, 2, /.test(r.stderr));
   }
 
-  // 15 — an unknown Section refuses; a known one records.
+  // 15 — the Section ledger: an unknown Section refuses, a mis-shaped entry
+  // refuses BY SECTION NUMBER, and a valid one records (kogaki#873).
+  //
+  // THE MIS-SHAPED CASES ARE THE POINT. Before kogaki#873 this entry point
+  // recorded whatever file it was handed, so a Section could be "recorded" by
+  // an empty file and `compare` would lay nothing against the heading and
+  // report agreement — the silent pass the whole comparison exists to refuse,
+  // reached through the one input nothing validated.
   {
-    const led = join(root, "led.md"); writeFileSync(led, "the question I answered\n");
-    const bad = drive("read", "--section", "9", "--file", led);
+    const bad = drive("read", "--section", "9", "--file", ledgerFile);
     ok("an unknown Section refuses naming the Sections that exist",
       bad.status === 1 && /unknown section 9/.test(bad.stderr) && /1, 2/.test(bad.stderr));
-    const r1 = drive("read", "--section", "1", "--file", led);
+
+    const notJson = join(root, "led-plain.md");
+    writeFileSync(notJson, "the question I answered, and what I now believe\n");
+    const rPlain = drive("read", "--section", "1", "--file", notJson);
+    ok("an entry that is not JSON refuses, naming the Section and the fields owed",
+      rPlain.status === 1 && /Section 1 entry/.test(rPlain.stderr)
+      && /`question`/.test(rPlain.stderr) && /`belief`/.test(rPlain.stderr));
+
+    const empty = join(root, "led-empty.json");
+    writeFileSync(empty, JSON.stringify({ question: "what it was for", belief: "   " }) + "\n");
+    const rEmpty = drive("read", "--section", "1", "--file", empty);
+    ok("an empty field refuses by name rather than recording a blank entry",
+      rEmpty.status === 1 && /`belief` is empty/.test(rEmpty.stderr));
+
+    const missing = join(root, "led-missing.json");
+    writeFileSync(missing, JSON.stringify({ question: "what it was for" }) + "\n");
+    const rMissing = drive("read", "--section", "1", "--file", missing);
+    ok("an absent field refuses by name", rMissing.status === 1 && /`belief` is absent/.test(rMissing.stderr));
+
+    const extra = join(root, "led-extra.json");
+    writeFileSync(extra, JSON.stringify({ question: "q", belief: "b", verdict: "good" }) + "\n");
+    const rExtra = drive("read", "--section", "1", "--file", extra);
+    ok("a field the ledger does not declare refuses rather than being dropped",
+      rExtra.status === 1 && /`verdict`/.test(rExtra.stderr));
+
+    const r1 = drive("read", "--section", "1", "--file", ledgerFile);
     ok("a Section entry is recorded", r1.status === 0 && /recorded: section 1/.test(r1.stdout));
     ok("and the ones still owed are named", /sections still owed: 2/.test(r1.stdout));
-    const r2 = drive("read", "--section", "2", "--file", led);
-    ok("the last Section entry says every entry is recorded", /every Section entry is recorded/.test(r2.stdout));
+    const r2 = drive("read", "--section", "2", "--file", ledgerFile);
+    ok("the last Section entry hands over to the final claim",
+      /every Section entry is recorded/.test(r2.stdout) && /--claim/.test(r2.stdout));
+
+    // The final claim, through the same entry point and the same reader.
+    const badClaim = join(root, "claim-empty.json");
+    writeFileSync(badClaim, JSON.stringify({ claim: "" }) + "\n");
+    const rc0 = drive("read", "--claim", "--file", badClaim);
+    ok("an empty final claim refuses rather than being laid against the thesis",
+      rc0.status === 1 && /carries no `claim`/.test(rc0.stderr));
+    const rc1 = drive("read", "--claim", "--section", "1", "--file", claimFile);
+    ok("`--claim` and `--section` together refuse: they are two records, not one",
+      rc1.status === 1 && /two records at once/.test(rc1.stderr));
+    const rc2 = drive("read", "--claim", "--file", claimFile);
+    ok("the final claim is recorded", rc2.status === 0 && /recorded: the final claim/.test(rc2.stdout));
   }
 
   // 16 — `check` before `compare` refuses. Asserted on a SECOND workspace,
@@ -2828,8 +3594,17 @@ async function runSelfTest() {
   // each carrying a verdict from the closed three and a quoted span, and NO
   // NUMBER THAT IS NOT A LINE NUMBER.
   let baseLines = null;
+  // The completed join's own output and record, captured HERE and read by the
+  // kogaki#873 cases at the end: later cases correct this Draft, and a Section
+  // assertion re-reading the workspace then would be reading pass two's state
+  // under pass one's name.
+  let baseStdout = null;
+  let baseRecord = null;
   {
     const r = drive("compare", "--verdicts", answerOwed(join(WS, "join.json"), "main"));
+    baseStdout = r.stdout;
+    baseRecord = existsSync(join(WS, "join.json"))
+      ? JSON.parse(readFileSync(join(WS, "join.json"), "utf8")) : {};
     ok("recording the verdicts completes the join", r.status === 0 && /recorded: \d+ verdict/.test(r.stdout));
     const rec = JSON.parse(readFileSync(join(WS, "join.json"), "utf8"));
     ok("and the join record says so", rec.complete === true);
@@ -3469,6 +4244,7 @@ async function runSelfTest() {
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "und"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("read", "--claim", "--file", claimFile);
     D("compare");
     const jp = join(wsb, "undecided", "join.json");
     const f = answerOwed(jp, "und", "cannot-decide", "the passage does not say either way");
@@ -3555,6 +4331,7 @@ async function runSelfTest() {
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "gap"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("read", "--claim", "--file", claimFile);
     const r = D("compare");
     ok("a Packet missing a block the comparison needs refuses BY NAME, naming the Step",
       r.status === 1 && /step a2: its Packet carries no `purpose` block/.test(r.stderr));
@@ -3612,7 +4389,7 @@ async function runSelfTest() {
   {
     const solo = join(root, "solo-join"); mkdirSync(solo, { recursive: true });
     for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "recovery-template.md",
-      "recovered-schema.json", "review-items.json"]) {
+      "cold-reader-template.md", "recovered-schema.json", "review-items.json"]) {
       writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
     }
     const d = buildDraft(join(root, "theses", "nojointpl"), { packetDir });
@@ -3622,6 +4399,7 @@ async function runSelfTest() {
     D("open");
     for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "njt"));
     for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("read", "--claim", "--file", claimFile);
     const r = D("compare");
     ok("an absent join template refuses rather than asking a question with no form",
       r.status === 1 && /join template is absent/.test(r.stderr));
@@ -3629,20 +4407,23 @@ async function runSelfTest() {
 
   // AND AN ABSENT ITEM TABLE REFUSES, for the reason the table exists: the
   // comparison would otherwise join against a table it invented.
+  //
+  // IT REFUSES AT `open` SINCE kogaki#873, and the case is moved rather than
+  // relaxed. `open` renders the cold reader's input, whose entry shape is the
+  // table's `sections.ledger_fields`, so the table is load-bearing one act
+  // earlier than it was — and asserting at `compare` would now assert against
+  // "no run record", which is true and is not this refusal.
   {
     const solo = join(root, "solo-items"); mkdirSync(solo, { recursive: true });
     for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "recovery-template.md",
-      "recovered-schema.json", "join-template.md"]) {
+      "cold-reader-template.md", "recovered-schema.json", "join-template.md"]) {
       writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
     }
     const d = buildDraft(join(root, "theses", "noitems"), { packetDir });
     const wsb = join(root, "ws-noitems");
     const D = (...a) => spawnSync(process.execPath,
       [join(solo, "review-draft.mjs"), ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
-    D("open");
-    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "nit"));
-    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
-    const r = D("compare");
+    const r = D("open");
     ok("an absent item table refuses rather than joining against a table it invented",
       r.status === 1 && /item table is absent/.test(r.stderr));
   }
@@ -3814,7 +4595,12 @@ async function runSelfTest() {
     // PRESERVED item is what sends a Step to correction, so this is where the
     // drive decides which Steps the correction path will be exercised on.
     const answer = (recordPath, tag, failKeys) => {
-      const owed = existsSync(recordPath) ? JSON.parse(readFileSync(recordPath, "utf8")).owed : [];
+      // BOTH BRANCHES OF THE RECORD, for the reason `answerOwed` gives above:
+      // answering only the Step half leaves every Section pair owed and the
+      // join never completes, so every case below would assert against an
+      // unfilled join rather than against the correction path it names.
+      const rec0 = existsSync(recordPath) ? JSON.parse(readFileSync(recordPath, "utf8")) : {};
+      const owed = [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
       const f = join(cRoot, `verdicts-${tag}.json`);
       writeFileSync(f, JSON.stringify({
         verdicts: owed.map((o) => {
@@ -3834,9 +4620,8 @@ async function runSelfTest() {
 
     RD("open");
     for (const s of STEPS) RD("recover", "--step", s.id, "--file", recFor(s.id, "p1"));
-    const ledger = join(cRoot, "ledger.md");
-    writeFileSync(ledger, "the question I answered, and what I now believe\n");
-    for (const n of ["1", "2"]) RD("read", "--section", n, "--file", ledger);
+    for (const n of ["1", "2"]) RD("read", "--section", n, "--file", ledgerFile);
+    RD("read", "--claim", "--file", claimFile);
     RD("compare");
     const joinPath = join(cWsRun, "join.json");
     const FAILS = ["s2/reader-state-after", "s3/reader-state-after"];
@@ -4128,6 +4913,349 @@ async function runSelfTest() {
       /- \*\*s2\*\* \(pass 1\)/.test(rev) && /- \*\*s3\*\* \(pass 1\)/.test(rev));
   }
 
+
+  // -- kogaki#873: THE COLD READER -----------------------------------------
+  //
+  // A Section declares its heading and nothing else, so its review is a second
+  // reader rather than a second Step: the body alone, entries per Section, and
+  // one final claim. What these cases assert is the three properties the issue
+  // names — the input's blindness, the entry set `compare` requires, and where
+  // a Section fail goes.
+
+  // ACCEPTANCE 1 — THE COLD READER'S INPUT CARRIES NOTHING FROM A PACKET.
+  //
+  // ASSERTED AS STRING ABSENCE, not as a reading of the renderer. The fixture
+  // Packets carry a token that appears nowhere in the prose for exactly this,
+  // and it is the same instrument the recovery input's own blindness case uses:
+  // a template edit that pasted a Packet block in would read as helpful and
+  // would silently end the measurement, and only a string test catches that.
+  {
+    const cold = readOrEmpty(join(WS, "cold-reader.md"));
+    ok("open renders the cold reader's input", cold.length > 0);
+    ok("AC1: it carries no string that occurs only in a Packet", !/PACKETONLYTOKEN/.test(cold));
+    // The body IS there — an empty file would pass the test above for the wrong
+    // reason, which is the shape a blindness assertion is most likely to fail in.
+    ok("AC1: and it does carry the Draft's body, so the absence above is not vacuous",
+      cold.includes("The first passage opens the claim")
+      && cold.includes("The third passage opens the second Section"));
+    // ASSERTED AS A LINE, NOT AS A PATTERN (round 1, finding 1). The first form
+    // built a RegExp from a template literal and escaped the backslashes twice,
+    // so the source read `^\\s*NN \\| The first passage` — a bare `|` splitting
+    // it into two alternatives whose second matched the body unconditionally.
+    // The numbering was right the whole time, which is why nothing showed it.
+    // A fixed number needs no pattern: the rendered line is a string, and
+    // comparing strings cannot be an alternation by accident.
+    ok("AC1: with the Draft's own line numbers, so the reader's spans are the Harness's",
+      cold.split("\n").some((l) =>
+        l.trimStart() === `${draft.ranges.a1[0] + draft.bodyOffset} | The first passage opens the claim `
+          + "and says what the reader is about to be shown."));
+    // NO STEP BOUNDARY IS RENDERED. Half of what the Section pairs measure is
+    // whether a Section reads as one movement, and marking the seams would tell
+    // the reader where to expect them.
+    ok("AC1: and no Step boundary is marked in it", !/\ba1\b/.test(cold) && !/\ba2\b/.test(cold));
+    // The frontmatter is stripped: a reader shown the trace has been shown the
+    // Packet pointers and the Step ranges, which is the plan by another route.
+    ok("AC1: and the frontmatter is not in it", !/trace:/.test(cold) && !/packet_sha/.test(cold));
+  }
+
+  // A DRAFT THAT QUOTES A TEMPLATE SLOT IN ITS OWN PROSE (round 1, finding 4).
+  // Not a contrivance here: this repository's live Draft is about this pipeline,
+  // so an article naming `{{read_command}}` is the ordinary case rather than the
+  // adversarial one. Before the fix the body went in first, so such prose was
+  // either rewritten with the command or made `open` refuse with a message
+  // about the template disagreeing with the renderer — false, and naming a
+  // repair the Draft's author cannot perform.
+  {
+    const qRoot = join(root, "theses", "quotesslot");
+    const qProse = {
+      a1: ["The first passage opens the claim and quotes {{read_command}} as an example.", "",
+        "It runs two paragraphs so a range covering more than one line is exercised.",
+        "The harness renders each input in the path's recorded order."],
+      a2: ["The second passage mentions {{not_a_real_slot}} and does not restate the heading."],
+      a3: PROSE.a3,
+    };
+    const d = buildDraft(qRoot, { packetDir, prose: qProse });
+    const wsb = join(root, "ws-quotesslot");
+    const r = spawnSync(process.execPath,
+      [self, "open", "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    ok("a Draft quoting a template slot opens rather than refusing falsely", r.status === 0);
+    const cold = readOrEmpty(join(wsb, "quotesslot", "cold-reader.md"));
+    ok("and the reader gets the article's own words back, unrewritten",
+      cold.includes("quotes {{read_command}} as an example")
+      && cold.includes("mentions {{not_a_real_slot}}"));
+    // The check still catches a template the renderer really does disagree with,
+    // which is the property that must survive the reordering.
+    const solo = join(root, "solo-slot"); mkdirSync(solo, { recursive: true });
+    for (const f of ["review-draft.mjs", "runs.mjs", "runs.json", "recovery-template.md",
+      "cold-reader-template.md", "recovered-schema.json", "review-items.json",
+      "join-template.md"]) {
+      writeFileSync(join(solo, f), readFileSync(join(dirname(self), f)));
+    }
+    // MUTATE THE RENDERED HALF, NEVER THE COMMENT. The template's authoring
+    // comment lists its own slot names and is stripped at render, so an edit
+    // there reaches nothing — a first attempt did exactly that and the case
+    // passed while asserting about a file the renderer never saw. The comment
+    // is split off here and the mutation applied to what remains.
+    const tpl = join(solo, "cold-reader-template.md");
+    const rendered = (t) => t.replace(/^<!--[\s\S]*?-->\n*/, "");
+    const commentOf = (t) => t.slice(0, t.length - rendered(t).length);
+    const mutateRendered = (t, f) => commentOf(t) + f(rendered(t));
+    writeFileSync(tpl, mutateRendered(readFileSync(tpl, "utf8"),
+      (b) => b.replace("{{slug}}", "{{slug}} {{invented_slot}}")));
+    const d2 = buildDraft(join(root, "theses", "slotgap"), { packetDir });
+    const r2 = spawnSync(process.execPath,
+      [join(solo, "review-draft.mjs"), "open", "--draft", d2.path,
+        "--workspace", join(root, "ws-slotgap")], { encoding: "utf8" });
+    ok("an unfilled slot in the TEMPLATE still refuses by name",
+      r2.status === 1 && /\{\{invented_slot\}\} was not filled/.test(r2.stderr));
+    // And a template with no body slot at all refuses rather than handing over
+    // an instruction with no article under it — the failure the reordering
+    // would otherwise have made silent.
+    writeFileSync(tpl, mutateRendered(readFileSync(join(dirname(self), "cold-reader-template.md"), "utf8"),
+      (b) => b.replace("{{body}}", "(the article goes here)")));
+    const r3 = spawnSync(process.execPath,
+      [join(solo, "review-draft.mjs"), "open", "--draft", d2.path,
+        "--workspace", join(root, "ws-slotgap2")], { encoding: "utf8" });
+    ok("and a template carrying no {{body}} slot refuses rather than rendering an empty read",
+      r3.status === 1 && /carries no \{\{body\}\} slot/.test(r3.stderr));
+  }
+
+  // ACCEPTANCE 3 — ALL STEPS HOLD AND THE HEADING IS UNRELATED: one
+  // `upstream: brief` residue line, and ZERO correction targets.
+  //
+  // This is the route no correction can discharge, and the one worth a fixture
+  // of its own: a run that quietly localized it anyway would send a healthy
+  // Step to be rewritten and report the Section clean afterwards. The heading
+  // is replaced in the BODY AND IN THE TRACE, which is what `emit` writes —
+  // mutating one alone would test a Draft no lane can produce.
+  {
+    const bRoot = join(root, "theses", "briefdefect");
+    const d = buildDraft(bRoot, { packetDir,
+      mutate: (t) => t.split("The second heading").join("An unrelated title") });
+    const wsb = join(root, "ws-briefdefect");
+    const wsRun = join(wsb, "briefdefect");
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+
+    // Every pair holds except the Section's own question pair: the Steps are
+    // untouched, so what is wrong can only be the grouping.
+    const answerBut = (tag, failKeys) => {
+      const rec0 = existsSync(join(wsRun, "join.json"))
+        ? JSON.parse(readFileSync(join(wsRun, "join.json"), "utf8")) : {};
+      const owed = [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
+      const f = join(root, `verdicts-${tag}.json`);
+      writeFileSync(f, JSON.stringify({
+        verdicts: owed.map((o) => {
+          const failing = failKeys.includes(o.key);
+          return { step_id: o.step_id, item: o.item,
+            ...(o.pair === null ? {} : { pair: o.pair }),
+            verdict: failing ? "fails" : "holds",
+            reason: failing
+              ? "the heading promises a question this Section does not answer"
+              : "the declared line and the recovered one agree" };
+        }),
+      }, null, 2) + "\n");
+      return f;
+    };
+
+    D("open");
+    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "bd"));
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("read", "--claim", "--file", claimFile);
+    D("compare");
+    const r = D("compare", "--verdicts", answerBut("bd", ["section:2/section-question"]));
+    ok("the run reaches a completed join with one Section pair failing", r.status === 0);
+    const SL = sectionLinesOf(r.stdout);
+    ok("AC3: the Section line renders the fail", SL.get("2/section-question")?.verdict === "fails");
+    ok("AC3: no preserved Step item fails, so no Step is sent to correction",
+      /No preserved item fails, so no Step is sent to correction\./.test(r.stdout));
+    ok("AC3: and the run says the Section fail routed UPSTREAM to the Brief",
+      /routed UPSTREAM to the Brief/.test(r.stdout) && /section 2/.test(r.stdout));
+    ok("AC3: naming that no correction runs for it",
+      /No correction runs for these\./.test(r.stdout));
+
+    const rec = JSON.parse(readFileSync(join(wsRun, "join.json"), "utf8"));
+    const routes = rec.sections.routes;
+    ok("AC3: exactly one route is recorded, and it is upstream",
+      routes.length === 1 && routes[0].kind === "upstream" && routes[0].upstream === "brief");
+    ok("AC3: the route says why — the grouping is what is wrong",
+      /the grouping is what/.test(routes[0].why));
+
+    // ZERO CORRECTION TARGETS is asserted at the act that would perform one:
+    // `correct` is what a target reaches, so a route that produced none is
+    // checkable by that command refusing rather than by reading a count back.
+    const rc = D("correct", "--step", "a3");
+    ok("AC3: zero correction targets — `correct` refuses BY THE RIGHT REASON, that pass one "
+      + "sent this Step nothing",
+      rc.status === 1 && /carries no failing PRESERVED item/.test(rc.stderr));
+    // And the Section's OTHER Step too, so the assertion is about the route
+    // rather than about which Step happened to be named.
+    const rc2 = D("correct", "--step", "a1");
+    ok("AC3: and no Step in the Draft is a target",
+      rc2.status === 1 && /carries no failing PRESERVED item/.test(rc2.stderr));
+
+    // `close` is reachable DIRECTLY, without pass two: no correction runs for a
+    // Brief defect, so routing it through `check` would ask a pass to re-read
+    // something nothing changed.
+    const rClose = D("close");
+    ok("AC3: close is reachable from compare — an upstream route does not withhold it",
+      rClose.status === 0);
+    const rev = readOrEmpty(join(bRoot, "review.md"));
+    const residue = rev.slice(rev.indexOf("## Residue"));
+    ok("AC3: exactly one residue line, and it is the upstream one",
+      (residue.match(/^- \*\*/gm) || []).length === 1 && /upstream: brief/.test(residue));
+    ok("AC3: it carries its EMPTY classified: field like every other residue line",
+      /^ {2}classified:$/m.test(residue) && !/^ {2}classified:[^\n]*\S/m.test(residue));
+    ok("AC3: and says no correction ran, so the owner is not left to infer it",
+      /No correction ran/.test(residue));
+    // The finding itself is rendered with its route, so the record answers
+    // "was a correction owed for this" rather than leaving it to be worked out.
+    ok("AC3: the Section finding names its route in the record",
+      /- \*\*Section 2 \/ section-question\*\* — fails/.test(rev)
+      && /route: \*\*upstream: brief\*\*/.test(rev));
+  }
+
+  // AND THE OTHER ROUTE: a Section fail LOCALIZES when a Step in it is already
+  // failing. Same shape, one Step's preserved item failing too — which is the
+  // control for the case above, since without it "upstream" could be what this
+  // Harness answers for every Section fail.
+  {
+    const lRoot = join(root, "theses", "localize");
+    const d = buildDraft(lRoot, { packetDir });
+    const wsb = join(root, "ws-localize");
+    const wsRun = join(wsb, "localize");
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const answerBut = (tag, failKeys) => {
+      const rec0 = existsSync(join(wsRun, "join.json"))
+        ? JSON.parse(readFileSync(join(wsRun, "join.json"), "utf8")) : {};
+      const owed = [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
+      const f = join(root, `verdicts-${tag}.json`);
+      writeFileSync(f, JSON.stringify({
+        verdicts: owed.map((o) => ({
+          step_id: o.step_id, item: o.item,
+          ...(o.pair === null ? {} : { pair: o.pair }),
+          verdict: failKeys.includes(o.key) ? "fails" : "holds",
+          reason: failKeys.includes(o.key)
+            ? "the recovered reader would not be the declared one"
+            : "the declared line and the recovered one agree",
+        })),
+      }, null, 2) + "\n");
+      return f;
+    };
+    D("open");
+    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "loc"));
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("read", "--claim", "--file", claimFile);
+    D("compare");
+    const r = D("compare", "--verdicts",
+      answerBut("loc", ["section:1/section-belief-after", "a2/reader-state-after"]));
+    ok("the localizing run reaches a completed join", r.status === 0);
+    const rec = JSON.parse(readFileSync(join(wsRun, "join.json"), "utf8"));
+    const routes = rec.sections.routes;
+    ok("a Section fail LOCALIZES to the Step already failing a preserved item",
+      routes.length === 1 && routes[0].kind === "localized" && routes[0].step_id === "a2");
+    ok("and the run names where it went", /Section fails localized to a Step[^\n]*section 1 -> a2/.test(r.stdout));
+    ok("no upstream residue is produced for a localized fail",
+      !/routed UPSTREAM/.test(r.stdout));
+    // AND IT WITHHOLDS `close`, exactly as a preserved Step fail does: it named
+    // a correction target, so pass two is what turns it into a correction or
+    // into residue.
+    const rClose = D("close");
+    ok("a localized Section fail withholds close, routing through check",
+      rClose.status === 1 && /reachable only through `check`/.test(rClose.stderr));
+  }
+
+  // AND THE THIRD ROUTE (round 1, finding 2): a Section fails while a Step in it
+  // carries a `cannot-decide` on the localizing item. Neither of the two routes
+  // above applies — no Step FAILS, and not every Step HOLDS — and the first form
+  // of this Harness swept the case into localization, handing a correction
+  // target to a reviewer who had declined to decide. This is the case that
+  // arm was missing.
+  {
+    const uRoot = join(root, "theses", "undecided");
+    const d = buildDraft(uRoot, { packetDir });
+    const wsb = join(root, "ws-undecided");
+    const wsRun = join(wsb, "undecided");
+    const D = (...a) => spawnSync(process.execPath,
+      [self, ...a, "--draft", d.path, "--workspace", wsb], { encoding: "utf8" });
+    const answerWith = (tag, byKey) => {
+      const rec0 = existsSync(join(wsRun, "join.json"))
+        ? JSON.parse(readFileSync(join(wsRun, "join.json"), "utf8")) : {};
+      const owed = [...(rec0.owed || []), ...((rec0.sections || {}).owed || [])];
+      const f = join(root, `verdicts-${tag}.json`);
+      const REASONS = {
+        fails: "the heading promises a question this Section does not answer",
+        "cannot-decide": "the passage could be read either way and this reader will not choose",
+        holds: "the declared line and the recovered one agree",
+      };
+      writeFileSync(f, JSON.stringify({
+        verdicts: owed.map((o) => {
+          const v = byKey[o.key] || "holds";
+          return { step_id: o.step_id, item: o.item,
+            ...(o.pair === null ? {} : { pair: o.pair }),
+            verdict: v, reason: REASONS[v] };
+        }),
+      }, null, 2) + "\n");
+      return f;
+    };
+    D("open");
+    for (const id of ["a1", "a2", "a3"]) D("recover", "--step", id, "--file", writeRecordFor(d, id, "und"));
+    for (const n of ["1", "2"]) D("read", "--section", n, "--file", ledgerFile);
+    D("read", "--claim", "--file", claimFile);
+    D("compare");
+    const r = D("compare", "--verdicts", answerWith("und", {
+      "section:1/section-question": "fails",
+      "a2/reader-state-after": "cannot-decide",
+    }));
+    ok("the undecided run reaches a completed join", r.status === 0);
+    const rec = JSON.parse(readFileSync(join(wsRun, "join.json"), "utf8"));
+    const routes = rec.sections.routes;
+    ok("a `cannot-decide` on the localizing item does NOT localize the Section fail",
+      routes.length === 1 && routes[0].kind !== "localized");
+    ok("it routes `undecided`, naming the Steps that are unsettled",
+      routes[0].kind === "undecided" && routes[0].steps.join(",") === "a2");
+    // AND IT IS NOT REPORTED AS A BRIEF DEFECT. Narrowing the localizing arm to
+    // `fails` alone would have produced exactly that, on route 2's own premise
+    // that every Step holds — which is false here.
+    ok("and it is NOT rounded into the upstream route, whose premise is false here",
+      !/routed UPSTREAM/.test(r.stdout) && /could not be decided/.test(r.stdout));
+    ok("`correct` is offered no target, so no Step is handed a correction it was not sent",
+      D("correct", "--step", "a2").status === 1
+      && D("correct", "--step", "a1").status === 1);
+    const rClose = D("close");
+    ok("close is reachable — an undecided route withholds nothing, having no target",
+      rClose.status === 0);
+    const rev = readOrEmpty(join(uRoot, "review.md"));
+    const residue = rev.slice(rev.indexOf("## Residue"));
+    ok("the residue line says `undecided` rather than `upstream: brief`",
+      /undecided/.test(residue) && !/upstream: brief/.test(residue));
+    ok("and says explicitly that this is not a Brief defect",
+      /NOT a Brief defect/.test(residue));
+    ok("while still carrying its EMPTY classified: field",
+      /^ {2}classified:$/m.test(residue) && !/^ {2}classified:[^\n]*\S/m.test(residue));
+  }
+
+  // THE VACUOUS PAIRS ARE DECIDED AND RENDERED, never skipped. A skipped pair
+  // and a pair that held are the same silence to a reader of the output, and
+  // the sentence comes from the table rather than from this runtime.
+  {
+    const SL = sectionLinesOf(baseStdout);
+    ok("a pair that does not bind on this Section still renders a line",
+      SL.has("1/section-belief-before") && SL.has("1/final-claim") && SL.has("2/opening-question"));
+    ok("and it holds, carrying the table's own reason for not binding",
+      SL.get("1/section-belief-before").verdict === "holds"
+      && /first Section/.test(SL.get("1/section-belief-before").reason));
+    ok("the final claim is paired once, at the last Section",
+      SL.get("2/final-claim").verdict !== undefined
+      && /recorded once for the whole Draft/.test(SL.get("1/final-claim").reason));
+    // A vacuous pair costs NO MODEL CALL, and the record says so per pair —
+    // which is what makes "decided by the Harness" checkable rather than claimed.
+    const mech = (baseRecord.sections.mechanical || []).map((m) => `${m.section}/${m.item}`);
+    ok("and it appears in the Section mechanical log and in no model call",
+      mech.includes("1/section-belief-before")
+      && !baseRecord.sections.model_calls.some((m) => m.section === 1 && m.item === "section-belief-before"));
+  }
 
   rmSync(root, { recursive: true, force: true });
   process.stdout.write(`review-draft self-test: ${passed} case(s) pass, ${failures.length} fail\n`);
