@@ -28,7 +28,7 @@ import { resolveMoveIds, validateSpecialization, loadMoveIds,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
-import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS } from "./src/assemble.mjs";
+import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS } from "./src/assemble.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 import { snapshotBrief } from "./src/compose.mjs";
 import { laneDir } from "./src/runs.mjs";
@@ -1473,13 +1473,89 @@ try {
   }
 }
 
+// (r) THE PLAIN-LABEL TABLES STAY FIT TO USE (kogaki#859, PR #863 round 2,
+// carried finding 2). SPEC-draft-pipeline §6 says the derivation and the
+// plain-label tables "are retained for exactly this" — the one-item-at-a-time
+// reversal — "and `checks/check-brief-compose.sh` asserts both stay fit to
+// use". THAT ASSERTION DID NOT EXIST. `REVIEW_LABELS` was asserted NOWHERE,
+// leaving an unused import as the only trace of the (j) loop that consumed it,
+// and `EVIDENCE_LABELS` was asserted for four of its ten keys — the three
+// READER_FIELDS at (l) and `bridges` at (l). A contract carried in prose whose
+// only test is that the prose still says it is green about the document and
+// silent about the tables.
+//
+// THE BINDING IS DERIVED, NEVER RESTATED. A literal key list here would be a
+// second declaration that drifts the first time either table moves — the
+// defect this suite family has now met five times. So the expected key set is
+// COMPUTED from the live producers: EVIDENCE_LABELS covers exactly
+// REASONING_FIELDS (composed into `reviewed.json`) plus whatever
+// `candidateEvidence` actually returns, and REVIEW_LABELS covers exactly
+// REVIEW_AREAS. Both directions are asserted, because they fail differently:
+// a key with no label is an item a restoring ruling could not render, and a
+// label with no key is the decayed table the retention argument rests on.
+{
+  // The KEY SET is what is under test and it does not vary with the path's
+  // content, so an empty path is the honest input: it derives every key the
+  // function can produce without a fixture whose shape could supply the answer.
+  const ev = candidateEvidence({ steps: [], obligations: [] }, [], []);
+  const expected = new Set([...REASONING_FIELDS, ...Object.keys(ev)]);
+  const labelled = new Map(EVIDENCE_LABELS);
+
+  if (labelled.size !== EVIDENCE_LABELS.length) {
+    fails.push("(r) EVIDENCE_LABELS carries a duplicate key — the later entry silently wins and one item's label is unreachable");
+  }
+  for (const key of expected) {
+    if (!labelled.has(key)) {
+      fails.push(`(r) \`${key}\` reaches the gate's evidence and has NO plain label — a ruling restoring that one item would have only its internal key to render (SPEC §6)`);
+    }
+  }
+  for (const [key] of EVIDENCE_LABELS) {
+    if (!expected.has(key)) {
+      fails.push(`(r) EVIDENCE_LABELS labels \`${key}\`, which neither REASONING_FIELDS nor candidateEvidence produces — the table has decayed away from what it would render`);
+    }
+  }
+  // REVIEW_LABELS against its own producer. This is the half that was carried
+  // by nothing at all: the table's only reader was the deleted (j) loop.
+  const areas = new Set(REVIEW_AREAS);
+  for (const a of areas) {
+    if (typeof REVIEW_LABELS[a] !== "string") {
+      fails.push(`(r) review area \`${a}\` has no plain label in REVIEW_LABELS — the table cannot render the area it is retained for`);
+    }
+  }
+  for (const k of Object.keys(REVIEW_LABELS)) {
+    if (!areas.has(k)) {
+      fails.push(`(r) REVIEW_LABELS labels \`${k}\`, which is not a REVIEW_AREAS member — the table has drifted from the areas it renders`);
+    }
+  }
+  // FIT TO USE IS NOT ONLY PRESENCE. A label that decayed into an internal key
+  // or a section reference while unrendered is exactly what the reversal would
+  // put in front of the owner, and the leak predicate is the SHARED one
+  // (kogaki#526) rather than a re-derived regex.
+  for (const [key, label] of EVIDENCE_LABELS) {
+    if (typeof label !== "string" || label.trim() === "") {
+      fails.push(`(r) \`${key}\` has a blank plain label — a restored item would render as nothing`);
+    } else {
+      const leak = findInternalVocabulary(label);
+      if (leak) fails.push(`(r) \`${key}\`'s plain label reads ${leak.kind}: ${leak.token}`);
+    }
+  }
+  for (const [key, label] of Object.entries(REVIEW_LABELS)) {
+    if (typeof label !== "string" || label.trim() === "") {
+      fails.push(`(r) review area \`${key}\` has a blank plain label — a restored area would render as nothing`);
+    } else {
+      const leak = findInternalVocabulary(label);
+      if (leak) fails.push(`(r) review area \`${key}\`'s plain label reads ${leak.kind}: ${leak.token}`);
+    }
+  }
+}
+
 console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclosed and never asserted: a count that failed when it MOVED would go red exactly when a record is authored or retired)`);
 // kogaki#822 acceptance 5, and kogaki#661's defect: the count below is a CLAIM,
 // and a claim compared against nothing reports a silently lost case as a green
 // pass. The floor lives in checks/registry.json and the count lives here, so
 // deleting a case and lowering this number fails against the floor — and
 // lowering the floor to match is itself caught by check-registry-conformance.
-const CASE_COUNT = 17;
+const CASE_COUNT = 18;
 {
   const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
   const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;
@@ -1508,9 +1584,18 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) 
   + "and a BLANK one (kogaki#578 \u2014 the option label IS that prose, so a whitespace-only value renders "
   + "as an option the owner cannot see), and the payload rides the proposal-contract shape — where/why, "
   + "effect-stating labels, the first-class none-of-these flagged negates_premise, an "
-  + "unconditional free-text channel that states it does not discharge the negation, and "
-  + "per-Candidate evidence carrying step validity, transition continuity, Thesis closure, "
-  + "the ledger's state and the placement count from each Candidate's OWN steps; (f) the "
+  + "unconditional free-text channel that states it does not discharge the negation, and NO "
+  + "EVIDENCE OBJECT — the option carries its id, its label and the bounded rendering and nothing "
+  + "else, which is what (e) now asserts rather than the retention it once did. THIS CLAUSE READ "
+  + "`and per-Candidate evidence carrying step validity, transition continuity, Thesis closure, the "
+  + "ledger's state and the placement count from each Candidate's OWN steps` — the exact shape "
+  + "kogaki#859's amendment REMOVED, left standing in the same string literal whose (i) and (j) halves "
+  + "were rewritten and beside the registry contract that was rewritten on precisely this ground. It is "
+  + "the FOURTH surface of carried finding 1's own class and was found by PR #887 round 1, inside the "
+  + "diff that repairs the other three — which is the finding worth keeping: repairing a self-description "
+  + "class one named surface at a time leaves the surfaces nobody enumerated, and the enumeration came "
+  + "from the round rather than from the head. The per-Candidate properties are asserted where they are "
+  + "COMPOSED, at (e), (i) and (l) against candidateEvidence; (f) the "
   + "adopted Candidate's Reader Path lands in the Brief's sequence with thesis_closure and "
   + "tradeoffs filled from its reasoning, a declined Candidate lands nowhere, and an "
   + "unoffered Candidate refuses; (g) both assemble and adopt-candidate command paths are "
@@ -1566,9 +1651,24 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) 
   + "the composed steps, placed rendering as placed and omitted rendering as OMITTED-disclosed "
   + "rather than refusing, a Journey claimed for a Strand whose record carries none refused BY "
   + "NAME as unsupported completion, a Journey outside the closed set refused as a Brief fetch, "
-  + "and the no-Journey case vacuous rather than violated; (i) per-Candidate journey_coverage "
-  + "rides the gate payload as EVIDENCE, so two Candidates differing on the journey axis do not "
-  + "read identically, and it carries no verdict token; (j) THE RENDERING IS BOUND TO THE "
+  + "and the no-Journey case vacuous rather than violated; (i) per-Candidate journey_coverage, "
+  + "RE-POINTED FROM THE PAYLOAD TO THE DERIVATION at kogaki#859 — the amended ruling removed the evidence "
+  + "object this case used to read, and display and computation are different questions with only the first "
+  + "ruled on, so the per-Candidate property is asserted where it is now COMPUTED while the assembly call is "
+  + "kept beside it as the control that a journey-placing Candidate still reaches the gate at all. Two "
+  + "Candidates differing on the journey axis do not read identically, and it carries no verdict token. THIS "
+  + "CLAUSE PREVIOUSLY READ `rides the gate payload as EVIDENCE`: the (j) half of this same string literal "
+  + "was rewritten at kogaki#859 and the (i) half was not, so the pass line kept asserting a retention the "
+  + "head had removed (PR #863 round 2, carried finding 1); (r) THE PLAIN-LABEL TABLES STAY FIT TO USE (PR "
+  + "#863 round 2, carried finding 2) — the carrier SPEC §6 CLAIMED AND DID NOT HAVE. EVIDENCE_LABELS covers "
+  + "exactly REASONING_FIELDS plus the keys `candidateEvidence` actually derives, and REVIEW_LABELS exactly "
+  + "REVIEW_AREAS — both directions, since a key with no label is an item a restoring ruling could not render "
+  + "and a label with no key is the decayed table the retention argument rests on. Every label is non-blank "
+  + "and free of internal vocabulary by the SHARED predicate (kogaki#526), never a re-derived regex. The key "
+  + "sets are DERIVED from the live producers and never restated: a literal list here would be the "
+  + "second-declaration drift this member has now met five times. Before this case REVIEW_LABELS was asserted "
+  + "NOWHERE — its only reader was the (j) loop the reduction deleted, leaving an unused import as the sole "
+  + "trace — and EVIDENCE_LABELS for four of its ten keys; (j) THE RENDERING IS BOUND TO THE "
   + "LABELS (kogaki#520, REDUCED at kogaki#859) — the `rendering` key is PRESENT and EMPTY, "
   + "the two asserted apart so a vanished key and a bounded one are distinguishable; the "
   + "option label, which is now the whole of what the owner reads, is non-empty and free of "
@@ -1582,9 +1682,17 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (q) 
   + "is full of internal keys passes, which is the assertion that catches the evidence "
   + "returning by a side door. The tripwire reads REGISTER, never a composition MUST (§4.6 "
   + "clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859): THIRTY-FOUR "
-  + "mutations. RE-DERIVED, not incremented: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
-  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three = 34. "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2): THIRTY-SEVEN "
+  + "mutations. RE-DERIVED, not incremented — this paragraph's own standing rule, and the one it has twice failed: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
+  + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three = 37. "
+  + "PR #863 ROUND 2's THREE, all against case (r) — the carrier SPEC §6 claimed and did not have. Deleting a "
+  + "REVIEW_AREAS member's entry from REVIEW_LABELS fails (r)'s has-no-plain-label assertion, and it is the "
+  + "load-bearing one: that table was asserted NOWHERE before this case, so this mutation could not have failed "
+  + "this member at the previous head however it was applied. Decaying a label back into its own internal key "
+  + "fails (r)'s leak assertion through the shared predicate. Adding a label for a key neither REASONING_FIELDS "
+  + "nor candidateEvidence produces fails (r)'s no-label-without-a-key assertion — the direction that catches a "
+  + "table drifting away from what it would render, which mere presence-checking cannot see. Control: unmutated, "
+  + "the member exits 0 at 18 cases, so the three refusals discriminate rather than refusing everything. "
   + "kogaki#859's three, all against the reduction of the gate to its id and its label — and the first is an "
   + "INVERSION, recorded as such because an inverted assertion and a deleted one read identically at a later "
   + "head: restoring the sixteen evidence-and-review paragraphs — the shape this member REQUIRED one commit "
