@@ -1114,9 +1114,17 @@ Candidate assembly, the Candidate-selection gate, adoption — and ends only at 
 **A mid-workflow stop is legitimate only when NAMED, and only on an
 inspection-need** — a point where the owner must leave the conversation to read
 another surface before the next gate can be answered honestly. **This flow has
-no such point**, and both gates are answerable from what the runtime renders
-into them. A later sitting that finds one adds the named stop there, with its
-ground; it does not restore the default.
+no such point**, and **all three gates** are answerable from what the runtime
+renders into them. A later sitting that finds one adds the named stop there,
+with its ground; it does not restore the default.
+
+**Three since v28** (kogaki#893), and the third is the one whose count this
+clause has to be read against: §4.12.3's ratification gate is answerable from
+what the runtime renders into it — `ratify-specialization --declare` prints the
+record verdict by verdict, byte-for-byte as the validator read it — so it adds
+a gate and **not** an inspection-need. That is the property this clause is
+about, and it is why the gate could be added without reopening the abolished
+default stop.
 
 `necessity:` the gate's payload shape is in `src/gate-registry.json` and the flow
 is in `src/brief.mjs`. What no carrier holds: the two conditions a merged gate
@@ -1131,10 +1139,21 @@ Where/Why and the effect-stating label (`specs/spec-proposal-contract/SPEC.md`),
 and the declared gate registry and selector affordance
 (`specs/spec-gate-carrier/SPEC.md`).
 
-**No gate is registered by this spec and no check is registered by this spec.**
-A new check would owe an admission record, a removal signal and a typed
+**No gate is registered by THIS SECTION and no check is registered by this
+spec.** A new check would owe an admission record, a removal signal and a typed
 observing instrument, and a check admitted ahead of its subject is the shape
 this repository refuses.
+
+**The first half was narrowed at v28 (kogaki#893) and the second is untouched.**
+§4.12.3 registers `brief-specialization-ratification` in `src/gate-registry.json`,
+so this spec does now register a gate — one, sited there, for the reason that
+section gives. Narrowed rather than deleted, because the claim this sentence was
+making is still true of §6 and is what §6 rests on: **Candidate selection** rides
+the gate carrier this repository already ships and mints nothing. A reader who
+found the sentence simply gone could not tell that from §6 having quietly grown a
+carrier. And the check half stands unchanged: §4.12.3 adds a CASE to
+`check-brief-compose`, never a member, so no admission record and no removal
+signal is owed.
 
 **The selection payload carries, per Candidate, its id and its
 reader-experience label; the premise's negation; free text. Nothing else.**

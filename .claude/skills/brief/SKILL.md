@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19, §4.12 v22): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → the §4.12 specialization judgment → adoption, ending only at a filled Brief or at an owner answer that ends it. THREE owner gates: one before the mint (each Thesis with the name it gives the Brief), one at Candidate selection, and one ratifying the §4.12 specialization record before the path is written; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19, §4.12 v22, §4.12.3 v28): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → the §4.12 specialization judgment → the §4.12.3 ratification gate → adoption, ending only at a filled Brief or at an owner answer that ends it. THREE owner gates: one before the mint (each Thesis with the name it gives the Brief), one at Candidate selection, and one ratifying the §4.12 specialization record before the path is written; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -150,7 +150,7 @@ kogaki#494).
     reach. **The runtime composes no verdict here and fills no default** — it
     validates your record and refuses without one, so there is nothing to
     inherit by leaving the flag off.
-11a. **Raise the specialization-ratification gate** (§4.12.3) — the THIRD and
+12. **Raise the specialization-ratification gate** (§4.12.3) — the THIRD and
     last owner question, and the only one after the Candidate is chosen.
     `node src/assemble.mjs ratify-specialization --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json>`
     composes the run declaration and prints the record: every Step, the Move it
@@ -170,7 +170,7 @@ kogaki#494).
     **The gate is raised over a record that already PASSES.** If the command
     refuses instead of declaring, your record does not pass §4.12 — repair the
     record, not the gate, and nothing reaches the owner.
-12. **Adopt the owner's Candidate** —
+13. **Adopt the owner's Candidate** —
     `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json> --ratification <the capture path the step above printed>`.
     Its Reader Path becomes the Brief's sequence; `thesis_closure` and
     `tradeoffs` fill from its reasoning. **With no owner answer nothing lands**
@@ -186,7 +186,7 @@ kogaki#494).
     note that `draft.mjs` takes the same flag for the same reason. A store it
     cannot read refuses as a store fault naming no Step — that is a wrong
     working directory, not a wrong Brief.
-13. **Hand over the filled Brief** and stop. This is the end of the arc: name
+14. **Hand over the filled Brief** and stop. This is the end of the arc: name
     `theses/<slug>/brief.md` to the owner and never retype, summarize or
     restate it. The run's per-block Brief snapshots (before/after each
     landing write) sit at `runs/brief/<slug>/snapshots/` — in the tree,
