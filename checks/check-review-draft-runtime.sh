@@ -40,12 +40,14 @@
 # fixture Draft, built in `emit`'s own shape. The live drive was performed once
 # at authoring and is reported as an observation, never as coverage.
 #
-# NOT CARRIED HERE, stated rather than implied: the recovered record's schema
-# (kogaki#871), the item classes and the three-valued verdict (kogaki#872), the
-# cold reader's pairing (kogaki#873), and the correction path with its bounded
-# second pass (kogaki#874). Those entry points are DECLARED by this runtime and
-# refuse by naming their issue; the pass asserts the refusal, never the
-# behaviour that has not been built.
+# NOT CARRIED HERE, stated rather than implied: the cold reader's pairing
+# (kogaki#873) and the correction path with its bounded second pass
+# (kogaki#874). Those entry points are DECLARED by this runtime and refuse by
+# naming their issue; the pass asserts the refusal, never the behaviour that has
+# not been built. The recovered record's schema (kogaki#871) and the comparison
+# (kogaki#872) ARE carried, named here as landed rather than dropped from the
+# list, because a boundary that quietly stops being one cannot be told from a
+# boundary a reader misremembered.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -182,7 +184,7 @@ echo "ok: the review lane is registered in both LANES and src/runs.json, asked o
 # total coverage would be the overclaim this finding named.
 RT="src/recovery-template.md"
 PT="src/packet-template.md"
-for f in "$RT" "$PT" src/recovered-schema.json; do
+for f in "$RT" "$PT" src/recovered-schema.json src/review-items.json src/join-template.md; do
   if [[ ! -f "$f" ]]; then
     echo "FAIL: $f is missing -- the recovery input and its record contract are runtime-read, so an absent one is a defect rather than a skip"
     exit 1
@@ -213,5 +215,97 @@ while IFS= read -r h; do
 done < <(sed -nE 's/^#{1,6} (.*[^ ]) *$/\1/p' "$PT")
 if (( LEAK )); then exit 1; fi
 echo "ok: $RT carries no block heading from $PT (derived from its headings, never transcribed)"
+
+# --- THE ITEM TABLE'S PACKET SHAPE MATCHES THE REAL TEMPLATE (kogaki#872).
+#
+# `compare` reads the DECLARED side out of a rendered Packet by the labels,
+# headings and fixed sentences `src/review-items.json` names in `packet_blocks`.
+# The fixture cannot assert this: it writes its OWN Packets, in the template's
+# shape as the author understood it, so a rename in src/packet-template.md would
+# leave every fixture case green and every real Packet refusing at `compare` —
+# or, worse for a `block` reader whose instruction sentence stopped matching,
+# silently handing the instruction paragraph back as the block's value.
+#
+# THIS IS A JOIN ACROSS TWO FILES AND ONLY A MEMBER CAN STAND AT IT. Asserted
+# against the real template, deriving the strings from the table rather than
+# transcribing them here, so a block added to the table is covered by the
+# derivation.
+#
+# WHAT IT DOES NOT CATCH, stated rather than left to read as total: it checks
+# that each named label, heading and sentence OCCURS in the template. It cannot
+# check that the block still MEANS what the item compares against — a heading
+# reused for different content passes this and is caught only by a real drive.
+if ! python3 - <<'PYEOF'
+import json, re, sys
+table = json.load(open("src/review-items.json"))
+tpl = open("src/packet-template.md").read()
+blocks = table.get("packet_blocks", {})
+bad = []
+
+# Every declared_block an item names must have a shape in the table.
+for item in table["items"]:
+    for name in ([item.get("declared_block")] + item.get("also_declared_blocks", [])):
+        if name and name not in blocks:
+            bad.append(f"item {item['id']} names the block `{name}`, which packet_blocks does not describe")
+
+def occurs(needle):
+    # Whitespace-insensitive, the way the runtime matches a wrapped sentence.
+    return re.search(r"\s+".join(re.escape(w) for w in needle.split()), tpl) is not None
+
+for name, spec in blocks.items():
+    if name == "note":
+        continue
+    kind = spec.get("kind")
+    for label in ([spec["label"]] if "label" in spec else []) + spec.get("labels", []) + (
+            [spec["bullet_label"]] if "bullet_label" in spec else []):
+        if not re.search(r"^- \*\*" + re.escape(label) + r"\.\*\*", tpl, re.M):
+            bad.append(f"block `{name}` reads the Packet bullet `{label}`, which the template does not render")
+    if "heading" in spec and not re.search(r"^#+\s+" + re.escape(spec["heading"]) + r"\s*$", tpl, re.M):
+        bad.append(f"block `{name}` reads the Packet heading \"{spec['heading']}\", which the template does not carry")
+    if "after_words" in spec and not occurs(spec["after_words"]):
+        bad.append(f"block `{name}` skips the fixed sentence \"{spec['after_words']}\", which the template does not carry -- the instruction paragraph would be handed back as the block's value")
+    if "opens_with" in spec and spec["opens_with"] not in tpl:
+        bad.append(f"block `{name}` opens on \"{spec['opens_with']}\", which the template does not carry")
+    if "prefix" in spec and not re.search(r"^" + re.escape(spec["prefix"]) + r"\s", tpl, re.M) and "{{" not in tpl:
+        pass  # the ground lines are a rendered VALUE, not template text
+
+for b in bad:
+    print("FAIL: " + b)
+sys.exit(1 if bad else 0)
+PYEOF
+then
+  echo "FAIL: src/review-items.json's packet_blocks and src/packet-template.md disagree about the Packet's shape -- every real Packet would refuse at \`compare\` while every fixture case stayed green"
+  exit 1
+fi
+echo "ok: every Packet label, heading and fixed sentence the item table reads is one src/packet-template.md renders"
+
+# --- AND EVERY MECHANICAL ITEM HAS AN IMPLEMENTATION (kogaki#872).
+#
+# The fixture asserts this too, from the module's own text. It is repeated here
+# because the failure mode is a CLEAN PASS: a table row that gained
+# `mode: mechanical` with no implementation would report `holds` for every Draft
+# on every Step, which is the silent agreement the whole comparison exists to
+# refuse. Asked of the MODULE rather than matched as text.
+if ! node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  const t = JSON.parse(readFileSync("src/review-items.json", "utf8"));
+  const code = readFileSync("src/review-draft.mjs", "utf8");
+  const prod = code.slice(0, code.indexOf("async function runSelfTest"));
+  const missing = t.items.filter((i) => i.mode === "mechanical" && !prod.includes(`"${i.id}"`));
+  if (missing.length) {
+    console.error(`no implementation for: ${missing.map((i) => i.id).join(", ")}`);
+    process.exit(1);
+  }
+  const judged = t.items.filter((i) => i.mode !== "mechanical");
+  if (judged.some((i) => !i.question)) {
+    console.error("a judged item carries no question, so its join Packet would ask nothing");
+    process.exit(1);
+  }
+  if (t.verdicts.length !== 3) { console.error("the verdict set is not the closed three"); process.exit(1); }
+'; then
+  echo "FAIL: src/review-items.json declares an item the runtime cannot decide -- a mechanical row with no implementation reports holds for every Draft, and a judged row with no question renders a join Packet that asks nothing"
+  exit 1
+fi
+echo "ok: every mechanical item has an implementation, every judged item carries a question, and the verdict set is the closed three"
 
 echo "PASS: ReviewDraft runtime"
