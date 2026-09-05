@@ -1,7 +1,7 @@
 {
-  "version": 14,
+  "version": 15,
   "governing_text": "specs/spec-terrain/SPEC.md §15",
-  "licensed_by": "kogaki#856 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
+  "licensed_by": "kogaki#861 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
     "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (§15.5) and renders under the grammar_surface THIS STATE declares, never one bound to the artifact path.",
@@ -98,6 +98,18 @@
       "gate_id": "terrain-id-selection"
     },
     {
+      "id": "thesis_candidates",
+      "kind": "judgment",
+      "judgment_point": "Thesis-candidate composition (§12.3)",
+      "input_shape": "typed array of {claim, strands} objects, exactly `limits.thesis_candidates` of them, each combining 2 to 8 LessonDisplayIDs THIS report renders",
+      "refusal": "a count other than the declared limit, a claim spanning more than one line, a strand list outside 2 to 8, a strand no entered Group or SubGroup carries, and a repeated strand are each refused",
+      "writes": null,
+      "conditional": false,
+      "renders_gate_declaration": false,
+      "governing": "§12.3, §13.4",
+      "ordering": "AHEAD OF J3_neighborhood, and that is this row's whole reason for existing at this position (kogaki#861, owner ruling 2026-09-05). The neighborhood judgment names, per candidate, the Thesis candidate it serves; a target can only be refused against a candidate set that already exists, so the ids are FIXED here and J3 reads them. The alternative — one judgment composing candidates and neighborhood together — was declined: the model would supply the list and the targets into it in the same act, and nothing outside that act could refuse a target naming a candidate the same record invented."
+    },
+    {
       "id": "neighborhood_input",
       "kind": "compute",
       "does": "Enumerates the provenance-neighborhood's mechanical candidates for the entered set and writes them to the run workspace, so the judgment point below has something to judge.",
@@ -110,8 +122,8 @@
       "id": "J3_neighborhood",
       "kind": "judgment",
       "judgment_point": "provenance-neighborhood recommendation",
-      "input_shape": "typed record keyed by candidate slug, each carrying one free-form claim and one level from the harness-fixed set",
-      "refusal": "a level outside the closed set, a level with no claim, and a key no mechanical candidate carries are each refused, naming the offending slug",
+      "input_shape": "typed record keyed by candidate slug, each carrying one free-form claim, one level from the harness-fixed set, and one target naming the Thesis candidate it serves and its role for that candidate",
+      "refusal": "a level outside the closed set, a level with no claim, a judgment with no target, a target that is not a TC id, a target naming a Thesis candidate the thesis_candidates state did not compose, and a key no mechanical candidate carries are each refused, naming the offending slug",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
@@ -161,7 +173,7 @@
     "waits": 5,
     "conditional_states": 2,
     "owner_artifact_writes": 2,
-    "judgment_points": 3,
+    "judgment_points": 4,
     "grammared_writing_states": 2
   },
   "owner_artifacts": {

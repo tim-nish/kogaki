@@ -67,7 +67,7 @@ The two invocations the judgment states consume:
 
 ```
 cotags --survey <record> --tag <T> --claims <F> --subdivisions <F> --judge-model <M> --judge-effort <E>
-report --survey <record> --tag <T> --ids <G…>  --claims <F> --subdivisions <F> --judge-model <M> --judge-effort <E> [--thesis-candidates <F>]
+report --survey <record> --tag <T> --ids <G…>  --claims <F> --subdivisions <F> --judge-model <M> --judge-effort <E> --thesis-candidates <F> [--neighborhood <F>]
 ```
 
 **A tag selection lands at `cotags`** — there is no second row view, and no
@@ -125,14 +125,29 @@ omitting the group.
 size and the residual maximum live in `report-format.json`'s `limits`, the one
 place they can be edited.
 
-**`--thesis-candidates` is optional, and omitting it is a decision you make on
-the owner's behalf.** Absence renders the section with an explicit *no candidates
-were composed* line — disclosed, never silent. That is a fallback, not an
-invitation: **compose it unless you have a reason not to.** A JSON array of
-exactly `limits.thesis_candidates` objects, each `{ "claim": "<one sentence>",
+**`--thesis-candidates` is a JUDGMENT STATE of its own, and it runs before the
+neighborhood is judged** (kogaki#861). A JSON array of exactly
+`limits.thesis_candidates` objects, each `{ "claim": "<one sentence>",
 "strands": [...] }` with 2–8 display ids **every one of which is a member of the
-report you are generating**. You do not supply `TC<n>` ids. **The claims are
-yours and the design is not.**
+report you are generating**. You do not supply `TC<n>` ids — the state mints them
+and writes them to the run workspace, and that is what fixes what `TC1` means
+before anything is judged against it. **The claims are yours and the design is
+not.**
+
+**Omitting it is no longer a decision you can make in the flow.** The *no
+candidates were composed* line is still the disclosed fallback for a pull with no
+neighborhood judgment; a JUDGED neighborhood refuses it, because every rendered
+row names the Thesis candidate it serves and an absent list would put `TC<n>` ids
+on the owner's surface against an empty section.
+
+**The neighborhood judgment carries a target per candidate.** Keyed by slug:
+`{ "level": "core|useful|background", "claim": "<one sentence>", "target":
+{ "candidate": "TC<n>", "role": "<what it does for that candidate>" } }`. The
+runtime refuses a record with no target, a target that is not a `TC<n>` id, and
+one naming a candidate this pull did not compose — the row renders **`- N3
+[core] — <relation>`**, then the target line, then the served Gloss at its cite,
+then the claim. WHICH candidate and WHAT FOR are both yours; that a row states
+them is the harness's.
 
 ## Hard lines
 

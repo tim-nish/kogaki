@@ -1,7 +1,7 @@
 {
-  "version": 19,
+  "version": 20,
   "governing_text": "specs/spec-terrain/SPEC.md §14.1",
-  "licensed_by": "kogaki#856 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
+  "licensed_by": "kogaki#861 — this carrier holds the CURRENT rendered form only. It is not a version ledger: superseded forms, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "refusal_text_boundary": {
     "fact": "No text raised through fail() (src/terrain.mjs) is a line of ANY owner surface this artifact grammars. fail() writes to stderr and exits.",
     "scope": "global — it holds for every surface here, covered or uncovered, and each surface restates it rather than inheriting it silently",
@@ -27,7 +27,7 @@
     "ThesisCandidateID": {
       "shape": "^TC[0-9]+$",
       "means": "a Thesis candidate's owner-facing display id, minted over the composed candidate list for one report (§12.3)",
-      "producer": "src/terrain.mjs cmdReport — minted positionally over the supplied candidates, never carried in the input",
+      "producer": "src/terrain.mjs readThesisCandidates — minted positionally over the supplied candidates, never carried in the input, and minted BEFORE the neighborhood is judged (kogaki#861): the `thesis_candidates` workflow state fixes the ids and writes them to the run workspace, and J3_neighborhood refuses a neighborhood target naming an id outside that set. It used to be minted at render time inside thesisCandidatesSection, which was sound while nothing but that section named a TC id.",
       "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ and from ^N[0-9]+$. A candidate is not an element and is never assigned a display_id by §14.3; the three spaces coexist and a `strands:` list carries LessonDisplayIDs only."
     },
     "LessonCount": {
@@ -418,10 +418,25 @@
         },
         {
           "id": "neighborhood_suggestion_row",
-          "form": "- <SuggestionID> — <relation in plain words>",
+          "form": "- <SuggestionID> [<NeighborhoodLevel>] — <relation in plain words>",
           "allowlist": [
-            "SuggestionID"
-          ]
+            "SuggestionID",
+            "NeighborhoodLevel"
+          ],
+          "superseded": "- <SuggestionID> — <relation in plain words> (kogaki#861, owner report 2026-09-04: the level sat at the END of the claim two lines down, so the rank arrived after the sentence it ranks and the reader had to go back for it. It is carried HERE now and by nothing else — `neighborhood_suggestion_claim` lost its trailing `[<NeighborhoodLevel>]` in the same change, because two carriers for one level is how a later edit updates half of them.)"
+        },
+        {
+          "id": "neighborhood_suggestion_target",
+          "form": "  serves: <the role this neighbor plays for that candidate> for <ThesisCandidateID>",
+          "allowlist": [
+            "ThesisCandidateID"
+          ],
+          "governing": "SPEC-terrain §13.4 / §12.3 — kogaki#861, owner report 2026-09-04. A FIXED line class: every rendered row carries it, so a reader can always tell what a suggested neighbor is FOR. The id names a candidate of THIS report's §12.3 section, and the runtime refuses a judgment whose target names a candidate the `thesis_candidates` state did not compose — the join is checked before anything renders, because a TC id pointing at a section that does not carry it fails silently in the one direction the reader cannot see."
+        },
+        {
+          "id": "neighborhood_suggestion_target_absent",
+          "form": "  ⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩",
+          "governing": "SPEC-terrain §13.4 — DEFENSIVE, exactly as `neighborhood_unjudged` is. `readNeighborhoodJudgments` refuses a judgment carrying no target, so no command path emits this line; the renderer is called on a selection it does not compute, and a typed absence marker beats an omitted line, which would make the fixed-class property false exactly where it matters. Substituting a plausible TC id would be the renderer inventing the join."
         },
         {
           "id": "neighborhood_suggestion_gloss",
@@ -444,7 +459,9 @@
         },
         {
           "id": "neighborhood_suggestion_claim",
-          "form": "  <claim> [<NeighborhoodLevel>]"
+          "form": "  <claim>",
+          "superseded": "  <claim> [<NeighborhoodLevel>] (kogaki#861: the level moved to the head of the row, where it ranks the row before the sentence it ranks rather than after it. The tail is deleted rather than kept beside the new position — one carrier per level.)",
+          "reader_note": "PERMISSIVE BY CONSTRUCTION, and stated rather than left to be discovered: with the level gone this form pins no literal, so it admits any line indented two spaces. It is the LEAST specific of the row's four classes and is reached last by the specificity ordering, which is what keeps the target and Gloss lines classified as themselves. What it can no longer do is police the level — that is `neighborhood_suggestion_row`'s now, where the level actually renders."
         },
         {
           "id": "neighborhood_no_material",
