@@ -5020,16 +5020,14 @@ Three clauses, each binding separately so a partial compliance is visible:
 
 1. **Per-subject declaration.** A design baseline is declared in the spec
    that owns its subject, naming the inherited design and the scope the
-   inheritance is limited to. `specs/spec-terrain/SPEC.md` §2.4 is the
+   inheritance is limited to. `specs/spec-client-kit/SPEC.md` §1 is the
    standing form: the baseline named as an addressable artifact, the scope
    limit stated as part of the clause rather than as a footnote, and the
-   divergences numbered.
+   divergences registered.
 2. **The default where nothing is declared is NO INHERITED BASELINE.**
-   Kogaki does **not** inherit `writing-assistant` generally. §5's port
-   manifest is the scoping instrument — *anything unnamed is dropped by
-   decision* — and §2.4's own scope limit refuses the general reading in
-   terms ("nothing here may be read as a general WA inheritance — not for
-   Draft, not for Brief, not for any other subsystem"). A subject with no
+   Kogaki does **not** inherit `writing-assistant`. §5's port manifest is
+   the scoping instrument — *anything unnamed is dropped by decision*. A
+   subject with no
    declared baseline has a **fresh** design, and a sitting that wishes to
    inherit one declares it first; the declaration is the act, never a
    reading recovered afterwards from resemblance.
@@ -5051,7 +5049,6 @@ rate while being read as though it were current:
 
 | subject | where its baseline is declared |
 | --- | --- |
-| Terrain design | `specs/spec-terrain/SPEC.md` §2.4, with its numbered divergence register |
 | the tsurezure client kit | `specs/spec-client-kit/SPEC.md` §1, with its divergence register (empty at v1) |
 | every other subject | nothing declared — clause 2 applies, the design is fresh |
 

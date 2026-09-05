@@ -2699,18 +2699,30 @@ function writeDisplaySurface(args, surface, text) {
 
 // THE HAND-OVER'S FLOOR, and only its floor. Writing the artifact is NOT
 // delivery: a run that writes `reports/CoTagGroups.md` and tells the owner nothing
-// produces exactly the owner-visible state kogaki#434 was filed against, so
-// §14.4's "Delivering nothing is still a failure" binds to the HAND-OVER and
-// never to the write.
+// produces exactly the owner-visible state kogaki#434 was filed against.
+//
+// THE DESIGN CONTENT THIS WAS IMPLEMENTED AGAINST, COPIED HERE RATHER THAN
+// CITED (owner ruling 2026-09-05, kogaki#857). A section number is not a stable
+// name and carries no authority over code; a spec may be rewritten or deleted
+// and this function must keep working against what it was built for. So the
+// rule it implements is stated here in full, and propagating a later design
+// change into this code is a separate, explicit act:
+//
+//   the hand-over floor  — the rendering reaches the owner as the first act
+//   after the command returns, and the object of that act is the artifact,
+//   NAMED. Handing over nothing is a failure. The floor binds the HAND-OVER
+//   and never the write.
+//
+//   one rendering per class — exactly one CoTagGroups file exists, overwritten
+//   per render, the same count the Full Report's rendering carries.
 //
 // What this function does is name the artifact. WHICH FORM the relay's own
 // hand-over takes — a pointer, an `!`-command, a file-send — is non-normative
 // and is deliberately not decided here: a runtime that printed one prescribed
 // form would re-import the harness binding the ruling removed.
 function announceDisplay(path) {
-  console.log(`CoTagGroups — READ THIS ONE (owner rendering, SPEC-terrain §2.4's flow rule): ${relFromRepo(path)}`);
-  console.log("ONE CoTagGroups file, overwritten per render — §12.2 v12's count is scoped to "
-    + "FullReport.md, and this is the second owner-rendering class with its own count of exactly one.");
+  console.log(`CoTagGroups — READ THIS ONE (owner rendering): ${relFromRepo(path)}`);
+  console.log("ONE CoTagGroups file, overwritten per render — one owner rendering per class.");
 }
 
 // The owner register (§12.2 v11). Markdown, because the artifact's whole job is

@@ -1,15 +1,15 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v35 (kogaki#856). This file carries the **current contract only**.
+**Status:** v36 (kogaki#857). This file carries the **current contract only**.
 History — superseded behaviour, defect specimens, version ledgers, withdrawn
 proposals, ratification quote-trails — lives in git and in the issues.
 
 **Governs:** port manifest item 1 (`specs/SPEC.md` §5).
 
-**The forward rule.** A removed owner-facing behaviour is **gone** — at most a
-refusing stub naming its replacement (§15.6.3), never a prose restatement of what
-it used to do. A superseded behaviour kept as a record in an operative carrier is
-material a later re-cut reads back in, which is how a removed surface returns.
+**The forward rule.** A removed owner-facing behaviour is **gone** — no
+refusing stub, and never a prose restatement of what it used to do. A
+superseded behaviour kept as a record in an operative carrier is material a
+later re-cut reads back in, which is how a removed surface returns.
 
 ## What this file is for, and what it is not
 
@@ -38,15 +38,7 @@ Authored here, in the consumer, never ported as hub text.
 
 `specs/SPEC.md` §5's ordering clause is the carrier.
 Terrain's displays present selections, so they depend on manifest items **3**
-(the proposal contract) and **4** (the gate carrier); both port first, as their
-own PRs.
-
-<!-- The sentence beginning "Terrain's displays" is a resolvable ANCHOR cited by
-the gate-carrier fixtures. Two constraints, both invisible at the sentence
-itself: it must stay on ONE line, because a rewrap breaks every citation without
-changing a word; and the phrase must occur ONCE in this file, because an anchor
-appearing twice identifies nothing — so do not quote it back, here or anywhere
-in this file. -->
+(the proposal contract) and **4** (the gate carrier).
 
 **The refusal is a boundary, not a preference:** a Terrain implementation that
 grows its own proposal-rendering or gate-payload affordance has built the refused
@@ -118,55 +110,6 @@ prohibition's non-member fallback is admit, which is the shape §9 chose against
 `necessity:` the discharge is an argument about why an absence is sufficient. A
 carrier can hold the allowlist; it cannot hold the reason the allowlist is the
 right instrument.
-
-### 2.4 The WA baseline — Terrain design only, divergences declared
-
-Kogaki's Terrain reproduces WA's Terrain design by default, and a divergence is
-**declared here with a source-qualified pin**.
-
-**The scope limit is part of the clause.** The inheritance is limited **strictly
-to Terrain design**. Kogaki exists to separate Draft and Brief completely from
-WA; citing this section for a non-Terrain question is misusing it.
-
-**The divergence register.** Entries keep their numbers so citations stay valid;
-an absent number is a divergence that no longer exists.
-
-1. **Lessons-only candidate rows** (§5.1) — declared there with its falsifiers.
-4. **No per-Strand Gloss line and no Journey line on the display** (§6.1) — the
-   baseline served group presentation as ID, Strand ID, gloss, journey. Kogaki's
-   display serves the IDs and the composed claim and serves neither gloss nor
-   journey, which live in the Full Report (§12). The cost is real: an owner
-   reading the display sees Lesson IDs and a claim with no per-Strand headline
-   until they open the report.
-5. **Co-tag group ordering** — the served surface orders groups by descending
-   member count; Kogaki ships `COTAG_SORT`, "co-tag name ascending, then member
-   id ascending", declared and printed on the display. Both are deterministic and
-   both are navigation under §2.3, so neither violates the boundary.
-
-An entry lands here **in the same amendment that creates the divergence**.
-`consulted: product-lab@0cb46066653ef3db2e33f69971829d25c06b6507 topics/knowledge-architecture.md:121`
-
-**THE FLOW RULE**, stated here in full because `.claude/skills/terrain/SKILL.md`
-cites it and states it operationally. Two limbs:
-
-- **Negative.** The displays and the Full Report are the runtime's renderings,
-  **served verbatim**. The flow composes the runtime's *inputs* and relays its
-  *output* as-is; it **never re-renders, summarizes, reformats, tabulates or
-  paraphrases** what the runtime printed.
-- **Positive.** The rendering reaches the owner as the **first act after the
-  command returns** — before any gate, question or other tool call. A runtime
-  refusal's stderr is delivered the same way and never swallowed. The object of
-  that act is **the artifact, named**. The form of the hand-over is
-  non-normative. **Relaying nothing is a breach.**
-
-**This clause is advisory, not a carrier.** No check here observes whether a
-string reached the owner's visible reply. What it buys is that a run relaying
-nothing is *visibly* in breach of a stated obligation.
-`consulted: product-lab@12ba65dde00031cf92a5d98da75c1ca608f2d1b7 topics/articles.md:106`
-
-`necessity:` the register is a list of decisions against an external baseline,
-and the flow rule binds a layer this product does not own. Neither has a
-mechanical site.
 
 ## 3. Inputs — served renderings only
 
@@ -296,23 +239,12 @@ which misdescribes what the owner did.
 displayed to the model, not reliably to the owner, so a contract binding owner
 delivery to printed output is unsatisfiable.
 `consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:98`
-The earlier answer to that finding was to make the **owner** type the command.
-The owner ruled that premise false on 2026-09-04: the owner types nothing, **and**
-the Harness displays what the runtime produces. Both halves of the finding still
-hold here — nothing relies on stdout reaching the owner, and no session retypes
-the table — because the bytes ride an artifact the session renders rather than a
-stream it must relay.
+Nothing relies on stdout reaching the owner, and no session retypes the table,
+because the bytes ride an artifact the session renders rather than a stream it
+must relay.
 
-**The per-tag row view is RETIRED, and the retirement is a recorded decline**
-(owner ruling 2026-09-04). With over 100 served tags there is no demonstrated
-demand for browsing one tag's Lessons individually, and it was never approved. It
-is not re-sited onto the new channel: a removal criterion measures what must not
-remain and is satisfied most cheaply by dropping behaviour, so a behaviour leaves
-only under a decline somebody made.
-`consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:77`
-The **co-tag SELECTION display** is retired with it, on its own ground: it
-printed the first-tag table a second time after the tag was already chosen, and
-that table now sits above the question that chooses it.
+The tag listing rides the gate declaration above, and the CoTagGroups display is
+reached by selecting a tag at that gate.
 
 Selecting a tag displays the other tags its members carry, grouped by co-tag,
 with counts. Navigation in the full §2.3 sense: deterministic, complete, nothing
@@ -328,7 +260,9 @@ line), and the **member Lesson IDs**. Where §8 binds, members are served as
 SubGroups (§6.2). Every figure names its families (§9).
 
 **The display carries no per-Strand Gloss line and no Journey line** — those live
-in the Full Report (§12). This is §2.4's register entry 4.
+in the Full Report (§12). The cost is real: an owner reading the display sees
+Lesson IDs and a composed claim with no per-Strand headline until they open the
+report.
 
 The claim renders **beneath the heading, whole** — never clipped — for every
 group, subdivided ones included. The line shapes are
@@ -380,8 +314,8 @@ CoTagGroups display.
 **Scope: this allowlist governs the post-selection window only.** A question
 elsewhere in the flow is governed elsewhere.
 
-**What this does not claim.** Per §2.4, the clause is advisory at the model's
-composition layer; the runtime half is `workflow.json`'s wait placement.
+**What this does not claim.** The clause is advisory at the model's composition
+layer; the runtime half is `workflow.json`'s wait placement.
 
 `necessity:` §6 is where the surface's *meaning* lives — what the CoTagGroups
 display is, why the channel is the owner's terminal, what it is judged against, and why a
@@ -532,7 +466,8 @@ by asserting it; a subset relation makes composing outside the bounded read
   undecided.
 
 The co-tag group ordering is **not** an open question: the runtime ships a
-declared sort. It is §2.4 register entry 5.
+declared sort — `COTAG_SORT`, "co-tag name ascending, then member id ascending",
+deterministic, printed on the display, and navigation under §2.3.
 
 `necessity:` open questions are, by definition, not in any carrier. Carrying them
 here is what stops a later sitting re-deciding them silently.
@@ -573,16 +508,15 @@ The rendered form is `report-format.json`'s `surfaces.full_report`.
   typed literal `none` — and **`none` on a co-tag-generated report is
   non-conformant**, because that path always reaches a judgment. `none` and an
   empty SubGroupClaim set are **not synonyms**.
-- **The fourth component is the neighborhood judgment record** (kogaki#741). The
-  discriminator is **who is in the report**, not what it says: the neighborhood
-  judgment changes which candidates are displayed at all, because §13.4's fill is
-  level-ordered.
+- **The fourth component is the neighborhood judgment record.** The
+  discriminator is **who is in the report**, not what it says: the
+  neighborhood judgment changes which candidates are displayed at all,
+  because §13.4's fill is level-ordered.
 
 **The record carries a digest of the composed inputs, RECORDED and never KEYED**
-— for the claims and the subdivisions. A record predating the field is
-recomputed, not refused. The discriminator is again membership: a claims or
-subdivisions record changes what a section *says*; the neighborhood judgment
-changes *who is in it*.
+— for the claims and the subdivisions. The discriminator is again membership: a
+claims or subdivisions record changes what a section *says*; the neighborhood
+judgment changes *who is in it*.
 
 **The cost is stated rather than discovered.** Re-pulling a set with a better
 judgment produces a different report under a different identity, and the earlier
@@ -608,9 +542,7 @@ disclosed.
   are carried by the **machine record alone**; the rendering is a pure function
   of it.
 - **The machine record is identity-named**, and that is what identity-naming is
-  *for*. **This section's refusal governs renderings only** — an identity-named
-  *rendering* found where renderings are written is retired on sight, announced
-  in one line. Both report paths join the renderings directory with the literal
+  *for*. Both report paths join the renderings directory with the literal
   `FullReport.md`, so no identity digest can reach a rendering filename: the
   defect is **unwritable rather than detected**.
 
@@ -620,8 +552,8 @@ artifact.**
 
 ### 12.3 Thesis candidates — the early image, and it binds nothing
 
-**The report carries a fixed Thesis-candidates section** (owner ruling
-2026-09-01), immediately after the header so the early image is read first.
+**The report carries a fixed Thesis-candidates section**, immediately after
+the header so the early image is read first.
 
 **What it is for.** It lets the owner form an early image of the Theses this
 Strand set could support. **It binds nothing**: the Brief's eventual Thesis is
@@ -714,9 +646,9 @@ grammar's; three properties of it are not.
   decided first. **The seam state is declared unobservable from this path**, with
   a reopen trigger: the first Gloss caller here that reads softly.
 
-**An unjudged candidate is not a state** (kogaki#741). J3 refuses a judgment
-record leaving any mechanical candidate uncovered, and `full_report` refuses to
-render an unjudged neighborhood. **Both the enumerating compute state and the
+**An unjudged candidate is not a state.** J3 refuses a judgment record leaving
+any mechanical candidate uncovered, and `full_report` refuses to render an
+unjudged neighborhood. **Both the enumerating compute state and the
 judgment point are unconditional** in `workflow.json`.
 
 **J3 refuses three ways:** a judgment key naming no mechanical candidate; a
@@ -880,10 +812,11 @@ point would make the judgment ask the question. The declaration and capture stay
 
 ### 15.6.2 `subdivide` folds its COMPOSITION into J2, not only its validation
 
-### 15.6.3 A removed entry point refuses with a pointer; a bound one does not
+### 15.6.3 A removed entry point is DELETED, and leaves no stub
 
-An entry point whose behaviour **is** a state is deleted outright — a refusing
-stub there would be a second way to reach the state.
+An entry point that is gone is gone: no refusing case, no pointer, no record of
+what it used to do. Where its behaviour **is** a state, a stub would additionally
+be a second way to reach that state.
 
 ### 15.6.4 A GATE WAIT IS ANSWERED BY A CAPTURE
 
@@ -893,19 +826,10 @@ admissible because refusing both would leave the wait unanswerable.
 
 This is a statement about the **runtime**, not about the owner's surface.
 
-### 15.7 The standalone owner-facing subcommands are REMOVED, not flagged
+### 15.7 `self-test` and `validate` are NON-FLOW utilities
 
-**A removed subcommand stops emitting owner text at all**, and since
-kogaki#856 that is the only route out: no owner-executed listing survives, so
-there is no second class of surface that keeps emitting outside a state.
-
-**Which term of the coverage figure a removal lands in is `workflow.json`'s to
-compute** and is not asserted here: the carrier's denominator is the **states**
-whose `writes` is non-null, and a removed entry point is not a state, so it
-enters neither term. Per §14.1 the carrier wins.
-
-**`self-test` and `validate` survive** as non-flow utilities: no owner surface,
-no sequencing authority, reachable without a run record.
+They emit no owner surface, carry no sequencing authority, and are reachable
+without a run record. Every other entry point is a state.
 
 ### 15.8 What is NOT carried — the honest list
 
@@ -913,14 +837,8 @@ Stated **once, here**, for the whole spec. This section holds the file's only
 not-carried list and its only slot declaration; a second copy of either would be
 a surface that can disagree with this one.
 
-- **The hand-over floor has no mechanical carrier.** That a session named the
-  artifact to the owner is a property of the relay's behaviour, and nothing here
-  observes it. The executor can guarantee the artifact was **written**, never
-  that it was **handed over**.
 - **Nothing counts the rendering files.** A rendering arriving under another
   name, hand-copied or written outside the renderings directory, is unobserved.
-- **The delivery mechanism is unchecked because it is unconstrained.**
-  There is nothing there to check, by design.
 - **The table's SEMANTIC honesty is not checkable.** That the declared order is
   the right order, that a wait belongs where it sits, and that a judgment point
   is placed where judgment is owed are judgments, and they route to the review
