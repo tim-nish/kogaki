@@ -1541,7 +1541,10 @@ in particular is invisible in every artifact it corrupts.
 ### 6.9.1 The file interior — the §4.2 block IS the file body
 
 The eight fields render as a **structured block as the file body**, and
-`moves/INDEX.md`'s row derives mechanically from those same fields.
+`moves/INDEX.md`'s row derives mechanically from those same fields. Where the
+record carries §6.9.3's optional `visual_form`, it renders **after** them, and
+the INDEX row is unaffected — its three columns are `id`, `status` and
+`intent`, so no form reaches a row.
 
 **The declined arm, with its real cost.** Headed prose sections per field are
 friendlier for fields that are genuinely paragraphs, and keep the artifact
@@ -1567,6 +1570,16 @@ byte-identical in form to the block the owner authored — which is what makes
 normalize over a conforming input close to identity. No fence, no `---`
 delimiters: front-matter delimiters imply a document below the metadata, and
 here the block **is** the document.
+
+**And §6.9.3's `visual_form` last, when present** (kogaki#876). The identity
+property above is unchanged for it: the form is written back in the **kind's**
+role order, which is the order a conforming input already carries, and a
+record without a form renders byte-identically to what it always did. This
+clause is amended rather than left to be read as an absolute the shipped
+renderer contradicts — the correction §4.2 makes to its own "nothing added",
+applied at the clause that actually rules the rendered body. **The eight
+remain the eight**: `visual_form` is not in §4.2's order and is not counted
+into it, which is why it renders after the loop rather than inside it.
 
 **The filename.** `moves/<id>.md`, the `id` field as the whole stem —
 **derived, never composed.** A review that renames a Move renames its file, and
