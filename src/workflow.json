@@ -14,7 +14,7 @@
     "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states.",
     "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
     "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. The binding is per state, never per artifact path (SPEC §15.5).",
-    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. A property this table exists to carry may not be read off a missing key, so the key is present on all three gate states or on none."
+    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. A property this table exists to carry may not be read off a missing key, so the two conditions are one biconditional over the states array and NOT a count: this note deliberately enumerates no number of gate states, because the count moved from three to four at kogaki#856 and a note carrying it would have gone stale in the same commit — which is the defect kogaki#807 repaired one field over, in the `owner_reads` note that used to read \"Three keys\" and enumerate them."
   },
   "states": [
     {

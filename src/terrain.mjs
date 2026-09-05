@@ -5510,7 +5510,32 @@ function cmdRun(args) {
     // already-absolute path untouched and re-roots a repo-relative one against
     // the root `relFromRepo` stripped — so the read is the exact inverse of the
     // write rather than a second convention that agrees with it by luck.
-    const { path: capPath, row } = writeCapture(dir, readJson(resolve(REPO, owed.declaration)), { toolUseId, option: capOption, freeText: capFree });
+    const decl = readJson(resolve(REPO, owed.declaration));
+    const { path: capPath, row } = writeCapture(dir, decl, { toolUseId, option: capOption, freeText: capFree });
+    // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
+    // (PR #898 round 1). A gate may legitimately offer an answer with no
+    // downstream — `terrain-tag-selection`'s standing option stands for a
+    // method that does not exist yet — and the answer is still evidence, so the
+    // capture is written first and the refusal comes after it. What must NOT
+    // happen is the advance: the option id would land where the wait's value
+    // goes, and a later state would refuse it as if it were a malformed value
+    // of that kind rather than a deliberate answer to this question.
+    //
+    // DATA, NOT DRIVER CODE, like every other field the executor reads here: the
+    // routing is declared per gate in `src/gate-registry.json` and rides into
+    // the run declaration, so a second gate with an unrouted option needs no
+    // change to this file and no state is named below.
+    //
+    // THE WAIT STAYS OUTSTANDING, which is what makes the refusal recoverable:
+    // `rec.awaiting` is untouched, nothing is pushed onto `completed`, and since
+    // kogaki#808 a refusal persists the record — so the capture row is on disk,
+    // the declaration is still owed, and re-entering re-offers the same gate.
+    const unrouted = (decl.unrouted_options || {})[capOption];
+    if (unrouted) {
+      fail(`${JSON.stringify(capOption)} is an option gate ${owed.gate_id} declares as ROUTED NOWHERE, so the run does not advance past ${rec.awaiting}. `
+        + `The answer was recorded (${capPath}) and the wait is still outstanding — re-render the declaration and capture a different answer. `
+        + `The declaration's own reason: ${unrouted}`);
+    }
     // The answer IS the owner input for this wait. Adoption, ratification and
     // strand selection are all this one act (§15.6.1: adoption is applying the
     // captured answer), which is why no second command remains to apply it.
@@ -5744,8 +5769,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 // — that output cannot reach the owner without a file or an owner-typed
 // command — was ruled false on 2026-09-04: the owner types nothing, and the
 // Harness displays what the runtime produces. So the pre-selection listing now
-// rides the TAG_SELECTION gate declaration (`composeGateTagListing` above) and
-// the other two are DELETED rather than re-sited.
+// rides the TAG_SELECTION gate declaration — composed by `GATE_WORK`'s
+// TAG_SELECTION entry, through `composeOwnerListing` — and the other two are
+// DELETED rather than re-sited.
 //
 // THE DELETION IS A RECORDED DECLINE, not a side effect of removing the
 // channel. A removal criterion measures what must NOT remain, so it is
@@ -6272,6 +6298,60 @@ switch (cmd) {
         ok("a listing the tag_listing grammar refuses does not ride into a declaration — the gate refuses instead",
           rBad.status !== 0 && /refusing to emit tag_listing/.test(outBad),
           outBad.trim().split("\n")[0].slice(0, 140));
+
+
+        // THE STANDING OPTION IS ROUTED NOWHERE, AND SAYS SO (PR #898 round 1).
+        // Before this the option id was recorded where a tag name goes and the
+        // run died two states later in `compose_input`, telling the owner that
+        // "other-method" was not in the survey's vocabulary — a refusal that
+        // misdescribes what they did, from a state that cannot know what they
+        // were asked. One of exactly two ways to answer deserves one that names
+        // it, and the wait must survive so the gate can be re-offered.
+        const rdOpt = join(gs, "rd-unrouted");
+        mkdirSync(rdOpt, { recursive: true });
+        writeFileSync(join(rdOpt, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { encoding: "utf8" });
+        const rOpt = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp, "--capture-option", "other-method", "--tool-use-id", "t1"],
+          { encoding: "utf8" });
+        const outOpt = `${rOpt.stdout || ""}${rOpt.stderr || ""}`;
+        const recOpt = readRunRecord(rdOpt);
+        ok("capturing the standing option REFUSES the advance and names the option, rather than letting it land where a tag name goes",
+          rOpt.status !== 0 && /ROUTED NOWHERE/.test(outOpt) && /other-method/.test(outOpt),
+          outOpt.trim().split("\n").slice(-1)[0].slice(0, 160));
+        ok("that refusal leaves the wait OUTSTANDING and records no owner input — the gate can be re-offered rather than the run being wedged",
+          !!recOpt && recOpt.awaiting === "TAG_SELECTION"
+            && !recOpt.completed.includes("TAG_SELECTION")
+            && recOpt.owner_input.TAG_SELECTION === undefined,
+          recOpt ? JSON.stringify({ awaiting: recOpt.awaiting, completed: recOpt.completed, input: recOpt.owner_input }) : "(no record)");
+        ok("the answer is still CAPTURED — it is evidence, and the gate carrier owes the row whether or not the run advances",
+          existsSync(join(rdOpt, "terrain.gate-capture.json"))
+            && readJson(join(rdOpt, "terrain.gate-capture.json")).rows.some((x) => x.payload.answer.option === "other-method"));
+
+        // A FREE-TEXT TAG IS UNAFFECTED, so the refusal above discriminates
+        // rather than refusing every answer to this gate.
+        const rdFree = join(gs, "rd-freetext");
+        mkdirSync(rdFree, { recursive: true });
+        writeFileSync(join(rdFree, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { encoding: "utf8" });
+        const rFree = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdFree, "--workflow", tp, "--capture-free-text", "testing", "--tool-use-id", "t2"],
+          { encoding: "utf8" });
+        const recFree = readRunRecord(rdFree);
+        ok("a free-text tag answer still advances — the unrouted refusal is bound to the declared option and not to the gate",
+          rFree.status === 0 && !!recFree && recFree.owner_input.TAG_SELECTION === "testing"
+            && recFree.completed.includes("TAG_SELECTION"),
+          recFree ? JSON.stringify(recFree.owner_input) : `(no record) ${(rFree.stderr || "").slice(0, 120)}`);
 
         rmSync(gs, { recursive: true, force: true });
       }

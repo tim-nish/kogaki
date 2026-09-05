@@ -53,12 +53,6 @@
       "producer": "src/terrain.mjs NEIGHBOR_ID (:2828), minted over the sorted output at :2915",
       "disjoint_from_LessonDisplayID": "DECLARED DISJOINT from ^L[0-9]+$ (§14.6). §14.3 assigns a display_id ONCE, in the survey record; a suggestion is by construction NOT in that record, so nothing there assigns it one. The two spaces coexist and no owner surface renders both for one element. A taken suggestion is assigned an L<n> by §14.3's existing assignor on the way in, and its N<n> does not follow it."
     },
-    "CountCell": {
-      "shape": "^ *[0-9]+ *$",
-      "means": "a right-aligned count CELL in §6.0.1's block 2 — the non-negative integer together with the padding that aligns it under its family name. The cell rather than the bare integer is the unit, because the padding is part of what the emitter renders and a token pinned to the digits alone cannot be followed by it: the form notation has no way to write \"digits, then however many spaces the alignment needs\". These are COLUMNS rather than prose, so the cells carry no family word of their own; the word is in the header.",
-      "producer": "renderCotagSelection() (src/terrain.mjs)",
-      "minted_here_because": "kogaki#745. Without a declared token every placeholder resolves to FREE (`[\\s\\S]*?`), so a class whose form is nothing but placeholders admits ANY line and the line_class_allowlist is inert on this surface — exactly the condition this file's own reader notes record for three of full_report's body classes. `tag_count_row` must POLICE, so its two count cells are pinned to a shape."
-    },
     "NeighborhoodLevel": {
       "shape": "^(?:core|useful|background)$",
       "means": "one of the three harness-fixed recommendation levels a judgment may carry (§13.4). The set is closed and extending it is the owner's act.",

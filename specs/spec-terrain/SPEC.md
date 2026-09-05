@@ -284,6 +284,14 @@ free-text escape is not sufficient, because it is the option a hurried operator
 skips.
 `consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198`
 
+**Routed nowhere is REFUSED BY NAME, never silently accepted.** Selecting the
+standing option records the capture — the answer is evidence — and then refuses
+the advance, naming the option and leaving the wait outstanding so the gate can be
+re-offered. The routing is declared per gate in `src/gate-registry.json` and rides
+into the run declaration, so the executor names no state. Without this the option
+id lands where a tag name goes and a later state refuses it as a malformed tag,
+which misdescribes what the owner did.
+
 **Why not print it.** In the Claude Code harness a tool call's stdout is
 displayed to the model, not reliably to the owner, so a contract binding owner
 delivery to printed output is unsatisfiable.
