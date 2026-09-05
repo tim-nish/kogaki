@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v19, §4.12 v22, §4.12.3 v28): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → the §4.12 specialization judgment → the §4.12.3 ratification gate → adoption, ending only at a filled Brief or at an owner answer that ends it. THREE owner gates: one before the mint (each Thesis with the name it gives the Brief), one at Candidate selection, and one ratifying the §4.12 specialization record before the path is written; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
+description: Start a Brief from a settled Strand set. Use when the owner wants to begin an article Brief from LessonDisplayIDs they settled on a pulled Full Report — "start a brief", "begin a brief for L2 and L5". COMPLETES the Brief in one invocation (SPEC-draft-pipeline §5.3 v32, §4.12 v22, §4.12.3 v28): entry → thesis-determination gate → mint → path composition → path review → Candidate assembly → Candidate-selection gate → the §4.12 specialization judgment → the §4.12.3 ratification gate → adoption, ending only at a filled Brief or at an owner answer that ends it. THREE owner gates: one before the mint (each Thesis with the name it gives the Brief), one at Candidate selection, and one ratifying the §4.12 specialization record before the path is written; no default mid-workflow stop. Creates theses/<slug>/brief.md only after a Thesis is adopted; never fetches Strands.
 ---
 
 # Brief — the entry point
@@ -72,8 +72,13 @@ kogaki#494).
    register with its round-trip concession stated, **each paired with the
    name it gives the Brief** (derived from that candidate's own Thesis).
 3. **Raise the thesis-determination gate** (`src/gate-registry.json:
-   brief-thesis-adoption`) through AskUserQuestion — **the only owner
-   question before the mint** — offering exactly what the runtime declared:
+   brief-thesis-adoption`) — **the only owner question before the mint.**
+   Declare it first:
+   `node src/brief.mjs gate-thesis --declare --run-state <path>`, which writes
+   the run declaration beside the run state and prints every option. **An
+   answer is admitted only at the wait that declared it**, so a gate you ask
+   without declaring cannot be recorded and adoption will refuse. Then ask
+   through AskUserQuestion, offering exactly what the runtime declared:
    the composed candidates, each with its name **in the option label**, set
    off and named as the runtime writes it (the **bare** name, never a
    `theses/…` path — render it where the runtime put it and add no body entry
@@ -86,12 +91,20 @@ kogaki#494).
    listed Thesis under a different name says which option and what name,
    and keeps the option. **No owner answer, no next step** — the gate blocks
    and nothing exists under `theses/`.
-4. **Adopt the pair** —
-   `node src/brief.mjs adopt --run-state <path> --thesis <candidate id | the owner's free text> [--slug <the owner's name>]`.
-   Pass `--slug` only when the owner named a different one at the gate;
-   with it omitted, the adopted candidate's own paired name stands, and a
-   free-form Thesis derives its name from the owner's words. The runtime
-   raises no ask here and none follows.
+4. **Record the answer, then adopt the pair.** Two acts, and the first is not
+   optional:
+   `node src/brief.mjs gate-thesis --capture --run-state <path> --tool-use-id <the AskUserQuestion tool_use_id> [--option <candidate id>] [--free-text <the owner's own words>] [--slug <the owner's name>]`,
+   then
+   `node src/brief.mjs adopt --run-state <path> --capture <the capture path the step above printed>`.
+   Pass `--slug` at the CAPTURE only when the owner named a different one at
+   the gate; with it omitted, the adopted candidate's own paired name stands,
+   and a free-form Thesis derives its name from the owner's words.
+   **`adopt --thesis` and `--slug` no longer exist** (kogaki#891): the owner's
+   answer is read from the capture, never passed as an argument, because an
+   argument you compose is your account of what they chose and carries no
+   evidence that they chose it. The owner's own words reach the run state
+   through `--free-text` **at the capture** and by no other route — pass them
+   verbatim. The runtime raises no ask at either act and none follows.
 5. **Mint** — `node src/brief.mjs mint --run-state <path>`.
    The mint consumes the adopted **(Thesis, name) pair** from the run state.
    **Never pass it a name** — the owner's name is already settled, and a name
@@ -140,13 +153,23 @@ kogaki#494).
    `node src/assemble.mjs assemble --reviewed <reviewed.json> --brief theses/<slug>/brief.md --out <selection.json>`.
    The runtime refuses a payload whose rendering leaks an internal identifier
    or a section reference; relay that refusal and fix the wording at source.
-10. **Raise the Candidate-selection gate** through AskUserQuestion — the
-    second of three owner questions (§4.12.3 added the third, kogaki#893) — rendering the payload's `rendering`
+10. **Raise the Candidate-selection gate** (`src/gate-registry.json:
+    brief-candidate-selection`, registered at kogaki#891) — the second of three
+    owner questions (§4.12.3 added the third, kogaki#893). Declare it first:
+    `node src/assemble.mjs gate-candidate --declare --brief theses/<slug>/brief.md --reviewed <reviewed.json>`.
+    Then ask through AskUserQuestion, rendering the payload's `rendering`
     entries and nothing else, per the rendering contract below. Since
     kogaki#859 that rendering is **empty**: nothing goes on screen above this
     question, yours included. Carry the
     premise's negation as a first-class option ("none of these — the Thesis or
-    the settled set is what should change", §6), and free text.
+    the settled set is what should change", §6), and free text. Record the
+    answer:
+    `node src/assemble.mjs gate-candidate --capture --brief theses/<slug>/brief.md --reviewed <reviewed.json> --tool-use-id <the AskUserQuestion tool_use_id> [--option <candidate id>] [--free-text <the owner's words>]`.
+    **`--candidate` at adoption does not carry this answer** (kogaki#891) — it
+    names which Candidate is being adopted and is checked against the capture,
+    so adopting one the owner did not choose refuses. **`none-of-these` is a
+    real answer**: it is recorded, adoption refuses naming it, and nothing
+    lands in the Brief.
 11. **Judge the adopted path's Step↔Move instantiation** (§4.12) — a
     MANDATORY occasion with no skip, and yours: for **every** Step of the
     Candidate the owner chose, read its Move's `requires`/`effect` in
@@ -162,14 +185,14 @@ kogaki#494).
     inherit by leaving the flag off.
 12. **Raise the specialization-ratification gate** (§4.12.3) — the THIRD and
     last owner question, and the only one after the Candidate is chosen.
-    `node src/assemble.mjs ratify-specialization --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json>`
+    `node src/assemble.mjs ratify-specialization --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json> --selection <the selection capture from step 10>`
     composes the run declaration and prints the record: every Step, the Move it
     instantiates, its verdict, and the sentence you wrote. **Render exactly
     what it printed** — do not retype, summarize or re-order it; a gate whose
     evidence is retyped is a gate over the retyping. Then ask the
     declaration's question through AskUserQuestion, with its two options
     (`ratify` / `not-ratified`) and free text, and record the answer:
-    `node src/assemble.mjs ratify-specialization --capture --tool-use-id <the AskUserQuestion tool_use_id> --option <ratify|not-ratified>` plus the same four flags.
+    `node src/assemble.mjs ratify-specialization --capture --tool-use-id <the AskUserQuestion tool_use_id> --option <ratify|not-ratified>` plus the same five flags.
     **The verdicts above are yours, and this is what stops them being the only
     thing between you and the write.** A record every one of whose verdicts
     reads `consistent` unlocks the Brief, and you composed it — so the owner
@@ -177,11 +200,15 @@ kogaki#494).
     recorded, adoption refuses naming it, nothing is written, and the Steps the
     owner disagreed with are re-judged. A free-text answer is a comment and
     never a ratification.
+    **It takes the §6 selection capture too** (kogaki#891): this gate
+    establishes its subject through the same adoption call, so a ratification
+    raised without one would ask the owner to ratify a record about a Reader
+    Path nobody chose.
     **The gate is raised over a record that already PASSES.** If the command
     refuses instead of declaring, your record does not pass §4.12 — repair the
     record, not the gate, and nothing reaches the owner.
 13. **Adopt the owner's Candidate** —
-    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json> --ratification <the capture path the step above printed>`.
+    `node src/assemble.mjs adopt-candidate --brief theses/<slug>/brief.md --reviewed <reviewed.json> --candidate <id> --specialization <specialization.json> --selection <the step-10 capture> --ratification <the capture path the step above printed>`.
     Its Reader Path becomes the Brief's sequence; `thesis_closure` and
     `tradeoffs` fill from its reasoning. **With no owner answer nothing lands**
     — the runtime refuses, at the selection gate and at the ratification gate

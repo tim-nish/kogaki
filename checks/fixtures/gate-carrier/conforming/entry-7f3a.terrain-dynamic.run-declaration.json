@@ -1,0 +1,21 @@
+{
+  "id": "terrain-dynamic",
+  "raised_by": "the run-state-keyed half of the §4.1 fixture pair (kogaki#891) — shaped after the declaration src/brief.mjs:659 writes, whose name carries the run state's stem because two entries can share one workspace",
+  "host": "claude-code",
+  "medium": "selector",
+  "question": "Which Strand does the article take as material?",
+  "options": [
+    {
+      "id": "strand:g2-4",
+      "label": "G2-4"
+    },
+    {
+      "id": "no-strand",
+      "label": "Take no Strand from this survey; nothing is selected and the survey stands"
+    }
+  ],
+  "free_text_offered": true,
+  "fork": false,
+  "declared_at": "2026-09-05T12:41:03.882Z",
+  "run_declaration": true
+}

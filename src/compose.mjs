@@ -477,6 +477,84 @@ export function validateRatification(capture, candidateId, digest) {
 }
 
 // ---------------------------------------------------------------------------
+// THE OWNER-ANSWER CAPTURE (kogaki#891, owner selection 2026-09-05).
+//
+// §4.12.3's ratification gate above is ONE gate. These two functions are the
+// same discipline made reusable for the two gates that carry the owner's own
+// DECISION rather than their ratification of a machine record: the
+// thesis-determination gate (§5.3) and the Candidate-selection gate (§6).
+// Both answers used to reach the runtime as arguments the model composed —
+// `adopt --thesis`, `adopt-candidate --candidate` — with no evidence field of
+// any kind, so the Harness's most consequential write in this pipeline was
+// authorised by the model's account of what the owner chose.
+//
+// WHY A DIGEST OVER THE OPTION SET, and not over the answer. A capture
+// certifies an answer GIVEN A SET OF OPTIONS: the same option id offered
+// beside different alternatives is a different question. Binding to the
+// offered set is what stops a capture taken at one rendering certifying a
+// choice at another — the one-axis analogue of §4.12.3's two-axis binding,
+// and the axis that matters here because the answer IS the option id rather
+// than a ratification of something the id points at.
+//
+// THE FREE-TEXT CHANNEL RIDES THE CAPTURE, which is acceptance item 3 of
+// kogaki#891. A free-form Thesis is the owner's own words, so it is exactly
+// the value that must not arrive as a model-composed argument; it reaches the
+// run state through `answer.free_text` on a captured row or it does not reach
+// it at all.
+export function ownerGateDigest(gateId, optionIds) {
+  const canonical = JSON.stringify([gateId, [...optionIds]]);
+  return createHash(gateSchema().capture.digest_algorithm || "sha256").update(canonical).digest("hex");
+}
+
+// Reads the one row for THIS gate and refuses on every axis that could let a
+// capture certify an answer it does not record. Absence is refused by the
+// CALLER, for the reason §4.12.3 already states: "no answer" is a fact about
+// an act that did not happen, not about a capture's shape.
+export function validateOwnerAnswer(capture, gateId, digest) {
+  const at = `the ${gateId} capture`;
+  const rows = capture?.rows;
+  if (!Array.isArray(rows)) {
+    return { error: `${at}: rows is an array of captured gate answers (SPEC-gate-carrier §4) — this document carries none, so it records no owner act` };
+  }
+  const mine = rows.filter((r) => r?.gate_id === gateId);
+  if (mine.length === 0) {
+    return { error: `${at}: no row for gate ${gateId} — the document carries ${rows.length} row(s) and none of them is this gate's, so nothing here records the owner's answer` };
+  }
+  // THE LAST ROW, for the reason validateRatification states: a gate can be
+  // re-raised, and the answer that governs is the one the owner gave last.
+  const row = mine[mine.length - 1];
+  const ev = row.evidence;
+  if (ev?.tool !== "AskUserQuestion") {
+    return { error: `${at}: evidence.tool is ${JSON.stringify(ev?.tool)} — this is an OWNER act at the question UI, and SPEC-gate-carrier binds this repository's gate medium to AskUserQuestion. A row recording any other tool records a session's own act` };
+  }
+  if (typeof ev.tool_use_id !== "string" || ev.tool_use_id === "") {
+    return { error: `${at}: evidence.tool_use_id is missing — it is the one field tying this row to a question the harness actually asked, and without it the row is indistinguishable from one a session composed` };
+  }
+  const bound = row.answers_over;
+  if (bound?.option_set_digest === undefined) {
+    return { error: `${at}: answers_over.option_set_digest is required — a capture that does not name WHICH OPTION SET it answered certifies whatever it is presented beside` };
+  }
+  if (bound.option_set_digest !== digest) {
+    return { error: `${at}: answers the option set digesting ${JSON.stringify(bound.option_set_digest)}, but the options now offered digest ${JSON.stringify(digest)} — the option set CHANGED after the gate was raised, so the owner chose among alternatives other than these. Re-raise the gate. Nothing was written.` };
+  }
+  const answer = row.payload?.answer;
+  if (answer === undefined || typeof answer !== "object") {
+    return { error: `${at}: the row carries no payload.answer — the capture records that a question was asked and not what was answered` };
+  }
+  const option = answer.option;
+  const freeText = answer.free_text;
+  const hasOption = typeof option === "string" && option !== "";
+  const hasFreeText = typeof freeText === "string" && freeText.trim() !== "";
+  if (!hasOption && !hasFreeText) {
+    return { error: `${at}: the answer carries neither an option nor free text — an empty answer is not an answer` };
+  }
+  return { ok: true, option: hasOption ? option : undefined,
+    free_text: hasFreeText ? freeText : undefined,
+    slug: typeof answer.slug === "string" && answer.slug !== "" ? answer.slug : undefined,
+    tool_use_id: ev.tool_use_id, stop_id: row.stop_id };
+}
+
+// ---------------------------------------------------------------------------
 // THE MOVE EXEMPLAR PREDICATE (§4.13.1, kogaki#751; owner rulings 2026-09-01
 // and 2026-09-02).
 //

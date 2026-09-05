@@ -23,12 +23,12 @@ import { join, sep, resolve as resolvePath } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
-         journeyBearingStrands, journeyPlacements, replaceSlot } from "./src/compose.mjs";
+         journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest } from "./src/compose.mjs";
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, validateRatification, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
          moveExcerpt, isExemplar, renderExcerptBlock } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
-import { assembleSelection, adoptCandidate, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS } from "./src/assemble.mjs";
+import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS } from "./src/assemble.mjs";
 import { REVIEW_AREAS } from "./src/review.mjs";
 import { snapshotBrief } from "./src/compose.mjs";
 import { laneDir } from "./src/runs.mjs";
@@ -54,7 +54,14 @@ const run = (argv) => spawnSync(process.execPath, argv, { encoding: "utf8" });
 // Mint a real Brief through the v9 flow (L2 has a journey; L1 does not).
 const rs = join(dir, "run.json");
 run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", rs]);
-run(["src/brief.mjs", "adopt", "--run-state", rs, "--thesis", "thesis-1"]);
+// THE OWNER'S ANSWER IS CAPTURED, NEVER PASSED (kogaki#891): the gate is
+// declared over the run state `enter` composed, the click is recorded against
+// that declaration, and `adopt` reads it. `--thesis` no longer exists.
+run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rs]);
+run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rs,
+  "--tool-use-id", "toolu_fixture_thesis", "--option", "thesis-1"]);
+const thesisCap = join(dir, "run.brief-thesis-adoption.gate-capture.json");
+run(["src/brief.mjs", "adopt", "--run-state", rs, "--capture", thesisCap]);
 run(["src/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--theses-dir", theses]);
 const briefPath = join(theses, "compose-case", "brief.md");
 
@@ -108,9 +115,30 @@ const ratif = (cand, record, over = {}) => ({
     ...over,
   }],
 });
-const inst = (cand, over = {}) => {
+// §6's SELECTION CAPTURE (kogaki#891) — the owner's own answer at the
+// Candidate-selection gate, bound to the option set it was offered against.
+// Composed the way the runtime composes it, from `selectionOptionIds`, so a
+// fixture cannot pass a digest the runtime would not compute.
+const SEL_GATE = "brief-candidate-selection";
+const sel = (candId, reviewed, doc, over = {}) => {
+  const offered = selectionOptionIds(reviewed, doc);
+  if (offered.error) throw new Error(`fixture selection set is unpresentable: ${offered.error}`);
+  return { rows: [{
+    stop_id: "stop-fixture-sel",
+    gate_id: SEL_GATE,
+    evidence: { tool: "AskUserQuestion", tool_use_id: "toolu_fixture_sel" },
+    payload: { options_offered: offered.ids, free_text_offered: true, answer: { option: candId } },
+    answers_over: { option_set_digest: ownerGateDigest(SEL_GATE, offered.ids) },
+    ...over,
+  }] };
+};
+const inst = (cand, over = {}, reviewed = null, doc = null) => {
   const record = spec(cand, over);
-  return { movesDir: MOVES, specialization: record, ratification: ratif(cand, record) };
+  if (!reviewed) throw new Error("inst() needs the reviewed set the §6 gate offered — the selection capture binds to it (kogaki#891)");
+  const rv = reviewed;
+  const dc = doc || readFileSync(briefPath, "utf8");
+  return { movesDir: MOVES, specialization: record, ratification: ratif(cand, record),
+    selection: sel(cand.candidate_id, rv, dc) };
 };
 
 const step1 = {
@@ -391,7 +419,7 @@ try {
 
   // (f) ADOPTION: the adopted Candidate's Reader Path lands in the Brief's
   // sequence; thesis_closure and tradeoffs fill from its reasoning (§5.1).
-  const ad = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB));
+  const ad = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB, {}, { candidates: [candA, candB] }));
   if (ad.error) fails.push(`(f) adopting a reviewed Candidate was refused: ${ad.error}`);
   const doc3 = ad.doc || "";
   if (!/```step\nstep_id: t1/.test(doc3)) fails.push("(f) the adopted Candidate's Reader Path did not land in the Brief's sequence");
@@ -425,7 +453,7 @@ try {
     // anything (r) asserts.
     const bcand = JSON.parse(JSON.stringify(candB));
     bcand.steps[1].bridges = ["t1", "t2"];
-    const bad = adoptCandidate(doc0, { candidates: [candA, bcand] }, "cand-2", inst(bcand));
+    const bad = adoptCandidate(doc0, { candidates: [candA, bcand] }, "cand-2", inst(bcand, {}, { candidates: [candA, bcand] }));
     if (bad.error) fails.push(`(r) adopting a Candidate that bridged was refused: ${bad.error}`);
     else {
       const bdoc = bad.doc || "";
@@ -452,7 +480,7 @@ try {
     // AC3 — a path that bridged NOTHING fills without erroring and without
     // claiming a bridge. The vacuous case is the one a fill written for the
     // happy path silently gets wrong.
-    const nbd = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB));
+    const nbd = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB, {}, { candidates: [candA, candB] }));
     if (nbd.error) fails.push(`(r) adopting a Candidate that bridged nothing was refused: ${nbd.error}`);
     else {
       const ndoc = nbd.doc || "";
@@ -476,8 +504,8 @@ try {
     b2.steps[1].bridges = ["t1", "t2"];
     const oneSet = { candidates: [candA, candB, b2] };
     const segOf = (d) => ((d || "").split("## What this path bridged")[1] || "").split("\n## ")[0];
-    const plainAd = adoptCandidate(doc0, oneSet, "cand-2", inst(candB));
-    const bridgeAd = adoptCandidate(doc0, oneSet, "cand-3", inst(b2));
+    const plainAd = adoptCandidate(doc0, oneSet, "cand-2", inst(candB, {}, oneSet));
+    const bridgeAd = adoptCandidate(doc0, oneSet, "cand-3", inst(b2, {}, oneSet));
     if (plainAd.error) fails.push(`(r) adopting the unbridged Candidate from the shared set was refused: ${plainAd.error}`);
     else if (bridgeAd.error) fails.push(`(r) adopting the bridging Candidate from the shared set was refused: ${bridgeAd.error}`);
     else if (segOf(plainAd.doc) === segOf(bridgeAd.doc)) {
@@ -503,7 +531,41 @@ try {
   if (!/never a verdict/.test(p1.stdout || "")) fails.push("(g) assemble does not state the no-verdict property in its own output");
   const spf = join(dir, "specialization.json");
   writeFileSync(spf, JSON.stringify(spec(candB)));
-  const adoptArgv = ["--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES];
+  // §6's GATE, THROUGH THE REAL TWO-STEP FLOW (kogaki#891) — the same
+  // declare-then-capture discipline §4.12.3 established, driven through the
+  // command path so the executor is exercised rather than a hand-written
+  // capture testing `validateOwnerAnswer` twice and the executor never.
+  const selArgv = ["--brief", bp2, "--reviewed", rvf];
+  const gDecl = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--declare", ...selArgv], { encoding: "utf8" });
+  if (gDecl.status !== 0) fails.push(`(g6) gate-candidate --declare exited ${gDecl.status}: ${(gDecl.stderr || "").trim()}`);
+  // THE CANDIDATES REACH THE SCREEN, for the reason §4.12.3's own arm gives:
+  // a gate that renders no options is a gate over nothing.
+  for (const id of ["cand-1", "cand-2", "none-of-these"]) {
+    if (!new RegExp(id).test(gDecl.stdout || "")) fails.push(`(g6) the declaration output does not render option ${id} — the owner would choose among options they were never shown`);
+  }
+  const selDir = join(laneDir("brief"), dir.split(sep).filter(Boolean).pop());
+  const selDeclPath = join(selDir, "brief-candidate-selection.run-declaration.json");
+  if (!existsSync(selDeclPath)) fails.push(`(g6) --declare wrote no run declaration at ${selDeclPath} — a capture is judged against the declaration beside it (SPEC-gate-carrier §4.1)`);
+  const gCapNo = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
+    "--tool-use-id", "toolu_sel_no", "--option", "none-of-these"], { encoding: "utf8" });
+  if (gCapNo.status !== 0) fails.push(`(g6) --capture of the negation exited ${gCapNo.status}: ${(gCapNo.stderr || "").trim()}`);
+  const selCapPath = join(selDir, "brief-candidate-selection.gate-capture.json");
+  // THE NEGATION REFUSES, and adoption names the answer rather than a shape.
+  const declined = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
+    "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
+    "--selection", selCapPath], { encoding: "utf8" });
+  if (declined.status === 0) fails.push("(g6) adoption proceeded after the owner answered none-of-these at the §6 gate");
+  else if (!/none-of-these/.test(declined.stderr || "")) fails.push("(g6) the none-of-these refusal does not name the answer the owner gave");
+  const gCapYes = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
+    "--tool-use-id", "toolu_sel_yes", "--option", "cand-2"], { encoding: "utf8" });
+  if (gCapYes.status !== 0) fails.push(`(g6) --capture of a Candidate exited ${gCapYes.status}: ${(gCapYes.stderr || "").trim()}`);
+  // THE ARGUMENT IS CHECKED AGAINST THE ANSWER — acceptance item 1 of #891.
+  const mismatch = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
+    "--reviewed", rvf, "--candidate", "cand-1", "--specialization", spf, "--moves-dir", MOVES,
+    "--selection", selCapPath], { encoding: "utf8" });
+  if (mismatch.status === 0) fails.push("(g6) adopting a Candidate the owner did not select was accepted — --candidate stood in for the answer");
+  else if (!/did not choose another/.test(mismatch.stderr || "")) fails.push("(g6) the mismatch refusal does not say the owner chose a different Candidate");
+  const adoptArgv = ["--brief", bp2, "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES, "--selection", selCapPath];
   // §4.12.3's GATE, THROUGH THE REAL TWO-STEP FLOW (kogaki#893). The command
   // path is where the executor is actually exercised: `--declare` composes
   // the run declaration over a record that has already passed, `--capture`
@@ -560,7 +622,7 @@ try {
   // THE MECHANICAL HALF — the move id resolves, or the adoption refuses.
   {
     const dangler = { ...candB, steps: [{ ...candB.steps[0], move: "no_such_move" }, candB.steps[1]] };
-    const d = adoptCandidate(doc0, { candidates: [candA, dangler] }, "cand-2", inst(dangler));
+    const d = adoptCandidate(doc0, { candidates: [candA, dangler] }, "cand-2", inst(dangler, {}, { candidates: [candA, dangler] }));
     if (!d.error) fails.push("(k) a Step binding a move id that resolves to no record was ADOPTED — the dangling id rides the Brief to Packet time");
     else {
       if (!/t1/.test(d.error)) fails.push("(k) the dangling-move refusal does not name the STEP (ruling 1: the refusal names the Step and the id)");
@@ -572,7 +634,8 @@ try {
     // the store's — a true refusal for a false reason, and the composer is
     // sent to re-bind Moves that were never wrong.
     const noStore = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
-      { movesDir: join(dir, "absent-library"), specialization: spec(candB) });
+      { movesDir: join(dir, "absent-library"), specialization: spec(candB),
+        selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!noStore.error) fails.push("(k) an unreadable Move library was treated as a library");
     else {
       if (!/cannot be read/.test(noStore.error)) fails.push("(k) an unreadable Move library refuses as if the ids dangled — the refusal blames the composition for a store fault");
@@ -588,7 +651,7 @@ try {
     // this single assertion is what makes the occasion mandatory, and it is
     // also the direct evidence that no verdict is composed here — if adoption
     // could supply one, this call would succeed.
-    const bare = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES });
+    const bare = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!bare.error) fails.push("(k) adoption ACCEPTED a path with no specialization record — the judgment occasion is skippable, or the runtime composed a verdict of its own");
     else {
       // DISCRIMINATED, because two guards carry this and only one is the
@@ -621,7 +684,7 @@ try {
       // by it. Were the gate sited first, these refusals would still fire —
       // but on the wrong clause, and the messages asserted below would change.
       const r = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2",
-        { movesDir: MOVES, specialization: rec, ratification: ratif(candB, rec) });
+        { movesDir: MOVES, specialization: rec, ratification: ratif(candB, rec), selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
       const shouldPass = sch.vocabulary.passing.includes(v);
       if (shouldPass && r.error) fails.push(`(k) the passing verdict ${v} was refused: ${r.error}`);
       if (!shouldPass) {
@@ -635,43 +698,43 @@ try {
       }
     }
     const outside = spec(candB); outside.verdicts[0].verdict = "probably-fine";
-    const o = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: outside });
+    const o = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: outside , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!o.error || !/closed/.test(o.error)) fails.push("(k) a verdict outside the closed vocabulary was accepted");
     // ONE PER STEP, EXACTLY, IN BOTH DIRECTIONS — a short list is the skip
     // this occasion exists to prevent, one Step at a time; a long one means
     // the record judges a path other than the one being adopted.
     const short = spec(candB); short.verdicts = [short.verdicts[0]];
-    const sh = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: short });
+    const sh = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: short , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!sh.error || !/t2/.test(sh.error)) fails.push("(k) a record judging only some Steps was accepted — the occasion is skippable one Step at a time");
     const long = spec(candB); long.verdicts.push({ step_id: "t9", move: "worked-example", verdict: "consistent", why: "a step that is not in this path at all" });
-    const lo = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: long });
+    const lo = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: long , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!lo.error || !/t9/.test(lo.error)) fails.push("(k) a record carrying a verdict for a Step outside the adopted path was accepted");
     const dup = spec(candB); dup.verdicts.push({ ...dup.verdicts[0] });
-    const du = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: dup });
+    const du = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: dup , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!du.error || !/two verdicts/.test(du.error)) fails.push("(k) two verdicts for one Step were accepted — the second can disagree with the first");
     // THE RECORD IS BOUND TO WHAT IT JUDGES, on both axes. Without the
     // candidate binding a sitting judges the Candidate it likes and adopts the
     // one it wants; without the move binding the verdict certifies a
     // relationship that is not the one in the Step.
     const wrongCand = spec(candB); wrongCand.candidate_id = "cand-1";
-    const wc = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: wrongCand });
+    const wc = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: wrongCand , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!wc.error || !/cand-1/.test(wc.error)) fails.push("(k) a record judging ANOTHER Candidate certified this one");
     const wrongMove = spec(candB); wrongMove.verdicts[0].move = "worked-example";
-    const wm = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: wrongMove });
+    const wm = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: wrongMove , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!wm.error || !/worked-example/.test(wm.error)) fails.push("(k) a verdict naming a Move the Step does not bind certified the Step");
     // A one-word `why` is not the sentence a refusal hands back.
     const thin = spec(candB); thin.verdicts[0].why = "fine";
-    const th = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: thin });
+    const th = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: thin , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!th.error || !/why is/.test(th.error)) fails.push("(k) a one-word why was accepted as the sentence a refusal quotes");
     const ver = spec(candB); ver.version = "2";
-    const vr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: ver });
+    const vr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: ver , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!vr.error || !/version/.test(vr.error)) fails.push("(k) a record written to another version of the carrier was read anyway");
     // DETERMINISTIC, AND IN THE PATH'S OWN ORDER: with both Steps failing, the
     // refusal names the FIRST. A refusal that named an arbitrary one would
     // send two sittings to two different repairs for one record.
     const both = spec(candB);
     both.verdicts[0].verdict = "contradicts"; both.verdicts[1].verdict = "contradicts";
-    const bo = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: both });
+    const bo = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: both , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!bo.error || !/step t1:/.test(bo.error)) fails.push("(k) with two failing Steps the refusal does not name the FIRST in path order");
   }
 
@@ -695,7 +758,7 @@ try {
     const judgmentFree = spec(candB);
     const shapeOnly = validateSpecialization(judgmentFree, candB.steps, "cand-2");
     if (shapeOnly.error) fails.push("(s) the judgment-free fixture does not even pass §4.12's shape clauses — it would be refused for the wrong reason, and this case would assert nothing about the gate");
-    const unratified = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree });
+    const unratified = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree , selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!unratified.error) fails.push("(s) a shape-valid, JUDGMENT-FREE all-consistent record ADOPTED the Candidate — a passing record is the sole unlock, which is the defect kogaki#893 exists to close");
     else {
       // DISCRIMINATED, because the refusal must say the record PASSED. A
@@ -731,12 +794,12 @@ try {
     }
     // EVERY AXIS THAT COULD LET A CAPTURE CERTIFY SOMETHING IT DID NOT JUDGE.
     const good = ratif(candB, judgmentFree);
-    const ok = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree, ratification: good });
+    const ok = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree, ratification: good, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (ok.error) fails.push(`(s) a conforming ratification was refused: ${ok.error}`);
     const bad = (mutate) => {
       const cap = JSON.parse(JSON.stringify(good));
       mutate(cap.rows[0]);
-      return adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree, ratification: cap });
+      return adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: judgmentFree, ratification: cap, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     };
     // THE MEDIUM. SPEC-gate-carrier binds this repository's gate medium to
     // AskUserQuestion, so a row naming any other tool records a session's own
@@ -766,7 +829,7 @@ try {
     // sentence changed — so the owner approved verdicts other than these.
     const edited = JSON.parse(JSON.stringify(judgmentFree));
     edited.verdicts[0].why = "a different sentence entirely, written after the owner had already read the record";
-    const stale = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: edited, ratification: good });
+    const stale = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", { movesDir: MOVES, specialization: edited, ratification: good, selection: sel("cand-2", { candidates: [candA, candB] }, doc0) });
     if (!stale.error) fails.push("(s) a record EDITED after ratification adopted under the old capture — the ratification is replayable across a rewritten judgment");
     else if (!/CHANGED after it was ratified/.test(stale.error)) fails.push("(s) the stale-digest refusal does not say the record changed — it reads as a binding fault rather than as the edit it is");
     // THE DIGEST'S OWN SHAPE, both directions, because a binding key that is
@@ -1287,7 +1350,7 @@ try {
       else if (findInternalVocabulary(entry[1])) fails.push(`(l) ${key}'s plain label reads an internal key: ${entry[1]}`);
     }
     // AC4 — adoption lands all three, from the ADOPTED Candidate.
-    const adr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB));
+    const adr = adoptCandidate(doc0, { candidates: [candA, candB] }, "cand-2", inst(candB, {}, { candidates: [candA, candB] }));
     if (adr.error) fails.push(`(l) adopting a complete Candidate was refused: ${adr.error}`);
     else {
       for (const [key, heading] of READER_FIELDS) {
@@ -1319,7 +1382,7 @@ try {
       // only this direction had lost it. Same two-guards-one-property class
       // this change's own mutation pass found twice; found a third time here,
       // by the reviewer, in a case this change did not write but did disarm.
-      const empty = adoptCandidate(doc0, { candidates: [candA, { ...candB, [key]: "" }] }, "cand-2", inst(candB));
+      const empty = adoptCandidate(doc0, { candidates: [candA, { ...candB, [key]: "" }] }, "cand-2", inst(candB, {}, { candidates: [candA, candB] }));
       if (!empty.error) fails.push(`(l) adoption ACCEPTED an empty ${key} — an empty value is an unauthored one`);
       else if (!empty.error.includes(heading)) fails.push(`(l) the empty-${key} refusal does not NAME the field — it refused for some other reason, so this case would stay green with the empty-value guard deleted`);
     }
@@ -1413,6 +1476,82 @@ try {
     recCand.reasoning.thesis_closure = "the final step discharges thesis_closure for the reader";
     const rec = assembleSelection({ candidates: [candA, recCand] }, doc0);
     if (rec.error) fails.push(`(j) an internal key in the RECORD was refused — the deny reads the owner surface, and the record is not one (kogaki#859): ${rec.error}`);
+  }
+
+  // (t) THE THESIS-DETERMINATION GATE'S ANSWER IS CAPTURED, NEVER ARGUED
+  // (kogaki#891). Driven through the command path, because the property under
+  // test is that a CHANNEL is gone: exercising the exported reader would test
+  // the validator and never the removal.
+  {
+    const mk = (name) => {
+      const rsx = join(dir, name);
+      run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", rsx]);
+      return rsx;
+    };
+    // ITEM 1 — the removed channel refuses LOUDLY rather than being ignored.
+    const rsA = mk("t-a.json");
+    run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rsA]);
+    const viaArg = run(["src/brief.mjs", "adopt", "--run-state", rsA, "--thesis", "thesis-1"]);
+    if (viaArg.status === 0) fails.push("(t) `adopt --thesis` still adopts — the owner's answer is still a model-composed argument (kogaki#891)");
+    else if (!/kogaki#891/.test(viaArg.stderr || "")) fails.push("(t) the `--thesis` refusal does not name why the channel is gone");
+    // ITEM 1 — with a declaration rendered and no capture, adoption refuses
+    // and names the act that produces one.
+    const noCap = run(["src/brief.mjs", "adopt", "--run-state", rsA]);
+    if (noCap.status === 0) fails.push("(t) adoption proceeded with no captured answer at all");
+    else if (!/gate-thesis/.test(noCap.stderr || "")) fails.push("(t) the no-capture refusal does not name the act that records the owner's answer");
+    // ITEM 2 — no declaration for this run state, no adoption. The gate is
+    // stripped from a freshly entered run state, which is the only way to
+    // reach a state that was never rendered.
+    const rsB = mk("t-b.json");
+    const stB = JSON.parse(readFileSync(rsB, "utf8")); delete stB.gate;
+    writeFileSync(rsB, JSON.stringify(stB));
+    const noDecl = run(["src/brief.mjs", "adopt", "--run-state", rsB, "--capture", join(dir, "nothing.json")]);
+    if (noDecl.status === 0) fails.push("(t) adoption proceeded over a run state carrying no gate declaration (acceptance item 2)");
+    else if (!/no thesis-determination gate declaration/.test(noDecl.stderr || "")) fails.push("(t) the no-declaration refusal does not say the gate was never rendered");
+    // AND THE CAPTURE ACT REFUSES THE SAME STATE, so the two entry points
+    // agree rather than one of them minting a declaration out of band.
+    const capNoDecl = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsB, "--tool-use-id", "x", "--option", "thesis-1"]);
+    if (capNoDecl.status === 0) fails.push("(t) gate-thesis --capture wrote an answer for a run state carrying no gate");
+    // AN ANSWER IS ADMITTED ONLY AT THE WAIT THAT DECLARED IT.
+    const rsC = mk("t-c.json");
+    const capNoWait = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsC, "--tool-use-id", "x", "--option", "thesis-1"]);
+    if (capNoWait.status === 0) fails.push("(t) --capture admitted an answer with no declaration beside it (SPEC-gate-carrier §4.1)");
+    // ITEM 3 — free-form Thesis text reaches the run state through the
+    // captured answer and through nothing else.
+    const rsD = mk("t-d.json");
+    run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rsD]);
+    const OWN = "the owner's own sentence, typed at the gate";
+    const capFree = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsD,
+      "--tool-use-id", "toolu_free", "--free-text", OWN]);
+    if (capFree.status !== 0) fails.push(`(t) --capture refused a free-text answer: ${(capFree.stderr || "").trim()}`);
+    const capD = join(dir, "t-d.brief-thesis-adoption.gate-capture.json");
+    const adFree = run(["src/brief.mjs", "adopt", "--run-state", rsD, "--capture", capD]);
+    if (adFree.status !== 0) fails.push(`(t) adopting a free-form Thesis from the capture was refused: ${(adFree.stderr || "").trim()}`);
+    else {
+      const stD = JSON.parse(readFileSync(rsD, "utf8"));
+      if (stD.adopted_thesis !== OWN) fails.push("(t) the free-form Thesis did not reach the run state verbatim from the captured answer");
+      if (stD.adopted_via !== "free-form") fails.push("(t) a free-text answer was recorded as an adopted candidate");
+      if (stD.adopted_by?.tool_use_id !== "toolu_free") fails.push("(t) the run state does not carry the tool_use_id of the question the harness asked");
+    }
+    // THE CAPTURE BINDS TO THE OPTION SET IT ANSWERED. A capture taken at one
+    // rendering must not certify a choice at another.
+    const rsE = mk("t-e.json");
+    run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rsE]);
+    run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsE, "--tool-use-id", "toolu_e", "--option", "thesis-1"]);
+    const capE = JSON.parse(readFileSync(join(dir, "t-e.brief-thesis-adoption.gate-capture.json"), "utf8"));
+    capE.rows[capE.rows.length - 1].answers_over.option_set_digest = "0".repeat(64);
+    const capEPath = join(dir, "t-e-capture.json");
+    writeFileSync(capEPath, JSON.stringify(capE));
+    const stale = run(["src/brief.mjs", "adopt", "--run-state", rsE, "--capture", capEPath]);
+    if (stale.status === 0) fails.push("(t) a capture bound to a different option set adopted anyway — the owner chose among alternatives other than these");
+    // AND THE EVIDENCE AXES ARE REFUSED. A row recording a session's own act
+    // is not an owner answer.
+    const capF = JSON.parse(readFileSync(join(dir, "t-e.brief-thesis-adoption.gate-capture.json"), "utf8"));
+    capF.rows[capF.rows.length - 1].evidence = { tool: "Bash", tool_use_id: "t" };
+    const capFPath = join(dir, "t-f-capture.json");
+    writeFileSync(capFPath, JSON.stringify(capF));
+    const wrongTool = run(["src/brief.mjs", "adopt", "--run-state", rsE, "--capture", capFPath]);
+    if (wrongTool.status === 0) fails.push("(t) a capture whose evidence names a tool other than AskUserQuestion was accepted as an owner act");
   }
 
 } finally {
@@ -1738,7 +1877,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // pass. The floor lives in checks/registry.json and the count lives here, so
 // deleting a case and lowering this number fails against the floor — and
 // lowering the floor to match is itself caught by check-registry-conformance.
-const CASE_COUNT = 19;
+const CASE_COUNT = 20;
 {
   const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
   const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;

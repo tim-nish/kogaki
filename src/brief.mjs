@@ -50,9 +50,9 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "./terrain.mjs";
 import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
-import { snapshotBrief } from "./compose.mjs";
+import { snapshotBrief, ownerGateDigest, validateOwnerAnswer, gateSchema, gateRegistry } from "./compose.mjs";
 import { enterSubRun, BRIEF_ENTRIES } from "./runs.mjs";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 function fail(msg) {
@@ -630,29 +630,183 @@ function cmdEnter(args) {
   console.log(`# entry resolved ${r.strands.length} member(s); nothing written under theses/ — pre-Thesis state is machine-local (§5.3 v9).`);
 }
 
-// ---- adopt: record the owner's answer at THE ONE GATE — the pair. ----
-// The answer has two halves and they arrive together (§5.3 v11, kogaki#518):
-// `--thesis` is the adopted candidate id or the owner's own words, and the
-// OPTIONAL `--slug` is the owner declining the paired name without declining
-// the Thesis. Declining the slug half costs neither the Thesis nor the
-// option: no restatement, no abandonment. This command emits NO ask.
+// ---- THE THESIS-DETERMINATION GATE'S EXECUTOR (§5.3; kogaki#891). ----
+//
+// ONE ACT, TWO MODES, AND NO ENTRY POINT THAT CAN MINT STATE OUT OF BAND —
+// the shape §4.12.3's ratification gate established (kogaki#893) and the
+// property kogaki#625 item 1 established on the Terrain side: an answer is
+// admitted only at the wait that declared it. `--declare` writes the run
+// declaration from the gate `enter` already composed and renders the options;
+// `--capture` records the owner's answer against THAT declaration.
+//
+// THE DECLARATION IS NOT COMPOSED HERE. `enter` writes `state.gate` — the
+// options, the premise negation, the free-text prompt — and this act carries
+// it over rather than recomposing it, so the thing the owner is shown and the
+// thing the answer is judged against cannot disagree.
+// THE DECLARATION AND THE CAPTURE ARE KEYED ON THE RUN STATE, not on the
+// directory holding it. Two run states can sit side by side in one workspace,
+// and a directory-keyed name gives them ONE declaration and ONE capture
+// between them — so an answer given at run state A's gate is admitted at run
+// state B's adoption. The option-set digest does not catch it: two entries
+// over the same settled Strand set compose the same candidates and therefore
+// the same digest, which is exactly when the two runs are least
+// distinguishable. Found by the fixture that drove two entries into one
+// directory (kogaki#891).
+function thesisGatePaths(runPath, gateId) {
+  const stem = basename(runPath).replace(/\.json$/, "");
+  const dir = dirname(resolve(runPath));
+  return {
+    dir,
+    decl: join(dir, `${stem}.${gateId}${gateSchema().capture.run_declaration_suffix}`),
+    cap: join(dir, `${stem}.${gateId}.gate-capture.json`),
+  };
+}
+
+function cmdGateThesis(args) {
+  const { path: runPath, state } = readRunState(args);
+  // ACCEPTANCE ITEM 2 (kogaki#891), and it is checked HERE as well as at
+  // adoption: a run state carrying no gate was never rendered to an owner,
+  // so there is no question for an answer to be an answer TO.
+  if (!state.gate || !Array.isArray(state.gate.options) || state.gate.options.length === 0) {
+    fail("this run state carries no thesis-determination gate declaration — `enter` composes it (§5.3), "
+      + "and an answer is admitted only at the wait that declared it. Re-run `enter`. Nothing was written.");
+  }
+  const gateId = state.gate.gate_id;
+  const optionIds = state.gate.options.map((o) => o.id);
+  const digest = ownerGateDigest(gateId, optionIds);
+  const paths = thesisGatePaths(runPath, gateId);
+  mkdirSync(paths.dir, { recursive: true });
+  const declPath = paths.decl;
+  const capPath = paths.cap;
+
+  if (args.capture) {
+    let decl;
+    try { decl = JSON.parse(readFileSync(declPath, "utf8")); }
+    catch { fail(`no declaration at ${declPath} — an answer is admitted at the wait that declared it, so run --declare and raise the gate first (§5.3; kogaki#891).`); }
+    if (decl.answers_over?.option_set_digest !== digest) {
+      fail(`the declaration at ${declPath} was raised over an option set digesting ${JSON.stringify(decl.answers_over?.option_set_digest)}, `
+        + `but this run state now offers one digesting ${JSON.stringify(digest)} — the candidates changed after the gate was raised, `
+        + `so this answer would adopt a Thesis the owner was never shown. Re-run --declare and re-raise the gate.`);
+    }
+    const toolUseId = argString(args, "tool-use-id",
+      "--capture needs --tool-use-id <id> — the AskUserQuestion tool_use_id, the one field tying the row to a question the harness actually asked");
+    const option = typeof args.option === "string" && args.option !== "" ? args.option : undefined;
+    const freeText = typeof args["free-text"] === "string" && args["free-text"].trim() !== "" ? args["free-text"] : undefined;
+    if (option === undefined && freeText === undefined) {
+      fail("--capture needs --option <id> or --free-text <the owner's own words> — an empty answer is not an answer. "
+        + `Options offered: ${optionIds.join(", ")}.`);
+    }
+    if (option !== undefined && !optionIds.includes(option)) {
+      fail(`answer option ${JSON.stringify(option)} was not offered by the declaration — offered: ${optionIds.join(", ")}.`);
+    }
+    const answer = {};
+    if (option !== undefined) answer.option = option;
+    // ACCEPTANCE ITEM 3 (kogaki#891): the owner's own words reach the run
+    // state through this field and through nothing else. `adopt --thesis` is
+    // gone, so there is no argument channel left for a free-form Thesis.
+    if (freeText !== undefined) answer.free_text = freeText;
+    if (typeof args.slug === "string" && args.slug !== "") answer.slug = args.slug;
+    const row = {
+      stop_id: `stop-${Date.now()}`,
+      gate_id: gateId,
+      evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
+      payload: { options_offered: optionIds, free_text_offered: true, answer },
+      [gateSchema().capture.owner_answer_binding_key]: { option_set_digest: digest },
+    };
+    const capture = existsSync(capPath) ? JSON.parse(readFileSync(capPath, "utf8")) : { rows: [] };
+    capture.rows.push(row);
+    writeFileSync(capPath, JSON.stringify(capture, null, 2) + "\n");
+    console.log(`captured at ${gateId}: ${JSON.stringify(answer)}`);
+    console.log(`pass --capture ${capPath} to \`brief.mjs adopt\`. Written: ${capPath}`);
+    return;
+  }
+
+  const registered = (gateRegistry().gates || []).find((g) => g.id === gateId);
+  if (!registered) fail(`${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
+  const declaration = {
+    ...registered,
+    ...state.gate,
+    declared_at: new Date().toISOString(),
+    run_declaration: true,
+    options: state.gate.options,
+    answers_over: { option_set_digest: digest },
+  };
+  delete declaration.dynamic_options;
+  writeFileSync(declPath, JSON.stringify(declaration, null, 2) + "\n");
+  console.log(`${gateId} — ${state.strands.length} settled Strand(s), ${optionIds.length} option(s), digest ${digest}.`);
+  console.log(`Render every option below on screen, then ask the declaration's question through AskUserQuestion.\n`);
+  for (const o of state.gate.options) console.log(`  ${o.id}\n      ${o.label}`);
+  console.log(`\n  (free text) ${state.gate.free_text?.prompt || ""}`);
+  console.log(`\nThen: brief.mjs gate-thesis --capture --run-state ${runPath} --tool-use-id <id> [--option <id>] [--free-text <words>] [--slug <name>]`);
+  console.log(`declaration: ${declPath}`);
+}
+
+// ---- adopt: CONSUME the owner's captured answer at THE ONE GATE. ----
+//
+// THE ANSWER IS READ, NEVER RECEIVED AS AN ARGUMENT (kogaki#891). This
+// command used to take `--thesis <candidate id | free text>` and `--slug`,
+// both composed by the model from the question-UI answer and neither carrying
+// any evidence field: the Harness's most consequential write in this pipeline
+// — the Brief's Thesis and the name it is minted under — was authorised by
+// the model's account of what the owner chose, and a model that adopted a
+// candidate the owner declined, or passed its own sentence as the owner's
+// free text, minted a tracked `theses/<slug>/brief.md` with no refusal.
+//
+// The answer now arrives as a `*.gate-capture.json` row carrying the
+// AskUserQuestion `tool_use_id`, bound to the option set it was offered
+// against. `--thesis` is REMOVED rather than deprecated: a channel that still
+// exists is a channel, and leaving it beside the capture would make the
+// capture optional in exactly the runs that skip it.
+//
+// The answer still has two halves and they still arrive together (§5.3 v11,
+// kogaki#518) — the adopted candidate (or the owner's own words) and the
+// OPTIONAL name override — but both halves now ride the captured row rather
+// than two arguments. This command emits NO ask.
 function cmdAdopt(args) {
   const { path: runPath, state } = readRunState(args);
-  const answer = argString(args, "thesis",
-    "adopt needs --thesis <candidate id | free-form text> — the owner's "
-    + "answer at the thesis-determination gate. With no owner answer the "
-    + "gate blocks and nothing is written (story 1.72 AC6).");
-  const hit = (state.thesis_candidates || []).find((c) => c.id === answer);
-  if (answer === "back-to-terrain") {
+  // ACCEPTANCE ITEM 2 (kogaki#891): no declaration for this run state, no
+  // adoption. A run state carrying no gate was never rendered to an owner.
+  if (!state.gate || !Array.isArray(state.gate.options) || state.gate.options.length === 0) {
+    fail("this run state carries no thesis-determination gate declaration — nothing was ever rendered to the owner, "
+      + "so there is no answer to adopt (§5.3; kogaki#891). Re-run `enter`. Nothing was written.");
+  }
+  if (typeof args.thesis === "string" || typeof args.slug === "string") {
+    // THE REMOVED CHANNEL REFUSES LOUDLY rather than being ignored. A silently
+    // dropped `--thesis` would adopt whatever the capture said while the
+    // caller believed it had passed the answer, which is the same class of
+    // failure one layer along.
+    fail("`--thesis` and `--slug` are gone (kogaki#891). The owner's answer at the thesis-determination gate "
+      + "is READ from the captured question-UI answer, never passed as an argument: raise the gate with "
+      + "`brief.mjs gate-thesis --declare`, record the click with `gate-thesis --capture --tool-use-id <id>`, "
+      + "then `adopt --capture <path>`. A free-form Thesis rides `--free-text` at the capture.");
+  }
+  const capPath = argString(args, "capture",
+    "adopt needs --capture <path to the gate capture> — the owner's recorded answer at the thesis-determination gate "
+    + "(brief.mjs gate-thesis). With no owner answer the gate blocks and nothing is written (story 1.72 AC6; kogaki#891).");
+  let capture;
+  try { capture = JSON.parse(readFileSync(capPath, "utf8")); }
+  catch (e) { fail(`the gate capture at ${capPath} cannot be read (${e.message}) — the owner's answer is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
+  const gateId = state.gate.gate_id;
+  const digest = ownerGateDigest(gateId, state.gate.options.map((o) => o.id));
+  const verdict = validateOwnerAnswer(capture, gateId, digest);
+  if (verdict.error) fail(verdict.error);
+
+  if (verdict.option === "back-to-terrain") {
     fail("the owner ruled the settled set is what should change — route back "
       + "through Terrain. No Brief is started (§5.3: never a Brief fetch).");
+  }
+  const hit = (state.thesis_candidates || []).find((c) => c.id === verdict.option);
+  if (verdict.option !== undefined && !hit) {
+    fail(`the captured answer names option ${JSON.stringify(verdict.option)}, which is offered by the gate but is not a Thesis candidate — `
+      + "an option routed nowhere is not adopted (§5.3). Nothing was written.");
   }
   // THE MINT RECORDS THE CLAIM, NEVER THE FRAME (§5.1.3 v20, kogaki#566). What
   // the owner adopted at the gate is the claim; `thesis` also carries the
   // sentence about how the other settled members serve it, which is scaffolding
   // for the gate and has no business in a tracked document. A free-form answer
   // has no frame to strip — it is the owner's own words and is taken verbatim,
-  // exactly as v9 took it and v11 kept it.
+  // exactly as v9 took it and v11 kept it, and since kogaki#891 those words
+  // reach here only through the captured answer.
   // NO FALLBACK TO `thesis`. Every candidate carries a `claim` by construction
   // (`composeThesisCandidates` sets one on every branch), so a `hit.claim ||
   // hit.thesis` disjunct could only fire on a run state this file did not write
@@ -664,18 +818,18 @@ function cmdAdopt(args) {
       + "(§5.1.3), and a run state whose candidates predate that field cannot be "
       + "adopted from. Re-run `enter` to recompose the gate.");
   }
-  const thesis = hit ? hit.claim : answer;
-  // The slug half. An override is the owner's, taken as given; with none, the
-  // adopted candidate's OWN paired slug stands — the one the owner read on
-  // the option they chose. A free-form Thesis has no paired slug to stand,
-  // so its slug derives from the owner's own words (v9 behaviour, unchanged).
-  const override = args.slug;
+  const thesis = hit ? hit.claim : verdict.free_text;
+  if (typeof thesis !== "string" || thesis.trim() === "") {
+    fail("the captured answer carries neither an adopted candidate nor free-form Thesis text — nothing was written.");
+  }
+  // The slug half. An override is the owner's, taken as given AT THE GATE;
+  // with none, the adopted candidate's OWN paired slug stands — the one the
+  // owner read on the option they chose. A free-form Thesis has no paired slug
+  // to stand, so its slug derives from the owner's own words (v9 behaviour,
+  // unchanged).
   let slug, via;
-  if (override !== undefined) {
-    slug = argString(args, "slug",
-      "adopt --slug needs a value — the name the owner wants instead of the "
-      + "one paired with the adopted Thesis (a bare --slug flag is the "
-      + "omitted-value defect).");
+  if (verdict.slug !== undefined) {
+    slug = verdict.slug;
     via = "owner-override";
   } else if (hit && typeof hit.slug === "string" && hit.slug) {
     slug = hit.slug;
@@ -695,16 +849,22 @@ function cmdAdopt(args) {
   // awaiting approval and no slug_gate, because there is no second ask.
   state.adopted_slug = slug;
   state.adopted_slug_via = via;
+  // THE EVIDENCE, carried onto the run state so the mint's own record names
+  // the question the harness asked rather than only the value it produced.
+  state.adopted_by = { gate_id: gateId, tool_use_id: verdict.tool_use_id, capture: resolve(capPath) };
   writeFileSync(runPath, JSON.stringify(state, null, 2) + "\n");
+  console.log(`thesis-determination answer (§5.3): read from ${capPath} — the owner answered at the ${gateId} gate (AskUserQuestion ${verdict.tool_use_id}); no argument carried it`);
   console.log(JSON.stringify({
     run_state: runPath,
-    adopted: { thesis, slug, thesis_via: state.adopted_via, slug_via: via },
+    adopted_thesis: thesis,
+    adopted_via: state.adopted_via,
+    adopted_slug: slug,
+    adopted_slug_via: via,
+    adopted_by: state.adopted_by,
   }, null, 2));
-  console.log("# The (Thesis, name) pair is adopted into machine-local run state — one gate, already answered. "
-    + "Nothing exists under theses/ until `mint` runs; no further question is raised (§5.3 v11, kogaki#518).");
+  console.log("# the pair is settled; `mint` consumes it and creates the Brief's durable home (§5.3 v11).");
 }
 
-// ---- mint: consume the adopted (Thesis, slug) PAIR. ----
 function cmdMint(args) {
   const { state } = readRunState(args);
   if (state.stage !== "adopted" || typeof state.adopted_thesis !== "string" || state.adopted_thesis === "") {
@@ -769,6 +929,7 @@ const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
     case "enter": cmdEnter(args); break;
+    case "gate-thesis": cmdGateThesis(args); break;
     case "adopt": cmdAdopt(args); break;
     case "mint": cmdMint(args); break;
     case "start":
@@ -776,6 +937,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         + "re-sequenced at v9 (kogaki#494): entry → thesis-determination "
         + "gate → mint. Run `enter`, then `adopt`, then `mint`.");
       break;
-    default: fail("usage: brief.mjs enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | adopt --run-state <path> --thesis <id|text> [--slug <override>] | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
+    default: fail("usage: brief.mjs enter --survey <record> --ids <L1,L2,...> [--run-state <path>] | gate-thesis --run-state <path> [--declare | --capture --tool-use-id <id> [--option <id>] [--free-text <words>] [--slug <name>]] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>]");
   }
 }

@@ -3,7 +3,7 @@
     "The gate carrier, machine-readable (SPEC.md beside this file is the",
     "prose half; kogaki#16, manifest item 4).",
     "checks/check-gate-carrier.sh READS these lists rather than restating",
-    "them — this file is the single carrier, so amending the contract is",
+    "them \u2014 this file is the single carrier, so amending the contract is",
     "one edit and never a two-copy divergence. Same arrangement as",
     "src/record-schema.json, deliberately: item 3",
     "and item 4 are adjacent contracts and share no machinery."
@@ -13,53 +13,102 @@
     "claude-code": {
       "medium_must_be": "selector",
       "affordance": "AskUserQuestion",
-      "binding": "topics/claude-code-ops.md:61@5f769dfe — RATIFIED as the rule's first named MEDIUM BINDING"
+      "binding": "topics/claude-code-ops.md:61@5f769dfe \u2014 RATIFIED as the rule's first named MEDIUM BINDING"
     }
   },
-  "media_forbidden_in_every_host": ["prose", "narration", "report-text"],
+  "media_forbidden_in_every_host": [
+    "prose",
+    "narration",
+    "report-text"
+  ],
   "gate": {
-    "required": ["id", "raised_by", "host", "medium", "question", "options", "free_text_offered", "fork"],
+    "required": [
+      "id",
+      "raised_by",
+      "host",
+      "medium",
+      "question",
+      "options",
+      "free_text_offered",
+      "fork"
+    ],
     "options": {
       "min": 1,
-      "required_per_option": ["id", "label"],
-      "preselection_keys_forbidden": ["default", "preselected", "pre_selected", "selected"]
+      "required_per_option": [
+        "id",
+        "label"
+      ],
+      "preselection_keys_forbidden": [
+        "default",
+        "preselected",
+        "pre_selected",
+        "selected"
+      ]
     },
     "free_text_offered_must_be": true
   },
   "comparison": {
     "required_when_fork": true,
-    "required": ["recommended", "overturned_by"],
+    "required": [
+      "recommended",
+      "overturned_by"
+    ],
     "recommended_must_be_option_id": true,
     "per_option_evidence_field": "evidence",
-    "carried_here": "structural presence only — a necessary condition, never sufficiency",
+    "carried_here": "structural presence only \u2014 a necessary condition, never sufficiency",
     "sufficiency_routes_to": "the review lane's judgment half (kogaki#13, story 1.5): whether the attached evidence is the evidence bearing on the option, whether the overturning evidence would in fact overturn the recommendation, and whether the question reads as a gate beyond its named affordance"
   },
   "capture": {
     "glob": "*.gate-capture.json",
     "scope": "anywhere in the repository",
-    "rationale": "a default carrier, not an enumerated directory — an enumerated home leaves capture file N+1 uncovered by default",
+    "rationale": "a default carrier, not an enumerated directory \u2014 an enumerated home leaves capture file N+1 uncovered by default",
     "rows_key": "rows",
-    "row_required": ["stop_id", "gate_id"],
-    "gate_row_required": ["evidence", "payload"],
-    "evidence_required": ["tool", "tool_use_id"],
+    "row_required": [
+      "stop_id",
+      "gate_id"
+    ],
+    "gate_row_required": [
+      "evidence",
+      "payload"
+    ],
+    "evidence_required": [
+      "tool",
+      "tool_use_id"
+    ],
     "evidence_tool_must_be": "AskUserQuestion",
-    "payload_required": ["options_offered", "free_text_offered", "answer"],
+    "payload_required": [
+      "options_offered",
+      "free_text_offered",
+      "answer"
+    ],
     "payload_free_text_offered_must_be": true,
     "payload_options_must_equal_declared_gate_options": true,
     "run_declaration_suffix": ".run-declaration.json",
-    "payload_options_comparison_target": "the sibling `<gate_id>` + run_declaration_suffix beside the capture where one exists \u2014 the gate's declaration AS RAISED, and the only artifact that can hold an option composed for that run \u2014 and the gate's src/gate-registry.json entry otherwise (specs/spec-gate-carrier/SPEC.md \u00a74.1, kogaki#818)",
+    "payload_options_comparison_target": "the run declaration sitting beside the capture where one exists \u2014 the gate's declaration AS RAISED, and the only artifact that can hold an option composed for that run \u2014 and the gate's src/gate-registry.json entry otherwise (specs/spec-gate-carrier/SPEC.md \u00a74.1, kogaki#818 and kogaki#891)",
+    "payload_options_comparison_sibling_name": "the capture's OWN name with the `glob` suffix replaced by run_declaration_suffix, then `<gate_id>` + run_declaration_suffix \u2014 in that order. A capture is named by its RUN wherever two run states share one workspace (src/brief.mjs writes `<run-state stem>.<gate_id>.`), and a gate_id-only name would then give two runs ONE declaration between them; the second name is the per-gate-directory form src/assemble.mjs writes (\u00a74.1 v5, kogaki#891)",
     "payload_options_comparison_rationale": "Exact set equality, unchanged in strength: v4 states the TARGET rather than loosening the rule. A gate declaring dynamic_options is NOT exempt \u2014 its declaration names the run's options instead of the class's, so equality becomes decidable against something that can actually equal what was offered. The capture population is untouched. The old key name said `registered`, which was the whole defect: it named the registry as the target in the one place a reader would look for the target.",
     "gateless_row": {
       "gate_id_is": null,
-      "required": ["no_gate_reason"],
-      "forbidden": ["evidence", "payload"],
+      "required": [
+        "no_gate_reason"
+      ],
+      "forbidden": [
+        "evidence",
+        "payload"
+      ],
       "rationale": "every payload-capturing run produces one and no suite upstream held it (topics/claude-code-ops.md:14@5f769dfe); it is a legitimate row, never a violation and never a crash"
-    }
+    },
+    "digest_algorithm": "sha256",
+    "owner_answer_binding_key": "answers_over",
+    "owner_answer_binding_required": [
+      "option_set_digest"
+    ],
+    "owner_answer_rationale": "kogaki#891. A capture for a gate whose answer IS the owner's decision (rather than their ratification of a machine record) binds to the OPTION SET it answered, digested over [gate_id, [option ids]]. The same option id offered beside different alternatives is a different question, so without this axis a capture taken at one rendering certifies a choice at another. The ratification gate's own two-axis binding (`ratifies`) is unchanged and is a separate key: it binds WHAT was ratified, this binds WHAT WAS OFFERED."
   },
   "reporting": {
     "crash_is_not_a_finding": true,
     "crash_code": "CANNOT_DETERMINE",
     "repetition_disclosed": true,
-    "rationale": "a checker whose fallback message is phrased as its positive finding converts every internal error into a false accusation, and identical repeated output reads as accumulating evidence — the remedy has three parts (topics/claude-code-ops.md:14@5f769dfe)"
+    "rationale": "a checker whose fallback message is phrased as its positive finding converts every internal error into a false accusation, and identical repeated output reads as accumulating evidence \u2014 the remedy has three parts (topics/claude-code-ops.md:14@5f769dfe)"
   }
 }

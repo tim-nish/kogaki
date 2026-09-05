@@ -1,5 +1,19 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v32, amended 2026-09-05 (kogaki#891) — **the owner's answer at the
+thesis-determination gate (§5.3) and at the Candidate-selection gate (§6) is
+READ from a Harness-written capture, never received as an argument.** Both
+answers reached the runtime as `adopt --thesis` and `adopt-candidate
+--candidate`, composed by the model from the question-UI answer and carrying no
+evidence field of any kind — so the Harness's most consequential write in this
+pipeline, the Brief's Thesis and the name it is minted under and then its
+sequence, was authorised by the model's account of what the owner chose. A model
+that adopted a Candidate the owner declined, or passed its own sentence as the
+owner's free text, minted a tracked `theses/<slug>/brief.md` with no refusal.
+`§6` now registers `brief-candidate-selection`, which it had been raising since
+it existed while carrying no registry row. **deferred slots minted by this
+amendment: none.**
+
 **Status:** v31, amended 2026-09-05 (kogaki#894, PR #910 round 1) — §4.11 gains
 the damaged-read bullet its retention clause already pointed at and which did
 not exist, now stating all three doors: the third — an `attaches` entry that is
@@ -1188,6 +1202,42 @@ option would be a second judgment ratified with only the first actually asked.
   cost the owner the Thesis.** The free-form channel is the owner's own Thesis,
   taken verbatim, and its slug derives from it.
 
+**THE ANSWER IS READ FROM A CAPTURE, NEVER RECEIVED AS AN ARGUMENT (v32,
+kogaki#891).** Both halves above — the adopted Thesis and the optional name —
+reach the runtime through a `*.gate-capture.json` row in the shape
+`specs/spec-gate-carrier/SPEC.md` §4 binds, carrying the AskUserQuestion
+`tool_use_id` and bound to the option set it was offered against. Three
+consequences, and they are the whole of the amendment:
+
+1. **`adopt --thesis` and `--slug` are REMOVED**, not deprecated. A channel
+   that still exists is a channel, and leaving it beside the capture would make
+   the capture optional in exactly the runs that skip it. The act refuses the
+   removed flags by name rather than ignoring them, because a silently dropped
+   `--thesis` adopts whatever the capture says while its caller believes it
+   passed the answer.
+2. **`adopt` refuses when no declaration for this run state was rendered.** A
+   run state carrying no gate was never put in front of an owner, so there is
+   no question for an answer to be an answer TO. The capture act refuses the
+   same state, so neither entry point can mint a declaration out of band —
+   `specs/spec-gate-carrier/SPEC.md` §4.1's *an answer is admitted at the wait
+   that declared it*, which §4.12.3 already applies one gate over.
+3. **Free-form Thesis text reaches the run state through the captured answer
+   and through nothing else.** This is the sharpest of the three: the owner's
+   own words are exactly the value that must not arrive as a model-composed
+   argument, since nothing downstream can tell the owner's sentence from the
+   session's.
+
+**The binding is the OPTION SET, and that is chosen rather than inherited.**
+§4.12.3 binds its capture on two axes (which Candidate, which record digest)
+because it ratifies a machine record. This gate's answer IS the decision, so
+what it must not drift against is *what was offered*: the same option id beside
+different alternatives is a different question. The declaration and the capture
+are keyed on the **run state**, not on the directory holding it — two entries
+over the same settled set compose identical candidates and therefore an
+identical digest, so a directory-keyed name would let one run's answer be
+admitted at another's adoption precisely when the two are least
+distinguishable.
+
 **The slug is thesis-derived and owner-decided**, which keeps SPEC-terrain
 §12.2's no-machine-identity repair.
 
@@ -1239,19 +1289,49 @@ Where/Why and the effect-stating label (`specs/spec-proposal-contract/SPEC.md`),
 and the declared gate registry and selector affordance
 (`specs/spec-gate-carrier/SPEC.md`).
 
-**No gate is registered by THIS SECTION and no check is registered by this
-spec.** A new check would owe an admission record, a removal signal and a typed
-observing instrument, and a check admitted ahead of its subject is the shape
-this repository refuses.
+**No check is registered by this spec.** A new check would owe an admission
+record, a removal signal and a typed observing instrument, and a check admitted
+ahead of its subject is the shape this repository refuses.
 
-**The first half was narrowed at v28 (kogaki#893) and the second is untouched.**
-§4.12.3 registers `brief-specialization-ratification` in `src/gate-registry.json`,
-so this spec does now register a gate — one, sited there, for the reason that
-section gives. Narrowed rather than deleted, because the claim this sentence was
-making is still true of §6 and is what §6 rests on: **Candidate selection** rides
-the gate carrier this repository already ships and mints nothing. A reader who
-found the sentence simply gone could not tell that from §6 having quietly grown a
-carrier. And the check half stands unchanged: §4.12.3 adds a CASE to
+**THIS SECTION NOW REGISTERS ITS GATE, AND THE GAP IS THE FINDING RATHER THAN
+AN OVERSIGHT (v32, kogaki#891).** The sentence here read *"no gate is registered
+by THIS SECTION"* while §6 had been RAISING a Candidate-selection gate since it
+existed — so the gate was live, owner-facing, and carried no row in
+`src/gate-registry.json`. That is exactly the uncovered-by-default shape the
+registry exists to close: `check-gate-carrier`'s coverage number is a fraction
+OF the registry and of nothing else, so it read as complete over the other gates
+while this one was invisible to it. `brief-candidate-selection` is registered
+now, and the two clauses that survive unchanged are stated so the narrowing is
+legible: §6 still mints **no new record class** and still adds **no check
+member**.
+
+**ADOPTION READS THE OWNER'S ANSWER (v32, kogaki#891).** `adopt-candidate`
+requires the §6 capture and refuses without it; `--candidate` NAMES the
+Candidate being adopted and is **checked against** that answer rather than
+standing in for it — a selector the model composes is admissible exactly
+because the evidence beside it is not. The negation `none-of-these` routes to a
+**refusal, not a state**: the capture is recorded, the Brief's sequence stays
+unwritten, and every Candidate is adoptable again once the Thesis or the
+settled set changes. The refusal is sited **below** the two clauses that
+establish the Candidate is a Candidate at all and **above** every judgment
+clause: a malformed Candidate was never offerable and its own refusal names the
+repair, while judging a specialization record about a path nobody chose — and
+carrying it to an owner to ratify — is wasted work ending in a refusal that
+names the wrong thing. §4.12.3's own ordering property is untouched: a
+`contradicts` record still refuses above the ratification gate. **The
+ratification act takes the selection capture too**, because it establishes its
+subject through the same adoption call, and a ratification raised without one
+would ask an owner to ratify a record about a Reader Path nobody selected.
+
+**The first half was narrowed at v28 (kogaki#893) and narrowed again at v32
+(kogaki#891).** §4.12.3 registered `brief-specialization-ratification`, and v32
+registers `brief-candidate-selection` here — so the claim that survives is the
+one §6 actually rests on: Candidate selection rides the gate carrier this
+repository already ships and mints **no record class**. What v28's wording still
+got wrong is now visible: it said the old claim "is still true of §6", and it
+was not — §6 was raising an unregistered gate at the time the sentence was
+written. The version trail is kept rather than rewritten so the correction is
+readable as a correction. And the check half stands unchanged: §4.12.3 adds a CASE to
 `check-brief-compose`, never a member, so no admission record and no removal
 signal is owed.
 

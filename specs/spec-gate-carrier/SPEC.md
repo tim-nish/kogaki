@@ -1,5 +1,14 @@
 # SPEC-gate-carrier — the gate carrier
 
+**Status:** v5, amended 2026-09-05 (kogaki#891, PR #911 round 1) — **§4.1 says
+WHICH sibling declaration is the target, not just that a sibling is.** v4 named
+it `<gate_id>.run-declaration.json`, which holds only where a directory holds one
+run. A capture keyed on its RUN — `<run-state stem>.<gate_id>.gate-capture.json`,
+the name `src/brief.mjs` writes so that two entries over one settled Strand set
+cannot share a declaration — was compared against a name that never matched, so
+the check silently fell back to the registry and every conforming Brief run would
+have reddened the local suite. **deferred slots minted by this amendment: none.**
+
 **Status:** v4, amended 2026-09-03 (kogaki#818) — **§4 states what a capture's
 `options_offered` is judged AGAINST.** The rule was real and unwritten: the
 schema carried the flag, the check carried the comparison, and this contract
@@ -222,10 +231,25 @@ the gate declared **for that run**. The comparison is unchanged from v1 in
 strength; what v4 states is the thing v1 left to the reader — **which
 declaration is the comparison target.**
 
-- Where a sibling `<gate_id>.run-declaration.json` sits beside the capture, it
-  is the target. That file is the gate's declaration *as raised*, written by
-  the executor at the wait that owed it, and it is the only artifact that can
-  hold an option composed for that run.
+- Where a run declaration sits beside the capture, it is the target. That file
+  is the gate's declaration *as raised*, written by the executor at the wait
+  that owed it, and it is the only artifact that can hold an option composed
+  for that run.
+- **Which sibling (v5, kogaki#891).** The declaration's name is derived from
+  the capture's OWN name — the capture name with the `*.gate-capture.json`
+  suffix replaced by `run_declaration_suffix` — and `<gate_id>` +
+  `run_declaration_suffix` is tried second. v4's name assumed one run per
+  directory. Where two can share a workspace the declaration and the capture
+  are both keyed on the RUN STATE and not on the directory
+  (`<run-state stem>.<gate_id>.…`, `src/brief.mjs`), because two entries over
+  the same settled Strand set compose the same options and therefore the same
+  digest — which is exactly when one run's declaration is least
+  distinguishable from another's. A gate_id-only name gives those two runs ONE
+  declaration between them, and the digest cannot catch it. The second name is
+  the per-gate-directory form `src/assemble.mjs` writes, kept exactly. The name
+  is DERIVED and never guessed from a directory listing: a listing holding two
+  declarations would have to pick one, and picking wrong is the admission this
+  keying exists to refuse.
 - Where no sibling declaration exists, the target is the gate's entry in
   `src/gate-registry.json`. This is the pre-v4 behaviour, kept exactly: a capture
   that reached the tree with no run workspace around it is judged against the
@@ -275,6 +299,15 @@ example that tells the two readings apart. A conforming capture whose
 must be accepted, and a nonconforming capture whose options match **neither**
 must still fail. A single fixture cannot discriminate the two readings, so
 neither is admissible alone.
+
+**v5 owes its own discriminating pair, and for the same reason.**
+`conforming/entry-7f3a.terrain-dynamic.*` is a run-state-keyed capture and its
+declaration, placed in the directory that already holds ANOTHER run's
+`terrain-dynamic.run-declaration.json`, with options matching neither that
+declaration nor the fixture registry. It is admitted only under the derived
+name; under v4's it resolves the other run's declaration and reports
+`CAPTURE_PAYLOAD_OPTIONS_MISMATCH`. A pair in a directory holding one
+declaration would pass under both readings and evidence nothing.
 
 ## 5. The machine's own comparison — item 4's, decided here
 
