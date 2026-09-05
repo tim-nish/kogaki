@@ -1,0 +1,47 @@
+{
+  "note": [
+    "The CLOSED table of Candidate-level DISCLOSURE-CLASS fields and the owner",
+    "surface each one reaches (kogaki#909, owner ruling 2026-09-06).",
+    "",
+    "A disclosure-class field is Harness-written evidence ABOUT a Candidate",
+    "that the owner is owed sight of. Before this table each such field",
+    "re-derived the same absence in its own paragraph - the bridge disclosure",
+    "did, the revise residue did, and #877's `figure:` would have been the",
+    "third - so the class is decided here once instead of a fourth time.",
+    "",
+    "THE TEST IS WHETHER THE EVIDENCE BEARS ON THE CHOICE. Evidence that bears",
+    "on the pending selection is `decision` grade and reaches the selection",
+    "gate, because a pending human verdict's carrier is the render layer: the",
+    "owner acts on what they see and not on what the record contains. Evidence",
+    "that is a post-hoc report or approval is `post-hoc` grade and rides the",
+    "minted Brief's slot, because nothing is owed about a path not taken.",
+    "consulted: product-lab@172ede395a5d74ef9a8b2c7b2031f79fda2fc930",
+    "topics/archive/knowledge-architecture.md:172",
+    "",
+    "CLOSED means a field enters by editing this file under its own issue. The",
+    "surface is not optional and not inferable: a grade names one surface, and",
+    "src/assemble.mjs refuses a Candidate carrying a `decision`-grade field",
+    "that its option composition did not render. That refusal is why field N+1",
+    "cannot repeat the defect - it fails the same assertion rather than",
+    "needing a check member of its own.",
+    "",
+    "This is NOT a claim that an undeclared field is detected. The table binds",
+    "the fields the Harness writes; a composer inventing a key nothing renders",
+    "is outside its reach, and that bound is stated here rather than left for",
+    "a reader to discover by trusting the guard too far."
+  ],
+  "grades": {
+    "decision": "selection-gate",
+    "post-hoc": "brief-slot"
+  },
+  "fields": {
+    "bridges": {
+      "grade": "post-hoc",
+      "why": "§4.11 approves a Bridge Step by disclosing it after the fact. The approval is about what was ADOPTED, so a per-Candidate disclosure was always wider than the thing approved (kogaki#864, built at kogaki#866)."
+    },
+    "revise_residue": {
+      "grade": "decision",
+      "why": "It says this Candidate spent its one revise round and that anything the revise did not repair stands. That is a property of the Candidate the owner is choosing BETWEEN, so it is owed before the choice rather than after it (kogaki#894, carried at kogaki#909)."
+    }
+  }
+}
