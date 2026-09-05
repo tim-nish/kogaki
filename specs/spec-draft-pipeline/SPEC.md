@@ -1,5 +1,13 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v28, amended 2026-09-05 (kogaki#893) — **§4.12 gains a THIRD half,
+§4.12.3: a passing specialization record is no longer the sole unlock, and
+adoption additionally requires the owner's ratification of that record.** The
+two halves §4.12 declared governed the record's shape and its refusal, and
+neither reached the thing that actually opened the write — a record whose every
+verdict reads `consistent`, composed by the same sitting that wanted the path
+adopted. **deferred slots minted by this amendment: none.**
+
 **Status:** v27, amended 2026-09-05 (kogaki#859, PR #863 round 2) — §6's
 retention clause names the check case that carries it, after the claim it made
 was found carrier-less. v26, re-cut 2026-09-03 (kogaki#784) under kogaki#743's
@@ -508,16 +516,23 @@ Move's `requires`/`effect`, specialized to this reader and these Strands. §4.1
 makes the binding required; this section governs **the relationship the binding
 asserts**.
 
-**Two halves, carried by different machinery on purpose:**
+**Three halves, carried by different machinery on purpose** — two until v28,
+which added the third for the reason §4.12.3 states:
 
 | half | the question | who answers | where it is carried |
 |---|---|---|---|
 | mechanical | does the id resolve? | the runtime | a set-membership test over the library |
 | judged | are the instantiated states consistent specializations? | the composing sitting | a typed record the runtime validates and never composes |
+| ratified | does the owner accept that judgment as the ground for writing this path? | the owner | a capture at a declared gate, bound to the Candidate and to the record |
 
-`necessity:` that the contract HAS two halves, and that which half a property
+`necessity:` that the contract HAS these halves, and that which half a property
 belongs to is not a matter of convenience. The table above is the division;
-§4.12.1 and §4.12.2 each state why their own half sits where it does.
+§4.12.1, §4.12.2 and §4.12.3 each state why their own half sits where it does.
+
+**Why "three halves" and not a renaming.** The word is kept because the
+two-half division was ratified and is unchanged — v28 adds a half rather than
+recutting the existing ones, and a reader meeting "three parts" here would have
+no way to tell an addition from a re-division.
 
 #### 4.12.1 The mechanical half — move id resolution
 
@@ -581,6 +596,84 @@ inference from this section; owed on its own licensing issue.
 `necessity:` the split between what a runtime may decide and what only a
 reading sitting can. The schema holds the record's shape; nothing but prose can
 say why the verdict may not be composed by the thing that validates it.
+
+#### 4.12.3 The ratified half — the owner gate over a passing record
+
+**A passing record is not the sole unlock.** §4.12.2's every clause is about
+the record's SHAPE — its version, its binding, one verdict per Step, a closed
+vocabulary, a `why` long enough to quote back — and a record satisfying all of
+them, every verdict reading `consistent`, wrote the path into the Brief with
+nothing beside it. That verdict is composed by the same sitting that wants the
+path adopted, so the test is exact and was run: **a record of shape-valid
+`consistent` verdicts with no judgment behind them adopted a Candidate with no
+refusal** — the right act with the guard silently disabled.
+
+**So adoption additionally requires an owner ratification of that record**,
+recorded at a declared gate. The record is rendered — every Step, the Move it
+instantiates, the verdict, and the sentence the judging sitting wrote — and the
+owner ratifies it or does not. Without a ratification, nothing is written.
+
+**THE REFUSING ARMS ARE UNCHANGED, and the ordering is what makes that true.**
+A `contradicts` or `cannot-determine` record refuses at §4.12.2, above this
+half, with the same message in the same path order, and **never reaches the
+gate**. An owner is asked to ratify a record that already passes and nothing
+else: carrying a failing record to a gate would ask them to approve a refusal.
+
+**WHAT THIS HALF DOES NOT DO, stated because the tempting alternative was
+declined here** (kogaki#893, owner selection 2026-09-05). It renders no verdict
+on a specialization, reads no Move's `requires`/`effect`, and compares nothing
+to anything. **§4.6 clause 3 and §7.5 are untouched** — and more than
+untouched, they are what this arm rests on: §7.5 already says `requires`/
+`effect` matching is *"surfaced as gate evidence (§6)"*, and §4.6 clause 2
+already sites the human gate at approving results. **This is the arm those
+sections already licensed.**
+
+**The declined arm, recorded so it is not re-proposed blind.** The alternative
+was a mechanical check anchoring each `consistent` verdict's `why` in the
+Move's `requires`/`effect` and the Step's reader states by string match. It
+would have owed this spec an amendment: the runtime reads the library as a set
+of ids **and nothing else**, precisely so that nothing is one edit away from
+comparing `requires`/`effect`, and §7.5 holds that matching judgment-class and
+*"never type-checked"*. The served position discriminated toward it — an
+observer is warranted where the predicate is mechanically decidable at the act
+and the cost of not observing has been measured, and both conjuncts hold here —
+and the owner selected against it at the gate. Recorded as an owner selection
+over a served recommendation, not as an unconsulted fork.
+`consulted: product-lab@5f31e8503581da23bc212b8909f2dc8dcc1ef22b topics/knowledge-architecture.md:57`
+`consulted: product-lab@5f31e8503581da23bc212b8909f2dc8dcc1ef22b topics/archive/knowledge-architecture.md:162`
+
+**THE CARRIER IS THE ONE THAT ALREADY EXISTS.** The gate is declared in
+`src/gate-registry.json` like every other gate this repository raises, its run
+declaration and its capture ride SPEC-gate-carrier's own shapes, and the answer
+is an `AskUserQuestion` row carrying its `tool_use_id`. No new store and no new
+hook. **A free-text answer is not a ratification**: the gate offers free text
+because the carrier requires it, and an answer given there is a comment — a
+write unlocked by arbitrary prose is unlocked by anything.
+
+**The gate owes a first-class premise negation, and here that is sharper than
+the usual reason.** Every option is composed on the premise that the record's
+`consistent` verdicts hold, and **that premise is exactly what is being asked
+about**. A gate with no first-class way to say it does not hold would be
+unfalsifiable at the one moment a human is present to falsify it. The decline
+is **recorded**, not discarded, and adoption then refuses **naming it** — an
+owner who said no and an owner who was never asked are different facts and must
+read differently.
+
+**THE BINDING IS TWO-AXIS, matching the record's own (§4.12.2), and for the
+same reasons one level out.** A capture certifies **this Candidate** and **this
+record**: without the first an owner ratifies one Candidate and a sitting
+adopts another; without the second the record is editable after ratification
+and adopts under a capture that judged different verdicts. The second axis is
+the one the first cannot cover — same Candidate, same shape, a verdict's own
+sentence rewritten — so the capture binds a digest **over the verdicts as
+judged, in the adopted path's order**. A record whose verdicts are merely
+reordered digests identically; a record whose judgment changed does not.
+
+`necessity:` that a judgment which unlocks a write owes something beside it,
+and that the something is a human at a gate rather than a check. The schema
+holds the capture's shape and the registry holds the gate's declaration;
+nothing but prose can say why the unlock may not rest on the judgment alone,
+or why the check that would look decidable here is the arm that was declined.
 
 ### 4.13 The reader-knowledge ledger — `introduces` on a Step
 
@@ -1013,7 +1106,8 @@ may not shed, and why declining a slug may not cost the Thesis.
 **A command is named for the artifact it completes, and it runs until that
 artifact is complete.** One invocation drives the whole arc — entry, the thesis
 gate, the mint, path composition, path review with §4.11's revise routing,
-Candidate assembly, the Candidate-selection gate, adoption — and ends only at a
+Candidate assembly, the Candidate-selection gate, §4.12.3's ratification gate,
+adoption — and ends only at a
 **filled** Brief, or at an owner answer that ends it.
 
 **A human gate is not a stop.** What is abolished is the **default** stop.
@@ -1021,9 +1115,17 @@ Candidate assembly, the Candidate-selection gate, adoption — and ends only at 
 **A mid-workflow stop is legitimate only when NAMED, and only on an
 inspection-need** — a point where the owner must leave the conversation to read
 another surface before the next gate can be answered honestly. **This flow has
-no such point**, and both gates are answerable from what the runtime renders
-into them. A later sitting that finds one adds the named stop there, with its
-ground; it does not restore the default.
+no such point**, and **all three gates** are answerable from what the runtime
+renders into them. A later sitting that finds one adds the named stop there,
+with its ground; it does not restore the default.
+
+**Three since v28** (kogaki#893), and the third is the one whose count this
+clause has to be read against: §4.12.3's ratification gate is answerable from
+what the runtime renders into it — `ratify-specialization --declare` prints the
+record verdict by verdict, byte-for-byte as the validator read it — so it adds
+a gate and **not** an inspection-need. That is the property this clause is
+about, and it is why the gate could be added without reopening the abolished
+default stop.
 
 `necessity:` the gate's payload shape is in `src/gate-registry.json` and the flow
 is in `src/brief.mjs`. What no carrier holds: the two conditions a merged gate
@@ -1038,10 +1140,21 @@ Where/Why and the effect-stating label (`specs/spec-proposal-contract/SPEC.md`),
 and the declared gate registry and selector affordance
 (`specs/spec-gate-carrier/SPEC.md`).
 
-**No gate is registered by this spec and no check is registered by this spec.**
-A new check would owe an admission record, a removal signal and a typed
+**No gate is registered by THIS SECTION and no check is registered by this
+spec.** A new check would owe an admission record, a removal signal and a typed
 observing instrument, and a check admitted ahead of its subject is the shape
 this repository refuses.
+
+**The first half was narrowed at v28 (kogaki#893) and the second is untouched.**
+§4.12.3 registers `brief-specialization-ratification` in `src/gate-registry.json`,
+so this spec does now register a gate — one, sited there, for the reason that
+section gives. Narrowed rather than deleted, because the claim this sentence was
+making is still true of §6 and is what §6 rests on: **Candidate selection** rides
+the gate carrier this repository already ships and mints nothing. A reader who
+found the sentence simply gone could not tell that from §6 having quietly grown a
+carrier. And the check half stands unchanged: §4.12.3 adds a CASE to
+`check-brief-compose`, never a member, so no admission record and no removal
+signal is owed.
 
 **The selection payload carries, per Candidate, its id and its
 reader-experience label; the premise's negation; free text. Nothing else.**
