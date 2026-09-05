@@ -221,9 +221,15 @@ while IFS= read -r h; do
   # occurs inside this template's own "Write no verdicts and no advice", and a
   # substring match failed on correct text -- the guard-that-fires-on-correct-
   # behaviour shape, caught at authoring rather than in review.
-  # `/^#/` and NOT `/^#{0,0}##/`: the interval is inert where awk supports
-  # intervals and matched LITERALLY where it does not, in which case no heading
-  # line is ever selected, `found` is never set, and this guard reports ok on a
+  # `/^#/`, ONE `#` AND NOT TWO, because a leak at ANY heading level is a leak:
+  # the Packet's own `# Write one Step` is level 1, so `/^##/` -- the strongest
+  # wrong candidate here -- selects no line for it and the guard passes a
+  # template carrying it. One `#` selects every heading level and the `sub()`
+  # below strips the rest before the comparison, so the level never matters.
+  # AND NOT `/^#{0,0}##/`, which fails BOTH ways: where awk supports intervals
+  # it collapses to `/^##/` and misses level 1 exactly as above, and where it
+  # does not it is matched LITERALLY, in which case no heading line is ever
+  # selected at all, `found` is never set, and this guard reports ok on a
   # leaked template. A guard whose failure mode is a clean pass is the shape
   # this member calls out by name two blocks up (PR #884 round 1, finding 1).
   # THE SELECTOR HAS TWO CARRIERS: this comment and this member's `efficacy_note`
