@@ -192,6 +192,27 @@ try {
   if (readAttachLedger(join(dir, "no-such-ledger.json")).error) {
     fails.push("(h) an ABSENT ledger refused — absent is zero rounds spent, and only a DAMAGED one is unknown");
   }
+  // THE THIRD DOOR (PR #910 round 1): a ledger whose VALUES are damaged. The
+  // container-shaped check passed these, and the coercion below it then
+  // restored the Candidate to zero rounds spent — the degrade-to-zero this
+  // case exists to refuse, reached without an unparseable byte in the file.
+  for (const [name, body] of [
+    ["scalar-entry", { attaches: { "cand-1": 5 } }],
+    ["object-entry", { attaches: { "cand-1": { round: 2 } } }],
+    ["malformed-round", { attaches: { "cand-1": [{ round: "2", sha: "x", at: "t" }] } }],
+    ["array-attaches", { attaches: [] }],
+  ]) {
+    const f = join(dir, `damaged-${name}.json`);
+    writeFileSync(f, JSON.stringify(body));
+    const rr = readAttachLedger(f);
+    if (!rr.error) fails.push(`(h) a damaged ledger (${name}) read as ${JSON.stringify(rr.attaches)} instead of refusing — the count degraded to zero without an unparseable byte`);
+  }
+  // And the PURE function refuses it too, for a caller that did not come
+  // through the reader — a guard on one door only is a guard with a bypass.
+  const coerced = attachReview(cands, review, { "cand-1": 5 });
+  if (!coerced.error || !/not an array of round/.test(coerced.error)) {
+    fails.push(`(h) attachReview COERCED a damaged ledger entry instead of refusing: ${JSON.stringify(coerced.error || "accepted")}`);
+  }
 
   // The command path writes the ledger the exported arithmetic reads.
   const p2 = attach((() => { const f = join(dir, "review2.json"); writeFileSync(f, JSON.stringify(both("revised "))); return f; })());
@@ -228,7 +249,8 @@ console.log("brief review: 8/8 cases — (a) per-Candidate reasoning attaches an
   + "either (the count is keyed on the reasoning's identity, so recovery-by-re-running does "
   + "not consume the bound), and the command path records the round in the RUN WORKSPACE "
   + "rather than in the composing sitting's memory; (h) a DAMAGED ledger REFUSES — "
-  + "unparseable JSON and a body with no `attaches` object both — while an ABSENT one is "
+  + "unparseable JSON, a body with no `attaches` object, and an entry that is not an array of "
+  + "round records (the door a container-shaped check leaves open) — while an ABSENT one is "
   + "zero rounds spent, because a bound whose count degrades to zero on a bad read is a "
   + "suggestion with a good failure mode. "
   + "MUTATION EVIDENCE (assert-by-breaking-once, story 1.74): FOUR mutations, each run once "
@@ -237,7 +259,9 @@ console.log("brief review: 8/8 cases — (a) per-Candidate reasoning attaches an
   + "MAX_ATTACHES to 3 failed (e)'s third-attach refusal AND (f)'s residue, since a "
   + "Candidate that never reaches the bound never carries one; counting into the CALLER's "
   + "ledger object instead of a copy failed (g)'s spends-no-round assertion; returning "
-  + "`{ attaches: {} }` from the unparseable-JSON branch instead of refusing failed (h). NOT "
+  + "`{ attaches: {} }` from the unparseable-JSON branch instead of refusing failed (h), and "
+  + "restoring the `Array.isArray(v) ? [...v] : []` coercion failed (h)'s damaged-VALUE cases "
+  + "while every other case stayed green. NOT "
   + "COVERED, stated rather than implied: whether the agent's reasoning is sound — the "
   + "grounds test applied well, the prohibitions actually looked for, the arc actually "
   + "traced — is judgment-class (§4.6 clause 3 keeps every MUST un-linted) and belongs to "

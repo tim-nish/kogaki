@@ -132,8 +132,32 @@ export function readAttachLedger(path) {
       + `ledger that cannot be read is NOT an empty one, and a bound whose count degrades to `
       + `zero on a bad read is not a bound (§4.11; kogaki#894). Inspect or remove it deliberately.` };
   }
-  if (!raw || typeof raw !== "object" || typeof raw.attaches !== "object" || raw.attaches === null) {
+  if (!raw || typeof raw !== "object" || typeof raw.attaches !== "object" || raw.attaches === null
+      || Array.isArray(raw.attaches)) {
     return { error: `${path} does not carry an \`attaches\` object — the revise-round ledger's shape` };
+  }
+  // THE VALUES ARE CHECKED, NOT ONLY THE CONTAINER (PR #910 round 1). Validating
+  // `attaches` as an object and stopping there left a third door into the
+  // degrade-to-zero the branch above refuses: `{"attaches": {"cand-1": 5}}`
+  // parses, passes a container-shaped check, and restores cand-1 to zero rounds
+  // spent — admitting a third and a fourth attach with no refusal. An entry
+  // that is not an array of round records IS a damaged ledger, and this file's
+  // own rule is that a damaged ledger refuses rather than reading as empty.
+  for (const [id, rounds] of Object.entries(raw.attaches)) {
+    if (!Array.isArray(rounds)) {
+      return { error: `${path}: the entry for candidate ${JSON.stringify(id)} is not an array of `
+        + `round records — a damaged ledger REFUSES rather than reading as zero rounds spent `
+        + `(§4.11; kogaki#894), because a count that degrades to zero on a bad read is a `
+        + `suggestion with a good failure mode` };
+    }
+    for (const r of rounds) {
+      if (!r || typeof r !== "object" || Array.isArray(r)
+          || !Number.isInteger(r.round) || typeof r.sha !== "string" || typeof r.at !== "string") {
+        return { error: `${path}: candidate ${JSON.stringify(id)} carries a malformed round record `
+          + `(each is { round, sha, at }) — a damaged ledger REFUSES rather than reading as zero `
+          + `rounds spent (§4.11; kogaki#894)` };
+      }
+    }
   }
   return { attaches: raw.attaches, brief: raw.brief };
 }
@@ -157,8 +181,19 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
     return { error: "attaches must be the ledger's candidate_id -> rounds map" };
   }
   const stamp = (now instanceof Date ? now : new Date(now)).toISOString();
+  // NO COERCION (PR #910 round 1). `Array.isArray(v) ? [...v] : []` was the
+  // fallback: a non-array entry became an empty one, and the Candidate it
+  // belonged to silently regained its spent rounds. The reader above refuses
+  // such a ledger, and this refuses it again for a caller who did not come
+  // through the reader — the same both-doors discipline `--brief` gets.
   const nextAttaches = {};
-  for (const [k, v] of Object.entries(attaches)) nextAttaches[k] = Array.isArray(v) ? [...v] : [];
+  for (const [k, v] of Object.entries(attaches)) {
+    if (!Array.isArray(v)) {
+      return { error: `the ledger entry for candidate ${JSON.stringify(k)} is not an array of round `
+        + `records — a damaged ledger REFUSES rather than reading as zero rounds spent (§4.11)` };
+    }
+    nextAttaches[k] = [...v];
+  }
   const out = [];
   for (const c of candidates) {
     if (typeof c.candidate_id !== "string" || c.candidate_id === "") {

@@ -1,5 +1,12 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v31, amended 2026-09-05 (kogaki#894, PR #910 round 1) — §4.11 gains
+the damaged-read bullet its retention clause already pointed at and which did
+not exist, now stating all three doors: the third — an `attaches` entry that is
+not an array of round records — degrades the count to zero with no unparseable
+byte in the file, and was open behind a container-shaped check.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v30, amended 2026-09-05 (kogaki#894, PR #908 round 1) — §4.11's
 carrier clauses gain three statements the round found missing: the ledger's one
 relocation seam is named (a seam nothing declares cannot be told from the
@@ -505,6 +512,20 @@ count honest rather than merely present:
   Saying the residue "rides to the gate" without
   this sentence would assert the disclosure half of "a gap surviving it is
   disclosed" more strongly than the payload supports.
+
+- **A DAMAGED ledger refuses; an ABSENT one is zero rounds spent.** This is the
+  bullet the lifetime clause above points at, and the distinction is the whole
+  of it: absent is a fact about a Brief that has not been reviewed yet, while
+  damaged means the count is **unknown**, and a bound whose tally degrades to
+  zero on a bad read is a suggestion with a good failure mode rather than a
+  bound. Three doors, because two of them were found open one at a time
+  (PR #910 round 1): an unparseable file, a body carrying no `attaches` object,
+  and — the one a container-shaped check leaves open — an `attaches` entry that
+  is not an array of round records. `{"attaches": {"cand-1": 5}}` parses, passes
+  a check that asks only whether `attaches` is an object, and then restores that
+  Candidate to zero rounds spent with no unparseable byte anywhere in the file.
+  The refusal lives at **both doors** — the reader and the pure function — since
+  a guard on one is a guard with a bypass.
 
 The assertion is `checks/check-brief-review.sh` cases (e)–(h).
 
