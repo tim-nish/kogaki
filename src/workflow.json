@@ -1,7 +1,7 @@
 {
-  "version": 13,
+  "version": 14,
   "governing_text": "specs/spec-terrain/SPEC.md §15",
-  "licensed_by": "kogaki#858 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
+  "licensed_by": "kogaki#856 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
     "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (§15.5) and renders under the grammar_surface THIS STATE declares, never one bound to the artifact path.",
@@ -14,8 +14,7 @@
     "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states.",
     "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
     "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. The binding is per state, never per artifact path (SPEC §15.5).",
-    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. A property this table exists to carry may not be read off a missing key, so the key is present on all three gate states or on none.",
-    "owner_reads": "Declared on a WAIT whose owner must READ something before answering. AN OPEN SET, and the wording matters: `why` is the ground and is rendered in the stop's header line; EVERY OTHER KEY is an invocation the owner types, rendered in this table's own order, with `<survey record>` the one placeholder the executor substitutes. The shipped table carries `invocation`, `why`, `also` and `then` today, and adding a fifth needs no runtime change and no edit to this note. THIS SENTENCE USED TO READ \"Three keys\" AND ENUMERATE THEM, which is the defect kogaki#807 repaired one layer down: the renderer named `invocation` and `also`, kogaki#745 added `then`, and nothing rendered it — so a contributor adding key N+1 read a schema note promising the set was closed at three while the table already held four. The executor RENDERS every declared key at the stop and neither runs it nor relays its output — rendering the command is the hand-over, and running it would put the output back on the channel the arm exists to avoid. Data rather than driver code, and now true of the code as well as of this note."
+    "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. A property this table exists to carry may not be read off a missing key, so the key is present on all three gate states or on none."
   },
   "states": [
     {
@@ -30,17 +29,12 @@
     {
       "id": "TAG_SELECTION",
       "kind": "wait",
-      "owner_supplies": "one tag name",
+      "owner_supplies": "one tag name, or the standing option",
       "writes": null,
       "conditional": false,
-      "renders_gate_declaration": false,
-      "governing": "§6.3",
-      "owner_reads": {
-        "invocation": "node src/terrain.mjs tags --survey <survey record>",
-        "why": "the owner chooses a tag from this listing, and a session's tool output is displayed to the session rather than reliably to the owner — so the act is the owner's to run (§6.0)",
-        "also": "node src/terrain.mjs tag-rows --survey <survey record> --tag <T> — the per-tag row view, run when the owner asks to browse rows (§6.3's fork half). Never scheduled.",
-        "then": "node src/terrain.mjs cotag-selection --survey <survey record> --tag <T> --intent \"<one sentence: why these co-tags, from the model>\" — §6.0.1's co-tag SELECTION display, named here once the owner has supplied the tag this stop waits for. THE INTENT PLACEHOLDER IS PART OF THE NAMED INVOCATION: it is the model's sole contribution to that surface, the executor supplies it at the invocation rather than printing it separately, and the emitter refuses it when multi-line, over 200 characters, or carrying table or marker syntax. Sited at this stop on the table's own precedent — `tag-rows` is the other owner-executed act taking `--tag <T>`, and it is named here for the same reason: both become runnable exactly when this stop's `owner_supplies` has been supplied."
-      }
+      "renders_gate_declaration": true,
+      "governing": "§6.3, §15.4",
+      "gate_id": "terrain-tag-selection"
     },
     {
       "id": "compose_input",
@@ -199,19 +193,18 @@
     "subdivide": "becomes J2_subdivision, INCLUDING the composition the standalone command performed — subgroup placement from the judge's classification, the per-subgroup instruments, and the SUBDIVISION_COVER_INCOMPLETE refusal. §2.1 makes completeness a cover COUNTED IN PLACEMENTS, which is a runtime refusal; leaving it to the outside composer would move a ratified refusal out of the runtime, so the state accepts the classification record and composes under it (§15.6.2).",
     "act": "becomes TRIM_RATIFICATION's proposal record, composed by the executor when that wait is entered (`composeTrimProposal`).",
     "gate": "becomes the declaration the executor composes at any wait declaring `renders_gate_declaration: true`, through the option composer bound to that state.",
-    "capture": "becomes the answer the executor records at the wait that declared the gate."
+    "capture": "becomes the answer the executor records at the wait that declared the gate.",
+    "tags": "becomes the `tag_listing` the executor carries in the TAG_SELECTION gate declaration (kogaki#856). The rendering is unchanged; what moved is the channel — the session renders the declaration through AskUserQuestion and the listing reaches the screen before the question, so no stop names a command for the owner to type."
   },
   "retired_entry_points": {
-    "neighborhood": "retired (SPEC §13.2); the section rides every `report` pull. The case survives to fail with that pointer and emits no owner surface."
+    "neighborhood": "retired (SPEC §13.2); the section rides every `report` pull. The case survives to fail with that pointer and emits no owner surface.",
+    "tag-rows": "retired with no successor (owner ruling 2026-09-04, kogaki#856): with over 100 served tags there is no demonstrated demand for browsing one tag's Lessons individually. This is a RECORDED DECLINE and not a re-siting — the surface, its grammar and its renderer are gone, and the case survives to fail with that pointer. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:77",
+    "cotag-selection": "retired with no successor (owner ruling 2026-09-04, kogaki#856): it printed the first-tag table a second time after the tag was chosen, and the table now sits above the TAG_SELECTION question. §6.0.1, the `cotag_selection` grammar block and the `--intent` bound go with it. The case survives to fail with that pointer."
   },
   "non_flow_entry_points": {
     "self-test": "seam-free identity-cite fixture pass; emits no owner surface, carries no sequencing authority",
     "validate": "runs survey-record validation; emits no owner surface"
   },
-  "owner_executed_entry_points": {
-    "tags": "the pre-selection tag listing — a header and one tag row per section, under the `tag_listing` grammar. Takes `--survey <record>`; the executor names the invocation at its TAG_SELECTION stop.",
-    "tag-rows": "the per-tag row view — candidate rows under one named tag with their Gloss headlines, under the `tag_row_listing` grammar. Takes `--survey <record> --tag <T>`, and `--family <f>` to mark. Run when the owner asks to browse rows; never scheduled.",
-    "cotag-selection": "the co-tag SELECTION display (§6.0.1) — three blocks under the `cotag_selection` grammar: the fixed marker, a counts table over ALL served tags with family-named columns, and the model's one `intent:` sentence. Takes `--survey <record> --tag <T> --intent <one sentence>`. Writes NOTHING, so §15.5's write authority never engages and it is not a state; it PRECEDES the CoTagGroups display and `reports/CoTagGroups.md` keeps exactly one writing state (`cotag_groups`). The executor names the invocation at its `TAG_SELECTION` stop, intent placeholder included, and neither runs it nor relays its output."
-  },
-  "entry_point_accounting": "EVERY case in src/terrain.mjs's dispatcher appears in exactly one of the 5 maps above (bound_to_a_state, removed_entry_points, retired_entry_points, non_flow_entry_points, owner_executed_entry_points), and THAT TOTALITY is the property rather than the count: the next entry point is covered by the totality rather than by having been remembered. A case in none of them, or in two, is a defect against this file."
+  "owner_executed_entry_points": {},
+  "entry_point_accounting": "EVERY case in src/terrain.mjs's dispatcher appears in exactly one of the 5 maps above (bound_to_a_state, removed_entry_points, retired_entry_points, non_flow_entry_points, owner_executed_entry_points), and THAT TOTALITY is the property rather than the count: the next entry point is covered by the totality rather than by having been remembered. A case in none of them, or in two, is a defect against this file. `owner_executed_entry_points` IS EMPTY AT v14 AND THE KEY STAYS (kogaki#856): the owner types no command in this flow, and an empty map states that where a deleted key would leave a reader unable to tell an empty set from a map somebody dropped."
 }

@@ -574,7 +574,7 @@ function cmdSurvey(args) {
   // and 5). It is the `tag_listing` surface, and `renderTagDisplay` is its one
   // emitter, reached through the executor and written under that surface's
   // grammar. While both existed a run emitted the listing TWICE — once from
-  // this compute state under no grammar, once from the owner-executed `tags` through the
+  // this compute state under no grammar, once from `tags` through the
   // guard — and the two had already diverged, since only the guarded copy
   // carried the amended navigation hint. Two emitters of one surface with one
   // of them unguarded is the defect class kogaki#665 exists to close, arriving
@@ -652,11 +652,11 @@ export function parseGlossShard(resp) {
 
 // Tag-scoped and bounded: one shard per viewed tag, addressed `<kind>/<tag>`
 // and never `<tag>` alone. No fan-out, no whole-corpus prefetch (SPEC.md §9).
-// `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN, and that is the
-// point: `renderTagRowView` takes this function as an INJECTED fetcher whose
-// contract is "returns a Map", and a check asserts the injection is honoured.
-// Widening the return would have made the seam-free path's own contract a
-// casualty of a fetch accounting change.
+// `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN. The injecting
+// caller this shape was written for — `renderTagRowView` — is gone with the
+// per-tag row view (kogaki#856), so `composeInput` carries it alone; the shape
+// is kept rather than collapsed, because widening the return would make a
+// caller's contract a casualty of a fetch accounting change.
 //
 // TWO COUNTS, BECAUSE AN EMPTY MAP HAS TWO CAUSES (kogaki#689). A shard that
 // ANSWERED and carried nothing, and a seam that never answered, both leave the
@@ -878,66 +878,6 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"]) {
   return NO_HEADLINE;
 }
 
-// THE TWO DISPLAY RENDERERS, PRIVATE (§15.5, §15.1; kogaki#665). Each RETURNS
-// TEXT AND WRITES NOTHING — the write is the executor's, through the one
-// private writer, under the calling state's own grammar. Neither is exported
-// and neither is dispatchable by name: #625 acceptance item 1 makes an
-// out-of-order act unwritable by construction rather than detected after it.
-//
-// THE SHARD FETCHER IS INJECTED, exactly as `composeInput` already injects its
-// own, and that is load-bearing rather than symmetry: it is what makes
-// REFUSE-conformance testable without the substrate. A renderer that reached
-// the seam directly could only be exercised where the seam is.
-function composeDisplayText(record, tags, family, fetchShards) {
-  const display = [];
-  const say = (s = "") => { for (const line of String(s).split("\n")) display.push(line); };
-  let list = record.candidates;
-  if (tags) list = list.filter((c) => tags.some((t) => c.tags.includes(t)));
-  // The rows are Lessons; a family filter selects rows whose Strand set
-  // includes that family, so `--family journey` is the marked rows.
-  if (family === "journey") list = list.filter((c) => c.journey);
-  else if (family) list = list.filter((c) => c.family === family);
-  list = [...list].sort((a, b) => a.id.localeCompare(b.id));
-
-  // Headlines are fetched only for the tags actually being viewed. Without a
-  // tag there is no shard to read, and prefetching the corpus to fill the gap
-  // is the fan-out §9 forbids — so the absence is stated instead.
-  let heads = new Map();
-  let journeyHeads = new Map();
-  if (tags) {
-    heads = fetchShards("lessons", tags);
-    if (list.some((c) => c.journey)) journeyHeads = fetchShards("journeys", tags);
-  }
-  let missing = 0;
-  let missingDisplayId = 0;
-  for (const c of list) {
-    const mark = c.journey ? "" : "  ○ thin (no Journey)";
-    // §14.3 — the row is named by its display_id. The cite stays: it is an
-    // address rather than an element name, and it is what makes the row
-    // traceable to the served surface.
-    const shown = c.display_id || NO_DISPLAY_ID;
-    if (!c.display_id) missingDisplayId++;
-    say(`  ${shown}  (${c.tags.join(", ") || "no relation"})  ${c.cite}${mark}`);
-    if (!tags) continue;
-    const h = heads.get(c.slug);
-    if (h) say(`      “${h.headline}”  ${h.cite}`);
-    else { missing++; say(`      ${NO_HEADLINE}`); }
-    if (c.journey) {
-      const jh = journeyHeads.get(c.slug);
-      say(jh ? `      ↳ Journey: “${jh.headline}”  ${jh.cite}` : `      ↳ Journey: ${NO_HEADLINE}`);
-    }
-  }
-  const split = familySplit(list.map((c) => c.id), record.candidates);
-  say(`\n${denominator(list.length, record.candidates.length)} in view (${strandFigure(split)}) — a view, not a narrowing: the survey record is unchanged and every Strand stays selectable (free text reaches all of them at the gate).`);
-  if (!tags) {
-    say("Gloss headlines are tag-scoped (one shard per viewed tag) — name a --tag to read them. No whole-corpus prefetch is taken to fill this in (SPEC.md §9).");
-  } else if (missing) {
-    say(`ABNORMAL: ${missing} of ${list.length} rows in view have no served Gloss rendering. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
-  }
-  if (missingDisplayId) say(displayIdAbnormalLine(missingDisplayId, list.length));
-  return display.join("\n");
-}
-
 // The PRE-SELECTION listing: the TAG ROWS — a tag name and its Lesson count,
 // and nothing else (§9's allowlist, transcribed into the `tag_listing` grammar).
 //
@@ -977,166 +917,6 @@ function renderTagDisplay(record) {
   for (const s of record.sections) out.push(`  ${tagRow(s)}`);
   out.push("");
   out.push(NAVIGATION_HINT);
-  return out.join("\n");
-}
-
-// The candidate rows under ONE named tag — the conditional half, entered only
-// when the owner asks to browse rows and never scheduled by the flow (§6.3,
-// kogaki#162's fork half).
-//
-// COMPLETENESS INVENTORY (kogaki#625, carried from PR #667 round 2). What must
-// survive the extraction, and the test that fails if it stops:
-//   · candidate rows scoped to the ONE named tag, with their Gloss headlines
-//       → `checks/check-terrain-composition.sh`'s injected-fetcher case, which
-//         renders this surface with a stub `fetchShards` and asserts the rows
-//         carry the served headline.
-//   · a MISSING served rendering is MARKED and never substituted (§9)
-//       → the same case, whose stub omits one slug and which fails unless the
-//         ABNORMAL marker renders in its place.
-//   · REFUSE-conformance under the `tag_row_listing` grammar
-//       → the same case, which runs the composed text through the guard.
-//
-// `fetchShards` IS INJECTED FOR THAT CASE, and until kogaki#625 it had no
-// injecting caller anywhere in `src/` or `checks/` — the affordance existed
-// and the test it exists for was not written, which is an extraction criterion
-// satisfied by the cheap half. Both call sites still take the default, so the
-// seam path is unchanged.
-// consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
-export function renderTagRowView(record, tag, family, fetchShards = fetchHeadlines) {
-  return composeDisplayText(record, [String(tag)], family || null, fetchShards);
-}
-
-// --------------------------------------------------------------------------
-// cotag-selection — the display at the co-tag SELECTION moment (§6.0.1).
-// --------------------------------------------------------------------------
-// OWNER-EXECUTED AND IT WRITES NOTHING. The executor names this invocation at
-// the selection stop, intent placeholder included, and neither runs it nor
-// relays its output — §6.0's channel, unchanged and not re-argued here, since a
-// session's tool call prints to the session and an act the owner types prints
-// to the owner.
-//
-// WHY THIS IS NOT THE CoTagGroups DISPLAY, which §6.0.1 calls its own
-// load-bearing half: that display renders the CO-TAG GROUPS and is the one state that writes
-// `reports/CoTagGroups.md`. This display PRECEDES it and sits on the same side of
-// the line as §6.0's listings. `reports/CoTagGroups.md` keeps exactly one writing
-// state (`cotag_groups`) as it always had.
-//
-// THE INTENT BOUND IS 200 AND NOT "ABOUT 200", and the refusal is this
-// emitter's own `fail()` rather than a lint — a spec cannot ship an
-// approximation its emitter must then guess at. The judgment-class rule is the
-// ROOT spec's, `specs/SPEC.md` §2.6.3.
-//
-// COMPLETENESS INVENTORY (§6.0.1, and stated in this codebase's own idiom
-// because a criterion measuring only what must NOT remain is satisfied most
-// cheaply by removing behaviour). What must SURVIVE, and the test that fails
-// if it stops:
-//   · ONE emitter for this surface
-//       → `checks/check-terrain-composition.sh`'s single-construction
-//         assertion, which counts `renderCotagSelection(` call sites and fails
-//         on a second.
-//   · the surface writes NO artifact
-//       → the same check's no-artifact case: the command runs with a
-//         `--rendering-dir` and a `--report-dir` pointed at empty temp trees
-//         and both must still be empty afterwards.
-//   · the marker line is a FIXED literal
-//       → the grammar case, which fails a marker whose form differs.
-//   · block 2 enumerates ALL served tags, not just the selected tag's co-tags
-//       → the same check's enumeration case, over a record whose tag set
-//         exceeds the selected tag's co-tags; a table short of the full set
-//         fails.
-//   · a tag name too long for its column WRAPS onto at most two lines, breaking
-//     at a hyphen or a space and never mid-word, and a name that fits the
-//     widened column is NOT wrapped
-//       → the same check's wrap case, over a served set carrying a breakable
-//         long name, an unbreakable one and a short one.
-//   · `--intent` is the ONLY model-controlled text
-//       → the grammar case, which refuses a rendering whose intent line
-//         carries table or marker syntax.
-// consulted: product-lab@d6fdadd50274cee5ab72730d73c4508b9a53e430 LESSONS.md:36
-const COTAG_SELECTION_MARKER = "CO-TAGS — selecting co-tags for:";
-const INTENT_MAX = 200;
-
-// The intent refusals, as the emitter's own act. Returns null when admissible
-// and the refusal text otherwise, so the caller decides whether to `fail()` —
-// which is what lets the check assert the refusals without spawning a process
-// per case.
-export function refuseIntent(intent) {
-  if (typeof intent !== "string" || intent.trim() === "") {
-    return "cotag-selection needs --intent <one sentence> — §6.0.1 block 3 is the LLM's sole contribution to this surface, and an absent one leaves the display with no third block.";
-  }
-  if (/\r|\n/.test(intent)) {
-    return "--intent is MULTI-LINE and §6.0.1 admits one sentence. The intent renders as a single `intent: ` line; a second line would be a seventh line class and the surface refuses at emit.";
-  }
-  if (intent.length > INTENT_MAX) {
-    return `--intent is ${intent.length} characters and the bound is ${INTENT_MAX}. The bound is exact rather than approximate (§6.0.1), and this refusal is the emitter's own rather than a lint (specs/SPEC.md §2.6.3).`;
-  }
-  if (intent.includes(COTAG_SELECTION_MARKER)) {
-    return "--intent carries MARKER syntax. Block 1 is a fixed literal the harness owns; an intent reproducing it would put a second marker on the surface.";
-  }
-  if (/ {2,}[0-9]+ {2,}[0-9]+\s*$/.test(intent) || /\bLessons {2,}Journeys\b/.test(intent)) {
-    return "--intent carries TABLE syntax. Block 2 is the harness's table; an intent shaped like a count row or a header would render as one.";
-  }
-  return null;
-}
-
-// A tag name too long for its column wraps onto AT MOST two lines, breaking at
-// a hyphen or a space and never mid-word (§6.0.1 block 2). Returns [head] or
-// [head, continuation].
-function wrapTagName(name, width) {
-  if (name.length <= width) return [name];
-  let cut = -1;
-  for (let i = 0; i <= width && i < name.length; i++) {
-    if (name[i] === " " || name[i] === "-") cut = i;
-  }
-  // No break point inside the column: the table WIDENS rather than breaking
-  // mid-word, which §6.0.1 forbids outright.
-  if (cut <= 0) return [name];
-  const head = name.slice(0, name[cut] === "-" ? cut + 1 : cut);
-  const rest = name.slice(name[cut] === "-" ? cut + 1 : cut + 1);
-  return rest === "" ? [head] : [head, rest];
-}
-
-// The three blocks of §6.0.1. `record` supplies block 2 over ALL served tags —
-// `record.sections` is the served set, and scoping it to the selected tag's
-// co-tags would make the surface a partial enumeration, which is the premise
-// §2.3's disclosure discharge rests on.
-export function renderCotagSelection(record, tag, intent) {
-  const sections = (record.sections || []).slice()
-    .sort((a, b) => {
-      const al = (a.by_family || {}).lesson || 0, bl = (b.by_family || {}).lesson || 0;
-      if (bl !== al) return bl - al;
-      return String(a.name).localeCompare(String(b.name));
-    });
-
-  // The tag column widens to the longest name it must carry, bounded so a
-  // single pathological name does not push the counts out of view; a name
-  // past the bound wraps.
-  //
-  // THE WIDTH IS COMPUTED FIRST AND THE BOUND APPLIES TO IT, not to each name
-  // independently. An unbreakable name widens the column past COL_MAX — §6.0.1
-  // forbids breaking mid-word, so the table widens instead — and a name that
-  // FITS the widened column must then not be wrapped. Deciding each wrap
-  // against the constant before knowing the final width is what produced that
-  // inconsistency: a 41-character breakable name rendered wrapped inside a
-  // 45-wide column it fitted (PR #768 round 1).
-  const COL_MAX = 38;
-  const unbreakable = sections
-    .map((x) => String(x.name))
-    .filter((n) => n.length > COL_MAX && wrapTagName(n, COL_MAX).length === 1)
-    .reduce((a, n) => Math.max(a, n.length), 0);
-  const col = Math.max(COL_MAX, unbreakable);
-  const wrapped = sections.map((s) => ({ s, lines: wrapTagName(String(s.name), col) }));
-  const width = Math.max(3, ...wrapped.map((w) => w.lines[0].length));
-
-  const out = [`${COTAG_SELECTION_MARKER} ${tag}`, ""];
-  out.push(`  ${"tag".padEnd(width)}  ${"Lessons".padStart(7)}  ${"Journeys".padStart(8)}`);
-  for (const { s, lines } of wrapped) {
-    const fam = s.by_family || {};
-    out.push(`  ${lines[0].padEnd(width)}  ${String(fam.lesson || 0).padStart(7)}  ${String(fam.journey || 0).padStart(8)}`);
-    if (lines[1] !== undefined) out.push(`    ${lines[1]}`);
-  }
-  out.push("");
-  out.push(`intent: ${intent}`);
   return out.join("\n");
 }
 
@@ -1622,37 +1402,46 @@ function emitOrRefuse(surfaceName, text, write) {
   return text;
 }
 
-// THE OWNER-EXECUTED LISTING'S EMIT PATH (SPEC-terrain §6.0 v29, kogaki#682,
-// owner selection 2026-08-29).
+// THE LISTING'S COMPOSE PATH (kogaki#856; SPEC-terrain §6.0).
 //
-// The pre-selection tag listing and the per-tag row view are NOT the CoTagGroups
-// display: the owner ruling of 2026-08-28 defines it as the rendering written AFTER a
-// tag has been selected, and neither of these is. They therefore write no owner
-// artifact at all — `reports/CoTagGroups.md` has exactly one writing state,
-// `cotag_groups` — and they reach the owner by a channel the harness actually
-// displays: THE OWNER RUNS THEM.
+// The pre-selection tag listing is not the CoTagGroups display: that is the
+// rendering written AFTER a tag has been selected, and this precedes it. So it
+// writes no owner artifact at all — `reports/CoTagGroups.md` has exactly one
+// writing state, `cotag_groups` — and it reaches the owner as bytes carried in
+// the TAG_SELECTION gate declaration, which the session renders above the
+// question.
 //
-// WHY NOT STDOUT FROM A SESSION-DRIVEN ACT, which is what this looks like:
+// WHY IT IS NOT PRINTED, and this is the finding the whole issue turns on:
 //
 //   "In the Claude Code harness a tool call's stdout is displayed to the MODEL,
 //   not reliably to the OWNER … every conformant behavior renders nothing, and
 //   the observed false claim ('the display is above') is what an agent produces
 //   when instructed to deliver through a channel that does not display."
-//   consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/claude-code-ops.md:69
+//   consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:98
 //
-// That finding is about WHO INVOKED the tool. A session's tool call prints to
-// the session; an act the owner types prints to the owner. So the channel is
-// not "stdout" in the abstract — it is the owner's own terminal, which is the
-// one arm of kogaki#682's disposition 3 that answers the finding structurally
-// rather than hoping.
+// THE PREVIOUS ANSWER to that finding was to make the OWNER type the command,
+// so the print landed in their own terminal — which is why `emitOwnerListing`
+// stood here and is now gone with its last caller. The owner ruled that premise
+// false on 2026-09-04: the owner types nothing, and the Harness displays what
+// the runtime produces where the declaration puts it. Both halves of the
+// finding are still respected — nothing here relies on stdout reaching the
+// owner, and no session retypes the table — because the bytes ride an artifact
+// the session renders verbatim rather than a stream it has to relay.
 //
 // THE GRAMMAR GUARD IS KEPT, and that is the point of routing through here
-// rather than calling `console.log`. §14.2's refusal is about what may be
-// EMITTED, never about what may be written, so a surface that writes no
-// artifact owes it exactly as much: one printer, one refusal, and a
-// nonconformant listing reaches neither the owner's terminal nor anything else.
-function emitOwnerListing(surfaceName, text) {
-  emitOrRefuse(surfaceName, text, (conformant) => console.log(conformant));
+// rather than handing `renderTagDisplay`'s return straight to the composer.
+// §14.2's refusal is about what may be EMITTED, never about what may be
+// written, so a surface that writes no artifact owes it exactly as much: one
+// composer, one refusal, and a nonconformant listing reaches no declaration.
+
+// THE SAME GUARD, WITHOUT THE PRINT (kogaki#856). A rendering carried in a gate
+// declaration is judged by exactly the grammar that judged it when it was
+// printed — same surface, same REFUSE fallback, same emitter — and the only
+// difference is where the conformant text goes. Written as a second caller of
+// `emitOrRefuse` rather than as a flag on the first, so neither path can drift
+// into checking something the other does not.
+function composeOwnerListing(surfaceName, text) {
+  return emitOrRefuse(surfaceName, text, () => {});
 }
 
 // --------------------------------------------------------------------------
@@ -5270,8 +5059,9 @@ const STATE_WORK = {
   // Display — a Display is the rendering written AFTER a tag is selected — so
   // neither writes `reports/CoTagGroups.md`, and with no artifact to write and no
   // sequencing authority to carry there is nothing left for a state to do.
-  // Their renderings reach the owner through `tags` and `tag-rows`, which the
-  // OWNER runs. `reports/CoTagGroups.md` now has exactly one writing state,
+  // The tag listing now reaches the owner in the TAG_SELECTION gate
+  // declaration and the row view is retired outright (kogaki#856), so neither
+  // has a command either. `reports/CoTagGroups.md` has exactly one writing state,
   // `cotag_groups`; with `full_report` the owner-artifact writes per run are
   // TWO.
 
@@ -5541,6 +5331,27 @@ const STATE_WORK = {
 // renders no question UI. It writes a file and stops. What changed is that the
 // file can no longer be written from anywhere else.
 const GATE_WORK = {
+  // THE LISTING RIDES THE DECLARATION, and that is the whole of kogaki#856's
+  // display fix. `tag_listing` carries the runtime's own pre-selection
+  // rendering over THIS run's survey record, byte-for-byte, through the same
+  // format guard that judged it when `tags` printed it — so no session
+  // composes the table, retypes it, or is asked to hand over a command that
+  // produces it. The session renders these bytes above the question; the
+  // question text stays short and the table is never put inside it (owner
+  // ruling 4, 2026-09-04).
+  //
+  // NO RUN-COMPUTED OPTION, and the empty list is the shape rather than an
+  // omission (owner rulings 1 and 2, 2026-09-04). Exactly two ways to answer
+  // exist: the registry's standing option, which stands for "a method other
+  // than co-tags" and is routed nowhere because no other method exists yet,
+  // and free-form entry of a tag name. A per-tag option set is not offered —
+  // the served tag count is in the hundreds and the selector affordance holds
+  // four.
+  TAG_SELECTION: (rec) => ({
+    options: [],
+    extra: { tag_listing: composeOwnerListing("tag_listing", renderTagDisplay(readJson(needSurvey(rec)))) },
+  }),
+
   TRIM_RATIFICATION: (rec, st, args, dir) => {
     const proposalPath = args.proposal ? String(args.proposal) : composeTrimProposal(args, dir);
     if (!proposalPath) {
@@ -5570,67 +5381,28 @@ const GATE_WORK = {
 // spans a chat turn, `parseArgs` reads process.argv only, and supplying a
 // stdin path would turn a wait into a prompt — which §6.3's empty question
 // allowlist for that window forbids.
-// THE `owner_reads` HAND-OVER, RENDERED FROM THE TABLE (kogaki#807).
+// THE `owner_reads` HAND-OVER IS RETIRED (kogaki#856), and `ownerReadsLines`
+// with it. The field named a command the OWNER was to type, on the premise that
+// a session's tool output does not reach them; the owner ruled that premise
+// false on 2026-09-04 and no stop in this flow prints an invocation any more.
+// The one hand-over the field carried that still has a reader — the
+// pre-selection tag listing — moved into the TAG_SELECTION gate declaration,
+// where the executor composes the bytes and the session renders them above the
+// question.
 //
-// WHAT WENT WRONG, and it is the reason this is a loop rather than three
-// console.log lines. This renderer used to name its keys — `invocation`, then
-// `also` — while the block above it claimed the opposite in as many words:
-// "DATA, NOT DRIVER CODE … a table that moves the hand-over, or adds one to a
-// second wait, needs no runtime change." kogaki#745 then added a THIRD key,
-// `then`, carrying the co-tag selection invocation, and the executor read it
-// nowhere. No party printed that command: the executor did not, and the skill
-// forbids the model from running or relaying it. The owner reached the co-tag
-// stage with no tag list on display and selected from memory. The close comment
-// on kogaki#737 verified "the executor names the invocation" by citing that the
-// JSON key EXISTS — true, and about the wrong file.
+// THE FIELD IS GONE FROM `field_semantics` TOO, not merely unused. A schema key
+// no state declares is an invitation to declare one, and what would then be
+// declared is a channel this issue removed.
 //
-// SO THE SELECTION IS GONE RATHER THAN EXTENDED. Adding `if (or.then)` beside
-// the other two would fix this key and leave key N+1 uncovered by construction,
-// which is the shape the served position rules against: constrain what the
-// pipeline can PRODUCE rather than improve what it can DETECT — an enumerated
-// prohibition names yesterday's leak while a construction constraint makes
-// tomorrow's unreachable.
-// consulted: product-lab@9e805ff15e94895582c1d99376339f4bfd4b610b LESSONS.md:161
-//
-// SUBSTITUTION IS UNIFORM ACROSS EVERY KEY, `why` included (kogaki#819 round 1). It went in
-// raw while the property case computed its expected value WITH substitution applied, so a
-// `why` that ever named the survey record would have failed the check for a renderer
-// asymmetry rather than for a missing key — a false finding pointing at the wrong defect.
-// Harmless as the table stands, which is exactly why it would have been found late.
-//
-// `why` IS NOT AN EXCEPTION TO THE RULE, and the distinction is worth stating
-// because it looks like one. Every OTHER key is an invocation the owner types;
-// `why` is the prose reason, and it is rendered in the header line — so its
-// value still reaches the stop output, which is exactly what the asserted
-// property demands. The loop skips it to avoid printing it twice, never to
-// decide whether it is rendered at all.
-//
-// WHAT THIS DOES NOT REACH, disclosed rather than left for a reader to assume
-// from a green check: this renders the invocation to the EXECUTOR's stdout, and
-// in the Claude Code harness a tool call's stdout is displayed to the MODEL,
-// not reliably to the OWNER (§6.0's own ground). That hop is carried by the
-// ORDINARY HAND-OVER PATTERN and by nothing stronger — the executor prints its
-// fixed block and the commands at the stop, the model hands them over, the
-// owner runs them with `!` — which is the same pattern already carrying `tags`
-// and `tag-rows`. This change makes it carry the third declared command too.
-// (An earlier form of this comment called that hop an open owner ruling. It is
-// not: kogaki#807's ruling 2 was WITHDRAWN by the owner on 2026-09-03 as a
-// question about every stop in every command rather than about this display,
-// and ruling 1 resolved in favour of the kogaki#737 wording. Corrected rather
-// than deleted, because a comment asserting an open question that is closed
-// sends the next reader to look for a decision nobody owes.)
-function ownerReadsLines(or, sr) {
-  // ONE PLACEHOLDER, SUBSTITUTED; everything else is the table's own text.
-  // Composing an invocation here would put the command in two places and make
-  // the table advisory about its own hand-over.
-  const sub = (t) => String(t).replace(/<survey record>/g, sr);
-  const lines = [`READ FIRST, and run it YOURSELF — ${or.why ? sub(or.why) : ""}`];
-  for (const key of Object.keys(or)) {
-    if (key === "why") continue;
-    lines.push(`  ${sub(or[key])}`);
-  }
-  return lines;
-}
+// WHAT WENT WITH IT, stated because the retirement is deliberate and not a
+// casualty: kogaki#807's eight fixture cases asserted that every declared
+// `owner_reads` key reached the stop output. `checks/registry.json` names the
+// condition under which they retire — "or when the table stops declaring
+// owner_reads at all" — and that is exactly what happened, so they are retired
+// rather than re-pointed at whatever now occupies the same position. A check
+// whose unit a redesign dissolved does not become easier to satisfy; it stops
+// being a check.
+// consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:133
 
 function cmdRun(args) {
   const dir = runDir(args);
@@ -5896,21 +5668,11 @@ function cmdRun(args) {
   console.log("");
   if (stopped && stopped.kind === "wait") {
     console.log(`Executor STOPPED at ${stopped.id} — a wait (§15.4). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
-    // THE HAND-OVER IS DECLARED IN THE TABLE, never composed here (§6.0 v29,
-    // kogaki#682). A wait whose owner needs to READ something before answering
-    // names the invocation in `owner_reads`; the executor renders it with the
-    // survey record resolved and neither runs it nor relays its output. That
-    // split is what keeps the channel honest: the command prints to whoever
-    // types it, and the point of this arm is that the owner types it.
-    //
-    // DATA, NOT DRIVER CODE — the same property #625 acceptance item 6 asserts
-    // for every other field here: a table that moves the hand-over, or adds one
-    // to a second wait, needs no runtime change.
-    if (stopped.owner_reads) {
-      const rec2 = readRunRecord(dir);
-      const sr = rec2 && rec2.survey_record ? relFromRepo(resolve(REPO, rec2.survey_record)) : "<survey record>";
-      for (const line of ownerReadsLines(stopped.owner_reads, sr)) console.log(line);
-    }
+    // NO INVOCATION IS PRINTED HERE (kogaki#856). The stop used to render the
+    // table's `owner_reads` keys — commands the owner was to type — and that
+    // field is retired. A wait whose owner must READ something before answering
+    // carries the reading in its gate declaration instead, where the session
+    // renders it above the question.
     const owedHere = stopped.renders_gate_declaration
       ? rec.gate_declarations_owed.find((g) => g.state === stopped.id) : null;
     if (!stopped.renders_gate_declaration) {
@@ -5923,6 +5685,11 @@ function cmdRun(args) {
       // carried only on the run record, so the skill instructed the session to
       // render a file the runtime never pointed at.
       console.log(`This wait declares a gate. Its run declaration is WRITTEN: ${owedHere.declaration}`);
+      // THE READING COMES BEFORE THE QUESTION, and the stop says so rather than
+      // leaving the order to the session (kogaki#856). A declaration carrying a
+      // rendering carries it so the owner can answer from it; rendered after the
+      // question, or not at all, it is the defect this issue was filed about.
+      console.log(`Where that declaration carries a rendering key (\`tag_listing\`), put those bytes on screen VERBATIM and BEFORE the question — they are the runtime's own output and are not retyped, summarized or reformatted.`);
       console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. The executor renders no question UI and asks nothing (§6.3).`);
       console.log(`Then re-enter with the answer AND its evidence — run --run-dir ${dir} --capture-option <id> --tool-use-id <id>   (or --capture-free-text '<answer>')`);
       console.log(`A bare --input is refused at a gate wait: it would skip the declaration's own option check and the tool_use_id that evidences the rendering.`);
@@ -5970,55 +5737,67 @@ function reportRunStatus(dir, tablePath, table) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
 
-// THE TWO OWNER-EXECUTED LISTINGS (SPEC-terrain §6.0 v29, kogaki#682).
+// NO OWNER-EXECUTED LISTING SURVIVES (kogaki#856, owner rulings 2026-09-04).
 //
-// Each takes the survey record the executor already produced and PRINTS its
-// rendering. Neither writes anything, so §15.5's write authority never engages
-// — there is no owner artifact to be written from outside a writing state,
-// which is why this channel needs no grant and adds no third artifact to the
-// two the ruling fixes.
+// `tags`, `tag-rows` and `cotag-selection` all printed a rendering the owner
+// was expected to type the invocation for. The premise that channel rested on
+// — that output cannot reach the owner without a file or an owner-typed
+// command — was ruled false on 2026-09-04: the owner types nothing, and the
+// Harness displays what the runtime produces. So the pre-selection listing now
+// rides the TAG_SELECTION gate declaration (`composeGateTagListing` above) and
+// the other two are DELETED rather than re-sited.
 //
-// TWO CASES AND NOT ONE, deliberately. Folding them into a single case
-// discriminated by `--tag` would re-create the removed `view`, whose collapse
-// of the listing and the row view into one surface is the defect
-// `workflow.json` v3 corrected (PR #626 round 2, finding 4) — two renderings
-// with two grammars are two entry points.
-function cmdTags(args) {
-  const record = readJson(String(args.survey || fail("tags needs --survey <file> — the survey record the executor wrote. The `run` stop that hands this over names the path.")));
-  emitOwnerListing("tag_listing", renderTagDisplay(record));
-}
-
-// §6.0.1's owner-executed command. It PRINTS and writes nothing, so §15.5's
-// write authority never engages — there is no owner artifact to be written from
-// outside a writing state, which is why this channel needs no grant and adds no
-// third artifact to the two the ruling fixes.
-function cmdCotagSelection(args) {
-  const record = readJson(String(args.survey || fail("cotag-selection needs --survey <file> — the survey record the executor wrote. The `run` stop that hands this over names the path.")));
-  const tag = String(args.tag || fail("cotag-selection needs --tag <tag name> — block 1 names the tag being selected FOR, and the marker is a fixed literal but for it."));
-  const intent = args.intent === undefined ? "" : String(args.intent);
-  const refusal = refuseIntent(intent);
-  if (refusal) fail(refusal);
-  emitOwnerListing("cotag_selection", renderCotagSelection(record, tag, intent));
-}
-
-function cmdTagRows(args) {
-  const record = readJson(String(args.survey || fail("tag-rows needs --survey <file> — the survey record the executor wrote.")));
-  const tag = String(args.tag || fail("tag-rows needs --tag <tag name> — this is the per-tag row view, and the tag is what scopes it."));
-  emitOwnerListing("tag_row_listing", renderTagRowView(record, tag, args.family ? String(args.family) : null));
-}
+// THE DELETION IS A RECORDED DECLINE, not a side effect of removing the
+// channel. A removal criterion measures what must NOT remain, so it is
+// satisfied most cheaply by dropping behaviour, and a behaviour leaves only
+// under a decline somebody made on purpose:
+// consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:77
+//
+//   · the per-tag row view (`tag-rows`) — DECLINED. With over 100 served tags
+//     the owner reports no demand for browsing one tag's Lessons individually,
+//     and it was never approved. `renderTagRowView`, `composeDisplayText` and
+//     the `tag_row_listing` grammar go with it.
+//   · the co-tag SELECTION display (`cotag-selection`) — DECLINED. It printed
+//     the first-tag table a SECOND time, after the tag was already chosen; the
+//     table now sits above the question that chooses it, so the surface has no
+//     place. `renderCotagSelection`, `refuseIntent`, the `--intent` bound and
+//     the `cotag_selection` grammar go with it.
+//
+// Both cases survive in the dispatcher as loud refusals naming the ruling
+// (§15.6.3): a removed entry point does not vanish, or a reader meets a bare
+// unknown-command.
 
 function main() {
 const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 switch (cmd) {
   case "survey": cmdSurvey(args); break;
-  // OWNER-EXECUTED, and that is their whole channel (§6.0 v29, kogaki#682).
-  // The owner types these; the session does not drive them. They emit their
-  // rendering to the owner's own terminal under the format guard and write
-  // nothing, so they are neither displays nor states of the flow.
-  case "tags": cmdTags(args); break;
-  case "tag-rows": cmdTagRows(args); break;
-  case "cotag-selection": cmdCotagSelection(args); break;
+  // REMOVED, AND REFUSING WITH A POINTER (§15.6.3, kogaki#856). The listing
+  // itself is not gone — it moved into the TAG_SELECTION gate declaration, and
+  // the refusal names where.
+  case "tags":
+    fail("tags is removed as an entry point (SPEC-terrain §6.0, kogaki#856). The pre-selection "
+      + "tag listing is no longer a command the owner types: the executor carries it in the "
+      + "TAG_SELECTION gate declaration's `tag_listing` key, byte-for-byte, and the session "
+      + "renders it above the question. Drive it through the executor: `run --run-dir <D>`, "
+      + "render the declaration it writes, then `run --run-dir <D> --capture-free-text '<tag>'`.");
+    break;
+  // RETIRED WITH NO SUCCESSOR (owner rulings 2026-09-04, kogaki#856). Unlike
+  // `tags` these name no replacement, because there is none — the refusal says
+  // so rather than pointing at a surface that does not exist.
+  case "tag-rows":
+    fail("tag-rows is retired (owner ruling 2026-09-04, kogaki#856) and has NO successor surface. "
+      + "With over 100 served tags there is no demonstrated demand for browsing one tag's Lessons "
+      + "individually; the per-tag row view, its `tag_row_listing` grammar and its renderer are "
+      + "deleted rather than re-sited. The pre-selection listing is in the TAG_SELECTION gate "
+      + "declaration and the co-tag groups are `run`'s `cotag_groups` state.");
+    break;
+  case "cotag-selection":
+    fail("cotag-selection is retired (owner ruling 2026-09-04, kogaki#856) and has NO successor "
+      + "surface. It printed the first-tag table a second time after the tag was chosen; the table "
+      + "now sits above the TAG_SELECTION question that chooses it. §6.0.1, the `cotag_selection` "
+      + "grammar and the `--intent` bound are deleted with it.");
+    break;
   case "cotags": cmdCotags(args); break;
   // RETIRED, LOUDLY (§13.2 v20, kogaki#473) — the same shape `--all-groups`
   // and `--group` took: a refusal naming the replacement, never a silent
@@ -6113,7 +5892,13 @@ switch (cmd) {
         try { refuseUnlessConformant(surface, emitted, grammar); return true; }
         catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
       };
-      for (const surface of ["cotag_groups", "tag_row_listing"]) {
+      // ONE DECLARING SURFACE, DOWN FROM TWO (kogaki#856). `tag_row_listing`
+      // was the second, and its emitter — the per-tag row view — is deleted
+      // with the surface, so the case that named it is dropped rather than
+      // re-pointed at a surface that never emitted this line. `cotag_groups` is
+      // now the only surface an emit site renders it into (the two call sites
+      // above, in the co-tag group renderer), and it stays the assertion.
+      for (const surface of ["cotag_groups"]) {
         ok(`${surface} admits the line displayIdAbnormalLine actually emits`, admits(surface));
       }
       // The control: an abbreviated form whose tail carries NO digit worked
@@ -6355,58 +6140,168 @@ switch (cmd) {
       })());
     }
 
-    // ---- THE `owner_reads` HAND-OVER RENDERS EVERY KEY THE TABLE DECLARES
-    // (kogaki#807). The defect these assert against: the stop renderer named
-    // `invocation` and `also`, kogaki#745 added `then` carrying the co-tag
-    // selection invocation, and no party ever printed it — the executor read
-    // the key nowhere and the skill forbids the model from running or relaying
-    // it. The owner selected co-tags from memory.
+    // ---- THE FIRST-TAG GATE CARRIES ITS LISTING (kogaki#856).
     //
-    // THE ASSERTION IS OVER THE PROPERTY, not over the key that was missed.
-    // Case 1 iterates the SHIPPED table, so a fourth key added tomorrow is
-    // covered on the day it is added rather than on the day it is forgotten;
-    // asserting `then` by name would be the enumerated repair this fix exists
-    // to replace, and would pass just as happily on a renderer that named
-    // three keys instead of two.
+    // THE DEFECT THESE ASSERT AGAINST. At `TAG_SELECTION` the executor printed
+    // a block headed "READ FIRST, and run it YOURSELF" naming three commands
+    // for the owner to type, and the listing itself never reached the screen.
+    // The owner does not run commands, so the owner was asked to name a tag
+    // with nothing to choose from and selected from memory. Two prior issues
+    // (#737, #807) repaired this area and both closed on artifact diffs while
+    // the hop stayed broken.
+    //
+    // WHY THESE REPLACE kogaki#807's EIGHT CASES RATHER THAN JOINING THEM. Those
+    // asserted that every `owner_reads` key reached the stop output, and this
+    // change removes the field. `checks/registry.json` names the retirement
+    // condition in the member's own removal signal — "or when the table stops
+    // declaring owner_reads at all" — so they are RETIRED, not re-pointed at
+    // whatever now occupies the same structural position. A check whose unit a
+    // redesign dissolved does not become a lenient check; it stops being one.
+    // consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:133
     {
       const wf = readJson(join(REPO, "src", "workflow.json"));
-      const withReads = (wf.states || []).filter((st) => st && st.owner_reads);
-      ok("the shipped table declares at least one owner_reads hand-over — a vacuous pass here would assert nothing",
-        withReads.length > 0, `${withReads.length} state(s)`);
-      const missing = [];
-      for (const st of withReads) {
-        const out = ownerReadsLines(st.owner_reads, "runs/terrain/x/survey.json").join("\n");
-        for (const key of Object.keys(st.owner_reads)) {
-          const val = String(st.owner_reads[key]).replace(/<survey record>/g, "runs/terrain/x/survey.json");
-          if (!out.includes(val)) missing.push(`${st.id}.${key}`);
-        }
+      const states = wf.states || [];
+      const ts = states.find((st) => st && st.id === "TAG_SELECTION");
+
+      // THE CONCEPT IS GONE, not merely unused on one state. A schema key no
+      // state declares is an invitation to declare one, and what would be
+      // declared is the channel this issue removed.
+      ok("no state in the shipped table declares an owner_reads hand-over — the field and its renderer are retired",
+        states.every((st) => st && st.owner_reads === undefined)
+          && (wf.field_semantics || {}).owner_reads === undefined,
+        states.filter((st) => st && st.owner_reads).map((st) => st.id).join(", ") || "field_semantics still declares it");
+      ok("no owner-executed entry point survives — the map is present and empty, so an empty set is stated rather than dropped",
+        wf.owner_executed_entry_points !== undefined
+          && Object.keys(wf.owner_executed_entry_points).length === 0,
+        JSON.stringify(wf.owner_executed_entry_points));
+
+      // THE WAIT MUST ACTUALLY REACH THE COMPOSER. Either half missing lands it
+      // in the executor's "OWED AND UNWRITTEN" branch, where the run is not
+      // stuck and the listing is never composed — which is the pre-fix
+      // behaviour wearing a gate's clothes.
+      ok("TAG_SELECTION declares a gate and names a gate_id the registry carries",
+        !!ts && ts.renders_gate_declaration === true
+          && (GATES_REGISTRY.gates || []).some((g) => g.id === ts.gate_id),
+        ts ? JSON.stringify({ decl: ts.renders_gate_declaration, gate_id: ts.gate_id }) : "(no TAG_SELECTION state)");
+      ok("an option composer is bound to TAG_SELECTION — without one the executor records the declaration as owed and unwritten",
+        typeof GATE_WORK.TAG_SELECTION === "function");
+
+      const surveyPath = join(REPO, "checks", "fixtures", "survey", "lone-tag-member.json");
+      const surveyRec = readJson(surveyPath);
+      const composed = GATE_WORK.TAG_SELECTION({ survey_record: surveyPath });
+
+      // ACCEPTANCE ITEM 2, asserted as byte equality rather than as
+      // containment: the declaration carries the `tag_listing` SURFACE over
+      // this survey record, so no party composed, trimmed or re-rendered it.
+      ok("the declaration's tag_listing is BYTE-EQUAL to the tag_listing surface over the same survey record",
+        composed.extra.tag_listing === renderTagDisplay(surveyRec),
+        JSON.stringify(composed.extra.tag_listing || "").slice(0, 140));
+
+      // EXACTLY TWO WAYS TO ANSWER (owner rulings 1 and 2, 2026-09-04): the
+      // standing option, and free text. The composer contributes none of its
+      // own, and the standing one is the premise negation the gate owes.
+      ok("the composer offers no run-computed option — the option set is the registry's standing one alone",
+        Array.isArray(composed.options) && composed.options.length === 0);
+
+      // THE BYTES REACH THE ARTIFACT, not only the composer's return value.
+      // The session renders the FILE, so a declaration that dropped the key on
+      // the way to disk would leave the listing exactly as unreachable as
+      // before.
+      {
+        const gd = join(tmpdir(), `terrain-selftest-gate-${process.pid}`);
+        mkdirSync(gd, { recursive: true });
+        const declPath = emitGateDeclaration(gd, "terrain-tag-selection", composed.options, composed.extra);
+        const decl = readJson(declPath);
+        ok("the WRITTEN declaration carries the listing — the bytes reach the file the session renders, not only the composer's return",
+          decl.tag_listing === renderTagDisplay(surveyRec));
+        ok("the written declaration offers the standing option and free text, and nothing else",
+          decl.options.length === 1 && decl.options[0].id === "other-method" && decl.free_text_offered === true,
+          JSON.stringify(decl.options.map((o) => o.id)));
+        rmSync(gd, { recursive: true, force: true });
       }
-      ok("every owner_reads key the shipped table declares reaches the executor's stop output",
-        missing.length === 0, missing.join(", "));
 
-      // The specimen, asserted BESIDE the property rather than instead of it:
-      // this is the key that was declared and unrendered, and acceptance item 1
-      // names its two substitution facts.
-      const ts = withReads.find((st) => st.id === "TAG_SELECTION");
-      const tsOut = ts ? ownerReadsLines(ts.owner_reads, "runs/terrain/x/survey.json").join("\n") : "";
-      ok("the co-tag selection invocation is named at the TAG_SELECTION stop, with the survey record substituted",
-        tsOut.includes("cotag-selection --survey runs/terrain/x/survey.json"), tsOut.slice(0, 120));
-      ok("the intent placeholder survives into the named invocation — it is the model's sole contribution and the executor supplies it at the invocation",
-        tsOut.includes("<one sentence: why these co-tags, from the model>"));
+      // THE ORDER IS THE DEFECT. A declaration carrying the bytes and a stop
+      // that never says when to show them reproduces exactly what was filed:
+      // the question rendered with the table nowhere on screen.
+      {
+        const selfPath = fileURLToPath(import.meta.url);
+        const gs = join(tmpdir(), `terrain-selftest-tagstop-${process.pid}`);
+        const rd = join(gs, "rd");
+        mkdirSync(rd, { recursive: true });
+        const tp = join(gs, "table.json");
+        writeFileSync(tp, JSON.stringify({ version: 1, states: [
+          { id: "TAG_SELECTION", kind: "wait", owner_supplies: "one tag name, or the standing option",
+            renders_gate_declaration: true, gate_id: "terrain-tag-selection" },
+          { id: "done", kind: "terminal" },
+        ] }));
+        writeFileSync(join(rd, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], { encoding: "utf8" });
+        const out = `${r.stdout || ""}${r.stderr || ""}`;
+        ok("a run reaching TAG_SELECTION stops with its declaration WRITTEN rather than owed and unwritten",
+          r.status === 0 && /run declaration is WRITTEN/.test(out) && !/OWED AND UNWRITTEN/.test(out),
+          out.trim().split("\n").slice(-3).join(" | ").slice(0, 160));
+        ok("the stop instructs the session to put the listing on screen BEFORE the question, and names it verbatim",
+          /BEFORE the question/.test(out) && /tag_listing/.test(out) && /VERBATIM/.test(out));
+        ok("the stop prints no invocation for the owner to run — no READ FIRST block, and no `terrain.mjs tags` hand-over",
+          !/READ FIRST/.test(out) && !/terrain\.mjs tags/.test(out),
+          out.split("\n").filter((l) => /READ FIRST|terrain\.mjs tags/.test(l)).join(" | "));
 
-      // DATA, NOT DRIVER CODE — the claim the old comment made and the code
-      // falsified. A key this runtime has never heard of renders anyway.
-      const invented = ownerReadsLines(
-        { invocation: "node src/terrain.mjs tags --survey <survey record>", why: "because", zzz_new_key: "node src/terrain.mjs invented --survey <survey record>" },
-        "S.json").join("\n");
-      ok("a hand-over key this runtime does not know renders without a code change",
-        invented.includes("node src/terrain.mjs invented --survey S.json"));
-      ok("`why` reaches the output once, in the header, rather than twice or not at all",
-        invented.split("because").length - 1 === 1 && invented.startsWith("READ FIRST"));
-      ok("`why` is substituted like every other key — an asymmetry here would fail the property case for a renderer defect rather than a missing key",
-        ownerReadsLines({ invocation: "x", why: "grounded in <survey record>" }, "S.json").join("\n").includes("grounded in S.json"));
-      ok("the table's own key order is the render order",
-        invented.indexOf("terrain.mjs tags") < invented.indexOf("terrain.mjs invented"));
+        // THE GUARD IS THE SAME GUARD. A listing riding a declaration is judged
+        // by the grammar that judged it when it was printed — otherwise moving
+        // the surface to a new channel silently loosens its contract. Driven as
+        // a subprocess because the refusal is `fail()`, which exits.
+        const badSurvey = join(gs, "bad-survey.json");
+        const badRec = readJson(surveyPath);
+        badRec.sections = [{ ...badRec.sections[0], name: "a tag whose name\nbreaks the row grammar" }];
+        writeFileSync(badSurvey, JSON.stringify(badRec));
+        const rdBad = join(gs, "rd-bad");
+        mkdirSync(rdBad, { recursive: true });
+        writeFileSync(join(rdBad, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: badSurvey,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        const rBad = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdBad, "--workflow", tp], { encoding: "utf8" });
+        const outBad = `${rBad.stdout || ""}${rBad.stderr || ""}`;
+        ok("a listing the tag_listing grammar refuses does not ride into a declaration — the gate refuses instead",
+          rBad.status !== 0 && /refusing to emit tag_listing/.test(outBad),
+          outBad.trim().split("\n")[0].slice(0, 140));
+
+        rmSync(gs, { recursive: true, force: true });
+      }
+
+      // A REMOVED ENTRY POINT REFUSES WITH A POINTER (§15.6.3). Deleting the
+      // handlers and leaving the cases out would meet a reader with a bare
+      // unknown-command instead of the ruling.
+      //
+      // THE DISCRIMINATOR IS THE DISPOSITION, NOT THE ISSUE NUMBER. The first
+      // form of this case tested a non-zero exit plus the string `kogaki#856`,
+      // and deleting all three cases PASSED it: the usage banner names the same
+      // issue and `default:` exits 1 on an unknown command, so the assertion
+      // bound a proxy that the failure mode satisfies. Each refusal is now
+      // required to name what happened to ITS OWN surface, and to not be the
+      // banner — verified by deleting the cases, which fails this case.
+      {
+        const selfPath = fileURLToPath(import.meta.url);
+        const expect = {
+          "tags": /TAG_SELECTION gate declaration/,          // MOVED — the refusal points at the successor
+          "tag-rows": /retired[\s\S]*NO successor surface/,  // RETIRED — the refusal says there is none
+          "cotag-selection": /retired[\s\S]*NO successor surface/,
+        };
+        const refusals = Object.entries(expect).map(([cmd, re]) => {
+          const r = spawnSync(process.execPath, [selfPath, cmd, "--survey", surveyPath, "--tag", "testing"], { encoding: "utf8" });
+          const out = `${r.stdout || ""}${r.stderr || ""}`;
+          return { cmd, ok: r.status !== 0 && re.test(out) && !/usage: terrain\.mjs/.test(out) };
+        });
+        ok("tags, tag-rows and cotag-selection each refuse with their OWN disposition — the moved one names its successor, the retired two say there is none, and none of them falls through to the usage banner",
+          refusals.every((x) => x.ok), refusals.filter((x) => !x.ok).map((x) => x.cmd).join(", ") || "(all matched)");
+      }
     }
 
     console.log(`terrain self-test: ${n} case(s) pass${bad.length ? `, FAILURES: ${bad.join(" | ")}` : ""}`);
@@ -6421,32 +6316,14 @@ switch (cmd) {
     break;
   }
   default:
-    console.log(`usage: terrain.mjs <run|tags|tag-rows|cotag-selection|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
-  tags --survey F                           THE OWNER RUNS THIS (SPEC-terrain §6.0). Prints the
-                                            pre-selection tag listing — a header and one tag row
-                                            per section — under the tag_listing grammar, and
-                                            WRITES NOTHING. It is the owner's to type because a
-                                            session's tool output is displayed to the session
-                                            rather than reliably to the owner; the executor names
-                                            this invocation at its TAG_SELECTION stop and neither
-                                            runs it nor relays its output.
-  tag-rows --survey F --tag T [--family F]  THE OWNER RUNS THIS TOO (§6.0, §6.3's browse-rows fork
-                                            half). The candidate rows under one named tag with
-                                            their Gloss headlines, under tag_row_listing. Writes
-                                            nothing. Never scheduled by the flow.
-  cotag-selection --survey F --tag T --intent S
-                                            THE OWNER RUNS THIS TOO (§6.0.1). The co-tag SELECTION
-                                            display for the tag just chosen — fixed blocks, guaranteed
-                                            as display output and never a file. Writes nothing. The
-                                            executor names this invocation at the same TAG_SELECTION
-                                            stop as the two above, from the table's own owner_reads,
-                                            and neither runs it nor relays its output. --intent is the
-                                            model's SOLE contribution to the surface and rides the
-                                            named invocation rather than being printed separately; it
-                                            is refused when multi-line, over 200 characters, or
-                                            carrying table or marker syntax. Absent from this usage
-                                            until kogaki#807 — the act existed, the table named it,
-                                            and the one place an owner looks for a command did not.
+    console.log(`usage: terrain.mjs <run|survey|cotags|compose-input|report|validate|self-test> [--run-dir DIR] ...
+  tags | tag-rows | cotag-selection         GONE (kogaki#856). The owner types no command in this
+                                            flow. 'tags' MOVED — the pre-selection tag listing is
+                                            carried in the TAG_SELECTION gate declaration and the
+                                            session renders it above the question. 'tag-rows' and
+                                            'cotag-selection' were RETIRED with no successor by
+                                            owner ruling on 2026-09-04. All three still answer, with
+                                            a refusal naming which of the two happened.
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
       [--capture-option ID | --capture-free-text S] [--tool-use-id ID]
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F]

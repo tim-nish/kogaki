@@ -13,44 +13,11 @@ story. Governing spec: `specs/spec-terrain/SPEC.md`; runtime: `src/terrain.mjs`.
 is `src/workflow.json`'s. Neither is restated here, and a second copy of either
 would be a surface that can disagree with the one the runtime reads.
 
-## Delivery — hand over the artifact, never a quotation of it
+## Delivery
 
-**There is exactly ONE producer of owner-facing text, and it is the runtime.**
-You compose its *inputs* — the claims, the subdivisions, the intent sentence —
-and you **hand over its output**. Retyping, summarizing, re-formatting,
-tabulating or paraphrasing runtime output into your reply is **prohibited**, and
-so is "quoting it accurately": accuracy is not the property; not being a second
-producer is.
-
-| what | you do |
-|---|---|
-| **Full Report** — `reports/FullReport.md` | `announceArtifacts` prints its path; hand **that artifact** over. Do not open the file and write its contents into your reply — that is retyping with extra steps — and `cat`-ing it into a tool call is the same delivery through the same unreliable channel with one more process in the way. |
-| **CoTagGroups** — `reports/CoTagGroups.md` | the runtime writes and names it. **The printed text is not the delivery**: a tool call's stdout reaches the model, not reliably the owner. |
-| **Pre-selection listings** (`tags`, `tag-rows`) | **the owner runs them.** The executor prints the invocation at its `TAG_SELECTION` stop. Hand the command over; do not run it and do not relay its output. Neither writes anything, so there is no artifact to name. |
-| **Co-tag selection display** (`cotag-selection`) | same — the owner runs it. **You supply `--intent` and nothing else on that surface.** |
-| **A runtime refusal** | `fail()` writes to stderr and exits non-zero. Relay that stream as it stands; never swallow it. |
-
-**`--intent` is one sentence, and the emitter refuses** a multi-line one, one
-longer than 200 characters, or one carrying table or marker syntax. The bound is
-exact and the refusal is the emitter's own, not a lint.
-
-**THE HAND-OVER IS OWED, AND ITS FORM IS YOURS.** Two properties; do not
-collapse them.
-
-- **You MUST name the artifact to the owner, as the first act after the command
-  returns** — before any gate, any question, any other tool call. Writing the
-  file is the runtime's act and is **not** delivery. **Delivering nothing is
-  still a failure**, and silence satisfies "do not retype" perfectly, which is
-  why this sentence exists.
-- **HOW you name it is yours.** A pointer in your reply, an owner-executed
-  `!`-prefixed command, a harness file-send — interchangeable, none required.
-  What is not free is skipping it.
-
-**There is nothing here to police, and that is deliberate.** This is a removal,
-not a new duty: the relay stops being a producer, so a retyped rendering diverging
-from the runtime's cannot occur rather than being caught afterwards. Do not add, or
-ask for, a lint over model output — that re-creates the producer this removes in
-order to have something to check.
+**The runtime is the only producer of owner-facing text.** You never retype,
+summarize, reformat, tabulate or paraphrase its output into your reply — you put
+its bytes on screen, or name the artifact it wrote.
 
 ## Invoking the executor
 
@@ -68,18 +35,19 @@ do reads the table.
 
 - **The executor stops; the owner speaks; you re-enter.** At a wait the runtime
   prints where it stopped and what the owner supplies. Re-enter with `--input`.
-  **Nothing is asked** — the executor renders no question UI.
 - **A wait that declares a gate WRITES its declaration, and you render it** —
   through `AskUserQuestion`, options verbatim, nothing pre-selected, free text
   always on — then re-enter with `--capture-option` / `--capture-free-text`.
   That answer **is** the owner input for the wait. **Composing and recording are
   the engine's; deciding is the owner's; rendering is yours.**
+- **Where the declaration carries a rendering key, those bytes go on screen
+  VERBATIM and BEFORE the question.** `TAG_SELECTION`'s declaration carries
+  `tag_listing`, the pre-selection tag table. Rendering the question without it
+  asks the owner to name a tag with nothing to choose from, which is the defect
+  the gate exists to end; rendering it after the question is the same defect.
+  It is the runtime's own output — putting it on screen is not retyping.
 - **An owner input is admitted by the WAIT, never by its own shape.**
 - **A conditional state is entered only by `--enter`**, never scheduled.
-- **A retired command refuses with a pointer** — read the refusal rather than
-  working around it.
-- **A resumption across a table version change is refused rather than guessed.**
-  Start a fresh run directory.
 
 ## Composing the executor's inputs
 
@@ -93,8 +61,8 @@ cotags --survey <record> --tag <T> --claims <F> --subdivisions <F> --judge-model
 report --survey <record> --tag <T> --ids <G…>  --claims <F> --subdivisions <F> --judge-model <M> --judge-effort <E> [--thesis-candidates <F>]
 ```
 
-**A tag selection lands at `cotags`** — not at a second row view, and no question
-mediates the fork. **The report is an owner-entered ID set**: `--ids` carries
+**A tag selection lands at `cotags`** — there is no second row view, and no
+question mediates the fork once the tag is named. **The report is an owner-entered ID set**: `--ids` carries
 what the owner chose, and nothing generates reports eagerly.
 
 **Bound the input first — `compose-input --survey <record> --tag <T>`.** Every
@@ -123,8 +91,7 @@ exists to carry.
 **`other` is a CLAIM you are making, not a bin for leftovers.** Putting members
 there asserts you looked and found no subset at loose-or-better affinity among
 them. **Nothing can check that — it is your duty**, stated so you know you are
-making it. What the runtime *does* enforce: every member appears in a SubGroup
-you composed, and a classification leaving one unplaced is refused by name.
+making it. Every member appears in a SubGroup you composed.
 
 **Compose `tight` first, then `related`, then `loose`, and let what remains go to
 `other` explicitly.** One pass; there is no iterative regrouping.
@@ -133,7 +100,7 @@ you composed, and a classification leaving one unplaced is refused by name.
 members must serve SubGroups. Membership assignment stays your judgment; whether
 to split does not. Below ten, `"subgroups": []` is the conformant record for a
 group whose judgment **ran and found no split** — which is not the same as
-omitting the group, and omitting it is refused.
+omitting the group.
 
 **The limits are not reproduced here** — the per-label caps, the minimum SubGroup
 size and the residual maximum live in `report-format.json`'s `limits`, the one
@@ -154,5 +121,3 @@ yours and the design is not.**
   judgment.**
 - **Compose from `compose-input`, never from the whole survey.**
 - **After a tag has been selected, never launch a question UI** (§6.3).
-- **Relay the runtime's output before doing anything else** — the flow rule's
-  positive limb (§2.4).

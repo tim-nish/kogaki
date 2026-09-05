@@ -1,6 +1,6 @@
 # SPEC-terrain — the survey/selection surface
 
-**Status:** v34 (kogaki#743). This file carries the **current contract only**.
+**Status:** v35 (kogaki#856). This file carries the **current contract only**.
 History — superseded behaviour, defect specimens, version ledgers, withdrawn
 proposals, ratification quote-trails — lives in git and in the issues.
 
@@ -263,21 +263,48 @@ hold neither a proposal awaiting ratification nor a disclosed absence.
 
 ## 6. Navigation — the co-tag second step
 
-### 6.0 The pre-selection listings are OWNER-EXECUTED, and write nothing
+### 6.0 The pre-selection listing RIDES THE FIRST-TAG GATE, and writes nothing
 
 **The CoTagGroups display is the rendering of the co-tag groups** — the surface
 §6.3's two-act window operates on, and the one state that writes
-`reports/CoTagGroups.md`. The pre-selection tag listing and the per-tag row view
-are **not** part of it.
+`reports/CoTagGroups.md`. The pre-selection tag listing is **not** part of it.
 
-**The channel: the OWNER runs them.** The executor names the invocation at its
-`TAG_SELECTION` stop, from `workflow.json`'s own `owner_reads`, and **neither
-runs it nor relays its output**. The ground:
+**The channel: the listing is carried in the gate declaration.** `TAG_SELECTION`
+is a gate wait. Its declaration carries the `tag_listing` surface over the run's
+own survey record, byte-for-byte and under that surface's grammar, and the
+session renders those bytes **before** the question. **No invocation is printed
+for the owner to run** — the owner types nothing.
 
-> "In the Claude Code harness a tool call's stdout is displayed to the MODEL,
-> not reliably to the OWNER"
+**The question is short and the table is not inside it.** Exactly two ways to
+answer exist: free-form entry of a tag name, and one standing option standing for
+a method other than co-tags, which is routed nowhere because no other method
+exists yet. The standing option is the **premise negation** the gate owes: every
+option here is generated on the premise that co-tag grouping is the method, and a
+free-text escape is not sufficient, because it is the option a hurried operator
+skips.
+`consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198`
 
-`consulted: product-lab@b20d85ea9c2a6ba24542e7caa003ef42efce33b2 topics/claude-code-ops.md:69`
+**Why not print it.** In the Claude Code harness a tool call's stdout is
+displayed to the model, not reliably to the owner, so a contract binding owner
+delivery to printed output is unsatisfiable.
+`consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:98`
+The earlier answer to that finding was to make the **owner** type the command.
+The owner ruled that premise false on 2026-09-04: the owner types nothing, **and**
+the Harness displays what the runtime produces. Both halves of the finding still
+hold here — nothing relies on stdout reaching the owner, and no session retypes
+the table — because the bytes ride an artifact the session renders rather than a
+stream it must relay.
+
+**The per-tag row view is RETIRED, and the retirement is a recorded decline**
+(owner ruling 2026-09-04). With over 100 served tags there is no demonstrated
+demand for browsing one tag's Lessons individually, and it was never approved. It
+is not re-sited onto the new channel: a removal criterion measures what must not
+remain and is satisfied most cheaply by dropping behaviour, so a behaviour leaves
+only under a decline somebody made.
+`consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:77`
+The **co-tag SELECTION display** is retired with it, on its own ground: it
+printed the first-tag table a second time after the tag was already chosen, and
+that table now sits above the question that chooses it.
 
 Selecting a tag displays the other tags its members carry, grouped by co-tag,
 with counts. Navigation in the full §2.3 sense: deterministic, complete, nothing
@@ -285,42 +312,6 @@ hidden, no ranking. **Machine-composed connective prose is admissible**, and the
 invariants bind *harder* with a model in the loop — composed prose stays a
 permutation and carries no selection authority.
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:110`
-
-### 6.0.1 The co-tag SELECTION display (kogaki#737)
-
-**Owner ruling 2026-09-01.** At the co-tag selection moment the display is
-**guaranteed by the harness as displayed output — never a file**. Fixed blocks; the
-LLM controls exactly one sentence; it writes nothing.
-
-**Why it is not the CoTagGroups display.** §6.0's definition keys on *what* the
-rendering is, not *when* it happens. This one precedes it, on the same side of the
-line as §6.0's listings, and `reports/CoTagGroups.md` keeps exactly one writing state.
-
-**The channel is §6.0's, unchanged.** The executor names the invocation, intent
-placeholder included, and neither runs it nor relays its output.
-
-**Three blocks**: a fixed marker; a counts table over **all** served tags with
-family-named columns, count descending, a long tag name wrapping onto at most two
-lines and breaking never mid-word; and `intent: <one sentence>`, the LLM's sole
-contribution.
-
-**`--intent` is refused** when multi-line, longer than **200** characters, or
-carrying table or marker syntax. **The bound is 200 and not "about 200"** — a
-spec cannot ship an approximation its emitter must guess at — and the refusal is
-the emitter's own `fail()`, not a lint. The judgment-class rule is the root
-spec's, `specs/SPEC.md` §2.6.3.
-
-**§2.3's disclosure lines do not render here**, and the reason is the grammar:
-block 2 enumerates all served tags, so the boundary discharges structurally.
-
-**What this exists to remove is a generator, not an act.** A session wanting to
-show the owner the tag counts was squeezed between §6.0's refusal to relay stdout
-and the delivery rule requiring an artifact; manufacturing a file is what that
-squeeze generates. Banning the write without supplying the surface would leave
-the generator in place.
-
-The class list and its REFUSE fallback are `report-format.json`'s
-(`surfaces.cotag_selection`).
 
 ### 6.1 What the CoTagGroups display SERVES
 
@@ -896,15 +887,14 @@ This is a statement about the **runtime**, not about the owner's surface.
 
 ### 15.7 The standalone owner-facing subcommands are REMOVED, not flagged
 
-**A surface leaves coverage by two routes**, and the difference is named rather
-than averaged: a subcommand **removed** stops emitting owner text at all; one
-whose owner text **does not stop** — because it becomes an owner-executed listing
-(§6.0) — keeps emitting.
+**A removed subcommand stops emitting owner text at all**, and since
+kogaki#856 that is the only route out: no owner-executed listing survives, so
+there is no second class of surface that keeps emitting outside a state.
 
-**Which term of the coverage figure each lands in is `workflow.json`'s to
+**Which term of the coverage figure a removal lands in is `workflow.json`'s to
 compute** and is not asserted here: the carrier's denominator is the **states**
-whose `writes` is non-null, and an owner-executed entry point is not a state, so
-it enters neither term. Per §14.1 the carrier wins.
+whose `writes` is non-null, and a removed entry point is not a state, so it
+enters neither term. Per §14.1 the carrier wins.
 
 **`self-test` and `validate` survive** as non-flow utilities: no owner surface,
 no sequencing authority, reachable without a run record.
