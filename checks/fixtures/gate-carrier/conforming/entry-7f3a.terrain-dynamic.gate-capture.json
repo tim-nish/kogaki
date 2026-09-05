@@ -14,6 +14,7 @@
     {
       "stop_id": "stop-0004",
       "gate_id": "terrain-dynamic",
+      "gate_instance_id": "5c1a0b7e-0000-4000-8000-656e7472792d",
       "evidence": {
         "tool": "AskUserQuestion",
         "tool_use_id": "toolu_01GateCarrier0004"

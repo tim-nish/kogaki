@@ -129,6 +129,26 @@ policy/shape.md
 # own header routes exactly this case to a reader — which is where it was
 # caught. The `.claude/hooks/` directory re-include goes with it: the
 # directory now holds nothing tracked.
+#
+# AND IT COMES BACK AT kogaki#890, under the criterion above rather than
+# against it. `.claude/hooks/write-gate-capture.py` is the carrier that writes
+# the owner's answer at a Terrain gate; `checks/check-gate-capture-hook.sh` is
+# a REGISTERED check that opens it, parses it, and computes its option-set
+# digest against the runtime's — so this is precisely "an untracked path under
+# a tracked assertion", which the header rules is a red suite on every clone
+# and not a private file. The reader is named because #630's own lesson was
+# that a re-include outliving its reader keeps admitting a path nothing opens.
+#
+# WHAT IS STILL PRIVATE, and the distinction is the whole of why this is safe:
+# the hook's REGISTRATION. Tracking the file publishes the code; it does not
+# install it, and `~/.claude/settings.json` stays machine-local exactly as the
+# 2026-08-22 ruling has it. That split is also why the check deliberately
+# asserts the file and NOT its registration — asserting the latter would fail
+# on every fresh clone, which is this block's own criterion pointed the other
+# way.
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/write-gate-capture.py
 !.claude/skills/consult-first/
 .claude/skills/consult-first/*
 !.claude/skills/consult-first/SKILL.md

@@ -1,5 +1,17 @@
 # SPEC-gate-carrier — the gate carrier
 
+**Status:** v6, amended 2026-09-05 (kogaki#890, owner selection at the
+/ship-cycle gate) — **§10 binds WHO WRITES a capture, which v1–v5 never said.**
+Every clause before this one binds a capture's SHAPE — its rows, its evidence
+fields, what `options_offered` is judged against — and a shape is satisfiable
+by anyone. The Terrain runtime satisfied all of it while taking the answer from
+the session: `--capture-option`, `--capture-free-text` and `--tool-use-id` were
+composed by the model after it rendered the gate, and `tool_use_id` was stored
+under the key `evidence` without ever being resolved against anything. §10 names
+the writer, adds the `gate_instance_id` join key that makes a written row
+belong to one raising, and states why that key is a nonce and not a digest.
+**deferred slots minted by this amendment: one, and it is named at §10.4.**
+
 **Status:** v5, amended 2026-09-05 (kogaki#891, PR #911 round 1) — **§4.1 says
 WHICH sibling declaration is the target, not just that a sibling is.** v4 named
 it `<gate_id>.run-declaration.json`, which holds only where a directory holds one
@@ -414,3 +426,160 @@ Also out: any gate-raising runtime. This contract binds how a gate is
   binding, as the served line intends ("Additional hosts get their own
   bindings"). A second host is an amendment to `hosts` in the schema, not a
   weakening of the rule.
+
+## 10. Who writes a capture (v6, kogaki#890)
+
+§4 binds what a capture row **is**. This binds who may **write** one, and it
+exists because the two are independent: every field §4 requires can be filled
+in by the party whose answer the row is supposed to constrain.
+
+**The owner ruling this executes.** The 2026-09-04 ruling (product-lab,
+`q_a/staging/2026-09-04-a-harness-must-not-consume-model-output-as-control-input.md`)
+separates **selectors** from **evidence** — the model may say which thing to
+look at, and may not supply the fact. *Which option the owner chose* and *that
+a rendering happened* are facts about the world. The ruling on the identical
+channel elsewhere (product-lab#307, closed) is the **Harness-recorded click**:
+a hook writes the confirmation record and the typed operation refuses without
+it. The owner selected that arm for this repository on 2026-09-05.
+
+### 10.1 The writer is a harness carrier, and the flags are removed
+
+A capture row for a Terrain gate is written by
+`.claude/hooks/write-gate-capture.py`, a PostToolUse carrier on
+`AskUserQuestion`, at the moment the owner answers — from the harness's own
+payload, which carries the real `tool_use_id` and the label the owner actually
+clicked.
+
+`src/terrain.mjs`'s `--capture-option`, `--capture-free-text` and
+`--tool-use-id` are **REMOVED and refused by name**. Removed rather than
+deprecated: a deprecated channel is a channel, and the finding was that this
+one existed at all. Refused **by name** rather than ignored, because an ignored
+flag is a session quietly getting a different act than the one it asked for.
+
+**What was already real, and why it was not enough.** The option bound — an
+answer naming an option the declaration did not offer is refused — was genuine
+and is kept. It was also the only genuine thing: a mis-transcribed option that
+*was* offered, or a capture issued with no gate ever rendered, was admitted,
+the wait completed, and the run advanced on an answer the owner never gave.
+That is the right act with the guard silently disabled, which is the failure
+the ruling's own test separates from the loud one.
+
+### 10.2 The join key is a NONCE, and that is the load-bearing choice
+
+Every **raising** of a gate mints a `gate_instance_id`, written into the run
+declaration and echoed onto the row. The executor joins a declaration to an
+answer on that id **and on nothing else**.
+
+**The row requirement is PER GATE, not global, and the scoping is a decision
+rather than a weakening (round 1, finding 2).** A gate declares
+`requires_gate_instance_id` in its own registry row and the check reads that
+flag; the first cut put the field in `gate_row_required`, which is enforced
+against every row found anywhere in the working tree. The brief lane's three
+writers emit no nonce and its run state lands *inside* the working tree, which
+the capture scanner reaches because it does not consult `.gitignore` — so the
+first `/brief` run on any working copy would have reddened the local suite
+against captures no writer in the tree could make conforming. That is precisely
+the class §4.1 v4 was filed to repair, rebuilt inside a later repair. **A
+requirement binds the gates whose writer emits it**, and a gate joins by
+declaring the flag rather than by an edit to the check.
+
+It is a nonce rather than anything computed, and the reason is this
+repository's own:
+
+> "A binding computed from content identifies the content, never the instance.
+> So it separates two instances exactly when they differ and fails exactly when
+> they are alike — which is the case you need it for, because two runs over the
+> same input are the pair a reader is least able to tell apart by eye."
+
+That is not hypothetical here. Two entries over one settled input compose the
+same question and the same option set, and therefore the same
+`option_set_digest` — so `answers_over` alone cannot stop one run's answer
+advancing the other's wait. **`answers_over` is unchanged and is not
+replaced**: it binds *what was offered*, and this binds *which raising offered
+it*. The two axes are both required because they fail on different things.
+
+### 10.3 The pointer, and what it is not
+
+The hook sees a question and an answer; it has no way to know which run raised
+the question, because a run workspace is machine-local and may sit anywhere.
+So each raising writes an **open-gate pointer** — instance id, gate id,
+question, declaration path, capture path — into `KOGAKI_OPEN_GATES` (default
+`~/.claude/kogaki-open-gates`), removed when the row is written or the wait
+advances.
+
+**It carries no answer and grants nothing.** Nothing downstream believes a
+pointer: the executor reads the *capture* and refuses without a matching row,
+so deleting the whole directory costs a re-render and never an admitted
+answer, and a forged pointer can only cause a row to be written where no gate
+is outstanding — which the instance-id join then refuses. That is what keeps
+this file off the trust surface.
+
+**Where two outstanding pointers carry one question, the hook writes nothing
+and says so.** The question text is used to *narrow*, never to *choose*.
+Choosing would be the same silent misattribution the nonce exists to prevent,
+arriving one step earlier; and the executor's own refusal — the harness
+recorded no answer for this gate — is a stop the owner can act on, which a row
+written against the wrong run is not.
+
+**An unconsumed pointer is reaped, and that is load-bearing rather than
+housekeeping (round 1, finding 3).** The two removers above — the hook after a
+write, the executor at the advance — are both reached only by a run that
+*finishes* the gate. A run abandoned at an outstanding one reaches neither, and
+that is the ordinary outcome rather than the exotic one: it is what the
+unrouted-option refusal leaves behind every time, and what a deleted run
+directory or a retention prune leaves behind without touching this directory at
+all. Because a gate's question is a constant string in the registry, **one
+orphan makes every later raising of that gate class ambiguous**, and the
+ambiguity rule above then writes nothing — so a single abandoned run would wedge
+that gate on the machine until someone cleaned the directory by hand. So: a
+pointer whose declaration no longer exists is dead **by observation** and is
+reaped first; an age bound is the backstop for the run that still exists and was
+walked away from, deliberately long because it is the reaper that could discard
+a live gate, and a discarded live gate costs a re-render while an orphan costs
+the class. **A re-raising also supersedes its own previous pointer**, without
+which the recovery this contract prescribes — re-render after a refusal —
+accumulates exactly the orphans that then block it.
+
+**A label that neither matches nor clearly differs is UNRESOLVED, never free
+text (round 1, finding 4).** The harness reports the label the owner saw, and
+the row is keyed on the option id, so the hook maps one to the other. Options
+here carry full-sentence labels, so a label arriving truncated or decorated
+would fall through an exact comparison and be recorded as the owner's *own
+words* — which is worse than a refusal in a specific way: a standing option
+routed nowhere would then skip its refusal and land as a tag name or an id
+list, the wedge that refusal exists to close, returning by another route. The
+comparison is therefore made on collapsed whitespace, since a re-wrapped label
+is the same answer; and a near-miss — either string a prefix of the other — is
+recorded as unresolved and **refused by the executor**. The payload alone
+cannot separate a mangled label from genuine free text, so naming the
+ambiguity is the honest act where picking a reading is not.
+
+**The refusal names its carrier**, and that is a requirement rather than a
+courtesy. An un-installed hook is the one state in which re-rendering the
+question changes nothing, so a refusal that does not name the hook and the
+pointer sends the owner round that loop forever. The wiring is machine-local
+and never committed, so a fresh clone reads as uncaptured until it is
+installed — the same machine-local hold the review-lane declaration already
+carries, stated rather than self-healing.
+
+### 10.4 What this does NOT close, stated so the class is not read as shut
+
+**Numbered 10 rather than 5, deliberately.** §5 is already this contract's
+comparison clause and `checks/registry.json` cites it by that number; a second
+§5 would be a synonym in a join key, which is the defect this repository refuses
+one layer down from where it usually meets it.
+
+This binds the **Terrain** gates. The brief lane's three gates
+(`brief-thesis-adoption`, `brief-candidate-selection`,
+`brief-specialization-ratification`) still take `--capture --tool-use-id`
+composed by the session: kogaki#891 and kogaki#893 closed on the structural
+half — the option-set digest and the two-axis ratification binding — and the
+writer there is still the model. So the same channel is open one design over,
+and a reader who takes §10 as closing the class would be wrong.
+
+**deferred slot: the brief lane's writer.** Routing those three gates through
+this same carrier is its own decision act on its own licensing issue — it is
+not a mechanical extension, because the brief lane keys its declaration on the
+run state rather than on a directory (§4.1 v5) and the pointer's shape has to
+answer that before any format embeds a reading of it. Named here rather than
+left, per the decide-or-name discipline.

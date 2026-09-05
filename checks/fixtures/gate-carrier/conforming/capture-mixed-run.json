@@ -4,6 +4,7 @@
     {
       "stop_id": "stop-0001",
       "gate_id": "terrain-direction",
+      "gate_instance_id": "5c1a0b7e-0000-4000-8000-636170747572",
       "evidence": {
         "tool": "AskUserQuestion",
         "tool_use_id": "toolu_01GateCarrier0001"

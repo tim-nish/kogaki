@@ -93,8 +93,9 @@
       "owner_supplies": "a G/SG id list",
       "writes": null,
       "conditional": false,
-      "renders_gate_declaration": false,
-      "governing": "§6.3"
+      "renders_gate_declaration": true,
+      "governing": "§6.3, §15.4",
+      "gate_id": "terrain-id-selection"
     },
     {
       "id": "neighborhood_input",

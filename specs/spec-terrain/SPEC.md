@@ -1,5 +1,15 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v37 (kogaki#890) — **the owner's answer at a gate wait is READ from
+a harness capture, never argued, and `ID_SELECTION` becomes the fifth declared
+gate.** v36 and every version before it left the answer's *writer* unbound:
+`--capture-option`, `--capture-free-text` and `--tool-use-id` were composed by
+the session after it rendered the gate, so the run advanced on the model's
+account of what the owner chose. §15.6.4 and §15.6.5 below carry it; the
+contract for the channel itself is `specs/spec-gate-carrier/SPEC.md` §10,
+cited and restated nowhere. **deferred slots minted by this amendment: none —
+the one this work minted belongs to the gate carrier and is named at its §10.4.**
+
 **Status:** v36 (kogaki#857). This file carries the **current contract only**.
 History — superseded behaviour, defect specimens, version ledgers, withdrawn
 proposals, ratification quote-trails — lives in git and in the issues.
@@ -863,11 +873,55 @@ An entry point that is gone is gone: no refusing case, no pointer, no record of
 what it used to do. Where its behaviour **is** a state, a stub would additionally
 be a second way to reach that state.
 
-### 15.6.4 A GATE WAIT IS ANSWERED BY A CAPTURE
+### 15.6.4 A GATE WAIT IS ANSWERED BY A CAPTURE, AND THE HARNESS WRITES IT (v37)
 
 At a wait whose declaration was written, **the capture is not one way to answer;
 it is the way.** `GATE_WORK` carries the carve-out, and `--input` remains
-admissible because refusing both would leave the wait unanswerable.
+admissible at a wait whose declaration was *not* written, because refusing both
+would leave such a wait unanswerable.
+
+**And the capture is written by the harness (v37, kogaki#890).** The row is
+written by `.claude/hooks/write-gate-capture.py` when the owner answers the
+question; `--capture-option`, `--capture-free-text` and `--tool-use-id` are
+**removed from `run` and refused by name**. A re-entry at an outstanding
+declared gate takes no argument at all: the executor reads the recorded answer
+and advances, or refuses and names the hook, the capture path and the
+open-gate pointer.
+
+The join is the declaration's `gate_instance_id`, minted per **raising** — the
+mechanism, and why it is a nonce rather than a digest, is
+`specs/spec-gate-carrier/SPEC.md` §10, cited here and restated nowhere.
+
+**What the old channel actually cost, kept because the option bound made it
+look guarded.** An option the declaration never offered was refused, which was
+real; it was also the whole of it. A mis-transcribed option that *was* offered,
+or a capture issued with no gate rendered at all, was admitted, the wait
+completed, and the run advanced on an answer the owner never gave — the right
+act with the guard silently disabled.
+
+### 15.6.5 `ID_SELECTION` DECLARES A GATE (v37, kogaki#890)
+
+It was this table's one wait that declared none, so its owner input — a G/SG id
+list — arrived as a bare `--input` the session composed, with no declaration to
+check it against and no evidence that any question was put. **The gap is the
+finding rather than an oversight**: gate coverage was computed over the
+*declared* gates, so the one undeclared wait sat outside the enumeration and a
+complete-looking number could never have found it.
+
+Its registry row is `terrain-id-selection`. It composes **no run option** and
+that is its shape rather than an omission: the answer is a *list*, and a list is
+not an option — a composed run routinely carries more groups than the selector
+affordance's four, so a per-group option set would either truncate the owner's
+view or refuse the run. Exactly two ways to answer exist, the standing negation
+or free-form entry of the ids, which is `terrain-tag-selection`'s shape arrived
+at from the same constraint.
+
+**The grouping rides the declaration as a POINTER, not as bytes.**
+`terrain-tag-selection` inlines its table because `renderTagDisplay` produces
+one and `report-format.json` grammars it; the composed grouping is an artifact
+the run already wrote, and naming it is the delivery §14's own rule licenses.
+Inventing a second rendering surface here would put a format nothing grammars
+in front of the owner.
 
 This is a statement about the **runtime**, not about the owner's surface.
 

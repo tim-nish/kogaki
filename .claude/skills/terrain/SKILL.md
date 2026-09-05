@@ -37,9 +37,18 @@ do reads the table.
   prints where it stopped and what the owner supplies. Re-enter with `--input`.
 - **A wait that declares a gate WRITES its declaration, and you render it** —
   through `AskUserQuestion`, options verbatim, nothing pre-selected, free text
-  always on — then re-enter with `--capture-option` / `--capture-free-text`.
-  That answer **is** the owner input for the wait. **Composing and recording are
-  the engine's; deciding is the owner's; rendering is yours.**
+  always on — then re-enter with a **bare** `run --run-dir D`. That answer **is**
+  the owner input for the wait. **Composing and recording are the engine's;
+  deciding is the owner's; rendering is yours.**
+- **YOU NEVER CARRY THE OWNER'S ANSWER.** There is no flag for it.
+  `--capture-option`, `--capture-free-text` and `--tool-use-id` are removed and
+  refused by name; `.claude/hooks/write-gate-capture.py` records the answer from
+  the harness's own payload at the moment the owner gives it, and the executor
+  reads it. Your job ends at rendering the question — so render it and re-enter,
+  and never reach for a way to tell the runtime what was chosen. If a re-entry
+  refuses saying the harness recorded no answer, the question has not been
+  answered yet, or the hook is not installed on this machine; the refusal names
+  both paths to check.
 - **Where the declaration carries a rendering key, those bytes go on screen
   VERBATIM and BEFORE the question.** `TAG_SELECTION`'s declaration carries
   `tag_listing`, the pre-selection tag table. Rendering the question without it

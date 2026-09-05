@@ -23,7 +23,7 @@
 // changes is that it is legible where a contributor works and bounded by the
 // in-band prune, rather than accumulating unread in a hidden home directory.
 import { spawnSync, execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, readdirSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
@@ -1600,6 +1600,17 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
     options: [...dynamicOptions, ...registered.options.filter((o) => !seen.has(o.id))],
     declared_at: new Date().toISOString(),
     run_declaration: true,
+    // THE INSTANCE KEY, AND IT IS A NONCE RATHER THAN A DIGEST (kogaki#890).
+    // The answer this declaration will be joined to is written by a harness
+    // hook that sees a question and an option set, and nothing else — so the
+    // join key has to name THIS RAISING of the gate and not what the gate
+    // happens to say. A key derived from the question, the option set, the
+    // run directory or the inputs is shared by every sibling that looks the
+    // same, which separates two runs exactly when they differ and fails
+    // exactly when they are alike; two entries over one settled input compose
+    // identical options and therefore an identical digest. Minted per raising,
+    // never per gate and never per directory.
+    gate_instance_id: randomUUID(),
   };
   delete declaration.dynamic_options;
   // The sibling filename is a JOIN KEY: check-gate-carrier resolves this file
@@ -1610,7 +1621,59 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   // which is the pre-#818 behaviour it would then report as a pass (kogaki#837).
   const out = join(dir, `${gateId}${GATE_SCHEMA.capture.run_declaration_suffix}`);
   writeFileSync(out, JSON.stringify(declaration, null, 2) + "\n");
+  writeOpenGatePointer(dir, declaration, out);
   return out;
+}
+
+// --------------------------------------------------------------------------
+// THE OPEN-GATE POINTER (kogaki#890).
+//
+// The capture is written by `.claude/hooks/write-gate-capture.py`, a
+// PostToolUse carrier on `AskUserQuestion`. That hook sees the harness's own
+// payload — the question, the labels, the tool_use_id — and has no way to know
+// which run raised the question, because a run workspace is machine-local and
+// may sit anywhere. The pointer is how it finds out: one small file per
+// OUTSTANDING raising, naming the instance, the declaration and the capture
+// path, in a directory the hook reads.
+//
+// IT CARRIES NO ANSWER AND GRANTS NOTHING. A pointer is a forwarding address;
+// deleting the whole directory costs a re-render and never an admitted answer,
+// because the executor reads the CAPTURE and refuses without a matching row.
+// That is what keeps this file off the trust surface: nothing downstream
+// believes a pointer, and a forged one can only cause a row to be written
+// where no gate is outstanding, which the instance-id check then refuses.
+export function openGateDir() {
+  return process.env.KOGAKI_OPEN_GATES || join(homedir(), ".claude", "kogaki-open-gates");
+}
+
+export function writeOpenGatePointer(dir, declaration, declPath) {
+  const gd = openGateDir();
+  mkdirSync(gd, { recursive: true });
+  const capPath = join(dir, "terrain.gate-capture.json");
+  // A RE-RAISING SUPERSEDES ITS OWN PREVIOUS POINTER (PR #917 round 1, finding
+  // 3). Re-rendering a gate after a refusal is the ordinary recovery this file
+  // tells the owner to perform, and each raising mints a fresh instance id —
+  // so without this the recovery itself accumulates orphans, one per attempt,
+  // in the directory whose ambiguity arm then refuses to write anything. The
+  // superseded pointer is this run's own, matched on the capture it names and
+  // the gate it raises, so nothing here reaches another run's.
+  for (const f of readdirSync(gd)) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const prev = readJson(join(gd, f));
+      if (prev.gate_id === declaration.id && prev.capture_path === resolve(capPath)) {
+        rmSync(join(gd, f), { force: true });
+      }
+    } catch { /* an unreadable pointer is the hook's to report, not this writer's to repair */ }
+  }
+  writeFileSync(join(gd, `${declaration.gate_instance_id}.json`), JSON.stringify({
+    gate_instance_id: declaration.gate_instance_id,
+    gate_id: declaration.id,
+    question: declaration.question,
+    declaration_path: resolve(declPath),
+    capture_path: resolve(capPath),
+    opened_at: declaration.declared_at,
+  }, null, 2) + "\n");
 }
 // `adopt` ceased to be an entry point (kogaki#625 item 1). §15.6.1 rules
 // adoption the OWNER's act rather than a judgment, and the executor records it
@@ -4131,26 +4194,116 @@ export function composeTrimProposal(args, dir) {
 // `capture` ceased to be an entry point: an answer to a declared gate is
 // admitted at the wait that declared it, which is what makes "a session could
 // mint run state from outside the executor" unwritable rather than discouraged.
-export function writeCapture(dir, decl, { toolUseId, option, freeText }) {
-  if (!option && !freeText) fail("a capture needs --capture-option <id> or --capture-free-text <answer>");
-  if (option && !decl.options.some((o) => o.id === option)) {
-    fail(`answer option ${JSON.stringify(option)} was not offered by the declaration`);
+// THE ANSWER IS READ, NEVER ARGUED (kogaki#890; owner selection 2026-09-05).
+//
+// `writeCapture` stood here and took the answer from the session:
+// `--capture-option`, `--capture-free-text` and `--tool-use-id` were all
+// composed by the model after it rendered the gate, and the id was stored
+// under the key `evidence` without ever being resolved against anything. The
+// option bound was real — an option the declaration did not offer was refused
+// — and it was the only real thing: a mis-transcribed option that WAS offered,
+// or a capture issued with no gate ever shown, was admitted, the wait
+// completed, and the run advanced on an answer the owner never gave. That is
+// the right act with the guard silently disabled, which the 2026-09-04 ruling
+// separates from the loud failure and treats as the dangerous one.
+//
+// The row is now written by `.claude/hooks/write-gate-capture.py` at the
+// moment the owner answers, from the harness's own payload. This function is
+// its reader, and every refusal below is a refusal to advance rather than a
+// complaint about a shape: the wait stays outstanding, so the recovery is
+// always to render the gate again.
+export function readCapturedAnswer(dir, decl) {
+  const capPath = join(dir, "terrain.gate-capture.json");
+  const instance = decl.gate_instance_id;
+  if (!instance) {
+    fail(`the declaration for gate ${decl.id} carries no gate_instance_id, so no captured answer can be joined to it. `
+      + `It was written before kogaki#890 — re-enter the wait to raise the gate again, which mints one.`);
   }
-  const row = {
-    stop_id: `stop-${Date.now()}`,
-    gate_id: decl.id,
-    evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
-    payload: {
-      options_offered: decl.options.map((o) => o.id),
-      free_text_offered: true,
-      answer: option ? { option } : { free_text: freeText },
-    },
-  };
-  const out = join(dir, "terrain.gate-capture.json");
-  const doc = existsSync(out) ? readJson(out) : { rows: [] };
-  doc.rows.push(row);
-  writeFileSync(out, JSON.stringify(doc, null, 2) + "\n");
-  return { path: out, row };
+  if (!existsSync(capPath)) {
+    fail(noAnswerRefusal(decl, capPath, "no capture file exists beside this run"));
+  }
+  const doc = readJson(capPath);
+  const rows = Array.isArray(doc.rows) ? doc.rows : [];
+  // THE JOIN IS ON THE INSTANCE ID AND ON NOTHING ELSE. Not on the gate id,
+  // which every raising of this gate shares; not on the question or the option
+  // set, which two runs over one input share exactly.
+  const mine = rows.filter((r) => r && r.gate_instance_id === instance);
+  if (mine.length === 0) {
+    fail(noAnswerRefusal(decl, capPath,
+      `the capture holds ${rows.length} row(s) and none carries this raising's instance id ${JSON.stringify(instance)}`));
+  }
+  // THE LAST ROW. A gate can be re-rendered after an answer the owner wants to
+  // change, and the answer that governs is the one they gave last.
+  const row = mine[mine.length - 1];
+  const ev = row.evidence;
+  if (!ev || ev.tool !== "AskUserQuestion") {
+    fail(`the captured row for gate ${decl.id} records evidence.tool ${JSON.stringify(ev && ev.tool)} — this is an OWNER act at the question UI, `
+      + `and SPEC-gate-carrier binds this repository's gate medium to AskUserQuestion. A row recording any other tool records a session's own act.`);
+  }
+  if (typeof ev.tool_use_id !== "string" || ev.tool_use_id === "") {
+    fail(`the captured row for gate ${decl.id} carries no evidence.tool_use_id — the one field tying it to a question the harness actually asked.`);
+  }
+  const digest = ownerGateDigest(decl.id, (decl.options || []).map((o) => o.id));
+  const bound = row.answers_over || {};
+  if (bound.option_set_digest !== digest) {
+    fail(`the captured answer for gate ${decl.id} answers the option set digesting ${JSON.stringify(bound.option_set_digest)}, `
+      + `but this declaration's options digest ${JSON.stringify(digest)} — the option set CHANGED after the gate was rendered, so the owner chose among alternatives other than these. `
+      + `Re-render the gate. Nothing was advanced.`);
+  }
+  const answer = (row.payload || {}).answer || {};
+  // AN UNRESOLVED LABEL IS REFUSED, NEVER READ AS FREE TEXT (PR #917 round 1,
+  // finding 4). The hook records this when the harness's reported label neither
+  // matches a declared one nor is clearly distinct from it — a truncation, a
+  // decoration, a re-wrap. Reading such an answer as the owner's own words
+  // would route a declared option's text to where a tag name or an id list
+  // goes, skipping the unrouted-option refusal entirely; and the payload alone
+  // cannot tell a mangled label from genuine free text, so the honest act is to
+  // stop rather than to pick the reading that happens to advance.
+  if (answer.label_unresolved) {
+    fail(`the captured answer for gate ${decl.id} could not be resolved to an option or to free text: the harness reported ${JSON.stringify(answer.raw)}, `
+      + `which resembles the declared option ${JSON.stringify(answer.resembles_option)} without matching it. `
+      + `A near-miss is indistinguishable from free text on the payload alone, so it is refused rather than read as either. Re-render the gate, options verbatim.`);
+  }
+  const option = typeof answer.option === "string" && answer.option !== "" ? answer.option : null;
+  const freeText = typeof answer.free_text === "string" && answer.free_text.trim() !== "" ? answer.free_text : null;
+  if (!option && !freeText) {
+    fail(`the captured row for gate ${decl.id} carries neither an option nor free text — an empty answer is not an answer.`);
+  }
+  // KEPT FROM THE RETIRED WRITER, and it is the one bound that was already
+  // real: an option the declaration did not offer is refused. It now guards a
+  // row the harness wrote rather than one the model composed, so it stops
+  // being the only guard and starts being the last of several.
+  if (option && !(decl.options || []).some((o) => o.id === option)) {
+    fail(`the captured answer ${JSON.stringify(option)} was not offered by the declaration for gate ${decl.id}.`);
+  }
+  return { path: capPath, row, option, freeText, toolUseId: ev.tool_use_id };
+}
+
+// The refusal an unanswered gate raises, in one place because its two callers
+// must not drift on WHAT THE OWNER IS TOLD TO DO. It names the pointer the
+// hook reads, because a machine that has never installed the hook is the one
+// state where re-rendering the question changes nothing — and a refusal that
+// sends the owner round that loop forever is worse than the channel it
+// replaced.
+function noAnswerRefusal(decl, capPath, why) {
+  return `gate ${decl.id} was declared for this run and the harness has recorded no answer to it: ${why}.\n`
+    + `The answer to a declared gate is written by .claude/hooks/write-gate-capture.py when the owner answers the question, and by nothing else — `
+    + `there is no argument that supplies one (kogaki#890).\n`
+    + `  capture expected at: ${capPath}\n`
+    + `  open-gate pointer:   ${join(openGateDir(), `${decl.gate_instance_id}.json`)}\n`
+    + `If the question has not been rendered yet, render it now, options verbatim, free text on. `
+    + `If it HAS been answered and this refusal persists, the hook is not installed on this machine — that wiring is machine-local and never committed, so a fresh clone reads as uncaptured until it is installed.`;
+}
+
+// The option-set digest, over [gate_id, [option ids]]. A capture certifies an
+// answer GIVEN A SET OF OPTIONS: the same option id offered beside different
+// alternatives is a different question, so binding to the offered set is what
+// stops an answer taken at one rendering certifying a choice at another.
+// `.claude/hooks/write-gate-capture.py` computes the same digest over the same
+// canonical form; `checks/check-gate-capture-hook.sh` compares the two rather
+// than trusting them to agree by reading.
+export function ownerGateDigest(gateId, optionIds) {
+  return createHash("sha256").update(JSON.stringify([gateId, [...optionIds]])).digest("hex");
 }
 
 // --------------------------------------------------------------------------
@@ -5532,6 +5685,42 @@ const GATE_WORK = {
   },
 
   CLAIM_REOFFER: (rec, st, args) => composeClaimReoffer(args, rec._dir, readJson(needSurvey(rec))),
+
+  // THE ONE WAIT THAT DECLARED NO GATE (kogaki#890, acceptance item 3).
+  //
+  // `ID_SELECTION` took the owner's G/SG id list as a bare `--input` — a value
+  // the model composed after reading the grouping, with no declaration to
+  // check it against and no evidence that any question was ever put. That is
+  // the same channel the other four waits closed, surviving in the one state a
+  // gate-coverage number computed over the DECLARED gates could not see: the
+  // enumeration was complete and the uncovered wait was outside it.
+  //
+  // NO RUN-COMPUTED OPTION, and the empty list is the shape rather than an
+  // omission. The answer is a LIST, and a list is not an option: a composed run
+  // routinely carries more groups than the selector affordance's four, so a
+  // per-group option set would either truncate the owner's view or refuse the
+  // run outright. Exactly two ways to answer exist — the standing negation, or
+  // free-form entry of the ids — which is `terrain-tag-selection`'s shape in
+  // this same table, arrived at from the same constraint.
+  //
+  // THE GROUPING RIDES THE DECLARATION AS A POINTER, not as bytes. The other
+  // listing-carrying gate inlines its table because `renderTagDisplay` produces
+  // one and `report-format.json` grammars it; the composed grouping is an
+  // ARTIFACT this run already wrote, and naming it is the delivery the terrain
+  // skill's own rule licenses ("you put its bytes on screen, or name the
+  // artifact it wrote"). Inventing a second rendering surface here would put a
+  // format nothing grammars in front of the owner, which is the defect the
+  // format guard exists to refuse.
+  ID_SELECTION: (rec) => {
+    const written = (rec.artifacts_written || []).filter((a) => a.state === "cotag_groups").pop();
+    return {
+      options: [],
+      extra: {
+        groups_artifact: written ? written.path
+          : "none — cotag_groups wrote no artifact in this run, so the gate is raised over a grouping the owner has not been shown; render the run's own report before answering",
+      },
+    };
+  },
 };
 
 
@@ -5621,89 +5810,101 @@ function cmdRun(args) {
     const awaitedState = stateById(table, rec.awaiting);
     const owedForInput = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting);
     if (awaitedState && awaitedState.renders_gate_declaration && owedForInput && owedForInput.declaration) {
-      fail(`${rec.awaiting} declares a gate and its declaration is written (${owedForInput.declaration}), so it is answered by a CAPTURE and never by a bare --input. The answer must carry the option the declaration offered and the AskUserQuestion tool_use_id that evidences the rendering: run --run-dir ${dir} --capture-option <id> --tool-use-id <id> (or --capture-free-text '<answer>'). An input that skips the declaration answers a question nothing can show was asked (§15.4, §2.3).`);
+      fail(`${rec.awaiting} declares a gate and its declaration is written (${owedForInput.declaration}), so it is answered by the HARNESS'S OWN CAPTURE and never by a bare --input. Render the gate through AskUserQuestion — options verbatim, nothing pre-selected, free text on — and re-enter with a bare \`run --run-dir ${dir}\`; .claude/hooks/write-gate-capture.py records the answer when the owner gives it, and the executor reads it. An input that skips the declaration answers a question nothing can show was asked (§15.4, §2.3; kogaki#890).`);
     }
     rec.owner_input[rec.awaiting] = String(args.input);
     rec.completed.push(rec.awaiting);
     rec.awaiting = null;
   }
 
-  // ---- The CAPTURE, admitted by the WAIT THAT DECLARED THE GATE and by
-  // nothing else (kogaki#625 item 1). `capture` ceased to be an entry point,
-  // and the refusal the retired command carried — an answer to an option that
-  // was never offered — is unchanged, now read against the declaration THIS
-  // run wrote rather than one a caller named.
-  const capOption = args["capture-option"] !== undefined ? String(args["capture-option"]) : null;
-  const capFree = args["capture-free-text"] !== undefined ? String(args["capture-free-text"]) : null;
-  if (capOption !== null || capFree !== null) {
-    if (!rec.awaiting) {
-      fail(`no wait is outstanding in ${runRecordPath(dir)}, so there is no declared gate for a capture to answer. §15.4 — a capture is admissible only at the wait that declared the gate.`);
+  // ---- THE CAPTURED ANSWER, READ RATHER THAN ARGUED (kogaki#890).
+  //
+  // The three flags that used to carry the owner's answer into this branch —
+  // `--capture-option`, `--capture-free-text`, `--tool-use-id` — are REMOVED
+  // and refused by name. Removed rather than deprecated, for the reason
+  // kogaki#891 gives one lane over: a deprecated channel is a channel, and the
+  // whole finding was that this one existed at all.
+  for (const dead of ["capture-option", "capture-free-text", "tool-use-id"]) {
+    if (args[dead] !== undefined) {
+      fail(`--${dead} is REMOVED (kogaki#890). The owner's answer at a declared gate is written by `
+        + `.claude/hooks/write-gate-capture.py at the moment the question is answered, from the harness's own payload, and is never composed by the session. `
+        + `Render the gate through AskUserQuestion — options verbatim, nothing pre-selected, free text on — and then re-enter with a bare \`run --run-dir ${dir}\`, which reads the recorded answer.`);
     }
-    const owed = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting)
-      || fail(`the outstanding wait ${JSON.stringify(rec.awaiting)} declared no gate, so there is nothing to capture. An answer with no declaration is the shape §7 calls a silent refresh.`);
-    // OWED-AND-UNWRITTEN IS A STATE THIS PATH MUST NAME (PR #671 round 1). A
-    // gate state this runtime binds no option composer to records
-    // `declaration: null` by design — and reading that null as a path threw a
-    // raw TypeError instead of the refusal every neighbouring branch is careful
-    // to write. It is reachable on the very fixture the design cites as its
-    // proof (`evolved.json`'s CLOSING_CONFIRMATION), so the case is not
-    // hypothetical: the honest answer is that there is no declaration to answer
-    // against, not a stack trace.
-    if (!owed.declaration) {
-      fail(`${rec.awaiting} owes a gate declaration that was never written: ${owed.unwritten || "no option composer is bound to this state"}. There is nothing for a capture to be validated against, so the answer is refused rather than recorded against an absent declaration.`);
+  }
+  //
+  // THE READ IS UNCONDITIONAL AT AN OUTSTANDING DECLARED GATE, which is the
+  // structural half of the change. There is no argument to branch on any more,
+  // so a re-entry at such a wait either finds the harness's row and advances,
+  // or refuses — and "the session did not pass a capture" has stopped being a
+  // state the run can be in.
+  if (rec.awaiting) {
+    const owed = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting);
+    if (owed && owed.declaration) {
+      // RECORDED REPO-RELATIVE, READ REPO-RELATIVE — and it took two goes to
+      // get both halves pointing the same way (PR #671 rounds 1 and 2).
+      //
+      // The declaration is stored as `relFromRepo(resolve(declPath))`, which
+      // strips the repository root and returns an OUT-OF-REPO path unchanged.
+      // The first cut read it back through `join(REPO, …)`, which turned an
+      // absolute /tmp path into `<repo>/tmp/...` — every capture in a
+      // machine-local run workspace died in `readFileSync` before any refusal
+      // could speak. Round 1 replaced that with a bare `readJson(…)`, which
+      // fixed /tmp and broke the mirror case: Node resolves a relative path
+      // against `process.cwd()`, so an IN-REPO `--run-dir` driven from a
+      // subdirectory records `terrain/run/…` and reads it from wherever the
+      // process happens to stand. The same crash, arriving from the other side.
+      //
+      // `resolve(REPO, …)` satisfies both, because it returns an
+      // already-absolute path untouched and re-roots a repo-relative one
+      // against the root `relFromRepo` stripped — so the read is the exact
+      // inverse of the write rather than a second convention that agrees with
+      // it by luck.
+      const decl = readJson(resolve(REPO, owed.declaration));
+      const captured = readCapturedAnswer(dir, decl);
+      const capOption = captured.option;
+      const capFree = captured.freeText;
+      const capPath = captured.path;
+      const row = captured.row;
+      // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
+      // (PR #898 round 1). A gate may legitimately offer an answer with no
+      // downstream — `terrain-tag-selection`'s standing option stands for a
+      // method that does not exist yet — and the answer is still evidence, so the
+      // capture is written first and the refusal comes after it. What must NOT
+      // happen is the advance: the option id would land where the wait's value
+      // goes, and a later state would refuse it as if it were a malformed value
+      // of that kind rather than a deliberate answer to this question.
+      //
+      // DATA, NOT DRIVER CODE, like every other field the executor reads here: the
+      // routing is declared per gate in `src/gate-registry.json` and rides into
+      // the run declaration, so a second gate with an unrouted option needs no
+      // change to this file and no state is named below.
+      //
+      // THE WAIT STAYS OUTSTANDING, which is what makes the refusal recoverable:
+      // `rec.awaiting` is untouched, nothing is pushed onto `completed`, and since
+      // kogaki#808 a refusal persists the record — so the capture row is on disk,
+      // the declaration is still owed, and re-entering re-offers the same gate.
+      const unrouted = (decl.unrouted_options || {})[capOption];
+      if (unrouted) {
+        fail(`${JSON.stringify(capOption)} is an option gate ${owed.gate_id} declares as ROUTED NOWHERE, so the run does not advance past ${rec.awaiting}. `
+          + `The answer was recorded (${capPath}) and the wait is still outstanding — re-render the declaration and capture a different answer. `
+          + `The declaration's own reason: ${unrouted}`);
+      }
+      // The answer IS the owner input for this wait. Adoption, ratification and
+      // strand selection are all this one act (§15.6.1: adoption is applying the
+      // captured answer), which is why no second command remains to apply it.
+      rec.owner_input[rec.awaiting] = capOption !== null ? capOption : capFree;
+      rec.completed.push(rec.awaiting);
+      rec.awaiting = null;
+      // THE POINTER IS RETIRED AT THE ADVANCE, not only by the hook. The hook
+      // removes it after writing, and this is the second remover rather than a
+      // duplicate one: a pointer left behind by a hook that wrote its row and
+      // then failed to unlink makes the NEXT question with the same text read
+      // as ambiguous, and the hook's own stderr note says exactly that. The
+      // advance is the moment the gate stops being outstanding, so it is the
+      // moment the forwarding address stops being true.
+      try { rmSync(join(openGateDir(), `${decl.gate_instance_id}.json`), { force: true }); } catch { /* a stale pointer costs a re-render, never an answer */ }
+      console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — written by the harness at the question, never argued.`);
     }
-    const toolUseId = String(args["tool-use-id"] || fail("a capture needs --tool-use-id (the AskUserQuestion tool use — evidence, not a claim)"));
-    // RECORDED REPO-RELATIVE, READ REPO-RELATIVE — and it took two goes to get
-    // both halves pointing the same way (PR #671 rounds 1 and 2).
-    //
-    // The declaration is stored as `relFromRepo(resolve(declPath))`, which
-    // strips the repository root and returns an OUT-OF-REPO path unchanged. The
-    // first cut read it back through `join(REPO, …)`, which turned an absolute
-    // /tmp path into `<repo>/tmp/...` — every capture in a machine-local run
-    // workspace died in `readFileSync` before any refusal could speak. Round 1
-    // replaced that with a bare `readJson(owed.declaration)`, which fixed /tmp
-    // and broke the mirror case: Node resolves a relative path against
-    // `process.cwd()`, so an IN-REPO `--run-dir` driven from a subdirectory
-    // records `terrain/run/…` and reads it from wherever the process happens to
-    // stand. The same crash, arriving from the other side.
-    //
-    // `resolve(REPO, …)` is the form that satisfies both, because it returns an
-    // already-absolute path untouched and re-roots a repo-relative one against
-    // the root `relFromRepo` stripped — so the read is the exact inverse of the
-    // write rather than a second convention that agrees with it by luck.
-    const decl = readJson(resolve(REPO, owed.declaration));
-    const { path: capPath, row } = writeCapture(dir, decl, { toolUseId, option: capOption, freeText: capFree });
-    // AN OPTION THE DECLARATION ROUTES NOWHERE IS CAPTURED AND THEN REFUSED
-    // (PR #898 round 1). A gate may legitimately offer an answer with no
-    // downstream — `terrain-tag-selection`'s standing option stands for a
-    // method that does not exist yet — and the answer is still evidence, so the
-    // capture is written first and the refusal comes after it. What must NOT
-    // happen is the advance: the option id would land where the wait's value
-    // goes, and a later state would refuse it as if it were a malformed value
-    // of that kind rather than a deliberate answer to this question.
-    //
-    // DATA, NOT DRIVER CODE, like every other field the executor reads here: the
-    // routing is declared per gate in `src/gate-registry.json` and rides into
-    // the run declaration, so a second gate with an unrouted option needs no
-    // change to this file and no state is named below.
-    //
-    // THE WAIT STAYS OUTSTANDING, which is what makes the refusal recoverable:
-    // `rec.awaiting` is untouched, nothing is pushed onto `completed`, and since
-    // kogaki#808 a refusal persists the record — so the capture row is on disk,
-    // the declaration is still owed, and re-entering re-offers the same gate.
-    const unrouted = (decl.unrouted_options || {})[capOption];
-    if (unrouted) {
-      fail(`${JSON.stringify(capOption)} is an option gate ${owed.gate_id} declares as ROUTED NOWHERE, so the run does not advance past ${rec.awaiting}. `
-        + `The answer was recorded (${capPath}) and the wait is still outstanding — re-render the declaration and capture a different answer. `
-        + `The declaration's own reason: ${unrouted}`);
-    }
-    // The answer IS the owner input for this wait. Adoption, ratification and
-    // strand selection are all this one act (§15.6.1: adoption is applying the
-    // captured answer), which is why no second command remains to apply it.
-    rec.owner_input[rec.awaiting] = capOption !== null ? capOption : capFree;
-    rec.completed.push(rec.awaiting);
-    rec.awaiting = null;
-    console.log(`Captured ${row.stop_id} (gate ${owed.gate_id}) → ${capPath} — machine-local run state, never committed.`);
   }
 
   // ---- The advance. Order, kind, conditionality and stopping all come from
@@ -5877,7 +6078,7 @@ function cmdRun(args) {
       // question, or not at all, it is the defect this issue was filed about.
       console.log(`Where that declaration carries a rendering key (\`tag_listing\`), put those bytes on screen VERBATIM and BEFORE the question — they are the runtime's own output and are not retyped, summarized or reformatted.`);
       console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. The executor renders no question UI and asks nothing (§6.3).`);
-      console.log(`Then re-enter with the answer AND its evidence — run --run-dir ${dir} --capture-option <id> --tool-use-id <id>   (or --capture-free-text '<answer>')`);
+      console.log(`Then re-enter with a bare  run --run-dir ${dir}  — the answer is read from the harness's own capture, written by .claude/hooks/write-gate-capture.py when the owner answers. No flag carries it (kogaki#890).`);
       console.log(`A bare --input is refused at a gate wait: it would skip the declaration's own option check and the tool_use_id that evidences the rendering.`);
     } else {
       console.log(`This wait declares a gate and its declaration is OWED AND UNWRITTEN: ${(owedHere && owedHere.unwritten) || "no option composer is bound to this state"}.`);
@@ -5967,7 +6168,7 @@ switch (cmd) {
       + "tag listing is no longer a command the owner types: the executor carries it in the "
       + "TAG_SELECTION gate declaration's `tag_listing` key, byte-for-byte, and the session "
       + "renders it above the question. Drive it through the executor: `run --run-dir <D>`, "
-      + "render the declaration it writes, then `run --run-dir <D> --capture-free-text '<tag>'`.");
+      + "render the declaration it writes, answer it through AskUserQuestion, then re-enter with a bare `run --run-dir <D>`.");
     break;
   // RETIRED WITH NO SUCCESSOR (owner rulings 2026-09-04, kogaki#856). Unlike
   // `tags` these name no replacement, because there is none — the refusal says
@@ -6021,7 +6222,7 @@ switch (cmd) {
       + "`CLAIM_REOFFER` state's, and adoption is that wait's captured answer. Drive them "
       + "through the executor: `run --run-dir <D> --claims <f>`, then, on a proper-subset "
       + "claim, `run --run-dir <D> --enter CLAIM_REOFFER --group <G> --text <line> "
-      + "--members a,b`, then `run --run-dir <D> --capture-option <id> --tool-use-id <id>`.");
+      + "--members a,b`, answer the gate through AskUserQuestion, then re-enter with a bare `run --run-dir <D>`.");
     break;
   case "subdivide":
     fail("subdivide is removed as an entry point (SPEC-terrain §15.6.2/§15.7, kogaki#625). "
@@ -6040,7 +6241,7 @@ switch (cmd) {
       + "declaration through AskUserQuestion stays the session's. Drive it through the "
       + "executor: `run --run-dir <D> --enter TRIM_RATIFICATION --act trim --where <w> "
       + "--why <p> --label <l> --ids a,b`, render the declaration it writes, then "
-      + "`run --run-dir <D> --capture-option <id> --tool-use-id <id>`.");
+      + "answering the gate through AskUserQuestion, then a bare `run --run-dir <D>`.");
     break;
   case "self-test": {
     // The composed-form fixture pass (kogaki#612): pure, seam-free — every
@@ -6461,6 +6662,57 @@ switch (cmd) {
           outBad.trim().split("\n")[0].slice(0, 140));
 
 
+        // THE ANSWER NOW ARRIVES THROUGH THE HOOK, AND THESE CASES DRIVE IT
+        // (kogaki#890). Every case below used to pass `--capture-option` /
+        // `--capture-free-text` / `--tool-use-id`, which is precisely the
+        // channel the issue removed — so re-pointing them at the harness path
+        // is what keeps them evidence rather than a test of a dead flag. The
+        // helper feeds `.claude/hooks/write-gate-capture.py` the payload shape
+        // the harness sends, so the row under test is written by the same code
+        // that writes it in a real run.
+        //
+        // EACH RUN GETS ITS OWN POINTER DIRECTORY, and that is a property of
+        // the FIXTURE rather than of the design. In a real installation one
+        // directory holds every outstanding raising on the machine, which is
+        // exactly what makes the ambiguity case below possible; here the cases
+        // must not collide with each other, because several of them
+        // deliberately leave a gate unanswered and every one of them asks the
+        // same question over the same survey. The last case opts back IN to a
+        // shared directory, on purpose.
+        const hookPath = join(REPO, ".claude", "hooks", "write-gate-capture.py");
+        const gatesFor = (name) => join(gs, "open-gates", name);
+        const envFor = (name) => ({ ...process.env, KOGAKI_OPEN_GATES: gatesFor(name) });
+        const answerThroughHook = (gatesName, questionText, label, toolUseId) => spawnSync(
+          "python3", [hookPath],
+          { encoding: "utf8", env: envFor(gatesName),
+            input: JSON.stringify({
+              tool_name: "AskUserQuestion",
+              tool_use_id: toolUseId,
+              tool_input: { questions: [{ question: questionText, options: [] }] },
+              tool_response: { answers: { [questionText]: label } },
+            }) });
+
+        // THE FLAGS ARE REFUSED BY NAME, not merely ignored. An ignored flag
+        // is a session quietly getting a different act than it asked for; the
+        // whole point of removing this channel is that reaching for it stops.
+        const rdDead = join(gs, "rd-dead-flag");
+        mkdirSync(rdDead, { recursive: true });
+        writeFileSync(join(rdDead, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdDead, "--workflow", tp], { encoding: "utf8", env: envFor("dead") });
+        for (const dead of [["--capture-option", "other-method"], ["--capture-free-text", "x"], ["--tool-use-id", "t"]]) {
+          const rDead = spawnSync(process.execPath,
+            [selfPath, "run", "--run-dir", rdDead, "--workflow", tp, ...dead], { encoding: "utf8", env: envFor("dead") });
+          const outDead = `${rDead.stdout || ""}${rDead.stderr || ""}`;
+          ok(`${dead[0]} is REMOVED and refused by name — the model no longer has a channel for the owner's answer`,
+            rDead.status !== 0 && outDead.includes(`${dead[0]} is REMOVED`),
+            outDead.trim().split("\n")[0].slice(0, 140));
+        }
+
         // THE STANDING OPTION IS ROUTED NOWHERE, AND SAYS SO (PR #898 round 1).
         // Before this the option id was recorded where a tag name goes and the
         // run died two states later in `compose_input`, telling the owner that
@@ -6476,10 +6728,25 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { encoding: "utf8" });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { encoding: "utf8", env: envFor("opt") });
+        const declOpt = readJson(join(rdOpt, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        const standingLabel = declOpt.options.find((o) => o.id === "other-method").label;
+        // THE GATE IS UNANSWERED UNTIL THE HARNESS SAYS OTHERWISE, and this is
+        // the case the whole issue turns on: a re-entry with no recorded answer
+        // refuses instead of advancing on something a session supplied.
+        const rUnanswered = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { encoding: "utf8", env: envFor("opt") });
+        const outUnanswered = `${rUnanswered.stdout || ""}${rUnanswered.stderr || ""}`;
+        ok("an outstanding declared gate with NO harness-recorded answer refuses, and names the hook and the pointer rather than advancing",
+          rUnanswered.status !== 0
+            && /the harness has recorded no answer/.test(outUnanswered)
+            && /write-gate-capture\.py/.test(outUnanswered)
+            && /open-gate pointer/.test(outUnanswered),
+          outUnanswered.trim().split("\n")[0].slice(0, 160));
+
+        answerThroughHook("opt", declOpt.question, standingLabel, "toolu_test_unrouted");
         const rOpt = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp, "--capture-option", "other-method", "--tool-use-id", "t1"],
-          { encoding: "utf8" });
+          [selfPath, "run", "--run-dir", rdOpt, "--workflow", tp], { encoding: "utf8", env: envFor("opt") });
         const outOpt = `${rOpt.stdout || ""}${rOpt.stderr || ""}`;
         const recOpt = readRunRecord(rdOpt);
         ok("capturing the standing option REFUSES the advance and names the option, rather than letting it land where a tag name goes",
@@ -6493,6 +6760,9 @@ switch (cmd) {
         ok("the answer is still CAPTURED — it is evidence, and the gate carrier owes the row whether or not the run advances",
           existsSync(join(rdOpt, "terrain.gate-capture.json"))
             && readJson(join(rdOpt, "terrain.gate-capture.json")).rows.some((x) => x.payload.answer.option === "other-method"));
+        ok("the captured row carries the HARNESS'S OWN tool_use_id and the raising's instance id — the two fields no session supplied",
+          readJson(join(rdOpt, "terrain.gate-capture.json")).rows.some((x) =>
+            x.evidence.tool_use_id === "toolu_test_unrouted" && x.gate_instance_id === declOpt.gate_instance_id));
 
         // A FREE-TEXT TAG IS UNAFFECTED, so the refusal above discriminates
         // rather than refusing every answer to this gate.
@@ -6504,15 +6774,165 @@ switch (cmd) {
           awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
           gate_declarations_owed: [], done: false,
         }));
-        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { encoding: "utf8" });
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { encoding: "utf8", env: envFor("free") });
+        const declFree = readJson(join(rdFree, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        answerThroughHook("free", declFree.question, "testing", "toolu_test_freetext");
         const rFree = spawnSync(process.execPath,
-          [selfPath, "run", "--run-dir", rdFree, "--workflow", tp, "--capture-free-text", "testing", "--tool-use-id", "t2"],
-          { encoding: "utf8" });
+          [selfPath, "run", "--run-dir", rdFree, "--workflow", tp], { encoding: "utf8", env: envFor("free") });
         const recFree = readRunRecord(rdFree);
         ok("a free-text tag answer still advances — the unrouted refusal is bound to the declared option and not to the gate",
           rFree.status === 0 && !!recFree && recFree.owner_input.TAG_SELECTION === "testing"
             && recFree.completed.includes("TAG_SELECTION"),
           recFree ? JSON.stringify(recFree.owner_input) : `(no record) ${(rFree.stderr || "").slice(0, 120)}`);
+
+        // AN ANSWER TO ANOTHER RAISING DOES NOT ANSWER THIS ONE, which is the
+        // property the instance nonce exists for and the one a content-derived
+        // key cannot have. Both runs are over the same survey, so both compose
+        // the same question and the same option set and therefore the same
+        // digest — the pair a digest is least able to tell apart.
+        const rdTwin = join(gs, "rd-twin");
+        mkdirSync(rdTwin, { recursive: true });
+        writeFileSync(join(rdTwin, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin, "--workflow", tp], { encoding: "utf8", env: envFor("shared") });
+        const declTwin = readJson(join(rdTwin, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        ok("two raisings of one gate over one input compose an IDENTICAL option-set digest and DIFFERENT instance ids — so the nonce is doing work the digest cannot",
+          ownerGateDigest(declTwin.id, declTwin.options.map((o) => o.id))
+            === ownerGateDigest(declFree.id, declFree.options.map((o) => o.id))
+            && declTwin.gate_instance_id !== declFree.gate_instance_id);
+        // The twin's capture is handed the OTHER run's answered row verbatim.
+        writeFileSync(join(rdTwin, "terrain.gate-capture.json"),
+          readFileSync(join(rdFree, "terrain.gate-capture.json"), "utf8"));
+        const rTwin = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdTwin, "--workflow", tp], { encoding: "utf8", env: envFor("shared") });
+        const outTwin = `${rTwin.stdout || ""}${rTwin.stderr || ""}`;
+        ok("a row answering a DIFFERENT raising does not advance this one — the join is on the instance id, never on the content two runs share",
+          rTwin.status !== 0 && /none carries this raising's instance id/.test(outTwin),
+          outTwin.trim().split("\n")[0].slice(0, 160));
+
+        // TWO OUTSTANDING RAISINGS OF ONE QUESTION: the hook writes NOTHING
+        // and says so, rather than choosing. Choosing would be the silent
+        // misattribution the nonce exists to prevent, arriving one step earlier
+        // through the narrowing that finds the pointer.
+        const rdTwin2 = join(gs, "rd-twin-2");
+        mkdirSync(rdTwin2, { recursive: true });
+        writeFileSync(join(rdTwin2, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTwin2, "--workflow", tp], { encoding: "utf8", env: envFor("shared") });
+        const rTwoOpen = answerThroughHook("shared", declTwin.question, "testing", "toolu_test_ambiguous");
+        ok("with two outstanding gates carrying one question the hook writes no row and names the ambiguity, rather than picking one",
+          /does not choose between them/.test(`${rTwoOpen.stdout || ""}${rTwoOpen.stderr || ""}`),
+          `${rTwoOpen.stderr || ""}`.trim().split("\n")[0].slice(0, 160));
+
+        // A TRUNCATED LABEL IS REFUSED, NOT READ AS THE OWNER'S OWN WORDS
+        // (PR #917 round 1, finding 4). The standing option's label is a full
+        // sentence, so a label that arrives cut short would have fallen through
+        // an exact comparison and been recorded as free text — landing a
+        // declared option's text where a tag name goes and skipping the
+        // unrouted refusal entirely, which is the wedge PR #898 closed
+        // returning by another route.
+        const rdTrunc = join(gs, "rd-truncated");
+        mkdirSync(rdTrunc, { recursive: true });
+        writeFileSync(join(rdTrunc, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { encoding: "utf8", env: envFor("trunc") });
+        const declTrunc = readJson(join(rdTrunc, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        const fullLabel = declTrunc.options.find((o) => o.id === "other-method").label;
+        answerThroughHook("trunc", declTrunc.question, fullLabel.slice(0, 24), "toolu_test_truncated");
+        const rTrunc = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdTrunc, "--workflow", tp], { encoding: "utf8", env: envFor("trunc") });
+        const outTrunc = `${rTrunc.stdout || ""}${rTrunc.stderr || ""}`;
+        const recTrunc = readRunRecord(rdTrunc);
+        ok("a TRUNCATED option label is refused rather than recorded as free text — a near-miss is not silently read as the owner's own words",
+          rTrunc.status !== 0 && /could not be resolved to an option or to free text/.test(outTrunc)
+            && recTrunc.owner_input.TAG_SELECTION === undefined,
+          outTrunc.trim().split("\n")[0].slice(0, 170));
+        // A RE-WRAPPED label is still the same answer, so the refusal above
+        // discriminates rather than refusing every label that is not byte-equal.
+        const rdWrap = join(gs, "rd-rewrapped");
+        mkdirSync(rdWrap, { recursive: true });
+        writeFileSync(join(rdWrap, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { encoding: "utf8", env: envFor("wrap") });
+        const declWrap = readJson(join(rdWrap, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        const wrapped = declWrap.options.find((o) => o.id === "other-method").label.replace(/ /g, "\n  ");
+        answerThroughHook("wrap", declWrap.question, wrapped, "toolu_test_rewrapped");
+        const rWrap = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdWrap, "--workflow", tp], { encoding: "utf8", env: envFor("wrap") });
+        ok("a RE-WRAPPED label still resolves to its option — whitespace is presentation, and the near-miss refusal is not a refusal of every inexact label",
+          rWrap.status !== 0 && /ROUTED NOWHERE/.test(`${rWrap.stdout || ""}${rWrap.stderr || ""}`),
+          `${rWrap.stdout || ""}${rWrap.stderr || ""}`.trim().split("\n").slice(-1)[0].slice(0, 150));
+
+        // AN ORPHANED POINTER IS REAPED, so one abandoned run cannot wedge a
+        // whole gate class on the machine (PR #917 round 1, finding 3). The
+        // question is a constant string, so every later raising would otherwise
+        // match the orphan and the ambiguity arm would write nothing forever.
+        const rdOrphan = join(gs, "rd-orphan");
+        mkdirSync(rdOrphan, { recursive: true });
+        writeFileSync(join(rdOrphan, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdOrphan, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+        rmSync(rdOrphan, { recursive: true, force: true });   // the abandoned run
+        const rdAfter = join(gs, "rd-after-orphan");
+        mkdirSync(rdAfter, { recursive: true });
+        writeFileSync(join(rdAfter, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+        const declAfter = readJson(join(rdAfter, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`));
+        const rAfterHook = answerThroughHook("orphan", declAfter.question, "a-tag", "toolu_test_after_orphan");
+        const rAfter = spawnSync(process.execPath,
+          [selfPath, "run", "--run-dir", rdAfter, "--workflow", tp], { encoding: "utf8", env: envFor("orphan") });
+        const recAfter = readRunRecord(rdAfter);
+        ok("a pointer whose run was deleted is REAPED, so the next raising of that gate is not wedged by the orphan",
+          /is reaped: its declaration/.test(`${rAfterHook.stdout || ""}${rAfterHook.stderr || ""}`)
+            && rAfter.status === 0 && recAfter.owner_input.TAG_SELECTION === "a-tag",
+          `${rAfterHook.stderr || ""}`.trim().split("\n")[0].slice(0, 150));
+
+        // A RE-RAISING SUPERSEDES ITS OWN POINTER, so the recovery this file
+        // prescribes — re-render after a refusal — does not itself accumulate
+        // the orphans that wedge the gate.
+        const rdRe = join(gs, "rd-reraise");
+        mkdirSync(rdRe, { recursive: true });
+        writeFileSync(join(rdRe, RUN_RECORD_FILE), JSON.stringify({
+          workflow: { path: tp, version: 1 }, survey_record: surveyPath,
+          completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
+          awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
+          gate_declarations_owed: [], done: false,
+        }));
+        for (let i = 0; i < 3; i++) {
+          rmSync(join(rdRe, `terrain-tag-selection${GATE_SCHEMA.capture.run_declaration_suffix}`), { force: true });
+          const rec = readRunRecord(rdRe);
+          rec.gate_declarations_owed = [];
+          writeFileSync(join(rdRe, RUN_RECORD_FILE), JSON.stringify(rec));
+          spawnSync(process.execPath, [selfPath, "run", "--run-dir", rdRe, "--workflow", tp], { encoding: "utf8", env: envFor("reraise") });
+        }
+        ok("three raisings of one gate in one run leave exactly ONE pointer — the prescribed recovery does not accumulate the orphans it would then be blocked by",
+          readdirSync(gatesFor("reraise")).filter((f) => f.endsWith(".json")).length === 1,
+          `${readdirSync(gatesFor("reraise")).length} pointer(s)`);
 
         rmSync(gs, { recursive: true, force: true });
       }
@@ -6639,7 +7059,7 @@ switch (cmd) {
                                             owner ruling on 2026-09-04. All three still answer, with
                                             a refusal naming which of the two happened.
   run [--run-dir D] [--workflow F] [--input S] [--at STATE] [--enter STATE]
-      [--capture-option ID | --capture-free-text S] [--tool-use-id ID]
+      (a declared gate's answer takes NO flag — it is read from the harness's capture)
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F]
       [--judge-model M] [--judge-effort E]
                                             THE §15 CONTROL PLANE. One entry point, entered once
@@ -6716,7 +7136,7 @@ switch (cmd) {
 
  At a wait that declares a gate, the executor WRITES the run declaration and names its path.
  Render it through AskUserQuestion — options verbatim, nothing pre-selected, free text always on
- — then re-enter with --capture-option <id> --tool-use-id <id> (or --capture-free-text).
+ — then answer it through AskUserQuestion and re-enter with a bare --run-dir <D>.
  A bare --input is REFUSED there: it would skip the declaration's own option check and the
  tool_use_id that evidences the rendering.`);
     process.exit(cmd ? 1 : 0);

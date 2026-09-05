@@ -38,6 +38,7 @@
       ],
       "free_text_offered": true,
       "fork": false,
+      "requires_gate_instance_id": true,
       "dynamic_options": "NONE, and that is this gate's shape rather than an omission (owner rulings 2026-09-04 on kogaki#856): exactly two ways to answer exist \u2014 the standing option above, or free-form entry of a tag name \u2014 so the run composes no option of its own and the composer returns an empty list. The one thing the run DOES carry is not an option: the declaration's `tag_listing` key holds the runtime's own pre-selection listing over this run's survey record, byte-for-byte, so the session renders the table above the question rather than composing or retyping it. The standing option is the PREMISE NEGATION the gate owes: the option set is generated on the premise that co-tag grouping is the method, and a gate whose options all share a machine-computed premise makes it unfalsifiable at the one moment a human is present to falsify it \u2014 a free-text escape is not sufficient, because it is the option a hurried operator skips. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198",
       "unrouted_options": {
         "other-method": "No method other than co-tags exists yet, so this option is routed NOWHERE (owner ruling 1, 2026-09-04). The executor records the capture \u2014 the answer is evidence and the gate carrier owes the row \u2014 and then REFUSES the advance, naming the option, leaving the wait outstanding so the gate can be re-rendered. Routed nowhere is not the same as accepted: without this the option id lands where a tag name goes and the run dies two states later in `compose_input`, telling the owner that \"other-method\" is not in the survey's vocabulary \u2014 a refusal that misdescribes what they did. One of exactly two ways to answer deserves a refusal that names it (PR #898 round 1)."
@@ -57,6 +58,7 @@
       ],
       "free_text_offered": true,
       "fork": false,
+      "requires_gate_instance_id": true,
       "dynamic_options": "Strand options are composed per run from the owner's current view (ids strand:<slug>, at most 3 beside the standing option \u2014 the selector affordance holds 4); the run's full declaration is written beside its capture in the machine-local run workspace, which never enters the tree (specs/SPEC.md \u00a74 rider 3). Consulted 2026-08-05 (product-lab@16a6dbf6, two framings): no served position discriminates declaring a run-computed option set in a static registry \u2014 recorded as a miss, not resolved silently. The class is declared here, the content with the run; a capture is judged against the run declaration where one sits beside it and against THIS entry where none does, and disagreement with whichever applies FAILS the options-equality check by design rather than being exempted (specs/spec-gate-carrier/SPEC.md \u00a74.1). Until kogaki#818 this sentence read 'a capture that somehow reaches the tree' and meant the COMMITTED tree, while the check read the WORKING DIRECTORY \u2014 so every conforming run reddened the local suite."
     },
     {
@@ -73,6 +75,7 @@
       ],
       "free_text_offered": true,
       "fork": false,
+      "requires_gate_instance_id": true,
       "dynamic_options": "The apply-option comes per run from the *.proposal.json record being presented (item 3's contract carries Where/Why/effect-stating label and the premise negation \u2014 the standing decline option here IS that negation, standing because the premise's negation is never optional). Same run-workspace siting, the same comparison target (specs/spec-gate-carrier/SPEC.md \u00a74.1), and the same recorded consult miss as terrain-strand-selection. fork:false deliberately: Terrain attaches no recommendation to a trim \u2014 a ranked recommendation at this gate would be the machine narrowing twice, and the comparison obligation belongs to gates that genuinely fork."
     },
     {
@@ -89,7 +92,29 @@
       ],
       "free_text_offered": true,
       "fork": false,
+      "requires_gate_instance_id": true,
       "dynamic_options": "The recomposed-claim option comes per run from the *.terrain-claim.json record being presented, whose `claim` was composed over the SUBSET the owner selected. The standing keep-original option is standing because \u00a77 makes it explicitly available: a recomposed claim is a PROPOSAL, and the owner keeping the original wording over a changed member set is a legible mismatch rather than a forbidden one \u2014 the record carries the members, so the disagreement is readable rather than hidden. This gate exists because a change to the set a derived expression was derived from is a GATE EVENT rather than a refresh (topics/articles.md:73@f918c515); keeping the claim silently would assert commonality over absent members \u2014 a provenance lie \u2014 while discarding it would throw away the only thing in the interaction the machine did not supply. fork:false deliberately, for the same reason as terrain-trim-ratification: Terrain attaches no recommendation to which wording is truer over the subset, and a recommendation here would be the machine making the owner's judgment for them. Same run-workspace siting as the other two gates."
+    },
+    {
+      "id": "terrain-id-selection",
+      "raised_by": "src/terrain.mjs \u2014 the executor composes this declaration at its `ID_SELECTION` wait and the session renders it through AskUserQuestion (specs/spec-terrain/SPEC.md \u00a76.3; kogaki#890)",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "Which composed groups does the survey enter?",
+      "options": [
+        {
+          "id": "enter-no-groups",
+          "label": "Enter no groups \u2014 the composed grouping is not what this survey should narrow to; nothing is entered and the grouping stands",
+          "negates_premise": true
+        }
+      ],
+      "free_text_offered": true,
+      "fork": false,
+      "requires_gate_instance_id": true,
+      "dynamic_options": "NONE, and that is this gate's shape rather than an omission. The owner supplies a G/SG id LIST, and a list is not an option: a composed run routinely carries more groups than the selector affordance's four, and any per-group option set would either truncate the view or refuse the run outright. So exactly two ways to answer exist \u2014 the standing negation, or free-form entry of the id list \u2014 which is the shape `terrain-tag-selection` already has in this same registry and for the same reason. What the run DOES carry is not an option: the declaration's `groups_artifact` key names the artifact `cotag_groups` wrote for THIS run, so the session renders the runtime's own composed grouping rather than retyping or summarising it (the terrain skill's Delivery rule licenses naming the artifact the runtime wrote). REGISTERED AT kogaki#890, AND THE GAP IS THE FINDING RATHER THAN AN OVERSIGHT: `ID_SELECTION` was this workflow's ONE wait that declared no gate, so its owner input arrived as a bare `--input` the model composed \u2014 the channel the 2026-09-04 ruling refuses, surviving in the one state a gate-coverage number computed over the declared gates could not see. The standing negation is the PREMISE NEGATION the gate owes: the wait is reached on the premise that the composed grouping is what the survey should enter, and a gate whose every answer shares a machine-computed premise makes it unfalsifiable at the one moment a human is present to falsify it \u2014 a free-text escape is not sufficient, because it is the option a hurried operator skips. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:198 fork:false deliberately, and for the same reason as the other terrain gates: the runtime attaches no recommendation to which groups are worth entering, and a ranked recommendation here would be the machine narrowing the survey twice \u2014 once by composing the grouping and again by scoring it.",
+      "unrouted_options": {
+        "enter-no-groups": "Routed to a REFUSAL, not to a state. The executor records the capture \u2014 the answer is evidence and the gate carrier owes the row \u2014 and then refuses the advance, naming the option and leaving the wait outstanding so the gate can be re-rendered once the grouping changes. Routed nowhere is not the same as accepted: without this the option id would land where a G/SG id list goes and the run would die two states later in `full_report`, telling the owner that \"enter-no-groups\" is not a known id \u2014 a refusal that misdescribes what they did."
+      }
     },
     {
       "id": "brief-thesis-adoption",
