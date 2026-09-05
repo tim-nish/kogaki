@@ -885,13 +885,21 @@ function verbatimWindow(line, haystacks, n) {
 }
 
 // The earliest draft line on which `term` occurs as a word sequence, over the
-// WHOLE Draft body rather than over one Step: `term-before-introduction` asks
-// where the reader first meets a word, and the reader reads the article.
+// whole BODY rather than over one Step: `term-before-introduction` asks where
+// the reader first meets a word, and the reader reads the article.
+//
+// THE FRONTMATTER IS SKIPPED, AND THAT IS CORRECTNESS RATHER THAN TIDINESS. The
+// record half carries the trace, the Brief pin and every cite the Draft was
+// composed from, so a Step introducing a term the trace happens to contain —
+// `draft`, `packet`, `cite`, a Strand slug — would fail on a line NO READER EVER
+// SEES, and the finding would point at a JSON line as the place the reader met
+// the word. The search starts where `readDraft`'s own body starts, so the two
+// cannot disagree about where the article begins.
 function firstOccurrence(draft, term) {
   const t = wordsOf(term);
   if (!t.length) return null;
   const needle = " " + t.join(" ") + " ";
-  for (let i = 0; i < draft.lines.length; i++) {
+  for (let i = draft.frontmatterEnd + 2; i < draft.lines.length; i++) {
     if ((" " + wordsOf(draft.lines[i]).join(" ") + " ").includes(needle)) return i + 1;
   }
   return null;
@@ -2604,6 +2612,31 @@ async function runSelfTest() {
     ok("and every judged item DOES cost one",
       ITEMS.items.filter((i) => i.mode === "judged")
         .every((i) => rec.model_calls.some((c) => c.item === i.id)));
+  }
+
+  // A TERM THE FRONTMATTER HAPPENS TO CARRY IS NOT MET BY THE READER THERE. The
+  // record half holds the trace, the Brief pin and every cite, so a Step
+  // introducing a word the trace contains would otherwise fail on a line no
+  // reader ever sees, with the finding pointing at JSON as the place the reader
+  // first met the term.
+  {
+    const pd = join(root, "packets-fm"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) {
+      writePacket(pd, id);
+      if (id === "a3") {
+        const p = join(pd, "a3.md");
+        writeFileSync(p, readFileSync(p, "utf8").replace("- **introduce here.** (nothing new)",
+          "- **introduce here.** - packet"));
+      }
+    }
+    const d = buildDraft(join(root, "theses", "fm"), { packetDir: pd });
+    const fmText = readFileSync(d.path, "utf8").split("\n").slice(0, 8).join("\n");
+    ok("the fixture's own frontmatter carries the term, so the case can witness the defect",
+      /packet/.test(fmText));
+    const r = driveToCompletedJoin(d, join(root, "ws-fm"), "fm");
+    ok("the run completes", r.second.status === 0);
+    ok("and a term occurring only in the frontmatter does not fail the Step that introduces it",
+      /\sholds\s/.test(linesOf(r.second.stdout).get("a3/term-before-introduction")));
   }
 
   // A TERM CARRYING A DIGIT STILL YIELDS A DIGIT-FREE COMPARISON LINE. This is
