@@ -144,14 +144,18 @@ first Section did with the opening question. The pairs and their classes are
 `sections` in `src/review-items.json`.
 
 **A Section fail is routed, never corrected.** ReviewDraft corrects at Step
-granularity only, so a Section finding goes one of two ways: it **localizes** to
-a Step — one in the Section is already failing a preserved item, or its
-recovered reader state is the first to stop holding — and that Step becomes the
-correction target; or every Step in the Section holds and the Section still
-fails, in which case the **grouping** is what is wrong. The heading promises
-what the Steps it groups do not deliver, which is a **Brief** defect: it reaches
-the owner record as residue marked `upstream: brief`, and **no correction
-runs**.
+granularity only, so a Section finding goes one of three ways. It **localizes**
+to a Step — one in the Section already fails a preserved item, or its recovered
+reader state is the first to fail — and that Step becomes the correction target.
+Or every Step in the Section holds and the Section still fails, in which case
+the **grouping** is what is wrong: the heading promises what the Steps it groups
+do not deliver, which is a **Brief** defect, reaching the owner record as
+residue marked `upstream: brief` with **no correction run**. Or a Step carries a
+`cannot-decide`, which satisfies neither — no Step fails, and not every Step
+holds — and the Section routes **`undecided`**, naming the unsettled Steps. That
+is residue too, with no correction and no claim that the Brief is at fault:
+settle those pairs and re-run. `cannot-decide` is not rounded into either
+neighbour here, for the reason it is not rounded at a pair.
 
 ## The owner record
 
