@@ -1,5 +1,13 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v29, amended 2026-09-05 (kogaki#894) — **§4.11's "one revise round
+per Candidate" gains its carrier.** The bound was prose with its count outside
+the Harness — nothing counted an attach, so a Candidate re-reviewed three times
+reached assembly with no refusal and no disclosure. `src/review.mjs attach` now
+records each Candidate's attaches in the Brief's own run workspace, refuses a
+third by name, and writes the residue entry itself rather than accepting a
+model-declared one. **deferred slots minted by this amendment: none.**
+
 **Status:** v28, amended 2026-09-05 (kogaki#893) — **§4.12 gains a THIRD half,
 §4.12.3: a passing specialization record is no longer the sole unlock, and
 adoption additionally requires the owner's ratification of that record.** The
@@ -429,6 +437,41 @@ the composer inserts a Bridge Step or discloses the gap as a §5.2 ledger entry.
 The revised Candidate is **re-reviewed before assembly**. **The loop is bounded
 at one revise round per Candidate**; a gap surviving it is disclosed and rides
 to the gate, never re-looped.
+
+**THE HARNESS COUNTS THE ROUND, and until kogaki#894 nothing did.** The clause
+above was a bound in prose with its count outside the Harness: nothing in
+`src/review.mjs` or `src/assemble.mjs` counted an attach, `attachReview` took a
+reviewed set with no notion of which pass it was, and `bridges` on a Step is a
+model-declared array. The count lived in the composing sitting's memory, so a
+Candidate re-reviewed three times reached assembly with no refusal and no
+disclosure, and nothing in the run record showed it. **A bound the Harness
+cannot count is not a bound** — the review-lane shape of 2026-09-04 one step
+earlier, where the Harness at least owned the arithmetic over model-supplied
+evidence and here owned neither.
+
+The carrier is `src/review.mjs attach`, and three properties are what make the
+count honest rather than merely present:
+
+- **The ledger's home is Harness-resolved**, from the Brief's own slug —
+  `runs/brief/<slug>/review-attach-ledger.json`, through `runs.mjs`'s pure
+  resolver. A caller-chosen path would let a second attach land beside the
+  first with a fresh count, which is a bound the counted party can reset.
+- **A round is spent by attaching DIFFERENT reasoning**, keyed on a sha of the
+  attached entry. Re-running an attach with the same reasoning is the
+  recovery-by-re-running every command here promises, and charging it a round
+  would make recovery cost the bound. A refused attach spends nothing either:
+  the ledger is written only on success, so a malformed entry never consumes a
+  revise the Candidate has not had.
+- **The residue entry is written by the runtime, from the ledger.** A Candidate
+  at the bound rides to the gate carrying `revise_residue` — how many attaches,
+  the bound it was written against, and that anything the revise did not repair
+  is disclosed rather than re-looped. A Candidate arriving with its own is
+  **refused**: a model-declared residue is a model-supplied control input
+  wearing the Harness's field name, which is `bridges`'s own shape one field
+  over. **The Harness counts the round and never judges the repair** — a
+  residue entry says a round was spent, never that a gap survived it.
+
+The assertion is `checks/check-brief-review.sh` cases (e)–(g).
 
 **Routing a finding does not make an evaluation level a check.** Transition
 continuity is observed inside path review's `evaluation_levels` area

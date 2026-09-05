@@ -7,7 +7,7 @@
 // per Candidate, machine-side. This runtime carries the agent's output ONTO
 // the Candidates so it rides into the Candidate-selection gate (§4.6: the
 // three evaluation levels survive only as reasoning surfaced on Candidates)
-// — and it REFUSES two shapes of drift, both plumbing questions, neither a
+// — and it REFUSES three shapes of drift, all plumbing questions, none a
 // judgment:
 //
 //   * a Candidate with NO review entry — review runs per Candidate
@@ -17,13 +17,26 @@
 //     non-string value. §4.6 clause 3 keeps every MUST un-linted; an agent
 //     that emitted a boolean would be a lint wearing prose's clothing, so
 //     the verdict is UNATTACHABLE rather than merely discouraged.
+//   * a THIRD attach on one Candidate — §4.11 bounds the revise loop at ONE
+//     revise round per Candidate, and until kogaki#894 nothing counted the
+//     round. The count lived in the composing sitting's memory, which is to
+//     say nowhere a later act could read: a Candidate re-reviewed three times
+//     reached assembly with no refusal and no disclosure. A bound the Harness
+//     cannot count is not a bound, so the count is HERE, written by this file
+//     into the run workspace and read back by it.
 //
 // Nothing here reads the reasoning's content. Whether the grounds test was
 // applied well is the human gate's question, on the reasoning this file
-// attaches.
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+// attaches. THE ROUND COUNT IS THE ONE THING THIS FILE COUNTS, and it counts
+// it over the reasoning's IDENTITY (a sha of the attached entry), never over
+// its meaning -- so re-running an attach with the same reasoning is the
+// recovery this repository's commands all promise, while attaching DIFFERENT
+// reasoning is what spends a round.
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { resolve, dirname, basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runDestination, RunsRefusal } from "./runs.mjs";
 
 function fail(msg) {
   process.stderr.write(`review: ${msg}\n`);
@@ -46,16 +59,110 @@ export const REVIEW_AREAS = [
 const VERDICT_KEYS = new Set(["verdict", "pass", "fail", "passed", "failed",
   "score", "grade", "ok", "approved", "rating", "result", "status"]);
 
-// Pure; exported for the check. Returns { error } or { candidates } — the
-// input candidates with `review` attached to each.
-export function attachReview(candidates, review) {
+// ---------------------------------------------------------------------------
+// The revise-round ledger (SPEC-draft-pipeline §4.11; kogaki#894).
+//
+// §4.11: "The loop is bounded at one revise round per Candidate; a gap
+// surviving it is disclosed and rides to the gate, never re-looped." So a
+// Candidate may be attached TWICE — once for the first review, once for the
+// re-review after its one revise — and a third attach is refused.
+export const REVISE_BOUND = 1;
+export const MAX_ATTACHES = REVISE_BOUND + 1;
+
+// The ledger's home is HARNESS-RESOLVED, from the Brief's own identity, never
+// from a path a caller hands in. `--out` is a caller-chosen file and would let
+// a second attach land beside the first with a fresh count; the slug is what
+// the Brief IS, so `runs/brief/<slug>/` names the same workspace on every
+// invocation for the same Brief. `runDestination` is the pure resolver — this
+// creates nothing and prunes nothing, per `runs.mjs`'s own split.
+export const ATTACH_LEDGER = "review-attach-ledger.json";
+
+export function briefSlug(briefPath) {
+  const slug = basename(dirname(resolve(briefPath)));
+  if (!slug || slug === "." || slug === "theses") {
+    return { error: `${briefPath} does not sit at theses/<slug>/brief.md — the revise-round `
+      + `ledger is keyed on the Brief's slug, which is the workspace identity `
+      + `runs/brief/<slug>/ is named for (§4.11; kogaki#894)` };
+  }
+  return { slug };
+}
+
+export function attachLedgerPath(briefPath, root = undefined) {
+  const s = briefSlug(briefPath);
+  if (s.error) return s;
+  try {
+    const dest = root === undefined
+      ? runDestination("brief", s.slug)
+      : runDestination("brief", s.slug, root);
+    return { path: join(dest, ATTACH_LEDGER) };
+  } catch (e) {
+    if (e instanceof RunsRefusal) return { error: e.message };
+    throw e;
+  }
+}
+
+// THE KEY IS THE REASONING'S IDENTITY, NOT THE CALL. A round is spent by
+// attaching DIFFERENT reasoning for a Candidate; re-attaching the same entry
+// is the idempotent re-run every command in this repository promises as its
+// recovery, and charging it a round would make recovery cost the bound.
+export function reviewEntrySha(entry) {
+  const canonical = JSON.stringify(Object.keys(entry).sort().map((k) => [k, entry[k]]));
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+export function readAttachLedger(path) {
+  if (!existsSync(path)) return { attaches: {} };
+  let raw;
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8"));
+  } catch (e) {
+    // A LEDGER THAT CANNOT BE READ IS NOT AN EMPTY ONE. Treating a corrupt
+    // file as "no rounds spent" is the fallback shape that turns a bound into
+    // a suggestion — the failure mode kogaki#872 names one lane over.
+    return { error: `${path} is not readable as the revise-round ledger (${e.message}) — a `
+      + `ledger that cannot be read is NOT an empty one, and a bound whose count degrades to `
+      + `zero on a bad read is not a bound (§4.11; kogaki#894). Inspect or remove it deliberately.` };
+  }
+  if (!raw || typeof raw !== "object" || typeof raw.attaches !== "object" || raw.attaches === null) {
+    return { error: `${path} does not carry an \`attaches\` object — the revise-round ledger's shape` };
+  }
+  return { attaches: raw.attaches, brief: raw.brief };
+}
+
+export function writeAttachLedger(path, ledger) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(ledger, null, 2) + "\n");
+}
+
+// Pure; exported for the check. Returns { error } or { candidates, attaches }
+// — the input candidates with `review` attached to each, plus the ledger state
+// this attach produces. IT WRITES NOTHING: the caller persists `attaches`, so a
+// refusal spends no round and a fixture can assert the arithmetic in-process.
+//
+// `attaches` in is the ledger's own map, candidate_id -> [{ round, sha, at }].
+export function attachReview(candidates, review, attaches = {}, now = new Date()) {
   if (!Array.isArray(candidates) || candidates.length === 0) {
     return { error: "candidates must be a non-empty array" };
   }
+  if (!attaches || typeof attaches !== "object") {
+    return { error: "attaches must be the ledger's candidate_id -> rounds map" };
+  }
+  const stamp = (now instanceof Date ? now : new Date(now)).toISOString();
+  const nextAttaches = {};
+  for (const [k, v] of Object.entries(attaches)) nextAttaches[k] = Array.isArray(v) ? [...v] : [];
   const out = [];
   for (const c of candidates) {
     if (typeof c.candidate_id !== "string" || c.candidate_id === "") {
       return { error: "every candidate carries a candidate_id" };
+    }
+    // THE RESIDUE IS HARNESS-WRITTEN OR IT IS NOTHING (kogaki#894 acceptance
+    // 2). A Candidate arriving with its own is a model-declared line wearing
+    // the Harness's field name — the exact substitution `bridges` already is,
+    // and the one this issue exists to stop being repeated one field over.
+    if ("revise_residue" in c) {
+      return { error: `candidate ${c.candidate_id} arrives carrying \`revise_residue\` — that entry `
+        + `is written by THIS FILE from the revise-round ledger, never declared by the composer `
+        + `(§4.11; kogaki#894). A declared residue is a model-supplied control input.` };
     }
     const r = review?.[c.candidate_id];
     if (r === undefined) {
@@ -84,9 +191,41 @@ export function attachReview(candidates, review) {
           + `unapplied one (src/path-review-agent.md declares the shape)` };
       }
     }
-    out.push({ ...c, review: r });
+    // --- the round count, and the bound (§4.11) --------------------------
+    const sha = reviewEntrySha(r);
+    const prior = nextAttaches[c.candidate_id] || [];
+    const last = prior.length ? prior[prior.length - 1] : null;
+    let rounds = prior;
+    if (!last || last.sha !== sha) {
+      if (prior.length >= MAX_ATTACHES) {
+        const when = prior.map((a) => `round ${a.round} at ${a.at}`).join("; ");
+        return { error: `candidate ${c.candidate_id}: this is attach ${prior.length + 1}, and `
+          + `§4.11 bounds the loop at ONE revise round per Candidate — it has already been `
+          + `attached ${prior.length} times (${when}). A gap surviving the revise is DISCLOSED `
+          + `and rides to the selection gate; it is never re-looped. The residue entry this `
+          + `Candidate already carries is that disclosure.` };
+      }
+      rounds = [...prior, { round: prior.length + 1, sha, at: stamp }];
+      nextAttaches[c.candidate_id] = rounds;
+    }
+    const attached = { ...c, review: r };
+    // A Candidate at the bound rides to the gate carrying WHY it stops here.
+    // Written from the ledger, so it exists exactly when a revise round was
+    // actually spent — never because a composer said so.
+    if (rounds.length >= MAX_ATTACHES) {
+      attached.revise_residue = {
+        attaches: rounds.length,
+        bound: `${REVISE_BOUND} revise round per Candidate (SPEC-draft-pipeline §4.11)`,
+        first_attached_at: rounds[0].at,
+        revise_attached_at: rounds[rounds.length - 1].at,
+        statement: "this Candidate has spent its one revise round; anything the revise did not "
+          + "repair rides to the selection gate as disclosed residue, and this Candidate cannot "
+          + "be re-reviewed again",
+      };
+    }
+    out.push(attached);
   }
-  return { candidates: out };
+  return { candidates: out, attaches: nextAttaches };
 }
 
 function argString(args, key, usage) {
@@ -118,18 +257,39 @@ function cmdAttach(args) {
   const out = argString(args, "out",
     "attach needs --out <path> — the machine-local file the reviewed Candidates ride "
     + "to the selection gate in");
-  const r = attachReview(candidates, review);
+  // REQUIRED, and it is the identity the ROUND COUNT is keyed on — not a
+  // convenience. Without it the bound has no workspace to be counted in, and
+  // §4.11's "one revise round per Candidate" is prose again (kogaki#894).
+  const brief = argString(args, "brief",
+    "attach needs --brief <path> — theses/<slug>/brief.md. The slug names the run workspace "
+    + "runs/brief/<slug>/ the revise-round ledger lives in, and §4.11's one-revise-round bound "
+    + "is counted THERE rather than in the composing sitting's memory (kogaki#894)");
+  const lp = attachLedgerPath(brief, args["ledger-root"] === undefined ? undefined : args["ledger-root"]);
+  if (lp.error) fail(lp.error);
+  const prior = readAttachLedger(lp.path);
+  if (prior.error) fail(prior.error);
+  const r = attachReview(candidates, review, prior.attaches);
+  // THE LEDGER IS WRITTEN ONLY ON SUCCESS. A refused attach spends no round —
+  // otherwise a malformed review entry would consume the revise the Candidate
+  // has not yet had, and the bound would punish the composer for a typo.
   if (r.error) fail(r.error);
+  writeAttachLedger(lp.path, { brief, attaches: r.attaches });
   mkdirSync(dirname(resolve(out)), { recursive: true });
   writeFileSync(out, JSON.stringify({ candidates: r.candidates }, null, 2) + "\n");
+  const spent = r.candidates.filter((c) => c.revise_residue).map((c) => c.candidate_id);
   console.log(`reviewed: ${r.candidates.length} candidate(s), each carrying its per-Candidate `
     + `reasoning for the selection gate — no verdict anywhere (§4.6). Written: ${out}`);
+  console.log(`revise rounds (§4.11, bound ${REVISE_BOUND} per Candidate), counted in ${lp.path}: `
+    + r.candidates.map((c) => `${c.candidate_id}=${(r.attaches[c.candidate_id] || []).length}`).join(", ")
+    + (spent.length
+      ? ` — at the bound and carrying a Harness-written residue entry: ${spent.join(", ")}`
+      : " — none at the bound"));
 }
 
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
     case "attach": cmdAttach(args); break;
-    default: fail("usage: review.mjs attach --candidates <json> --review <json> --out <path>");
+    default: fail("usage: review.mjs attach --candidates <json> --review <json> --brief <path> --out <path>");
   }
 }
