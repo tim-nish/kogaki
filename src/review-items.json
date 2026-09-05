@@ -3,7 +3,7 @@
     "The comparison's ITEM TABLE, fixed in the Harness (kogaki#872).",
     "",
     "WHICH PACKET INFORMATION MUST BE RECOVERABLE IS DECIDED ONCE, HERE, per",
-    "item class \u2014 and the judging model never assigns one. It answers one",
+    "item class — and the judging model never assigns one. It answers one",
     "question about one pair and returns one of three tokens. src/review-draft.mjs",
     "READS this file rather than restating it, the same arrangement",
     "src/recovered-schema.json has with the recovery half: amending the table is",
@@ -11,31 +11,31 @@
     "",
     "`class` IS THE CONSEQUENCE, not a severity. A Step is sent to correction only",
     "on a `fails` in a PRESERVED item; a best-effort fail rides along when that",
-    "Step is re-realized anyway. There is no score, no ranking and no aggregate \u2014",
+    "Step is re-realized anyway. There is no score, no ranking and no aggregate —",
     "the three tokens are the whole vocabulary, and `cannot-decide` is never",
     "rounded to either neighbour.",
     "",
     "`mode` IS WHO DECIDES, and it is the half that keeps the model out of the",
     "mechanical items:",
-    "  - `mechanical` \u2014 the Harness decides from string facts about the Draft and",
+    "  - `mechanical` — the Harness decides from string facts about the Draft and",
     "    the Packet. NO join Packet is rendered and no model call is made.",
-    "  - `judged`     \u2014 the Harness renders one join Packet (the declared line,",
+    "  - `judged`     — the Harness renders one join Packet (the declared line,",
     "    the recovered line, the quoted span, one question) and records the",
     "    verdict that comes back.",
-    "  - `paired`     \u2014 the Harness pairs the recovered entries against the",
+    "  - `paired`     — the Harness pairs the recovered entries against the",
     "    declared ones MECHANICALLY; an entry that pairs with nothing is decided",
     "    here, by name, with no model call, and the paired set is then judged.",
     "    This is the one hybrid, and it exists because `widened` is a fact about",
     "    the pairing rather than a reading of it.",
     "",
     "`declared_block` names the Packet block the declared side is read from, and",
-    "src/review-draft.mjs refuses BY NAME when a Packet carries no such block \u2014",
+    "src/review-draft.mjs refuses BY NAME when a Packet carries no such block —",
     "a missing block is a PACKET GAP filed against src/packet-template.md, per",
     "the owner's 2026-09-04 closed-input ruling, and never something the",
     "comparison works around.",
     "",
     "`recovered_field` names the field of src/recovered-schema.json the recovered",
-    "side is read from. `null` means the recovered side IS THE PROSE \u2014 the",
+    "side is read from. `null` means the recovered side IS THE PROSE — the",
     "negative items, which assert that something is absent from the passage.",
     "",
     "NOT COMPARED, enumerated so a reader can tell a boundary from a hole:",
@@ -43,20 +43,10 @@
     "per Step. The article level is the cold reader's (kogaki#873)."
   ],
   "version": "1",
-  "verdicts": [
-    "holds",
-    "fails",
-    "cannot-decide"
-  ],
-  "classes": [
-    "preserved",
-    "best-effort"
-  ],
-  "modes": [
-    "mechanical",
-    "judged",
-    "paired"
-  ],
+  "verdicts": ["holds", "fails", "cannot-decide"],
+  "classes": ["preserved", "best-effort"],
+  "modes": ["mechanical", "judged", "paired"],
+
   "packet_blocks": {
     "note": [
       "THE PACKET'S SHAPE IS DATA, not a literal in the runtime (kogaki#872).",
@@ -74,41 +64,18 @@
       "    is the same defect as a divergence.",
       "",
       "`after_words` is the template's own fixed instruction paragraph, matched",
-      "as a WORD SEQUENCE so a rewrap \u2014 which changes nothing \u2014 does not silently",
+      "as a WORD SEQUENCE so a rewrap — which changes nothing — does not silently",
       "hand the instruction back as the block's value."
     ],
-    "grounds": {
-      "kind": "ground_lines",
-      "prefix": "ground",
-      "bullet_label": "grounds"
-    },
-    "reader_state_after": {
-      "kind": "bullet",
-      "label": "reader_state_after"
-    },
-    "purpose": {
-      "kind": "bullet",
-      "label": "purpose"
-    },
-    "introduces": {
-      "kind": "bullet_list",
-      "label": "introduce here"
-    },
-    "already_knows": {
-      "kind": "bullet_list",
-      "label": "already knows",
-      "term_only": true
-    },
-    "move_contract": {
-      "kind": "bullets",
-      "labels": [
-        "constraints",
-        "failure_modes"
-      ]
-    },
+    "grounds": { "kind": "ground_lines", "prefix": "ground", "bullet_label": "grounds" },
+    "reader_state_after": { "kind": "bullet", "label": "reader_state_after" },
+    "purpose": { "kind": "bullet", "label": "purpose" },
+    "introduces": { "kind": "bullet_list", "label": "introduce here" },
+    "already_knows": { "kind": "bullet_list", "label": "already knows", "term_only": true },
+    "move_contract": { "kind": "bullets", "labels": ["constraints", "failure_modes"] },
     "move_excerpt": {
       "kind": "block",
-      "heading": "An exemplar of this Move \u2014 FORM ONLY",
+      "heading": "An exemplar of this Move — FORM ONLY",
       "after_words": "Read it for the shape of the movement and nothing else."
     },
     "section_placement": {
@@ -116,58 +83,57 @@
       "heading": "The Section this Step sits in",
       "after_words": "one, and the line below says which. Where it continues, the heading is already on the page and you are writing further into it: do not restate the heading's claim, and do not open a new subject."
     },
-    "register_tests": {
-      "kind": "paragraph",
-      "opens_with": "**Plain register, operationally:**"
-    }
+    "register_tests": { "kind": "paragraph", "opens_with": "**Plain register, operationally:**" }
   },
+
   "pass_two": {
-    "note": [
-      "THE SECOND PASS'S BOUND IS DATA, for the reason the packet_blocks",
-      "note gives one block down (kogaki#874). `check` re-judges the",
-      "corrected Steps' own items, the two CONTINUITY items on the Step",
-      "immediately after each correction, and every mechanical item over",
-      "the whole Draft -- and the runtime names none of those ids, because",
-      "an item id spelled out in the runtime cannot be told from one",
-      "restating this table.",
-      "",
-      "`successor_items` is TWO ids and the issue names the properties they",
-      "carry: `reader_state_before` continuity and `restates`. The Packet",
-      "renders a `reader_state_before` slot and this table declares NO",
-      "reader for it -- the block that carries the reader's INCOMING state",
-      "is `already_knows`, which is what `already-knows` compares -- so the",
-      "continuity item is that one rather than a new item over a block",
-      "nothing reads. Both are best-effort, which is the qualifier the",
-      "issue's own sentence carries.",
-      "",
-      "`restates-earlier-step` is ALSO mechanical, so it is in the bound",
-      "twice over: once for every Step and once as a successor item. That",
-      "is not redundancy to remove -- it is the item whose INPUT a",
-      "correction changes, since its haystack is the earlier prose, and",
-      "listing it here says why the successor is re-checked at all.",
-      "",
-      "`drift_blocks` are the Packet blocks the drift measure reports",
-      "verbatim overlap against -- the ground and state lines. Same",
-      "arrangement, same reason."
-    ],
-    "successor_items": [
-      "already-knows",
-      "restates-earlier-step"
-    ],
-    "drift_blocks": [
-      "grounds",
-      "reader_state_after"
-    ]
-  },
+      "note": [
+        "THE SECOND PASS'S BOUND IS DATA, for the reason the packet_blocks",
+        "note gives one block down (kogaki#874). `check` re-judges the",
+        "corrected Steps' own items, the two CONTINUITY items on the Step",
+        "immediately after each correction, and every mechanical item over",
+        "the whole Draft -- and the runtime names none of those ids, because",
+        "an item id spelled out in the runtime cannot be told from one",
+        "restating this table.",
+        "",
+        "`successor_items` is TWO ids and the issue names the properties they",
+        "carry: `reader_state_before` continuity and `restates`. The Packet",
+        "renders a `reader_state_before` slot and this table declares NO",
+        "reader for it -- the block that carries the reader's INCOMING state",
+        "is `already_knows`, which is what `already-knows` compares -- so the",
+        "continuity item is that one rather than a new item over a block",
+        "nothing reads. Both are best-effort, which is the qualifier the",
+        "issue's own sentence carries.",
+        "",
+        "`restates-earlier-step` is ALSO mechanical, so it is in the bound",
+        "twice over: once for every Step and once as a successor item. That",
+        "is not redundancy to remove -- it is the item whose INPUT a",
+        "correction changes, since its haystack is the earlier prose, and",
+        "listing it here says why the successor is re-checked at all.",
+        "",
+        "`drift_blocks` are the Packet blocks the drift measure reports",
+        "verbatim overlap against -- the ground and state lines. Same",
+        "arrangement, same reason."
+      ],
+      "successor_items": [
+        "already-knows",
+        "restates-earlier-step"
+      ],
+      "drift_blocks": [
+        "grounds",
+        "reader_state_after"
+      ]
+    },
   "thresholds": {
     "note": [
       "Thresholds are INPUTS TO THE HARNESS AND NEVER OUTPUT. No emitted line",
-      "carries one \u2014 a comparison line renders line numbers and nothing else",
+      "carries one — a comparison line renders line numbers and nothing else",
       "numeric, so a reader cannot mistake a tuning constant for evidence."
     ],
     "claim_ground_containment": 0.34,
     "verbatim_overlap_words": 8
   },
+
   "items": [
     {
       "id": "grounds",
@@ -177,7 +143,7 @@
       "recovered_field": "claims",
       "pair_text_key": "claim",
       "unpaired_reason": "widened",
-      "unpaired_sentence": "this recovered claim pairs with no ground the Packet declares, so the passage asserts more than it was given \u2014 widened",
+      "unpaired_sentence": "this recovered claim pairs with no ground the Packet declares, so the passage asserts more than it was given — widened",
       "question": "Does this recovered claim assert no more than the ground it is paired with? Answer `fails` if the claim goes beyond the ground in scope, in certainty, or in subject."
     },
     {
@@ -194,7 +160,7 @@
       "mode": "judged",
       "declared_block": "introduces",
       "recovered_field": "terms_introduced",
-      "question": "Is every term the Packet says to introduce here actually introduced in this passage \u2014 usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
+      "question": "Is every term the Packet says to introduce here actually introduced in this passage — usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
     },
     {
       "id": "term-before-introduction",
@@ -223,7 +189,7 @@
         "verdict": "holds",
         "sentence": "this Move record carries no exemplar, so no subject matter could leak from one"
       },
-      "question": "The exemplar was FORM ONLY. Does any entity, fact, claim or term from it appear in this passage? Answer `fails` if it does \u2014 this item asks about the exemplar's subject matter, never its shape."
+      "question": "The exemplar was FORM ONLY. Does any entity, fact, claim or term from it appear in this passage? Answer `fails` if it does — this item asks about the exemplar's subject matter, never its shape."
     },
     {
       "id": "concessions",
@@ -254,7 +220,7 @@
       "mode": "judged",
       "declared_block": "already_knows",
       "recovered_field": "terms_introduced",
-      "question": "Does the passage re-introduce a term the reader already knows \u2014 explaining again what an earlier Step established? Answer `fails` if it does."
+      "question": "Does the passage re-introduce a term the reader already knows — explaining again what an earlier Step established? Answer `fails` if it does."
     },
     {
       "id": "restates-earlier-step",
@@ -284,9 +250,7 @@
       "class": "best-effort",
       "mode": "mechanical",
       "declared_block": "grounds",
-      "also_declared_blocks": [
-        "reader_state_after"
-      ],
+      "also_declared_blocks": ["reader_state_after"],
       "recovered_field": null
     }
   ]

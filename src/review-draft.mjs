@@ -1236,7 +1236,22 @@ function buildJoin(draft, run, items, ws, opts = {}) {
             + "a verdict this run never reached; re-run `compare --draft <draft.md>` so the pair is "
             + "answered before it is carried.");
         }
-        results.push({ ...prev, carried: true });
+        // THE SPAN IS RE-ANCHORED TO THE STEP'S CURRENT RANGE (PR #906 round 1,
+        // finding 2). A carried row keeps pass one's verdict, class and reason
+        // — those are readings of prose that has not moved — but NOT its
+        // coordinates: a correction changes the Draft's line count, so a
+        // pre-correction range rendered under the post-correction body sha
+        // names whatever now sits at those numbers. That is the drifting-range
+        // defect this Harness's own recovery cases are built to catch, one
+        // layer out. A step-level range is coarser than the pair-level one it
+        // replaces and it is TRUE, which is the trade: a true coarse
+        // coordinate beats a false precise one. Pass one's own is kept beside
+        // it, named as pass one's, so nothing is lost — only re-labelled.
+        const reanchored = { ...prev, span: step.lines, pass_one_span: prev.span, carried: true };
+        if (Array.isArray(prev.pairs)) {
+          reanchored.pairs = prev.pairs.map((x) => ({ ...x, span: step.lines, pass_one_span: x.span }));
+        }
+        results.push(reanchored);
         continue;
       }
       const ctx = { declared, rec, step, draft, earlier, items, pairs, item };
@@ -1977,19 +1992,36 @@ function cmdCheck(args) {
 
   run.findings = results.filter((r) => r.verdict !== "holds");
   // RESIDUE IS WHAT SURVIVED TWO PASSES, and only a PRESERVED item's fail is
-  // residue — the same class rule that decides what withholds `close`. Each
-  // line reaches the owner record with an empty `classified:` field this tool
-  // never fills.
+  // residue — the same class rule that decides what withholds `close`.
+  //
+  // EVERY LINE STATES WHICH IT IS (PR #906 round 1, finding 1). Declining to
+  // correct is a legitimate route — `close` is reachable from `check` in every
+  // state, by the owner's two-pass ruling — but a run that took it was writing
+  // "still failing after pass two" onto pairs pass two never re-judged, which
+  // is a provenance claim the run did not earn, handed to the owner as the
+  // basis for classifying the item `packet` or `reviewdraft`. The route stays
+  // open and the claim is now true either way: a re-judged fail says it
+  // survived, a carried one says its Step was never corrected so nothing
+  // re-read it.
   run.residue = run.findings
     .filter((f) => f.verdict === "fails" && f.class === "preserved")
     .map((f) => ({
       step_id: f.step_id, item: f.item,
-      why: `${f.reason} — still failing after pass two`,
+      why: f.carried
+        ? `${f.reason} — carried from pass one and NOT re-judged: this Step was not corrected, `
+          + "so nothing in pass two read it again"
+        : `${f.reason} — still failing after pass two`,
     }));
   run.checked_at = new Date().toISOString();
   writeRun(ws, run);
 
   const judged = modelCalls.length;
+  // NAMED IN THE RUN'S OWN OUTPUT, not only in the record. A pass two that
+  // completed because nothing was corrected and a pass two that completed
+  // because every correction was made produce the same exit, and telling them
+  // apart is exactly what "stopping early and finishing produce the same
+  // silence" warns about.
+  const uncorrected = correctionOwed(run).filter((id) => !bound.corrected.has(id));
   process.stdout.write(
     results.filter((r) => !r.carried).map(comparisonLine).join("\n") + "\n\n"
     + `check: pass two over ${results.filter((r) => !r.carried).length} re-judged (Step, item) pair(s); `
@@ -1998,8 +2030,13 @@ function cmdCheck(args) {
     + `  successors re-checked ${[...bound.successors].join(", ") || "(none)"} on ${bound.successorItems.join(", ")}\n`
     + `  mechanical items      re-run over every Step\n`
     + `${mechanicalLog.length} pair(s) decided mechanically and ${judged} judged.\n`
+    + (uncorrected.length
+      ? `UNCORRECTED — pass one sent ${uncorrected.join(", ")} to correction and no correction was made.\n`
+        + "  Their preserved fails are residue CARRIED from pass one, not re-judged by this pass;\n"
+        + "  the owner record says so per line. `correct --step <id>` is the act that changes that.\n"
+      : "")
     + (run.residue.length
-      ? `residue — preserved item(s) still failing after two passes, for the owner to classify: `
+      ? `residue — preserved item(s) reaching the owner to classify: `
         + `${run.residue.map((r) => `${r.step_id}/${r.item}`).join(", ")}\n`
       : "no preserved item fails after pass two, so the residue is empty.\n")
     + `check record: ${joinPath}\n`
@@ -3807,6 +3844,31 @@ async function runSelfTest() {
     ok("pass one completes and sends the two preserved-failing Steps to correction",
       p1.status === 0 && /Steps sent to correction[^\n]*s2, s3/.test(p1.stdout));
 
+    // --- FINDING 1 (PR #906 round 1): `check` with NOTHING corrected --------
+    // Declining to correct is a legitimate route — `close` is reachable from
+    // `check` in every state — and the defect was the CLAIM the route produced:
+    // a pass-one fail reaching the owner record as "still failing after pass
+    // two", on a pair pass two never re-judged, as the basis for classifying it
+    // `packet` or `reviewdraft`. Driven BEFORE any correction, which is the
+    // only point in this run where the state exists.
+    {
+      const r = RD("check");
+      ok("check with nothing corrected NAMES the Steps pass one sent to correction",
+        r.status === 0 && /UNCORRECTED — pass one sent s2, s3 to correction/.test(r.stdout));
+      ok("and says their fails are carried rather than re-judged",
+        /not re-judged by this pass/.test(r.stdout));
+      const rc = RD("close");
+      const rv = readOrEmpty(join(cBrief, "review.md"));
+      const res = rv.slice(rv.indexOf("## Residue"));
+      ok("the owner record does not claim a carried fail survived pass two",
+        rc.status === 0 && !/still failing after pass two/.test(res));
+      ok("and says per line that the Step was not corrected, so nothing re-read it",
+        /NOT re-judged: this Step was not corrected/.test(res));
+      ok("while the residue line still carries its EMPTY classified: field",
+        (res.match(/^ {2}classified:$/gm) || []).length === 2
+        && !/^ {2}classified:[^\n]*\S/m.test(res));
+    }
+
     // --- ORDER: a later Step refuses while an earlier one is owed -----------
     {
       const r = RD("correct", "--step", "s3");
@@ -3845,8 +3907,13 @@ async function runSelfTest() {
       /## What this Step must do/.test(inA) || /## Write/.test(inA));
 
     // --- record s2's correction ---------------------------------------------
+    // THE FIRST CORRECTION IS TWO LINES WHERE THE PREVIOUS REALIZATION WAS ONE
+    // (PR #906 round 1, finding 2). The Draft's line count has to MOVE for a
+    // stale carried span to be observable at all; a same-length correction
+    // leaves every later Step at the numbers it already had, and the case would
+    // pass against a defect that was simply not expressed.
     const CORRECTED = {
-      s2: "The harbourmaster writes the hours down each spring, and a skipper who trusts the writing has trusted a person.",
+      s2: "The harbourmaster writes the hours down each spring, and a skipper who trusts the writing has trusted a person.\n\nThat is a different kind of trust from the one a table seems to offer, and the difference is the whole point.",
       s3: "A tide table records what somebody measured, on days somebody chose, and it promises nothing about the water tomorrow.",
     };
     const rB = RD("correct", "--step", "s2", "--file", proseFile("s2-corrected", CORRECTED.s2));
@@ -3948,6 +4015,26 @@ async function runSelfTest() {
     // which reports no case count at all, the shape the member reads as "the
     // pass did not run".
     const bnd = chk.bound || { corrected: [], successors: [], verdicts_cleared: 0 };
+    // FINDING 2 (PR #906 round 1): a carried row's span is the Step's CURRENT
+    // range, never pass one's. The correction above added a line, so every
+    // later Step moved; a carried row keeping its old range would name the
+    // neighbouring lines under a body sha that is no longer the one it was
+    // computed against.
+    {
+      const now = JSON.parse(readOrEmpty(join(cWsRun, "run.json")) || "{}");
+      const cur = new Map((now.steps || []).map((x) => [x.step_id, x.lines]));
+      const carriedRows = (chk.results || []).filter((r) => r.carried);
+      ok("FINDING 2: every carried row's span is the Step's CURRENT line range",
+        carriedRows.length > 0 && carriedRows.every((r) =>
+          JSON.stringify(r.span) === JSON.stringify(cur.get(r.step_id))));
+      const moved = carriedRows.filter((r) =>
+        JSON.stringify(r.pass_one_span) !== JSON.stringify(r.span));
+      ok("and the correction actually moved a Step, so the case is expressed rather than vacuous",
+        moved.length > 0);
+      ok("and pass one's own range is kept beside it, labelled as pass one's",
+        carriedRows.every((r) => Array.isArray(r.pass_one_span)));
+    }
+
     ok("AC3: the bound itself is RECORDED, so a reader can check it rather than take it",
       Boolean(chk.bound) && bnd.corrected.join(",") === "s2,s3"
       && bnd.successors.includes("s4"));
@@ -4003,8 +4090,9 @@ async function runSelfTest() {
       const chk2 = JSON.parse(readOrEmpty(checkPath) || "{}");
       const failed = (chk2.results || []).filter((r) => r.verdict === "fails" && !r.carried);
       ok("a preserved item still failing after pass two becomes residue",
-        /residue — preserved item\(s\) still failing/.test(back.stdout)
-        && /s2\/reader-state-after/.test(back.stdout));
+        /residue — preserved item\(s\) reaching the owner/.test(back.stdout)
+        && /s2\/reader-state-after/.test(back.stdout)
+        && !/UNCORRECTED/.test(back.stdout));
       // The best-effort fail is in the SAME answer file and must NOT be
       // residue: the class is the consequence here exactly as it is at `close`,
       // and a residue list counting every fail would hand the owner a question
