@@ -747,14 +747,27 @@ function packetBlock(text, heading, { after = null } = {}) {
 // spelling them out cannot be told apart from one restating the table or the
 // schema.
 const PACKET_READERS = {
+  // THE GROUNDS ARE A BLOCK BELOW THEIR BULLET, NOT THE BULLET'S VALUE (PR #895
+  // round 1, finding 2). The template's `- **grounds.** ...` line is fixed
+  // INSTRUCTION prose — "These are what this Step may assert" — and the rendered
+  // value, `(none recorded)` included, goes into the separate block under it. A
+  // reader testing the bullet's text for a stated absence could never match, so
+  // a Step whose Brief declares no grounds refused the WHOLE run as a false
+  // Packet gap and sent the reviewer to file against a template that was not
+  // broken. The bullet locates the region; the region carries the value.
   ground_lines: (t, spec) => {
+    const lines = t.split("\n");
+    const at = lines.findIndex((l) => new RegExp(`^- \\*\\*${spec.bullet_label}\\.\\*\\*`).test(l));
+    if (at === -1) return null;
+    let end = lines.length;
+    for (let i = at + 1; i < lines.length; i++) { if (/^#+\s+\S/.test(lines[i])) { end = i; break; } }
+    const region = lines.slice(at + 1, end);
     const re = new RegExp(`^${spec.prefix}\\s`);
-    const g = t.split("\n").filter((l) => re.test(l)).map((l) => l.trim());
+    const g = region.filter((l) => re.test(l)).map((l) => l.trim());
     if (g.length) return g;
-    // The renderer writes a stated absence where a Step declares none, and that
-    // is an answer. It is only a hole when the block is absent altogether.
-    const bullet = packetBullet(t, spec.bullet_label);
-    if (bullet !== null && PACKET_ABSENCE.test(bullet)) return [];
+    // A stated absence in the region is an ANSWER — this Step declares none. It
+    // is only a hole when the bullet, and so the region, is absent altogether.
+    if (region.some((l) => PACKET_ABSENCE.test(l.trim()))) return [];
     return null;
   },
   bullet: (t, spec) => packetBullet(t, spec.label),
@@ -1055,7 +1068,15 @@ function recordVerdicts(run, file, owed, items) {
     fail(`${file} carries no \`verdicts\` array — it is one JSON object of the form `
       + `{"verdicts": [{"step_id": ..., "item": ..., "verdict": ..., "reason": ...}]}`);
   }
-  const owedBy = new Map(owed.map((o) => [o.key, o]));
+  // A PAIR ALREADY ANSWERED IS STILL ANSWERABLE (PR #895 round 1, finding 5).
+  // `owed` shrinks as verdicts land, so validating against it alone refused a
+  // re-submitted file — and a reviewer correcting an answer they got wrong met
+  // "which this run did not ask about", which is false: the run did ask, and was
+  // answered. A revision overwrites; only a pair the run never asked about, and
+  // a mechanical item, are refused.
+  const askable = new Map(owed.map((o) => [o.key, o]));
+  for (const k of Object.keys(run.verdicts || {})) if (!askable.has(k)) askable.set(k, { key: k });
+  const owedBy = askable;
   const problems = [];
   const accepted = [];
   list.forEach((v, i) => {
@@ -1069,7 +1090,10 @@ function recordVerdicts(run, file, owed, items) {
           + "from string facts about the Draft and the Packet, and a recorded judgment over one would "
           + "silently replace a computed fact"
         : `${at} answers \`${key}\`, which this run did not ask about — the pairs it owes are `
-          + `${owed.length ? owed.map((o) => o.key).join(", ") : "(none)"}`);
+          + `${owed.length ? owed.map((o) => o.key).join(", ") : "(none)"}`
+          + `${Object.keys(run.verdicts || {}).length
+            ? `, and the pairs it has already answered, which a revision may overwrite, are `
+              + `${Object.keys(run.verdicts).join(", ")}` : ""}`);
       return;
     }
     if (!items.verdicts.includes(v.verdict)) {
@@ -1667,54 +1691,67 @@ async function runSelfTest() {
     a3: { after: "The reader knows who classifies residue.", purpose: "To open the second question.",
       introduces: [], knows: ["harness"], opens: true, excerpt: null },
   };
+  // THE FIXTURE PACKET IS THE REAL TEMPLATE WITH ITS SLOTS FILLED (PR #895
+  // round 1, findings 2 and 3). It used to be written out by hand in the shape
+  // the author believed the template had, and BOTH of those findings are that
+  // belief being wrong: the grounds reader tested a bullet whose value lives in
+  // a block below it, and the Section anchor stopped a sentence short of its
+  // paragraph's end. Neither was visible to a fixture whose Packets ended
+  // exactly where the reader expected them to.
+  //
+  // So the fixture reads `src/packet-template.md` and fills the slots itself —
+  // the same slot set `src/draft.mjs renderPacket` fills, without importing it,
+  // because the closed-input allowlist this pass also asserts forbids that
+  // import. The fixed instruction prose around every slot is therefore the
+  // TEMPLATE'S, not a copy, so a template edit reaches these cases instead of
+  // sliding past them.
+  const TEMPLATE = readFileSync(join(dirname(self), "packet-template.md"), "utf8")
+    .replace(/^<!--[\s\S]*?-->\n*/, "");
   function writePacket(dir, id, { grounds = GROUNDS[id] } = {}) {
     const f = PACKET_FIELDS[id];
     const bullets = (xs, empty) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : empty);
-    writeFileSync(join(dir, `${id}.md`), [
-      "# Write one Step", "",
-      "## What the article is doing — hold these fixed", "",
-      "- **Thesis.** PACKETONLYTOKEN the thesis.",
-      "- **Reader start.** PACKETONLYTOKEN where the reader starts.",
-      "- **Reader target.** PACKETONLYTOKEN where the reader lands.",
-      "- **Opening question.** PACKETONLYTOKEN the opening question.", "",
-      "## The Move this Step performs — its contract", "",
-      "- **Move.** name-the-mechanism",
-      "- **intent.** Name the mechanism before naming its consequence.",
-      "- **constraints.** Name the mechanism first; never announce the consequence before the reader can check it.",
-      "- **failure_modes.** Announcing a conclusion the reader has no way to check yet.", "",
-      "### An exemplar of this Move — FORM ONLY", "",
-      "The passage below demonstrates how this Move is realized. **Do not reuse its",
-      "subject matter, facts, entities, terminology, or claims.** Read it for the",
-      "shape of the movement and nothing else.", "",
-      f.excerpt === null
+    const slots = {
+      thesis: "PACKETONLYTOKEN the thesis.",
+      reader_start: "PACKETONLYTOKEN where the reader starts.",
+      reader_target: "PACKETONLYTOKEN where the reader lands.",
+      opening_question: "PACKETONLYTOKEN the opening question.",
+      move_id: "name-the-mechanism",
+      move_intent: "Name the mechanism before naming its consequence.",
+      move_constraints: "Name the mechanism first; never announce the consequence before the reader can check it.",
+      move_failure_modes: "Announcing a conclusion the reader has no way to check yet.",
+      move_excerpt: f.excerpt === null
         ? "(none — this Move record carries no excerpt, so it cannot serve as an exemplar. Perform the Move from its contract above.)"
-        : f.excerpt, "",
-      "## This Step", "",
-      `- **Step.** ${id}`,
-      `- **purpose.** ${f.purpose}`,
-      "- **reader_state_before.** PACKETONLYTOKEN the state before.",
-      `- **reader_state_after.** ${f.after}`,
-      "- **materials.** (none)",
-      "- **rationale.** PACKETONLYTOKEN why this Step sits here.",
-      "- **grounds.** These are what this Step may assert. Assert nothing else.", "",
-      grounds.join("\n"), "",
-      "## The Section this Step sits in", "",
-      "A Section is a grouping of Steps under one heading — one promise to the reader",
-      "that the question changes here. This Step either opens a Section or continues",
-      "one, and the line below says which.", "",
-      f.opens
-        ? "- **This Step OPENS a Section.** Its heading is rendered by the Harness immediately above your prose."
-        : "- **This Step CONTINUES the Section.** That heading is already on the page, above prose you are writing further into.", "",
-      "## What the reader already knows, and what you introduce here", "",
-      `- **already knows.** ${bullets(f.knows, "(nothing — this is the first Step to introduce anything, or the path introduces no terms)")}`,
-      `- **introduce here.** ${bullets(f.introduces, "(nothing new)")}`, "",
-      "## The article so far — verbatim", "",
-      "PACKETONLYTOKEN the article so far.", "",
-      "## Write", "",
-      "Write the prose for this Step and nothing else.", "",
-      "**Plain register, operationally:** no unexplained term of art; one relation per",
-      "sentence; a concrete subject acting.", "",
-    ].join("\n"));
+        : f.excerpt,
+      step_id: id,
+      purpose: f.purpose,
+      reader_state_before: "PACKETONLYTOKEN the state before.",
+      reader_state_after: f.after,
+      materials: "(none)",
+      rationale: "PACKETONLYTOKEN why this Step sits here.",
+      // THE STATED ABSENCE THE RENDERER WRITES, verbatim (src/draft.mjs's
+      // `grounds || "(none recorded)"`), so the groundless case exercises the
+      // string a real Packet actually carries.
+      grounds: grounds.length ? grounds.join("\n") : "(none recorded)",
+      section_placement: f.opens
+        ? "- **This Step OPENS a Section.** Its heading is **\"A heading\"**, rendered by the Harness immediately above your prose.\n"
+          + "- **Your prose is what the heading promises.** This Step is the whole Section."
+        : "- **This Step CONTINUES the Section headed \"A heading\".** That heading is already on the page, above prose you are writing further into.\n"
+          + "- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Step that opens its own.",
+      reader_already_knows: bullets(f.knows,
+        "(nothing — this is the first Step to introduce anything, or the path introduces no terms)"),
+      introduces: bullets(f.introduces, "(nothing new)"),
+      prior_sections: "PACKETONLYTOKEN the article so far.",
+    };
+    let out = TEMPLATE;
+    for (const [k, v] of Object.entries(slots)) out = out.split(`{{${k}}}`).join(v);
+    const left = out.match(/\{\{(\w+)\}\}/);
+    if (left) {
+      // A slot the fixture does not fill is a template block these cases would
+      // review with `{{name}}` sitting where its value belongs — reported here
+      // rather than discovered as a strange refusal three cases later.
+      throw new Error(`the fixture does not fill the Packet template's slot {{${left[1]}}}`);
+    }
+    writeFileSync(join(dir, `${id}.md`), out);
   }
   const packetDir = join(root, "packets");
   mkdirSync(packetDir, { recursive: true });
@@ -1804,7 +1841,12 @@ async function runSelfTest() {
   // while the Harness asked for something else.
   const answerOwed = (jsonPath, tag, verdict = "holds",
     reason = "the declared line and the recovered one agree") => {
-    const owed = JSON.parse(readFileSync(jsonPath, "utf8")).owed;
+    // AN ABSENT JOIN RECORD ANSWERS NOTHING RATHER THAN THROWING. A mutation
+    // that makes `compare` refuse leaves no record, and reading it directly took
+    // the whole pass down with an ENOENT — which reports no case count at all,
+    // the shape the member reads as "the pass did not run" rather than as "these
+    // cases failed".
+    const owed = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, "utf8")).owed : [];
     const f = join(root, `verdicts-${tag}.json`);
     writeFileSync(f, JSON.stringify({
       verdicts: owed.map((o) => ({
@@ -2066,7 +2108,7 @@ async function runSelfTest() {
     // A join Packet is ONE pair and ONE question, and it names the three tokens
     // it will accept. The judging model cannot rank, because it is never shown
     // two pairs at once.
-    const jp = readFileSync(rec.owed[0].packet, "utf8");
+    const jp = rec.owed.length ? readFileSync(rec.owed[0].packet, "utf8") : "";
     ok("a join Packet carries the declared side, the recovered side and the quoted prose",
       /### What the Packet DECLARED/.test(jp) && /### What was RECOVERED from the prose/.test(jp)
       && /### The prose itself — draft lines/.test(jp));
@@ -2612,6 +2654,76 @@ async function runSelfTest() {
     ok("and every judged item DOES cost one",
       ITEMS.items.filter((i) => i.mode === "judged")
         .every((i) => rec.model_calls.some((c) => c.item === i.id)));
+  }
+
+  // ROUND 1, FINDING 2: a Step whose Brief declares NO grounds is an ordinary
+  // Step, not a Packet gap. The renderer writes `(none recorded)` into the
+  // grounds BLOCK, below a bullet whose own text is fixed instruction prose, so
+  // a reader testing the bullet could never match and refused the whole run.
+  {
+    const pd = join(root, "packets-groundless"); mkdirSync(pd, { recursive: true });
+    for (const id of ["a1", "a2", "a3"]) writePacket(pd, id, id === "a2" ? { grounds: [] } : {});
+    ok("the fixture's groundless Packet carries the stated absence the renderer writes",
+      /\(none recorded\)/.test(readFileSync(join(pd, "a2.md"), "utf8")));
+    const d = buildDraft(join(root, "theses", "groundless"), { packetDir: pd });
+    const r = driveToCompletedJoin(d, join(root, "ws-groundless"), "groundless");
+    ok("a Step declaring no grounds does not refuse the run as a Packet gap",
+      r.second.status === 0 && !/carries no `grounds` block/.test(r.first.stderr + r.second.stderr));
+    const L = linesOf(r.second.stdout);
+    ok("and the unused-grounds item says so in its own words",
+      /this Step declares no grounds/.test(L.get("a2/grounds-unused")));
+    // The other Steps are untouched: the absence is this Step's, not the run's.
+    ok("while a Step that does declare grounds still carries them",
+      /every ground is carried by a recovered claim/.test(L.get("a1/grounds-unused")));
+  }
+
+  // ROUND 1, FINDING 3: the Section block's declared side is the RENDERED VALUE,
+  // never the template's instruction prose. The anchor used to stop one sentence
+  // short of its paragraph, so the sentence after it was prepended to what the
+  // judging model reads — the exact failure the reader's own comment names,
+  // reached by an incomplete anchor rather than by a rewrap.
+  {
+    const rec = JSON.parse(readFileSync(join(WS, "join.json"), "utf8"));
+    const call = rec.model_calls.find((c) => c.item === "section-continues");
+    const jp = call && existsSync(call.packet) ? readFileSync(call.packet, "utf8") : "";
+    const declared = (jp.split("### What the Packet DECLARED")[1] || "").split("###")[0];
+    ok("the Section block's declared side carries the rendered placement",
+      /This Step (OPENS|CONTINUES)/.test(declared));
+    // ASSERTED AGAINST THE TEMPLATE'S OWN SENTENCES rather than a transcribed
+    // pair, so a paragraph the template gains is covered by the derivation.
+    const para = TEMPLATE.split("## The Section this Step sits in")[1].split("{{section_placement}}")[0];
+    const sentences = para.split(/(?<=\.)\s+/).map((s) => s.replace(/\s+/g, " ").trim()).filter((s) => s.length > 30);
+    ok("and none of the template's instruction sentences survives into it",
+      sentences.length > 0 && !sentences.some((s) => declared.replace(/\s+/g, " ").includes(s)),
+      sentences.find((s) => declared.replace(/\s+/g, " ").includes(s)) || "");
+  }
+
+  // ROUND 1, FINDING 5: a recorded verdict can be REVISED. `owed` shrinks as
+  // answers land, so validating against it alone refused a re-submitted file and
+  // told a reviewer correcting a wrong answer that the run never asked — which
+  // is false, and named no repair.
+  {
+    const f = join(root, "revise.json");
+    writeFileSync(f, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
+      verdict: "fails", reason: "the passage is doing a different job from the declared one" }] }) + "\n");
+    const r = drive("compare", "--verdicts", f);
+    ok("an answered pair can be answered again", r.status === 0 && /recorded: 1 verdict/.test(r.stdout));
+    ok("and the revision is what the comparison line now renders",
+      /\sfails\s/.test(linesOf(r.stdout).get("a1/purpose")));
+    // Put it back, so the cases after this one see the run they expect.
+    const g = join(root, "revise-back.json");
+    writeFileSync(g, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose",
+      verdict: "holds", reason: "the declared line and the recovered one agree" }] }) + "\n");
+    const back = drive("compare", "--verdicts", g);
+    ok("and a revision is not one-way", /\sholds\s/.test(linesOf(back.stdout).get("a1/purpose")));
+    // A pair the run never asked about is STILL refused, and the refusal now
+    // names the answered set as revisable rather than claiming nothing is.
+    const bad = join(root, "revise-bad.json");
+    writeFileSync(bad, JSON.stringify({ verdicts: [{ step_id: "a1", item: "purpose", pair: 7,
+      verdict: "holds", reason: "it reads fine" }] }) + "\n");
+    const b = drive("compare", "--verdicts", bad);
+    ok("while a pair nobody asked about is still refused, naming the revisable set",
+      b.status === 1 && /already answered, which a revision may overwrite/.test(b.stderr));
   }
 
   // A TERM THE FRONTMATTER HAPPENS TO CARRY IS NOT MET BY THE READER THERE. The

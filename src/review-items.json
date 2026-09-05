@@ -81,7 +81,7 @@
     "section_placement": {
       "kind": "block",
       "heading": "The Section this Step sits in",
-      "after_words": "one, and the line below says which."
+      "after_words": "one, and the line below says which. Where it continues, the heading is already on the page and you are writing further into it: do not restate the heading's claim, and do not open a new subject."
     },
     "register_tests": { "kind": "paragraph", "opens_with": "**Plain register, operationally:**" }
   },

@@ -232,9 +232,17 @@ echo "ok: $RT carries no block heading from $PT (derived from its headings, neve
 # derivation.
 #
 # WHAT IT DOES NOT CATCH, stated rather than left to read as total: it checks
-# that each named label, heading and sentence OCCURS in the template. It cannot
-# check that the block still MEANS what the item compares against — a heading
-# reused for different content passes this and is caught only by a real drive.
+# that each named label, heading and sentence occurs in the template AND that
+# each skip-anchor reaches its paragraph's end. It cannot check that the block
+# still MEANS what the item compares against — a heading reused for different
+# content passes this and is caught only by a real drive.
+#
+# THE PARAGRAPH-END HALF IS PR #895 ROUND 1'S FINDING 3. The first form asserted
+# only that the sentence OCCURS, and the Section block's anchor stopped one
+# sentence short of its paragraph: the sentence after it survived the slice and
+# was prepended to the declared side the judging model reads — the exact failure
+# the reader's own comment names, reached by an incomplete anchor rather than by
+# a rewrap. So occurrence was never the property, and reaching the end is.
 if ! python3 - <<'PYEOF'
 import json, re, sys
 table = json.load(open("src/review-items.json"))
@@ -262,8 +270,18 @@ for name, spec in blocks.items():
             bad.append(f"block `{name}` reads the Packet bullet `{label}`, which the template does not render")
     if "heading" in spec and not re.search(r"^#+\s+" + re.escape(spec["heading"]) + r"\s*$", tpl, re.M):
         bad.append(f"block `{name}` reads the Packet heading \"{spec['heading']}\", which the template does not carry")
-    if "after_words" in spec and not occurs(spec["after_words"]):
-        bad.append(f"block `{name}` skips the fixed sentence \"{spec['after_words']}\", which the template does not carry -- the instruction paragraph would be handed back as the block's value")
+    if "after_words" in spec:
+        m = re.search(r"\s+".join(re.escape(w) for w in spec["after_words"].split()), tpl)
+        if m is None:
+            bad.append(f"block `{name}` skips the fixed sentence \"{spec['after_words']}\", which the template does not carry -- the instruction paragraph would be handed back as the block's value")
+        else:
+            # AND IT MUST REACH THE PARAGRAPH'S END (PR #895 round 1, finding 3).
+            # Asserting only that the sentence OCCURS passed an anchor that
+            # stopped one sentence short, so instruction prose survived the slice
+            # and was prepended to the declared side the judging model reads.
+            rest = tpl[m.end():].split("\n\n")[0].strip()
+            if rest:
+                bad.append(f"block `{name}`'s anchor stops mid-paragraph: {rest[:90]!r} follows it and would be prepended to the block's value")
     if "opens_with" in spec and spec["opens_with"] not in tpl:
         bad.append(f"block `{name}` opens on \"{spec['opens_with']}\", which the template does not carry")
     if "prefix" in spec and not re.search(r"^" + re.escape(spec["prefix"]) + r"\s", tpl, re.M) and "{{" not in tpl:
