@@ -499,7 +499,10 @@ count honest rather than merely present:
   kogaki#859 emptied the evidence rendering, so nothing puts it on screen. This
   is **the same hole this section already records for the bridge disclosure**,
   and it is one hole rather than two: both are Candidate-level evidence with no
-  owner surface left to ride. Saying the residue "rides to the gate" without
+  owner surface left to ride. **Carried at kogaki#909**, which asks the question
+  for the CLASS rather than a third time for a third field — #877's `figure:`
+  would be the third to re-derive the same absence.
+  Saying the residue "rides to the gate" without
   this sentence would assert the disclosure half of "a gap surviving it is
   disclosed" more strongly than the payload supports.
 
