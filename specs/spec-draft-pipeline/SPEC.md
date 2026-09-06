@@ -1,5 +1,18 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v35, amended 2026-09-06 (kogaki#914) — **§6: free text at the
+Candidate-selection gate is a COMMENT, and adoption refuses it by name.** The
+gate offers a free-text channel and the capture act accepts one, so the answer
+was reachable while adoption had no branch for it — it fell through to the id
+match and told an owner who typed their own words that they had selected a
+candidate named `undefined`. The disposition is now chosen rather than
+inherited from the matcher: a Candidate is a composed sequence of Steps with
+Move bindings, so there is no Reader Path in prose to adopt and the runtime
+composes none. The refusal quotes the owner's words back and routes to
+`none-of-these` or to a re-raised gate. A CASE in `check-brief-compose`, never
+a member, so no admission record is owed. **deferred slots minted by this
+amendment: none.**
+
 **Status:** v34, amended 2026-09-06 (kogaki#878) — **§4.17: the figure record,
 the instance of the Move's form, filled AFTER the Step's prose.** §4.16 landed
 the Brief's figure decision and its grammar, and nothing on the realization side
@@ -1690,6 +1703,42 @@ written. The version trail is kept rather than rewritten so the correction is
 readable as a correction. And the check half stands unchanged: §4.12.3 adds a CASE to
 `check-brief-compose`, never a member, so no admission record and no removal
 signal is owed.
+
+**FREE TEXT AT THIS GATE IS A COMMENT, NOT A SELECTION (v35, kogaki#914,
+owner ruling 2026-09-06).** The payload clause below offers a free-text
+channel and `gate-candidate --capture` accepts an answer given there, so the
+answer was REACHABLE while adoption had no branch for it: it fell through to
+the id match, where the recorded option is absent and the refusal read *"the
+owner selected candidate `undefined`"* — a state the owner never produced,
+sending them to repair the wrong thing. **Adoption now refuses it by name**,
+quoting the owner's words back and routing to `none-of-these` or to a
+re-raised gate; nothing is written and every Candidate stays adoptable.
+
+**The disposition is CHOSEN rather than inherited from the matcher, which is
+why it is stated here.** The old behaviour was not a decision — it was what
+the id comparison happened to do with an answer nobody had considered, and an
+enumeration's load-bearing half is what happens to what it does not name. The
+ground for choosing refusal over adoption: a Candidate is a **composed**
+object — an ordered sequence of Steps, each binding a Move library record,
+plus the reasoning that fills `thesis_closure` and tradeoffs — so there is no
+Reader Path in free text to adopt, and admitting one would put the runtime in
+the business of resolving prose into a sequence. That is the judgment layer
+v32 removed from this seam. §4.12.3's ratification gate reaches the same
+disposition on the same ground, one section over: a write unlocked by
+arbitrary prose is unlocked by anything.
+
+**The thesis-determination gate is NOT the counter-precedent it looks like.**
+It admits free text as `adopted_via: free-form`, and correctly: there the
+answer **is** the value, since a Thesis is prose and a free-form one is the
+owner's own words reaching the run state verbatim. Here the answer is a
+selection among machine-composed structures. The two gates differ in what an
+answer *is*, not in how much the owner is trusted.
+
+**An answer carrying both an option and free text is a selection with a
+comment beside it** and adopts normally — the refusal reads the option's
+absence, never the free text's presence. And the check half stands unchanged:
+this adds a CASE to `check-brief-compose`, never a member, so no admission
+record and no removal signal is owed.
 
 **The selection payload carries, per Candidate, its id and its
 reader-experience label; the premise's negation; free text. Nothing else.**
