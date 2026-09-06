@@ -134,6 +134,34 @@ kogaki#494).
    introductions is the whole of what you owe. What it buys is that an
    unintroduced term becomes **addressable** — responsibility lands on the
    first Step carrying it, or on the Brief when no Step does.
+   Declare **`opens_section: <title>`** on each Step that opens a Section
+   (§4.15, optional), and leave it absent on a Step that continues one — one
+   key, whose *presence* marks the opening and whose *value* is the title. A
+   Step opens when it changes the reader's question: its `purpose` answers a
+   question the previous Step did not pose, or its `introduces` names a term
+   later Steps use. It continues when it develops the previous Step — its
+   `depends_on` is the immediately preceding Step and its `materials` overlap
+   that Step's. **The first Step always opens.** Judging which Steps open is
+   yours; `validateSteps` validates that judgment and refuses a path that opens
+   on every Step or on none, and two consecutive one-Step Sections, naming the
+   rule and the Step.
+   Declare **`figure:`** and **`figure_roles`** together on any Step that takes
+   up its Move's `visual_form` (§4.16, optional, and the default is **none** —
+   a Step without `figure:` has no figure and nothing asks about it):
+
+       figure: <one line — what the figure lets the reader hold that the prose alone leaves hard to hold>
+       figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3
+
+   `g<n>` addresses **this Step's own** ground lines, in order, from 1 — there
+   is no syntax for another Step's, which is why a cross-Step binding is
+   unreachable rather than caught. Two of the three conditions are mechanical
+   and refuse for you: the grammar and the ground addressing at
+   `validateSteps`, and whether the Move declares a form at all — with every
+   role bound and no role outside it — at adoption. The third, **whether the
+   figure carries something**, is your one judgment and is stated in the
+   `figure:` line itself; nothing reads that line for meaning (§4.6). The
+   count and the Steps it names are disclosed at the Candidate-selection gate,
+   with a soft warning above three figures that refuses nothing.
    The Candidates differ in **reader experience** (§6), Journey register
    included (§6.1). Write them to the run workspace as the composed-Candidates
    JSON.
