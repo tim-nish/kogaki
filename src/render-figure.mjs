@@ -1,6 +1,16 @@
-// The deterministic figure renderer (kogaki#879, SPEC-draft-pipeline §4.18).
+// The deterministic figure renderer (kogaki#879).
+// [see: SPEC-draft-pipeline "The renderer and the anchor — markup from the
+// record, at the Step"]//
+// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
+// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
+// the copy is what the code was implemented against, NOT the spec's current
+// text, and propagating a later spec change into this file is a separate,
+// explicit act. A pointer carrying no authority is marked `[see: <spec>
+// "<name>"]`. Neither names a section number, because section numbers renumber.
+// No owner-facing string below names a spec at all.
 //
-// ONE RECORD IN, ONE STRING OUT, NO MODEL CALL. §4.17 makes the record the
+// ONE RECORD IN, ONE STRING OUT, NO MODEL CALL. The figure record — the
+// form's instance, filled after the prose — is the
 // instance of the Move's form and stops there; this maps that record to the
 // markup a reader meets. The two halves are separate on purpose: the record is
 // a DESIGN, judged at kogaki#880's round trip, and the markup is a
@@ -9,7 +19,9 @@
 //
 // THE MODEL NEVER WRITES MERMAID. That is the whole point of the seat: prose
 // that draws its own diagram is a second author on the figure, refused at
-// `section` exactly as a second heading author is (§4.15, kogaki#823). What
+// `section` exactly as a second heading author is (kogaki#823)
+// [see: SPEC-draft-pipeline "The Section — a grouping of Steps, declared on
+// `opens_section`"]. What
 // makes the refusal fair is that this file exists — a seat is only closed to
 // one author if another actually fills it.
 //
@@ -78,7 +90,8 @@ function nodeDecl(role, text, { stadium, emphasised }) {
 }
 
 // THE RELATIONS ARE THE EDGE LABELS, and the surplus rule is stated rather
-// than left to the reader. `relations` is a non-empty list (§4.17's mechanical
+// than left to the reader. `relations` is a non-empty list (the figure
+// record's mechanical
 // half, clause 6) and each kind's shape has a fixed edge count, so the two do
 // not line up in general. Relations are attached to edges in order; anything
 // past the last edge JOINS the last edge's label with `; ` rather than being
@@ -160,7 +173,7 @@ export function checkMermaid(src) {
 // `figureFormFor` and `renderFigureInput` already use in src/draft.mjs, so a
 // caller handles one convention and not two.
 //
-// THE RECORD IS ASSUMED VALIDATED. `figureRecordRefusal` (§4.17) is what says
+// THE RECORD IS ASSUMED VALIDATED. `figureRecordRefusal` is what says
 // a record is well-formed, and re-deciding that here would be a second
 // validator that agrees with the first until one is edited. What this DOES
 // refuse is the one thing that validator cannot see: a kind with no seat in
@@ -173,7 +186,7 @@ export function renderFigure(record) {
     return { error: `the figure record's kind ${JSON.stringify(kind ?? null)} is not in the closed set (${Object.keys(kinds).sort().join(", ")}) — src/figure-kinds.json is what admits a kind` };
   }
   if (!SHAPES[kind] && !TABLE_KINDS.has(kind)) {
-    return { error: `the kind "${kind}" is in src/figure-kinds.json and has no seat in src/render-figure.mjs — a kind admitted to the closed set owes a rendering here, and an unrendered kind is refused by name rather than emitted as an empty block (§4.18)` };
+    return { error: `the kind "${kind}" is in src/figure-kinds.json and has no seat in src/render-figure.mjs — a kind admitted to the closed set owes a rendering here, and an unrendered kind is refused by name rather than emitted as an empty block` };
   }
   const roles = spec.roles;
   const elements = record.elements || {};
@@ -187,7 +200,8 @@ export function renderFigure(record) {
 
   // THE CAPTION IS THE LINE AFTER THE BLOCK (kogaki#879), separated by the
   // one blank line every other block boundary in the body uses. A record with
-  // an empty caption cannot reach here — §4.17 clause 6 refuses it — so no
+  // an empty caption cannot reach here — the figure record's own validation
+  // refuses it — so no
   // "or nothing" branch is written for a state the validator forecloses.
   return { markup: `${block.markup}\n\n${cell(record.caption)}` };
 }
@@ -203,7 +217,7 @@ function renderMermaid(kind, roles, elements, relations, emphasis) {
   for (const role of roles) {
     const el = elements[role];
     if (!el || typeof el.text !== "string") {
-      return { error: `the figure record carries no element for role "${role}" of kind ${kind} — every role of the kind is present is §4.17's clause 1, so a record reaching the renderer without one was not validated` };
+      return { error: `the figure record carries no element for role "${role}" of kind ${kind} — every role of the kind must be present, so a record reaching the renderer without one was not validated` };
     }
     lines.push(`  ${nodeDecl(role, el.text, { stadium: stadium.has(role), emphasised: role === emphasis })}`);
   }
@@ -220,7 +234,7 @@ function renderMermaid(kind, roles, elements, relations, emphasis) {
   // found by a reader looking at a broken block, which is the latest possible
   // moment and the one with no recovery.
   const bad = checkMermaid(src);
-  if (bad) return { error: `the renderer produced Mermaid this runtime's own grammar check rejects: ${bad} — this is a renderer defect (§4.18), fixed here and not in the record` };
+  if (bad) return { error: `the renderer produced Mermaid this runtime's own grammar check rejects: ${bad} — this is a renderer defect, fixed here and not in the record` };
   return { markup: "```" + MERMAID_FENCE + "\n" + src + "\n```" };
 }
 
@@ -238,7 +252,7 @@ function renderTable(roles, elements, relations, emphasis) {
   for (const role of roles) {
     const el = elements[role];
     if (!el || typeof el.text !== "string") {
-      return { error: `the figure record carries no element for role "${role}" of kind matrix — every role of the kind is present is §4.17's clause 1, so a record reaching the renderer without one was not validated` };
+      return { error: `the figure record carries no element for role "${role}" of kind matrix — every role of the kind must be present, so a record reaching the renderer without one was not validated` };
     }
     heads.push(role === emphasis ? `**${cell(el.text)}**` : cell(el.text));
   }

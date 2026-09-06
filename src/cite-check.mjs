@@ -1,10 +1,22 @@
 #!/usr/bin/env node
 // The citation resolve check over a CanonicalDraft's own cites
-// (SPEC-draft-command v1 §6, kogaki#573; story 1.81, kogaki#588).
+// (kogaki#573; story 1.81, kogaki#588).
+// [see: SPEC-draft-command "One mechanical instrument on grounding, and no
+// second"]
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
+// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
+// the copy is what the code was implemented against, NOT the spec's current
+// text, and propagating a later spec change into this file is a separate,
+// explicit act. A pointer carrying no authority is marked `[see: <spec>
+// "<name>"]`. Neither names a section number or a line range, because both
+// renumber — the line range this file used to print to the owner had already
+// drifted onto an unrelated bullet.
 //
 // THE SOLE MECHANICAL INSTRUMENT ON GROUNDING, and the check's own output
 // states the boundary it stops at, quoting the guarantee split it rests on
-// (specs/SPEC.md:424-430) — a reader learns the boundary from the instrument.
+// — a reader learns the boundary from the instrument.
+// [implemented-against: specs/SPEC.md "The guarantee split", copied 2026-09-06]
 // It asserts nothing about whether a claim is true, whether an interpretation
 // is valid, or whether a scope was widened: those are the author's judgment,
 // attributed as such, and Gukan's facts are Gukan's.
@@ -44,16 +56,20 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..");
 
-// The guarantee split, quoted in the output per AC2. Quoted from
-// specs/SPEC.md:424-430 by hand and verified by no instrument — this file is
-// outside check-anchor-resolve.sh's corpus (specs/, checks/, policy/), so
-// the pointer's currency is review's to check, not asserted here.
+// The guarantee split, quoted in the output per AC2. This is a COPY of the
+// content this check was implemented against, not a live read: it stays true
+// for this instrument even if the spec is rewritten or deleted, and
+// propagating a later change to the split into this constant is a separate,
+// explicit act. The line range this comment used to carry had already drifted
+// onto the Check-registry bullet, and the quote below was printed to the owner
+// under it (kogaki#902).
+// [implemented-against: specs/SPEC.md "The guarantee split", copied 2026-09-06]
 export const GUARANTEE_SPLIT =
   'the boundary this instrument stops at — "Kogaki guarantees citation ' +
   "integrity — a quoted claim was quoted, and its pin resolves. Gukan " +
   "guarantees the facts. … There is no Fact unit, no fact floor, and no " +
   "provenance map — the citation resolve check over the draft's own cites " +
-  'is the sole mechanical instrument on grounding." (specs/SPEC.md:424-430). ' +
+  'is the sole mechanical instrument on grounding." ' +
   "Nothing here judges whether a claim is true, an interpretation valid, or " +
   "a scope widened — those are the author's judgment, attributed as such.";
 
@@ -178,8 +194,8 @@ export function parseSurveyPayload(stdoutText) {
     // SURFACED, never silently dropped (kogaki#613): a cite naming it would
     // otherwise report resolves-nowhere and point the author at the wrong
     // repair — the cite, when the defect is the served record. Same rule as
-    // terrain's composition cover ("nothing is silently dropped",
-    // specs/spec-terrain/SPEC.md §2.1).
+    // terrain's composition cover ("nothing is silently dropped")
+    // [see: SPEC-terrain "Completeness is a cover counted in placements"].
     const served = new Map();
     const malformed = [];
     for (const l of payload.lines) {

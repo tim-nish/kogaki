@@ -1,7 +1,16 @@
 // disclosure — the ONE reader of src/disclosure-fields.json, the closed table
 // of Candidate-level disclosure-class fields and the owner surface each
-// reaches (SPEC-draft-pipeline §4.11 and §6; kogaki#909, owner ruling
-// 2026-09-06).
+// reaches (kogaki#909, owner ruling 2026-09-06).
+// [see: SPEC-draft-pipeline "The Bridge Step and the revise pass", for the
+// damaged-ledger refusal, and SPEC-draft-pipeline "Candidates ride the existing
+// gate — no new carrier, no new check", for the Candidate-level surface]
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
+// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
+// the copy is what the code was implemented against, NOT the spec's current
+// text, and propagating a later spec change into this file is a separate,
+// explicit act. A pointer carrying no authority is marked `[see: <spec>
+// "<name>"]`. Neither names a section number, because section numbers renumber.
 //
 // WHY A MODULE OF ITS OWN. `src/assemble.mjs` already imports `src/review.mjs`,
 // so a table sited in either is reachable from one side only, and a table
@@ -39,8 +48,9 @@ const TABLE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "disclosure-
 // Read once at module load, the way the lane's other declared sets are read.
 // A malformed table is a REFUSAL rather than an empty default: a table that
 // degrades to "no fields are disclosure-class" would make every surface
-// obligation vacuous on a bad read, which is the damaged-ledger shape §4.11
-// already refuses one field over.
+// obligation vacuous on a bad read, which is the damaged-ledger shape the
+// Bridge Step's revise pass already refuses one field over.
+// [see: SPEC-draft-pipeline "The Bridge Step and the revise pass"]
 function loadTable() {
   let raw;
   try {

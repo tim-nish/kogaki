@@ -37,7 +37,7 @@
   "fields": {
     "bridges": {
       "grade": "post-hoc",
-      "why": "§4.11 approves a Bridge Step by disclosing it after the fact. The approval is about what was ADOPTED, so a per-Candidate disclosure was always wider than the thing approved (kogaki#864, built at kogaki#866)."
+      "why": "A Bridge Step is approved by disclosing it after the fact [implemented-against: SPEC-draft-pipeline \"The Bridge Step and the revise pass\", copied 2026-09-06]. The approval is about what was ADOPTED, so a per-Candidate disclosure was always wider than the thing approved (kogaki#864, built at kogaki#866)."
     },
     "revise_residue": {
       "grade": "decision",

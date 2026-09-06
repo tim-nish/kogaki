@@ -2121,19 +2121,19 @@ try {
     fails.push(`(q) a path opening NO Section is admitted or refused by the wrong rule — §4.15 rule 3 says the first Step always opens: ${noneAnywhere}`);
   }
   // ACCEPTANCE 4 both ways: the refusal names the RULE and the STEP.
-  if (!/§4\.15 rule 3/.test(noneAnywhere) || !/\(s1\)/.test(noneAnywhere)) {
+  if (!/the Section grouping rule 3/.test(noneAnywhere) || !/\(s1\)/.test(noneAnywhere)) {
     fails.push(`(q) rule 3's refusal does not name both the rule and the Step — a refusal naming neither sends a composer to re-read the whole path: ${noneAnywhere}`);
   }
 
   // Rule 2 — a Step DEVELOPING its predecessor continues, so it may not open.
   const everyStepOpens = err([Q("s1", { opens_section: "A" }), Q("s2", { opens_section: "B", depends_on: ["s1"] })]);
-  if (!/§4\.15 rule 2/.test(everyStepOpens) || !/\(s2\)/.test(everyStepOpens)) {
-    fails.push(`(q) a Step that develops its predecessor may still open a Section — §4.15 rule 2's refusal is what stops a heading on every Step: ${everyStepOpens}`);
+  if (!/the Section grouping rule 2/.test(everyStepOpens) || !/\(s2\)/.test(everyStepOpens)) {
+    fails.push(`(q) a Step that develops its predecessor may still open a Section — the Section grouping rule 2's refusal is what stops a heading on every Step: ${everyStepOpens}`);
   }
 
   // Rule 4's Step-count clause — two consecutive one-Step Sections MERGE.
   const threeSingles = err([Q("s1", { opens_section: "A" }), Q("s2", { opens_section: "B", materials: ["L2"] }), Q("s3", { opens_section: "C", materials: ["L3"] })]);
-  if (!/§4\.15 rule 4/.test(threeSingles)) {
+  if (!/the Section grouping rule 4/.test(threeSingles)) {
     fails.push(`(q) three independent Steps each opening their own Section are admitted — rule 4's Step-count clause refuses two consecutive one-Step Sections: ${threeSingles}`);
   }
 

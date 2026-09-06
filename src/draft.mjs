@@ -2,7 +2,7 @@
 // draft — the /draft runtime and the CanonicalDraft it writes
 // (SPEC-draft-command v1, kogaki#573; story 1.80, kogaki#587).
 //
-// THE THREE-LAYER BOUNDARY IS THE FILE'S OWN STRUCTURE (§5). This module is
+// THE THREE-LAYER BOUNDARY IS THE FILE'S OWN STRUCTURE. This module is
 // the HARNESS and the SCHEMA half: it resolves the adopted Brief and refuses
 // a template, establishes the closed reference set, iterates the Reader
 // Path's Steps in their recorded order, keeps per-block snapshots
@@ -10,7 +10,8 @@
 // layer — the prose realizing each Step's reader_state_before →
 // reader_state_after transition — arrives through `section` and is judged
 // nowhere here: when a Draft comes out strange the first suspect is the Step
-// it realized or the judgment realizing it (§6), and neither is reachable by
+// it realized or the judgment realizing it (the sole mechanical instrument on
+// grounding), and neither is reachable by
 // this harness.
 //
 // Six commands, one per harness act:
@@ -20,14 +21,14 @@
 //   material — hand back the Brief's own material for one settled Strand.
 //              A Strand outside the closed set refuses BY NAME, the same
 //              shape `fillBrief` refuses a foreign L-id with: the set closed
-//              at mint, and growing it routes back through Terrain (§4).
+//              at mint, and growing it routes back through Terrain (the closed reference set).
 //   section  — accept one Step's realized prose. Refusals: an unknown
 //              step_id names both sides; prose naming a Strand outside the
 //              closed set refuses by name. Snapshots the assembled state
 //              into the run workspace — no per-block commit and no tracked
-//              diff artifact (the kogaki#523 constraint, §5).
+//              diff artifact (the kogaki#523 constraint).
 //   packet   — render the Step Packet: the model's ENTIRE input for one
-//              Step (§4.14, kogaki#749), deterministic and stored as served.
+//              Step (the Step Packet, kogaki#749), deterministic and stored as served.
 //   figure   — accept one Step's figure record: the INSTANCE of its Move's
 //              visual_form, filled after that Step's prose is recorded
 //              (kogaki#878). Validated against src/figure-schema.json, the
@@ -35,21 +36,73 @@
 //              record that moved a role to another ground refuses by role.
 //   emit     — assemble the CanonicalDraft: body = the sections in the
 //              Reader Path's recorded order, prose only; frontmatter = the
-//              record half (§5). Repo-visible under a fixed human name
+//              record half. Repo-visible under a fixed human name
 //              derived from the Brief — theses/<slug>/draft.md — one per
 //              Brief, overwritten on re-run, `generated_by` immutable across
 //              overwrites. Machine identity stays in the run workspace.
 //
-// THE COMPLETION CONTRACT LIVES IN THE FLOW, NOT HERE (§3): a run ends when
+// THE COMPLETION CONTRACT LIVES IN THE FLOW, NOT HERE: a run ends when
 // the CanonicalDraft exists, and the only legitimate earlier stop is a NAMED
 // inspection-need. This runtime's half of it is mechanical: `emit` refuses
 // while any Step lacks its section, so a flow cannot end "done" short of the
 // artifact without the refusal saying exactly which Steps are owed.
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).
+// Implemented code does not refer to a Spec. Content this file was implemented
+// against is stated HERE, and what is stated here is what the code was
+// implemented against — NOT the spec's current text. It stays true for this file
+// even if the spec is rewritten or deleted, and propagating a later spec change
+// into this file is a SEPARATE, EXPLICIT act. A bare name below is a pointer
+// carrying no authority. Nothing names a section number, because section numbers
+// renumber, and no owner-facing string names a spec section.
+//
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   the closed reference set
+//       SPEC-draft-command
+//   the three-layer boundary
+//       SPEC-draft-command
+//   the read-not-invented rule
+//       SPEC-draft-pipeline
+//   the Step and the Move it binds
+//       SPEC-draft-pipeline
+//   the Step's shape
+//       SPEC-draft-pipeline
+//   the Step-Move instantiation contract
+//       SPEC-draft-pipeline
+//   the mechanical half of move id resolution
+//       SPEC-draft-pipeline
+//   the reader-knowledge ledger
+//       SPEC-draft-pipeline
+//   the Move exemplar predicate
+//       SPEC-draft-pipeline
+//   the Step Packet
+//       SPEC-draft-pipeline
+//   the runtime-read template
+//       SPEC-draft-pipeline
+//   the Section grouping
+//       SPEC-draft-pipeline
+//   the figure decision
+//       SPEC-draft-pipeline
+//   the figure record
+//       SPEC-draft-pipeline
+//   the renderer and the anchor
+//       SPEC-draft-pipeline
+//   the judgment rule
+//       SPEC-draft-pipeline
+//   the Brief's centre and its obligations ledger
+//       SPEC-draft-pipeline
+//   the durable home and the entry point
+//       SPEC-draft-pipeline
+//   the closed kind set and the Move's visual_form
+//       SPEC-draft-pipeline
+//   the Move library
+//       SPEC-draft-pipeline
+//
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve, relative, dirname, basename, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-// §4.12's mechanical half is ONE function shared with the composition side
+// the Step-Move instantiation contract's mechanical half is ONE function shared with the composition side
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
 // composer sees would stop matching the one a realizer sees.
@@ -86,7 +139,7 @@ function parseArgs(argv) {
   return args;
 }
 
-// The typed unfilled slot brief.mjs mints (§5.3). Its literal presence is
+// The typed unfilled slot brief.mjs mints (the durable home and the entry point). Its literal presence is
 // what makes "template" decidable by field rather than by judgment.
 const SLOT = "*(awaiting composition)*";
 
@@ -143,14 +196,14 @@ export function parseBrief(text, path = "<brief>") {
     const body = m[1];
     const idM = body.match(/^step_id:\s*(\S+)\s*$/m);
     if (!idM) { refusals.push(`the Brief at ${path} carries a step block with no step_id`); continue; }
-    // `move:` IS READ (§4.12, kogaki#747). It was parsed for `step_id` only
+    // `move:` IS READ (the Step-Move instantiation contract, kogaki#747). It was parsed for `step_id` only
     // and the Move binding sat here as uninterpreted dead input, so a typo'd
     // or renamed id rode a minted Brief in silence until the Step Packet
     // assembler joined Step.move → moves/<id>.md and failed mid-draft. Read
     // here, refused at `resolve` below — at the entry to realization rather
     // than partway through it.
     const moveM = body.match(/^move:\s*(\S+)\s*$/m);
-    // §4.13's `introduces:` (kogaki#751), read back from the serialized form.
+    // the reader-knowledge ledger's `introduces:` (kogaki#751), read back from the serialized form.
     // ONE LINE PER ENTRY, matching `renderStep`'s writer — a term may contain
     // a comma and its anchor almost always does, so a comma-joined field could
     // not be parsed back at all. Absent entirely is the ordinary case and is
@@ -166,7 +219,7 @@ export function parseBrief(text, path = "<brief>") {
       const bad = introducesRefusal(introduces, `the Brief at ${path}, step ${idM[1]}`);
       if (bad) { refusals.push(bad); continue; }
     }
-    // §4.15's `opens_section:` (kogaki#823), read back from the serialized form
+    // the Section grouping's `opens_section:` (kogaki#823), read back from the serialized form
     // `renderStep` writes. THE PARSE-BACK IS WHAT MAKES THE DECLARATION LIVE:
     // kogaki#822 landed the field, its four grouping rules and its writer, and
     // nothing on this side read it — so a Brief could declare its Sections
@@ -187,7 +240,7 @@ export function parseBrief(text, path = "<brief>") {
       if (bad) { refusals.push(bad); continue; }
       opens_section = opensM[1].trim();
     }
-    // §4.16's `figure:`/`figure_roles:` (kogaki#877), read back from the
+    // the figure decision's `figure:`/`figure_roles:` (kogaki#877), read back from the
     // serialized form `renderStep` writes. THE PARSE-BACK IS WHAT MAKES THE
     // DECLARATION REACH THE PAGE: #877 landed the field, its grammar and its
     // writer, and nothing on this side read it — so a Brief could declare a
@@ -207,7 +260,7 @@ export function parseBrief(text, path = "<brief>") {
       let parsedRoles;
       if (rolesM) {
         const r = parseFigureRoles(rolesM[1]);
-        if (r.error) { refusals.push(`the Brief at ${path}, step ${idM[1]}: figure_roles — ${r.error} (§4.16)`); continue; }
+        if (r.error) { refusals.push(`the Brief at ${path}, step ${idM[1]}: figure_roles — ${r.error} (the figure decision)`); continue; }
         parsedRoles = r.roles;
       }
       // THE GRAMMAR IS THE COMPOSITION SIDE'S, not a second expression of it.
@@ -232,14 +285,14 @@ export function parseBrief(text, path = "<brief>") {
 // the set it is not in, and say where growing the set belongs.
 export function foreignStrandRefusal(id, strands) {
   const set = strands.map((s) => s.id).join(", ");
-  return `${id} is not in this Brief's settled set (${set}) — the set closed at mint; growing it is an owner act routed back through Terrain, never a /draft fetch (SPEC-draft-command §4)`;
+  return `${id} is not in this Brief's settled set (${set}) — the set closed at mint; growing it is an owner act routed back through Terrain, never a /draft fetch (SPEC-draft-command, the Step and the Move it binds)`;
 }
 
 // Scan LLM-authored prose for Strand tokens outside the closed set (AC2's
 // assertion shape: a run whose material names a foreign Strand refuses by
 // name). In-set tokens pass — whether internal vocabulary belongs in reader
 // prose at all is a register question — carried by src/packet-template.md and
-// grounded at specs/spec-brief-draft-design/DESIGN.md §4 — not the closed set's.
+// grounded at specs/spec-brief-draft-design/DESIGN.md, "Plain register, and the round trip" — not the closed set's.
 export function scanForeignStrands(content, strands) {
   const set = new Set(strands.map((s) => s.id));
   const seen = new Set();
@@ -264,7 +317,7 @@ export function findTraceStructure(content, stepIds) {
 }
 
 // ---------------------------------------------------------------------------
-// Workspace — machine identity lives here and only here (§5): run record,
+// Workspace — machine identity lives here and only here (the three-layer boundary): run record,
 // per-block snapshots, section files, Packets. Default under `runs/draft/`
 // since kogaki#750 (`~/.kogaki/draft-runs/` before it); --workspace overrides
 // for the fixture pass, which never touches either.
@@ -293,7 +346,7 @@ function enterWorkspace(args, slug) {
   return enterRun("draft", slug);
 }
 
-// Per-block snapshot (kogaki#523 shape, §5): the FULL assembled state, into
+// Per-block snapshot (kogaki#523 shape): the FULL assembled state, into
 // the run workspace, before-and-after per section landing. A snapshot failure
 // WARNS AND CONTINUES — the trace never gates the write it traces.
 function snapshotDraft(ws, phase, seq, content) {
@@ -313,7 +366,7 @@ function loadBrief(args) {
   catch (e) { fail(`the Brief at ${path} cannot be read (${e.message})`); }
   const brief = parseBrief(text, path);
   if (brief.refusals.length) fail(brief.refusals[0]);
-  // §4.12's MECHANICAL HALF at the realization entry: `resolve` refuses an
+  // the Step-Move instantiation contract's MECHANICAL HALF at the realization entry: `resolve` refuses an
   // EXISTING Brief carrying a move id that resolves to no record, naming the
   // Step and the id. The composition-side seat (assemble.mjs adopt-candidate)
   // stops one entering a Brief; this one stops a Brief whose library moved
@@ -321,7 +374,7 @@ function loadBrief(args) {
   // dangles without the Brief changing at all, so neither seat subsumes the
   // other. The judged half is NOT re-run here: it was rendered at composition
   // by a sitting reading the material, and re-deriving it at realization
-  // would be this runtime composing a verdict, which §4.12 forbids.
+  // would be this runtime composing a verdict, which the Step-Move instantiation contract forbids.
   // THE STORE DEFAULT IS WORKING-DIRECTORY-RELATIVE, and this entry is shared
   // by resolve, material, section and emit — so all four gain a cwd dependency
   // this runtime did not have before (a Brief arrives as a path; the workspace
@@ -329,13 +382,13 @@ function loadBrief(args) {
   // refuse as a STORE fault naming `--moves-dir`, which is legible rather than
   // silent. Not made Brief-relative on purpose: inferring a repository root
   // from a Brief's path guesses at a layout the spec does not govern, and a
-  // wrong guess resolves SILENTLY against the wrong library (§4.12.1).
+  // wrong guess resolves SILENTLY against the wrong library (the mechanical half of move id resolution).
   const resolved = resolveMoveIds(brief.steps, args["moves-dir"]);
   if (resolved.error) fail(resolved.error);
   return { ...brief, path: resolve(path), movesChecked: resolved.checked };
 }
 
-// §4.15's SECTION GROUPING, derived from the Brief and from nothing else
+// the Section grouping's SECTION GROUPING, derived from the Brief and from nothing else
 // (kogaki#823). ONE derivation, shared by the renderer, the frontmatter trace
 // and the Packet: a Section is a run of Steps beginning at a Step that declares
 // `opens_section` and continuing until the next one does. The Brief is the only
@@ -343,7 +396,7 @@ function loadBrief(args) {
 // sits cannot disagree — two derivations of the same grouping is two things
 // that can drift about which Section a Step is in.
 //
-// A path declaring no `opens_section` at all is the pre-§4.15 corpus, and it
+// A path declaring no `opens_section` at all is the pre-Section-grouping corpus, and it
 // derives ONE untitled Section rather than refusing. The refusal for that shape
 // is rule 3's and it lives at COMPOSITION (`sectionGroupingRefusal`), where the
 // Brief is being authored and can still be fixed; refusing here as well would
@@ -373,7 +426,7 @@ export function sectionOfStep(steps) {
   return map;
 }
 
-// THE FIGURE BLOCKS THIS BODY PLACES (§4.18, kogaki#879). Read from the run
+// THE FIGURE BLOCKS THIS BODY PLACES (the renderer and the anchor, kogaki#879). Read from the run
 // record `figure` wrote, rendered by src/render-figure.mjs, and keyed by Step.
 //
 // READ, NEVER RE-DERIVED — the same rule the Packet record already holds two
@@ -434,7 +487,7 @@ function assembleBody(brief, ws) {
   const sections = sectionsOf(brief.steps);
   const opensAt = new Map();
   for (const sec of sections) opensAt.set(sec.step_ids[0], sec);
-  // THE FIGURE IS ANCHORED TO ITS STEP, INSIDE ITS SECTION (§4.18, kogaki#879).
+  // THE FIGURE IS ANCHORED TO ITS STEP, INSIDE ITS SECTION (the renderer and the anchor, kogaki#879).
   // It is pushed by the same `push` the prose is, so its range and the bytes it
   // points at cannot disagree — the kogaki#868 property, extended to the one
   // element the body carries that no Step wrote.
@@ -450,16 +503,16 @@ function assembleBody(brief, ws) {
     if (!existsSync(f)) { missing.push(step.step_id); continue; }
     const sec = opensAt.get(step.step_id);
     // An untitled Section renders no heading rather than an empty one. It is
-    // reachable only on a pre-§4.15 path, whose whole body is one Section.
+    // reachable only on a pre-Section-grouping path, whose whole body is one Section.
     // A heading line belongs to the Section, never to the Step that opened it.
     if (sec && sec.title !== undefined) push(`## ${sec.title}`);
     const fig = figures.get(step.step_id);
-    // `before` sets the prose up and `after` discharges it (§4.17's closed
+    // `before` sets the prose up and `after` discharges it (the figure record's closed
     // pair). The heading is pushed above either way: a figure never precedes
     // the heading of the Section it sits in.
     if (fig && fig.position === "before") figureRanges.set(step.step_id, push(fig.markup));
     // THE STEP'S OWN `lines` SPAN THE PROSE ALONE (kogaki#868, restated at
-    // §4.18). The figure's bytes are the Brief's declaration realized by the
+    // the renderer and the anchor). The figure's bytes are the Brief's declaration realized by the
     // Harness, not the Step's realized prose, and kogaki#870's blind recovery
     // quotes a Step at exactly these lines — a range that swallowed the block
     // would hand the reviewer markup to re-derive prose from.
@@ -505,14 +558,14 @@ function cmdResolve(args) {
   driveNextPacket(brief, args, ws);
   process.stdout.write(`closed set: ${brief.strands.map((s) => s.id).join(", ")} — the Brief's own text plus these Strands' served renderings at the pin; nothing else is reachable\n`);
   process.stdout.write(`reader path: ${brief.steps.map((s) => s.step_id).join(" → ")} (recorded order; realized in this order and no other)\n`);
-  // §4.13's ledger is DERIVED here and rendered, never stored: no field is
+  // the reader-knowledge ledger's ledger is DERIVED here and rendered, never stored: no field is
   // written to the Brief and no key is added to the run record above. A Brief
   // whose path introduces nothing renders the empty ledger AS an empty ledger
   // — that is a true reading of the path, not a failure to compute one.
   // COUNTED FROM THE DERIVATION, never by adding the last Step's RAW entries
   // to the deduped union before it (PR #775 round 1). The first form
   // double-counted a term a later Step re-declares — and cross-Step
-  // re-declaration is exactly what §4.13 legalizes, so the wrong case was the
+  // re-declaration is exactly what the reader-knowledge ledger legalizes, so the wrong case was the
   // one the field explicitly permits. Appending a terminal sentinel makes the
   // final row's snapshot the whole path's union, so the count comes from the
   // same function everything else reads and cannot disagree with it. This
@@ -520,8 +573,8 @@ function cmdResolve(args) {
   // wrong number here is the one a reader has no way to check.
   const ledger = readerKnowledgeLedger([...brief.steps, { step_id: "(end)" }]);
   const introduced = ledger[ledger.length - 1].reader_already_knows.length;
-  process.stdout.write(`reader-knowledge ledger: ${introduced} term(s) introduced across ${brief.steps.length} step(s), derived from the path at read time and stored nowhere (§4.13)${introduced === 0 ? " — this path introduces no terms, which is a reading of it and not an error" : ""}\n`);
-  process.stdout.write(`move ids: ${brief.movesChecked} of ${brief.steps.length} step(s) resolved against the Move library (§4.12) — the specialization judgment was rendered at composition and is not re-derived here\n`);
+  process.stdout.write(`reader-knowledge ledger: ${introduced} term(s) introduced across ${brief.steps.length} step(s), derived from the path at read time and stored nowhere (the reader-knowledge ledger)${introduced === 0 ? " — this path introduces no terms, which is a reading of it and not an error" : ""}\n`);
+  process.stdout.write(`move ids: ${brief.movesChecked} of ${brief.steps.length} step(s) resolved against the Move library (the Step-Move instantiation contract) — the specialization judgment was rendered at composition and is not re-derived here\n`);
   process.stdout.write(`workspace: ${ws} (machine-local; snapshots and run identity live here, never in the artifact)\n`);
 }
 
@@ -539,7 +592,7 @@ function cmdMaterial(args) {
 }
 
 // ---------------------------------------------------------------------------
-// THE SECTION PACKET (§4.14, kogaki#749; owner rulings 2026-09-01).
+// THE SECTION PACKET (the Step Packet, kogaki#749; owner rulings 2026-09-01).
 //
 // The harness-assembled input from which the model realizes ONE Step's prose —
 // the one LLM judgment of the Draft lane. `packet --step <id>` renders it
@@ -560,14 +613,14 @@ function cmdMaterial(args) {
 // `requires`/`effect` are EXCLUDED from the rendered Move contract, and the
 // exclusion is the ruling rather than an omission: the Step's own
 // `reader_state_before`/`after` are the instance forms of exactly those two
-// fields (§4.12), so rendering both would put the general and the specialized
+// fields (the Step-Move instantiation contract), so rendering both would put the general and the specialized
 // statement of one thing side by side and leave the model to pick. The Step's
 // instantiated states win.
 const MOVE_FIELDS_RENDERED = ["intent", "constraints", "failure_modes"];
 
 // Read one field out of a Move record's folded-scalar form. The store is the
-// same one §4.12's resolver reads, and this reads VALUES where that one reads
-// only ids — the split is deliberate (§4.12.1: a resolver that parsed these
+// same one the Step-Move instantiation contract's resolver reads, and this reads VALUES where that one reads
+// only ids — the split is deliberate (the mechanical half of move id resolution: a resolver that parsed these
 // would be one edit from comparing them), so this is a second reader with its
 // own purpose rather than a widening of the first.
 function moveField(text, field) {
@@ -601,7 +654,7 @@ function stepField(body, field) {
 }
 
 // ---------------------------------------------------------------------------
-// §4.17 — the figure record's realization-side machinery (kogaki#878).
+// the figure record — the figure record's realization-side machinery (kogaki#878).
 //
 // THE PACKET IS THE MODEL'S ENTIRE INPUT, AND THE FIGURE INPUT IS THAT PACKET
 // PLUS ONE BLOCK. The block is appended only for a Step carrying `figure:`,
@@ -619,13 +672,13 @@ const FIGURE_INPUT_MARKER = "<!-- FIGURE-INPUT -->";
 export function splitPacketTemplate(text) {
   const at = text.indexOf(FIGURE_INPUT_MARKER);
   if (at === -1) {
-    return { error: `the Packet template carries no ${FIGURE_INPUT_MARKER} marker — the figure block lives behind it (§4.17), and a template without it cannot say where the Packet ends` };
+    return { error: `the Packet template carries no ${FIGURE_INPUT_MARKER} marker — the figure block lives behind it (the figure record), and a template without it cannot say where the Packet ends` };
   }
   return { packet: text.slice(0, at).trimEnd() + "\n", figure: text.slice(at + FIGURE_INPUT_MARKER.length) };
 }
 
 // The Step's ground lines, in the order they are declared. `g<n>` addresses
-// this list 1-based (§4.16), and the address space is THIS Step's grounds —
+// this list 1-based (the figure decision), and the address space is THIS Step's grounds —
 // which is what makes a role bound to another Step's ground unreachable rather
 // than refused by a rule.
 export function groundLines(step) {
@@ -649,7 +702,7 @@ export function figureFormFor(step, movesDir = "moves") {
   const r = visualFormOf(step.move, movesDir);
   if (r.error) return { error: `step ${step.step_id}: ${r.error}` };
   if (!r.form) {
-    return { error: `step ${step.step_id} declares figure: and its move "${step.move}" carries no visual_form — a figure is the INSTANCE of its Move's form (§4.16). Composition refuses this, so a Brief reaching realization with it has had its Move edited since` };
+    return { error: `step ${step.step_id} declares figure: and its move "${step.move}" carries no visual_form — a figure is the INSTANCE of its Move's form (the figure decision). Composition refuses this, so a Brief reaching realization with it has had its Move edited since` };
   }
   const kinds = figureKinds().kinds || {};
   const kind = r.form.kind;
@@ -667,14 +720,14 @@ export function figureFormFor(step, movesDir = "moves") {
 export function renderFigureInput({ figureTemplate, packetText, step, form, prose }) {
   const missing = form.roles.filter((r) => !form.lines[r]);
   if (missing.length) {
-    return { error: `step ${step.step_id}: move "${step.move}"'s ${form.kind} form maps no vocabulary line for ${missing.map((x) => `"${x}"`).join(", ")} — ingestion refuses such a form (§6.9.3), so the library record has been edited since` };
+    return { error: `step ${step.step_id}: move "${step.move}"'s ${form.kind} form maps no vocabulary line for ${missing.map((x) => `"${x}"`).join(", ")} — ingestion refuses such a form (the closed kind set and the Move's visual_form), so the library record has been edited since` };
   }
   const binding = [];
   for (const role of form.roles) {
     const addr = (step.figure_roles || {})[role];
     const g = groundAt(step, addr);
     if (g === null) {
-      return { error: `step ${step.step_id}: figure_roles binds "${role}" to ${JSON.stringify(addr ?? null)} and this Step has no such ground — composition refuses this (§4.16), so the Brief has been edited since it was adopted` };
+      return { error: `step ${step.step_id}: figure_roles binds "${role}" to ${JSON.stringify(addr ?? null)} and this Step has no such ground — composition refuses this (the figure decision), so the Brief has been edited since it was adopted` };
     }
     binding.push(`- **${role}** — bound to \`${addr}\`:\n\n  ${g}`);
   }
@@ -688,16 +741,16 @@ export function renderFigureInput({ figureTemplate, packetText, step, form, pros
   let out = figureTemplate;
   for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
   const left = out.match(/\{\{(\w+)\}\}/);
-  if (left) return { error: `the figure block's slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (§4.17)` };
+  if (left) return { error: `the figure block's slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (the figure record)` };
   return { input: packetText.trimEnd() + "\n" + out };
 }
 
-// THE RECORD'S VALIDATION, and it is the MECHANICAL half only (§4.17). Every
+// THE RECORD'S VALIDATION, and it is the MECHANICAL half only (the figure record). Every
 // role present, no extra role, the kind equal to the form's, each element bound
 // to the ground THE BRIEF bound that role to, a position from the closed pair,
 // a non-empty caption and at least one relation. Whether an element's wording
 // is fair to its ground, and whether the relations instantiate the kind's
-// relation line, are judgments — §4.6's rule that a missing field is refused
+// relation line, are judgments — the judgment rule's rule that a missing field is refused
 // and a weak one is not, which is also why kogaki#880 reviews the figure by a
 // round trip rather than by a lint here.
 export function figureRecordRefusal(record, step, form, schema) {
@@ -719,7 +772,7 @@ export function figureRecordRefusal(record, step, form, schema) {
     return `${at} carries ${extra.map((x) => `"${x}"`).join(", ")}, which src/figure-schema.json does not define — the record's fields are ${[...known].sort().join(", ")}`;
   }
   if (record.kind !== form.kind) {
-    return `${at} declares kind ${JSON.stringify(record.kind)} and move "${step.move}"'s visual_form is ${JSON.stringify(form.kind)} — the record is the INSTANCE of that form (§4.16), so its kind is the form's and never a choice made at realization`;
+    return `${at} declares kind ${JSON.stringify(record.kind)} and move "${step.move}"'s visual_form is ${JSON.stringify(form.kind)} — the record is the INSTANCE of that form (the figure decision), so its kind is the form's and never a choice made at realization`;
   }
   if (record.elements === null || typeof record.elements !== "object" || Array.isArray(record.elements)) {
     return `${at}: elements is one entry per role of the ${form.kind} form (${form.roles.join(", ")}), keyed by role`;
@@ -747,7 +800,7 @@ export function figureRecordRefusal(record, step, form, schema) {
       // ground is an element licensed by material the composer did not put
       // under that position, which is exactly the join kogaki#880 checks and
       // exactly the one nothing downstream could re-derive.
-      return `${at}: element "${role}" is bound to ${JSON.stringify(el.ground ?? null)} and the Brief bound "${role}" to ${JSON.stringify(want ?? null)} — the binding is the Brief's decision (§4.16), and a record that moves a role to another ground words it from material the composer did not put under that position`;
+      return `${at}: element "${role}" is bound to ${JSON.stringify(el.ground ?? null)} and the Brief bound "${role}" to ${JSON.stringify(want ?? null)} — the binding is the Brief's decision (the figure decision), and a record that moves a role to another ground words it from material the composer did not put under that position`;
     }
   }
   if (!Array.isArray(record.relations) || record.relations.length === 0
@@ -768,14 +821,14 @@ export function figureRecordRefusal(record, step, form, schema) {
   return null;
 }
 
-// §4.15's Section, as the Packet says it (kogaki#825). The Packet is the
+// the Section grouping's Section, as the Packet says it (kogaki#825). The Packet is the
 // model's ENTIRE input, so "which Section am I in" is answerable only if the
 // Packet answers it — an opening Step is told the title it is opening, and a
 // continuing Step is told the heading it sits under. Both forms name a title
 // that is ALREADY ON THE PAGE or about to be, so neither invites the model to
 // write one.
 //
-// The untitled case is the pre-§4.15 corpus, which derives one untitled
+// The untitled case is the pre-Section-grouping corpus, which derives one untitled
 // Section: it is STATED rather than left blank, for the same reason every other
 // absence in this renderer is stated — a hole in the model's whole world is not
 // a gap the model notices, it is a hole the model fills by invention.
@@ -791,7 +844,7 @@ export function sectionPlacement(sec) {
   if (sec.title === undefined) {
     // The untitled form STILL SAYS WHICH (finding 3, second half): the block
     // above it promises "the line below says which", and a form that says
-    // neither breaks that promise for the whole pre-§4.15 corpus, which is the
+    // neither breaks that promise for the whole pre-Section-grouping corpus, which is the
     // only corpus that reaches it.
     // NO ORDINAL HERE (PR #847 round 1, nit 2). The arm that built one was
     // dead: `sectionsOf` pushes a new Section only where `opens_section` is
@@ -886,7 +939,7 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
     ...Object.fromEntries(MOVE_FIELDS_RENDERED.map((f) =>
       [`move_${f}`, need(`${step.move}'s ${f}`, moveField(moveText, f))])),
     // The exemplar renders its own STATED ABSENCE rather than a substitute
-    // (§4.13.1) — an empty excerpt is not a missing input, it is a record that
+    // (the Move exemplar predicate) — an empty excerpt is not a missing input, it is a record that
     // cannot serve as an exemplar, and the Packet says so where the passage
     // would have gone.
     move_excerpt: moveField(moveText, "excerpt")
@@ -925,7 +978,7 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
   if (missing.length) {
     return { error: `the Packet for ${step.step_id} cannot be rendered: ${missing[0]} is absent. `
       + `A Packet is the model's entire input, so a missing block is a hole the model fills by invention — `
-      + `it refuses by NAME rather than rendering an empty slot (§4.14).` };
+      + `it refuses by NAME rather than rendering an empty slot (the Step Packet).` };
   }
   let out = template;
   for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
@@ -934,12 +987,12 @@ export function renderPacket({ template, brief, step, moveText, priorSections, l
   // exactly what the ruling describes and nothing more.
   out = out.replace(/^<!--[\s\S]*?-->\n*/, "");
   const left = out.match(/\{\{(\w+)\}\}/);
-  if (left) return { error: `the template slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (§4.14)` };
+  if (left) return { error: `the template slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (the Step Packet)` };
   return { packet: out };
 }
 
 // THE PACKET RENDER, FACTORED SO THE HARNESS CAN DRIVE IT (kogaki#811,
-// DESIGN.md §3). `cmdPacket` prints it on demand; `resolve` and `section`
+// DESIGN.md, "The Packet architecture"). `cmdPacket` prints it on demand; `resolve` and `section`
 // call it to hand the NEXT Step's input forward without the session asking.
 // One implementation, so the on-demand and the driven renders cannot diverge
 // in what they write or what they record.
@@ -951,13 +1004,13 @@ function renderAndStorePacket(brief, id, args, ws) {
   try { moveText = readFileSync(join(movesDir, `${step.move}.md`), "utf8"); }
   catch (e) {
     return { error: `step ${id} binds move "${step.move}" and its record cannot be read from ${movesDir} (${e.message}) — `
-      + `resolve refuses a dangling id before this point (§4.12.1), so this is the store rather than the Brief` };
+      + `resolve refuses a dangling id before this point (the mechanical half of move id resolution), so this is the store rather than the Brief` };
   }
   const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
   let template;
   try { template = readFileSync(tplPath, "utf8"); }
   catch (e) { return { error: `the Packet template at ${tplPath} cannot be read (${e.message}) — it is a runtime-read carrier and the command has no built-in fallback, deliberately: a fallback template would be a second copy nobody maintains` }; }
-  // THE FIGURE BLOCK IS NOT PART OF A PACKET (§4.17, kogaki#878). Split before
+  // THE FIGURE BLOCK IS NOT PART OF A PACKET (the figure record, kogaki#878). Split before
   // the render: `renderPacket` refuses on any unfilled slot, so the block's own
   // slots would make every Packet refuse if it reached that check.
   const split = splitPacketTemplate(template);
@@ -1007,7 +1060,7 @@ function renderAndStorePacket(brief, id, args, ws) {
   // "path+sha recorded in the run record beside the Section it produced", and
   // the first form wrote both to stderr and nothing to run.json — a print is
   // read by whoever is watching and a record is read by whoever comes after,
-  // which is the difference the ruling is about. §4.14 restated the ruling as
+  // which is the difference the ruling is about. the Step Packet restated the ruling as
   // "announced", which substituted the printing for the recording without
   // saying it had.
   //
@@ -1040,7 +1093,7 @@ function cmdPacket(args) {
   process.stdout.write(r.packet);
   process.stderr.write(`\npacket ${id}: ${out}\n`);
   process.stderr.write(`packet sha256: ${sha}\n`);
-  process.stderr.write(`stored exactly as served — the file above is byte-identical to what was printed (§4.14)\n`);
+  process.stderr.write(`stored exactly as served — the file above is byte-identical to what was printed (the Step Packet)\n`);
   // The owed-path line is GONE rather than reworded (kogaki#750). It announced
   // a debt on every render, and the debt is paid: the workspace default IS
   // `runs/draft/<slug>/`. A line that keeps naming a discharged obligation is
@@ -1048,10 +1101,10 @@ function cmdPacket(args) {
   // tell the current state from the state when the line was written.
 }
 
-// THE HARNESS HANDS THE NEXT STEP'S INPUT FORWARD (kogaki#811, DESIGN.md §3).
+// THE HARNESS HANDS THE NEXT STEP'S INPUT FORWARD (kogaki#811, DESIGN.md, "The Packet architecture").
 // `resolve` calls this at run start and `section` after recording a Step, so a
 // Packet exists for the Step about to be realized WITHOUT the session running
-// a command. That is the render-within arm: it makes §3's "one Step, one
+// a command. That is the render-within arm: it makes the Packet architecture's "one Step, one
 // input" true by construction rather than by a session remembering.
 //
 // It never fails the act it rides on. A Packet that cannot be rendered here is
@@ -1084,7 +1137,7 @@ function cmdSection(args) {
   // refusal depends on this path, so a second binding for the same value is a
   // divergence hazard in exactly the function that must not drift.
   const ws = workspaceFor(args, brief.slug);
-  // THE BACKSTOP (kogaki#811, DESIGN.md §3). Render-within supplies the Packet;
+  // THE BACKSTOP (kogaki#811, the Packet architecture). Render-within supplies the Packet;
   // this catches what render-within structurally cannot see — a Packet deleted
   // or gone stale between the render and the realization. Checked BEFORE the
   // section file is read, so a run that owes a Packet is told that rather than
@@ -1097,7 +1150,7 @@ function cmdSection(args) {
   // the one this Step was realized from.
   const packetPath = join(ws, "packets", `${id}.md`);
   if (!existsSync(packetPath)) {
-    fail(`step ${id} has no rendered Packet at ${packetPath} — §3 makes the Packet a Step's ENTIRE input, so realizing one without it means the prose was written from something else. `
+    fail(`step ${id} has no rendered Packet at ${packetPath} — the Packet is a Step's ENTIRE input, so realizing one without it means the prose was written from something else. `
       + `The Harness renders it at \`resolve\` and after each \`section\`; if it was deleted, \`packet --step ${id}\` restores it`);
   }
   let recordedSha = null;
@@ -1120,9 +1173,9 @@ function cmdSection(args) {
   if (foreign.length) fail(foreignStrandRefusal(foreign[0], brief.strands));
   const structural = findTraceStructure(content, brief.steps.map((s) => s.step_id));
   if (structural.length) {
-    fail(`the section for ${id} renders record as structure: ${structural[0]} — the per-Step trace is frontmatter record, never visible structure in the body (SPEC-draft-command §5)`);
+    fail(`the section for ${id} renders record as structure: ${structural[0]} — the per-Step trace is frontmatter record, never visible structure in the body (SPEC-draft-command, the Brief's centre and its obligations ledger)`);
   }
-  // THE PROSE CARRIES NO SECTION HEADING (§4.15, kogaki#823). The heading is
+  // THE PROSE CARRIES NO SECTION HEADING (the Section grouping, kogaki#823). The heading is
   // the Harness's, written by `assembleBody` from the Brief's declaration, so a
   // heading in the realized prose is a SECOND writer of the same structure —
   // and the two do not add up to the one-heading-per-Section the ruling asks
@@ -1150,8 +1203,8 @@ function cmdSection(args) {
   // refusing it is an over-refusal at composition time against prose the
   // article may legitimately need.
   // THE FIGURE SEAT IS THE BRIEF'S, AND PROSE IS NOT A SECOND AUTHOR ON IT
-  // (§4.18, kogaki#879). This sits beside the heading refusal below and is the
-  // same defect one element over: after §4.17 the figure's markup is produced
+  // (the renderer and the anchor, kogaki#879). This sits beside the heading refusal below and is the
+  // same defect one element over: after the figure record the figure's markup is produced
   // by src/render-figure.mjs from the record the Brief's declaration led to, so
   // a diagram drawn in the realized prose is a figure the Brief never declared,
   // rendered by nobody, pinned by no record, and invisible to kogaki#880's
@@ -1159,7 +1212,7 @@ function cmdSection(args) {
   //
   // REFUSED ON EVERY STEP, not only on figure-carrying ones. A Step that
   // declares no figure has the strongest claim of all to draw none — the
-  // default is NONE (§4.16) — and a Step that declares one already has its
+  // default is NONE (the figure decision) — and a Step that declares one already has its
   // block coming from the record. Neither seat is the prose's.
   //
   // KEYED ON THE FENCE LANGUAGE THE RENDERER EMITS, imported rather than
@@ -1183,13 +1236,13 @@ function cmdSection(args) {
   const quotable = content.replace(/^`{4,}[\s\S]*?^`{4,}[ \t]*$/gm, "");
   const drawn = quotable.match(new RegExp("^```[ \\t]*" + MERMAID_FENCE + "\\b", "mi"));
   if (drawn) {
-    fail(`the section for ${id} draws its own figure (a \`\`\`${MERMAID_FENCE} fence) — after §4.18 a figure's markup is rendered by the Harness from the record \`figure --step ${id}\` validated, and prose that draws one is a second author on a seat the Brief owns, exactly as a heading in the prose is (§4.15). `
-      + `If this Step should carry a figure, it is declared with \`figure:\` on the Brief (§4.16) and designed after this prose; if it should not, remove the fence`);
+    fail(`the section for ${id} draws its own figure (a \`\`\`${MERMAID_FENCE} fence) — after the renderer and the anchor a figure's markup is rendered by the Harness from the record \`figure --step ${id}\` validated, and prose that draws one is a second author on a seat the Brief owns, exactly as a heading in the prose is (the Section grouping). `
+      + `If this Step should carry a figure, it is declared with \`figure:\` on the Brief (the figure decision) and designed after this prose; if it should not, remove the fence`);
   }
   const unfenced = content.replace(/^```[\s\S]*?^```[ \t]*$/gm, "");
   const heading = unfenced.match(/^(#{1,6})[ \t]+(\S.*?)[ \t]*$/m);
   if (heading) {
-    fail(`the section for ${id} carries its own heading (${heading[0].trim()}) — after §4.15 the heading is the Harness's, rendered once per Section at the Step that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. `
+    fail(`the section for ${id} carries its own heading (${heading[0].trim()}) — after the Section grouping the heading is the Harness's, rendered once per Section at the Step that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. `
       + `Remove it: the Packet's write instruction says "No heading" for this reason`);
   }
   mkdirSync(join(ws, "sections"), { recursive: true });
@@ -1199,7 +1252,7 @@ function cmdSection(args) {
   writeFileSync(join(ws, "sections", `${id}.md`), content);
   snapshotDraft(ws, `after-${id}`, seq + 1, assembleBody(brief, ws).body);
   process.stdout.write(`section ${id} recorded (${brief.steps.findIndex((s) => s.step_id === id) + 1} of ${brief.steps.length} steps)\n`);
-  // THE FIGURE IS DESIGNED FROM THE TEXT (§4.17, kogaki#878). A Step carrying
+  // THE FIGURE IS DESIGNED FROM THE TEXT (the figure record, kogaki#878). A Step carrying
   // `figure:` gets its figure input here — after its prose is recorded and
   // before the next Step's Packet — so the ordering the hub ruled is the
   // HARNESS'S, not a step a session may remember to take. The next Packet is
@@ -1225,7 +1278,7 @@ function cmdSection(args) {
   if (nextId) process.stdout.write(`next: ${nextId} — its Packet is rendered above; realize from it and record with \`section --step ${nextId} --file <prose>\`\n`);
 }
 
-// §4.17's entry point (kogaki#878). ONE STEP, ONE RECORD, AFTER ITS PROSE.
+// the figure record's entry point (kogaki#878). ONE STEP, ONE RECORD, AFTER ITS PROSE.
 function cmdFigure(args) {
   const brief = loadBrief(args);
   const id = argString(args, "step", "figure needs --step <step_id>");
@@ -1235,7 +1288,7 @@ function cmdFigure(args) {
     fail(`no step "${id}" in this Brief's Reader Path (${brief.steps.map((s) => s.step_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`);
   }
   if (step.figure === undefined || step.figure === null) {
-    fail(`step ${id} declares no figure: — the default is NONE (§4.16), so there is no form for a record to be an instance of. `
+    fail(`step ${id} declares no figure: — the default is NONE (the figure decision), so there is no form for a record to be an instance of. `
       + `A figure enters at composition, on the Brief, and never here`);
   }
   const ws = workspaceFor(args, brief.slug);
@@ -1245,7 +1298,7 @@ function cmdFigure(args) {
   // A record filled before the text is a figure the text then has to match.
   const sectionFile = join(ws, "sections", `${id}.md`);
   if (!existsSync(sectionFile)) {
-    fail(`step ${id} has no realized prose at ${sectionFile} — the figure is designed FROM the text (§4.17), so the record cannot be filled before \`section --step ${id} --file <prose>\` records it`);
+    fail(`step ${id} has no realized prose at ${sectionFile} — the figure is designed FROM the text (the figure record), so the record cannot be filled before \`section --step ${id} --file <prose>\` records it`);
   }
   const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
   const form = figureFormFor(step, movesDir);
@@ -1303,10 +1356,10 @@ function cmdEmit(args) {
   const ws = workspaceFor(args, brief.slug);
   const { body, missing, ranges, figureRanges, figures, figureErrors } = assembleBody(brief, ws);
   if (missing.length) {
-    fail(`the run is not at completion: step(s) ${missing.join(", ")} have no realized section — a /draft run ends when the CanonicalDraft exists, and these are what it still owes (SPEC-draft-command §3)`);
+    fail(`the run is not at completion: step(s) ${missing.join(", ")} have no realized section — a /draft run ends when the CanonicalDraft exists, and these are what it still owes (SPEC-draft-command, the read-not-invented rule)`);
   }
   // A FIGURE-CARRYING STEP OWES ITS RECORD, exactly as every Step owes its
-  // prose (§4.17, kogaki#878). The Brief declared the figure; a Draft emitted
+  // prose (the figure record, kogaki#878). The Brief declared the figure; a Draft emitted
   // without it would silently drop a decision the owner made at the Candidate
   // gate, and nothing downstream would report the drop — which is the shape
   // this repository refuses everywhere else it appears.
@@ -1318,16 +1371,16 @@ function cmdEmit(args) {
     .map((s) => s.step_id);
   if (owedFigures.length) {
     fail(`the run is not at completion: step(s) ${owedFigures.join(", ")} declare figure: and have no recorded figure record — `
-      + `the record is filled after that Step's prose and recorded with \`figure --step <id> --file <record.json>\` (§4.17)`);
+      + `the record is filled after that Step's prose and recorded with \`figure --step <id> --file <record.json>\` (the figure record)`);
   }
-  // A RECORDED FIGURE THAT WILL NOT RENDER STOPS THE ARTIFACT (§4.18). The
+  // A RECORDED FIGURE THAT WILL NOT RENDER STOPS THE ARTIFACT (the renderer and the anchor). The
   // guard above answers "is a record owed"; this answers "does it render", and
   // the two are separable — a record can exist, resolve and validate, and still
   // name a kind this runtime has no seat for. Emitting the Draft with the block
-  // silently absent is the drop-with-no-report shape §4.17 refuses one act
+  // silently absent is the drop-with-no-report shape the figure record refuses one act
   // earlier, so it is refused here for the same reason.
   if (figureErrors.length) {
-    fail(`the figure(s) this run recorded do not render: ${figureErrors.join("; ")} — the markup is the Harness's (§4.18), so this is a renderer or a record defect and never prose to be written around`);
+    fail(`the figure(s) this run recorded do not render: ${figureErrors.join("; ")} — the markup is the Harness's (the renderer and the anchor), so this is a renderer or a record defect and never prose to be written around`);
   }
   const outPath = join(dirname(brief.path), "draft.md");
   // `generated_by` is an immutable birth record: an overwrite keeps the
@@ -1346,7 +1399,7 @@ function cmdEmit(args) {
   // THE TRACE MAPS EACH STEP TO ITS SECTION, not to its own ordinal
   // (kogaki#823). `section: i + 1` numbered the Steps and called the result a
   // section, which was true only while the two units were the same one — after
-  // §4.15 it asserted a one-to-one mapping that the Brief may not declare, so a
+  // the Section grouping it asserted a one-to-one mapping that the Brief may not declare, so a
   // reader of the trace could not tell which Steps shared a heading.
   const secOf = sectionOfStep(brief.steps);
   const trace = brief.steps.map((s) => {
@@ -1388,7 +1441,7 @@ function cmdEmit(args) {
     if (rec && typeof rec.path === "string" && typeof rec.sha256 === "string") {
       // Relative to the draft, the same convention `brief:` uses above: the sha
       // identifies the input, the path is repo-relative, and neither is machine
-      // identity (DESIGN.md §6).
+      // identity (DESIGN.md, "Lifetimes: what is owner state and what is machine state").
       t.packet = relative(dirname(outPath), rec.path);
       t.packet_sha = rec.sha256;
     } else {
@@ -1396,7 +1449,7 @@ function cmdEmit(args) {
       // and `cmdPacket`'s own record write already hold.
       process.stderr.write(`draft: step ${t.step_id} has no readable packet record in ${join(ws, "run.json")} — its trace entry carries no packet fields; the trace never gates the write it traces\n`);
     }
-    // THE FIGURE ENTRY (§4.18, kogaki#879). `record` is relative to the draft,
+    // THE FIGURE ENTRY (the renderer and the anchor, kogaki#879). `record` is relative to the draft,
     // the convention `brief:` and `packet:` already use — two machines emit
     // identical bytes — and `record_sha` is the sha `figure` recorded at
     // validation, READ rather than recomputed. `lines` is the block's own span,
@@ -1446,7 +1499,7 @@ async function runSelfTest() {
     "### L1 — first-strand", "",
     "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
     "## Thesis", "", "The fixture claim.", "",
-    // §4.14's global anchors (kogaki#749). The fixture carried a Thesis and
+    // the Step Packet's global anchors (kogaki#749). The fixture carried a Thesis and
     // none of the other three, so the Packet refused by name — correctly, and
     // the fixture is what was short. Added here rather than defaulted in the
     // renderer: a default would be the renderer inventing an anchor, which is
@@ -1455,7 +1508,7 @@ async function runSelfTest() {
     "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
     "## Opening question", "", "What makes the fixture claim worth stating?", "",
     "## Sequence", "",
-    // The step blocks carry the fields §4.14 RENDERS, not only the two earlier
+    // The step blocks carry the fields the Step Packet RENDERS, not only the two earlier
     // cases parse. Same correction as the anchors above: the Packet refused by
     // name and the fixture was what was short.
     "```step", "step_id: s1", "move: open_the_claim", "purpose: open",
@@ -1471,9 +1524,9 @@ async function runSelfTest() {
   ].join("\n");
   writeFileSync(join(briefDir, "brief.md"), goodBrief);
 
-  // §4.12's FIXTURE MOVE LIBRARY (kogaki#747). The fixture Brief binds Moves
-  // because a Step without one is not a Step (§4.1 v18) and its id must
-  // resolve (§4.12) — the pass drove a Brief whose step blocks carried no
+  // the Step-Move instantiation contract's FIXTURE MOVE LIBRARY (kogaki#747). The fixture Brief binds Moves
+  // because a Step without one is not a Step (the Step's shape v18) and its id must
+  // resolve (the Step-Move instantiation contract) — the pass drove a Brief whose step blocks carried no
   // `move:` at all, which is the same dead-input state this issue closes.
   // A fixture library rather than the repository's `moves/`: a self-test that
   // resolved against the real store would go red on a library edit it has
@@ -1483,9 +1536,9 @@ async function runSelfTest() {
   const movesDir = join(root, "moves");
   mkdirSync(movesDir, { recursive: true });
   for (const id of ["open_the_claim", "close_the_claim"]) {
-    // §4.14 renders intent/constraints/failure_modes and the excerpt, so the
+    // the Step Packet renders intent/constraints/failure_modes and the excerpt, so the
     // fixture records carry them — a store holding ids alone was enough for
-    // §4.12's membership test and is not enough for a Packet.
+    // the Step-Move instantiation contract's membership test and is not enough for a Packet.
     writeFileSync(join(movesDir, `${id}.md`), [
       `id: ${id}`, "status: observed",
       // THE FIXTURE RECORDS WRAP (PR #780 round 1). Single-line folded scalars
@@ -1533,7 +1586,7 @@ async function runSelfTest() {
   const r0 = drive("resolve");
   ok("resolve prints the recorded order", r0.status === 0 && r0.stdout.includes("s1 → s2"));
 
-  // 4a2 — §4.13's `introduces:` READ BACK (kogaki#751). The field is written
+  // 4a2 — the reader-knowledge ledger's `introduces:` READ BACK (kogaki#751). The field is written
   // one line per entry by renderStep; this is the reader half of that round
   // trip, and a malformed entry refuses NAMING the Step (acceptance).
   {
@@ -1576,7 +1629,7 @@ async function runSelfTest() {
       r0.status === 0 && /reader-knowledge ledger: 0 term\(s\)/.test(r0.stdout) && /not an error/.test(r0.stdout));
   }
 
-  // 4a3 — §4.14's SECTION PACKET (kogaki#749). The Packet is the model's
+  // 4a3 — the Step Packet's SECTION PACKET (kogaki#749). The Packet is the model's
   // ENTIRE input for one Step, so every property below is about what reaches
   // the model: determinism, byte-identity with what was stored, a refusal by
   // NAME rather than an empty slot, and the two exclusions the rulings make.
@@ -1730,7 +1783,7 @@ async function runSelfTest() {
       /already knows/.test(p2.stdout));
   }
 
-  // 4b — §4.12's MECHANICAL HALF at the realization entry (kogaki#747).
+  // 4b — the Step-Move instantiation contract's MECHANICAL HALF at the realization entry (kogaki#747).
   // `move:` was parsed for nothing; it is read now, and `resolve` refuses an
   // EXISTING Brief whose binding resolves to no record. This seat does not
   // duplicate the composition-side one: a Move renamed or withdrawn after the
@@ -1784,7 +1837,7 @@ async function runSelfTest() {
   // A PACKET DELETED AFTER ITS RENDER (PR #814 round 1, finding 2). This is the
   // backstop's OWN case and the one that distinguishes it from render-within:
   // the never-rendered case above reaches the same branch, but from a state
-  // render-within explains rather than one it cannot see. #811 and DESIGN.md §3
+  // render-within explains rather than one it cannot see. #811 and the Packet architecture
   // both name delete-after-render specifically, so it is asserted specifically.
   ok("section refuses a Packet deleted after it was rendered",
     (() => { const pkt = join(wsSlug, "packets", "s1.md");
@@ -1871,9 +1924,9 @@ async function runSelfTest() {
   ok("no default run destination resolves under a home directory",
     !workspaceFor({}, "some-slug").includes(`${sep}.kogaki${sep}`));
 
-  // 7 — §4.15's SECTION GROUPING, DRIVEN END TO END (kogaki#823). The cases
+  // 7 — the Section grouping's SECTION GROUPING, DRIVEN END TO END (kogaki#823). The cases
   // above run against a Brief that declares no `opens_section`, which is the
-  // pre-§4.15 corpus and exercises exactly the fallback branch — so on their
+  // pre-Section-grouping corpus and exercises exactly the fallback branch — so on their
   // own they are green about a renderer that reads the declaration for nothing.
   // This block drives a Brief that DOES declare it: three Steps, two Sections,
   // so "fewer headings than Steps" is a property of the output rather than an
@@ -2054,7 +2107,7 @@ async function runSelfTest() {
     rBlank.status !== 0 && rBlank.stderr.includes("t1") && rBlank.stderr.includes("opens_section"),
     rBlank.stderr.trim().slice(0, 160));
 
-  // The pre-§4.15 corpus is the CONTROL for the fallback: a path declaring
+  // The pre-Section-grouping corpus is the CONTROL for the fallback: a path declaring
   // nothing derives one untitled Section and renders no heading, rather than
   // refusing or rendering `## undefined`. Without this, the migration cost of
   // this issue is invisible.
@@ -2062,7 +2115,7 @@ async function runSelfTest() {
     sectionsOf([{ step_id: "s1" }, { step_id: "s2" }]).length === 1 &&
     !/^## /m.test(out.split("---\n").slice(2).join("---\n")));
 
-  // 8 — §4.15 IN THE PACKET (kogaki#825). Block 7 asserts what the DRAFT
+  // 8 — the Section grouping IN THE PACKET (kogaki#825). Block 7 asserts what the DRAFT
   // renders; this asserts what the PACKET SAYS, which is a different artifact
   // with a different reader — the model, whose entire world it is. The two are
   // driven off the SAME Brief so the derivation they share is exercised once
@@ -2218,17 +2271,17 @@ async function runSelfTest() {
   ok("Section survives in the rendered Packet as the GROUPING, not as the Step",
     bodyT1.includes("A Section is a grouping of Steps"));
 
-  // §4.14.1's standing prohibition, re-asserted because this issue rewrote the
+  // the runtime-read template's standing prohibition, re-asserted because this issue rewrote the
   // template: the template and the rendered Packet both point at no spec.
   ok("neither the rewritten template nor the rendered Packet points at a spec",
     !/§\d/.test(readFileSync(join(dirname(self), "packet-template.md"), "utf8")) && !/§\d/.test(bodyT1));
 
-  // The pre-§4.15 CONTROL: a Brief declaring no Section renders the stated
+  // The pre-Section-grouping CONTROL: a Brief declaring no Section renders the stated
   // absence rather than a blank or an invented title, and its article-so-far
   // block falls back to the flat form it always had.
   // REPLACED (PR #844 round 1, finding 3). The case it replaces asserted
   // `sectionPlacement(undefined)` — an input no Packet render can produce — and
-  // so controlled a path the pre-§4.15 corpus never takes. The corpus takes the
+  // so controlled a path the pre-Section-grouping corpus never takes. The corpus takes the
   // UNTITLED path, so that is what is controlled, and it is asserted to say
   // WHICH of opens/continues, because the block above it promises exactly that.
   ok("the untitled form an undeclared path actually gets says whether the Step opens or continues",
@@ -2261,7 +2314,7 @@ async function runSelfTest() {
     undeclared.stdout.split("## The Section this Step sits in")[1]?.slice(0, 160));
 
   // -------------------------------------------------------------------------
-  // §4.17 — THE FIGURE RECORD AT REALIZATION (kogaki#878). Driven end to end
+  // the figure record — THE FIGURE RECORD AT REALIZATION (kogaki#878). Driven end to end
   // through the real entry points, not against the functions: the ordering
   // this issue is about — prose, then figure, then the next Packet — is the
   // Harness's, and a case calling the validator directly would assert the
@@ -2321,7 +2374,7 @@ async function runSelfTest() {
       [self, cmd, "--brief", join(figDir, "brief.md"), "--workspace", figWs, "--moves-dir", movesDir, ...extra],
       { encoding: "utf8" });
 
-    // The round trip §4.16's writer opens and this issue closes: a Brief that
+    // The round trip the figure decision's writer opens and this issue closes: a Brief that
     // DECLARES a figure is read back as one. Asserted at the entry point,
     // because the failure it replaces was silent — the field parsed nowhere and
     // every check stayed green.
@@ -2466,7 +2519,7 @@ async function runSelfTest() {
       plainPacket.slice(-200));
 
     // -----------------------------------------------------------------------
-    // §4.18 — THE RENDERER AND THE ANCHOR (kogaki#879). The cases above stop at
+    // the renderer and the anchor — THE RENDERER AND THE ANCHOR (kogaki#879). The cases above stop at
     // the RECORD; these carry it the rest of the way, to the markup a reader
     // meets and the trace entry that pins it.
 
@@ -2524,7 +2577,7 @@ async function runSelfTest() {
     ok("the grammar check rejects a header with no statement under it",
       /empty diagram|no statement/.test(checkMermaid("flowchart LR") || ""), String(checkMermaid("flowchart LR")));
     // A kind outside the closed set is refused by name rather than rendered as
-    // an empty block — the seat rule §4.18 states.
+    // an empty block — the seat rule the renderer and the anchor states.
     ok("a record naming a kind outside the closed set is refused by name",
       /not in the closed set/.test(renderFigure({ kind: "spiral", elements: {}, relations: ["x"], caption: "c", position: "after" }).error || ""));
     // EVERY RELATION REACHES THE OUTPUT. `axis` has two edges; a record with
@@ -2598,7 +2651,7 @@ async function runSelfTest() {
          t1.figure.record_sha === sha256(readFileSync(recAbs, "utf8"))),
       JSON.stringify(t1 && t1.figure));
     // THE STEP'S `lines` SPAN THE PROSE ALONE, and the figure's own span is
-    // `figure.lines` (kogaki#868, §4.18). Asserted on the FILE's lines, which
+    // `figure.lines` (kogaki#868, the renderer and the anchor). Asserted on the FILE's lines, which
     // is the surface kogaki#870's blind recovery quotes from.
     const fileLines = anchDraft.split("\n");
     const proseSpan = fileLines.slice(t1.lines[0] - 1, t1.lines[1]).join("\n");
@@ -2614,7 +2667,7 @@ async function runSelfTest() {
     ok("a Step declaring no figure carries no figure key in its trace entry",
       !("figure" in (anchTrace.find((t) => t.step_id === "a2") || {})));
     // NO STEP STRUCTURE BECAME VISIBLE. The block is a rendered element, so the
-    // body must still carry no step id and no key line — the §5 guard the
+    // body must still carry no step id and no key line — the three-layer-boundary guard the
     // figure could have quietly broken by writing an id into the markup.
     ok("the figure block renders no visible trace structure in the body",
       findTraceStructure(anchDraft.slice(anchDraft.indexOf("## Section one")), ["a1", "a2"]).length === 0);

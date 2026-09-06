@@ -120,7 +120,7 @@ try {
   // attaches with DIFFERENT reasoning pass — the first review and the one
   // revise round — and a third is refused BY NAME, naming the prior attaches.
   if (REVISE_BOUND !== 1 || MAX_ATTACHES !== 2) {
-    fails.push(`(e) the bound is ${REVISE_BOUND} revise round(s) / ${MAX_ATTACHES} attach(es) — §4.11 bounds the loop at ONE revise round per Candidate`);
+    fails.push(`(e) the bound is ${REVISE_BOUND} revise round(s) / ${MAX_ATTACHES} attach(es) — the loop is bounded at ONE revise round per Candidate`);
   }
   const lp = attachLedgerPath(brief, root);
   if (lp.error) fails.push(`(e) the ledger path did not resolve: ${lp.error}`);
@@ -130,9 +130,10 @@ try {
   if (a2.error) fails.push(`(e) the ONE revise round was refused: ${a2.error}`);
   else if ((a2.attaches["cand-1"] || []).length !== 2) fails.push("(e) the revise round was not counted");
   const a3 = a2.error ? null : attachReview(cands, both("third "), a2.attaches);
-  if (!a3 || !a3.error || !/cand-1/.test(a3.error) || !/§4\.11/.test(a3.error)
+  if (!a3 || !a3.error || !/cand-1/.test(a3.error)
+      || !/bounded at ONE revise round per Candidate/.test(a3.error)
       || !/attach 3/.test(a3.error)) {
-    fails.push(`(e) a THIRD attach was not refused by name against §4.11: ${JSON.stringify(a3 && (a3.error || "accepted"))}`);
+    fails.push(`(e) a THIRD attach was not refused by name against the one-revise-round bound: ${JSON.stringify(a3 && (a3.error || "accepted"))}`);
   }
   // The refusal must name the prior attaches — a bound that refuses without
   // saying what it counted is a bound the composer cannot check.
@@ -148,7 +149,7 @@ try {
   else {
     for (const c of atBound) {
       if (c.revise_residue.attaches !== 2 || typeof c.revise_residue.statement !== "string"
-          || !/§4\.11/.test(c.revise_residue.bound)) {
+          || !/revise round per Candidate/.test(c.revise_residue.bound)) {
         fails.push(`(f) ${c.candidate_id}'s residue does not state the bound it was written against`);
       }
     }
@@ -221,7 +222,7 @@ try {
   if (led.error) fails.push(`(g) the ledger the command wrote is unreadable: ${led.error}`);
   else if ((led.attaches["cand-1"] || []).length !== 2) fails.push("(g) the command path did not record the revise round in the run workspace — the count would live in the sitting's memory again");
   const p3 = attach((() => { const f = join(dir, "review3.json"); writeFileSync(f, JSON.stringify(both("third "))); return f; })());
-  if (p3.status === 0 || !/§4\.11/.test(p3.stderr || "")) {
+  if (p3.status === 0 || !/bounded at ONE revise round per Candidate/.test(p3.stderr || "")) {
     fails.push(`(g) the command path admitted a third attach: ${(p3.stderr || "").trim() || "exit 0"}`);
   }
 } finally {

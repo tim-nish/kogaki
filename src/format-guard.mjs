@@ -1,4 +1,33 @@
-// THE EMIT-TIME REFUSAL (SPEC-terrain §14.2, story 1.54, kogaki#346).
+// THE EMIT-TIME REFUSAL (story 1.54, kogaki#346).
+// [see: SPEC-terrain "The emitters refuse; they do not report"]//
+// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
+// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
+// the copy is what the code was implemented against, NOT the spec's current
+// text, and propagating a later spec change into this file is a separate,
+// explicit act. A pointer carrying no authority is marked `[see: <spec>
+// "<name>"]`. Neither names a section number, because section numbers renumber.
+// No owner-facing string below names a spec section.
+//
+// THE NAMES THIS FILE USES, and the spec content each one names. A bare name
+// below is a `[see: ...]` pointer carrying no authority; where the content is
+// stated at the site it is a copy of what this file was implemented against.
+//   "the emit-time refusal"        SPEC-terrain "The emitters refuse; they do
+//                                  not report"
+//   "the carrier rule"             SPEC-terrain "The carrier is
+//                                  `src/report-format.json`, and it wins"
+//   "the display-ID rule"          SPEC-terrain "No owner surface renders an
+//                                  element NAME — the display ID does"
+//   "the report identity"          SPEC-terrain "Identity — the quadruple"
+//   "location and naming"          SPEC-terrain "Location and naming"
+//   "the rendering rule"           SPEC-terrain "Rendering — headlines, and
+//                                  every figure names its families"
+//   "semantic subdivision"         SPEC-terrain "Semantic subdivision — a
+//                                  judged substrate one level down"
+//   "the SubGroup rule"            SPEC-terrain "SubGroups on the CoTagGroups
+//                                  display, and the threshold"
+//   "the display's serve rule"     SPEC-terrain "What the CoTagGroups display
+//                                  SERVES"
+//
 //
 // The emitters validate the text they are ABOUT TO EMIT against
 // `src/report-format.json` and refuse to write or print on
@@ -9,7 +38,8 @@
 // — "restrict what the system can produce in the first place … which removes
 // the possibility instead of catching it."
 //
-// THE PRECEDENT THIS REUSES RATHER THAN RE-DERIVES: §9's FIGURE_MISMATCH
+// THE PRECEDENT THIS REUSES RATHER THAN RE-DERIVES: the rendering rule's
+// FIGURE_MISMATCH
 // already refuses to write a survey record whose stored figure disagrees with
 // the placements it claims to be counted over. Same shape, one layer out — the
 // refusal is generation-time, and the check suite stays the fast path beneath
@@ -17,19 +47,20 @@
 //
 // WHAT IS VALIDATED IS THE STRING, NOT THE MODEL BEHIND IT (AC3). The recorded
 // specimen is the pre-#234 renderer, which dropped four of six member fields
-// while every §12.1 assertion about the record stayed green. A guard reading
+// while every assertion about the report identity stayed green. A guard reading
 // the data structure would have been green too.
 //
-// THERE IS NO `--no-validate` (story 1.54 SQ1). §14.2 grants no escape hatch,
+// THERE IS NO `--no-validate` (story 1.54 SQ1). The emit-time refusal grants
+// no escape hatch,
 // and one would restore the admit-on-non-member fallback the allowlist shape
 // exists to remove — `consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:119`,
 // "the load-bearing half is not completeness … but the non-member fallback".
 //
-// SCOPE IS THE TWO SURFACES THE GRAMMAR COVERS (SQ2, §14.1). `view`, `claim`,
+// SCOPE IS THE TWO SURFACES THE GRAMMAR COVERS (SQ2). `view`, `claim`,
 // `adopt` and `subdivide` are owner surfaces too and the grammar says so, in
 // `uncovered_surfaces`, under its own reopen trigger. Extending the refusal to
 // them is that trigger's work; doing it here would be the silent widening
-// §14.1 declined.
+// the carrier rule declined.
 
 import { readFileSync } from "node:fs";
 
@@ -45,7 +76,8 @@ const FREE = "[\\s\\S]*?";
 function tokenFragment(name, grammar) {
   const t = (grammar.tokens || {})[name];
   if (name === "LessonDisplayID") {
-    // The ABNORMAL token is admitted beside the minted shape, because §14.3's
+    // The ABNORMAL token is admitted beside the minted shape, because the
+    // display-ID rule's
     // absence case REACHES the owner surface: a legacy survey record renders
     // it, and a refusal admitting only `^L[0-9]+$` here would reject exactly
     // the record the abnormality exists to make visible. The grammar says so
@@ -127,7 +159,7 @@ export function classMatchers(entry, grammar) {
     // truncation reaches only the one holding the `…` — every later fragment
     // survives and is demanded as literal prefix text. `abnormal_display_id`
     // is the specimen: its tail is "… Re-run `terrain survey` to regenerate
-    // the record (§12.2 v11).", whose `12`, `2` and `11` survived, so the
+    // the record (the location-and-naming rule, v11).", whose digits survived, so the
     // class NEVER admitted the line its own emitter produces, on either
     // surface that declares it. That is the exact failure its own note says it
     // exists to prevent — "a refusal that admitted only ^L[0-9]+$ in a
@@ -207,7 +239,7 @@ export function validateSurface(surfaceName, text, grammar) {
   const surface = (grammar.surfaces || {})[surfaceName];
   if (!surface) {
     return [violation(surfaceName, "surface_declared", null, null,
-      `no surface ${JSON.stringify(surfaceName)} in the grammar — SPEC.md §14.1 covers `
+      `no surface ${JSON.stringify(surfaceName)} in the grammar — the grammar covers `
       + `${Object.keys(grammar.surfaces || {}).join(", ")} and nothing else`)];
   }
   const v = [];
@@ -235,18 +267,18 @@ export function validateSurface(surfaceName, text, grammar) {
         `no line class in ${surfaceName}.line_classes admits this line, and the surface's `
         + `non_member_fallback is ${JSON.stringify(surface.non_member_fallback || "REFUSE")}. `
         + "Either the emitter changed shape, or the grammar owes a new class — "
-        + "src/report-format.json wins on divergence (§14.1), so the grammar is amended deliberately, never to make a refusal go away"));
+        + "src/report-format.json wins on divergence, so the grammar is amended deliberately, never to make a refusal go away"));
     }
   });
 
-  // no_element_names — §14.2 verbatim, the WIDE rule. The grammar records that
+  // no_element_names — the emit-time refusal verbatim, the WIDE rule. The grammar records that
   // two drafts narrowed it and both were withdrawn; the residue (whether a
   // served CITE counts as an element name) was ANSWERED on kogaki#345 SQ2 —
   // a cite is an address — so the predicate looks for element names only.
   lines.forEach((line, i) => {
     if (/\blesson:[a-z0-9-]/.test(line)) {
       v.push(violation(surfaceName, "no_element_names", line, i + 1,
-        "an element name (`lesson:<slug>`) reached an owner surface. SPEC.md §14.3: "
+        "an element name (`lesson:<slug>`) reached an owner surface. No owner surface renders an element name — the display ID does: "
         + "no owner surface renders an element name; the rendered token is the display_id, "
         + "resolved from the survey record"));
     }
@@ -260,7 +292,7 @@ export function validateSurface(surfaceName, text, grammar) {
       if (n !== 1) {
         v.push(violation(surfaceName, "pin_once_per_file", null, null,
           `${n} \`substrate_pin\` line(s); the grammar entry requires exactly 1 `
-          + "(§12: the report renders the shared substrate pin ONCE, in its identity)"));
+          + "(the report renders the shared substrate pin ONCE, in its identity)"));
       }
     }
     if (rule.id === "subdivision_required_at_ten") {
@@ -329,7 +361,7 @@ const countIn = (s) => {
 // that comparison is `sum == sum`, a predicate that cannot fail. The property
 // was carried through the withdrawal by the PRE-RENDER refusal in `cmdCotags`,
 // over the placement rather than the text, which is weaker in exactly the way
-// §14.2 records; that refusal is not withdrawn now the rule is back, because
+// the emit-time refusal records; that refusal is not withdrawn now the rule is back, because
 // the two read different things.
 
 // catch_all_share IS DELETED (kogaki#738 ruling 4, owner rulings 2026-09-01).
@@ -340,7 +372,7 @@ const countIn = (s) => {
 // leaving any member unplaced is now REFUSED, naming the members, so there is no
 // engine-filled remainder for a share cap to bound. Applying the cap to the
 // judged `other` label instead was the declined alternative — it would be the
-// engine second-guessing a verdict §8 assigns to the judge, and `other` is safe
+// engine second-guessing a verdict semantic subdivision assigns to the judge, and `other` is safe
 // precisely because it is judged rather than swept.
 //
 // DELETED RATHER THAN LEFT DECLARED. A rule kept in the carrier after its
@@ -359,7 +391,7 @@ const countIn = (s) => {
 // a sum constrains the total and admits two per-SubGroup errors that cancel.
 
 // subgroup_members_sum_to_parent — the SubGroup counts under a subdivided
-// group heading must add up to the count on that heading (§6.2 rule 1,
+// group heading must add up to the count on that heading (the SubGroup rule 1,
 // kogaki#739; report-format.json v15).
 //
 // RESTORED, NOT WRITTEN. The rule existed as a grammar entry until v13 took the
@@ -392,7 +424,7 @@ function sumToParentRule(surfaceName, lines, classified) {
     if (sum !== parent) {
       v.push(violation(surfaceName, "subgroup_members_sum_to_parent", parentLine, parentNo,
         `the group heading names ${parent} member Lesson(s) and its ${seen} SubGroup heading(s) sum to ${sum} `
-        + "— §6.2 rule 1: every member is placed and nothing is silently dropped. The placement refusal in "
+        + "— every member is placed and nothing is silently dropped. The placement refusal in "
         + "`cmdCotags` reads the record and this rule reads the rendered text, so a disagreement here means the "
         + "RENDERER lost or miscounted a `subgroup_heading` line on a record that placed correctly"));
     }
@@ -416,7 +448,7 @@ function sumToParentRule(surfaceName, lines, classified) {
 }
 
 // subdivision_required_at_ten — a group at or above the threshold must serve
-// SubGroups (§8, kogaki#683 disposition 1; owner ruling 2026-08-28, boundary
+// SubGroups (kogaki#683 disposition 1; owner ruling 2026-08-28, boundary
 // confirmed at ten-or-more at pickup 2026-08-29).
 //
 // ENGINE-SIDE, AT EMIT, NO MODEL DISCRETION, which is what the disposition asks
@@ -438,7 +470,7 @@ function sumToParentRule(surfaceName, lines, classified) {
 // recorded having made once already, kept here because the lesson outlived the
 // rule that learned it.
 //
-// A GROUP BELOW THE THRESHOLD IS NOT EXAMINED. §6.2 v7 rule 3 still lets a
+// A GROUP BELOW THE THRESHOLD IS NOT EXAMINED. The SubGroup threshold rule 3 still lets a
 // small group render flat when its only named SubGroup was labelled `other`,
 // and that path stays legal below ten and is unavailable at or above it — the
 // runtime declines to suppress there, so this rule is the carrier for any other
@@ -461,7 +493,7 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
     if (parent === null || parent < at || sawSubgroup) return;
     v.push(violation(surfaceName, rule.id, parentLine, parentNo,
       `the group holds ${parent} member Lessons and renders NO SubGroup — at ${at} or more, serving SubGroups is the `
-      + "engine's requirement rather than the judge's discretion (SPEC-terrain §8, kogaki#683). "
+      + "engine's requirement rather than the judge's discretion (kogaki#683). "
       + `Recompose the subdivision for ${JSON.stringify(parentLine)}: the split decision is not the judge's at this size, `
       + "and a judged-empty outcome for such a group does not render."));
   };
@@ -478,12 +510,13 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
       // WHY KEPT: widening it changes what `subdivision_required_at_ten`
       // evaluates, and #739 licenses no clause of that rule. Its obligations
       // are enumerated closed — the heading form, the sum-to-parent entry and
-      // its predicate, the `catch_all_share` determination, and the §6.1/§6.2
+      // its predicate, the `catch_all_share` determination, and the display's
+      // serve rule and the SubGroup threshold
       // text — and none of them names this rule. It was widened in this PR's
       // first push and reverted at round 1, which found it out of scope and
       // found the widened arm diverging from the entry's own `rule` string
       // ("a `group_heading_flat` line whose LessonCount is >= 10 …"), where
-      // §14.1 makes `report-format.json` win. Adjacency is not authorization.
+      // the carrier rule makes `report-format.json` win. Adjacency is not authorization.
       //
       // WHAT WIDENING WOULD BUY, so the next reader can price it rather than
       // rediscover it: almost nothing today. A line classifies
@@ -506,16 +539,16 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
 // The refusal itself. Called by the emitters BEFORE they write or print.
 //
 // It throws rather than calling `fail()` so the caller decides the exit path,
-// and — this is the part that matters for §12.2 v11 — so `cmdReport` can
+// and — this is the part that matters for location and naming, v11 — so `cmdReport` can
 // validate BEFORE either of its two artifacts exists. A refusal that had
 // already written the rendering and not the record would reproduce the
 // 2026-08-06 defect specimen from the other side.
 export class FormatRefusal extends Error {
   constructor(surfaceName, violations) {
     super(`refusing to emit ${surfaceName}: the rendered text violates src/report-format.json`
-      + ` (SPEC.md §14.2 — the refusal is generation-time)\n  `
+      + ` (the refusal is generation-time)\n  `
       + violations.map((x) => `- ${x}`).join("\n  ")
-      + "\n  The grammar is authoritative over the rendered form (§14.1). Fix the emitter, "
+      + "\n  The grammar is authoritative over the rendered form. Fix the emitter, "
       + "or amend the grammar deliberately on its own licensing issue — never to make this refusal go away.");
     this.name = "FormatRefusal";
     this.surface = surfaceName;

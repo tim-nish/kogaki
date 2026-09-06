@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Terrain — the survey/selection surface (manifest item 1, specs/SPEC.md §5;
+// Terrain — the survey/selection surface (manifest item 1, specs/SPEC.md, the port manifest;
 // kogaki#14 umbrella, kogaki#17 story 1.8; governing spec
 // specs/spec-terrain/SPEC.md).
 //
 // Terrain reads SERVED RENDERINGS only, through the seam (element_survey),
 // and composes the survey under its three contracts:
-//   §2.1 completeness is a cover counted in placements, AFTER composition,
+//   the placement cover completeness is a cover counted in placements, AFTER composition,
 //        with every figure naming which family it counted;
-//   §2.2 grouping is presentation-only — navigation narrows nothing;
-//   §2.3 the second-proposer boundary — rank/trim/hide are proposals routed
+//   grouping is presentation-only — navigation narrows nothing;
+//   the second-proposer boundary the second-proposer boundary — rank/trim/hide are proposals routed
 //        through the item-3 record contract; enumerate/sort/filter-by-owner
 //        are navigation; an act in neither list is a report.
 //
@@ -19,9 +19,111 @@
 // Run state (survey records, proposal records, gate declarations, captures)
 // lives in the run workspace — `runs/terrain/<timestamp>/` in the working tree
 // since kogaki#750, `~/.kogaki/runs/...` before it. It is still machine state
-// and still uncommitted (specs/SPEC.md §4 rider 3, `.gitignore`); what the move
+// and still uncommitted — machine-readable intermediates and resumable run
+// state live in machine-state directories (specs/SPEC.md, "Human-facing files
+// live where the human works"), and `.gitignore` keeps it so; what the move
 // changes is that it is legible where a contributor works and bounded by the
 // in-band prune, rather than accumulating unread in a hidden home directory.
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).
+// Implemented code does not refer to a Spec. Content this file was implemented
+// against is stated HERE, and what is stated here is what the code was
+// implemented against — NOT the spec's current text. It stays true for this file
+// even if the spec is rewritten or deleted, and propagating a later spec change
+// into this file is a SEPARATE, EXPLICIT act. A bare name below is a pointer
+// carrying no authority. Nothing names a section number, because section numbers
+// renumber, and no owner-facing string names a spec section.
+//
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   the open questions
+//       SPEC-terrain
+//   the Full Report
+//       SPEC-terrain
+//   the report identity
+//       SPEC-terrain
+//   location and naming
+//       SPEC-terrain
+//   the Thesis candidates
+//       SPEC-terrain
+//   the provenance neighborhood
+//       SPEC-terrain
+//   the neighborhood defect
+//       SPEC-terrain
+//   the neighborhood as a report
+//       SPEC-terrain
+//   the settled-strand-set input
+//       SPEC-terrain
+//   the neighborhood join
+//       SPEC-terrain
+//   the neighborhood section's shape
+//       SPEC-terrain
+//   the carrier rule
+//       SPEC-terrain
+//   the emit-time refusal
+//       SPEC-terrain
+//   the display-ID rule
+//       SPEC-terrain
+//   the single producer rule
+//       SPEC-terrain
+//   how A–E compose
+//       SPEC-terrain
+//   the control plane
+//       SPEC-terrain
+//   the workflow table
+//       SPEC-terrain
+//   the re-entrant executor
+//       SPEC-terrain
+//   the run record
+//       SPEC-terrain
+//   the wait rule
+//       SPEC-terrain
+//   write authority
+//       SPEC-terrain
+//   the typed judgment points
+//       SPEC-terrain
+//   the claim re-offer wait
+//       SPEC-terrain
+//   subdivide's composition fold
+//       SPEC-terrain
+//   the deleted entry point
+//       SPEC-terrain
+//   the non-flow utilities
+//       SPEC-terrain
+//   what is not carried
+//       SPEC-terrain
+//   the placement cover
+//       SPEC-terrain
+//   presentation-only grouping
+//       SPEC-terrain
+//   the second-proposer boundary
+//       SPEC-terrain
+//   the served-renderings input rule
+//       SPEC-terrain
+//   the out-of-scope decision
+//       SPEC-terrain
+//   the candidate model
+//       SPEC-terrain
+//   what would falsify the candidate model
+//       SPEC-terrain
+//   the co-tag navigation step
+//       SPEC-terrain
+//   the pre-selection listing
+//       SPEC-terrain
+//   the display's serve rule
+//       SPEC-terrain
+//   the SubGroup threshold
+//       SPEC-terrain
+//   the post-tag-selection window
+//       SPEC-terrain
+//   GroupClaim-first rendering
+//       SPEC-terrain
+//   semantic subdivision
+//       SPEC-terrain
+//   measurement before offering
+//       SPEC-terrain
+//   the rendering rule
+//       SPEC-terrain
+//
 import { spawnSync, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync, rmSync, readdirSync } from "node:fs";
@@ -37,7 +139,7 @@ const SURVEY_SCHEMA = readJson(join(REPO, "src/survey-schema.json"));
 const RECORD_SCHEMA = readJson(join(REPO, "src/record-schema.json"));
 const GATE_SCHEMA = readJson(join(REPO, "src/gate-schema.json"));
 const GATES_REGISTRY = readJson(join(REPO, "src/gate-registry.json"));
-// §14.1's single carrier of the RENDERED FORM. Resolved from this module's own
+// the carrier rule's single carrier of the RENDERED FORM. Resolved from this module's own
 // location, like every schema above it — the emit-time refusal must not depend
 // on the cwd a run happens to start in.
 const REPORT_FORMAT = join(REPO, "src/report-format.json");
@@ -215,7 +317,7 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     } else if (c.family !== undefined && c.family !== schema.candidate_family_must_be) {
       v.push(`CANDIDATE_NOT_A_LESSON — candidates[${i}].family=${JSON.stringify(c.family)}: ${schema.candidate_family_rationale}`);
     }
-    // §14.3 — the display_id is the rendered token, so its shape and its
+    // the display-ID rule — the display_id is the rendered token, so its shape and its
     // uniqueness are record-level invariants rather than rendering-time hopes.
     // A duplicate is the worse of the two failures: it does not read as a
     // collision on any surface, it reads as one Strand appearing twice.
@@ -224,7 +326,7 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
         v.push(`DISPLAY_ID_MALFORMED — candidates[${i}].display_id=${JSON.stringify(c.display_id)} does not match ${s.candidate_display_id_pattern}`);
       }
       if (displayIdSeen.has(c.display_id)) {
-        v.push(`DISPLAY_ID_DUPLICATE — ${JSON.stringify(c.display_id)} appears twice; the survey record is the ID→slug map (SPEC.md §14.3) and a duplicate makes that map return the wrong Strand`);
+        v.push(`DISPLAY_ID_DUPLICATE — ${JSON.stringify(c.display_id)} appears twice; the survey record is the ID→slug map (SPEC.md, the display-ID rule) and a duplicate makes that map return the wrong Strand`);
       }
       displayIdSeen.add(c.display_id);
     }
@@ -238,7 +340,7 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     narrowingKeys(c, s).forEach((k) =>
       v.push(`NAVIGATION_STATE_NARROWS — candidates[${i}] carries ${JSON.stringify(k)}: ${s.narrowing_rationale}`));
   });
-  // Falsifier 1 (SPEC.md §5.2) — a Journey whose slug matches no Lesson has no
+  // Falsifier 1 (SPEC-terrain, what would falsify the candidate model) — a Journey whose slug matches no Lesson has no
   // row to be marked on, so the re-projection would drop it. Generation-time
   // refusal, never a rendering-time warning; the orphan slugs are named.
   const orphans = journeys.filter((j) => j && j.slug && !lessonSlugs.has(j.slug)).map((j) => j.slug);
@@ -266,7 +368,7 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     // The section figure is recomputed from the placements it claims to be
     // counted over and refused on mismatch, exactly as completeness.by_family
     // already is — the fill of terrain-family-split-carrier with (a)
-    // (SPEC.md §9). Placements authoritative, the stored figure subordinate,
+    // (SPEC.md, the rendering rule). Placements authoritative, the stored figure subordinate,
     // FIGURE_MISMATCH the mechanical check, at the layer the figure is made.
     if (sec.by_family && typeof sec.by_family === "object") {
       const want = familySplit(secPlaced, candidates, schema);
@@ -326,7 +428,7 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
         }
       }
     }
-    // The coverage half rides the same recompute. SPEC.md §5.2 declares
+    // The coverage half rides the same recompute. SPEC-terrain, what would falsify the candidate model declares
     // `instrument: none` for falsifier 2, and this is not that carrier: it
     // refuses a WRONG coverage figure, it does not read the threshold.
     const thin = [...placed].filter((id) => {
@@ -347,9 +449,9 @@ function narrowingKeys(obj, s) {
   return s.narrowing_keys_forbidden.filter((k) => Object.prototype.hasOwnProperty.call(obj, k));
 }
 
-// The family split over a set of placed ids. Under SPEC.md §5 the rows are
+// The family split over a set of placed ids. Under SPEC.md, the candidate model the rows are
 // Lessons, so the Journey half is counted from the MARKS the placed Lessons
-// carry — Lessons plus marks reconstructs the Strand set exactly (§5.2), which
+// carry — Lessons plus marks reconstructs the Strand set exactly (what would falsify the candidate model), which
 // is what keeps `agents (115 — 59 lessons + 56 journeys)` a true statement
 // about 115 Strands while the section holds 59 rows.
 export function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
@@ -366,7 +468,7 @@ export function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
   return out;
 }
 
-// THE ONE RESOLUTION PATH FROM AN ID TO WHAT AN OWNER READS (§14.3, story 1.53).
+// THE ONE RESOLUTION PATH FROM AN ID TO WHAT AN OWNER READS (the display-ID rule, story 1.53).
 //
 // No owner surface renders an element name. The rendered token is the
 // `display_id` the survey record assigned once, and this function is how every
@@ -378,13 +480,13 @@ export function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
 // (AC7). Falling back to the slug would reintroduce exactly the ~40-character
 // name this story removes, and it would do it silently — the reading that looks
 // most helpful is the one that undoes the change. So the abnormality gets the
-// same treatment §9 already gives a missing Gloss rendering
+// same treatment the rendering rule already gives a missing Gloss rendering
 // (`NO_HEADLINE`): a stated token in place of the value, never the value from
 // somewhere else. A legacy survey record written before this story renders
 // entirely in these tokens, which is the correct reading of it — run
-// `terrain survey` again (§12.2 v11: run-workspace artifacts are uncommitted
+// `terrain survey` again (location and naming v11: run-workspace artifacts are uncommitted
 // and regenerable, so regeneration is the remedy, not a migration).
-export const NO_DISPLAY_ID = "⟨no display_id — ABNORMAL, a survey record predating §14.3, never substituted⟩";
+export const NO_DISPLAY_ID = "⟨no display_id — ABNORMAL, a survey record predating the display-ID rule, never substituted⟩";
 
 export function displayIdOf(id, candidates) {
   const c = (candidates || []).find((x) => x && x.id === id);
@@ -405,7 +507,7 @@ export function compareDisplayIds(a, b) {
 }
 
 // The plural form, plus the count of abnormal members so a surface can state
-// the fault ONCE beneath the rows rather than per row — the shape §9's
+// the fault ONCE beneath the rows rather than per row — the shape the rendering rule's
 // `missing` counter already uses at the candidate-row surface.
 export function displayIds(ids, candidates) {
   const rendered = (ids || []).map((id) => displayIdOf(id, candidates));
@@ -416,8 +518,8 @@ export function displayIds(ids, candidates) {
 // Stated once so the eight call sites cannot drift into eight wordings.
 export function displayIdAbnormalLine(missing, total) {
   return `ABNORMAL: ${missing} of ${total} member(s) on this surface carry no display_id. `
-    + "The survey record is the ID→slug map (SPEC.md §14.3) and this one predates it — nothing was substituted for the missing IDs. "
-    + "Re-run `terrain survey` to regenerate the record (§12.2 v11).";
+    + "The survey record is the ID→slug map (SPEC.md, the display-ID rule) and this one predates it — nothing was substituted for the missing IDs. "
+    + "Re-run `terrain survey` to regenerate the record (location and naming v11).";
 }
 
 // A SURVEY WITH NO CANDIDATES IS AMBIGUOUS, and the ambiguity is what let
@@ -466,9 +568,9 @@ function cmdSurvey(args) {
   // anyway, on `rec.kind`, so the server-side filter was never load-bearing.
   // The transport now refuses an undeclared key before sending it.
   const resp = gatewayQuery("element_survey", {});
-  // The candidate row is ONE LESSON (SPEC.md §5). Journeys are read into their
+  // The candidate row is ONE LESSON (SPEC.md, the candidate model). Journeys are read into their
   // own list and become a MARK on their Lesson's row; the list stays in the
-  // record so count-in remains computable against count-out (§5.2) and so
+  // record so count-in remains computable against count-out (what would falsify the candidate model) and so
   // falsifier 1 has an artifact to be decided from.
   const lessons = [];
   const journeys = [];
@@ -483,13 +585,13 @@ function cmdSurvey(args) {
       // The id stays family-qualified: a journey shares its lesson's slug, and
       // the qualification is what kept the two apart when both were rows.
       //
-      // `display_id` is minted HERE and nowhere else (§14.3, story 1.53). The
+      // `display_id` is minted HERE and nowhere else (the display-ID rule, story 1.53). The
       // survey record IS the ID→slug map, so there is no second carrier to
       // drift from: every owner surface resolves through `displayIdOf` over
       // these candidates.
       //
       // ASSIGNMENT ORDER, and why it is the served corpus's own order (SQ1).
-      // §14.3 makes the ID stable within a pin and explicitly permits a pin
+      // the display-ID rule makes the ID stable within a pin and explicitly permits a pin
       // advance to renumber, but "legal to shuffle" is hostile to an owner
       // holding a printed display — so the numbering follows the order the
       // substrate SERVES the records in, which is append-stable for the common
@@ -517,9 +619,9 @@ function cmdSurvey(args) {
     if (j) c.journey = { slug: j.slug, cite: j.cite };
   }
   // Compose: one section per served tag (display 1's axis is the served tag
-  // vocabulary, SPEC.md §2.2); multi-tag Lessons place in every section they
+  // vocabulary, SPEC-terrain, presentation-only grouping); multi-tag Lessons place in every section they
   // relate to — completeness is a COVER counted in placements, not a
-  // partition (SPEC.md §2.1).
+  // partition (SPEC.md, the placement cover).
   const byTag = new Map();
   const tagless = [];
   for (const c of lessons) {
@@ -532,7 +634,7 @@ function cmdSurvey(args) {
   const sections = [...byTag.keys()].sort().map((t) => ({ name: t, axis: "served-tag", members: byTag.get(t) }));
   if (tagless.length > 0) sections.push({ name: NO_RELATION_SECTION, axis: "served-tag", members: tagless });
   // The figures — counted AFTER composition, over placements, each carrying
-  // its family split so no emitted number is bare (SPEC.md §2.1, §9).
+  // its family split so no emitted number is bare (SPEC.md, the placement cover, the rendering rule).
   for (const s of sections) s.by_family = familySplit(s.members, lessons);
   const placed = new Set(sections.flatMap((s) => s.members));
   const byFamily = familySplit([...placed], lessons);
@@ -563,7 +665,7 @@ function cmdSurvey(args) {
   const out = join(dir, `${id}.terrain-survey.json`);
   writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
   // Rendering. The figure takes the first line here as a PRESENTATION choice;
-  // whether it is contract is carried open at SPEC.md §11 and not decided by
+  // whether it is contract is carried open at SPEC.md, the open questions and not decided by
   // this runtime.
   const c = record.completeness;
   console.log(`Completeness: ${denominator(c.placed, c.of)} placed (${strandFigure(c.by_family)}); counted over placements.`);
@@ -579,23 +681,23 @@ function cmdSurvey(args) {
   // carried the amended navigation hint. Two emitters of one surface with one
   // of them unguarded is the defect class kogaki#665 exists to close, arriving
   // one channel over; extracting rather than copying is what criterion 2 asks
-  // for. The navigation line went with it: it named `view`, which §15.7
+  // for. The navigation line went with it: it named `view`, which the non-flow utilities
   // removes.
   // The bounded-input pointer, sited at the step BEFORE the one that needs it.
   // A composer reaching for material per group has already spent the reads by
   // the time `cotags` runs, so a pointer only on the CoTagGroups display would arrive
   // after the cost (kogaki#163 lever 3).
   console.log(`Before composing claims for a tag: compose-input --survey ${out} --tag T — ${COMPOSITION_INPUT_BOUND}. Composing from per-group material instead spends one read per PLACEMENT, which is what the 2026-08-07 architecture run measured at ~19 minutes.`);
-  // Returned so the §15 executor can record the survey record BY PATH (§15.3)
+  // Returned so the control plane executor can record the survey record BY PATH (the run record)
   // without re-deriving the name. The record references it and copies nothing
-  // out of it — the ID->slug map stays §14.3's single carrier.
+  // out of it — the ID->slug map stays the display-ID rule's single carrier.
   return out;
 }
 
 // ---- Figure rendering. Every emitted figure names the families it counted
-// (SPEC.md §2.1, §9): `agents (115 — 59 lessons + 56 journeys)`, never
+// (SPEC.md, the placement cover, the rendering rule): `agents (115 — 59 lessons + 56 journeys)`, never
 // `agents (115)`. Every display showing candidate rows states its denominator
-// in Lessons (§5). These two helpers are the only place a Terrain figure is
+// in Lessons (the candidate model). These two helpers are the only place a Terrain figure is
 // composed, so a new display cannot emit a bare count by forgetting to.
 export function strandFigure(split) {
   const total = SURVEY_SCHEMA.families.reduce((n, f) => n + (split[f] || 0), 0);
@@ -613,14 +715,14 @@ export function sectionFigure(sec, lessonsServed) {
   return `${sec.name} (${strandFigure(sec.by_family)}); ${denominator(sec.members.length, lessonsServed)}`;
 }
 
-// A count of Lessons, family-named (SPEC.md §9): the figure names the one
-// family §5's candidate model puts on the row.
+// A count of Lessons, family-named (SPEC.md, the rendering rule): the figure names the one
+// family the candidate model's candidate model puts on the row.
 export function lessonCount(n) {
   return `${n} ${n === 1 ? "Lesson" : "Lessons"}`;
 }
 
 // Display 1's tag row renders a declared ALLOWLIST and nothing else
-// (SPEC.md §9, v5, kogaki#147): the tag name, and the tag's Lesson count. A
+// (SPEC.md, the rendering rule, v5, kogaki#147): the tag name, and the tag's Lesson count. A
 // line class not on the allowlist does not render — the remedy is the
 // constructive form, never a per-column removal, because an enumerated
 // prohibition's non-member fallback is admit.
@@ -633,7 +735,7 @@ export function tagRow(sec) {
 // --------------------------------------------------------------------------
 // A tier-2 gloss shard, parsed into slug → { headline, cite }. The headline is
 // the SERVED rendering's first sentence, quoted at the cite the seam returned —
-// never re-parsed from a file and never composed here (SPEC.md §3, §9).
+// never re-parsed from a file and never composed here (SPEC.md, the served-renderings input rule, the rendering rule).
 export function parseGlossShard(resp) {
   const out = new Map();
   const lines = resp.lines || [];
@@ -651,7 +753,7 @@ export function parseGlossShard(resp) {
 }
 
 // Tag-scoped and bounded: one shard per viewed tag, addressed `<kind>/<tag>`
-// and never `<tag>` alone. No fan-out, no whole-corpus prefetch (SPEC.md §9).
+// and never `<tag>` alone. No fan-out, no whole-corpus prefetch (SPEC.md, the rendering rule).
 // `stats` IS AN OUT-PARAMETER RATHER THAN A CHANGED RETURN. The injecting
 // caller this shape was written for — `renderTagRowView` — is gone with the
 // per-tag row view (kogaki#856), so `composeInput` carries it alone; the shape
@@ -710,7 +812,7 @@ export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it car
 export const NO_SEAM = "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
 
 // THE NAMESPACES THE NEIGHBORHOOD FETCH ADDRESSES (kogaki#689). `cmdView` reads
-// both for the same reason §9 gives, and the neighborhood's members are not all
+// both for the same reason the rendering rule gives, and the neighborhood's members are not all
 // Lessons — `neighborhoodOf` indexes every served record carrying a slug and
 // stamps `family` from its kind — so a journey-family suggestion reached no
 // shard while its tags were already in the union a `lessons/` read was spending.
@@ -736,17 +838,17 @@ export function familiesFor(namespaces) {
 }
 
 // THE BOUNDED RESOLVER THE BRIEF LANE CALLS (kogaki#528). Terrain is the one
-// component that reads served renderings through the seam (§3, §9), so the
+// component that reads served renderings through the seam (the served-renderings input rule, the rendering rule), so the
 // Brief does not become a second substrate reader: it hands over the members
 // it has already settled and gets their served prose back.
 //
 // BOUNDED BY THE MEMBERS, NEVER BY THE CORPUS. The tag set fetched is the
 // union of the given members' OWN tags, so a settled set of 2-4 Strands costs
-// at most that many shards. This is the same rule §9 already binds `cmdView`
+// at most that many shards. This is the same rule the rendering rule already binds `cmdView`
 // to — "one shard per viewed tag … no fan-out, no whole-corpus prefetch" —
 // applied to a set that is smaller still, and it is why attaching renderings
 // to every candidate at survey-generation time was REFUSED: that would fetch
-// every tag in the corpus, which is the prefetch §9 names.
+// every tag in the corpus, which is the prefetch the rendering rule names.
 //
 // AN ABSENCE IS DISCLOSED, NEVER SUBSTITUTED: a member whose shard carries no
 // rendering gets NO_HEADLINE, the same abnormal marker `cmdView` renders, so a
@@ -757,7 +859,7 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
   // THE BOUND IS UNCHANGED BY THE SECOND NAMESPACE. The tag union is still a
   // function of the members handed in, so a namespace is a second shard per tag
   // ALREADY in that union and never a wider tag set — the corpus-wide prefetch
-  // §9 forbids stays unreachable from here.
+  // the rendering rule forbids stays unreachable from here.
   const stats = { calls: 0, answered: 0 };
   const heads = new Map();
   if (tags.length) {
@@ -879,7 +981,7 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"]) {
 }
 
 // The PRE-SELECTION listing: the TAG ROWS — a tag name and its Lesson count,
-// and nothing else (§9's allowlist, transcribed into the `tag_listing` grammar).
+// and nothing else (the rendering rule's allowlist, transcribed into the `tag_listing` grammar).
 //
 // EXTRACTED OUT OF `cmdSurvey`'s STDOUT, where this surface's own grammar
 // already named its emitter (`report-format.json` surfaces.tag_listing
@@ -893,7 +995,7 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"]) {
 // The completeness, coverage, pin and record lines stay in `cmdSurvey`'s
 // stdout: they belong to the `survey` COMPUTE state, which writes no owner
 // artifact, and admitting them here would put four line classes into a
-// grammar §9 deliberately holds to two.
+// grammar the rendering rule deliberately holds to two.
 //
 // COMPLETENESS INVENTORY (kogaki#625, carried from PR #667 round 2). An
 // extraction criterion measures what must NOT remain, so it is satisfied most
@@ -921,17 +1023,17 @@ function renderTagDisplay(record) {
 }
 
 // --------------------------------------------------------------------------
-// cotags — the second navigation step (SPEC.md §6). Selecting a tag displays
+// cotags — the second navigation step (SPEC.md, the co-tag navigation step). Selecting a tag displays
 // the other tags its members carry, grouped by co-tag with counts.
 //
-// It is NAVIGATION in the full §2.3 sense — it is that section's `enumerate`
+// It is NAVIGATION in the full the second-proposer boundary sense — it is that section's `enumerate`
 // and `sort` applied to the tags the members already carry on the served
 // surface — so it writes NO record of any kind, proposal or otherwise. A
 // navigation act wrapped as a proposal is a contract violation from the other
 // direction (record-schema.json acts).
 //
 // Nothing HERE is a member-count threshold, and that is now a statement about
-// this function rather than about the runtime. §8's three instruments are three
+// this function rather than about the runtime. Semantic subdivision's three instruments are three
 // quantities, none of them a count of members, and they gate nothing — that is
 // unchanged at v30. The threshold the engine DOES carry is
 // `SUBDIVISION_REQUIRED_AT`, and it decides only WHETHER a group must split
@@ -939,14 +1041,14 @@ function renderTagDisplay(record) {
 // --------------------------------------------------------------------------
 export const NO_SECOND_TAG = "(no second served tag)";
 // A group with no composed claim is MARKED, never substituted — the same
-// discipline §9 applies to a missing Gloss rendering, at the claim's layer.
+// discipline the rendering rule applies to a missing Gloss rendering, at the claim's layer.
 // The row's TC-target marker (kogaki#861). Same vocabulary as the Gloss
 // markers beside it: a fault to clear, never a substituted candidate id.
 export const NO_TARGET = "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
 
 export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clear, never substituted⟩";
 
-// No per-row pin renders on the display (§6.1 v5, withdrawing v4's per-row
+// No per-row pin renders on the display (the display's serve rule v5, withdrawing v4's per-row
 // pin): the pin is sited ONCE, in the Full Report, whose member records carry
 // the member → served-line map. The WA baseline closed group presentation to
 // "Group ID, Strand ID, gloss, journey — and nothing else" (wa#1115/#1116).
@@ -965,7 +1067,7 @@ export function cotagGroups(members, selectedTag) {
     }
   }
   // THE GroupID IS MINTED HERE, at the one place groups are composed
-  // (§6.1 v6, story 1.56, kogaki#317). `G<n>` over the sorted group list, so
+  // (the display's serve rule v6, story 1.56, kogaki#317). `G<n>` over the sorted group list, so
   // the id and `COTAG_SORT` agree by construction rather than by two call
   // sites happening to order the same way.
   //
@@ -980,7 +1082,7 @@ export function cotagGroups(members, selectedTag) {
   // the report of a single run agree, which is what an owner-entered id set
   // (kogaki#314) consumes; an id copied from a display printed under an earlier
   // pin does not, and the display says so. No persistent map is written —
-  // that would be the second carrier §14.3's ID→slug rule already refuses.
+  // that would be the second carrier the display-ID rule's ID→slug rule already refuses.
   return [...byCotag.keys()].sort().map((k, i) => ({
     name: `${selectedTag} × ${k}`,
     cotag: k,
@@ -1030,7 +1132,7 @@ export function cotagCover(members, groups) {
 }
 
 function cmdCotags(args) {
-  // THE DISPLAY IS COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES (§14.2, story
+  // THE DISPLAY IS COMPOSED INTO A BUFFER, NOT PRINTED AS IT GOES (the emit-time refusal, story
   // 1.54, AC1). The refusal has to be able to emit NOTHING, and a command that
   // printed its first eight lines and then refused would have put a
   // nonconformant display in front of the owner — which is the whole condition
@@ -1045,7 +1147,7 @@ function cmdCotags(args) {
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`);
   const groups = cotagGroups(members, tag);
 
-  // Machine-composed connective prose at render time is ADMISSIBLE (§6), and
+  // Machine-composed connective prose at render time is ADMISSIBLE (the co-tag navigation step), and
   // it arrives with the invariants binding HARDER. The composer may attach
   // text to a group and may do nothing else: membership is re-derived here and
   // never taken from the composer, and the cover is counted AFTER composition —
@@ -1055,19 +1157,19 @@ function cmdCotags(args) {
     prose = readJson(String(args.connective));
     for (const k of Object.keys(prose)) {
       if (!groups.some((g) => g.name === k)) {
-        fail(`connective prose names ${JSON.stringify(k)}, which is no composed group — prose carries no selection authority and may not invent, merge or rename a group (SPEC.md §6)`);
+        fail(`connective prose names ${JSON.stringify(k)}, which is no composed group — prose carries no selection authority and may not invent, merge or rename a group (SPEC.md, the co-tag navigation step)`);
       }
     }
   }
 
-  // GroupClaim-first rendering, AT the display, for EVERY group (§6.1, §7's v3
+  // GroupClaim-first rendering, AT the display, for EVERY group (the display's serve rule, GroupClaim-first rendering's v3
   // rider). v2 composed a claim only under a separate `claim` invocation naming
   // one group, which is why the served display carried none — the machinery was
   // built and unreached. The composer's prompt, model and wording stay outside
-  // this runtime exactly as §7 leaves them, so the claims ARRIVE AS ARGUMENTS;
+  // this runtime exactly as GroupClaim-first rendering leaves them, so the claims ARRIVE AS ARGUMENTS;
   // what is bound here is that every group gets one and that a missing one is
   // marked rather than substituted.
-  // §11 v10 (kogaki#212): the claims artifact is a TYPED RECORD carrying the
+  // the open-questions section, v10 (kogaki#212): the claims artifact is a TYPED RECORD carrying the
   // composition pin, and the pin is checked by CONTENT before any claim is
   // rendered. `readClaimsRecord` refuses a bare map by name and refuses a pin
   // computed against a different survey.
@@ -1084,31 +1186,31 @@ function cmdCotags(args) {
       fail(`--claims were composed OUTSIDE the bounded read: ${detail}. `
         + "Every claim must be composed from the material `compose-input` served, and "
         + "the composition pin records what that was — recompose from it rather than "
-        + "from the whole survey (SPEC.md §11 v10)");
+        + "from the whole survey (SPEC.md, the open-questions section, v10)");
     }
   }
   for (const k of Object.keys(claims)) {
     if (!groups.some((g) => g.name === k || g.cotag === k)) {
-      fail(`--claims names ${JSON.stringify(k)}, which is no composed group — a claim carries no selection authority and may not invent, merge or rename a group (SPEC.md §6.1)`);
+      fail(`--claims names ${JSON.stringify(k)}, which is no composed group — a claim carries no selection authority and may not invent, merge or rename a group (SPEC.md, the display's serve rule)`);
     }
   }
-  // SubGroups, where §8's conditions bind (§6.2). WHETHER to subdivide is the
-  // ENGINE's at `SUBDIVISION_REQUIRED_AT` members or more (§8 v30, kogaki#683);
+  // SubGroups, where semantic subdivision's conditions bind (the SubGroup threshold). WHETHER to subdivide is the
+  // ENGINE's at `SUBDIVISION_REQUIRED_AT` members or more (semantic subdivision v30, kogaki#683);
   // below it, the judge's coherence label and the two disclosures put SubGroups
   // where they go. Membership assignment is the judge's at every size.
   const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
   for (const k of Object.keys(subdivisions)) {
     if (!groups.some((g) => g.name === k || g.cotag === k)) {
-      fail(`--subdivisions names ${JSON.stringify(k)}, which is no composed group (SPEC.md §6.2)`);
+      fail(`--subdivisions names ${JSON.stringify(k)}, which is no composed group (SPEC.md, the SubGroup threshold)`);
     }
     // THE SECOND READER OF THE SAME MAP, migrated in the same change
-    // (§12.1 v9, kogaki#199 AC6). `cmdReport` and this display read one input;
+    // (the report identity v9, kogaki#199 AC6). `cmdReport` and this display read one input;
     // migrating one and not the other would put two encodings behind one file
     // and rebuild the defect between them — the producer/consumer split where
     // neither side's suite can see the break.
     readSubdivisionEntry(k, subdivisions[k]);
   }
-  // The display REQUIRES the judge pin wherever it serves SubGroups (§6.2), on
+  // The display REQUIRES the judge pin wherever it serves SubGroups (the SubGroup threshold), on
   // the same ground `subdivide` refuses without one: a per-invocation judged
   // surface with no judge pin is the drift-undetectable shape, where
   // "recomputed fresh" silently becomes "recomputed by a different judge".
@@ -1116,7 +1218,7 @@ function cmdCotags(args) {
   if (Object.keys(subdivisions).length) {
     const m = args["judge-model"];
     const e = args["judge-effort"];
-    if (!m || !e) fail("--judge-model and --judge-effort are required when the display serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md §6.2, §8)");
+    if (!m || !e) fail("--judge-model and --judge-effort are required when the display serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md, the SubGroup threshold, semantic subdivision)");
     judgePin = { model_id: String(m), effort_tier: String(e) };
   }
   // WHAT THE HARNESS OBSERVED about that pin (kogaki#892). Computed here, beside
@@ -1132,11 +1234,11 @@ function cmdCotags(args) {
   let suppressedSplits = 0;
   for (const g of shown) {
     g.by_family = familySplit(g.members, record.candidates);
-    // The served form (SPEC.md §6.1, v5): the heading line carries the
+    // The served form (SPEC.md, the display's serve rule, v5): the heading line carries the
     // GroupID, the Lesson count and the member Lesson IDs; the claim renders
     // beneath. Where SubGroups are served the heading carries the count alone
-    // and the IDs live on the SubGroup lines (§6.2). No per-row pin renders on
-    // any display — the pin is sited ONCE, in the Full Report (§6.1 v5's
+    // and the IDs live on the SubGroup lines (the SubGroup threshold). No per-row pin renders on
+    // any display — the pin is sited ONCE, in the Full Report (the display's serve rule v5's
     // withdrawal of the v4 per-row pin; the WA baseline, wa#1115/#1116).
     const _entry = readSubdivisionEntry(
       g.name, subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
@@ -1148,24 +1250,24 @@ function cmdCotags(args) {
     // exists: `[]` is truthy, and a judged-empty group that hid its members
     // behind the subdivided heading would drop the whole membership from the
     // display — the same trap the report's `members` field carried.
-    // §14.3 — group members render as display_ids, never as `lesson:<slug>`.
+    // the display-ID rule — group members render as display_ids, never as `lesson:<slug>`.
     const gShown = displayIds(g.members, record.candidates);
     // The claim is read BEFORE the heading now, because `judgeSubgroup` needs
-    // it and the judgement decides which heading form the group gets (§6.2 v7).
+    // it and the judgement decides which heading form the group gets (the SubGroup threshold v7).
     const claim = claims[g.name] !== undefined ? claims[g.name] : claims[g.cotag];
 
-    // THE SUBDIVISION IS JUDGED BEFORE ANYTHING IS EMITTED (§6.2 v7, kogaki#316
+    // THE SUBDIVISION IS JUDGED BEFORE ANYTHING IS EMITTED (the SubGroup threshold v7, kogaki#316
     // decision 3, re-keyed at v30 and relabelled at kogaki#738). A split whose
     // only named SubGroup is labelled `other` — the judge found no coherent
     // subset among its members, so the split bought nothing — "does not
     // discharge the subdivision obligation"
     // — and that means
-    // the group renders NO SubGroups, which is the fallback §6.2 already names
+    // the group renders NO SubGroups, which is the fallback the SubGroup threshold already names
     // ("renders no SubGroups and is fully conformant"). It is NOT a refusal: a
     // judge's verdict must not be fatal to the surface, and refusing here would
     // contradict that conformance clause. BOUNDED BELOW THE THRESHOLD at v30
     // (kogaki#683): at `SUBDIVISION_REQUIRED_AT` members or more the fallback
-    // is exactly the outcome §8 refuses, so it yields and the group renders.
+    // is exactly the outcome semantic subdivision refuses, so it yields and the group renders.
     //
     // It has to happen here rather than at the render loop below, because the
     // heading form itself differs — a group serving SubGroups carries the count
@@ -1174,7 +1276,7 @@ function cmdCotags(args) {
     let judged = null;
     if (subForHeading && subForHeading.length) {
       const { subgroups } = subgroupPlacement(g, subForHeading, SURVEY_SCHEMA.subdivision);
-      // THE SUM-TO-PARENT REFUSAL, PRE-RENDER (§6.2 rule 1; report-format.json
+      // THE SUM-TO-PARENT REFUSAL, PRE-RENDER (the SubGroup threshold rule 1; report-format.json
       // v13, kogaki#684). Through v12 this was a decidable rule over the
       // rendered text — the SubGroup counts against the parent count on the
       // group heading — and disposition 2 removed the heading's count, so one
@@ -1184,7 +1286,7 @@ function cmdCotags(args) {
       //
       // WHAT THIS DOES NOT REPLACE, stated because the two are not equivalent:
       // it reads the PLACEMENT and the withdrawn rule read the TEXT, and
-      // §14.2's own specimen is a renderer that dropped four of six member
+      // the emit-time refusal's own specimen is a renderer that dropped four of six member
       // fields while every assertion about the data structure stayed green. A
       // renderer that omits a whole SubGroup line still passes this. The
       // grammar's `not_expressible` entry records that gap as a gap.
@@ -1204,10 +1306,10 @@ function cmdCotags(args) {
       const placedCount = subgroups.reduce((n, sg) => n + sg.members.length, 0);
       if (placedCount !== g.members.length) {
         fail(`SUBGROUP_MEMBERS_DO_NOT_SUM — ${g.name} holds ${g.members.length} member Lesson(s) and its SubGroups place ${placedCount}. `
-          + "§6.2 rule 1 requires the SubGroup member counts to sum to the parent's total: over the total means a member was placed "
+          + "the SubGroup threshold rule 1 requires the SubGroup member counts to sum to the parent's total: over the total means a member was placed "
           + "in more than one SubGroup and renders twice, under it means a member is hidden. Subdivision decides WHERE a member "
           + "appears, never how many times "
-          + "(SPEC.md §6.2; report-format.json v13 carries this as a pre-render refusal, the heading no longer rendering a parent count).");
+          + "(SPEC.md, the SubGroup threshold; report-format.json v13 carries this as a pre-render refusal, the heading no longer rendering a parent count).");
       }
       for (const sg of subgroups) {
         sg.by_family = familySplit(sg.members, record.candidates);
@@ -1220,7 +1322,7 @@ function cmdCotags(args) {
       // is implemented; a wider reading — no named SubGroup is tighter — would
       // be this lane deciding more than kogaki#316 did.
       const named = subgroups;
-      // §6.2 v7 RULE 3, RE-KEYED ON THE LABEL AND BOUNDED BY THE THRESHOLD
+      // the SubGroup threshold v7 RULE 3, RE-KEYED ON THE LABEL AND BOUNDED BY THE THRESHOLD
       // retired-vocab-ok: provenance, past tense.
       // (kogaki#683, re-keyed again at kogaki#738). The suppression tested
       // `tighter_than_parent !== true`, which no longer exists; then `forced`,
@@ -1242,17 +1344,17 @@ function cmdCotags(args) {
       if (boughtNothing) suppressedSplits++;
     }
 
-    // §6.1 v6 — FLUSH LEFT, and the GroupID is what says this is a Group.
+    // the display's serve rule v6 — FLUSH LEFT, and the GroupID is what says this is a Group.
     // The co-tag name follows the id; it is a label, not the carrier.
     //
-    // A BLANK LINE OPENS EVERY GROUP BLOCK (§6.2 v31, kogaki#684 disposition 1).
+    // A BLANK LINE OPENS EVERY GROUP BLOCK (the SubGroup threshold v31, kogaki#684 disposition 1).
     // It is emitted here rather than trailing the previous block so that the
     // first group is separated from the header by the same act as every other
     // group is separated from its predecessor — a trailing newline on one
     // emitter and a leading one on another is how the pre-v31 display ended up
     // spacing subdivided groups and running flat ones together.
     say("");
-    // §6.2 — A SUBDIVIDED GROUP'S HEADING CARRIES THE PARENT'S LESSON COUNT
+    // the SubGroup threshold — A SUBDIVIDED GROUP'S HEADING CARRIES THE PARENT'S LESSON COUNT
     // AGAIN (kogaki#739, owner ruling 2026-09-01; report-format.json v15).
     //
     // WHAT THE MEMBER DUMP TOOK WITH IT AND WHAT IT DID NOT. v31 removed the
@@ -1263,7 +1365,7 @@ function cmdCotags(args) {
     //
     // ONLY THE COUNT RETURNS, not the member list. The two heading classes
     // therefore differ by exactly the `: <ids>` tail, and the count sits in
-    // the same position on both, family-named per §9 — a subdivided display and
+    // the same position on both, family-named per the rendering rule — a subdivided display and
     // a flat one are read left to right the same way.
     say(judged
       ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
@@ -1272,12 +1374,12 @@ function cmdCotags(args) {
       say(displayIdAbnormalLine(gShown.missing, g.members.length));
     }
 
-    // The GroupClaim FIRST, then the members (§6.1) — for EVERY group,
-    // subdivided ones included (§6.2 v31: the ruling's example block omits it
-    // and is a spacing sketch; §6.1 and §7 require it, and removing it would
+    // The GroupClaim FIRST, then the members (the display's serve rule) — for EVERY group,
+    // subdivided ones included (the SubGroup threshold v31: the ruling's example block omits it
+    // and is a spacing sketch; the display's serve rule and GroupClaim-first rendering require it, and removing it would
     // make what reaches the owner smaller than what exists).
     //
-    // THE PINNING LINE IS DELETED (§6.2 v31, kogaki#684 disposition 4). §7's
+    // THE PINNING LINE IS DELETED (the SubGroup threshold v31, kogaki#684 disposition 4). GroupClaim-first rendering's
     // pinning RULE is untouched — what is gone is the sentence printed under
     // every claim, which duplicated the heading's member count and announced a
     // protection enforced at the claim re-offer, where it explains itself when
@@ -1290,7 +1392,7 @@ function cmdCotags(args) {
       claimless++;
       say(`in common: ${NO_CLAIM}`);
     }
-    // The `> ` marker is what keeps composer prose DECIDABLE (§6.1 v6, AC9).
+    // The `> ` marker is what keeps composer prose DECIDABLE (the display's serve rule v6, AC9).
     // Flush left, `<composer prose>` would match every line and take
     // `line_class_allowlist` inert on this surface — which is exactly what the
     // first cut of this change did. The marker carries no level, so it does
@@ -1310,13 +1412,13 @@ function cmdCotags(args) {
       const subgroups = judged;
       let sgIdx = 0;
       for (const sg of subgroups) {
-        // The served SubGroup form (§6.2, v5): one line — SubGroupID, Lesson
+        // The served SubGroup form (the SubGroup threshold, v5): one line — SubGroupID, Lesson
         // count, Lesson IDs — then the SubGroupClaim, then the coherence
         // verdict and any disclosures.
-        // §14.3 — SubGroup members render as display_ids, never as
+        // the display-ID rule — SubGroup members render as display_ids, never as
         // `lesson:<slug>` tokens.
         const sgShown = displayIds(sg.members, record.candidates);
-        // §6.2 v6 — `G<n>-<m>` NAMES ITS PARENT, so a SubGroup line met on its
+        // the SubGroup threshold v6 — `G<n>-<m>` NAMES ITS PARENT, so a SubGroup line met on its
         // own (wrapped, or scrolled away from its group) still says where it
         // belongs. Flush left; the parenthesised count form is gone with the
         // indentation, since two punctuations for one shape meant nothing once
@@ -1334,21 +1436,21 @@ function cmdCotags(args) {
       say(`\n${judgePinLine(judgePin, judgeProv)}`);
     }
   }
-  // A SUPPRESSED SPLIT IS DISCLOSED, never silent (§2.1; the `claimless`
-  // aggregate one block down is the shape this follows). §6.2 v7 makes the
+  // A SUPPRESSED SPLIT IS DISCLOSED, never silent (the placement cover; the `claimless`
+  // aggregate one block down is the shape this follows). The SubGroup threshold v7 makes the
   // group render flat and fully conformant, but a judgment DID run and DID
   // produce a split, and it bought nothing — an owner who sees a flat group
   // cannot otherwise tell that from a group nobody judged. Aggregate rather
   // than per-group, because a per-group line is what AC5 removes.
   if (suppressedSplits) {
-    say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`other\` — the residual, so the judge found no subset of ${subdivisionLimits().min} or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md §6.2 v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
+    say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`other\` — the residual, so the judge found no subset of ${subdivisionLimits().min} or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md, the SubGroup threshold v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
   }
   if (claimless) {
-    say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this display carry no composed GroupClaim. §6.1 serves the claim FIRST and a display without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
+    say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this display carry no composed GroupClaim. The display's serve rule serves the claim FIRST and a display without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
     // The remedy names the BOUNDED input rather than "go compose something":
     // the fault above is cleared by composing, and the way composing was
     // costing ~19 minutes was per-group reads (kogaki#163 lever 3).
-    say(`Compose them from the bounded input — compose-input --survey ${String(args.survey)} --tag ${tag} — and pass the result back as --claims (and --subdivisions, which §8's judgment is composed from the SAME artifact and spends no further read).`);
+    say(`Compose them from the bounded input — compose-input --survey ${String(args.survey)} --tag ${tag} — and pass the result back as --claims (and --subdivisions, which semantic subdivision's judgment is composed from the SAME artifact and spends no further read).`);
   }
 
   // The cover, counted AFTER composition, over ALL composed groups — never
@@ -1357,14 +1459,14 @@ function cmdCotags(args) {
   // denominator or the numerator of the figure below.
   const { covered, uncovered, invented } = cotagCover(members, groups);
   if (uncovered.length) {
-    fail(`COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md §2.1, §6).`);
+    fail(`COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md, the placement cover, the co-tag navigation step).`);
   }
   if (invented.length) {
-    fail(`COTAG_COVER_INVENTED — ${invented.length} id(s) appear in a co-tag group without carrying ${JSON.stringify(tag)}: ${invented.join(", ")}. Composition may group the members and may not add one; a cover counted without checking its numerator's provenance would pass a group list that dropped a member and gained a stranger (SPEC.md §2.1, §6).`);
+    fail(`COTAG_COVER_INVENTED — ${invented.length} id(s) appear in a co-tag group without carrying ${JSON.stringify(tag)}: ${invented.join(", ")}. Composition may group the members and may not add one; a cover counted without checking its numerator's provenance would pass a group list that dropped a member and gained a stranger (SPEC.md, the placement cover, the co-tag navigation step).`);
   }
   const split = familySplit(members.map((c) => c.id), record.candidates);
   say(`\nCover: ${covered.size} of ${members.length} member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: ${strandFigure(split)}; ${denominator(members.length, record.candidates.length)}.`);
-  say(`Classification: NAVIGATION (SPEC.md §2.3 — enumerate + sort over tags the members already carry on the served surface). No proposal record is written, and no record of any kind.`);
+  say(`Classification: NAVIGATION (SPEC.md, the second-proposer boundary — enumerate + sort over tags the members already carry on the served surface). No proposal record is written, and no record of any kind.`);
   say(`Narrows nothing: the survey record is unchanged, the full candidate set stays reachable, and free text still reaches every Strand at the gate.`);
   if (!selected) say(`\nSelect a group (still narrowing nothing): cotags --survey <F> --tag ${tag} --group "<co-tag>"`);
 
@@ -1374,7 +1476,7 @@ function cmdCotags(args) {
   // structure stayed green.
   // The refusal still gates the WRITE as well as the print — `emitOrRefuse`
   // validates before its callback runs, so a nonconformant display reaches
-  // neither the owner's terminal nor their artifact (§14.2, story 1.54 AC1).
+  // neither the owner's terminal nor their artifact (the emit-time refusal, story 1.54 AC1).
   // THROUGH THE ONE PRIVATE WRITER, like the two display states beside it
   // (PR #667 round 1 finding 3). This was a SECOND path to the same artifact —
   // its own `emitOrRefuse` plus a direct `writeDisplay` — which left
@@ -1388,7 +1490,7 @@ function cmdCotags(args) {
   const text = display.join("\n");
   const path = writeDisplaySurface(args, "cotag_groups", text);
   announceDisplay(path);
-  // Returned for the §15 executor's artifacts_written ledger (story 1.89 AC7).
+  // Returned for the control plane executor's artifacts_written ledger (story 1.89 AC7).
   return path;
 }
 
@@ -1412,7 +1514,7 @@ function emitOrRefuse(surfaceName, text, write) {
   return text;
 }
 
-// THE LISTING'S COMPOSE PATH (kogaki#856; SPEC-terrain §6.0).
+// THE LISTING'S COMPOSE PATH (kogaki#856; SPEC-terrain, the pre-selection listing).
 //
 // The pre-selection tag listing is not the CoTagGroups display: that is the
 // rendering written AFTER a tag has been selected, and this precedes it. So it
@@ -1440,7 +1542,7 @@ function emitOrRefuse(surfaceName, text, write) {
 //
 // THE GRAMMAR GUARD IS KEPT, and that is the point of routing through here
 // rather than handing `renderTagDisplay`'s return straight to the composer.
-// §14.2's refusal is about what may be EMITTED, never about what may be
+// the emit-time refusal's refusal is about what may be EMITTED, never about what may be
 // written, so a surface that writes no artifact owes it exactly as much: one
 // composer, one refusal, and a nonconformant listing reaches no declaration.
 
@@ -1455,7 +1557,7 @@ function composeOwnerListing(surfaceName, text) {
 }
 
 // --------------------------------------------------------------------------
-// claim / adopt — GroupClaim-first rendering, and claim pinning (SPEC.md §7).
+// claim / adopt — GroupClaim-first rendering, and claim pinning (SPEC.md, GroupClaim-first rendering).
 //
 // A claim composed over a member set is PINNED to that set: the record carries
 // the member IDS and their pins, not only the claim text, because a derived
@@ -1467,11 +1569,11 @@ function composeOwnerListing(surfaceName, text) {
 // the machine did not supply.
 //
 // The composer's prompt, model and wording are implementation and are NOT
-// specified by §7 — so the text arrives as an argument. What is bound here is
+// specified by GroupClaim-first rendering — so the text arrives as an argument. What is bound here is
 // the pinning, the gate event and the record's shape.
 //
 // The re-offer routes through the gate carrier (manifest item 4), never
-// through an affordance of Terrain's own: §1's refusal and §4's out-of-scope
+// through an affordance of Terrain's own: the sequencing refusal and the out-of-scope
 // decision are unchanged. The sentence that stood here named `claim` and `gate`
 // as the two commands emitting this declaration, and both are removed
 // (kogaki#625 item 1) — the declaration is composed by the executor at the wait
@@ -1523,25 +1625,25 @@ function validateClaimRecord(rec, block) {
   return v;
 }
 
-// THE RE-OFFER, reachable only from `CLAIM_REOFFER` (§15.6.1, kogaki#625
+// THE RE-OFFER, reachable only from `CLAIM_REOFFER` (the claim re-offer wait, kogaki#625
 // item 1). `claim` and `adopt` ceased to be entry points, and the three halves
 // they welded together split by owner: COMPOSING the claims record is the
-// outside composer's (§15.6), VALIDATING it is `J1_claims`', and the GATE EVENT
-// §7 rules a subset selection is this state's. Adoption is applying the
+// outside composer's (the typed judgment points), VALIDATING it is `J1_claims`', and the GATE EVENT
+// GroupClaim-first rendering rules a subset selection is this state's. Adoption is applying the
 // captured answer, which the executor records at this same wait — so no
 // separate `adopt` act remains to be performed out of order.
 //
-// The subset check is kept here rather than inherited: §7 pins a claim to the
+// The subset check is kept here rather than inherited: GroupClaim-first rendering pins a claim to the
 // member set it was composed over, and a re-offer over members that were never
 // in the group is not a recomposition of anything.
 export function composeClaimReoffer(args, dir, record) {
   const tag = String(args.tag || fail("CLAIM_REOFFER needs --tag <selected tag>"));
   const groupArg = String(args.group || fail("CLAIM_REOFFER needs --group <co-tag>: the group whose claim is re-offered"));
-  const text = String(args.text || fail("--text is required: the RECOMPOSED \"in common:\" line. §7 binds the pinning, the gate event and the declaration's shape — the composer's prompt, model and wording are not specified here and are not invented here."));
+  const text = String(args.text || fail("--text is required: the RECOMPOSED \"in common:\" line. GroupClaim-first rendering binds the pinning, the gate event and the declaration's shape — the composer's prompt, model and wording are not specified here and are not invented here."));
   const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
   const group = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
   const subset = args.members ? String(args.members).split(",").map((s) => s.trim()).filter(Boolean) : null;
-  if (!subset) fail("CLAIM_REOFFER needs --members a,b,c — the SUBSET the claim is recomposed over. A full-group claim reaches no gate: §7 makes that rendering per-invocation and not an adopted claim, so there is nothing to re-offer.");
+  if (!subset) fail("CLAIM_REOFFER needs --members a,b,c — the SUBSET the claim is recomposed over. A full-group claim reaches no gate: GroupClaim-first rendering makes that rendering per-invocation and not an adopted claim, so there is nothing to re-offer.");
   const stray = subset.filter((id) => !group.members.includes(id));
   if (stray.length) fail(`--members names ${stray.join(", ")}, which are not members of ${group.name} — a subset is a subset of the set the claim was pinned to`);
   if (subset.length === group.members.length) {
@@ -1560,8 +1662,8 @@ export function composeClaimReoffer(args, dir, record) {
                     original_source: "claim-record" };
   } else if (originText) {
     // The member set may be DERIVED from the group the claim was composed over
-    // — §6.1 composes a GroupClaim over a group's WHOLE member set, so those
-    // members genuinely are a display-composed origin's. What §7 forbids is the
+    // — the display's serve rule composes a GroupClaim over a group's WHOLE member set, so those
+    // members genuinely are a display-composed origin's. What GroupClaim-first rendering forbids is the
     // substitution being SILENT: a derived set and a recorded one are otherwise
     // indistinguishable at the gate, and the owner comparing a recomposed claim
     // against its origin cannot see which they hold. So the fallback announces
@@ -1572,14 +1674,14 @@ export function composeClaimReoffer(args, dir, record) {
                     original_members: originMembers || group.members,
                     original_members_provenance: derived ? "derived" : "recorded",
                     original_source: derived
-                      ? "display-composed (wording passed as an argument; MEMBER SET DERIVED from the group it was composed over, not recorded — SPEC.md §7)"
-                      : "display-composed (passed as an argument; the display writes no record — SPEC.md §7)" };
+                      ? "display-composed (wording passed as an argument; MEMBER SET DERIVED from the group it was composed over, not recorded — SPEC.md, GroupClaim-first rendering)"
+                      : "display-composed (passed as an argument; the display writes no record — SPEC.md, GroupClaim-first rendering)" };
   } else {
-    // An absent origin is STATED, never fabricated (§7 v4 rider). A gate that
+    // An absent origin is STATED, never fabricated (GroupClaim-first rendering v4 rider). A gate that
     // silently omitted it would present a recomposed wording as if it had one.
     originBlock = { original_claim: null, original_members: null,
                     original_members_provenance: "none",
-                    original_source: "NONE — this is the first composition over this set; no original exists and none is invented (SPEC.md §7)" };
+                    original_source: "NONE — this is the first composition over this set; no original exists and none is invented (SPEC.md, GroupClaim-first rendering)" };
   }
   return {
     options: [{ id: `adopt-recomposed:${group.name}`, label: `Adopt the recomposed wording over these ${members.length} member(s): ${text}` }],
@@ -1592,7 +1694,7 @@ export function composeClaimReoffer(args, dir, record) {
 // declaration; `gate` and the standalone claim re-offer, which this comment
 // used to name as its two callers, are both removed (kogaki#625 item 1). The
 // re-offer still routes through manifest item 4's carrier and never through an
-// affordance of Terrain's own (SPEC.md §7, §4) — what changed is that nothing
+// affordance of Terrain's own (SPEC.md, GroupClaim-first rendering, the out-of-scope decision) — what changed is that nothing
 // outside a run can reach this composer at all.
 export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
@@ -1619,7 +1721,7 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   delete declaration.dynamic_options;
   // The sibling filename is a JOIN KEY: check-gate-carrier resolves this file
   // beside a capture to decide what the capture's options_offered is compared
-  // against (SPEC-gate-carrier §4.1). It reads the suffix from the schema, so
+  // against (SPEC-gate-carrier, what `options_offered` is judged against). It reads the suffix from the schema, so
   // this writer reads it from the same place — with two copies, a rename on
   // one side makes the check silently fall back to the registry comparison,
   // which is the pre-#818 behaviour it would then report as a pass (kogaki#837).
@@ -1679,7 +1781,7 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
     opened_at: declaration.declared_at,
   }, null, 2) + "\n");
 }
-// `adopt` ceased to be an entry point (kogaki#625 item 1). §15.6.1 rules
+// `adopt` ceased to be an entry point (kogaki#625 item 1). The claim re-offer wait rules
 // adoption the OWNER's act rather than a judgment, and the executor records it
 // as the captured answer at `CLAIM_REOFFER` — the wait that offered it. The
 // refusal the retired command carried ("a recomposed claim that was never
@@ -1688,7 +1790,7 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
 
 // --------------------------------------------------------------------------
 // subdivide — semantic subdivision as a judged substrate one level down
-// (SPEC.md §8), DOGFOOD-FIRST.
+// (SPEC.md, semantic subdivision), DOGFOOD-FIRST.
 //
 // Placement plus title-derivation, hiding none: a cap decides WHICH members
 // appear, subdivision decides WHERE each appears and hides none. It is
@@ -1697,7 +1799,7 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
 //
 // NOT OFFERED BY DEFAULT. Co-tags stay the default for a run naming no
 // substrate, and this path is reachable only by naming it. Running it, and
-// merging it, ARRIVES at §8.1's offering gate rather than discharging it.
+// merging it, ARRIVES at measurement before offering's offering gate rather than discharging it.
 //
 // WHICH MODEL judges is a per-invocation PINNED FACT and not a decision this
 // code makes: the judge pin (model id + effort tier) is ADOPTED for
@@ -1707,7 +1809,7 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
 // consequential. So the classification and its verdicts arrive as input and
 // the record pins the judge that produced them. Terrain names no model.
 //
-// THE SPLIT DECISION CARRIES A CONSTANT AND THE JUDGMENT DOES NOT (§8 v30,
+// THE SPLIT DECISION CARRIES A CONSTANT AND THE JUDGMENT DOES NOT (semantic subdivision v30,
 // kogaki#683). `SUBDIVISION_REQUIRED_AT` decides WHETHER a group must serve
 // SubGroups; it stands in for no verdict. What the judge supplies is the
 // COHERENCE LABEL — one of a closed three, with one sentence of why — and no
@@ -1716,26 +1818,26 @@ export function writeOpenGatePointer(dir, declaration, declPath) {
 //
 // The prohibition this comment used to state — no numeric constant anywhere in
 // split-or-stop logic — was reversed by the owner on 2026-08-28 on a specimen
-// it permitted. It is quoted at §8 as provenance and is not the rule here.
+// it permitted. It is quoted at semantic subdivision as provenance and is not the rule here.
 // --------------------------------------------------------------------------
 // The SubGroup's own two rendered lines — its name and its claim. Rendering
 // arithmetic for the display-budget instrument; it gates nothing and is not
 // stop logic.
 const LINES_PER_SUBGROUP_HEADER = 2;
 
-// The PLACEMENT half of subdivision, extracted so the co-tag display (§6.2) and
-// `subdivide` (§8) share ONE composer rather than each carrying its own.
+// The PLACEMENT half of subdivision, extracted so the co-tag display (the SubGroup threshold) and
+// `subdivide` (semantic subdivision) share ONE composer rather than each carrying its own.
 //
 // It is this half — not the instruments and not the coherence verdicts — that owns
 // the guarantee subdivision hides none: a member the judge invented is refused,
 // and a member the judge left unplaced lands in the EXPLICIT named SubGroup
 // rather than being dropped. Two copies of that would be two places for the
 // cover to be wrong, and the second copy is the one nobody re-reads.
-// THE SPLIT DECISION IS THE ENGINE'S (SPEC-terrain §8 v30, kogaki#683, owner
+// THE SPLIT DECISION IS THE ENGINE'S (SPEC-terrain, semantic subdivision v30, kogaki#683, owner
 // ruling 2026-08-28 with the disposition-1 boundary confirmed at pickup
 // 2026-08-29).
 //
-// A NUMBER IN SPLIT-OR-STOP LOGIC WAS A DEFECT AND IS NOW THE RULE. §8 carried
+// A NUMBER IN SPLIT-OR-STOP LOGIC WAS A DEFECT AND IS NOW THE RULE. Semantic subdivision carried
 // "Terrain implements no member-count threshold. A number appearing in its code
 // as one is a defect against this paragraph", and kogaki#316 withdrew a numeric
 // trigger on 2026-08-09. The owner REVERSES their own recorded withdrawal,
@@ -1793,7 +1895,7 @@ export function subgroupPlacement(parent, classification, block) {
     members.forEach((id) => placedIds.add(id));
     subgroups.push({ name, claim: String(sg.claim || ""), members, verdicts: sg });
   }
-  // AN UNPLACED MEMBER IS A REFUSAL NAMING IT (§6.2 rule 1, kogaki#738 ruling 1).
+  // AN UNPLACED MEMBER IS A REFUSAL NAMING IT (the SubGroup threshold rule 1, kogaki#738 ruling 1).
   // This branch used to SWEEP: every member the judge left out was pushed into a
   // `(fits no composed SubGroup)` SubGroup carrying `coherence: "forced"` "by
   // construction" — a verdict the judge never reached, on a bucket the engine
@@ -1815,7 +1917,7 @@ export function subgroupPlacement(parent, classification, block) {
       + `placed by the JUDGE, never swept: place each of these in a composed SubGroup, or in one `
       + `labelled \`other\` — the residual, which asserts you found no subset of `
       + `${subdivisionLimits().min} or more members at loose-or-better affinity among them `
-      + `(SPEC-terrain §8, kogaki#738). The engine no longer composes a catch-all, `
+      + `(SPEC-terrain, semantic subdivision, kogaki#738). The engine no longer composes a catch-all, `
       + `because a bucket it fills carries a verdict nobody reached.`);
   }
 
@@ -1838,7 +1940,7 @@ export function subgroupPlacement(parent, classification, block) {
   if (residual > maxResidual) {
     fail(`SUBDIVISION_RESIDUAL_OVER_LIMIT — the classification of ${parent.name} leaves `
       + `${residual} member(s) in the residual \`other\`, over the limit of ${maxResidual} `
-      + `(report-format.json limits.max_residual_members, SPEC-terrain §8, kogaki#738 owner `
+      + `(report-format.json limits.max_residual_members, SPEC-terrain, semantic subdivision, kogaki#738 owner `
       + `amendment 1). Compose additional SubGroups until the residual falls to ${maxResidual} `
       + `or fewer. The residual exists so an absence of relationships is EXPLICIT, not so that `
       + `members can be parked in it.`);
@@ -1846,16 +1948,16 @@ export function subgroupPlacement(parent, classification, block) {
   return { subgroups, placedIds };
 }
 
-// The JUDGMENT half of subdivision (§8), extracted beside `subgroupPlacement`
-// so the co-tag display (§6.2) and `subdivide` share ONE implementation.
+// The JUDGMENT half of subdivision (semantic subdivision), extracted beside `subgroupPlacement`
+// so the co-tag display (the SubGroup threshold) and `subdivide` share ONE implementation.
 //
 // kogaki#133's first finding is what this closes: the display placed members
 // and printed name, claim and ids while evaluating neither conjunct and
-// emitting neither disclosure, so "where §8's conditions put them" was
+// emitting neither disclosure, so "where semantic subdivision's conditions put them" was
 // satisfied by the caller's JSON alone. A second copy of these rules would be
 // a second place for the judgment to drift; the rule is enforced at the
 // layer where it can be broken, and both surfaces break it the same way.
-// THE LIMITS' ONE READER (§8, kogaki#738 ruling 5 and owner amendment 2's five
+// THE LIMITS' ONE READER (semantic subdivision, kogaki#738 ruling 5 and owner amendment 2's five
 // config keys). Every number the subdivision judgment enforces comes from here,
 // and NONE is restated in this file — unlike `SUBDIVISION_REQUIRED_AT`, which is
 // duplicated and cross-checked, these have one carrier and so cannot disagree
@@ -1882,7 +1984,7 @@ export function subdivisionLimits(grammarPath = REPORT_FORMAT) {
     (l) => !Object.prototype.hasOwnProperty.call(caps, l)) : [];
   if (!caps || missingCap.length || limits.min_subgroup_members === undefined
       || limits.max_residual_members === undefined) {
-    fail("report-format.json declares no complete `limits` block, so §8's subdivision limits "
+    fail("report-format.json declares no complete `limits` block, so semantic subdivision's subdivision limits "
       + "cannot be read (kogaki#738 ruling 5, owner amendment 2)"
       + (missingCap.length ? `; no cap is declared for ${missingCap.join(", ")}` : "")
       + ". The five keys live in the carrier by design — a cap for each of "
@@ -1916,7 +2018,7 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   // since — carries the residue.
   //
   // `legible_at_a_glance` IS NOT FOLDED IN, and the omission is deliberate: it
-  // is one of §8's three INSTRUMENTS rather than a conjunct of the leaf
+  // is one of semantic subdivision's three INSTRUMENTS rather than a conjunct of the leaf
   // condition, so absorbing it would re-cut the three-quantity triple in the
   // same act that deletes the paragraph's other text — two re-cuts of one
   // paragraph with only one licensed by a disposition.
@@ -1927,7 +2029,7 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   // exists to carry.
   const coherence = vd.coherence;
   if (!COHERENCE_LABELS.includes(coherence)) {
-    fail(`SubGroup ${JSON.stringify(sg.name)} carries coherence ${JSON.stringify(coherence === undefined ? null : coherence)}; the closed set is ${COHERENCE_LABELS.join(" | ")} (SPEC-terrain §8, kogaki#683). The label is the judge's and is never defaulted here — a default would be this layer supplying the judgment the label exists to carry.`);
+    fail(`SubGroup ${JSON.stringify(sg.name)} carries coherence ${JSON.stringify(coherence === undefined ? null : coherence)}; the closed set is ${COHERENCE_LABELS.join(" | ")} (SPEC-terrain, semantic subdivision, kogaki#683). The label is the judge's and is never defaulted here — a default would be this layer supplying the judgment the label exists to carry.`);
   }
   const why = String(vd.coherence_why || "").trim();
   if (!why) {
@@ -1937,7 +2039,7 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   sg.coherence_why = why;
   sg.coherence_line = `coherence: ${coherence} — ${why}`;
 
-  // THE SIZE LIMITS, READ FROM THE CARRIER (§8, kogaki#738 ruling 3 and owner
+  // THE SIZE LIMITS, READ FROM THE CARRIER (semantic subdivision, kogaki#738 ruling 3 and owner
   // amendments 1 and 2). Three refusals, and they bind different populations:
   //
   //   - an AFFINITY SubGroup over its label's cap — `tight` 5, `related` 7,
@@ -1963,7 +2065,7 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   if (cap !== null && sg.members.length > cap) {
     fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
       + `${sg.members.length} members, over the cap of ${cap} `
-      + `(report-format.json limits.subgroup_member_cap.${coherence}, SPEC-terrain §8, kogaki#738). `
+      + `(report-format.json limits.subgroup_member_cap.${coherence}, SPEC-terrain, semantic subdivision, kogaki#738). `
       + `Compose a tighter SubGroup, or judge these members at a label whose cap admits them.`);
   }
   // THE FLOOR EXEMPTS A WHOLE-GROUP SubGroup (owner selection 2026-09-01, at the
@@ -1986,7 +2088,7 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   if (coherence !== RESIDUAL_LABEL && sg.members.length < min && !wholeGroup) {
     fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
       + `${sg.members.length} member(s), under the minimum of ${min} `
-      + `(report-format.json limits.min_subgroup_members, SPEC-terrain §8, kogaki#738 owner `
+      + `(report-format.json limits.min_subgroup_members, SPEC-terrain, semantic subdivision, kogaki#738 owner `
       + `amendment 1). A SubGroup below the minimum asserts a relationship too small to be one; `
       + `merge it into a SubGroup it belongs with, or let its members fall to the residual. `
       + `(A SubGroup holding the WHOLE parent group is exempt: it divided nothing.)`);
@@ -2009,9 +2111,9 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
 }
 
 // THE RECORD HALF OF THE RETIRED `subdivide` SUBCOMMAND, reachable only from
-// `J2_subdivision` (§15.6.2, kogaki#625 item 1). The RENDERING half left with
-// the entry point — §15.7 removes `cmdSubdivide`'s hand-rendered lines, which
-// §14.2's guard never saw. What stays is the composition §2.1 makes a RUNTIME
+// `J2_subdivision` (subdivide's composition fold, kogaki#625 item 1). The RENDERING half left with
+// the entry point — the non-flow utilities removes `cmdSubdivide`'s hand-rendered lines, which
+// the emit-time refusal's guard never saw. What stays is the composition the placement cover makes a RUNTIME
 // refusal: subgroup placement, the three instruments, and
 // SUBDIVISION_COVER_INCOMPLETE. Leaving those to whatever composed the record
 // would move a ratified refusal out of the runtime.
@@ -2022,7 +2124,7 @@ export function composeSubdivisionRecord(args, dir, record) {
   const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the SubGroup claims' coherence is judged against"));
   const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
   const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
-  const displayBudget = Number(args["display-budget"] || fail("--display-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a display lands, not of the material, so it is the caller's to state (SPEC.md §8)"));
+  const displayBudget = Number(args["display-budget"] || fail("--display-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a display lands, not of the material, so it is the caller's to state (SPEC.md, semantic subdivision)"));
   const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|other) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
 
   const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
@@ -2076,7 +2178,7 @@ export function composeSubdivisionRecord(args, dir, record) {
   for (const f of block.required) {
     if (out[f] === undefined || out[f] === null || out[f] === "") fail(`refusing to write a non-conforming subdivision record: missing ${f}`);
   }
-  if (out.offered_by_default !== block.offered_by_default_must_be) fail("refusing to write a subdivision record marked offered by default (SPEC.md §8.1)");
+  if (out.offered_by_default !== block.offered_by_default_must_be) fail("refusing to write a subdivision record marked offered by default (SPEC.md, measurement before offering)");
   const path = join(dir, `${id}.terrain-subdivision.json`);
   writeFileSync(path, JSON.stringify(out, null, 2) + "\n");
   return path;
@@ -2095,7 +2197,7 @@ export function composeSubdivisionRecord(args, dir, record) {
 //
 // IT RETURNS `subOf` RATHER THAN LEAVING ITS CALLER TO REBUILD ONE. Resolving a
 // SubGroup id already requires parsing `--subdivisions`, so handing the closure
-// back is what keeps one parse and one answer (PR #701 round 1). The §11 v10
+// back is what keeps one parse and one answer (PR #701 round 1). The open-questions section, v10
 // claims-reader rationale does NOT live here: this function reads no claims
 // file, and a comment explaining `--claims` above a function that never opens
 // one is a pointer to the wrong artifact.
@@ -2112,15 +2214,15 @@ function resolveReportTargets(record, tag, enteredIds, args) {
 }
 
 // --------------------------------------------------------------------------
-// report — the Full Report (SPEC.md §12).
+// report — the Full Report (SPEC.md, the Full Report).
 //
-// The other half of §6.1's compact display: the display is what the owner
+// The other half of the display's serve rule's compact display: the display is what the owner
 // NAVIGATES, this is what they READ. Untruncated Claims and Glosses, with no
 // truncation anywhere — which is why it parses the served shard whole rather
 // than through `parseGlossShard`, whose whole job is to cut a headline.
 //
 // It is a REPORT and therefore not a choice: it ranks nothing, narrows
-// nothing and hides nothing, so it sits in neither act list (§2.3, §12).
+// nothing and hides nothing, so it sits in neither act list (the second-proposer boundary, the Full Report).
 //
 // It is a RENDERING and therefore NOT AN ADDRESS: nothing downstream resolves
 // a report id, and a Brief cites members and pins exactly as it does today
@@ -2129,14 +2231,14 @@ function resolveReportTargets(record, tag, enteredIds, args) {
 export const NO_GLOSS_BODY = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
 export const NO_JUDGE = "none";
 
-// THE TYPED SUBDIVISION ENTRY (§12.1 v9, kogaki#199).
+// THE TYPED SUBDIVISION ENTRY (the report identity v9, kogaki#199).
 //
 // WHAT IT REPLACES, and why the old shape had to go rather than be tolerated.
 // The entry used to be a bare array and its presence was tested for truthiness,
 // so `[]` — a judged group with no subdivision — was TRUTHY and took the
 // judged branch by accident, while an absent key and `{}` took the unjudged
 // one. Three inputs, three different conformance outcomes, and NONE of them
-// was the artifact §12.1 names as conformant: `subgroupPlacement(group, [], …)`
+// was the artifact the report identity names as conformant: `subgroupPlacement(group, [], …)`
 // placed nothing, computed `unplaced` as every member, and pushed the
 // `no_member_hidden_subgroup` catch-all, after which `members` was nulled. A
 // group whose judgment ran and found no split could not be recorded at all.
@@ -2155,42 +2257,42 @@ export const NO_JUDGE = "none";
 // QUALIFICATION at the resolver, never a first-hit-wins guess"
 // (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:154`).
 // THE TYPED CLAIMS RECORD, and the subset refusal it exists to make possible
-// (§11 v10, kogaki#212).
+// (the open-questions section, v10, kogaki#212).
 //
 // WHY THE CLAIMS ARTIFACT IS THE CARRIER. The pin has to accompany the claims,
 // and v9 never said where it lives. It lives HERE, in one artifact with them,
 // because a pin in a separate file can go stale beside the claims it
 // accompanies and nothing in the tool would catch that — the same
 // existence-versus-standing gap the subset check exists to close, moved one
-// file over. It also mirrors §12.1 v9's typed subdivision record, so both
+// file over. It also mirrors the report identity v9's typed subdivision record, so both
 // composed inputs carry one shape rule learned once.
 //
 //   { "composition_pin": { "tag": …, "pin": …, "groups": { "<G>": ["lesson:…"] } },
 //     "claims":         { "<G>": "…" } }
 //
-// A BARE MAP IS REFUSED BY NAME, as §12.1 v9 refuses the withdrawn bare array:
+// A BARE MAP IS REFUSED BY NAME, as the report identity v9 refuses the withdrawn bare array:
 // two encodings for one fact would let a stale composer silently keep the
 // unguarded shape.
 export function readClaimsRecord(raw, record) {
   if (raw === undefined || raw === null) return { claims: {}, pin: null };
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    fail("--claims must be an object (SPEC.md §11 v10)");
+    fail("--claims must be an object (SPEC.md, the open-questions section, v10)");
   }
   if (!("composition_pin" in raw) || !("claims" in raw)) {
     fail("--claims is a bare {group: claim} map, which is the withdrawn pre-v10 form. "
       + "A claim composed outside the bounded read is what this refuses, and a bare map "
       + "carries no evidence of where it was composed from. Write "
       + '{"composition_pin": {...}, "claims": {...}} — `compose-input` emits the pin '
-      + "(SPEC.md §11 v10)");
+      + "(SPEC.md, the open-questions section, v10)");
   }
   const pin = raw.composition_pin;
   if (!pin || typeof pin !== "object" || Array.isArray(pin)) {
-    fail("--claims carries no usable `composition_pin` object (SPEC.md §11 v10)");
+    fail("--claims carries no usable `composition_pin` object (SPEC.md, the open-questions section, v10)");
   }
   if (!pin.groups || typeof pin.groups !== "object" || Array.isArray(pin.groups)) {
     fail("--claims `composition_pin` carries no `groups` map. It must hold the MEMBER "
       + "SET compose-input served, per group — a digest cannot support a subset check "
-      + "and can name no offender (SPEC.md §11 v10)");
+      + "and can name no offender (SPEC.md, the open-questions section, v10)");
   }
   // AC4 — THE PIN BINDS THE SURVEY RECORD IT WAS COMPUTED AGAINST. A stale pin
   // must not become a confident wrong acceptance: re-resolving it silently
@@ -2199,11 +2301,11 @@ export function readClaimsRecord(raw, record) {
   if (record && pin.pin && record.pin && pin.pin !== record.pin) {
     fail(`--claims was composed against survey pin ${pin.pin}, and this run's survey is `
       + `${record.pin}. The bounded read it evidences is not this one — re-run `
-      + "compose-input against this survey and recompose (SPEC.md §11 v10)");
+      + "compose-input against this survey and recompose (SPEC.md, the open-questions section, v10)");
   }
   const claims = raw.claims;
   if (!claims || typeof claims !== "object" || Array.isArray(claims)) {
-    fail("--claims `claims` must be a {group: claim} object (SPEC.md §11 v10)");
+    fail("--claims `claims` must be a {group: claim} object (SPEC.md, the open-questions section, v10)");
   }
   return { claims, pin };
 }
@@ -2251,21 +2353,21 @@ export function readSubdivisionEntry(name, entry) {
     fail(`--subdivisions entry for ${JSON.stringify(name)} is a bare array, which is the `
       + `withdrawn pre-v9 form. Judged-empty and never-judged are different states and a `
       + `bare array cannot say which: write {"judged": true, "subgroups": [...]}, or omit `
-      + `the key if the group was not judged (SPEC.md §12.1 v9)`);
+      + `the key if the group was not judged (SPEC.md, the report identity v9)`);
   }
   if (typeof entry !== "object") {
     fail(`--subdivisions entry for ${JSON.stringify(name)} must be an object `
-      + `{"judged": true, "subgroups": [...]} (SPEC.md §12.1 v9)`);
+      + `{"judged": true, "subgroups": [...]} (SPEC.md, the report identity v9)`);
   }
   if (entry.judged !== true) {
     fail(`--subdivisions entry for ${JSON.stringify(name)} does not declare "judged": true. `
       + `The judgment is what the entry attests; an entry that does not state it is `
-      + `indistinguishable from a run that never asked (SPEC.md §12.1 v9, §6.2)`);
+      + `indistinguishable from a run that never asked (SPEC.md, the report identity v9, the SubGroup threshold)`);
   }
   if (!Array.isArray(entry.subgroups)) {
     fail(`--subdivisions entry for ${JSON.stringify(name)} needs a "subgroups" array — `
       + `[] states JUDGED AND EMPTY, which is conformant and is not the same as absent `
-      + `(SPEC.md §12.1 v9)`);
+      + `(SPEC.md, the report identity v9)`);
   }
   return { judged: true, subgroups: entry.subgroups };
 }
@@ -2401,7 +2503,7 @@ export function wrapDisplayLine(text, columns = DISPLAY_WRAP_COLUMNS, indent = "
   return out.length ? out : [""];
 }
 
-// THE JUDGE LINE, composed ONCE for both owner surfaces (§6.2, §12.1). Two
+// THE JUDGE LINE, composed ONCE for both owner surfaces (the SubGroup threshold, the report identity). Two
 // renderers each writing their own sentence is how the display and the report
 // would come to say different things about the same record — the second-carrier
 // shape this file refuses everywhere else.
@@ -2423,13 +2525,13 @@ export function judgePinLine(pin, prov) {
   // dependency in a costume.
   if (p.state === JUDGMENT_OBSERVED) {
     return wrapDisplayLine(`the Harness holds its own `
-      + `invocation record \`${p.invocation.id}\`, taken over ${seen} (SPEC-terrain §6.2, §12.1)`,
+      + `invocation record \`${p.invocation.id}\`, taken over ${seen} (SPEC-terrain, the SubGroup threshold, the report identity)`,
     DISPLAY_WRAP_COLUMNS, "  ",
     `judged by ${pin.model_id} / ${pin.effort_tier} — OBSERVED:`).join("\n");
   }
   return wrapDisplayLine(`The Harness invoked no judge and holds `
     + `no invocation record, so this names what the composer says judged this split rather than something the `
-    + `Harness saw happen; what it did observe is ${seen} (SPEC-terrain §6.2, §12.1 — a judged surface with no `
+    + `Harness saw happen; what it did observe is ${seen} (SPEC-terrain, the SubGroup threshold, the report identity — a judged surface with no `
     + `judge pin is the drift-undetectable shape; kogaki#892 — a declaration is not rendered as an observation)`,
   DISPLAY_WRAP_COLUMNS, "  ",
   `judge pin DECLARED — ${pin.model_id} / ${pin.effort_tier}.`).join("\n");
@@ -2437,7 +2539,7 @@ export function judgePinLine(pin, prov) {
 
 // THE REPORT'S JUDGE LINE, composed ONCE (kogaki#918). It sits beside
 // `judgePinLine` rather than inside it: the display and the report are two
-// surfaces with two sentences by §12.1's own arrangement, and folding them
+// surfaces with two sentences by the report identity's own arrangement, and folding them
 // would make one of them say what the other's reader needs. What it does share
 // is the rule — one composer per surface, so a renderer cannot come to say two
 // things about one record.
@@ -2485,12 +2587,12 @@ export function judgedEmptyNoticeLines(prov) {
     "judgment that produced none; the Harness invoked no judge and holds no",
     "invocation record, so it cannot show that a judgment RAN and does not say",
     "one did (kogaki#892). This is still not an absent record: `[]` and an absent",
-    "key stay different states (SPEC-terrain §12.1 v9). Members are listed below.*"];
+    "key stay different states. Members are listed below.*"];
 }
 
 
 // The shard, parsed WHOLE. `parseGlossShard` above returns the first sentence
-// because a display row is a headline; §12 forbids truncation anywhere, so the
+// because a display row is a headline; the Full Report forbids truncation anywhere, so the
 // report cannot reuse it — the same shard read for two purposes needs two
 // readers, not one reader with a flag.
 export function parseGlossFull(resp) {
@@ -2508,7 +2610,7 @@ export function parseGlossFull(resp) {
     if (!slug) continue;
     // `Source:` closes an entry; `---` separates them. Everything between the
     // heading and those is the entry's body, kept WHOLE — no sentence match,
-    // no cap, no ellipsis, because §12 forbids truncation anywhere.
+    // no cap, no ellipsis, because the Full Report forbids truncation anywhere.
     if (t.startsWith("Source:") || t.startsWith("---")) { flush(); continue; }
     if (t.trim() === "") { if (body.length) body.push(""); continue; }
     if (!body.length) cite = line.cite;
@@ -2526,8 +2628,8 @@ function fetchGlossBodies(kind, tag) {
 
 // --------------------------------------------------------------------------
 // compose-input — the BOUNDED input the claim and subdivision composers read
-// (kogaki#163 lever 3; SPEC.md §9's "Tag-scoped and bounded — one shard pair
-// per viewed tag", and §7's silence on the composer's input).
+// (kogaki#163 lever 3; SPEC.md, the rendering rule's "Tag-scoped and bounded — one shard pair
+// per viewed tag", and GroupClaim-first rendering's silence on the composer's input).
 //
 // WHAT THIS FIXES, measured rather than argued. Dogfood run 2026-08-07, tag
 // `architecture`: 70 Lessons, 11 co-tag groups, 131 placements, ~19 minutes
@@ -2536,7 +2638,7 @@ function fetchGlossBodies(kind, tag) {
 // renders instantly — the cost was COMPOSITION, and it grew in the wrong
 // quantity: the composer reached for each group's material once per group, so
 // 70 Lessons cost 131 reads. The material a group needs is a subset of the
-// material the TAG's shard pair already carries, and that pair is already §9's
+// material the TAG's shard pair already carries, and that pair is already the rendering rule's
 // budget, so the excess bought nothing.
 //
 // THE BOUND IS STRUCTURAL, NOT ADVISORY. `material` is keyed by member id and
@@ -2560,11 +2662,11 @@ function fetchGlossBodies(kind, tag) {
 // display).
 //
 // It composes NOTHING and judges NOTHING. The claim wording stays the
-// composer's (§7 leaves it there) and the coherence label stays the judge's
-// (§8); this hands over material and the group structure, and no verdict.
+// composer's (GroupClaim-first rendering leaves it there) and the coherence label stays the judge's
+// (semantic subdivision); this hands over material and the group structure, and no verdict.
 // --------------------------------------------------------------------------
 export const COMPOSITION_INPUT_BOUND =
-  "one tag-scoped served Gloss shard pair, fetched once for the run (SPEC.md §9)";
+  "one tag-scoped served Gloss shard pair, fetched once for the run (SPEC.md, the rendering rule)";
 
 export function composeInput(record, tag, groups, fetchShard) {
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
@@ -2586,11 +2688,11 @@ export function composeInput(record, tag, groups, fetchShard) {
       return {
         id: c.id,
         cite: c.cite || null,
-        // Untruncated, exactly as §12 serves it: the composer judging a
-        // SubGroupClaim's coherence against its parent's is the reader §8
+        // Untruncated, exactly as the Full Report serves it: the composer judging a
+        // SubGroupClaim's coherence against its parent's is the reader semantic subdivision
         // addresses, and a headline-only input would decide that verdict by
         // what the bound withheld. A missing rendering is MARKED
-        // and never substituted (§9), at this layer as at every other.
+        // and never substituted (the rendering rule), at this layer as at every other.
         gloss: lg ? lg.body : NO_GLOSS_BODY,
         gloss_cite: lg ? lg.cite : null,
         journey_gloss: c.journey ? (jg ? jg.body : NO_GLOSS_BODY) : null,
@@ -2603,7 +2705,7 @@ export function composeInput(record, tag, groups, fetchShard) {
     kind: "composition-input",
     tag,
     pin: record.pin,
-    // THE COMPOSITION PIN (§11 v10, kogaki#212). The claim composer copies this
+    // THE COMPOSITION PIN (the open-questions section, v10, kogaki#212). The claim composer copies this
     // into its claims artifact, and `cotags` refuses claims whose members are
     // not a SUBSET of what it covers — which is what makes composing from the
     // whole survey unproducible rather than merely discouraged.
@@ -2611,7 +2713,7 @@ export function composeInput(record, tag, groups, fetchShard) {
     // IT CARRIES THE SERVED MEMBER SET, NOT A DIGEST, and that correction is
     // the whole of why the guard can do its job. A digest supports EQUALITY,
     // not subset, and can name no offender — so it could not deliver the
-    // refusal §11 states, which names the members that fall outside. The
+    // refusal the open questions states, which names the members that fall outside. The
     // property was load-bearing and the digest was the mechanism, so the
     // mechanism gave way
     // (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e LESSONS.md:86`).
@@ -2646,7 +2748,7 @@ function cmdComposeInput(args) {
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`);
   const groups = cotagGroups(members, tag);
 
-  // Memoized per kind, so the "fetched once for the run" half of §9's bound is
+  // Memoized per kind, so the "fetched once for the run" half of the rendering rule's bound is
   // enforced HERE rather than assumed of the caller. `composeInput` asks for a
   // kind at most once already; this makes a future second caller unable to
   // spend a second read either.
@@ -2666,18 +2768,18 @@ function cmdComposeInput(args) {
   console.log(`Reads: ${a.shard_fetches} served-material fetch(es) for ${a.candidates} candidate(s) across ${a.placements} placement(s) in ${input.groups.length} group(s) — the read count is bounded by the CANDIDATES and does not grow with the placements.`);
   console.log(`${denominator(a.candidates, record.candidates.length)} carry ${tag}; ${strandFigure(familySplit(members.map((c) => c.id), record.candidates))}.`);
   if (a.abnormal) {
-    console.log(`ABNORMAL: ${a.abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9).`);
+    console.log(`ABNORMAL: ${a.abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md, the rendering rule).`);
   }
   console.log(`Compose EVERY GroupClaim and EVERY SubGroupClaim from this one artifact: \`material\` is keyed by member id and \`groups\` carry ids only, so a member in several groups is read once, and no group has per-group material to re-read.`);
-  console.log(`Classification: REPORT (SPEC.md §2.3) — it ranks nothing, narrows nothing and hides nothing. It composes no claim and judges nothing: the claim wording stays the composer's (§7) and the coherence label the judge's (§8).`);
+  console.log(`Classification: REPORT (SPEC.md, the second-proposer boundary) — it ranks nothing, narrows nothing and hides nothing. It composes no claim and judges nothing: the claim wording stays the composer's (GroupClaim-first rendering) and the coherence label the judge's (semantic subdivision).`);
   console.log(`Machine-local run workspace, never committed (founding spec rider 3).`);
   console.log(`\nNext: cotags --survey ${String(args.survey)} --tag ${tag} --claims <F> [--subdivisions <F> --judge-model M --judge-effort E]`);
 }
 
-// Where the machine RECORD lives (§12.2 v11). A record is machine-facing and
+// Where the machine RECORD lives (location and naming v11). A record is machine-facing and
 // the run workspace is its legitimate home — the owner ruling moved the
 // RENDERING, not this. A STABLE home rather than a per-invocation directory,
-// because §12.1's first case — same identity, run twice, ONE report — is a
+// because the report identity's first case — same identity, run twice, ONE report — is a
 // claim across invocations and a timestamped directory would make every rerun
 // a duplicate by construction.
 // PURE, and split from the preparing call for the same reason
@@ -2690,7 +2792,7 @@ function reportsDestination(args) {
 }
 
 function reportsDir(args) {
-  // §12.2 v11's own table gives the record's home as the RUN WORKSPACE, and
+  // location and naming v11's own table gives the record's home as the RUN WORKSPACE, and
   // kogaki#234 acceptance 4 retires `~/.kogaki/reports/` outright. The v11
   // amendment moved the RENDERING and left this default naming the directory
   // the issue removes — so with no KOGAKI_RUN_DIR a real run still wrote the
@@ -2698,7 +2800,7 @@ function reportsDir(args) {
   //
   // kogaki#750 moves the default again, out of the home directory entirely and
   // into `runs/terrain/reports/`. It stays a STABLE home and is the one entry
-  // the lane's prune never removes — §12.1's same-identity-run-twice-is-ONE-
+  // the lane's prune never removes — the report identity's same-identity-run-twice-is-ONE-
   // report claim is a claim ACROSS runs, and an entry inside a keep-last-K
   // window would falsify it on the K+1th run rather than at a review point.
   const dir = reportsDestination(args);
@@ -2715,7 +2817,7 @@ function reportsDir(args) {
 // than the one licensed, on a path no check of this repository can see. The
 // owner deleted the legacy contents by hand on 2026-09-01, so the widening
 // would also have nothing left to remove on the machine that motivated it.
-// Reports are idempotently regenerable (§12.1), so there is nothing to migrate
+// Reports are idempotently regenerable (the report identity), so there is nothing to migrate
 // — the honest act is to remove it and SAY SO ONCE, never to leave an invalid
 // location on disk looking authoritative. Silent removal is not on the table:
 // deleting a directory the owner may have opened, without a word, is the
@@ -2727,18 +2829,19 @@ function retireLegacyReportsDir() {
   rmSync(legacy, { recursive: true, force: true });
   console.log(`retired the invalid reports location (kogaki#234): removed ${n} regenerable `
     + "report(s) from the machine-local directory the owner ruling struck. Reports are "
-    + "idempotent (SPEC-terrain §12.1) — rerun to regenerate at the new locations.");
+    + "idempotent (SPEC-terrain, the report identity) — rerun to regenerate at the new locations.");
 }
 
-// Where the OWNER RENDERING lives (§12.2 v11, kogaki#234). The working tree,
+// Where the OWNER RENDERING lives (location and naming v11, kogaki#234). The working tree,
 // because a Full Report is what the owner reads to think a Thesis through and
-// `specs/SPEC.md` §2.5 rules that a machine-local hidden directory DECLARES a
+// `specs/SPEC.md`, "Human-facing files live where the human works", rules that a
+// machine-local hidden directory DECLARES a
 // file machine-facing. Terrain was in a failed state under that rule until this
 // existed.
 //
 // The discriminator is LIFETIME, never format: a run workspace holds things
 // whose lifetime is the RUN, the tree holds things whose lifetime is the
-// OWNER's (§2.5.1). Defaulting to the repository root rather than to cwd is
+// OWNER's — the discriminator is LIFETIME, not format or audience-in-principle. Defaulting to the repository root rather than to cwd is
 // deliberate — the location must not depend on where the command was invoked
 // from, which would be the producing stage's convenience picking the location
 // again, one layer down.
@@ -2763,14 +2866,14 @@ function renderingsDir(args) {
   return dir;
 }
 
-// §12.2 v12 (owner ruling 2026-08-14): the tree holds EXACTLY ONE owner
+// location and naming v12 (owner ruling 2026-08-14): the tree holds EXACTLY ONE owner
 // rendering — `FullReport.md`, overwritten on every pull. An identity-named
 // `terrain-full-report-<digest>.md` in the tree is the machine register's
-// naming reaching the owner surface — the defect §2.5 clause 3 states by
+// naming reaching the owner surface — the defect the no-hidden-path owner-surface rule states by
 // LOCATION, arriving by NAME — so any file so named is retired on sight, with
 // one line saying so (the same disposal discipline as `retireLegacyReportsDir`:
 // never silently). Nothing is lost: the rendering is a pure function of the
-// machine record (§12.1), which keeps identity and coexistence in the run
+// machine record (the report identity), which keeps identity and coexistence in the run
 // workspace, so a rerun regenerates any of them.
 // EXPORTED so the retirement can be asserted SEAM-FREE (PR #436 round 1,
 // finding 4). Reached only through `renderingsDir`, this ran exclusively on the
@@ -2784,12 +2887,12 @@ export function retireIdentityNamedRenderings(dir) {
     .filter((f) => f.startsWith("terrain-full-report-") && f.endsWith(".md"));
   if (!stale.length) return;
   for (const f of stale) rmSync(join(dir, f), { force: true });
-  console.log(`retired ${stale.length} identity-named rendering(s) (SPEC-terrain §12.2 v12): `
+  console.log(`retired ${stale.length} identity-named rendering(s) (SPEC-terrain, location and naming v12): `
     + "the tree holds ONE owner rendering, FullReport.md — identity lives in the machine "
-    + "record, and reports are idempotently regenerable (§12.1).");
+    + "record, and reports are idempotently regenerable (the report identity).");
 }
 
-// The owner surface prints a REPO-RELATIVE path (§2.5 clause 3): no owner-facing
+// The owner surface prints a REPO-RELATIVE path — no owner-facing output prints a hidden path: no owner-facing
 // output names a machine-local hidden path outside debugging, and an absolute
 // path into someone's home directory is the specimen that clause was written
 // against. Falls back to the absolute path only when the file genuinely sits
@@ -2825,7 +2928,7 @@ function repoRoot() {
   }
 }
 
-// THE OWNER SURFACE'S ARTIFACT LINES, IN ONE PLACE (§2.5 clause 3, §12.2 v11).
+// THE OWNER SURFACE'S ARTIFACT LINES, IN ONE PLACE (the no-hidden-path owner-surface rule; location and naming, v11).
 //
 // This function exists because there are TWO paths that finish a report — the
 // fresh write and the idempotent rerun — and PR #240 round 1 finding 2 fixed
@@ -2840,17 +2943,17 @@ function repoRoot() {
 // half of.
 function announceArtifacts(rendered, recordPath) {
   if (rendered) {
-    console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md §12.2): ${relFromRepo(rendered)}`);
-    console.log("ONE rendering file, overwritten per pull (SPEC-terrain §12.2 v12) — identity "
+    console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md, location and naming): ${relFromRepo(rendered)}`);
+    console.log("ONE rendering file, overwritten per pull (SPEC-terrain, location and naming v12) — identity "
       + "and coexistence live in the machine record, never in the tree.");
   }
   // The record is machine-facing, so the owner surface names its FILENAME and
   // says where the class of thing lives; the full path is debugging output and
   // rides KOGAKI_DEBUG.
   if (process.env.KOGAKI_DEBUG) {
-    console.log(`machine record (JSON, identity + idempotence; SPEC.md §12.1): ${recordPath}`);
+    console.log(`machine record (JSON, identity + idempotence; SPEC.md, the report identity): ${recordPath}`);
   } else {
-    console.log("machine record written (JSON, identity + idempotence; SPEC.md §12.1) "
+    console.log("machine record written (JSON, identity + idempotence; SPEC.md, the report identity) "
       + `as ${basename(recordPath)} in the run workspace. Set KOGAKI_DEBUG=1 for its path.`);
   }
 }
@@ -2858,23 +2961,23 @@ function announceArtifacts(rendered, recordPath) {
 // THE CoTagGroups OWNER RENDERING (kogaki#434; implemented under
 // kogaki#464 after #434 closed without it).
 //
-// The runtime WRITES this rendering, and §14.4's removal of the relay as a
+// The runtime WRITES this rendering, and the single producer rule's removal of the relay as a
 // producer is why: the channel this repository is operated through displays a
 // tool call's stdout TO THE MODEL and not reliably to the owner — it collapses
-// to a one-line summary — and retyping is prohibited (§14.4) while a question
-// UI is prohibited after tag selection (§6.3). What model composition produced
+// to a one-line summary — and retyping is prohibited (the single producer rule) while a question
+// UI is prohibited after tag selection (the post-tag-selection window). What model composition produced
 // was not silence but a FALSE CLAIM OF SUCCESS, which reads as delivery.
 //
 // THE NAME IS A LITERAL joined onto the renderings directory, exactly as
 // `FullReport.md` is, so a second rendering name is UNWRITABLE RATHER THAN
-// DETECTED — the constrain-side answer §15.8 names in its own
+// DETECTED — the constrain-side answer what is not carried names in its own
 // what-is-not-carried list. Every display renders through here; there is no
 // second path and no caller-supplied name.
 //
-// §12.2 v12's "exactly one owner rendering" is SCOPED TO FULL REPORT
+// location and naming v12's "exactly one owner rendering" is SCOPED TO FULL REPORT
 // RENDERINGS, and this display is a SECOND owner-rendering class with
 // its own count of exactly one: overwritten per render, never accumulated. The
-// invariant §12.2 v12 actually protects — no accumulation, no machine-register
+// invariant location and naming v12 actually protects — no accumulation, no machine-register
 // naming on the owner surface — holds for both, which is why this is a scoping
 // and not a repeal.
 // THE NAVIGATION HINT, one literal shared by the emitter and asserted against
@@ -2884,12 +2987,12 @@ function announceArtifacts(rendered, recordPath) {
 // `navigation_hint` form is amended to match, deliberately and on this
 // issue's licence, never to make a refusal go away.
 export const NAVIGATION_HINT =
-  "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4).";
+  "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word.";
 
 export const DISPLAY_RENDERING = "CoTagGroups.md";
 
-// WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain §15.5 v28, kogaki#681,
-// successor to #680). §15.5's title — "owner artifacts are written only from
+// WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain, write authority v28, kogaki#681,
+// successor to #680). Write authority's title — "owner artifacts are written only from
 // writing states" — was carried by nothing: `cotags` and `report` stayed live
 // dispatcher cases calling the same renderers, so a session could mint
 // `reports/CoTagGroups.md` or `reports/FullReport.md` out of order, with no run
@@ -2897,21 +3000,21 @@ export const DISPLAY_RENDERING = "CoTagGroups.md";
 // REFUTED by observation at #681: the executor re-surveys live rather than
 // accepting a fixture, `compose_input` crosses the served-material seam, and
 // `J1_claims` is non-conditional — so the 34 composition-check sites that drive
-// these two commands could not be migrated, and the claimless display §6.1
+// these two commands could not be migrated, and the claimless display the display's serve rule
 // requires is unreachable through `run` at all.
 //
 // SO THE REFUSAL BINDS THE WRITE AND NOT THE ENTRY POINT. The commands survive
 // as COMPOSITION routes; what they cannot do is land an owner artifact. The
 // discriminator is the RESOLVED destination, never a flag and never an env
-// var's presence — §15.7 forecloses a debug-only escape ("a retained generator
+// var's presence — the non-flow utilities forecloses a debug-only escape ("a retained generator
 // regenerates what a ban forbids"), and a route whose refusal could be
 // switched off would be exactly that. A caller that redirects elsewhere writes
-// no owner artifact by §2.5's own lifetime rule, which is why the check suite's
+// no owner artifact by that section's own lifetime rule, which is why the check suite's
 // throwaway-directory runs are unaffected rather than exempted.
 //
 // WHAT THIS DOES NOT CLAIM, stated because the superseded prose overclaimed in
 // exactly this direction: the composition remains callable out of order. The
-// property carried here is the one in the section's title, and §15.5 now says
+// property carried here is the one in the section's title, and write authority now says
 // that and no more.
 let WRITING_STATE = null;
 
@@ -2927,10 +3030,10 @@ function ownerRenderingLocation() {
 function refuseUnauthorizedOwnerWrite(dir, artifact) {
   if (WRITING_STATE !== null) return;
   if (resolve(dir) !== resolve(ownerRenderingLocation())) return;
-  fail(`${artifact} is an OWNER ARTIFACT and is written only from a writing state of the workflow table (SPEC-terrain §15.5, kogaki#681). `
+  fail(`${artifact} is an OWNER ARTIFACT and is written only from a writing state of the workflow table (SPEC-terrain, write authority, kogaki#681). `
     + `This call reaches ${relFromRepo(resolve(dir))} from outside the executor, so it would land an owner surface belonging to no run record. `
     + "Drive it through the executor — `run --run-dir <D> …` — which reaches the same renderer from the state the table binds it to. "
-    + "The composition itself is not refused: render into a run-scoped location and the write proceeds, because a rendering whose lifetime is the run is not an owner artifact (§2.5.1).");
+    + "The composition itself is not refused: render into a run-scoped location and the write proceeds, because a rendering whose lifetime is the run is not an owner artifact.");
 }
 
 function writeDisplay(args, text) {
@@ -2943,7 +3046,7 @@ function writeDisplay(args, text) {
   return path;
 }
 
-// THE ONE PRIVATE DISPLAY WRITER (§15.5, kogaki#665). Every state whose
+// THE ONE PRIVATE DISPLAY WRITER (write authority, kogaki#665). Every state whose
 // `writes` field names the display artifact goes through here, and the GRAMMAR
 // COMES FROM THE CALLING STATE rather than from the artifact path — three
 // states share one file, and `report-format.json` declares a separate surface
@@ -2953,7 +3056,7 @@ function writeDisplay(args, text) {
 // WHAT THIS REMOVES, which is the point rather than a tidy: `cmdView` used to
 // call `writeDisplay` DIRECTLY, with no `emitOrRefuse` anywhere on its path —
 // so the two listing surfaces had declared grammars that nothing on the
-// write path enforced. An earlier form admitted two writers; §15.5 supersedes it with
+// write path enforced. An earlier form admitted two writers; write authority supersedes it with
 // one, and this is that one. The refusal gates the WRITE and not only a print,
 // because `emitOrRefuse` takes the write as a callback: there is no path here
 // that emits first.
@@ -2962,14 +3065,14 @@ function writeDisplay(args, text) {
 // kogaki#625). All three display states printed the text and THEN called this,
 // so the sentence above was true of the write and false of the terminal — the
 // property "a nonconformant display reaches neither the owner's terminal nor
-// their artifact" had quietly become a property of the artifact alone. §14.4
+// their artifact" had quietly become a property of the artifact alone. The single producer rule
 // puts the owner's reading on the artifact, so the ratified guarantee was
 // intact and only its stated reach was overclaimed; the repair is to make the
 // sentence true again rather than to narrow it, because a comment asserting a
 // structural property the code no longer has is how the next edit loses it for
 // real. One printer, one writer, one callback, one refusal.
 function writeDisplaySurface(args, surface, text) {
-  // BEFORE THE PRINTER, NOT ONLY BEFORE THE WRITE (§15.5 v28, kogaki#681).
+  // BEFORE THE PRINTER, NOT ONLY BEFORE THE WRITE (write authority v28, kogaki#681).
   // `writeDisplay` carries the same refusal as the writer's own guard, but the
   // printer runs first inside the callback below — so siting the check only
   // there put the refused display on the owner's terminal and then declined to
@@ -3016,16 +3119,16 @@ function announceDisplay(path) {
   console.log("ONE CoTagGroups file, overwritten per render — one owner rendering per class.");
 }
 
-// The owner register (§12.2 v11). Markdown, because the artifact's whole job is
+// The owner register (location and naming v11). Markdown, because the artifact's whole job is
 // to be READ — the JSON beside it keeps every machine property, so nothing here
 // is load-bearing for identity and nothing may parse it back.
-// §12.3 — the Thesis candidates section (kogaki#760).
+// the Thesis candidates — the Thesis candidates section (kogaki#760).
 //
 // THE ABSENT CASE RENDERS THE SECTION AND SAYS IT IS EMPTY, which is the
 // fallback CHOSEN at the gate rather than inherited from the code. The three
 // candidates were: refuse the render, omit the section, or disclose. Omitting
 // makes "no candidates were composed" and "this section does not exist"
-// indistinguishable to the owner, which is the silence §13.4 already refuses
+// indistinguishable to the owner, which is the silence the neighborhood section's shape already refuses
 // for the neighborhood — "an empty result renders its explicit lines, never an
 // absent section" — and this follows that precedent in the same file. Refusing
 // was the stronger reading of "fixed section" and was declined at the gate for
@@ -3054,7 +3157,7 @@ export function thesisCandidatesSection(candidates) {
     // that reader fixed. A candidate arriving here without one is a caller that
     // bypassed the reader, and re-minting from the index would silently paper
     // over exactly the ordering question the move exists to settle.
-    L.push(`- ${c.id || fail("a Thesis candidate reached the §12.3 section with no minted id. Ids are fixed by readThesisCandidates before J3_neighborhood judges (kogaki#861); a candidate composed past that reader has an id nothing checked a neighborhood target against.")} — ${c.claim}`);
+    L.push(`- ${c.id || fail("a Thesis candidate reached the Thesis candidates section with no minted id. Ids are fixed by readThesisCandidates before J3_neighborhood judges (kogaki#861); a candidate composed past that reader has an id nothing checked a neighborhood target against.")} — ${c.claim}`);
     L.push(`  strands: ${c.strands.join(", ")}`);
   });
   L.push("");
@@ -3104,9 +3207,9 @@ export function shouldReplayPrior(prior, identity, sameIdentityFn = sameIdentity
 export function renderReportMarkdown(report, tag) {
   const L = [];
   const i = report.identity;
-  // §12 v7 — the title names the TAG, never an id. A report may span several
+  // the Full Report v7 — the title names the TAG, never an id. A report may span several
   // entered ids, so no single GroupID identifies it; the entered set rides
-  // `*Selections:*` in the identity block, where §12.1 already puts the
+  // `*Selections:*` in the identity block, where the report identity already puts the
   // recorded components. Kept short deliberately: five ids in a title wrap, on
   // the surface kogaki#317 exists to keep readable under wrapping.
   L.push(`# Full Report — ${tag}`);
@@ -3114,7 +3217,7 @@ export function renderReportMarkdown(report, tag) {
   L.push(`*Selected tag:* \`${tag}\`  `);
   L.push(`*Selections:* ${(i.query.ids || []).join(", ")}  `);
   L.push(`*Substrate pin:* \`${i.pin}\`  `);
-  // §12.1's third component, AND WHAT THE HARNESS OBSERVED OF IT (kogaki#892).
+  // the report identity's third component, AND WHAT THE HARNESS OBSERVED OF IT (kogaki#892).
   // The pin alone read as a fact the Harness stands behind; the provenance
   // clause is what separates a pin the composer declared from a judgment an act
   // was seen to perform. Read through `provenanceOf`, so a report record written
@@ -3123,11 +3226,11 @@ export function renderReportMarkdown(report, tag) {
   L.push(reportJudgeLine(i, provenanceOf(report)));
   L.push("");
   L.push("> Untruncated. This report ranks nothing, narrows nothing and hides");
-  L.push("> nothing (SPEC-terrain §2.3, §12). It is a RENDERING, not an address:");
+  L.push("> nothing (SPEC-terrain, the second-proposer boundary, the Full Report). It is a RENDERING, not an address:");
   L.push("> article material is quoted from served renderings at pins, never");
   L.push("> from a report.");
   L.push("");
-  // §12.3 — THE THESIS CANDIDATES SECTION (kogaki#760, owner ruling
+  // the Thesis candidates — THE THESIS CANDIDATES SECTION (kogaki#760, owner ruling
   // 2026-09-01). The early image, so it is the first CONTENT the owner reads.
   //
   // SITED BELOW THE PREAMBLE, and the choice is stated rather than left as an
@@ -3143,12 +3246,12 @@ export function renderReportMarkdown(report, tag) {
   // Terrain; this section serves that and constrains the Brief's eventual
   // Thesis not at all. A reader who meets three candidate claims at the top of
   // a report will otherwise take them for a narrowing, which is the one thing
-  // §2.3 promises this surface never does.
+  // the second-proposer boundary promises this surface never does.
   L.push(...thesisCandidatesSection(report.thesis_candidates));
-  // The singular `## Group claim` block is GONE (§12 v7): a report may span
+  // The singular `## Group claim` block is GONE (the Full Report v7): a report may span
   // several ids, so there is no one group whose claim heads the file. Each
   // section carries its own claim under its own heading.
-  // §12 v7 — ONE SECTION PER ENTERED ID, keyed by the id. What repeats is the
+  // the Full Report v7 — ONE SECTION PER ENTERED ID, keyed by the id. What repeats is the
   // section; the identity block above and the Counted / Served-lines blocks
   // below appear once for the file.
   for (const sec of report.sections || []) {
@@ -3166,7 +3269,7 @@ export function renderReportMarkdown(report, tag) {
         for (const m of sg.members) L.push(...memberBlock(m, 4));
       }
     } else if (sec.subgroups && sec.subgroups.length === 0) {
-      // §12.1 v9's three states, unchanged by the multi-section form: a
+      // the report identity v9's three states, unchanged by the multi-section form: a
       // judged-empty outcome and a SUPPRESSED split are not the same silence,
       // and neither is an absent judgment.
       if (sec.suppressed_split) {
@@ -3174,7 +3277,7 @@ export function renderReportMarkdown(report, tag) {
         L.push("SubGroup was labelled `other` — the residual, so the judge found no");
         L.push("subset of M or more members at loose-or-better affinity among them —");
         L.push("so it bought nothing and");
-        L.push("does not discharge the subdivision obligation (SPEC-terrain §6.2 v7,");
+        L.push("does not discharge the subdivision obligation (SPEC-terrain, the SubGroup threshold v7,");
         L.push("re-keyed and bounded at kogaki#683, relabelled at kogaki#738). This is neither");
         L.push("a judged-empty outcome nor an absent judgment. Members are listed below,");
         L.push("and none was dropped.*");
@@ -3208,12 +3311,12 @@ export function renderReportMarkdown(report, tag) {
   // and not on the report, which is the state the ruling asks for.
   L.push("");
   L.push(...servedLinesBlock(report));
-  // §13.1 v20 / §12 v8 (kogaki#473) — the provenance neighborhood, ONCE and
+  // the neighborhood as a report v20 / the Full Report v8 (kogaki#473) — the provenance neighborhood, ONCE and
   // LAST. Conditional on the record carrying one: a record written before
   // this section existed renders without it — the ordinary
-  // spec-ahead-of-code interval §12.1 names, read here from the record's own
+  // spec-ahead-of-code interval the report identity names, read here from the record's own
   // shape rather than guessed. A NEW pull always carries the field, empty
-  // enumeration included (§13.4's disclosure: an empty result renders its
+  // enumeration included (the neighborhood section's shape's disclosure: an empty result renders its
   // explicit lines, never an absent section).
   if (report.neighborhood) {
     L.push("");
@@ -3222,30 +3325,30 @@ export function renderReportMarkdown(report, tag) {
   return L.join("\n") + "\n";
 }
 
-// THE MEMBER → SERVED-LINE MAP, SITED ONCE AT THE REPORT'S END (§12, line 805).
+// THE MEMBER → SERVED-LINE MAP, SITED ONCE AT THE REPORT'S END (the Full Report, line 805).
 //
 // This is the baseline's own siting — *"the shared pin stated once in the Full
 // Report, with the member → served-line map at the report's end"*
-// (wa#1115/#1116) — and until story 1.53 the renderer satisfied §12 by putting
+// (wa#1115/#1116) — and until story 1.53 the renderer satisfied the Full Report by putting
 // a `*Served line:*` row on every member instead. That per-member form is what
 // kogaki#318 called the second name-shaped row, and the owner's story-1.53 SQ2
 // ruling removed it.
 //
-// So the map MOVES rather than disappearing, and both halves matter: §14.3
-// takes element NAMES off the owner surface, while §12 keeps the ADDRESS the
+// So the map MOVES rather than disappearing, and both halves matter: the display-ID rule
+// takes element NAMES off the owner surface, while the Full Report keeps the ADDRESS the
 // report is accountable to. A cite is an address — it is what lets a reader
 // check the report against the substrate — and dropping it from the rendering
 // entirely would have made the owner rendering uncheckable without opening the
 // machine record, which is a different decision from the one that was made.
 //
 // A member with no display_id or no cite is NAMED here rather than omitted:
-// a map that silently skips its unmappable rows is the shape §2.1 forbids.
+// a map that silently skips its unmappable rows is the shape the placement cover forbids.
 // THE PIN IS STATED ONCE, IN THE IDENTITY — so every other cite renders BARE
-// (§12 v12, kogaki#315, story 1.56 AC5/AC6).
+// (the Full Report v12, kogaki#315, story 1.56 AC5/AC6).
 //
 // A served cite arrives as `<file>:<line>@<pin>`; the `@<pin>` half is the
 // substrate pin repeated. On a two-member report that was six pin-bearing
-// lines where §12 registers one, and story 1.53 did not fix it — it moved the
+// lines where the Full Report registers one, and story 1.53 did not fix it — it moved the
 // per-member `*Served line:*` row into a trailing map and carried the pin
 // along, same count, different siting.
 //
@@ -3270,7 +3373,7 @@ export function servedLinesBlock(report) {
     seen.add(key);
     rows.push([m.display_id || NO_DISPLAY_ID, bareCite(m.cite) || "⟨no served line recorded — ABNORMAL, never substituted⟩"]);
   };
-  // MERGED ACROSS SECTIONS AND DEDUPED (§12 v7, kogaki#314). The map is sited
+  // MERGED ACROSS SECTIONS AND DEDUPED (the Full Report v7, kogaki#314). The map is sited
   // ONCE for the file, so a member entered under both `G5` and `G5-1` appears
   // in it once — `seen` above is what makes the merge honest rather than
   // merely shorter. A repeated per-section map is the class kogaki#315 named
@@ -3301,9 +3404,9 @@ export function servedLinesBlock(report) {
   return L;
 }
 
-// ONE MEMBER, WHOLE (§12). The record carries six served fields per member —
+// ONE MEMBER, WHOLE (the Full Report). The record carries six served fields per member —
 // `id`, `cite`, `gloss`, `gloss_cite`, `journey_gloss`, `journey_cite` — and
-// this is the surface §12 addresses when it says "the complete Lesson and
+// this is the surface the Full Report addresses when it says "the complete Lesson and
 // Journey Glosses, with no truncation anywhere" and that the report "carries
 // the member → served-line map in its member records".
 //
@@ -3313,7 +3416,7 @@ export function servedLinesBlock(report) {
 // every file in `reports/`, no Journey Gloss text anywhere, and a file that
 // opened with `> Untruncated.` and printed `- journey: 1` in its Counted block
 // while containing no journey. That is the kogaki#243 form-E shape exactly:
-// the prose asserted a property no carrier held, and every §12.1 assertion
+// the prose asserted a property no carrier held, and every the report identity assertion
 // stayed green because identity and idempotence are true of a rendering that
 // drops its material.
 //
@@ -3324,7 +3427,7 @@ export function servedLinesBlock(report) {
 //
 // ABSENCE IS STATED, never left as a gap. A member with no Journey and a
 // member whose Journey went missing render differently, and neither renders as
-// silence — the same rule §12.1 v9 applies to judged-empty SubGroups. Without
+// silence — the same rule the report identity v9 applies to judged-empty SubGroups. Without
 // it the Counted block's `journey: N` has nothing in the body to agree with,
 // which is how the run above produced a count with no material behind it.
 export function memberBlock(m, level) {
@@ -3332,12 +3435,12 @@ export function memberBlock(m, level) {
   // A non-object member is a malformed record, and it renders as that rather
   // than as its own string value — printing `String(m)` here was the one path
   // by which a bare `lesson:<slug>` could still reach the owner rendering
-  // (§14.3).
+  // (the display-ID rule).
   if (!m || typeof m !== "object") return [`${h} ${NO_DISPLAY_ID}`, ""];
-  // §14.3 (story 1.53) — the heading is the plain display_id. It is read from
+  // the display-ID rule (story 1.53) — the heading is the plain display_id. It is read from
   // the member, which `reportMembers` fills from the survey record's candidate
   // entry; a member with none renders the ABNORMAL token and NEVER the slug,
-  // because the slug is exactly what §14.3 removes and a silent fallback would
+  // because the slug is exactly what the display-ID rule removes and a silent fallback would
   // undo the change while looking like robustness.
   const L = [`${h} ${m.display_id || NO_DISPLAY_ID}`, ""];
   // THE `*Served line:*` ROW IS GONE, and this is the owner's answer to story
@@ -3345,7 +3448,7 @@ export function memberBlock(m, level) {
   // row "two name-shaped rows where the owner ruled one plain ID suffices",
   // and the pair reading is the one that was chosen. Nothing is lost: the cite
   // stays in the machine record beside the full identity quadruple (AC6,
-  // §12.2 v11, widened at kogaki#741), which is where a reader who needs the address goes. The Gloss cite
+  // location and naming v11, widened at kogaki#741), which is where a reader who needs the address goes. The Gloss cite
   // rows below are a different thing — they address the served GLOSS rendering
   // rather than naming the element — and they stay.
   L.push(m.gloss_cite ? `**Lesson Gloss** — \`${bareCite(m.gloss_cite)}\`` : "**Lesson Gloss** — *no served cite recorded*");
@@ -3365,13 +3468,13 @@ export function memberBlock(m, level) {
   return L;
 }
 
-// The identity QUADRUPLE (§12.1, widened from the triple at kogaki#741):
+// The identity QUADRUPLE (the report identity, widened from the triple at kogaki#741):
 // substrate pin, co-tag query (selected tag, named group), judge pin, and the
 // neighborhood judgment record — the last two typed `none` where no judged
 // material is present. UNIFORM ARITY: `none` is a value that must be present, never an
 // omitted component, because a key whose shape depends on the report's own
 // content is one a request cannot construct.
-// §12 v6 (kogaki#314) — the query component is `{ tag, ids }`, the ids
+// the Full Report v6 (kogaki#314) — the query component is `{ tag, ids }`, the ids
 // CANONICAL. Idempotence is set-based: two typings of the same set in
 // different orders are ONE artifact, which is what makes a re-request return
 // the same report rather than a second one.
@@ -3380,17 +3483,17 @@ export function reportIdentity(pin, tag, ids, judgePin, neighborhoodJudgment) {
     pin,
     query: { tag, ids: canonicalIds(ids) },
     judge_pin: judgePin || NO_JUDGE,
-    // THE FOURTH COMPONENT (§12.1, kogaki#741). The digest of the neighborhood
+    // THE FOURTH COMPONENT (the report identity, kogaki#741). The digest of the neighborhood
     // judgment record this report was rendered from, or the typed `NO_JUDGE`
     // where none was supplied. Typed-and-present rather than omitted, exactly
-    // as `judge_pin` is: §12.1's uniform arity means a requester forms the key
+    // as `judge_pin` is: the report identity's uniform arity means a requester forms the key
     // from inputs it holds, never by hashing the report it is addressing.
     neighborhood_judgment: neighborhoodJudgment || NO_JUDGE,
   };
 }
 
 // The filename is derived from the identity ONLY so that reruns collide on
-// disk. Nothing reads it: §12.2 makes the recorded components the sole source
+// disk. Nothing reads it: location and naming makes the recorded components the sole source
 // of identity, and this hash is not parsed back anywhere.
 function identityDigest(identity) {
   return createHash("sha256")
@@ -3398,8 +3501,8 @@ function identityDigest(identity) {
     .digest("hex").slice(0, 16);
 }
 
-// THE COMPOSED-INPUT DIGEST (§12.1, kogaki#700). The identity names the substrate
-// pin, the query and the judge pin — and NOT the composed inputs, which §12.1
+// THE COMPOSED-INPUT DIGEST (the report identity, kogaki#700). The identity names the substrate
+// pin, the query and the judge pin — and NOT the composed inputs, which the report identity
 // ratifies in as many words ("Nothing else enters the key: not the composed
 // claims, not the run"). Those inputs nonetheless decide what the artifact says,
 // so a rerun supplying different ones had the same identity and a different
@@ -3422,7 +3525,7 @@ function identityDigest(identity) {
 // `neighborhood-candidates` joined the set with kogaki#700: once the pull
 // consumes the emitter's persisted enumeration, that file decides what the
 // artifact says exactly as the three original inputs do.
-// `neighborhood` LEFT THIS SET at kogaki#741 and is now KEYED, per §12.1's
+// `neighborhood` LEFT THIS SET at kogaki#741 and is now KEYED, per the report identity's
 // quadruple. The rest stay RECORDED — kogaki#700's arm is untouched for them,
 // and `COMPOSED_INPUT_MISMATCH` still fires on a changed `--claims`. The
 // discriminator is membership: a claims or subdivisions record changes what a
@@ -3461,13 +3564,13 @@ function reportIdentityKey(i) {
   return [i.pin, i.query.tag, i.query.ids,
     i.judge_pin === NO_JUDGE ? NO_JUDGE
       : `${i.judge_pin.model_id}/${i.judge_pin.effort_tier}`,
-    // §12.1's fourth component (kogaki#741). A record written before the field
+    // the report identity's fourth component (kogaki#741). A record written before the field
     // existed carries `undefined` here and hashes as `NO_JUDGE`, which is what
     // it meant: no neighborhood judgment entered its identity.
     i.neighborhood_judgment === undefined ? NO_JUDGE : i.neighborhood_judgment];
 }
 
-// THE ENTERED ID SET, RESOLVED AND CANONICALISED (§12 v6, kogaki#314).
+// THE ENTERED ID SET, RESOLVED AND CANONICALISED (the Full Report v6, kogaki#314).
 //
 // The owner reads a display and types `G10,G5-1,G5-2`. Those ids resolve
 // against THE GROUPS THIS RUN COMPOSES and nothing else — story 1.56 AC11
@@ -3479,7 +3582,7 @@ function reportIdentityKey(i) {
 // render a display's tenth group above its fifth. Compare the numeric
 // components, never the raw string.
 //
-// CANONICAL, so identity is SET-BASED (§12 v6): two typings of the same ids in
+// CANONICAL, so identity is SET-BASED (the Full Report v6): two typings of the same ids in
 // different orders are ONE artifact, which is what makes a re-request return
 // the same report rather than a second one. The cost is stated in the spec —
 // section order is canonical, not entry order.
@@ -3500,7 +3603,7 @@ export function canonicalIds(ids) {
 //
 // A SubGroup id brings ITS SubGroup, not its parent (AC7): entering `G5` and
 // `G5-1` together is admissible and renders both, with `G5-1`'s members
-// appearing under each — a COVER, not a duplication (§2.1).
+// appearing under each — a COVER, not a duplication (the placement cover).
 function resolveEnteredIds(entered, groups, subOf) {
   const known = [];
   const byId = new Map();
@@ -3531,7 +3634,7 @@ function resolveEnteredIds(entered, groups, subOf) {
   return { canonical: canon, targets: canon.map((id) => byId.get(id)) };
 }
 
-// §12.3 — reading and REFUSING the Thesis-candidate input (kogaki#760).
+// the Thesis candidates — reading and REFUSING the Thesis-candidate input (kogaki#760).
 //
 // EVERY BOUND IS A RUNTIME REFUSAL, and that siting is the finding rather than
 // a preference. `full_report`'s `line_class_allowlist` is INERT — three of its
@@ -3560,7 +3663,7 @@ export function readThesisCandidates(raw, memberDisplayIds, limits) {
   const want = Number((limits || {}).thesis_candidates);
   if (raw === null || raw === undefined) return [];
   if (!Array.isArray(raw)) {
-    fail("--thesis-candidates must be a JSON array of {claim, strands} objects (SPEC.md §12.3)");
+    fail("--thesis-candidates must be a JSON array of {claim, strands} objects (SPEC.md, the Thesis candidates)");
   }
   if (!Number.isFinite(want)) {
     // A bound the grammar does not carry cannot be evaluated, and guessing one
@@ -3571,7 +3674,7 @@ export function readThesisCandidates(raw, memberDisplayIds, limits) {
   }
   if (raw.length !== want) {
     fail(`--thesis-candidates carries ${raw.length} candidate(s) and \`limits.thesis_candidates\` is ${want}. `
-      + "The count is EXACT rather than a maximum (SPEC.md §12.3): a section whose length varies run to run "
+      + "The count is EXACT rather than a maximum (SPEC.md, the Thesis candidates): a section whose length varies run to run "
       + "cannot be read as a fixed early image. Compose exactly " + want + ", or amend the limit in "
       + "src/report-format.json on its own licensing issue.");
   }
@@ -3579,30 +3682,30 @@ export function readThesisCandidates(raw, memberDisplayIds, limits) {
   return raw.map((c, i) => {
     const at = `--thesis-candidates[${i}]`;
     if (!c || typeof c !== "object" || Array.isArray(c)) {
-      fail(`${at} must be an object carrying "claim" and "strands" (SPEC.md §12.3)`);
+      fail(`${at} must be an object carrying "claim" and "strands" (SPEC.md, the Thesis candidates)`);
     }
     const claim = c.claim;
     if (typeof claim !== "string" || claim.trim() === "") {
-      fail(`${at} carries no "claim" text (SPEC.md §12.3: one sentence per candidate)`);
+      fail(`${at} carries no "claim" text (SPEC.md, the Thesis candidates: one sentence per candidate)`);
     }
     if (/\n/.test(claim)) {
       // One RENDERED line per claim: a newline would emit a line no class
       // admits, and the emit-time refusal would then report the surface rather
       // than the input that caused it.
-      fail(`${at}'s claim spans more than one line. §12.3 renders one line per candidate, so a `
+      fail(`${at}'s claim spans more than one line. The Thesis candidates renders one line per candidate, so a `
         + "multi-line claim would emit a line no grammar class admits and the refusal would name the "
         + "surface rather than this input.");
     }
     const strands = c.strands;
     if (!Array.isArray(strands) || strands.length < 2 || strands.length > 8) {
-      fail(`${at} carries ${Array.isArray(strands) ? strands.length : "no"} strand(s); §12.3 requires 2 to 8. `
+      fail(`${at} carries ${Array.isArray(strands) ? strands.length : "no"} strand(s); the Thesis candidates requires 2 to 8. `
         + "One strand is not a combination and nine is not an early image.");
     }
     const unknown = strands.filter((x) => !members.has(x));
     if (unknown.length) {
       fail(`${at} names ${unknown.join(", ")}, which ${unknown.length === 1 ? "is" : "are"} not a member of THIS report. `
         + `The display ids this report carries are: ${[...members].join(", ")}. `
-        + "A candidate may only combine Strands the owner is reading in this file (SPEC.md §12.3) — an id that "
+        + "A candidate may only combine Strands the owner is reading in this file (SPEC.md, the Thesis candidates) — an id that "
         + "resolves elsewhere in the survey record is still refused here.");
     }
     const dup = strands.filter((x, j) => strands.indexOf(x) !== j);
@@ -3639,29 +3742,29 @@ function cmdReport(args) {
   const dir = reportsDir(args);
   const record = readJson(String(args.survey || fail("report needs --survey <file>")));
   const tag = String(args.tag || fail("report needs --tag <selected tag>"));
-  // §11 v5 / §12 v6 (kogaki#314): the owner enters a G/SG ID SET and ONE report
+  // the open questions v5 / the Full Report v6 (kogaki#314): the owner enters a G/SG ID SET and ONE report
   // covers exactly it. `--all-groups` and `--group` are GONE, not deprecated —
   // leaving the eager flag reachable would leave the over-generation the
   // decision removes one argument away, on precisely the 11-group display that
   // filed the issue.
   if (args["all-groups"] !== undefined || args.group !== undefined) {
-    fail("report no longer takes --all-groups or --group. SPEC.md §11 v5 (kogaki#314) supersedes eager per-group generation: enter the Group/SubGroup IDs you want, e.g. `report --tag <T> --ids G10,G5-1,G5-2`, and ONE report covers exactly those.");
+    fail("report no longer takes --all-groups or --group. SPEC.md, the open questions v5 (kogaki#314) supersedes eager per-group generation: enter the Group/SubGroup IDs you want, e.g. `report --tag <T> --ids G10,G5-1,G5-2`, and ONE report covers exactly those.");
   }
-  const idsArg = String(args.ids || fail("report needs --ids <G/SG list>, e.g. --ids G10,G5-1 (SPEC.md §12 v6: one report over the entered ID set)"));
+  const idsArg = String(args.ids || fail("report needs --ids <G/SG list>, e.g. --ids G10,G5-1 (SPEC.md, the Full Report v6: one report over the entered ID set)"));
   const enteredIds = idsArg.split(",").map((x) => x.trim()).filter(Boolean);
   if (enteredIds.length === 0) {
     // SQ3, answered: an empty set REFUSES rather than producing an empty
     // report. "The owner entered nothing" and "the owner wants a report of
-    // nothing" are different, and the second is not a thing §12 can render —
+    // nothing" are different, and the second is not a thing the Full Report can render —
     // a report with no material has no identity worth colliding on.
     fail("report --ids was empty. An empty ID set is not a report of nothing: enter at least one Group or SubGroup ID from the display.");
   }
 
   const { groups, targets, resolved, subOf } = resolveReportTargets(record, tag, enteredIds, args);
-  // THE SECOND READER OF THE SAME ARTIFACT (§11 v10, kogaki#212). `cotags` and
+  // THE SECOND READER OF THE SAME ARTIFACT (the open-questions section, v10, kogaki#212). `cotags` and
   // `report` are handed the same `--claims` file, so migrating one and leaving
   // the other reading the flat map would put two encodings behind one file —
-  // the defect §12.1 v9 fixed for `--subdivisions` by migrating both readers in
+  // the defect the report identity v9 fixed for `--subdivisions` by migrating both readers in
   // one change. `report` does not re-run the subset check (that is the display's
   // gate, and it has already refused there) but it MUST read the same shape, or
   // a typed record would silently render every group's claim as absent.
@@ -3675,7 +3778,7 @@ function cmdReport(args) {
   // subdivision-completeness gates below, which are per-GROUP checks.
   const targetGroups = [...new Map(targets.map((t) => [t.group.gid, t.group])).values()];
 
-  // THE JUDGE PIN IS REQUIRED UNCONDITIONALLY (§12.1 v9, kogaki#199), not only
+  // THE JUDGE PIN IS REQUIRED UNCONDITIONALLY (the report identity v9, kogaki#199), not only
   // when a target carries SubGroupClaims. "Required" governs the JUDGMENT, so
   // every report the required path produces has a judge — and the previous
   // gating on `targets.some(subOf)` is exactly what let a judged-but-empty
@@ -3686,7 +3789,7 @@ function cmdReport(args) {
   const e = args["judge-effort"];
   if (!m || !e) {
     fail("--judge-model and --judge-effort are required for EVERY report invocation "
-      + "(SPEC.md §12.1 v9). A co-tag-generated Full Report may never mint a judge pin "
+      + "(SPEC.md, the report identity v9). A co-tag-generated Full Report may never mint a judge pin "
       + "of `none`: judged-with-no-split and never-judged are different states, and a "
       + "report carrying `none` is indistinguishable from a run that never asked");
   }
@@ -3694,15 +3797,15 @@ function cmdReport(args) {
 
   // EVERY TARGET MUST BE JUDGED. An absent entry is `not judged`, and the
   // co-tag path refuses it rather than minting `none` for it — the whole of
-  // what §12.1 v9 forbids.
+  // what the report identity v9 forbids.
   const unjudged = targetGroups.filter((g) => subOf(g) === null).map((g) => g.name);
   if (unjudged.length) {
     fail(`--subdivisions carries no entry for ${unjudged.join(", ")}. On the co-tag path `
-      + `every group is judged (§6.2), so a missing entry cannot be recorded: write `
+      + `every group is judged (the SubGroup threshold), so a missing entry cannot be recorded: write `
       + `{"judged": true, "subgroups": []} for a group whose judgment found no subdivision`);
   }
 
-  // §12.3 (kogaki#760) — READ AND REFUSED HERE, before any generation runs, so
+  // the Thesis candidates (kogaki#760) — READ AND REFUSED HERE, before any generation runs, so
   // the three bounds are checked while nothing has been written. The member set
   // is THIS report's rendered display ids, which is why it is computed from the
   // resolved targets rather than from the survey record.
@@ -3719,7 +3822,7 @@ function cmdReport(args) {
   const reportMemberIds = [...new Set(
     targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
     // `displayIdOf` returns the ABNORMAL sentinel rather than a falsy value
-    // for a record predating §14.3, so it is excluded by NAME. A `filter(Boolean)`
+    // for a record predating the display-ID rule, so it is excluded by NAME. A `filter(Boolean)`
     // would keep it and the sentinel would then read as an admissible strand id.
     .map((mid) => displayIdOf(mid, record.candidates))
     .filter((d) => d && d !== NO_DISPLAY_ID);
@@ -3727,7 +3830,7 @@ function cmdReport(args) {
     args["thesis-candidates"] ? readJson(String(args["thesis-candidates"])) : null,
     reportMemberIds, loadGrammar(REPORT_FORMAT).limits || {});
 
-  // One shard fetch for the whole invocation — tag-scoped and bounded (§9),
+  // One shard fetch for the whole invocation — tag-scoped and bounded (the rendering rule),
   // shared across every target group.
   let bodies = null;
   const fetchBodies = () => {
@@ -3739,18 +3842,18 @@ function cmdReport(args) {
     return bodies;
   };
 
-  // ONE report over the whole entered set (§12 v6/v7) — not one per group.
+  // ONE report over the whole entered set (the Full Report v6/v7) — not one per group.
   generateReport(targets);
 
   function generateReport(entered) {
-  // §12 v7 — ONE report over the entered set. The identity is the set; each
+  // the Full Report v7 — ONE report over the entered set. The identity is the set; each
   // entered id becomes one SECTION, and the identity block, Counted and
   // Served lines appear once for the file.
-  // THE NEIGHBOURHOOD JUDGMENT IS THE FOURTH COMPONENT (§12.1, kogaki#741), so
+  // THE NEIGHBOURHOOD JUDGMENT IS THE FOURTH COMPONENT (the report identity, kogaki#741), so
   // it is hashed INTO the identity rather than beside it. Same reading as
   // `composedInputDigests` takes — the record's file bytes — so the two cannot
   // disagree about what "this input" is.
-  // A RECORD-JOINED PATH THAT NO LONGER RESOLVES REFUSES BY NAME (§13.4,
+  // A RECORD-JOINED PATH THAT NO LONGER RESOLVES REFUSES BY NAME (the neighborhood section's shape,
   // kogaki#741 acceptance 2). The run record stores the judgment file's PATH,
   // so a rerun reads the file again — and deleting it between J3 and the render
   // must fail loudly rather than render an unjudged section. Left to the digest read below or to `readJson`
@@ -3760,7 +3863,7 @@ function cmdReport(args) {
   if (args.neighborhood && !existsSync(String(args.neighborhood))) {
     fail(`the neighborhood judgment record this pull joins is gone: ${String(args.neighborhood)} `
       + "does not exist. The run record names it, so J3_neighborhood ran and its file was removed "
-      + "afterwards. Re-enter J3_neighborhood rather than re-rendering — §13.4 has no path to an "
+      + "afterwards. Re-enter J3_neighborhood rather than re-rendering — the neighborhood section's shape has no path to an "
       + "unjudged neighborhood rendering, and joining nothing here would be one.");
   }
   const neighborhoodJudgmentDigest = args.neighborhood
@@ -3768,7 +3871,7 @@ function cmdReport(args) {
     : NO_JUDGE;
   const identity = reportIdentity(record.pin, tag, resolved.canonical, suppliedJudge,
     neighborhoodJudgmentDigest);
-  // Computed BESIDE the identity and never inside it (§12.1, kogaki#700): the
+  // Computed BESIDE the identity and never inside it (the report identity, kogaki#700): the
   // claims and subdivisions ride the record. The neighborhood judgment no
   // longer does — it moved into the key above.
   const composedInputs = composedInputDigests(args);
@@ -3788,7 +3891,7 @@ function cmdReport(args) {
   const sub = subOf(group);
   // Unconditional now: `sub` is non-null for every target (refused above), and
   // NO_JUDGE is never minted here. It stays exported and valid in the identity
-  // triple — §12.1's uniform arity is untouched and `(pin, query, none)` is
+  // triple — the report identity's uniform arity is untouched and `(pin, query, none)` is
   // still constructible by a requester who does not hold the report.
   const { lessonBodies, journeyBodies } = fetchBodies();
 
@@ -3801,10 +3904,10 @@ function cmdReport(args) {
     if (c.journey && !jg) abnormal++;
     return {
       id, cite: c.cite || null,
-      // §14.3 — resolved from `record.candidates` AT RENDER TIME. The record
+      // the display-ID rule — resolved from `record.candidates` AT RENDER TIME. The record
       // is the map (AC3); this is a projection of it onto the member being
       // rendered, not a second map written beside it, and nothing reads it
-      // back. `null` when the record predates §14.3, which `memberBlock`
+      // back. `null` when the record predates the display-ID rule, which `memberBlock`
       // renders as the stated abnormality rather than as the slug (AC7).
       display_id: c.display_id || null,
       gloss: lg ? lg.body : NO_GLOSS_BODY,
@@ -3815,14 +3918,14 @@ function cmdReport(args) {
   });
 
   // JUDGED-EMPTY IS ZERO SubGroupClaims, and it is still handled before
-  // `subgroupPlacement` (§12.1 v9). The reason CHANGED at kogaki#738 and the
+  // `subgroupPlacement` (the report identity v9). The reason CHANGED at kogaki#738 and the
   // branch did not: the placement used to sweep every member into a catch-all on
   // an empty list, manufacturing a SubGroup the judgment never made; now it
   // REFUSES on an empty list, naming every member of the group. Judged-empty is
   // a legitimate outcome and must reach neither, so the guard stays exactly
   // where it was.
   let subgroups = null;
-  // §6.2 v7 / §12.1 v9's THIRD state. Set where the suppression is decided and
+  // the SubGroup threshold v7 / the report identity v9's THIRD state. Set where the suppression is decided and
   // read by the renderer — PR #356 round 1 finding 2 found the read with no
   // writer, so the branch was unreachable and a suppressed section rendered
   // "the judgment produced NO split", which is false of it. That is the
@@ -3832,7 +3935,7 @@ function cmdReport(args) {
     subgroups = [];
   } else if (sub) {
     const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
-    // §6.2 v7 RULE 3 BINDS THIS SURFACE TOO, and it did not until PR #355
+    // the SubGroup threshold v7 RULE 3 BINDS THIS SURFACE TOO, and it did not until PR #355
     // round 1 finding 1. The rule reads unconditionally — "the group renders no
     // SubGroups" — and story 1.57 implemented the suppression only in
     // `cmdCotags`, so one run's two owner surfaces disagreed: the display showed
@@ -3850,18 +3953,18 @@ function cmdReport(args) {
     // that stood here excluded a bucket the engine composed, and that bucket is
     // deleted.
     const namedSg = placed.subgroups;
-    // The record half of §6.2 v7 rule 3, re-keyed and bounded exactly as the
+    // The record half of the SubGroup threshold v7 rule 3, re-keyed and bounded exactly as the
     // display's is — same input, same conclusion, one rule (kogaki#683, #738).
     if (namedSg.length === 1 && namedSg[0].verdicts
         && namedSg[0].verdicts.coherence === "other"
         && group.members.length < SUBDIVISION_REQUIRED_AT) {
       // Rendered as judged-empty in SHAPE, and flagged so the renderer can
-      // tell it from a genuine no-split. `[]` and not `null` — §12.1 v9 keeps
+      // tell it from a genuine no-split. `[]` and not `null` — the report identity v9 keeps
       // judged-empty distinguishable from unjudged, and this group WAS judged.
       subgroups = [];
       suppressedSplitHere = true;
     } else {
-    // §6.2 v6 — the SubGroupID is derived the same way the display derives it:
+    // the SubGroup threshold v6 — the SubGroupID is derived the same way the display derives it:
     // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
     // output in the same order. That is what makes AC4 hold — an owner copying
     // `G2-1` off the display finds `G2-1` in the report — without either surface
@@ -3879,7 +3982,7 @@ function cmdReport(args) {
   allMemberIds.push(...sectionMembers);
   abnormalTotal += abnormal;
   return {
-    // §12 v7 — one section per entered id, KEYED BY THE ID so an owner can
+    // the Full Report v7 — one section per entered id, KEYED BY THE ID so an owner can
     // match a section to what they typed.
     id: t.gid,
     name: t.kind === "subgroup" ? t.sg.name : group.name,
@@ -3900,7 +4003,7 @@ function cmdReport(args) {
 
   for (const t of entered) sectionsOut.push(buildSection(t));
 
-  // THE SPLIT REQUIREMENT REACHES THIS SURFACE TOO (§8 v30, kogaki#683; PR #705
+  // THE SPLIT REQUIREMENT REACHES THIS SURFACE TOO (semantic subdivision v30, kogaki#683; PR #705
   // round 1). Disposition 1 refuses a judged-empty outcome for a group at or
   // above the threshold, and the `subdivision_required_at_ten` grammar rule
   // carries that on `cotag_groups`. It cannot carry it here: `full_report`'s
@@ -3916,7 +4019,7 @@ function cmdReport(args) {
   // judge-supplied-empty route, which is the one a record can walk in with.
   //
   // SCOPED TO GROUP SECTIONS. A section keyed by a SubGroup id carries that
-  // SubGroup's members and `subgroups: null`; §8's requirement is on composed
+  // SubGroup's members and `subgroups: null`; semantic subdivision's requirement is on composed
   // GROUPS, so the test reads the empty-array state that only a judged group
   // reaches, and a suppressed split is excluded because suppression is already
   // unavailable at this size.
@@ -3925,12 +4028,12 @@ function cmdReport(args) {
         && (sec.members || []).length >= SUBDIVISION_REQUIRED_AT) {
       fail(`${sec.id} — ${sec.name} holds ${(sec.members || []).length} member Lessons and its judgment produced NO split. `
         + `At ${SUBDIVISION_REQUIRED_AT} or more, serving SubGroups is the engine's requirement rather than the judge's `
-        + "discretion (SPEC-terrain §8 v30, kogaki#683), so a judged-empty outcome for such a group does not render. "
+        + "discretion (kogaki#683), so a judged-empty outcome for such a group does not render. "
         + "Recompose the subdivision for this group and pull the report again.");
     }
   }
 
-  // §12.1 case 1: same identity, run twice -> ONE report. The rerun is
+  // the report identity case 1: same identity, run twice -> ONE report. The rerun is
   // idempotent, not a duplicate, so an existing report with THIS identity is
   // returned rather than rewritten.
   const out = join(dir, `terrain-full-report-${identityDigest(identity)}.json`);
@@ -3940,7 +4043,7 @@ function cmdReport(args) {
     // hashes an ABSENT fourth component as `NO_JUDGE`, which is what it meant —
     // but it makes a stored record written under the superseded design match a
     // pull carrying no judgment, and its stored rendering may hold the very
-    // unjudged section §13.4 now has no path to. Falling through RECOMPUTES,
+    // unjudged section the neighborhood section's shape now has no path to. Falling through RECOMPUTES,
     // which reaches the refuse-unjudged guard below and refuses exactly when the
     // enumeration is non-empty; it is the same treatment `composedInputDelta`
     // gives a record predating ITS field, for the same reason — a record that
@@ -3952,7 +4055,7 @@ function cmdReport(args) {
     // can state — see that function's own header for what the first cut of this
     // fix left unbound.
     if (shouldReplayPrior(prior, identity)) {
-      // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (§12.1, kogaki#700).
+      // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (the report identity, kogaki#700).
       // Same identity is not the same artifact when the inputs it was rendered
       // from differ: the CLAIMS and SUBDIVISIONS stay recorded rather than keyed
       // (the neighborhood judgment left this list at kogaki#741 and is now part
@@ -3964,29 +4067,29 @@ function cmdReport(args) {
         // so it is RECOMPUTED rather than replayed or refused. Replaying would
         // be the defect this clause removes, on exactly the records most likely
         // to predate the inputs in hand; refusing would fail a rerun that has
-        // done nothing wrong. Recomputing is safe because §12.1 case 1 is a
+        // done nothing wrong. Recomputing is safe because the report identity case 1 is a
         // claim about the report, not about the write: one identity, one file,
         // rewritten in place.
       } else if (delta.length) {
         fail(`COMPOSED_INPUT_MISMATCH — this identity was already reported from different composed input(s): `
           + `${delta.join(", ")}. The identity is the substrate pin, the query, the judge pin and the neighborhood `
-          + "judgment record (SPEC-terrain §12.1, widened at kogaki#741), "
+          + "judgment record (SPEC-terrain, the report identity, widened at kogaki#741), "
 
           + "and the composed inputs are NOT part of it — so replaying the stored rendering would render material this "
           + "invocation did not supply, while reporting success. Re-run against a fresh --report-dir to render the new "
           + "inputs as their own report, or restore the inputs this identity was reported from.");
       } else {
         // IDEMPOTENT ON THE RECORD, AND THE RENDERING IS STILL WRITTEN IN THIS
-        // ACT (§12.2 v11: "Both are written in the same act"). Idempotence is a
+        // ACT (location and naming v11: "Both are written in the same act"). Idempotence is a
         // claim about the RECORD — one identity, one report — and the rendering
         // is a pure function of that record, so re-deriving it is the same
         // artifact rather than a second one. Writing it rather than skipping it
         // is what makes a rerun self-healing: the rendering's lifetime is the
-        // OWNER's (§2.5.1), so it can be deleted, be stale from an older
+        // OWNER's by lifetime, so it can be deleted, be stale from an older
         // renderer, or never have existed because the first run passed
         // `--no-render`, and none of those are states a second run should leave
         // standing while reporting success.
-        // §14.2 — the rerun path refuses on exactly the same grammar as the fresh
+        // the emit-time refusal — the rerun path refuses on exactly the same grammar as the fresh
         // one. It is the path a SECOND look always takes, and it is the path that
         // shipped the last two clause-3 defects; a guard installed on the fresh
         // write alone would be the same half-fix again.
@@ -3999,7 +4102,7 @@ function cmdReport(args) {
         const priorText = renderReportMarkdown(prior, tag);
         let priorRendered = null;
         if (!args["no-render"]) {
-          // §15.5 v28 — THE RERUN IS A WRITE, so it carries the write authority
+          // write authority v28 — THE RERUN IS A WRITE, so it carries the write authority
           // (PR #702 round 1, finding 1). This branch's own header already warns
           // that it "is the path a SECOND look always takes, and it is the path
           // that shipped the last two clause-3 defects; a guard installed on the
@@ -4010,14 +4113,14 @@ function cmdReport(args) {
           // any writing state, which is #680's specimen at the artifact this
           // amendment claims to have closed.
           refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
-          // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
+          // location and naming v12 — ONE owner rendering, a fixed human name, overwritten per
           // pull. Identity stays in the record alone; the filename carries none.
           priorRendered = join(renderingsDir(args), "FullReport.md");
         }
         emitOrRefuse("full_report", priorText,
           (text) => { if (priorRendered) writeFileSync(priorRendered, text); });
         console.log("Full Report already exists for this identity — the rerun is IDEMPOTENT, "
-          + "not a duplicate (SPEC.md §12.1).");
+          + "not a duplicate (SPEC.md, the report identity).");
         announceArtifacts(priorRendered, out);
         console.log(`Identity: pin=${identity.pin} query=(${tag}, ${identity.query.ids.join(", ")}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
         // RETURNS WHAT THIS BRANCH WROTE (PR #667 round 2, carried to kogaki#625).
@@ -4025,7 +4128,7 @@ function cmdReport(args) {
         // executor's `written || null` mapped a real owner artifact to
         // `{ artifact: null }` and `classifyWriteOutcome` reported `wrote-nothing`
         // — the run record skipped its `artifacts_written` push for a state that
-        // did write. §12.1's idempotence is a claim about the RECORD, and the
+        // did write. The report identity's idempotence is a claim about the RECORD, and the
         // branch's own text says so ("the rendering is STILL WRITTEN IN THIS
         // ACT"); under-reporting the write is the same defect as asserting one,
         // facing the other way. Under `--no-render` `priorRendered` is null, which
@@ -4045,9 +4148,9 @@ function cmdReport(args) {
   // reporting the judgment layer as not having run. Only a pull with no
   // emitted enumeration — the unjudged flow, which has no admitted keys to
   // stay consistent with — computes fresh, inside the pull, seeded by the
-  // entered set (§13.2), after every refusal above so a refused pull pays no
+  // entered set (the settled-strand-set input), after every refusal above so a refused pull pays no
   // seam call. Either way the result is stored IN THE RECORD, so the
-  // rendering stays a pure function of the record (§12.1) — a section
+  // rendering stays a pure function of the record (the report identity) — a section
   // recomputed from the live seam at render time would let a moved serving
   // change what an unchanged identity renders.
   const candPath = args["neighborhood-candidates"];
@@ -4061,14 +4164,14 @@ function cmdReport(args) {
   // THE JUDGMENT LAYER, joined onto the mechanical candidates by slug. A
   // candidate with no judgment keeps none — `neighborhoodDisplay` counts it as
   // unjudged and says so, rather than defaulting it to a level nobody assigned.
-  // `full_report` REFUSES AN UNJUDGED NEIGHBORHOOD (§13.4, kogaki#741 ruling 2).
+  // `full_report` REFUSES AN UNJUDGED NEIGHBORHOOD (the neighborhood section's shape, kogaki#741 ruling 2).
   // Scoped to a NON-EMPTY enumeration, mirroring the orphan refusal below: where
   // the mechanical layer returned no candidate there is nothing to judge, and
   // refusing would turn a legitimate empty neighborhood into an error.
   if (!args.neighborhood && (neighborhood.suggestions || []).length) {
     fail("full_report refuses: this pull carries "
       + `${(neighborhood.suggestions || []).length} mechanical candidate(s) and no neighborhood `
-      + "judgment record. §13.4 makes the judgment pass UNCONDITIONAL and the Report REQUIRES it "
+      + "judgment record. The neighborhood section's shape makes the judgment pass UNCONDITIONAL and the Report REQUIRES it "
       + "by design — there is no path to an unjudged neighborhood rendering. Enter J3_neighborhood "
       + "so the run record names the judgment this pull joins.");
   }
@@ -4094,9 +4197,9 @@ function cmdReport(args) {
         + "this Group and this settled set.");
     }
   }
-  // THE TARGETS JOIN TO THE §12.3 SECTION OF THIS SAME FILE (kogaki#861), and
+  // THE TARGETS JOIN TO THE THESIS-CANDIDATES SECTION OF THIS SAME FILE (kogaki#861), and
   // the absent-candidates fallback STOPS APPLYING to a judged neighborhood.
-  // `--thesis-candidates` was optional and an absent list rendered §12.3's
+  // `--thesis-candidates` was optional and an absent list rendered the Thesis candidates's
   // empty notice; that is still the answer for an unjudged or empty
   // neighborhood, and it cannot be the answer here — every row about to render
   // names a candidate, so a pull with no candidates would put TC ids on the
@@ -4105,7 +4208,7 @@ function cmdReport(args) {
     if (!thesisCandidates.length) {
       fail("this pull carries a neighborhood judgment and no --thesis-candidates. Every judged row names "
         + "the Thesis candidate it serves (kogaki#861), so the candidates must be composed for this pull: "
-        + "an absent list would render TC ids against §12.3's empty notice. Compose them and pass "
+        + "an absent list would render TC ids against the Thesis candidates's empty notice. Compose them and pass "
         + "--thesis-candidates, or run the pull with no neighborhood judgment.");
     }
     orFail(() => refuseTargetsOutsideCandidates(judgments, thesisCandidates.map((c) => c.id), "full_report"));
@@ -4113,7 +4216,7 @@ function cmdReport(args) {
   for (const sug of neighborhood.suggestions || []) {
     const j = judgments.get(sug.slug);
     if (j) { sug.level = j.level; sug.claim = j.claim; sug.target = j.target; }
-    // The relation IN PLAIN WORDS (§686 disposition 3, field 2). With
+    // The relation IN PLAIN WORDS (kogaki#686 disposition 3, field 2). With
     // exploration fixed to one substrate this is always Batch membership, so
     // the row names the batch rather than a substrate token a reader would
     // have to decode.
@@ -4150,7 +4253,7 @@ function cmdReport(args) {
       : `from the same Batch as ${who}`;
   }
 
-  // THE BOUNDED GLOSS FETCH (kogaki#689, owner ruling 2026-08-28). §686
+  // THE BOUNDED GLOSS FETCH (kogaki#689, owner ruling 2026-08-28). kogaki#686
   // disposition 3 rules four fields per row and this is the fourth; until this
   // landed the report path fetched nothing and every row rendered its absence,
   // so the grammar declared a field the pipeline could not fill.
@@ -4161,8 +4264,8 @@ function cmdReport(args) {
   // row. The over-cap arm left that list at kogaki#741: it fills to the cap and
   // is fetched over like any other rendering arm. `resolveHeadlines` then bounds it a second time, to the union
   // of those rows' OWN tags: this is the same bound kogaki#528 ratified for the
-  // Brief lane and the same one §9 binds `cmdView` to. The corpus-wide prefetch
-  // §9 forbids is not reachable from here, because the tag set is a function of
+  // Brief lane and the same one the rendering rule binds `cmdView` to. The corpus-wide prefetch
+  // the rendering rule forbids is not reachable from here, because the tag set is a function of
   // ten records rather than of the corpus.
   //
   // A MISS IS DISCLOSED AND NEVER SUBSTITUTED. `resolveHeadlines` returns
@@ -4190,13 +4293,13 @@ function cmdReport(args) {
 
   const report = {
     id: `terrain-full-report-${identityDigest(identity)}`,
-    // RECORDED BESIDE THE IDENTITY, never inside it (§12.1, kogaki#700).
+    // RECORDED BESIDE THE IDENTITY, never inside it (the report identity, kogaki#700).
     composed_inputs: composedInputs,
     // The same siting, for the same reason (kogaki#892) — see `judgmentProv`.
     judgment_provenance: judgmentProv,
     kind: "full-report",
     identity,
-    // §12 v7 — the entered set, canonical, recorded in the identity block.
+    // the Full Report v7 — the entered set, canonical, recorded in the identity block.
     selections: identity.query.ids,
     classification: "report",
     narrows: false,
@@ -4208,16 +4311,16 @@ function cmdReport(args) {
     // under both G5 and G5-1 is one Lesson, not two.
     counted: familySplit([...new Set(allMemberIds)], record.candidates),
     lessons_served: record.candidates.length,
-    // §12.3 (kogaki#760) — validated ABOVE, before this object exists, so a
-    // refusal precedes both writes exactly as §14.2 requires of the emit-time
+    // the Thesis candidates (kogaki#760) — validated ABOVE, before this object exists, so a
+    // refusal precedes both writes exactly as the emit-time refusal requires of the emit-time
     // guard. An empty array is the DISCLOSED absence and not a missing field.
     thesis_candidates: thesisCandidates,
-    // §13.1 v20 — ONCE per file, rendered LAST by `renderReportMarkdown`.
+    // the neighborhood as a report v20 — ONCE per file, rendered LAST by `renderReportMarkdown`.
     neighborhood,
   };
   const abnormal = abnormalTotal;
-  // THE REFUSAL PRECEDES BOTH WRITES (§14.2, story 1.54 AC2). The record is
-  // written BELOW this line, not above it: §12.2 v11 requires the record and
+  // THE REFUSAL PRECEDES BOTH WRITES (the emit-time refusal, story 1.54 AC2). The record is
+  // written BELOW this line, not above it: location and naming v11 requires the record and
   // its rendering in the same act, so a refusal that had already written the
   // record would leave a machine record with no rendering — the 2026-08-06
   // defect specimen from the other side.
@@ -4240,13 +4343,13 @@ function cmdReport(args) {
 
   writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
 
-  // THE OWNER RENDERING, in the SAME ACT (§12.2 v11, kogaki#234). A run that
+  // THE OWNER RENDERING, in the SAME ACT (location and naming v11, kogaki#234). A run that
   // wrote the record and not the rendering would leave the owner exactly where
   // the ruling found them, so this is not conditional on a flag: `--no-render`
   // is the opt-out and its absence is the default.
   let rendered = null;
   if (!args["no-render"]) {
-    // §15.5 v28 (kogaki#681) — the same write-authority refusal the display
+    // write authority v28 (kogaki#681) — the same write-authority refusal the display
     // writer carries, at the other owner artifact, and BEFORE the destination
     // is prepared.
     //
@@ -4257,18 +4360,18 @@ function cmdReport(args) {
     // its own text says "THE RENDERING IS STILL WRITTEN IN THIS ACT", and it
     // returns `priorRendered` as a real owner artifact. Mis-typing the sibling
     // path as read-shaped is exactly what made guarding this one look
-    // sufficient, so the rerun branch shipped unguarded and §15.5 v28's central
+    // sufficient, so the rerun branch shipped unguarded and write authority v28's central
     // claim was false at the artifact the amendment was written to protect.
     // The guard now sits on BOTH branches and this note is the record.
     refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
     const rdir = renderingsDir(args);
-    // §12.2 v12 — ONE owner rendering, a fixed human name, overwritten per
+    // location and naming v12 — ONE owner rendering, a fixed human name, overwritten per
     // pull. Identity stays in the record alone; the filename carries none.
     rendered = join(rdir, "FullReport.md");
     writeFileSync(rendered, renderedText);
   }
 
-  // §2.5 clause 3 binds BOTH artifact lines (PR #240 review round 1, finding
+  // The no-hidden-path owner-surface rule binds BOTH artifact lines (PR #240 review round 1, finding
   // 2), on this path and on the rerun path alike — see `announceArtifacts`,
   // which is where the contract now lives so that neither path can drift from
   // the other again.
@@ -4276,15 +4379,15 @@ function cmdReport(args) {
   console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, [${identity.query.ids.join(", ")}]) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`} judge-provenance=${judgmentProv.state}${judgmentProv.artifact_sha ? ` (subdivisions sha ${judgmentProv.artifact_sha})` : ""}`);
   console.log(`${sectionFigure({ name: `${tag} — ${identity.query.ids.length} selection(s)`, members: [...new Set(allMemberIds)], by_family: report.counted }, record.candidates.length)}`);
   if (abnormal) {
-    console.log(`ABNORMAL: ${abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md §9, §12).`);
+    console.log(`ABNORMAL: ${abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md, the rendering rule, the Full Report).`);
   }
-  console.log("Classification: REPORT (SPEC.md §2.3, §12) — it ranks nothing, narrows nothing and hides nothing, so it sits in neither act list.");
-  console.log("A RENDERING, not an address: nothing downstream resolves a report id, and a Brief records members and pins (SPEC.md §12).");
+  console.log("Classification: REPORT (SPEC.md, the second-proposer boundary, the Full Report) — it ranks nothing, narrows nothing and hides nothing, so it sits in neither act list.");
+  console.log("A RENDERING, not an address: nothing downstream resolves a report id, and a Brief records members and pins (SPEC.md, the Full Report).");
   console.log("The RENDERING is repo-visible and NOT committed; the RECORD is "
-    + "machine-local (SPEC.md §2.5.2, §12.2 v11). Two artifacts, two rules — "
+    + "machine-local — visibility is decided explicitly, never by storage location, and location and naming holds v11. Two artifacts, two rules — "
     + "visibility and publication are separate decisions.");
 
-  // RETURNS WHAT IT WROTE, so the §15 executor can OBSERVE the artifact
+  // RETURNS WHAT IT WROTE, so the control plane executor can OBSERVE the artifact
   // rather than assert one (PR #655 round 1, carried to kogaki#665). Under
   // `--no-render` nothing is written and `rendered` stays null — which is
   // exactly the case that used to record a write that never happened.
@@ -4298,13 +4401,13 @@ function cmdReport(args) {
 // THE PROPOSAL RECORD of the retired `act` subcommand, reachable only from
 // `TRIM_RATIFICATION`'s declaration composer (kogaki#625 item 1). While `act`
 // stood, a session could mint a trim proposal from outside the executor with no
-// run record — precisely what §15.5 claims is unwritable.
+// run record — precisely what write authority claims is unwritable.
 // Returns the written record's path, or null where the act names no proposal.
 export function composeTrimProposal(args, dir) {
   const act = String(args.act || fail("TRIM_RATIFICATION needs --act <name>: the proposal it ratifies"));
   const acts = RECORD_SCHEMA.acts;
   if (acts.navigation.includes(act)) {
-    console.log(`${act} is NAVIGATION — the executor reaches it as a table state (§15.7 removed \`view\` as an entry point); no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`);
+    console.log(`${act} is NAVIGATION — the executor reaches it as a table state (the non-flow utilities removed \`view\` as an entry point); no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`);
     return null;
   }
   if (!acts.proposal.includes(act)) {
@@ -4313,7 +4416,7 @@ export function composeTrimProposal(args, dir) {
       id: `terrain-report-${Date.now()}`,
       kind: "report",
       act,
-      reason: `act ${JSON.stringify(act)} is in neither the proposal list (${acts.proposal.join(", ")}) nor the navigation list (${acts.navigation.join(", ")}) — specs/spec-terrain/SPEC.md §2.3: an act not in either list is a report, not a choice`,
+      reason: `act ${JSON.stringify(act)} is in neither the proposal list (${acts.proposal.join(", ")}) nor the navigation list (${acts.navigation.join(", ")}) — specs/spec-terrain/SPEC.md, the second-proposer boundary: an act not in either list is a report, not a choice`,
       narrows: false,
     };
     const out = join(dir, `${record.id}.proposal.json`);
@@ -4485,21 +4588,21 @@ export function ownerGateDigest(gateId, optionIds) {
 }
 
 // --------------------------------------------------------------------------
-// neighborhood — SPEC-terrain §13, the provenance neighborhood (story 1.44,
+// neighborhood — SPEC-terrain, the provenance neighborhood, the provenance neighborhood (story 1.44,
 // kogaki#302, umbrella kogaki#300).
 //
-// A WIDENING OF THE SETTLED STRAND SET, offered BESIDE it. §13.1: a report,
-// never a proposal — it narrows nothing, so the §2.3 second-proposer boundary
+// A WIDENING OF THE SETTLED STRAND SET, offered BESIDE it. The neighborhood as a report: a report,
+// never a proposal — it narrows nothing, so the second-proposer boundary second-proposer boundary
 // does not engage, and the full population stays reachable.
 //
-// INPUT IS THE SETTLED STRAND SET ALONE (§13.2 v15). There is no Thesis
+// INPUT IS THE SETTLED STRAND SET ALONE (the settled-strand-set input v15). There is no Thesis
 // argument and a run must not refuse for want of one: the 2026-08-09 owner
 // correction withdrew "Thesis" from Terrain's vocabulary on the ground that a
 // claim-shaped input is DEAD INPUT here — the substrates below compute over
 // member metadata and cannot read a claim, so a required Thesis was an input
 // nothing consumed.
 //
-// THE BOUND IS DECLARED, NOT CHOSEN (§13.3 v16, owner selection 2026-08-12).
+// THE BOUND IS DECLARED, NOT CHOSEN (the neighborhood join v16, owner selection 2026-08-12).
 // The unit is traversal — substrates x depth — and the values are fixed:
 // `source_batch` one hop, and nothing else since kogaki#686. They are read
 // from the spec here rather than picked: an implementation choosing different
@@ -4509,7 +4612,7 @@ export function ownerGateDigest(gateId, optionIds) {
 // SHARED-CARRIER IS OFF AS A VALUE, NOT AS AN ABSENCE. The substrate is
 // implemented and its depth is zero, so it enumerates nothing at the declared
 // setting and needs no code change if a later amendment turns it on. Writing it
-// out is what keeps §13.3's three substrates three.
+// out is what keeps the neighborhood join's three substrates three.
 // EXPLORATION IS FIXED: SAME DISTILL BATCH, AND NOTHING ELSE (kogaki#686,
 // owner ruling 2026-08-28). The two other substrates are DELETED rather than
 // set to zero — per that ruling's own doctrine, a superseded behaviour is
@@ -4529,20 +4632,20 @@ const NEIGHBORHOOD_BOUND = Object.freeze({
   source_batch: 1,
 });
 
-// §14.6's slot, FILLED 2026-08-12 (owner selection, recorded on kogaki#300
+// how A–E compose's slot, FILLED 2026-08-12 (owner selection, recorded on kogaki#300
 // before this code was written). A suggestion is
-// by construction NOT in the survey record, so §14.3's assignor does not reach
+// by construction NOT in the survey record, so the display-ID rule's assignor does not reach
 // it. The neighborhood mints its own space, `N<n>`, DECLARED DISJOINT from
-// `L<n>` — §14.3 is untouched, and a taken suggestion is assigned an `L<n>` by
-// §14.3's existing assignor on the way in, without its `N<n>` following it.
+// `L<n>` — the display-ID rule is untouched, and a taken suggestion is assigned an `L<n>` by
+// the display-ID rule's existing assignor on the way in, without its `N<n>` following it.
 const NEIGHBOR_ID = (n) => `N${n}`;
 
-// The batch join does NOT hold by equality (§13.3). Twelve legacy batches carry
+// The batch join does NOT hold by equality (the neighborhood join). Twelve legacy batches carry
 // `source_batch: "q_a/3/answer.md"` while the batch id is `"q_a/3"`, so an
 // equality join returns NO batch-mates for every Grain in them and presents
 // that as "this Grain has no same-sitting siblings" — indistinguishable on
 // display from a Grain that genuinely has none. That is this surface
-// reproducing the silent exclusion §13.0 exists to remove, one layer down.
+// reproducing the silent exclusion the neighborhood defect exists to remove, one layer down.
 function batchKey(sourceBatch) {
   if (!sourceBatch) return null;
   const s = String(sourceBatch);
@@ -4555,12 +4658,12 @@ function batchKey(sourceBatch) {
 // `seedSlugs` the settled set's members.
 //
 // Returns { suggestions, unresolved, counts } — `suggestions` carry the
-// substrate that REACHED them (§13.4's disclosure), never a score.
+// substrate that REACHED them (the neighborhood section's shape's disclosure), never a score.
 
 // ORDER IS DECLARED AND MECHANICAL: instance-bearing groups first, by substrate
 // then by instance id, then the bare substrates by name. NEVER by size — a
 // display that puts the biggest group first has ranked its groups, which is the
-// judgment §13.1 refuses, arriving as layout rather than as a score.
+// judgment the neighborhood as a report refuses, arriving as layout rather than as a score.
 export function compareGroups(a, b) {
   const ka = [a.instance === null ? 1 : 0, a.substrate, a.instance ?? ""];
   const kb = [b.instance === null ? 1 : 0, b.substrate, b.instance ?? ""];
@@ -4601,14 +4704,14 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   const seedSet = new Set(seeds);
   // slug -> Map of substrate name -> Set of INSTANCE ids (null for a substrate
   // that has no instances). The instance is what story 1.61 needs and the
-  // substrate NAME alone cannot supply: §13.4 obligation 4 groups by substrate
+  // substrate NAME alone cannot supply: the neighborhood section's shape obligation 4 groups by substrate
   // INSTANCE, so a display told only "source_batch" knows the row belongs under
   // some batch heading and not under WHICH — and the display cannot recover it,
   // because the batch join lives here and nowhere else. Widening the returned
   // shape is the alternative story 1.61's Review Focus names, taken because the
   // other one is unavailable rather than because it is tidier.
   const reached = new Map();
-  // slug -> Set of the SEED slugs that reached it. §686 disposition 3's field 2
+  // slug -> Set of the SEED slugs that reached it. kogaki#686 disposition 3's field 2
   // names "the same Batch as L88 (2026-08-13)" — the settled MEMBER the
   // candidate shares a Batch with, and the batch. `reached` above is keyed by
   // substrate and instance and cannot hold it: two seeds in one batch collapse
@@ -4618,7 +4721,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // (kogaki#689, carried from PR #692 round 2).
   const reachedSeeds = new Map();
   const unresolved = [];
-  // §13.4's DENOMINATOR POPULATION, family-keyed and read from the batch
+  // the neighborhood section's shape's DENOMINATOR POPULATION, family-keyed and read from the batch
   // records' own `members` rather than re-derived from the element set (story
   // 1.45, AC3). Kept as a Set per family so a slug listed by two batches counts
   // once — a population that double-counts is a denominator that flatters the
@@ -4642,8 +4745,8 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   };
 
   // ---- source_batch, one hop. THE JOIN GOES THROUGH THE BATCH RECORD'S
-  // `members` (§13.3), not by equality and not by grouping the element set:
-  // `members` is family-keyed, which is what makes §13.4's per-family
+  // `members` (the neighborhood join), not by equality and not by grouping the element set:
+  // `members` is family-keyed, which is what makes the neighborhood section's shape's per-family
   // denominator mechanical rather than inferred, and a batch's membership is
   // the batch's own statement rather than something re-derived from elsewhere.
   //
@@ -4671,7 +4774,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
       if (!batch) {
         // AC4's real case: the value is present and names a batch nothing
         // serves. An empty result here presented as "no same-sitting siblings"
-        // is the silent exclusion §13.0 removes.
+        // is the silent exclusion the neighborhood defect removes.
         unresolved.push({ kind: "seed", slug: s, value: raw,
           why: `source_batch names a batch no served record carries (resolved to ${JSON.stringify(k)})` });
         continue;
@@ -4705,7 +4808,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
           // batch's own statement of what it holds; a member the served set
           // does not carry is still IN the batch, and dropping it from the
           // denominator would make the ratio climb as the corpus loses
-          // records — the same silent-flattery shape §13.0 removes, arriving
+          // records — the same silent-flattery shape the neighborhood defect removes, arriving
           // as arithmetic. It is marked as unresolved below either way, so the
           // absence is disclosed rather than absorbed.
           //
@@ -4728,7 +4831,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
           // A LISTED MEMBER THE SERVED SET DOES NOT CARRY IS MARKED, not
           // dropped. Dropping
           // it yields a quieter neighborhood with no disclosure, which is
-          // §13.0's silent exclusion one layer further in: the batch resolved,
+          // the neighborhood defect's silent exclusion one layer further in: the batch resolved,
           // so nothing upstream reports anything.
           if (!bySlug.has(m)) {
             // The SUBJECT is the batch, which is why this is not a seed slug.
@@ -4753,7 +4856,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     }
   }
 
-  // ORDER IS THE SORT, NEVER A RANK (§13.3). The bound may change HOW MANY
+  // ORDER IS THE SORT, NEVER A RANK (the neighborhood join). The bound may change HOW MANY
   // neighbors surface and may never change WHICH by scoring them — so the
   // output is sorted by slug, which carries no judgment, and `N<n>` is minted
   // over that order.
@@ -4780,14 +4883,14 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // than re-cutting it — a suggestion's disclosure line is the same sentence
     // it was before the grouping existed.
     substrates: [...reached.get(slug).keys()].sort(),
-    // §13.4 obligation 4's grouping key, one entry per (substrate, instance)
+    // the neighborhood section's shape obligation 4's grouping key, one entry per (substrate, instance)
     // pair that reached this slug. A suggestion reached by two substrates
     // carries two entries and RENDERS UNDER EACH — which is why rendering count
     // and suggestion count differ by construction, and why both are stated.
     reached_by: substrateInstances(reached.get(slug)),
   }));
 
-  // §13.4's PER-FAMILY FIGURES (story 1.45, AC3). Every family that appears
+  // the neighborhood section's shape's PER-FAMILY FIGURES (story 1.45, AC3). Every family that appears
   // either in a walked batch's `members` or among the suggestions gets a row;
   // the union is what stops a family with suggestions and no batch population
   // from vanishing, and a family with population and no suggestions from being
@@ -4812,7 +4915,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   //
   // So suggestions reached from OUTSIDE the walked membership are reported as
   // their own count with NO denominator rather than folded in. They are not
-  // lost — §13.1 widens, so every suggestion still renders as its own row with
+  // lost — the neighborhood as a report widens, so every suggestion still renders as its own row with
   // its substrate; this figure is about what the batch substrate could reach.
   const families = new Set([
     ...population.keys(),
@@ -4843,7 +4946,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // `by_family` now carries; the display prints the per-family rows and never
     // a pooled `n of m`.
     // `suggested` COUNTS SUGGESTIONS and `rendered` COUNTS RENDERINGS, and the
-    // two are carried separately because they differ by construction (§13.4
+    // two are carried separately because they differ by construction (the neighborhood section's shape
     // obligation 4): a suggestion reached by two substrates renders under each.
     // A single figure standing in for both is the conflation story 1.61's AC2a
     // exists to refuse — stated here at the source rather than left for the
@@ -4857,7 +4960,7 @@ export function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
 // Candidate `id` -> served `slug`. Separate and exported because the two key
 // spaces are easy to conflate and the conflation FAILS QUIETLY: every lookup
 // misses, the neighborhood is empty, and an empty is a legitimate outcome
-// here (§13.2), so nothing downstream can tell the two apart. An id naming no
+// here (the settled-strand-set input), so nothing downstream can tell the two apart. An id naming no
 // candidate is returned, never dropped.
 export function settledSlugs(candidates, memberIds) {
   const byId = new Map((candidates || []).map((c) => [c.id, c]));
@@ -4872,7 +4975,7 @@ export function settledSlugs(candidates, memberIds) {
 }
 
 // THE ENUMERATION FOR A RESOLVED TARGET SET — the machinery `cmdNeighborhood`
-// held, extracted when that subcommand retired (SPEC-terrain §13.2 v20,
+// held, extracted when that subcommand retired (SPEC-terrain, the settled-strand-set input v20,
 // story 1.69, kogaki#473) so `cmdReport` computes it inside the pull. Reuse,
 // never re-derive: a second resolver is how the section and the display it
 // replaced would drift.
@@ -4885,7 +4988,7 @@ export function settledSlugs(candidates, memberIds) {
 // The vocabulary is CLOSED and checked here. A level outside the set is refused
 // rather than passed through, because the display ranks by level and an
 // unrecognised token would sort as "no level" — showing a judged candidate as
-// unjudged, which is the silent-exclusion shape §13.0 exists to remove.
+// unjudged, which is the silent-exclusion shape the neighborhood defect exists to remove.
 // THE REFUSAL IS A THROW AND THE FILE READER CONVERTS IT (kogaki#861). Every
 // refusal below used to call `fail()` directly, which exits the process — so
 // the only way to assert one was to spawn a subprocess, and none of them was
@@ -4947,7 +5050,7 @@ export function neighborhoodJudgmentsFrom(raw) {
     if (typeof t.candidate !== "string" || !THESIS_CANDIDATE_ID.test(t.candidate.trim())) {
       throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} targets `
         + `${JSON.stringify(t.candidate)}, which is not a Thesis-candidate id (TC<n>). The target names a `
-        + "candidate of THIS report's §12.3 section; a slug, a display id or free text there would render a "
+        + "candidate of THIS report's the Thesis candidates section; a slug, a display id or free text there would render a "
         + "line the reader cannot join to anything above it.");
     }
     if (typeof t.role !== "string" || !t.role.trim()) {
@@ -4956,7 +5059,7 @@ export function neighborhoodJudgmentsFrom(raw) {
         + "no role states that it is relevant and withholds the whole of why.");
     }
     if (/\n/.test(t.role)) {
-      // One RENDERED line per target, exactly as §12.3's claim is bounded: a
+      // One RENDERED line per target, exactly as the Thesis candidates's claim is bounded: a
       // newline emits a line no grammar class admits, and the emit-time
       // refusal would then name the surface rather than this input.
       throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries a role spanning more `
@@ -5016,7 +5119,7 @@ function neighborhoodForTargets(record, targets) {
   // shape `cmdSurvey` uses. `element_survey`'s declared arguments are `kind`
   // (singular) and `tag`; an UNDECLARED key returns the miss shape, so
   // `{ kinds: [...] }` yields zero lines. The neighborhood needs `batch`
-  // records as well as the two survey families — §13.3's join reads a batch's
+  // records as well as the two survey families — the neighborhood join's join reads a batch's
   // own `members` — so it asks for everything and splits by kind here.
   // `cmdSurvey` sent the same shape and was the defect kogaki#368 was filed
   // for; it is repaired, and the transport now refuses an undeclared key
@@ -5036,7 +5139,7 @@ function neighborhoodForTargets(record, targets) {
     // abnormalities rather than killing the report. So the no-material state
     // is DISCLOSED as its own typed section form — a different state from an
     // enumeration that ran and found nothing, and stated as such, which is
-    // §13.4's disclosure discipline applied to the section's own inputs.
+    // the disclosure discipline of the neighborhood section's shape applied to the section's own inputs.
     return { gids: targets.map((t) => t.gid), no_material: true,
       suggestions: [], unresolved: [],
       counts: { seeds: 0, suggested: 0, rendered: 0, unresolved: 0, by_family: {} },
@@ -5050,7 +5153,7 @@ function neighborhoodForTargets(record, targets) {
 // THE NEIGHBORHOOD DISPLAY, composed apart from the command (story 1.45).
 //
 // Exported and pure over its inputs for the same reason `neighborhoodOf` is:
-// §13.4's obligations are properties of what RENDERS, not of what enumerates,
+// the neighborhood section's shape's obligations are properties of what RENDERS, not of what enumerates,
 // so a fixture that can only call the enumerator cannot exercise them. Before
 // this split the disclosure lines lived inside `cmdNeighborhood`, which reads
 // a survey file and calls the seam — so the only way to assert them was a
@@ -5068,14 +5171,14 @@ export const NEIGHBORHOOD_LEVELS = Object.freeze(["core", "useful", "background"
 export const NEIGHBORHOOD_DISPLAY_CAP = 10;
 
 // THE NEIGHBORHOOD SECTION (kogaki#686). Four fields per row, and up to ten
-// rows FILLED IN LEVEL ORDER `core -> useful -> background` (§13.4, kogaki#741
+// rows FILLED IN LEVEL ORDER `core -> useful -> background` (the neighborhood section's shape, kogaki#741
 // ruling 3) — it was "all from the HIGHEST level present" until kogaki#754, a
 // single-level premise the fill retires.
 //
 // WHAT WAS DELETED HERE, and why the deletions are not "kept beside their
 // exception": the per-family tallies, the walk-settings line, the "narrows
 // nothing" boilerplate, the per-Batch section headers, and the disjointness and
-// unresolved footnotes. Each existed to discharge a §13.0/§13.1/§13.4
+// unresolved footnotes. Each existed to discharge a the neighborhood defect/the neighborhood as a report/the neighborhood section's shape
 // disclosure obligation over an enumeration this section no longer performs —
 // with exploration fixed to one substrate at one hop, a per-family denominator
 // and a substrate-grouping heading describe a shape the output cannot have.
@@ -5143,7 +5246,7 @@ export function neighborhoodDisplaySet(suggestions) {
   // exactly how this implementation first rendered one row under a counts line
   // saying three. What replaced them is `composition`, computed below over the
   // rows that actually show.
-  // THE FILL, DETERMINISTIC IN THE HARNESS (§13.4, kogaki#741 ruling 3). Rows
+  // THE FILL, DETERMINISTIC IN THE HARNESS (the neighborhood section's shape, kogaki#741 ruling 3). Rows
   // fill to the cap in level order `core -> useful -> background`; within a
   // level the DECLARED SLUG SORT orders them, and that sort CARRIES NO
   // JUDGMENT — which is the whole ground on which this replaced the refusal.
@@ -5184,7 +5287,7 @@ export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] })
   // than left beside its replacement.
   const { found, unjudged, shown } = sel;
 
-  // THE BATCH-SIDE RESOLUTION DISCLOSURE (§13.0, kogaki#691, owner ruling
+  // THE BATCH-SIDE RESOLUTION DISCLOSURE (the neighborhood defect, kogaki#691, owner ruling
   // 2026-08-29 — arm 1: the duty SURVIVES disposition 4 and is discharged on
   // the surface). The enumerator marks three gaps — a seed carrying no
   // `source_batch`, a `source_batch` naming a batch nothing serves, and a batch
@@ -5289,7 +5392,7 @@ export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] })
     return out;
   }
 
-  // THE OVER-CAP REFUSAL IS GONE (§13.4, kogaki#741 ruling 3). It rendered no
+  // THE OVER-CAP REFUSAL IS GONE (the neighborhood section's shape, kogaki#741 ruling 3). It rendered no
   // rows and stated the counts; the section now fills to the cap in level order
   // and states the composition. `neighborhoodDisplaySet` no longer returns an
   // `over-cap` state, so there is no arm here to take.
@@ -5305,7 +5408,7 @@ export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] })
     : comp.map(([l, n]) => `${n} ${l}`).join(", then ");
   say(`showing ${sel.shown.length} of ${found} — ${desc}`);
   // THE BATCH-SIDE RESOLUTION GAPS RENDER HERE (kogaki#691, owner ruling
-  // 2026-08-29 — §13.0's duty SURVIVES #686 disposition 4 and is discharged on
+  // 2026-08-29 — the neighborhood defect's duty SURVIVES #686 disposition 4 and is discharged on
   // the surface). Both kinds ride a populated section: a partial resolution
   // failure is not discharged by the seeds that did resolve, because the counts
   // above are over what the walk REACHED and a reader cannot otherwise tell a
@@ -5387,20 +5490,20 @@ export function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] })
   return out;
 }
 
-// THE FULL REPORT SECTION (SPEC-terrain §13.1 v20, story 1.69, kogaki#473).
+// THE FULL REPORT SECTION (SPEC-terrain, the neighborhood as a report v20, story 1.69, kogaki#473).
 //
 // The neighborhood's owner rendering is a section of `reports/FullReport.md`,
-// at §12's ONCE tier, LAST — never a display of its own. The lines are
+// at the Full Report's ONCE tier, LAST — never a display of its own. The lines are
 // `neighborhoodDisplay`'s, reused rather than re-derived: the display's own
 // heading (a plain-text line naming tag and set) is replaced by the Markdown
 // heading and the `*Seeded by:*` line `report-format.json` v6 declares, and
-// everything from the counts line down is the same emitter §13.4's
+// everything from the counts line down is the same emitter the neighborhood section's shape's
 // obligations were asserted against. A second composer is how the section
 // and the enumeration would drift — the reuse rule the licensing issue
 // states verbatim.
 //
 // Exported and pure over its inputs for the same reason `neighborhoodDisplay`
-// is: §13.4's obligations are properties of what RENDERS, so a fixture must
+// is: the neighborhood section's shape's obligations are properties of what RENDERS, so a fixture must
 // reach this without a seam.
 // The rule the callee's comment states, holding HERE TOO: this frame forwards
 // exactly what the callee reads, so its own parameter list is the one statement
@@ -5420,7 +5523,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
   // section says which (report-format.json v7 `neighborhood_no_material`).
   if (no_material) {
     return [...head,
-      "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (§13.4's disclosure discipline).",
+      "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (the disclosure discipline of the neighborhood section's shape).",
     ];
   }
   return [...head,
@@ -5437,11 +5540,11 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 // reachable only through a subprocess. A mechanism no fixture can call is the
 // orphan shape one level in (`orphan-mechanisms-fail-the-suite`).
 // ==========================================================================
-// §15 — THE CONTROL PLANE: the workflow table, the run record, the executor.
-// (SPEC-terrain §15, v23; kogaki#625 acceptance items 1, 2, 5 and 6; story
+// the control plane — THE CONTROL PLANE: the workflow table, the run record, the executor.
+// (SPEC-terrain, the control plane, v23; kogaki#625 acceptance items 1, 2, 5 and 6; story
 // 1.89 / kogaki#652.)
 //
-// WHERE THIS LIVES, stated rather than left implicit (story 1.89 SQ1). §15
+// WHERE THIS LIVES, stated rather than left implicit (story 1.89 SQ1). The control plane
 // does not decide whether the executor is a sibling module or part of this
 // file. Two things decided it here: kogaki#625's licensed artifact list names
 // `src/terrain.mjs` and no sibling, so a new module would be an artifact
@@ -5450,7 +5553,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 // callee already share a file.
 //
 // WHAT "THE EXECUTOR HOLDS NO STATE LIST OF ITS OWN" MEANS, precisely —
-// because the claim is checkable only if it is stated (§15.1; #625 item 6):
+// because the claim is checkable only if it is stated (the workflow table; #625 item 6):
 //
 //   Read from the table on EVERY run, and appearing nowhere in this file:
 //   the state ids, their ORDER, their KIND, which of them WAIT, which WRITE
@@ -5458,7 +5561,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 //   reach a JUDGMENT POINT, and which is TERMINAL.
 //
 //   Held here: what a KIND MEANS (`KIND_SEMANTICS`), which is interpretation
-//   and not sequencing; and the RENDERER HALF (`STATE_WORK`), which §15.1
+//   and not sequencing; and the RENDERER HALF (`STATE_WORK`), which the workflow table
 //   names in as many words — "a table row PLUS A RENDERER".
 //
 // The consequence is the testable one: moving a handoff, adding a wait, or
@@ -5470,7 +5573,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
 // `compose_input` needs the tag the owner named; it reads it from the run
 // record by the id of the wait that supplied it. That binding is part of the
 // renderer, which is bound to its state by construction. What would breach
-// §15.1 is control code that knew the ORDER those states run in — and none
+// the workflow table is control code that knew the ORDER those states run in — and none
 // below does.
 // ==========================================================================
 
@@ -5491,12 +5594,12 @@ const RUN_RECORD_FILE = "run-record.json";
 
 // Structural validation only. This reads the table's FORM — ids present and
 // unique, kinds interpretable, a write naming an artifact, a terminal
-// existing. It judges no semantic contract, because §15.1 makes the table
+// existing. It judges no semantic contract, because the workflow table makes the table
 // authoritative over sequencing and "authoritative over NOTHING ELSE".
 export function loadWorkflowTable(path) {
   const table = readJson(path);
   if (!Array.isArray(table.states) || table.states.length === 0) {
-    fail(`workflow table ${path} declares no states. §15.1 makes this artifact authoritative over sequencing; an empty array is not a flow.`);
+    fail(`workflow table ${path} declares no states. The workflow table makes this artifact authoritative over sequencing; an empty array is not a flow.`);
   }
   const seen = new Set();
   for (const s of table.states) {
@@ -5513,7 +5616,7 @@ export function loadWorkflowTable(path) {
     }
   }
   if (!table.states.some((s) => s.kind === "terminal")) {
-    fail(`workflow table ${path} declares no terminal state. A generic executor reads the end of a run from the table and never from position (§15.1).`);
+    fail(`workflow table ${path} declares no terminal state. A generic executor reads the end of a run from the table and never from position (the workflow table).`);
   }
   return table;
 }
@@ -5531,7 +5634,7 @@ export function loadWorkflowTable(path) {
 //
 //   wrote          — the renderer wrote and named what it wrote
 //   wrote-nothing  — the renderer RAN and deliberately wrote nothing
-//                    (`--no-render`, §12.2 v11; the idempotent rerun, §12.1)
+//                    (`--no-render`, location and naming v11; the idempotent rerun, the report identity)
 //   named-nothing  — the renderer wrote and did not say where; the case the
 //                    guard was built for, and the only one that refuses
 //
@@ -5551,7 +5654,7 @@ export function derivedBaseline(table) {
   // `owner_artifacts` entry to 1 when its `writer` field was a non-empty
   // string and took the max — so the figure was 1 for any table declaring a
   // writer, however many writers there were. `writer` is a PROSE SENTENCE and
-  // not a countable set, so the two-writer breach §15.5 exists to forbid was
+  // not a countable set, so the two-writer breach write authority exists to forbid was
   // never expressible in this derivation, and the self-test asserting
   // agreement with `counted_baseline` could not fail on the key.
   //
@@ -5562,7 +5665,7 @@ export function derivedBaseline(table) {
   // alone. So the key leaves both sides: the derivation here and the
   // declaration in `workflow.json`'s `counted_baseline`, together, because a
   // declared key with no derived counterpart is the omission hole in the other
-  // direction. What replaces it is not a better count: §15.5's one-writer
+  // direction. What replaces it is not a better count: write authority's one-writer
   // property is made true BY CONSTRUCTION at this issue — one private
   // `writeDisplaySurface`, no second path — which is constrain-generation where
   // the figure was after-the-fact detection that never fired.
@@ -5601,9 +5704,9 @@ function writeRunRecord(dir, rec) {
   return runRecordPath(dir);
 }
 
-// CONTROL STATE ONLY (§15.3). The survey record is referenced BY PATH and
+// CONTROL STATE ONLY (the run record). The survey record is referenced BY PATH and
 // nothing is copied out of it — copying the ID->slug map here would discharge
-// §15's one-record rule by breaching §14.3's single-carrier rule in the same
+// the control plane's one-record rule by breaching the display-ID rule's single-carrier rule in the same
 // act, and the two are satisfiable together only this way. The standing
 // refusal this honours is the one at `cmdSurvey`'s own record write.
 function newRunRecord(tablePath, table) {
@@ -5629,7 +5732,7 @@ function stateById(table, id) {
 
 // The path the table declares for the artifact a write state names. Read from
 // the table rather than held here, so renaming an owner artifact is a table
-// edit and not a code edit (§15.1's evolvability contract).
+// edit and not a code edit (the workflow table's evolvability contract).
 function artifactPath(table, st) {
   const decl = (table.owner_artifacts || {})[st.writes];
   return (decl && decl.path)
@@ -5646,19 +5749,19 @@ function ownerInput(rec, waitId) {
 
 function needSurvey(rec) {
   return rec.survey_record
-    || fail("this run has no survey record yet — the state that mints it has not run. Re-enter the executor without --input to advance the flow (§15.2).");
+    || fail("this run has no survey record yet — the state that mints it has not run. Re-enter the executor without --input to advance the flow (the re-entrant executor).");
 }
 
 // THE FIXTURE-ONLY STATE PREFIX (kogaki#824). A state id beginning with this
 // string is admitted to `STATE_WORK` for the self-test's own throwaway tables
-// and is refused a place in the shipped carrier. §15.1 puts the state set in
+// and is refused a place in the shipped carrier. The workflow table puts the state set in
 // `src/workflow.json`, so an id that never enters that file alters no contract
 // — and the bound is asserted rather than promised: the pass drives the shipped
 // table against this prefix.
 const FIXTURE_STATE_PREFIX = "__fixture_";
 const FIXTURE_RECORD_KEY_VALUE = "written by this state's own renderer";
 
-// ---- THE RENDERER HALF (§15.1: "a table row PLUS a renderer"). ------------
+// ---- THE RENDERER HALF (the workflow table: "a table row PLUS a renderer"). ------------
 // Keyed by state id. Each entry performs its state's work and returns either
 // null, or `{ artifact }` for a write state naming the path it wrote. The
 // executor never inspects these beyond that contract, and a state absent from
@@ -5671,7 +5774,7 @@ const STATE_WORK = {
     return null;
   },
 
-  // `tag_display` AND `tag_row_view` ARE GONE AS STATES (§6.0 v29, kogaki#682,
+  // `tag_display` AND `tag_row_view` ARE GONE AS STATES (the pre-selection listing v29, kogaki#682,
   // owner ruling 2026-08-28 + owner selection 2026-08-29). Neither renders a
   // Display — a Display is the rendering written AFTER a tag is selected — so
   // neither writes `reports/CoTagGroups.md`, and with no artifact to write and no
@@ -5692,7 +5795,7 @@ const STATE_WORK = {
     return null;
   },
 
-  // JUDGMENT POINTS. The executor VALIDATES and never composes (§15.6): the
+  // JUDGMENT POINTS. The executor VALIDATES and never composes (the typed judgment points): the
   // typed record arrives as a file, and the refusals are the existing ones —
   // this story adds no new judgment semantics and re-implements none.
   J1_claims: (rec, st, args) => {
@@ -5719,14 +5822,14 @@ const STATE_WORK = {
       fail(`${st.id} refuses a bare array or non-object --subdivisions record; ${st.input_shape || "one typed entry per composed group"}.`);
     }
     // Each entry is read by the EXISTING validator, which carries the judged
-    // flag, the judge pin and the coherence rules (§8, §8.1, §12.1).
+    // flag, the judge pin and the coherence rules (semantic subdivision, measurement before offering, the report identity).
     for (const name of Object.keys(raw)) readSubdivisionEntry(name, raw[name]);
     rec.judgments[st.id] = relFromRepo(resolve(path));
 
-    // AND THE COMPOSITION, WHICH THE RETIRED `subdivide` OWNED (§15.6.2,
+    // AND THE COMPOSITION, WHICH THE RETIRED `subdivide` OWNED (subdivide's composition fold,
     // kogaki#625 item 1). Validation alone was never the whole of that command:
     // it placed the judge's SubGroups over the parent's members, computed the
-    // three instruments, and REFUSED on SUBDIVISION_COVER_INCOMPLETE. §2.1
+    // three instruments, and REFUSED on SUBDIVISION_COVER_INCOMPLETE. The placement cover
     // makes completeness a cover COUNTED IN PLACEMENTS, which is a runtime
     // refusal — leaving it to whatever composed the record would move a
     // ratified refusal out of the runtime, so the state composes under the
@@ -5749,7 +5852,7 @@ const STATE_WORK = {
   // the shape this table already uses for exactly this problem.
   //
   // BOTH ARE CONDITIONAL, and that is the answer to what an unjudged pull is.
-  // A run naming neither renders the all-unjudged line §13.4 already declares,
+  // A run naming neither renders the all-unjudged line the neighborhood section's shape already declares,
   // which is a legitimate terminal: refusing it would make the Report
   // unobtainable without an LLM pass, which no ruling asked for. What the
   // declaration removes is the SILENT version — an unjudged run is now a
@@ -5770,10 +5873,10 @@ const STATE_WORK = {
   // combined record the model would be supplying the candidate list and the
   // targets into it in the same act, so nothing outside that act could refuse a
   // target naming a candidate the same record invented. Two states put the
-  // ordering in the table, where §15.1 keeps it, and the refusal below reads a
+  // ordering in the table, where the workflow table keeps it, and the refusal below reads a
   // set the state before it fixed.
   //
-  // IT VALIDATES AND NEVER COMPOSES (§15.6), like every judgment point beside
+  // IT VALIDATES AND NEVER COMPOSES (the typed judgment points), like every judgment point beside
   // it: `readThesisCandidates` is the existing reader and carries the count,
   // arity and membership refusals unchanged. What this state adds is the WRITE
   // — the minted list goes to the run workspace so J3 and the pull read one
@@ -5853,7 +5956,7 @@ const STATE_WORK = {
     const path = String(args.neighborhood
       || fail(`${st.id} is a declared judgment point and needs its typed record: --neighborhood <file>. ${st.refusal || ""}`.trim()));
     // THE CLOSED-SET AND LEVEL-WITHOUT-CLAIM REFUSALS ARE THE EXISTING ONES.
-    // §15.6: the executor validates and never composes, and re-implementing a
+    // the typed judgment points: the executor validates and never composes, and re-implementing a
     // refusal that already ships is how two readings of one rule appear.
     const judgments = readNeighborhoodJudgments(path);
     // THE THIRD REFUSAL NEEDS THE EMITTER'S OUTPUT, which is why the emitter is
@@ -5906,7 +6009,7 @@ const STATE_WORK = {
     const uncovered = [...have].filter((slug) => !judgments.has(slug));
     if (uncovered.length) {
       fail(`${st.id} refuses: ${uncovered.length} mechanical candidate(s) carry no judgment — `
-        + `${uncovered.join(", ")}. §13.4 makes this pass unconditional and the LLM supplies the `
+        + `${uncovered.join(", ")}. The neighborhood section's shape makes this pass unconditional and the LLM supplies the `
         + "level label PER CANDIDATE, so a record that judges only some of them is the "
         + "LLM-controlled skip kogaki#741 removes. Judge every candidate the enumeration wrote.");
     }
@@ -5933,7 +6036,7 @@ const STATE_WORK = {
         || fail("full_report needs the entered ID set, and no wait has supplied one yet."),
       // THE EMITTER'S ENUMERATION, passed so the pull consumes it (kogaki#700).
       // Absent where no emitter ran — the unjudged flow — and cmdReport then
-      // computes inside the pull as §13.2 always said.
+      // computes inside the pull as the settled-strand-set input always said.
       ...(rec.neighborhood_candidates ? { "neighborhood-candidates": rec.neighborhood_candidates } : {}),
       // THE COMPOSED CANDIDATES JOIN FROM THE RUN RECORD, never from this act's
       // argv (kogaki#861) — the same rule the judgment path below follows and
@@ -5942,7 +6045,7 @@ const STATE_WORK = {
       // could renumber them under a judgment that already passed.
       ...(rec.thesis_candidates ? { "thesis-candidates": rec.thesis_candidates } : {}),
       // THE JUDGMENT JOINS FROM THE RUN RECORD, never from this act's argv
-      // (§13.4, kogaki#741 ruling 2). J3 wrote the path it validated; reading
+      // (the neighborhood section's shape, kogaki#741 ruling 2). J3 wrote the path it validated; reading
       // it back here is what makes "deleting the judgment file after J3 and
       // re-rendering fails loudly" true — the record still names the path, and
       // the read fails at the missing file rather than silently rendering an
@@ -5997,7 +6100,7 @@ const STATE_WORK = {
 };
 
 // ---- GATE OPTION COMPOSERS — the mirror of STATE_WORK for the other half of
-// §15.4's split (kogaki#625 item 1, owner selection 2026-08-26).
+// the wait rule's split (kogaki#625 item 1, owner selection 2026-08-26).
 //
 //   "Workflow orchestration (start, supervise, land, record, expose state) is
 //    deterministic infrastructure and belongs in engine code, while a session
@@ -6012,10 +6115,10 @@ const STATE_WORK = {
 //
 // COMPOSING a declaration and RECORDING a capture are `record`, and record is
 // engine code; RENDERING the question is the judgment step and stays the
-// session's. This is the same split §15.6.1 made for CLAIM_REOFFER, generalised
+// session's. This is the same split the claim re-offer wait made for CLAIM_REOFFER, generalised
 // to every wait the table marks `renders_gate_declaration: true`.
 //
-// §6.3's EMPTY QUESTION ALLOWLIST IS UNTOUCHED, and that is the clause worth
+// the post-tag-selection window's EMPTY QUESTION ALLOWLIST IS UNTOUCHED, and that is the clause worth
 // checking rather than assuming: the executor still asks nothing and still
 // renders no question UI. It writes a file and stops. What changed is that the
 // file can no longer be written from anywhere else.
@@ -6044,7 +6147,7 @@ const GATE_WORK = {
   TRIM_RATIFICATION: (rec, st, args, dir) => {
     const proposalPath = args.proposal ? String(args.proposal) : composeTrimProposal(args, dir);
     if (!proposalPath) {
-      fail("TRIM_RATIFICATION composed no proposal: the named act is navigation, or is in neither act list, so there is nothing to ratify. §2.3 — a navigation act wrapped as a proposal is a contract violation from the other direction.");
+      fail("TRIM_RATIFICATION composed no proposal: the named act is navigation, or is in neither act list, so there is nothing to ratify. The second-proposer boundary — a navigation act wrapped as a proposal is a contract violation from the other direction.");
     }
     const p = readJson(proposalPath);
     return { options: (p.options || []).map((o) => ({ id: o.id, label: o.label })), extra: { proposal: relFromRepo(resolve(proposalPath)) } };
@@ -6100,11 +6203,11 @@ const GATE_WORK = {
 
 
 // ---- THE EXECUTOR --------------------------------------------------------
-// ONE entry point, entered once per act (§15.2). It reads the run record,
+// ONE entry point, entered once per act (the re-entrant executor). It reads the run record,
 // executes table states until the next declared stop, writes that state's
 // artifact, and stops. It never blocks on input: every wait in this flow
 // spans a chat turn, `parseArgs` reads process.argv only, and supplying a
-// stdin path would turn a wait into a prompt — which §6.3's empty question
+// stdin path would turn a wait into a prompt — which the post-tag-selection window's empty question
 // allowlist for that window forbids.
 // THE `owner_reads` HAND-OVER IS RETIRED (kogaki#856), and `ownerReadsLines`
 // with it. The field named a command the OWNER was to type, on the premise that
@@ -6156,7 +6259,7 @@ function cmdRun(args) {
   // ---- Owner input, admitted by the WAIT and not by its own shape (AC5).
   if (args.input !== undefined) {
     if (!rec.awaiting) {
-      fail(`no wait is outstanding in ${runRecordPath(dir)}, so there is nothing for --input to answer. An owner input is admissible only at a declared wait — the wait is what makes it admissible, not the input's own shape (§15.2, §15.4).`);
+      fail(`no wait is outstanding in ${runRecordPath(dir)}, so there is nothing for --input to answer. An owner input is admissible only at a declared wait — the wait is what makes it admissible, not the input's own shape (the re-entrant executor, the wait rule).`);
     }
     if (args.at !== undefined && String(args.at) !== rec.awaiting) {
       fail(`--input names state ${JSON.stringify(String(args.at))} and this run awaits ${JSON.stringify(rec.awaiting)}. Refused rather than applied to the awaited state: an input bound to the wrong wait is not the input that wait asked for.`);
@@ -6167,7 +6270,7 @@ function cmdRun(args) {
     // that some wait was outstanding, so a bare `--input adopt-recomposed:G1`
     // at a gate wait wrote the owner input, pushed `completed` and cleared
     // `awaiting` — skipping the declaration's own option validation, the
-    // `--tool-use-id` evidence and the capture row entirely. §15.4's "a capture
+    // `--tool-use-id` evidence and the capture row entirely. The wait rule's "a capture
     // is admissible only at the wait that declared the gate" says nothing from
     // this direction, so the refusal states it: at such a wait the capture is
     // not one way to answer, it is the only one.
@@ -6185,7 +6288,7 @@ function cmdRun(args) {
     const awaitedState = stateById(table, rec.awaiting);
     const owedForInput = rec.gate_declarations_owed.find((g) => g.state === rec.awaiting);
     if (awaitedState && awaitedState.renders_gate_declaration && owedForInput && owedForInput.declaration) {
-      fail(`${rec.awaiting} declares a gate and its declaration is written (${owedForInput.declaration}), so it is answered by the HARNESS'S OWN CAPTURE and never by a bare --input. Render the gate through AskUserQuestion — options verbatim, nothing pre-selected, free text on — and re-enter with a bare \`run --run-dir ${dir}\`; .claude/hooks/write-gate-capture.py records the answer when the owner gives it, and the executor reads it. An input that skips the declaration answers a question nothing can show was asked (§15.4, §2.3; kogaki#890).`);
+      fail(`${rec.awaiting} declares a gate and its declaration is written (${owedForInput.declaration}), so it is answered by the HARNESS'S OWN CAPTURE and never by a bare --input. Render the gate through AskUserQuestion — options verbatim, nothing pre-selected, free text on — and re-enter with a bare \`run --run-dir ${dir}\`; .claude/hooks/write-gate-capture.py records the answer when the owner gives it, and the executor reads it. An input that skips the declaration answers a question nothing can show was asked (the wait rule, the second-proposer boundary; kogaki#890).`);
     }
     rec.owner_input[rec.awaiting] = String(args.input);
     rec.completed.push(rec.awaiting);
@@ -6265,7 +6368,7 @@ function cmdRun(args) {
           + `The declaration's own reason: ${unrouted}`);
       }
       // The answer IS the owner input for this wait. Adoption, ratification and
-      // strand selection are all this one act (§15.6.1: adoption is applying the
+      // strand selection are all this one act (the claim re-offer wait: adoption is applying the
       // captured answer), which is why no second command remains to apply it.
       rec.owner_input[rec.awaiting] = capOption !== null ? capOption : capFree;
       rec.completed.push(rec.awaiting);
@@ -6315,11 +6418,11 @@ function cmdRun(args) {
       // counts against that baseline, so the defect made a registered check go red
       // on a record no owner mis-drove.
       if (!rec.waits_reached.includes(st.id)) rec.waits_reached.push(st.id);
-      // §15.4 / AC6: the executor renders NO gate declaration and NO question
+      // the wait rule / AC6: the executor renders NO gate declaration and NO question
       // UI. For a wait the table marks `renders_gate_declaration: true` the
       // obligation is RECORDED and named on stop; rendering it is not this
       // story's, and inventing one here would put a declaration behind a
-      // runtime that §6.3's allowlist keeps empty for the other two waits.
+      // runtime that the post-tag-selection window's allowlist keeps empty for the other two waits.
       if (st.renders_gate_declaration && !rec.gate_declarations_owed.some((g) => g.state === st.id)) {
         // AND THE EXECUTOR COMPOSES IT (kogaki#625 item 1). The pre-item-1 form
         // recorded the id of a state that owed a declaration and left composing
@@ -6328,7 +6431,7 @@ function cmdRun(args) {
         // record is engine work; the RENDERING through AskUserQuestion is the
         // judgment step and is still not performed here.
         //
-        // §15.1 binds this exactly as it binds a renderer: a new gate state is a
+        // the workflow table binds this exactly as it binds a renderer: a new gate state is a
         // table row PLUS an option composer, and the executor invents neither.
         // THE LIMIT IS DECLARED RATHER THAN SILENT, and #625 acceptance item 6
         // is what forced it to be. A state this runtime has no option composer
@@ -6348,7 +6451,7 @@ function cmdRun(args) {
         const compose = GATE_WORK[st.id];
         if (!compose) {
           rec.gate_declarations_owed.push({ state: st.id, gate_id: st.gate_id || null, declaration: null,
-            unwritten: `this runtime has no option composer bound to ${JSON.stringify(st.id)} — §15.1: a GATE state is a table row PLUS an option composer, and the executor invents neither options nor a judgment` });
+            unwritten: `this runtime has no option composer bound to ${JSON.stringify(st.id)} — the workflow table: a GATE state is a table row PLUS an option composer, and the executor invents neither options nor a judgment` });
         } else {
           // THE WAIT IS UNRECORDED BEFORE THIS REFUSAL (PR #821 round 1). The
           // branch above has already set `rec.awaiting`, and since kogaki#808
@@ -6381,10 +6484,10 @@ function cmdRun(args) {
 
     const work = STATE_WORK[st.id];
     if (!work && kind.needsRenderer) {
-      fail(`workflow state ${JSON.stringify(st.id)} is kind ${JSON.stringify(st.kind)} and this runtime has no renderer bound to it. §15.1: a new state is a table row PLUS a renderer — the executor interprets the table and invents neither a renderer nor a judgment.`);
+      fail(`workflow state ${JSON.stringify(st.id)} is kind ${JSON.stringify(st.kind)} and this runtime has no renderer bound to it. The workflow table: a new state is a table row PLUS a renderer — the executor interprets the table and invents neither a renderer nor a judgment.`);
     }
     // THE AUTHORITY IS HELD FOR THE DURATION OF A WRITING STATE AND NO LONGER
-    // (§15.5 v28, kogaki#681). Scoped by `try/finally` rather than by setting
+    // (write authority v28, kogaki#681). Scoped by `try/finally` rather than by setting
     // and clearing around the call: a renderer that `fail`s would otherwise
     // leave the authority standing for whatever ran next in the same process.
     let outcome = null;
@@ -6398,9 +6501,9 @@ function cmdRun(args) {
       // A WRITE STATE THAT LEGITIMATELY WROTE NOTHING IS NOT A RENDERER THAT
       // NAMED NO ARTIFACT (PR #667 round 1 finding 2). The two were one branch,
       // so making `full_report` OBSERVE its path turned two live non-writing
-      // paths into executor aborts: `run --no-render`, which §12.2 v11 licenses
+      // paths into executor aborts: `run --no-render`, which location and naming v11 licenses
       // ("--no-render opts out of the rendering"), and the idempotent-rerun
-      // branch, which §12.1 rules "IDEMPOTENT, not a duplicate" and which
+      // branch, which the report identity rules "IDEMPOTENT, not a duplicate" and which
       // returns after having written. An abort is neither of those.
       //
       // So the renderer declares WHICH it means. `{ artifact: <path> }` wrote
@@ -6429,7 +6532,7 @@ function cmdRun(args) {
 
   console.log("");
   if (stopped && stopped.kind === "wait") {
-    console.log(`Executor STOPPED at ${stopped.id} — a wait (§15.4). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
+    console.log(`Executor STOPPED at ${stopped.id} — a wait (the wait rule). ${stopped.owner_supplies ? `The owner supplies: ${stopped.owner_supplies}.` : ""}`);
     // NO INVOCATION IS PRINTED HERE (kogaki#856). The stop used to render the
     // table's `owner_reads` keys — commands the owner was to type — and that
     // field is retired. A wait whose owner must READ something before answering
@@ -6452,15 +6555,15 @@ function cmdRun(args) {
       // rendering carries it so the owner can answer from it; rendered after the
       // question, or not at all, it is the defect this issue was filed about.
       console.log(`Where that declaration carries a rendering key (\`tag_listing\`), put those bytes on screen VERBATIM and BEFORE the question — they are the runtime's own output and are not retyped, summarized or reformatted.`);
-      console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. The executor renders no question UI and asks nothing (§6.3).`);
+      console.log(`Render it through AskUserQuestion exactly as declared — options verbatim, nothing pre-selected, free text always on. The executor renders no question UI and asks nothing (the post-tag-selection window).`);
       console.log(`Then re-enter with a bare  run --run-dir ${dir}  — the answer is read from the harness's own capture, written by .claude/hooks/write-gate-capture.py when the owner answers. No flag carries it (kogaki#890).`);
       console.log(`A bare --input is refused at a gate wait: it would skip the declaration's own option check and the tool_use_id that evidences the rendering.`);
     } else {
       console.log(`This wait declares a gate and its declaration is OWED AND UNWRITTEN: ${(owedHere && owedHere.unwritten) || "no option composer is bound to this state"}.`);
-      console.log(`The run is not stuck — §15.1 makes a gate state a table row PLUS an option composer, and this table names one this runtime does not bind. Nothing can be captured here until it does.`);
+      console.log(`The run is not stuck — the workflow table makes a gate state a table row PLUS an option composer, and this table names one this runtime does not bind. Nothing can be captured here until it does.`);
     }
   } else if (stopped && stopped.kind === "terminal") {
-    console.log(`Executor reached ${stopped.id} — terminal (§15.1). The run is over.`);
+    console.log(`Executor reached ${stopped.id} — terminal (the workflow table). The run is over.`);
   } else {
     console.log("Executor advanced to the end of the table without reaching a stop, which a conformant table cannot do.");
   }
@@ -6473,14 +6576,14 @@ function cmdRun(args) {
 // what REFUSES on a disagreement.
 function reportRunStatus(dir, tablePath, table) {
   const rec = readRunRecord(dir)
-    || fail(`no run record at ${runRecordPath(dir)}. A run's counts are read from its record alone (§15.3).`);
+    || fail(`no run record at ${runRecordPath(dir)}. A run's counts are read from its record alone (the run record).`);
   const derived = derivedBaseline(table);
   const declared = table.counted_baseline || {};
   const counts = runCounts(rec);
   console.log(`Run record: ${runRecordPath(dir)}`);
   console.log(`Workflow table: ${relFromRepo(tablePath)} (version ${table.version})`);
   console.log(`Position: ${rec.done ? "done" : rec.awaiting ? `awaiting ${rec.awaiting}` : "advancing"}; ${rec.completed.length} state(s) completed.`);
-  console.log(`Survey record (by path, §15.3): ${rec.survey_record || "not yet minted"}`);
+  console.log(`Survey record (by path, the run record): ${rec.survey_record || "not yet minted"}`);
   console.log("");
   console.log("counted from the RUN RECORD:");
   for (const [k, v] of Object.entries(counts)) console.log(`  ${k.padEnd(28)} ${v}`);
@@ -6527,7 +6630,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 //     the `cotag_selection` grammar go with it.
 //
 // Both cases survive in the dispatcher as loud refusals naming the ruling
-// (§15.6.3): a removed entry point does not vanish, or a reader meets a bare
+// (the deleted entry point): a removed entry point does not vanish, or a reader meets a bare
 // unknown-command.
 
 function main() {
@@ -6535,11 +6638,11 @@ const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 switch (cmd) {
   case "survey": cmdSurvey(args); break;
-  // REMOVED, AND REFUSING WITH A POINTER (§15.6.3, kogaki#856). The listing
+  // REMOVED, AND REFUSING WITH A POINTER (the deleted entry point, kogaki#856). The listing
   // itself is not gone — it moved into the TAG_SELECTION gate declaration, and
   // the refusal names where.
   case "tags":
-    fail("tags is removed as an entry point (SPEC-terrain §6.0, kogaki#856). The pre-selection "
+    fail("tags is removed as an entry point (SPEC-terrain, the pre-selection listing, kogaki#856). The pre-selection "
       + "tag listing is no longer a command the owner types: the executor carries it in the "
       + "TAG_SELECTION gate declaration's `tag_listing` key, byte-for-byte, and the session "
       + "renders it above the question. Drive it through the executor: `run --run-dir <D>`, "
@@ -6558,16 +6661,16 @@ switch (cmd) {
   case "cotag-selection":
     fail("cotag-selection is retired (owner ruling 2026-09-04, kogaki#856) and has NO successor "
       + "surface. It printed the first-tag table a second time after the tag was chosen; the table "
-      + "now sits above the TAG_SELECTION question that chooses it. §6.0.1, the `cotag_selection` "
+      + "now sits above the TAG_SELECTION question that chooses it. The `cotag_selection` grammar (retired; no section of SPEC-terrain carries it at this head), the "
       + "grammar and the `--intent` bound are deleted with it.");
     break;
   case "cotags": cmdCotags(args); break;
-  // RETIRED, LOUDLY (§13.2 v20, kogaki#473) — the same shape `--all-groups`
+  // RETIRED, LOUDLY (the settled-strand-set input v20, kogaki#473) — the same shape `--all-groups`
   // and `--group` took: a refusal naming the replacement, never a silent
   // no-op. The post-gate act is the defect, not a deprecated convenience —
   // a suggestion delivered after the selection cannot inform it.
   case "neighborhood":
-    fail("neighborhood is retired as a standalone act (SPEC-terrain §13.2 v20, kogaki#472): "
+    fail("neighborhood is retired as a standalone act (SPEC-terrain, the settled-strand-set input v20, kogaki#472): "
       + "the provenance-neighborhood section renders on every `report` pull, seeded by the "
       + "entered ID set, inside reports/FullReport.md. Pull the report — "
       + "`report --survey <f> --tag <T> --ids <G…> --claims <f> --subdivisions <f> [--neighborhood <f>] "
@@ -6575,32 +6678,32 @@ switch (cmd) {
     break;
   case "compose-input": cmdComposeInput(args); break;
   case "report": cmdReport(args); break;
-  // §15's ONE ENTRY POINT, entered once per act (§15.2). Every standalone
+  // the control plane's ONE ENTRY POINT, entered once per act (the re-entrant executor). Every standalone
   // owner-facing act is now a state of the table, reachable only through here.
   case "run": cmdRun(args); break;
-  // REMOVED, AND REFUSING WITH A POINTER (§15.6.3, kogaki#625 item 1). A
-  // removed entry point does not simply vanish: §13.2's `neighborhood`
+  // REMOVED, AND REFUSING WITH A POINTER (the deleted entry point, kogaki#625 item 1). A
+  // removed entry point does not simply vanish: the settled-strand-set input's `neighborhood`
   // precedent is a refusal NAMING THE REPLACEMENT, never a silent no-op, and
   // without the stub a reader meets a bare unknown-command. They emit no owner
   // surface and carry no sequencing authority, which is why these stubs do not
-  // reopen §15.7's removal.
+  // reopen the non-flow utilities's removal.
   //
-  // This is what makes §15.5's claim TRUE rather than aspirational: with these
+  // This is what makes write authority's claim TRUE rather than aspirational: with these
   // six gone there is no callable surface by which an act can happen out of
   // order, because every one of them wrote run state a session could mint from
   // outside the executor.
   case "claim":
   case "adopt":
-    fail(`${cmd} is removed as an entry point (SPEC-terrain §15.6.1/§15.7, kogaki#625). `
+    fail(`${cmd} is removed as an entry point (SPEC-terrain, the claim re-offer wait/the non-flow utilities, kogaki#625). `
       + "Composing the claims record is the outside composer's; VALIDATING it is the "
-      + "`J1_claims` state's; the subset RE-OFFER §7 rules a gate event is the "
+      + "`J1_claims` state's; the subset RE-OFFER GroupClaim-first rendering rules a gate event is the "
       + "`CLAIM_REOFFER` state's, and adoption is that wait's captured answer. Drive them "
       + "through the executor: `run --run-dir <D> --claims <f>`, then, on a proper-subset "
       + "claim, `run --run-dir <D> --enter CLAIM_REOFFER --group <G> --text <line> "
       + "--members a,b`, answer the gate through AskUserQuestion, then re-enter with a bare `run --run-dir <D>`.");
     break;
   case "subdivide":
-    fail("subdivide is removed as an entry point (SPEC-terrain §15.6.2/§15.7, kogaki#625). "
+    fail("subdivide is removed as an entry point (SPEC-terrain, subdivide's composition fold and the non-flow utilities, kogaki#625). "
       + "The judgment and its composition — subgroup placement, the three instruments and "
       + "the SUBDIVISION_COVER_INCOMPLETE refusal — are the `J2_subdivision` state's. Drive "
       + "it through the executor: `run --run-dir <D> --subdivisions <f> --classification <f> "
@@ -6610,7 +6713,7 @@ switch (cmd) {
   case "act":
   case "gate":
   case "capture":
-    fail(`${cmd} is removed as an entry point (SPEC-terrain §15.6.3/§15.7, kogaki#625). `
+    fail(`${cmd} is removed as an entry point (SPEC-terrain, the deleted entry point/the non-flow utilities, kogaki#625). `
       + "The proposal record, the run declaration and the capture are the executor's, at the "
       + "wait that owes them — composing and recording are engine work; RENDERING the "
       + "declaration through AskUserQuestion stays the session's. Drive it through the "
@@ -6645,7 +6748,7 @@ switch (cmd) {
     // THE ASSERTION IS OVER THE BEHAVIOUR, not over the compiler's text: for
     // each surface declaring `abnormal_display_id`, the line
     // `displayIdAbnormalLine` ACTUALLY EMITS must be admitted. That is the
-    // class's whole purpose — §14.3's absence case reaching the owner surface —
+    // class's whole purpose — the display-ID rule's absence case reaching the owner surface —
     // and it had never once been true, on either surface, because the failure
     // fires only on the abnormal path nothing exercised.
     {
@@ -6670,14 +6773,14 @@ switch (cmd) {
         (() => {
           try {
             refuseUnlessConformant("cotag_groups",
-              "Classification: NAVIGATION (SPEC.md §2.3 — it ranks nothing, narrows nothing and hides nothing.)",
+              "Classification: NAVIGATION (SPEC.md, the second-proposer boundary — it ranks nothing, narrows nothing and hides nothing.)",
               grammar);
             return true;
           } catch (e) { if (e instanceof FormatRefusal) return false; throw e; }
         })());
     }
 
-    // ---- §15 CONTROL PLANE (story 1.89). Seam-free: every case below either
+    // ---- the control plane CONTROL PLANE (story 1.89). Seam-free: every case below either
     // reads the shipped table or constructs a synthetic one, and no case
     // reaches the gateway. AC8: this pass needs no run record and emits no
     // owner surface.
@@ -6812,7 +6915,7 @@ switch (cmd) {
           !!persisted && persisted.fixture_record_key === FIXTURE_RECORD_KEY_VALUE,
           persisted ? JSON.stringify(persisted.fixture_record_key) : "(no record)");
         // THE FIXTURE-ONLY ADMISSION IS BOUNDED BY THIS CASE, never by the
-        // comment in `STATE_WORK`. §15.1 puts the state set in the carrier, so
+        // comment in `STATE_WORK`. The workflow table puts the state set in the carrier, so
         // what makes the renderer above harmless is that its id never reaches
         // `src/workflow.json` — asserted here rather than trusted, because an
         // admission whose whole guarantee is a comment is the class kogaki#824
@@ -7312,7 +7415,7 @@ switch (cmd) {
         rmSync(gs, { recursive: true, force: true });
       }
 
-      // A REMOVED ENTRY POINT REFUSES WITH A POINTER (§15.6.3). Deleting the
+      // A REMOVED ENTRY POINT REFUSES WITH A POINTER (the deleted entry point). Deleting the
       // handlers and leaving the cases out would meet a reader with a bare
       // unknown-command instead of the ruling.
       //
@@ -7625,7 +7728,7 @@ switch (cmd) {
       // ---- THE IDS ARE FIXED BEFORE THE JUDGMENT, which is what makes a target
       // checkable. Asserted from the OTHER side too: the section renders the id
       // it was handed, so a section that re-mints from its loop index fails.
-      ok("readThesisCandidates mints the TC ids, and the §12.3 section renders the id it is handed rather than its own loop index",
+      ok("readThesisCandidates mints the TC ids, and the Thesis candidates section renders the id it is handed rather than its own loop index",
         (() => {
           const composed = readThesisCandidates(
             [{ claim: "one", strands: ["L1", "L2"] }, { claim: "two", strands: ["L2", "L3"] },
@@ -7664,7 +7767,7 @@ switch (cmd) {
             && !shouldReplayPrior({ identity: {} }, idty, same);
         })());
 
-      // ---- THE ORDERING, read from the shipped carrier (§15.1 keeps the state
+      // ---- THE ORDERING, read from the shipped carrier (the workflow table keeps the state
       // set there, so this is a property of the table and not of this file).
       ok("the shipped table composes the Thesis candidates as a judgment point AHEAD of J3_neighborhood, which is ahead of the full_report write",
         (() => {
@@ -7700,7 +7803,7 @@ switch (cmd) {
       (a declared gate's answer takes NO flag — it is read from the harness's capture)
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F] [--thesis-candidates F]
       [--judge-model M] [--judge-effort E]
-                                            THE §15 CONTROL PLANE. One entry point, entered once
+                                            THE CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
                                             src/workflow.json declares until the
                                             next declared WAIT or the TERMINAL, writes that
@@ -7718,30 +7821,30 @@ switch (cmd) {
                                             table's own counted_baseline (#625 acceptance item 2).
   survey                                    compose the survey from the seam (element_survey)
   compose-input --survey F --tag T          the BOUNDED input for the claim and subdivision
-                                            composers (§9): one tag-scoped shard pair, fetched
+                                            composers (the rendering rule): one tag-scoped shard pair, fetched
                                             once, material keyed by member id and groups
                                             carrying ids only — so a member in several groups
                                             is read once and the read count does not grow with
                                             the placements. Run it BEFORE composing --claims.
   cotags --survey F --tag T [--group G] [--claims F]
          [--subdivisions F --judge-model M --judge-effort E] [--connective F]
-                                            the second navigation step (§6) — narrows nothing.
+                                            the second navigation step (the co-tag navigation step) — narrows nothing.
                                             The heading carries the GroupID, Lesson count and
-                                            member IDs, claim beneath (§6.1 v5); SubGroups
-                                            where §8's conditions bind (§6.2). --claims and
+                                            member IDs, claim beneath (the display's serve rule v5); SubGroups
+                                            where semantic subdivision's conditions bind (the SubGroup threshold). --claims and
                                             --subdivisions are maps keyed by group name; a
                                             group missing a claim is MARKED, never substituted.
   report --survey F --tag T (--group G | --all-groups) [--claims F]
          [--subdivisions F] [--neighborhood F] [--thesis-candidates F]
          [--judge-model M --judge-effort E] [--report-dir D]
-                                            the Full Report (§12) — untruncated Claims and
+                                            the Full Report (the Full Report) — untruncated Claims and
                                             Glosses, identified by the QUADRUPLE (substrate pin,
                                             co-tag query, judge pin, neighborhood judgment
                                             record — widened from the triple at kogaki#741).
-                                            TWO ARTIFACTS (§12.2 v11):
+                                            TWO ARTIFACTS (location and naming v11):
                                             --neighborhood carries the judgment layer: one
                                             level (core|useful|background), one claim and one
-                                            target per candidate, keyed by slug (§13.4,
+                                            target per candidate, keyed by slug (the neighborhood section's shape,
                                             kogaki#686, kogaki#861). The target is
                                             {"candidate":"TC<n>","role":"…"} and names a
                                             Thesis candidate of THIS pull, so a judged
@@ -7750,23 +7853,23 @@ switch (cmd) {
                                             the machine RECORD in the run workspace, and the
                                             owner RENDERING — exactly ONE file,
                                             reports/FullReport.md, overwritten per pull
-                                            (§12.2 v12) — repo-visible and still never
+                                            (location and naming v12) — repo-visible and still never
                                             committed. Both are
                                             written in the same act; --no-render opts out of the
                                             rendering. A rerun under the same identity is
-                                            idempotent, not a duplicate. --all-groups is §11's
+                                            idempotent, not a duplicate. --all-groups is the open questions's
                                             decided EAGER reading (v5): the co-tag view
                                             generates one report per composed group.
   validate --survey F                       run the composition rules on a record
   self-test                                 the composed-form fixture pass (identity cites, kogaki#612)
 
- RETIRED, and refusing with a pointer (§13.2 v20, kogaki#472) — the precedent:
+ RETIRED, and refusing with a pointer (the settled-strand-set input v20, kogaki#472) — the precedent:
    neighborhood                              the provenance-neighborhood section rides every
                                              'report' pull, seeded by the entered ID set. Its
                                              behaviour is GONE FROM THE SYSTEM as a standalone act;
                                              the pointer names where the material now renders.
 
- REMOVED, and refusing with a pointer (§15.6.3, §15.7 — kogaki#625 item 1):
+ REMOVED, and refusing with a pointer (the deleted entry point, the non-flow utilities — kogaki#625 item 1):
    claim  adopt  subdivide  act  gate  capture
                                              each is a STATE of the workflow table now, reachable
                                              only through 'run'. Invoke one and its refusal names
@@ -7775,7 +7878,7 @@ switch (cmd) {
                                              reason they still have cases: a reader who knew the
                                              old surface is owed the replacement, and an entry
                                              point that simply vanishes hands them a bare
-                                             unknown-command (§13.2's precedent).
+                                             unknown-command (the settled-strand-set input's precedent).
 
  At a wait that declares a gate, the executor WRITES the run declaration and names its path.
  Render it through AskUserQuestion — options verbatim, nothing pre-selected, free text always on
