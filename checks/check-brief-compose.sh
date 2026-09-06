@@ -20,9 +20,11 @@
 # a case drives an act that refuses, assert WHICH refusal landed and read the
 # EXIT STATUS beside it — a negative-only assertion goes green the day some
 # earlier clause refuses first, reporting an arm exercised that was never
-# reached. The same shape is recorded case-locally at (r) AC4/AC5 and at
-# (l) AC5; this note is what makes the next one recognisable before it is
-# written.
+# reached. The same shape is recorded case-locally by the AC4 and AC5 notes of
+# (r) THE POST-HOC DISCLOSURE SLOT (kogaki#866) — the CASE LETTERS ARE REUSED
+# in this file, so that case is named rather than pointed at by letter: a
+# second (r) and a second (l) exist, and a bare letter resolves to two places.
+# This note is what makes the next one recognisable before it is written.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -731,7 +733,8 @@ try {
   // would be absent, and the case would report the arm as admitting an
   // option-plus-comment selection it never evaluated. That is the
   // ASSERTION-BINDS-A-PROXY shape stated at the head of this file and recorded
-  // against itself at (r) AC4/AC5 above.
+  // against itself by the AC4/AC5 notes of (r) THE POST-HOC DISCLOSURE SLOT
+  // above — named rather than lettered, because a second (r) case exists.
   const bothErr = bothAdopt.stderr || "";
   if (bothAdopt.status === 0) {
     fails.push("(g6) adoption of an option-plus-comment selection SUCCEEDED with no --ratification — it no longer stops at the ratification barrier, so this case's anchor is gone and what it exercises is unknown");
