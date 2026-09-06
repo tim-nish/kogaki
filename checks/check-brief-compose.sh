@@ -2411,6 +2411,16 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // fourth instance and filing it. A hard-coded list here would be a fifth copy of
 // the very enumeration that drifted.
 //
+// THE COMPARATOR IS SCOPED AND WORD-BOUND (PR #941 round 1). It reads step 7
+// of the skill — the one step that authors Steps — and not the whole file, so a
+// field named only in the revise-pass prose 140 lines below is NOT covered; and
+// it matches a field name at word boundaries, so `figure` is not covered by
+// `figure_roles` standing alone. Both are asserted below through the same
+// comparator. And the derivation is checked by a LENGTH FLOOR, never by a
+// transcribed list of names: a list here would be the fifth copy of the
+// enumeration, and it would go red on a legitimate spec edit that retires a
+// field, diagnosing a correct change as a derivation bug.
+//
 // WHAT IT DOES NOT PROVE, stated rather than implied: that the skill says the
 // RIGHT thing about a field. A mention is mechanically checkable and adequacy is
 // not — this refuses the silence, which is the defect the class was found by,
@@ -2440,19 +2450,24 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
     // the negative direction exercises the code the positive one runs and not a
     // restatement of it.
     const uncovered = (specText, skillText) =>
-      optionalFields(specText).filter((f) => !skillText.includes(f));
+      optionalFields(specText).filter((f) => !new RegExp(`\\b${f}\\b`).test(skillText));
+    // STEP 7 ONLY. The block runs from the `7. **Compose` item to the next
+    // numbered item; a skill whose step 7 cannot be found is refused rather than
+    // read whole, because "read the whole file" is exactly the weakening this
+    // scoping exists to refuse.
+    const step7Of = (skillText) => {
+      const m = /^7\. \*\*Compose[\s\S]*?(?=^8\. \*\*)/m.exec(skillText);
+      return m ? m[0] : null;
+    };
 
     const optional = optionalFields(spec);
     if (optional.length < 4) {
       fails.push(`(y) §4.1's optional-field bullets yielded ${optional.length} field(s) — the derivation stopped matching the spec's own form, and a list that silently empties reports every field as covered`);
     }
-    for (const field of ["introduces", "bridges", "opens_section", "figure", "figure_roles"]) {
-      if (!optional.includes(field)) {
-        fails.push(`(y) the derivation missed \`${field}\`, which §4.1 declares as an optional Step field with its own subsection — a derivation that drops a field reports it as covered`);
-      }
-    }
-    for (const field of uncovered(spec, skill)) {
-      fails.push(`(y) §4.1 declares \`${field}\` as an optional Step field with its own subsection, and ${skillPath} never names it — the field can be validated, serialized and disclosed while the one act that authors Steps is never told to write it, with every check green because the default is none (kogaki#935)`);
+    const step7 = step7Of(skill);
+    if (step7 === null) fails.push(`(y) step 7 of ${skillPath} was not found — the coverage test is scoped to the step that authors Steps, and an unlocatable step is not a pass`);
+    for (const field of uncovered(spec, step7 || "")) {
+      fails.push(`(y) §4.1 declares \`${field}\` as an optional Step field with its own subsection, and step 7 of ${skillPath} never names it — the field can be validated, serialized and disclosed while the one act that authors Steps is never told to write it, with every check green because the default is none (kogaki#935)`);
     }
     // THE NEGATIVE DIRECTION, run through the SAME comparator. A test that only
     // ever looks for fields that are present cannot tell "all covered" from
@@ -2463,6 +2478,19 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
     }
     if (uncovered(synthSpec, "the composer writes frobnicate on the Step").length !== 0) {
       fails.push("(y) a field the skill DOES name was reported uncovered — the comparator refuses the covered case");
+    }
+    // WORD-BOUND: a name that is a prefix of another name is not covered by the
+    // longer one — `figure` by `figure_roles` is the live instance.
+    if (uncovered("- **`figure`** — optional; §4.16.\n", "only figure_roles is written here").length !== 1) {
+      fails.push("(y) `figure` was reported covered by `figure_roles` alone — the comparator is a substring match, and the field kogaki#935 was filed for can vanish from step 7 with the case green");
+    }
+    // SCOPED: a mention outside step 7 does not count, and a mention inside does.
+    const synthSkill = (inside, outside) => `6. **Name**\n7. **Compose** ${inside}\n8. **Review** ${outside}\n`;
+    if (uncovered(synthSpec, step7Of(synthSkill("nothing", "frobnicate")) || "").length !== 1) {
+      fails.push("(y) a field named only OUTSIDE step 7 was reported covered — the scoping to the step that authors Steps is not applied");
+    }
+    if (uncovered(synthSpec, step7Of(synthSkill("frobnicate", "nothing")) || "").length !== 0) {
+      fails.push("(y) a field named INSIDE step 7 was reported uncovered — the step-7 slice does not reach its own text");
     }
     // AND THE DERIVATION IS SELECTIVE. A REQUIRED §4.1 bullet carries no
     // `optional` and no subsection pointer, so it must not enter the list:
@@ -2625,7 +2653,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three, plus kogaki#934's three, plus kogaki#935's three = 46. "
   + "THE UNIT OF THE COUNT IS A TRIAL TAKEN, NEVER A DISTINCT PHYSICAL MUTATION (kogaki#889), and it is declared because leaving it implicit has now produced a finding: two heads may apply the SAME EDIT against DIFFERENT assertions, and that is two trials rather than one counted twice — kogaki#520 deleted the per-option `rendering` against (j)'s LABEL assertions and kogaki#859 deleted it against (j)'s KEY-PRESENT one, at two heads, and both runs happened. Read as physical mutations the enumeration double-counts; read as trials it does not, and the second reading is the one kogaki#568's own ground already commits this paragraph to — \u0022the tally counts both, because the historical evidence was real when it was taken\u0022. A SUPERSEDED ENTRY THEREFORE STAYS COUNTED, and what it owes is the past-tense marking below rather than removal, since a deleted mutation and a superseded one read identically to a later reader. Owner decision at the kogaki#889 gate, recorded rather than re-derived per sitting. "
   + "KOGAKI#935'S THREE, all against case (y), and all three are about the case being ABLE TO FAIL rather than about the repair — which is the point: the defect (y) names is a check that stayed green while a field went unauthored, so a vacuous (y) would reproduce it one layer up. "
-  + "Restoring the pre-#935 authoring skill is the load-bearing one: it fails (y) three times over, once each for `opens_section`, `figure` and `figure_roles`, which is the direct evidence that the case reads the real carrier and not a fixture. "
+  + "Restoring the pre-#935 authoring skill is the load-bearing one: it fails (y) four times over, once each for `bridges`, `opens_section`, `figure` and `figure_roles` (`bridges` joined at PR #941 round 1, when the comparator was scoped to step 7 and the field's only mention was the revise-pass prose below it), which is the direct evidence that the case reads the real carrier and not a fixture. "
   + "Neutering the comparator to report every field covered fails (y)'s synthetic-absent assertion and nothing else — the direct evidence that the negative direction runs through the SAME comparator the positive one does, since a restated negative would have passed this. "
   + "Sweeping every backticked §4.1 bullet into the list, rather than only the bullets carrying `optional` and a subsection pointer, fails (y)'s required-field assertion AND six of its coverage assertions, which shows the derivation reads the bullet's FORM and is not a grep for backticks. "
   + "Control: unmutated, the member exits 0, so the refusals discriminate rather than refusing everything. "

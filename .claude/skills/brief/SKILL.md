@@ -134,6 +134,14 @@ kogaki#494).
    introductions is the whole of what you owe. What it buys is that an
    unintroduced term becomes **addressable** — responsibility lands on the
    first Step carrying it, or on the Brief when no Step does.
+   Carry **`bridges: [<predecessor>, <successor>]`** on a Step you INSERT
+   between two adjacent Steps to repair a causal gap (§4.11, optional) —
+   exactly the two neighbours' ids. It marks and never constrains: the
+   placement contract (its `reader_state_before` is the predecessor's
+   `reader_state_after`, its `reader_state_after` supplies what the successor
+   requires, `depends_on` updated across the splice) is what makes the Step
+   well-placed, and `bridges` records only that it was inserted — a fact about
+   the Brief's history that no shape reveals. It mints no Move.
    Declare **`opens_section: <title>`** on each Step that opens a Section
    (§4.15, optional), and leave it absent on a Step that continues one — one
    key, whose *presence* marks the opening and whose *value* is the title. A
