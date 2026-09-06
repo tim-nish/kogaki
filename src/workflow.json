@@ -1,19 +1,19 @@
 {
   "version": 15,
-  "governing_text": "specs/spec-terrain/SPEC.md §15",
+  "governing_text": "specs/spec-terrain/SPEC.md, the control plane",
   "licensed_by": "kogaki#861 — this carrier holds the CURRENT control plane only. It is not a version ledger: superseded states, defect specimens and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it. Ratification is a human act: nothing denies an edit no issue licensed, and these two fields gate no code path.",
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
-    "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (§15.5) and renders under the grammar_surface THIS STATE declares, never one bound to the artifact path.",
-    "judgment": "Reaches a declared judgment point. The judgment arrives as a typed record; the executor validates and never composes it (SPEC §15.6).",
-    "wait": "The executor stops. Nothing further runs until the owner speaks and the session re-enters (SPEC §15.2, §15.4).",
-    "terminal": "The run is over. Runs nothing, writes nothing, and the executor stops without awaiting an owner. Distinct from `compute` because a generic interpreter holds no state list of its own (SPEC §15.1) and must read the end from the table rather than from position."
+    "write": "Runs a renderer bound to it and writes exactly one owner artifact. The renderer is private to the executor (write authority) and renders under the grammar_surface THIS STATE declares, never one bound to the artifact path.",
+    "judgment": "Reaches a declared judgment point. The judgment arrives as a typed record; the executor validates and never composes it (SPEC-terrain, the typed judgment points).",
+    "wait": "The executor stops. Nothing further runs until the owner speaks and the session re-enters (SPEC-terrain, the re-entrant executor and the wait rule).",
+    "terminal": "The run is over. Runs nothing, writes nothing, and the executor stops without awaiting an owner. Distinct from `compute` because a generic interpreter holds no state list of its own (SPEC-terrain, the workflow table) and must read the end from the table rather than from position."
   },
   "field_semantics": {
-    "renders_gate_declaration": "Required on every state. `true` only where the state renders a gate declaration for AskUserQuestion, and `true` is what SCHEDULES the executor's composition of that state's declaration. It is a statement about the table and never about the runtime asking — §6.3's question allowlist for the post-tag window is empty and stays empty; the executor writes a file and stops.",
+    "renders_gate_declaration": "Required on every state. `true` only where the state renders a gate declaration for AskUserQuestion, and `true` is what SCHEDULES the executor's composition of that state's declaration. It is a statement about the table and never about the runtime asking — the post-tag-selection window's question allowlist for the post-tag window is empty and stays empty; the executor writes a file and stops.",
     "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states.",
     "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
-    "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. The binding is per state, never per artifact path (SPEC §15.5).",
+    "grammar_surface": "Required on every state whose `writes` is non-null, and absent otherwise. Names the report-format.json surface whose line_class allowlist governs THIS state's render. The binding is per state, never per artifact path (SPEC-terrain, write authority).",
     "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. A property this table exists to carry may not be read off a missing key, so the two conditions are one biconditional over the states array and NOT a count: this note deliberately enumerates no number of gate states, because the count moved from three to four at kogaki#856 and a note carrying it would have gone stale in the same commit — which is the defect kogaki#807 repaired one field over, in the `owner_reads` note that used to read \"Three keys\" and enumerate them."
   },
   "states": [
@@ -24,7 +24,7 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§3, §5, §14.3"
+      "governing": "the served-renderings input rule, the candidate model, the display-ID rule"
     },
     {
       "id": "TAG_SELECTION",
@@ -33,7 +33,7 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": true,
-      "governing": "§6.3, §15.4",
+      "governing": "the post-tag-selection window, the wait rule",
       "gate_id": "terrain-tag-selection"
     },
     {
@@ -43,7 +43,7 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§11"
+      "governing": "the open questions"
     },
     {
       "id": "J1_claims",
@@ -54,16 +54,16 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§7, §11"
+      "governing": "GroupClaim-first rendering, the open questions"
     },
     {
       "id": "CLAIM_REOFFER",
       "kind": "wait",
       "owner_supplies": "adoption of the recomposed claim, the original wording kept, or free text",
       "writes": null,
-      "conditional": "entered ONLY when a claim validated at J1_claims is pinned to a PROPER SUBSET of the member set its composition_pin served for that group. A full-group claim reaches no gate: §7 makes the full-group rendering per-invocation and not an adopted claim, so there is nothing to re-offer.",
+      "conditional": "entered ONLY when a claim validated at J1_claims is pinned to a PROPER SUBSET of the member set its composition_pin served for that group. A full-group claim reaches no gate: GroupClaim-first rendering makes the full-group rendering per-invocation and not an adopted claim, so there is nothing to re-offer.",
       "renders_gate_declaration": true,
-      "governing": "§7, §7 (the origin travels as an argument), §7.1 (a derived origin member set announces itself), §15.4",
+      "governing": "GroupClaim-first rendering (the origin travels as an argument), the rule that a derived origin member set announces itself (named by its content: no section of SPEC-terrain carries it at this head), the wait rule",
       "gate_id": "terrain-claim-reoffer"
     },
     {
@@ -71,11 +71,11 @@
       "kind": "judgment",
       "judgment_point": "semantic subdivision",
       "input_shape": "typed per-group record, judged: true, one entry per composed group, carrying the judge pin; each SubGroup carries a `coherence` label from the closed set tight | related | forced and a `coherence_why` sentence",
-      "refusal": "a missing group entry, a bare array, or an absent judge pin is refused; a SubGroup whose `coherence` is outside the closed set, or that carries no `coherence_why`, is refused — the label is the judge's and is never defaulted here; and a judged-EMPTY outcome for a group at or above the split threshold is refused, because at that size WHETHER to split is the engine's decision rather than the judge's (§8)",
+      "refusal": "a missing group entry, a bare array, or an absent judge pin is refused; a SubGroup whose `coherence` is outside the closed set, or that carries no `coherence_why`, is refused — the label is the judge's and is never defaulted here; and a judged-EMPTY outcome for a group at or above the split threshold is refused, because at that size WHETHER to split is the engine's decision rather than the judge's (semantic subdivision)",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§8, §8.1, §12.1"
+      "governing": "semantic subdivision, measurement before offering, the report identity"
     },
     {
       "id": "cotag_groups",
@@ -84,7 +84,7 @@
       "writes": "cotag_groups",
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§6.1, §6.2, §7, §14.2",
+      "governing": "the display's serve rule, the SubGroup threshold, GroupClaim-first rendering, the emit-time refusal",
       "grammar_surface": "cotag_groups in report-format.json"
     },
     {
@@ -94,19 +94,19 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": true,
-      "governing": "§6.3, §15.4",
+      "governing": "the post-tag-selection window, the wait rule",
       "gate_id": "terrain-id-selection"
     },
     {
       "id": "thesis_candidates",
       "kind": "judgment",
-      "judgment_point": "Thesis-candidate composition (§12.3)",
+      "judgment_point": "Thesis-candidate composition (the Thesis candidates)",
       "input_shape": "typed array of {claim, strands} objects, exactly `limits.thesis_candidates` of them, each combining 2 to 8 LessonDisplayIDs THIS report renders",
       "refusal": "a count other than the declared limit, a claim spanning more than one line, a strand list outside 2 to 8, a strand no entered Group or SubGroup carries, and a repeated strand are each refused",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§12.3, §13.4",
+      "governing": "the Thesis candidates, the neighborhood section's shape",
       "ordering": "AHEAD OF J3_neighborhood, and that is this row's whole reason for existing at this position (kogaki#861, owner ruling 2026-09-05). The neighborhood judgment names, per candidate, the Thesis candidate it serves; a target can only be refused against a candidate set that already exists, so the ids are FIXED here and J3 reads them. The alternative — one judgment composing candidates and neighborhood together — was declined: the model would supply the list and the targets into it in the same act, and nothing outside that act could refuse a target naming a candidate the same record invented."
     },
     {
@@ -116,7 +116,7 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§13.2, §13.4"
+      "governing": "the settled-strand-set input, the neighborhood section's shape"
     },
     {
       "id": "J3_neighborhood",
@@ -127,16 +127,16 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§13.4"
+      "governing": "the neighborhood section's shape"
     },
     {
       "id": "full_report",
       "kind": "write",
-      "does": "One Full Report over exactly the entered set, idempotent per §12.1's identity quadruple, carrying the provenance-neighborhood section.",
+      "does": "One Full Report over exactly the entered set, idempotent per the report identity quadruple, carrying the provenance-neighborhood section.",
       "writes": "full_report",
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§12, §12.1, §12.2, §13",
+      "governing": "the Full Report, the report identity, location and naming, the provenance neighborhood",
       "grammar_surface": "full_report in report-format.json"
     },
     {
@@ -146,7 +146,7 @@
       "writes": null,
       "conditional": "entered only when a trim is proposed",
       "renders_gate_declaration": true,
-      "governing": "§2.2, §2.3",
+      "governing": "presentation-only grouping, the second-proposer boundary",
       "gate_id": "terrain-trim-ratification"
     },
     {
@@ -156,7 +156,7 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": true,
-      "governing": "§2.3",
+      "governing": "the second-proposer boundary",
       "gate_id": "terrain-strand-selection"
     },
     {
@@ -166,7 +166,7 @@
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "§4"
+      "governing": "the out-of-scope decision"
     }
   ],
   "counted_baseline": {
@@ -180,39 +180,39 @@
     "cotag_groups": {
       "path": "reports/CoTagGroups.md",
       "writer": "one private CoTagGroups renderer, called by the writing state the table binds it to",
-      "rule": "overwritten on every render; ONE writer, private to the executor (SPEC §15.5)"
+      "rule": "overwritten on every render; ONE writer, private to the executor (SPEC-terrain, write authority)"
     },
     "full_report": {
       "path": "reports/FullReport.md",
       "writer": "one private report renderer",
-      "rule": "overwritten per pull; identity is §12.1's quadruple (pin, query, judge pin, neighborhood judgment record)",
+      "rule": "overwritten per pull; identity is the report identity's quadruple (pin, query, judge pin, neighborhood judgment record)",
       "grammar_surface": "full_report in report-format.json"
     }
   },
   "owner_surface_coverage": {
-    "rule": "DENOMINATOR = the states in this file whose `writes` is non-null (every surviving owner surface, since §15.5 makes a writing state the only thing that may write one). NUMERATOR = those of them whose `grammar_surface` names a surface present in report-format.json's `surfaces`. A removed subcommand contributes to NEITHER term: it is not a surviving surface, so removal moves the denominator and never the numerator.",
+    "rule": "DENOMINATOR = the states in this file whose `writes` is non-null (every surviving owner surface, since write authority makes a writing state the only thing that may write one). NUMERATOR = those of them whose `grammar_surface` names a surface present in report-format.json's `surfaces`. A removed subcommand contributes to NEITHER term: it is not a surviving surface, so removal moves the denominator and never the numerator.",
     "at_this_version": "2 of 2",
-    "recomputed_never_transcribed": "`at_this_version` is a convenience for a human reader and carries no authority. On any disagreement the rule above wins and the field is repaired — never the rule to the figure. No registered check executes the rule (SPEC §15.8)."
+    "recomputed_never_transcribed": "`at_this_version` is a convenience for a human reader and carries no authority. On any disagreement the rule above wins and the field is repaired — never the rule to the figure. No registered check executes the rule (SPEC what is not carried)."
   },
   "bound_to_a_state": {
     "survey": "the survey state",
-    "cotags": "the cotag_groups state. CALLABLE for composition, REFUSED at the owner artifact: a standalone invocation whose rendering destination resolves to the repository's `reports/` fails rather than writing CoTagGroups.md (§15.5). Redirect it and the composition proceeds — a rendering whose lifetime is the run is not an owner artifact (specs/SPEC.md §2.5.1).",
+    "cotags": "the cotag_groups state. CALLABLE for composition, REFUSED at the owner artifact: a standalone invocation whose rendering destination resolves to the repository's `reports/` fails rather than writing CoTagGroups.md (write authority). Redirect it and the composition proceeds — a rendering whose lifetime is the run is not an owner artifact (specs/SPEC.md's lifetime discriminator — lifetime, not format or audience-in-principle).",
     "compose-input": "the compose_input state",
-    "report": "the full_report state. Same write authority as `cotags`: callable for composition, and refused where the destination resolves to the repository's `reports/`, so FullReport.md is written only from the writing state the table binds the renderer to (§15.5)."
+    "report": "the full_report state. Same write authority as `cotags`: callable for composition, and refused where the destination resolves to the repository's `reports/`, so FullReport.md is written only from the writing state the table binds the renderer to (write authority)."
   },
   "removed_entry_points": {
-    "claim": "becomes J1_claims. The claims record is composed OUTSIDE the runtime and arrives as a file carrying its `composition_pin` (§15.6); the state validates it and refuses claims naming material outside the bounded read. The composition does not move into the state — only the validation does.",
-    "adopt": "becomes CLAIM_REOFFER's captured answer, applied on resume (§15.6.1).",
-    "subdivide": "becomes J2_subdivision, INCLUDING the composition the standalone command performed — subgroup placement from the judge's classification, the per-subgroup instruments, and the SUBDIVISION_COVER_INCOMPLETE refusal. §2.1 makes completeness a cover COUNTED IN PLACEMENTS, which is a runtime refusal; leaving it to the outside composer would move a ratified refusal out of the runtime, so the state accepts the classification record and composes under it (§15.6.2).",
+    "claim": "becomes J1_claims. The claims record is composed OUTSIDE the runtime and arrives as a file carrying its `composition_pin` (the typed judgment points); the state validates it and refuses claims naming material outside the bounded read. The composition does not move into the state — only the validation does.",
+    "adopt": "becomes CLAIM_REOFFER's captured answer, applied on resume (the claim re-offer wait).",
+    "subdivide": "becomes J2_subdivision, INCLUDING the composition the standalone command performed — subgroup placement from the judge's classification, the per-subgroup instruments, and the SUBDIVISION_COVER_INCOMPLETE refusal. the placement cover makes completeness a cover COUNTED IN PLACEMENTS, which is a runtime refusal; leaving it to the outside composer would move a ratified refusal out of the runtime, so the state accepts the classification record and composes under it (subdivide's composition fold).",
     "act": "becomes TRIM_RATIFICATION's proposal record, composed by the executor when that wait is entered (`composeTrimProposal`).",
     "gate": "becomes the declaration the executor composes at any wait declaring `renders_gate_declaration: true`, through the option composer bound to that state.",
     "capture": "becomes the answer the executor records at the wait that declared the gate.",
     "tags": "becomes the `tag_listing` the executor carries in the TAG_SELECTION gate declaration (kogaki#856). The rendering is unchanged; what moved is the channel — the session renders the declaration through AskUserQuestion and the listing reaches the screen before the question, so no stop names a command for the owner to type."
   },
   "retired_entry_points": {
-    "neighborhood": "retired (SPEC §13.2); the section rides every `report` pull. The case survives to fail with that pointer and emits no owner surface.",
+    "neighborhood": "retired (SPEC-terrain, the settled-strand-set input); the section rides every `report` pull. The case survives to fail with that pointer and emits no owner surface.",
     "tag-rows": "retired with no successor (owner ruling 2026-09-04, kogaki#856): with over 100 served tags there is no demonstrated demand for browsing one tag's Lessons individually. This is a RECORDED DECLINE and not a re-siting — the surface, its grammar and its renderer are gone, and the case survives to fail with that pointer. consulted: product-lab@7e1bba09ae982ffa7e322463fdb052379c77a77d LESSONS.md:77",
-    "cotag-selection": "retired with no successor (owner ruling 2026-09-04, kogaki#856): it printed the first-tag table a second time after the tag was chosen, and the table now sits above the TAG_SELECTION question. §6.0.1, the `cotag_selection` grammar block and the `--intent` bound go with it. The case survives to fail with that pointer."
+    "cotag-selection": "retired with no successor (owner ruling 2026-09-04, kogaki#856): it printed the first-tag table a second time after the tag was chosen, and the table now sits above the TAG_SELECTION question. the `cotag_selection` grammar (retired; no section of SPEC-terrain carries it at this head) block and the `--intent` bound go with it. The case survives to fail with that pointer."
   },
   "non_flow_entry_points": {
     "self-test": "seam-free identity-cite fixture pass; emits no owner surface, carries no sequencing authority",
