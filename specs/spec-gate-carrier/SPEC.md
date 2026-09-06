@@ -1,5 +1,22 @@
 # SPEC-gate-carrier — the gate carrier
 
+**Status:** v7, amended 2026-09-06 (kogaki#961, owner selection at the
+/ship-cycle gate) — **the capture name is a DECLARED KEY every producer reads,
+which v1–v6 asserted and no producer honoured.** §4 named the capture
+population as `*.gate-capture.json` and `src/gate-schema.json` declared that
+glob, while all five producers of a capture filename wrote the name out and only
+the readers derived from the declaration — so the schema and the filesystem
+agreed by coincidence of two independently written literals, and moving the
+declared value turned the readers red while nothing about the product changed.
+The FORM was the cause: a producer composes a filename by concatenation, so a
+bare suffix is honourable and a glob is not, which is why the sibling key
+`run_declaration_suffix` was honoured at every writer for as long as this one
+was honoured at none — one line apart in `src/brief.mjs`. v7 declares
+`capture.suffix` in its place, every producer derives from it, and a scanner
+that needs a pattern composes `"*" + suffix`. **No clause below is loosened and
+the capture population is unchanged** — the same files are looked at, under a
+name that now has one definition site.
+
 **Status:** v6, amended 2026-09-05 (kogaki#890, owner selection at the
 /ship-cycle gate) — **§10 binds WHO WRITES a capture, which v1–v5 never said.**
 Every clause before this one binds a capture's SHAPE — its rows, its evidence
@@ -15,7 +32,7 @@ belong to one raising, and states why that key is a nonce and not a digest.
 **Status:** v5, amended 2026-09-05 (kogaki#891, PR #911 round 1) — **§4.1 says
 WHICH sibling declaration is the target, not just that a sibling is.** v4 named
 it `<gate_id>.run-declaration.json`, which holds only where a directory holds one
-run. A capture keyed on its RUN — `<run-state stem>.<gate_id>.gate-capture.json`,
+run. A capture keyed on its RUN — `<run-state stem>.<gate_id>` + `capture.suffix`,
 the name `src/brief.mjs` writes so that two entries over one settled Strand set
 cannot share a declaration — was compared against a name that never matched, so
 the check silently fell back to the registry and every conforming Brief run would
@@ -211,9 +228,13 @@ hook already reads.
 
 ## 4. Payload and answer capture, with the gate-less row
 
-Capture files are any `*.gate-capture.json` in the **working tree** — a
-default carrier, not an enumerated directory, for the same reason item 3 chose
-one. "Working tree" rather than "the tree", because that word is the homonym
+Capture files are any file in the **working tree** whose name ends in
+`src/gate-schema.json`'s `capture.suffix` (`.gate-capture.json`; a scanner
+needing a pattern composes `"*" + suffix`, v7, kogaki#961) — a default carrier,
+not an enumerated directory, for the same reason item 3 chose one. **The suffix
+is named by the declaration and never written out**: every producer of a capture
+filename derives it, so a change to the field is a change to the product rather
+than a change only the readers feel. "Working tree" rather than "the tree", because that word is the homonym
 §4.1 was written to resolve: a machine-local run workspace is in the working
 tree and never in the committed one, and reading it the other way is what made
 a conforming run fail.
@@ -248,8 +269,8 @@ declaration is the comparison target.**
   that owed it, and it is the only artifact that can hold an option composed
   for that run.
 - **Which sibling (v5, kogaki#891).** The declaration's name is derived from
-  the capture's OWN name — the capture name with the `*.gate-capture.json`
-  suffix replaced by `run_declaration_suffix` — and `<gate_id>` +
+  the capture's OWN name — the capture name with `capture.suffix` replaced by
+  `run_declaration_suffix` — and `<gate_id>` +
   `run_declaration_suffix` is tried second. v4's name assumed one run per
   directory. Where two can share a workspace the declaration and the capture
   are both keyed on the RUN STATE and not on the directory
@@ -273,7 +294,7 @@ simply names the run's options instead of the class's, and equality is then
 decidable against something that can actually be equal to what was offered.
 The capture population is untouched: `src/gate-schema.json`'s
 `"scope": "anywhere in the repository"` still governs which files are looked
-at, and the fix is entirely in what a capture is compared *to*.
+at, under the `capture.suffix` name v7 declares, and the fix is entirely in what a capture is compared *to*.
 
 **Why the rule needed its scope written down.** The registry's own
 `dynamic_options` prose said the run declaration lives in "the machine-local

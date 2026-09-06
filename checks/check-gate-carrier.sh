@@ -3,9 +3,10 @@
 # kogaki#16, umbrella kogaki#14).
 #
 # Validates the declared gate registry (src/gate-registry.json) and every gate
-# capture file (*.gate-capture.json, anywhere in the tree) against
-# src/gate-schema.json — the single carrier, whose field
-# lists this check READS rather than restates.
+# capture file — named by `capture.suffix`, anywhere in the tree — against
+# src/gate-schema.json, the single carrier, whose field lists this check
+# READS rather than restates. The capture NAME is one of them (kogaki#961):
+# the scanner composes `"*" + suffix` rather than carrying a literal.
 #
 # Three properties are this check's alone and overlap nothing in
 # check-proposal-contract.sh (which binds a proposal RECORD and by its own
@@ -156,7 +157,7 @@ def declaration_candidates(gate_id, capture_path):
 
     A capture is named by its RUN, not by its gate, wherever two run states can
     share one workspace: `src/brief.mjs` writes
-    `<run-state stem>.<gate_id>.gate-capture.json` beside
+    `<run-state stem>.<gate_id>` + `capture.suffix` beside
     `<run-state stem>.<gate_id>.run-declaration.json`, because a gate_id-only
     name gives two entries over the same settled Strand set ONE declaration and
     ONE capture between them. So the first candidate is derived from the
@@ -170,10 +171,10 @@ def declaration_candidates(gate_id, capture_path):
     adoption — the failure the run-state keying exists to close.
     """
     suffix = schema["capture"]["run_declaration_suffix"]
-    glob_suffix = schema["capture"]["glob"].lstrip("*")
+    capture_suffix = schema["capture"]["suffix"]
     names = []
-    if capture_path.name.endswith(glob_suffix):
-        names.append(capture_path.name[:-len(glob_suffix)] + suffix)
+    if capture_path.name.endswith(capture_suffix):
+        names.append(capture_path.name[:-len(capture_suffix)] + suffix)
     if gate_id is not None and f"{gate_id}{suffix}" not in names:
         names.append(f"{gate_id}{suffix}")
     return [capture_path.parent / n for n in names]
@@ -367,8 +368,13 @@ nonce_gates = {g.get("id") for g in gates if g.get(NONCE_KEY)}
 registered_options = {g.get("id"): [o.get("id") for o in (g.get("options") or [])]
                       for g in gates}
 
-# 2. Capture files — the default carrier: any *.gate-capture.json in the tree.
-captures = sorted(p for p in root.rglob("*.gate-capture.json")
+# 2. Capture files — the default carrier: any capture file in the tree, named
+#    by the schema's own `capture.suffix` rather than by a literal repeated
+#    here (kogaki#961). The scanner pattern is composed as "*" + suffix: the
+#    DECLARED value is the suffix, because that is the form a producer can
+#    concatenate, and a glob is not.
+CAPTURE_SUFFIX = schema["capture"]["suffix"]
+captures = sorted(p for p in root.rglob("*" + CAPTURE_SUFFIX)
                   if ".git" not in p.parts and fixtures not in p.parents)
 capture_rows = 0
 gateless_rows = 0
@@ -413,7 +419,7 @@ def fixture_paths(kind):
     target, and the fixture directory is shaped like a real run workspace so
     that the filesystem lookup under test is the same one the production path
     performs. Excluding it here is what keeps that possible: this glob is
-    `*.json` while the real capture scanner globs `*.gate-capture.json`, so
+    `*.json` while the real capture scanner globs `"*" + capture.suffix`, so
     only here could a declaration be mistaken for a subject.
     """
     suffix = schema["capture"]["run_declaration_suffix"]
@@ -512,7 +518,7 @@ else:
           "specs/SPEC.md:109-112)")
     print("coverage: 0/0 — vacuous by construction, stated rather than omitted; "
           "the registry is what would make the fraction mean anything")
-print(f"captures: {len(captures)} *.gate-capture.json, {capture_rows} row(s), "
+print(f"captures: {len(captures)} *{CAPTURE_SUFFIX}, {capture_rows} row(s), "
       f"{gateless_rows} of them gate-less (a legitimate row class, not a crash)")
 print(f"fixtures: {len(fixture_paths('conforming'))} conforming "
       f"accepted, {len(fixture_paths('nonconforming'))} "

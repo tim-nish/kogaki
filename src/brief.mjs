@@ -694,7 +694,7 @@ function thesisGatePaths(runPath, gateId) {
   return {
     dir,
     decl: join(dir, `${stem}.${gateId}${gateSchema().capture.run_declaration_suffix}`),
-    cap: join(dir, `${stem}.${gateId}.gate-capture.json`),
+    cap: join(dir, `${stem}.${gateId}${gateSchema().capture.suffix}`),
   };
 }
 
