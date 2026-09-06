@@ -1,0 +1,72 @@
+{
+  "note": [
+    "The figure record's contract, machine-readable (kogaki#878).",
+    "",
+    "A figure record is the INSTANCE of a Move's `visual_form` in the sense a",
+    "Step is the instance of a Move: the form names roles and says nothing a",
+    "reader sees (src/figure-kinds.json), the Brief binds each role to one of",
+    "the Step's grounds (SPEC-draft-pipeline 4.16), and this record is where",
+    "each bound ground is finally worded for the reader.",
+    "",
+    "src/draft.mjs READS these lists rather than restating them, the same",
+    "arrangement src/recovered-schema.json has with src/review-draft.mjs: the",
+    "record's shape is amended in one place and never in two that agree until",
+    "one is edited.",
+    "",
+    "THE ROLE SET IS NOT HERE, and that is deliberate. `elements` is keyed by",
+    "the roles of the record's own kind, which src/figure-kinds.json holds and",
+    "the Move's form selects. Copying a role set into this file would be a",
+    "second vocabulary that drifts from the closed one; the validator joins the",
+    "two files instead.",
+    "",
+    "THE RECORD IS FILLED AFTER THE PROSE. That is the hub's third moment --",
+    "concrete design after the text -- and it is why `caption` is stated in the",
+    "Step's `reader_state_after` terms: the caption says what the reader holds",
+    "after looking, which is only answerable once what they have read exists.",
+    "",
+    "NOTHING HERE JUDGES WORDING. Whether an element's text is a fair wording",
+    "of its ground, and whether the relations instantiate the kind's `relation`",
+    "line, are judgments -- 4.6's rule that a missing field is refused and a",
+    "weak one is not. The mechanical half is: every role present, no extra",
+    "role, every element bound to the ground the BRIEF bound that role to, the",
+    "kind equal to the form's, and a position from the closed pair."
+  ],
+  "version": "1",
+  "required": ["kind", "elements", "relations", "caption", "position"],
+  "optional": ["emphasis"],
+  "fields": {
+    "kind": {
+      "type": "string",
+      "from": "src/figure-kinds.json",
+      "why": "the record's kind is the FORM's kind, not a choice made at realization -- a record that picked its own would be the realization re-opening a decision the Move library and the Brief already made"
+    },
+    "elements": {
+      "type": "object",
+      "keyed_by": "the roles of this record's kind",
+      "item_required": ["text", "ground"],
+      "text_key": "text",
+      "ground_key": "ground",
+      "why": "one element per role, each carrying the reader-facing wording and the ground address it was worded from -- the address is what lets a later reader, and kogaki#880's review, join an element back to what licensed it"
+    },
+    "relations": {
+      "type": "array",
+      "of": "string",
+      "min": 1,
+      "why_min": "a figure asserting no relation between its elements is a list, and the kind's whole content is the relation it holds -- an empty array is a record that did not do the one thing the form asks for"
+    },
+    "emphasis": {
+      "type": "string",
+      "must_be": "a role of this record's kind",
+      "why": "emphasis names WHICH element the figure leans on, so a value outside the role set points at nothing the renderer can mark"
+    },
+    "caption": {
+      "type": "string",
+      "why": "the line rendered under the block, in the Step's `reader_state_after` terms -- what the reader holds after looking"
+    },
+    "position": {
+      "type": "string",
+      "one_of": ["before", "after"],
+      "why": "the anchor is the Step, and within the Step a figure either sets the prose up or discharges it; a third value would be a placement the body assembly has no seat for"
+    }
+  }
+}

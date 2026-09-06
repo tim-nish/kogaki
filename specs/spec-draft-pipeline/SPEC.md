@@ -1,5 +1,16 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v34, amended 2026-09-06 (kogaki#878) — **§4.17: the figure record,
+the instance of the Move's form, filled AFTER the Step's prose.** §4.16 landed
+the Brief's figure decision and its grammar, and nothing on the realization side
+read it — a Brief could declare a figure perfectly and the Draft would render
+none, with every check green. The record is filled from the Step's Packet plus
+one appended block and from nothing else, its kind is the form's, and each
+element is bound to the ground **the Brief** bound that role to; `emit` refuses
+while a figure-carrying Step owes its record, exactly as it refuses a Step that
+owes its prose. The mechanical half is validated and the wording is judged
+nowhere, per §4.6. **deferred slots minted by this amendment: none.**
+
 **Status:** v33, amended 2026-09-06 (kogaki#909) — **Candidate-level
 disclosure evidence gets ONE test instead of a paragraph per field.** Evidence
 that BEARS ON THE CHOICE the owner is making is decision-grade and reaches the
@@ -70,7 +81,7 @@ item 2 — its structure half.
 No runtime reads this file. The Brief and Draft lanes are driven by their own
 carriers — `src/compose.mjs`, `src/brief.mjs`, `src/assemble.mjs`,
 `src/draft.mjs`, `src/packet-template.md`, `src/specialization-schema.json`,
-`src/gate-registry.json`, `src/figure-kinds.json`,
+`src/gate-registry.json`, `src/figure-kinds.json`, `src/figure-schema.json`,
 `specs/move-extraction-contract.md` and the registered
 checks — and where one of those decides a question, this file points at it and
 does not restate it.
@@ -187,6 +198,7 @@ records forces it, and the collapse is a convenience that reads as tidiness.
 - **`bridges`** — optional; §4.11.
 - **`opens_section`** — optional; §4.15.
 - **`figure`** and **`figure_roles`** — optional, and they travel together; §4.16.
+  The record the pair eventually produces is §4.17's.
 
 **Why `move` is required.** `Step = Input + State`. The inputs are the Strands,
 the Thesis and previous Step output; **the Move is the State**, and
@@ -1187,6 +1199,98 @@ form load-bearing needs its own site, and §4.1 names every other optional Step
 field's subsection. What no carrier holds: why the figure decision belongs to the
 Brief rather than to realization, and why the count reaches the owner before
 adoption rather than after it.
+
+### 4.17 The figure record — the form's instance, filled after the prose
+
+**§4.16 decides WHETHER a Step carries a figure; this decides what the figure
+IS, and it is a different moment on purpose.** The hub's 2026-07-31 and
+2026-08-01 rulings sort figures into three moments — direction at the Brief as a
+disclosure, placement anchored to structure, **concrete design after the prose**
+— and the third is the one this section carries. A record filled before the text
+is a figure the text then has to match, which inverts the whole arrangement: the
+prose is the article and the figure carries what the prose leaves hard to hold.
+
+**The input is the Packet plus one block, and the block arrives only after
+`section`.** `section --step <id>` for a Step carrying `figure:` records the
+prose and then renders the **figure input**: the Step's Packet exactly as it was
+served, plus a block carrying
+
+- **the form** — its kind, and each role with the line the Move's `visual_form`
+  maps it to;
+- **the binding** — each role with the ground text the Brief bound it to,
+  quoted verbatim, licence included;
+- **the `figure:` reason line** from the Brief;
+- **the Step's realized prose**, verbatim;
+- **the instruction** — every element is one of the bound grounds worded for the
+  reader; the caption says what the reader holds after looking, in the terms of
+  `reader_state_after`; no element the grounds do not carry.
+
+**The block lives in `src/packet-template.md` behind a marker the Packet render
+splits away.** One model-facing template file, two consumers: a second file
+would be a second carrier for one surface, and the marker is what keeps the
+figure block out of every ordinary Packet. A template with no marker is refused
+rather than treated as having none — a template that cannot say where the Packet
+ends is one whose two halves nothing distinguishes.
+
+**The Packet stays the only input.** Nothing the model reads at realization is
+outside it: the form and the binding travel in the appended block, which the
+Harness composes from the Move record it already read to render the Packet. This
+is the owner's 2026-09-04 rule applied to figures.
+
+**The record is one JSON object, the instance of the form** in the sense a Step
+is the instance of a Move:
+
+    { "kind": "axis",
+      "elements": { "endpoint_a": {"text": "…", "ground": "g1"}, … },
+      "relations": [ … ],
+      "emphasis": "endpoint_b",
+      "caption": "…",
+      "position": "after" }
+
+`draft.mjs figure --step <id> --file <record.json>` validates it against
+`src/figure-schema.json` and the kind, stores it at
+`runs/draft/<slug>/figures/<id>.json`, and records its path and sha in
+`run.json`. The stored bytes are serialized in the **schema's** field order and
+not the input file's, because the sha is pinned downstream and a sha that moves
+without its content moving is a pin that answers for nothing.
+
+**The mechanical half, enumerated — and it is the whole of what is refused:**
+
+1. every role of the kind is present, and no role that is not;
+2. `kind` equals the **form's** kind — the record is the instance, so its kind
+   is the Move library's and the Brief's, never a choice made at realization;
+3. every element's `ground` is the address **the Brief** bound that role to — a
+   record that moves a role to another ground words it from material the
+   composer did not put under that position;
+4. `position` is one of the closed pair `before` / `after`;
+5. `emphasis`, where present, names a role of the kind;
+6. `relations` is non-empty and `caption` is non-empty.
+
+**Nothing here judges wording.** Whether an element's text is a fair wording of
+its ground, and whether the relations instantiate the kind's `relation` line,
+are judgments — §4.6's rule that a missing field is refused and a weak one is
+not. That is also why kogaki#880 reviews the figure by a **round trip** rather
+than by a lint here: the check that an element is entailed by its ground is
+owed against the *rendered* figure a reader meets, not against the record the
+renderer was given.
+
+**`emit` refuses while a figure-carrying Step owes its record**, naming the
+Step, exactly as it refuses a Step that owes its prose. A Draft emitted without
+it would silently drop a decision the owner made at the Candidate gate, and
+nothing downstream would report the drop.
+
+**A Brief that declares no figure is untouched by every clause above** — the
+default is NONE (§4.16), the appended block is never rendered, and `figure` on
+such a Step refuses by that fact rather than by a missing file.
+
+`necessity:` §4.16 carries the decision and its grammar and stops at the Brief;
+`src/figure-kinds.json` carries the closed kind set and explicitly declares that
+nothing in the draft pipeline reads it to decide anything. Neither says when the
+record is filled, from what, or what is refused about it — and the moment is the
+load-bearing part, because the ruling this section carries is about **order**.
+What no carrier holds: why the record is filled after the prose rather than
+beside it, and why the binding is the Brief's to make and the record's to
+honour rather than to re-open.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 

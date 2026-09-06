@@ -13,7 +13,7 @@
 // it realized or the judgment realizing it (§6), and neither is reachable by
 // this harness.
 //
-// Five commands, one per harness act:
+// Six commands, one per harness act:
 //   resolve  — parse the Brief; refuse a template BY FIELD NAME (a template
 //              is not an input); print the plan (closed Strand set, Steps in
 //              order); write the machine-local run record.
@@ -28,6 +28,11 @@
 //              diff artifact (the kogaki#523 constraint, §5).
 //   packet   — render the Step Packet: the model's ENTIRE input for one
 //              Step (§4.14, kogaki#749), deterministic and stored as served.
+//   figure   — accept one Step's figure record: the INSTANCE of its Move's
+//              visual_form, filled after that Step's prose is recorded
+//              (kogaki#878). Validated against src/figure-schema.json, the
+//              kind's role set, and the BRIEF's own role→ground binding; a
+//              record that moved a role to another ground refuses by role.
 //   emit     — assemble the CanonicalDraft: body = the sections in the
 //              Reader Path's recorded order, prose only; frontmatter = the
 //              record half (§5). Repo-visible under a fixed human name
@@ -48,7 +53,8 @@ import { fileURLToPath } from "node:url";
 // (src/compose.mjs), never a second copy here: two resolvers are two things
 // that can disagree about what a dangling move id is, and the refusal a
 // composer sees would stop matching the one a realizer sees.
-import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal } from "./compose.mjs";
+import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
+  figureRefusal, parseFigureRoles, figureKinds, visualFormOf, figureSteps } from "./compose.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 
 function fail(msg) {
@@ -180,7 +186,39 @@ export function parseBrief(text, path = "<brief>") {
       if (bad) { refusals.push(bad); continue; }
       opens_section = opensM[1].trim();
     }
-    steps.push({ step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, body });
+    // §4.16's `figure:`/`figure_roles:` (kogaki#877), read back from the
+    // serialized form `renderStep` writes. THE PARSE-BACK IS WHAT MAKES THE
+    // DECLARATION REACH THE PAGE: #877 landed the field, its grammar and its
+    // writer, and nothing on this side read it — so a Brief could declare a
+    // figure perfectly and the Draft would render none, with every check green.
+    // The same round-trip arrangement `introduces` and `opens_section` have,
+    // through the SAME shared grammar imported from the composition side: a
+    // writer and a reader disagreeing about what a binding is fails silently at
+    // exactly the field whose value reaches a rendered figure.
+    //
+    // `[ \t]*` and not `\s*`, for the reason `opens_section` states: `\s`
+    // spans a newline, so a blank `figure:` would capture the NEXT field's line
+    // as the figure's reason instead of refusing.
+    const figM = body.match(/^figure:[ \t]*(.*)$/m);
+    const rolesM = body.match(/^figure_roles:[ \t]*(.*)$/m);
+    let figure, figure_roles;
+    if (figM || rolesM) {
+      let parsedRoles;
+      if (rolesM) {
+        const r = parseFigureRoles(rolesM[1]);
+        if (r.error) { refusals.push(`the Brief at ${path}, step ${idM[1]}: figure_roles — ${r.error} (§4.16)`); continue; }
+        parsedRoles = r.roles;
+      }
+      // THE GRAMMAR IS THE COMPOSITION SIDE'S, not a second expression of it.
+      // A blank `figure:` reaches here as the empty string, which is what the
+      // shared refusal already calls a half-declaration.
+      const bad = figureRefusal(figM ? figM[1].trim() : undefined, parsedRoles,
+        `the Brief at ${path}, step ${idM[1]}`);
+      if (bad) { refusals.push(bad); continue; }
+      figure = figM[1].trim();
+      figure_roles = parsedRoles;
+    }
+    steps.push({ step_id: idM[1], move: moveM ? moveM[1] : null, introduces, opens_section, figure, figure_roles, body });
   }
   if (steps.length === 0 && refusals.length === 0) {
     refusals.push(`the Brief at ${path} carries no Reader Path steps — there is nothing to realize`);
@@ -506,6 +544,174 @@ function stepField(body, field) {
   return m ? m[1].trim() : null;
 }
 
+// ---------------------------------------------------------------------------
+// §4.17 — the figure record's realization-side machinery (kogaki#878).
+//
+// THE PACKET IS THE MODEL'S ENTIRE INPUT, AND THE FIGURE INPUT IS THAT PACKET
+// PLUS ONE BLOCK. The block is appended only for a Step carrying `figure:`,
+// and only AFTER that Step's prose is recorded — the hub's third moment,
+// concrete design after the text. It travels in the same template file as the
+// Packet, behind a marker the Packet render splits away, because a second
+// template file would be a second carrier for one model-facing surface.
+
+const FIGURE_INPUT_MARKER = "<!-- FIGURE-INPUT -->";
+
+// ONE SPLIT, TWO CONSUMERS. `renderPacket` takes the first half and would
+// otherwise refuse on the figure block's unfilled slots; `renderFigureInput`
+// takes the second. Both read the same file, so the marker cannot drift out
+// from under one of them.
+export function splitPacketTemplate(text) {
+  const at = text.indexOf(FIGURE_INPUT_MARKER);
+  if (at === -1) {
+    return { error: `the Packet template carries no ${FIGURE_INPUT_MARKER} marker — the figure block lives behind it (§4.17), and a template without it cannot say where the Packet ends` };
+  }
+  return { packet: text.slice(0, at).trimEnd() + "\n", figure: text.slice(at + FIGURE_INPUT_MARKER.length) };
+}
+
+// The Step's ground lines, in the order they are declared. `g<n>` addresses
+// this list 1-based (§4.16), and the address space is THIS Step's grounds —
+// which is what makes a role bound to another Step's ground unreachable rather
+// than refused by a rule.
+export function groundLines(step) {
+  return step.body.split("\n").filter((l) => l.startsWith("ground "));
+}
+// VERBATIM, THE WHOLE LINE. The binding block quotes what the Brief recorded,
+// including which Strand or Step effect licensed it: an element is that ground
+// worded for the reader, and a reader of the record who cannot see the licence
+// cannot tell a wording from an invention.
+export function groundAt(step, addr) {
+  const m = /^g([1-9][0-9]*)$/.exec(String(addr));
+  if (!m) return null;
+  return groundLines(step)[Number(m[1]) - 1] ?? null;
+}
+
+// The Move's form for one figure-carrying Step, with its roles in the CLOSED
+// SET'S declared order rather than the record's key order — the same record
+// must render the same bytes, and object key order is an accident of how the
+// file was written.
+export function figureFormFor(step, movesDir = "moves") {
+  const r = visualFormOf(step.move, movesDir);
+  if (r.error) return { error: `step ${step.step_id}: ${r.error}` };
+  if (!r.form) {
+    return { error: `step ${step.step_id} declares figure: and its move "${step.move}" carries no visual_form — a figure is the INSTANCE of its Move's form (§4.16). Composition refuses this, so a Brief reaching realization with it has had its Move edited since` };
+  }
+  const kinds = figureKinds().kinds || {};
+  const kind = r.form.kind;
+  if (!kind || !Object.prototype.hasOwnProperty.call(kinds, kind)) {
+    return { error: `step ${step.step_id}: move "${step.move}" declares visual_form kind ${JSON.stringify(kind ?? null)}, outside the closed set (${Object.keys(kinds).sort().join(", ")}) — src/figure-kinds.json is what admits a kind` };
+  }
+  const roles = kinds[kind].roles || [];
+  return { kind, roles, relation: kinds[kind].relation, lines: Object.fromEntries(roles.map((x) => [x, r.form[x] ?? null])) };
+}
+
+// The figure input: the stored Packet, unchanged, plus the filled block. The
+// Packet is passed in as the BYTES THAT WERE SERVED rather than re-rendered,
+// for the reason `cmdSection`'s backstop already gives — the record is what the
+// prose was realized from, and a fresh render answers for the file as it stands.
+export function renderFigureInput({ figureTemplate, packetText, step, form, prose }) {
+  const missing = form.roles.filter((r) => !form.lines[r]);
+  if (missing.length) {
+    return { error: `step ${step.step_id}: move "${step.move}"'s ${form.kind} form maps no vocabulary line for ${missing.map((x) => `"${x}"`).join(", ")} — ingestion refuses such a form (§6.9.3), so the library record has been edited since` };
+  }
+  const binding = [];
+  for (const role of form.roles) {
+    const addr = (step.figure_roles || {})[role];
+    const g = groundAt(step, addr);
+    if (g === null) {
+      return { error: `step ${step.step_id}: figure_roles binds "${role}" to ${JSON.stringify(addr ?? null)} and this Step has no such ground — composition refuses this (§4.16), so the Brief has been edited since it was adopted` };
+    }
+    binding.push(`- **${role}** — bound to \`${addr}\`:\n\n  ${g}`);
+  }
+  const fields = {
+    figure_kind: form.kind,
+    figure_form_roles: form.roles.map((r) => `- **${r}** — ${form.lines[r]}`).join("\n"),
+    figure_binding: binding.join("\n"),
+    figure_reason: step.figure,
+    figure_prose: prose.trim(),
+  };
+  let out = figureTemplate;
+  for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
+  const left = out.match(/\{\{(\w+)\}\}/);
+  if (left) return { error: `the figure block's slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (§4.17)` };
+  return { input: packetText.trimEnd() + "\n" + out };
+}
+
+// THE RECORD'S VALIDATION, and it is the MECHANICAL half only (§4.17). Every
+// role present, no extra role, the kind equal to the form's, each element bound
+// to the ground THE BRIEF bound that role to, a position from the closed pair,
+// a non-empty caption and at least one relation. Whether an element's wording
+// is fair to its ground, and whether the relations instantiate the kind's
+// relation line, are judgments — §4.6's rule that a missing field is refused
+// and a weak one is not, which is also why kogaki#880 reviews the figure by a
+// round trip rather than by a lint here.
+export function figureRecordRefusal(record, step, form, schema) {
+  const at = `the figure record for step ${step.step_id}`;
+  if (record === null || typeof record !== "object" || Array.isArray(record)) {
+    return `${at} is not a JSON object — the record is the instance of the Move's form, one object (src/figure-schema.json)`;
+  }
+  for (const key of schema.required) {
+    if (!Object.prototype.hasOwnProperty.call(record, key)) {
+      return `${at} carries no ${key} — src/figure-schema.json requires ${schema.required.join(", ")}`;
+    }
+  }
+  const known = new Set([...schema.required, ...(schema.optional || [])]);
+  const extra = Object.keys(record).filter((k) => !known.has(k)).sort();
+  if (extra.length) {
+    // REFUSED RATHER THAN IGNORED, the rule src/recovered-schema.json states
+    // for its own forbidden keys: an ignored field still shaped the reading
+    // that produced the rest of the record.
+    return `${at} carries ${extra.map((x) => `"${x}"`).join(", ")}, which src/figure-schema.json does not define — the record's fields are ${[...known].sort().join(", ")}`;
+  }
+  if (record.kind !== form.kind) {
+    return `${at} declares kind ${JSON.stringify(record.kind)} and move "${step.move}"'s visual_form is ${JSON.stringify(form.kind)} — the record is the INSTANCE of that form (§4.16), so its kind is the form's and never a choice made at realization`;
+  }
+  if (record.elements === null || typeof record.elements !== "object" || Array.isArray(record.elements)) {
+    return `${at}: elements is one entry per role of the ${form.kind} form (${form.roles.join(", ")}), keyed by role`;
+  }
+  const have = new Set(Object.keys(record.elements));
+  const missing = form.roles.filter((r) => !have.has(r));
+  if (missing.length) {
+    return `${at} leaves ${missing.map((x) => `"${x}"`).join(", ")} unfilled — every role of the ${form.kind} form carries an element (the form's roles are ${form.roles.join(", ")})`;
+  }
+  const surplus = [...have].filter((r) => !form.roles.includes(r)).sort();
+  if (surplus.length) {
+    return `${at} fills ${surplus.map((x) => `"${x}"`).join(", ")}, which is not a role of the ${form.kind} form — the form's roles are ${form.roles.join(", ")} (src/figure-kinds.json)`;
+  }
+  for (const role of form.roles) {
+    const el = record.elements[role];
+    if (el === null || typeof el !== "object" || Array.isArray(el)) {
+      return `${at}: element "${role}" is an object carrying text and ground (src/figure-schema.json)`;
+    }
+    if (typeof el.text !== "string" || el.text.trim() === "") {
+      return `${at}: element "${role}" carries no text — an element is its bound ground WORDED FOR THE READER, and an empty one is the position left open rather than filled`;
+    }
+    const want = (step.figure_roles || {})[role];
+    if (el.ground !== want) {
+      // AC2. The Brief bound the role; the record may not move it. A swapped
+      // ground is an element licensed by material the composer did not put
+      // under that position, which is exactly the join kogaki#880 checks and
+      // exactly the one nothing downstream could re-derive.
+      return `${at}: element "${role}" is bound to ${JSON.stringify(el.ground ?? null)} and the Brief bound "${role}" to ${JSON.stringify(want ?? null)} — the binding is the Brief's decision (§4.16), and a record that moves a role to another ground words it from material the composer did not put under that position`;
+    }
+  }
+  if (!Array.isArray(record.relations) || record.relations.length === 0
+      || record.relations.some((x) => typeof x !== "string" || x.trim() === "")) {
+    return `${at}: relations is a non-empty list of lines — the kind's whole content is the relation it holds (${form.kind}: ${form.relation}), so a record asserting none is a list rather than a figure`;
+  }
+  if (typeof record.caption !== "string" || record.caption.trim() === "") {
+    return `${at}: caption is one line in the terms of this Step's reader_state_after — what the reader holds after looking`;
+  }
+  if (Object.prototype.hasOwnProperty.call(record, "emphasis")
+      && !form.roles.includes(record.emphasis)) {
+    return `${at}: emphasis is ${JSON.stringify(record.emphasis)}, which is not a role of the ${form.kind} form (${form.roles.join(", ")}) — emphasis names which element the figure leans on`;
+  }
+  const positions = schema.fields.position.one_of;
+  if (!positions.includes(record.position)) {
+    return `${at}: position is ${JSON.stringify(record.position ?? null)} and the closed pair is ${positions.join(", ")} — within its Step a figure either sets the prose up or discharges it`;
+  }
+  return null;
+}
+
 // §4.15's Section, as the Packet says it (kogaki#825). The Packet is the
 // model's ENTIRE input, so "which Section am I in" is answerable only if the
 // Packet answers it — an opening Step is told the title it is opening, and a
@@ -695,6 +901,12 @@ function renderAndStorePacket(brief, id, args, ws) {
   let template;
   try { template = readFileSync(tplPath, "utf8"); }
   catch (e) { return { error: `the Packet template at ${tplPath} cannot be read (${e.message}) — it is a runtime-read carrier and the command has no built-in fallback, deliberately: a fallback template would be a second copy nobody maintains` }; }
+  // THE FIGURE BLOCK IS NOT PART OF A PACKET (§4.17, kogaki#878). Split before
+  // the render: `renderPacket` refuses on any unfilled slot, so the block's own
+  // slots would make every Packet refuse if it reached that check.
+  const split = splitPacketTemplate(template);
+  if (split.error) return { error: split.error };
+  template = split.packet;
 
   // PRIOR SECTIONS IN THE BRIEF'S RECORDED ORDER, never a directory read —
   // the order is the Reader Path's and a readdir would make the Packet's bytes
@@ -835,7 +1047,8 @@ function cmdSection(args) {
   let recordedSha = null;
   try { recordedSha = (JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).packets || {})[id]?.sha256 || null; }
   catch { /* no run record — handled as unrecorded below */ }
-  const onDiskSha = sha256(readFileSync(packetPath, "utf8"));
+  const packetText = readFileSync(packetPath, "utf8");
+  const onDiskSha = sha256(packetText);
   if (recordedSha === null) {
     fail(`step ${id} has a Packet file at ${packetPath} that no run record accounts for — a Packet is "rendered" when the run records its sha, and an unrecorded file cannot be shown to be the one this Step was realized from. Re-render with \`packet --step ${id}\``);
   }
@@ -893,6 +1106,101 @@ function cmdSection(args) {
   writeFileSync(join(ws, "sections", `${id}.md`), content);
   snapshotDraft(ws, `after-${id}`, seq + 1, assembleBody(brief, ws).body);
   process.stdout.write(`section ${id} recorded (${brief.steps.findIndex((s) => s.step_id === id) + 1} of ${brief.steps.length} steps)\n`);
+  // THE FIGURE IS DESIGNED FROM THE TEXT (§4.17, kogaki#878). A Step carrying
+  // `figure:` gets its figure input here — after its prose is recorded and
+  // before the next Step's Packet — so the ordering the hub ruled is the
+  // HARNESS'S, not a step a session may remember to take. The next Packet is
+  // driven by `figure`, not here: two inputs printed at once would leave the
+  // realizer choosing which to answer.
+  if (step.figure !== undefined && step.figure !== null) {
+    const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
+    const form = figureFormFor(step, movesDir);
+    if (form.error) fail(form.error);
+    const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
+    let template;
+    try { template = readFileSync(tplPath, "utf8"); }
+    catch (e) { fail(`the Packet template at ${tplPath} cannot be read (${e.message}) — the figure block lives in it and the command has no built-in fallback`); }
+    const split = splitPacketTemplate(template);
+    if (split.error) fail(split.error);
+    const r = renderFigureInput({ figureTemplate: split.figure, packetText, step, form, prose: content });
+    if (r.error) fail(r.error);
+    process.stdout.write(r.input.endsWith("\n") ? r.input : r.input + "\n");
+    process.stdout.write(`\nstep ${id} carries a figure — fill the record above and record it with \`figure --step ${id} --file <record.json>\`; the next Step's Packet follows that\n`);
+    return;
+  }
+  const nextId = driveNextPacket(brief, args, ws);
+  if (nextId) process.stdout.write(`next: ${nextId} — its Packet is rendered above; realize from it and record with \`section --step ${nextId} --file <prose>\`\n`);
+}
+
+// §4.17's entry point (kogaki#878). ONE STEP, ONE RECORD, AFTER ITS PROSE.
+function cmdFigure(args) {
+  const brief = loadBrief(args);
+  const id = argString(args, "step", "figure needs --step <step_id>");
+  const file = argString(args, "file", "figure needs --file <path to the record JSON>");
+  const step = brief.steps.find((s) => s.step_id === id);
+  if (!step) {
+    fail(`no step "${id}" in this Brief's Reader Path (${brief.steps.map((s) => s.step_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`);
+  }
+  if (step.figure === undefined || step.figure === null) {
+    fail(`step ${id} declares no figure: — the default is NONE (§4.16), so there is no form for a record to be an instance of. `
+      + `A figure enters at composition, on the Brief, and never here`);
+  }
+  const ws = workspaceFor(args, brief.slug);
+  // THE PROSE FIRST, AND THE REFUSAL SAYS WHY. The record's caption is stated
+  // in what the reader holds after reading this Step, and its elements are
+  // worded against prose that must already exist — the hub's third moment.
+  // A record filled before the text is a figure the text then has to match.
+  const sectionFile = join(ws, "sections", `${id}.md`);
+  if (!existsSync(sectionFile)) {
+    fail(`step ${id} has no realized prose at ${sectionFile} — the figure is designed FROM the text (§4.17), so the record cannot be filled before \`section --step ${id} --file <prose>\` records it`);
+  }
+  const movesDir = typeof args["moves-dir"] === "string" && args["moves-dir"] !== "" ? args["moves-dir"] : "moves";
+  const form = figureFormFor(step, movesDir);
+  if (form.error) fail(form.error);
+
+  let raw;
+  try { raw = readFileSync(file, "utf8"); }
+  catch (e) { fail(`the figure record ${file} cannot be read (${e.message})`); }
+  let record;
+  try { record = JSON.parse(raw); }
+  catch (e) { fail(`the figure record ${file} is not readable JSON (${e.message}) — the record is one JSON object, the instance of move "${step.move}"'s ${form.kind} form`); }
+
+  const schemaPath = join(dirname(fileURLToPath(import.meta.url)), "figure-schema.json");
+  let schema;
+  try { schema = JSON.parse(readFileSync(schemaPath, "utf8")); }
+  catch (e) { fail(`the figure schema at ${schemaPath} cannot be read (${e.message}) — it is a runtime-read carrier and this command has no built-in fallback, deliberately: a fallback schema would be a second copy nobody maintains`); }
+
+  const bad = figureRecordRefusal(record, step, form, schema);
+  if (bad) fail(bad);
+
+  // STORED IN THE SCHEMA'S FIELD ORDER, not the input file's. The record is
+  // read back by `emit` and by kogaki#880's review, and a stored artifact whose
+  // bytes depend on how the model happened to order its keys is one whose sha
+  // moves without its content moving.
+  const ordered = {};
+  for (const k of [...schema.required, ...(schema.optional || [])]) {
+    if (Object.prototype.hasOwnProperty.call(record, k)) ordered[k] = record[k];
+  }
+  const dir = join(ws, "figures");
+  mkdirSync(dir, { recursive: true });
+  const out = join(dir, `${id}.json`);
+  const text = JSON.stringify(ordered, null, 2) + "\n";
+  writeFileSync(out, text);
+  const sha = sha256(text);
+  // THE SAME ARRANGEMENT THE PACKET RECORD HAS, and for the same reason: a
+  // print is read by whoever is watching and a record is read by whoever comes
+  // after. `emit` reads this, never the directory — an unrecorded file cannot
+  // be shown to be the one this Step's figure was validated from.
+  const runFile = join(ws, "run.json");
+  try {
+    let rec = {};
+    if (existsSync(runFile)) rec = JSON.parse(readFileSync(runFile, "utf8"));
+    rec.figures = { ...(rec.figures || {}), [id]: { path: out, sha256: sha, kind: form.kind, position: ordered.position } };
+    writeFileSync(runFile, JSON.stringify(rec, null, 2) + "\n");
+  } catch (e) {
+    process.stderr.write(`draft: the figure record's path and sha were not recorded in ${runFile} (${e.message}) — the record itself is written; the record is the trace, and the trace never gates the write it traces\n`);
+  }
+  process.stdout.write(`figure ${id} recorded (${form.kind}, position ${ordered.position}) — ${out}\n`);
   const nextId = driveNextPacket(brief, args, ws);
   if (nextId) process.stdout.write(`next: ${nextId} — its Packet is rendered above; realize from it and record with \`section --step ${nextId} --file <prose>\`\n`);
 }
@@ -903,6 +1211,21 @@ function cmdEmit(args) {
   const { body, missing, ranges } = assembleBody(brief, ws);
   if (missing.length) {
     fail(`the run is not at completion: step(s) ${missing.join(", ")} have no realized section — a /draft run ends when the CanonicalDraft exists, and these are what it still owes (SPEC-draft-command §3)`);
+  }
+  // A FIGURE-CARRYING STEP OWES ITS RECORD, exactly as every Step owes its
+  // prose (§4.17, kogaki#878). The Brief declared the figure; a Draft emitted
+  // without it would silently drop a decision the owner made at the Candidate
+  // gate, and nothing downstream would report the drop — which is the shape
+  // this repository refuses everywhere else it appears.
+  let figureRecords = {};
+  try { figureRecords = JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).figures || {}; }
+  catch { /* no run record — every figure-carrying Step reports its absence below */ }
+  const owedFigures = figureSteps(brief.steps)
+    .filter((s) => !(figureRecords[s.step_id] && existsSync(figureRecords[s.step_id].path)))
+    .map((s) => s.step_id);
+  if (owedFigures.length) {
+    fail(`the run is not at completion: step(s) ${owedFigures.join(", ")} declare figure: and have no recorded figure record — `
+      + `the record is filled after that Step's prose and recorded with \`figure --step <id> --file <record.json>\` (§4.17)`);
   }
   const outPath = join(dirname(brief.path), "draft.md");
   // `generated_by` is an immutable birth record: an overwrite keeps the
@@ -1818,6 +2141,212 @@ async function runSelfTest() {
     undeclared.stdout.includes("declares no Section titles"),
     undeclared.stdout.split("## The Section this Step sits in")[1]?.slice(0, 160));
 
+  // -------------------------------------------------------------------------
+  // §4.17 — THE FIGURE RECORD AT REALIZATION (kogaki#878). Driven end to end
+  // through the real entry points, not against the functions: the ordering
+  // this issue is about — prose, then figure, then the next Packet — is the
+  // Harness's, and a case calling the validator directly would assert the
+  // shape of a record while leaving the ordering unexercised.
+  {
+    // A fixture Move CARRYING A FORM. The repository's own `moves/` is not
+    // read here for the reason the fixture library above states: a self-test
+    // bound to the real store goes red on a library edit it has nothing to do
+    // with, and would force the fixture to adopt a real Move id it does not
+    // mean.
+    writeFileSync(join(movesDir, "place_on_the_axis.md"), [
+      "id: place_on_the_axis", "status: observed",
+      "intent: >-", "  what place_on_the_axis does to the reader.",
+      "requires: >-", "  the state this move depends on.",
+      "effect: >-", "  the state this move produces.",
+      "constraints: >-", "  what a correct performance must not do.",
+      "failure_modes: >-", "  how it goes wrong when imitated badly.",
+      "excerpt: >-", "  the author's account of the movement they observed.",
+      "visual_form:",
+      "  kind: axis",
+      "  endpoint_a: the state the reader starts in",
+      "  endpoint_b: the state the reader ends in",
+      "  criterion: what the two are being compared on",
+    ].join("\n") + "\n");
+
+    const figDir = join(root, "theses", "figure-brief");
+    mkdirSync(figDir, { recursive: true });
+    const G = [
+      "ground (strand L1): the material states the reader starts unconvinced.",
+      "ground (strand L1): the material states the reader ends convinced.",
+      "ground (strand L1): the material states conviction is the criterion.",
+    ];
+    const figBrief = (steps) => [
+      "# Brief — figure-brief", "",
+      "*Survey pin:* `product-lab@0000000000000000000000000000000000000000`", "",
+      "## Strands", "", "### L1 — first-strand", "",
+      "- cite: `gloss/ELEMENTS.jsonl slug=first-strand kind=lesson @0000000000000000000000000000000000000000`", "",
+      "## Thesis", "", "The fixture claim.", "",
+      "## Reader start", "", "The reader believes the fixture claim is obvious.", "",
+      "## Reader target", "", "The reader can say why the fixture claim is not obvious.", "",
+      "## Opening question", "", "What makes the fixture claim worth stating?", "",
+      "## Sequence", "", ...steps,
+    ].join("\n");
+    const a1Block = (extra) => [
+      "```step", "step_id: a1", "move: place_on_the_axis",
+      "purpose: purpose of a1",
+      "reader_state_before: before a1.", "reader_state_after: after a1.",
+      "materials: L1", "rationale: rationale for a1.",
+      ...G, ...extra, "```", "",
+    ];
+    writeFileSync(join(figDir, "brief.md"), figBrief(a1Block([
+      "figure: what the prose leaves the reader unable to hold in one view.",
+      "figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3",
+    ])));
+    const figWs = join(root, "ws-figure");
+    const driveFig = (cmd, ...extra) => spawnSync(process.execPath,
+      [self, cmd, "--brief", join(figDir, "brief.md"), "--workspace", figWs, "--moves-dir", movesDir, ...extra],
+      { encoding: "utf8" });
+
+    // The round trip §4.16's writer opens and this issue closes: a Brief that
+    // DECLARES a figure is read back as one. Asserted at the entry point,
+    // because the failure it replaces was silent — the field parsed nowhere and
+    // every check stayed green.
+    const figParsed = parseBrief(readFileSync(join(figDir, "brief.md"), "utf8"), "f.md");
+    ok("the Brief's figure: and figure_roles are read back off the step block",
+      figParsed.refusals.length === 0 && figParsed.steps[0].figure.startsWith("what the prose leaves") &&
+      figParsed.steps[0].figure_roles.endpoint_a === "g1" &&
+      figParsed.steps[0].figure_roles.criterion === "g3",
+      JSON.stringify(figParsed.refusals).slice(0, 200));
+    // The half-declaration, through the SHARED grammar rather than a second
+    // expression of it: bindings with no `figure:` line record a form nobody
+    // said carries anything.
+    const halfBrief = parseBrief(figBrief(a1Block(["figure_roles: endpoint_a=g1"])), "h.md");
+    ok("a Brief binding roles with no figure: line refuses naming the Step",
+      halfBrief.refusals.some((r) => r.includes("step a1") && r.includes("figure_roles are declared with no figure:")),
+      JSON.stringify(halfBrief.refusals).slice(0, 200));
+
+    driveFig("resolve");
+    const proseA1 = join(root, "prose-a1.md");
+    writeFileSync(proseA1, "The realized prose for a1, which the figure is designed from.");
+    const secA1 = driveFig("section", "--step", "a1", "--file", proseA1);
+    const figInput = secA1.stdout || "";
+    // ACCEPTANCE 1 — the figure input carries the three bound grounds VERBATIM
+    // and this Step's own prose. Asserted on the printed input, which is what
+    // the model reads, and not on the template.
+    ok("acceptance 1: section prints the figure input carrying every bound ground verbatim",
+      G.every((g) => figInput.includes(g)) && figInput.includes("The realized prose for a1, which the figure is designed from."),
+      figInput.slice(-400));
+    ok("acceptance 1: the figure input names the form's kind and its roles, and the Brief's reason",
+      figInput.includes("**kind.** axis") && figInput.includes("**endpoint_a**") &&
+      figInput.includes("what the two are being compared on") &&
+      figInput.includes("what the prose leaves the reader unable to hold in one view."),
+      figInput.slice(-400));
+    // AND THE NEXT PACKET DOES NOT FOLLOW IT. Two inputs printed at once would
+    // leave the realizer choosing which to answer, which is the ordering defect
+    // the Harness owns rather than the session.
+    ok("a figure-carrying Step's section names the figure record as the next act",
+      figInput.includes("figure --step a1 --file"), figInput.slice(-200));
+
+    // ACCEPTANCE 3, FIRST HALF — emit refuses BY STEP while the record is owed.
+    const emitOwed = driveFig("emit");
+    ok("acceptance 3: emit before the figure record refuses naming the Step",
+      emitOwed.status !== 0 && (emitOwed.stderr || "").includes("a1") &&
+      (emitOwed.stderr || "").includes("declare figure: and have no recorded figure record"),
+      (emitOwed.stderr || "").slice(0, 240));
+    ok("acceptance 3: no CanonicalDraft is written while a figure record is owed",
+      !existsSync(join(figDir, "draft.md")));
+
+    // ACCEPTANCE 2 — a record that MOVES a role to another ground is refused by
+    // role. The binding is the Brief's decision, and a swapped ground words the
+    // element from material the composer did not put under that position.
+    const recordOf = (over) => ({
+      kind: "axis",
+      elements: {
+        endpoint_a: { text: "the reader, unconvinced", ground: "g1" },
+        endpoint_b: { text: "the reader, convinced", ground: "g2" },
+        criterion: { text: "conviction", ground: "g3" },
+      },
+      relations: ["the two endpoints sit on conviction"],
+      caption: "what the reader holds after looking.",
+      position: "after",
+      ...over,
+    });
+    const writeRec = (name, rec) => { const f = join(root, name); writeFileSync(f, JSON.stringify(rec, null, 2)); return f; };
+    const swapped = writeRec("fig-swapped.json", recordOf({
+      elements: { ...recordOf({}).elements, endpoint_a: { text: "the reader, unconvinced", ground: "g2" } },
+    }));
+    const rSwap = driveFig("figure", "--step", "a1", "--file", swapped);
+    ok("acceptance 2: a record binding endpoint_a to g2 where the Brief bound g1 refuses naming the role",
+      rSwap.status !== 0 && (rSwap.stderr || "").includes('"endpoint_a"') &&
+      (rSwap.stderr || "").includes("g2") && (rSwap.stderr || "").includes("g1"),
+      (rSwap.stderr || "").slice(0, 260));
+    // The CONTROL on that case: the refusal is about the BINDING and not about
+    // records in general — the same record with the Brief's own address is
+    // accepted. Without it the case above passes on a validator that refuses
+    // everything.
+    const missingRole = writeRec("fig-missing.json", (() => {
+      const r = recordOf({}); delete r.elements.criterion; return r;
+    })());
+    const rMissing = driveFig("figure", "--step", "a1", "--file", missingRole);
+    ok("a record leaving a role of the form unfilled refuses naming the role",
+      rMissing.status !== 0 && (rMissing.stderr || "").includes('"criterion"'),
+      (rMissing.stderr || "").slice(0, 240));
+    const badPos = writeRec("fig-pos.json", recordOf({ position: "beside" }));
+    const rPos = driveFig("figure", "--step", "a1", "--file", badPos);
+    ok("a position outside the closed pair refuses naming both the value and the pair",
+      rPos.status !== 0 && (rPos.stderr || "").includes("beside") &&
+      (rPos.stderr || "").includes("before") && (rPos.stderr || "").includes("after"),
+      (rPos.stderr || "").slice(0, 240));
+
+    const good = writeRec("fig-good.json", recordOf({}));
+    const rGood = driveFig("figure", "--step", "a1", "--file", good);
+    ok("a well-formed record is accepted, naming its kind and position",
+      rGood.status === 0 && (rGood.stdout || "").includes("figure a1 recorded (axis, position after)"),
+      (rGood.stdout || "").slice(0, 200) + (rGood.stderr || "").slice(0, 200));
+    const figHome = join(figWs, "figure-brief");
+    const storedPath = join(figHome, "figures", "a1.json");
+    ok("the record is stored under the run workspace and recorded in run.json with its sha",
+      existsSync(storedPath) &&
+      (() => {
+        const rec = JSON.parse(readFileSync(join(figHome, "run.json"), "utf8")).figures || {};
+        return rec.a1 && rec.a1.sha256 === sha256(readFileSync(storedPath, "utf8")) && rec.a1.kind === "axis";
+      })());
+    // STORED IN THE SCHEMA'S ORDER, not the input file's: a record whose bytes
+    // depend on how the model ordered its keys has a sha that moves without its
+    // content moving, and kogaki#879 pins that sha in the trace.
+    ok("the stored record is serialized in the schema's field order, whatever the input's",
+      Object.keys(JSON.parse(readFileSync(storedPath, "utf8"))).join(",") === "kind,elements,relations,caption,position",
+      Object.keys(JSON.parse(readFileSync(storedPath, "utf8"))).join(","));
+
+    // ACCEPTANCE 3, SECOND HALF — after the record, emit produces the artifact.
+    const emitNow = driveFig("emit");
+    ok("acceptance 3: emit succeeds once the figure record is recorded",
+      emitNow.status === 0 && existsSync(join(figDir, "draft.md")),
+      (emitNow.stderr || "").slice(0, 240));
+
+    // The record is filled FROM the text, so it is unreachable before it.
+    const fresh = join(root, "ws-figure-fresh");
+    const early = spawnSync(process.execPath,
+      [self, "figure", "--brief", join(figDir, "brief.md"), "--workspace", fresh,
+       "--moves-dir", movesDir, "--step", "a1", "--file", good], { encoding: "utf8" });
+    ok("a figure record filled before the Step's prose is refused, naming the prose as what is owed first",
+      early.status !== 0 && (early.stderr || "").includes("has no realized prose") &&
+      (early.stderr || "").includes("section --step a1"),
+      (early.stderr || "").slice(0, 240));
+    // And a Step that declared none has no record to fill: the default is NONE,
+    // and `figure` on such a Step is a category error rather than a missing file.
+    const noFig = spawnSync(process.execPath,
+      [self, "figure", "--brief", join(briefDir, "brief.md"), "--workspace", ws,
+       "--moves-dir", movesDir, "--step", "s1", "--file", good], { encoding: "utf8" });
+    ok("figure on a Step that declares none refuses by that fact rather than by a missing file",
+      noFig.status !== 0 && (noFig.stderr || "").includes("declares no figure:"),
+      (noFig.stderr || "").slice(0, 200));
+
+    // ACCEPTANCE 4's CONTROL — a Brief without `figure:` is untouched. Asserted
+    // on the Packet's BYTES, because the figure block lives in the same
+    // template file: a split that leaked would put it in every Packet.
+    const plainPacket = readFileSync(join(ws, "fixture-brief", "packets", "s1.md"), "utf8");
+    ok("acceptance 4: a Packet for a Step with no figure carries no figure block and no unfilled slot",
+      !plainPacket.includes("The figure this Step carries") && !/\{\{\w+\}\}/.test(plainPacket) &&
+      !plainPacket.includes("FIGURE-INPUT"),
+      plainPacket.slice(-200));
+  }
+
   rmSync(root, { recursive: true, force: true });
   process.stdout.write(`draft self-test: ${passed} case(s) pass${failures.length ? `, FAILURES: ${failures.join(" | ")}` : ""}\n`);
   if (failures.length) process.exit(1);
@@ -1832,7 +2361,8 @@ if (args["self-test"]) {
     case "material": cmdMaterial(args); break;
     case "packet": cmdPacket(args); break;
     case "section": cmdSection(args); break;
+    case "figure": cmdFigure(args); break;
     case "emit": cmdEmit(args); break;
-    default: fail("usage: draft.mjs resolve|material|packet|section|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> [--file <f>]] | --self-test");
+    default: fail("usage: draft.mjs resolve|material|packet|section|figure|emit --brief <path> [--workspace <dir>] [--moves-dir <dir>] [--strand <L-id>] [--step <id> [--file <f>]] | --self-test");
   }
 }
