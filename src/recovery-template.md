@@ -4,18 +4,30 @@ arrangement src/packet-template.md has with src/draft.mjs: the wording lives in
 a file a person can edit, and the Harness fills its slots.
 
 Slots: {{step_id}}, {{article_so_far}}, {{step_lines}}, {{figure_passage}},
-{{step_prose}}, {{record_field_count}}, {{figure_field}}, {{recover_command}}.
-The renderer refuses on an unfilled slot rather than shipping a hole, inherited
-from the Packet renderer's own rule.
+{{figure_passage_after}}, {{step_prose}}, {{record_field_count}},
+{{figure_field}}, {{recover_command}}. The renderer refuses on an unfilled slot
+rather than shipping a hole, inherited from the Packet renderer's own rule.
 
 THE FIGURE SLOTS ARE EMPTY FOR A STEP THAT CARRIES NO FIGURE (kogaki#880), and
-that is the whole of how this file serves both. {{figure_passage}} renders the
-block AS THE READER MET IT -- the fence and the caption, sliced out of the Draft
-at the lines the trace records -- and NOTHING from the figure record: no role
-name, no ground address, no relation line, no kind and no position word. A
-reviewer shown the record's own vocabulary would name the elements the record
-names, and the element-to-ground join downstream would be checking the record
-against itself.
+that is the whole of how this file serves both. The figure block renders AS THE
+READER MET IT -- the fence and the caption, sliced out of the Draft at the lines
+the trace records -- and NOTHING from the figure record: no role name, no ground
+address, no relation line, no kind and no position word. A reviewer shown the
+record's own vocabulary would name the elements the record names, and the
+element-to-ground join downstream would be checking the record against itself.
+
+THERE ARE TWO FIGURE-BLOCK SLOTS AND EXACTLY ONE IS EVER FILLED (kogaki#945):
+{{figure_passage}} above the passage and {{figure_passage_after}} below it. The
+renderer picks the side from THE DRAFT'S OWN LINE NUMBERS -- whether the
+figure's lines precede the passage's -- and never from the record's `position`
+field. That distinction is the point rather than an implementation detail. This
+input used to emit the block above the passage unconditionally, so a figure the
+reader met BELOW the prose was handed to the blind reviewer inverted, and the
+`figure-position` item then joined the declared side against a reading taken
+from an order no reader ever saw. Choosing the side from `position` would fix
+the arrangement by leaking the declared value into the one input that must not
+carry it; line numbers are already on the reviewer's page, so ordering by them
+discloses nothing they were not already given.
 
 THE REVIEWER'S IGNORANCE IS THE INSTRUMENT. This file holds prose and an
 instruction, and NOTHING from the Packet — no thesis, no grounds, no Move, no
@@ -57,7 +69,7 @@ the spans your record carries.
 
 {{step_prose}}
 
-## The record to write
+{{figure_passage_after}}## The record to write
 
 One JSON object, validated against `src/recovered-schema.json`. Every field is
 a fact about the prose above, so every field can be checked by pointing at the
