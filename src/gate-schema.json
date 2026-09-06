@@ -59,7 +59,8 @@
     "sufficiency_routes_to": "the review lane's judgment half (kogaki#13, story 1.5): whether the attached evidence is the evidence bearing on the option, whether the overturning evidence would in fact overturn the recommendation, and whether the question reads as a gate beyond its named affordance"
   },
   "capture": {
-    "glob": "*.gate-capture.json",
+    "suffix": ".gate-capture.json",
+    "glob_note": "the scanner pattern is composed as \"*\" + suffix; the SUFFIX is the declared key because a bare suffix is what a producer can concatenate, and a glob is not \u2014 which is why every writer hardcoded the name for as long as this field was declared as a glob (kogaki#961)",
     "scope": "anywhere in the repository",
     "rationale": "a default carrier, not an enumerated directory \u2014 an enumerated home leaves capture file N+1 uncovered by default",
     "rows_key": "rows",
@@ -85,7 +86,7 @@
     "payload_options_must_equal_declared_gate_options": true,
     "run_declaration_suffix": ".run-declaration.json",
     "payload_options_comparison_target": "the run declaration sitting beside the capture where one exists \u2014 the gate's declaration AS RAISED, and the only artifact that can hold an option composed for that run \u2014 and the gate's src/gate-registry.json entry otherwise (specs/spec-gate-carrier/SPEC.md what `options_offered` is judged against, kogaki#818 and kogaki#891)",
-    "payload_options_comparison_sibling_name": "the capture's OWN name with the `glob` suffix replaced by run_declaration_suffix, then `<gate_id>` + run_declaration_suffix \u2014 in that order. A capture is named by its RUN wherever two run states share one workspace (src/brief.mjs writes `<run-state stem>.<gate_id>.`), and a gate_id-only name would then give two runs ONE declaration between them; the second name is the per-gate-directory form src/assemble.mjs writes (what `options_offered` is judged against v5, kogaki#891)",
+    "payload_options_comparison_sibling_name": "the capture's OWN name with `suffix` replaced by run_declaration_suffix, then `<gate_id>` + run_declaration_suffix \u2014 in that order. A capture is named by its RUN wherever two run states share one workspace (src/brief.mjs writes `<run-state stem>.<gate_id>.`), and a gate_id-only name would then give two runs ONE declaration between them; the second name is the per-gate-directory form src/assemble.mjs writes (what `options_offered` is judged against v5, kogaki#891)",
     "payload_options_comparison_rationale": "Exact set equality, unchanged in strength: v4 states the TARGET rather than loosening the rule. A gate declaring dynamic_options is NOT exempt \u2014 its declaration names the run's options instead of the class's, so equality becomes decidable against something that can actually equal what was offered. The capture population is untouched. The old key name said `registered`, which was the whole defect: it named the registry as the target in the one place a reader would look for the target.",
     "gateless_row": {
       "gate_id_is": null,

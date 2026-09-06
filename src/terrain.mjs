@@ -1755,7 +1755,7 @@ export function openGateDir() {
 export function writeOpenGatePointer(dir, declaration, declPath) {
   const gd = openGateDir();
   mkdirSync(gd, { recursive: true });
-  const capPath = join(dir, "terrain.gate-capture.json");
+  const capPath = join(dir, `terrain${GATE_SCHEMA.capture.suffix}`);
   // A RE-RAISING SUPERSEDES ITS OWN PREVIOUS POINTER (PR #917 round 1, finding
   // 3). Re-rendering a gate after a refusal is the ordinary recovery this file
   // tells the owner to perform, and each raising mints a fresh instance id —
@@ -4494,7 +4494,7 @@ export function composeTrimProposal(args, dir) {
 // complaint about a shape: the wait stays outstanding, so the recovery is
 // always to render the gate again.
 export function readCapturedAnswer(dir, decl) {
-  const capPath = join(dir, "terrain.gate-capture.json");
+  const capPath = join(dir, `terrain${GATE_SCHEMA.capture.suffix}`);
   const instance = decl.gate_instance_id;
   if (!instance) {
     fail(`the declaration for gate ${decl.id} carries no gate_instance_id, so no captured answer can be joined to it. `
@@ -7236,10 +7236,10 @@ switch (cmd) {
             && recOpt.owner_input.TAG_SELECTION === undefined,
           recOpt ? JSON.stringify({ awaiting: recOpt.awaiting, completed: recOpt.completed, input: recOpt.owner_input }) : "(no record)");
         ok("the answer is still CAPTURED — it is evidence, and the gate carrier owes the row whether or not the run advances",
-          existsSync(join(rdOpt, "terrain.gate-capture.json"))
-            && readJson(join(rdOpt, "terrain.gate-capture.json")).rows.some((x) => x.payload.answer.option === "other-method"));
+          existsSync(join(rdOpt, `terrain${GATE_SCHEMA.capture.suffix}`))
+            && readJson(join(rdOpt, `terrain${GATE_SCHEMA.capture.suffix}`)).rows.some((x) => x.payload.answer.option === "other-method"));
         ok("the captured row carries the HARNESS'S OWN tool_use_id and the raising's instance id — the two fields no session supplied",
-          readJson(join(rdOpt, "terrain.gate-capture.json")).rows.some((x) =>
+          readJson(join(rdOpt, `terrain${GATE_SCHEMA.capture.suffix}`)).rows.some((x) =>
             x.evidence.tool_use_id === "toolu_test_unrouted" && x.gate_instance_id === declOpt.gate_instance_id));
 
         // A FREE-TEXT TAG IS UNAFFECTED, so the refusal above discriminates
@@ -7283,8 +7283,8 @@ switch (cmd) {
             === ownerGateDigest(declFree.id, declFree.options.map((o) => o.id))
             && declTwin.gate_instance_id !== declFree.gate_instance_id);
         // The twin's capture is handed the OTHER run's answered row verbatim.
-        writeFileSync(join(rdTwin, "terrain.gate-capture.json"),
-          readFileSync(join(rdFree, "terrain.gate-capture.json"), "utf8"));
+        writeFileSync(join(rdTwin, `terrain${GATE_SCHEMA.capture.suffix}`),
+          readFileSync(join(rdFree, `terrain${GATE_SCHEMA.capture.suffix}`), "utf8"));
         const rTwin = spawnSync(process.execPath,
           [selfPath, "run", "--run-dir", rdTwin, "--workflow", tp], { encoding: "utf8", env: envFor("shared") });
         const outTwin = `${rTwin.stdout || ""}${rTwin.stderr || ""}`;

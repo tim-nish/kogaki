@@ -1095,7 +1095,7 @@ function cmdRatify(args) {
   const dir = ratificationDir(briefPath);
   mkdirSync(dir, { recursive: true });
   const declPath = join(dir, `${sch.gate_id}${gateSchema().capture.run_declaration_suffix}`);
-  const capPath = join(dir, `${sch.gate_id}.gate-capture.json`);
+  const capPath = join(dir, `${sch.gate_id}${gateSchema().capture.suffix}`);
   const binding = { candidate_id: id, record_digest: probe.digest };
 
   if (args.capture) {
@@ -1185,7 +1185,7 @@ function cmdGateCandidate(args) {
   const dir = ratificationDir(briefPath);
   mkdirSync(dir, { recursive: true });
   const declPath = join(dir, `${gateId}${gateSchema().capture.run_declaration_suffix}`);
-  const capPath = join(dir, `${gateId}.gate-capture.json`);
+  const capPath = join(dir, `${gateId}${gateSchema().capture.suffix}`);
 
   if (args.capture) {
     let decl;

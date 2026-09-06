@@ -59,28 +59,29 @@ const REPO_ROOT = resolvePath(".");
 //
 // ONE DEFINITION SITE, chosen at the owner gate of 2026-09-06 over seven inline
 // derivations, on the ground the whole member is a single module scope so the
-// helper costs no plumbing. The `capture.glob` value is a GLOB
-// (`*.gate-capture.json`), not a bare suffix, so its leading `*` is stripped
-// HERE and nowhere else — the stripping is the part that was worth not writing
-// seven times.
+// helper costs no plumbing.
 //
-// THE TWO KEYS ARE NOT SYMMETRIC, and saying so is the honest reading rather
-// than a caveat (kogaki#959, found by a mutation probe at implementation).
-// `run_declaration_suffix` is a real join key: `src/brief.mjs:696` composes the
-// declaration filename from it, so producer and consumer move together and a
-// change to the field is a change to the product. `capture.glob` has READERS
-// but no WRITER — `check-gate-carrier.sh:173` derives from it, and this member
-// now does too, while every producer of a capture filename writes the suffix
-// out (`src/brief.mjs:697`, `src/assemble.mjs:1082,1172`, `src/terrain.mjs`;
-// `check-gate-carrier.sh:371` globs the literal as well). So deriving here
-// binds one more reader to a declared name no writer honours: move the field
-// and the readers go red while nothing about the product changed. That is the
-// declaration being enforced ahead of its writers, not a join being repaired,
-// and the asymmetry is a defect in the writers rather than in this derivation.
-// Carried at kogaki#961; do not read this helper as evidence that the field is
-// live end-to-end.
+// THE TWO KEYS ARE NOW SYMMETRIC, and the asymmetry kogaki#959 recorded here is
+// what kogaki#961 repaired — the note is rewritten rather than deleted, because
+// a reader meeting the two issues in order otherwise finds a defect described
+// and no record of its repair. What kogaki#959 found by a mutation probe:
+// `capture.glob` had READERS and no WRITER, so this member enforced a declared
+// name every producer hardcoded, and moving the field turned the readers red
+// while nothing about the product changed.
+//
+// THE FORM WAS THE CAUSE, which is the part worth carrying forward. A producer
+// composes a filename by CONCATENATION, so a bare suffix is honourable and a
+// glob is not: `run_declaration_suffix` was honoured at every writer for as
+// long as `capture.glob` was honoured at none, one line apart in
+// `src/brief.mjs`. So kogaki#961 reshaped the declared key to the form a
+// producer can use — `capture.suffix` — and every producer now derives from it
+// (`src/brief.mjs`, `src/assemble.mjs` x2, `src/terrain.mjs` x2), with the
+// scanners composing `"*" + suffix` where they need a pattern
+// (`check-gate-carrier.sh`). The leading-`*` strip this helper used to perform
+// is GONE: it was the plumbing that made the field unhonourable, not a
+// convenience this member happened to own.
 const GATE_SCHEMA = JSON.parse(readFileSync("src/gate-schema.json", "utf8"));
-const CAPTURE_SUFFIX = GATE_SCHEMA.capture.glob.replace(/^\*/, "");
+const CAPTURE_SUFFIX = GATE_SCHEMA.capture.suffix;
 const DECLARATION_SUFFIX = GATE_SCHEMA.capture.run_declaration_suffix;
 const capturePath = (d, stem) => join(d, `${stem}${CAPTURE_SUFFIX}`);
 const declarationPath = (d, stem) => join(d, `${stem}${DECLARATION_SUFFIX}`);
