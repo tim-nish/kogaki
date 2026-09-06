@@ -51,6 +51,40 @@ import { laneDir } from "./src/runs.mjs";
 // so cwd is the honest reading and it is named once rather than at each use.
 const REPO_ROOT = resolvePath(".");
 
+// THE GATE-FILE SUFFIXES ARE DERIVED, not written out (kogaki#959). This member
+// read one of `src/gate-schema.json`'s two capture join keys and hardcoded the
+// other at seven sites — the join-key-as-a-literal class kogaki#837 records,
+// which kogaki#956 half-repaired at the sibling key. Derived here, a suffix
+// change fails naming its actual cause at every site rather than at none.
+//
+// ONE DEFINITION SITE, chosen at the owner gate of 2026-09-06 over seven inline
+// derivations, on the ground the whole member is a single module scope so the
+// helper costs no plumbing. The `capture.glob` value is a GLOB
+// (`*.gate-capture.json`), not a bare suffix, so its leading `*` is stripped
+// HERE and nowhere else — the stripping is the part that was worth not writing
+// seven times.
+//
+// THE TWO KEYS ARE NOT SYMMETRIC, and saying so is the honest reading rather
+// than a caveat (kogaki#959, found by a mutation probe at implementation).
+// `run_declaration_suffix` is a real join key: `src/brief.mjs:696` composes the
+// declaration filename from it, so producer and consumer move together and a
+// change to the field is a change to the product. `capture.glob` has READERS
+// but no WRITER — `check-gate-carrier.sh:173` derives from it, and this member
+// now does too, while every producer of a capture filename writes the suffix
+// out (`src/brief.mjs:697`, `src/assemble.mjs:1082,1172`, `src/terrain.mjs`;
+// `check-gate-carrier.sh:371` globs the literal as well). So deriving here
+// binds one more reader to a declared name no writer honours: move the field
+// and the readers go red while nothing about the product changed. That is the
+// declaration being enforced ahead of its writers, not a join being repaired,
+// and the asymmetry is a defect in the writers rather than in this derivation.
+// Carried at kogaki#961; do not read this helper as evidence that the field is
+// live end-to-end.
+const GATE_SCHEMA = JSON.parse(readFileSync("src/gate-schema.json", "utf8"));
+const CAPTURE_SUFFIX = GATE_SCHEMA.capture.glob.replace(/^\*/, "");
+const DECLARATION_SUFFIX = GATE_SCHEMA.capture.run_declaration_suffix;
+const capturePath = (d, stem) => join(d, `${stem}${CAPTURE_SUFFIX}`);
+const declarationPath = (d, stem) => join(d, `${stem}${DECLARATION_SUFFIX}`);
+
 // RE-HOMED at kogaki#770. This survey record is the input the Brief mint reads
 // through the real §5.3 flow, and it lived under checks/fixtures/terrain/
 // because Terrain's own members were its other readers. Those members are gone,
@@ -74,7 +108,7 @@ run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-stat
 run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rs]);
 run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rs,
   "--tool-use-id", "toolu_fixture_thesis", "--option", "thesis-1"]);
-const thesisCap = join(dir, "run.brief-thesis-adoption.gate-capture.json");
+const thesisCap = capturePath(dir, "run.brief-thesis-adoption");
 run(["src/brief.mjs", "adopt", "--run-state", rs, "--capture", thesisCap]);
 run(["src/brief.mjs", "mint", "--run-state", rs, "--slug", "compose-case", "--theses-dir", theses]);
 const briefPath = join(theses, "compose-case", "brief.md");
@@ -712,12 +746,12 @@ try {
     }
   }
   const selDir = join(laneDir("brief"), dir.split(sep).filter(Boolean).pop());
-  const selDeclPath = join(selDir, "brief-candidate-selection.run-declaration.json");
+  const selDeclPath = declarationPath(selDir, "brief-candidate-selection");
   if (!existsSync(selDeclPath)) fails.push(`(g6) --declare wrote no run declaration at ${selDeclPath} — a capture is judged against the declaration beside it (SPEC-gate-carrier §4.1)`);
   const gCapNo = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
     "--tool-use-id", "toolu_sel_no", "--option", "none-of-these"], { encoding: "utf8" });
   if (gCapNo.status !== 0) fails.push(`(g6) --capture of the negation exited ${gCapNo.status}: ${(gCapNo.stderr || "").trim()}`);
-  const selCapPath = join(selDir, "brief-candidate-selection.gate-capture.json");
+  const selCapPath = capturePath(selDir, "brief-candidate-selection");
   // THE NEGATION REFUSES, and adoption names the answer rather than a shape.
   const declined = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
     "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
@@ -816,8 +850,8 @@ try {
   // written out, so a change to where the executor sites its workspace fails
   // here as a missing declaration instead of passing against a stale guess.
   const ratifDir = join(laneDir("brief"), dir.split(sep).filter(Boolean).pop());
-  const capf = join(ratifDir, `${RATIF.gate_id}.gate-capture.json`);
-  const declf = join(ratifDir, `${RATIF.gate_id}${JSON.parse(readFileSync("src/gate-schema.json", "utf8")).capture.run_declaration_suffix}`);
+  const capf = capturePath(ratifDir, RATIF.gate_id);
+  const declf = declarationPath(ratifDir, RATIF.gate_id);
   if (!existsSync(declf)) fails.push(`(g) --declare wrote no run declaration at ${declf} — a capture is judged against the declaration beside it (SPEC-gate-carrier §4.1)`);
   rmSync(capf, { force: true });
   // THE DECLINE IS RECORDED AND REFUSES. `not-ratified` is a first-class
@@ -1954,7 +1988,7 @@ try {
     const capFree = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsD,
       "--tool-use-id", "toolu_free", "--free-text", OWN]);
     if (capFree.status !== 0) fails.push(`(t) --capture refused a free-text answer: ${(capFree.stderr || "").trim()}`);
-    const capD = join(dir, "t-d.brief-thesis-adoption.gate-capture.json");
+    const capD = capturePath(dir, "t-d.brief-thesis-adoption");
     const adFree = run(["src/brief.mjs", "adopt", "--run-state", rsD, "--capture", capD]);
     if (adFree.status !== 0) fails.push(`(t) adopting a free-form Thesis from the capture was refused: ${(adFree.stderr || "").trim()}`);
     else {
@@ -1968,7 +2002,7 @@ try {
     const rsE = mk("t-e.json");
     run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", rsE]);
     run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", rsE, "--tool-use-id", "toolu_e", "--option", "thesis-1"]);
-    const capE = JSON.parse(readFileSync(join(dir, "t-e.brief-thesis-adoption.gate-capture.json"), "utf8"));
+    const capE = JSON.parse(readFileSync(capturePath(dir, "t-e.brief-thesis-adoption"), "utf8"));
     capE.rows[capE.rows.length - 1].answers_over.option_set_digest = "0".repeat(64);
     const capEPath = join(dir, "t-e-capture.json");
     writeFileSync(capEPath, JSON.stringify(capE));
@@ -1976,7 +2010,7 @@ try {
     if (stale.status === 0) fails.push("(t) a capture bound to a different option set adopted anyway — the owner chose among alternatives other than these");
     // AND THE EVIDENCE AXES ARE REFUSED. A row recording a session's own act
     // is not an owner answer.
-    const capF = JSON.parse(readFileSync(join(dir, "t-e.brief-thesis-adoption.gate-capture.json"), "utf8"));
+    const capF = JSON.parse(readFileSync(capturePath(dir, "t-e.brief-thesis-adoption"), "utf8"));
     capF.rows[capF.rows.length - 1].evidence = { tool: "Bash", tool_use_id: "t" };
     const capFPath = join(dir, "t-f-capture.json");
     writeFileSync(capFPath, JSON.stringify(capF));
@@ -2642,15 +2676,11 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
     const zrs = join(zdir, "run.json");
     run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs]);
     const zdecl = run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", zrs]);
-    // THE DECLARATION'S SUFFIX IS DERIVED, not written out (kogaki#956).
-    // Case (g) reads it from `src/gate-schema.json` the same way; a literal
-    // here fails as "no run declaration was written at ..." when the suffix
-    // moves, which names the wrong cause — the join-key-as-a-literal class
-    // kogaki#837 records, at a new site.
-    const zdeclPath = join(
-      zdir,
-      `run.brief-thesis-adoption${JSON.parse(readFileSync("src/gate-schema.json", "utf8")).capture.run_declaration_suffix}`,
-    );
+    // THE DECLARATION'S SUFFIX IS DERIVED, not written out (kogaki#956, moved
+    // to the module-scope helper at kogaki#959). A literal here fails as "no
+    // run declaration was written at ..." when the suffix moves, which names
+    // the wrong cause — the join-key-as-a-literal class kogaki#837 records.
+    const zdeclPath = declarationPath(zdir, "run.brief-thesis-adoption");
     // THE PRECONDITION IS ASSERTED, not assumed. If `--declare` stopped writing
     // the file at this name, the removal below would remove nothing and the case
     // would pass while exercising the empty set.
@@ -2664,7 +2694,7 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
       if (zcap.status !== 0) {
         fails.push(`(z) capturing against a present declaration was refused: ${(zcap.stderr || zcap.stdout || "").trim().slice(0, 160)}`);
       }
-      const zcapPath = join(zdir, "run.brief-thesis-adoption.gate-capture.json");
+      const zcapPath = capturePath(zdir, "run.brief-thesis-adoption");
       // THE CAPTURE ACT IS WHERE THE FILE IS READ, and that is asserted in the
       // NEGATIVE direction too — otherwise "the barrier holds transitively" is a
       // claim this member never tests. A second run state, so the first one's
