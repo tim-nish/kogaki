@@ -55,6 +55,25 @@
 //
 // FIGURES REMAIN OUT OF SCOPE for this batch (kogaki#869) — they change the
 // Step schema and the Packet, so they are a later batch and not a hole here.
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
+// against is COPIED here; the copy is what the code was implemented against,
+// NOT the spec's current text, and propagating a later spec change into this
+// file is a separate, explicit act. A bare name below is a pointer carrying no
+// authority. Nothing names a section number, because section numbers renumber,
+// and no owner-facing string names a spec at all.
+//
+// THE NAMES THIS FILE USES:
+//   "the figure decision"   SPEC-draft-pipeline "The figure decision — `figure:`
+//                           and `figure_roles` on a Step"
+//   "the figure record"     SPEC-draft-pipeline "The figure record — the form's
+//                           instance, filled after the prose"
+//   "the renderer"          SPEC-draft-pipeline "The renderer and the anchor —
+//                           markup from the record, at the Step"
+//   "the lifetimes rule"    specs/spec-brief-draft-design/DESIGN.md "Lifetimes:
+//                           what is owner state and what is machine state"
+//   "the frontmatter trace" SPEC-draft-command "The three-layer boundary"
+//
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname, basename, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -116,7 +135,7 @@ function readDraft(draftPath) {
   const lines = text.split("\n");
   if (lines[0] !== "---") {
     fail(`${draftPath} opens with no frontmatter — a CanonicalDraft carries its record half in `
-      + "frontmatter (SPEC-draft-command §5), and without it there is no trace to review against");
+      + "frontmatter, and without it there is no trace to review against");
   }
   let end = -1;
   for (let i = 1; i < lines.length; i++) {
@@ -209,7 +228,7 @@ function resolveInputs(draft) {
     const packetPath = resolve(dir, t.packet);
     if (!existsSync(packetPath)) {
       fail(`step ${id}: the Packet the trace names is absent — ${packetPath}. The run workspace is `
-        + "machine state and is pruned (DESIGN.md §6); re-render it with "
+        + "machine state and is pruned; re-render it with "
         + "`node src/draft.mjs packet --brief <brief.md> --step " + id + "`");
     }
     const actual = sha256(readFileSync(packetPath, "utf8"));
@@ -222,7 +241,7 @@ function resolveInputs(draft) {
     // The range is 1-based over the file; slice is 0-based and end-exclusive.
     const prose = draft.lines.slice(t.lines[0] - 1, t.lines[1]).join("\n");
     // THE FIGURE IS RESOLVED ON THE SAME TERMS THE PACKET IS (kogaki#880).
-    // §4.18 gives a figure-carrying Step a `figure` entry naming the validated
+    // The renderer rule gives a figure-carrying Step a `figure` entry naming the validated
     // record, its sha and its own line range, and a Step declaring none carries
     // NO `figure` KEY AT ALL — an absent field rather than a null one — so the
     // presence test below is the same fact the spec writes.
@@ -237,7 +256,7 @@ function resolveInputs(draft) {
       const f = t.figure;
       if (!Array.isArray(f.lines) || f.lines.length !== 2
           || !Number.isInteger(f.lines[0]) || !Number.isInteger(f.lines[1])) {
-        fail(`step ${id}: its trace entry carries a figure with no line range — §4.18 records the `
+        fail(`step ${id}: its trace entry carries a figure with no line range — the renderer records the `
           + "figure's own range beside the Step's prose range, and without it the blind recovery "
           + "has no block to quote; re-emit the Draft (node src/draft.mjs emit --brief <brief.md>)");
       }
@@ -248,7 +267,7 @@ function resolveInputs(draft) {
       const recordPath = resolve(dir, f.record);
       if (!existsSync(recordPath)) {
         fail(`step ${id}: the figure record the trace names is absent — ${recordPath}. The run `
-          + "workspace is machine state and is pruned (DESIGN.md §6); re-record it with "
+          + "workspace is machine state and is pruned; re-record it with "
           + `\`node src/draft.mjs figure --brief <brief.md> --step ${id} --file <record.json>\``);
       }
       const recordText = readFileSync(recordPath, "utf8");
@@ -304,7 +323,7 @@ function resolveInputs(draft) {
 
 // ---------------------------------------------------------------------------
 // The workspace. Machine state under `runs/review/<slug>/`, the same lifetime
-// rule every other lane's workspace has (DESIGN.md §6): disposable, pruned to
+// rule every other lane's workspace has: disposable, pruned to
 // the last K, never the artifact.
 
 function slugOf(draftPath) {
@@ -442,7 +461,7 @@ function numberedRange(text, lines) {
 // cannot see a wrong word, so a case asserts the absence directly.
 //
 // THE FIGURE AS THE READER MET IT (kogaki#880) — the Draft's own bytes over the
-// range §4.18 records, numbered in the same coordinate the prose is, and
+// range the renderer records, numbered in the same coordinate the prose is, and
 // NOTHING from the record. Two facts reach the blind reviewer from this and
 // they are both facts about the article: what the block says, and where in the
 // Draft it sits relative to the passage. The record's roles, ground addresses,
@@ -1616,7 +1635,7 @@ const MECHANICAL = {
 // THE FIGURE'S DECLARED SIDE (kogaki#880). Read from the validated record the
 // trace pins, never from the Packet: the record IS the declaration for a figure
 // — the Brief bound each role to a ground and the record worded it — and the
-// Packet carries no figure block at all (§4.17 keeps the figure input behind
+// Packet carries no figure block at all (the figure record keeps the figure input behind
 // its own marker, outside the Packet the reviewer's items read).
 //
 // A ROW NAMING BOTH SIDES IS REFUSED. Two declared carriers on one row is two
@@ -1655,7 +1674,7 @@ function renderElements(elements) {
 // round trip measure entailment the same way.
 //
 // THE BINDING ITSELF IS NOT WHAT THIS CHECKS, and saying so is the point.
-// §4.17 already refuses a record that moves a role to a ground the Brief did
+// The figure record already refuses a record that moves a role to a ground the Brief did
 // not bind it to, at the act that validates the record — so re-deciding it here
 // would be a second validator agreeing with the first until one is edited. What
 // no act before this one can ask is whether the WORDING the element finally got
@@ -1670,15 +1689,17 @@ function renderElements(elements) {
 // Step to `correct --figure`, where a reader is shown the element beside the
 // ground it was worded from.
 //
-// THE ADDRESS IS `g<n>` OVER THE STEP'S OWN GROUNDS, 1-based, which is §4.16's
+// THE ADDRESS IS `g<n>` OVER THE STEP'S OWN GROUNDS, 1-based, which is the
+// figure decision's
 // grammar. An address outside the Step's ground count is refused by name rather
-// than scored against whatever happens to sit at that index — §4.16's own
+// than scored against whatever happens to sit at that index — the figure
+// decision's own
 // grammar refuses one at composition, so a record carrying one now was written
 // against a Brief this Draft was not emitted from.
 function groundAt(address, grounds) {
   const m = /^g(\d+)$/.exec(String(address ?? ""));
   if (!m) return { error: `is bound to ${renderSide(address ?? null)}, which is not a ground `
-    + "address — §4.16 binds a role to `g<n>` over the Step's own grounds" };
+    + "address — a role binds to `g<n>` over the Step's own grounds" };
   const i = Number(m[1]);
   if (i < 1 || i > grounds.length) {
     return { error: `is bound to ${address} and this Step declares `
@@ -2644,7 +2665,7 @@ function readJoin(ws) {
 // act whose input shape depends on which item failed, and a session would have
 // to know which before it could answer.
 //
-// PROSE FIRST WHERE A STEP OWES BOTH. §4.17's whole ground for filling the
+// PROSE FIRST WHERE A STEP OWES BOTH. The figure record's whole ground for filling the
 // record after the text is that the caption is stated in what the reader holds
 // after reading THIS passage — so a record corrected against prose that is
 // about to change is a record corrected against nothing.
@@ -2893,7 +2914,7 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   const step = resolveInputs(draft).steps.find((x) => x.step_id === stepId);
   if (!step.figure) {
     fail(`step ${stepId} carries no figure in the Draft's trace, so there is no record to `
-      + "correct. A figure enters at composition, on the Brief (§4.16), and never here");
+      + "correct. A figure enters at composition, on the Brief, and never here");
   }
 
   // --- phase A: render the correction input ------------------------------
@@ -2969,7 +2990,7 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, stepId
   if (!corrected) fail(`step ${stepId} is absent from the re-emitted Draft's trace`);
   if (!corrected.figure) {
     fail(`step ${stepId} carries no figure in the re-emitted Draft — the correction was recorded `
-      + "and the block did not come back, which is the drop-with-no-report shape §4.18 refuses");
+      + "and the block did not come back, which is the drop-with-no-report shape the renderer refuses");
   }
   writeFileSync(join(snapDir, `${seq}-after-${stepId}.figure.md`), after.text);
 
@@ -3094,7 +3115,8 @@ function cmdCorrect(args) {
       + "re-renders the next Step's Packet against the article as it then stands, so correcting out "
       + "of order realizes a Step against prose that is about to move under it.");
   }
-  // THE PASSAGE IS CORRECTED BEFORE THE FIGURE IT CARRIES, and this is §4.17's
+  // THE PASSAGE IS CORRECTED BEFORE THE FIGURE IT CARRIES, and this is the
+  // figure record's
   // own ordering rather than a convention chosen here: the record's caption is
   // stated in what the reader holds after reading THIS passage, and its
   // elements are worded against prose that must already exist. A record
@@ -3106,7 +3128,7 @@ function cmdCorrect(args) {
     if (proseOwed && !proseDone) {
       fail(`step ${stepId} owes a correction on its PASSAGE as well, and the passage is corrected `
         + "first: the record's caption is stated in what the reader holds after reading this "
-        + "passage, and its elements are worded from prose that must already exist (§4.17).\n"
+        + "passage, and its elements are worded from prose that must already exist.\n"
         + `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --step ${stepId}`);
     }
   }
@@ -3814,7 +3836,7 @@ async function runSelfTest() {
   // THE FIGURE'S MARKUP COMES FROM THE REAL RENDERER (kogaki#880), reached by
   // SPAWNING it rather than importing it: this pass asserts a closed input
   // allowlist that forbids importing anything but node builtins and ./runs.mjs,
-  // and a hand-written block would be this fixture's belief about what §4.18
+  // and a hand-written block would be this fixture's belief about what the renderer
   // emits — the same belief PR #895 found wrong twice about the Packet
   // template. Spawning costs one process per figure and buys the property that
   // matters: what the blind reviewer is shown here is what a reader meets.
@@ -3848,7 +3870,7 @@ async function runSelfTest() {
     // Body first, recording each Step's 1-based body range. The figure is
     // pushed before or after the prose per its record's `position`, which is
     // exactly what `src/draft.mjs assembleBody` does — and its range is
-    // recorded separately, because §4.18's whole point is that the Step's own
+    // recorded separately, because the renderer's whole point is that the Step's own
     // range spans the prose alone.
     const body = []; const ranges = {}; const figureRanges = {};
     const pushBlock = (markup) => {
@@ -4206,7 +4228,7 @@ async function runSelfTest() {
   }
 
   // 5 — the Packet the trace names is gone. The workspace is pruned by design
-  // (DESIGN.md §6), so this is an ordinary state and the refusal says how to
+  // (the lifetimes rule), so this is an ordinary state and the refusal says how to
   // get out of it.
   {
     const pd = join(root, "packets-gone"); mkdirSync(pd, { recursive: true });
@@ -6283,8 +6305,8 @@ async function runSelfTest() {
     for (const id of ["a1", "a2", "a3"]) writePacket(fPacketDir, id);
 
     // The record is an INSTANCE of the `axis` form. Each element's `ground` is
-    // §4.16's ADDRESS over this Step's own grounds, 1-based — `g1` and `g2` are
-    // the two `GROUNDS.a1` lines. The binding itself is §4.17's to refuse; what
+    // The figure decision's ADDRESS over this Step's own grounds, 1-based — `g1` and `g2` are
+    // the two `GROUNDS.a1` lines. The binding itself is the figure record's to refuse; what
     // `figure-element-ground` asks is whether each element's WORDING is carried
     // by the line its address points at.
     const FIG_RECORD = {
@@ -6336,7 +6358,7 @@ async function runSelfTest() {
     // see of the placement is the LINE NUMBERS, which are the article's fact.
     ok("#880 AC1: and no element's ground binding reaches the blind reviewer",
       !/ground: g\d/.test(input) && !/"ground"/.test(input));
-    // THE RELATIONS ARE NOT AMONG THEM, and that is §4.18 rather than an
+    // THE RELATIONS ARE NOT AMONG THEM, and that is the renderer rather than an
     // oversight: every relation reaches the output as an edge label, so a
     // relation string is the ARTICLE'S and not the record's. What the record
     // has and the rendering does not is the JSON itself — the field names that
@@ -7099,7 +7121,7 @@ async function runSelfTest() {
     ok("#945: pass one completes with f1 owing BOTH seats",
       sp1.status === 0 && /Steps sent to correction[^\n]*f1/.test(sp1.stdout));
 
-    // ONE SEAT IS CORRECTED — the passage, which §4.17's ordering requires
+    // ONE SEAT IS CORRECTED — the passage, which the figure record's ordering requires
     // first — and the figure seat is deliberately left owed.
     const scA = SD("correct", "--step", "f1");
     ok("#945: the passage correction input renders", scA.status === 0);

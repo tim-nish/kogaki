@@ -1,11 +1,32 @@
 #!/usr/bin/env node
-// review — the path-review ATTACH plumbing (SPEC-draft-pipeline §4.6;
-// kogaki#490, story 1.74).
+// review — the path-review ATTACH plumbing (kogaki#490).
+// [see: SPEC-draft-pipeline "Every MUST is judgment, and nothing becomes a
+// lint"]
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902). Content this file was implemented
+// against is COPIED here and marked `[implemented-against: <spec> "<name>"]`;
+// the copy is what the code was implemented against, NOT the spec's current
+// text, and propagating a later spec change into this file is a separate,
+// explicit act. A pointer carrying no authority is marked `[see: <spec>
+// "<name>"]`. Neither names a section number, because section numbers renumber.
+// No owner-facing string below names a spec section.
+//
+// THE NAMES THIS FILE USES:
+//   "the judgment rule"      SPEC-draft-pipeline "Every MUST is judgment, and
+//                            nothing becomes a lint"
+//   "the revise pass"        SPEC-draft-pipeline "The Bridge Step and the
+//                            revise pass"
+//   "the five review areas"  SPEC-draft-pipeline "The Step's grounding, and the
+//                            `entailed` flag", "The grounds test — the
+//                            observable form of describe-never-generate",
+//                            "Semantic economy — what binds Move AUTHORING",
+//                            "Journey integrity — the arc, not the layout" and
+//                            the judgment rule
 //
 // THE JUDGE IS THE AGENT, NOT THIS FILE. The path-review agent
-// (src/path-review-agent.md) applies every MUST of §§4.4-4.8 as judgment,
-// per Candidate, machine-side. This runtime carries the agent's output ONTO
-// the Candidates so it rides into the Candidate-selection gate (§4.6: the
+// (src/path-review-agent.md) applies every MUST of the five review areas as
+// judgment, per Candidate, machine-side. This runtime carries the agent's output ONTO
+// the Candidates so it rides into the Candidate-selection gate (the
 // three evaluation levels survive only as reasoning surfaced on Candidates)
 // — and it REFUSES three shapes of drift, all plumbing questions, none a
 // judgment:
@@ -14,10 +35,10 @@
 //     (kogaki#490's own bound: N Candidates never multiply owner
 //     questions, because the per-Candidate work is machine-side, HERE);
 //   * a verdict-shaped field — `verdict`, `pass`, `score` and kin, or any
-//     non-string value. §4.6 clause 3 keeps every MUST un-linted; an agent
+//     non-string value. Nothing becomes a lint; an agent
 //     that emitted a boolean would be a lint wearing prose's clothing, so
 //     the verdict is UNATTACHABLE rather than merely discouraged.
-//   * a THIRD attach on one Candidate — §4.11 bounds the revise loop at ONE
+//   * a THIRD attach on one Candidate — the revise pass bounds the loop at ONE
 //     revise round per Candidate, and until kogaki#894 nothing counted the
 //     round. The count lived in the composing sitting's memory, which is to
 //     say nowhere a later act could read: a Candidate re-reviewed three times
@@ -44,16 +65,16 @@ function fail(msg) {
   process.exit(1);
 }
 
-// The five §§4.4-4.8 areas plus the three evaluation levels, every one a
+// The five review areas plus the three evaluation levels, every one a
 // non-empty prose field. The list is the agent contract's output shape —
 // one carrier (path-review-agent.md documents it; this file enforces it).
 export const REVIEW_AREAS = [
-  "grounds_test",      // §4.5 — the Move name deleted, the rationale stands
-  "entailment",        // §4.4 — entailed flags judged, reasoning exposed
-  "prohibitions",      // §4.4 — the closed unsupported-completion list
-  "semantic_economy",  // §4.7 — in-place Move edits only, never mechanized
-  "arc_integrity",     // §4.8 — the arc's causality survives rearrangement
-  "evaluation_levels", // §4.6 — the three levels, observed and never scored
+  "grounds_test",      // the Move name deleted, the rationale stands
+  "entailment",        // entailed flags judged, reasoning exposed
+  "prohibitions",      // the closed unsupported-completion list
+  "semantic_economy",  // in-place Move edits only, never mechanized
+  "arc_integrity",     // the arc's causality survives rearrangement
+  "evaluation_levels", // the three levels, observed and never scored
 ];
 
 // Verdict-shaped keys, refused wherever they appear in a review entry.
@@ -61,9 +82,11 @@ const VERDICT_KEYS = new Set(["verdict", "pass", "fail", "passed", "failed",
   "score", "grade", "ok", "approved", "rating", "result", "status"]);
 
 // ---------------------------------------------------------------------------
-// The revise-round ledger (SPEC-draft-pipeline §4.11; kogaki#894).
+// The revise-round ledger (kogaki#894). [see: SPEC-draft-pipeline "The Bridge
+// Step and the revise pass"]
 //
-// §4.11: "The loop is bounded at one revise round per Candidate; a gap
+// The revise pass, copied: "The loop is bounded at one revise round per
+// Candidate; a gap
 // surviving it is disclosed and rides to the gate, never re-looped." So a
 // Candidate may be attached TWICE — once for the first review, once for the
 // re-review after its one revise — and a third attach is refused.
@@ -83,7 +106,7 @@ export function briefSlug(briefPath) {
   if (!slug || slug === "." || slug === "theses") {
     return { error: `${briefPath} does not sit at theses/<slug>/brief.md — the revise-round `
       + `ledger is keyed on the Brief's slug, which is the workspace identity `
-      + `runs/brief/<slug>/ is named for (§4.11; kogaki#894)` };
+      + `runs/brief/<slug>/ is named for (kogaki#894)` };
   }
   return { slug };
 }
@@ -131,7 +154,7 @@ export function readAttachLedger(path) {
     // a suggestion — the failure mode kogaki#872 names one lane over.
     return { error: `${path} is not readable as the revise-round ledger (${e.message}) — a `
       + `ledger that cannot be read is NOT an empty one, and a bound whose count degrades to `
-      + `zero on a bad read is not a bound (§4.11; kogaki#894). Inspect or remove it deliberately.` };
+      + `zero on a bad read is not a bound (kogaki#894). Inspect or remove it deliberately.` };
   }
   if (!raw || typeof raw !== "object" || typeof raw.attaches !== "object" || raw.attaches === null
       || Array.isArray(raw.attaches)) {
@@ -148,7 +171,7 @@ export function readAttachLedger(path) {
     if (!Array.isArray(rounds)) {
       return { error: `${path}: the entry for candidate ${JSON.stringify(id)} is not an array of `
         + `round records — a damaged ledger REFUSES rather than reading as zero rounds spent `
-        + `(§4.11; kogaki#894), because a count that degrades to zero on a bad read is a `
+        + `(kogaki#894), because a count that degrades to zero on a bad read is a `
         + `suggestion with a good failure mode` };
     }
     for (const r of rounds) {
@@ -156,7 +179,7 @@ export function readAttachLedger(path) {
           || !Number.isInteger(r.round) || typeof r.sha !== "string" || typeof r.at !== "string") {
         return { error: `${path}: candidate ${JSON.stringify(id)} carries a malformed round record `
           + `(each is { round, sha, at }) — a damaged ledger REFUSES rather than reading as zero `
-          + `rounds spent (§4.11; kogaki#894)` };
+          + `rounds spent (kogaki#894)` };
       }
     }
   }
@@ -191,7 +214,7 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
   for (const [k, v] of Object.entries(attaches)) {
     if (!Array.isArray(v)) {
       return { error: `the ledger entry for candidate ${JSON.stringify(k)} is not an array of round `
-        + `records — a damaged ledger REFUSES rather than reading as zero rounds spent (§4.11)` };
+        + `records — a damaged ledger REFUSES rather than reading as zero rounds spent` };
     }
     nextAttaches[k] = [...v];
   }
@@ -207,7 +230,7 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
     if ("revise_residue" in c) {
       return { error: `candidate ${c.candidate_id} arrives carrying \`revise_residue\` — that entry `
         + `is written by THIS FILE from the revise-round ledger, never declared by the composer `
-        + `(§4.11; kogaki#894). A declared residue is a model-supplied control input.` };
+        + `(kogaki#894). A declared residue is a model-supplied control input.` };
     }
     const r = review?.[c.candidate_id];
     if (r === undefined) {
@@ -215,28 +238,28 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
       // no reasoning for the gate, and silently passing it forward would
       // put an unjudged Candidate in front of the owner as if judged.
       return { error: `candidate ${c.candidate_id} has no review entry — path review runs `
-        + `machine-side PER CANDIDATE (§4.6; kogaki#490), and an unreviewed Candidate `
+        + `machine-side PER CANDIDATE (kogaki#490), and an unreviewed Candidate `
         + `cannot ride into the selection gate as if reviewed` };
     }
     for (const [k, v] of Object.entries(r)) {
       if (VERDICT_KEYS.has(k)) {
         return { error: `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is `
           + `verdict-shaped — the agent's output is REASONING SURFACED FOR THE HUMAN GATE, `
-          + `never a verdict, never a lint (§4.6 clauses 1 and 3)` };
+          + `never a verdict, never a lint` };
       }
       if (typeof v !== "string" || v === "") {
         return { error: `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is `
-          + `not non-empty prose — a boolean or number is a verdict wearing a type (§4.6)` };
+          + `not non-empty prose — a boolean or number is a verdict wearing a type` };
       }
     }
     for (const area of REVIEW_AREAS) {
       if (!(area in r)) {
         return { error: `candidate ${c.candidate_id}: review lacks ${JSON.stringify(area)} — `
-          + `every MUST of §§4.4-4.8 is applied per Candidate, and an absent area is an `
+          + `every MUST of the five review areas is applied per Candidate, and an absent area is an `
           + `unapplied one (src/path-review-agent.md declares the shape)` };
       }
     }
-    // --- the round count, and the bound (§4.11) --------------------------
+    // --- the round count, and the bound -----------------------------------
     const sha = reviewEntrySha(r);
     const prior = nextAttaches[c.candidate_id] || [];
     const last = prior.length ? prior[prior.length - 1] : null;
@@ -245,7 +268,7 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
       if (prior.length >= MAX_ATTACHES) {
         const when = prior.map((a) => `round ${a.round} at ${a.at}`).join("; ");
         return { error: `candidate ${c.candidate_id}: this is attach ${prior.length + 1}, and `
-          + `§4.11 bounds the loop at ONE revise round per Candidate — it has already been `
+          + `the loop is bounded at ONE revise round per Candidate — it has already been `
           + `attached ${prior.length} times (${when}). A gap surviving the revise is DISCLOSED `
           + `and rides to the selection gate; it is never re-looped. The residue entry this `
           + `Candidate already carries is that disclosure.` };
@@ -275,7 +298,7 @@ export function attachReview(candidates, review, attaches = {}, now = new Date()
       }
       attached.revise_residue = {
         attaches: rounds.length,
-        bound: `${REVISE_BOUND} revise round per Candidate (SPEC-draft-pipeline §4.11)`,
+        bound: `${REVISE_BOUND} revise round per Candidate`,
         first_attached_at: rounds[0].at,
         revise_attached_at: rounds[rounds.length - 1].at,
         // PRECISE ABOUT ITS OWN BOUND (PR #908 round 1). "cannot be re-reviewed
@@ -325,13 +348,13 @@ function cmdAttach(args) {
     + "to the selection gate in");
   // REQUIRED, and it is the identity the ROUND COUNT is keyed on — not a
   // convenience. Without it the bound has no workspace to be counted in, and
-  // §4.11's "one revise round per Candidate" is prose again (kogaki#894).
+  // The revise pass's "one revise round per Candidate" is prose again (kogaki#894).
   const brief = argString(args, "brief",
     "attach needs --brief <path> — theses/<slug>/brief.md. The slug names the run workspace "
-    + "runs/brief/<slug>/ the revise-round ledger lives in, and §4.11's one-revise-round bound "
+    + "runs/brief/<slug>/ the revise-round ledger lives in, and the one-revise-round bound "
     + "is counted THERE rather than in the composing sitting's memory (kogaki#894)");
   // THE LEDGER'S HOME IS NOT A COMMAND-LINE ARGUMENT (PR #908 round 1). A
-  // `--ledger-root` flag was exactly the shape §4.11's Harness-resolved-home
+  // `--ledger-root` flag was exactly the shape the revise pass's Harness-resolved-home
   // bullet rules out one paragraph away — a caller-chosen path lets a second
   // attach land beside the first with a fresh count. The fixture's need is
   // real (counting into the developer's live `runs/` would spend a real
@@ -352,8 +375,8 @@ function cmdAttach(args) {
   writeFileSync(out, JSON.stringify({ candidates: r.candidates }, null, 2) + "\n");
   const spent = r.candidates.filter((c) => c.revise_residue).map((c) => c.candidate_id);
   console.log(`reviewed: ${r.candidates.length} candidate(s), each carrying its per-Candidate `
-    + `reasoning for the selection gate — no verdict anywhere (§4.6). Written: ${out}`);
-  console.log(`revise rounds (§4.11, bound ${REVISE_BOUND} per Candidate), counted in ${lp.path}: `
+    + `reasoning for the selection gate — no verdict anywhere. Written: ${out}`);
+  console.log(`revise rounds (bound ${REVISE_BOUND} per Candidate), counted in ${lp.path}: `
     + r.candidates.map((c) => `${c.candidate_id}=${(r.attaches[c.candidate_id] || []).length}`).join(", ")
     + (spent.length
       ? ` — at the bound and carrying a Harness-written residue entry: ${spent.join(", ")}`
