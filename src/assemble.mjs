@@ -36,7 +36,7 @@ import { resolve, dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fillBrief, replaceSlot, selectedStrands, placements,
   resolveMoveIds, validateSpecialization, specializationDigest, validateRatification, specializationSchema, gateSchema, gateRegistry,
-  resolveFigureForms, figureClause,
+  resolveFigureForms, figureClause, figureSteps,
   ownerGateDigest, validateOwnerAnswer,
          journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
@@ -125,16 +125,38 @@ export const REVIEW_LABELS = {
 // This judges no composition MUST (§4.6 clause 3 stands): it reads the
 // REGISTER of the gate's rendering, never whether the reasoning is good.
 const INTERNAL_IDENTIFIER = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
+// The same pattern, global, so the predicate can walk PAST an exempted token
+// instead of stopping at the first match (kogaki#934). Derived from the source
+// above rather than retyped: two literals would be one edit away from disagreeing,
+// and the disagreement would show up as a leak the walker skipped.
+const INTERNAL_IDENTIFIER_ALL = new RegExp(INTERNAL_IDENTIFIER.source, "g");
 const SECTION_REFERENCE = /§\s*\d/;
 
 // THE LEAK PREDICATE, exported so a second owner surface reuses it rather
 // than re-deriving the same two regexes (kogaki#526). The gate payload was the
 // first surface to need it; the MINTED BRIEF is the second, and it is a tracked
 // document the owner reads directly. One predicate, two callers.
-export function findInternalVocabulary(text) {
+export function findInternalVocabulary(text, exempt) {
   if (typeof text !== "string") return null;
-  const id = text.match(INTERNAL_IDENTIFIER);
-  if (id) return { kind: "an internal identifier", token: id[0] };
+  // THE ADMISSIBLE-OVERRIDE SET (kogaki#934, owner selection 2026-09-06). The
+  // identifier pattern's premise is that a snake_case token is a name only this
+  // codebase uses. That premise is FALSE for a `step_id`, which the composer
+  // authors in the Brief — and §4.16 MANDATES rendering those ids into the
+  // Candidate label, so the figure clause is a sanctioned producer of the very
+  // state this guard refuses. Without the override the guard refuses its own
+  // mandated caller and `assembleSelection` returns no payload at all: the whole
+  // selection gate collapses, on every option, because of one Step's name.
+  //
+  // `exempt` is a Set of tokens the CALLER supplies, and the caller supplies
+  // only tokens the rendering's own data produced. It is not a widening of the
+  // pattern and not a list of blessed words: nothing here is exempt by spelling,
+  // only by provenance. A term of art the composer did not author is caught
+  // exactly as before, in the same label, which is what keeps the wire armed.
+  const skip = exempt instanceof Set ? exempt : null;
+  for (const m of text.matchAll(INTERNAL_IDENTIFIER_ALL)) {
+    if (skip && skip.has(m[0])) continue;
+    return { kind: "an internal identifier", token: m[0] };
+  }
   const sec = text.match(SECTION_REFERENCE);
   if (sec) return { kind: "a section reference", token: sec[0] };
   return null;
@@ -192,7 +214,23 @@ export const SLOT_CAPTIONS = new Map([
 
 // Pure; exported for the check. Returns { error } naming what leaked and
 // where, or {} when the rendering is clean.
-export function denyInternalVocabulary(payload) {
+export function denyInternalVocabulary(payload, exemptByOption) {
+  // THE OVERRIDE SET IS PER-OPTION AND REACHES ONE SURFACE (kogaki#934). The
+  // second argument is a Map from option id to the Set of tokens that option's
+  // own data put in its label — today, the step ids §4.16's figure clause
+  // renders. Two scopings are deliberate and both are the narrow one:
+  //   * PER-OPTION, so Candidate A's step ids do not license the same token
+  //     appearing in Candidate B's label, where nothing produced it.
+  //   * OPTION LABELS ONLY. The ask's where/why/label and the free-text prompt
+  //     are composed by this file, not by the author, so no token there is ever
+  //     exempt; and `o.rendering` is walked with no override for the same
+  //     reason. A leak that moves into a field the predicate stopped walking is
+  //     exactly the failure a tripwire exists to make impossible (kogaki#568),
+  //     and an override that widened past the one surface its producer writes
+  //     would be that failure wearing an allowlist.
+  // Omitting the argument keeps the pre-#934 behaviour exactly, which is what
+  // every other caller of this function relies on.
+  const overrides = exemptByOption instanceof Map ? exemptByOption : null;
   const surfaces = [
     ["the ask's where", payload.where],
     ["the ask's why", payload.why],
@@ -200,7 +238,7 @@ export function denyInternalVocabulary(payload) {
     ["the free-text prompt", payload.free_text?.prompt],
   ];
   for (const o of payload.options || []) {
-    surfaces.push([`option ${o.id}'s label`, o.label]);
+    surfaces.push([`option ${o.id}'s label`, o.label, overrides?.get(o.id)]);
     // THE PREDICATE WALKS WHATEVER THE OWNER READS (kogaki#568). The rendering
     // was a list of {label, text} pairs and is now a list of prose paragraphs;
     // this loop follows the shape rather than assuming one, because a leak that
@@ -216,8 +254,8 @@ export function denyInternalVocabulary(payload) {
       surfaces.push([`the evidence under "${item.label}" on option ${o.id}`, item.text]);
     }
   }
-  for (const [where, text] of surfaces) {
-    const leak = findInternalVocabulary(text);
+  for (const [where, text, exempt] of surfaces) {
+    const leak = findInternalVocabulary(text, exempt);
     if (leak) {
       return { error: `gate rendering leaks spec-internal vocabulary: ${leak.kind} `
         + `${JSON.stringify(leak.token)} in ${where}. The owner reads this rendering and `
@@ -572,7 +610,16 @@ export function assembleSelection(reviewed, doc) {
   // spec-internal vocabulary before it can be presented. It does not stand
   // in for the plain labels above — it is what catches the NEXT term of art
   // that finds a rendering path (kogaki#520).
-  const leak = denyInternalVocabulary(payload);
+  // THE OVERRIDE SET, BUILT FROM THE CLAUSE'S OWN INPUT (kogaki#934). Each
+  // Candidate's entry holds exactly the step ids `figureClause` rendered into
+  // that Candidate's label — `figureSteps` is the same selector the clause
+  // calls, so the exempted set cannot drift from the rendered one by being
+  // derived twice. A Candidate with no figure contributes an empty Set and
+  // exempts nothing.
+  const exemptByOption = new Map(
+    cands.map((c) => [c.candidate_id, new Set(figureSteps(c.steps).map((st) => st.step_id))]),
+  );
+  const leak = denyInternalVocabulary(payload, exemptByOption);
   if (leak.error) return leak;
   return { payload };
 }
