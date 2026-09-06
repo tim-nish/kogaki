@@ -575,6 +575,32 @@ function validateRecovered(text, step, file) {
   };
   walk(rec, "");
 
+  // THE TOP-LEVEL KEY SET IS CLOSED, and the schema declares it rather than
+  // this function asserting it (kogaki#885, owner selection 2026-09-06).
+  // `forbidden_keys` above is an enumerated prohibition, and its load-bearing
+  // half is the non-member fallback — which was admit-by-default and inherited
+  // from the matcher rather than chosen, so a record carrying `impression`
+  // beside the seven passed and the blindness was contaminated with no trace.
+  // The refusal names the key by path in the same form the forbidden-key
+  // refusal uses, so a reviewer repairing a record reads one grammar.
+  //
+  // A key that is ALREADY FORBIDDEN is not reported twice: that refusal is the
+  // more specific one and says why the key is refused rather than only that it
+  // is unnamed.
+  //
+  // TOP LEVEL ONLY, which is deliberate and not an oversight. `required` is
+  // the declaration of this level's vocabulary; a nested object's admissible
+  // keys are `fields.<name>.item_required`, already enforced per field below.
+  if (schema.closed_key_set) {
+    const named = new Set(schema.required || []);
+    for (const k of Object.keys(rec)) {
+      if (named.has(k) || forbidden.has(k)) continue;
+      problems.push(`carries the unnamed top-level key \`${k}\` — the record's shape is CLOSED to `
+        + `the fields src/recovered-schema.json declares (${(schema.required || []).join(", ")}), `
+        + "so a key the Harness does not read cannot silently carry a judgment");
+    }
+  }
+
   const inStep = (span) => Array.isArray(span) && span.length === 2
     && Number.isInteger(span[0]) && Number.isInteger(span[1])
     && span[0] <= span[1] && span[0] >= step.lines[0] && span[1] <= step.lines[1];
@@ -3942,6 +3968,43 @@ async function runSelfTest() {
     bad("and one nested inside concessions is refused too",
       (r) => { r.concessions = [{ text: "a concession", span: [lo, lo], score: 2 }]; return r; },
       "forbidden key `concessions`[0].score");
+
+    // THE TOP-LEVEL KEY SET IS CLOSED (kogaki#885, owner selection
+    // 2026-09-06). The half of PR #884 round 1's finding 2 that the fix commit
+    // left unresolved: `forbidden_keys` refuses the names somebody enumerated,
+    // and everything else passed. `impression` is the specimen precisely
+    // because nobody would have thought to forbid it.
+    bad("an unnamed top-level key beside the seven is refused — the shape is closed, not forbidden-list-only",
+      (r) => { r.impression = "the passage reads well"; return r; },
+      "unnamed top-level key `impression`");
+    // AND THE REFUSAL SAYS WHY, quoting the schema's own vocabulary rather
+    // than only reporting that the key is unknown.
+    {
+      const f = writeRecord("a1", (r) => { r.confidence = 0.8; return r; });
+      const r = D("recover", "--step", "a1", "--file", f);
+      ok("the closed-set refusal names the declared fields, so the repair is readable from the message",
+        r.status === 1 && /unnamed top-level key `confidence`/.test(r.stderr)
+        && /reader_state_after/.test(r.stderr) && /restates/.test(r.stderr));
+    }
+    // A FORBIDDEN KEY IS NOT REPORTED TWICE. It is unnamed AND forbidden, and
+    // the forbidden refusal is the one that says why — reporting both would
+    // make the more specific reason harder to find, not easier.
+    {
+      const f = writeRecord("a1", (r) => { r.verdict = "holds"; return r; });
+      const r = D("recover", "--step", "a1", "--file", f);
+      ok("a forbidden top-level key keeps its own refusal and is not ALSO reported as unnamed",
+        r.status === 1 && /forbidden key `verdict`/.test(r.stderr)
+        && !/unnamed top-level key `verdict`/.test(r.stderr));
+    }
+    // CLOSING BINDS THE TOP LEVEL ONLY, which is the scope the schema declares
+    // — `required` is this level's vocabulary, and a nested object's is
+    // `item_required`. An extra key inside a claim is not this rule's business.
+    {
+      const f = writeRecord("a1", (r) => { r.claims[0].note = "an aside"; return r; });
+      const r = D("recover", "--step", "a1", "--file", f);
+      ok("an extra key INSIDE a claim is not refused by the closed set — the declaration is top-level",
+        r.status === 0);
+    }
 
     // The refusal collects EVERY problem rather than the first, so a reviewer
     // repairing a record does not discover them one run at a time.
