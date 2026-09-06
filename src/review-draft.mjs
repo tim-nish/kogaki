@@ -3804,8 +3804,12 @@ async function runSelfTest() {
     // invisible to it. One scanner, used on the Harness and on the fixture
     // below, so the fixture exercises the scan the case runs rather than a
     // copy of it.
+    // THREE FORMS AND ONE QUOTE CLASS (PR #943 round 1). `from '…'` and a bare
+    // side-effect `import "…"` were each matched by neither half — the same
+    // admit-by-default fallback this case exists to invert, one form over.
     const importsOf = (text) => [
-      ...[...text.matchAll(/from "([^"]+)"/g)].map((m) => m[1]),
+      ...[...text.matchAll(/\bfrom\s*["']([^"']+)["']/g)].map((m) => m[1]),
+      ...[...text.matchAll(/^\s*import\s+["']([^"']+)["']/gm)].map((m) => m[1]),
       ...[...text.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]),
     ];
     const imports = importsOf(code);
@@ -3822,6 +3826,13 @@ async function runSelfTest() {
       dynForeign.join(", "));
     ok("while a dynamic import of an allowed module passes the same scan",
       importsOf('const { x } = await import("node:child_process");').filter((m) => !ALLOWED.has(m)).length === 0);
+    // And the two forms round 1 named: a single-quoted static import and a
+    // bare side-effect import, each refused by name through the same scanner.
+    const quoted = importsOf("import { y } from './strand.mjs';\nimport './moves.mjs';\nimport 'node:fs';")
+      .filter((m) => !ALLOWED.has(m));
+    ok("and a single-quoted `from '…'` and a bare side-effect `import '…'` are both seen",
+      quoted.length === 2 && quoted.includes("./strand.mjs") && quoted.includes("./moves.mjs"),
+      quoted.join(", "));
     // The two store literals stay asserted beside it: a Move or Strand reached
     // by a path composed at runtime imports nothing, so the allowlist alone
     // cannot see it. Neither case subsumes the other.
