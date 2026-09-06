@@ -125,11 +125,26 @@ export function checkMermaid(src) {
     if ((line.match(/"/g) || []).length % 2 !== 0) {
       return `line ${i + 1} carries an odd number of quotes (${JSON.stringify(line)}) — a label opened and never closed swallows the rest of the diagram`;
     }
+    // THE BALANCE TEST RUNS OUTSIDE QUOTED SPANS (PR #939 round 1, finding 1).
+    // It used to run over the whole line, so a bracket or paren in an element's
+    // own wording — `cost per unit (amortised)`, a citation, an aside — was
+    // counted as node syntax. Mermaid's quoted labels carry those characters
+    // fine, so the record was valid, the diagram would have rendered, and the
+    // run died at `emit` — the LAST act — with a message saying "this is a
+    // renderer defect, fixed here and not in the record", pointing the owner
+    // away from the text that actually caused it.
+    //
+    // ESCAPING THE BRACKETS WAS THE DECLINED ALTERNATIVE, and the ground is
+    // that `label` writes READER-FACING wording: escaping there would put
+    // `#40;` in front of a reader to satisfy a check about syntax the reader
+    // never sees. The defect is the check reading text as syntax, so the check
+    // is what changes.
+    const outside = line.replace(/"[^"]*"/g, '""');
     for (const [open, close] of [["[", "]"], ["(", ")"]]) {
-      const o = (line.match(new RegExp(`\\${open}`, "g")) || []).length;
-      const c = (line.match(new RegExp(`\\${close}`, "g")) || []).length;
+      const o = (outside.match(new RegExp(`\\${open}`, "g")) || []).length;
+      const c = (outside.match(new RegExp(`\\${close}`, "g")) || []).length;
       if (o !== c) {
-        return `line ${i + 1} has ${o} ${JSON.stringify(open)} against ${c} ${JSON.stringify(close)} (${JSON.stringify(line)}) — an unbalanced node shape is the syntax defect this check exists to catch`;
+        return `line ${i + 1} has ${o} ${JSON.stringify(open)} against ${c} ${JSON.stringify(close)} outside its quoted label(s) (${JSON.stringify(line)}) — an unbalanced node shape is the syntax defect this check exists to catch. Characters inside a label are not counted, so this is node syntax and not an element's wording`;
       }
     }
     // A statement is either a node declaration or an edge. Both begin with an

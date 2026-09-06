@@ -1169,7 +1169,19 @@ function cmdSection(args) {
   // NOT refused — a table is prose the article may legitimately need, and
   // refusing every table to close this seat would be an over-refusal against
   // material that has nothing to do with figures.
-  const drawn = content.match(new RegExp("^```[ \\t]*" + MERMAID_FENCE + "\\b", "mi"));
+  // AN OUTER FENCE MAKES THE INNER ONE A QUOTATION (PR #939 round 1, finding 3).
+  // Blocks delimited by FOUR OR MORE backticks are stripped before the scan, so
+  // prose that quotes a ```mermaid fence — an article about this very pipeline
+  // is the obvious case — is not read as prose that drew a figure. This is the
+  // same over-refusal PR #843 round 1 found for the heading scan and closed by
+  // stripping fences, and the first form of this guard reintroduced it one
+  // element over by matching the raw file.
+  //
+  // A BARE ```mermaid FENCE IS STILL REFUSED: only the outer-fenced case is
+  // exempt, because an outer fence is an author saying "this is displayed text"
+  // in the one way Markdown has of saying it.
+  const quotable = content.replace(/^`{4,}[\s\S]*?^`{4,}[ \t]*$/gm, "");
+  const drawn = quotable.match(new RegExp("^```[ \\t]*" + MERMAID_FENCE + "\\b", "mi"));
   if (drawn) {
     fail(`the section for ${id} draws its own figure (a \`\`\`${MERMAID_FENCE} fence) — after §4.18 a figure's markup is rendered by the Harness from the record \`figure --step ${id}\` validated, and prose that draws one is a second author on a seat the Brief owns, exactly as a heading in the prose is (§4.15). `
       + `If this Step should carry a figure, it is declared with \`figure:\` on the Brief (§4.16) and designed after this prose; if it should not, remove the fence`);
@@ -2534,13 +2546,18 @@ async function runSelfTest() {
       "materials: L1", `rationale: rationale for ${id}.`,
       ...G, ...extra, "```", "",
     ];
-    const anchBrief = (pos) => figBrief([
+    // NO `pos` PARAMETER (PR #939 round 1, finding 4). The first form took one
+    // and never read it, so the two call sites read as if the fixture BRIEF
+    // differed between the acceptance-2 case and its `before` control when only
+    // the RECORD does — a fixture whose shape a later reader would trust
+    // wrongly. The Brief is one Brief; `position` lives in the record.
+    const anchBrief = () => figBrief([
       ...anchStep("a1", ["opens_section: Section one",
         "figure: what the prose leaves the reader unable to hold in one view.",
         "figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3"]),
       ...anchStep("a2", []),
     ]).replace("# Brief — figure-brief", "# Brief — anchor-brief");
-    writeFileSync(join(anchDir, "brief.md"), anchBrief("after"));
+    writeFileSync(join(anchDir, "brief.md"), anchBrief());
     const anchWs = join(root, "ws-anchor");
     const driveAnch = (cmd, ...extra) => spawnSync(process.execPath,
       [self, cmd, "--brief", join(anchDir, "brief.md"), "--workspace", anchWs, "--moves-dir", movesDir, ...extra],
@@ -2607,7 +2624,7 @@ async function runSelfTest() {
     // and always appended would pass.
     const beforeDir = join(root, "theses", "before-brief");
     mkdirSync(beforeDir, { recursive: true });
-    writeFileSync(join(beforeDir, "brief.md"), anchBrief("before").replace("# Brief — anchor-brief", "# Brief — before-brief"));
+    writeFileSync(join(beforeDir, "brief.md"), anchBrief().replace("# Brief — anchor-brief", "# Brief — before-brief"));
     const beforeWs = join(root, "ws-before");
     const driveBefore = (cmd, ...extra) => spawnSync(process.execPath,
       [self, cmd, "--brief", join(beforeDir, "brief.md"), "--workspace", beforeWs, "--moves-dir", movesDir, ...extra],
@@ -2642,6 +2659,35 @@ async function runSelfTest() {
     const rPlain = driveAnch("section", "--step", "a2", "--file", plainFence);
     ok("an ordinary code fence in realized prose is not refused",
       rPlain.status === 0, (rPlain.stderr || "").slice(0, 240));
+    // PR #939 ROUND 1, FINDING 3 — an outer fence makes the inner one a
+    // QUOTATION. Prose about this pipeline is the case that produced the
+    // finding, and it is the fixture here rather than a synthetic one.
+    const quoted = join(root, "prose-quoted-fence.md");
+    writeFileSync(quoted, "Prose for a2 about the renderer.\n\n````markdown\n```" + MERMAID_FENCE + "\nflowchart LR\n  a --- b\n```\n````\n");
+    const rQuoted = driveAnch("section", "--step", "a2", "--file", quoted);
+    ok("a mermaid fence QUOTED inside an outer four-backtick fence is not refused",
+      rQuoted.status === 0, (rQuoted.stderr || "").slice(0, 300));
+
+    // PR #939 ROUND 1, FINDING 1 — a bracket or paren in an element's own
+    // wording is TEXT, not node syntax. The record validates, so the failure it
+    // used to produce arrived at `emit`, the last act, with a message denying
+    // that the record was where to look.
+    // THE WORDING IS DELIBERATELY UNBALANCED — `(amortised` with no closing
+    // paren — and that is the whole case. A BALANCED aside renders whether or
+    // not the fix is present, so a case using one would pass on the defect: the
+    // first form of this case did exactly that, and it is recorded here rather
+    // than quietly corrected.
+    const bracketed = renderFigure(recordOf({
+      elements: { ...recordOf({}).elements, criterion: { text: "cost per unit (amortised", ground: "g3" } },
+    }));
+    ok("an UNBALANCED bracket inside an element's wording renders rather than failing the balance check",
+      !bracketed.error && bracketed.markup.includes("cost per unit (amortised"),
+      bracketed.error || "");
+    // THE CONTROL, which is what stops that fix disabling the check: an
+    // unbalanced shape OUTSIDE a quoted label still fails, and says so.
+    ok("an unbalanced node shape outside the label still fails, naming it as syntax rather than wording",
+      /outside its quoted label/.test(checkMermaid('flowchart LR\n  n_a["safe (text)"]([') || ""),
+      String(checkMermaid('flowchart LR\n  n_a["safe (text)"]([')));
 
     // A RECORDED FIGURE THAT WILL NOT RENDER STOPS THE ARTIFACT. Constructed by
     // corrupting the stored record after validation — the only way to reach the
