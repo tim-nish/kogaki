@@ -2591,55 +2591,73 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // to SUCCEED.
 {
   const zdir = mkdtempSync(join(tmpdir(), "brief-decl-"));
-  const zrs = join(zdir, "run.json");
-  run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs]);
-  const zdecl = run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", zrs]);
-  const zdeclPath = join(zdir, "run.brief-thesis-adoption.run-declaration.json");
-  // THE PRECONDITION IS ASSERTED, not assumed. If `--declare` stopped writing
-  // the file at this name, the removal below would remove nothing and the case
-  // would pass while exercising the empty set.
-  if (zdecl.status !== 0) {
-    fails.push(`(z) \`gate-thesis --declare\` failed, so the case exercises nothing: ${(zdecl.stderr || zdecl.stdout || "").trim().slice(0, 160)}`);
-  } else if (!existsSync(zdeclPath)) {
-    fails.push(`(z) no run declaration was written at ${zdeclPath} — the file whose removal this case is about does not exist, so the removal below is vacuous`);
-  } else {
-    const zcap = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", zrs,
-      "--tool-use-id", "toolu_fixture_decl_removed", "--option", "thesis-1"]);
-    if (zcap.status !== 0) {
-      fails.push(`(z) capturing against a present declaration was refused: ${(zcap.stderr || zcap.stdout || "").trim().slice(0, 160)}`);
+  // THE CASE REMOVES ITS OWN TEMPORARY DIRECTORY ON EVERY PATH IT CAN
+  // REACH (kogaki#956). The member's own body does this for `dir` in the
+  // `finally` at the top level; this case is written after that block and so
+  // owns its cleanup itself. Left undone, every suite run leaves a
+  // `brief-decl-*` directory holding two run states and a capture behind —
+  // the accumulating-run-state defect kogaki#750 removed, at a new site.
+  try {
+    const zrs = join(zdir, "run.json");
+    run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs]);
+    const zdecl = run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", zrs]);
+    // THE DECLARATION'S SUFFIX IS DERIVED, not written out (kogaki#956).
+    // Case (g) reads it from `src/gate-schema.json` the same way; a literal
+    // here fails as "no run declaration was written at ..." when the suffix
+    // moves, which names the wrong cause — the join-key-as-a-literal class
+    // kogaki#837 records, at a new site.
+    const zdeclPath = join(
+      zdir,
+      `run.brief-thesis-adoption${JSON.parse(readFileSync("src/gate-schema.json", "utf8")).capture.run_declaration_suffix}`,
+    );
+    // THE PRECONDITION IS ASSERTED, not assumed. If `--declare` stopped writing
+    // the file at this name, the removal below would remove nothing and the case
+    // would pass while exercising the empty set.
+    if (zdecl.status !== 0) {
+      fails.push(`(z) \`gate-thesis --declare\` failed, so the case exercises nothing: ${(zdecl.stderr || zdecl.stdout || "").trim().slice(0, 160)}`);
+    } else if (!existsSync(zdeclPath)) {
+      fails.push(`(z) no run declaration was written at ${zdeclPath} — the file whose removal this case is about does not exist, so the removal below is vacuous`);
+    } else {
+      const zcap = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", zrs,
+        "--tool-use-id", "toolu_fixture_decl_removed", "--option", "thesis-1"]);
+      if (zcap.status !== 0) {
+        fails.push(`(z) capturing against a present declaration was refused: ${(zcap.stderr || zcap.stdout || "").trim().slice(0, 160)}`);
+      }
+      const zcapPath = join(zdir, "run.brief-thesis-adoption.gate-capture.json");
+      // THE CAPTURE ACT IS WHERE THE FILE IS READ, and that is asserted in the
+      // NEGATIVE direction too — otherwise "the barrier holds transitively" is a
+      // claim this member never tests. A second run state, so the first one's
+      // capture is not consumed by the probe.
+      const zrs2 = join(zdir, "run2.json");
+      run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs2]);
+      const zcapNoDecl = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", zrs2,
+        "--tool-use-id", "toolu_fixture_no_decl", "--option", "thesis-1"]);
+      if (zcapNoDecl.status === 0) {
+        fails.push("(z) `gate-thesis --capture` accepted an answer with no declaration ever written — the barrier §5.3 says holds TRANSITIVELY does not hold at the wait, so adoption rests on nothing");
+      }
+      // NOW REMOVE THE DECLARATION and adopt. This is the case the acceptance
+      // item names, and under the owner's arm it SUCCEEDS.
+      rmSync(zdeclPath);
+      const zadopt = run(["src/brief.mjs", "adopt", "--run-state", zrs, "--capture", zcapPath]);
+      if (zadopt.status !== 0) {
+        fails.push(`(z) adoption against a run state whose declaration FILE was removed was refused — §5.3 v36 states it is admissible, because the file is a derived artifact and the barrier is \`state.gate\` plus the capture: ${(zadopt.stderr || zadopt.stdout || "").trim().slice(0, 200)}`);
+      }
+      // AND THE BARRIER THAT DOES BIND IS ASSERTED BY (t), NOT HERE. Without
+      // one somewhere, the admissibility above is satisfied by an `adopt` that
+      // checks nothing at all — which is the reading kogaki#915 rules out rather
+      // than installs. (t) already asserts the `state.gate` refusal and names it,
+      // so an assertion here would be a second answer to one question.
+      //
+      // CHECKED RATHER THAN ASSERTED: dropping cmdAdopt's `state.gate` barrier
+      // was run as a mutation and failed (t), not this case. A version of this
+      // block that adopted against a hand-written gate-less run state was WRITTEN
+      // and WITHDRAWN — under that mutation the runtime throws on `state.gate.
+      // gate_id` and exits non-zero, so the assertion passed for a reason that is
+      // not the refusal it names. Recorded because a withdrawn assertion and one
+      // that was never considered read identically to a later reader.
     }
-    const zcapPath = join(zdir, "run.brief-thesis-adoption.gate-capture.json");
-    // THE CAPTURE ACT IS WHERE THE FILE IS READ, and that is asserted in the
-    // NEGATIVE direction too — otherwise "the barrier holds transitively" is a
-    // claim this member never tests. A second run state, so the first one's
-    // capture is not consumed by the probe.
-    const zrs2 = join(zdir, "run2.json");
-    run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs2]);
-    const zcapNoDecl = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", zrs2,
-      "--tool-use-id", "toolu_fixture_no_decl", "--option", "thesis-1"]);
-    if (zcapNoDecl.status === 0) {
-      fails.push("(z) `gate-thesis --capture` accepted an answer with no declaration ever written — the barrier §5.3 says holds TRANSITIVELY does not hold at the wait, so adoption rests on nothing");
-    }
-    // NOW REMOVE THE DECLARATION and adopt. This is the case the acceptance
-    // item names, and under the owner's arm it SUCCEEDS.
-    rmSync(zdeclPath);
-    const zadopt = run(["src/brief.mjs", "adopt", "--run-state", zrs, "--capture", zcapPath]);
-    if (zadopt.status !== 0) {
-      fails.push(`(z) adoption against a run state whose declaration FILE was removed was refused — §5.3 v36 states it is admissible, because the file is a derived artifact and the barrier is \`state.gate\` plus the capture: ${(zadopt.stderr || zadopt.stdout || "").trim().slice(0, 200)}`);
-    }
-    // AND THE BARRIER THAT DOES BIND IS ASSERTED BY (t), NOT HERE. Without
-    // one somewhere, the admissibility above is satisfied by an `adopt` that
-    // checks nothing at all — which is the reading kogaki#915 rules out rather
-    // than installs. (t) already asserts the `state.gate` refusal and names it,
-    // so an assertion here would be a second answer to one question.
-    //
-    // CHECKED RATHER THAN ASSERTED: dropping cmdAdopt's `state.gate` barrier
-    // was run as a mutation and failed (t), not this case. A version of this
-    // block that adopted against a hand-written gate-less run state was WRITTEN
-    // and WITHDRAWN — under that mutation the runtime throws on `state.gate.
-    // gate_id` and exits non-zero, so the assertion passed for a reason that is
-    // not the refusal it names. Recorded because a withdrawn assertion and one
-    // that was never considered read identically to a later reader.
+  } finally {
+    rmSync(zdir, { recursive: true, force: true });
   }
 }
 
