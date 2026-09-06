@@ -1,5 +1,15 @@
 # SPEC-terrain — the survey/selection surface
 
+**Status:** v38 (kogaki#925) — **§13.4's refusal enumeration and §12.3's
+absent-input clause state what kogaki#861 shipped.** §13.4 said J3 refuses
+three ways after kogaki#861 gave it three more and a fourth had gone
+uncounted — a level with no claim, which predates #861 — and §12.3 stated the
+absent-candidates fallback unconditionally after kogaki#861 stopped it applying
+to a judged neighborhood — both clauses §12.3 itself sites here rather than in
+the grammar carrier, so nothing else was carrying them. This propagates
+kogaki#861 into the ratified text and changes no behaviour.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v37 (kogaki#890) — **the owner's answer at a gate wait is READ from
 a harness capture, never argued, and `ID_SELECTION` becomes the fifth declared
 gate.** v36 and every version before it left the answer's *writer* unbound:
@@ -626,8 +636,19 @@ carries bare placeholders on three body classes, so a class declared for these
 would police nothing. **None of these can live in the grammar, and that is why
 they are here.**
 
-**The absent input renders the section and says it is empty.** Omitting it makes
-*no candidates were composed* and *this section does not exist* the same silence.
+**The absent input renders the section and says it is empty — for an unjudged or
+empty neighborhood, which is the case it still answers** (v38, kogaki#925
+propagating kogaki#861). Omitting it there makes *no candidates were composed*
+and *this section does not exist* the same silence.
+
+**A JUDGED NEIGHBORHOOD REQUIRES THE COMPOSED CANDIDATES, and the clause above
+does not reach it.** Every judged §13.4 row names the Thesis candidate it
+serves, so an absent list would render TC ids against this section's empty
+notice — a line pointing at a section that does not carry it. `cmdReport`
+refuses a pull carrying a neighborhood judgment and no composed candidates; and
+in the `run` flow the input is never absent at all, because the
+`thesis_candidates` state is unconditional and ordered ahead of `J3_neighborhood`
+so the ids J3 checks against are the ids the pull will render.
 
 `necessity:` §12 holds what identity *means* — why membership discriminates,
 why the arity is uniform, why `none` and empty are not synonyms — and the bounds
@@ -706,8 +727,20 @@ any mechanical candidate uncovered, and `full_report` refuses to render an
 unjudged neighborhood. **Both the enumerating compute state and the
 judgment point are unconditional** in `workflow.json`.
 
-**J3 refuses three ways:** a judgment key naming no mechanical candidate; a
-mechanical candidate no key covers; and a level outside the harness-fixed set.
+**J3 refuses seven ways** (v38, kogaki#925 propagating kogaki#861): a judgment
+key naming no mechanical candidate; a mechanical candidate no key covers; a
+level outside the harness-fixed set; a level with no claim; a judgment carrying
+no target; a target that is not a Thesis-candidate id; and a target naming a
+Thesis candidate the `thesis_candidates` state did not compose. The last three
+arrived with kogaki#861, which gave every judgment a target and made
+`thesis_candidates` the state that fixes the ids a target may name — so the
+count is stated against the declared refusal in `src/workflow.json`'s
+`J3_neighborhood` row rather than against the ordinal in any one code comment.
+
+**The typed record's own shape refusals are the same reader's and are not
+counted here** — a malformed entry, a target with no role, and a role spanning
+more than one rendered line. They bound the record's *form*; the seven above
+bound what it may *say*, which is what this section governs.
 
 **The display fills to ten deterministically, in the harness.** The cap no longer
 binds as a refusal. **The truncation line is answered by the counts, not by the
