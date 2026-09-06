@@ -80,7 +80,7 @@
         },
         {
           "id": "navigation_hint",
-          "form": "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (the wait rule)."
+          "form": "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word."
         },
         {
           "id": "blank",
@@ -169,12 +169,12 @@
         },
         {
           "id": "suppressed_split_disclosure",
-          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `other` — the residual, so the judge found no subset of <M> or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md the SubGroup threshold). …",
+          "form": "<n> of <m> group(s) under <threshold> members render flat because their only named SubGroup was labelled `other` — the residual, so the judge found no subset of <M> or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation. …",
           "superseded": "… was labelled `forced` — grouped only to satisfy the requirement … (kogaki#738: the reason clause moved with the label, from what the engine compelled to what the judge found)"
         },
         {
           "id": "abnormal_display_id",
-          "form": "ABNORMAL: <n> of <m> member(s) on this surface carry no display_id. … Re-run `terrain survey` to regenerate the record (location and naming v11)."
+          "form": "ABNORMAL: <n> of <m> member(s) on this surface carry no display_id. … Re-run `terrain survey` to regenerate the record."
         },
         {
           "id": "compose_remedy",
@@ -186,7 +186,7 @@
         },
         {
           "id": "classification",
-          "form": "Classification: NAVIGATION (SPEC.md, the second-proposer boundary — …)"
+          "form": "Classification: NAVIGATION (…)"
         },
         {
           "id": "narrows_nothing",

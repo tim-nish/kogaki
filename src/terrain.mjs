@@ -2884,7 +2884,7 @@ function announceArtifacts(rendered, recordPath) {
 // `navigation_hint` form is amended to match, deliberately and on this
 // issue's licence, never to make a refusal go away.
 export const NAVIGATION_HINT =
-  "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word (§15.4).";
+  "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word.";
 
 export const DISPLAY_RENDERING = "CoTagGroups.md";
 
