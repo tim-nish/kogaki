@@ -497,7 +497,18 @@ try {
     fails.push("(e) the gate's own label does not state what adopting an option does — the effect states ONCE, and once is not zero (kogaki#568, proposal-contract §2.2)");
   }
   if (pay.free_text?.accepted !== true) fails.push("(e) the free-text channel is not unconditionally accepted");
-  if (!/does not discharge/.test(pay.free_text?.prompt || "")) fails.push("(e) the free-text prompt does not state that it leaves the negation undischarged");
+  // THE ASSERTION BINDS THE PROPERTY, NOT THE PHRASE (kogaki#950). This read
+  // `/does not discharge/` and so bound one sentence's wording rather than what
+  // §6 rules: the free-text channel does not stand in for the first-class
+  // negation. When the prompt was reworded to carry v35's comment reading, the
+  // property was stated MORE strongly — only the two typed arms decide, so free
+  // text discharges neither — and the phrase-shaped test went red on copy that
+  // satisfied it. That is the proxy-binding shape this repository records at
+  // length; the fix is the binding, and the accepted form is either the
+  // explicit disclaimer or a statement that the arms are what decide.
+  const negUndischarged = /does not discharge/.test(pay.free_text?.prompt || "")
+    || (/none-of-these/.test(pay.free_text?.prompt || "") && /\bdecides\b|\bdecide\b/.test(pay.free_text?.prompt || ""));
+  if (!negUndischarged) fails.push("(e) the free-text prompt does not state that it leaves the negation undischarged — say so outright, or say that selecting a Candidate or answering none-of-these is what decides");
   // THE OPTION CARRIES ITS ID AND ITS LABEL AND NOTHING ELSE (§6 as amended,
   // kogaki#859 owner ruling 2026-09-04). This assertion REQUIRED the five
   // composition-time items on every option until that ruling; it is INVERTED
@@ -669,6 +680,36 @@ try {
   // a gate that renders no options is a gate over nothing.
   for (const id of ["cand-1", "cand-2", "none-of-these"]) {
     if (!new RegExp(id).test(gDecl.stdout || "")) fails.push(`(g6) the declaration output does not render option ${id} — the owner would choose among options they were never shown`);
+  }
+  // THE PROMPT THE OWNER READS BEFORE ANSWERING CARRIES WHAT THE RUNTIME DOES
+  // (kogaki#950). The free-text refusal below is bound at length, and it is
+  // read AFTER the answer; this prompt is read BEFORE it, so a prompt promising
+  // adoption delivers the repaired refusal to an owner who was told it would
+  // not happen. The property is asserted on the RENDERED declaration output —
+  // the surface the owner actually sees — rather than on the payload object,
+  // because a prompt correct in the payload and unrendered is the same silence.
+  //
+  // POSITIVE, NOT ONLY NEGATIVE, for the reason this file states once for
+  // itself: asserting only the absence of "recorded as your ruling" passes on a
+  // prompt that deleted the sentence, leaving the channel with no stated
+  // reading at all. So the three properties v35 rules are each anchored — free
+  // text adopts nothing, the two arms that DO decide are named, and the owner
+  // is told they come back here — and the false promise is refused beside them.
+  const freePrompt = (/\(free text\)(.*)/.exec(gDecl.stdout || "") || [, ""])[1].trim();
+  if (!freePrompt) fails.push("(g6) the declaration output renders no free-text prompt — the channel is offered with nothing said about what it does");
+  else {
+    if (/recorded as your ruling|as your ruling|is your ruling/i.test(freePrompt)) {
+      fails.push(`(g6) the \u00a76 free-text prompt still tells the owner their words are recorded as a ruling, which SPEC-draft-pipeline v35 rules they are not — adoption refuses free text and writes no Reader Path: ${JSON.stringify(freePrompt)}`);
+    }
+    if (!/adopts no Reader Path|adopts nothing|is a COMMENT|is a comment/.test(freePrompt)) {
+      fails.push(`(g6) the \u00a76 free-text prompt does not say free text adopts nothing — an owner reads it before answering and the refusal only after: ${JSON.stringify(freePrompt)}`);
+    }
+    if (!/none-of-these/.test(freePrompt) || !/Candidate/.test(freePrompt)) {
+      fails.push(`(g6) the \u00a76 free-text prompt does not name both arms that decide (a Candidate, or none-of-these) — a gate executes the arm it captured, and free text captures none: ${JSON.stringify(freePrompt)}`);
+    }
+    if (!/returns you to this gate|returns you here|back to this gate/.test(freePrompt)) {
+      fails.push(`(g6) the \u00a76 free-text prompt does not say a comment on its own returns the owner to this gate: ${JSON.stringify(freePrompt)}`);
+    }
   }
   const selDir = join(laneDir("brief"), dir.split(sep).filter(Boolean).pop());
   const selDeclPath = join(selDir, "brief-candidate-selection.run-declaration.json");
@@ -2705,7 +2746,15 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
   + "and a BLANK one (kogaki#578 \u2014 the option label IS that prose, so a whitespace-only value renders "
   + "as an option the owner cannot see), and the payload rides the proposal-contract shape — where/why, "
   + "effect-stating labels, the first-class none-of-these flagged negates_premise, an "
-  + "unconditional free-text channel that states it does not discharge the negation, and NO "
+  + "unconditional free-text channel whose prompt carries what SPEC-draft-pipeline v35 rules \u2014 "
+  + "free text is a COMMENT that adopts nothing, the two arms that DO decide are named, and a "
+  + "comment on its own returns the owner to the gate, which is HOW it leaves the negation "
+  + "undischarged. REWRITTEN AT kogaki#950 RATHER THAN APPENDED TO: this clause said (e) asserts a "
+  + "channel `that states it does not discharge the negation`, which described the literal phrase "
+  + "(e) matched rather than the property \u00a76 rules, and (e) now accepts either the explicit "
+  + "disclaimer or a statement that the typed arms decide. An admission record that contradicts its "
+  + "member is not recording what is carried (kogaki#145) \u2014 the class this very string literal "
+  + "has been repaired for twice, and the reason the repair rides the same diff. And NO "
   + "EVIDENCE OBJECT — the option carries its id, its label and the bounded rendering and nothing "
   + "else, which is what (e) now asserts rather than the retention it once did. THIS CLAUSE READ "
   + "`and per-Candidate evidence carrying step validity, transition continuity, Thesis closure, the "
