@@ -127,9 +127,11 @@ The record it returns is one JSON object validated against
 `src/recovered-schema.json`: `claims` (each with the draft line span it rests
 on), `reader_state_after`, `purpose`, `terms_introduced`, `shape`, `concessions`
 and `restates`. Every field is a fact about the prose, so every field can be
-checked by pointing at the prose. A missing field, a span outside the passage,
-and a verdict or a piece of advice are each **refused by name** — an empty array
-is an answer, an absent key is not.
+checked by pointing at the prose. A missing field, an UNNAMED EIGHTH FIELD, a
+span outside the passage, and a verdict or a piece of advice are each **refused
+by name** — an empty array is an answer, an absent key is not. The top-level key
+set is **closed** (kogaki#885): the seven are the whole record, and a key
+outside them is refused with the key named rather than accepted and ignored.
 
 **The cold reader reads the body only** — no frontmatter, no trace, no Packet,
 and no Step boundary marked — and writes, after each Section, the question it
