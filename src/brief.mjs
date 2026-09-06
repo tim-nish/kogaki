@@ -60,8 +60,6 @@
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   the read-not-invented rule
 //       SPEC-draft-pipeline
-//   the Step's shape
-//       SPEC-draft-pipeline
 //   the owner gate over a passing specialization record
 //       SPEC-draft-pipeline
 //   the settled structure section
@@ -120,7 +118,7 @@ function parseArgs(argv) {
   return args;
 }
 
-// The the settled structure section fields DOWNSTREAM OF THE THESIS, every one present as a TYPED
+// The settled-structure fields DOWNSTREAM OF THE THESIS, every one present as a TYPED
 // UNFILLED SLOT — an absent field and a field awaiting composition are
 // different silences, and only the second lets a later sitting resume
 // (the durable home and the entry point). The `thesis` field is NOT in this list at v9: it is filled at
@@ -129,7 +127,9 @@ const SLOT = "*(awaiting composition)*";
 // THE CAPTIONS ARE READ FROM ONE TABLE, NOT WRITTEN HERE (kogaki#526). Every
 // caption used to carry its own field key and, in three cases, a section
 // reference — `thesis_closure — explanation and established_by_steps.`,
-// `sequence — the ordered steps of the Step's shape.` — on a TRACKED document the owner
+// `sequence — the ordered steps of \u00a74.1.` (the caption's own words, quoted
+// as the SPECIMEN it is and escaped so the kogaki#902 sweep does not read it
+// as a reference) — on a TRACKED document the owner
 // reads directly. kogaki#520 removed that vocabulary from the gate payload and
 // installed a tripwire there; the tripwire reads the payload and had no reach
 // into the minted document, which is why this was a separate carrier.

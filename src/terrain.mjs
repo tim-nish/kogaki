@@ -7,7 +7,7 @@
 // and composes the survey under its three contracts:
 //   the placement cover completeness is a cover counted in placements, AFTER composition,
 //        with every figure naming which family it counted;
-//   presentation-only grouping grouping is presentation-only — navigation narrows nothing;
+//   grouping is presentation-only — navigation narrows nothing;
 //   the second-proposer boundary the second-proposer boundary — rank/trim/hide are proposals routed
 //        through the item-3 record contract; enumerate/sort/filter-by-owner
 //        are navigation; an act in neither list is a report.
@@ -1169,7 +1169,7 @@ function cmdCotags(args) {
   // this runtime exactly as GroupClaim-first rendering leaves them, so the claims ARRIVE AS ARGUMENTS;
   // what is bound here is that every group gets one and that a missing one is
   // marked rather than substituted.
-  // the open questions v10 (kogaki#212): the claims artifact is a TYPED RECORD carrying the
+  // the open-questions section, v10 (kogaki#212): the claims artifact is a TYPED RECORD carrying the
   // composition pin, and the pin is checked by CONTENT before any claim is
   // rendered. `readClaimsRecord` refuses a bare map by name and refuses a pin
   // computed against a different survey.
@@ -1186,7 +1186,7 @@ function cmdCotags(args) {
       fail(`--claims were composed OUTSIDE the bounded read: ${detail}. `
         + "Every claim must be composed from the material `compose-input` served, and "
         + "the composition pin records what that was — recompose from it rather than "
-        + "from the whole survey (SPEC.md, the open questions v10)");
+        + "from the whole survey (SPEC.md, the open-questions section, v10)");
     }
   }
   for (const k of Object.keys(claims)) {
@@ -2197,7 +2197,7 @@ export function composeSubdivisionRecord(args, dir, record) {
 //
 // IT RETURNS `subOf` RATHER THAN LEAVING ITS CALLER TO REBUILD ONE. Resolving a
 // SubGroup id already requires parsing `--subdivisions`, so handing the closure
-// back is what keeps one parse and one answer (PR #701 round 1). The the open questions v10
+// back is what keeps one parse and one answer (PR #701 round 1). The open-questions section, v10
 // claims-reader rationale does NOT live here: this function reads no claims
 // file, and a comment explaining `--claims` above a function that never opens
 // one is a pointer to the wrong artifact.
@@ -2257,7 +2257,7 @@ export const NO_JUDGE = "none";
 // QUALIFICATION at the resolver, never a first-hit-wins guess"
 // (`consulted: product-lab@98195e0aef221aa82c47bb632324127745469f2e topics/knowledge-architecture.md:154`).
 // THE TYPED CLAIMS RECORD, and the subset refusal it exists to make possible
-// (the open questions v10, kogaki#212).
+// (the open-questions section, v10, kogaki#212).
 //
 // WHY THE CLAIMS ARTIFACT IS THE CARRIER. The pin has to accompany the claims,
 // and v9 never said where it lives. It lives HERE, in one artifact with them,
@@ -2276,23 +2276,23 @@ export const NO_JUDGE = "none";
 export function readClaimsRecord(raw, record) {
   if (raw === undefined || raw === null) return { claims: {}, pin: null };
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    fail("--claims must be an object (SPEC.md, the open questions v10)");
+    fail("--claims must be an object (SPEC.md, the open-questions section, v10)");
   }
   if (!("composition_pin" in raw) || !("claims" in raw)) {
     fail("--claims is a bare {group: claim} map, which is the withdrawn pre-v10 form. "
       + "A claim composed outside the bounded read is what this refuses, and a bare map "
       + "carries no evidence of where it was composed from. Write "
       + '{"composition_pin": {...}, "claims": {...}} — `compose-input` emits the pin '
-      + "(SPEC.md, the open questions v10)");
+      + "(SPEC.md, the open-questions section, v10)");
   }
   const pin = raw.composition_pin;
   if (!pin || typeof pin !== "object" || Array.isArray(pin)) {
-    fail("--claims carries no usable `composition_pin` object (SPEC.md, the open questions v10)");
+    fail("--claims carries no usable `composition_pin` object (SPEC.md, the open-questions section, v10)");
   }
   if (!pin.groups || typeof pin.groups !== "object" || Array.isArray(pin.groups)) {
     fail("--claims `composition_pin` carries no `groups` map. It must hold the MEMBER "
       + "SET compose-input served, per group — a digest cannot support a subset check "
-      + "and can name no offender (SPEC.md, the open questions v10)");
+      + "and can name no offender (SPEC.md, the open-questions section, v10)");
   }
   // AC4 — THE PIN BINDS THE SURVEY RECORD IT WAS COMPUTED AGAINST. A stale pin
   // must not become a confident wrong acceptance: re-resolving it silently
@@ -2301,11 +2301,11 @@ export function readClaimsRecord(raw, record) {
   if (record && pin.pin && record.pin && pin.pin !== record.pin) {
     fail(`--claims was composed against survey pin ${pin.pin}, and this run's survey is `
       + `${record.pin}. The bounded read it evidences is not this one — re-run `
-      + "compose-input against this survey and recompose (SPEC.md, the open questions v10)");
+      + "compose-input against this survey and recompose (SPEC.md, the open-questions section, v10)");
   }
   const claims = raw.claims;
   if (!claims || typeof claims !== "object" || Array.isArray(claims)) {
-    fail("--claims `claims` must be a {group: claim} object (SPEC.md, the open questions v10)");
+    fail("--claims `claims` must be a {group: claim} object (SPEC.md, the open-questions section, v10)");
   }
   return { claims, pin };
 }
@@ -2705,7 +2705,7 @@ export function composeInput(record, tag, groups, fetchShard) {
     kind: "composition-input",
     tag,
     pin: record.pin,
-    // THE COMPOSITION PIN (the open questions v10, kogaki#212). The claim composer copies this
+    // THE COMPOSITION PIN (the open-questions section, v10, kogaki#212). The claim composer copies this
     // into its claims artifact, and `cotags` refuses claims whose members are
     // not a SUBSET of what it covers — which is what makes composing from the
     // whole survey unproducible rather than merely discouraged.
@@ -3761,7 +3761,7 @@ function cmdReport(args) {
   }
 
   const { groups, targets, resolved, subOf } = resolveReportTargets(record, tag, enteredIds, args);
-  // THE SECOND READER OF THE SAME ARTIFACT (the open questions v10, kogaki#212). `cotags` and
+  // THE SECOND READER OF THE SAME ARTIFACT (the open-questions section, v10, kogaki#212). `cotags` and
   // `report` are handed the same `--claims` file, so migrating one and leaving
   // the other reading the flat map would put two encodings behind one file —
   // the defect the report identity v9 fixed for `--subdivisions` by migrating both readers in
@@ -4197,7 +4197,7 @@ function cmdReport(args) {
         + "this Group and this settled set.");
     }
   }
-  // THE TARGETS JOIN TO THE the Thesis candidates SECTION OF THIS SAME FILE (kogaki#861), and
+  // THE TARGETS JOIN TO THE THESIS-CANDIDATES SECTION OF THIS SAME FILE (kogaki#861), and
   // the absent-candidates fallback STOPS APPLYING to a judged neighborhood.
   // `--thesis-candidates` was optional and an absent list rendered the Thesis candidates's
   // empty notice; that is still the answer for an unjudged or empty
@@ -5139,7 +5139,7 @@ function neighborhoodForTargets(record, targets) {
     // abnormalities rather than killing the report. So the no-material state
     // is DISCLOSED as its own typed section form — a different state from an
     // enumeration that ran and found nothing, and stated as such, which is
-    // the neighborhood section's shape's disclosure discipline applied to the section's own inputs.
+    // the disclosure discipline of the neighborhood section's shape applied to the section's own inputs.
     return { gids: targets.map((t) => t.gid), no_material: true,
       suggestions: [], unresolved: [],
       counts: { seeds: 0, suggested: 0, rendered: 0, unresolved: 0, by_family: {} },
@@ -5523,7 +5523,7 @@ export function neighborhoodSection({ gids, no_material, suggestions, unresolved
   // section says which (report-format.json v7 `neighborhood_no_material`).
   if (no_material) {
     return [...head,
-      "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (the neighborhood section's shape's disclosure discipline).",
+      "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (the disclosure discipline of the neighborhood section's shape).",
     ];
   }
   return [...head,
@@ -7803,7 +7803,7 @@ switch (cmd) {
       (a declared gate's answer takes NO flag — it is read from the harness's capture)
       [--claims F] [--subdivisions F] [--classification F] [--neighborhood F] [--thesis-candidates F]
       [--judge-model M] [--judge-effort E]
-                                            THE the control plane CONTROL PLANE. One entry point, entered once
+                                            THE CONTROL PLANE. One entry point, entered once
                                             per act: reads the run record, executes the states
                                             src/workflow.json declares until the
                                             next declared WAIT or the TERMINAL, writes that

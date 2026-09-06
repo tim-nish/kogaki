@@ -56,6 +56,8 @@
 //       SPEC-draft-pipeline
 //   the Reader Path artifact and its five blocks
 //       SPEC-draft-pipeline
+//   the grounding rule
+//       SPEC-draft-pipeline
 //   the judgment rule
 //       SPEC-draft-pipeline
 //   the settled structure section
@@ -162,8 +164,11 @@ export const REVIEW_LABELS = {
 //   * an internal identifier — `thesis_closure` and every snake_case
 //     sibling: the payload's own keys, the record's field names, anything
 //     shaped like a name only this codebase uses;
-//   * a section reference — `journey register as a Candidate axis` and kin: a pointer into a spec the owner
-//     does not hold.
+//   * a section reference — the literal specimen `\u00a76.1` and kin (written
+//     escaped here so the sweep of kogaki#902 does not read this SPECIMEN as
+//     one of its own references): a pointer into a spec the owner does not
+//     hold. What the constant below matches is a section NUMBER, never a
+//     descriptive name.
 // This judges no composition MUST (the judgment rule clause 3 stands): it reads the
 // REGISTER of the gate's rendering, never whether the reasoning is good.
 const INTERNAL_IDENTIFIER = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
@@ -345,8 +350,8 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // A Bridge Step is an ordinary the Step's shape Step, so it is recognised by the
   // insertion contract rather than by a type: `bridges` names the pair it sits
   // between. Its reasoning is whichever flag it already carries — entailment
-  // reasoning, or a declared reader ASSUMPTION — the Step's grounding and the entailed flag token is
-  // `reader_assumption`, and the Step's grounding and the entailed flag's list is closed, so no other spelling ever
+  // reasoning, or a declared reader ASSUMPTION — the grounding rule token is
+  // `reader_assumption`, and the grounding rule's list is closed, so no other spelling ever
   // reaches here (kogaki#546 round 1 finding 1: `assumption` was dead code).
   const bridges = (c.steps || []).filter((st) => st && Array.isArray(st.bridges) && st.bridges.length > 0);
   const bridgeLine = bridges.length === 0
@@ -668,7 +673,7 @@ export function assembleSelection(reviewed, doc) {
   return { payload };
 }
 
-// THE OPTION SET THE the Candidate gate GATE OFFERED (kogaki#891), derived from the same
+// THE OPTION SET THE CANDIDATE GATE OFFERED (kogaki#891), derived from the same
 // composer the gate itself is raised from. A capture binds to the option set
 // it answered — the same candidate id offered beside different alternatives is
 // a different question — so both the gate executor and adoption must compute
@@ -691,7 +696,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   }
   // the settled structure section v12: an adopted Candidate carrying no value for one of the three
   // reader fields REFUSES, naming the field, BEFORE anything is written.
-  // This is not the Step's grounding and the entailed flag's `unsupported completion` and does not borrow that
+  // This is not the grounding rule's `unsupported completion` and does not borrow that
   // term: nothing here was invented from outside the material — the value is
   // absent because the composing act did not run. The refusal is named
   // distinctly from the not-in-the-reviewed-set refusal above so a caller is
@@ -788,7 +793,7 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   // THE MATCH, which is acceptance item 1 of kogaki#891 in one line: the
   // argument is refused when it does not equal the recorded answer.
   if (chose.option !== candidateId) {
-    return { error: `the owner selected candidate ${JSON.stringify(chose.option)} at the Candidate gate gate, but `
+    return { error: `the owner selected candidate ${JSON.stringify(chose.option)} at the Candidate gate, but `
       + `${JSON.stringify(candidateId)} is being adopted — an owner who chose one Reader Path did not choose another. `
       + `Nothing was written.` };
   }
@@ -1144,7 +1149,7 @@ function cmdRatify(args) {
 }
 
 // ---------------------------------------------------------------------------
-// THE the Candidate gate CANDIDATE-SELECTION GATE'S EXECUTOR (kogaki#891).
+// THE CANDIDATE-SELECTION GATE'S EXECUTOR (kogaki#891).
 //
 // The same one-act-two-modes shape the owner gate over a passing specialization record's executor established, and for the
 // same reason: an answer is admitted only at the wait that declared it. Both

@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // compose — the Step-record runtime over the Brief's settled materials
-// (SPEC-draft-pipeline §the Step's shape, 4.4, 5.1-5.2; kogaki#489, story 1.73).
+// (SPEC-draft-pipeline, the Step's shape, the Step's grounding and the
+// entailed flag, the settled structure section and the obligations ledger;
+// kogaki#489, story 1.73).
 //
 // Machine-side blocks 1-2 of the Reader Path artifact and its five blocks's five: path composition → Move binding.
 // THIS RUNTIME RECORDS; IT NEVER JUDGES AND NEVER COMPOSES. The composing
 // producer is the sitting that authors the Step records toward the adopted
 // Thesis; this runtime validates their SHAPE (the Step's shape's fields — a schema
 // question), fills the Brief's typed unfilled slots (the settled structure section sequence,
-// strand_coverage; the obligations ledger ledger), and takes the Strand placement count AFTER
+// strand_coverage; the obligations ledger), and takes the Strand placement count AFTER
 // composition, in placements, disclosing an unplaced selected Strand rather
 // than dropping it (the read-not-invented rule's completeness rider;
 // the obligations ledger). Every MUST of the
@@ -16,7 +18,7 @@
 // refused, a weak rationale is not.
 //
 // THE GROUNDS ARE RECORDED FOR REVIEW, NOT VERDICT-ED (story 1.73 SQ2): a
-// Step carries typed grounds (the Step's grounding and the entailed flag: a Strand proposition / a named earlier
+// Step carries typed grounds (the grounding rule: a Strand proposition / a named earlier
 // Step's effect / a declared reader assumption) and, where a proposition is
 // not explicit in the material, the `entailed` flag WITH its entailment
 // reasoning — recorded here so path review and the human gate can judge
@@ -28,7 +30,7 @@
 // recorded field, never a generator: this runtime reads the rationale
 // before it reads the move name only in the trivial sense that it validates
 // rationale presence; the order invariant itself is invisible in the
-// artifact and is carried by the grounds test grounds test, judged at review.
+// artifact and is carried by the grounds test, judged at review.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).
 // Implemented code does not refer to a Spec. Content this file was implemented
@@ -61,6 +63,8 @@
 //   the figure decision
 //       SPEC-draft-pipeline
 //   the Reader Path artifact and its five blocks
+//       SPEC-draft-pipeline
+//   the grounding rule
 //       SPEC-draft-pipeline
 //   the grounds test
 //       SPEC-draft-pipeline
@@ -194,17 +198,17 @@ export function validateSteps(steps) {
       if (bad) return { error: bad };
     }
     if (!Array.isArray(s.grounds) || s.grounds.length === 0) {
-      return { error: `${at}: grounds are required — specific propositions, each a Strand proposition, a named earlier Step's effect, or a declared reader assumption (the Step's grounding and the entailed flag)` };
+      return { error: `${at}: grounds are required — specific propositions, each a Strand proposition, a named earlier Step's effect, or a declared reader assumption (the grounding rule)` };
     }
     for (const g of s.grounds) {
       if (!GROUND_TYPES.has(g.type)) {
-        return { error: `${at}: ground type ${JSON.stringify(g.type)} — the Step's grounding and the entailed flag's list is closed: strand | step_effect | reader_assumption` };
+        return { error: `${at}: ground type ${JSON.stringify(g.type)} — the grounding rule's list is closed: strand | step_effect | reader_assumption` };
       }
       if (typeof g.proposition !== "string" || g.proposition === "") {
-        return { error: `${at}: a ground is a specific PROPOSITION, stated (the Step's grounding and the entailed flag) — an untyped pointer is not a ground` };
+        return { error: `${at}: a ground is a specific PROPOSITION, stated (the grounding rule) — an untyped pointer is not a ground` };
       }
       if (g.type === "step_effect" && (typeof g.step !== "string" || !seen.has(g.step))) {
-        return { error: `${at}: a step_effect ground names WHICH effect of WHICH earlier step (the Step's grounding and the entailed flag) — "${g.step ?? ""}" is not an earlier step_id` };
+        return { error: `${at}: a step_effect ground names WHICH effect of WHICH earlier step (the grounding rule) — "${g.step ?? ""}" is not an earlier step_id` };
       }
       if (g.type === "strand" && (typeof g.strand !== "string" || g.strand === "")) {
         return { error: `${at}: a strand ground names its Strand (L<n>)` };
@@ -223,12 +227,12 @@ export function validateSteps(steps) {
       if (badGround) return { error: badGround };
     }
     // A proposition not explicit in the material is flagged `entailed` WITH
-    // its reasoning, exposed at the human gate (the Step's grounding and the entailed flag). The flag is the
+    // its reasoning, exposed at the human gate (the grounding rule). The flag is the
     // composer's judgment; the runtime refuses only a flag with no reasoning
     // to expose — an entailed step whose reasoning is absent has nothing for
     // the gate to judge.
     if (s.entailed === true && (typeof s.entailment_reasoning !== "string" || s.entailment_reasoning === "")) {
-      return { error: `${at}: flagged entailed with no entailment_reasoning — entailment is interpretation, judged rather than silently trusted (the Step's grounding and the entailed flag)` };
+      return { error: `${at}: flagged entailed with no entailment_reasoning — entailment is interpretation, judged rather than silently trusted (the grounding rule)` };
     }
     seen.add(s.step_id);
   }
@@ -1201,7 +1205,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
       // A Journey material (the Step's shape) is checkable twice: against the closed set,
       // and against that Strand ACTUALLY carrying Journey material. The second
       // check is what stops a composer inventing journey material for a Strand
-      // whose served record has none — unsupported completion (the Step's grounding and the entailed flag), in the
+      // whose served record has none — unsupported completion (the grounding rule), in the
       // one place the bare-L<n> check cannot see.
       const j = /^(L[0-9]+)\.journey$/.exec(m);
       if (j) {
@@ -1212,7 +1216,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
         if (!journeyIds.includes(j[1])) {
           return { error: `step ${s.step_id}: material ${m} claims Journey material for ${j[1]}, whose served `
             + `record carries none (the Brief renders no journey cite for it) — a Journey the material does not `
-            + `have is unsupported completion (the Step's grounding and the entailed flag), never a composition choice` };
+            + `have is unsupported completion (the grounding rule), never a composition choice` };
         }
       }
     }
@@ -1241,7 +1245,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
     if (uses.length > 0) {
       covL.push(`- **${id}** — used_by_steps: ${uses.join(", ")}; role_in_thesis: ${coverage[id]?.role_in_thesis ?? "(not stated by the composer)"}`);
     } else {
-      covL.push(`- **${id}** — **UNPLACED, disclosed**: ${unused[id] ?? "left unused (the Step's grounding and the entailed flag's third move — omit the Step, revise the path, or leave the Strand unused; never invention)"}`);
+      covL.push(`- **${id}** — **UNPLACED, disclosed**: ${unused[id] ?? "left unused (the grounding rule's third move — omit the Step, revise the path, or leave the Strand unused; never invention)"}`);
     }
   }
   covL.push("");
@@ -1262,7 +1266,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
       if (uses.length > 0) {
         covL.push(`- **${id}** journey — placed by: ${uses.join(", ")}`);
       } else {
-        covL.push(`- **${id}** journey — **OMITTED, disclosed**: ${unused[`${id}.journey`] ?? "the Journey material is left unplaced (the Step's grounding and the entailed flag's third move — omit the Step, revise the path, or leave the material unused; never invention)"}`);
+        covL.push(`- **${id}** journey — **OMITTED, disclosed**: ${unused[`${id}.journey`] ?? "the Journey material is left unplaced (the grounding rule's third move — omit the Step, revise the path, or leave the material unused; never invention)"}`);
       }
     }
     covL.push(`*Journey placement count, taken AFTER composition: ${jplaced.length} of ${journeyIds.length} Journey-bearing Strand(s) placed.*`);
@@ -1271,7 +1275,7 @@ export function fillBrief(doc, { steps, coverage = {}, obligations = [], unused 
   if (r.error) return r;
   out = r.doc;
 
-  // The the obligations ledger obligations ledger: authored judgments, each entry carrying
+  // The obligations ledger: authored judgments, each entry carrying
   // introduced_by / discharged_by; an undischarged obligation RENDERS AS
   // UNDISCHARGED — a disclosure, never a refusal.
   const stepIds = new Set(steps.map((s) => s.step_id));

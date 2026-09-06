@@ -396,7 +396,7 @@ function loadBrief(args) {
 // sits cannot disagree — two derivations of the same grouping is two things
 // that can drift about which Section a Step is in.
 //
-// A path declaring no `opens_section` at all is the pre-the Section grouping corpus, and it
+// A path declaring no `opens_section` at all is the pre-Section-grouping corpus, and it
 // derives ONE untitled Section rather than refusing. The refusal for that shape
 // is rule 3's and it lives at COMPOSITION (`sectionGroupingRefusal`), where the
 // Brief is being authored and can still be fixed; refusing here as well would
@@ -503,7 +503,7 @@ function assembleBody(brief, ws) {
     if (!existsSync(f)) { missing.push(step.step_id); continue; }
     const sec = opensAt.get(step.step_id);
     // An untitled Section renders no heading rather than an empty one. It is
-    // reachable only on a pre-the Section grouping path, whose whole body is one Section.
+    // reachable only on a pre-Section-grouping path, whose whole body is one Section.
     // A heading line belongs to the Section, never to the Step that opened it.
     if (sec && sec.title !== undefined) push(`## ${sec.title}`);
     const fig = figures.get(step.step_id);
@@ -828,7 +828,7 @@ export function figureRecordRefusal(record, step, form, schema) {
 // that is ALREADY ON THE PAGE or about to be, so neither invites the model to
 // write one.
 //
-// The untitled case is the pre-the Section grouping corpus, which derives one untitled
+// The untitled case is the pre-Section-grouping corpus, which derives one untitled
 // Section: it is STATED rather than left blank, for the same reason every other
 // absence in this renderer is stated — a hole in the model's whole world is not
 // a gap the model notices, it is a hole the model fills by invention.
@@ -844,7 +844,7 @@ export function sectionPlacement(sec) {
   if (sec.title === undefined) {
     // The untitled form STILL SAYS WHICH (finding 3, second half): the block
     // above it promises "the line below says which", and a form that says
-    // neither breaks that promise for the whole pre-the Section grouping corpus, which is the
+    // neither breaks that promise for the whole pre-Section-grouping corpus, which is the
     // only corpus that reaches it.
     // NO ORDINAL HERE (PR #847 round 1, nit 2). The arm that built one was
     // dead: `sectionsOf` pushes a new Section only where `opens_section` is
@@ -1926,7 +1926,7 @@ async function runSelfTest() {
 
   // 7 — the Section grouping's SECTION GROUPING, DRIVEN END TO END (kogaki#823). The cases
   // above run against a Brief that declares no `opens_section`, which is the
-  // pre-the Section grouping corpus and exercises exactly the fallback branch — so on their
+  // pre-Section-grouping corpus and exercises exactly the fallback branch — so on their
   // own they are green about a renderer that reads the declaration for nothing.
   // This block drives a Brief that DOES declare it: three Steps, two Sections,
   // so "fewer headings than Steps" is a property of the output rather than an
@@ -2107,7 +2107,7 @@ async function runSelfTest() {
     rBlank.status !== 0 && rBlank.stderr.includes("t1") && rBlank.stderr.includes("opens_section"),
     rBlank.stderr.trim().slice(0, 160));
 
-  // The pre-the Section grouping corpus is the CONTROL for the fallback: a path declaring
+  // The pre-Section-grouping corpus is the CONTROL for the fallback: a path declaring
   // nothing derives one untitled Section and renders no heading, rather than
   // refusing or rendering `## undefined`. Without this, the migration cost of
   // this issue is invisible.
@@ -2276,12 +2276,12 @@ async function runSelfTest() {
   ok("neither the rewritten template nor the rendered Packet points at a spec",
     !/§\d/.test(readFileSync(join(dirname(self), "packet-template.md"), "utf8")) && !/§\d/.test(bodyT1));
 
-  // The pre-the Section grouping CONTROL: a Brief declaring no Section renders the stated
+  // The pre-Section-grouping CONTROL: a Brief declaring no Section renders the stated
   // absence rather than a blank or an invented title, and its article-so-far
   // block falls back to the flat form it always had.
   // REPLACED (PR #844 round 1, finding 3). The case it replaces asserted
   // `sectionPlacement(undefined)` — an input no Packet render can produce — and
-  // so controlled a path the pre-the Section grouping corpus never takes. The corpus takes the
+  // so controlled a path the pre-Section-grouping corpus never takes. The corpus takes the
   // UNTITLED path, so that is what is controlled, and it is asserted to say
   // WHICH of opens/continues, because the block above it promises exactly that.
   ok("the untitled form an undeclared path actually gets says whether the Step opens or continues",
