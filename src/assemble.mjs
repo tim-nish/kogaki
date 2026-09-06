@@ -36,6 +36,7 @@ import { resolve, dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fillBrief, replaceSlot, selectedStrands, placements,
   resolveMoveIds, validateSpecialization, specializationDigest, validateRatification, specializationSchema, gateSchema, gateRegistry,
+  resolveFigureForms, figureClause,
   ownerGateDigest, validateOwnerAnswer,
          journeyBearingStrands, journeyPlacements, snapshotBrief } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
@@ -434,7 +435,23 @@ export function assembleSelection(reviewed, doc) {
     // THE ID STAYS THE RECORD ID. It is `id` above, where the owner's answer is
     // resolved; it is not the label's opening, because a token nobody chose
     // between is not what distinguishes an option.
-    label: c.reader_experience,
+    // §4.16's FIGURE CLAUSE (kogaki#877). One clause appended to the label the
+    // owner already reads: how many Steps carry a figure and which, with the
+    // hub's soft warning above three (topics/articles.md 2026-08-01 D11 —
+    // warning, no target; nothing refuses).
+    //
+    // WHY THE LABEL AND NOT src/disclosure-fields.json's RENDERING. That table
+    // grades CANDIDATE-level fields the Harness writes onto a Candidate, and
+    // reads `c[field]`; `figure` is a STEP field, so an entry there would be
+    // permanently absent and the obligation permanently vacuous. The table's
+    // own note anticipated this field and says it "gets graded at its own
+    // filing BY THE SAME TEST" — that test is which SURFACE the evidence is
+    // owed at, and it grades `decision`: the figure set is a property of the
+    // Candidate the owner is choosing between, so it is owed at the selection
+    // gate. The label IS that surface. The grade and the seat agree; only the
+    // rendering mechanism differs, because the evidence is per-Step and the
+    // table's is per-Candidate (kogaki#909, kogaki#877 acceptance 3).
+    label: `${c.reader_experience} — ${figureClause(c.steps)}`,
     // NO EVIDENCE FIELD (kogaki#859, owner ruling 2026-09-04). The option is its
     // id and its label; the gate's whole option set is those, the negation and
     // free text. The first half of this ruling emptied the RENDERING and kept
@@ -658,6 +675,15 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
   const resolved = resolveMoveIds(c.steps, instantiation.movesDir);
   if (resolved.error) {
     return { error: `candidate ${candidateId}: ${resolved.error} Nothing was written to the Brief.` };
+  }
+  // §4.16's MOVE-DEPENDENT HALF (kogaki#877), at the same unskippable seat and
+  // immediately after it: whether each figure-carrying Step's Move declares a
+  // form, and whether the bindings are exactly that form's roles, is decidable
+  // only with the library open — which is what this occasion already has. The
+  // grammar and the ground addressing were refused at `validateSteps`.
+  const figured = resolveFigureForms(c.steps, instantiation.movesDir);
+  if (figured.error) {
+    return { error: `candidate ${candidateId}: ${figured.error} Nothing was written to the Brief.` };
   }
   // JUDGED HALF — the specialization record is REQUIRED, and its absence is
   // refused HERE rather than inside the validator: "no record" is a fact

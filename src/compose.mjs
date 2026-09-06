@@ -157,6 +157,18 @@ export function validateSteps(steps) {
         return { error: `${at}: a strand ground names its Strand (L<n>)` };
       }
     }
+    // §4.16's `figure:`/`figure_roles` (kogaki#877) — OPTIONAL, and validated
+    // here for the reason `bridges` and `introduces` are: the count and the
+    // Step ids reach the SELECTION GATE's label, so an unvalidated declaration
+    // renders a binding an owner reads as decided. Placed AFTER the grounds
+    // loop on purpose — a role binds to one of this Step's grounds, so the
+    // address space does not exist until they are known to be well formed.
+    {
+      const bad = figureRefusal(s.figure, s.figure_roles, at);
+      if (bad) return { error: bad };
+      const badGround = figureGroundRefusal(s.figure_roles, s.grounds.length, at);
+      if (badGround) return { error: badGround };
+    }
     // A proposition not explicit in the material is flagged `entailed` WITH
     // its reasoning, exposed at the human gate (§4.4). The flag is the
     // composer's judgment; the runtime refuses only a flag with no reasoning
@@ -173,6 +185,217 @@ export function validateSteps(steps) {
   const grouping = sectionGroupingRefusal(steps);
   if (grouping) return { error: grouping };
   return { steps };
+}
+
+// ---- §4.16's `figure:` — the Brief's figure decision (kogaki#877) ----
+//
+// A Step MAY declare that a figure carries something its prose leaves hard to
+// hold. THE DEFAULT IS NONE: a Step without `figure:` has no figure and
+// nothing asks about it — the hub's 2026-08-01 D8 disclosure-never-slot
+// ruling carried as a field that may simply be absent, which is also what
+// makes every Brief composed before this field compose unchanged.
+//
+// THREE CONDITIONS, AND ONLY TWO OF THEM ARE MECHANICAL. The Step's Move must
+// carry a `visual_form`; every role of that form must bind to one of THIS
+// Step's grounds. The third — that the figure carries something — is the
+// composer's one judgment and is stated in the `figure:` line itself. Nothing
+// here reads that line for meaning, on §4.6's rule: a missing field is
+// refused, a weak one is not.
+//
+// THE HALVES SPLIT WHERE THE MOVE LIBRARY DOES, which is the split `move`
+// itself already has. `figureRefusal` and the ground-binding check below are
+// PURE and run inside `validateSteps`; whether the Move carries a form at all
+// needs the library and runs in `resolveFigureForms`, beside `resolveMoveIds`
+// at adoption. Both are "at composition" in the sense §4.15 means — the Brief
+// is being authored and the refusal can still be fixed.
+
+// `g<n>` addresses the Step's own ground lines IN ORDER, 1-based. A role bound
+// to a ground of another Step is unreachable by construction rather than
+// refused by a rule: the address space is this Step's grounds and has no
+// syntax for anyone else's.
+const GROUND_ADDRESS = /^g([1-9][0-9]*)$/;
+
+let FIGURE_KINDS = null;
+export function figureKinds() {
+  if (FIGURE_KINDS) return FIGURE_KINDS;
+  const p = join(dirname(fileURLToPath(import.meta.url)), "figure-kinds.json");
+  // REFUSED RATHER THAN DEFAULTED TO EMPTY, the arrangement
+  // src/disclosure-fields.json already has: an empty kind set would make every
+  // form check vacuous while reading exactly like a corpus that declares no
+  // forms, which is the degrades-to-zero shape this lane refuses elsewhere.
+  FIGURE_KINDS = JSON.parse(readFileSync(p, "utf8"));
+  return FIGURE_KINDS;
+}
+
+// The SERIALIZED form of `figure_roles`, and its reader. One round trip, two
+// functions that cannot disagree about what an entry is — the arrangement
+// `introduces` and `opens_section` already have, for the reason they have it:
+// a writer and a reader disagreeing about a value fails silently at exactly
+// the field whose value reaches the rendered figure.
+export function renderFigureRoles(roles) {
+  return Object.entries(roles).map(([r, g]) => `${r}=${g}`).join(", ");
+}
+// The READER of that form. Its consumer today is the round-trip assertion in
+// checks/check-brief-compose.sh — a writer whose output nothing can parse is a
+// format nobody has verified — and kogaki#878, which owns the `src/draft.mjs`
+// read-back, is the next one. It is here rather than there because the writer
+// is here: one grammar, two ends, never two definitions that agree until one is
+// edited.
+export function parseFigureRoles(text) {
+  const out = {};
+  for (const part of String(text).split(",")) {
+    const t = part.trim();
+    if (t === "") continue;
+    const eq = t.indexOf("=");
+    if (eq === -1) return { error: `"${t}" is not a role binding — the form is role=g<n>` };
+    const role = t.slice(0, eq).trim();
+    const addr = t.slice(eq + 1).trim();
+    if (role === "" || addr === "") return { error: `"${t}" is not a role binding — the form is role=g<n>` };
+    if (Object.prototype.hasOwnProperty.call(out, role)) return { error: `role "${role}" is bound twice` };
+    out[role] = addr;
+  }
+  return { roles: out };
+}
+
+// THE GRAMMAR HALF. Pure over the two values, so the composition side and the
+// Brief read-back side share ONE definition of what a declaration is.
+export function figureRefusal(figure, figure_roles, at) {
+  const has = figure !== undefined && figure !== null;
+  const hasRoles = figure_roles !== undefined && figure_roles !== null;
+  if (!has && !hasRoles) return null;
+  // THE TWO TRAVEL TOGETHER. A `figure:` with no bindings declares a figure
+  // nothing can be rendered from, and bindings with no `figure:` carry no
+  // statement of what the figure is for — the composer's one judgment. Either
+  // alone is a half-declaration, and a half-declaration reaching #878 would be
+  // a record with no form or a form with no reason.
+  if (has && !hasRoles) {
+    return `${at}: figure: is declared with no figure_roles — every role of the Move's visual_form binds to one of this Step's grounds (§4.16), and a figure with no bindings names nothing to render`;
+  }
+  if (!has && hasRoles) {
+    return `${at}: figure_roles are declared with no figure: — the figure: line is the composer's statement of what the figure lets the reader hold, and bindings without it record a form nobody said carries anything (§4.16)`;
+  }
+  if (typeof figure !== "string" || figure.trim() === "") {
+    return `${at}: figure:, when present, is one line — what the figure lets the reader hold that the prose alone leaves hard to hold (§4.16)`;
+  }
+  if (typeof figure_roles !== "object" || Array.isArray(figure_roles)) {
+    return `${at}: figure_roles is a flat mapping of the Move visual_form's roles to this Step's grounds, role=g<n> (§4.16)`;
+  }
+  const entries = Object.entries(figure_roles);
+  if (entries.length === 0) {
+    return `${at}: figure_roles is empty — every role of the Move's visual_form binds to one of this Step's grounds (§4.16)`;
+  }
+  for (const [role, addr] of entries) {
+    if (role === "kind") {
+      // `kind` is the selector in the Move's own block and can never be a role
+      // there (src/figure-kinds.json). Refusing it here too keeps the two
+      // vocabularies from disagreeing about what a role name may be.
+      return `${at}: figure_roles binds "kind", which is the form's selector and never a role (src/figure-kinds.json)`;
+    }
+    if (typeof addr !== "string" || !GROUND_ADDRESS.test(addr)) {
+      return `${at}: figure_roles binds role "${role}" to ${JSON.stringify(addr)} — a binding addresses one of this Step's own grounds as g<n>, numbered from 1 in the order they are declared (§4.16)`;
+    }
+  }
+  return null;
+}
+
+// THE GROUND-BINDING HALF, separated because it needs the Step's grounds and
+// the read-back side has only the serialized block.
+export function figureGroundRefusal(figure_roles, groundCount, at) {
+  if (figure_roles === undefined || figure_roles === null) return null;
+  for (const [role, addr] of Object.entries(figure_roles)) {
+    const m = GROUND_ADDRESS.exec(String(addr));
+    if (!m) continue; // grammar is figureRefusal's; this half assumes it passed
+    const n = Number(m[1]);
+    if (n > groundCount) {
+      return `${at}: figure_roles binds role "${role}" to ${addr}, and this Step declares ${groundCount} ground(s) — a role binds to a ground of THIS Step (§4.16), so an address past the end names a ground that is not there`;
+    }
+  }
+  return null;
+}
+
+// The Move's `visual_form` block, read from the record and NOTHING ELSE READ
+// WITH IT. `loadMoveIds` states why the library is read as ids alone — a
+// reader that parsed `requires`/`effect` would be one edit away from comparing
+// them, which is the lint §4.6 forbids. That reasoning bounds this reader
+// rather than licensing it: `visual_form` is a SCHEMA OF ROLES carrying no
+// words a reader sees (src/figure-kinds.json), so reading it compares nothing
+// about the Move's prose, and this function extracts that block only.
+export function visualFormOf(moveId, movesDir = "moves") {
+  let text;
+  try { text = readFileSync(join(movesDir, `${moveId}.md`), "utf8"); }
+  catch (e) {
+    return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
+  }
+  const lines = text.split("\n");
+  const start = lines.findIndex((l) => /^visual_form:[ \t]*$/.test(l));
+  if (start === -1) return { form: null };
+  const form = {};
+  for (let i = start + 1; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.trim() === "") continue;
+    // The block ends at the first line that is not indented — the Move record
+    // is a flat mapping with one nested block, so dedent IS the terminator.
+    if (!/^[ \t]/.test(l)) break;
+    const m = l.match(/^[ \t]+([A-Za-z0-9_]+):[ \t]*(.*)$/);
+    if (!m) continue;
+    form[m[1]] = m[2].trim();
+  }
+  return { form };
+}
+
+// THE MOVE-DEPENDENT HALF. Refuse the FIRST figure-carrying Step whose Move
+// declares no form, or whose bindings are not exactly that form's roles —
+// naming the Step, the Move and the role, which is the refusal shape this
+// runtime uses everywhere.
+export function resolveFigureForms(steps, movesDir = "moves") {
+  const kinds = figureKinds().kinds || {};
+  for (const s of steps) {
+    if (s.figure === undefined || s.figure === null) continue;
+    const at = `step ${s.step_id}`;
+    const r = visualFormOf(s.move, movesDir);
+    if (r.error) return { error: `${at}: ${r.error}` };
+    if (!r.form) {
+      return { error: `${at}: figure: is declared, and move "${s.move}" carries no visual_form — a figure is the INSTANCE of its Move's form (§4.16), so a Move with no form leaves the declaration with nothing to be an instance of. Give the Move a form under its own issue (src/figure-kinds.json names the closed kind set), or drop the figure: from this Step` };
+    }
+    const kind = r.form.kind;
+    if (!kind || !Object.prototype.hasOwnProperty.call(kinds, kind)) {
+      return { error: `${at}: move "${s.move}" declares visual_form kind ${JSON.stringify(kind ?? null)}, which is outside the closed set (${Object.keys(kinds).sort().join(", ")}) — the Move library is what admits a kind, and ingestion refuses this record` };
+    }
+    const want = new Set(kinds[kind].roles || []);
+    const have = new Set(Object.keys(s.figure_roles || {}));
+    const missing = [...want].filter((x) => !have.has(x)).sort();
+    const extra = [...have].filter((x) => !want.has(x)).sort();
+    if (missing.length) {
+      return { error: `${at}: figure_roles leaves ${missing.map((x) => `"${x}"`).join(", ")} unbound — every role of move "${s.move}"'s ${kind} form binds to one of this Step's grounds (§4.16). The form's roles are ${[...want].sort().join(", ")}` };
+    }
+    if (extra.length) {
+      return { error: `${at}: figure_roles binds ${extra.map((x) => `"${x}"`).join(", ")}, which is not a role of move "${s.move}"'s ${kind} form — the form's roles are ${[...want].sort().join(", ")} (src/figure-kinds.json)` };
+    }
+  }
+  return { ok: true, figures: steps.filter((s) => s.figure !== undefined && s.figure !== null).length };
+}
+
+// The figure-carrying Steps of a path, in path order. ONE derivation, so the
+// Candidate label's count and the set it names cannot disagree.
+export function figureSteps(steps) {
+  return (steps || []).filter((s) => s && s.figure !== undefined && s.figure !== null);
+}
+
+// The gate's disclosure clause (§6). THE SOFT WARNING HAS NO TARGET AND
+// REFUSES NOTHING — topics/articles.md 2026-08-01 D11 — so above three it says
+// so and the Candidate stays selectable. An empty set renders the explicit
+// none rather than nothing: a Candidate that declares no figure and a clause
+// that was never composed are the same silence to a reader and different
+// silences to a check.
+export const FIGURE_SOFT_WARNING_AT = 3;
+export function figureClause(steps) {
+  const figs = figureSteps(steps);
+  if (figs.length === 0) return "no Step carries a figure";
+  const which = figs.map((s) => s.step_id).join(", ");
+  const head = `${figs.length} Step(s) carry a figure — ${which}`;
+  return figs.length > FIGURE_SOFT_WARNING_AT
+    ? `${head}; above ${FIGURE_SOFT_WARNING_AT} figures a reader is being asked to hold more diagrams than prose, which is worth a second look — nothing here refuses it`
+    : head;
 }
 
 // ---- rendering (SQ1: fenced blocks; §4.1 fixes the fields, not the markup;
@@ -808,6 +1031,12 @@ export function renderStep(s) {
   for (const e of s.introduces || []) L.push(`introduces: ${e}`);
   if (s.opens_section !== undefined) L.push(`opens_section: ${s.opens_section}`);
   if (s.bridges) L.push(`bridges: ${s.bridges.join(", ")}`);
+  // §4.16 (kogaki#877). Written only when declared, so a Brief composed before
+  // this field is byte-identical.
+  if (s.figure !== undefined && s.figure !== null) {
+    L.push(`figure: ${s.figure}`);
+    L.push(`figure_roles: ${renderFigureRoles(s.figure_roles)}`);
+  }
   if (s.entailed === true) {
     L.push(`entailed: true`);
     L.push(`entailment_reasoning: ${s.entailment_reasoning}`);

@@ -186,6 +186,7 @@ records forces it, and the collapse is a convenience that reads as tidiness.
 - **`introduces`** — optional; §4.13.
 - **`bridges`** — optional; §4.11.
 - **`opens_section`** — optional; §4.15.
+- **`figure`** and **`figure_roles`** — optional, and they travel together; §4.16.
 
 **Why `move` is required.** `Step = Input + State`. The inputs are the Strands,
 the Thesis and previous Step output; **the Move is the State**, and
@@ -1111,6 +1112,81 @@ of it — §4.1 names every other optional field's own subsection and this field
 none. What no carrier holds: why a heading is a promise to the reader rather than
 an artifact of how the text was produced, and why length is subordinated to the
 grouping rather than standing in for it.
+
+### 4.16 The figure decision — `figure:` and `figure_roles` on a Step
+
+**The Brief decides whether a Step carries a figure, and the decision is the
+composer's.** §6.9.3 admitted the closed kind set and the Move's optional
+`visual_form`; that field names a **schema of roles** and obliges no Step to use
+it. This section is where a Step *takes it up*: at path composition (judgment
+point 2) the composer may declare on a Step
+
+    figure: <one line — what the figure lets the reader hold that the prose alone leaves hard to hold>
+    figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3
+
+where `g<n>` addresses the Step's **own** ground lines in order, from 1.
+
+**The default is NONE.** A Step without `figure:` has no figure and nothing asks
+about it — the hub's 2026-08-01 D8 disclosure-never-slot ruling carried as a
+field that may simply be absent. This is also the mechanism by which every Brief
+composed before this section composes unchanged: the serializer writes neither
+line for a Step that declares none, so the bytes do not move.
+
+**Three conditions, and only two of them are mechanical.**
+
+1. the Step's Move carries a `visual_form`;
+2. every role of that form binds to one of **this Step's** grounds — a role may
+   bind a `reader_assumption` ground, and a role bound to a ground of another
+   Step is refused;
+3. the figure carries something.
+
+The third is the composer's one judgment and is stated in the `figure:` line
+itself. **Nothing reads that line for meaning**, on §4.6's standing rule: a
+missing field is refused, a weak one is not.
+
+**The two mechanical halves refuse at different seats, and the split is the one
+`move` already has.** The grammar — the two fields travelling together, a
+non-empty line, a binding of the form `role=g<n>`, an address inside this Step's
+ground count — is decidable from the Step record alone and refuses at
+`validateSteps`. Whether the Move declares a form at all, and whether the
+bindings are exactly that form's roles, needs the Move library open and refuses
+at adoption, beside §4.12.1's move-id resolution. Both are "at composition" in
+§4.15's sense: the Brief is being authored and the refusal can still be fixed.
+
+**A binding to another Step's ground is unreachable rather than separately
+refused.** The address space is this Step's grounds and has no syntax for anyone
+else's, which removes the possibility instead of enumerating what to catch.
+
+**An unreadable Move record is not a formless one.** §4.12.1's distinction
+governs here unchanged — a store fault refuses as a store fault, naming the
+record, and never as a composition the composer must go and re-bind.
+
+#### 4.16.1 Disclosure at the Candidate gate
+
+**Each Candidate's option label gains one clause: how many Steps carry a figure,
+and which.** Above three the clause carries the hub's soft warning
+(topics/articles.md 2026-08-01 D11) — **a warning with no target, which refuses
+nothing and leaves the Candidate selectable**. An empty set renders an explicit
+none rather than nothing: an absent clause and a clause reading none are the
+same silence to a reader and different silences to a check.
+
+**Why the label and not the disclosure table.** kogaki#909's
+`src/disclosure-fields.json` grades **Candidate-level** fields the Harness writes
+onto a Candidate and reads `c[field]`. `figure` is a **Step** field, so an entry
+there would be permanently absent and its obligation permanently vacuous — the
+degrades-to-zero shape that table itself refuses. The table's grading **test** is
+which surface the evidence is owed at, and applied here it grades `decision`: the
+figure set is a property of the Candidate the owner is choosing between, so it is
+owed **before** the choice. The label **is** that surface. The grade and the seat
+agree; only the rendering mechanism differs, because this evidence is per-Step
+and the table's is per-Candidate.
+
+`necessity:` §6.9.3 admitted the vocabulary and explicitly declared that nothing
+in the draft pipeline reads it to decide anything — so the field that makes a
+form load-bearing needs its own site, and §4.1 names every other optional Step
+field's subsection. What no carrier holds: why the figure decision belongs to the
+Brief rather than to realization, and why the count reaches the owner before
+adoption rather than after it.
 
 ## 5. The Brief's centre, and the obligations ledger inside it
 

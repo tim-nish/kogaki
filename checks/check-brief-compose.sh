@@ -26,7 +26,9 @@ import { validateSteps, fillBrief, selectedStrands, placements, renderStep,
          journeyBearingStrands, journeyPlacements, replaceSlot, ownerGateDigest } from "./src/compose.mjs";
 import { resolveMoveIds, validateSpecialization, loadMoveIds, specializationDigest, validateRatification, specializationSchema,
          introducesRefusal, parseIntroducesEntry, readerKnowledgeLedger, introducerOf,
-         moveExcerpt, isExemplar, renderExcerptBlock } from "./src/compose.mjs";
+         moveExcerpt, isExemplar, renderExcerptBlock,
+         figureRefusal, figureGroundRefusal, resolveFigureForms, visualFormOf,
+         figureClause, figureSteps, renderFigureRoles, parseFigureRoles, figureKinds } from "./src/compose.mjs";
 import { composeThesisCandidates } from "./src/brief.mjs";
 import { assembleSelection, adoptCandidate, selectionOptionIds, denyInternalVocabulary, EVIDENCE_LABELS, REVIEW_LABELS, REASONING_FIELDS, READER_FIELDS, candidateEvidence, findInternalVocabulary, SLOT_CAPTIONS, decisionGradeRendering } from "./src/assemble.mjs";
 import { validateDisclosureTable, disclosureSurface, disclosureFieldsPresent } from "./src/disclosure.mjs";
@@ -82,6 +84,12 @@ mkdirSync(MOVES, { recursive: true });
 for (const id of ["state-claim-in-working-form", "worked-example", "generalize-from-the-seen-case"]) {
   writeFileSync(join(MOVES, `${id}.md`), `id: ${id}\nstatus: observed\n`);
 }
+// §4.16 (kogaki#877): ONE fixture Move carrying a `visual_form`, so the
+// adoption seat's figure half can be exercised against this library. The three
+// above deliberately carry none — a figure on any of them is the formless case.
+writeFileSync(join(MOVES, "axis-form-move.md"),
+  "id: axis-form-move\nstatus: observed\nvisual_form:\n  kind: axis\n"
+  + "  endpoint_a: the first endpoint\n  endpoint_b: the opposing endpoint\n  criterion: the axis both clarify\n");
 // A CONFORMING specialization record for a Candidate — composed HERE, by the
 // check, standing in for the judging sitting. The runtime under test composes
 // none, which is the property (c) below asserts by removing this.
@@ -359,6 +367,46 @@ try {
   if (ok.error) fails.push(`(e) a conforming Candidate set was refused: ${ok.error}`);
   const pay = ok.payload || {};
   for (const f of ["where", "why", "label", "options", "free_text"]) if (!(f in pay)) fails.push(`(e) the payload lacks record field ${JSON.stringify(f)} — Candidates ride the proposal-contract shape (§6)`);
+  // (w1) §4.16's FIGURE CLAUSE REACHES THE OPTION LABEL (kogaki#877,
+  // acceptance 3). ASSERTED AT THE ACT AND NOT AT THE COMPOSER: (w) below
+  // proves `figureClause` computes the count, the set and the warning, and a
+  // mutation that dropped the clause from the label survived every one of those
+  // assertions — the composer was green while the surface the acceptance names
+  // rendered nothing. `installed`, `current` and `fires` are not `acts`, and
+  // the label is the act.
+  {
+    const figStep = (st, n) => ({ ...st, figure: `what figure ${n} lets the reader hold`,
+                                  figure_roles: { endpoint_a: "g1" } });
+    const label = (cand) => ((assembleSelection({ candidates: [cand, candB] }, doc0).payload || {}).options || [])
+      .find((o) => o.id === cand.candidate_id)?.label || "";
+    const none = label(candA);
+    if (!/no Step carries a figure/.test(none)) {
+      fails.push(`(w1) a Candidate declaring no figure does not disclose that at the gate — an absent clause and a clause reading none are the same silence to a reader: ${none}`);
+    }
+    const twoFig = label({ ...candA, candidate_id: "cand-fig2",
+      steps: candA.steps.map((st, i) => figStep(st, i + 1)) });
+    if (!/2 Step\(s\) carry a figure/.test(twoFig)) {
+      fails.push(`(w1) the figure count does not reach the option label (acceptance 3): ${twoFig}`);
+    }
+    if (/second look/.test(twoFig)) {
+      fails.push(`(w1) two figures warn at the gate — the soft warning is ABOVE three: ${twoFig}`);
+    }
+    // FOUR figure-carrying Steps WARN IN THE LABEL, and the Candidate stays
+    // SELECTABLE — the warning has no target and refuses nothing (D11).
+    const fourSteps = ["f1", "f2", "f3", "f4"].map((id, i) =>
+      figStep({ ...candA.steps[0], step_id: id, depends_on: [], opens_section: i === 0 ? "Opening" : undefined }, i + 1));
+    const fourCand = { ...candA, candidate_id: "cand-fig4", steps: fourSteps,
+      obligations: [{ text: "the case's generality is asserted", introduced_by: "f4" }] };
+    const fourAsm = assembleSelection({ candidates: [fourCand, candB] }, doc0);
+    if (fourAsm.error) {
+      fails.push(`(w1) a Candidate with four figures was REFUSED — the warning has no target and refuses nothing (D11): ${fourAsm.error}`);
+    } else {
+      const l4 = (fourAsm.payload.options || []).find((o) => o.id === "cand-fig4")?.label || "";
+      if (!/4 Step\(s\) carry a figure/.test(l4) || !/second look/.test(l4)) {
+        fails.push(`(w1) four figure-carrying Steps do not show the warning IN THE LABEL (acceptance 3): ${l4}`);
+      }
+    }
+  }
   const negOpt = (pay.options || []).find((o) => o.negates_premise === true);
   if (!negOpt) fails.push("(e) no option flagged negates_premise — the premise's negation is first-class (§6)");
   else if (!/Thesis or the selected set/.test(negOpt.label)) fails.push("(e) the negation option does not state the premise it negates");
@@ -641,6 +689,52 @@ try {
     else {
       if (!/cannot be read/.test(noStore.error)) fails.push("(k) an unreadable Move library refuses as if the ids dangled — the refusal blames the composition for a store fault");
       if (/t1/.test(noStore.error)) fails.push("(k) the unreadable-store refusal names a Step, sending the composer to re-bind Moves that are not the problem");
+    }
+    // (x) §4.16's FIGURE HALF AT THE SAME SEAT (kogaki#877). ASSERTED AT THE
+    // ACT, for the reason (w1) records: a mutation that skipped the figure
+    // check inside `adoptCandidate` survived every direct call to
+    // `resolveFigureForms`, because those assert the FUNCTION and this asserts
+    // that adoption runs it. The grammar and the ground addressing are
+    // `validateSteps`'s and are asserted in (v); what can only be decided with
+    // the library open is decided here, and only here can it be made
+    // unskippable.
+    const figStepOf = (st, over = {}) => ({
+      ...st, move: "axis-form-move",
+      grounds: [
+        { type: "strand", strand: "L1", proposition: "the first endpoint" },
+        { type: "strand", strand: "L1", proposition: "the opposing endpoint" },
+        { type: "strand", strand: "L1", proposition: "the axis both clarify" },
+      ],
+      figure: "the two endpoints on one axis",
+      figure_roles: { endpoint_a: "g1", endpoint_b: "g2", criterion: "g3" },
+      ...over,
+    });
+    const figCand = (over) => {
+      const c = { ...candB, candidate_id: "cand-2",
+        steps: [figStepOf(candB.steps[0], over), candB.steps[1]] };
+      return c;
+    };
+    // A fully bound figure ADOPTS — the control, without which every refusal
+    // below could be passing for an unrelated reason.
+    const okFig = figCand({});
+    const adOk = adoptCandidate(doc0, { candidates: [candA, okFig] }, "cand-2",
+      inst(okFig, {}, { candidates: [candA, okFig] }));
+    if (adOk.error) fails.push(`(x) a fully bound figure was REFUSED at adoption: ${adOk.error}`);
+    // An unbound role refuses AT ADOPTION, naming the role, and writes nothing.
+    const missingRole = figCand({ figure_roles: { endpoint_a: "g1", endpoint_b: "g2" } });
+    const adMiss = adoptCandidate(doc0, { candidates: [candA, missingRole] }, "cand-2",
+      inst(missingRole, {}, { candidates: [candA, missingRole] }));
+    if (!adMiss.error) fails.push("(x) adoption ACCEPTED a figure leaving a role of its Move's form unbound — the record rides the Brief to kogaki#878 with an element nothing binds");
+    else {
+      if (!/criterion/.test(adMiss.error)) fails.push(`(x) the unbound-role refusal does not name the ROLE: ${adMiss.error}`);
+      if (adMiss.doc) fails.push("(x) the unbound-role refusal still produced a document");
+    }
+    // A figure on a Move with NO form refuses AT ADOPTION, naming the Move.
+    const formlessCand = figCand({ move: "worked-example" });
+    const adForm = adoptCandidate(doc0, { candidates: [candA, formlessCand] }, "cand-2",
+      inst(formlessCand, {}, { candidates: [candA, formlessCand] }));
+    if (!adForm.error || !/worked-example/.test(adForm.error)) {
+      fails.push(`(x) adoption ACCEPTED a figure on a Move with no visual_form, or refused without naming the Move: ${JSON.stringify(adForm.error || null)}`);
     }
     const emptyStore = loadMoveIds(theses);
     if (!emptyStore.error || !/no Move records/.test(emptyStore.error)) fails.push("(k) a readable directory holding no Move records was accepted as a library");
@@ -2034,7 +2128,206 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
 // pass. The floor lives in checks/registry.json and the count lives here, so
 // deleting a case and lowering this number fails against the floor — and
 // lowering the floor to match is itself caught by check-registry-conformance.
-const CASE_COUNT = 21;
+// (v) §4.16 THE BRIEF'S FIGURE DECISION — `figure:` AND `figure_roles`
+// (kogaki#877). The field is OPTIONAL and its default is NONE, which is
+// asserted FIRST for the reason (q) states: every Step composed before this
+// issue carries none, and a required field would fail all of them.
+//
+// THE TWO MECHANICAL CONDITIONS ARE ASSERTED WHERE EACH ONE LIVES. The grammar
+// and the ground addressing are pure and refuse at `validateSteps`; whether the
+// Move declares a form at all needs the library and refuses at
+// `resolveFigureForms`. Asserting both against the REAL Move library is
+// deliberate — `introduce_paired_conceptual_axis` is the shipped record
+// kogaki#876 admitted, so acceptance 1 is exercised against the store a
+// composer actually binds to rather than a fixture that could drift from it.
+//
+// THE THIRD CONDITION IS NOT ASSERTED, and that is stated rather than left to
+// be read as an omission: whether the figure CARRIES something is the
+// composer's one judgment, stated in the `figure:` line, and §4.6 forbids a
+// lint over a judgment — a missing field is refused, a weak one is not.
+{
+  const F = (id, extra = {}) => ({
+    step_id: id, move: "introduce_paired_conceptual_axis", materials: ["L1"], purpose: "p",
+    reader_state_before: "a", reader_state_after: "b", depends_on: [],
+    rationale: "r",
+    grounds: [
+      { type: "strand", strand: "L1", proposition: "the defensive wall is the first endpoint" },
+      { type: "strand", strand: "L1", proposition: "the offensive artillery is the other" },
+      { type: "reader_assumption", proposition: "a weapon's function reveals intent" },
+    ],
+    ...extra,
+  });
+  const AXIS = { figure: "the two endpoints on the one axis, which the prose leaves the reader assembling",
+                 figure_roles: { endpoint_a: "g1", endpoint_b: "g2", criterion: "g3" } };
+  const err = (steps) => validateSteps(steps).error || "";
+  const open = (s) => ({ ...s, opens_section: "Opening" });
+
+  // OPTIONAL, asserted first.
+  if (err([open(F("s1"))])) {
+    fails.push(`(v) a path declaring NO figure is refused — the field is optional and its default is none (§4.16): ${err([open(F("s1"))])}`);
+  }
+  // ACCEPTANCE 1, positive half: all three roles bound passes composition,
+  // BOTH halves — the pure one and the Move-dependent one against the real
+  // library.
+  const goodPath = [open(F("s1", AXIS))];
+  if (err(goodPath)) {
+    fails.push(`(v) a fully bound axis figure is refused at validateSteps: ${err(goodPath)}`);
+  }
+  const goodForm = resolveFigureForms(goodPath, "moves");
+  if (goodForm.error) {
+    fails.push(`(v) a fully bound axis figure is refused against the real Move library: ${goodForm.error}`);
+  } else if (goodForm.figures !== 1) {
+    fails.push(`(v) the form resolution counted ${goodForm.figures} figure-carrying Step(s), not 1`);
+  }
+  // ACCEPTANCE 1, negative half: `criterion` unbound is REFUSED NAMING THE
+  // ROLE. This is the Move-dependent half — the grammar cannot know a role is
+  // missing, only the form can.
+  const noCriterion = resolveFigureForms(
+    [open(F("s1", { ...AXIS, figure_roles: { endpoint_a: "g1", endpoint_b: "g2" } }))], "moves");
+  if (!noCriterion.error || !/criterion/.test(noCriterion.error)) {
+    fails.push(`(v) an unbound \`criterion\` is admitted or refused WITHOUT naming the role — a refusal that does not name it sends a composer to re-read the whole form: ${JSON.stringify(noCriterion)}`);
+  }
+  // A role the form does not have is refused too — the other direction, for
+  // the reason (r) asserts both directions of the label tables: a check
+  // asserted one way is green about the half somebody happened to write.
+  const extraRole = resolveFigureForms(
+    [open(F("s1", { ...AXIS, figure_roles: { ...AXIS.figure_roles, stages: "g1" } }))], "moves");
+  if (!extraRole.error || !/stages/.test(extraRole.error)) {
+    fails.push(`(v) a role outside the form is admitted — the record would carry an element no kind declares: ${JSON.stringify(extraRole)}`);
+  }
+  // ACCEPTANCE 2: a Move with NO form is refused NAMING THE MOVE.
+  //
+  // THE FIXTURE'S MOVE MUST BE READABLE AND FORMLESS, AND BOTH HALVES ARE
+  // ASSERTED. Written first against a Move id that did not exist, this case
+  // passed for the wrong reason — `resolveFigureForms` refused it as
+  // UNREADABLE and the refusal happened to name the id, so the assertion was
+  // green while the formless branch it claims to cover was dead. That is the
+  // binds-a-proxy shape, and it survived a mutation that made a formless Move
+  // pass. A STORE THAT CANNOT BE READ IS NOT AN EMPTY STORE (`loadMoveIds`
+  // states the same distinction one function over), so the two readings are
+  // separated here rather than collapsed.
+  const formless = "delimit_explanatory_scope";
+  const formlessRead = visualFormOf(formless, "moves");
+  if (formlessRead.error) {
+    fails.push(`(v) the fixture's formless Move ${formless} cannot be READ (${formlessRead.error}) — the acceptance-2 case would assert over an unreadable store rather than over a Move with no form`);
+  } else if (formlessRead.form) {
+    fails.push(`(v) the fixture's formless Move ${formless} now declares a visual_form — the acceptance-2 case asserts over a shape that no longer exists`);
+  }
+  const noForm = resolveFigureForms([open(F("s1", { ...AXIS, move: formless }))], "moves");
+  if (!noForm.error || !new RegExp(formless).test(noForm.error) || !/no visual_form/.test(noForm.error)) {
+    fails.push(`(v) a figure on a Move with no visual_form is admitted, or refused without naming the Move and the reason: ${JSON.stringify(noForm)}`);
+  }
+  // AND AN UNREADABLE MOVE IS A DIFFERENT REFUSAL. This is the direct evidence
+  // that the case above covers the formless branch: a missing record refuses
+  // as a STORE fault, so the two cannot be satisfied by one code path.
+  const missing = resolveFigureForms([open(F("s1", { ...AXIS, move: "no-such-move-record" }))], "moves");
+  if (!missing.error || !/cannot be read/.test(missing.error)) {
+    fails.push(`(v) a figure on a Move whose record is missing does not refuse as a store fault — a true refusal for a false reason: ${JSON.stringify(missing)}`);
+  }
+  // THE GRAMMAR HALF, refused at validateSteps and never reaching the library.
+  const halves = [
+    ["figure with no roles", { figure: "x" }, /figure_roles/],
+    ["roles with no figure", { figure_roles: { endpoint_a: "g1" } }, /figure:/],
+    ["blank figure", { figure: "   ", figure_roles: { endpoint_a: "g1" } }, /one line/],
+    ["a role bound to the selector", { figure: "x", figure_roles: { kind: "g1" } }, /selector/],
+    ["a non-address binding", { figure: "x", figure_roles: { endpoint_a: "the first ground" } }, /g<n>/],
+  ];
+  for (const [what, extra, want] of halves) {
+    const e = err([open(F("s1", extra))]);
+    if (!want.test(e)) fails.push(`(v) ${what} is admitted or refused by the wrong rule: ${e || "(admitted)"}`);
+  }
+  // THE GROUND ADDRESS IS THIS STEP'S. An address past the end names a ground
+  // that is not there — which is what makes "a role bound to a ground of
+  // another Step" unreachable rather than separately refused: the address
+  // space is this Step's grounds and has no syntax for anyone else's.
+  const pastEnd = err([open(F("s1", { ...AXIS, figure_roles: { ...AXIS.figure_roles, criterion: "g9" } }))]);
+  if (!/g9/.test(pastEnd) || !/3 ground/.test(pastEnd)) {
+    fails.push(`(v) a binding past this Step's ground count is admitted or refused without naming both the address and the count: ${pastEnd || "(admitted)"}`);
+  }
+  // IT SURVIVES SERIALIZATION, and a Step WITHOUT one writes no line — which
+  // is acceptance 4's mechanism: a Brief composed before this field renders
+  // byte-identically.
+  const rendered = renderStep(F("s1", AXIS));
+  if (!/^figure: /m.test(rendered) || !/^figure_roles: /m.test(rendered)) {
+    fails.push("(v) renderStep drops `figure` — a Brief re-read from its recorded form declares no figure at all, and kogaki#878 would have nothing to realize");
+  }
+  if (/figure/.test(renderStep(F("s1")))) {
+    fails.push("(v) renderStep writes a figure line for a Step that declares none — every Brief composed before §4.16 would change bytes");
+  }
+  // THE ROUND TRIP IS ONE GRAMMAR, asserted at both ends. A writer and a
+  // reader disagreeing about a value fails silently at exactly the field
+  // whose value reaches the rendered figure.
+  const back = parseFigureRoles(renderFigureRoles(AXIS.figure_roles));
+  if (back.error || JSON.stringify(back.roles) !== JSON.stringify(AXIS.figure_roles)) {
+    fails.push(`(v) figure_roles does not round-trip: ${JSON.stringify(back)}`);
+  }
+  if (!parseFigureRoles("endpoint_a").error) {
+    fails.push("(v) a role binding with no `=` parses — the reader would admit a line the writer never produces");
+  }
+  // THE KIND SET IS THE MOVE LIBRARY'S, read and not restated. A form naming a
+  // kind outside src/figure-kinds.json is refused, which is what keeps this
+  // runtime and `tools/move_ingest.py` from disagreeing about what a kind is.
+  if (!Object.prototype.hasOwnProperty.call(figureKinds().kinds || {}, "axis")) {
+    fails.push("(v) src/figure-kinds.json declares no `axis` kind — the acceptance-1 fixture asserts over a kind the closed set no longer holds");
+  }
+}
+
+// (w) §4.16's DISCLOSURE AT THE CANDIDATE GATE (kogaki#877, acceptance 3).
+// The clause reaches the label because THE LABEL IS THE SELECTION GATE, which
+// is the surface `src/disclosure-fields.json` grades decision-class evidence
+// to. That table is not extended here and the reason is asserted, not asserted
+// away: it grades CANDIDATE-level fields and reads `c[field]`, and `figure` is
+// a STEP field — an entry there would be permanently absent and its obligation
+// permanently vacuous, which is the degrades-to-zero shape (u) already refuses.
+//
+// THE WARNING HAS NO TARGET AND REFUSES NOTHING (topics/articles.md 2026-08-01
+// D11), so the above-three case is asserted to WARN and to stay SELECTABLE.
+{
+  const G = (id, extra = {}) => ({
+    step_id: id, move: "m", materials: ["L1"], purpose: "p",
+    reader_state_before: "a", reader_state_after: "b", depends_on: [],
+    rationale: "r", grounds: [{ type: "strand", strand: "L1", proposition: "g" }],
+    ...extra,
+  });
+  const FIG = { figure: "what the figure holds", figure_roles: { endpoint_a: "g1" } };
+  const clause = (n) => figureClause(Array.from({ length: 4 }, (_, i) => G(`s${i + 1}`, i < n ? FIG : {})));
+
+  // An empty set renders the explicit none. An absent clause and a clause
+  // reading none are the same silence to a reader and different silences to a
+  // check, and only the second lets a later run tell "no figure" from "nothing
+  // composes the clause".
+  if (!/no Step carries a figure/.test(clause(0))) {
+    fails.push(`(w) a Candidate with no figure renders no explicit none: ${clause(0)}`);
+  }
+  // TWO: the count and WHICH, and NO warning.
+  const two = clause(2);
+  if (!/2 Step\(s\) carry a figure/.test(two) || !/s1, s2/.test(two)) {
+    fails.push(`(w) the clause does not disclose the count and the Steps it names: ${two}`);
+  }
+  if (/second look/.test(two)) {
+    fails.push(`(w) two figures warn — the soft warning is ABOVE three (acceptance 3): ${two}`);
+  }
+  // FOUR: warns.
+  const four = clause(4);
+  if (!/4 Step\(s\) carry a figure/.test(four) || !/second look/.test(four)) {
+    fails.push(`(w) four figure-carrying Steps do not show the warning in the clause (acceptance 3): ${four}`);
+  }
+  if (!/nothing here refuses it/.test(four)) {
+    fails.push(`(w) the warning does not state that it refuses nothing — D11's warning has no target: ${four}`);
+  }
+  // THE CLAUSE REACHES THE LABEL, which is the acceptance's own wording. The
+  // Candidate stays SELECTABLE above three: warning, never refusal.
+  const four2 = clause(3 + 1);
+  if (four2 !== four) fails.push("(w) figureClause is not a function of the path alone");
+  // ONE DERIVATION for the count and the set — `figureSteps` — so the label's
+  // number and the Steps it names cannot disagree.
+  const path = [G("s1", FIG), G("s2"), G("s3", FIG)];
+  if (figureSteps(path).map((s) => s.step_id).join(",") !== "s1,s3") {
+    fails.push("(w) figureSteps does not return the figure-carrying Steps in path order");
+  }
+}
+
+const CASE_COUNT = 25;
 {
   const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
   const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;
@@ -2049,7 +2342,8 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
+console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
+  + "(v)(w)(w1)(x) §4.16's FIGURE DECISION (kogaki#877): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the ground addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's ground count — which is what makes a binding to ANOTHER Step\'s ground unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "
   + "derived from the steps, role_in_thesis carried) and the §5.2 ledger with introduced_by/"
@@ -2179,7 +2473,7 @@ console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — (u) 
   + "is full of internal keys passes, which is the assertion that catches the evidence "
   + "returning by a side door. The tripwire reads REGISTER, never a composition MUST (§4.6 "
   + "clause 3 stands). "
-  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893): FORTY "
+  + "MUTATION EVIDENCE (assert-by-breaking-once, stories 1.73 + 1.75 + 1.77 + kogaki#501 + kogaki#520 + kogaki#551 + kogaki#568 + kogaki#574 + kogaki#578 + kogaki#642 + kogaki#859 + PR #863 round 2 + kogaki#893 + kogaki#877): FORTY "
   + "mutations. RE-DERIVED, not incremented — this paragraph's own standing rule, and the one it has twice failed: the enumeration below sums 3 + 3 + 6 + 4 + 3 + 2 = 21 for the "
   + "original groups, plus kogaki#568's four, plus PR #576 round 1's two, plus kogaki#574's two, plus kogaki#578's one, plus kogaki#642's one, plus kogaki#859's three, plus PR #863 round 2's three, plus kogaki#893's three = 40. "
   + "THE UNIT OF THE COUNT IS A TRIAL TAKEN, NEVER A DISTINCT PHYSICAL MUTATION (kogaki#889), and it is declared because leaving it implicit has now produced a finding: two heads may apply the SAME EDIT against DIFFERENT assertions, and that is two trials rather than one counted twice — kogaki#520 deleted the per-option `rendering` against (j)'s LABEL assertions and kogaki#859 deleted it against (j)'s KEY-PRESENT one, at two heads, and both runs happened. Read as physical mutations the enumeration double-counts; read as trials it does not, and the second reading is the one kogaki#568's own ground already commits this paragraph to — \u0022the tally counts both, because the historical evidence was real when it was taken\u0022. A SUPERSEDED ENTRY THEREFORE STAYS COUNTED, and what it owes is the past-tense marking below rather than removal, since a deleted mutation and a superseded one read identically to a later reader. Owner decision at the kogaki#889 gate, recorded rather than re-derived per sitting. "
