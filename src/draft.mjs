@@ -55,6 +55,7 @@ import { fileURLToPath } from "node:url";
 // composer sees would stop matching the one a realizer sees.
 import { resolveMoveIds, introducesRefusal, readerKnowledgeLedger, opensSectionRefusal,
   figureRefusal, parseFigureRoles, figureKinds, visualFormOf, figureSteps } from "./compose.mjs";
+import { renderFigure, checkMermaid, MERMAID_FENCE } from "./render-figure.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 
 function fail(msg) {
@@ -372,6 +373,39 @@ export function sectionOfStep(steps) {
   return map;
 }
 
+// THE FIGURE BLOCKS THIS BODY PLACES (§4.18, kogaki#879). Read from the run
+// record `figure` wrote, rendered by src/render-figure.mjs, and keyed by Step.
+//
+// READ, NEVER RE-DERIVED — the same rule the Packet record already holds two
+// functions down. `cmdFigure` recorded the path, the sha and the position at
+// the moment the record was validated; recomputing any of them here would
+// answer for the file as it stands rather than for the record the figure was
+// validated as, which is the whole of what the pin is for.
+//
+// A RENDER FAILURE IS COLLECTED, NEVER THROWN. This function runs inside
+// `snapshotDraft` on every `section`, where a half-filled run is the ORDINARY
+// state and a throw would take the snapshot down with it. `cmdEmit` is what
+// refuses on the collected errors — the trace never gates the write it traces,
+// and the artifact does gate.
+function figureBlocks(ws) {
+  const out = new Map();
+  const errors = [];
+  let records = {};
+  try { records = JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).figures || {}; }
+  catch { return { blocks: out, errors }; }
+  for (const id of Object.keys(records).sort()) {
+    const rec = records[id];
+    if (!rec || typeof rec.path !== "string" || !existsSync(rec.path)) continue;
+    let record;
+    try { record = JSON.parse(readFileSync(rec.path, "utf8")); }
+    catch (e) { errors.push(`step ${id}: the figure record at ${rec.path} is not readable JSON (${e.message}) — it was written by \`figure\` and validated then, so a record unreadable now was edited outside the Harness`); continue; }
+    const r = renderFigure(record);
+    if (r.error) { errors.push(`step ${id}: ${r.error}`); continue; }
+    out.set(id, { markup: r.markup, position: rec.position === "before" ? "before" : "after", path: rec.path, sha256: rec.sha256 });
+  }
+  return { blocks: out, errors };
+}
+
 // THE HEADING IS THE HARNESS'S, WRITTEN HERE AND NOWHERE ELSE (kogaki#823).
 // `emit` used to concatenate the realized prose and write no heading at all,
 // which left the heading to whatever the model happened to produce — five
@@ -400,6 +434,17 @@ function assembleBody(brief, ws) {
   const sections = sectionsOf(brief.steps);
   const opensAt = new Map();
   for (const sec of sections) opensAt.set(sec.step_ids[0], sec);
+  // THE FIGURE IS ANCHORED TO ITS STEP, INSIDE ITS SECTION (§4.18, kogaki#879).
+  // It is pushed by the same `push` the prose is, so its range and the bytes it
+  // points at cannot disagree — the kogaki#868 property, extended to the one
+  // element the body carries that no Step wrote.
+  //
+  // NO STEP STRUCTURE BECOMES VISIBLE. The block is a rendered element the
+  // Brief declared, in the same standing as a heading: it carries no id, no
+  // key line and no marker a reader could read the trace off, so
+  // `findTraceStructure`'s subject is untouched by it.
+  const { blocks: figures, errors: figureErrors } = figureBlocks(ws);
+  const figureRanges = new Map();
   for (const step of brief.steps) {
     const f = join(ws, "sections", `${step.step_id}.md`);
     if (!existsSync(f)) { missing.push(step.step_id); continue; }
@@ -408,9 +453,20 @@ function assembleBody(brief, ws) {
     // reachable only on a pre-§4.15 path, whose whole body is one Section.
     // A heading line belongs to the Section, never to the Step that opened it.
     if (sec && sec.title !== undefined) push(`## ${sec.title}`);
+    const fig = figures.get(step.step_id);
+    // `before` sets the prose up and `after` discharges it (§4.17's closed
+    // pair). The heading is pushed above either way: a figure never precedes
+    // the heading of the Section it sits in.
+    if (fig && fig.position === "before") figureRanges.set(step.step_id, push(fig.markup));
+    // THE STEP'S OWN `lines` SPAN THE PROSE ALONE (kogaki#868, restated at
+    // §4.18). The figure's bytes are the Brief's declaration realized by the
+    // Harness, not the Step's realized prose, and kogaki#870's blind recovery
+    // quotes a Step at exactly these lines — a range that swallowed the block
+    // would hand the reviewer markup to re-derive prose from.
     ranges.set(step.step_id, push(readFileSync(f, "utf8").trim()));
+    if (fig && fig.position === "after") figureRanges.set(step.step_id, push(fig.markup));
   }
-  return { body: parts.join("\n\n"), missing, ranges };
+  return { body: parts.join("\n\n"), missing, ranges, figureRanges, figures, figureErrors };
 }
 
 // ---------------------------------------------------------------------------
@@ -1093,6 +1149,43 @@ function cmdSection(args) {
   // comment inside a code fence in realized prose is not a heading, and
   // refusing it is an over-refusal at composition time against prose the
   // article may legitimately need.
+  // THE FIGURE SEAT IS THE BRIEF'S, AND PROSE IS NOT A SECOND AUTHOR ON IT
+  // (§4.18, kogaki#879). This sits beside the heading refusal below and is the
+  // same defect one element over: after §4.17 the figure's markup is produced
+  // by src/render-figure.mjs from the record the Brief's declaration led to, so
+  // a diagram drawn in the realized prose is a figure the Brief never declared,
+  // rendered by nobody, pinned by no record, and invisible to kogaki#880's
+  // round trip.
+  //
+  // REFUSED ON EVERY STEP, not only on figure-carrying ones. A Step that
+  // declares no figure has the strongest claim of all to draw none — the
+  // default is NONE (§4.16) — and a Step that declares one already has its
+  // block coming from the record. Neither seat is the prose's.
+  //
+  // KEYED ON THE FENCE LANGUAGE THE RENDERER EMITS, imported rather than
+  // spelled here, so the guard and the emitter cannot drift about what a figure
+  // fence is. An ordinary code fence is untouched: this refuses `mermaid` and
+  // nothing else, and the Markdown table `matrix` renders as is deliberately
+  // NOT refused — a table is prose the article may legitimately need, and
+  // refusing every table to close this seat would be an over-refusal against
+  // material that has nothing to do with figures.
+  // AN OUTER FENCE MAKES THE INNER ONE A QUOTATION (PR #939 round 1, finding 3).
+  // Blocks delimited by FOUR OR MORE backticks are stripped before the scan, so
+  // prose that quotes a ```mermaid fence — an article about this very pipeline
+  // is the obvious case — is not read as prose that drew a figure. This is the
+  // same over-refusal PR #843 round 1 found for the heading scan and closed by
+  // stripping fences, and the first form of this guard reintroduced it one
+  // element over by matching the raw file.
+  //
+  // A BARE ```mermaid FENCE IS STILL REFUSED: only the outer-fenced case is
+  // exempt, because an outer fence is an author saying "this is displayed text"
+  // in the one way Markdown has of saying it.
+  const quotable = content.replace(/^`{4,}[\s\S]*?^`{4,}[ \t]*$/gm, "");
+  const drawn = quotable.match(new RegExp("^```[ \\t]*" + MERMAID_FENCE + "\\b", "mi"));
+  if (drawn) {
+    fail(`the section for ${id} draws its own figure (a \`\`\`${MERMAID_FENCE} fence) — after §4.18 a figure's markup is rendered by the Harness from the record \`figure --step ${id}\` validated, and prose that draws one is a second author on a seat the Brief owns, exactly as a heading in the prose is (§4.15). `
+      + `If this Step should carry a figure, it is declared with \`figure:\` on the Brief (§4.16) and designed after this prose; if it should not, remove the fence`);
+  }
   const unfenced = content.replace(/^```[\s\S]*?^```[ \t]*$/gm, "");
   const heading = unfenced.match(/^(#{1,6})[ \t]+(\S.*?)[ \t]*$/m);
   if (heading) {
@@ -1208,7 +1301,7 @@ function cmdFigure(args) {
 function cmdEmit(args) {
   const brief = loadBrief(args);
   const ws = workspaceFor(args, brief.slug);
-  const { body, missing, ranges } = assembleBody(brief, ws);
+  const { body, missing, ranges, figureRanges, figures, figureErrors } = assembleBody(brief, ws);
   if (missing.length) {
     fail(`the run is not at completion: step(s) ${missing.join(", ")} have no realized section — a /draft run ends when the CanonicalDraft exists, and these are what it still owes (SPEC-draft-command §3)`);
   }
@@ -1226,6 +1319,15 @@ function cmdEmit(args) {
   if (owedFigures.length) {
     fail(`the run is not at completion: step(s) ${owedFigures.join(", ")} declare figure: and have no recorded figure record — `
       + `the record is filled after that Step's prose and recorded with \`figure --step <id> --file <record.json>\` (§4.17)`);
+  }
+  // A RECORDED FIGURE THAT WILL NOT RENDER STOPS THE ARTIFACT (§4.18). The
+  // guard above answers "is a record owed"; this answers "does it render", and
+  // the two are separable — a record can exist, resolve and validate, and still
+  // name a kind this runtime has no seat for. Emitting the Draft with the block
+  // silently absent is the drop-with-no-report shape §4.17 refuses one act
+  // earlier, so it is refused here for the same reason.
+  if (figureErrors.length) {
+    fail(`the figure(s) this run recorded do not render: ${figureErrors.join("; ")} — the markup is the Harness's (§4.18), so this is a renderer or a record defect and never prose to be written around`);
   }
   const outPath = join(dirname(brief.path), "draft.md");
   // `generated_by` is an immutable birth record: an overwrite keeps the
@@ -1293,6 +1395,23 @@ function cmdEmit(args) {
       // The trace never gates the write it traces — the same rule `snapshotDraft`
       // and `cmdPacket`'s own record write already hold.
       process.stderr.write(`draft: step ${t.step_id} has no readable packet record in ${join(ws, "run.json")} — its trace entry carries no packet fields; the trace never gates the write it traces\n`);
+    }
+    // THE FIGURE ENTRY (§4.18, kogaki#879). `record` is relative to the draft,
+    // the convention `brief:` and `packet:` already use — two machines emit
+    // identical bytes — and `record_sha` is the sha `figure` recorded at
+    // validation, READ rather than recomputed. `lines` is the block's own span,
+    // beside the Step's prose range and never inside it: a reader joining a
+    // rendered figure back to the record it came from needs both, and a single
+    // range carrying both would answer for neither.
+    const fig = figures.get(t.step_id);
+    if (fig) {
+      const span = figureRanges.get(t.step_id);
+      t.figure = {
+        position: fig.position,
+        record: relative(dirname(outPath), fig.path),
+        record_sha: fig.sha256,
+        ...(span ? { lines: [span[0] + bodyOffset, span[1] + bodyOffset] } : {}),
+      };
     }
   }
   const fm = [
@@ -2345,6 +2464,260 @@ async function runSelfTest() {
       !plainPacket.includes("The figure this Step carries") && !/\{\{\w+\}\}/.test(plainPacket) &&
       !plainPacket.includes("FIGURE-INPUT"),
       plainPacket.slice(-200));
+
+    // -----------------------------------------------------------------------
+    // §4.18 — THE RENDERER AND THE ANCHOR (kogaki#879). The cases above stop at
+    // the RECORD; these carry it the rest of the way, to the markup a reader
+    // meets and the trace entry that pins it.
+
+    // ACCEPTANCE 1, FIRST HALF — SAME RECORD, SAME BYTES. Asserted on two
+    // renders of one object rather than on a stored string, because the defect
+    // it forecloses is an ordering that follows the record's own key order:
+    // a `JSON.parse` of the same file can hand back keys in a different order,
+    // and a golden string would agree with itself while the pin moved.
+    const detRec = recordOf({ emphasis: "endpoint_b" });
+    const detA = renderFigure(detRec), detB = renderFigure(JSON.parse(JSON.stringify(detRec)));
+    ok("acceptance 1: rendering the same record twice yields identical bytes",
+      !detA.error && !detB.error && detA.markup === detB.markup, detA.error || "");
+    // And the key ORDER of `elements` does not reach the output: the kind's
+    // declared `roles` order is what the renderer walks. Without this the case
+    // above passes on a renderer that happens to be handed one order twice.
+    const reordered = JSON.parse(JSON.stringify(detRec));
+    reordered.elements = { criterion: reordered.elements.criterion, endpoint_b: reordered.elements.endpoint_b, endpoint_a: reordered.elements.endpoint_a };
+    ok("acceptance 1: the record's own key order does not reach the rendered bytes",
+      renderFigure(reordered).markup === detA.markup);
+
+    // ACCEPTANCE 1, SECOND HALF — A FIXTURE RECORD PER KIND RENDERS, AND THE
+    // MERMAID PARSES. Every member of the closed set, read from
+    // src/figure-kinds.json rather than listed here: a kind admitted to that
+    // file with no seat in the renderer must fail this case, and a hardcoded
+    // list is exactly what would let it pass.
+    const allKinds = figureKinds().kinds || {};
+    const kindNames = Object.keys(allKinds).sort();
+    ok("the closed kind set is non-empty, so the per-kind loop below asserts something",
+      kindNames.length >= 5, kindNames.join(","));
+    let kindsRendered = 0, kindsParsed = 0;
+    const kindFailures = [];
+    for (const k of kindNames) {
+      const els = {};
+      allKinds[k].roles.forEach((role, i) => { els[role] = { text: `text for ${role}`, ground: `g${i + 1}` }; });
+      const r = renderFigure({ kind: k, elements: els, relations: [`the ${k} relation`], caption: `caption for ${k}`, position: "after" });
+      if (r.error) { kindFailures.push(`${k}: ${r.error}`); continue; }
+      kindsRendered++;
+      const fenced = r.markup.startsWith("```" + MERMAID_FENCE + "\n");
+      if (!fenced) { kindsParsed++; continue; }  // a table kind: nothing to parse
+      const src = r.markup.slice(("```" + MERMAID_FENCE + "\n").length, r.markup.indexOf("\n```"));
+      const bad = checkMermaid(src);
+      if (bad) kindFailures.push(`${k}: ${bad}`); else kindsParsed++;
+    }
+    ok("acceptance 1: a fixture record for every kind in the closed set renders",
+      kindsRendered === kindNames.length, kindFailures.join(" | "));
+    ok("acceptance 1: every rendered Mermaid block passes the minimal grammar check",
+      kindsParsed === kindNames.length, kindFailures.join(" | "));
+    // THE GRAMMAR CHECK IS NOT VACUOUS. Without this the case above is green on
+    // a `checkMermaid` that returns null for everything — the fixture-passes-on-
+    // a-disabled-instrument class this suite's own efficacy notes record.
+    ok("the grammar check rejects a block with no diagram header, by name",
+      /first line/.test(checkMermaid('  n_a["x"]') || ""), String(checkMermaid('  n_a["x"]')));
+    ok("the grammar check rejects an unbalanced node shape, by name",
+      /unbalanced|against/.test(checkMermaid('flowchart LR\n  n_a["x"') || ""), String(checkMermaid('flowchart LR\n  n_a["x"')));
+    ok("the grammar check rejects a header with no statement under it",
+      /empty diagram|no statement/.test(checkMermaid("flowchart LR") || ""), String(checkMermaid("flowchart LR")));
+    // A kind outside the closed set is refused by name rather than rendered as
+    // an empty block — the seat rule §4.18 states.
+    ok("a record naming a kind outside the closed set is refused by name",
+      /not in the closed set/.test(renderFigure({ kind: "spiral", elements: {}, relations: ["x"], caption: "c", position: "after" }).error || ""));
+    // EVERY RELATION REACHES THE OUTPUT. `axis` has two edges; a record with
+    // three relations must render all three, because a renderer that dropped
+    // one would drop the owner's design with no report.
+    const threeRel = renderFigure(recordOf({ relations: ["rel one", "rel two", "rel three"] }));
+    ok("a relation beyond the shape's edge count is joined rather than dropped",
+      ["rel one", "rel two", "rel three"].every((x) => threeRel.markup.includes(x)), threeRel.markup);
+
+    // ACCEPTANCE 2 — THE ANCHOR. A two-Step Brief whose first Step opens a
+    // Section and carries a figure at `position: after`: the block lands after
+    // a1's prose and before a2's, under Section 1's heading.
+    const anchDir = join(root, "theses", "anchor-brief");
+    mkdirSync(anchDir, { recursive: true });
+    const anchStep = (id, extra) => [
+      "```step", `step_id: ${id}`, "move: place_on_the_axis",
+      `purpose: purpose of ${id}`,
+      `reader_state_before: before ${id}.`, `reader_state_after: after ${id}.`,
+      "materials: L1", `rationale: rationale for ${id}.`,
+      ...G, ...extra, "```", "",
+    ];
+    // NO `pos` PARAMETER (PR #939 round 1, finding 4). The first form took one
+    // and never read it, so the two call sites read as if the fixture BRIEF
+    // differed between the acceptance-2 case and its `before` control when only
+    // the RECORD does — a fixture whose shape a later reader would trust
+    // wrongly. The Brief is one Brief; `position` lives in the record.
+    const anchBrief = () => figBrief([
+      ...anchStep("a1", ["opens_section: Section one",
+        "figure: what the prose leaves the reader unable to hold in one view.",
+        "figure_roles: endpoint_a=g1, endpoint_b=g2, criterion=g3"]),
+      ...anchStep("a2", []),
+    ]).replace("# Brief — figure-brief", "# Brief — anchor-brief");
+    writeFileSync(join(anchDir, "brief.md"), anchBrief());
+    const anchWs = join(root, "ws-anchor");
+    const driveAnch = (cmd, ...extra) => spawnSync(process.execPath,
+      [self, cmd, "--brief", join(anchDir, "brief.md"), "--workspace", anchWs, "--moves-dir", movesDir, ...extra],
+      { encoding: "utf8" });
+    const proseA2 = join(root, "prose-a2.md");
+    writeFileSync(proseA1, "PROSE-A1 the realized prose for a1.");
+    writeFileSync(proseA2, "PROSE-A2 the realized prose for a2.");
+    driveAnch("resolve");
+    driveAnch("section", "--step", "a1", "--file", proseA1);
+    const anchRec = writeRec("anchor-good.json", recordOf({ caption: "CAPTION-LINE what the reader holds." }));
+    driveAnch("figure", "--step", "a1", "--file", anchRec);
+    driveAnch("section", "--step", "a2", "--file", proseA2);
+    const anchEmit = driveAnch("emit");
+    const anchDraft = existsSync(join(anchDir, "draft.md")) ? readFileSync(join(anchDir, "draft.md"), "utf8") : "";
+    ok("acceptance 2: a two-Step Brief with a figure emits its CanonicalDraft",
+      anchEmit.status === 0 && anchDraft !== "", (anchEmit.stderr || "").slice(0, 300));
+    const iHead = anchDraft.indexOf("## Section one");
+    const iA1 = anchDraft.indexOf("PROSE-A1");
+    const iFence = anchDraft.indexOf("```" + MERMAID_FENCE);
+    const iCap = anchDraft.indexOf("CAPTION-LINE");
+    const iA2 = anchDraft.indexOf("PROSE-A2");
+    ok("acceptance 2: the block sits after a1's prose and before a2's, under Section 1's heading",
+      iHead >= 0 && iA1 > iHead && iFence > iA1 && iCap > iFence && iA2 > iCap,
+      JSON.stringify({ iHead, iA1, iFence, iCap, iA2 }));
+    // THE CAPTION IS THE LINE AFTER THE BLOCK, asserted on adjacency rather
+    // than on order alone: order is satisfied by a caption anywhere later.
+    const bodyLines = anchDraft.split("\n");
+    const fenceEnd = bodyLines.findIndex((l, i) => l === "```" && i > bodyLines.findIndex((x) => x.startsWith("```" + MERMAID_FENCE)));
+    ok("acceptance 2: the caption renders as the line after the block",
+      bodyLines[fenceEnd + 1] === "" && bodyLines[fenceEnd + 2].includes("CAPTION-LINE"),
+      JSON.stringify(bodyLines.slice(fenceEnd, fenceEnd + 3)));
+    // THE TRACE ENTRY. A resolving record path, a matching sha, and a position.
+    const anchTrace = (anchDraft.match(/^ {2}- (\{"step_id".*)$/gm) || []).map((l) => JSON.parse(l.replace(/^ {2}- /, "")));
+    const t1 = anchTrace.find((t) => t.step_id === "a1");
+    const recAbs = t1 && t1.figure ? join(anchDir, t1.figure.record) : null;
+    ok("acceptance 2: a1's trace entry carries figure with a resolving record path and a matching sha",
+      !!(t1 && t1.figure && t1.figure.position === "after" && recAbs && existsSync(recAbs) &&
+         t1.figure.record_sha === sha256(readFileSync(recAbs, "utf8"))),
+      JSON.stringify(t1 && t1.figure));
+    // THE STEP'S `lines` SPAN THE PROSE ALONE, and the figure's own span is
+    // `figure.lines` (kogaki#868, §4.18). Asserted on the FILE's lines, which
+    // is the surface kogaki#870's blind recovery quotes from.
+    const fileLines = anchDraft.split("\n");
+    const proseSpan = fileLines.slice(t1.lines[0] - 1, t1.lines[1]).join("\n");
+    const figSpan = fileLines.slice(t1.figure.lines[0] - 1, t1.figure.lines[1]).join("\n");
+    ok("acceptance 2: the Step's lines span the prose and not the figure",
+      proseSpan.includes("PROSE-A1") && !proseSpan.includes("```" + MERMAID_FENCE), JSON.stringify(proseSpan));
+    ok("acceptance 2: figure.lines span the block and its caption, and no prose",
+      figSpan.includes("```" + MERMAID_FENCE) && figSpan.includes("CAPTION-LINE") && !figSpan.includes("PROSE-A1"),
+      JSON.stringify(figSpan));
+    // a2 declares no figure, so its entry carries no `figure` key at all — an
+    // absent field rather than a null one, the shape every other optional
+    // trace field already uses.
+    ok("a Step declaring no figure carries no figure key in its trace entry",
+      !("figure" in (anchTrace.find((t) => t.step_id === "a2") || {})));
+    // NO STEP STRUCTURE BECAME VISIBLE. The block is a rendered element, so the
+    // body must still carry no step id and no key line — the §5 guard the
+    // figure could have quietly broken by writing an id into the markup.
+    ok("the figure block renders no visible trace structure in the body",
+      findTraceStructure(anchDraft.slice(anchDraft.indexOf("## Section one")), ["a1", "a2"]).length === 0);
+
+    // POSITION `before` puts the block between the heading and the prose. The
+    // control on the case above: without it, a renderer that ignored `position`
+    // and always appended would pass.
+    const beforeDir = join(root, "theses", "before-brief");
+    mkdirSync(beforeDir, { recursive: true });
+    writeFileSync(join(beforeDir, "brief.md"), anchBrief().replace("# Brief — anchor-brief", "# Brief — before-brief"));
+    const beforeWs = join(root, "ws-before");
+    const driveBefore = (cmd, ...extra) => spawnSync(process.execPath,
+      [self, cmd, "--brief", join(beforeDir, "brief.md"), "--workspace", beforeWs, "--moves-dir", movesDir, ...extra],
+      { encoding: "utf8" });
+    driveBefore("resolve");
+    driveBefore("section", "--step", "a1", "--file", proseA1);
+    driveBefore("figure", "--step", "a1", "--file",
+      writeRec("before-good.json", recordOf({ position: "before", caption: "CAPTION-LINE what the reader holds." })));
+    driveBefore("section", "--step", "a2", "--file", proseA2);
+    driveBefore("emit");
+    const beforeDraft = readFileSync(join(beforeDir, "draft.md"), "utf8");
+    ok("a figure at position before sits between the Section heading and the Step's prose",
+      beforeDraft.indexOf("## Section one") < beforeDraft.indexOf("```" + MERMAID_FENCE) &&
+      beforeDraft.indexOf("```" + MERMAID_FENCE) < beforeDraft.indexOf("PROSE-A1"),
+      beforeDraft.slice(beforeDraft.indexOf("## Section one"), beforeDraft.indexOf("PROSE-A1") + 20));
+
+    // ACCEPTANCE 3 — PROSE THAT DRAWS ITS OWN FIGURE IS REFUSED, NAMING THE
+    // STEP. Refused on a Step that declares NO figure, which is the harder half:
+    // the seat is closed to prose whether or not the Brief opened one.
+    const drawn = join(root, "prose-drawn.md");
+    writeFileSync(drawn, "Prose for a2.\n\n```" + MERMAID_FENCE + "\nflowchart LR\n  a --- b\n```\n");
+    const rDrawn = driveAnch("section", "--step", "a2", "--file", drawn);
+    ok("acceptance 3: a section file containing a mermaid fence is refused naming the Step",
+      rDrawn.status !== 0 && (rDrawn.stderr || "").includes("a2") &&
+      (rDrawn.stderr || "").includes("draws its own figure"),
+      (rDrawn.stderr || "").slice(0, 300));
+    // THE CONTROL — an ordinary code fence is untouched. Without it the case
+    // above passes on a guard that refuses every fenced block, which would
+    // refuse prose the article may legitimately need.
+    const plainFence = join(root, "prose-plain-fence.md");
+    writeFileSync(plainFence, "Prose for a2.\n\n```js\nconst x = 1;\n```\n");
+    const rPlain = driveAnch("section", "--step", "a2", "--file", plainFence);
+    ok("an ordinary code fence in realized prose is not refused",
+      rPlain.status === 0, (rPlain.stderr || "").slice(0, 240));
+    // PR #939 ROUND 1, FINDING 3 — an outer fence makes the inner one a
+    // QUOTATION. Prose about this pipeline is the case that produced the
+    // finding, and it is the fixture here rather than a synthetic one.
+    const quoted = join(root, "prose-quoted-fence.md");
+    writeFileSync(quoted, "Prose for a2 about the renderer.\n\n````markdown\n```" + MERMAID_FENCE + "\nflowchart LR\n  a --- b\n```\n````\n");
+    const rQuoted = driveAnch("section", "--step", "a2", "--file", quoted);
+    ok("a mermaid fence QUOTED inside an outer four-backtick fence is not refused",
+      rQuoted.status === 0, (rQuoted.stderr || "").slice(0, 300));
+
+    // PR #939 ROUND 1, FINDING 1 — a bracket or paren in an element's own
+    // wording is TEXT, not node syntax. The record validates, so the failure it
+    // used to produce arrived at `emit`, the last act, with a message denying
+    // that the record was where to look.
+    // THE WORDING IS DELIBERATELY UNBALANCED — `(amortised` with no closing
+    // paren — and that is the whole case. A BALANCED aside renders whether or
+    // not the fix is present, so a case using one would pass on the defect: the
+    // first form of this case did exactly that, and it is recorded here rather
+    // than quietly corrected.
+    const bracketed = renderFigure(recordOf({
+      elements: { ...recordOf({}).elements, criterion: { text: "cost per unit (amortised", ground: "g3" } },
+    }));
+    ok("an UNBALANCED bracket inside an element's wording renders rather than failing the balance check",
+      !bracketed.error && bracketed.markup.includes("cost per unit (amortised"),
+      bracketed.error || "");
+    // THE CONTROL, which is what stops that fix disabling the check: an
+    // unbalanced shape OUTSIDE a quoted label still fails, and says so.
+    ok("an unbalanced node shape outside the label still fails, naming it as syntax rather than wording",
+      /outside its quoted label/.test(checkMermaid('flowchart LR\n  n_a["safe (text)"]([') || ""),
+      String(checkMermaid('flowchart LR\n  n_a["safe (text)"]([')));
+
+    // A RECORDED FIGURE THAT WILL NOT RENDER STOPS THE ARTIFACT. Constructed by
+    // corrupting the stored record after validation — the only way to reach the
+    // state, since `figure` refuses everything else, and exactly the state an
+    // out-of-Harness edit produces.
+    const anchHome = join(anchWs, "anchor-brief");
+    const anchStored = join(anchHome, "figures", "a1.json");
+    const goodBytes = readFileSync(anchStored, "utf8");
+    writeFileSync(anchStored, "{ not json");
+    const rBroken = driveAnch("emit");
+    ok("emit refuses when a recorded figure record no longer renders, naming the Step",
+      rBroken.status !== 0 && (rBroken.stderr || "").includes("a1") &&
+      (rBroken.stderr || "").includes("do not render"),
+      (rBroken.stderr || "").slice(0, 300));
+    writeFileSync(anchStored, goodBytes);
+
+    // ACCEPTANCE 4 — A BRIEF WITHOUT FIGURES EMITS BYTE-IDENTICAL OUTPUT.
+    // Asserted as a re-emission over the no-figure fixture: the body bytes and
+    // every trace entry are unchanged, and no entry gained a `figure` key. That
+    // is the checkable form of "identical to today" — a golden string would
+    // pin this issue's own output rather than the one it must not have moved.
+    const plainBefore = readFileSync(join(briefDir, "draft.md"), "utf8");
+    spawnSync(process.execPath, [self, "emit", "--brief", join(briefDir, "brief.md"),
+      "--workspace", ws, "--moves-dir", movesDir], { encoding: "utf8" });
+    const plainAfter = readFileSync(join(briefDir, "draft.md"), "utf8");
+    ok("acceptance 4: a Brief with no figure re-emits byte-identical output",
+      plainBefore === plainAfter, `${plainBefore.length} vs ${plainAfter.length}`);
+    ok("acceptance 4: no trace entry of a figureless Brief carries a figure key, and its body carries no fence",
+      !/"figure"/.test(plainAfter) && !plainAfter.includes("```" + MERMAID_FENCE),
+      plainAfter.slice(0, 200));
   }
 
   rmSync(root, { recursive: true, force: true });

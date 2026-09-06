@@ -1292,6 +1292,123 @@ What no carrier holds: why the record is filled after the prose rather than
 beside it, and why the binding is the Brief's to make and the record's to
 honour rather than to re-open.
 
+### 4.18 The renderer and the anchor — markup from the record, at the Step
+
+**§4.17 makes the record; this makes the markup, and they are separate acts on
+purpose.** The record is a *design* — the owner's decision about what the figure
+holds, judged at kogaki#880's round trip. The markup is a *transcription* of it,
+and a transcription is exactly the kind of work that must not be done twice the
+same way by two different authors. So `src/render-figure.mjs` maps a validated
+record to markup with **no model call**: axis, chain, tree and threshold to
+Mermaid source in a fenced block, matrix to a Markdown table.
+
+**Same record, same bytes.** Every branch is a pure function of the record and
+`src/figure-kinds.json`. In particular the diagram's nodes are emitted in the
+**kind's declared `roles` order** and never in the record's own key order — a
+record whose bytes depended on how its author happened to order `elements` would
+render differently on two runs that agree about every reader-facing word, and
+the trace pins the record's sha downstream, so a renderer whose output moved
+under a fixed sha would make that pin answer for nothing.
+
+**The model never writes Mermaid, and that is what makes the refusal fair.** A
+syntax defect in a rendered figure is a defect of this file, fixed once, rather
+than of the sitting that happened to produce the record. A seat is only
+legitimately closed to one author where another actually fills it — which is why
+the refusal below arrives *with* the renderer and not before it.
+
+**Emphasis is carried by shape, not by colour.** Plain Mermaid defaults hold
+until a portfolio theme is adopted (out of scope, kogaki#875): the emphasised
+node renders in the subroutine form `[[…]]`, which every Mermaid renderer draws
+distinctly with no stylesheet at all, and `matrix` bolds the emphasised column
+head. Nothing here emits `classDef`, `style`, or a theme directive.
+
+**Every relation reaches the output.** `relations` is a non-empty list (§4.17
+clause 6) and each kind's shape has a fixed edge count; the two do not line up
+in general. Relations attach to edges in order, and anything past the last edge
+**joins** the last edge's label rather than being dropped. A figure that
+silently rendered three of five relations would drop the owner's design with no
+report, which is the shape §4.17 already refuses one act earlier.
+
+**A kind with no seat here is refused by name.** `src/figure-kinds.json` is what
+admits a kind, and a kind admitted there with no rendering in this file is a
+refusal rather than an empty block — the closed set and the renderer are joined,
+not two lists that agree until one is edited.
+
+#### The anchor
+
+**`emit` places the rendered figure at its Step, inside the Section that Step
+belongs to**, before the Step's prose or after it per the record's `position`.
+The Section heading is pushed first either way: a figure never precedes the
+heading of the Section it sits in.
+
+**No Step structure becomes visible.** The block is a rendered element the Brief
+declared, in the same standing as a heading — it carries no id, no key line and
+no marker a reader could read the trace off, so §5's guard against record
+rendered as structure is untouched by it.
+
+**The trace entry for that Step gains**
+
+    "figure": {"position": "after",
+               "record": "../../runs/draft/<slug>/figures/a1.json",
+               "record_sha": "…",
+               "lines": [<start>, <end>]}
+
+`record` is relative to the draft, the convention `brief:` and `packet:` already
+use, so two machines emit identical bytes; `record_sha` is the sha `figure`
+recorded **at validation**, read and never recomputed, for the reason the Packet
+record already states — recomputing answers for the file as it stands rather
+than for the record the figure was validated as. A Step declaring no figure
+carries **no `figure` key at all**, an absent field rather than a null one.
+
+**The Step's own `lines` span the prose alone (kogaki#868), and the figure's own
+lines are `figure.lines`.** This is the load-bearing half of the entry rather
+than a formatting choice: kogaki#870's blind recovery quotes a Step at exactly
+its `lines`, and a range that swallowed the block would hand the reviewer markup
+to re-derive prose from. One range carrying both would answer for neither.
+
+**A recorded figure that will not render stops the artifact.** §4.17's guard
+answers *is a record owed*; this answers *does it render*, and the two are
+separable — a record can exist, resolve and validate and still name a kind this
+runtime has no seat for, or be edited outside the Harness after validation.
+Emitting the Draft with the block silently absent is the drop-with-no-report
+shape §4.17 refuses, so it is refused here for the same reason.
+
+#### What is refused at `section`
+
+**A body carrying a figure fence the renderer did not produce is refused,
+naming the Step** — beside the heading refusal (§4.15) and for the same reason
+one element over: the figure seat is the Brief's, and a second author on it is
+the same defect as a second heading author. Prose that draws its own diagram is
+a figure the Brief never declared, rendered by nobody, pinned by no record, and
+invisible to kogaki#880's round trip.
+
+**Refused on every Step, not only on figure-carrying ones.** A Step that
+declares none has the strongest claim of all to draw none — the default is NONE
+(§4.16) — and a Step that declares one already has its block coming from the
+record. Neither seat is the prose's.
+
+**Keyed on the fence language the renderer emits**, read from the renderer
+rather than spelled at the guard, so the two cannot drift about what a figure
+fence is. **An ordinary code fence is untouched**, and the Markdown table
+`matrix` renders as is deliberately *not* refused: a table is prose the article
+may legitimately need, and refusing every table to close this seat would be an
+over-refusal against material that has nothing to do with figures. The cost is
+stated rather than discovered — a hand-drawn `matrix`-shaped table is reachable,
+and the instrument that finds it is kogaki#880's review, not this guard.
+
+**A Brief that declares no figure is untouched by every clause above**, and that
+is asserted rather than assumed: the fixture pass re-emits a figureless Brief
+and compares bytes.
+
+`necessity:` §4.17 carries the record — what it is, when it is filled, and what
+is refused about it — and stops at the stored JSON. `src/figure-kinds.json`
+carries the closed kind set and declares that nothing in the draft pipeline
+reads it to decide anything. Neither says what markup a record becomes, that the
+markup is the Harness's and not the model's, where in the body it lands, or that
+the Step's line range must exclude it. What no carrier holds: why the
+transcription is a fixed function rather than a judgment, and why the figure's
+lines are recorded beside the prose's rather than inside them.
+
 ## 5. The Brief's centre, and the obligations ledger inside it
 
 `necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's
