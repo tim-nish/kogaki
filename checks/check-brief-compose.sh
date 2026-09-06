@@ -670,6 +670,36 @@ try {
   for (const id of ["cand-1", "cand-2", "none-of-these"]) {
     if (!new RegExp(id).test(gDecl.stdout || "")) fails.push(`(g6) the declaration output does not render option ${id} — the owner would choose among options they were never shown`);
   }
+  // THE PROMPT THE OWNER READS BEFORE ANSWERING CARRIES WHAT THE RUNTIME DOES
+  // (kogaki#950). The free-text refusal below is bound at length, and it is
+  // read AFTER the answer; this prompt is read BEFORE it, so a prompt promising
+  // adoption delivers the repaired refusal to an owner who was told it would
+  // not happen. The property is asserted on the RENDERED declaration output —
+  // the surface the owner actually sees — rather than on the payload object,
+  // because a prompt correct in the payload and unrendered is the same silence.
+  //
+  // POSITIVE, NOT ONLY NEGATIVE, for the reason this file states once for
+  // itself: asserting only the absence of "recorded as your ruling" passes on a
+  // prompt that deleted the sentence, leaving the channel with no stated
+  // reading at all. So the three properties v35 rules are each anchored — free
+  // text adopts nothing, the two arms that DO decide are named, and the owner
+  // is told they come back here — and the false promise is refused beside them.
+  const freePrompt = (/\(free text\)(.*)/.exec(gDecl.stdout || "") || [, ""])[1].trim();
+  if (!freePrompt) fails.push("(g6) the declaration output renders no free-text prompt — the channel is offered with nothing said about what it does");
+  else {
+    if (/recorded as your ruling|as your ruling|is your ruling/i.test(freePrompt)) {
+      fails.push(`(g6) the \u00a76 free-text prompt still tells the owner their words are recorded as a ruling, which SPEC-draft-pipeline v35 rules they are not — adoption refuses free text and writes no Reader Path: ${JSON.stringify(freePrompt)}`);
+    }
+    if (!/adopts no Reader Path|adopts nothing|is a COMMENT|is a comment/.test(freePrompt)) {
+      fails.push(`(g6) the \u00a76 free-text prompt does not say free text adopts nothing — an owner reads it before answering and the refusal only after: ${JSON.stringify(freePrompt)}`);
+    }
+    if (!/none-of-these/.test(freePrompt) || !/Candidate/.test(freePrompt)) {
+      fails.push(`(g6) the \u00a76 free-text prompt does not name both arms that decide (a Candidate, or none-of-these) — a gate executes the arm it captured, and free text captures none: ${JSON.stringify(freePrompt)}`);
+    }
+    if (!/returns you to this gate|returns you here|back to this gate/.test(freePrompt)) {
+      fails.push(`(g6) the \u00a76 free-text prompt does not say a comment on its own returns the owner to this gate: ${JSON.stringify(freePrompt)}`);
+    }
+  }
   const selDir = join(laneDir("brief"), dir.split(sep).filter(Boolean).pop());
   const selDeclPath = join(selDir, "brief-candidate-selection.run-declaration.json");
   if (!existsSync(selDeclPath)) fails.push(`(g6) --declare wrote no run declaration at ${selDeclPath} — a capture is judged against the declaration beside it (SPEC-gate-carrier §4.1)`);

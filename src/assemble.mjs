@@ -653,7 +653,23 @@ export function assembleSelection(reviewed, doc) {
     why: "the machine's premise, rendered: the adopted Thesis and the settled Strand set support a composed structure — the Candidates below differ in reader experience and each carries the reasoning it was composed with as evidence",
     label: "Adopting a Candidate writes its Reader Path into the Brief's sequence and fills the Brief's closing sections — how the path closes the claim, and what it traded away — from its reasoning",
     options,
-    free_text: { accepted: true, prompt: "Or say in your own words what should happen instead — a free-text answer is recorded as your ruling, and it does not discharge the none-of-these option." },
+    // THE PROMPT SAYS WHAT THE RUNTIME DOES, and until kogaki#950 it said the
+    // opposite. SPEC-draft-pipeline v35 rules free text at this gate a COMMENT:
+    // it decides nothing, adoption writes no Reader Path, and the owner is
+    // returned here. The refusal below (`answered … in their own words`) builds
+    // exactly that — but an owner reads THIS prompt BEFORE they answer and the
+    // refusal only after, so the surface that shapes the answer was promising
+    // the one thing the runtime would refuse to do.
+    //
+    // THE COPY NAMES THE ARMS, which is what makes it more than a corrected
+    // negation. `consulted: product-lab@5b0d040b02de3917432d455dc578ae0a06d8ff7b LESSONS.md:24`
+    // — "An approval gate executes the arm it captured — an owner-gated act
+    // gates the decision, not the keystrokes." Free text captures no arm, so a
+    // prompt that only withdraws the promise leaves the owner holding a channel
+    // with no stated way forward; naming the two arms that DO decide is the
+    // half that returns them to a decision. Wording is the owner's, selected
+    // 2026-09-06 against two alternatives (acceptance item 2).
+    free_text: { accepted: true, prompt: "Or say in your own words what should happen instead — free text here is a COMMENT: it adopts no Reader Path and nothing is written. Only selecting a Candidate or answering none-of-these decides, and a comment on its own returns you to this gate." },
   };
   // THE TRIPWIRE, LAST: the rendering the owner will read is checked for
   // spec-internal vocabulary before it can be presented. It does not stand
