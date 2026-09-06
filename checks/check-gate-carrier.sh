@@ -3,9 +3,10 @@
 # kogaki#16, umbrella kogaki#14).
 #
 # Validates the declared gate registry (src/gate-registry.json) and every gate
-# capture file (*.gate-capture.json, anywhere in the tree) against
-# src/gate-schema.json — the single carrier, whose field
-# lists this check READS rather than restates.
+# capture file — named by `capture.suffix`, anywhere in the tree — against
+# src/gate-schema.json, the single carrier, whose field lists this check
+# READS rather than restates. The capture NAME is one of them (kogaki#961):
+# the scanner composes `"*" + suffix` rather than carrying a literal.
 #
 # Three properties are this check's alone and overlap nothing in
 # check-proposal-contract.sh (which binds a proposal RECORD and by its own
@@ -156,7 +157,7 @@ def declaration_candidates(gate_id, capture_path):
 
     A capture is named by its RUN, not by its gate, wherever two run states can
     share one workspace: `src/brief.mjs` writes
-    `<run-state stem>.<gate_id>.gate-capture.json` beside
+    `<run-state stem>.<gate_id>` + `capture.suffix` beside
     `<run-state stem>.<gate_id>.run-declaration.json`, because a gate_id-only
     name gives two entries over the same settled Strand set ONE declaration and
     ONE capture between them. So the first candidate is derived from the
@@ -170,10 +171,10 @@ def declaration_candidates(gate_id, capture_path):
     adoption — the failure the run-state keying exists to close.
     """
     suffix = schema["capture"]["run_declaration_suffix"]
-    glob_suffix = schema["capture"]["suffix"]
+    capture_suffix = schema["capture"]["suffix"]
     names = []
-    if capture_path.name.endswith(glob_suffix):
-        names.append(capture_path.name[:-len(glob_suffix)] + suffix)
+    if capture_path.name.endswith(capture_suffix):
+        names.append(capture_path.name[:-len(capture_suffix)] + suffix)
     if gate_id is not None and f"{gate_id}{suffix}" not in names:
         names.append(f"{gate_id}{suffix}")
     return [capture_path.parent / n for n in names]

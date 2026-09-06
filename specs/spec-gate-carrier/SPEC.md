@@ -17,7 +17,7 @@ that needs a pattern composes `"*" + suffix`. **No clause below is loosened and
 the capture population is unchanged** — the same files are looked at, under a
 name that now has one definition site.
 
-**v6, amended 2026-09-05 (kogaki#890, owner selection at the
+**Status:** v6, amended 2026-09-05 (kogaki#890, owner selection at the
 /ship-cycle gate) — **§10 binds WHO WRITES a capture, which v1–v5 never said.**
 Every clause before this one binds a capture's SHAPE — its rows, its evidence
 fields, what `options_offered` is judged against — and a shape is satisfiable
