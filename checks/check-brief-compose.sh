@@ -2548,7 +2548,77 @@ console.log(`brief compose: library state — ${exemplarLine} (§4.13.1, disclos
   }
 }
 
-const CASE_COUNT = 27;
+// (z) THE RUN-DECLARATION FILE IS NOT THE BARRIER, AND ITS REMOVAL IS
+// ADMISSIBLE (§5.3/§6 v36, kogaki#915).
+//
+// v32's acceptance item 2 read "`adopt` refuses when no declaration for this
+// run state was rendered", and what `cmdAdopt` checks is `state.gate`. The
+// owner's ruling is that the WORDING was wrong rather than the barrier: the
+// declaration for a run IS `state.gate`, and the `*.run-declaration.json` file
+// is composed from it by the same actor the barrier guards against, so a check
+// on the file refuses nothing a forged capture could not also forge.
+//
+// THIS CASE IS THE STATED ADMISSIBILITY, NOT AN ABSENCE OF ONE. Item 2 of
+// kogaki#915 asks that the barrier which results be EXERCISED either way, and
+// an untested admissible case and an untested refusal read identically to a
+// later reader — which is the same class of defect as the wording this
+// amendment repairs. So the removal is performed and the adoption is asserted
+// to SUCCEED.
+{
+  const zdir = mkdtempSync(join(tmpdir(), "brief-decl-"));
+  const zrs = join(zdir, "run.json");
+  run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs]);
+  const zdecl = run(["src/brief.mjs", "gate-thesis", "--declare", "--run-state", zrs]);
+  const zdeclPath = join(zdir, "run.brief-thesis-adoption.run-declaration.json");
+  // THE PRECONDITION IS ASSERTED, not assumed. If `--declare` stopped writing
+  // the file at this name, the removal below would remove nothing and the case
+  // would pass while exercising the empty set.
+  if (zdecl.status !== 0) {
+    fails.push(`(z) \`gate-thesis --declare\` failed, so the case exercises nothing: ${(zdecl.stderr || zdecl.stdout || "").trim().slice(0, 160)}`);
+  } else if (!existsSync(zdeclPath)) {
+    fails.push(`(z) no run declaration was written at ${zdeclPath} — the file whose removal this case is about does not exist, so the removal below is vacuous`);
+  } else {
+    const zcap = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", zrs,
+      "--tool-use-id", "toolu_fixture_decl_removed", "--option", "thesis-1"]);
+    if (zcap.status !== 0) {
+      fails.push(`(z) capturing against a present declaration was refused: ${(zcap.stderr || zcap.stdout || "").trim().slice(0, 160)}`);
+    }
+    const zcapPath = join(zdir, "run.brief-thesis-adoption.gate-capture.json");
+    // THE CAPTURE ACT IS WHERE THE FILE IS READ, and that is asserted in the
+    // NEGATIVE direction too — otherwise "the barrier holds transitively" is a
+    // claim this member never tests. A second run state, so the first one's
+    // capture is not consumed by the probe.
+    const zrs2 = join(zdir, "run2.json");
+    run(["src/brief.mjs", "enter", "--survey", SURVEY, "--ids", "L2,L1", "--run-state", zrs2]);
+    const zcapNoDecl = run(["src/brief.mjs", "gate-thesis", "--capture", "--run-state", zrs2,
+      "--tool-use-id", "toolu_fixture_no_decl", "--option", "thesis-1"]);
+    if (zcapNoDecl.status === 0) {
+      fails.push("(z) `gate-thesis --capture` accepted an answer with no declaration ever written — the barrier §5.3 says holds TRANSITIVELY does not hold at the wait, so adoption rests on nothing");
+    }
+    // NOW REMOVE THE DECLARATION and adopt. This is the case the acceptance
+    // item names, and under the owner's arm it SUCCEEDS.
+    rmSync(zdeclPath);
+    const zadopt = run(["src/brief.mjs", "adopt", "--run-state", zrs, "--capture", zcapPath]);
+    if (zadopt.status !== 0) {
+      fails.push(`(z) adoption against a run state whose declaration FILE was removed was refused — §5.3 v36 states it is admissible, because the file is a derived artifact and the barrier is \`state.gate\` plus the capture: ${(zadopt.stderr || zadopt.stdout || "").trim().slice(0, 200)}`);
+    }
+    // AND THE BARRIER THAT DOES BIND IS ASSERTED BY (t), NOT HERE. Without
+    // one somewhere, the admissibility above is satisfied by an `adopt` that
+    // checks nothing at all — which is the reading kogaki#915 rules out rather
+    // than installs. (t) already asserts the `state.gate` refusal and names it,
+    // so an assertion here would be a second answer to one question.
+    //
+    // CHECKED RATHER THAN ASSERTED: dropping cmdAdopt's `state.gate` barrier
+    // was run as a mutation and failed (t), not this case. A version of this
+    // block that adopted against a hand-written gate-less run state was WRITTEN
+    // and WITHDRAWN — under that mutation the runtime throws on `state.gate.
+    // gate_id` and exits non-zero, so the assertion passed for a reason that is
+    // not the refusal it names. Recorded because a withdrawn assertion and one
+    // that was never considered read identically to a later reader.
+  }
+}
+
+const CASE_COUNT = 28;
 {
   const reg = JSON.parse(readFileSync("checks/registry.json", "utf8"));
   const floor = (reg.checks.find((m) => m.id === "brief-compose") || {}).admission?.case_floor;
@@ -2564,6 +2634,20 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("brief compose: " + CASE_COUNT + "/" + CASE_COUNT + " cases — "
+  + "(z) THE RUN-DECLARATION FILE IS NOT THE BARRIER, AND ITS REMOVAL IS ADMISSIBLE (\u00a75.3/\u00a76 v36, kogaki#915): "
+  + "v32's acceptance item 2 said `adopt` refuses when no declaration for this run state was rendered, and what "
+  + "`cmdAdopt` checks is `state.gate`. The owner ruled the WORDING was wrong rather than the barrier — the file is "
+  + "composed FROM `state.gate` by the same actor the barrier guards against, so a check on it refuses nothing a forged "
+  + "capture could not also forge. This case performs the removal and asserts adoption SUCCEEDS, because an untested "
+  + "admissible case and an untested refusal read identically to a later reader. The precondition is asserted rather "
+  + "than assumed (the declaration is written, at that name) so the removal cannot be vacuous, and the barrier that DOES "
+  + "hold is asserted in the negative direction at the wait: `--capture` with no declaration ever written must refuse, "
+  + "which is what makes \u00a75.3's `established transitively` a tested claim rather than a stated one. The `state.gate` "
+  + "refusal itself is (t)'s and is NOT re-asserted here; dropping it was run as a mutation and failed (t), not this "
+  + "case. NOT COVERED, stated rather than implied: `check-gate-carrier` legitimately answers the OPPOSITE about the "
+  + "same run — with no sibling declaration a capture falls back to the registry (SPEC-gate-carrier \u00a74.1), so for this "
+  + "`dynamic_options` gate a removed file leaves that member red while adoption is green. The two ask different "
+  + "questions and neither is this member's to reconcile; \u00a75.3 v36 states why; "
   + "(y) THE AUTHORING SKILL ENUMERATES EVERY §4.1 OPTIONAL STEP FIELD WITH ITS OWN SUBSECTION (kogaki#935): §4.16 landed with no authoring carrier — the field was validated, resolved, serialized and disclosed at the gate while `.claude/skills/brief/SKILL.md` never told the composing sitting to write it, and every check stayed green because the default is none and none is legitimate. §4.15's `opens_section` had the same gap and case (n) records it for `introduces`, which is what makes three instances a carrier rather than an edit. The enumeration is DERIVED from §4.1's own bullets, never transcribed, so field N+1 is covered the day it is written there; the derivation refuses its own empty result, because a list that silently empties reports every field as covered. What it does NOT prove, stated rather than implied: that the skill says the RIGHT thing about a field — a mention is mechanically checkable and adequacy is not, so this refuses the silence and never grades the prose (§4.6); (v)(w)(w1)(w2)(x) §4.16's FIGURE DECISION (kogaki#877, kogaki#934): `figure:` plus `figure_roles` is an OPTIONAL Step field whose default is none — asserted FIRST, which is also the mechanism by which every Brief composed before it composes unchanged, since `renderStep` writes neither line for a Step that declares none. Its two MECHANICAL conditions are asserted where each one lives: the grammar and the ground addressing refuse at `validateSteps` (either half declared alone, a blank line, the form's `kind` selector bound as a role, a non-address binding, and an address past this Step's ground count — which is what makes a binding to ANOTHER Step\'s ground unreachable rather than separately refused), and whether the Move declares a form at all refuses at `resolveFigureForms` against the REAL shipped library, with an unbound role and a role outside the form refused in BOTH directions and a formless Move separated from an UNREADABLE one, because a store that cannot be read is not an empty store. The THIRD condition is deliberately not asserted: whether the figure carries something is the composer\'s one judgment, stated in the `figure:` line, and §4.6 forbids a lint over a judgment. The gate DISCLOSURE — the count, the Steps it names, and the soft warning ABOVE three that refuses nothing (D11) — is asserted at the clause composer AND at the option label the owner actually reads, and the Move check is asserted AT THE ADOPTION SEAT, because a mutation dropping the clause from the label and one skipping the check inside `adoptCandidate` each survived every direct call to the function: the composer was green while the act rendered nothing. The clause lands on the LABEL rather than in `src/disclosure-fields.json`\'s rendering because that table grades CANDIDATE-level fields and reads `c[field]`, and `figure` is a STEP field — an entry there would be permanently absent and its obligation permanently vacuous; the grade and the seat agree, since the label IS the selection gate that grade names. (w2) THE CLAUSE'S STEP IDS ARE ADMISSIBLE AND ONLY THEY ARE (kogaki#934): the label the clause writes is walked by the spec-internal-vocabulary tripwire, whose identifier pattern matches ANY snake_case token, so a figure on a Step whose id is snake_case made the gate return NO PAYLOAD AT ALL — every option refused because of one Step's name, and every fixture in (w) and (w1) uses `s1`/`f1`-style ids, which is exactly the id shape that cannot trip the wire. The repair is an admissible-override set computed from `figureSteps`, the clause's OWN selector, so the exempted tokens cannot drift from the rendered ones by being derived twice; it is asserted in BOTH directions and in BOTH scopings — the mandated caller assembles with the whole option set present and its id in the label, a genuine term of art in that SAME label still refuses, one Candidate's ids are NOT exempt in another Candidate's label, and no surface but the option label consults the override, because nothing here is exempt by spelling and everything by provenance; (u) the DISCLOSURE-CLASS table and its one test (kogaki#909, owner ruling 2026-09-06): `src/disclosure-fields.json` grades each Candidate-level disclosure field by whether it BEARS ON THE CHOICE — decision-grade reaches the selection gate because a pending human verdict's carrier is the render layer, post-hoc rides the minted Brief's slot because nothing is owed about a path not taken. Seven malformations of the table are refused BY NAME in both directions (a grade naming no surface, a field naming an unknown grade, a grade no field claims, a field with no ground for its grade, and the two empty cases), every declared grade is shown to have a live producer, an undeclared key resolves to null rather than to an invented surface, and the gate rendering is proved DERIVED rather than enumerated by a SYNTHETIC table whose third decision-grade field renders with no code naming it — which is the property that makes field N+1 cost no check member. End to end: a Candidate at the revise bound reaches the owner carrying the Harness's own sentence about its own arithmetic, a Candidate below the bound renders nothing so kogaki#859's empty case is intact, a post-hoc field does NOT leak onto the gate, a residue with no words still discloses rather than rendering blank, and the shared vocabulary tripwire binds the new paragraph. NOT COVERED, stated rather than implied: a field NOBODY DECLARED is outside this table's reach — no reading of it bears on a key that was never entered — so what is closed is the defect the class was found by, a DECLARED piece of evidence with no surface, and not the wider claim that every possible field is surfaced; (q) §4.15's Section grouping (kogaki#822): opens_section is OPTIONAL (asserted first), rule 3 refuses a path opening none, rule 2 refuses a Step that develops its predecessor from opening, rule 4's STEP-COUNT clause refuses two consecutive one-Step Sections, a correctly grouped path is admitted as the control, three malformed values are refused, and the field survives renderStep. Validated at COMPOSITION, not at `brief.mjs mint` — mint writes a shell and no Step exists there; rule 1 is the positive case rule 2's refusal covers, and rule 4's prose-length clause is §4.15's named deferred slot, so neither is asserted; (a) §4.1 Step shape refused per missing field, the "
   + "closed §4.4 ground types, entailed-without-reasoning refused, depends_on earlier-only, "
   + "a Move REQUIRED on every Step (§4.1 v18, kogaki#642 — the rider it supersedes read the other way); (b) the fill lands sequence, strand_coverage (used_by_steps "

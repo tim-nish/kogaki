@@ -1,5 +1,22 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the step sequence
 
+**Status:** v36, amended 2026-09-06 (kogaki#915) — **§5.3/§6: the run state's
+`gate` key IS the declaration, and the run-declaration FILE is a derived
+artifact that is not the barrier.** v32's acceptance item 2 read *"`adopt`
+refuses when no declaration for this run state was rendered"* while `cmdAdopt`
+checked `state.gate`; `cmdAdoptCandidate` had the same shape. The code and v32
+were internally consistent and the acceptance wording was not, so the wording is
+what is corrected: the file is composed FROM `state.gate` by the same actor the
+barrier guards against, so a check on it refuses nothing a forged capture could
+not also forge, and what holds is `--capture`'s own refusal, which adoption
+requires transitively. The consequence is now stated and tested rather than
+discovered — an adoption whose declaration file was removed is **admissible**,
+and `check-brief-compose` case (z) exercises it, together with the reason
+`check-gate-carrier` legitimately answers the opposite about the same run
+(SPEC-gate-carrier §4.1's registry fallback). No code change; a CASE, never a
+member. Recorded as an owner selection over a served recommendation. **deferred
+slots minted by this amendment: none.**
+
 **Status:** v35, amended 2026-09-06 (kogaki#914) — **§6: free text at the
 Candidate-selection gate is a COMMENT, and adoption refuses it by name.** The
 gate offers a free-text channel and the capture act accepts one, so the answer
@@ -1596,6 +1613,52 @@ consequences, and they are the whole of the amendment:
    argument, since nothing downstream can tell the owner's sentence from the
    session's.
 
+**WHAT "DECLARATION" NAMES IN ITEM 2, AND WHY THE FILE IS NOT THE BARRIER
+(v36, kogaki#915).** The declaration for a run **is the run state's `gate`
+key**, written by `enter`. The `*.run-declaration.json` file that
+`gate-thesis --declare` writes is a **derived artifact**: it is composed FROM
+`state.gate`, the two are bound by the same option-set digest, and it holds
+nothing the run state does not already hold. So `adopt`'s barrier reads
+`state.gate`, and that IS the barrier item 2 names rather than a weaker
+stand-in for it. **This is said in the spec's own words rather than left to
+v32's redefinition**, because a barrier whose strength is discoverable only by
+reading the code against the acceptance wording is one a later reader
+re-derives from scratch, or trusts wrongly.
+
+**The file is not the barrier because of WHO WRITES IT.** It is written by the
+same actor the barrier guards against, at the same moment and out of the same
+material as the capture beside it — so a check on its existence refuses nothing
+a forged capture could not also forge, and would read as strength while adding
+none. What holds instead is `gate-thesis --capture`'s own refusal: *an answer
+is admitted only at the wait that declared it*
+(`specs/spec-gate-carrier/SPEC.md` §4.1), and adoption requires a capture, so
+the rendering is established **transitively** rather than re-asserted at
+adoption.
+
+**The consequence is stated rather than left to be discovered: an adoption
+against a run state whose declaration file was REMOVED is admissible**, and
+`checks/check-brief-compose.sh` exercises exactly that case — so the
+admissibility is a tested property rather than the absence of a test.
+
+**Two surfaces answer differently about that run, and both are right.**
+SPEC-gate-carrier §4.1 makes a capture with no sibling declaration fall back to
+the **registry** as its comparison target, so for a `dynamic_options` gate —
+which this one is — a removed file leaves `check-gate-carrier` red while
+adoption is green. The two are not one question answered twice: the check asks
+whether these options were ever declared **anywhere**, adoption asks whether
+**this run's** gate was composed and answered, and §4.1's registry fallback is
+that behaviour "by design rather than by exemption". A reader who expects the
+two to agree is owed this sentence rather than the rediscovery.
+
+**Recorded as an owner selection over a served recommendation, not an
+unconsulted fork (2026-09-06).** The alternative — raising `cmdAdopt` and
+`cmdAdoptCandidate` to check the rendered file — was the arm the served surface
+discriminated toward, on the ground that a detector's unit is derived from how
+the property is violated and never inherited from the neighbouring gates, and
+the owner selected against it at the gate.
+`consulted: product-lab@f9a6d0f54f94c1ab54ca4223c4c4b75811105dcf LESSONS.md:146`
+`consulted: product-lab@f9a6d0f54f94c1ab54ca4223c4c4b75811105dcf LESSONS.md:35`
+
 **The binding is the OPTION SET, and that is chosen rather than inherited.**
 §4.12.3 binds its capture on two axes (which Candidate, which record digest)
 because it ratifies a machine record. This gate's answer IS the decision, so
@@ -1691,6 +1754,26 @@ names the wrong thing. §4.12.3's own ordering property is untouched: a
 ratification act takes the selection capture too**, because it establishes its
 subject through the same adoption call, and a ratification raised without one
 would ask an owner to ratify a record about a Reader Path nobody selected.
+
+**THE SAME READING OF "DECLARATION" BINDS HERE, AND ITS SUBJECT IS DIFFERENT
+(v36, kogaki#915).** §5.3 states that a run's declaration is the run state's
+`gate` key and that the `*.run-declaration.json` file is a derived artifact
+which is not the barrier. `adopt-candidate` has no run state, so the same
+principle lands on the material it does have: **its barrier is the captures and
+what they bind to** — the §6 selection capture checked against the reviewed
+Candidate set, and §4.12.3's ratification capture checked against the record
+digest — never the existence of a declaration file beside them. The file is
+read where it is written, at `--declare`/`--capture`, and adoption establishes
+the rendering transitively through the captures it requires.
+
+**So the acceptance wording is what was corrected, and the barrier is
+unchanged.** kogaki#915 found `cmdAdopt`'s and `cmdAdoptCandidate`'s barriers
+weaker than the sentence naming them, and the fork was whether to raise the
+barriers or to say plainly what they actually guard. It is the second: the file
+is written by the same actor the barrier guards against, so a check on it
+refuses nothing a forged capture could not also forge. **An adoption whose
+declaration file was removed is admissible here too**, and
+`checks/check-brief-compose.sh` states so rather than leaving the case untested.
 
 **The first half was narrowed at v28 (kogaki#893) and narrowed again at v32
 (kogaki#891).** §4.12.3 registered `brief-specialization-ratification`, and v32
