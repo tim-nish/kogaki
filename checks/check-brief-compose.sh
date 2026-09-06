@@ -497,7 +497,18 @@ try {
     fails.push("(e) the gate's own label does not state what adopting an option does — the effect states ONCE, and once is not zero (kogaki#568, proposal-contract §2.2)");
   }
   if (pay.free_text?.accepted !== true) fails.push("(e) the free-text channel is not unconditionally accepted");
-  if (!/does not discharge/.test(pay.free_text?.prompt || "")) fails.push("(e) the free-text prompt does not state that it leaves the negation undischarged");
+  // THE ASSERTION BINDS THE PROPERTY, NOT THE PHRASE (kogaki#950). This read
+  // `/does not discharge/` and so bound one sentence's wording rather than what
+  // §6 rules: the free-text channel does not stand in for the first-class
+  // negation. When the prompt was reworded to carry v35's comment reading, the
+  // property was stated MORE strongly — only the two typed arms decide, so free
+  // text discharges neither — and the phrase-shaped test went red on copy that
+  // satisfied it. That is the proxy-binding shape this repository records at
+  // length; the fix is the binding, and the accepted form is either the
+  // explicit disclaimer or a statement that the arms are what decide.
+  const negUndischarged = /does not discharge/.test(pay.free_text?.prompt || "")
+    || (/none-of-these/.test(pay.free_text?.prompt || "") && /\bdecides\b|\bdecide\b/.test(pay.free_text?.prompt || ""));
+  if (!negUndischarged) fails.push("(e) the free-text prompt does not state that it leaves the negation undischarged — say so outright, or say that selecting a Candidate or answering none-of-these is what decides");
   // THE OPTION CARRIES ITS ID AND ITS LABEL AND NOTHING ELSE (§6 as amended,
   // kogaki#859 owner ruling 2026-09-04). This assertion REQUIRED the five
   // composition-time items on every option until that ruling; it is INVERTED
