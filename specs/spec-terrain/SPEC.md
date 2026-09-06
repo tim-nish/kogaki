@@ -2,7 +2,8 @@
 
 **Status:** v38 (kogaki#925) — **§13.4's refusal enumeration and §12.3's
 absent-input clause state what kogaki#861 shipped.** §13.4 said J3 refuses
-three ways after kogaki#861 gave it four more, and §12.3 stated the
+three ways after kogaki#861 gave it three more and a fourth had gone
+uncounted — a level with no claim, which predates #861 — and §12.3 stated the
 absent-candidates fallback unconditionally after kogaki#861 stopped it applying
 to a judged neighborhood — both clauses §12.3 itself sites here rather than in
 the grammar carrier, so nothing else was carrying them. This propagates
