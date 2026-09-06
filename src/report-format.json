@@ -300,7 +300,7 @@
             "judgment that produced none; the Harness invoked no judge and holds no",
             "invocation record, so it cannot show that a judgment RAN and does not say",
             "one did (kogaki#892). This is still not an absent record: `[]` and an absent",
-            "key stay different states (SPEC-terrain, the report identity v9). Members are listed below.*"
+            "key stay different states. Members are listed below.*"
           ],
           "governing": "kogaki#892 acceptance 2 — a judged-empty group is rendered as `no split recorded` rather than as `judged, no split` unless the Harness can show the judgment ran. The distinction the report identity v9 draws between `[]` and an absent key is UNTOUCHED and the notice says so: what changed is not the record's three states but what the renderer is willing to assert about the act behind them."
         },

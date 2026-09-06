@@ -29,6 +29,58 @@
 // before it reads the move name only in the trivial sense that it validates
 // rationale presence; the order invariant itself is invisible in the
 // artifact and is carried by the grounds test grounds test, judged at review.
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).
+// Implemented code does not refer to a Spec. Content this file was implemented
+// against is stated HERE, and what is stated here is what the code was
+// implemented against — NOT the spec's current text. It stays true for this file
+// even if the spec is rewritten or deleted, and propagating a later spec change
+// into this file is a SEPARATE, EXPLICIT act. A bare name below is a pointer
+// carrying no authority. Nothing names a section number, because section numbers
+// renumber, and no owner-facing string names a spec section.
+//
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   the read-not-invented rule
+//       SPEC-draft-pipeline
+//   the Step and the Move it binds
+//       SPEC-draft-pipeline
+//   the Step's shape
+//       SPEC-draft-pipeline
+//   the Bridge Step and the revise pass
+//       SPEC-draft-pipeline
+//   the Step-Move instantiation contract
+//       SPEC-draft-pipeline
+//   the owner gate over a passing specialization record
+//       SPEC-draft-pipeline
+//   the reader-knowledge ledger
+//       SPEC-draft-pipeline
+//   the Move exemplar predicate
+//       SPEC-draft-pipeline
+//   the Section grouping
+//       SPEC-draft-pipeline
+//   the figure decision
+//       SPEC-draft-pipeline
+//   the Reader Path artifact and its five blocks
+//       SPEC-draft-pipeline
+//   the grounds test
+//       SPEC-draft-pipeline
+//   the judgment rule
+//       SPEC-draft-pipeline
+//   the settled structure section
+//       SPEC-draft-pipeline
+//   the obligations ledger
+//       SPEC-draft-pipeline
+//   the durable home and the entry point
+//       SPEC-draft-pipeline
+//   the Candidate gate
+//       SPEC-draft-pipeline
+//   journey register as a Candidate axis
+//       SPEC-draft-pipeline
+//   the Move library
+//       SPEC-draft-pipeline
+//   the constraints that survive
+//       SPEC-draft-pipeline
+//
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

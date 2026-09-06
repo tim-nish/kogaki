@@ -46,6 +46,58 @@
 // inspection-need. This runtime's half of it is mechanical: `emit` refuses
 // while any Step lacks its section, so a flow cannot end "done" short of the
 // artifact without the refusal saying exactly which Steps are owed.
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).
+// Implemented code does not refer to a Spec. Content this file was implemented
+// against is stated HERE, and what is stated here is what the code was
+// implemented against — NOT the spec's current text. It stays true for this file
+// even if the spec is rewritten or deleted, and propagating a later spec change
+// into this file is a SEPARATE, EXPLICIT act. A bare name below is a pointer
+// carrying no authority. Nothing names a section number, because section numbers
+// renumber, and no owner-facing string names a spec section.
+//
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   the closed reference set
+//       SPEC-draft-command
+//   the three-layer boundary
+//       SPEC-draft-command
+//   the read-not-invented rule
+//       SPEC-draft-pipeline
+//   the Step and the Move it binds
+//       SPEC-draft-pipeline
+//   the Step's shape
+//       SPEC-draft-pipeline
+//   the Step-Move instantiation contract
+//       SPEC-draft-pipeline
+//   the mechanical half of move id resolution
+//       SPEC-draft-pipeline
+//   the reader-knowledge ledger
+//       SPEC-draft-pipeline
+//   the Move exemplar predicate
+//       SPEC-draft-pipeline
+//   the Step Packet
+//       SPEC-draft-pipeline
+//   the runtime-read template
+//       SPEC-draft-pipeline
+//   the Section grouping
+//       SPEC-draft-pipeline
+//   the figure decision
+//       SPEC-draft-pipeline
+//   the figure record
+//       SPEC-draft-pipeline
+//   the renderer and the anchor
+//       SPEC-draft-pipeline
+//   the judgment rule
+//       SPEC-draft-pipeline
+//   the Brief's centre and its obligations ledger
+//       SPEC-draft-pipeline
+//   the durable home and the entry point
+//       SPEC-draft-pipeline
+//   the closed kind set and the Move's visual_form
+//       SPEC-draft-pipeline
+//   the Move library
+//       SPEC-draft-pipeline
+//
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve, relative, dirname, basename, sep } from "node:path";
 import { createHash } from "node:crypto";

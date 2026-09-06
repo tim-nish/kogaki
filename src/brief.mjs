@@ -47,6 +47,40 @@
 // routing back through Terrain, never a Brief fetch (topics/articles.md:13
 // at the same pin) — which is why the thesis gate's premise-negation option
 // routes BACK THROUGH TERRAIN and never re-opens the set here.
+//
+// SPEC REFERENCES IN THIS FILE (kogaki#902, owner ruling 2026-09-05).
+// Implemented code does not refer to a Spec. Content this file was implemented
+// against is stated HERE, and what is stated here is what the code was
+// implemented against — NOT the spec's current text. It stays true for this file
+// even if the spec is rewritten or deleted, and propagating a later spec change
+// into this file is a SEPARATE, EXPLICIT act. A bare name below is a pointer
+// carrying no authority. Nothing names a section number, because section numbers
+// renumber, and no owner-facing string names a spec section.
+//
+// THE NAMES THIS FILE USES, and the spec each one names:
+//   the read-not-invented rule
+//       SPEC-draft-pipeline
+//   the Step's shape
+//       SPEC-draft-pipeline
+//   the owner gate over a passing specialization record
+//       SPEC-draft-pipeline
+//   the settled structure section
+//       SPEC-draft-pipeline
+//   the prose-at-the-surface rule
+//       SPEC-draft-pipeline
+//   the durable home and the entry point
+//       SPEC-draft-pipeline
+//   the Full Report
+//       SPEC-terrain
+//   location and naming
+//       SPEC-terrain
+//   the display-ID rule
+//       SPEC-terrain
+//   the served-renderings input rule
+//       SPEC-terrain
+//   the rendering rule
+//       SPEC-terrain
+//
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolveHeadlines, NO_HEADLINE as NO_RENDERING } from "./terrain.mjs";
 import { SLOT_CAPTIONS, findInternalVocabulary } from "./assemble.mjs";
