@@ -701,6 +701,46 @@ export function adoptCandidate(doc, reviewed, candidateId, instantiation = {}) {
       + `the Thesis or the selected set is what should change, and NO Reader Path lands in the Brief. `
       + `Nothing was written.` };
   }
+  // FREE TEXT IS NOT A SELECTION (kogaki#914, owner ruling 2026-09-06).
+  //
+  // The gate offers a free-text channel and `gate-candidate --capture`
+  // accepts one, so this answer is REACHABLE and had no branch: it fell
+  // through to the match below, where `chose.option` is `undefined` and
+  // `JSON.stringify(undefined)` interpolates as the bare word `undefined`,
+  // telling an owner who typed their own words that they had selected a
+  // candidate named `undefined`. A refusal naming a state the owner never
+  // produced sends them to repair the wrong thing.
+  //
+  // WHY REFUSED RATHER THAN ADOPTED, which is the fork kogaki#914 acceptance
+  // item 2 left open and the owner closed. A Candidate is a COMPOSED object —
+  // an ordered sequence of Steps, each binding a Move library record, plus the
+  // reasoning that fills thesis_closure and tradeoffs — so free text is not a
+  // Candidate the runtime has, and adopting one would mean the runtime
+  // resolving prose into a Reader Path. That is exactly the judgment layer
+  // kogaki#891 removed from this seam. The sibling gate one section over
+  // reaches the same disposition on the same ground: a write unlocked by
+  // arbitrary prose is unlocked by anything (§4.12.3, validateRatification).
+  //
+  // The thesis gate ADMITS free text (`adopted_via: free-form`) and is not the
+  // precedent, because there the answer IS the value: a Thesis is prose, and a
+  // free-form one is the owner's own words reaching the run state verbatim.
+  //
+  // Sited with the negation above and above every judgment clause, per §6's
+  // own ordering rule: judging a specialization record about a path nobody
+  // chose is wasted work ending in a refusal that names the wrong thing.
+  //
+  // An answer carrying BOTH an option and free text is a selection with a
+  // comment beside it, so this arm reads the option's absence and not the free
+  // text's presence.
+  if (chose.option === undefined) {
+    return { error: `candidate ${candidateId}: the owner answered the §6 Candidate-selection gate in their own `
+      + `words rather than selecting a Reader Path — ${JSON.stringify(chose.free_text)}. Free text at this gate `
+      + `is a COMMENT, not a selection: a Candidate is a composed sequence of Steps with Move bindings, so there `
+      + `is no Reader Path here to adopt and the runtime composes none. If the composed set is wrong, answer `
+      + `"none-of-these" — that negation is first-class and routes to its own refusal. Otherwise re-raise the `
+      + `gate and select a Candidate. Nothing was written.` };
+  }
+
   // THE MATCH, which is acceptance item 1 of kogaki#891 in one line: the
   // argument is refused when it does not equal the recorded answer.
   if (chose.option !== candidateId) {

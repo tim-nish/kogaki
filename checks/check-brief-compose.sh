@@ -672,6 +672,33 @@ try {
     "--selection", selCapPath], { encoding: "utf8" });
   if (declined.status === 0) fails.push("(g6) adoption proceeded after the owner answered none-of-these at the §6 gate");
   else if (!/none-of-these/.test(declined.stderr || "")) fails.push("(g6) the none-of-these refusal does not name the answer the owner gave");
+  // FREE TEXT IS NOT A SELECTION (kogaki#914). The capture act ACCEPTS a
+  // free-text answer here — that is the channel §6's payload clause offers —
+  // so this is a reachable answer and not a synthetic one, which is why it is
+  // driven through the command path rather than hand-written. Before #914
+  // adoption had no branch for it: the answer fell through to the id match,
+  // where the absent option interpolated as the bare word `undefined` and the
+  // refusal named a state the owner never produced.
+  const gCapFree = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
+    "--tool-use-id", "toolu_sel_free", "--free-text", "the second one but start with the objection"], { encoding: "utf8" });
+  if (gCapFree.status !== 0) fails.push(`(g6) --capture refused a free-text answer: ${(gCapFree.stderr || "").trim()}`);
+  const freeAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
+    "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
+    "--selection", selCapPath], { encoding: "utf8" });
+  if (freeAdopt.status === 0) fails.push("(g6) a free-text answer adopted a Candidate — prose is not a composed Reader Path, and the runtime composes none");
+  else {
+    const err = freeAdopt.stderr || "";
+    // THE REFUSAL NAMES WHAT THE OWNER DID. This is the whole defect: an owner
+    // who typed their own words is told what they actually did, not that they
+    // selected a candidate named `undefined`.
+    if (/candidate undefined/.test(err)) fails.push("(g6) the free-text refusal still interpolates `undefined` for the answer the capture act accepted");
+    if (!/in their own words/.test(err)) fails.push("(g6) the free-text refusal does not say the owner answered in their own words");
+    if (!err.includes("the second one but start with the objection")) fails.push("(g6) the free-text refusal does not quote the owner's own words back");
+    // AND IT ROUTES. A refusal that names the answer but no way forward leaves
+    // the owner at the same gate with the same two moves undiscovered.
+    if (!/none-of-these/.test(err)) fails.push("(g6) the free-text refusal does not route to the first-class negation");
+  }
+
   const gCapYes = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
     "--tool-use-id", "toolu_sel_yes", "--option", "cand-2"], { encoding: "utf8" });
   if (gCapYes.status !== 0) fails.push(`(g6) --capture of a Candidate exited ${gCapYes.status}: ${(gCapYes.stderr || "").trim()}`);
