@@ -699,6 +699,25 @@ try {
     if (!/none-of-these/.test(err)) fails.push("(g6) the free-text refusal does not route to the first-class negation");
   }
 
+  // THE ADMITTING HALF, bound rather than merely stated (PR #949 round 1).
+  // The arm above reads the OPTION'S ABSENCE, never the free text's presence,
+  // so an answer carrying both is a selection with a comment beside it and
+  // adopts normally. That property was asserted in the SPEC and in the code
+  // comment and exercised by nothing: every capture here carried exactly one
+  // channel, so an arm rewritten as `chose.free_text !== undefined` would
+  // have passed the whole block. This case is what makes the refusal's SCOPE
+  // checkable, not only its existence.
+  const gCapBoth = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
+    "--tool-use-id", "toolu_sel_both", "--option", "cand-2", "--free-text", "this one, though the second beat still drags"], { encoding: "utf8" });
+  if (gCapBoth.status !== 0) fails.push(`(g6) --capture refused an answer carrying an option AND a comment: ${(gCapBoth.stderr || "").trim()}`);
+  const bothAdopt = spawnSync(process.execPath, ["src/assemble.mjs", "adopt-candidate", "--brief", bp2,
+    "--reviewed", rvf, "--candidate", "cand-2", "--specialization", spf, "--moves-dir", MOVES,
+    "--selection", selCapPath], { encoding: "utf8" });
+  // It gets PAST the selection clause. It still refuses further down — this
+  // call passes no --ratification — so the assertion is on WHICH refusal, and
+  // the free-text one is the wrong one.
+  if (/in their own words/.test(bothAdopt.stderr || "")) fails.push("(g6) a selection carrying a comment beside it was refused as free text — the arm reads the free text's presence rather than the option's absence");
+
   const gCapYes = spawnSync(process.execPath, ["src/assemble.mjs", "gate-candidate", "--capture", ...selArgv,
     "--tool-use-id", "toolu_sel_yes", "--option", "cand-2"], { encoding: "utf8" });
   if (gCapYes.status !== 0) fails.push(`(g6) --capture of a Candidate exited ${gCapYes.status}: ${(gCapYes.stderr || "").trim()}`);
